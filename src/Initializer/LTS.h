@@ -52,14 +52,14 @@
 
 #ifdef ACL_DEVICE
 #include "Parallel/Helper.h"
-  ScratchpadMemory                        integratedDofsScratch;
-  ScratchpadMemory                        derivativesScratch;
-  ScratchpadMemory                        nodalAvgDisplacements;
-  ScratchpadMemory                        derivativesExtScratch;
-  ScratchpadMemory                        derivativesAneScratch;
-  ScratchpadMemory                        idofsAneScratch;
-  ScratchpadMemory                        dofsExtScratch;
-  ScratchpadMemory                        analyticScratch;
+  seissol::initializer::ScratchpadMemory                        integratedDofsScratch;
+  seissol::initializer::ScratchpadMemory                        derivativesScratch;
+  seissol::initializer::ScratchpadMemory                        nodalAvgDisplacements;
+  seissol::initializer::ScratchpadMemory                        derivativesExtScratch;
+  seissol::initializer::ScratchpadMemory                        derivativesAneScratch;
+  seissol::initializer::ScratchpadMemory                        idofsAneScratch;
+  seissol::initializer::ScratchpadMemory                        dofsExtScratch;
+  seissol::initializer::ScratchpadMemory                        analyticScratch;
 #endif
 
 namespace seissol::tensor {

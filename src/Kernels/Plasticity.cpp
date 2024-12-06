@@ -280,9 +280,16 @@ unsigned Plasticity::computePlasticityBatched(
     seissol::model::PlasticityData* plasticityData,
     seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-  static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
+  
+#ifdef MULTIPLE_SIMULATIONS
+	constexpr unsigned int leadingDim = 1;
+#else
+	constexpr unsigned int leadingDim = 0;
+#endif
+
+  static_assert(tensor::Q::Shape[leadingDim] == tensor::QStressNodal::Shape[leadingDim],
                 "modal and nodal dofs must have the same leading dimensions");
-  static_assert(tensor::Q::Shape[0] == tensor::v::Shape[0],
+  static_assert(tensor::Q::Shape[leadingDim] == tensor::v::Shape[0],
                 "modal dofs and vandermonde matrix must hage the same leading dimensions");
 
   DeviceInstance& device = DeviceInstance::getInstance();

@@ -284,9 +284,14 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           krnl.QInterpolated =
               (entry.get(inner_keys::Dr::Id::QInterpolatedPlus))->getDeviceDataPtr();
           krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
-          krnl.Q = const_cast<const real**>(
+#ifdef MULTIPLE_SIMULATIONS
+	  krnl.singleSimQ = const_cast<const real**>(
               (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr());
-          krnl.TinvT =
+#else
+	  krnl.Q = const_cast<const real**>(
+              (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr());
+#endif
+	  krnl.TinvT =
               const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
           krnl.execute(side, 0);
         }
@@ -307,9 +312,14 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           krnl.QInterpolated =
               (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
           krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
-          krnl.Q = const_cast<const real**>(
+#ifdef MULTIPLE_SIMULATIONS
+	krnl.singleSimQ = const_cast<const real**>(
               (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr());
-          krnl.TinvT =
+#else
+	  krnl.Q = const_cast<const real**>(
+              (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr());
+#endif
+	  krnl.TinvT =
               const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
           krnl.execute(side, faceRelation);
         }

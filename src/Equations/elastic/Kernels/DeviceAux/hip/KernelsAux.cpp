@@ -228,8 +228,13 @@ __global__ void  kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
   const int elementId = blockIdx.x;
 
   constexpr auto ldINodalDim = yateto::leadDim<seissol::init::INodal>();
+#ifdef MULTIPLE_SIMULATIONS
+  constexpr auto iNodalDim0 = seissol::tensor::INodal::Shape[1];
+  constexpr auto iNodalDim1 = seissol::tensor::INodal::Shape[2];
+#else
   constexpr auto iNodalDim0 = seissol::tensor::INodal::Shape[0];
-  constexpr auto iNodalDim1 = seissol::tensor::INodal::Shape[1];
+  constexpr auto iNodalDim1 = seissol::tensor::INdoal::Shape[1];
+#endif
   __shared__ __align__(8) real resultTerm[iNodalDim1][iNodalDim0];
 
   constexpr auto ldConstantDim = yateto::leadDim<seissol::init::easiBoundaryConstant>();

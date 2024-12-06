@@ -219,8 +219,11 @@ void computePstrains(real** pstrains,
 //--------------------------------------------------------------------------------------------------
 __global__ void
     kernel_pstrainToQEtaModal(real** pstrains, real** QEtaModalPtrs, unsigned* isAdjustableVector) {
-  static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
-
+#ifdef MULTIPLE_SIMULATIONS
+	    //(TODO (VK): find the correct implementation for static_assert here)
+#else
+	    static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
+#endif
   if (isAdjustableVector[blockIdx.x]) {
     real* localQEtaModal = QEtaModalPtrs[blockIdx.x];
     real* localPstrain = pstrains[blockIdx.x];
@@ -250,13 +253,17 @@ void pstrainToQEtaModal(real** pstrains,
 //--------------------------------------------------------------------------------------------------
 __global__ void
     kernel_qEtaModalToPstrain(real** QEtaModalPtrs, real** pstrains, unsigned* isAdjustableVector) {
-  static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
+#ifdef MULTIPLE_SIMULATIONS
+	    //(TODO (VK): find the right assert here)
+#else
+	    static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
+#endif
 
   if (isAdjustableVector[blockIdx.x]) {
     real* localQEtaModal = QEtaModalPtrs[blockIdx.x];
     real* localPstrain = pstrains[blockIdx.x];
     localPstrain[NUM_STRESS_COMPONENTS * leadDim<init::QStressNodal>() + threadIdx.x] =
-        localQEtaModal[threadIdx.x];
+        localQEtaModal[threadIdx.x]; //(TODO (VK): Discuss with David what the leadDim<init::QStressNodal>() needs to be replaced with here when dealing with plasticity)
   }
 }
 

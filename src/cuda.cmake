@@ -16,7 +16,6 @@ target_compile_features(SeisSol-device-lib PRIVATE cuda_std_17)
 target_compile_options(SeisSol-device-lib PRIVATE ${EXTRA_CXX_FLAGS})
 target_compile_definitions(SeisSol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
         CONVERGENCE_ORDER=${ORDER}
-        NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
         NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
         ${DR_QUAD_RULE})
 

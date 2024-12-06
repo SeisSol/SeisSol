@@ -727,23 +727,22 @@ void seissol::time_stepping::TimeCluster::computeFlops() {
           );
 }
 
-namespace seissol::time_stepping {
-ActResult TimeCluster::act() {
+ActResult seissol::time_stepping::TimeCluster::act() {
   actorStateStatistics->enter(state);
   const auto result = AbstractTimeCluster::act();
   actorStateStatistics->enter(state);
   return result;
 }
 
-void TimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) {
+void seissol::time_stepping::TimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) {
   if (neighborCluster.ct.maxTimeStepSize > ct.maxTimeStepSize) {
     lastSubTime = neighborCluster.ct.correctionTime;
   }
 }
-void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster&) {
+void seissol::time_stepping::TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster&) {
   // Doesn't do anything
 }
-void TimeCluster::predict() {
+void seissol::time_stepping::TimeCluster::predict() {
   assert(state == ActorState::Corrected);
   if (m_clusterData->getNumberOfCells() == 0) return;
 
@@ -781,7 +780,7 @@ void TimeCluster::predict() {
   }
 #endif
 }
-void TimeCluster::correct() { // Here, need to think what to do
+void seissol::time_stepping::TimeCluster::correct() { // Here, need to think what to do
   assert(state == ActorState::Predicted);
   /* Sub start time of width respect to the next cluster; use 0 if not relevant, for example in GTS.
    * LTS requires to evaluate a partial time integration of the derivatives. The point zero in time
@@ -866,11 +865,11 @@ void TimeCluster::correct() { // Here, need to think what to do
   }
 }
 
-void TimeCluster::reset() {
+void seissol::time_stepping::TimeCluster::reset() {
     AbstractTimeCluster::reset();
 }
 
-void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
+void seissol::time_stepping::TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
   const auto rank = MPI::mpi.rank();
   logWarning(rank)
   << "No update since " << timeSinceLastUpdate.count()
@@ -896,27 +895,27 @@ void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) 
 
 }
 
-unsigned int TimeCluster::getClusterId() const {
+unsigned int seissol::time_stepping::TimeCluster::getClusterId() const {
   return m_clusterId;
 }
 
-unsigned int TimeCluster::getGlobalClusterId() const {
+unsigned int seissol::time_stepping::TimeCluster::getGlobalClusterId() const {
   return m_globalClusterId;
 }
 
-LayerType TimeCluster::getLayerType() const {
+LayerType seissol::time_stepping::TimeCluster::getLayerType() const {
   return layerType;
 }
-void TimeCluster::setReceiverTime(double receiverTime) {
+void seissol::time_stepping::TimeCluster::setReceiverTime(double receiverTime) {
   m_receiverTime = receiverTime;
 }
 
-void TimeCluster::finalize() {
+void seissol::time_stepping::TimeCluster::finalize() {
   streamRuntime.dispose();
 }
 template<bool usePlasticity>
 std::pair<long, long>
-    TimeCluster::computeNeighboringIntegrationImplementation(seissol::initializer::Layer& i_layerData, double subTimeStart) {
+    seissol::time_stepping::TimeCluster::computeNeighboringIntegrationImplementation(seissol::initializer::Layer& i_layerData, double subTimeStart) {
   if (i_layerData.getNumberOfCells() == 0)
     return {0, 0};
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
@@ -1043,19 +1042,20 @@ std::pair<long, long>
 }
 #endif // ACL_DEVICE
 
-void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {
+void seissol::time_stepping::TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {
 #ifdef ACL_DEVICE
   if ((place == initializer::AllocationPlace::Host && executor == Executor::Device) || (place == initializer::AllocationPlace::Device && executor == Executor::Host)) {
     m_clusterData->synchronizeTo(place, stream);
     if (layerType == Interior) {
-      dynRupInteriorData->synchronizeTo(place, stream);
+      for(unsigned int i = 0 ; i < MULTIPLE_SIMULATIONS; i++){
+	    dynRupInteriorData[i]->synchronizeTo(place, stream);
+    	}
     }
     if (layerType == Copy) {
-      dynRupCopyData->synchronizeTo(place, stream);
+	for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++){
+      	dynRupCopyData[i]->synchronizeTo(place, stream);
+    	}
     }
   }
 #endif
 }
-
-} // namespace seissol::time_stepping
-
