@@ -159,13 +159,13 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       }
     case FaceType::DynamicRupture:
       {
+        // No neighboring cell contribution, interior bc.
+      #ifdef MULTIPLE_SIMULATIONS
         real dummydofs[tensor::Q::size()] = {0.0};
         kernel::dofsModified dofsModifiedKrnl;
         dofsModifiedKrnl.Q = data.dofs();
         dofsModifiedKrnl.Q_ijs = dummydofs;
         dofsModifiedKrnl.execute();
-        // No neighboring cell contribution, interior bc.
-      #ifdef MULTIPLE_SIMULATIONS
         for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
           // \todo (VK): reactivate this once the QInterpolated's alignment/stride is fixed
           // assert(reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov[i]) % ALIGNMENT == 0);
