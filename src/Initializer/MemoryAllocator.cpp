@@ -79,7 +79,7 @@
 #include <utils/logger.h>
 #include <omp.h>
 
-#ifdef ACDEVICE
+#ifdef ACL_DEVICE
 #include "device.h"
 #endif
 
@@ -89,6 +89,9 @@ void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
   void* ptrBuffer{nullptr};
   bool error = false;
 
+  // enforce USM
+  memkind = DeviceUnifiedMemory;
+
   /* handle zero allocation */
   if (size == 0) {
     // logWarning() << "allocation of size 0 requested, returning nullptr; (alignment: " <<
@@ -97,7 +100,7 @@ void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
     return ptrBuffer;
   }
 
-#if defined(USE_MEMKIND) || defined(ACDEVICE)
+#if defined(USE_MEMKIND) || defined(ACL_DEVICE)
   if (memkind == 0) {
 #endif
       if (alignment % (sizeof(void*)) != 0) {
@@ -112,7 +115,7 @@ void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
     }
 #endif
 
-#ifdef ACDEVICE
+#ifdef ACL_DEVICE
   } else if (memkind == DeviceGlobalMemory) {
     ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size);
   } else if (memkind == DeviceUnifiedMemory) {
@@ -121,7 +124,7 @@ void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
     ptrBuffer = device::DeviceInstance::getInstance().api->allocPinnedMem(size);
 #endif
 
-#if defined(USE_MEMKIND) || defined(ACDEVICE)
+#if defined(USE_MEMKIND) || defined(ACL_DEVICE)
   } else {
     logError() << "unknown memkind type used (" << memkind
                << "). Please, refer to the documentation";
@@ -137,7 +140,7 @@ void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
 }
 
 void free(void* pointer, enum Memkind memkind) {
-#if defined(USE_MEMKIND) || defined(ACDEVICE)
+#if defined(USE_MEMKIND) || defined(ACL_DEVICE)
   if (memkind == Standard) {
 #endif
     ::omp_free(pointer);
@@ -146,14 +149,14 @@ void free(void* pointer, enum Memkind memkind) {
     hbw_free(pointer);
 #endif
 
-#ifdef ACDEVICE
+#ifdef ACL_DEVICE
   } else if ((memkind == DeviceGlobalMemory) || (memkind == DeviceUnifiedMemory)) {
     device::DeviceInstance::getInstance().api->freeMem(pointer);
   } else if (memkind == PinnedMemory) {
     device::DeviceInstance::getInstance().api->freePinnedMem(pointer);
 #endif
 
-#if defined(USE_MEMKIND) || defined(ACDEVICE)
+#if defined(USE_MEMKIND) || defined(ACL_DEVICE)
   } else {
     logError() << "unknown memkind type used (" << memkind
                << "). Please, refer to the documentation";
@@ -167,15 +170,15 @@ void memcopy(void* dst,
              enum Memkind dstMemkind,
              enum Memkind srcMemkind) {
   if (dstMemkind == DeviceGlobalMemory && srcMemkind != DeviceGlobalMemory) {
-#ifdef ACDEVICE
+#ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().api->copyTo(dst, src, size);
 #endif
   } else if (dstMemkind != DeviceGlobalMemory && srcMemkind == DeviceGlobalMemory) {
-#ifdef ACDEVICE
+#ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().api->copyFrom(dst, src, size);
 #endif
   } else if (dstMemkind == DeviceGlobalMemory && srcMemkind == DeviceGlobalMemory) {
-#ifdef ACDEVICE
+#ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().api->copyBetween(dst, src, size);
 #endif
   } else {
@@ -185,7 +188,7 @@ void memcopy(void* dst,
 
 void memzero(void* dst, std::size_t size, enum Memkind memkind) {
   if (memkind == Memkind::DeviceGlobalMemory) {
-#ifdef ACDEVICE
+#ifdef ACL_DEVICE
     auto defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
     device::DeviceInstance::getInstance().algorithms.fillArray(
         reinterpret_cast<char*>(dst), static_cast<char>(0), size, defaultStream);
@@ -203,7 +206,7 @@ void* hostToDevicePointer(void* host, enum Memkind memkind) {
     return nullptr;
   }
   if (memkind == Memkind::PinnedMemory) {
-#ifdef ACDEVICE
+#ifdef ACL_DEVICE
     return device::DeviceInstance::getInstance().api->devicePointer(host);
 #else
     return host;

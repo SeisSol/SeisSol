@@ -101,16 +101,13 @@ namespace tensor = seissol::tensor;
 void initGlobalData() {
   seissol::initializer::GlobalDataInitializerOnHost::init(m_globalDataOnHost,
                                                            *m_allocator,
-                                                           seissol::memory::Standard);
+                                                           seissol::memory::DeviceUnifiedMemory);
 
   CompoundGlobalData globalData{};
   globalData.onHost = &m_globalDataOnHost;
   globalData.onDevice = nullptr;
   if constexpr (seissol::isDeviceOn()) {
-    seissol::initializer::GlobalDataInitializerOnDevice::init(m_globalDataOnDevice,
-                                                               *m_allocator,
-                                                               seissol::memory::DeviceGlobalMemory);
-    globalData.onDevice = &m_globalDataOnDevice;
+    globalData.onDevice = &m_globalDataOnHost;
   }
   m_timeKernel.setGlobalData(globalData);
   m_localKernel.setGlobalData(globalData);
@@ -163,7 +160,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture,
     m_dynRupTree->allocateVariables();
     m_dynRupTree->touchVariables();
     
-    m_fakeDerivativesHost = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PagesizeHeap, seissol::memory::Standard);
+    m_fakeDerivativesHost = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PagesizeHeap, seissol::memory::DeviceUnifiedMemory);
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
@@ -173,13 +170,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture,
       }
     }
 
-#ifdef ACL_DEVICE
-    m_fakeDerivatives = (real*) m_allocator->allocateMemory(i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real), PagesizeHeap, seissol::memory::DeviceGlobalMemory);
-    const auto& device = ::device::DeviceInstance::getInstance();
-    device.api->copyTo(m_fakeDerivatives, m_fakeDerivativesHost, i_cells * yateto::computeFamilySize<tensor::dQ>() * sizeof(real));
-#else
     m_fakeDerivatives = m_fakeDerivativesHost;
-#endif
   }
 
   /* cell information and integration data*/

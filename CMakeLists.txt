@@ -448,7 +448,7 @@ if (WITH_GPU)
   # add SeisSol GPU part
   target_link_libraries(SeisSol-common-properties INTERFACE SeisSol-device-lib)
 
-  add_library(general-sycl-offloading SHARED
+  add_library(general-sycl-offloading STATIC
       ${SYCL_DEPENDENT_SRC_FILES}
       ${SYCL_ONLY_SRC_FILES})
   target_link_libraries(general-sycl-offloading PRIVATE SeisSol-common-properties)
@@ -463,10 +463,11 @@ if (WITH_GPU)
         target_compile_options(general-sycl-offloading PUBLIC -mp=gpu -gpu=${NVCPP_ARCH},managed,debug,zeroinit -Minfo=mp)
         target_link_options(general-sycl-offloading PUBLIC -mp=gpu -gpu=${NVCPP_ARCH},managed,debug,zeroinit -Minfo=mp)
     else()
-        target_compile_options(general-sycl-offloading PUBLIC -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
-              -Xopenmp-target=nvptx64-nvidia-cuda -march=${DEVICE_ARCH} -Xcuda-ptxas -v)
-        target_link_options(general-sycl-offloading PUBLIC -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
-              -Xopenmp-target=nvptx64-nvidia-cuda -march=${DEVICE_ARCH})
+        #target_compile_options(general-sycl-offloading PUBLIC -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
+        #      -Xopenmp-target=nvptx64-nvidia-cuda -march=${DEVICE_ARCH} -Xcuda-ptxas -v)
+        #target_link_options(general-sycl-offloading PUBLIC -fopenmp -fopenmp-targets=nvptx64-nvidia-cuda
+        #      -Xopenmp-target=nvptx64-nvidia-cuda -march=${DEVICE_ARCH})
+
         # for now, this is DPCPP
         # target_compile_options(general-sycl-offloading INTERFACE -fiopenmp -fopenmp-targets=spir64)
         # target_link_options(general-sycl-offloading INTERFACE -fiopenmp -fopenmp-targets=spir64)
