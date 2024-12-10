@@ -248,7 +248,6 @@ void BaseDRInitializer::rotateStressToFaultCS(
       }
     }
   }
-  logInfo() << "Debug Statement"; // stressInFaultCS is same here. 
 }
 
 void BaseDRInitializer::addAdditionalParameters(
