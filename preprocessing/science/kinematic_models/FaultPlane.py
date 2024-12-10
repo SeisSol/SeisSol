@@ -3,61 +3,14 @@ import pyproj
 import scipy.ndimage
 from scipy import interpolate
 from netCDF4 import Dataset
-from Yoffe import regularizedYoffe
 from scipy import ndimage
-from GaussianSTF import GaussianSTF
 from scipy.interpolate import RegularGridInterpolator
 import xarray as xr
-
-
-def writeNetcdf(sname, lDimVar, lName, lData, paraview_readable=False):
-    """create a netcdf file either readable by ASAGI
-    or by paraview (paraview_readable=True)
-
-    Parameters
-    ----------
-    sname: str prefix name of output file
-    lDimVar: list of 1d numpy array containing the dimension variables
-    lName: list if str containing the name of the nd variables
-    lData: list if n-d numpy array containing the data
-    paraview_readable: bool
-    """
-    fname = f"{sname}.nc"
-    print("writing " + fname)
-
-    with Dataset(fname, "w", format="NETCDF4") as rootgrp:
-        # Create dimension and 1d variables
-        sdimVarNames = "uvwxyz"
-        dims = []
-        for i, xi in enumerate(lDimVar):
-            nxi = xi.shape[0]
-            dimName = sdimVarNames[i]
-            dims.append(dimName)
-            rootgrp.createDimension(dimName, nxi)
-            vx = rootgrp.createVariable(dimName, "f4", (dimName,))
-            vx[:] = xi
-        dims.reverse()
-        dims = tuple(dims)
-
-        if paraview_readable:
-            for i in range(len(lName)):
-                vTd = rootgrp.createVariable(lName[i], "f4", dims)
-                vTd[:] = lData[i]
-        else:
-            ldata4 = [(name, "f4") for name in lName]
-            ldata8 = [(name, "f8") for name in lName]
-            mattype4 = np.dtype(ldata4)
-            mattype8 = np.dtype(ldata8)
-            mat_t = rootgrp.createCompoundType(mattype4, "material")
-
-            # this transform the nD array into an array of tuples
-            arr = np.stack([lData[i] for i in range(len(lName))], axis=len(dims))
-            arr = np.ascontiguousarray(arr)
-            newarr = arr.view(dtype=mattype8)
-            newarr = newarr.reshape(newarr.shape[:-1])
-            mat = rootgrp.createVariable("data", mat_t, dims)
-            mat[:] = newarr
-
+import os
+from scipy.interpolate import griddata
+from scipy.ndimage import gaussian_filter
+from stf import regularizedYoffe, gaussianSTF, smoothStep, asymmetric_cosine
+from asagiwriter import writeNetcdf
 
 def cosine_taper(npts, p=0.1, freqs=None, flimit=None, halfcosine=True, sactaper=False):
     """
@@ -231,10 +184,389 @@ def upsample_quantities(allarr, spatial_order, spatial_zoom, padding="constant",
     return allarr0
 
 
+class MultiFaultPlane:
+    def __init__(self, fault_planes, hypocenter=None):
+        self.fault_planes = fault_planes
+        self.max_slip = 0.0
+        self.hypocenter = hypocenter
+        for fp in fault_planes:
+            self.max_slip = max(self.max_slip, np.amax(fp.slip1))
+
+    @classmethod
+    def from_usgs_fsp_file(cls, fname):
+        import re
+        import pandas as pd
+        from io import StringIO
+
+        with open(fname, "r") as fid:
+            lines = fid.readlines()
+
+        if "FINITE-SOURCE RUPTURE MODEL" not in lines[0]:
+            raise ValueError("Not a valid USGS fsp file.")
+
+        def read_param(line, name, dtype=int):
+            if name not in line:
+                raise ValueError(f"{name} not found in line: {line}")
+            else:
+                return dtype(line.split(f"{name} =")[1].split()[0])
+
+        def get_to_first_line_starting_with(lines, pattern):
+            for i, line in enumerate(lines):
+                if line.startswith(pattern):
+                    return lines[i:]
+            raise ValueError(f"{pattern} not found")
+
+        lines = get_to_first_line_starting_with(lines, "% Mech :")
+        strike = read_param(lines[0], "STRK", float)
+        dip = read_param(lines[0], "DIP", float)
+        lines = get_to_first_line_starting_with(lines, "% Invs :")
+        nx = read_param(lines[0], "Nx")
+        ny = read_param(lines[0], "Nz")
+        dx = read_param(lines[1], "Dx", float)
+        dy = read_param(lines[1], "Dz", float)
+        nseg = read_param(lines[2], "Nsg")
+        print(f"No. of fault segments in param file: {nseg}")
+
+        lines = get_to_first_line_starting_with(lines, "% VELOCITY-DENSITY")
+        nlayers = read_param(lines[1], "layers")
+        text_file = StringIO("\n".join(lines[3 : 5 + nlayers]))
+        velocity_model_df = pd.read_csv(text_file, sep="\s+").drop(0)
+        print(velocity_model_df)
+
+        fault_planes = []
+        for i_seg in range(nseg):
+            fault_planes.append(FaultPlane())
+            fp = fault_planes[i_seg]
+            if nseg != 1:
+                lines = get_to_first_line_starting_with(lines, "% SEGMENT")
+                strike = read_param(lines[0], "STRIKE", float)
+                dip = read_param(lines[0], "DIP", float)
+                lx = read_param(lines[0], "LEN", float)
+                ly = read_param(lines[0], "WID", float)
+                nx = round(lx / dx)
+                ny = round(ly / dy)
+
+            lines = get_to_first_line_starting_with(lines, "% Nsbfs")
+            nsbfs = read_param(lines[0], "Nsbfs")
+            assert nsbfs == nx * ny
+
+            fp.dx = dx
+            fp.dy = dy
+            fp.init_spatial_arrays(nx, ny)
+            lines = get_to_first_line_starting_with(lines, "% LAT LON")
+            column_names = lines[0][1:].split()
+            text_file = StringIO("\n".join(lines[2 : 2 + nsbfs]))
+            df = pd.read_csv(text_file, sep="\s+", header=None, names=column_names)
+
+            assert (
+                df["TRUP"] >= 0
+            ).all(), (
+                "AssertionError: Not all rupture time are greater than or equal to 0."
+            )
+            for j in range(fp.ny):
+                for i in range(fp.nx):
+                    k = j * fp.nx + i
+                    fp.lon[j, i] = df["LON"][k]
+                    fp.lat[j, i] = df["LAT"][k]
+                    fp.depth[j, i] = df["Z"][k]
+                    fp.slip1[j, i] = df["SLIP"][k]
+                    fp.rake[j, i] = df["RAKE"][k]
+                    fp.strike[j, i] = strike
+                    fp.dip[j, i] = dip
+                    fp.PSarea_cm2 = dx * dy * 1e10
+                    fp.t0[j, i] = df["TRUP"][k]
+                    # t_fal in not specified in this file (compared with the *.param file)
+                    fp.tacc[j, i] = 0.5 * df["RISE"][k]
+                    fp.rise_time[j, i] = df["RISE"][k]
+        return cls(fault_planes)
+
+    @classmethod
+    def from_usgs_param_file(cls, fname):
+        import re
+        import pandas as pd
+        from io import StringIO
+
+        header = "lat lon depth slip rake strike dip t_rup t_ris t_fal mo"
+        with open(fname, "r") as fid:
+            lines = fid.readlines()
+
+        if not "#Total number of fault_segments" in lines[0]:
+            raise ValueError("Not a valid USGS param file.")
+
+        nseg = int(lines[0].split()[-1])  # number of fault segments
+        print(f"No. of fault segments in param file: {nseg}")
+
+        fault_seg_line = [l for l in lines if "#Fault_segment " in l]
+        assert len(fault_seg_line) == nseg, f"No. of segments are wrong. {len(fault_seg_line)} {nseg}"
+
+        istart = 1
+        fault_planes = []
+        for i_seg in range(nseg):
+            fault_planes.append(FaultPlane())
+            fp = fault_planes[i_seg]
+
+            numbers = re.findall(r"[-+]?\d*\.\d+|\d+", fault_seg_line[i_seg])
+
+            # Convert extracted strings to float
+            numbers = [float(num) for num in numbers]
+            _, nx, dx, ny, dy = numbers
+            nx, ny = map(int, [nx, ny])
+            fp.dx = dx
+            fp.dy = dy
+            fp.init_spatial_arrays(nx, ny)
+
+            line1 = istart + 9
+            line2 = line1 + nx * ny
+            istart = line1 + nx * ny
+
+            text_file = StringIO("\n".join([header, *lines[line1:line2]]))
+            df = pd.read_csv(text_file, sep="\s+")
+
+            assert (df["t_rup"] >= 0).all(), "AssertionError: Not all rupture time are greater than or equal to 0."
+            for j in range(fp.ny):
+                for i in range(fp.nx):
+                    k = j * fp.nx + i
+                    fp.lon[j, i] = df["lon"][k]
+                    fp.lat[j, i] = df["lat"][k]
+                    fp.depth[j, i] = df["depth"][k]
+                    fp.slip1[j, i] = df["slip"][k]
+                    fp.rake[j, i] = df["rake"][k]
+                    fp.strike[j, i] = df["strike"][k]
+                    fp.dip[j, i] = df["dip"][k]
+                    fp.PSarea_cm2 = dx * dy * 1e10
+                    fp.t0[j, i] = df["t_rup"][k]
+                    fp.tacc[j, i] = df["t_ris"][k]
+                    fp.rise_time[j, i] = df["t_ris"][k] + df["t_fal"][k]
+        return cls(fault_planes)
+
+    @classmethod
+    def from_slipnear_param_file(cls, fname):
+        import pandas as pd
+
+        """ reading a file from the SLIPNEAR method, Delouis, Géoazur/OCA """
+
+        def read_dx_dy_hypocenter(fname):
+            with open(fname, "r") as fid:
+                lines = fid.readlines()
+
+            if not lines[0].startswith(" RECTANGULAR DISLOCATION MODEL"):
+                raise ValueError("Not a valid slipnear param file.")
+
+            dx = float(lines[2].split()[3])
+            dy = float(lines[3].split()[0])
+            hypocenter = None
+            for line in lines:
+                if line.strip().endswith("hypocenter"):
+                    hypocenter = [float(v) for v in line.split()[0:3]]
+                    break
+            if not hypocenter:
+                raise ValueError("Failed reading hypocenter from slipnear file")
+            hypocenter[0], hypocenter[1] = hypocenter[1], hypocenter[0]
+            return dx, dy, hypocenter
+
+        print(f"reading {fname}, assuming it is a slipnear file")
+        dx, dy, hypocenter = read_dx_dy_hypocenter(fname)
+        fault_planes = []
+        fault_planes.append(FaultPlane())
+        fp = fault_planes[0]
+        df = pd.read_csv(fname, sep='\s+', skiprows=25, usecols=range(8), comment=":")
+        df = df.sort_values(by=["depth(km)", "Lat", "Lon"], ascending=[True, True, True]).reset_index()
+        rows_with_same_depth = df[df["depth(km)"] == df.iloc[0]["depth(km)"]]
+        nx = len(rows_with_same_depth)
+        ny = len(df) // nx
+        assert len(df) % nx == 0
+
+        print(f"read {nx} x {ny} fault segments of size {dx} x {dy} km2 in param file")
+        print(df)
+
+        fp.dx = dx
+        fp.dy = dy
+        fp.init_spatial_arrays(nx, ny)
+
+        def G(depth):
+            if depth < 0.6:
+                return 7.2200000000e09
+            elif depth < 2:
+                return 1.5548000000e10
+            elif depth < 5:
+                return 2.5281000000e10
+            elif depth < 30:
+                return 4.0781250000e10
+            else:
+                return 7.2277920000e10
+
+        assert (df["ontime"] >= 0).all(), "AssertionError: Not all rupture time are greater than or equal to 0."
+        for j in range(fp.ny):
+            for i in range(fp.nx):
+                k = j * fp.nx + i
+                fp.lon[j, i] = df["Lon"][k]
+                fp.lat[j, i] = df["Lat"][k]
+                fp.depth[j, i] = df["depth(km)"][k]
+                # the slip is based on a homogeneous mu model, but the waveforms
+                # are calculated with the layered G as above
+                fp.slip1[j, i] = df["slip(cm)"][k] * 2.5e10/ G(fp.depth[j, i])
+                fp.rake[j, i] = df["rake"][k]
+                fp.strike[j, i] = df["strike"][k]
+                fp.dip[j, i] = df["dip"][k]
+                fp.PSarea_cm2 = dx * dy * 1e10
+                fp.t0[j, i] = df["ontime"][k]
+                fp.tacc[j, i] = 5.0
+                fp.rise_time[j, i] = 10.0
+
+        return cls(fault_planes, hypocenter)
+
+    @classmethod
+    def from_srf(cls, fname):
+        "init object by reading a srf file (standard rutpure format)"
+        fault_planes = []
+        with open(fname) as fid:
+            # version
+            line = fid.readline()
+            if line.strip() not in ["1.0", "2.0"]:
+                raise NotImplementedError(f"srf version: {line} not supported")
+            # skip comments
+            while True:
+                line = fid.readline()
+                if not line.startswith("#"):
+                    break
+            line_el = line.split()
+            if line_el[0] != "PLANE":
+                raise ValueError(f"error parsing {fname}: line does not start with PLANE : {line}")
+            nplane = int(line_el[1])
+            for p in range(nplane):
+                line_el = fid.readline().split()
+                nx, ny = [int(val) for val in line_el[2:4]]
+                fault_planes.append(FaultPlane())
+                fault_planes[p].init_spatial_arrays(nx, ny)
+                if len(line_el) == 6:
+                    # the line describing the fault plane is divided in 2
+                    fid.readline()
+            for p in range(nplane):
+                fp = fault_planes[p]
+                print(f"processing fault plane {p}, {fp.nx} {fp.ny}")
+                line_el = fid.readline().split()
+                if line_el[0] != "POINTS":
+                    raise ValueError(f"error parsing {fname}: line does not start with POINTS : {line}")
+                # check that the plane data are consistent with the number of points
+                assert int(line_el[1]) == fp.nx * fp.ny
+                for j in range(fp.ny):
+                    for i in range(fp.nx):
+                        # first header line
+                        line = fid.readline()
+                        # rho_vs are only present for srf version 2
+                        fp.lon[j, i], fp.lat[j, i], fp.depth[j, i], fp.strike[j, i], fp.dip[j, i], fp.PSarea_cm2, fp.t0[j, i], dt, *rho_vs = [float(v) for v in line.split()]
+                        # second header line
+                        line = fid.readline()
+                        fp.rake[j, i], fp.slip1[j, i], ndt1, slip2, ndt2, slip3, ndt3 = [float(v) for v in line.split()]
+                        if max(slip2, slip3) > 0.0:
+                            raise NotImplementedError("this script assumes slip2 and slip3 are zero", slip2, slip3)
+                        ndt1 = int(ndt1)
+                        if max(i, j) == 0:
+                            fp.ndt = ndt1
+                            fp.dt = dt
+                            fp.init_aSR()
+                        lSTF = []
+                        if ndt1 == 0:
+                            continue
+                        if ndt1 > fp.ndt:
+                            print(f"a larger ndt ({ndt1}> {fp.ndt}) was found for point source (i,j) = ({i}, {j}) extending aSR array...")
+                            fp.extend_aSR(fp.ndt, ndt1)
+                        if abs(dt - fp.dt) > 1e-6:
+                            raise NotImplementedError("this script assumes that dt is the same for all sources", dt, fp.dt)
+                        while True:
+                            line = fid.readline()
+                            lSTF.extend(line.split())
+                            if len(lSTF) == ndt1:
+                                fp.aSR[j, i, 0:ndt1] = np.array([float(v) for v in lSTF])
+                                break
+            return cls(fault_planes)
+
+    def generate_fault_ts_yaml_fl33(self, prefix, method, spatial_zoom, proj):
+        """Generate yaml file initializing FL33 arrays and ts file describing the planar fault geometry."""
+
+        if not os.path.exists("yaml_files"):
+            os.makedirs("yaml_files")
+        # Generate yaml file loading ASAGI file
+        nplanes = len(self.fault_planes)
+        template_yaml = f"""!Switch
+[strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time, rake_interp_low_slip]: !EvalModel
+    parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time, rake_interp_low_slip]
+    model: !Any
+     components:
+"""
+        for p, fp in enumerate(self.fault_planes):
+            fault_id = 3 if p == 0 else 64 + p
+            fp.compute_xy_from_latlon(proj)
+            fp.compute_affine_vector_map()
+            hh = fp.affine_map["hh"]
+            hw = fp.affine_map["hw"]
+            t1 = fp.affine_map["t1"]
+            t2 = fp.affine_map["t2"]
+            fp.write_ts_file(f"{prefix}{fault_id}")
+
+            template_yaml += f"""      - !GroupFilter
+        groups: {fault_id}
+        components: !AffineMap
+              matrix:
+                ua: [{hh[0]}, {hh[1]}, {hh[2]}]
+                ub: [{hw[0]}, {hw[1]}, {hw[2]}]
+              translation:
+                ua: {t1}
+                ub: {t2}
+              components: !Any
+                - !ASAGI
+                    file: ASAGI_files/{prefix}{p+1}_{spatial_zoom}_{method}.nc
+                    parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time, rake_interp_low_slip]
+                    var: data
+                    interpolation: linear
+                - !ConstantMap
+                  map:
+                    strike_slip: 0.0
+                    dip_slip:    0.0
+                    rupture_onset:    0.0
+                    acc_time:  1e100
+                    effective_rise_time:  2e100
+                    rake_interp_low_slip: 0.0
+"""
+        template_yaml += (
+            """    components: !LuaMap
+      returns: [strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time, rake_interp_low_slip]
+      function: |
+        function f (x)
+          -- Note the minus on strike_slip to acknowledge the different convention of SeisSol (T_s>0 means right-lateral)
+          -- same for the math.pi factor on rake
+          return {
+          strike_slip = -x["strike_slip"],
+          dip_slip = x["dip_slip"],
+          rupture_onset = x["rupture_onset"],
+          tau_S = x["acc_time"]/1.27,
+          tau_R = x["effective_rise_time"] - 2.*x["acc_time"]/1.27,
+          rupture_rise_time = x["effective_rise_time"],
+          rake_interp_low_slip = math.pi - x["rake_interp_low_slip"]
+          }
+        end
+        """
+        )
+
+        fname = "yaml_files/FL33_34_fault.yaml"
+        with open(fname, "w") as fid:
+            fid.write(template_yaml)
+        print(f"done writing {fname}")
+        if self.hypocenter:
+            if not os.path.exists("tmp"):
+                os.makedirs("tmp")
+            with open(f"tmp/hypocenter.txt", "w") as f:
+                jsondata = f.write(
+                    f"{self.hypocenter[0]} {self.hypocenter[1]} {self.hypocenter[2]}\n"
+                )
+
+
 class FaultPlane:
     def __init__(self):
         self.nx = 0
         self.ny = 0
+        self.dx = None
+        self.dy = None
         self.ndt = 0
         self.PSarea_cm2 = 0
         self.dt = 0
@@ -265,6 +597,8 @@ class FaultPlane:
         self.strike = np.zeros((ny, nx))
         self.dip = np.zeros((ny, nx))
         self.rake = np.zeros((ny, nx))
+        self.rise_time = np.zeros((self.ny, self.nx))
+        self.tacc = np.zeros((self.ny, self.nx))
 
     def init_aSR(self):
         self.aSR = np.zeros((self.ny, self.nx, self.ndt))
@@ -280,7 +614,7 @@ class FaultPlane:
         if proj:
             from pyproj import Transformer
 
-            transformer = Transformer.from_crs("epsg:4326", proj[0], always_xy=True)
+            transformer = Transformer.from_crs("epsg:4326", proj, always_xy=True)
             self.x, self.y = transformer.transform(self.lon, self.lat)
         else:
             print("no proj string specified!")
@@ -290,7 +624,7 @@ class FaultPlane:
         if proj:
             from pyproj import Transformer
 
-            transformer = Transformer.from_crs(proj[0], "epsg:4326", always_xy=True)
+            transformer = Transformer.from_crs(proj, "epsg:4326", always_xy=True)
             self.lon, self.lat = transformer.transform(self.x, self.y)
         else:
             self.lon, self.lat = self.x, self.y
@@ -311,71 +645,9 @@ class FaultPlane:
                     fout.write("\n")
         print("done writing", fname)
 
-    def init_from_srf(self, fname):
-        "init object by reading a srf file (standard rutpure format)"
-        with open(fname) as fid:
-            # version
-            line = fid.readline()
-            version = float(line)
-            if not (abs(version - 1.0) < 1e-03 or abs(version - 2.0) < 1e-03):
-                print("srf version: %s not supported" % (line))
-                raise
-            # skip comments
-            while True:
-                line = fid.readline()
-                if not line.startswith("#"):
-                    break
-            line_el = line.split()
-            if line_el[0] != "PLANE":
-                print("no plane specified")
-                raise
-            if line_el[1] != "1":
-                print("only one plane supported")
-                raise NotImplementedError
-            line_el = fid.readline().split()
-            nx, ny = [int(val) for val in line_el[2:4]]
-            line_el = fid.readline().split()
-            # check that the plane data are consistent with the number of points
-            assert int(line_el[1]) == nx * ny
-            self.init_spatial_arrays(nx, ny)
-            for j in range(ny):
-                for i in range(nx):
-                    # first header line
-                    line = fid.readline()
-                    # rho_vs are only present for srf version 2
-                    self.lon[j, i], self.lat[j, i], self.depth[j, i], self.strike[j, i], self.dip[j, i], self.PSarea_cm2, self.t0[j, i], dt, *rho_vs = [float(v) for v in line.split()]
-                    # second header line
-                    line = fid.readline()
-                    self.rake[j, i], self.slip1[j, i], ndt1, slip2, ndt2, slip3, ndt3 = [float(v) for v in line.split()]
-                    if max(slip2, slip3) > 0.0:
-                        print("this script assumes slip2 and slip3 are zero", slip2, slip3)
-                        raise NotImplementedError
-                    ndt1 = int(ndt1)
-                    if max(i, j) == 0:
-                        self.ndt = ndt1
-                        self.dt = dt
-                        self.init_aSR()
-                    lSTF = []
-                    if ndt1 == 0:
-                        continue
-                    if ndt1 > self.ndt:
-                        print(f"a larger ndt ({ndt1}> {self.ndt}) was found for point source (i,j) = ({i}, {j}) extending aSR array...")
-                        self.extend_aSR(self.ndt, ndt1)
-                    if abs(dt - self.dt) > 1e-6:
-                        print("this script assumes that dt is the same for all sources", dt, self.dt)
-                        raise NotImplementedError
-                    while True:
-                        line = fid.readline()
-                        lSTF.extend(line.split())
-                        if len(lSTF) == ndt1:
-                            self.aSR[j, i, 0:ndt1] = np.array([float(v) for v in lSTF])
-                            break
-
     def assess_STF_parameters(self, threshold):
         "compute rise_time (slip duration) and t_acc (peak SR) from SR time histories"
         assert threshold >= 0.0 and threshold < 1
-        self.rise_time = np.zeros((self.ny, self.nx))
-        self.tacc = np.zeros((self.ny, self.nx))
         misfits_Yoffe = []
         misfits_Gaussian = []
         for j in range(self.ny):
@@ -404,7 +676,7 @@ class FaultPlane:
                     tr = max(tr, ts)
                     for k, tk in enumerate(self.myt):
                         newSR[k, 0] = regularizedYoffe(tk - t0_increment, ts, tr)
-                        newSR[k, 1] = GaussianSTF(tk - t0_increment, self.rise_time[j, i], self.dt)
+                        newSR[k, 1] = gaussianSTF(tk - t0_increment, self.rise_time[j, i], self.dt)
                     integral_aSTF = np.trapz(np.abs(self.aSR[j, i, :]), dx=self.dt)
                     integral_Yoffe = np.trapz(np.abs(newSR[:, 0]), dx=self.dt)
                     integral_Gaussian = np.trapz(np.abs(newSR[:, 1]), dx=self.dt)
@@ -539,14 +811,15 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         km2m = 1e3
         coords = np.array([self.x, self.y, -km2m * self.depth])
         ny, nx = coords.shape[1:3]
-        center_row = coords[:, (ny - 1) // 2, :] - coords[:, (ny - 1) // 2 - 1, :]
-        dx1 = np.linalg.norm(center_row, axis=0)
-        # with this convention the first data point is in local coordinate (0,0)
-        xb = np.cumsum(dx1) - dx1[0]
 
-        center_col = coords[:, :, (nx - 1) // 2] - coords[:, :, (nx - 1) // 2 - 1]
+        center_row = np.diff(coords[:, (ny - 1) // 2, :])
+        dx1 = np.linalg.norm(center_row, axis=0)
+        center_col = np.diff(coords[:, :, (nx - 1) // 2])
         dy1 = np.linalg.norm(center_col, axis=0)
-        yb = np.cumsum(dy1) - dy1[0]
+
+        # with this convention the first data point is in local coordinate (0,0)
+        xb = np.insert(np.cumsum(dx1), 0 ,0)
+        yb = np.insert(np.cumsum(dy1), 0 ,0)
 
         self.xb = np.pad(xb, ((1), (1)), "reflect", reflect_type="odd")
         self.yb = np.pad(yb, ((1), (1)), "reflect", reflect_type="odd")
@@ -607,8 +880,11 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
             my_array = best
         return my_array
 
-    def generate_netcdf_fl33(self, prefix, method, spatial_zoom, proj, write_paraview):
+    def generate_netcdf_fl33(self, prefix, method, spatial_zoom, proj, write_paraview, slip_cutoff):
         "generate netcdf files to be used with SeisSol friction law 33"
+
+        if not os.path.exists("ASAGI_files"):
+            os.makedirs("ASAGI_files")
 
         cm2m = 0.01
         km2m = 1e3
@@ -616,15 +892,17 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         # a netcdf file defines the quantities at the nodes
         # therefore the extra_padding_layer=True, and the added di below
         cslip = self.compute_corrected_slip_for_differing_area(proj)
+        print(f"applying a {slip_cutoff:.1f} cm cutoff to fault slip")
         self.compute_1d_dimension_arrays(spatial_zoom)
 
         upsampled_arrays = []
 
         slip = self.upsample_quantity_RGInterpolator(cslip, method, is_slip=True)
-        for arr in [cslip, self.t0, self.rake, self.rise_time, self.tacc]:
+        slip[slip<slip_cutoff] = 0.0
+        for arr in [self.t0, self.rake, self.rise_time, self.tacc]:
             upsampled_arrays.append(self.upsample_quantity_RGInterpolator(arr, method))
 
-        slip, rupttime, rake, rise_time, tacc = upsampled_arrays
+        rupttime, rake, rise_time, tacc = upsampled_arrays
 
         # upsampled duration, rise_time and acc_time may not be smaller than initial values
         # at least rise_time could lead to a non-causal kinematic model
@@ -636,30 +914,68 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         strike_slip = slip * np.cos(rake_rad) * cm2m
         dip_slip = slip * np.sin(rake_rad) * cm2m
 
+        def compute_rake_interp_low_slip(strike_slip, dip_slip, slip_threshold=0.05):
+            "compute rake with, with interpolation is slip is too small"
+            slip = np.sqrt(strike_slip**2 + dip_slip**2)
+            rake = np.arctan2(dip_slip, strike_slip)
+            rake[slip < slip_threshold] = np.nan
+            nan_indices = np.isnan(rake)
+            if nan_indices.any():
+                # Create a meshgrid for interpolation
+                x, y = np.meshgrid(np.arange(rake.shape[1]), np.arange(rake.shape[0]))
+
+                # Flatten the arrays and remove NaNs
+                x_flat = x[~nan_indices].flatten()
+                y_flat = y[~nan_indices].flatten()
+                rake_flat = rake[~nan_indices].flatten()
+
+                # Interpolate missing values using linear interpolation
+                rake_interpolated_lin = griddata(
+                    (x_flat, y_flat), rake_flat, (x, y), method="linear"
+                )
+                rake[nan_indices] = rake_interpolated_lin[nan_indices]
+                nan_indices = np.isnan(rake)
+                if nan_indices.any():
+                    rake_interpolated_near = griddata(
+                        (x_flat, y_flat), rake_flat, (x, y), method="nearest"
+                    )
+                    nan_indices = np.isnan(rake)
+                    rake[nan_indices] = rake_interpolated_near[nan_indices]
+            rake = gaussian_filter(rake, sigma=spatial_zoom / 2)
+            return rake
+
+        rake = compute_rake_interp_low_slip(strike_slip, dip_slip)
+
         dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
-        ldataName = ["strike_slip", "dip_slip", "rupture_onset", "effective_rise_time", "acc_time"]
-        lgridded_myData = [strike_slip, dip_slip, rupttime, rise_time, tacc]
+        ldataName = [
+            "strike_slip",
+            "dip_slip",
+            "rupture_onset",
+            "effective_rise_time",
+            "acc_time",
+            "rake_interp_low_slip",
+        ]
+        lgridded_myData = [strike_slip, dip_slip, rupttime, rise_time, tacc, rake]
 
         prefix2 = f"{prefix}_{spatial_zoom}_{method}"
         if write_paraview:
             # see comment above
             for i, sdata in enumerate(ldataName):
                 writeNetcdf(
-                    f"{prefix2}_{sdata}",
+                    f"ASAGI_files/{prefix2}_{sdata}",
                     [self.x_up, self.y_up],
                     [sdata],
                     [lgridded_myData[i]],
                     paraview_readable=True,
                 )
-            writeNetcdf(f"{prefix2}_slip", [self.x_up, self.y_up], ["slip"], [slip], paraview_readable=True)
-        writeNetcdf(prefix2, [self.x_up, self.y_up], ldataName, lgridded_myData)
+            writeNetcdf(f"ASAGI_files/{prefix2}_slip", [self.x_up, self.y_up], ["slip"], [slip * cm2m], paraview_readable=True)
+        writeNetcdf(f"ASAGI_files/{prefix2}", [self.x_up, self.y_up], ldataName, lgridded_myData)
 
-    def generate_fault_ts_yaml_fl33(self, prefix, method, spatial_zoom, proj):
-        """Generate yaml file initializing FL33 arrays and ts file describing the planar fault geometry."""
-        # Generate yaml file loading ASAGI file
+    def compute_affine_vector_map(self):
+        """compute the 2d vectors hh and hw and the offsets defining the 2d affine map (parametric coordinates)"""
+        self.affine_map = {}
         cm2m = 0.01
         km2m = 1e3
-        self.compute_xy_from_latlon(proj)
         nx, ny = self.nx, self.ny
         p0 = np.array([self.x[0, 0], self.y[0, 0], -km2m * self.depth[0, 0]])
         p1 = np.array([self.x[ny - 1, 0], self.y[ny - 1, 0], -km2m * self.depth[ny - 1, 0]])
@@ -667,61 +983,41 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         p3 = np.array([self.x[ny - 1, nx - 1], self.y[ny - 1, nx - 1], -km2m * self.depth[ny - 1, nx - 1]])
 
         hw = p1 - p0
-        dx1 = np.linalg.norm(hw) / (ny - 1)
-        hw = hw / np.linalg.norm(hw)
+        dx2 = np.linalg.norm(hw) / (ny - 1)
+        self.affine_map["hw"] = hw / np.linalg.norm(hw)
         hh = p2 - p0
-        dx2 = np.linalg.norm(hh) / (nx - 1)
-        hh = hh / np.linalg.norm(hh)
+        dx1 = np.linalg.norm(hh) / (nx - 1)
+        self.affine_map["hh"] = hh / np.linalg.norm(hh)
         dx = np.sqrt(self.PSarea_cm2 * cm2m * cm2m)
         # a kinematic model defines the fault quantities at the subfault center
         # a netcdf file defines the quantities at the nodes
         # therefore the dx/2
         # the term dxi/np.sqrt(dx1*dx2) allows accounting for non-square patches
-        non_square_factor = dx / np.sqrt(dx1 * dx2)
-        t1 = -np.dot(p0, hh)
-        t2 = -np.dot(p0, hw)
+        self.affine_map["non_square_factor"] = dx / np.sqrt(dx1 * dx2)
+        self.affine_map["t1"] = -np.dot(p0, self.affine_map["hh"])
+        self.affine_map["t2"] = -np.dot(p0, self.affine_map["hw"])
+        self.affine_map["dx1"] = dx1
+        self.affine_map["dx2"] = dx2
 
-        template_yaml = f"""!Switch
-[strike_slip, dip_slip, rupture_onset, tau_S, tau_R, rupture_rise_time]: !EvalModel
-    parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
-    model: !Switch
-        [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]: !AffineMap
-              matrix:
-                ua: [{hh[0]}, {hh[1]}, {hh[2]}]
-                ub: [{hw[0]}, {hw[1]}, {hw[2]}]
-              translation:
-                ua: {t1}
-                ub: {t2}
-              components: !Any
-                - !ASAGI
-                    file: {prefix}_{spatial_zoom}_{method}.nc
-                    parameters: [strike_slip, dip_slip, rupture_onset, effective_rise_time, acc_time]
-                    var: data
-                    interpolation: linear
-                - !ConstantMap
-                  map:
-                    strike_slip: 0.0
-                    dip_slip:    0.0
-                    rupture_onset:    0.0
-                    acc_time:  1e100
-                    effective_rise_time:  2e100
-    components: !FunctionMap
-       map:
-          #Note the minus on strike_slip to acknowledge the different convention of SeisSol (T_s>0 means right-lateral)
-          strike_slip: return -strike_slip;
-          dip_slip: return dip_slip;
-          rupture_onset: return rupture_onset;
-          tau_S: return acc_time/1.27;
-          tau_R: return effective_rise_time - 2.*acc_time/1.27;
-          rupture_rise_time: return effective_rise_time;
-        """
-        fname = f"{prefix}_fault.yaml"
-        with open(fname, "w") as fid:
-            fid.write(template_yaml)
-        print(f"done writing {fname}")
-
+    def write_ts_file(self, prefix):
         # Generate ts file containing mesh geometry
+        if not os.path.exists("tmp"):
+            os.makedirs("tmp")
         vertex = np.zeros((4, 3))
+        km2m = 1e3
+        nx, ny = self.nx, self.ny
+
+        p0 = np.array([self.x[0, 0], self.y[0, 0], -km2m * self.depth[0, 0]])
+        p1 = np.array([self.x[ny - 1, 0], self.y[ny - 1, 0], -km2m * self.depth[ny - 1, 0]])
+        p2 = np.array([self.x[0, nx - 1], self.y[0, nx - 1], -km2m * self.depth[0, nx - 1]])
+        p3 = np.array([self.x[ny - 1, nx - 1], self.y[ny - 1, nx - 1], -km2m * self.depth[ny - 1, nx - 1]])
+
+        hh = self.affine_map["hh"]
+        hw = self.affine_map["hw"]
+        non_square_factor = self.affine_map["non_square_factor"]
+        dx1 = self.affine_map["dx1"]
+        dx2 = self.affine_map["dx2"]
+
         vertex[0, :] = p0 + 0.5 * (-hh * dx1 - hw * dx2) * non_square_factor
         vertex[1, :] = p2 + 0.5 * (hh * dx1 - hw * dx2) * non_square_factor
         vertex[2, :] = p3 + 0.5 * (hh * dx1 + hw * dx2) * non_square_factor
@@ -730,7 +1026,7 @@ The correcting factor ranges between {np.amin(factor_area)} and {np.amax(factor_
         connect = np.zeros((2, 3), dtype=int)
         connect[0, :] = [1, 2, 3]
         connect[1, :] = [1, 3, 4]
-        fname = f"{prefix}_fault.ts"
+        fname = f"tmp/{prefix}_fault.ts"
         with open(fname, "w") as fout:
             fout.write("GOCAD TSURF 1\nHEADER {\nname:%s\nborder: true\nmesh: false\n*border*bstone: true\n}\nTFACE\n" % (fname))
             for ivx in range(1, 5):
