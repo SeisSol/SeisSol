@@ -118,7 +118,7 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
     }
 
     auto* initialStressInFaultCS = it->var(dynRup->initialStressInFaultCS);
-    rotateStressToFaultCS(dynRup, it, initialStressInFaultCS, initialStress);
+    rotateStressToFaultCS(dynRup, it, initialStressInFaultCS, initialStress); // initial stress in fault CS is same here too
     // rotate nucleation stress to fault coordinate system
     if (nucleationStressParameterizedByTraction) {
       rotateTractionToCartesianStress(dynRup, it, nucleationStress);
@@ -248,6 +248,7 @@ void BaseDRInitializer::rotateStressToFaultCS(
       }
     }
   }
+  logInfo() << "Debug Statement"; // stressInFaultCS is same here. 
 }
 
 void BaseDRInitializer::addAdditionalParameters(

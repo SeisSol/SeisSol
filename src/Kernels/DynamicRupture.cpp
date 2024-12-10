@@ -195,6 +195,7 @@ void DynamicRupture::spaceTimeInterpolation(
     #endif
 #endif
 
+    // \todo (VK): fix the prefetch values to correct ones
     real const* plusPrefetch = (timeInterval < ConvergenceOrder-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlusPrefetch;
     real const* minusPrefetch = (timeInterval < ConvergenceOrder-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinusPrefetch;
     

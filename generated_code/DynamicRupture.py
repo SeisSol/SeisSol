@@ -53,7 +53,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   clones = dict()
 
   # Load matrices
-  db = parseJSONMatrixFile(f'{matricesDir}/dr_{drQuadRule}_matrices_{aderdg.order}.json', clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)
+  db = parseJSONMatrixFile(f'{matricesDir}/dr_{drQuadRule}_matrices_{aderdg.order}.json', clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)  
   numberOfPoints = db.resample.shape()[0]
 
   # Determine matrices
@@ -80,7 +80,10 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
   originalQ = Tensor('originalQ', (numberOfPoints,))
   resampledQ = Tensor('resampledQ', (numberOfPoints,))
-  resampleKernel = resampledQ['i'] <= db.resample['ij'] * originalQ['j']
+  if aderdg.multipleSimulations > 1:
+    resampleKernel = resampledQ['i'] <= db.resample['ji'] * originalQ['j']
+  else:
+    resampleKernel = resampledQ['i'] <= db.resample['ij'] * originalQ['j']
   generator.add('resampleParameter', resampleKernel )
 
   generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])
