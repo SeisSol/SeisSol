@@ -128,7 +128,7 @@ private:
     void start() override {}
     void predict() override;
     void correct() override;
-    bool usePlasticity; //(TODO: modify this to const and then remove the if else in .cpp)
+    const bool usePlasticity; //(TODO: modify this to const and then remove the if else in .cpp)
 
     //! number of time steps
     unsigned long m_numberOfTimeSteps;
@@ -261,7 +261,8 @@ private:
      * @param i_faceNeighbors pointers to neighboring time buffers or derivatives.
      * @param io_dofs degrees of freedom.
      **/
-    void computeNeighboringIntegration( seissol::initializer::Layer&  layerData, double subTimeStart );
+    std::pair<long, long> computeNeighboringIntegration(seissol::initializer::Layer& layerData,
+                                                                      double subTimeStart);
 
 #ifdef ACL_DEVICE
     void computeLocalIntegrationDevice( seissol::initializer::Layer&  layerData, bool resetBuffers);
@@ -270,10 +271,6 @@ private:
 #endif
 
     void computeLocalIntegrationFlops(seissol::initializer::Layer& layerData);
-
-    template<bool usePlasticity>
-    std::pair<long, long> computeNeighboringIntegrationImplementation(seissol::initializer::Layer& layerData,
-                                                                      double subTimeStart);
 
     void computeLocalIntegrationFlops(unsigned numberOfCells,
                                       CellLocalInformation const* cellInformation,

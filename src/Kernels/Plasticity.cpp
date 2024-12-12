@@ -108,7 +108,7 @@ namespace seissol::kernels {
 
   real prevDegreesOfFreedom[tensor::QStress::size()];
   for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
-    prevDegreesOfFreedom[q] = degreesOfFreedom[q];
+    prevDegreesOfFreedom[q] = degreesOfFreedom[q]; // (TODO: get the right indexing here because prevDegreeOfFreedom does not have velocities in it)
   }
 
   /* Convert modal to nodal and add sigma0.

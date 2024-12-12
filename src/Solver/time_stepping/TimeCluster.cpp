@@ -593,14 +593,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
 }
 #endif // ACL_DEVICE
 
-void seissol::time_stepping::TimeCluster::computeNeighboringIntegration(seissol::initializer::Layer& i_layerData,
-                                                                        double subTimeStart) {
-  if (usePlasticity) {
-    computeNeighboringIntegrationImplementation<true>(i_layerData, subTimeStart);
-  } else {
-    computeNeighboringIntegrationImplementation<false>(i_layerData, subTimeStart);
-  } // Remove the if else later after making usePlasticity const
-}
 #ifdef ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice( seissol::initializer::Layer&  i_layerData,
                                                                          double subTimeStart) {
@@ -830,7 +822,7 @@ void TimeCluster::correct() { // Here, need to think what to do
     computeNeighboringIntegrationDevice(*m_clusterData, subTimeStart);
   }
   else {
-    computeNeighboringIntegration(*m_clusterData, subTimeStart);
+  computeNeighboringIntegration(*m_clusterData, subTimeStart);
   }
 #else
   computeNeighboringIntegration(*m_clusterData, subTimeStart);
@@ -914,9 +906,9 @@ void TimeCluster::setReceiverTime(double receiverTime) {
 void TimeCluster::finalize() {
   streamRuntime.dispose();
 }
-template<bool usePlasticity>
+
 std::pair<long, long>
-    TimeCluster::computeNeighboringIntegrationImplementation(seissol::initializer::Layer& i_layerData, double subTimeStart) {
+    TimeCluster::computeNeighboringIntegration(seissol::initializer::Layer& i_layerData, double subTimeStart) {
   if (i_layerData.getNumberOfCells() == 0)
     return {0, 0};
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
@@ -1004,11 +996,9 @@ std::pair<long, long>
         data,
         drMapping[l_cell],
         l_timeIntegrated,
-        l_faceNeighbors_prefetch); // Something will needed to be changed here.... Just don't know
-                                   // what yet. Need to implement kernels to do some mapping
-    // back to the original sequence and stuff. Won't be correct before that
+        l_faceNeighbors_prefetch);
 
-    if constexpr (usePlasticity) {
+    if (usePlasticity) {
       updateRelaxTime();
       numberOTetsWithPlasticYielding +=
           seissol::kernels::Plasticity::computePlasticity(m_oneMinusIntegratingFactor,
@@ -1017,7 +1007,7 @@ std::pair<long, long>
                                                           m_globalDataOnHost,
                                                           &plasticity[l_cell],
                                                           data.dofs(),
-                                                          pstrain[l_cell]);
+                                                          pstrain[l_cell]); // Plasticity needs to be managed now
     }
 #ifdef INTEGRATE_QUANTITIES
     seissolInstance.postProcessor().integrateQuantities(
