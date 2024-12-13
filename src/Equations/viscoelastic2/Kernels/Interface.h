@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2019, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -40,20 +41,29 @@
 #ifndef KERNELS_INTERFACE_H_
 #define KERNELS_INTERFACE_H_
 
-#include "Initializer/Tree/InterfaceHelper.h"
-#include "Initializer/LTS.h"
-#include "Kernels/Precision.h"
 #include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
+#include "Initializer/LTS.h"
+#include "Initializer/Tree/InterfaceHelper.h"
+#include "Kernels/Precision.h"
 
 namespace seissol::kernels {
-    struct alignas(Alignment) LocalTmp {
-      alignas(Alignment) real timeIntegratedAne[tensor::Iane::size()]{};
-      alignas(Alignment) std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4]{};
-      GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
-      LocalTmp(double gravitationalAcceleration) : gravitationalFreeSurfaceBc(gravitationalAcceleration) {};
-    };
-    LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData, initializer::LTS, cellInformation, localIntegration, dofs, dofsAne, faceDisplacements)
-    LTSTREE_GENERATE_INTERFACE_GETTERED(NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
-}
+struct alignas(Alignment) LocalTmp {
+  alignas(Alignment) real timeIntegratedAne[tensor::Iane::size()]{};
+  alignas(Alignment)
+      std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4]{};
+  GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
+  LocalTmp(double gravitationalAcceleration)
+      : gravitationalFreeSurfaceBc(gravitationalAcceleration) {};
+};
+LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
+                                    initializer::LTS,
+                                    cellInformation,
+                                    localIntegration,
+                                    dofs,
+                                    dofsAne,
+                                    faceDisplacements)
+LTSTREE_GENERATE_INTERFACE_GETTERED(
+    NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
+} // namespace seissol::kernels
 
 #endif
