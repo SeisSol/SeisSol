@@ -94,7 +94,7 @@ IO setup
 For the IO, the following environment variables are recommended to be set, when running on a cluster:
 
 .. code-block:: bash
-    
+
     export XDMFWRITER_ALIGNMENT=8388608
     export XDMFWRITER_BLOCK_SIZE=8388608
 

@@ -58,13 +58,13 @@ CPU architectures
    * - ``knl``
      - Intel Knight's Landing (Xeon Phi, optionally as coprocessor)
      - Generates AVX-512{F,CD,PF,ER} instructions.
-     - Intel Xeon Phi coprocessor, as well as 
+     - Intel Xeon Phi coprocessor, as well as
      - LRZ CoolMUC 3
    * - ``naples``
      - AMD Zen 1
      - Generates AVX2 instructions. For the libxsmm kernel generator, it is deemed equivalent to ``hsw``.
      - Ryzen 1xxx series
-     - 
+     -
    * - ``rome``
      - AMD Zen 2
      - Generates AVX2 instructions. For the libxsmm kernel generator, it is deemed equivalent to ``hsw``.
@@ -79,11 +79,11 @@ CPU architectures
      - AMD Zen 4
      - Generates AVX512 instructions. For the libxsmm kernel generator, it is deemed equivalent to ``skx``.
      - Ryzen 7?4? series, MI300A
-     - 
+     -
    * - ``power9``
      - IBM PowerPC 9
-     - 
-     - 
+     -
+     -
      -
    * - ``thunderx2t99``
      - ARM ThunderX2 (ARM NEON)
@@ -97,44 +97,44 @@ CPU architectures
      -
    * - ``neon``
      - Dummy target for AARCH64 (with NEON)
-     - 
      -
-     - 
+     -
+     -
    * - ``sve128``
      - Dummy target for AARCH64, ARM SVE with 128 bits length
-     - 
+     -
      - Needed e.g. for the Neoverse V2 CPU
      -
    * - ``sve256``
      - Dummy target for AARCH64, ARM SVE with 256 bits length
-     - 
      -
-     - 
+     -
+     -
    * - ``sve512``
      - Dummy target for AARCH64, ARM SVE with 512 bits length
-     - 
      -
-     - 
+     -
+     -
    * - ``sve1024``
      - Dummy target for AARCH64, ARM SVE with 1024 bits length
-     - 
      -
-     - 
+     -
+     -
    * - ``sve2048``
      - Dummy target for AARCH64, ARM SVE with 2048 bits length
-     - 
      -
-     - 
+     -
+     -
    * - ``apple-m1``
      - Apple M1 CPU
-     - 
      -
-     - 
+     -
+     -
    * - ``apple-m2``
      - Apple M2 CPU
-     - 
      -
-     - 
+     -
+     -
 
 GPU architectures
 ~~~~~~~~~~~~~~~~~

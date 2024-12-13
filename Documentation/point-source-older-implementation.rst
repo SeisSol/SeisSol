@@ -66,7 +66,7 @@ This format describes point sources following the equations
   \end{aligned}
 
 For details about the source term, we refer to Section 3.3 of `An arbitrary high-order discontinuous Galerkin method for elastic
-waves on unstructured meshes – I. The two-dimensional isotropic case with external source terms 
+waves on unstructured meshes – I. The two-dimensional isotropic case with external source terms
 <https://academic.oup.com/gji/article-lookup/doi/10.1111/j.1365-246X.2006.03051.x>`__
 
 Mij and di are defined in a fault local coordinate system defined by strike, dip and rake, see for instance here:
@@ -84,7 +84,7 @@ To do so, add these two lines before ``Number of subfaults``:
    header line (optional, but has to contain 'pressure' to be recognized)
    p
    header line (optional, but has to contain 'fluid' to be recognized)
-   f1 f2 f3 
+   f1 f2 f3
 
 In the case of a poroelastic material, the equations of motion differ from above equations. For the velocities in :math:`x` direction, they read:
 
@@ -94,7 +94,7 @@ In the case of a poroelastic material, the equations of motion differ from above
    \frac{\partial}{\partial t} u_f - \frac{1}{\rho^{(2)}} \frac{\partial}{\partial x} \sigma_{xx} - \frac{1}{\rho^{(2)}} \frac{\partial}{\partial y} \sigma_{xy} -  \frac{1}{\rho^{(2)}} \frac{\partial}{\partial z} \sigma_{xz} - \frac{1}{\rho^{(2)}} \frac{\rho}{\rho_f}\frac{\nu}{\kappa} u_f &= f_x \cdot S_k(t) \delta(x - \xi_k) \\
   \end{aligned}
 
-with 
+with
 
 .. math ::
   \rho^{(1)} &= \left(\rho - \frac{\rho_f^2}{m}\right), \quad \rho^{(2)} &= \left(\rho_f - \frac{m \rho}{\rho_f} \right).\\

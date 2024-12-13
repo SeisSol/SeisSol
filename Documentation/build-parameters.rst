@@ -58,7 +58,7 @@ Generic parameters
 - ``GRAPH_PARTITIONING_LIBS``: compile for the given graph partitioning libraries. Allowed options are:
 
     * ``parmetis``: Repository: https://github.com/KarypisLab/ParMETIS
-    * ``PTScotch``: Repository: 
+    * ``PTScotch``: Repository:
     * ``ParHIP``: Repository: https://github.com/KaHIP/KaHIP
     * ``none``: Do not require a graph partitioning library. Recommended only for single-node/proxy builds.
 
