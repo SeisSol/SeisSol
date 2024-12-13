@@ -79,11 +79,7 @@ namespace seissol::kernels {
                                          seissol::model::PlasticityData const *plasticityData,
                                          real degreesOfFreedom[tensor::Q::size()],
                                          real *pstrain) {
-#ifdef MULTIPLE_SIMULATIONS
-    // Todo(VK) find a better solution here.
-    logError() << "Plasticity does not work with multiple simulations";
-    return 0;
-#else
+
     assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
@@ -103,12 +99,16 @@ namespace seissol::kernels {
   static_assert(tensor::yieldFactor::size() <= tensor::meanStress::size(),
                 "Yield factor tensor must be smaller than mean stress tensor.");
 
-  // copy dofs for later comparison, only first dof of stresses required
-  //  @todo multiple sims
+
+  const unsigned singleSimDofsSize = tensor::Q::Shape[1] * tensor::Q::Shape[2];
+  const unsigned singleSimStressSize = tensor::QStress::Shape[1] * tensor::QStress::Shape[2];
 
   real prevDegreesOfFreedom[tensor::QStress::size()];
-  for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
-    prevDegreesOfFreedom[q] = degreesOfFreedom[q]; // (TODO: get the right indexing here because prevDegreeOfFreedom does not have velocities in it)
+  for (unsigned s = 0; s < MULTIPLE_SIMULATIONS; s++) {
+    for (unsigned q = 0; q < singleSimStressSize; ++q) {
+      prevDegreesOfFreedom[s * singleSimStressSize + q] =
+          degreesOfFreedom[s * singleSimDofsSize + q];
+    }
   }
 
   /* Convert modal to nodal and add sigma0.
@@ -193,35 +193,42 @@ namespace seissol::kernels {
     adjKrnl.yieldFactor = yieldFactor;
     adjKrnl.execute();
 
+    const unsigned singleSimpStrainSize =
+        tensor::QStress::Shape[1] * tensor::QStress::Shape[2] + tensor::QEtaModal::Shape[1];
     // calculate plastic strain
-    for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
-      /**
-       * Equation (10) from Wollherr et al.:
-       *
-       * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu T_v)
-       *
-       * where (11)
-       *
-       * P_{ij}(sigma) = { tau_c/tau s_{ij} + m delta_{ij}         if     tau >= taulim
-       *                 { sigma_{ij} + sigma0_{ij}                else
-       *
-       * Thus,
-       *
-       * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu T_v) s_{ij}   if     tau >= taulim
-       *                    { 0                                    else
-       *
-       * Consider tau >= taulim first. We have (1 - tau_c/tau) = -yield / r. Therefore,
-       *
-       * d/dt strain_{ij} = -1 / (2mu T_v r) yield s_{ij}
-       *                  = -1 / (2mu T_v r) (sigmaNew_{ij} - sigma_{ij})
-       *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu T_v r)
-       *
-       * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
-       */
-      const real factor = plasticityData->mufactor / (tV * oneMinusIntegratingFactor);
-      dudtPstrain[q] = factor * (prevDegreesOfFreedom[q] - degreesOfFreedom[q]);
-      // Integrate with explicit Euler
-      pstrain[q] += timeStepWidth * dudtPstrain[q];
+    for (unsigned s = 0; s < MULTIPLE_SIMULATIONS; s++) {
+      for (unsigned q = 0; q < singleSimStressSize; ++q) {
+        /**
+         * Equation (10) from Wollherr et al.:
+         *
+         * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu T_v)
+         *
+         * where (11)
+         *
+         * P_{ij}(sigma) = { tau_c/tau s_{ij} + m delta_{ij}         if     tau >= taulim
+         *                 { sigma_{ij} + sigma0_{ij}                else
+         *
+         * Thus,
+         *
+         * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu T_v) s_{ij}   if     tau >= taulim
+         *                    { 0                                    else
+         *
+         * Consider tau >= taulim first. We have (1 - tau_c/tau) = -yield / r. Therefore,
+         *
+         * d/dt strain_{ij} = -1 / (2mu T_v r) yield s_{ij}
+         *                  = -1 / (2mu T_v r) (sigmaNew_{ij} - sigma_{ij})
+         *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu T_v r)
+         *
+         * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
+         */
+        const real factor = plasticityData->mufactor / (T_v * oneMinusIntegratingFactor);
+        dudtPstrain[s * singleSimStressSize + q] =
+            factor * (prevDegreesOfFreedom[s * singleSimStressSize + q] -
+                      degreesOfFreedom[s * singleSimDofsSize + q]);
+        // Integrate with explicit Euler
+        pstrain[s * singleSimpStrainSize + q] +=
+            timeStepWidth * dudtPstrain[s * singleSimStressSize + q];
+      }
     }
     /* Convert modal to nodal */
     kernel::plConvertToNodalNoLoading m2nKrnlDudtPstrain;
@@ -230,10 +237,19 @@ namespace seissol::kernels {
     m2nKrnlDudtPstrain.QStressNodal = qStressNodal;
     m2nKrnlDudtPstrain.execute();
 
-    // Sizes:
+    // Sizes: different for single simulation and multiple simulations
+#ifdef MULTIPLE_SIMULATIONS
+    for (unsigned s = 0; s < MULTIPLE_SIMULATIONS; s++) {
+      for (unsigned q = 0; q < tensor::QEtaModal::Shape[1]; ++q) {
+        qEtaModal[s * tensor::QEtaModal::Shape[1] + q] =
+            pstrain[s * singleSimpStrainSize + singleSimStressSize + q];
+      }
+    }
+#else
     for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
       qEtaModal[q] = pstrain[tensor::QStress::size() + q];
     }
+#endif
 
     /* Convert modal to nodal */
     kernel::plConvertEtaModal2Nodal m2nEtaKrnl;
@@ -243,17 +259,24 @@ namespace seissol::kernels {
     m2nEtaKrnl.execute();
 
     auto qStressNodalView = init::QStressNodal::view::create(qStressNodal);
+#ifdef MULTIPLE_SIMULATIONS
+    const unsigned numNodes = qStressNodalView.shape(1);
+#else
     const unsigned numNodes = qStressNodalView.shape(0);
-    for (unsigned i = 0; i < numNodes; ++i) {
-      // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
-      // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
-      qEtaNodal[i] = std::max((real)0.0, qEtaNodal[i]) +
-                     timeStepWidth * sqrt(0.5 * (qStressNodalView(i, 0) * qStressNodalView(i, 0) +
-                                                 qStressNodalView(i, 1) * qStressNodalView(i, 1) +
-                                                 qStressNodalView(i, 2) * qStressNodalView(i, 2) +
-                                                 qStressNodalView(i, 3) * qStressNodalView(i, 3) +
-                                                 qStressNodalView(i, 4) * qStressNodalView(i, 4) +
-                                                 qStressNodalView(i, 5) * qStressNodalView(i, 5)));
+#endif
+    for (unsigned s = 0; s < MULTIPLE_SIMULATIONS; s++) {
+      for (unsigned i = 0; i < numNodes; ++i) {
+        // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
+        // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
+        qEtaNodal[s*tensor::QEtaNodal::Shape[1] + i] =
+            std::max((real)0.0, qEtaNodal[s*tensor::QEtaNodal::Shape[1] + i]) +
+            timeStepWidth * sqrt(0.5 * (qStressNodalView(s, i, 0) * qStressNodalView(s ,i, 0) +
+                                        qStressNodalView(s, i, 1) * qStressNodalView(s, i, 1) +
+                                        qStressNodalView(s, i, 2) * qStressNodalView(s, i, 2) +
+                                        qStressNodalView(s, i, 3) * qStressNodalView(s, i, 3) +
+                                        qStressNodalView(s, i, 4) * qStressNodalView(s, i, 4) +
+                                        qStressNodalView(s, i, 5) * qStressNodalView(s, i, 5)));
+      }
     }
 
     /* Convert nodal to modal */
@@ -262,13 +285,22 @@ namespace seissol::kernels {
     n2mEtaKrnl.QEtaNodal = qEtaNodal;
     n2mEtaKrnl.QEtaModal = qEtaModal;
     n2mEtaKrnl.execute();
+
+#ifdef MULTIPLE_SIMULATIONS
+    for (unsigned s = 0; s < MULTIPLE_SIMULATIONS; s++) {
+      for (unsigned q = 0; q < tensor::QEtaModal::Shape[1]; ++q) {
+        pstrain[s * singleSimpStrainSize + singleSimStressSize + q] =
+            qEtaModal[s * tensor::QEtaModal::Shape[1] + q];
+      }
+    }
+#else
     for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
       pstrain[tensor::QStress::size() + q] = qEtaModal[q];
     }
+#endif
     return 1;
   }
-#endif
-  return 0;
+    return 0;
 }
 
 unsigned Plasticity::computePlasticityBatched(
