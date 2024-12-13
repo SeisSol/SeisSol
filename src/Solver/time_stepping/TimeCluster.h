@@ -148,7 +148,6 @@ private:
     
     kernels::DynamicRupture m_dynamicRuptureKernel;  // Not clear if multiple are needed here. What needs to be done
 
-    // std::array<kernels::DynamicRupture, MULTIPLE_SIMULATIONS> m_dynamicRuptureKernel; // to avoid data race conditions
 
     seissol::parallel::runtime::StreamRuntime streamRuntime;
 
@@ -227,7 +226,7 @@ private:
      **/
     void computeDynamicRupture( std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS>&  layerData );
 
-    void handleDynamicRupture( seissol::initializer::Layer&  layerData );
+    void handleDynamicRupture( std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS>&  layerData );
 
     /**
      * Computes all cell local integration.
@@ -265,7 +264,7 @@ private:
 
 #ifdef ACL_DEVICE
     void computeLocalIntegrationDevice( seissol::initializer::Layer&  layerData, bool resetBuffers);
-    void computeDynamicRuptureDevice( seissol::initializer::Layer&  layerData );
+    void computeDynamicRuptureDevice( std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS>&  layerData );
     void computeNeighboringIntegrationDevice( seissol::initializer::Layer&  layerData, double subTimeStart );
 #endif
 

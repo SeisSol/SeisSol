@@ -165,8 +165,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");
         drDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs()));
-        drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
-        drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
+        drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov[0]); //(TODO: fix this for multiple simulations. [0] is a placeholder)
+        drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver[0]); //(TODO: fix this for multiple simulations. [0] is a placeholder)
 #ifdef USE_VISCOELASTIC2
         drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
                                                 tensor::Qext::size() * cell);

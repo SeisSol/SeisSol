@@ -119,7 +119,7 @@ void EnergyOutput::init(
 
 #ifdef ACL_DEVICE
   unsigned maxCells = 0;
-  for (auto it = dynRupTree->beginLeaf(); it != dynRupTree->endLeaf(); ++it) {
+  for (auto it = dynRupTree[0]->beginLeaf(); it != dynRupTree[0]->endLeaf(); ++it) { // (TODO: put it in a loop and collect correctly)
     maxCells = std::max(it->getNumberOfCells(), maxCells);
   }
 
@@ -317,12 +317,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 
       constexpr auto qSize = tensor::Q::size();
-      real* timeDerivativePlusHost =
-          reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
-              maxCells * qSize * sizeof(real)));
-      real* timeDerivativeMinusHost =
-          reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
-              maxCells * qSize * sizeof(real)));
       const auto timeDerivativePlusPtr = [&](unsigned i) {
         return timeDerivativePlusHost + qSize * i;
       };

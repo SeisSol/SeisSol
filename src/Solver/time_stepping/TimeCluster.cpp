@@ -332,7 +332,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
 }
 
 #ifdef ACL_DEVICE
-void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice( seissol::initializer::Layer&  layerData ) {
+void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice( std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS>&  layerData ) {
   SCOREP_USER_REGION( "computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION )
 
   m_loopStatistics->begin(m_regionComputeDynamicRupture);
@@ -806,22 +806,19 @@ void seissol::time_stepping::TimeCluster::correct() { // Here, need to think wha
   // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int.
   // Otherwise, this is an interior layer actor, and we need only the FL_Int.
   // We need to avoid computing it twice.
-  if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) { // Only one scheduler because everything is concatenated
+  if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
     if (dynamicRuptureScheduler->mayComputeInterior(ct.stepsSinceStart)) {
-     computeDynamicRupture(dynRupInteriorData); // This method deals with fused simulations internally by looping for all
+      handleDynamicRupture(*dynRupInteriorData);
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
       seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
-      
       dynamicRuptureScheduler->setLastCorrectionStepsInterior(ct.stepsSinceStart);
     }
     if (layerType == Copy) {
-      computeDynamicRupture(dynRupCopyData); // This method deals with fused simulations internally by looping for all
+      handleDynamicRupture(*dynRupCopyData);
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
       seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
-
       dynamicRuptureScheduler->setLastCorrectionStepsCopy((ct.stepsSinceStart));
     }
-
   }
 
 #ifdef ACL_DEVICE
@@ -867,6 +864,29 @@ void seissol::time_stepping::TimeCluster::correct() { // Here, need to think wha
 
 void seissol::time_stepping::TimeCluster::reset() {
     AbstractTimeCluster::reset();
+}
+
+void TimeCluster::handleDynamicRupture(std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS>& layerData) {
+#ifdef ACL_DEVICE
+  if (executor == Executor::Device) {
+    computeDynamicRuptureDevice(layerData);
+  }
+  else {
+    computeDynamicRupture(layerData);
+  }
+
+  // TODO(David): restrict to copy/interior of same cluster type
+  if (hasDifferentExecutorNeighbor()) {
+    auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host : seissol::initializer::AllocationPlace::Device;
+    layerData.varSynchronizeTo(m_dynRup->fluxSolverMinus, other, streamRuntime.stream());
+    layerData.varSynchronizeTo(m_dynRup->fluxSolverPlus, other, streamRuntime.stream());
+    layerData.varSynchronizeTo(m_dynRup->imposedStateMinus, other, streamRuntime.stream());
+    layerData.varSynchronizeTo(m_dynRup->imposedStatePlus, other, streamRuntime.stream());
+    streamRuntime.wait();
+  }
+#else
+  computeDynamicRupture(layerData);
+#endif
 }
 
 void seissol::time_stepping::TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {

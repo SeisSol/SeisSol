@@ -259,9 +259,11 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable &
           const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
           drKrnl.numElements = numElements;
 
-          drKrnl.fluxSolver = const_cast<const real **>((entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
-          drKrnl.QInterpolated = const_cast<real const**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
-          drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+          drKrnl.fluxSolver = const_cast<const real **>((entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr()); // (TODO: correct this)
+          //drKrnl.QInterpolated = const_cast<real const**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
+          drKrnl.QInterpolatedSingleSim = const_cast<real const**>((entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr()); //(TODO: correct this)
+	  //drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+	  drKrnl.singleSimQ = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(); //(TODO: run the un interleaf kernel and pass the right simulation's pointer here)
 
           tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
           drKrnl.linearAllocator.initialize(tmpMem);

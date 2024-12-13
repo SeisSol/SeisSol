@@ -569,8 +569,8 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& iTi
   // m_dynRupTree.touchVariables();
 
 #ifdef ACL_DEVICE
-  MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree, *m_dynRup.get());
-  m_dynRupTree.allocateScratchPads();
+  MemoryManager::deriveRequiredScratchpadMemoryForDr(*m_dynRupTree[0], *m_dynRup[0].get()); //(TODO: correct this)
+  m_dynRupTree[0]->allocateScratchPads(); //(TODO: check and correct if this needs to be done for every simulation in fused simulations)
 #endif
 }
 
@@ -710,10 +710,10 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
       }
       ++integratedDofsCounter;
 
-      if (CellLocalInformation[cell].faceTypes[0] == FaceType::DynamicRupture ||
-          CellLocalInformation[cell].faceTypes[1] == FaceType::DynamicRupture ||
-          CellLocalInformation[cell].faceTypes[2] == FaceType::DynamicRupture ||
-          CellLocalInformation[cell].faceTypes[3] == FaceType::DynamicRupture) {
+      if (cellInformation[cell].faceTypes[0] == FaceType::DynamicRupture ||
+          cellInformation[cell].faceTypes[1] == FaceType::DynamicRupture ||
+          cellInformation[cell].faceTypes[2] == FaceType::DynamicRupture ||
+          cellInformation[cell].faceTypes[3] == FaceType::DynamicRupture) {
             ++singleSimDofsScratchCounter;
           }
 
@@ -939,8 +939,8 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
 
   recording::CompositeRecorder<seissol::initializer::DynamicRupture> drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
-  for (auto it = m_dynRupTree.beginLeaf(Ghost); it != m_dynRupTree.endLeaf(); ++it) {
-    drRecorder.record(*m_dynRup, *it);
+  for (auto it = m_dynRupTree[0]->beginLeaf(Ghost); it != m_dynRupTree[0]->endLeaf(); ++it) { //(TODO: fix this and consider what needs to be done for multiple simulations)
+    drRecorder.record(*m_dynRup[0], *it);
   }
 }
 #endif // ACL_DEVICE
@@ -1028,11 +1028,11 @@ void seissol::initializer::MemoryManager::initFrictionData() {
     m_DRInitializer[i]->initializeFault(m_dynRup[i].get(), m_dynRupTree[i]);
 
 #ifdef ACL_DEVICE
-    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
+    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice[0].get())) { //(TODO: check what needs to be done for multiple simulations)
       impl->initSyclQueue();
 
       LayerMask mask = seissol::initializer::LayerMask(Ghost);
-      auto maxSize = m_dynRupTree.getMaxClusterSize(mask);
+      auto maxSize = m_dynRupTree[0]->getMaxClusterSize(mask); //(TODO: fix for multiple simulations)
       impl->setMaxClusterSize(maxSize);
 
       impl->allocateAuxiliaryMemory();
@@ -1053,7 +1053,7 @@ void seissol::initializer::MemoryManager::synchronizeTo(seissol::initializer::Al
   }
   const auto& defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
   m_ltsTree.synchronizeTo(place, defaultStream);
-  m_dynRupTree.synchronizeTo(place, defaultStream);
+  m_dynRupTree[0]->synchronizeTo(place, defaultStream);
   m_boundaryTree.synchronizeTo(place, defaultStream);
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif

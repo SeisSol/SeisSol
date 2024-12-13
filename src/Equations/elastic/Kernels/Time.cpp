@@ -532,7 +532,6 @@ void Time::computeBatchedTaylorExpansion(real time,
   }
 
   // iterate over time derivatives
-  const real deltaT = time - expansionPoint;
   intKrnl.power(0) = 1.0;
   for(std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
     intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);

@@ -237,8 +237,12 @@ void LocalIntegrationRecorder::recordDisplacements() {
         auto iview = init::I::view::create(idofsAddressRegistry[cell]);
         // NOTE: velocity components are between 6th and 8th columns
         constexpr unsigned FirstVelocityComponent{6};
-        iVelocitiesPtrs[face].push_back(&iview(0, FirstVelocityComponent));
-        displacementsPtrs[face].push_back(faceDisplacements[cell][face]);
+#ifdef MULTIPLE_SIMULATIONS
+	iVelocitiesPtrs[face].push_back(&iview(0, 0, FirstVelocityComponent)); //(TODO: check for the correct implementation)
+#else
+	iVelocitiesPtrs[face].push_back(&iview(0, FirstVelocityComponent));
+#endif
+	displacementsPtrs[face].push_back(faceDisplacements[cell][face]);
       }
     }
   }

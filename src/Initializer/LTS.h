@@ -49,9 +49,10 @@
 #include "Model/Plasticity.h"
 #include "Tree/Layer.h"
 #include "generated_code/tensor.h"
-
-#ifdef ACL_DEVICE
 #include "Parallel/Helper.h"
+
+/*
+#ifdef ACL_DEVICE
   seissol::initializer::ScratchpadMemory                        integratedDofsScratch;
   seissol::initializer::ScratchpadMemory                        derivativesScratch;
   seissol::initializer::ScratchpadMemory                        nodalAvgDisplacements;
@@ -61,9 +62,10 @@
   seissol::initializer::ScratchpadMemory                        dofsExtScratch;
   seissol::initializer::ScratchpadMemory                        analyticScratch;
 #ifdef MULTIPLE_SIMULATIONS
-  seissol::initializer::ScratchPadMemory                        singleSimDofsScratch;
+  seissol::initializer::ScratchpadMemory                        singleSimDofsScratch;
 #endif
 #endif
+*/
 
 namespace seissol::tensor {
 class Qane;
@@ -159,6 +161,13 @@ struct LTS {
   ScratchpadMemory derivativesScratch;
   ScratchpadMemory nodalAvgDisplacements;
   ScratchpadMemory analyticScratch;
+  ScratchpadMemory derivativesExtScratch;
+  ScratchpadMemory derivativesAneScratch;
+  ScratchpadMemory idofsAneScratch;
+  ScratchpadMemory dofsExtScratch;
+#ifdef MULTIPLE_SIMULATIONS
+  ScratchpadMemory singleSimDofsScratch;
+#endif 
 #endif
 
   /// \todo Memkind
