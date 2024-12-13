@@ -4,6 +4,7 @@
 // Gather all Setup Headers here
 #include "Equations/anisotropic/Model/AnisotropicSetup.h" // IWYU pragma: keep
 #include "Equations/elastic/Model/ElasticSetup.h"         // IWYU pragma: keep
+#include "Equations/acoustic/Model/AcousticSetup.h"       // IWYU pragma: keep
 #ifdef USE_POROELASTIC
 #include "Equations/poroelastic/Model/PoroelasticSetup.h" // IWYU pragma: keep
 #endif
