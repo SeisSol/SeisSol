@@ -2,7 +2,7 @@
 #define SEISSOL_DR_MISC_H
 
 #include "Geometry/MeshDefinition.h"
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 #include "generated_code/init.h"
 #include <cmath>
@@ -25,23 +25,23 @@ constexpr size_t leadDim() noexcept {
 /**
  * Number of gauss points padded to match the vector register length.
  */
-static constexpr inline size_t numPaddedPoints = leadDim<init::QInterpolated>();
-static constexpr inline size_t numQuantities = misc::dimSize<init::QInterpolated, 1>();
+static constexpr inline size_t NumPaddedPoints = leadDim<init::QInterpolated>();
+static constexpr inline size_t NumQuantities = misc::dimSize<init::QInterpolated, 1>();
 
 /**
  * Constants for Thermal Pressurization
  */
-static constexpr size_t numberOfTPGridPoints = 60;
-static constexpr real tpLogDz = 0.3;
-static constexpr real tpMaxWaveNumber = 10.0;
+static constexpr size_t NumTpGridPoints = 60;
+static constexpr real TpLogDz = 0.3;
+static constexpr real TpMaxWaveNumber = 10.0;
 
 /**
  * Number of gauss points on an element surface.
  */
-static constexpr unsigned int numberOfBoundaryGaussPoints = init::QInterpolated::Shape[0];
+static constexpr unsigned int NumBoundaryGaussPoints = init::QInterpolated::Shape[0];
 
 template <class TupleT, class F, std::size_t... I>
-constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...>) {
+constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...> /*unused*/) {
   return (void)std::initializer_list<int>{
              (std::forward<F>(functor)(std::get<I>(std::forward<TupleT>(tuple)), I), 0)...},
          functor;
@@ -60,17 +60,17 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
  * @param base
  * @return
  */
-template <size_t exp, typename T>
+template <size_t Exp, typename T>
 inline auto power(T base) -> T {
   T result = static_cast<T>(1.0);
-  for (size_t i = 0; i < exp; ++i) {
+  for (size_t i = 0; i < Exp; ++i) {
     result *= base;
   }
   return result;
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_floating_point<T>::value, T>::type square(T t) {
+inline std::enable_if_t<std::is_floating_point_v<T>, T> square(T t) {
   return t * t;
 }
 

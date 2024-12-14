@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -49,139 +50,130 @@
 
 #include "FaultWriterExecutor.h"
 #include "Modules/Module.h"
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
 
 namespace seissol {
-  class SeisSol;
-  namespace dr::output {
-    class OutputManager;
-  }
-}
-
+class SeisSol;
+namespace dr::output {
+class OutputManager;
+} // namespace dr::output
+} // namespace seissol
 
 namespace seissol::writer {
 
 class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, FaultParam>,
-	public seissol::Module
-{
-private:
-        seissol::SeisSol& seissolInstance;
+                    public seissol::Module {
+  private:
+  seissol::SeisSol& seissolInstance;
 
-	/** Is enabled? */
-	bool m_enabled;
+  /** Is enabled? */
+  bool m_enabled{false};
 
-	/** The asynchronous executor */
-	FaultWriterExecutor m_executor;
+  /** The asynchronous executor */
+  FaultWriterExecutor m_executor;
 
-	/** Total number of variables */
-	unsigned int m_numVariables;
+  /** Total number of variables */
+  unsigned int m_numVariables{0};
 
-	/** The current output time step */
-	unsigned int m_timestep;
+  /** The current output time step */
+  unsigned int m_timestep{0};
 
-	/** Frontend stopwatch */
-	Stopwatch m_stopwatch;
+  /** Frontend stopwatch */
+  Stopwatch m_stopwatch;
 
-	dr::output::OutputManager* callbackObject{nullptr};
+  dr::output::OutputManager* callbackObject{nullptr};
 
-public:
-	FaultWriter(seissol::SeisSol& seissolInstance) : 
-                seissolInstance(seissolInstance),
-                m_enabled(false),
-		m_numVariables(0),
-		m_timestep(0)
-	{
-	}
+  public:
+  FaultWriter(seissol::SeisSol& seissolInstance)
+      : seissolInstance(seissolInstance)
 
-	/**
-	 * Called by ASYNC on all ranks
-	 */
-	void setUp();
+  {}
 
-	void setTimestep(unsigned int timestep)
-	{
-		m_timestep = timestep;
-	}
+  /**
+   * Called by ASYNC on all ranks
+   */
+  void setUp() override;
 
-	void init(const unsigned int* cells, const double* vertices,
-		const unsigned int* faultTags,
-		unsigned int nCells, unsigned int nVertices,
-		int* outputMask, const real** dataBuffer,
-		const char* outputPrefix,
-		double interval,
-		xdmfwriter::BackendType backend,
-		const std::string& backupTimeStamp);
+  void setTimestep(unsigned int timestep) { m_timestep = timestep; }
 
-	/**
-	 * @return The current time step of the fault output
-	 */
-	unsigned int timestep() const
-	{
-		return m_timestep;
-	}
+  void init(const unsigned int* cells,
+            const double* vertices,
+            const unsigned int* faultTags,
+            unsigned int nCells,
+            unsigned int nVertices,
+            const int* outputMask,
+            const real** dataBuffer,
+            const char* outputPrefix,
+            double interval,
+            xdmfwriter::BackendType backend,
+            const std::string& backupTimeStamp);
 
-	void write(double time)
-	{
-		SCOREP_USER_REGION("FaultWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION)
+  /**
+   * @return The current time step of the fault output
+   */
+  [[nodiscard]] unsigned int timestep() const { return m_timestep; }
 
-		if (!m_enabled)
-			logError() << "Trying to write fault output, but fault output is not enabled";
+  void write(double time) {
+    SCOREP_USER_REGION("FaultWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-		m_stopwatch.start();
+    if (!m_enabled) {
+      logError() << "Trying to write fault output, but fault output is not enabled";
+    }
 
-		const int rank = seissol::MPI::mpi.rank();
+    m_stopwatch.start();
 
-		wait();
+    const int rank = seissol::MPI::mpi.rank();
 
-		logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ".";
+    wait();
 
-		FaultParam param;
-		param.time = time;
+    logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ".";
 
-		for (unsigned int i = 0; i < m_numVariables; i++)
-			sendBuffer(FaultWriterExecutor::VARIABLES0 + i);
+    FaultParam param;
+    param.time = time;
 
-		call(param);
+    for (unsigned int i = 0; i < m_numVariables; i++) {
+      sendBuffer(FaultWriterExecutor::Variables0 + i);
+    }
 
-		// Update the timestep count
-		m_timestep++;
+    call(param);
 
-		m_stopwatch.pause();
+    // Update the timestep count
+    m_timestep++;
 
-		logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
-	}
+    m_stopwatch.pause();
 
-	void close()
-	{
-		if (m_enabled)
-			wait();
+    logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
+  }
 
-		finalize();
+  void close() {
+    if (m_enabled) {
+      wait();
+    }
 
-		if (!m_enabled)
-			return;
+    finalize();
 
-		m_stopwatch.printTime("Time fault writer frontend:");
-	}
+    if (!m_enabled) {
+      return;
+    }
 
-	void tearDown()
-	{
-		m_executor.finalize();
-	}
+    m_stopwatch.printTime("Time fault writer frontend:");
+  }
 
-	void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {
-		callbackObject = faultOutputManager;
-	}
+  void tearDown() override { m_executor.finalize(); }
 
-	//
-	// Hooks
-	//
-	void simulationStart();
+  void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {
+    callbackObject = faultOutputManager;
+  }
 
-	void syncPoint(double currentTime);
+  //
+  // Hooks
+  //
+  void simulationStart() override;
+
+  void syncPoint(double currentTime) override;
 };
 
-}
+} // namespace seissol::writer
 
 #endif // FAULTWRITER_H

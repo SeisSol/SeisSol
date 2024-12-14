@@ -1,7 +1,12 @@
 #pragma once
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include "generated_code/init.h"
+
+namespace seissol::kernels::time::aux {
+void
+    taylorSum(bool integral, std::size_t count, real** target, const real** source, real start, real end, void* stream);
+} // namespace seissol::kernels::time::aux
 
 namespace seissol::kernels::local_flux::aux::details {
   void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
@@ -16,7 +21,7 @@ namespace seissol::kernels::local_flux::aux::details {
                           real** easiBoundaryConstantPtrs,
                           size_t numElements,
                           void* deviceStream);
-} // seissol::kernels::local_flux::aux::details
+} // namespace seissol::kernels::local_flux::aux::details
 
 
 namespace seissol::kernels::local_flux::aux {
@@ -70,7 +75,7 @@ struct EasiBoundary : public DirichletBoundaryAux<EasiBoundary> {
   }
 };
 
-} // seissol::kernels::local_flux::aux
+} // namespace seissol::kernels::local_flux::aux
 
 
 namespace seissol::kernels::time::aux {

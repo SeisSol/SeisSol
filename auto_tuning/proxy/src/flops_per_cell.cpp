@@ -20,10 +20,10 @@ int main()
   seissol::kernels::Local     localKernel;
   seissol::kernels::Neighbor  neighborKernel;
   
-  FaceType faceTypes[] = {FaceType::regular,
-                          FaceType::regular,
-                          FaceType::regular,
-                          FaceType::regular};
+  FaceType faceTypes[] = {FaceType::Regular,
+                          FaceType::Regular,
+                          FaceType::Regular,
+                          FaceType::Regular};
 
   timeKernel.flopsAder( kernelNonZeroFlops, kernelHardwareFlops );
   nonZeroFlops += kernelNonZeroFlops;
@@ -74,10 +74,10 @@ int main()
   
   seissol::kernels::DynamicRupture dynRupKernel;
 
-  FaceType faceTypesDR[] = {FaceType::dynamicRupture,
-                            FaceType::dynamicRupture,
-                            FaceType::dynamicRupture,
-                            FaceType::dynamicRupture};
+  FaceType faceTypesDR[] = {FaceType::DynamicRupture,
+                            FaceType::DynamicRupture,
+                            FaceType::DynamicRupture,
+                            FaceType::DynamicRupture};
   CellDRMapping drMapping[4];
   
   for (int neighborSide = 0; neighborSide < 4; ++neighborSide) {

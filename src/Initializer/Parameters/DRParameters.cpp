@@ -1,5 +1,9 @@
 #include "DRParameters.h"
+#include <Initializer/Parameters/ParameterReader.h>
+#include <Kernels/Precision.h>
 #include <cmath>
+#include <limits>
+#include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
 
@@ -33,6 +37,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
        FrictionLawType::RateAndStateFastVelocityWeakening,
        FrictionLawType::ImposedSlipRatesYoffe,
        FrictionLawType::ImposedSlipRatesGaussian,
+       FrictionLawType::ImposedSlipRatesDelta,
        FrictionLawType::RateAndStateVelocityWeakening,
        FrictionLawType::RateAndStateAgingNucleation});
   auto slipRateOutputType = reader->readWithDefaultEnum<SlipRateOutputType>(
@@ -40,14 +45,14 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       SlipRateOutputType::TractionsAndFailure,
       {SlipRateOutputType::VelocityDifference, SlipRateOutputType::TractionsAndFailure});
   if (((frictionLawType == FrictionLawType::ImposedSlipRatesYoffe) or
-       (frictionLawType == FrictionLawType::ImposedSlipRatesGaussian)) and
+       (frictionLawType == FrictionLawType::ImposedSlipRatesGaussian) or
+       (frictionLawType == FrictionLawType::ImposedSlipRatesDelta)) and
       (slipRateOutputType == SlipRateOutputType::TractionsAndFailure)) {
     logWarning(seissol::MPI::mpi.rank())
         << "SlipRateOutputType=1 is incompatible with imposed slip rates friction laws, "
            "switching to SlipRateOutputType=0";
     slipRateOutputType = SlipRateOutputType::VelocityDifference;
   }
-  const auto backgroundType = reader->readWithDefault("backgroundtype", 0);
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
   const auto healingThreshold =
       static_cast<real>(reader->readWithDefault("lsw_healingthreshold", -1.0));
@@ -82,24 +87,38 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto vStar = reader->readIfRequired<real>("pc_vstar", isBiMaterial);
   const auto prakashLength = reader->readIfRequired<real>("pc_prakashlength", isBiMaterial);
 
-  const std::string faultFileName = reader->readWithDefault("modelfilename", std::string(""));
+  const auto faultFileName = reader->readPath("modelfilename");
 
   auto* outputReader = baseReader->readSubNode("output");
-  bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
+  const bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
   const auto terminatorSlipRateThreshold = static_cast<real>(abortCriteriaReader->readWithDefault(
       "terminatorslipratethreshold", std::numeric_limits<real>::infinity()));
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
       "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
-  bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
+  const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
 
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
-  const bool isDynamicRuptureEnabled = faultFileName != "";
+  const bool isDynamicRuptureEnabled = !faultFileName.value_or("").empty();
 
-  const double etaHack = outputReader->readWithDefault("etahack", 1.0);
+  const double etaHack = [&]() {
+    const auto hackRead1 = reader->read<double>("etahack");
+    if (hackRead1.has_value()) {
+      return hackRead1.value();
+    } else {
+      const auto hackRead2 = outputReader->read<double>("etahack");
+      if (hackRead2.has_value()) {
+        logWarning(seissol::MPI::mpi.rank())
+            << "Reading the etahack parameter from the output section is deprecated and may be "
+               "removed in a future version of SeisSol. Put the parameter into the dynamicrupture "
+               "section instead.";
+      }
+      return hackRead2.value_or(1.0);
+    }
+  }();
 
-  reader->warnDeprecated({"rf_output_on"});
+  reader->warnDeprecated({"rf_output_on", "backgroundtype"});
 
   return DRParameters{isDynamicRuptureEnabled,
                       isThermalPressureOn,
@@ -125,7 +144,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       initialPressure,
                       vStar,
                       prakashLength,
-                      faultFileName,
+                      faultFileName.value_or(""),
                       referencePoint,
                       terminatorSlipRateThreshold,
                       etaHack};

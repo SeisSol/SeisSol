@@ -1,5 +1,12 @@
+..
+  SPDX-FileCopyrightText: 2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 LUMI
 ====
+
+[NOTE: this is almost a copy of the Frontier page]
 
 Website: https://www.lumi-supercomputer.eu/
 
@@ -100,7 +107,7 @@ METIS/ParMETIS:
     tar -xvf parmetis-4.0.3.tar.gz
     cd parmetis-4.0.3
     sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g'  ./metis/include/metis.h
-    make config cc=mpicc cxx=mpicxx prefix=$SEISSOL_PREFIX 
+    make config cc=mpicc cxx=mpicxx prefix=$SEISSOL_PREFIX
     make install
     cp build/Linux-x86_64/libmetis/libmetis.a $SEISSOL_PREFIX/lib
     cp metis/include/metis.h $SEISSOL_PREFIX/include
@@ -152,8 +159,6 @@ For easi (depending on the former two):
     ninja install
     cd ../..
 
-**WARNING: libxsmm gives errors at the moment. We recommend to only resort to PSpaMM for the time being (add ``-DGEMM_TOOLS_LIST=PSpaMM`` to your CMake configuration of SeisSol)**
-
 For libxsmm (note that we need 1.17 sharp; the latest main will not work as intended with the generator):
 
 .. code-block:: bash
@@ -164,12 +169,15 @@ For libxsmm (note that we need 1.17 sharp; the latest main will not work as inte
     cp bin/libxsmm_gemm_generator $SEISSOL_PREFIX/bin
     cd ..
 
+In case there are problems with using libxsmm, you can also consider using only PSpaMM instead; at a tiny performance penalty.
+
 Compiling SeisSol
 ~~~~~~~~~~~~~~~~~
 
 Finally, it's time to clone SeisSol and build it.
 
 However, we need to apply a small hotfix here, since the Cray compiler environment does not work with AdaptiveCpp (it causes problems with finding MPI, the filesystem headers etc.). As a workaround, we compile SeisSol with ``amdclang`` directly, and add the necessary flags from the Cray environment as compiler flags (that can be done by ``CC --cray-print-opts=all``, the same with ``cc`` and ``ftn``).
+Also, for LUMI, we disable the ROCm graphs, since they are not fully functional with SeisSol and ROCm 5.6.
 
 In total, we get the following:
 
@@ -178,7 +186,7 @@ In total, we get the following:
     git clone --recursive https://github.com/SeisSol/SeisSol.git seissol
     mkdir -p seissol/build
     cd seissol/build
-    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
+    CC=amdclang CXX=amdclang++ CFLAGS=$(cc --cray-print-opts=all) CXXFLAGS=$(CC --cray-print-opts=all) cmake .. -GNinja -DPRECISION=single -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a -DHOST_ARCH=milan -DORDER=4 -DASAGI=ON -DNUMA_AWARE_PINNING=ON -DUSE_GRAPH_CAPTURING=OFF -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
     ninja
 
 Optionally, you can install SeisSol to ``$SEISSOL_PREFIX``.
@@ -190,12 +198,13 @@ Attached is a job script which does the pinning for us.
 The pinning on the LUMI nodes needs some special attention, since 8 out of the 64 cores are reserved for the OS (cf. https://lumi-supercomputer.github.io/LUMI-training-materials/User-Updates/Update-202308/lumig-lownoise/ ).
 
 Also, for now we disable the ``HSA_XNACK`` feature, as it is known to cause problems with ROCm 5.6 (cf. https://lumi-supercomputer.github.io/LUMI-EasyBuild-docs/r/rocm ).
+Thus, the unified memory functionality may be very slow (``SEISSOL_USM=1`` or ``SEISSOL_USM_MPI=1``).
 
 .. code-block:: bash
 
     #!/usr/bin/env bash
     #SBATCH --job-name=seissol   # Job name
-    #SBATCH --nodes=<NUMBER-OF-NODES>               # Total number of nodes 
+    #SBATCH --nodes=<NUMBER-OF-NODES>               # Total number of nodes
     #SBATCH --account=<your-project>  # Project for billing
     #SBATCH --mail-user=<your-mail>
     #SBATCH --time=01:00:00       # Run time (d-hh:mm:ss)

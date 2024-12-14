@@ -71,10 +71,13 @@
  * Aligned memory allocation.
  **/
 #include "MemoryAllocator.h"
-#include "Parallel/MPI.h"
 
+#include <cassert>
+#include <cstdlib>
 #include <cstring>
+#include <stdlib.h>
 #include <utils/logger.h>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -222,10 +225,8 @@ void printMemoryAlignment(std::vector<std::vector<unsigned long long>> memoryAli
 }
 
 ManagedAllocator::~ManagedAllocator() {
-  for (AddressVector::const_iterator it = dataMemoryAddresses.begin();
-       it != dataMemoryAddresses.end();
-       ++it) {
-    free(it->second, it->first);
+  for (const auto& [memkind, pointer] : dataMemoryAddresses) {
+    free(pointer, memkind);
   }
 
   // reset memory vectors
@@ -234,7 +235,7 @@ ManagedAllocator::~ManagedAllocator() {
 
 void* ManagedAllocator::allocateMemory(size_t size, size_t alignment, enum Memkind memkind) {
   void* ptrBuffer = allocate(size, alignment, memkind);
-  dataMemoryAddresses.push_back(Address(memkind, ptrBuffer));
+  dataMemoryAddresses.emplace_back(memkind, ptrBuffer);
   return ptrBuffer;
 }
 

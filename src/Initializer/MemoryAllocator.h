@@ -74,7 +74,8 @@
 #ifndef MEMORYALLOCATOR_H_
 #define MEMORYALLOCATOR_H_
 
-#include "Kernels/precision.hpp"
+#include "Common/Constants.h"
+#include "Kernels/Precision.h"
 #include <cassert>
 #include <cstdlib>
 #include <vector>
@@ -101,14 +102,14 @@ using VectorT =
 template <typename T, std::size_t N>
 class AlignedArray {
   public:
-  inline T* data() { return data_; }
-  inline const T* data() const { return data_; }
+  T* data() { return data_; }
+  const T* data() const { return data_; }
   constexpr T& operator[](std::size_t pos) { return data_[pos]; }
   constexpr const T& operator[](std::size_t pos) const { return data_[pos]; }
-  constexpr std::size_t size() const noexcept { return N; }
+  [[nodiscard]] constexpr std::size_t size() const noexcept { return N; }
 
   private:
-  alignas(ALIGNMENT) T data_[N];
+  alignas(Alignment) T data_[N];
 };
 
 // TODO(David): make enum class
@@ -184,6 +185,12 @@ class ManagedAllocator {
    **/
   ~ManagedAllocator();
 
+  ManagedAllocator(const ManagedAllocator&) = delete;
+  auto operator=(const ManagedAllocator&) = delete;
+
+  ManagedAllocator(ManagedAllocator&&) = default;
+  auto operator=(ManagedAllocator&&) noexcept -> ManagedAllocator& = default;
+
   /**
    * Allocates a single chunk of memory with the given size and alignment.
    *
@@ -197,7 +204,18 @@ class ManagedAllocator {
 template <typename T>
 class MemkindArray {
   public:
+  MemkindArray(MemkindArray<T>&& source) = default;
   MemkindArray(const MemkindArray<T>& source) : MemkindArray(source, source.memkind) {}
+
+  auto operator=(const MemkindArray<T>& source) -> MemkindArray& {
+    if (capacity != source.capacity) {
+      resize(source.capacity);
+    }
+    copyFrom(source);
+    return *this;
+  }
+  auto operator=(MemkindArray<T>&& source) noexcept -> MemkindArray& = default;
+
   MemkindArray(const MemkindArray<T>& source, Memkind memkind)
       : MemkindArray(source.size(), memkind) {
     copyFrom(source);
@@ -207,11 +225,12 @@ class MemkindArray {
     copyFrom(source);
   }
   MemkindArray(std::size_t capacity, Memkind memkind) : MemkindArray(memkind) { resize(capacity); }
-  MemkindArray(Memkind memkind) : memkind(memkind), dataPtr(nullptr), capacity(0) {}
+  MemkindArray(Memkind memkind) : memkind(memkind) {}
+
   void resize(std::size_t capacity) {
     this->capacity = capacity;
     free(dataPtr, memkind);
-    dataPtr = allocTyped<T>(capacity, ALIGNMENT, memkind);
+    dataPtr = allocTyped<T>(capacity, Alignment, memkind);
   }
   void copyFrom(const std::vector<T>& source) {
     assert(source.size() <= capacity);
@@ -222,19 +241,19 @@ class MemkindArray {
     memcopyTyped<T>(dataPtr, source.data(), capacity, memkind, source.memkind);
   }
   ~MemkindArray() { free(dataPtr, memkind); }
-  inline T* data() noexcept { return dataPtr; }
-  inline const T* data() const noexcept { return dataPtr; }
-  inline T* begin() noexcept { return dataPtr; }
-  inline T* end() noexcept { return dataPtr + capacity; }
-  inline const T* begin() const noexcept { return dataPtr; }
-  inline const T* end() const noexcept { return dataPtr + capacity; }
+  T* data() noexcept { return dataPtr; }
+  const T* data() const noexcept { return dataPtr; }
+  T* begin() noexcept { return dataPtr; }
+  T* end() noexcept { return dataPtr + capacity; }
+  const T* begin() const noexcept { return dataPtr; }
+  const T* end() const noexcept { return dataPtr + capacity; }
   constexpr T& operator[](std::size_t index) { return dataPtr[index]; }
   constexpr const T& operator[](std::size_t index) const { return dataPtr[index]; }
-  constexpr std::size_t size() const noexcept { return capacity; }
+  [[nodiscard]] constexpr std::size_t size() const noexcept { return capacity; }
 
   private:
   T* dataPtr{nullptr};
-  std::size_t capacity;
+  std::size_t capacity{0};
   enum Memkind memkind;
 };
 

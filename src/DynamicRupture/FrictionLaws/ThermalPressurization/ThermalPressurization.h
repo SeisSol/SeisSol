@@ -6,7 +6,7 @@
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 
 namespace seissol::dr::friction_law {
 
@@ -20,7 +20,7 @@ class GridPoints {
   GridPoints() {
     for (size_t i = 0; i < N; ++i) {
       values[i] =
-          misc::tpMaxWaveNumber * std::exp(-misc::tpLogDz * (misc::numberOfTPGridPoints - i - 1));
+          misc::TpMaxWaveNumber * std::exp(-misc::TpLogDz * (misc::NumTpGridPoints - i - 1));
     }
   }
   const real& operator[](size_t i) const { return values[i]; };
@@ -39,10 +39,10 @@ class InverseFourierCoefficients {
     const GridPoints<N> localGridPoints;
 
     for (size_t i = 1; i < N - 1; ++i) {
-      values[i] = std::sqrt(2 / M_PI) * localGridPoints[i] * misc::tpLogDz;
+      values[i] = std::sqrt(2 / M_PI) * localGridPoints[i] * misc::TpLogDz;
     }
-    values[0] = std::sqrt(2 / M_PI) * localGridPoints[0] * (1 + misc::tpLogDz);
-    values[N - 1] = std::sqrt(2 / M_PI) * localGridPoints[N - 1] * 0.5 * misc::tpLogDz;
+    values[0] = std::sqrt(2 / M_PI) * localGridPoints[0] * (1 + misc::TpLogDz);
+    values[N - 1] = std::sqrt(2 / M_PI) * localGridPoints[N - 1] * 0.5 * misc::TpLogDz;
   }
   const real& operator[](size_t i) const { return values[i]; };
 
@@ -107,35 +107,35 @@ class ThermalPressurization {
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
+                          const seissol::initializer::DynamicRupture* dynRup,
                           real fullUpdateTime);
 
   /**
    * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face
    * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree
    */
-  void calcFluidPressure(const std::array<real, misc::numPaddedPoints>& normalStress,
-                         const real (*mu)[misc::numPaddedPoints],
-                         const std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
+  void calcFluidPressure(const std::array<real, misc::NumPaddedPoints>& normalStress,
+                         const real (*mu)[misc::NumPaddedPoints],
+                         const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
                          real deltaT,
                          bool saveTPinLTS,
                          unsigned int timeIndex,
                          unsigned int ltsFace);
 
-  real getFluidPressure(unsigned int ltsFace, unsigned int pointIndex) const {
+  [[nodiscard]] real getFluidPressure(unsigned int ltsFace, unsigned int pointIndex) const {
     return pressure[ltsFace][pointIndex];
   }
 
   protected:
-  real (*temperature)[misc::numPaddedPoints];
-  real (*pressure)[misc::numPaddedPoints];
-  real (*theta)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*sigma)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*thetaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*sigmaTmpBuffer)[misc::numPaddedPoints][misc::numberOfTPGridPoints];
-  real (*halfWidthShearZone)[misc::numPaddedPoints];
-  real (*hydraulicDiffusivity)[misc::numPaddedPoints];
-  real (*faultStrength)[misc::numPaddedPoints];
+  real (*temperature)[misc::NumPaddedPoints]{};
+  real (*pressure)[misc::NumPaddedPoints]{};
+  real (*theta)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*halfWidthShearZone)[misc::NumPaddedPoints]{};
+  real (*hydraulicDiffusivity)[misc::NumPaddedPoints]{};
+  real (*faultStrength)[misc::NumPaddedPoints]{};
 
   private:
   seissol::initializer::parameters::DRParameters* drParameters;

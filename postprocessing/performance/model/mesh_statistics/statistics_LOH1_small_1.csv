@@ -1,2 +1,0 @@
-partition,elements,neighboring_ranks,max_mpi_faces_per_neighboring_rank,interior_elements,mpi_elements,mpi_faces,mpi_dr_faces,dynamic_rupture_faces,free_surface_faces,transparent_faces,mpi_copy_elements,mpi_ghost_elements
-0,386518,0,0,386518,0,0,0,0,12658,9022,0,0

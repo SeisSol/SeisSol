@@ -43,25 +43,31 @@
  * Counts the floating point operations in SeisSol.
  **/
 
-#include "Unit.hpp"
+#include "Unit.h"
 #include <cassert>
+#include <cstddef>
 #include <fstream>
+#include <mpi.h>
+#include <ostream>
+#include <string>
 
+// NOLINTNEXTLINE
 long long libxsmm_num_total_flops = 0;
+// NOLINTNEXTLINE
 long long pspamm_num_total_flops = 0;
 
 #include "Parallel/MPI.h"
 
-#include "FlopCounter.hpp"
+#include "FlopCounter.h"
 
 #include <utils/logger.h>
 
 namespace seissol::monitoring {
 
-void FlopCounter::init(std::string outputFileNamePrefix) {
+void FlopCounter::init(const std::string& outputFileNamePrefix) {
   const std::string outputFileName = outputFileNamePrefix + "-flops.csv";
   const int rank = seissol::MPI::mpi.rank();
-  const size_t worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
+  const auto worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
   if (rank == 0) {
     out.open(outputFileName);
     out << "time,";
@@ -76,7 +82,7 @@ void FlopCounter::init(std::string outputFileNamePrefix) {
 
 void FlopCounter::printPerformanceUpdate(double wallTime) {
   const int rank = seissol::MPI::mpi.rank();
-  const size_t worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
+  const auto worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
 
   const long long newTotalFlops = hardwareFlopsLocal + hardwareFlopsNeighbor + hardwareFlopsOther +
                                   hardwareFlopsDynamicRupture + hardwareFlopsPlasticity;
@@ -130,7 +136,7 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
 /**
  * Prints the measured FLOP/s.
  */
-void FlopCounter::printPerformanceSummary(double wallTime) {
+void FlopCounter::printPerformanceSummary(double wallTime) const {
   const int rank = seissol::MPI::mpi.rank();
 
   enum Counter {
@@ -142,10 +148,10 @@ void FlopCounter::printPerformanceSummary(double wallTime) {
     DRHardwareFlops,
     PLNonZeroFlops,
     PLHardwareFlops,
-    NUM_COUNTERS
+    NumCounters
   };
 
-  double flops[NUM_COUNTERS];
+  double flops[NumCounters];
 
   flops[Libxsmm] = libxsmm_num_total_flops;
   flops[Pspamm] = pspamm_num_total_flops;
@@ -157,8 +163,8 @@ void FlopCounter::printPerformanceSummary(double wallTime) {
   flops[PLHardwareFlops] = hardwareFlopsPlasticity;
 
 #ifdef USE_MPI
-  double totalFlops[NUM_COUNTERS];
-  MPI_Reduce(&flops, &totalFlops, NUM_COUNTERS, MPI_DOUBLE, MPI_SUM, 0, seissol::MPI::mpi.comm());
+  double totalFlops[NumCounters];
+  MPI_Reduce(&flops, &totalFlops, NumCounters, MPI_DOUBLE, MPI_SUM, 0, seissol::MPI::mpi.comm());
 #else
   double* totalFlops = &flops[0];
 #endif

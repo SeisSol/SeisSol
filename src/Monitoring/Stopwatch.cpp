@@ -2,14 +2,15 @@
 
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
+#include <mpi.h>
 #include <time.h>
 
-#include "Unit.hpp"
+#include "Unit.h"
 #include <string>
 
 namespace seissol {
 
-Stopwatch::Stopwatch() : time(0) {}
+Stopwatch::Stopwatch() = default;
 
 /**
  * Reset the stopwatch to zero
@@ -27,7 +28,7 @@ void Stopwatch::start() { clock_gettime(CLOCK_MONOTONIC, &startTime); }
  * @return measured time (until now) in seconds
  */
 double Stopwatch::split() {
-  struct timespec end;
+  struct timespec end{};
   clock_gettime(CLOCK_MONOTONIC, &end);
 
   return seconds(difftime(startTime, end));
@@ -39,7 +40,7 @@ double Stopwatch::split() {
  * @return measured time (until now) in seconds
  */
 double Stopwatch::pause() {
-  struct timespec end;
+  struct timespec end{};
   clock_gettime(CLOCK_MONOTONIC, &end);
 
   time += difftime(startTime, end);
@@ -52,7 +53,7 @@ double Stopwatch::pause() {
  * @return measured time in seconds
  */
 double Stopwatch::stop() {
-  double time = pause();
+  const double time = pause();
   reset();
   return time;
 }
@@ -72,8 +73,9 @@ void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
   double min = time;
   double max = time;
 
-  if (comm == MPI_COMM_NULL)
+  if (comm == MPI_COMM_NULL) {
     comm = seissol::MPI::mpi.comm();
+  }
 
   MPI_Comm_rank(comm, &rank);
 
@@ -82,13 +84,13 @@ void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
     MPI_Reduce(MPI_IN_PLACE, &min, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
     MPI_Reduce(MPI_IN_PLACE, &max, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
 
-    int size;
+    int size = 0;
     MPI_Comm_size(comm, &size);
     avg /= size;
   } else {
-    MPI_Reduce(&avg, 0L, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
-    MPI_Reduce(&min, 0L, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
-    MPI_Reduce(&max, 0L, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
+    MPI_Reduce(&avg, nullptr, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+    MPI_Reduce(&min, nullptr, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
+    MPI_Reduce(&max, nullptr, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
   }
 #endif // USE_MPI
 

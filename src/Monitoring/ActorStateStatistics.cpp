@@ -1,5 +1,8 @@
 #include "ActorStateStatistics.h"
 #include "LoopStatistics.h"
+#include <Solver/time_stepping/ActorState.h>
+#include <optional>
+#include <time.h>
 
 namespace seissol {
 
@@ -29,7 +32,7 @@ ActorStateStatistics::Sample::Sample(seissol::time_stepping::ActorState state)
   clock_gettime(CLOCK_MONOTONIC, &begin);
 }
 void ActorStateStatistics::Sample::finish() {
-  timespec endTime;
+  timespec endTime{};
   clock_gettime(CLOCK_MONOTONIC, &endTime);
   end = endTime;
 }

@@ -15,8 +15,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSImposedSlipRates* const>(dynRup);
+    const auto* concreteLts =
+        dynamic_cast<const seissol::initializer::LTSImposedSlipRates*>(dynRup);
     imposedSlipDirection1 = layerData.var(concreteLts->imposedSlipDirection1);
     imposedSlipDirection2 = layerData.var(concreteLts->imposedSlipDirection2);
     stf.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -24,8 +24,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
 
   void updateFrictionAndSlip(const FaultStresses& faultStresses,
                              TractionResults& tractionResults,
-                             std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
-                             std::array<real, misc::numPaddedPoints>& strengthBuffer,
+                             std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
+                             std::array<real, misc::NumPaddedPoints>& strengthBuffer,
                              unsigned ltsFace,
                              unsigned timeIndex) {
     const real timeIncrement = this->deltaT[timeIndex];
@@ -35,7 +35,7 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     }
 
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       const real stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
       this->traction1[ltsFace][pointIndex] =
@@ -63,13 +63,13 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     }
   }
 
-  void preHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {}
-  void postHook(std::array<real, misc::numPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {}
+  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {}
+  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {}
   void saveDynamicStressOutput(unsigned int ltsFace) {}
 
   protected:
-  real (*imposedSlipDirection1)[misc::numPaddedPoints];
-  real (*imposedSlipDirection2)[misc::numPaddedPoints];
+  real (*imposedSlipDirection1)[misc::NumPaddedPoints]{};
+  real (*imposedSlipDirection2)[misc::NumPaddedPoints]{};
   STF stf{};
 };
 

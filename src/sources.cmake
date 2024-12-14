@@ -31,6 +31,7 @@ src/Kernels/TimeCommon.cpp
 src/Kernels/Touch.cpp
 src/Kernels/PointSourceClusterOnHost.cpp
 
+src/Common/Filesystem.cpp
 src/Common/IntegerMaskParser.cpp
 src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
 src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
@@ -44,6 +45,7 @@ src/DynamicRupture/Initializer/RateAndStateInitializer.cpp
 src/DynamicRupture/Misc.cpp
 
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
+src/Initializer/InitialFieldProjection.cpp
 src/Initializer/PointMapper.cpp
 src/Modules/Module.cpp
 src/Modules/Modules.cpp
@@ -55,13 +57,13 @@ src/Monitoring/Stopwatch.cpp
 src/Monitoring/Unit.cpp
 
 src/Kernels/Receiver.cpp
-src/Model/common.cpp
-src/Numerical_aux/Functions.cpp
-src/Numerical_aux/Statistics.cpp
+src/Model/Common.cpp
+src/Numerical/Functions.cpp
+src/Numerical/Statistics.cpp
 src/Parallel/Pin.cpp
 src/Physics/InstantaneousTimeMirrorManager.cpp
-src/Solver/Pipeline/DrTuner.cpp
 src/ResultWriter/ClusteringWriter.cpp
+src/ResultWriter/AsyncIO.cpp
 
 src/SourceTerm/FSRMReader.cpp
 src/SourceTerm/PointSource.cpp
@@ -82,12 +84,6 @@ add_library(SeisSol-lib STATIC)
 endif()
 
 target_sources(SeisSol-lib PRIVATE
-src/Checkpoint/Backend.cpp
-src/Checkpoint/Fault.cpp
-src/Checkpoint/Manager.cpp
-src/Checkpoint/posix/Fault.cpp
-src/Checkpoint/posix/Wavefield.cpp
-
 src/ResultWriter/EnergyOutput.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
 src/ResultWriter/FreeSurfaceWriterExecutor.cpp
@@ -105,7 +101,7 @@ src/DynamicRupture/Output/OutputAux.cpp
 src/DynamicRupture/Output/OutputManager.cpp
 src/DynamicRupture/Output/ReceiverBasedOutput.cpp
 
-src/Equations/poroelastic/Model/datastructures.cpp
+src/Equations/poroelastic/Model/Datastructures.cpp
 
 src/Geometry/MeshReader.cpp
 src/Geometry/MeshTools.cpp
@@ -116,7 +112,6 @@ src/Initializer/InitProcedure/InitMesh.cpp
 src/Initializer/InitProcedure/InitModel.cpp
 src/Initializer/InitProcedure/InitIO.cpp
 src/Initializer/InitProcedure/InitSideConditions.cpp
-src/Initializer/InitialFieldProjection.cpp
 src/Initializer/InternalState.cpp
 src/Initializer/MemoryAllocator.cpp
 src/Initializer/MemoryManager.cpp
@@ -133,16 +128,15 @@ src/Initializer/Parameters/ParameterReader.cpp
 src/Initializer/Parameters/SeisSolParameters.cpp
 src/Initializer/Parameters/SourceParameters.cpp
 
-src/Initializer/time_stepping/GlobalTimestep.cpp
-src/Initializer/time_stepping/LtsLayout.cpp
+src/Initializer/TimeStepping/GlobalTimestep.cpp
+src/Initializer/TimeStepping/LtsLayout.cpp
 
-src/Initializer/tree/Lut.cpp
+src/Initializer/Tree/Lut.cpp
 
-src/Numerical_aux/ODEInt.cpp
-src/Numerical_aux/ODEVector.cpp
-src/Numerical_aux/Transformation.cpp
+src/Numerical/ODEInt.cpp
+src/Numerical/ODEVector.cpp
+src/Numerical/Transformation.cpp
 
-src/Physics/Attenuation.cpp
 src/Physics/InitialField.cpp
 
 src/SeisSol.cpp
@@ -169,28 +163,12 @@ set(SYCL_ONLY_SRC_FILES
 target_compile_options(SeisSol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
 target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)
 
-if (MPI)
-  target_sources(SeisSol-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/Wavefield.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/FaultAsync.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/Fault.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/mpio/WavefieldAsync.cpp
-)
-endif()
-
-if (HDF5)
-  target_sources(SeisSol-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/h5/Wavefield.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Checkpoint/h5/Fault.cpp
-    )
-endif()
-
 if (HDF5 AND MPI)
   target_sources(SeisSol-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PartitioningLib.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/PUMLReader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights/LtsWeights.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/time_stepping/LtsWeights/WeightsModels.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/TimeStepping/LtsWeights/LtsWeights.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Initializer/TimeStepping/LtsWeights/WeightsModels.cpp
     )
 endif()
 
@@ -270,6 +248,7 @@ if (WITH_GPU)
   set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS}
                              ${CMAKE_CURRENT_SOURCE_DIR}/submodules/TensorForge/tensorforge/include
                              ${CMAKE_BINARY_DIR}/src/generated_code
+                             ${CMAKE_BINARY_DIR}/src
                              ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
   # include cmake files will define SeisSol-device-lib target
@@ -288,3 +267,6 @@ if (WITH_GPU)
     target_compile_definitions(SeisSol-device-lib PRIVATE USE_ELASTIC)
   endif()
 endif()
+
+add_subdirectory(src/IO)
+target_link_libraries(SeisSol-lib PUBLIC seissol-io)

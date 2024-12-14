@@ -47,11 +47,11 @@
 #include <cassert>
 #include <memory>
 
-#include "Initializer/typedefs.hpp"
-#include "SourceTerm/typedefs.hpp"
+#include "Initializer/Typedefs.h"
+#include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 #include "Initializer/MemoryManager.h"
-#include "Initializer/time_stepping/LtsLayout.h"
+#include "Initializer/TimeStepping/LtsLayout.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "ResultWriter/ReceiverWriter.h"
@@ -165,7 +165,7 @@ class seissol::time_stepping::TimeManager {
      * @param sourceClusters Collection of point sources for clusters
      */
     void setPointSourcesForClusters(
-        std::unordered_map<LayerType, std::vector<seissol::sourceterm::PointSourceClusterPair>> sourceClusters);
+        std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> sourceClusters);
 
   /**
    * Returns the writer for the receivers

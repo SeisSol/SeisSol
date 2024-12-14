@@ -5,7 +5,7 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Initializers.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Output/Output.hpp"
+#include "Output/Output.h"
 #include <memory>
 #include <utils/logger.h>
 
@@ -20,7 +20,7 @@ namespace friction_law_gpu = seissol::dr::friction_law;
 
 namespace seissol::dr::factory {
 std::unique_ptr<AbstractFactory>
-    getFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
+    getFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
                seissol::SeisSol& seissolInstance) {
   switch (drParameters->frictionLawType) {
   case seissol::initializer::parameters::FrictionLawType::NoFault:
@@ -29,6 +29,8 @@ std::unique_ptr<AbstractFactory>
     return std::make_unique<ImposedSlipRatesYoffeFactory>(drParameters, seissolInstance);
   case seissol::initializer::parameters::FrictionLawType::ImposedSlipRatesGaussian:
     return std::make_unique<ImposedSlipRatesGaussianFactory>(drParameters, seissolInstance);
+  case seissol::initializer::parameters::FrictionLawType::ImposedSlipRatesDelta:
+    return std::make_unique<ImposedSlipRatesDeltaFactory>(drParameters, seissolInstance);
   case seissol::initializer::parameters::FrictionLawType::LinearSlipWeakening:
     return std::make_unique<LinearSlipWeakeningFactory>(drParameters, seissolInstance);
   case seissol::initializer::parameters::FrictionLawType::LinearSlipWeakeningBimaterial:
@@ -41,10 +43,10 @@ std::unique_ptr<AbstractFactory>
     return std::make_unique<RateAndStateSlipFactory>(drParameters, seissolInstance);
   case seissol::initializer::parameters::FrictionLawType::RateAndStateVelocityWeakening:
     logError() << "friction law 7 currently disabled";
-    return std::unique_ptr<AbstractFactory>(nullptr);
+    return {nullptr};
   case seissol::initializer::parameters::FrictionLawType::RateAndStateAgingNucleation:
     logError() << "friction law 101 currently disabled";
-    return std::unique_ptr<AbstractFactory>(nullptr);
+    return {nullptr};
   case seissol::initializer::parameters::FrictionLawType::RateAndStateFastVelocityWeakening:
     return std::make_unique<RateAndStateFastVelocityWeakeningFactory>(drParameters,
                                                                       seissolInstance);
@@ -58,7 +60,7 @@ DynamicRuptureTuple NoFaultFactory::produce() {
   return {std::make_unique<seissol::initializer::DynamicRupture>(),
           std::make_unique<initializer::NoFaultInitializer>(drParameters, seissolInstance),
           std::make_unique<friction_law::NoFault>(drParameters.get()),
-          std::make_unique<friction_law::NoFault>(drParameters.get()),
+          std::make_unique<friction_law_gpu::NoFault>(drParameters.get()),
           std::make_unique<output::OutputManager>(std::make_unique<output::NoFault>(),
                                                   seissolInstance)};
 }
@@ -174,6 +176,17 @@ DynamicRuptureTuple ImposedSlipRatesGaussianFactory::produce() {
               drParameters.get(), 34),
           std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
                                                   seissolInstance)};
+}
+
+DynamicRuptureTuple ImposedSlipRatesDeltaFactory::produce() {
+  return {
+      std::make_unique<seissol::initializer::LTSImposedSlipRatesDelta>(),
+      std::make_unique<initializer::ImposedSlipRatesDeltaInitializer>(drParameters,
+                                                                      seissolInstance),
+      std::make_unique<friction_law::ImposedSlipRates<friction_law::DeltaSTF>>(drParameters.get()),
+      std::make_unique<friction_law::ImposedSlipRates<friction_law::DeltaSTF>>(drParameters.get()),
+      std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
+                                              seissolInstance)};
 }
 
 DynamicRuptureTuple RateAndStateFastVelocityWeakeningFactory::produce() {

@@ -1,11 +1,11 @@
 #ifndef SEISSOL_RECORDERS_H
 #define SEISSOL_RECORDERS_H
 
-#include "DataTypes/ConditionalTable.hpp"
+#include "DataTypes/ConditionalTable.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
-#include "Initializer/tree/Layer.hpp"
-#include "Kernels/Interface.hpp"
+#include "Initializer/Tree/Layer.h"
+#include "Kernels/Interface.h"
 #include "utils/logger.h"
 #include <vector>
 

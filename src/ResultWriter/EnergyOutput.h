@@ -9,9 +9,9 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Lut.hpp"
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Lut.h"
+#include "Initializer/Typedefs.h"
 
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Module.h"
@@ -68,7 +68,12 @@ class EnergyOutput : public Module {
 
   EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
-  ~EnergyOutput();
+  ~EnergyOutput() override;
+
+  auto operator=(const EnergyOutput&) = delete;
+  auto operator=(EnergyOutput&&) = delete;
+  EnergyOutput(const EnergyOutput&) = delete;
+  EnergyOutput(EnergyOutput&&) = delete;
 
   private:
   real computeStaticWork(const real* degreesOfFreedomPlus,
@@ -89,7 +94,7 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion(real timeSinceThreshold, const std::string& prefix_message);
+  void checkAbortCriterion(real timeSinceThreshold, const std::string& prefixMessage);
 
   void writeHeader();
 
@@ -111,10 +116,13 @@ class EnergyOutput : public Module {
   std::string outputFileName;
   std::ofstream out;
 
+#ifdef ACL_DEVICE
   real* timeDerivativePlusHost = nullptr;
   real* timeDerivativeMinusHost = nullptr;
   real* timeDerivativePlusHostMapped = nullptr;
   real* timeDerivativeMinusHostMapped = nullptr;
+#endif
+
   const GlobalData* global = nullptr;
   seissol::initializer::DynamicRupture* dynRup = nullptr;
   seissol::initializer::LTSTree* dynRupTree = nullptr;
@@ -124,11 +132,11 @@ class EnergyOutput : public Module {
   seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
-  real minTimeSinceSlipRateBelowThreshold;
+  real minTimeSinceSlipRateBelowThreshold{};
   real minTimeSinceMomentRateBelowThreshold = 0.0;
-  double terminatorMaxTimePostRupture;
-  double energyOutputInterval;
-  double terminatorMomentRateThreshold;
+  double terminatorMaxTimePostRupture{};
+  double energyOutputInterval{};
+  double terminatorMomentRateThreshold{};
   double seismicMomentPrevious = 0.0;
 };
 

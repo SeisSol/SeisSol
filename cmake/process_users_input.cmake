@@ -1,12 +1,21 @@
-option(HDF5 "Use HDF5 library for data output" ON)
+# FIXME: forced to be on
+# option(HDF5 "Use HDF5 library for data output" ON)
+set(HDF5 ON)
+
 option(NETCDF "Use netcdf library for mesh input" ON)
 
 set(GRAPH_PARTITIONING_LIBS "parmetis" CACHE STRING "Graph partitioning library for mesh partitioning")
-set(GRAPH_PARTITIONING_LIB_OPTIONS parmetis parhip ptscotch)
+set(GRAPH_PARTITIONING_LIB_OPTIONS none parmetis parhip ptscotch)
 set_property(CACHE GRAPH_PARTITIONING_LIBS PROPERTY STRINGS ${GRAPH_PARTITIONING_LIB_OPTIONS})
 
-option(MPI "Use MPI parallelization" ON)
-option(OPENMP "Use OpenMP parallelization" ON)
+# FIXME: forced to be on
+# option(MPI "Use MPI parallelization" ON)
+set(MPI ON)
+
+# FIXME: forced to be on
+# option(OPENMP "Use OpenMP parallelization" ON)
+set(OPENMP ON)
+
 option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
 option(LIKWID "Link with the likwid marker interface for proxy" OFF)
@@ -45,9 +54,9 @@ set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
 
 set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
 set(DEVICE_ARCH_OPTIONS none
-        sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90                          # Nvidia
-        gfx900 gfx906 gfx908 gfx90a gfx942 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102 gfx1150 gfx1200 # AMD
-        bdw skl dg1 acm_g10 acm_g11 acm_g12 pvc Gen8 Gen9 Gen11 Gen12LP)                           # Intel
+        sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90 sm_100                          # Nvidia
+        gfx900 gfx906 gfx908 gfx90a gfx942 gfx950 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102 gfx1150 gfx1200 # AMD
+        bdw skl dg1 acm_g10 acm_g11 acm_g12 pvc Gen8 Gen9 Gen11 Gen12LP)                                  # Intel
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 set(PRECISION "double" CACHE STRING "Type of floating point precision, namely: double/single")
@@ -67,7 +76,6 @@ set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
 
 set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
 
-
 set(MEMORY_LAYOUT "auto" CACHE FILEPATH "A file with a specific memory layout or auto")
 
 option(NUMA_AWARE_PINNING "Use libnuma to pin threads to correct NUMA nodes" ON)
@@ -76,9 +84,10 @@ option(SHARED "Build SeisSol as shared library" OFF)
 
 option(PROXY_PYBINDING "Enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
-set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
-set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
-set_property(CACHE LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
+# FIXME: currently unused
+#set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
+#set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
+#set_property(CACHE LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
 
 set(LOG_LEVEL_MASTER "info" CACHE STRING "Log level for the code")
 set(LOG_LEVEL_MASTER_OPTIONS "debug" "info" "warning" "error")
@@ -112,7 +121,7 @@ check_parameter("DEVICE_ARCH" ${DEVICE_ARCH} "${DEVICE_ARCH_OPTIONS}")
 check_parameter("EQUATIONS" ${EQUATIONS} "${EQUATIONS_OPTIONS}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
-check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
+# check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
 
 # deduce GEMM_TOOLS_LIST based on the host arch
@@ -178,18 +187,22 @@ message(STATUS "GEMM_TOOLS are: ${GEMM_TOOLS_LIST}")
 
 if (DEVICE_ARCH MATCHES "sm_*")
     set(DEVICE_VENDOR "nvidia")
-    set(PREMULTIPLY_FLUX_DEFAULT ON)
+    set(IS_NVIDIA_OR_AMD ON)
 elseif(DEVICE_ARCH MATCHES "gfx*")
     set(DEVICE_VENDOR "amd")
-    set(PREMULTIPLY_FLUX_DEFAULT ON)
+    set(IS_NVIDIA_OR_AMD ON)
 else()
     # TODO(David): adjust as soon as we add support for more vendors
     set(DEVICE_VENDOR "intel")
-    set(PREMULTIPLY_FLUX_DEFAULT OFF)
+    set(IS_NVIDIA_OR_AMD OFF)
 endif()
 
 if (WITH_GPU)
-    option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${PREMULTIPLY_FLUX_DEFAULT})
+    # the premultiplication was only so far demonstrated to be efficient on AMD+NVIDIA HW; enable on others by demand
+    option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${IS_NVIDIA_OR_AMD})
+
+    # experimental kernels should stay experimental; they've only be sort of tested on NV+AMD hardware for now
+    option(DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS "Enable experimental explicitly-written kernels" OFF)
 endif()
 
 
@@ -253,12 +266,6 @@ endif()
 #-------------------------------------------------------------------------------
 # -------------------- COMPUTE/ADJUST ADDITIONAL PARAMETERS --------------------
 #-------------------------------------------------------------------------------
-# PDE-Settings
-if (EQUATIONS STREQUAL "poroelastic")
-  set(NUMBER_OF_QUANTITIES "13")
-else()
-  MATH(EXPR NUMBER_OF_QUANTITIES "9 + 6 * ${NUMBER_OF_MECHANISMS}" )
-endif()
 
 # generate an internal representation of an architecture type which is used in seissol
 string(SUBSTRING ${PRECISION} 0 1 PRECISION_PREFIX)

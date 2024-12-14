@@ -7,14 +7,13 @@
 
 #include <xdmfwriter/backends/Backend.h>
 
-#include "Initializer/InputAux.hpp"
+#include "Equations/Datastructures.h"
+#include "Initializer/InputAux.h"
 #include "ParameterReader.h"
 
 namespace seissol::initializer::parameters {
 
-constexpr double veryLongTime = 1.0e100;
-
-enum CheckpointingBackend { POSIX, HDF5, MPIO, MPIO_ASYNC, SIONLIB, DISABLED };
+constexpr double VeryLongTime = 1.0e100;
 
 enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
 
@@ -25,8 +24,6 @@ enum class VolumeRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refi
 struct CheckpointParameters {
   bool enabled;
   double interval;
-  CheckpointingBackend backend;
-  std::string fileName;
 };
 
 struct ElementwiseFaultParameters {
@@ -34,6 +31,7 @@ struct ElementwiseFaultParameters {
   std::array<bool, 12> outputMask{true, true, true, true};
   FaultRefinement refinementStrategy{FaultRefinement::Quad};
   int refinement{2};
+  int vtkorder{-1};
 };
 
 struct EnergyOutputParameters {
@@ -41,6 +39,7 @@ struct EnergyOutputParameters {
   int computeVolumeEnergiesEveryOutput;
   double interval;
   bool terminalOutput;
+  int terminalPrecision;
   double terminatorMaxTimePostRupture;
   double terminatorMomentRateThreshold;
 };
@@ -49,28 +48,32 @@ struct FreeSurfaceOutputParameters {
   bool enabled;
   unsigned refinement;
   double interval;
+  int vtkorder{-1};
 };
 
 struct PickpointParameters {
   int printTimeInterval{1};
   int maxPickStore{50};
   std::array<bool, 12> outputMask{true, true, true};
-  std::string pickpointFileName{};
+  std::string pickpointFileName;
+  bool collectiveio{false};
 };
 
 struct ReceiverOutputParameters {
   bool enabled;
   bool computeRotation;
+  bool computeStrain;
   double interval;
   double samplingInterval;
   std::string fileName;
+  bool collectiveio{false};
 };
 
 struct OutputInterval {
   double lower;
   double upper;
 
-  bool contains(double value) const { return value >= lower && value <= upper; }
+  [[nodiscard]] bool contains(double value) const { return value >= lower && value <= upper; }
 };
 
 struct OutputBounds {
@@ -84,7 +87,7 @@ struct OutputBounds {
                OutputInterval intervalZ)
       : enabled(enabled), boundsX(intervalX), boundsY(intervalY), boundsZ(intervalZ) {};
 
-  bool contains(double x, double y, double z) const {
+  [[nodiscard]] bool contains(double x, double y, double z) const {
     if (enabled) {
       return boundsX.contains(x) && boundsY.contains(y) && boundsZ.contains(z);
     } else {
@@ -95,10 +98,11 @@ struct OutputBounds {
 
 struct WaveFieldOutputParameters {
   bool enabled;
+  int vtkorder;
   double interval;
   VolumeRefinement refinement;
   OutputBounds bounds;
-  std::array<bool, NUMBER_OF_QUANTITIES> outputMask;
+  std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask;
   std::array<bool, 7> plasticityMask;
   std::array<bool, 9> integrationMask;
   std::unordered_set<int> groups;
@@ -121,14 +125,14 @@ struct OutputParameters {
   OutputParameters(bool loopStatisticsNetcdfOutput,
                    OutputFormat format,
                    xdmfwriter::BackendType xdmfWriterBackend,
-                   std::string prefix,
-                   CheckpointParameters checkpointParameters,
-                   ElementwiseFaultParameters elementwiseParameters,
-                   EnergyOutputParameters energyParameters,
-                   FreeSurfaceOutputParameters freeSurfaceParameters,
-                   PickpointParameters pickpointParameters,
-                   ReceiverOutputParameters receiverParameters,
-                   WaveFieldOutputParameters waveFieldParameters)
+                   const std::string& prefix,
+                   const CheckpointParameters& checkpointParameters,
+                   const ElementwiseFaultParameters& elementwiseParameters,
+                   const EnergyOutputParameters& energyParameters,
+                   const FreeSurfaceOutputParameters& freeSurfaceParameters,
+                   const PickpointParameters& pickpointParameters,
+                   const ReceiverOutputParameters& receiverParameters,
+                   const WaveFieldOutputParameters& waveFieldParameters)
       : loopStatisticsNetcdfOutput(loopStatisticsNetcdfOutput), format(format),
         xdmfWriterBackend(xdmfWriterBackend), prefix(prefix),
         checkpointParameters(checkpointParameters), elementwiseParameters(elementwiseParameters),

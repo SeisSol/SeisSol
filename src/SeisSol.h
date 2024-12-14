@@ -42,16 +42,16 @@
 #ifndef SEISSOL_H
 #define SEISSOL_H
 
+#include <IO/Manager.h>
 #include <memory>
 #include <string>
 
 #include "utils/logger.h"
 
-#include "Checkpoint/Manager.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/time_stepping/LtsLayout.h"
-#include "Initializer/typedefs.hpp"
-#include "Monitoring/FlopCounter.hpp"
+#include "Initializer/TimeStepping/LtsLayout.h"
+#include "Initializer/Typedefs.h"
+#include "Monitoring/FlopCounter.h"
 #include "Parallel/Pin.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
@@ -94,15 +94,15 @@ class SeisSol {
    */
   void finalize();
 
+  void loadCheckpoint(const std::string& file);
+
   initializer::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
 
-  initializer::MemoryManager& getMemoryManager() { return *(m_memoryManager.get()); }
+  initializer::MemoryManager& getMemoryManager() { return *m_memoryManager; }
 
   time_stepping::TimeManager& timeManager() { return m_timeManager; }
 
   Simulator& simulator() { return m_simulator; }
-
-  checkpoint::Manager& checkPointManager() { return m_checkPointManager; }
 
   sourceterm::Manager& sourceTermManager() { return m_sourceTermManager; }
 
@@ -142,6 +142,8 @@ class SeisSol {
    * Get the flop counter
    */
   monitoring::FlopCounter& flopCounter() { return m_flopCounter; }
+
+  const std::optional<std::string>& getCheckpointLoadFile() { return checkpointLoadFile; }
   /**
    * Reference for timeMirrorManagers to be accessed externally when required
    */
@@ -169,7 +171,7 @@ class SeisSol {
    */
   void freeMeshReader() {
     delete m_meshReader;
-    m_meshReader = 0L;
+    m_meshReader = nullptr;
   }
 
   /**
@@ -205,6 +207,8 @@ class SeisSol {
    * */
   const std::string& getBackupTimeStamp() { return m_backupTimeStamp; }
 
+  seissol::io::OutputManager& getOutputManager() { return outputManager; }
+
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
   // Otherwise it will NOT work.
@@ -213,6 +217,8 @@ class SeisSol {
   // After the first OpenMP call, the OMP runtime sets the pining specified in e.g. OMP_PLACES
   // => Initialize it first, to avoid this.
   parallel::Pinning pinning;
+
+  seissol::io::OutputManager outputManager;
 
   //! Collection of Parameters
   seissol::initializer::parameters::SeisSolParameters& m_seissolParameters;
@@ -224,7 +230,7 @@ class SeisSol {
   io::AsyncIO m_asyncIO;
 
   //! Mesh Reader
-  seissol::geometry::MeshReader* m_meshReader;
+  seissol::geometry::MeshReader* m_meshReader{nullptr};
 
   //! Lts Layout
   initializer::time_stepping::LtsLayout m_ltsLayout;
@@ -237,9 +243,6 @@ class SeisSol {
 
   //! Simulator
   Simulator m_simulator;
-
-  //! Check pointing module
-  checkpoint::Manager m_checkPointManager;
 
   //! Source term module
   sourceterm::Manager m_sourceTermManager;
@@ -277,15 +280,22 @@ class SeisSol {
       timeMirrorManagers;
 
   //! time stamp which can be used for backuping files of previous runs
-  std::string m_backupTimeStamp{};
+  std::string m_backupTimeStamp;
+
+  std::optional<std::string> checkpointLoadFile;
 
   public:
   SeisSol(initializer::parameters::SeisSolParameters& parameters)
-      : pinning(), m_seissolParameters(parameters), m_meshReader(nullptr), m_ltsLayout(parameters),
+      : outputManager(*this), m_seissolParameters(parameters), m_ltsLayout(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
-        m_checkPointManager(*this), m_freeSurfaceWriter(*this), m_analysisWriter(*this),
-        m_waveFieldWriter(*this), m_faultWriter(*this), m_receiverWriter(*this),
-        m_energyOutput(*this), timeMirrorManagers(*this, *this) {}
+        m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
+        m_faultWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
+        timeMirrorManagers(*this, *this) {}
+
+  SeisSol(const SeisSol&) = delete;
+  SeisSol(SeisSol&&) = delete;
+  auto operator=(const SeisSol&) = delete;
+  auto operator=(SeisSol&&) = delete;
 };
 
 } // namespace seissol

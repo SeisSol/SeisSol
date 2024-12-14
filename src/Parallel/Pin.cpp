@@ -44,12 +44,18 @@
 
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
+#include <Common/IntegerMaskParser.h>
+#include <async/as/Pin.h>
 #include <cassert>
 #include <cstdlib>
+#include <deque>
 #include <fstream>
+#include <mpi.h>
 #include <sched.h>
 #include <set>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #ifndef __APPLE__
 #include <sys/sysinfo.h>
@@ -84,7 +90,8 @@ std::deque<bool> Pinning::parseOnlineCpuMask(std::string s, unsigned numberOfCon
   // Step 2: Set mask for each token
   for (auto& t : tokens) {
     pos = t.find('-');
-    int beginRange, endRange;
+    int beginRange = 0;
+    int endRange = 0;
     if (pos == std::string::npos) {
       beginRange = std::stoi(t);
       endRange = beginRange;
@@ -107,7 +114,7 @@ CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
   std::deque<bool> mask;
 
   const std::string onlineFilePath = "/sys/devices/system/cpu/online";
-  std::ifstream file(onlineFilePath);
+  const std::ifstream file(onlineFilePath);
 
   if (file.good()) {
     std::stringstream buffer;
@@ -120,7 +127,7 @@ CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
     mask = std::deque<bool>(get_nprocs_conf(), true);
   }
 
-  assert(mask.size() == get_nprocs_conf());
+  assert(static_cast<int>(mask.size()) == get_nprocs_conf());
   for (unsigned cpu = 0; cpu < mask.size(); ++cpu) {
     if (mask[cpu]) {
       CPU_SET(cpu, &onlineMask.set);
@@ -195,7 +202,9 @@ CpuMask Pinning::getWorkerUnionMask() {
     CPU_ZERO(&worker);
     sched_getaffinity(0, sizeof(cpu_set_t), &worker);
 #pragma omp critical
-    { CPU_OR(&workerUnion, &workerUnion, &worker); }
+    {
+      CPU_OR(&workerUnion, &workerUnion, &worker);
+    }
   }
 #else
   sched_getaffinity(0, sizeof(cpu_set_t), &workerUnion);
@@ -217,7 +226,7 @@ CpuMask Pinning::getFreeCPUsMask() const {
 
   if (not parsedFreeCPUsMask.empty()) {
     const auto localProcessor = MPI::mpi.sharedMemMpiRank();
-    for (auto& cpu : parsedFreeCPUsMask[localProcessor]) {
+    for (const auto& cpu : parsedFreeCPUsMask[localProcessor]) {
       CPU_SET(cpu, &freeMask);
     }
     return CpuMask{freeMask};
@@ -309,7 +318,7 @@ std::string Pinning::maskToString(const CpuMask& mask) {
 #endif // __APPLE__
 }
 
-CpuMask Pinning::getNodeMask() const {
+CpuMask Pinning::getNodeMask() {
 #ifndef __APPLE__
   const auto workerMask = getWorkerUnionMask().set;
 

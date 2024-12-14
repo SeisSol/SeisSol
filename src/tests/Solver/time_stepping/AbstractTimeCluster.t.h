@@ -1,22 +1,27 @@
 #include "Solver/time_stepping/AbstractTimeCluster.h"
+#include "tests/TestHelper.h"
 #include <iostream>
 namespace seissol::unit_test {
 using namespace time_stepping;
 
 class MockTimeCluster : public time_stepping::AbstractTimeCluster {
-public:
-  MockTimeCluster(double maxTimeStepSize,
-                  long timeStepRate) :
-  AbstractTimeCluster(maxTimeStepSize, timeStepRate, Executor::Host) { }
+  public:
+  MockTimeCluster(double maxTimeStepSize, long timeStepRate)
+      : AbstractTimeCluster(maxTimeStepSize, timeStepRate, Executor::Host) {}
 
+  // NOLINTNEXTLINE
   MAKE_MOCK0(start, void(void), override);
+  // NOLINTNEXTLINE
   MAKE_MOCK0(predict, void(void), override);
+  // NOLINTNEXTLINE
   MAKE_MOCK0(correct, void(void), override);
+  // NOLINTNEXTLINE
   MAKE_MOCK1(handleAdvancedPredictionTimeMessage, void(const NeighborCluster&), override);
+  // NOLINTNEXTLINE
   MAKE_MOCK1(handleAdvancedCorrectionTimeMessage, void(const NeighborCluster&), override);
+  // NOLINTNEXTLINE
   MAKE_MOCK1(printTimeoutMessage, void(std::chrono::seconds), override);
 };
-
 
 TEST_CASE("TimeCluster") {
   auto cluster = MockTimeCluster(1.0, 1);
@@ -41,7 +46,6 @@ TEST_CASE("TimeCluster") {
     REQUIRE(result.isStateChanged);
     REQUIRE(cluster.getState() == ActorState::Predicted);
   }
-
 }
 
 TEST_CASE("GTS Timesteping works") {
@@ -51,8 +55,8 @@ TEST_CASE("GTS Timesteping works") {
   auto cluster1 = MockTimeCluster(dt, 1);
   auto cluster2 = MockTimeCluster(dt, 1);
   auto clusters = std::vector<MockTimeCluster*>{
-    &cluster1,
-    &cluster2,
+      &cluster1,
+      &cluster2,
   };
 
   cluster1.connect(cluster2);
@@ -71,7 +75,7 @@ TEST_CASE("GTS Timesteping works") {
 
   bool isFinished = false;
   auto iteration = 0;
-  while(!isFinished) {
+  while (!isFinished) {
     isFinished = true;
 
     ALLOW_CALL(cluster1, handleAdvancedCorrectionTimeMessage(ANY(NeighborCluster)));
@@ -100,7 +104,6 @@ TEST_CASE("GTS Timesteping works") {
         REQUIRE(cluster->getState() == ActorState::Corrected);
         isFinished = false;
       }
-
     }
     ++iteration;
   }
@@ -115,7 +118,7 @@ TEST_CASE("LTS Timesteping works") {
   const auto numberOfIterations = 2;
   const double endTime = dt * numberOfIterations;
   auto cluster1 = MockTimeCluster(dt, 1);
-  auto cluster2 = MockTimeCluster(2*dt, 2);
+  auto cluster2 = MockTimeCluster(2 * dt, 2);
   auto clusters = std::vector<MockTimeCluster*>{
       &cluster1,
       &cluster2,

@@ -7,7 +7,7 @@
 
 #include "PointSourceCluster.h"
 
-#include "SourceTerm/typedefs.hpp"
+#include "SourceTerm/Typedefs.h"
 
 namespace seissol::kernels {
 class PointSourceClusterOnHost : public PointSourceCluster {
@@ -17,7 +17,7 @@ class PointSourceClusterOnHost : public PointSourceCluster {
   void addTimeIntegratedPointSources(double from,
                                      double to,
                                      seissol::parallel::runtime::StreamRuntime& runtime) override;
-  unsigned size() const override;
+  [[nodiscard]] unsigned size() const override;
 
   private:
   void addTimeIntegratedPointSourceNRF(unsigned source,

@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _off_fault_receivers:
 
 Off fault receivers
@@ -43,6 +48,9 @@ Rotational Output
 You can additionally choose to write the rotation of the velocity field by setting :code:`ReceiverComputeRotation=1` in the parameter file.
 The rotation of the vector field is defined as :math:`\text{rot} v = \begin{pmatrix} \partial_2 v_3 - \partial_3 v_2 \\ \partial_3 v_1 - \partial_1 v_3 \\ \partial_1 v_2 - \partial_2 v_1 \\ \end{pmatrix}`.
 
+Strain Output
+-------------
+Furthermore, you can also output the strain by setting :code:`ReceiverComputeStrain=1`.
 
 Placing free-surface receivers
 ------------------------------
@@ -58,9 +66,8 @@ Compiling place_receivers on SuperMUC
 Load the relevant :ref:`modules <compile_run_supermuc>`.
 
 .. code-block:: bash
-  
+
   git submodule update --init
   mkdir build && cd build
   cmake ..
   make -j
-

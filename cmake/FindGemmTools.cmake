@@ -66,6 +66,11 @@ foreach(component ${_GEMM_TOOLS_LIST})
 
     elseif ("${component}" STREQUAL "Eigen")
         # already included by default!
+    
+    elseif ("${component}" MATCHES "^[ \t\r\n]*[Nn][Oo][Nn][Ee][ \t\r\n]*$")
+        # (cf. https://cmake.org/cmake/help/latest/command/string.html#regex-specification)
+
+        # no includes necessary
 
     elseif ("${component}" STREQUAL "TensorForge")
         set(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/submodules/TensorForge/tensorforge/share/cmake" ${CMAKE_MODULE_PATH})

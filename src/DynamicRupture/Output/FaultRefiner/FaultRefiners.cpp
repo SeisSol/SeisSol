@@ -1,6 +1,6 @@
-#include "FaultRefiners.hpp"
+#include "FaultRefiners.h"
 
-#include "DynamicRupture/Output/Geometry.hpp"
+#include "DynamicRupture/Output/Geometry.h"
 #include <array>
 #include <cstddef>
 #include <memory>
@@ -8,7 +8,7 @@
 
 #include "utils/logger.h"
 
-#include "DynamicRupture/Output/OutputAux.hpp"
+#include "DynamicRupture/Output/OutputAux.h"
 #include "Initializer/Parameters/OutputParameters.h"
 
 namespace seissol::dr::output::refiner {
@@ -31,10 +31,10 @@ void FaultRefiner::repeatRefinement(Data data,
                                     PointsPair& point2,
                                     PointsPair& point3) {
   const ExtTriangle subGlobalFace(
-      std::get<global>(point1), std::get<global>(point2), std::get<global>(point3));
+      std::get<Global>(point1), std::get<Global>(point2), std::get<Global>(point3));
 
   const ExtTriangle subReferenceFace(
-      std::get<reference>(point1), std::get<reference>(point2), std::get<reference>(point3));
+      std::get<Reference>(point1), std::get<Reference>(point2), std::get<Reference>(point3));
 
   auto updatedData = data;
   updatedData.refinementLevel -= 1;
@@ -48,9 +48,9 @@ void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
   receiver.localFaceSideId = data.localFaceSideId;
   receiver.elementIndex = data.elementId;
   receiver.globalReceiverIndex = points.size();
-  receiver.global = getMidPointTriangle(std::get<global>(face));
-  receiver.reference = getMidPointTriangle(std::get<reference>(face));
-  receiver.globalTriangle = std::get<global>(face);
+  receiver.global = getMidPointTriangle(std::get<Global>(face));
+  receiver.reference = getMidPointTriangle(std::get<Reference>(face));
+  receiver.globalTriangle = std::get<Global>(face);
 
   points.push_back(receiver);
 }
@@ -64,8 +64,8 @@ void FaultFaceTripleRefiner::refineAndAccumulate(Data data, TrianglePair face) {
     return;
   }
 
-  auto& globalFace = std::get<global>(face);
-  auto& referenceFace = std::get<reference>(face);
+  auto& globalFace = std::get<Global>(face);
+  auto& referenceFace = std::get<Reference>(face);
 
   auto midPoint =
       std::make_pair(getMidPointTriangle(globalFace), getMidPointTriangle(referenceFace));
@@ -86,8 +86,8 @@ void FaultFaceQuadRefiner::refineAndAccumulate(Data data, TrianglePair face) {
     return;
   }
 
-  auto& globalFace = std::get<global>(face);
-  auto& referenceFace = std::get<reference>(face);
+  auto& globalFace = std::get<Global>(face);
+  auto& referenceFace = std::get<Reference>(face);
 
   auto split = [&globalFace, &referenceFace](size_t pointIndex1, size_t pointIndex2) {
     return std::make_pair(

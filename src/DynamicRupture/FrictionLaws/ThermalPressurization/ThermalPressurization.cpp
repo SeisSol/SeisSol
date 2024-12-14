@@ -1,24 +1,24 @@
 #include "ThermalPressurization.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
-#include "Initializer/tree/Layer.hpp"
-#include "Kernels/precision.hpp"
+#include "Initializer/Tree/Layer.h"
+#include "Kernels/Precision.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 
 namespace seissol::dr::friction_law {
 
-static const GridPoints<misc::numberOfTPGridPoints> tpGridPoints;
-static const InverseFourierCoefficients<misc::numberOfTPGridPoints> tpInverseFourierCoefficients;
-static const GaussianHeatSource<misc::numberOfTPGridPoints> heatSource;
+static const GridPoints<misc::NumTpGridPoints> TpGridPoints;
+static const InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFourierCoefficients;
+static const GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
 
 void ThermalPressurization::copyLtsTreeToLocal(
     seissol::initializer::Layer& layerData,
     const seissol::initializer::DynamicRupture* const dynRup,
     real fullUpdateTime) {
-  auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization* const>(dynRup);
+  const auto* concreteLts =
+      dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization*>(dynRup);
   temperature = layerData.var(concreteLts->temperature);
   pressure = layerData.var(concreteLts->pressure);
   theta = layerData.var(concreteLts->theta);
@@ -31,22 +31,22 @@ void ThermalPressurization::copyLtsTreeToLocal(
 }
 
 void ThermalPressurization::calcFluidPressure(
-    const std::array<real, misc::numPaddedPoints>& normalStress,
-    const real (*mu)[misc::numPaddedPoints],
-    const std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
+    const std::array<real, misc::NumPaddedPoints>& normalStress,
+    const real (*mu)[misc::NumPaddedPoints],
+    const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
     real deltaT,
     bool saveTPinLTS,
     unsigned int timeIndex,
     unsigned int ltsFace) {
-  for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+  for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
     // compute fault strength
     faultStrength[ltsFace][pointIndex] = -mu[ltsFace][pointIndex] * normalStress[pointIndex];
 
     std::copy(&theta[ltsFace][pointIndex][0],
-              &theta[ltsFace][pointIndex][misc::numberOfTPGridPoints],
+              &theta[ltsFace][pointIndex][misc::NumTpGridPoints],
               &thetaTmpBuffer[ltsFace][pointIndex][0]);
     std::copy(&sigma[ltsFace][pointIndex][0],
-              &sigma[ltsFace][pointIndex][misc::numberOfTPGridPoints],
+              &sigma[ltsFace][pointIndex][misc::NumTpGridPoints],
               &sigmaTmpBuffer[ltsFace][pointIndex][0]);
 
     // use Theta/Sigma from last timestep
@@ -56,10 +56,10 @@ void ThermalPressurization::calcFluidPressure(
     // copy back to LTS tree, if necessary
     if (saveTPinLTS) {
       std::copy(&thetaTmpBuffer[ltsFace][pointIndex][0],
-                &thetaTmpBuffer[ltsFace][pointIndex][misc::numberOfTPGridPoints],
+                &thetaTmpBuffer[ltsFace][pointIndex][misc::NumTpGridPoints],
                 &theta[ltsFace][pointIndex][0]);
       std::copy(&sigmaTmpBuffer[ltsFace][pointIndex][0],
-                &sigmaTmpBuffer[ltsFace][pointIndex][misc::numberOfTPGridPoints],
+                &sigmaTmpBuffer[ltsFace][pointIndex][misc::NumTpGridPoints],
                 &sigma[ltsFace][pointIndex][0]);
     }
   }
@@ -79,18 +79,18 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
       (hydraulicDiffusivity[ltsFace][pointIndex] - drParameters->thermalDiffusivity);
 
 #pragma omp simd
-  for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::numberOfTPGridPoints;
+  for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
        tpGridPointIndex++) {
     // Gaussian shear zone in spectral domain, normalized by w
     // \hat{l} / w
-    const real squaredNormalizedTPGrid =
-        misc::power<2>(tpGridPoints[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex]);
+    const real squaredNormalizedTpGrid =
+        misc::power<2>(TpGridPoints[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex]);
 
     // This is exp(-A dt) in Noda & Lapusta (2010) equation (10)
     const real expTheta =
-        std::exp(-drParameters->thermalDiffusivity * deltaT * squaredNormalizedTPGrid);
+        std::exp(-drParameters->thermalDiffusivity * deltaT * squaredNormalizedTpGrid);
     const real expSigma =
-        std::exp(-hydraulicDiffusivity[ltsFace][pointIndex] * deltaT * squaredNormalizedTPGrid);
+        std::exp(-hydraulicDiffusivity[ltsFace][pointIndex] * deltaT * squaredNormalizedTpGrid);
 
     // Temperature and pressure diffusion in spectral domain over timestep
     // This is + F(t) exp(-A dt) in equation (10)
@@ -100,13 +100,13 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
     // Heat generation during timestep
     // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
     // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
-    const real omega = tauV * heatSource[tpGridPointIndex];
+    const real omega = tauV * HeatSource[tpGridPointIndex];
     const real thetaGeneration =
         omega /
-        (drParameters->heatCapacity * squaredNormalizedTPGrid * drParameters->thermalDiffusivity) *
+        (drParameters->heatCapacity * squaredNormalizedTpGrid * drParameters->thermalDiffusivity) *
         (1.0 - expTheta);
     const real sigmaGeneration = omega * (drParameters->undrainedTPResponse + lambdaPrime) /
-                                 (drParameters->heatCapacity * squaredNormalizedTPGrid *
+                                 (drParameters->heatCapacity * squaredNormalizedTpGrid *
                                   hydraulicDiffusivity[ltsFace][pointIndex]) *
                                  (1.0 - expSigma);
 
@@ -117,7 +117,7 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
     // Recover temperature and altered pressure using inverse Fourier transformation from the new
     // contribution
     const real scaledInverseFourierCoefficient =
-        tpInverseFourierCoefficients[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex];
+        TpInverseFourierCoefficients[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex];
     temperatureUpdate +=
         scaledInverseFourierCoefficient * thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex];
     pressureUpdate +=

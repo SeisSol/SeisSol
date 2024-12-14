@@ -14,48 +14,59 @@ format() {
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
         src/Initializer/Parameters
-        src/Initializer/tree
+        src/Initializer/Tree
+        src/IO
+        src/Kernels
         src/Modules
         src/Monitoring
+        src/Numerical
         src/Parallel
         src/Physics
         src/Reader
+        src/ResultWriter
         src/SourceTerm
-        src/tests/Common
-        src/tests/DynamicRupture
-        src/tests/Initializer
-        src/tests/Kernel
-        src/tests/Model
-        src/tests/Reader
-        src/tests/SourceTerm
+        src/tests
         "
-    
+
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
-        src/Initializer/BasicTypedefs.hpp
-        src/Initializer/InputAux.hpp
+        src/Equations/elastic/Model/Datastructures.h
+        src/Equations/elastic/Model/IntegrationData.h
+        src/Equations/viscoelastic/Model/IntegrationData.h
+        src/Equations/viscoelastic2/Model/Datastructures.h
+        src/Equations/viscoelastic2/Model/IntegrationData.h
+        src/Equations/anisotropic/Model/Datastructures.h
+        src/Equations/anisotropic/Model/IntegrationData.h
+        src/Equations/poroelastic/Model/Datastructures.h
+        src/Equations/poroelastic/Model/IntegrationData.h
+        src/Equations/Datastructures.h
+        src/Equations/Setup.h
+        src/Initializer/BasicTypedefs.h
+        src/Initializer/Boundary.h
+        src/Initializer/DynamicRupture.h
+        src/Initializer/DeviceGraph.h
+        src/Initializer/GlobalData.h
+        src/Initializer/GlobalData.cpp
+        src/Initializer/InitialFieldProjection.h
+        src/Initializer/InitialFieldProjection.cpp
+        src/Initializer/InputAux.h
+        src/Initializer/LTS.h
         src/Initializer/MemoryAllocator.h
         src/Initializer/MemoryAllocator.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
-        src/Initializer/preProcessorMacros.hpp
-        src/Initializer/time_stepping/GlobalTimestep.hpp
-        src/Initializer/time_stepping/GlobalTimestep.cpp
-        src/Kernels/common.hpp
-        src/Kernels/PointSourceCluster.h
-        src/Kernels/PointSourceClusterOnHost.h
-        src/Kernels/PointSourceClusterOnHost.cpp
-        src/Kernels/PointSourceClusterOnDevice.h
-        src/Kernels/PointSourceClusterOnDevice.cpp
-        src/Kernels/Touch.h
-        src/Kernels/Touch.cpp
-        src/ResultWriter/WaveFieldWriter.h
-        src/ResultWriter/EnergyOutput.h
-        src/ResultWriter/EnergyOutput.cpp
+        src/Initializer/PointMapper.h
+        src/Initializer/PointMapper.cpp
+        src/Initializer/PreProcessorMacros.h
+        src/Initializer/TimeStepping/GlobalTimestep.h
+        src/Initializer/TimeStepping/GlobalTimestep.cpp
+        src/Model/CommonDatastructures.h
+        src/Model/Plasticity.h
         src/SeisSol.h
         src/SeisSol.cpp
-        src/main.cpp
+        src/Main.cpp
         "
+
 
     local SEISSOL_SOURCE_DIR="${2}"
     local formatter="${1}"
@@ -66,9 +77,9 @@ format() {
     fi
 
     local formatter_version=$(${formatter} --version)
-    if [ "${formatter_version}" != "clang-format version 18.1.5" ]; then
-        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 18.1.5). Given: ${formatter_version}"
-        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==18.1.5"
+    if [ "${formatter_version}" != "clang-format version 19.1.0" ]; then
+        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 19.1.0). Given: ${formatter_version}"
+        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==19.1.0"
         exit 176
     fi
 

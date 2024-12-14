@@ -40,9 +40,13 @@
 
 #include "MPI.h"
 #include "utils/stringutils.h"
+#include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <mpi.h>
+#include <string>
 #include <unistd.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
@@ -52,8 +56,8 @@ void seissol::MPI::init(int& argc, char**& argv) {
   // Note: Strictly speaking, we only require MPI_THREAD_MULTIPLE if using
   // a communication thread and/or async I/O.
   // The safer (and more sane) option is to enable it by default.
-  int required = MPI_THREAD_MULTIPLE;
-  int provided;
+  const int required = MPI_THREAD_MULTIPLE;
+  int provided = 0;
   MPI_Init_thread(&argc, &argv, required, &provided);
 
   setComm(MPI_COMM_WORLD);

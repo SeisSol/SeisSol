@@ -43,11 +43,11 @@
 
 #include "TimeManager.h"
 #include "CommunicationManager.h"
-#include "Initializer/preProcessorMacros.hpp"
-#include "Initializer/time_stepping/common.hpp"
+#include "Initializer/PreProcessorMacros.h"
+#include "Initializer/TimeStepping/Common.h"
 #include "SeisSol.h"
 #include "ResultWriter/ClusteringWriter.h"
-#include "Parallel/Helper.hpp"
+#include "Parallel/Helper.h"
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -67,7 +67,7 @@ seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstan
 
 seissol::time_stepping::TimeManager::~TimeManager() {}
 
-void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeStepping,
+void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping,
                                                       MeshStructure* i_meshStructure,
                                                       initializer::MemoryManager& memoryManager,
                                                       bool usePlasticity) {
@@ -77,7 +77,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   assert( i_meshStructure         != NULL );
 
   // store the time stepping
-  m_timeStepping = i_timeStepping;
+  m_timeStepping = timeStepping;
 
   auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
 
@@ -191,9 +191,9 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
         return static_cast<unsigned>(neighbor[1]) == otherGlobalClusterId;
       });
       if (hasNeighborRegions) {
-        assert(otherGlobalClusterId >= std::max(globalClusterId - 1, 0));
+        assert(static_cast<int>(otherGlobalClusterId) >= std::max(globalClusterId - 1, 0));
         assert(
-            otherGlobalClusterId <
+            static_cast<int>(otherGlobalClusterId) <
             std::min(globalClusterId + 2, static_cast<int>(m_timeStepping.numberOfGlobalClusters)));
         const auto otherTimeStepSize = m_timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
         const long otherTimeStepRate =
@@ -354,7 +354,7 @@ double seissol::time_stepping::TimeManager::getTimeTolerance() {
 }
 
 void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
-    std::unordered_map<LayerType, std::vector<seissol::sourceterm::PointSourceClusterPair>> sourceClusters) {
+    std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> sourceClusters) {
   for (auto& cluster : clusters) {
     auto layerClusters = sourceClusters.find(cluster->getLayerType());
     if (layerClusters != sourceClusters.end() && cluster->getClusterId() < layerClusters->second.size()) {
@@ -371,13 +371,18 @@ void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWr
   }
 }
 
-void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
-  assert( i_time >= 0 );
+void seissol::time_stepping::TimeManager::setInitialTimes( double time ) {
+  assert( time >= 0 );
 
-  for(auto & cluster : clusters) {
-    cluster->setPredictionTime(i_time);
-    cluster->setCorrectionTime(i_time);
-    cluster->setReceiverTime(i_time);
+  for (auto& cluster : clusters) {
+    cluster->setPredictionTime(time);
+    cluster->setCorrectionTime(time);
+    cluster->setReceiverTime(time);
+    cluster->setLastSubTime(time);
+  }
+  for (auto& cluster : *communicationManager->getGhostClusters()) {
+    cluster->setPredictionTime(time);
+    cluster->setCorrectionTime(time);
   }
 }
 

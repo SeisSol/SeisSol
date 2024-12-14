@@ -76,11 +76,11 @@
 #include <list>
 #endif
 
-#include "Initializer/typedefs.hpp"
-#include "SourceTerm/typedefs.hpp"
+#include "Initializer/Typedefs.h"
+#include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/Tree/LTSTree.h"
 
 #include "Kernels/Time.h"
 #include "Kernels/Local.h"
@@ -94,14 +94,13 @@
 #include "Monitoring/ActorStateStatistics.h"
 #include "Initializer/DynamicRupture.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "DynamicRupture/Output/OutputManager.hpp"
-#include <Common/Executor.hpp>
+#include "DynamicRupture/Output/OutputManager.h"
+#include <Common/Executor.h>
 
 #include "AbstractTimeCluster.h"
 
 #ifdef ACL_DEVICE
 #include <device.h>
-#include "Solver/Pipeline/DrPipeline.h"
 #endif
 
 namespace seissol {
@@ -158,7 +157,6 @@ private:
     GlobalData *m_globalDataOnDevice{nullptr};
 #ifdef ACL_DEVICE
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    dr::pipeline::DrPipeline drPipeline;
 #endif
 
     /*
@@ -173,7 +171,7 @@ private:
     dr::friction_law::FrictionSolver* frictionSolverDevice;
     dr::output::OutputManager* faultOutputManager;
 
-    seissol::sourceterm::PointSourceClusterPair m_sourceCluster;
+    seissol::kernels::PointSourceClusterPair m_sourceCluster;
 
     enum class ComputePart {
       Local = 0,
@@ -348,7 +346,7 @@ public:
    *
    * @param sourceCluster Contains point sources for cluster
    */
-  void setPointSources(seissol::sourceterm::PointSourceClusterPair sourceCluster);
+  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster);
   void freePointSources() { m_sourceCluster.host.reset(nullptr); m_sourceCluster.device.reset(nullptr); }
 
   void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
@@ -365,6 +363,10 @@ public:
   void setTv(double tv) {
     m_tv = tv;
     updateRelaxTime();
+  }
+
+  void setLastSubTime(double lastSubTime) {
+    this->lastSubTime = lastSubTime;
   }
 
 
