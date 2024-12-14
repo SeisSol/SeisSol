@@ -384,18 +384,19 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
     krnl.Gl = data.localIntegration.specific.G[11] * i_timeStepWidth;
     krnl.Gm = data.localIntegration.specific.G[12] * i_timeStepWidth;
 
+    krnl.streamPtr = device.api->getDefaultStream();
+
     if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
       assert(false && "NYI");
     }
-    else {
-      std::size_t zinvOffset = 0;
-      for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv>(); i++) {
-        krnl.Zinv(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Zinv))->getDeviceDataPtr());
-        krnl.extraOffset_Zinv(i) = zinvOffset;
-        zinvOffset += tensor::Zinv::size(i);
-      }
-      krnl.execute();
+    
+    std::size_t zinvOffset = 0;
+    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv>(); i++) {
+      krnl.Zinv(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Zinv))->getDeviceDataPtr());
+      krnl.extraOffset_Zinv(i) = zinvOffset;
+      zinvOffset += tensor::Zinv::size(i);
     }
+    krnl.execute();
   }
 #else
   assert(false && "no implementation provided");

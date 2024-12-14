@@ -154,7 +154,7 @@ gpu_run_tpv:
     parallel:
         matrix:
             - PRECISION: [single]
-              tpv: [5, 5-nuc, 5-visco, 6, 13, 16, 101, 101-slip, 104, ahsp]
+              tpv: [5, 5-nuc, 5-visco, 6, 13, 16, 101, 101-slip, 104, ahsp, gaussian, yoffe]
               BACKEND: [cuda]
     script:
         - echo "run TPV${tpv} with ${BACKEND} backend"
@@ -202,7 +202,7 @@ check_faultoutput:
     parallel:
         matrix:
             - PRECISION: [single]
-              tpv: [5, 5-nuc, 5-visco, 6, 13, 16, 101, 101-slip, 104]
+              tpv: [5, 5-nuc, 5-visco, 6, 13, 16, 101, 101-slip, 104, gaussian, yoffe]
               BACKEND: [cuda]
     before_script:
         - pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
@@ -227,7 +227,7 @@ check_receivers:
     parallel:
         matrix:
             - PRECISION: [single]
-              tpv: [5, 5-nuc, 5-visco, 6, 13, 101, 101-slip, 104, ahsp]
+              tpv: [5, 5-nuc, 5-visco, 6, 13, 101, 101-slip, 104, ahsp, gaussian, yoffe]
               BACKEND: [cuda]
     before_script:
         - pip3 install pandas
@@ -253,7 +253,7 @@ gpu_check_energies:
     parallel:
         matrix:
             - PRECISION: [single]
-              tpv: [5, 5-nuc, 5-visco, 6, 13, 16, 101, 101-slip, 104]
+              tpv: [5, 5-nuc, 5-visco, 6, 13, 16, 101, 101-slip, 104, gaussian, yoffe]
               BACKEND: [cuda]
     before_script:
         - pip3 install pandas

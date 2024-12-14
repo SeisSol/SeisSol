@@ -9,10 +9,12 @@ def plasticity(generator, aderdg):
     qstress = qplastic[:,:6]
     qeta = qplastic[:,6]
 
+    # forge.layout_like(qplastic, 'qplastic')
+
+    # forge.layout(qplastic, 'qplastic')
+
     nodalStressTensors = vandermondeMatrix @ qstress
     etaNodal = vandermondeMatrix @ qeta
-
-    routine = []
 
     # m2n
     # plComputeMean
@@ -38,11 +40,8 @@ def plasticity(generator, aderdg):
 
     # 0.5 + forge.sqrt(forge.sum(TODO))
 
-    forge.block_conditional(adjust, [
-        
-    ])
-
-    adjustRoutine = []
+    with forge.block_conditional(adjust):
+        pass
 
     factor = mufactor / (T_v * oneMinusIntegratingFactor)
     nodeDuDtPstrain = factor * (localPrevDofs['PS'] - localDofs['PS'])
