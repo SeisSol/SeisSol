@@ -9,6 +9,8 @@
 #include <memory>
 #include <utils/logger.h>
 
+#include "FrictionLaws/GpuImpl/CodegenAdapter.h"
+
 // for now, fake the friction laws to be on CPU instead, if we have no GPU
 #ifdef ACL_DEVICE
 namespace friction_law_gpu = seissol::dr::friction_law::gpu;
@@ -89,7 +91,9 @@ DynamicRuptureTuple RateAndStateAgingFactory::produce() {
         std::make_unique<seissol::initializer::LTSRateAndState>(),
         std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
         std::make_unique<friction_law::AgingLaw<friction_law::NoTP>>(drParameters.get()),
-        std::make_unique<friction_law_gpu::AgingLaw<friction_law_gpu::NoTP>>(drParameters.get()),
+        std::make_unique<friction_law::gpu::FrictionSolverAdapter>(
+              drParameters.get(), 3),
+        //std::make_unique<friction_law_gpu::AgingLaw<friction_law_gpu::NoTP>>(drParameters.get()),
         std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>(),
                                                 seissolInstance)};
   }
@@ -109,7 +113,9 @@ DynamicRuptureTuple RateAndStateSlipFactory::produce() {
     return {std::make_unique<seissol::initializer::LTSRateAndState>(),
             std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
             std::make_unique<friction_law::SlipLaw<friction_law::NoTP>>(drParameters.get()),
-            std::make_unique<friction_law_gpu::SlipLaw<friction_law_gpu::NoTP>>(drParameters.get()),
+            //std::make_unique<friction_law_gpu::SlipLaw<friction_law_gpu::NoTP>>(drParameters.get()),
+                    std::make_unique<friction_law::gpu::FrictionSolverAdapter>(
+              drParameters.get(), 4),
             std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>(),
                                                     seissolInstance)};
   }
@@ -125,7 +131,9 @@ DynamicRuptureTuple LinearSlipWeakeningBimaterialFactory::produce() {
           std::make_unique<initializer::LinearSlipWeakeningBimaterialInitializer>(drParameters,
                                                                                   seissolInstance),
           std::make_unique<FrictionLawType>(drParameters.get()),
-          std::make_unique<FrictionLawTypeGpu>(drParameters.get()),
+          std::make_unique<friction_law::gpu::FrictionSolverAdapter>(
+              drParameters.get(), 6),
+          // std::make_unique<FrictionLawTypeGpu>(drParameters.get()),
           std::make_unique<output::OutputManager>(
               std::make_unique<output::LinearSlipWeakeningBimaterial>(), seissolInstance)};
 }
@@ -151,7 +159,7 @@ DynamicRuptureTuple ImposedSlipRatesYoffeFactory::produce() {
       std::make_unique<initializer::ImposedSlipRatesYoffeInitializer>(drParameters,
                                                                       seissolInstance),
       std::make_unique<friction_law::ImposedSlipRates<friction_law::YoffeSTF>>(drParameters.get()),
-      std::make_unique<friction_law::ImposedSlipRates<friction_law::YoffeSTF>>(drParameters.get()),
+      std::make_unique<friction_law::gpu::FrictionSolverAdapter>(drParameters.get(), 33),
       std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
                                               seissolInstance)};
 }
@@ -162,8 +170,8 @@ DynamicRuptureTuple ImposedSlipRatesGaussianFactory::produce() {
                                                                              seissolInstance),
           std::make_unique<friction_law::ImposedSlipRates<friction_law::GaussianSTF>>(
               drParameters.get()),
-          std::make_unique<friction_law::ImposedSlipRates<friction_law::GaussianSTF>>(
-              drParameters.get()),
+          std::make_unique<friction_law::gpu::FrictionSolverAdapter>(
+              drParameters.get(), 34),
           std::make_unique<output::OutputManager>(std::make_unique<output::ImposedSlipRates>(),
                                                   seissolInstance)};
 }
