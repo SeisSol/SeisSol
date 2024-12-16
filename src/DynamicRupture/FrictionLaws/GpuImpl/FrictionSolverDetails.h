@@ -39,7 +39,7 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   double* devTimeWeights{nullptr};
   real* devSpaceWeights{nullptr};
   int* queue{nullptr};
-  std::size_t chunksize{0};
+  std::size_t chunksize{100000000000};
   std::size_t chunkcount{1};
 };
 } // namespace seissol::dr::friction_law::gpu
