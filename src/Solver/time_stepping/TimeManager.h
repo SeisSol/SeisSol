@@ -151,7 +151,7 @@ class seissol::time_stepping::TimeManager {
 
     void setFaultOutputManager(std::array<std::shared_ptr<seissol::dr::output::OutputManager>, MULTIPLE_SIMULATIONS>& faultOutputManager);
 
-    std::array<seissol::dr::output::OutputManager*, MULTIPLE_SIMULATIONS> getFaultOutputManager();
+    std::array<seissol::dr::output::OutputManager*, MULTIPLE_SIMULATIONS>& getFaultOutputManager();
 
     /**
      * Advance in time until all clusters reach the next synchronization time.

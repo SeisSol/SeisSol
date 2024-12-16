@@ -288,7 +288,7 @@ void seissol::time_stepping::TimeManager::setFaultOutputManager(std::array<std::
   }
 }
 
-std::array<seissol::dr::output::OutputManager*, MULTIPLE_SIMULATIONS>
+std::array<seissol::dr::output::OutputManager*, MULTIPLE_SIMULATIONS>&
     seissol::time_stepping::TimeManager::getFaultOutputManager() {
   for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
     assert(m_faultOutputManager[i] != nullptr);
