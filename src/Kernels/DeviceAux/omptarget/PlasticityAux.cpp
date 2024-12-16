@@ -27,7 +27,7 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
   constexpr unsigned numNodes = tensor::QStressNodal::Shape[0];
   auto stream = reinterpret_cast<int*>(queuePtr);
 
-  #pragma omp target teams nowait depend(inout: stream[0]) num_teams(numElements)
+  #pragma omp target teams nowait device(TARGETDART_DEVICE(0)) depend(inout: stream[0]) num_teams(numElements)
   {
     int isAdjusted[1];
     #pragma omp parallel num_threads(numNodes)
@@ -105,7 +105,7 @@ void adjustPointers(real *QEtaNodal,
                     void *queuePtr) {
   auto stream = reinterpret_cast<int*>(queuePtr);
 
-  #pragma omp target teams distribute parallel for depend(inout: stream[0]) nowait
+  #pragma omp target teams distribute parallel for depend(inout: stream[0]) nowait device(TARGETDART_DEVICE(0))
   for (size_t tid = 0; tid < numElements; ++tid) {
     QEtaNodalPtrs[tid] = &QEtaNodal[tensor::QEtaNodal::Size * tid];
     QEtaModalPtrs[tid] = &QEtaModal[tensor::QEtaModal::Size * tid];
@@ -129,7 +129,7 @@ void computePstrains(real **pstrains,
 
   auto stream = reinterpret_cast<int*>(queuePtr);
 
-  #pragma omp target teams distribute depend(inout: stream[0]) nowait
+  #pragma omp target teams distribute depend(inout: stream[0]) nowait device(TARGETDART_DEVICE(0))
   for (size_t wid = 0; wid < numElements; ++wid) {
     #pragma omp parallel for
     for (size_t lid = 0; lid < numNodes; ++lid) {
@@ -164,7 +164,7 @@ void pstrainToQEtaModal(real **pstrains,
 
   auto stream = reinterpret_cast<int*>(queuePtr);
 
-  #pragma omp target teams distribute depend(inout: stream[0]) nowait
+  #pragma omp target teams distribute depend(inout: stream[0]) nowait device(TARGETDART_DEVICE(0))
   for (size_t wid = 0; wid < numElements; ++wid) {
     #pragma omp parallel for
     for (size_t lid = 0; lid < tensor::QEtaModal::Size; ++lid) {
@@ -185,7 +185,7 @@ void qEtaModalToPstrain(real **QEtaModalPtrs,
                         void *queuePtr) {
                             auto stream = reinterpret_cast<int*>(queuePtr);
 
-  #pragma omp target teams distribute depend(inout: stream[0]) nowait
+  #pragma omp target teams distribute depend(inout: stream[0]) nowait device(TARGETDART_DEVICE(0))
   for (size_t wid = 0; wid < numElements; ++wid) {
     #pragma omp parallel for
     for (size_t lid = 0; lid < tensor::QEtaModal::Size; ++lid) {
@@ -206,7 +206,7 @@ void updateQEtaNodal(real **QEtaNodalPtrs,
                      size_t numElements,
                      void *queuePtr) {
                         auto stream = reinterpret_cast<int*>(queuePtr);
-                        #pragma omp target teams distribute depend(inout: stream[0]) nowait
+                        #pragma omp target teams distribute depend(inout: stream[0]) nowait device(TARGETDART_DEVICE(0))
   for (size_t wid = 0; wid < numElements; ++wid) {
     #pragma omp parallel for
     for (size_t lid = 0; lid < tensor::QStressNodal::Shape[0]; ++lid) {

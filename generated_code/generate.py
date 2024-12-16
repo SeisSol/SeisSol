@@ -99,6 +99,8 @@ if cmdLineArgs.memLayout == 'auto':
 else:
   mem_layout = cmdLineArgs.memLayout
 
+# enforce targetDART as backend
+cmdLineArgs.device_backend = 'targetdart'
 
 if cmdLineArgs.device_backend == 'none':
     arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch)

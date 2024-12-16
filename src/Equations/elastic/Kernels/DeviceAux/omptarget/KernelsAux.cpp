@@ -19,7 +19,7 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
 
   auto stream = reinterpret_cast<int*>(deviceStream);
 
-  #pragma omp target teams distribute depend(inout: stream[0]) nowait
+  #pragma omp target teams distribute depend(inout: stream[0]) nowait device(TARGETDART_DEVICE(0))
   for (size_t elementId = 0; elementId < numElements; ++elementId) {
     #pragma omp parallel for
     for (size_t tid = 0; tid < workGroupSize; ++tid) {
@@ -69,7 +69,7 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
 
   auto stream = reinterpret_cast<int*>(deviceStream);
 
-  #pragma omp target teams nowait depend(inout: stream[0]) num_teams(numElements)
+  #pragma omp target teams nowait depend(inout: stream[0]) num_teams(numElements) device(TARGETDART_DEVICE(0))
   {
     real resultTerm[INodalDim1][INodalDim0];
     real rightTerm[INodalDim1][ldConstantDim];
@@ -135,7 +135,7 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
   auto stream = reinterpret_cast<int*>(deviceStream);
 
   constexpr size_t workGroupSize = 9;
-  #pragma omp target teams distribute depend(inout: stream[0]) nowait
+  #pragma omp target teams distribute depend(inout: stream[0]) nowait device(TARGETDART_DEVICE(0))
   for (size_t elementId = 0; elementId < numElements; ++elementId) {
     #pragma omp parallel for
     for (int tid = 0; tid < workGroupSize; ++tid) {
@@ -168,7 +168,7 @@ void initializeTaylorSeriesForGravitationalBoundary(
   const size_t workGroupSize = yateto::leadDim<seissol::nodal::init::nodes2D>();
   auto stream = reinterpret_cast<int*>(deviceStream);
 
-  #pragma omp target teams distribute depend(inout: stream[0]) nowait
+  #pragma omp target teams distribute depend(inout: stream[0]) nowait device(TARGETDART_DEVICE(0))
   for (size_t elementId = 0; elementId < numElements; ++elementId) {
     #pragma omp parallel for
     for (size_t tid = 0; tid < workGroupSize; ++tid) {
@@ -195,7 +195,7 @@ void computeInvAcousticImpedance(double* invImpedances,
 
   auto stream = reinterpret_cast<int*>(deviceStream);
 
-  #pragma omp target teams distribute parallel for depend(inout: stream[0]) nowait
+  #pragma omp target teams distribute parallel for depend(inout: stream[0]) nowait device(TARGETDART_DEVICE(0))
   for (size_t index = 0; index < numElements; ++index) {
       invImpedances[index] = 1.0 / std::sqrt(lambdas[index] * rhos[index]);
     }
@@ -217,7 +217,7 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
 
   auto stream = reinterpret_cast<int*>(deviceStream);
 
-  #pragma omp target teams distribute depend(inout: stream[0]) nowait
+  #pragma omp target teams distribute depend(inout: stream[0]) nowait device(TARGETDART_DEVICE(0))
   for (size_t elementId = 0; elementId < numElements; ++elementId) {
     #pragma omp parallel for
     for (size_t tid = 0; tid < workGroupSize; ++tid) {
