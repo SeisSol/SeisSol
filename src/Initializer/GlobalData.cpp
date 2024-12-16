@@ -157,7 +157,10 @@ template <typename MatrixManipPolicyT>
 void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
                                                      memory::ManagedAllocator& memoryAllocator,
                                                      enum seissol::memory::Memkind memkind) {
-  const MemoryProperties prop = MatrixManipPolicyT::getProperties();
+  MemoryProperties prop = MatrixManipPolicyT::getProperties();
+
+  // FIXME: HACK!
+  prop.alignment = 0x10000;
 
   // We ensure that global matrices always start at an aligned memory address,
   // such that mixed cases with aligned and non-aligned global matrices do also work.

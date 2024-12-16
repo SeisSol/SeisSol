@@ -239,6 +239,8 @@ void initDataStructuresOnDevice(bool enableDynamicRupture) {
   if (enableDynamicRupture) {
     seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(*m_dynRupTree, *m_dynRup);
     m_dynRupTree->allocateScratchPads();
+    m_dynRupTree->synchronizeTo(seissol::initializer::AllocationPlace::Device, device.api->getDefaultStream());
+    device.api->syncDefaultStreamWithHost();
 
     CompositeRecorder <seissol::initializer::DynamicRupture> drRecorder;
     drRecorder.addRecorder(new DynamicRuptureRecorder);
