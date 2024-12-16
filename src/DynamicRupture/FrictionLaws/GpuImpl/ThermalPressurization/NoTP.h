@@ -12,6 +12,7 @@ class NoTP {
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
+  #pragma omp declare target
   void calcFluidPressure(real (*normalStress)[misc::NumPaddedPoints],
                          real (*mu)[misc::NumPaddedPoints],
                          real (*slipRateMagnitude)[misc::NumPaddedPoints],
@@ -21,6 +22,7 @@ class NoTP {
   struct Details {};
   Details getCurrentLayerDetails() { return Details{}; }
   static real getFluidPressure(Details, unsigned, unsigned) { return static_cast<real>(0.0); };
+  #pragma omp end declare target
 };
 
 } // namespace seissol::dr::friction_law::gpu

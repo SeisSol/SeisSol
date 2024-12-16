@@ -128,6 +128,16 @@ namespace proxy::device {
       m_dynRupKernel.batchedSpaceTimeInterpolation(dataTable, runtime);
     });
   }
+
+  void computeDynamicRupture() {
+    seissol::initializer::Layer& layerData = m_dynRupTree->child(0).child<Interior>();
+    m_frictionSolver->computeDeltaT(m_dynRupKernel.timePoints);
+    m_frictionSolver->evaluate(layerData,
+                           m_dynRup.get(),
+                           seissol::miniSeisSolTimeStep,
+                           m_dynRupKernel.timeWeights,
+                           *runtime);
+  }
 } // namespace proxy::device
 
 

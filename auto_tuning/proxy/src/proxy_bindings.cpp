@@ -13,6 +13,7 @@ PYBIND11_MODULE(seissol_proxy_bindings, module) {
       .value("localwoader", Kernel::LocalWOAder)
       .value("neigh_dr", Kernel::NeighborDR)
       .value("godunov_dr", Kernel::GodunovDR)
+      .value("dynrup", Kernel::Dynrup)
       .export_values();
 
   py::class_<ProxyConfig>(module, "ProxyConfig")
@@ -20,6 +21,7 @@ PYBIND11_MODULE(seissol_proxy_bindings, module) {
       .def_readwrite("cells", &ProxyConfig::cells)
       .def_readwrite("timesteps", &ProxyConfig::timesteps)
       .def_readwrite("kernel", &ProxyConfig::kernel)
+      .def_readwrite("fault", &ProxyConfig::fault)
       .def_readwrite("verbose", &ProxyConfig::verbose);
 
   py::class_<ProxyOutput>(module, "ProxyOutput")

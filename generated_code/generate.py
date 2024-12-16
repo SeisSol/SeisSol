@@ -46,7 +46,7 @@ import os
 
 from tensorforge import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from tensorforge import gemm_configuration
-from tensorforge.gemm_configuration import GeneratorCollection, Eigen, LIBXSMM_JIT, PSpaMM, MKL, BLIS, OpenBLAS
+from tensorforge.gemm_configuration import GeneratorCollection, Eigen
 from tensorforge.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 
 import DynamicRupture

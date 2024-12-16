@@ -77,7 +77,7 @@
 #include <cstring>
 #include <stdlib.h>
 #include <utils/logger.h>
-#include <vector>
+#include <omp.h>
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -88,6 +88,9 @@ namespace seissol::memory {
 void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
   void* ptrBuffer{nullptr};
   bool error = false;
+
+  // enforce USM
+  memkind = DeviceUnifiedMemory;
 
   /* handle zero allocation */
   if (size == 0) {
@@ -100,19 +103,15 @@ void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
 #if defined(USE_MEMKIND) || defined(ACL_DEVICE)
   if (memkind == 0) {
 #endif
-    if (alignment % (sizeof(void*)) != 0) {
-      ptrBuffer = malloc(size);
-      error = (ptrBuffer == nullptr);
-    } else {
-      error = (posix_memalign(&ptrBuffer, alignment, size) != 0);
-    }
+      if (alignment % (sizeof(void*)) != 0) {
+        ptrBuffer = omp_alloc( size );
+        error = (ptrBuffer == nullptr);
+      } else {
+        // error = (posix_memalign( &ptrBuffer, alignment, size ) != 0);
+        ptrBuffer = omp_aligned_alloc(alignment, size);
+        error = (ptrBuffer == nullptr);
+      }
 #ifdef USE_MEMKIND
-  } else if (memkind == HighBandwidth) {
-    if (alignment % (sizeof(void*)) != 0) {
-      ptrBuffer = hbw_malloc(size);
-      error = (ptrBuffer == nullptr);
-    } else {
-      error = (hbw_posix_memalign(&ptrBuffer, alignment, size) != 0);
     }
 #endif
 
@@ -144,7 +143,7 @@ void free(void* pointer, enum Memkind memkind) {
 #if defined(USE_MEMKIND) || defined(ACL_DEVICE)
   if (memkind == Standard) {
 #endif
-    ::free(pointer);
+    ::omp_free(pointer);
 #ifdef USE_MEMKIND
   } else if (memkind == HighBandwidth) {
     hbw_free(pointer);

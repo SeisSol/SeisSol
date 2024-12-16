@@ -3,12 +3,15 @@
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/Misc.h"
-#include <CL/sycl.hpp>
 #include <yaml-cpp/yaml.h>
 
-#ifndef __DPCPP_COMPILER
-namespace sycl = cl::sycl;
-#endif
+// #define CURRCHUNK std::min(this->currLayerSize,this->chunksize*chunk):std::min(this->currLayerSize,this->chunksize*(chunk+1))
+
+// #define CCHUNK(var) var[std::min(this->currLayerSize,this->chunksize*chunk):std::min(this->currLayerSize,this->chunksize*(chunk+1))-std::min(this->currLayerSize,this->chunksize*chunk)]
+// #define CCHUNK(var) (var + std::min(this->currLayerSize,this->chunksize*chunk))[0:std::min(this->currLayerSize,this->chunksize*(chunk+1))]
+
+#define CCHUNK(var) var[std::min(layerSize,chunksize*chunk):std::min(layerSize,chunksize*(chunk+1))-std::min(layerSize,chunksize*chunk)]
+#define CCHUNKLOOP(var) for (std::size_t var = std::min(layerSize,chunksize*chunk); var < std::min(layerSize,chunksize*(chunk+1)); ++var)
 
 namespace seissol::dr::friction_law::gpu {
 class FrictionSolverDetails : public FrictionSolverInterface {
@@ -35,9 +38,9 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   real* resampleMatrix{nullptr};
   double* devTimeWeights{nullptr};
   real* devSpaceWeights{nullptr};
-
-  sycl::device device;
-  sycl::queue queue;
+  int* queue{nullptr};
+  std::size_t chunksize{0};
+  std::size_t chunkcount{1};
 };
 } // namespace seissol::dr::friction_law::gpu
 

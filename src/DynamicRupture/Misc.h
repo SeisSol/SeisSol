@@ -25,8 +25,10 @@ constexpr size_t leadDim() noexcept {
 /**
  * Number of gauss points padded to match the vector register length.
  */
+#pragma omp declare target
 static constexpr inline size_t NumPaddedPoints = leadDim<init::QInterpolated>();
 static constexpr inline size_t NumQuantities = misc::dimSize<init::QInterpolated, 1>();
+#pragma omp end declare target
 
 /**
  * Constants for Thermal Pressurization

@@ -1,6 +1,7 @@
 #ifndef SEISSOL_BASE_FRICTION_SOLVER_H
 #define SEISSOL_BASE_FRICTION_SOLVER_H
 
+#include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Numerical/SyclFunctions.h"
@@ -23,13 +24,26 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
     runtime.syncToSycl(&this->queue);
 
+    Derived& self = *(static_cast<Derived*>(this));
+
     FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->currLayerSize = layerData.getNumberOfCells();
 
-    size_t requiredNumBytes = ConvergenceOrder * sizeof(double);
-    auto timeWeightsCopy = this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes);
+    auto* queue{this->queue};
 
+    size_t requiredNumBytes = ConvergenceOrder * sizeof(double);
+    // auto timeWeightsCopy = this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes);
+    double timeWeightsCopy[ConvergenceOrder];
+
+    for (int i = 0; i < ConvergenceOrder; ++i) {
+      timeWeightsCopy[i] = timeWeights[i];
+      this->devTimeWeights[i] = timeWeights[i];
+    }
+
+     // map(to:timeWeightsCopy[0:ConvergenceOrder])
+
+    // #pragma omp target teams
     {
       constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
 
@@ -38,23 +52,26 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devQInterpolatedPlus{this->qInterpolatedPlus};
       auto* devQInterpolatedMinus{this->qInterpolatedMinus};
       auto* devFaultStresses{this->faultStresses};
+      auto layerSize{this->currLayerSize};
+      auto chunksize{this->chunksize};
 
-      sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-      this->queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-          const auto ltsFace = item.get_group().get_group_id(0);
-          const auto pointIndex = item.get_local_id(0);
-
+      for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize) map(to: CCHUNK(devImpAndEta), CCHUNK(devImpedanceMatrices), CCHUNK(devQInterpolatedPlus), CCHUNK(devQInterpolatedMinus)) map(from: CCHUNK(devFaultStresses)) nowait
+      #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+      CCHUNKLOOP(ltsFace) {
+        #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+        for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
           common::precomputeStressFromQInterpolated<gpuRangeType>(devFaultStresses[ltsFace],
                                                                   devImpAndEta[ltsFace],
                                                                   devImpedanceMatrices[ltsFace],
                                                                   devQInterpolatedPlus[ltsFace],
                                                                   devQInterpolatedMinus[ltsFace],
                                                                   pointIndex);
-        });
-      });
+        }
+      }
 
-      static_cast<Derived*>(this)->preHook(stateVariableBuffer);
+      auto* devStateVariableBuffer = this->stateVariableBuffer;
+      self.preHook(devStateVariableBuffer);
       for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
         const real t0{this->drParameters->t0};
         const real dt = deltaT[timeIndex];
@@ -63,16 +80,14 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         auto* devInitialPressure{this->initialPressure};
         const auto* devNucleationPressure{this->nucleationPressure};
 
-        this->queue.submit([&](sycl::handler& cgh) {
-          if (timeIndex == 0) {
-            cgh.depends_on(timeWeightsCopy);
-          }
-          cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-            auto ltsFace = item.get_group().get_group_id(0);
-            auto pointIndex = item.get_local_id(0);
-
-            using StdMath = seissol::functions::SyclStdFunctions;
-            common::adjustInitialStress<gpuRangeType, StdMath>(
+        for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+        #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize, timeIndex, dt, t0, fullUpdateTime) map(tofrom: CCHUNK(devInitialStressInFaultCS), CCHUNK(devInitialPressure)) map(to: CCHUNK(devNucleationStressInFaultCS), CCHUNK(devNucleationPressure)) nowait
+        #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+        CCHUNKLOOP(ltsFace) {
+          #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+          for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+          // if (timeIndex == 0) {cgh.depends_on(timeWeightsCopy);}
+            common::adjustInitialStress<gpuRangeType>(
                 devInitialStressInFaultCS[ltsFace],
                 devNucleationStressInFaultCS[ltsFace],
                 devInitialPressure[ltsFace],
@@ -81,30 +96,32 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 t0,
                 dt,
                 pointIndex);
-          });
-        });
+          }
+        }
 
-        static_cast<Derived*>(this)->updateFrictionAndSlip(timeIndex);
+        self.updateFrictionAndSlip(timeIndex);
       }
-      static_cast<Derived*>(this)->postHook(stateVariableBuffer);
+      self.postHook(devStateVariableBuffer);
 
       auto* devRuptureTimePending{this->ruptureTimePending};
       auto* devSlipRateMagnitude{this->slipRateMagnitude};
       auto* devRuptureTime{this->ruptureTime};
 
-      this->queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-          auto ltsFace = item.get_group().get_group_id(0);
-          auto pointIndex = item.get_local_id(0);
+      for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to:chunksize, fullUpdateTime) map(tofrom: CCHUNK(devRuptureTimePending)) map(from: CCHUNK(devRuptureTime)) map(to: CCHUNK(devSlipRateMagnitude)) nowait
+      #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+      CCHUNKLOOP(ltsFace) {
+        #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+        for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
           common::saveRuptureFrontOutput<gpuRangeType>(devRuptureTimePending[ltsFace],
                                                        devRuptureTime[ltsFace],
                                                        devSlipRateMagnitude[ltsFace],
                                                        fullUpdateTime,
                                                        pointIndex);
-        });
-      });
+        }
+      }
 
-      static_cast<Derived*>(this)->saveDynamicStressOutput();
+      self.saveDynamicStressOutput();
 
       auto* devPeakSlipRate{this->peakSlipRate};
       auto* devImposedStatePlus{this->imposedStatePlus};
@@ -116,14 +133,23 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devGodunovData{this->godunovData};
       auto devSumDt{this->sumDt};
 
+      /*
+      #pragma omp target teams distribute depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: devTimeWeights[0:ConvergenceOrder], CCHUNK(devGodunovData), CCHUNK(devSlipRateMagnitude), CCHUNK(devFaultStresses), CCHUNK(devTractionResults), CCHUNK(devImpAndEta), CCHUNK(devImpedanceMatrices), CCHUNK(devQInterpolatedPlus), devQInterpolatedMinus) map(tofrom: CCHUNK(devPeakSlipRate), CCHUNK(devImposedStatePlus), CCHUNK(devImposedStateMinus), CCHUNK(devEnergyData)) nowait
+      #pragma omp metadirective when( device={arch(nvptx)}: teams distribute) default(parallel for)
+      for (int ltsFace = 0; ltsFace < layerSize; ++ltsFace) {
+        #pragma omp metadirective when( device={arch(nvptx)}: parallel for ) default(simd)
+      */
+
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       auto isCheckAbortCriteraEnabled{this->drParameters->isCheckAbortCriteraEnabled};
       auto devTerminatorSlipRateThreshold{this->drParameters->terminatorSlipRateThreshold};
-
-      this->queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-          auto ltsFace = item.get_group().get_group_id(0);
-          auto pointIndex = item.get_local_id(0);
+      
+      for (int chunk = 0; chunk < this->chunkcount; ++chunk)
+      #pragma omp target depend(inout: queue[chunk]) device(TARGETDART_ANY) map(to: chunksize) map(to: devTimeWeights[0:ConvergenceOrder], devSpaceWeights[0:misc::NumPaddedPoints], CCHUNK(devGodunovData), CCHUNK(devSlipRateMagnitude), CCHUNK(devFaultStresses), CCHUNK(devTractionResults), CCHUNK(devImpAndEta), CCHUNK(devImpedanceMatrices), CCHUNK(devQInterpolatedPlus), CCHUNK(devQInterpolatedMinus)) map(tofrom: CCHUNK(devPeakSlipRate), CCHUNK(devImposedStatePlus), CCHUNK(devImposedStateMinus), CCHUNK(devEnergyData)) nowait
+      #pragma omp metadirective when(device={kind(nohost)}: teams distribute) default(parallel for)
+      CCHUNKLOOP(ltsFace) {
+        #pragma omp metadirective when(device={kind(nohost)}: parallel for) default(simd)
+        for (int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
 
           common::savePeakSlipRateOutput<gpuRangeType>(
               devSlipRateMagnitude[ltsFace], devPeakSlipRate[ltsFace], pointIndex);
@@ -160,8 +186,10 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                         devGodunovData[ltsFace],
                                                         pointIndex);
           }
-        });
-      });
+        }
+      }
+
+      #pragma omp taskwait
     }
 
     runtime.syncFromSycl(&this->queue);
