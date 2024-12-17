@@ -152,6 +152,10 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   const hid_t h5space = _eh(H5Screate_simple(globalSizes.size(), globalSizes.data(), nullptr));
   const hid_t h5memspace = _eh(H5Screate_simple(localSizes.size(), localSizes.data(), nullptr));
 
+  // create empty spaces just in case (MPIO likes to get stuck otherwise)
+  const hid_t h5spaceEmpty = _eh(H5Screate(H5S_NULL));
+  const hid_t h5memspaceEmpty = _eh(H5Screate(H5S_NULL));
+
   std::vector<hsize_t> writeStart;
   std::vector<hsize_t> writeLength;
 
@@ -207,23 +211,31 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     baseWriteSize *= dim;
   }
 
+  const char* dataloc = data;
+
   for (std::size_t i = 0; i < rounds; ++i) {
     if (source->distributed()) {
       writeStart[0] = offset + written;
       writeLength[0] = std::min(count - written, chunkcount);
     }
 
-    const char* dataloc = data;
+    const auto [memspace, space] = [&]() -> std::pair<hid_t, hid_t> {
+      if (nullstart.empty()) {
+        return {h5memspace, h5space};
+      } else if (source->distributed() && writeLength[0] > 0) {
+        _eh(H5Sselect_hyperslab(
+            h5memspace, H5S_SELECT_SET, nullstart.data(), nullptr, writeLength.data(), nullptr));
 
-    if (!nullstart.empty()) {
-      _eh(H5Sselect_hyperslab(
-          h5memspace, H5S_SELECT_SET, nullstart.data(), nullptr, writeLength.data(), nullptr));
+        _eh(H5Sselect_hyperslab(
+            h5space, H5S_SELECT_SET, writeStart.data(), nullptr, writeLength.data(), nullptr));
 
-      _eh(H5Sselect_hyperslab(
-          h5space, H5S_SELECT_SET, writeStart.data(), nullptr, writeLength.data(), nullptr));
-    }
+        return {h5memspace, h5space};
+      } else {
+        return {h5memspaceEmpty, h5spaceEmpty};
+      }
+    }();
 
-    _eh(H5Dwrite(h5data, h5memtype, h5memspace, h5space, h5dxlist, dataloc));
+    _eh(H5Dwrite(h5data, h5memtype, memspace, space, h5dxlist, dataloc));
 
     std::size_t writeSize = baseWriteSize;
     if (source->distributed()) {
@@ -239,6 +251,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   _eh(H5Tclose(h5type));
   _eh(H5Sclose(h5space));
   _eh(H5Sclose(h5memspace));
+  _eh(H5Sclose(h5spaceEmpty));
+  _eh(H5Sclose(h5memspaceEmpty));
   _eh(H5Dclose(h5data));
   _eh(H5Pclose(h5dxlist));
 }
