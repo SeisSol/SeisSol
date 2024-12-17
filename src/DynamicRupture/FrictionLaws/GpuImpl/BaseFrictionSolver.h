@@ -188,8 +188,6 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           }
         }
       }
-
-      #pragma omp taskwait
     }
 
     runtime.syncFromSycl(&this->queue);
