@@ -22,7 +22,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
 
-                  this->queue = runtime.stream();
+                  this->queue = (int*)runtime.stream();
 
     Derived& self = *(static_cast<Derived*>(this));
 
