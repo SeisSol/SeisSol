@@ -55,6 +55,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include <equation-elastic-3-double/kernel.h>
 #include <tensor.h>
 
 #include "utils/logger.h"
@@ -79,30 +80,61 @@ namespace seissol::kernels {
                                          seissol::model::PlasticityData const *plasticityData,
                                          real degreesOfFreedom[tensor::Q::size()],
                                          real *pstrain) {
-#ifdef MULTIPLE_SIMULATIONS
-    // Todo(VK) find a better solution here.
-    logError() << "Plasticity does not work with multiple simulations";
-    return 0;
-#else
+
     assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
+    bool atLeastOnePlasticYield = false;
+#ifdef MULTIPLE_SIMULATIONS
+    real dofsUninterleaved[tensor::Q::size()] = {0.0};
+    kernel::dofsModified dofsModifiedKrnl;
+    dofsModifiedKrnl.Q = degreesOfFreedom;
+    dofsModifiedKrnl.Q_ijs = dofsUninterleaved;
+    dofsModifiedKrnl.execute();
 
-  alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()];
-  alignas(Alignment) real qEtaNodal[tensor::QEtaNodal::size()];
-  alignas(Alignment) real qEtaModal[tensor::QEtaModal::size()];
-  alignas(Alignment) real meanStress[tensor::meanStress::size()];
-  alignas(Alignment) real secondInvariant[tensor::secondInvariant::size()];
-  alignas(Alignment) real tau[tensor::secondInvariant::size()];
-  alignas(Alignment) real taulim[tensor::meanStress::size()];
-  alignas(Alignment) real yieldFactor[tensor::yieldFactor::size()];
-  alignas(Alignment) real dudtPstrain[tensor::QStress::size()];
+    real pstrainUninterleaved[tensor::pstrain::size()] = {0.0};
+    kernel::pstrainModified pstrainModifiedKrnl;
+    pstrainModifiedKrnl.pstrain = pstrain;
+    pstrainModifiedKrnl.pstrain_ijs = pstrainUninterleaved;
+    pstrainModifiedKrnl.execute();
 
-  static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
-                "Second invariant tensor and mean stress tensor must be of the same size().");
-  static_assert(tensor::yieldFactor::size() <= tensor::meanStress::size(),
-                "Yield factor tensor must be smaller than mean stress tensor.");
+#endif
 
+    for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+      alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()];
+      alignas(Alignment) real qEtaNodal[tensor::QEtaNodal::size()];
+      alignas(Alignment) real qEtaModal[tensor::QEtaModal::size()];
+      alignas(Alignment) real meanStress[tensor::meanStress::size()];
+      alignas(Alignment) real secondInvariant[tensor::secondInvariant::size()];
+      alignas(Alignment) real tau[tensor::secondInvariant::size()];
+      alignas(Alignment) real taulim[tensor::meanStress::size()];
+      alignas(Alignment) real yieldFactor[tensor::yieldFactor::size()];
+      alignas(Alignment) real dudtPstrain[tensor::QStress::size()];
+
+      static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
+                    "Second invariant tensor and mean stress tensor must be of the same size().");
+      static_assert(tensor::yieldFactor::size() <= tensor::meanStress::size(),
+                    "Yield factor tensor must be smaller than mean stress tensor.");
+      real prevDegreesOfFreedom[tensor::QStress::size()];
+
+#ifdef MULTIPLE_SIMULATIONS
+
+  for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
+    prevDegreesOfFreedom[q] = dofsUninterleaved[tensor::Q::Shape[1] * tensor::Q::Shape[2] * i + q];
+  }
+
+  /* Convert modal to nodal and add sigma0.
+   * Stores s_{ij} := sigma_{ij} + sigma0_{ij} for every node.
+   * sigma0 is constant */
+  kernel::plConvertToNodal m2nKrnl;
+  m2nKrnl.v = global->vandermondeMatrix;
+  m2nKrnl.QStress = dofsUninterleaved + tensor::Q::Shape[1] * tensor::Q::Shape[2] * i;
+  m2nKrnl.QStressNodal = qStressNodal;
+  m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
+  m2nKrnl.initialLoading = plasticityData->initialLoading;
+  m2nKrnl.execute();
+
+#else
   // copy dofs for later comparison, only first dof of stresses required
   //  @todo multiple sims
 
@@ -121,6 +153,8 @@ namespace seissol::kernels {
   m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
   m2nKrnl.initialLoading = plasticityData->initialLoading;
   m2nKrnl.execute();
+
+#endif
 
   // Computes m = s_{ii} / 3.0 for every node
   kernel::plComputeMean cmKrnl;
@@ -170,6 +204,9 @@ namespace seissol::kernels {
   }
 
   if (adjust) {
+
+    atLeastOnePlasticYield = true;
+
     /**
      * Compute sigma_{ij} := sigma_{ij} + yield s_{ij} for every node
      * and store as modal basis.
@@ -187,7 +224,7 @@ namespace seissol::kernels {
      *                = sigma_{ij} + yield s_{ij}
      */
     kernel::plAdjustStresses adjKrnl;
-    adjKrnl.QStress = degreesOfFreedom;
+    adjKrnl.QStress = dofsUninterleaved + tensor::Q::Shape[1] * tensor::Q::Shape[2] * i;
     adjKrnl.vInv = global->vandermondeMatrixInverse;
     adjKrnl.QStressNodal = qStressNodal;
     adjKrnl.yieldFactor = yieldFactor;
@@ -218,10 +255,16 @@ namespace seissol::kernels {
        *
        * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
        */
-      const real factor = plasticityData->mufactor / (tV * oneMinusIntegratingFactor);
-      dudtPstrain[q] = factor * (prevDegreesOfFreedom[q] - degreesOfFreedom[q]);
+      const real factor = plasticityData->mufactor / (T_v * oneMinusIntegratingFactor);
+#ifdef MULTIPLE_SIMULATIONS
+      pstrainUninterleaved[tensor::pstrain::Shape[1]*tensor::pstrain::Shape[2]*i + q] += timeStepWidth * dudtPstrain[q];
       // Integrate with explicit Euler
+      dudtPstrain[q] = factor * (prevDegreesOfFreedom[q] - dofsUninterleaved[tensor::Q::Shape[1] * tensor::Q::Shape[2] * i + q]);
+#else      
       pstrain[q] += timeStepWidth * dudtPstrain[q];
+      // Integrate with explicit Euler
+      dudtPstrain[q] = factor * (prevDegreesOfFreedom[q] - degreesOfFreedom[q]);
+#endif
     }
     /* Convert modal to nodal */
     kernel::plConvertToNodalNoLoading m2nKrnlDudtPstrain;
@@ -232,7 +275,11 @@ namespace seissol::kernels {
 
     // Sizes:
     for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
+      #ifdef MULTIPLE_SIMULATIONS
+      qEtaModal[q] = pstrainUninterleaved[tensor::pstrain::Shape[1]*tensor::pstrain::Shape[2]*i + q];
+      #else
       qEtaModal[q] = pstrain[tensor::QStress::size() + q];
+      #endif
     }
 
     /* Convert modal to nodal */
@@ -263,12 +310,29 @@ namespace seissol::kernels {
     n2mEtaKrnl.QEtaModal = qEtaModal;
     n2mEtaKrnl.execute();
     for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
+      #ifdef MULTIPLE_SIMULATIONS
+      pstrainUninterleaved[tensor::pstrain::Shape[1]*tensor::pstrain::Shape[2]*i + q] = qEtaModal[q];
+      #else
       pstrain[tensor::QStress::size() + q] = qEtaModal[q];
+      #endif
     }
-    return 1;
   }
-#endif
-  return 0;
+}
+
+    kernel::dofsModifiedReversed dofsModifiedReversedKrnl;
+    dofsModifiedReversedKrnl.Q = degreesOfFreedom;
+    dofsModifiedReversedKrnl.Q_ijs = dofsUninterleaved;
+    dofsModifiedKrnl.execute();
+
+    kernel::pstrainModifiedReversed pstrainModifiedReversedKrnl;
+    pstrainModifiedReversedKrnl.pstrain = pstrain;
+    pstrainModifiedReversedKrnl.pstrain_ijs = pstrainUninterleaved;
+    pstrainModifiedReversedKrnl.execute();
+
+if(atLeastOnePlasticYield){
+  return 1;
+}
+else return 0;
 }
 
 unsigned Plasticity::computePlasticityBatched(

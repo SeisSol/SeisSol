@@ -51,29 +51,39 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
   sShape = (numberOf3DBasisFunctions, 6)
-  QStress = OptionalDimTensor('QStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), sShape, alignStride=True)
 
   sShape_eta = (numberOf3DBasisFunctions,)
-  QEtaModal = OptionalDimTensor('QEtaModal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), sShape_eta, alignStride=True)
-
-  initialLoading = Tensor('initialLoading', (6,))
-
+  iShape = (numberOfNodes, 6)
   replicateIniLShape = (numberOfNodes,)
   replicateIniLSpp = np.ones(aderdg.Q.insertOptDim(replicateIniLShape, (aderdg.Q.optSize(),)))
-  replicateInitialLoading = OptionalDimTensor('replicateInitialLoading',
-                                              aderdg.Q.optName(),
-                                              aderdg.Q.optSize(),
-                                              aderdg.Q.optPos(),
-                                              replicateIniLShape,
-                                              spp=replicateIniLSpp,
-                                              alignStride=True)
+  
+  pstrainShape = (numberOfNodes, 7)
 
-  iShape = (numberOfNodes, 6)
-  QStressNodal = OptionalDimTensor('QStressNodal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), iShape, alignStride=True)
-  meanStress = OptionalDimTensor('meanStress', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
-  secondInvariant = OptionalDimTensor('secondInvariant', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
+  pstrain = OptionalDimTensor('pstrain', 's', aderdg.multipleSimulations, 0, pstrainShape, alignStride=True)
+  pstrain_ijs = Tensor('pstrain_ijs', (pstrainShape[0], pstrainShape[1], aderdg.multipleSimulations))
+  pstrainModified = pstrain_ijs['ijs'] <= pstrain['ij']
+  generator.add('pstrainModified', pstrainModified)
+  pstrainModifiedReversed = pstrain['ij'] <= pstrain_ijs['ijs']
+  generator.add('pstrainModifiedReversed', pstrainModifiedReversed)
 
-  QEtaNodal = OptionalDimTensor('QEtaNodal', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
+  if aderdg.multipleSimulations > 1:
+    QEtaModal = Tensor('QEtaModal', sShape_eta, alignStride=False)
+    QStressNodal = Tensor('QStressNodal', iShape, alignStride=False)
+    meanStress = Tensor('meanStress', (numberOfNodes, ), alignStride=False)
+    QEtaNodal = Tensor('QEtaNodal', (numberOfNodes, ), alignStride=False)
+    secondInvariant = Tensor('secondInvariant', (numberOfNodes, ), alignStride=False)
+    QStress = Tensor('QStress', sShape, alignStride=False)
+    replicateInitialLoading = Tensor('replicateInitialLoading', replicateIniLShape, spp=np.ones(replicateIniLShape, ), alignStride=False)
+  else:
+    QEtaModal = Tensor('QEtaModal', sShape_eta, alignStride=True)
+    QStressNodal = Tensor('QStressNodal', iShape, alignStride=True)
+    meanStress = Tensor('meanStress', (numberOfNodes, ), alignStride=True)
+    QEtaNodal = Tensor('QEtaNodal', (numberOfNodes, ), alignStride=True)
+    secondInvariant = Tensor('secondInvariant', (numberOfNodes, ), alignStride=True)
+    QStress = Tensor('QStress', sShape, alignStride=True)
+    replicateInitialLoading = Tensor('replicateInitialLoading', replicateIniLShape, spp=np.ones(replicateIniLShape, ), alignStride=True)
+  
+  initialLoading = Tensor('initialLoading', (6,))
 
   selectBulkAverage = Tensor('selectBulkAverage', (6,), spp={(i,): str(1.0/3.0) for i in range(3)})
   selectBulkNegative = Tensor('selectBulkNegative', (6,), spp={(i,): '-1.0' for i in range(3)})
@@ -109,8 +119,8 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     replicateInitialLoadingM = Tensor(name='replicateInitialLoadingM',
                                       shape=(numberOfNodes, 1),
                                       spp=np.ones((numberOfNodes, 1)))
-    #initialLoadingM = Tensor('initialLoadingM', (1, 6))
-    initialLoadingM = OptionalDimTensor('initialLoadingM', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (1,6), alignStride=True)
+    initialLoadingM = Tensor('initialLoadingM', (1, 6))
+    # initialLoadingM = OptionalDimTensor('initialLoadingM', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (1,6), alignStride=True)
 
     # Note: the last term was change on purpose because
     # GemmForge doesn't currently support tensor product operation

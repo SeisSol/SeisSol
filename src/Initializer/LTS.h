@@ -131,7 +131,12 @@ struct LTS {
   Variable<seissol::model::PlasticityData> plasticity;
   Variable<CellDRMapping[4]> drMapping;
   Variable<CellBoundaryMapping[4]> boundaryMapping;
+#ifdef MULTIPLE_SIMULATIONS
+  Variable<real[MULTIPLE_SIMULATIONS*tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
+#else
   Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
+#endif
+
   Variable<real* [4]> faceDisplacements;
   Bucket buffersDerivatives;
   Bucket faceDisplacementsBuffer;
