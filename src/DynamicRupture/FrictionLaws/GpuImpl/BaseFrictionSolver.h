@@ -22,7 +22,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
 
-    runtime.syncToSycl(&this->queue);
+                  this->queue = runtime.stream();
 
     Derived& self = *(static_cast<Derived*>(this));
 
@@ -189,8 +189,6 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         }
       }
     }
-
-    runtime.syncFromSycl(&this->queue);
   }
 };
 } // namespace seissol::dr::friction_law::gpu
