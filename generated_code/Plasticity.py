@@ -40,13 +40,13 @@
 
 import numpy as np
 from yateto import Tensor
-from yateto.input import parseXMLMatrixFile
+from yateto.input import parseJSONMatrixFile
 from multSim import OptionalDimTensor
 from common import generate_kernel_name_prefix
 
 def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
   # Load matrices
-  db = parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, PlasticityMethod, aderdg.order), clones=dict(), alignStride=aderdg.alignStride)
+  db = parseJSONMatrixFile('{}/plasticity_{}_matrices_{}.json'.format(matricesDir, PlasticityMethod, aderdg.order), clones=dict(), alignStride=aderdg.alignStride)
   numberOfNodes = aderdg.t(db.v.shape())[0]
 
   numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()

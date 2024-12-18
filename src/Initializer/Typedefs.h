@@ -318,6 +318,9 @@ struct GlobalData {
   //! Modal basis to quadrature points
   real* evalAtQPMatrix{nullptr};
 
+  //! Modal basis to quadrature points
+  real* evalDerivAtQPMatrix{nullptr};
+
   //! Project function evaluated at quadrature points to modal basis
   real* projectQPMatrix{nullptr};
   

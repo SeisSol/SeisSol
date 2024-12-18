@@ -182,6 +182,8 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   globalMatrixMemSize +=
       yateto::alignedUpper(tensor::evalAtQP::size(), yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
+      yateto::alignedUpper(tensor::evalDerivAtQP::size(), yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize +=
       yateto::alignedUpper(tensor::projectQP::size(), yateto::alignedReals<real>(prop.alignment));
 
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
@@ -215,6 +217,8 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
 
   copyManager.template copyTensorToMemAndSetPtr<init::evalAtQP>(
       globalMatrixMemPtr, globalData.evalAtQPMatrix, prop.alignment);
+  copyManager.template copyTensorToMemAndSetPtr<init::evalDerivAtQP>(
+      globalMatrixMemPtr, globalData.evalDerivAtQPMatrix, prop.alignment);
   copyManager.template copyTensorToMemAndSetPtr<init::projectQP>(
       globalMatrixMemPtr, globalData.projectQPMatrix, prop.alignment);
 

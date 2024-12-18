@@ -127,11 +127,13 @@ class Viscoelastic2ADERDG(ADERDGBase):
     iniCond = OptionalDimTensor('iniCond', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
     dofsShape = (self.numberOf3DQuadraturePoints(), self.numberOfQuantities())
     dofsQP = OptionalDimTensor('dofsQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), dofsShape, alignStride=True)
+    dofsDerivQP = OptionalDimTensor('dofsDerivQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), tuple([3] + list(dofsShape)), alignStride=True)
 
     projectIniCondEla = self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lq'] * selectElaFull['qp']
     projectIniCondAne = self.Qane['kpm'] <= self.db.projectQP[self.t('kl')] * iniCond['lq'] * selectAneFull['qpm']
     generator.add('projectIniCond', [projectIniCondEla, projectIniCondAne])
     generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
+    generator.add('evalDerivAtQP', dofsDerivQP['dkp'] <= self.db.evalDerivAtQP[self.t('dkl')] * self.Q['lp'])
 
   def addLocal(self, generator, targets):
     volumeSum = Add()

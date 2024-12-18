@@ -66,9 +66,10 @@ class ADERDGBase(ABC):
     self.db = parseXMLMatrixFile('{}/matrices_{}.xml'.format(matricesDir, self.numberOf3DBasisFunctions()), transpose=self.transpose, alignStride=self.alignStride)
     clonesQP = {
       'v': [ 'evalAtQP' ],
+      'vD': [ 'evalDerivAtQP' ],
       'vInv': [ 'projectQP' ]
     }
-    self.db.update( parseXMLMatrixFile('{}/plasticity_ip_matrices_{}.xml'.format(matricesDir, order), clonesQP, transpose=self.transpose, alignStride=self.alignStride))
+    self.db.update(parseJSONMatrixFile('{}/plasticity_ip_matrices_{}.json'.format(matricesDir, order), clonesQP, transpose=self.transpose, alignStride=self.alignStride))
     self.db.update(parseJSONMatrixFile('{}/sampling_directions.json'.format(matricesDir)))
     self.db.update(parseJSONMatrixFile('{}/mass_{}.json'.format(matricesDir, order)))
 
@@ -254,9 +255,11 @@ class LinearADERDG(ADERDGBase):
     iniShape = (self.numberOf3DQuadraturePoints(), self.numberOfQuantities())
     iniCond = OptionalDimTensor('iniCond', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
     dofsQP = OptionalDimTensor('dofsQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), iniShape, alignStride=True)
+    dofsDerivQP = OptionalDimTensor('dofsDerivQP', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), tuple([3] + list(iniShape)), alignStride=True)
 
     generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
     generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.Q['lp'])
+    generator.add('evalDerivAtQP', dofsDerivQP['dkp'] <= self.db.evalDerivAtQP[self.t('dkl')] * self.Q['lp'])
 
   def addLocal(self, generator, targets):
     for target in targets:
