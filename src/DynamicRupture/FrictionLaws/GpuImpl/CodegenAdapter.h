@@ -31,11 +31,11 @@ class FrictionSolverAdapter : public FrictionSolverInterface {
   void allocateAuxiliaryMemory() override {
     // TODO: to GlobalData
 
-    spaceWeights = reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocGlobMem(sizeof(real) * tensor::quadweights::size()));
-    device::DeviceInstance::getInstance().api->copyTo(spaceWeights, init::quadweights::Values, sizeof(real) * tensor::quadweights::size());
+    spaceWeights = reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocUnifiedMem(sizeof(real) * tensor::quadweights::size()));
+    std::memcpy(spaceWeights, init::quadweights::Values, sizeof(real) * tensor::quadweights::size());
 
-    resampleMatrix = reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocGlobMem(sizeof(real) * tensor::resample::size()));
-    device::DeviceInstance::getInstance().api->copyTo(resampleMatrix, init::resample::Values, sizeof(real) * tensor::resample::size());
+    resampleMatrix = reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocUnifiedMem(sizeof(real) * tensor::resample::size()));
+    std::memcpy(resampleMatrix, init::resample::Values, sizeof(real) * tensor::resample::size());
   }
   void copyStaticDataToDevice() override {
 
