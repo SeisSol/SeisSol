@@ -78,8 +78,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
   selectBulkAverage = Tensor('selectBulkAverage', (6,), spp={(i,): str(1.0/3.0) for i in range(3)})
   selectBulkNegative = Tensor('selectBulkNegative', (6,), spp={(i,): '-1.0' for i in range(3)})
   weightSecondInvariant = Tensor('weightSecondInvariant', (6,), spp={(i,): str(1.0/2.0) if i < 3 else '1.0' for i in range(6)})
-  # yieldFactor = Tensor('yieldFactor', (numberOfNodes,))
-  yieldFactor = OptionalDimTensor('yieldFactor', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfNodes,), alignStride=True)
+  yieldFactor = Tensor('yieldFactor', (numberOfNodes,))
 
   generator.add('plConvertToNodal', QStressNodal['kp'] <= db.v[aderdg.t('kl')] * QStress['lp'] + replicateInitialLoading['k'] * initialLoading['p'])
 
