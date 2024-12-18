@@ -56,8 +56,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include <Initializer/Tree/m_ltsTree->h>
-#include <Initializer/m_lts->h>
+#include <Initializer/Tree/LTSTree.h>
+#include <Initializer/Lts.h>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/GlobalData.h>
 #include <Solver/time_stepping/MiniSeisSol.cpp>
