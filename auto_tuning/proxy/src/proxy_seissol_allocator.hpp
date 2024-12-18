@@ -146,7 +146,12 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture,
       seissol
     )->produce();
     m_dynRup = std::move(drTuple.ltsTree);
-    m_frictionSolver = std::move(drTuple.frictionLaw);
+    if (isDeviceOn()) {
+      m_frictionSolver = std::move(drTuple.frictionLawDevice);
+    }
+    else {
+      m_frictionSolver = std::move(drTuple.frictionLaw);
+    }
 
     m_dynRup->addTo(*m_dynRupTree);
     m_dynRupTree->setNumberOfTimeClusters(1);
