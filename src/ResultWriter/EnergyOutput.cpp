@@ -357,17 +357,17 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 void EnergyOutput::computeVolumeEnergies() {
   // TODO: abstract energy calculation, and implement it for anisotropic and poroelastic
   [[maybe_unused]] auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy();
-  [[maybe_unused]] auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
-  [[maybe_unused]] auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
-  [[maybe_unused]] auto& totalMomentumX = energiesStorage.totalMomentumX();
-  [[maybe_unused]] auto& totalMomentumY = energiesStorage.totalMomentumY();
-  [[maybe_unused]] auto& totalMomentumZ = energiesStorage.totalMomentumZ();
-  [[maybe_unused]] auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
-  [[maybe_unused]] auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
-  [[maybe_unused]] auto& totalPlasticMoment = energiesStorage.plasticMoment();
+  auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy();
+  auto& totalAcousticKineticEnergyLocal = energiesStorage.acousticKineticEnergy();
+  auto& totalMomentumX = energiesStorage.totalMomentumX();
+  auto& totalMomentumY = energiesStorage.totalMomentumY();
+  auto& totalMomentumZ = energiesStorage.totalMomentumZ();
+  auto& totalElasticEnergyLocal = energiesStorage.elasticEnergy();
+  auto& totalElasticKineticEnergyLocal = energiesStorage.elasticKineticEnergy();
+  auto& totalPlasticMoment = energiesStorage.plasticMoment();
 
-  const std::vector<Element>& elements = meshReader->getElements();
-  const std::vector<Vertex>& vertices = meshReader->getVertices();
+  const auto& elements = meshReader->getElements();
+  const auto& vertices = meshReader->getVertices();
 
   [[maybe_unused]] const auto g = seissolInstance.getGravitationSetup().acceleration;
 
@@ -388,7 +388,7 @@ void EnergyOutput::computeVolumeEnergies() {
   for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
     const real volume = MeshTools::volume(elements[elementId], vertices);
     const CellMaterialData& material = ltsLut->lookup(lts->material, elementId);
-#if defined(USE_ELASTIC) || defined(USE_VISCOELASTIC2)
+
     auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
     auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
@@ -418,10 +418,25 @@ void EnergyOutput::computeVolumeEnergies() {
     krnl.Q = ltsLut->lookup(lts->dofs, elementId);
     krnl.execute();
 
+    alignas(Alignment) real numericalSolutionDerivData[tensor::dofsDerivQP::size()];
+    auto numericalSolutionDeriv = init::dofsDerivQP::view::create(numericalSolutionDerivData);
+    // Evaluate numerical solution at quad. nodes
+    kernel::evalDerivAtQP krnlDeriv;
+    krnlDeriv.evalDerivAtQP = global->evalDerivAtQPMatrix;
+    krnlDeriv.dofsDerivQP = numericalSolutionDerivData;
+    krnlDeriv.Q = ltsLut->lookup(lts->dofs, elementId);
+    krnlDeriv.execute();
+
+    std::array<double, 81> stiffnessTensorData;
+    material.local.getFullStiffnessTensor(stiffnessTensorData);
+    auto stiffnessTensor = seissol_general::init::stiffnessTensor::view::create(stiffnessTensorData.data());
+
 #ifdef MULTIPLE_SIMULATIONS
     auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
+    auto numSubDeriv = numericalSolutionDeriv.subtensor(sim, yateto::slice<>(), yateto::slice<>(), yateto::slice<>());
 #else
     auto numSub = numericalSolution;
+    auto numSubDeriv = numericalSolutionDeriv;
 #endif
     for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
       constexpr int UIdx = 6;
@@ -436,50 +451,59 @@ void EnergyOutput::computeVolumeEnergies() {
       const double curMomentumY = rho * v;
       const double curMomentumZ = rho * w;
 
-      if (std::abs(material.local.mu) < 10e-14) {
-        // Acoustic
-        constexpr int PIdx = 0;
-        const auto k = material.local.lambda;
-        const auto p = numSub(qp, PIdx);
-        const double curAcousticEnergy = (p * p) / (2 * k);
-        totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
+      const auto displDeriv = [&](int i, int j){return numSubDeriv(i, qp, UIdx + j);};
+
+      const auto stress = [&](int i, int j) {
+        // (0,0) -> 0
+        // (1,0) -> 1
+        // (2,0) -> 2
+        // (1,1) -> 3
+        // (1,2) -> 4
+        // (2,2) -> 5
+        const auto minIdx = std::min(i,j);
+        const auto maxIdx = std::max(i,j);
+        const auto index = maxIdx + minIdx * 2 - (minIdx * (minIdx - 1)) / 2;
+        return numSub(qp, index);
+      };
+
+      const auto strain = [&](int i, int j) {
+        if (i == j) {
+          return displDeriv(i, j);
+        }
+        else {
+          return 0.5 * (displDeriv(i,j) + displDeriv(j,i));
+        }
+      };
+
+      const double curEnergy = [&]() {
+        double energy = 0;
+        for (int i = 0; i < 3; ++i) {
+          for (int j = 0; j < 3; ++j) {
+            for (int k = 0; k < 3; ++k) {
+              for (int l = 0; l < 3; ++l) {
+                energy += stress(i, j) * strain(k, l); // stiffnessTensor(i,j,k,l) * 
+              }
+            }
+          }
+        }
+        return energy * 0.5;
+      }();
+
+      if (std::abs(material.local.getMuBar()) < 10e-14) {
+        // acoustic
+        totalAcousticEnergyLocal += curWeight * curEnergy;
         totalAcousticKineticEnergyLocal += curWeight * curKineticEnergy;
       } else {
-        // Elastic
+        // elastic (isotropic, anisotropic, viscoelastic)
+        totalElasticEnergyLocal += curWeight * curEnergy;
         totalElasticKineticEnergyLocal += curWeight * curKineticEnergy;
-        auto getStressIndex = [](int i, int j) {
-          const static auto Lookup =
-              std::array<std::array<int, 3>, 3>{{{0, 3, 5}, {3, 1, 4}, {5, 4, 2}}};
-          return Lookup[i][j];
-        };
         totalMomentumX += curWeight * curMomentumX;
         totalMomentumY += curWeight * curMomentumY;
         totalMomentumZ += curWeight * curMomentumZ;
-
-        auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
-
-        const auto lambda = material.local.lambda;
-        const auto mu = material.local.mu;
-        const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
-        auto computeStrain = [&](int i, int j) {
-          double strain = 0.0;
-          const auto factor = -1.0 * (lambda) / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
-          if (i == j) {
-            strain += factor * sumUniaxialStresses;
-          }
-          strain += 1.0 / (2.0 * mu) * getStress(i, j);
-          return strain;
-        };
-        double curElasticEnergy = 0.0;
-        for (int i = 0; i < 3; ++i) {
-          for (int j = 0; j < 3; ++j) {
-            curElasticEnergy += getStress(i, j) * computeStrain(i, j);
-          }
-        }
-        totalElasticEnergyLocal += curWeight * 0.5 * curElasticEnergy;
       }
     }
 
+#if defined(USE_ELASTIC) || defined(USE_VISCOELASTIC2)
     auto* boundaryMappings = ltsLut->lookup(lts->boundaryMapping, elementId);
     // Compute gravitational energy
     for (int face = 0; face < 4; ++face) {
