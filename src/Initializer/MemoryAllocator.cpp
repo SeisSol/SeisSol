@@ -140,6 +140,8 @@ void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
 }
 
 void free(void* pointer, enum Memkind memkind) {
+  memkind = DeviceUnifiedMemory;
+  
 #if defined(USE_MEMKIND) || defined(ACL_DEVICE)
   if (memkind == Standard) {
 #endif
