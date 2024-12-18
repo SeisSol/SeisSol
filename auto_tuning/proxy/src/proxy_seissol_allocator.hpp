@@ -56,8 +56,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * POSSIBILITY OF SUCH DAMAGE.
  **/
 
-#include <Initializer/Tree/LTSTree.h>
-#include <Initializer/LTS.h>
+#include <Initializer/Tree/m_ltsTree->h>
+#include <Initializer/m_lts->h>
 #include <Initializer/DynamicRupture.h>
 #include <Initializer/GlobalData.h>
 #include <Solver/time_stepping/MiniSeisSol.cpp>
@@ -121,7 +121,7 @@ void initGlobalData() {
 unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture, int frictionLaw) {
   // init RNG
   srand48(i_cells);
-  m_lts.addTo(*m_ltsTree, false); // proxy does not use plasticity
+  m_m_lts->addTo(*m_ltsTree, false); // proxy does not use plasticity
   m_ltsTree->setNumberOfTimeClusters(1);
   m_ltsTree->fixate();
   
@@ -131,7 +131,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture,
   cluster.child<Interior>().setNumberOfCells(i_cells);
   
   seissol::initializer::Layer& layer = cluster.child<Interior>();
-  layer.setBucketSize(m_lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
+  layer.setBucketSize(m_m_lts->buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
   
   m_ltsTree->allocateVariables();
   m_ltsTree->touchVariables();
@@ -177,15 +177,23 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture,
   seissol::fakeData(m_lts, layer, (enableDynamicRupture) ? FaceType::DynamicRupture : FaceType::Regular);
 
   if (enableDynamicRupture) {
-    // From lts tree
-    CellDRMapping (*drMapping)[4] = m_ltsTree->var(m_lts.drMapping);
+        // From lts tree
+    CellDRMapping(*drMapping)[4] =
+        isDeviceOn() ? m_ltsTree->var(m_lts->drMappingDevice) : m_ltsTree->var(m_lts->drMapping);
+
+    constexpr initializer::AllocationPlace Place =
+        isDeviceOn() ? initializer::AllocationPlace::Device : initializer::AllocationPlace::Host;
 
     // From dynamic rupture tree
     seissol::initializer::Layer& interior = m_dynRupTree->child(0).child<Interior>();
-    real (*imposedStatePlus)[seissol::tensor::QInterpolated::size()] = interior.var(m_dynRup->imposedStatePlus);
-    real (*fluxSolverPlus)[seissol::tensor::fluxSolver::size()]     = interior.var(m_dynRup->fluxSolverPlus);
-    real** timeDerivativePlus = interior.var(m_dynRup->timeDerivativePlus);
-    real** timeDerivativeMinus = interior.var(m_dynRup->timeDerivativeMinus);
+    real(*imposedStatePlus)[seissol::tensor::QInterpolated::size()] =
+        interior.var(m_dynRup->imposedStatePlus, Place);
+    real(*fluxSolverPlus)[seissol::tensor::fluxSolver::size()] =
+        interior.var(m_dynRup->fluxSolverPlus, Place);
+    real** timeDerivativePlus = isDeviceOn() ? interior.var(m_dynRup->timeDerivativePlusDevice)
+                                             : interior.var(m_dynRup->timeDerivativePlus);
+    real** timeDerivativeMinus = isDeviceOn() ? interior.var(m_dynRup->timeDerivativeMinusDevice)
+                                              : interior.var(m_dynRup->timeDerivativeMinus);
     DRFaceInformation* faceInformation = interior.var(m_dynRup->faceInformation);
     
     /* init drMapping */
