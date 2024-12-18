@@ -121,7 +121,7 @@ void initGlobalData() {
 unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture, int frictionLaw) {
   // init RNG
   srand48(i_cells);
-  m_m_lts->addTo(*m_ltsTree, false); // proxy does not use plasticity
+  m_lts.addTo(*m_ltsTree, false); // proxy does not use plasticity
   m_ltsTree->setNumberOfTimeClusters(1);
   m_ltsTree->fixate();
   
@@ -131,7 +131,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture,
   cluster.child<Interior>().setNumberOfCells(i_cells);
   
   seissol::initializer::Layer& layer = cluster.child<Interior>();
-  layer.setBucketSize(m_m_lts->buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
+  layer.setBucketSize(m_lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
   
   m_ltsTree->allocateVariables();
   m_ltsTree->touchVariables();
@@ -179,7 +179,7 @@ unsigned int initDataStructures(unsigned int i_cells, bool enableDynamicRupture,
   if (enableDynamicRupture) {
         // From lts tree
     CellDRMapping(*drMapping)[4] =
-        isDeviceOn() ? m_ltsTree->var(m_lts->drMappingDevice) : m_ltsTree->var(m_lts->drMapping);
+        isDeviceOn() ? m_ltsTree->var(m_lts.drMappingDevice) : m_ltsTree->var(m_lts.drMapping);
 
     constexpr initializer::AllocationPlace Place =
         isDeviceOn() ? initializer::AllocationPlace::Device : initializer::AllocationPlace::Host;
