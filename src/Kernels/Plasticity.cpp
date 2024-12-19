@@ -99,7 +99,7 @@ namespace seissol::kernels {
     pstrainModifiedKrnl.execute();
 #endif
 
-  for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+  for (unsigned int sim = 0; sim < MULTIPLE_SIMULATIONS; sim++) {
       alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()];
       alignas(Alignment) real qEtaNodal[tensor::QEtaNodal::size()];
       alignas(Alignment) real qEtaModal[tensor::QEtaModal::size()];
@@ -119,7 +119,7 @@ namespace seissol::kernels {
 #ifdef MULTIPLE_SIMULATIONS
 
   for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
-    prevDegreesOfFreedom[q] = dofsUninterleaved[tensor::Q::Shape[1] * tensor::Q::Shape[2] * i + q];
+    prevDegreesOfFreedom[q] = dofsUninterleaved[tensor::Q::Shape[1] * tensor::Q::Shape[2] * sim + q];
   }
 
   /* Convert modal to nodal and add sigma0.
@@ -127,7 +127,7 @@ namespace seissol::kernels {
    * sigma0 is constant */
   kernel::plConvertToNodal m2nKrnl;
   m2nKrnl.v = global->vandermondeMatrix;
-  m2nKrnl.QStress = dofsUninterleaved + tensor::Q::Shape[1] * tensor::Q::Shape[2] * i;
+  m2nKrnl.QStress = dofsUninterleaved + tensor::Q::Shape[1] * tensor::Q::Shape[2] * sim;
   m2nKrnl.QStressNodal = qStressNodal;
   m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
   m2nKrnl.initialLoading = plasticityData->initialLoading;
@@ -223,7 +223,7 @@ namespace seissol::kernels {
      *                = sigma_{ij} + yield s_{ij}
      */
     kernel::plAdjustStresses adjKrnl;
-    adjKrnl.QStress = dofsUninterleaved + tensor::Q::Shape[1] * tensor::Q::Shape[2] * i;
+    adjKrnl.QStress = dofsUninterleaved + tensor::Q::Shape[1] * tensor::Q::Shape[2] * sim;
     adjKrnl.vInv = global->vandermondeMatrixInverse;
     adjKrnl.QStressNodal = qStressNodal;
     adjKrnl.yieldFactor = yieldFactor;
@@ -256,13 +256,13 @@ namespace seissol::kernels {
        */
       const real factor = plasticityData->mufactor / (T_v * oneMinusIntegratingFactor);
 #ifdef MULTIPLE_SIMULATIONS
-      pstrainUninterleaved[tensor::pstrain::Shape[1]*tensor::pstrain::Shape[2]*i + q] += timeStepWidth * dudtPstrain[q];
+      dudtPstrain[q] = factor * (prevDegreesOfFreedom[q] - dofsUninterleaved[tensor::Q::Shape[1] * tensor::Q::Shape[2] * sim + q]);
+      pstrainUninterleaved[tensor::pstrain::Shape[1]*tensor::pstrain::Shape[2]*sim + q] += timeStepWidth * dudtPstrain[q];
       // Integrate with explicit Euler
-      dudtPstrain[q] = factor * (prevDegreesOfFreedom[q] - dofsUninterleaved[tensor::Q::Shape[1] * tensor::Q::Shape[2] * i + q]);
 #else      
-      pstrain[q] += timeStepWidth * dudtPstrain[q];
-      // Integrate with explicit Euler
       dudtPstrain[q] = factor * (prevDegreesOfFreedom[q] - degreesOfFreedom[q]);
+      // Integrate with explicit Euler
+      pstrain[q] += timeStepWidth * dudtPstrain[q];
 #endif
     }
     /* Convert modal to nodal */
@@ -275,7 +275,7 @@ namespace seissol::kernels {
     // Sizes:
     for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
       #ifdef MULTIPLE_SIMULATIONS
-      qEtaModal[q] = pstrainUninterleaved[tensor::pstrain::Shape[1]*tensor::pstrain::Shape[2]*i + q];
+      qEtaModal[q] = pstrainUninterleaved[tensor::pstrain::Shape[1]*tensor::pstrain::Shape[2]*sim + q];
       #else
       qEtaModal[q] = pstrain[tensor::QStress::size() + q];
       #endif
@@ -310,7 +310,7 @@ namespace seissol::kernels {
     n2mEtaKrnl.execute();
     for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
       #ifdef MULTIPLE_SIMULATIONS
-      pstrainUninterleaved[tensor::pstrain::Shape[1]*tensor::pstrain::Shape[2]*i + q] = qEtaModal[q];
+      pstrainUninterleaved[tensor::pstrain::Shape[1]*tensor::pstrain::Shape[2]*sim + q] = qEtaModal[q];
       #else
       pstrain[tensor::QStress::size() + q] = qEtaModal[q];
       #endif
