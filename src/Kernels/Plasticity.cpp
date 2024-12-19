@@ -97,10 +97,9 @@ namespace seissol::kernels {
     pstrainModifiedKrnl.pstrain = pstrain;
     pstrainModifiedKrnl.pstrain_ijs = pstrainUninterleaved;
     pstrainModifiedKrnl.execute();
-
 #endif
 
-    for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+  for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
       alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()];
       alignas(Alignment) real qEtaNodal[tensor::QEtaNodal::size()];
       alignas(Alignment) real qEtaModal[tensor::QEtaModal::size()];
@@ -140,7 +139,7 @@ namespace seissol::kernels {
 
   real prevDegreesOfFreedom[tensor::QStress::size()];
   for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
-    prevDegreesOfFreedom[q] = degreesOfFreedom[q]; // (TODO: get the right indexing here because prevDegreeOfFreedom does not have velocities in it)
+    prevDegreesOfFreedom[q] = degreesOfFreedom[q];
   }
 
   /* Convert modal to nodal and add sigma0.

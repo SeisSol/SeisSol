@@ -109,7 +109,8 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
   generator.add('plComputeMean', meanStress['k'] <= QStressNodal['kq'] * selectBulkAverage['q'])
   generator.add('plSubtractMean', QStressNodal['kp'] <= QStressNodal['kp'] + meanStress['k'] * selectBulkNegative['p'])
   generator.add('plComputeSecondInvariant', secondInvariant['k'] <= QStressNodal['kq'] * QStressNodal['kq'] * weightSecondInvariant['q'])
-  generator.add('plAdjustStresses', QStress['kp'] <= QStress['kp'] + db.vInv[aderdg.t('kl')] * QStressNodal['lp'] * yieldFactor['l'])
+  generator.add('plAdjustStresses', QStress['kp'] <= QStress['kp'] + db.vInv['kl'] * QStressNodal['lp'] * yieldFactor['l'])
+
 
   gpu_target = 'gpu'
   if gpu_target in targets:
@@ -120,7 +121,6 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
                                       shape=(numberOfNodes, 1),
                                       spp=np.ones((numberOfNodes, 1)))
     initialLoadingM = Tensor('initialLoadingM', (1, 6))
-    # initialLoadingM = OptionalDimTensor('initialLoadingM', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (1,6), alignStride=True)
 
     # Note: the last term was change on purpose because
     # GemmForge doesn't currently support tensor product operation
