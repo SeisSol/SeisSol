@@ -310,7 +310,7 @@ namespace seissol::kernels {
     n2mEtaKrnl.execute();
     for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
       #ifdef MULTIPLE_SIMULATIONS
-      pstrainUninterleaved[tensor::pstrain::Shape[1]*tensor::pstrain::Shape[2]*sim + q] = qEtaModal[q];
+      pstrainUninterleaved[tensor::pstrain::Shape[1]*tensor::pstrain::Shape[2]*sim + tensor::QStress::size() + q] = qEtaModal[q];
       #else
       pstrain[tensor::QStress::size() + q] = qEtaModal[q];
       #endif
@@ -321,7 +321,7 @@ namespace seissol::kernels {
     kernel::dofsModifiedReversed dofsModifiedReversedKrnl;
     dofsModifiedReversedKrnl.Q = degreesOfFreedom;
     dofsModifiedReversedKrnl.Q_ijs = dofsUninterleaved;
-    dofsModifiedKrnl.execute();
+    dofsModifiedReversedKrnl.execute();
 
     kernel::pstrainModifiedReversed pstrainModifiedReversedKrnl;
     pstrainModifiedReversedKrnl.pstrain = pstrain;
