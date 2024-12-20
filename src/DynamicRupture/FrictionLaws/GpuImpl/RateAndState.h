@@ -54,7 +54,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
                                       const seissol::initializer::DynamicRupture* const dynRup,
                                       real fullUpdateTime) override {
-    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
+    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
     this->a = layerData.var(concreteLts->rsA, seissol::initializer::AllocationPlace::Device);
     this->sl0 = layerData.var(concreteLts->rsSl0, seissol::initializer::AllocationPlace::Device);
     this->stateVariable =
@@ -99,7 +99,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
+    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
     a = layerData.var(concreteLts->rsA, seissol::initializer::AllocationPlace::Device);
     sl0 = layerData.var(concreteLts->rsSl0, seissol::initializer::AllocationPlace::Device);
     stateVariable =

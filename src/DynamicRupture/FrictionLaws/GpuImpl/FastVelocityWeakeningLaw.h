@@ -19,7 +19,7 @@ class FastVelocityWeakeningLaw
                                       const seissol::initializer::DynamicRupture* const dynRup,
                                       real fullUpdateTime) override {
     using SelfInitializerType = seissol::initializer::LTSRateAndStateFastVelocityWeakening;
-    auto* concreteLts = dynamic_cast<const SelfInitializerType* const>(dynRup);
+    auto* concreteLts = dynamic_cast<const SelfInitializerType*>(dynRup);
     this->srW = layerData.var(concreteLts->rsSrW, seissol::initializer::AllocationPlace::Device);
 
     using ParentType = RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod>;

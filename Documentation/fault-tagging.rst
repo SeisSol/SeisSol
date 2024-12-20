@@ -1,18 +1,16 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 Fault tagging
 =============
 
-| In SeisSol, boundary conditions are tagged as:
-| 0: regular
-| 1: free surface
-| 2: free surface + gravity (water surface)
-| 3 or n>64: dynamic rupture
-| 5: absorbing
-| 6: periodic
+The dynamic rupture has the boundary tag 3, or anything larger than 64.
 
-Dynamic rupture can therefore be tagged using a range of possible tags.
-This allows initializing fault parameters segment-wise
-easily. For example, if we have 2 segments, and we want them to have
-different dynamic friction, we can tag them with 3 and 65 and then use:
+Using multiple fault tags enables us to initialize fault parameters segment-wise
+easily. For example, when we want to model 2 segments having different dynamic friction,
+we can do so by tagging them with 3 and 65. That can be then used in the fault easi file as follows:
 
 .. code-block:: yaml
 
@@ -29,7 +27,7 @@ different dynamic friction, we can tag them with 3 and 65 and then use:
            map:
              mu_d:    0.4
 
-Currently, the only way to tag fault faces other tags than 3 with SimModeler is to use the `--xml` option of pumgen. 
+Currently, the only way to tag fault faces other tags than 3 with SimModeler is to use the `--xml` option of pumgen.
 For example, to tag face 2 as 3 and face 8 and 9 as 65, we would
 use:
 
@@ -44,19 +42,19 @@ Then pumgen is run using the xml option:
 
    pumgen -s simmodsuite -l SimModelerLib.lic --xml MeshandAnalysisAttributes.xml prefix.smd output_prefix
 
-Note that ``<boundaryCondition tag="3">`` is equivalent to ``<dynamicRupture>``. Therefore, if you want to tag face 2 as 3, you can use either: 
+Note that ``<boundaryCondition tag="3">`` is equivalent to ``<dynamicRupture>``. Therefore, if you want to tag face 2 as 3, you can use either:
 
 .. code-block:: xml
 
-   <boundaryCondition tag="3">2</boundaryCondition> 
+   <boundaryCondition tag="3">2</boundaryCondition>
 
 or
 
 .. code-block:: xml
 
-   <dynamicRupture>2</dynamicRupture> 
+   <dynamicRupture>2</dynamicRupture>
 
-Note also that if a face is tagged twice, only the first tag will be considered. 
+Note also that if a face is tagged twice, only the first tag will be considered.
 
 
 Using more than 189 dynamic rupture tags

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 urllib3<2
 sphinx==5.3.0
 sphinx_rtd_theme==1.2.0

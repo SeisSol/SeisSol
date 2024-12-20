@@ -1,8 +1,13 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 Related publications
 ====================
 
 
-Ulrich, T., A.-A. Gabriel,, J. P., Ampuero, & W. Xu, (2019). Dynamic viability of the 2016 Mw 7.8 Kaikōura earthquake cascade on weak crustal faults. Nature communications.  
+Ulrich, T., A.-A. Gabriel,, J. P., Ampuero, & W. Xu, (2019). Dynamic viability of the 2016 Mw 7.8 Kaikōura earthquake cascade on weak crustal faults. Nature communications.
 doi: `10.1038/s41467-019-09125-w <https://doi.org/10.1038/s41467-019-09125-w>`_.
 
 Wollherr, S., A.-A. Gabriel, and C. Uphoff (2018), Off-fault plasticity in three-dimensional dynamic rupture simulations using a modal Discontinuous Galerkin method on unstructured meshes: implementation, verification and application, Geophys. J. Int., 214(3), 1556-1584, doi: `10.1093/gji/ggy213 <https://doi.org/10.1093/gji/ggy213>`_.

@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2024-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 Leonardo
 ========
 
@@ -91,7 +96,7 @@ METIS/ParMETIS:
     tar -xvf parmetis-4.0.3.tar.gz
     cd parmetis-4.0.3
     sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g'  ./metis/include/metis.h
-    make config cc=mpicc cxx=mpicxx prefix=$SEISSOL_PREFIX 
+    make config cc=mpicc cxx=mpicxx prefix=$SEISSOL_PREFIX
     make install
     cp build/Linux-x86_64/libmetis/libmetis.a $SEISSOL_PREFIX/lib
     cp metis/include/metis.h $SEISSOL_PREFIX/include
