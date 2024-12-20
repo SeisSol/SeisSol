@@ -127,7 +127,7 @@ class ADERDGBase(ABC):
     selectVelocitySpp = self.mapToVelocities()[:,:3]
     self.selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
 
-    self.selectTractionSpp = self.mapToTractions()
+    self.selectTractionSpp = self.mapToTractions()[:,:3]
     self.tractionPlusMatrix = Tensor('tractionPlusMatrix', self.selectTractionSpp.shape, self.selectTractionSpp, CSCMemoryLayout)
     self.tractionMinusMatrix = Tensor('tractionMinusMatrix', self.selectTractionSpp.shape, self.selectTractionSpp, CSCMemoryLayout)
 
