@@ -42,9 +42,9 @@
  **/
 
 #include <Common/Constants.h>
+#include <Equations/acoustic/Model/Datastructures.h>
 #include <Equations/anisotropic/Model/Datastructures.h>
 #include <Equations/elastic/Model/Datastructures.h>
-#include <Equations/acoustic/Model/Datastructures.h>
 #include <Equations/poroelastic/Model/Datastructures.h>
 #include <Equations/viscoelastic2/Model/Datastructures.h>
 #include <Geometry/MeshDefinition.h>

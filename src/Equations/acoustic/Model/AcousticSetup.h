@@ -2,24 +2,26 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de,
+ *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  * @author Jinwen Pan (jinwen.pan AT tum.de)
  *
  * @section LICENSE
  * Copyright (c) 2015 - 2024, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -39,103 +41,99 @@
  * @section DESCRIPTION
  * This header file contains functions related to the setup of acoustic materials.
  * Specifically, it includes:
- * 
+ *
  * 1. A function to compute the transposed flux matrices for a given acoustic material,
  *    which involves the material's properties such as density (rho) and Lamé constant (lambda).
- * 
+ *
  * 2. A function to compute the transposed Godunov state or the solution to the Riemann problem
- *    based on the face type (e.g., FreeSurface) and material properties. 
+ *    based on the face type (e.g., FreeSurface) and material properties.
  **/
 #ifndef ACOUSTIC_SETUP_H_
 #define ACOUSTIC_SETUP_H_
 
-#include "Model/Common.h"
 #include "Kernels/Common.h"
+#include "Model/Common.h"
+#include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 #include "generated_code/init.h"
-#include "Numerical/Eigenvalues.h"
 
 namespace seissol {
-  namespace model {
-    using Matrix44 = Eigen::Matrix<double, 4, 4>;
+namespace model {
+using Matrix44 = Eigen::Matrix<double, 4, 4>;
 
-    template<typename T>
-    inline void getTransposedCoefficientMatrix( AcousticMaterial const&  i_material,
-                                                unsigned                i_dim,
-                                                T&                      o_M )
-      {
-        o_M.setZero();
+template <typename T>
+inline void
+    getTransposedCoefficientMatrix(const AcousticMaterial& i_material, unsigned i_dim, T& o_M) {
+  o_M.setZero();
 
-        real rhoInv = 1.0 / i_material.rho;
+  real rhoInv = 1.0 / i_material.rho;
 
-        switch (i_dim)
-          {
-            case 0:
-              o_M(1,0) = i_material.lambda;
-              o_M(0,1) = rhoInv;
-              break;
-        
-            case 1:
-              o_M(2,0) = i_material.lambda;
-              o_M(0,2) = rhoInv;
-              break;
-        
-            case 2:
-              o_M(3,0) = i_material.lambda;
-              o_M(0,3) = rhoInv;
-              break;
-              
-            default:
-              break;
-          }
-      }
+  switch (i_dim) {
+  case 0:
+    o_M(1, 0) = i_material.lambda;
+    o_M(0, 1) = rhoInv;
+    break;
 
-    template<typename Tloc, typename Tneigh>
-    inline void getTransposedGodunovState( AcousticMaterial const& local,
-                                           AcousticMaterial const& neighbor,
-                                           FaceType               faceType,
-                                           Tloc&                  QgodLocal,
-                                           Tneigh&                QgodNeighbor )
-      {
-         QgodNeighbor.setZero();
+  case 1:
+    o_M(2, 0) = i_material.lambda;
+    o_M(0, 2) = rhoInv;
+    break;
 
-         // Eigenvectors are precomputed
-         Matrix44 R = Matrix44::Zero();
-         // scale for better condition number of R
-         R(0,0) = std::sqrt(local.lambda * local.rho);
-         R(1,0) = -local.lambda;
-         R(0,1) = std::sqrt(neighbor.lambda * neighbor.rho);
-         R(1,1) = neighbor.lambda;
-         R(2,2) = local.lambda;
-         R(3,3) = local.lambda;
+  case 2:
+    o_M(3, 0) = i_material.lambda;
+    o_M(0, 3) = rhoInv;
+    break;
 
-         if (faceType == FaceType::FreeSurface) {
-           for (size_t i = 0; i < 4; i++) {
-             for (size_t j = 0; j < 4; j++) {
-               QgodNeighbor(i,j) = std::numeric_limits<double>::signaling_NaN();
-             }
-           }
-           QgodLocal.setZero();
-           QgodLocal(0, 1) = -1 * R(1,0) * 1/R(0,0);
-           QgodLocal(1, 1) = 1.0;
-         } else {
-           Matrix44 chi = Matrix44::Zero();
-           chi(0,0) = 1.0;
-       
-           const auto godunov = ((R*chi)*R.inverse()).eval();
-       
-           // QgodLocal = I - QgodNeighbor
-           for (unsigned i = 0; i < godunov.cols(); ++i) {
-             for (unsigned j = 0; j < godunov.rows(); ++j) {
-               QgodLocal(i,j) = -godunov(j,i);
-               QgodNeighbor(i,j) = godunov(j,i);
-             }
-           }
-           for (unsigned idx = 0; idx < 4; ++idx) {
-             QgodLocal(idx,idx) += 1.0;
-           }
-         }
-      }
+  default:
+    break;
   }
 }
+
+template <typename Tloc, typename Tneigh>
+inline void getTransposedGodunovState(const AcousticMaterial& local,
+                                      const AcousticMaterial& neighbor,
+                                      FaceType faceType,
+                                      Tloc& QgodLocal,
+                                      Tneigh& QgodNeighbor) {
+  QgodNeighbor.setZero();
+
+  // Eigenvectors are precomputed
+  Matrix44 R = Matrix44::Zero();
+  // scale for better condition number of R
+  R(0, 0) = std::sqrt(local.lambda * local.rho);
+  R(1, 0) = -local.lambda;
+  R(0, 1) = std::sqrt(neighbor.lambda * neighbor.rho);
+  R(1, 1) = neighbor.lambda;
+  R(2, 2) = local.lambda;
+  R(3, 3) = local.lambda;
+
+  if (faceType == FaceType::FreeSurface) {
+    for (size_t i = 0; i < 4; i++) {
+      for (size_t j = 0; j < 4; j++) {
+        QgodNeighbor(i, j) = std::numeric_limits<double>::signaling_NaN();
+      }
+    }
+    QgodLocal.setZero();
+    QgodLocal(0, 1) = -1 * R(1, 0) * 1 / R(0, 0);
+    QgodLocal(1, 1) = 1.0;
+  } else {
+    Matrix44 chi = Matrix44::Zero();
+    chi(0, 0) = 1.0;
+
+    const auto godunov = ((R * chi) * R.inverse()).eval();
+
+    // QgodLocal = I - QgodNeighbor
+    for (unsigned i = 0; i < godunov.cols(); ++i) {
+      for (unsigned j = 0; j < godunov.rows(); ++j) {
+        QgodLocal(i, j) = -godunov(j, i);
+        QgodNeighbor(i, j) = godunov(j, i);
+      }
+    }
+    for (unsigned idx = 0; idx < 4; ++idx) {
+      QgodLocal(idx, idx) += 1.0;
+    }
+  }
+}
+} // namespace model
+} // namespace seissol
 #endif
