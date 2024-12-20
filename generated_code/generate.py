@@ -123,6 +123,8 @@ elif cmdLineArgs.equations == 'viscoelastic':
     adg = equations.ViscoelasticADERDG(**cmdArgsDict)
 elif cmdLineArgs.equations == 'viscoelastic2':
     adg = equations.Viscoelastic2ADERDG(**cmdArgsDict)
+elif cmdLineArgs.equations == 'acoustic':
+    adg = equations.AcousticADERDG(**cmdArgsDict)
 else:
     adg = equations.PoroelasticADERDG(**cmdArgsDict)
 
