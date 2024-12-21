@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
+# Presumably taken from the FindParMETIS.cmake .
+# Cf. e.g. https://github.com/elemental/Elemental/commit/c7eae213c3d8856fd266c2af2559b42e6372c619#diff-d980118d2954809e3d39e66b835e5f8b1505ff0dab3a1c1678b7ecbf739fe77bR2
+
 # - Try to find METIS
 # Once done this will define
 #
