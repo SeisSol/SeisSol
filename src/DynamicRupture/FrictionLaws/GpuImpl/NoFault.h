@@ -1,5 +1,9 @@
-#ifndef SEISSOL_GPU_NOFAULT_H
-#define SEISSOL_GPU_NOFAULT_H
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_NOFAULT_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_NOFAULT_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 
@@ -54,4 +58,4 @@ class NoFault : public BaseFrictionSolver<NoFault> {
 
 } // namespace seissol::dr::friction_law::gpu
 
-#endif
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_NOFAULT_H_
