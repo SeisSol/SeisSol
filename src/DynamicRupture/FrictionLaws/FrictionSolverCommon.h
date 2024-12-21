@@ -38,7 +38,7 @@ struct NumPoints {
   using GpuRange = ForLoopRange<0, 1, 1>;
 
   public:
-  using Range = typename std::conditional<Type == RangeType::CPU, CpuRange, GpuRange>::type;
+  using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
 };
 
 template <RangeType Type>
@@ -48,7 +48,7 @@ struct QInterpolated {
   using GpuRange = ForLoopRange<0, tensor::QInterpolated::size(), misc::NumPaddedPoints>;
 
   public:
-  using Range = typename std::conditional<Type == RangeType::CPU, CpuRange, GpuRange>::type;
+  using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
 };
 
 /**
@@ -116,8 +116,8 @@ inline void precomputeStressFromQInterpolated(
   const auto invZsNeig = impAndEta.invZsNeig;
 
   using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
-  auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
-  auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
+  const auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
+  const auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
   using namespace dr::misc::quantity_indices;
 
@@ -268,8 +268,8 @@ inline void postcomputeImposedStateFromNewStress(
   auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
   using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
-  auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
-  auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+  const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   using namespace dr::misc::quantity_indices;
 
@@ -510,8 +510,8 @@ inline void computeFrictionEnergy(
   const double doubledSurfaceArea = godunovData.doubledSurfaceArea;
 
   using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
-  auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
-  auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+  const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   const auto bPlus = impAndEta.etaS * impAndEta.invZs;
   const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;

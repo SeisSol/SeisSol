@@ -23,6 +23,8 @@
 #include <stdint.h>
 #include <tensor.h>
 
+#include "utils/logger.h"
+
 #ifdef ACL_DEVICE
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
@@ -96,7 +98,7 @@ void TimeCommon::computeIntegrals(Time& time,
 
   // adjust start times for GTS on derivatives
   for (unsigned int face = 0; face < 4; face++) {
-    if ((ltsSetup >> (face + 4)) % 2) {
+    if (((ltsSetup >> (face + 4)) % 2) != 0) {
       startTimes[face + 1] = timeStepStart;
     }
   }
@@ -148,7 +150,7 @@ void TimeCommon::computeBatchedIntegrals(Time& time,
         runtime);
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 

@@ -13,13 +13,14 @@
 #ifndef SEISSOL_SRC_INITIALIZER_CELLLOCALMATRICES_H_
 #define SEISSOL_SRC_INITIALIZER_CELLLOCALMATRICES_H_
 
-#include "Initializer/Typedefs.h"
 #include "Geometry/MeshReader.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/Lut.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/DynamicRupture.h"
 #include "Initializer/Boundary.h"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/LTS.h"
+#include "Initializer/Parameters/ModelParameters.h"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Lut.h"
+#include "Initializer/Typedefs.h"
 
 namespace seissol {
   namespace initializer {
@@ -31,7 +32,8 @@ namespace seissol {
                                        LTSTree*               io_ltsTree,
                                        LTS*                   i_lts,
                                        Lut*                   i_ltsLut,
-                                       TimeStepping const&    timeStepping );
+                                       TimeStepping const&    timeStepping,
+                                       const parameters::ModelParameters& modelParameters );
                                        
      void initializeBoundaryMappings(seissol::geometry::MeshReader const& i_meshReader,
                                      const EasiBoundary* easiBoundary,

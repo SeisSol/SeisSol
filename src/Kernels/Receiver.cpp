@@ -83,8 +83,7 @@ Receiver::Receiver(unsigned pointId,
 }
 
 ReceiverCluster::ReceiverCluster(seissol::SeisSol& seissolInstance)
-    : m_nonZeroFlops(0), m_hardwareFlops(0), m_samplingInterval(1.0e99), m_syncPointInterval(0.0),
-      seissolInstance(seissolInstance) {}
+    : m_samplingInterval(1.0e99), m_syncPointInterval(0.0), seissolInstance(seissolInstance) {}
 
 ReceiverCluster::ReceiverCluster(
     const GlobalData* global,

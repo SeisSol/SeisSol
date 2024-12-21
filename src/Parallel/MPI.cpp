@@ -30,7 +30,7 @@ void seissol::MPI::init(int& argc, char**& argv) {
   // a communication thread and/or async I/O.
   // The safer (and more sane) option is to enable it by default.
   const int required = MPI_THREAD_MULTIPLE;
-  int provided;
+  int provided = 0;
   MPI_Init_thread(&argc, &argv, required, &provided);
 
   setComm(MPI_COMM_WORLD);

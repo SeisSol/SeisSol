@@ -117,7 +117,7 @@ class ParameterReader {
     logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "was read.";
     try {
       // booleans are stored as integers
-      if constexpr (std::is_same<T, bool>::value) {
+      if constexpr (std::is_same_v<T, bool>) {
         return node[field].as<int>() > 0;
       } else {
         return node[field].as<T>();

@@ -95,7 +95,9 @@ sycl::event syclNativeOperation(sycl::queue& queue, bool blocking, F&& function)
         return;
       }
 #endif
-      { logError() << "Unknown backend" << static_cast<int>(queue.get_device().get_backend()); }
+      {
+        logError() << "Unknown backend" << static_cast<int>(queue.get_device().get_backend());
+      }
     });
 #else
     // we cannot take the fast path; so just submit a host task instead
@@ -114,7 +116,9 @@ sycl::event syclNativeOperation(sycl::queue& queue, bool blocking, F&& function)
         return;
       }
 #endif
-      { logError() << "Unknown backend" << static_cast<int>(queue.get_device().get_backend()); }
+      {
+        logError() << "Unknown backend" << static_cast<int>(queue.get_device().get_backend());
+      }
     });
 #endif
   });

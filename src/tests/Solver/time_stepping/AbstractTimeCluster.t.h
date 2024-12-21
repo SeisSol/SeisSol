@@ -13,11 +13,17 @@ class MockTimeCluster : public time_stepping::AbstractTimeCluster {
   MockTimeCluster(double maxTimeStepSize, long timeStepRate)
       : AbstractTimeCluster(maxTimeStepSize, timeStepRate, Executor::Host) {}
 
+  // NOLINTNEXTLINE
   MAKE_MOCK0(start, void(void), override);
+  // NOLINTNEXTLINE
   MAKE_MOCK0(predict, void(void), override);
+  // NOLINTNEXTLINE
   MAKE_MOCK0(correct, void(void), override);
+  // NOLINTNEXTLINE
   MAKE_MOCK1(handleAdvancedPredictionTimeMessage, void(const NeighborCluster&), override);
+  // NOLINTNEXTLINE
   MAKE_MOCK1(handleAdvancedCorrectionTimeMessage, void(const NeighborCluster&), override);
+  // NOLINTNEXTLINE
   MAKE_MOCK1(printTimeoutMessage, void(std::chrono::seconds), override);
 };
 

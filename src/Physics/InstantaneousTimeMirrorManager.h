@@ -20,8 +20,9 @@ namespace ITM {
 
 class InstantaneousTimeMirrorManager : Module {
   seissol::SeisSol& seissolInstance;
-  bool isEnabled;
-  double velocityScalingFactor{};
+  bool isEnabled{false};
+  double velocityScalingFactor{1.0};
+  double timeStepScalingFactor{1.0};
   double triggerTime{};
 
   seissol::geometry::MeshReader* meshReader{};
@@ -30,12 +31,13 @@ class InstantaneousTimeMirrorManager : Module {
   initializer::Lut* ltsLut{};
   const TimeStepping* timestepping{};
 
-  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters;
-  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* ghostTimeClusters;
+  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters{};
+  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>*
+      ghostTimeClusters{};
 
   public:
   InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance), isEnabled(false) {};
+      : seissolInstance(seissolInstance) {};
 
   void init(double velocityScalingFactor,
             double triggerTime,

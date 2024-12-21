@@ -7,6 +7,7 @@
 #include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
+#include <Initializer/InitialFieldProjection.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
@@ -38,8 +39,7 @@
 
 namespace seissol::writer {
 
-CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName)
-    : out(), isEnabled(false), fileName(std::move(fileName)) {}
+CsvAnalysisWriter::CsvAnalysisWriter(std::string fileName) : fileName(std::move(fileName)) {}
 
 void CsvAnalysisWriter::writeHeader() {
   if (isEnabled) {
@@ -83,7 +83,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   logInfo(mpi.rank()) << "Print analysis for initial conditions"
                       << static_cast<int>(initialConditionType) << " at time " << simulationTime;
 
-  auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
+  const auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
   auto* lts = seissolInstance.getMemoryManager().getLts();
   auto* ltsLut = seissolInstance.getMemoryManager().getLtsLut();
@@ -99,6 +99,16 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   // TODO(Lukas) Increase quadrature order later.
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
+
+  std::vector<double> data;
+
+  if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
+    data = initializer::projectEasiFields(
+        {seissolInstance.getSeisSolParameters().initialization.filename},
+        simulationTime,
+        *meshReader,
+        seissolInstance.getSeisSolParameters().initialization.hasTime);
+  }
 
   double quadraturePoints[NumQuadPoints][3];
   double quadratureWeights[NumQuadPoints];
@@ -181,19 +191,39 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       const auto volume = MeshTools::volume(elements[meshId], vertices);
       const auto jacobiDet = 6 * volume;
 
-      // Compute global position of quadrature points.
-      const double* elementCoords[4];
-      for (unsigned v = 0; v < 4; ++v) {
-        elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
+      if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
+        // Compute global position of quadrature points.
+        const double* elementCoords[4];
+        for (unsigned v = 0; v < 4; ++v) {
+          elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
+        }
+        for (unsigned int i = 0; i < NumQuadPoints; ++i) {
+          seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
+                                                                 elementCoords[1],
+                                                                 elementCoords[2],
+                                                                 elementCoords[3],
+                                                                 quadraturePoints[i],
+                                                                 quadraturePointsXyz[i].data());
+        }
+
+        // Evaluate analytical solution at quad. nodes
+        const CellMaterialData& material = ltsLut->lookup(lts->material, meshId);
+        iniFields[sim % iniFields.size()]->evaluate(
+            simulationTime, quadraturePointsXyz, material, analyticalSolution);
+      } else {
+        for (std::size_t i = 0; i < NumQuadPoints; ++i) {
+          for (std::size_t j = 0; j < NumQuantities; ++j) {
+            analyticalSolution(i, j) =
+                data.at(meshId * NumQuadPoints * NumQuantities + NumQuantities * i + j);
+          }
+        }
       }
-      for (unsigned int i = 0; i < NumQuadPoints; ++i) {
-        seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
-                                                               elementCoords[1],
-                                                               elementCoords[2],
-                                                               elementCoords[3],
-                                                               quadraturePoints[i],
-                                                               quadraturePointsXyz[i].data());
-      }
+
+#ifdef MULTIPLE_SIMULATIONS
+      auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
+#else
+      auto numSub = numericalSolution;
+#endif
 
       // Evaluate numerical solution at quad. nodes
       kernel::evalAtQP krnl;
@@ -202,21 +232,11 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       krnl.Q = ltsLut->lookup(lts->dofs, meshId);
       krnl.execute();
 
-      // Evaluate analytical solution at quad. nodes
-      const CellMaterialData& material = ltsLut->lookup(lts->material, meshId);
-      iniFields[sim % iniFields.size()]->evaluate(
-          simulationTime, quadraturePointsXyz, material, analyticalSolution);
-#ifdef MULTIPLE_SIMULATIONS
-      auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
-#else
-      auto numSub = numericalSolution;
-#endif
-
       for (size_t i = 0; i < NumQuadPoints; ++i) {
         const auto curWeight = jacobiDet * quadratureWeights[i];
         for (size_t v = 0; v < NumQuantities; ++v) {
-          const auto curError = std::abs(numSub(i, v) - analyticalSolution(i, v));
-          const auto curAnalytical = std::abs(analyticalSolution(i, v));
+          const double curError = std::abs(numSub(i, v) - analyticalSolution(i, v));
+          const double curAnalytical = std::abs(analyticalSolution(i, v));
 
           errsL1Local[curThreadId][v] += curWeight * curError;
           errsL2Local[curThreadId][v] += curWeight * curError * curError;
@@ -227,9 +247,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
             errsLInfLocal[curThreadId][v] = curError;
             elemsLInfLocal[curThreadId][v] = meshId;
           }
-          if (curAnalytical > analyticalsLInfLocal[curThreadId][v]) {
-            analyticalsLInfLocal[curThreadId][v] = curAnalytical;
-          }
+          analyticalsLInfLocal[curThreadId][v] =
+              std::max(curAnalytical, analyticalsLInfLocal[curThreadId][v]);
         }
       }
     }
@@ -244,9 +263,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
           errLInfLocal[v] = errsLInfLocal[i][v];
           elemLInfLocal[v] = elemsLInfLocal[i][v];
         }
-        if (analyticalsLInfLocal[i][v] > analyticalLInfLocal[v]) {
-          analyticalLInfLocal[v] = analyticalsLInfLocal[i][v];
-        }
+        analyticalLInfLocal[v] = std::max(analyticalsLInfLocal[i][v], analyticalLInfLocal[v]);
       }
     }
 

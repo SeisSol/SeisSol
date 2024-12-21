@@ -18,10 +18,10 @@
 namespace {
 
 template <size_t N>
-static void readArrayOrZero(std::ifstream& filestream,
-                            std::string& header,
-                            const std::string& keyword,
-                            real* data) {
+void readArrayOrZero(std::ifstream& filestream,
+                     std::string& header,
+                     const std::string& keyword,
+                     real* data) {
   if (header.find(keyword) != std::string::npos) {
     for (size_t i = 0; i < N; ++i) {
       filestream >> data[i];

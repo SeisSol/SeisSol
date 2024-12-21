@@ -31,10 +31,10 @@ constexpr MPI_Comm MPI_COMM_WORLD = 2;
  */
 class MPIDummy : public MPIBasic {
   private:
-  MPIDummy() {}
+  MPIDummy() = default;
 
   public:
-  ~MPIDummy() {}
+  ~MPIDummy() override = default;
 
   /**
    * Does nothing
@@ -44,7 +44,7 @@ class MPIDummy : public MPIBasic {
   /**
    * @return Dummy communicator
    */
-  int comm() const { return 0; }
+  [[nodiscard]] int comm() const { return 0; }
 
   /**
    * Does nothing

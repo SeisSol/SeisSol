@@ -74,6 +74,11 @@ class EnergyOutput : public Module {
 
   ~EnergyOutput() override;
 
+  auto operator=(const EnergyOutput&) = delete;
+  auto operator=(EnergyOutput&&) = delete;
+  EnergyOutput(const EnergyOutput&) = delete;
+  EnergyOutput(EnergyOutput&&) = delete;
+
   private:
   real computeStaticWork(const real* degreesOfFreedomPlus,
                          const real* degreesOfFreedomMinus,
@@ -131,11 +136,11 @@ class EnergyOutput : public Module {
   seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
-  real minTimeSinceSlipRateBelowThreshold;
+  real minTimeSinceSlipRateBelowThreshold{};
   real minTimeSinceMomentRateBelowThreshold = 0.0;
-  double terminatorMaxTimePostRupture;
-  double energyOutputInterval;
-  double terminatorMomentRateThreshold;
+  double terminatorMaxTimePostRupture{};
+  double energyOutputInterval{};
+  double terminatorMomentRateThreshold{};
   double seismicMomentPrevious = 0.0;
 };
 

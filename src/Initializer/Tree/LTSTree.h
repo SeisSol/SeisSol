@@ -29,8 +29,8 @@ class LTSTree : public LTSInternalNode {
   std::vector<MemoryInfo> varInfo;
   std::vector<MemoryInfo> bucketInfo;
   seissol::memory::ManagedAllocator m_allocator;
-  std::vector<size_t> variableSizes{}; /*!< sizes of variables within the entire tree in bytes */
-  std::vector<size_t> bucketSizes{};   /*!< sizes of buckets within the entire tree in bytes */
+  std::vector<size_t> variableSizes; /*!< sizes of variables within the entire tree in bytes */
+  std::vector<size_t> bucketSizes;   /*!< sizes of buckets within the entire tree in bytes */
 
 #ifdef ACL_DEVICE
   std::vector<MemoryInfo> scratchpadMemInfo{};
@@ -65,20 +65,20 @@ class LTSTree : public LTSInternalNode {
 
   void fixate() {
     setPostOrderPointers();
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->allocatePointerArrays(varInfo.size(), bucketInfo.size());
+    for (auto& leaf : leaves()) {
+      leaf.allocatePointerArrays(varInfo.size(), bucketInfo.size());
 #ifdef ACL_DEVICE
-      it->allocateScratchpadArrays(scratchpadMemInfo.size());
+      leaf.allocateScratchpadArrays(scratchpadMemInfo.size());
 #endif
     }
   }
 
-  inline TimeCluster& child(unsigned index) {
-    return *static_cast<TimeCluster*>(m_children[index].get());
+  TimeCluster& child(unsigned index) {
+    return *dynamic_cast<TimeCluster*>(m_children[index].get());
   }
 
-  inline const TimeCluster& child(unsigned index) const {
-    return *static_cast<TimeCluster*>(m_children[index].get());
+  [[nodiscard]] const TimeCluster& child(unsigned index) const {
+    return *dynamic_cast<TimeCluster*>(m_children[index].get());
   }
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
@@ -92,9 +92,9 @@ class LTSTree : public LTSInternalNode {
     return static_cast<T*>(varUntyped(handle.index, place));
   }
 
-  const MemoryInfo& info(unsigned index) const { return varInfo[index]; }
+  [[nodiscard]] const MemoryInfo& info(unsigned index) const { return varInfo[index]; }
 
-  inline unsigned getNumberOfVariables() const { return varInfo.size(); }
+  [[nodiscard]] unsigned getNumberOfVariables() const { return varInfo.size(); }
 
   template <typename T>
   void addVar(Variable<T>& handle,
@@ -142,8 +142,8 @@ class LTSTree : public LTSInternalNode {
     m_vars.resize(varInfo.size());
     variableSizes.resize(varInfo.size(), 0);
 
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->addVariableSizes(varInfo, variableSizes);
+    for (auto& leaf : leaves()) {
+      leaf.addVariableSizes(varInfo, variableSizes);
     }
 
     for (unsigned var = 0; var < varInfo.size(); ++var) {
@@ -153,9 +153,9 @@ class LTSTree : public LTSInternalNode {
     }
 
     std::fill(variableSizes.begin(), variableSizes.end(), 0);
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForVariables(varInfo, m_vars, variableSizes);
-      it->addVariableSizes(varInfo, variableSizes);
+    for (auto& leaf : leaves()) {
+      leaf.setMemoryRegionsForVariables(varInfo, m_vars, variableSizes);
+      leaf.addVariableSizes(varInfo, variableSizes);
     }
   }
 
@@ -163,8 +163,8 @@ class LTSTree : public LTSInternalNode {
     m_buckets.resize(bucketInfo.size());
     bucketSizes.resize(bucketInfo.size(), 0);
 
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->addBucketSizes(bucketSizes);
+    for (auto& leaf : leaves()) {
+      leaf.addBucketSizes(bucketSizes);
     }
 
     for (unsigned bucket = 0; bucket < bucketInfo.size(); ++bucket) {
@@ -175,9 +175,9 @@ class LTSTree : public LTSInternalNode {
     }
 
     std::fill(bucketSizes.begin(), bucketSizes.end(), 0);
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForBuckets(m_buckets, bucketSizes);
-      it->addBucketSizes(bucketSizes);
+    for (auto& leaf : leaves()) {
+      leaf.setMemoryRegionsForBuckets(m_buckets, bucketSizes);
+      leaf.addBucketSizes(bucketSizes);
     }
   }
 
@@ -192,8 +192,8 @@ class LTSTree : public LTSInternalNode {
     scratchpadMemories.resize(scratchpadMemInfo.size());
     scratchpadMemSizes.resize(scratchpadMemInfo.size(), 0);
 
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->findMaxScratchpadSizes(scratchpadMemSizes);
+    for (auto& leaf : leaves()) {
+      leaf.findMaxScratchpadSizes(scratchpadMemSizes);
     }
 
     for (size_t id = 0; id < scratchpadMemSizes.size(); ++id) {
@@ -205,26 +205,26 @@ class LTSTree : public LTSInternalNode {
                                       scratchpadMemInfo[id].allocMode);
     }
 
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForScratchpads(scratchpadMemories);
+    for (auto& leaf : leaves()) {
+      leaf.setMemoryRegionsForScratchpads(scratchpadMemories);
     }
   }
 #endif
 
   void touchVariables() {
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->touchVariables(varInfo);
+    for (auto& leaf : leaves()) {
+      leaf.touchVariables(varInfo);
     }
   }
 
-  const std::vector<size_t>& getVariableSizes() { return variableSizes; }
+  [[nodiscard]] const std::vector<size_t>& getVariableSizes() const { return variableSizes; }
 
-  const std::vector<size_t>& getBucketSizes() { return bucketSizes; }
+  [[nodiscard]] const std::vector<size_t>& getBucketSizes() const { return bucketSizes; }
 
-  size_t getMaxClusterSize(LayerMask mask) {
+  [[nodiscard]] size_t getMaxClusterSize(LayerMask mask = LayerMask()) const {
     size_t maxClusterSize{0};
-    for (auto it = beginLeaf(mask); it != endLeaf(); ++it) {
-      const size_t currClusterSize = static_cast<size_t>(it->getNumberOfCells());
+    for (const auto& leaf : leaves(mask)) {
+      const auto currClusterSize = static_cast<size_t>(leaf.getNumberOfCells());
       maxClusterSize = std::max(currClusterSize, maxClusterSize);
     }
     return maxClusterSize;

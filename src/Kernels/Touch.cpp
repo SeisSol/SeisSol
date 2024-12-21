@@ -7,7 +7,6 @@
 
 #include "generated_code/tensor.h"
 #include <Kernels/Precision.h>
-#include <cstddef>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
@@ -23,7 +22,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
   for (unsigned cell = 0; cell < numberOfCells; ++cell) {
     // touch buffers
     real* buffer = buffers[cell];
-    if (buffer != NULL) {
+    if (buffer != nullptr) {
       for (unsigned dof = 0; dof < tensor::Q::size(); ++dof) {
         // zero time integration buffers
         buffer[dof] = (real)0;
@@ -32,7 +31,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
 
     // touch derivatives
     real* derivative = derivatives[cell];
-    if (derivative != NULL) {
+    if (derivative != nullptr) {
       for (unsigned dof = 0; dof < yateto::computeFamilySize<tensor::dQ>(); ++dof) {
         derivative[dof] = (real)0;
       }

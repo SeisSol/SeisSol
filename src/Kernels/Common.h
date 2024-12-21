@@ -20,6 +20,7 @@
 #include "Kernels/Precision.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
+#include <algorithm>
 #include <cassert>
 #include <type_traits>
 #include <utility>

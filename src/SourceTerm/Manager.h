@@ -26,13 +26,13 @@ class Manager {
   Manager() = default;
   ~Manager() = default;
 
-  void loadSources(seissol::initializer::parameters::PointSourceType sourceType,
-                   const char* fileName,
-                   const seissol::geometry::MeshReader& mesh,
-                   seissol::initializer::LTSTree* ltsTree,
-                   seissol::initializer::LTS* lts,
-                   seissol::initializer::Lut* ltsLut,
-                   time_stepping::TimeManager& timeManager);
+  static void loadSources(seissol::initializer::parameters::PointSourceType sourceType,
+                          const char* fileName,
+                          const seissol::geometry::MeshReader& mesh,
+                          seissol::initializer::LTSTree* ltsTree,
+                          seissol::initializer::LTS* lts,
+                          seissol::initializer::Lut* ltsLut,
+                          time_stepping::TimeManager& timeManager);
 };
 
 } // namespace seissol::sourceterm

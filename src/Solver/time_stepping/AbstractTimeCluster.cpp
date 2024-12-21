@@ -247,10 +247,16 @@ ActorState AbstractTimeCluster::getState() const {
 
 void AbstractTimeCluster::setPredictionTime(double time) {
   ct.predictionTime = time;
+  for (auto& neighbor : neighbors) {
+    neighbor.ct.predictionTime = time;
+  }
 }
 
 void AbstractTimeCluster::setCorrectionTime(double time) {
   ct.correctionTime = time;
+  for (auto& neighbor : neighbors) {
+    neighbor.ct.correctionTime = time;
+  }
 }
 
 long AbstractTimeCluster::getTimeStepRate() {

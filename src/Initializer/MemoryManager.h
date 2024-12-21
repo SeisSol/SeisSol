@@ -87,6 +87,8 @@ class MemoryManager {
     //! LTS mesh structure
     struct MeshStructure *m_meshStructure;
 
+    unsigned int* ltsToFace;
+
     /*
      * Interior
      */
@@ -315,6 +317,14 @@ class MemoryManager {
 
     inline const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
       return m_iniConds;
+    }
+
+    inline void setLtsToFace(unsigned int* ptr) {
+      ltsToFace = ptr;
+    }
+
+    inline unsigned int* ltsToFaceMap() const {
+      return ltsToFace;
     }
 
     void initializeEasiBoundaryReader(const char* fileName);

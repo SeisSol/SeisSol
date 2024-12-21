@@ -12,8 +12,7 @@
 
 #include <vector>
 
-namespace seissol {
-namespace statistics {
+namespace seissol::statistics {
 struct Summary {
   Summary(double value = 0.0);
   Summary(const std::vector<double>& values);
@@ -26,7 +25,6 @@ struct Summary {
 };
 
 auto parallelSummary(double value) -> Summary;
-} // namespace statistics
-} // namespace seissol
+} // namespace seissol::statistics
 
 #endif // SEISSOL_SRC_NUMERICAL_STATISTICS_H_

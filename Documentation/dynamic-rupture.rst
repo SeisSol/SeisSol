@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 Dynamic rupture
 ===============
 
@@ -128,19 +133,19 @@ stresses on the main fault are:
 Projecting the state variable increment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A sudden decrease of slip rate to very small values, as for example occurring at a rupture front about to be arrested, may cause numerical issues and pollute the solution - in the worst case even leading to re-activation of rupture. 
-Such numerical issues are easy to diagnose in the fault output visualization: a checkerboard pattern with unphysical values for the slip rate and slip in the affected region will be visible. 
+A sudden decrease of slip rate to very small values, as for example occurring at a rupture front about to be arrested, may cause numerical issues and pollute the solution - in the worst case even leading to re-activation of rupture.
+Such numerical issues are easy to diagnose in the fault output visualization: a checkerboard pattern with unphysical values for the slip rate and slip in the affected region will be visible.
 This is a sign of mesh resolution (h-refinement) being locally not sufficient.
-SeisSol mitigates such artifacts by projecting the state variable (e.g. cumulative slip for linear slip weakening) increment on the 2D fault interface basis function after evaluation of the friction law. 
+SeisSol mitigates such artifacts by projecting the state variable (e.g. cumulative slip for linear slip weakening) increment on the 2D fault interface basis function after evaluation of the friction law.
 This implementation lowers the required h-refinement across the fault in comparison to earlier implementations (cf. Pelties et al. , JGR 2012; GMD 2014)
 
 
 Visualisation: SlipRateOutputType (default =1)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-By default, the fault output will be showing regions affected by numerical problems. However, the user may choose to smooth out such artifacts for visualization purposes. Switching ``SlipRateOutputType`` in the ``DynamicRupture`` namelist from the default value to 0, will evaluate the slip-rate from the difference between the velocity on both sides of the fault, rather than evaluating the slip-rate from the fault tractions and the failure criterion directly. 
+By default, the fault output will be showing regions affected by numerical problems. However, the user may choose to smooth out such artifacts for visualization purposes. Switching ``SlipRateOutputType`` in the ``DynamicRupture`` namelist from the default value to 0, will evaluate the slip-rate from the difference between the velocity on both sides of the fault, rather than evaluating the slip-rate from the fault tractions and the failure criterion directly.
 Note that this fix only applies to the output, but does not suppress numerical problems in the simulation.
-Also note that that ``SlipRateOutputType=0`` is slightly less accurate than the default ``SlipRateOutputType=1`` without numerical problems. 
+Also note that that ``SlipRateOutputType=0`` is slightly less accurate than the default ``SlipRateOutputType=1`` without numerical problems.
 
 Friction laws
 ~~~~~~~~~~~~~
@@ -150,10 +155,10 @@ Linear slip-weakening friction (:code:`FL=6`, :code:`FL=16`)
 
 The linear slip-weakening friction is widely used for dynamic rupture simulations.
 
-The fault strength is determined by 
+The fault strength is determined by
 
 .. math::
-  
+
   \tau = -C - \min\left(0, \sigma_n\right) \left( \mu_s - \frac{\mu_s - \mu_d}{d_c} \min\left(S, d_c\right)\right),
 
 where :math:`S(t) = \int_0^t |V(s)| ds` is the accumulated fault slip, and the other variables are parameters of the friction, detailed below.
@@ -205,7 +210,7 @@ The TP proxy slip-weakening friction has been proposed by Herrera et al. (2024),
 The fault strength is determined by
 
 .. math::
- 
+
   \tau = -C - \min\left(0, \sigma_n\right) \left( \mu_d + \frac{{(\mu_s - \mu_d)}}{{\left(1 + \frac{S}{d_c}\right)^{\alpha}}} \right),
 
 
@@ -256,7 +261,7 @@ Friction parameters:
 | :math:`f_0`      | reference friction coefficient         | :code:`rs_f0`                 |
 +------------------+----------------------------------------+-------------------------------+
 
-.. math:: 
+.. math::
   \begin{aligned}
     f(V, \psi) &= a \sinh^{-1}\left[\frac{V}{2V_0} \exp\left( \frac{f_0 + b \ln(V_0 \psi / L)}{a}\right) \right] \\
     g(V, \psi) &= 1 - \frac{V \psi}{L}
@@ -292,7 +297,7 @@ In addition to the ageing and the slip Law, strong velocity weakening requires t
     g(V, \psi) &= - \frac{V}{L} \left(\psi - a \ln\left[ \frac{2V_0}{V} \sinh\left( \frac{\mu_{ss}(V)}{a} \right) \right] \right)
   \end{aligned}
 
-with 
+with
 
 .. math::
   \begin{aligned}
@@ -300,8 +305,8 @@ with
   \end{aligned}.
 
 
-Note that from the merge of pull request `#306 <https://github.com/SeisSol/SeisSol/pull/306>`__ of March 17th, 2021 to the merge of pull request `#752 <https://github.com/SeisSol/SeisSol/pull/752>`__ of December 22nd, 2022, the state variable was enforced positive in this friction law. 
-This enforcement aimed at avoiding the state variable getting negative because of Gibbs effects when projecting the state increment onto the modal basis functions (resampling matrix). 
+Note that from the merge of pull request `#306 <https://github.com/SeisSol/SeisSol/pull/306>`__ of March 17th, 2021 to the merge of pull request `#752 <https://github.com/SeisSol/SeisSol/pull/752>`__ of December 22nd, 2022, the state variable was enforced positive in this friction law.
+This enforcement aimed at avoiding the state variable getting negative because of Gibbs effects when projecting the state increment onto the modal basis functions (resampling matrix).
 Since then, we realized that the state variable can get negative due to other factors, and, therefore, reverted this change.
 
 Thermal Pressurization

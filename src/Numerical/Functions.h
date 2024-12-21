@@ -17,23 +17,23 @@ namespace seissol::functions {
  */
 struct HostStdFunctions {
   template <typename T>
-  static inline T exp(T value) {
+  static T exp(T value) {
     return std::exp(value);
   }
   template <typename T1, typename... T>
-  static inline T1 max(T1 value1, T... value) {
+  static T1 max(T1 value1, T... value) {
     return std::max(value1, value...);
   }
   template <typename T1, typename... T>
-  static inline T1 min(T1 value1, T... value) {
+  static T1 min(T1 value1, T... value) {
     return std::min(value1, value...);
   }
   template <typename T>
-  static inline T ceil(T value) {
+  static T ceil(T value) {
     return std::ceil(value);
   }
   template <typename T>
-  static inline T floor(T value) {
+  static T floor(T value) {
     return std::floor(value);
   }
 };

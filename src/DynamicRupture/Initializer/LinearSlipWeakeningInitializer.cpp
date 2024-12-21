@@ -7,7 +7,6 @@
 #include "DynamicRupture/Initializer/BaseDRInitializer.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
-#include "Initializer/Tree/LTSInternalNode.h"
 #include "Initializer/Tree/LTSTree.h"
 #include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
@@ -22,19 +21,18 @@ void LinearSlipWeakeningInitializer::initializeFault(
     seissol::initializer::LTSTree* const dynRupTree) {
   BaseDRInitializer::initializeFault(dynRup, dynRupTree);
 
-  auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
-  for (auto it = dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
-       it != dynRupTree->endLeaf();
-       ++it) {
-    bool(*dynStressTimePending)[misc::NumPaddedPoints] = it->var(concreteLts->dynStressTimePending);
-    real(*slipRate1)[misc::NumPaddedPoints] = it->var(concreteLts->slipRate1);
-    real(*slipRate2)[misc::NumPaddedPoints] = it->var(concreteLts->slipRate2);
-    real(*mu)[misc::NumPaddedPoints] = it->var(concreteLts->mu);
-    real(*muS)[misc::NumPaddedPoints] = it->var(concreteLts->muS);
-    real(*forcedRuptureTime)[misc::NumPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
+  const auto* concreteLts =
+      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening*>(dynRup);
+  for (auto& layer : dynRupTree->leaves(Ghost)) {
+    bool(*dynStressTimePending)[misc::NumPaddedPoints] =
+        layer.var(concreteLts->dynStressTimePending);
+    real(*slipRate1)[misc::NumPaddedPoints] = layer.var(concreteLts->slipRate1);
+    real(*slipRate2)[misc::NumPaddedPoints] = layer.var(concreteLts->slipRate2);
+    real(*mu)[misc::NumPaddedPoints] = layer.var(concreteLts->mu);
+    real(*muS)[misc::NumPaddedPoints] = layer.var(concreteLts->muS);
+    real(*forcedRuptureTime)[misc::NumPaddedPoints] = layer.var(concreteLts->forcedRuptureTime);
     const bool providesForcedRuptureTime = this->faultProvides("forced_rupture_time");
-    for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
       // initialize padded elements for vectorization
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         dynStressTimePending[ltsFace][pointIndex] = true;
@@ -53,20 +51,21 @@ void LinearSlipWeakeningInitializer::initializeFault(
 void LinearSlipWeakeningInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
     const seissol::initializer::DynamicRupture* const dynRup,
-    seissol::initializer::LTSInternalNode::LeafIterator& it) {
-  auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
-  real(*dC)[misc::NumPaddedPoints] = it->var(concreteLts->dC);
-  real(*muS)[misc::NumPaddedPoints] = it->var(concreteLts->muS);
-  real(*muD)[misc::NumPaddedPoints] = it->var(concreteLts->muD);
-  real(*cohesion)[misc::NumPaddedPoints] = it->var(concreteLts->cohesion);
-  parameterToStorageMap.insert({"d_c", (real*)dC});
-  parameterToStorageMap.insert({"mu_s", (real*)muS});
-  parameterToStorageMap.insert({"mu_d", (real*)muD});
-  parameterToStorageMap.insert({"cohesion", (real*)cohesion});
+    seissol::initializer::Layer& layer) {
+  const auto* concreteLts =
+      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening*>(dynRup);
+  real(*dC)[misc::NumPaddedPoints] = layer.var(concreteLts->dC);
+  real(*muS)[misc::NumPaddedPoints] = layer.var(concreteLts->muS);
+  real(*muD)[misc::NumPaddedPoints] = layer.var(concreteLts->muD);
+  real(*cohesion)[misc::NumPaddedPoints] = layer.var(concreteLts->cohesion);
+  parameterToStorageMap.insert({"d_c", reinterpret_cast<real*>(dC)});
+  parameterToStorageMap.insert({"mu_s", reinterpret_cast<real*>(muS)});
+  parameterToStorageMap.insert({"mu_d", reinterpret_cast<real*>(muD)});
+  parameterToStorageMap.insert({"cohesion", reinterpret_cast<real*>(cohesion)});
   if (this->faultProvides("forced_rupture_time")) {
-    real(*forcedRuptureTime)[misc::NumPaddedPoints] = it->var(concreteLts->forcedRuptureTime);
-    parameterToStorageMap.insert({"forced_rupture_time", (real*)forcedRuptureTime});
+    real(*forcedRuptureTime)[misc::NumPaddedPoints] = layer.var(concreteLts->forcedRuptureTime);
+    parameterToStorageMap.insert(
+        {"forced_rupture_time", reinterpret_cast<real*>(forcedRuptureTime)});
   }
 }
 
@@ -74,19 +73,17 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::LTSTree* const dynRupTree) {
   LinearSlipWeakeningInitializer::initializeFault(dynRup, dynRupTree);
-  auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial* const>(dynRup);
+  const auto* concreteLts =
+      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup);
 
-  for (auto it = dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
-       it != dynRupTree->endLeaf();
-       ++it) {
-    real(*regularisedStrength)[misc::NumPaddedPoints] = it->var(concreteLts->regularisedStrength);
-    real(*mu)[misc::NumPaddedPoints] = it->var(concreteLts->mu);
-    real(*cohesion)[misc::NumPaddedPoints] = it->var(concreteLts->cohesion);
+  for (auto& layer : dynRupTree->leaves(Ghost)) {
+    real(*regularisedStrength)[misc::NumPaddedPoints] = layer.var(concreteLts->regularisedStrength);
+    real(*mu)[misc::NumPaddedPoints] = layer.var(concreteLts->mu);
+    real(*cohesion)[misc::NumPaddedPoints] = layer.var(concreteLts->cohesion);
     real(*initialStressInFaultCS)[misc::NumPaddedPoints][6] =
-        it->var(concreteLts->initialStressInFaultCS);
+        layer.var(concreteLts->initialStressInFaultCS);
 
-    for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+    for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         regularisedStrength[ltsFace][pointIndex] =
             -cohesion[ltsFace][pointIndex] -

@@ -73,7 +73,6 @@
 
 #ifdef ACL_DEVICE
 #include <device.h>
-#include "Solver/Pipeline/DrPipeline.h"
 #endif
 
 namespace seissol {
@@ -130,7 +129,6 @@ private:
     GlobalData *m_globalDataOnDevice{nullptr};
 #ifdef ACL_DEVICE
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    dr::pipeline::DrPipeline drPipeline;
 #endif
 
     /*
@@ -337,6 +335,10 @@ public:
   void setTv(double tv) {
     m_tv = tv;
     updateRelaxTime();
+  }
+
+  void setLastSubTime(double lastSubTime) {
+    this->lastSubTime = lastSubTime;
   }
 
 

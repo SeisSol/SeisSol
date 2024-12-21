@@ -85,7 +85,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
+    const auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
     a = layerData.var(concreteLts->rsA);
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);
@@ -114,12 +114,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                            unsigned int ltsFace) {
     // Careful, the state variable must always be corrected using stateVarZero and not
     // localStateVariable!
-    std::array<real, misc::NumPaddedPoints> stateVarReference;
+    std::array<real, misc::NumPaddedPoints> stateVarReference{};
     std::copy(localStateVariable.begin(), localStateVariable.end(), stateVarReference.begin());
 
-    std::array<real, misc::NumPaddedPoints> absoluteTraction;
-    std::array<real, misc::NumPaddedPoints> normalStress;
-    std::array<real, misc::NumPaddedPoints> temporarySlipRate;
+    std::array<real, misc::NumPaddedPoints> absoluteTraction{};
+    std::array<real, misc::NumPaddedPoints> normalStress{};
+    std::array<real, misc::NumPaddedPoints> temporarySlipRate{};
 
     updateNormalStress(normalStress, faultStresses, timeIndex, ltsFace);
 #pragma omp simd
@@ -296,8 +296,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                const std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
                                std::array<real, misc::NumPaddedPoints>& slipRateTest) {
     // Note that we need double precision here, since single precision led to NaNs.
-    double muF[misc::NumPaddedPoints], dMuF[misc::NumPaddedPoints];
-    double g[misc::NumPaddedPoints], dG[misc::NumPaddedPoints];
+    double muF[misc::NumPaddedPoints];
+    double dMuF[misc::NumPaddedPoints];
+    double g[misc::NumPaddedPoints];
+    double dG[misc::NumPaddedPoints];
 
     for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // first guess = sliprate value of the previous step
@@ -358,9 +360,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
   protected:
   // Attributes
-  real (*a)[misc::NumPaddedPoints];
-  real (*sl0)[misc::NumPaddedPoints];
-  real (*stateVariable)[misc::NumPaddedPoints];
+  real (*a)[misc::NumPaddedPoints]{};
+  real (*sl0)[misc::NumPaddedPoints]{};
+  real (*stateVariable)[misc::NumPaddedPoints]{};
 
   TPMethod tpMethod;
   rs::Settings settings{};

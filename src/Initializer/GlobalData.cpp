@@ -29,7 +29,7 @@ namespace seissol::initializer {
 namespace matrixmanip {
 MemoryProperties OnHost::getProperties() {
   // returns MemoryProperties initialized with default values i.e., CPU memory properties
-  return MemoryProperties();
+  return {};
 }
 
 void OnHost::negateStiffnessMatrix(GlobalData& globalData) {

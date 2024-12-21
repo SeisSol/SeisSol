@@ -14,13 +14,14 @@
 #include <SourceTerm/Typedefs.h>
 #include <memory>
 #include <tensor.h>
+#include <utility>
 
 namespace seissol::kernels {
 
 PointSourceClusterOnHost::PointSourceClusterOnHost(
     std::shared_ptr<sourceterm::ClusterMapping> mapping,
     std::shared_ptr<sourceterm::PointSources> sources)
-    : clusterMapping_(mapping), sources_(sources) {}
+    : clusterMapping_(std::move(mapping)), sources_(std::move(sources)) {}
 
 void PointSourceClusterOnHost::addTimeIntegratedPointSources(
     double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {

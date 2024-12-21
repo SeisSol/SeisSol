@@ -68,24 +68,24 @@ typedef struct Subfault_units {
   // NOLINTNEXTLINE
 } Subfault_units;
 
-typedef struct Subfault {
-  double tinit;
-  double timestep;
-  double mu;
-  double area;
+using Subfault = struct Subfault {
+  double tinit{};
+  double timestep{};
+  double mu{};
+  double area{};
   Eigen::Vector3d tan1;
   Eigen::Vector3d tan2;
   Eigen::Vector3d normal;
-} Subfault;
+};
 
-using Offsets = std::array<unsigned, 3u>;
+using Offsets = std::array<unsigned, 3U>;
 
 struct NRF {
   std::vector<Eigen::Vector3d> centres;
   std::vector<Subfault> subfaults;
   std::vector<Offsets> sroffsets;
-  std::array<std::vector<double>, 3u> sliprates;
-  inline std::size_t size() { return centres.size(); }
+  std::array<std::vector<double>, 3U> sliprates;
+  [[nodiscard]] std::size_t size() const { return centres.size(); }
 };
 } // namespace seissol::sourceterm
 

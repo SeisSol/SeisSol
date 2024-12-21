@@ -248,7 +248,7 @@ RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storage
   for (auto i = 0; i < numberOfStages; ++i) {
     curStoragePtrs.clear();
     for (const unsigned long storageSize : storageSizes) {
-      curStoragePtrs.push_back(storages.emplace_back(std::vector<real>(storageSize)).data());
+      curStoragePtrs.push_back(storages.emplace_back(storageSize).data());
     }
     stages.emplace_back(curStoragePtrs, storageSizes);
   }
@@ -256,7 +256,7 @@ RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storage
   // Initialize buffer
   curStoragePtrs.clear();
   for (const unsigned long storageSize : storageSizes) {
-    curStoragePtrs.push_back(storages.emplace_back(std::vector<real>(storageSize)).data());
+    curStoragePtrs.push_back(storages.emplace_back(storageSize).data());
   }
   buffer.updateStoragesAndSizes(curStoragePtrs, storageSizes);
 }

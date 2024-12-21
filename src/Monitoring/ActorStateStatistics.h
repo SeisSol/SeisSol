@@ -24,7 +24,7 @@ class ActorStateStatistics {
     explicit Sample(seissol::time_stepping::ActorState state);
     void finish();
     seissol::time_stepping::ActorState state;
-    timespec begin;
+    timespec begin{};
     std::optional<timespec> end;
     int numEnteredRegion;
     Sample() = delete;

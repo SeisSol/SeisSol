@@ -17,11 +17,9 @@
 #include "LTSTree.h"
 #include "Layer.h"
 
-namespace seissol {
-namespace initializer {
+namespace seissol::initializer {
 class Lut;
-} // namespace initializer
-} // namespace seissol
+} // namespace seissol::initializer
 
 class seissol::initializer::Lut {
   public:
@@ -37,19 +35,16 @@ class seissol::initializer::Lut {
    * */
   struct LutsForMask {
     /** ltsToMesh[ltsId] returns a meshId given a ltsId. */
-    unsigned* ltsToMesh;
+    std::vector<unsigned> ltsToMesh;
     /** meshToLts[0][meshId] always returns a valid ltsId.
      * meshToLts[1..3][meshId] might be invalid (== std::numeric_limits<unsigned>::max())
      * and contains the ltsIds of duplicated cells.
      */
-    unsigned* meshToLts[MaxDuplicates];
+    std::array<std::vector<unsigned>, MaxDuplicates> meshToLts;
     /** Contains meshIds where any of meshToLts[1..3][meshId] is valid. */
-    unsigned* duplicatedMeshIds;
-    /** Size of duplicatedMeshIds. */
-    unsigned numberOfDuplicatedMeshIds;
+    std::vector<unsigned> duplicatedMeshIds;
 
-    LutsForMask();
-    ~LutsForMask();
+    LutsForMask() = default;
 
     void createLut(LayerMask mask,
                    LTSTree* ltsTree,
@@ -58,46 +53,45 @@ class seissol::initializer::Lut {
   };
 
   LutsForMask maskedLuts[1 << NumLayers];
-  LTSTree* m_ltsTree;
-  unsigned* m_meshToClusters;
+  LTSTree* m_ltsTree{nullptr};
+  std::vector<unsigned> m_meshToClusters;
   std::vector<LayerType> m_meshToLayer;
 
   public:
   Lut();
-  ~Lut();
 
   void createLuts(LTSTree* ltsTree, unsigned* ltsToMesh, unsigned numberOfMeshIds);
 
-  inline unsigned meshId(LayerMask mask, unsigned ltsId) const {
+  [[nodiscard]] unsigned meshId(LayerMask mask, unsigned ltsId) const {
     return maskedLuts[mask.to_ulong()].ltsToMesh[ltsId];
   }
 
-  inline unsigned* getLtsToMeshLut(LayerMask mask) const {
-    return maskedLuts[mask.to_ulong()].ltsToMesh;
+  [[nodiscard]] auto getLtsToMeshLut(LayerMask mask) const {
+    return maskedLuts[mask.to_ulong()].ltsToMesh.data();
   }
 
-  inline unsigned ltsId(LayerMask mask, unsigned meshId, unsigned duplicate = 0) const {
+  [[nodiscard]] unsigned ltsId(LayerMask mask, unsigned meshId, unsigned duplicate = 0) const {
     assert(duplicate < MaxDuplicates);
     return maskedLuts[mask.to_ulong()].meshToLts[duplicate][meshId];
   }
 
-  inline unsigned* const (&getMeshToLtsLut(LayerMask mask) const)[MaxDuplicates] {
+  [[nodiscard]] const auto& getMeshToLtsLut(LayerMask mask) const {
     return maskedLuts[mask.to_ulong()].meshToLts;
   }
 
-  inline unsigned* getDuplicatedMeshIds(LayerMask mask) const {
-    return maskedLuts[mask.to_ulong()].duplicatedMeshIds;
+  [[nodiscard]] auto getDuplicatedMeshIds(LayerMask mask) const {
+    return maskedLuts[mask.to_ulong()].duplicatedMeshIds.data();
   }
 
-  inline unsigned getNumberOfDuplicatedMeshIds(LayerMask mask) const {
-    return maskedLuts[mask.to_ulong()].numberOfDuplicatedMeshIds;
+  [[nodiscard]] unsigned getNumberOfDuplicatedMeshIds(LayerMask mask) const {
+    return maskedLuts[mask.to_ulong()].duplicatedMeshIds.size();
   }
 
-  inline unsigned cluster(unsigned meshId) const { return m_meshToClusters[meshId]; }
+  [[nodiscard]] unsigned cluster(unsigned meshId) const { return m_meshToClusters[meshId]; }
 
-  inline LayerType layer(unsigned meshId) const { return m_meshToLayer[meshId]; }
+  [[nodiscard]] LayerType layer(unsigned meshId) const { return m_meshToLayer[meshId]; }
 
-  inline unsigned* getMeshToClusterLut() const { return m_meshToClusters; }
+  [[nodiscard]] const auto& getMeshToClusterLut() const { return m_meshToClusters; }
 
   template <typename T>
   T& lookup(const Variable<T>& handle,

@@ -11,7 +11,7 @@ namespace seissol::initializer::parameters {
 MeshParameters readMeshParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("meshnml");
 
-  const MeshFormat meshFormat =
+  const auto meshFormat =
       reader->readWithDefaultStringEnum<MeshFormat>("meshgenerator",
                                                     "puml",
                                                     {{"netcdf", MeshFormat::Netcdf},
@@ -20,7 +20,7 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
   const std::string meshFileName = reader->readPathOrFail("meshfile", "No mesh file given.");
   const std::string partitioningLib =
       reader->readWithDefault("partitioninglib", std::string("Default"));
-  const BoundaryFormat pumlBoundaryFormat =
+  const auto pumlBoundaryFormat =
       reader->readWithDefaultStringEnum<BoundaryFormat>("pumlboundaryformat",
                                                         "auto",
                                                         {

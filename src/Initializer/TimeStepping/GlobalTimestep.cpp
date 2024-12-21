@@ -20,7 +20,7 @@
 
 namespace {
 
-static double
+double
     computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
                         double pWaveVel,
                         double cfl,

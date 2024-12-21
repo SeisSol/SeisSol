@@ -66,7 +66,7 @@ void ReceiverBasedOutputBuilder::setFaceToLtsMap(std::vector<std::size_t>* faceT
 namespace {
 struct GhostElement {
   std::pair<std::size_t, int> data;
-  std::size_t index;
+  std::size_t index{};
 };
 
 template <typename T1, typename T2>
@@ -321,9 +321,12 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     const auto& element = elementsInfo[elementIndex];
     auto face = getGlobalTriangle(side, element, verticesInfo);
 
-    VrtxCoords xab, xac;
+    VrtxCoords xab;
+    VrtxCoords xac;
     {
-      constexpr size_t X{0}, Y{1}, Z{2};
+      constexpr size_t X{0};
+      constexpr size_t Y{1};
+      constexpr size_t Z{2};
       xab[X] = face.point(1)[X] - face.point(0)[X];
       xab[Y] = face.point(1)[Y] - face.point(0)[Y];
       xab[Z] = face.point(1)[Z] - face.point(0)[Z];

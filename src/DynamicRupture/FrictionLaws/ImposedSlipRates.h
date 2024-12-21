@@ -19,8 +19,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSImposedSlipRates* const>(dynRup);
+    const auto* concreteLts =
+        dynamic_cast<const seissol::initializer::LTSImposedSlipRates*>(dynRup);
     imposedSlipDirection1 = layerData.var(concreteLts->imposedSlipDirection1);
     imposedSlipDirection2 = layerData.var(concreteLts->imposedSlipDirection2);
     stf.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -72,8 +72,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   void saveDynamicStressOutput(unsigned int ltsFace) {}
 
   protected:
-  real (*imposedSlipDirection1)[misc::NumPaddedPoints];
-  real (*imposedSlipDirection2)[misc::NumPaddedPoints];
+  real (*imposedSlipDirection1)[misc::NumPaddedPoints]{};
+  real (*imposedSlipDirection2)[misc::NumPaddedPoints]{};
   STF stf{};
 };
 

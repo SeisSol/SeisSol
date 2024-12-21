@@ -24,17 +24,14 @@
 #include <utils/logger.h>
 #include <utils/timeutils.h>
 #include <xdmfwriter/scorep_wrapper.h>
-#include <yaml-cpp/node/node.h>
+#include <yaml-cpp/yaml.h>
 
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "SeisSol.h"
 
 #include "Common/Constants.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "Modules/Modules.h"
 #include "Parallel/MPI.h"
-#include "SeisSol.h"
 
 #ifdef USE_ASAGI
 #include "Reader/AsagiModule.h"
@@ -53,7 +50,7 @@
 #include "Version.h"
 
 namespace {
-static std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
+std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
   // Read parameter file input from file
   fty::Loader<fty::AsLowercase> loader{};
   std::shared_ptr<YAML::Node> inputParams = nullptr;
@@ -102,7 +99,9 @@ int main(int argc, char* argv[]) {
   }
 
 #pragma omp parallel
-  { LIKWID_MARKER_START("SeisSol"); }
+  {
+    LIKWID_MARKER_START("SeisSol");
+  }
 
   EPIK_TRACER("SeisSol");
   SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
@@ -137,12 +136,14 @@ int main(int argc, char* argv[]) {
   utils::Args args("SeisSol is a scientific software for the numerical simulation of seismic wave "
                    "phenomena and earthquake dynamics.");
   args.addAdditionalOption("file", "The parameter file", false);
+  args.addOption(
+      "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Optional, false);
   switch (args.parse(argc, argv)) {
   case utils::Args::Help: {
     [[fallthrough]];
   }
   case utils::Args::Error: {
-    seissol::MPI::mpi.finalize();
+    seissol::MPI::finalize();
     exit(1);
     break;
   }
@@ -150,20 +151,27 @@ int main(int argc, char* argv[]) {
     break;
   }
   }
-  const auto parameterFile = args.getAdditionalArgument("file", "parameters.par");
+  const auto* parameterFile = args.getAdditionalArgument("file", "parameters.par");
   logInfo(rank) << "Using the parameter file" << parameterFile;
   // read parameter file input
   const auto yamlParams = readYamlParams(parameterFile);
   seissol::initializer::parameters::ParameterReader parameterReader(
-      *yamlParams.get(), parameterFile, false);
+      *yamlParams, parameterFile, false);
   auto parameters = seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
   parameterReader.warnUnknown();
 
   // Initialize SeisSol
   seissol::SeisSol seissolInstance(parameters);
+
+  if (args.isSet("checkpoint")) {
+    const auto* checkpointFile = args.getArgument<const char*>("checkpoint");
+    seissolInstance.loadCheckpoint(checkpointFile);
+  }
+
+  // run SeisSol
   const bool runSeisSol = seissolInstance.init(argc, argv);
 
-  const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
+  const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
   seissolInstance.setBackupTimeStamp(stamp);
 
   // Run SeisSol
@@ -172,7 +180,9 @@ int main(int argc, char* argv[]) {
   }
 
 #pragma omp parallel
-  { LIKWID_MARKER_STOP("SeisSol"); }
+  {
+    LIKWID_MARKER_STOP("SeisSol");
+  }
 
   LIKWID_MARKER_CLOSE;
   // Finalize SeisSol

@@ -39,7 +39,7 @@ class ZeroField : public InitialField {
 class PressureInjection : public InitialField {
   public:
   PressureInjection(
-      const seissol::initializer::parameters::InitializationParameters initializationParameters);
+      const seissol::initializer::parameters::InitializationParameters& initializationParameters);
 
   void evaluate(double,
                 const std::vector<std::array<double, 3>>&,

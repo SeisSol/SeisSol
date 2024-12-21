@@ -36,10 +36,10 @@ long long pspamm_num_total_flops = 0;
 
 namespace seissol::monitoring {
 
-void FlopCounter::init(std::string outputFileNamePrefix) {
+void FlopCounter::init(const std::string& outputFileNamePrefix) {
   const std::string outputFileName = outputFileNamePrefix + "-flops.csv";
   const int rank = seissol::MPI::mpi.rank();
-  const size_t worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
+  const auto worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
   if (rank == 0) {
     out.open(outputFileName);
     out << "time,";
@@ -54,7 +54,7 @@ void FlopCounter::init(std::string outputFileNamePrefix) {
 
 void FlopCounter::printPerformanceUpdate(double wallTime) {
   const int rank = seissol::MPI::mpi.rank();
-  const size_t worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
+  const auto worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
 
   const long long newTotalFlops = hardwareFlopsLocal + hardwareFlopsNeighbor + hardwareFlopsOther +
                                   hardwareFlopsDynamicRupture + hardwareFlopsPlasticity;
@@ -108,7 +108,7 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
 /**
  * Prints the measured FLOP/s.
  */
-void FlopCounter::printPerformanceSummary(double wallTime) {
+void FlopCounter::printPerformanceSummary(double wallTime) const {
   const int rank = seissol::MPI::mpi.rank();
 
   enum Counter {

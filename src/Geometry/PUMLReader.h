@@ -29,10 +29,10 @@ inline int decodeBoundary(const void* data,
                           int face,
                           seissol::initializer::parameters::BoundaryFormat format) {
   if (format == seissol::initializer::parameters::BoundaryFormat::I32) {
-    const uint32_t* dataCasted = reinterpret_cast<const uint32_t*>(data);
+    const auto* dataCasted = reinterpret_cast<const uint32_t*>(data);
     return (dataCasted[cell] >> (8 * face)) & 0xff;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I64) {
-    const uint64_t* dataCasted = reinterpret_cast<const uint64_t*>(data);
+    const auto* dataCasted = reinterpret_cast<const uint64_t*>(data);
     return (dataCasted[cell] >> (16 * face)) & 0xffff;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I32x4) {
     const int* dataCasted = reinterpret_cast<const int*>(data);
@@ -48,12 +48,10 @@ class PUMLReader : public seissol::geometry::MeshReader {
   PUMLReader(const char* meshFile,
              const char* partitioningLib,
              double maximumAllowedTimeStep,
-             const char* checkPointFile,
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
              initializer::time_stepping::LtsWeights* ltsWeights = nullptr,
-             double tpwgt = 1.0,
-             bool readPartitionFromFile = false);
+             double tpwgt = 1.0);
 
   private:
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
@@ -66,19 +64,15 @@ class PUMLReader : public seissol::geometry::MeshReader {
   /**
    * Create the partitioning
    */
-  void partition(PUML::TETPUML& puml,
-                 initializer::time_stepping::LtsWeights* ltsWeights,
-                 double tpwgt,
-                 const char* meshFile,
-                 const char* partitioningLib,
-                 bool readPartitionFromFile,
-                 const char* checkPointFile);
-  int readPartition(PUML::TETPUML& puml, int* partition, const char* checkPointFile);
-  void writePartition(PUML::TETPUML& puml, int* partition, const char* checkPointFile);
+  static void partition(PUML::TETPUML& puml,
+                        initializer::time_stepping::LtsWeights* ltsWeights,
+                        double tpwgt,
+                        const char* meshFile,
+                        const char* partitioningLib);
   /**
    * Generate the PUML data structure
    */
-  void generatePUML(PUML::TETPUML& puml);
+  static void generatePUML(PUML::TETPUML& puml);
 
   /**
    * Get the mesh

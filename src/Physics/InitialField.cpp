@@ -36,14 +36,14 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          std::vector<int> varField,
                                          std::vector<std::complex<double>> ampField)
     : m_varField(std::move(varField)), m_ampField(std::move(ampField)), m_phase(phase),
-      m_kVec(kVec) {
+      m_kVec(std::move(kVec)) {
   init(materialData);
 }
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          double phase,
                                          Eigen::Vector3d kVec)
-    : m_phase(phase), m_kVec(kVec) {
+    : m_phase(phase), m_kVec(std::move(kVec)) {
 
 #ifndef USE_POROELASTIC
   bool isAcoustic = false;
@@ -168,21 +168,23 @@ seissol::physics::TravellingWave::TravellingWave(
 
 seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
     const CellMaterialData& materialData,
-    const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm) {
+    const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm)
+    : rho0(materialData.local.rho),
+      c0(sqrt(materialData.local.getLambdaBar() / materialData.local.rho)),
+      k(acousticTravellingWaveParametersItm.k),
+      tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime), tITMPlus(tITMMinus + tau),
+      tau(acousticTravellingWaveParametersItm.itmDuration),
+      n(acousticTravellingWaveParametersItm.itmVelocityScalingFactor) {
 #ifdef USE_ANISOTROPIC
   logError() << "This has not been yet implemented for anisotropic material";
 #else
   logInfo() << "Starting Test for Acoustic Travelling Wave with ITM";
-  rho0 = materialData.local.rho;
-  c0 = sqrt(materialData.local.lambda / materialData.local.rho);
+
   logInfo() << "rho0 = " << rho0;
   logInfo() << "c0 = " << c0;
-  k = acousticTravellingWaveParametersItm.k;
+
   logInfo() << "k = " << k;
-  tITMMinus = acousticTravellingWaveParametersItm.itmStartingTime;
-  tau = acousticTravellingWaveParametersItm.itmDuration;
-  tITMPlus = tITMMinus + tau;
-  n = acousticTravellingWaveParametersItm.itmVelocityScalingFactor;
+
   logInfo() << "Setting up the Initial Conditions";
   init(materialData);
 #endif
@@ -292,7 +294,7 @@ void seissol::physics::TravellingWave::evaluate(
 }
 
 seissol::physics::PressureInjection::PressureInjection(
-    const seissol::initializer::parameters::InitializationParameters initializationParameters)
+    const seissol::initializer::parameters::InitializationParameters& initializationParameters)
     : m_parameters(initializationParameters) {
   const auto o1 = m_parameters.origin[0];
   const auto o2 = m_parameters.origin[1];

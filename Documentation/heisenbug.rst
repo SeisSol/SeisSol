@@ -1,13 +1,18 @@
+..
+  SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _compile_run_heisenbug:
 
 Heisenbug
 =========
 
-`heisenbug <https://www.geophysik.uni-muenchen.de/research/geocomputing/heisenbug>`_ 
+`heisenbug <https://www.geophysik.uni-muenchen.de/research/geocomputing/heisenbug>`_
 is a computing cluster of the computational seismology group at LMU.
-It is an AMD EPYC based machine with 128 cores that can run 256 threads (near) simultaneously. 
+It is an AMD EPYC based machine with 128 cores that can run 256 threads (near) simultaneously.
 It also has 2 GPGPUs (NVIDIA GeForce RTX 3090), that can be used to run the GPU version of SeisSol.
-The RTX 3090 belongs to a consumer kind of graphics cards and thus does not perform well with double precision. 
+The RTX 3090 belongs to a consumer kind of graphics cards and thus does not perform well with double precision.
 Therefore, it is preferable to compile SeisSol with single precision.
 
 CPU and GPU seissol modules are available on heisenbug. They also integrate all libraries relevant for manually compiling another version of SeisSol.
@@ -41,7 +46,7 @@ These modules have been compiled based on the main branch of https://github.com/
     # GPU version of seissol
     pip3 install --user git+https://github.com/SeisSol/gemmforge.git
     pip3 install --user git+https://github.com/SeisSol/chainforge.git
-    spack install -j 40 seissol@master convergence_order=4 dr_quad_rule=dunavant equations=elastic precision=single +%gcc@12 +python +cuda cuda_arch=86  ^easi +python
+    spack install -j 40 seissol@master convergence_order=4 dr_quad_rule=dunavant equations=elastic precision=single %gcc@12 +python +cuda cuda_arch=86  ^easi +python
     spack module tcl refresh --upstream-modules seissol
 
 
@@ -85,8 +90,8 @@ On 2 ranks, use:
     source /etc/profile.d/modules.sh
     export SEISSOL_ASAGI_MPI_MODE=OFF
     ulimit -Ss 2097152
-    # Note that it is possible to increase OMP_NUM_THREADS 
-    # This will speed up (the rare) portions of the code running only CPUs, e.g. the wiggle factor calculation 
+    # Note that it is possible to increase OMP_NUM_THREADS
+    # This will speed up (the rare) portions of the code running only CPUs, e.g. the wiggle factor calculation
     export OMP_NUM_THREADS=1
     export OMP_PLACES="cores"
     export OMP_PROC_BIND=spread

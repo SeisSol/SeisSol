@@ -6,36 +6,49 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  */
  
 
 #include "ReceiverWriter.h"
 
+#include <Equations/Datastructures.h>
+#include <Geometry/MeshReader.h>
+#include <Initializer/LTS.h>
+#include <Initializer/Parameters/OutputParameters.h>
+#include <Initializer/PointMapper.h>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Tree/Lut.h>
 #include <Kernels/Receiver.h>
+#include <algorithm>
+#include <cassert>
 #include <cctype>
+#include <cstddef>
 #include <fstream>
 #include <iomanip>
-#include <iterator>
+#include <ios>
+#include <memory>
+#include <numeric>
+#include <ostream>
 #include <regex>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <sys/stat.h>
+#include <utils/logger.h>
+#include <vector>
 
-#include "Parallel/MPI.h"
 #include "Modules/Modules.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Parallel/MPI.h"
 
 namespace seissol::writer {
 
 Eigen::Vector3d parseReceiverLine(const std::string& line) {
-  std::regex rgx("\\s+");
-  std::sregex_token_iterator iter(line.begin(),
-                                  line.end(),
-                                  rgx,
-                                  -1);
-  std::sregex_token_iterator end;
+  const std::regex rgx("\\s+");
+  std::sregex_token_iterator iter(line.begin(), line.end(), rgx, -1);
+  const std::sregex_token_iterator end;
   Eigen::Vector3d coordinates{};
   unsigned numberOfCoordinates = 0;
   for (; iter != end; ++iter, ++numberOfCoordinates) {
@@ -56,17 +69,19 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
   std::ifstream file{receiverFileName};
   std::string line{};
   while (std::getline(file, line)) {
-    bool onlyWhiteSpace = std::all_of(line.begin(), line.end(), [](auto& c) {
+    const bool onlyWhiteSpace = std::all_of(line.begin(), line.end(), [](auto& c) {
       return std::isspace(c); // This lambda is needed (opt. argument)
     });
-    if (!onlyWhiteSpace) points.emplace_back(parseReceiverLine(line));
+    if (!onlyWhiteSpace) {
+      points.emplace_back(parseReceiverLine(line));
+    }
   }
   return points;
 }
 
 std::string ReceiverWriter::fileName(unsigned pointId) const {
   std::stringstream fns;
-  fns << std::setfill('0') << m_fileNamePrefix << "-receiver-" << std::setw(5) << (pointId+1);
+  fns << std::setfill('0') << m_fileNamePrefix << "-receiver-" << std::setw(5) << (pointId + 1);
 #ifdef PARALLEL
   fns << "-" << std::setw(5) << seissol::MPI::mpi.rank();
 #endif
@@ -74,11 +89,11 @@ std::string ReceiverWriter::fileName(unsigned pointId) const {
   return fns.str();
 }
 
-void ReceiverWriter::writeHeader( unsigned               pointId,
-                                                   Eigen::Vector3d const& point   ) {
+void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point) {
   auto name = fileName(pointId);
 
-  std::vector<std::string> names(seissol::model::MaterialT::Quantities.begin(), seissol::model::MaterialT::Quantities.end());
+  std::vector<std::string> names(seissol::model::MaterialT::Quantities.begin(),
+                                 seissol::model::MaterialT::Quantities.end());
   for (const auto& derived : derivedQuantities) {
     auto derivedNames = derived->quantities();
     names.insert(names.end(), derivedNames.begin(), derivedNames.end());
@@ -90,11 +105,12 @@ void ReceiverWriter::writeHeader( unsigned               pointId,
   if (stat(name.c_str(), &fileStat) != 0) {
     std::ofstream file;
     file.open(name);
-    file << "TITLE = \"Temporal Signal for receiver number " << std::setfill('0') << std::setw(5) << (pointId+1) << "\"" << std::endl;
+    file << "TITLE = \"Temporal Signal for receiver number " << std::setfill('0') << std::setw(5)
+         << (pointId + 1) << "\"" << std::endl;
     file << "VARIABLES = \"Time\"";
 #ifdef MULTIPLE_SIMULATIONS
     for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
-      for (auto const& name : names) {
+      for (const auto& name : names) {
         file << ",\"" << name << sim << "\"";
       }
     }
@@ -105,14 +121,14 @@ void ReceiverWriter::writeHeader( unsigned               pointId,
 #endif
     file << std::endl;
     for (int d = 0; d < 3; ++d) {
-      file << "# x" << (d+1) << "       " << std::scientific << std::setprecision(12) << point[d] << std::endl;
+      file << "# x" << (d + 1) << "       " << std::scientific << std::setprecision(12) << point[d]
+           << std::endl;
     }
     file.close();
   }
 }
 
-void ReceiverWriter::syncPoint(double)
-{
+void ReceiverWriter::syncPoint(double /*currentTime*/) {
   if (m_receiverClusters.empty()) {
     return;
   }
@@ -122,9 +138,9 @@ void ReceiverWriter::syncPoint(double)
   for (auto& [layer, clusters] : m_receiverClusters) {
     for (auto& cluster : clusters) {
       auto ncols = cluster.ncols();
-      for (auto &receiver : cluster) {
+      for (auto& receiver : cluster) {
         assert(receiver.output.size() % ncols == 0);
-        size_t nSamples = receiver.output.size() / ncols;
+        const size_t nSamples = receiver.output.size() / ncols;
 
         std::ofstream file;
         file.open(fileName(receiver.pointId), std::ios::app);
@@ -142,11 +158,13 @@ void ReceiverWriter::syncPoint(double)
   }
 
   auto time = m_stopwatch.stop();
-  int const rank = seissol::MPI::mpi.rank();
+  const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Wrote receivers in" << time << "seconds.";
 }
-void ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, const seissol::initializer::parameters::ReceiverOutputParameters& parameters)
-{
+void ReceiverWriter::init(
+    const std::string& fileNamePrefix,
+    double endTime,
+    const seissol::initializer::parameters::ReceiverOutputParameters& parameters) {
   m_fileNamePrefix = fileNamePrefix;
   m_receiverFileName = parameters.fileName;
   m_samplingInterval = parameters.samplingInterval;
@@ -164,10 +182,10 @@ void ReceiverWriter::init(const std::string& fileNamePrefix, double endTime, con
   Modules::registerHook(*this, ModuleHook::Shutdown);
 }
 
-void ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
-                                                const seissol::initializer::Lut& ltsLut,
-                                                const seissol::initializer::LTS& lts,
-                                                const GlobalData* global ) {
+void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
+                               const seissol::initializer::Lut& ltsLut,
+                               const seissol::initializer::LTS& lts,
+                               const GlobalData* global) {
   std::vector<Eigen::Vector3d> points;
   const auto rank = seissol::MPI::mpi.rank();
   // Only parse if we have a receiver file
@@ -179,10 +197,10 @@ void ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
     logInfo(rank) << "No record points read.";
   }
 
-  unsigned numberOfPoints = points.size();
+  const unsigned numberOfPoints = points.size();
   std::vector<short> contained(numberOfPoints);
   std::vector<unsigned> meshIds(numberOfPoints);
-  
+
   // We want to plot all quantities except for the memory variables
   std::vector<unsigned> quantities(seissol::model::MaterialT::Quantities.size());
   std::iota(quantities.begin(), quantities.end(), 0);
@@ -199,18 +217,24 @@ void ReceiverWriter::addPoints(seissol::geometry::MeshReader const& mesh,
   m_receiverClusters[Copy].clear();
   for (unsigned point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
-      unsigned meshId = meshIds[point];
-      unsigned cluster = ltsLut.cluster(meshId);
-      LayerType layer = ltsLut.layer(meshId);
+      const unsigned meshId = meshIds[point];
+      const unsigned cluster = ltsLut.cluster(meshId);
+      const LayerType layer = ltsLut.layer(meshId);
 
       auto& clusters = m_receiverClusters[layer];
       // Make sure that needed empty clusters are initialized.
       for (unsigned c = clusters.size(); c <= cluster; ++c) {
-        clusters.emplace_back(global, quantities, m_samplingInterval, syncInterval(), derivedQuantities, seissolInstance);
+        clusters.emplace_back(global,
+                              quantities,
+                              m_samplingInterval,
+                              syncInterval(),
+                              derivedQuantities,
+                              seissolInstance);
       }
 
       writeHeader(point, points[point]);
-      m_receiverClusters[layer][cluster].addReceiver(meshId, point, points[point], mesh, ltsLut, lts);
+      m_receiverClusters[layer][cluster].addReceiver(
+          meshId, point, points[point], mesh, ltsLut, lts);
     }
   }
 }
@@ -232,14 +256,14 @@ void ReceiverWriter::shutdown() {
 }
 
 kernels::ReceiverCluster* ReceiverWriter::receiverCluster(unsigned clusterId, LayerType layer) {
-        assert(layer != Ghost);
-        assert(m_receiverClusters.find(layer) != m_receiverClusters.end());
-        auto& clusters = m_receiverClusters[layer];
-        if (clusterId < clusters.size()) {
-          return &clusters[clusterId];
-        }
-        return nullptr;
-      }
+  assert(layer != Ghost);
+  assert(m_receiverClusters.find(layer) != m_receiverClusters.end());
+  auto& clusters = m_receiverClusters[layer];
+  if (clusterId < clusters.size()) {
+    return &clusters[clusterId];
+  }
+  return nullptr;
+}
 
 } // namespace seissol::writer
 

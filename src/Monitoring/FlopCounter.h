@@ -27,9 +27,9 @@ extern long long pspamm_num_total_flops;
 namespace seissol::monitoring {
 struct FlopCounter {
   public:
-  void init(std::string outputFileNamePrefix);
+  void init(const std::string& outputFileNamePrefix);
   void printPerformanceUpdate(double wallTime);
-  void printPerformanceSummary(double wallTime);
+  void printPerformanceSummary(double wallTime) const;
   void incrementNonZeroFlopsLocal(long long update);
   void incrementHardwareFlopsLocal(long long update);
   void incrementNonZeroFlopsNeighbor(long long update);

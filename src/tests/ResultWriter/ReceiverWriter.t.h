@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "ResultWriter/ReceiverWriter.h"
+#include <string>
 
 namespace seissol::unit_test {
 
@@ -32,13 +33,13 @@ TEST_CASE("Throws expected exceptions for conversion errors") {
 }
 
 TEST_CASE("Parses receiver file correctly") {
-  const auto receiverFileName = "Testing/receiver_correct.dat";
+  const std::string receiverFileName = "Testing/receiver_correct.dat";
   const auto points = seissol::writer::parseReceiverFile(receiverFileName);
 
   const auto expectedPoints = std::vector<Eigen::Vector3d>{{1, 0.1, 10}, {10, 2, 0.2}};
 
   REQUIRE(points.size() == expectedPoints.size());
-  for (auto i = 0u; i < points.size(); ++i) {
+  for (auto i = 0U; i < points.size(); ++i) {
     REQUIRE(points[i] == expectedPoints[i]);
   }
 }

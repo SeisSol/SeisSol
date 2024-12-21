@@ -60,8 +60,10 @@ void findMeshIds(const Eigen::Vector3d* points,
                  const seissol::geometry::MeshReader& mesh,
                  std::size_t numPoints,
                  short* contained,
-                 unsigned* meshIds) {
-  findMeshIds(points, mesh.getVertices(), mesh.getElements(), numPoints, contained, meshIds);
+                 unsigned* meshIds,
+                 double tolerance) {
+  findMeshIds(
+      points, mesh.getVertices(), mesh.getElements(), numPoints, contained, meshIds, tolerance);
 }
 
 void findMeshIds(const Eigen::Vector3d* points,
@@ -69,7 +71,8 @@ void findMeshIds(const Eigen::Vector3d* points,
                  const std::vector<Element>& elements,
                  std::size_t numPoints,
                  short* contained,
-                 unsigned* meshIds) {
+                 unsigned* meshIds,
+                 double tolerance) {
 
   memset(contained, 0, numPoints * sizeof(short));
 
@@ -88,7 +91,8 @@ void findMeshIds(const Eigen::Vector3d* points,
   for (std::size_t elem = 0; elem < elements.size(); ++elem) {
     auto planeEquations = std::array<std::array<double, 4>, 4>();
     for (int face = 0; face < 4; ++face) {
-      VrtxCoords n, p;
+      VrtxCoords n{};
+      VrtxCoords p{};
       MeshTools::pointOnPlane(elements[elem], face, vertices, p);
       MeshTools::normal(elements[elem], face, vertices, n);
 
@@ -108,7 +112,7 @@ void findMeshIds(const Eigen::Vector3d* points,
         for (unsigned dim = 0; dim < 4; ++dim) {
           resultFace += planeEquations[dim][face] * points1[point][dim];
         }
-        notInside += (resultFace > 0.0) ? 1 : 0;
+        notInside += (resultFace > tolerance) ? 1 : 0;
       }
       if (notInside == 0) {
 #ifdef _OPENMP

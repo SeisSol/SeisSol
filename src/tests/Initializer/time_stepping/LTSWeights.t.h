@@ -38,13 +38,12 @@ TEST_CASE("LTS Weights") {
   seissol::SeisSol seissolInstance(seissolParameters);
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
-  const seissol::geometry::PUMLReader pumlReader(
-      "Testing/mesh.h5",
-      "Default",
-      5000.0,
-      "",
-      seissol::initializer::parameters::BoundaryFormat::I32,
-      ltsWeights.get());
+  const auto pumlReader =
+      seissol::geometry::PUMLReader("Testing/mesh.h5",
+                                    "Default",
+                                    5000.0,
+                                    seissol::initializer::parameters::BoundaryFormat::I32,
+                                    ltsWeights.get());
   std::cout.clear();
 
   const auto givenWeights =
@@ -148,7 +147,7 @@ TEST_CASE("Enforce max cluster id") {
   using namespace seissol::initializer::time_stepping;
   const auto clusterIds = std::vector<int>{0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1, 0};
   SUBCASE("No change") {
-    const auto should = clusterIds;
+    const auto& should = clusterIds;
     const auto is = enforceMaxClusterId(clusterIds, 6);
     REQUIRE(is == should);
   }

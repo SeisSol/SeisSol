@@ -77,19 +77,18 @@ struct TimeCommon {
   static void computeIntegrals(Time& time,
                                unsigned short ltsSetup,
                                const FaceType faceTypes[4],
-                               const double timeStepStart,
-                               const double timeStepWidth,
+                               double timeStepStart,
+                               double timeStepWidth,
                                real* const timeDofs[4],
                                real integrationBuffer[4][tensor::I::size()],
                                real* timeIntegrated[4]);
 
   static void computeBatchedIntegrals(Time& time,
-                                      const double timeStepStart,
-                                      const double timeStepWidth,
+                                      double timeStepStart,
+                                      double timeStepWidth,
                                       ConditionalPointersToRealsTable& table,
                                       seissol::parallel::runtime::StreamRuntime& runtime);
 
-  private:
   TimeCommon() = delete;
 };
 } // namespace seissol::kernels

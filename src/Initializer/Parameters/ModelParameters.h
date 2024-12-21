@@ -45,7 +45,7 @@ constexpr bool isModelAnisotropic() {
 #endif
 }
 
-enum class ReflectionType { BothWaves, BothWavesVelocity, Pwave, Swave };
+enum class ReflectionType { BothWaves = 1, BothWavesVelocity, Pwave, Swave };
 
 struct ITMParameters {
   bool itmEnabled;
@@ -54,6 +54,8 @@ struct ITMParameters {
   double itmVelocityScalingFactor;
   ReflectionType itmReflectionType;
 };
+
+enum class NumericalFlux { Godunov, Rusanov };
 
 struct ModelParameters {
   bool hasBoundaryFile;
@@ -66,6 +68,8 @@ struct ModelParameters {
   std::string boundaryFileName;
   std::string materialFileName;
   ITMParameters itmParameters;
+  NumericalFlux flux;
+  NumericalFlux fluxNearFault;
 };
 
 ModelParameters readModelParameters(ParameterReader* baseReader);

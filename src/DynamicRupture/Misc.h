@@ -45,7 +45,7 @@ static constexpr real TpMaxWaveNumber = 10.0;
 static constexpr unsigned int NumBoundaryGaussPoints = init::QInterpolated::Shape[0];
 
 template <class TupleT, class F, std::size_t... I>
-constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...>) {
+constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...> /*unused*/) {
   return (void)std::initializer_list<int>{
              (std::forward<F>(functor)(std::get<I>(std::forward<TupleT>(tuple)), I), 0)...},
          functor;
@@ -74,7 +74,7 @@ inline auto power(T base) -> T {
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_floating_point<T>::value, T>::type square(T t) {
+inline std::enable_if_t<std::is_floating_point_v<T>, T> square(T t) {
   return t * t;
 }
 

@@ -13,8 +13,9 @@ TEST_CASE("Transform moment tensor") {
   constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
 
   // strike = dip = rake = pi / 3
-  real strike, dip, rake;
-  strike = dip = rake = M_PI / 3.0;
+  real strike = M_PI / 3.0;
+  real dip = M_PI / 3.0;
+  real rake = M_PI / 3.0;
 
   // M_xy = M_yx = 1, others are zero
   real localMomentTensorXY[3][3] = {

@@ -25,8 +25,8 @@ void NoSpecialization::resampleSlipRate(
 void BiMaterialFault::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                                          const seissol::initializer::DynamicRupture* const dynRup,
                                          real fullUpdateTime) {
-  auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial* const>(dynRup);
+  const auto* concreteLts =
+      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup);
   regularisedStrength = layerData.var(concreteLts->regularisedStrength);
 }
 
