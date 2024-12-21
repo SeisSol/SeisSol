@@ -170,4 +170,3 @@ void seissol::writer::FaultWriter::syncPoint(double currentTime) {
   }
   write(currentTime);
 }
-

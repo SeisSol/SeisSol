@@ -70,6 +70,4 @@ void updateQEtaNodal(real** qEtaNodalPtrs,
 } // namespace kernels
 } // namespace seissol
 
-
 #endif // SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
-

@@ -40,6 +40,4 @@ class ClusteringWriter {
 
 } // namespace seissol::writer
 
-
 #endif // SEISSOL_SRC_RESULTWRITER_CLUSTERINGWRITER_H_
-

@@ -294,6 +294,4 @@ class WaveFieldWriterExecutor {
 
 } // namespace seissol::writer
 
-
 #endif // SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITEREXECUTOR_H_
-

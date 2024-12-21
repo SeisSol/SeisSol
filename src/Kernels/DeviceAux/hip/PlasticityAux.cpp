@@ -329,4 +329,3 @@ void updateQEtaNodal(real** QEtaNodalPtrs,
 } // namespace device
 } // namespace kernels
 } // namespace seissol
-

@@ -125,6 +125,4 @@ class FaultWriterExecutor {
 
 // namespace seissol
 
-
 #endif // SEISSOL_SRC_RESULTWRITER_FAULTWRITEREXECUTOR_H_
-

@@ -10,7 +10,6 @@
  * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  */
- 
 
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/Refinement/RefinerUtils.h>
@@ -514,4 +513,3 @@ void seissol::writer::WaveFieldWriter::write(double time) {
 void seissol::writer::WaveFieldWriter::simulationStart() { syncPoint(0.0); }
 
 void seissol::writer::WaveFieldWriter::syncPoint(double currentTime) { write(currentTime); }
-

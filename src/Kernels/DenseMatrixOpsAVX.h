@@ -10,7 +10,7 @@
  *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  */
- 
+
 #ifndef SEISSOL_SRC_KERNELS_DENSEMATRIXOPSAVX_H_
 #define SEISSOL_SRC_KERNELS_DENSEMATRIXOPSAVX_H_
 

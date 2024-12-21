@@ -10,7 +10,6 @@
  *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  */
- 
 
 #include "ReceiverWriter.h"
 
@@ -266,4 +265,3 @@ kernels::ReceiverCluster* ReceiverWriter::receiverCluster(unsigned clusterId, La
 }
 
 } // namespace seissol::writer
-

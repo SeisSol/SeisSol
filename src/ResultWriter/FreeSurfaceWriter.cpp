@@ -226,4 +226,3 @@ void seissol::writer::FreeSurfaceWriter::syncPoint(double currentTime) {
   m_freeSurfaceIntegrator->calculateOutput();
   write(currentTime);
 }
-

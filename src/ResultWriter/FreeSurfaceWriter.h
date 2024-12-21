@@ -102,6 +102,4 @@ class FreeSurfaceWriter
 
 } // namespace seissol
 
-
 #endif // SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITER_H_
-

@@ -54,6 +54,4 @@ inline void streamstore(std::size_t numberOfReals, const real* x, real* y) {
 }
 } // namespace seissol::kernels
 
-
 #endif // SEISSOL_SRC_KERNELS_DENSEMATRIXOPS_H_
-

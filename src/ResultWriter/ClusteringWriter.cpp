@@ -74,4 +74,3 @@ void ClusteringWriter::write() const {
 }
 
 } // namespace seissol::writer
-

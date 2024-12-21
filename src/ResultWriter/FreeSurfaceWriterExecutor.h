@@ -113,6 +113,4 @@ class FreeSurfaceWriterExecutor {
 
 // namespace seissol
 
-
 #endif // SEISSOL_SRC_RESULTWRITER_FREESURFACEWRITEREXECUTOR_H_
-

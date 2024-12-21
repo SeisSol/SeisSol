@@ -242,4 +242,3 @@ void updateQEtaNodal(real** QEtaNodalPtrs,
 }
 
 } // namespace seissol::kernels::device::aux::plasticity
-

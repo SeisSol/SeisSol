@@ -149,6 +149,4 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
 } // namespace seissol::writer
 
-
 #endif // SEISSOL_SRC_RESULTWRITER_FAULTWRITER_H_
-

@@ -76,6 +76,4 @@ class ReceiverWriter : public seissol::Module {
 };
 } // namespace seissol::writer
 
-
 #endif // SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
-
