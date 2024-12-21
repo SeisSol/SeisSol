@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 # FIXME: forced to be on
 # option(HDF5 "Use HDF5 library for data output" ON)
 set(HDF5 ON)

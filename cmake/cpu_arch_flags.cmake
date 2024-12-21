@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 function(get_arch_flags architecture compiler)
     set(HAS_REDZONE OFF PARENT_SCOPE)
 

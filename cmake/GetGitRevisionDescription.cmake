@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSL-1.0
+#
 # - Returns a version string from Git
 #
 # These functions force a re-configure on each git commit so that you can

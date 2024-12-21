@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 #  PSpaMM - Code Generator for Sparse Matrix Multiplication
 #  source code: https://github.com/peterwauligmann/PSpaMM
 #

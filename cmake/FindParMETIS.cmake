@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
 # - Try to find ParMETIS
 # Once done this will define
 #
