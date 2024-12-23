@@ -13,6 +13,7 @@ jobs:
   update-stats:
     name: github-repo-stats
     runs-on: ubuntu-latest
+    if: ${{ github.repository == 'SeisSol/SeisSol' }} # disable on forks
     steps:
       - name: run-ghrs
         # Use latest release.

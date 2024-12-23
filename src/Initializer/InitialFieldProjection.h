@@ -42,6 +42,7 @@
 #define INITIALIZER_INITIALFIELDPROJECTION_H_
 
 #include <memory>
+#include <vector>
 
 #include "Geometry/MeshReader.h"
 #include "Initializer/LTS.h"
@@ -57,6 +58,19 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
                          seissol::initializer::MemoryManager& memoryManager,
                          LTS const& lts,
                          const Lut& ltsLut);
+
+std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
+                                      double time,
+                                      const seissol::geometry::MeshReader& meshReader,
+                                      bool needsTime);
+
+void projectEasiInitialField(const std::vector<std::string>& iniFields,
+                             const GlobalData& globalData,
+                             const seissol::geometry::MeshReader& meshReader,
+                             seissol::initializer::MemoryManager& memoryManager,
+                             LTS const& lts,
+                             const Lut& ltsLut,
+                             bool needsTime);
 } // namespace seissol::initializer
 
 #endif

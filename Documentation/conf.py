@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+# SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+#
 #
 # Configuration file for the Sphinx documentation builder.
 #
@@ -20,8 +24,8 @@
 # -- Project information -----------------------------------------------------
 
 project = 'SeisSol'
-copyright = '2023, The SeisSol Team'
-author = 'The SeisSol Team'
+copyright = '2012-2024 SeisSol Group'
+author = 'SeisSol Group'
 
 # The short X.Y version
 version = ''
@@ -130,7 +134,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'SeisSol.tex', 'SeisSol Documentation',
-     'The SeisSol Team', 'manual'),
+     'The SeisSol Group', 'manual'),
 ]
 
 

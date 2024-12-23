@@ -66,7 +66,6 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   // to capture by value
   auto selfGlobalElementCount = globalElementCount;
   auto selfLocalElementCount = localElementCount;
-  auto selfElementOffset = elementOffset;
   auto selfGlobalPointCount = globalPointCount;
   auto selfLocalPointCount = localPointCount;
   auto selfPointOffset = pointOffset;

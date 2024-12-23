@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 SYCL
 ====
 
@@ -10,10 +15,10 @@ achieve GPU source code portability (e.g., Dynamic Rupture).
 SYCL is a standard for cross-platform programming of heterogeneous processors. Below are the instructions for
 installing the *hipSYCL* implementation of the SYCL standard. If you want to use *DPC++* then refer to
 `the followig instructions <https://intel.github.io/llvm-docs/GetStartedGuide.html#create-dpc-workspace>`_.
-You can find the latest successfully tested *DPC++* 
+You can find the latest successfully tested *DPC++*
 version `here <https://github.com/intel/llvm/releases/tag/2023-WW13>`_. Additionally to *DPC++*,
 you will need to compile *OpenMP* from the same repository for the host-side
-of the application. You can find the corresponding information 
+of the application. You can find the corresponding information
 `there <https://github.com/intel/llvm/tree/sycl/openmp>`_.
 
 
@@ -90,18 +95,21 @@ hipSYCL depends on 1.69.0 version of the Boost library.
   cd ..
 
 
-Installing hipSYCL
-------------------
+Installing AdaptiveCpp
+----------------------
 
-SeisSol requires 0.9.3 version of hipSYCL for a correct multi GPU-setup.
+We recommend using version 23.10 or newer of AdaptiveCpp for SeisSol with GPU support.
+
+SeisSol may also work with AdaptiveCpp (then called hipSYCL) down to version 0.9.3; however, we cannot guarantee the
+compatibility to hold in future versions.
 
 .. code-block:: bash
 
-  git clone --depth 1 --branch v0.9.3 https://github.com/illuhad/hipSYCL.git
+  git clone --depth 1 --branch v24.06 https://github.com/illuhad/hipSYCL.git
   cd hipSYCL
   mkdir build && cd build
 
-Perform the following steps to configure and install hipSYCL for Nvidia GPUs.
+Given that you have installed clang as specified above, the following instructions will install AdaptiveCpp for NVIDIA GPUs, as required by SeisSol.
 Make sure that the clang from the correct LLVM installation is used and check the paths carefully.
 
 .. code-block:: bash
@@ -132,7 +140,8 @@ Make sure that the clang from the correct LLVM installation is used and check th
   cd ../..
 
 
-The following steps describe the steps to configure and install hipSYCL for AMD GPUs. Note `ROCM_PATH` is typically
+Given that you have installed clang as specified above, the following instructions will install AdaptiveCpp for NVIDIA GPUs, as required by SeisSol.
+The following steps describe the steps to configure and install hipSYCL for AMD GPUs. Note ``HIP_PATH`` is typically
 set by system administrators. Please, makes sure that this environment variable is not empty.
 
 .. code-block:: bash
@@ -161,6 +170,4 @@ set by system administrators. Please, makes sure that this environment variable 
   cd ../..
 
 Add the following during the CMake configuration step if you want to enable the OpenMP backend of SYCL device kernels:
-`-DWITH_ACCELERATED_CPU=ON`
-
-
+``-DWITH_ACCELERATED_CPU=ON``.

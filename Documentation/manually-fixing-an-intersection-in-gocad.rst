@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 Manually fixing an intersection in Gocad
 ========================================
 
@@ -53,8 +58,8 @@ meshing the small features to get their coordinates
 ---------------------------------------------------
 
 | A preferable option, because more systematic, for localizing the small
-  features is to mesh them in SimModeler, export the mesh in an ascii file, and read the node's coordinates. 
-  Then mouse over the intersected surface, along the intersection line up to each of the coordinates. 
+  features is to mesh them in SimModeler, export the mesh in an ascii file, and read the node's coordinates.
+  Then mouse over the intersected surface, along the intersection line up to each of the coordinates.
   To mesh them, click on each small features faces, and choose 'Use
   discrete Geometry mesh'. Then click on all other faces, and choose 'No
   mesh/Entity'. Finally, remove the 'Volume meshing' attribute, and click on 'Generate Mesh'. The surface mesh can then be exported:
@@ -98,7 +103,7 @@ edges. For instance here:
 |fixing intersection|
 
 | We see that the small feature seems related to the edge intersection
-  circled. We then switch 2 triangles of the blue surface sharing the incriminated edge, which has the virtue of moving the edge. 
+  circled. We then switch 2 triangles of the blue surface sharing the incriminated edge, which has the virtue of moving the edge.
   For that we use (for instance):
 | Right-click on the surface>Tools>Triangles>Switch Triangles> click on
   both triangles.

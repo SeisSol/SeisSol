@@ -45,6 +45,7 @@ src/DynamicRupture/Initializer/RateAndStateInitializer.cpp
 src/DynamicRupture/Misc.cpp
 
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
+src/Initializer/InitialFieldProjection.cpp
 src/Initializer/PointMapper.cpp
 src/Modules/Module.cpp
 src/Modules/Modules.cpp
@@ -111,7 +112,6 @@ src/Initializer/InitProcedure/InitMesh.cpp
 src/Initializer/InitProcedure/InitModel.cpp
 src/Initializer/InitProcedure/InitIO.cpp
 src/Initializer/InitProcedure/InitSideConditions.cpp
-src/Initializer/InitialFieldProjection.cpp
 src/Initializer/InternalState.cpp
 src/Initializer/MemoryAllocator.cpp
 src/Initializer/MemoryManager.cpp

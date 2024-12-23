@@ -1,3 +1,9 @@
+! SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+!
+! SPDX-License-Identifier: BSD-3-Clause
+!
+! A sample SeisSol parameter file, with all options explained.
+
 &equations
 !yaml file defining spatial dependance of material properties
 MaterialFileName = '33_layered_constant.yaml'
@@ -32,12 +38,16 @@ cICType = 'Zero'                  ! Initial Condition
 !Scholte     A Scholte wave to test elastic-acoustic coupling
 !Snell       Snells law to test elastic-acoustic coupling
 !Ocean       An uncoupled ocean test case for acoustic equations
+!easi        Use an easi file for the input condition
 
 !The following parameters are only needed for the travelling wave IC:
 origin = 0 0 0.5             ! Origin of the wave 
 kVec = 6.283 0 0             ! Gives direction of wave propagation, the wavelength of the travelling wave is 2*pi / norm(kVec)
 k = 6.283 ! Wave number to be used for the travelling acoustic wave with ITM test case. Not to be used in other scenarios
 ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
+
+filename = ''  ! file name for the easi initial condition file
+hastime = 1    ! indicates the required support of a time dimension in the easi file. Requires easi 1.5.0 or higher.
 /
 
 &DynamicRupture

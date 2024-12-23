@@ -1,5 +1,9 @@
+..
+  SPDX-FileCopyrightText: 2022-2024 SeisSol Group
 
-.. list-table:: 
+  SPDX-License-Identifier: BSD-3-Clause
+
+.. list-table::
    :widths: 20 20 20 20 20 20
    :header-rows: 1
 
@@ -81,7 +85,7 @@
      - point-source benchmark, see :ref:`loh1`
 
    * - `Northridge <https://github.com/SeisSol/Examples/tree/master/Northridge>`_
-     - kinematic 
+     - kinematic
      - R
      - n/a
      - 1
