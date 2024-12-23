@@ -199,3 +199,5 @@ class PoroelasticADERDG(LinearADERDG):
   def add_include_tensors(self, include_tensors):
     super().add_include_tensors(include_tensors)
     include_tensors.add(self.db.Z)
+
+EQUATION_CLASS = PoroelasticADERDG

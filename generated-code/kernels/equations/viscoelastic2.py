@@ -188,3 +188,5 @@ class Viscoelastic2ADERDG(ADERDGBase):
     include_tensors.update([
       self.db.project2nFaceTo3m[i] for i in range(4)
     ])
+
+EQUATION_CLASS = Viscoelastic2ADERDG

@@ -37,3 +37,5 @@ class ElasticADERDG(LinearADERDG):
 
   def addLocal(self, generator, targets):
     super().addLocal(generator, targets)
+
+EQUATION_CLASS = ElasticADERDG

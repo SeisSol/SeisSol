@@ -38,3 +38,5 @@ class AnisotropicADERDG(ADERDGBase):
 
   def add_include_tensors(self, include_tensors):
       super().add_include_tensors(include_tensors)
+
+EQUATION_CLASS = AnisotropicADERDG

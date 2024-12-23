@@ -46,7 +46,7 @@
 import numpy as np
 from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 
-from aderdg import LinearADERDG
+from ..aderdg import LinearADERDG
 
 class AcousticADERDG(LinearADERDG):
   def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
@@ -82,3 +82,5 @@ class AcousticADERDG(LinearADERDG):
     extractTractionsSPP = np.zeros((3, self.numberOfQuantities()))
     extractTractionsSPP[0, 0] = 1
     return extractTractionsSPP
+
+EQUATION_CLASS = AcousticADERDG

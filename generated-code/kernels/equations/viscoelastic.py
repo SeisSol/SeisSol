@@ -87,3 +87,5 @@ class ViscoelasticADERDG(LinearADERDG):
 
   def transformation_inv_spp(self):
     return self.transformation_spp()
+
+EQUATION_CLASS = ViscoelasticADERDG

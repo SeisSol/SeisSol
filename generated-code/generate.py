@@ -99,18 +99,7 @@ def main():
   except:
     raise RuntimeError('Could not find kernels for ' + cmdLineArgs.equations)
 
-  if cmdLineArgs.equations == 'anisotropic':
-    equation_class = equations.AnisotropicADERDG
-  elif cmdLineArgs.equations == 'elastic':
-    equation_class = equations.ElasticADERDG
-  elif cmdLineArgs.equations == 'viscoelastic':
-    equation_class = equations.ViscoelasticADERDG
-  elif cmdLineArgs.equations == 'viscoelastic2':
-    equation_class = equations.Viscoelastic2ADERDG
-  elif cmdLineArgs.equations == 'acoustic':
-    equation_class = equations.AcousticADERDG
-  else:
-    equation_class = equations.PoroelasticADERDG
+  equation_class = equations.EQUATION_CLASS
 
   def generate_equation(subfolders, equation, order):
     precision = 'double' if cmdLineArgs.host_arch[0] == 'd' else 'single'

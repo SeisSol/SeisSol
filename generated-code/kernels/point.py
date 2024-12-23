@@ -11,7 +11,7 @@
 #
   
 import numpy as np
-import acoustic
+import kernels.equations.acoustic as acoustic
 from yateto import Tensor, Scalar
 from kernels.multsim import OptionalDimTensor
 
