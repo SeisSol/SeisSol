@@ -14,7 +14,7 @@ project(SeisSol LANGUAGES C CXX)
 # TODO: Move one dir up.
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake"
                       "${PROJECT_SOURCE_DIR}/submodules/Device/cmake"
-                      "${CMAKE_ROOT}/Modules")
+                      ${CMAKE_MODULE_PATH})
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
   if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.1.0")
@@ -135,9 +135,9 @@ find_package(GemmTools REQUIRED)
 
 add_custom_command(
   COMMAND
-  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated_code/generate.py"
+  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated-code/generate.py"
      "--equations" ${EQUATIONS}
-     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated_code/matrices
+     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
      "--host_arch" ${HOST_ARCH_STR}
      "--device_arch" ${DEVICE_ARCH_STR}
@@ -152,25 +152,13 @@ add_custom_command(
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
-     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated_code
+     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated-code
      DEPENDS
         build-time-make-directory
-        generated_code/arch.py
-        generated_code/memlayout.py
-        generated_code/viscoelastic.py
-        generated_code/DynamicRupture.py
-        generated_code/Plasticity.py
-        generated_code/multSim.py
-        generated_code/aderdg.py
-        generated_code/generate.py
-        generated_code/Point.py
-        generated_code/elastic.py
-        generated_code/viscoelastic2.py
-        generated_code/poroelastic.py
-        generated_code/anisotropic.py
-        generated_code/SurfaceDisplacement.py
-        generated_code/NodalBoundaryConditions.py
-        generated_code/matrices
+        generated-code/generate.py
+        generated-code/kernels
+        generated-code/matrices
+        generated-code/config
     OUTPUT
         ${GENERATED_FILES_FOR_SEISSOL}
     COMMENT "Code generation for tensor operations..."
@@ -518,7 +506,7 @@ if (WITH_GPU)
   install(TARGETS device LIBRARY)
 else()
   # add DR source files to SeisSol-lib if we are compiling without any GPU support
-  target_sources(SeisSol-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
+  target_sources(SeisSol-common-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
 endif()
 
 # C++ compiler settings
@@ -561,6 +549,9 @@ if (HAS_REDZONE)
   )
 endif()
 
+# put every executable in the root build directory at the end
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
 # build SeisSol-bin
   add_executable(SeisSol-bin src/Main.cpp)
   set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
@@ -574,39 +565,15 @@ endif()
 # end build SeisSol-bin
 
 # build SeisSol-proxy
-  # SeisSol proxy-core
-  add_library(SeisSol-proxy-core auto_tuning/proxy/src/proxy_seissol.cpp)
-  target_link_libraries(SeisSol-proxy-core PUBLIC SeisSol-lib)
-
-  if (PROXY_PYBINDING)
-    if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-      find_package(pybind11 2.6.2 REQUIRED)
-    else()
-      find_package(pybind11 2.3.0 REQUIRED)
-    endif()
-
-    pybind11_add_module(seissol_proxy_bindings auto_tuning/proxy/src/proxy_bindings.cpp)
-    target_link_libraries(seissol_proxy_bindings PUBLIC SeisSol-proxy-core)
-    file(COPY auto_tuning/proxy/src/proxy-runners DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-  endif()
-
-  if (WITH_GPU)
-    target_link_libraries(SeisSol-proxy-core PUBLIC general-sycl-offloading)
-  endif()
-
-  # C/C++ proxy interface
-  add_executable(SeisSol-proxy auto_tuning/proxy/src/proxy_main.cpp)
-  target_link_libraries(SeisSol-proxy PUBLIC SeisSol-proxy-core SeisSol-lib)
-  set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
-  install(TARGETS SeisSol-proxy RUNTIME)
+  add_subdirectory(auto-tuning/proxy/src)
 # end build SeisSol-proxy
 
 if (LIKWID)
   find_package(likwid REQUIRED)
   if (BUILD_PROXY)
-    target_compile_definitions(SeisSol-proxy-core PUBLIC LIKWID_PERFMON)
-    target_include_directories(SeisSol-proxy-core PUBLIC ${LIKWID_INCLUDE_DIR})
-    target_link_libraries(SeisSol-proxy-core PUBLIC likwid::likwid)
+    target_compile_definitions(seissol-proxy-lib PUBLIC LIKWID_PERFMON)
+    target_include_directories(seissol-proxy-lib PUBLIC ${LIKWID_INCLUDE_DIR})
+    target_link_libraries(seissol-proxy-lib PUBLIC likwid::likwid)
   endif()
   target_compile_definitions(SeisSol-lib PUBLIC LIKWID_PERFMON)
   target_include_directories(SeisSol-lib PUBLIC ${LIKWID_INCLUDE_DIR})

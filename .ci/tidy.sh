@@ -10,6 +10,7 @@
 format() {
     # don't use a directory with whitespace
     local allowlist_dir="
+        auto-tuning/proxy/src
         src/DynamicRupture
         src/Equations/acoustic/Model
         src/Geometry
