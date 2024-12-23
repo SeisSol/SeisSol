@@ -75,7 +75,7 @@ Then update ``~/.spack/packages.yaml`` as follow:
           mpi: [mpich]
 
 
-Finally, install seissol-env with 
+Finally, install seissol-env with
 
 .. code-block:: bash
 

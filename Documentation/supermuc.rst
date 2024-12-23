@@ -30,8 +30,8 @@ Load modules (including seissol-env). Add these lines to .bashrc:
   module use /hppfs/work/pn49ha/ru76tuj2/modules/linux-sles15-skylake_avx512/
   # you need to have access to project pn49ha
   module load seissol-env/develop-intel21-impi-x2b
-  export CC=mpicc 
-  export CXX=mpiCC 
+  export CC=mpicc
+  export CXX=mpiCC
 
 Install pspamm (see :ref:`pypi_behind_firewall` for the proxy):
 
@@ -41,7 +41,7 @@ Install pspamm (see :ref:`pypi_behind_firewall` for the proxy):
 
 (``--no-build-isolation`` is used to circumvent the problem described in https://github.com/SeisSol/PSpaMM/issues/13)
 
-Clone SeisSol including the submodules using 
+Clone SeisSol including the submodules using
 
 .. code-block:: bash
 
@@ -61,8 +61,8 @@ Install SeisSol with cmake, e.g. with (more options with ccmake)
 Running SeisSol
 ---------------
 
-This is an example job submission script for SeisSol on SuperMUC-NG. For your applications, change ``#SBATCH --nodes=`` 
-to the number of nodes you want to run on. A rule of thumb for optimal performance is to distribute your jobs to 1 node per 100k elements. This rule of thumb does not account for potentially shorter queue times, for example when using the test queue or when asking for a large amount of nodes. 
+This is an example job submission script for SeisSol on SuperMUC-NG. For your applications, change ``#SBATCH --nodes=``
+to the number of nodes you want to run on. A rule of thumb for optimal performance is to distribute your jobs to 1 node per 100k elements. This rule of thumb does not account for potentially shorter queue times, for example when using the test queue or when asking for a large amount of nodes.
 
 ::
 
@@ -97,7 +97,7 @@ to the number of nodes you want to run on. A rule of thumb for optimal performan
   #SBATCH --ear=off
 
   module load slurm_setup
-  
+
   #Run the program:
   export MP_SINGLE_THREAD=no
   unset KMP_AFFINITY
@@ -170,7 +170,7 @@ For reference, to compile seissol-env on SuperMUC-NG, follow the procedure below
     spack module tcl refresh seissol-env@develop%intel
     #to access the module at start up, add to your ~/.bashrc
     module use $HOME/spack/modules/x86_avx512/linux-sles15-skylake_avx512/
-    # change this path to your_custom_path_2_modules if you update ~/.spack/modules.yaml 
+    # change this path to your_custom_path_2_modules if you update ~/.spack/modules.yaml
 
 Custom install directory for packages and modules can be set by changing ``~/.spack/config.yaml``
 
@@ -205,7 +205,7 @@ The seissol-env compilation can also be reduced by adding the python module to `
 
 Compiling the seissol spack package
 -----------------------------------
- 
+
 The seissol package is similar to the seissol-env package (it gathers all dependencies of seissol), but also compiles a specific version of seissol itself.
 To compile the seissol spack package on SuperMUC-NG, follow the procedure below.
 
@@ -234,7 +234,7 @@ To compile the seissol spack package on SuperMUC-NG, follow the procedure below.
 
     #to access the module at start up, add to your ~/.bashrc
     module use $HOME/spack/modules/x86_avx512/linux-sles15-skylake_avx512/
-    # change this path to your_custom_path_2_modules if you update ~/.spack/modules.yaml 
+    # change this path to your_custom_path_2_modules if you update ~/.spack/modules.yaml
 
 Custom install directory for packages and modules can be set by changing ``~/.spack/config.yaml``:
 
@@ -244,7 +244,7 @@ Custom install directory for packages and modules can be set by changing ``~/.sp
       install_tree:
         root: path_2_packages
 
-and ``~/.spack/modules.yaml``: 
+and ``~/.spack/modules.yaml``:
 
 .. code-block:: yaml
 

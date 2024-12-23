@@ -17,17 +17,17 @@ need to have at least CUDA 11.8 or ROCm 6.0 installed in your environment. Moreo
 that your installed MPI implementation is GPU-aware. If you are unsure, consult the documentation of the cluster you are using.
 
 You can also utilize `UCX communication layer
-<https://github.com/openucx/ucx>`_ if you need to manually configure CUDA-Aware MPI for a cluster or your local server 
+<https://github.com/openucx/ucx>`_ if you need to manually configure CUDA-Aware MPI for a cluster or your local server
 with an open-source MPI implementation e.g., OpenMPI.
 
-GPU version of SeisSol follows *single rank/single GPU* strategy. Therefore, 
+GPU version of SeisSol follows *single rank/single GPU* strategy. Therefore,
 if you want to run SeisSol on **M** nodes where each node is equipped with **N** GPUs then
 make sure that you launch SeisSol with **M x N** MPI processes.
 
-To achieve the most efficient CPU-to-GPU communication and vice versa you have 
-to pin your MPI processes to CPU cores which are the closest to the target 
-GPUs. This problem is also known as GPU affinity. Latest versions of workload 
-managers (e.g. SLURM) are aware of this problem and try to provide an 
+To achieve the most efficient CPU-to-GPU communication and vice versa you have
+to pin your MPI processes to CPU cores which are the closest to the target
+GPUs. This problem is also known as GPU affinity. Latest versions of workload
+managers (e.g. SLURM) are aware of this problem and try to provide an
 automatic, GPU-aware process pinning. Consider the following SLURM options:
 
 - ``--ntasks-per-gpu``
@@ -78,7 +78,7 @@ Experimental branches include support for visco-elastic wave propagation as well
 Compilation
 ~~~~~~~~~~~
 
-To start off, make sure that you already have **GemmForge** installed on your system. 
+To start off, make sure that you already have **GemmForge** installed on your system.
 If you don't have then follow this :ref:`link <gemmforge_installation>`.
 
 After that, get the latest version of SeisSol
@@ -91,7 +91,7 @@ Compile SeisSol with (e.g.)
 
 .. code-block:: bash
 
-    mkdir -p seissol-gpu/build && cd seissol-gpu/build 
+    mkdir -p seissol-gpu/build && cd seissol-gpu/build
     cmake -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_70 -DHOST_ARCH=skx \
     -DCMAKE_BUILD_TYPE=Release -DPRECISION=double ..
     make -j
@@ -118,7 +118,7 @@ the following will force SeisSol to allocate 1.5GB of stack GPU memory for tempo
 
 
 .. code-block:: bash
-    
+
     export DEVICE_STACK_MEM_SIZE=1.5
     mpirun -n <M x N> ./SeisSol_dsm70_cuda_* ./parameters.par
 
@@ -136,7 +136,7 @@ before/after each ``MPI_Isend`` / ``MPI_Irecv``.
 The default value is ``direct`` which copies the data out of the GPU buffers directly.
 
 .. figure:: LatexFigures/gpu-comm-layer-data-flow.png
-   :alt: Data Flow Diagram 
+   :alt: Data Flow Diagram
    :width: 10.0cm
    :align: center
 

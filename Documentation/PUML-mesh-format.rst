@@ -27,7 +27,7 @@ The content of the Hdf5 file can be view using ``h5dump``; most notably ``h5dump
 The format itself is mostly compatible to Xdmf, given a corresponding Xdmf XML file. With such, it can be visualized in e.g. ParaView.
 Other than that, the Xdmf XML description is currently ignored by SeisSol.
 
-The boundary conditions can be extracted from a PUML mesh and visualised in ParaView using this 
+The boundary conditions can be extracted from a PUML mesh and visualised in ParaView using this
 `script <https://github.com/SeisSol/Meshing/blob/master/vizualizeBoundaryConditions/vizualizeBoundaryConditions.py>`_.
 
 An example Hdf5 file looks as follows:

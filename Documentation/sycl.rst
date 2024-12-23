@@ -15,10 +15,10 @@ achieve GPU source code portability (e.g., Dynamic Rupture).
 SYCL is a standard for cross-platform programming of heterogeneous processors. Below are the instructions for
 installing the *hipSYCL* implementation of the SYCL standard. If you want to use *DPC++* then refer to
 `the followig instructions <https://intel.github.io/llvm-docs/GetStartedGuide.html#create-dpc-workspace>`_.
-You can find the latest successfully tested *DPC++* 
+You can find the latest successfully tested *DPC++*
 version `here <https://github.com/intel/llvm/releases/tag/2023-WW13>`_. Additionally to *DPC++*,
 you will need to compile *OpenMP* from the same repository for the host-side
-of the application. You can find the corresponding information 
+of the application. You can find the corresponding information
 `there <https://github.com/intel/llvm/tree/sycl/openmp>`_.
 
 

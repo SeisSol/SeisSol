@@ -73,7 +73,7 @@ following.
    | We define
    | :math:`\text{isPlus}:=\left<\mathbf{r}-\mathbf{x},\mathbf{n}\right>\cdot\left<\mathbf{y}-\mathbf{x},\mathbf{n}\right>>0`
    | isPlus is only true whenever **r**-**x** and **y**-**x** point in
-     the same direction (lie in the same half-space w.r.t. **n**). 
+     the same direction (lie in the same half-space w.r.t. **n**).
    | This method works, as long as the sign of the first dot product is the
      same for all faces tagged as being part of the fault.
    | *Example:* One has a planar fault with normal **N** and an
