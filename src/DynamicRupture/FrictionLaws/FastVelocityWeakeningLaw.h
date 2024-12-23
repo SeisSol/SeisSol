@@ -1,6 +1,8 @@
 #ifndef SEISSOL_RATEANDSTATEFASTVELOCITYWEAKENING_H
 #define SEISSOL_RATEANDSTATEFASTVELOCITYWEAKENING_H
 
+#include <cmath>
+
 #include "RateAndState.h"
 
 namespace seissol::dr::friction_law {
@@ -144,7 +146,7 @@ class FastVelocityWeakeningLaw
   void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
                              unsigned ltsFace) const {
     [[maybe_unused]] const real tmp = 0.5 / this->drParameters->rsSr0 *
-                                      exp(localStateVariable[0] / this->a[ltsFace][0]) *
+                                      std::exp(localStateVariable[0] / this->a[ltsFace][0]) *
                                       this->slipRateMagnitude[ltsFace][0];
     assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }

@@ -9,6 +9,9 @@
 #include <string>
 
 namespace seissol::model {
+class PoroelasticLocalData;
+class PoroelasticNeighborData;
+
 struct PoroElasticMaterial : ElasticMaterial {
   static constexpr std::size_t NumQuantities = 13;
   static constexpr std::size_t NumberPerMechanism = 0;
@@ -16,19 +19,22 @@ struct PoroElasticMaterial : ElasticMaterial {
   static constexpr MaterialType Type = MaterialType::Poroelastic;
   static constexpr LocalSolver Solver = LocalSolver::SpaceTimePredictorPoroelastic;
   static inline const std::string Text = "poroelastic";
-  static inline const std::array<std::string, NumQuantities> Quantities = {"s_xx",
-                                                                           "s_yy",
-                                                                           "s_zz",
-                                                                           "s_xy",
-                                                                           "s_yz",
-                                                                           "s_xz",
-                                                                           "v1",
-                                                                           "v2",
-                                                                           "v3",
-                                                                           "p",
-                                                                           "v1_f",
-                                                                           "v2_f",
-                                                                           "v3_f"};
+  static inline const std::array<std::string, NumQuantities> Quantities{"s_xx",
+                                                                        "s_yy",
+                                                                        "s_zz",
+                                                                        "s_xy",
+                                                                        "s_yz",
+                                                                        "s_xz",
+                                                                        "v1",
+                                                                        "v2",
+                                                                        "v3",
+                                                                        "p",
+                                                                        "v1_f",
+                                                                        "v2_f",
+                                                                        "v3_f"};
+
+  using LocalSpecificData = PoroelasticLocalData;
+  using NeighborSpecificData = PoroelasticNeighborData;
 
   double bulkSolid;
   double porosity;
@@ -58,19 +64,19 @@ struct PoroElasticMaterial : ElasticMaterial {
 
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
     double elasticMaterialVals[] = {this->rho, this->mu, this->lambda};
-    ElasticMaterial em(elasticMaterialVals, 3);
+    const ElasticMaterial em(elasticMaterialVals, 3);
     em.getFullStiffnessTensor(fullTensor);
   }
 
-  double getMaxWaveSpeed() const override { return getPWaveSpeed(); }
+  [[nodiscard]] double getMaxWaveSpeed() const override { return getPWaveSpeed(); }
 
   // only declare it here and define in a separate datastructures.cpp
   // to circumvent problems with circular includes
-  double getPWaveSpeed() const override;
+  [[nodiscard]] double getPWaveSpeed() const override;
 
-  double getSWaveSpeed() const override { return std::sqrt(mu / rho); }
+  [[nodiscard]] double getSWaveSpeed() const override { return std::sqrt(mu / rho); }
 
-  MaterialType getMaterialType() const override { return Type; }
+  [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 };
 } // namespace seissol::model
 

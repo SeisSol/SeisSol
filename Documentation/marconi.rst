@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _compile_run_marconi:
 
 Marconi 100
@@ -5,10 +10,10 @@ Marconi 100
 
 Marconi 100 is a distributed multi-GPU HPC system equipped with 4 Nvidia V100 GPUs
 and 2 IBM Power9 CPUs per node. This architecture usually comes with a pre-installed
-CUDA-Aware Spectrum-MPI. However, SeisSol cannot operate with Spectrum-MPI because 
+CUDA-Aware Spectrum-MPI. However, SeisSol cannot operate with Spectrum-MPI because
 of GPU memory leaks caused by this MPI implementation. This part of documentation
 describes how to setup and configure OpenMPI 4.1.x together with UCX 1.10.x to operate
-on IBM Power and similar HPC systems. 
+on IBM Power and similar HPC systems.
 
 Installing Main Libraries and Packages
 ---------------------------------------
@@ -182,7 +187,7 @@ compilation of many versions of UCX and OpenMPI. Please, disable it during SeisS
   --enable-shared=no \
   --disable-dap
 
-  $ make -j 
+  $ make -j
   $ make install
   $ cd ..
 
@@ -282,14 +287,14 @@ Running SeisSol
 
 As discussed :ref:`here <gpu_process_pinning>`, process pinning is important for SeisSol GPU version.
 IBM Power9 is an example of RISC architecture designed with with 4-way hyperthreading and 8 cores per CPU.
-In total, each node of Marconi 100 can run 256 threads. By and large process pinning needs a special 
+In total, each node of Marconi 100 can run 256 threads. By and large process pinning needs a special
 care on such architectures because some libraries have different meanings of cores and threads.
 
 Below you can see an example of a *batch script* with parameters resulting in an optimal process pinning.
 Note that each node of Marconi 100 has 2 Mellanox network cards i.e., each per NUMA domain. In this example,
 we enforce UCX to utilize both. Moreover, we reserve one 1 core for each MPI process for SeisSol communication thread.
 
-In this particular case it is not necessary to provide a number of processes after **mpirun** because OpenMPI was compiled 
+In this particular case it is not necessary to provide a number of processes after **mpirun** because OpenMPI was compiled
 with PMIX (see step 5).
 
 Please, do not forget to launch SeisSol via `launch` bash script generated with CMake during SeisSol's configuration.
@@ -324,7 +329,7 @@ Please, do not forget to launch SeisSol via `launch` bash script generated with 
 
   export DEVICE_STACK_MEM_SIZE=1.5
   export UCX_MEMTYPE_CACHE=n
-  
+
   mpirun --report-bindings --map-by ppr:$SLURM_NTASKS_PER_NODE:node:pe=$NUM_CORES \
   -x UCX_MAX_EAGER_RAILS=2 -x UCX_MAX_RNDV_RAILS=2 -x UCX_NET_DEVICES=mlx5_0:1,mlx5_1:1 \
   -x UCX_MEM_MMAP_HOOK_MODE=none \
@@ -351,5 +356,5 @@ One can achieve this by setting the following environment variable:
 
   --mca pml_base_verbose 10 --mca mtl_base_verbose 10 -x OMPI_MCA_pml_ucx_verbose=10
 
-4. We recommend to login into a compute node and execute **ucx_info -d**  command if you need to get information 
-about all available network devices. This will help you to retrieve exact names of network devices e.g., *mlx5_0:1, mlx5_1:1, etc*.  
+4. We recommend to login into a compute node and execute **ucx_info -d**  command if you need to get information
+about all available network devices. This will help you to retrieve exact names of network devices e.g., *mlx5_0:1, mlx5_1:1, etc*.

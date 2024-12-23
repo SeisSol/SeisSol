@@ -42,6 +42,7 @@
  **/
 
 #include <Common/Constants.h>
+#include <Equations/acoustic/Model/Datastructures.h>
 #include <Equations/anisotropic/Model/Datastructures.h>
 #include <Equations/elastic/Model/Datastructures.h>
 #include <Equations/poroelastic/Model/Datastructures.h>
@@ -287,6 +288,13 @@ void MaterialParameterDB<ElasticMaterial>::addBindingPoints(
   adapter.addBindingPoint("rho", &ElasticMaterial::rho);
   adapter.addBindingPoint("mu", &ElasticMaterial::mu);
   adapter.addBindingPoint("lambda", &ElasticMaterial::lambda);
+}
+
+template <>
+void MaterialParameterDB<AcousticMaterial>::addBindingPoints(
+    easi::ArrayOfStructsAdapter<AcousticMaterial>& adapter) {
+  adapter.addBindingPoint("rho", &AcousticMaterial::rho);
+  adapter.addBindingPoint("lambda", &AcousticMaterial::lambda);
 }
 
 template <>
@@ -682,6 +690,7 @@ QueryGenerator* getBestQueryGenerator(bool anelasticity,
 
 template class MaterialParameterDB<seissol::model::AnisotropicMaterial>;
 template class MaterialParameterDB<seissol::model::ElasticMaterial>;
+template class MaterialParameterDB<seissol::model::AcousticMaterial>;
 template class MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
 template class MaterialParameterDB<seissol::model::PoroElasticMaterial>;
 template class MaterialParameterDB<seissol::model::Plasticity>;

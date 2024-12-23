@@ -1,7 +1,12 @@
+..
+  SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 Local time-stepping (LTS)
 ===================================
 
-You can (and should!) enable local time-stepping for your simulations.
+You can (and should) enable local time-stepping for your simulations.
 Generally, this can lead to a better time to solution.
 The following settings are relevant:
 
@@ -96,6 +101,6 @@ Alternatively, you can use :code:`LtsAutoMergeCostBaseline = 'maxWiggleFactor'`,
 The default and recommended choice is :code:`LtsAutoMergeCostBaseline = 'bestWiggleFactor'`.
 
 
-These features should be considered experimental at this point.
+These features should be considered experimental at this point in time.
 
 .. [1] Breuer, A., & Heinecke, A. (2022). Next-Generation Local Time Stepping for the ADER-DG Finite Element Method. In 2022 IEEE International Parallel and Distributed Processing Symposium (IPDPS) (pp. 402-413). IEEE.
