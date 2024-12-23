@@ -25,8 +25,8 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
   receiveRegionsStates.resize(numberOfRegions);
 
   for (size_t region = 0; region < numberOfRegions; ++region) {
-    prefetchCopyRegionsStreams[region] = device.api->createGenericStream();
-    prefetchGhostRegionsStreams[region] = device.api->createGenericStream();
+    prefetchCopyRegionsStreams[region] = device.api->createStream();
+    prefetchGhostRegionsStreams[region] = device.api->createStream();
     receiveRegionsStates[region] = ReceiveState::RequiresMpiTesting;
   }
 
