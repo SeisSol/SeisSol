@@ -11,6 +11,7 @@ format() {
     # don't use a directory with whitespace
     local allowlist_dir="
         src/DynamicRupture
+        src/Equations/acoustic/Model
         src/Geometry
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure

@@ -1,5 +1,6 @@
 import numpy as np
 import viscoelastic2
+import acoustic
 from multSim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.util import tensor_collection_from_constant_expression
@@ -53,7 +54,8 @@ def addKernels(generator, aderdg, include_tensors, matricesDir, dynamicRuptureMe
     # To be used as Tinv in flux solver - this way we can save two rotations for
     # Dirichlet boundary, as ghost cell dofs are already rotated
     identity_rotation = np.double(aderdg.transformation_spp())
-    identity_rotation[0:9, 0:9] = np.eye(9)
+    quantities = aderdg.numberOfQuantities()
+    identity_rotation[0:quantities, 0:quantities] = np.eye(quantities)
     identity_rotation = Tensor('identityT',
                                aderdg.transformation_spp().shape,
                                identity_rotation,
