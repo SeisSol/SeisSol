@@ -25,26 +25,25 @@ namespace seissol::model {
 using Matrix44 = Eigen::Matrix<double, 4, 4>;
 
 template <typename T>
-inline void
-    getTransposedCoefficientMatrix(const AcousticMaterial& i_material, unsigned i_dim, T& o_M) {
-  o_M.setZero();
+inline void getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& M) {
+  M.setZero();
 
-  real rhoInv = 1.0 / i_material.rho;
+  real rhoInv = 1.0 / material.rho;
 
-  switch (i_dim) {
+  switch (dim) {
   case 0:
-    o_M(1, 0) = i_material.lambda;
-    o_M(0, 1) = rhoInv;
+    M(1, 0) = material.lambda;
+    M(0, 1) = rhoInv;
     break;
 
   case 1:
-    o_M(2, 0) = i_material.lambda;
-    o_M(0, 2) = rhoInv;
+    M(2, 0) = material.lambda;
+    M(0, 2) = rhoInv;
     break;
 
   case 2:
-    o_M(3, 0) = i_material.lambda;
-    o_M(0, 3) = rhoInv;
+    M(3, 0) = material.lambda;
+    M(0, 3) = rhoInv;
     break;
 
   default:

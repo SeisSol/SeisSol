@@ -44,9 +44,9 @@ struct AcousticMaterial : Material {
 
   double lambda;
 
-  double getLambdaBar() const override { return lambda; }
+  [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
-  double getMuBar() const override { return 0.0; }
+  [[nodiscard]] double getMuBar() const override { return 0.0; }
 
   AcousticMaterial() = default;
   AcousticMaterial(const double* materialValues, int numMaterialValues) {
@@ -75,13 +75,13 @@ struct AcousticMaterial : Material {
     stiffnessTensorView(2, 2, 2, 2) = lambda;
   }
 
-  double getMaxWaveSpeed() const override { return getPWaveSpeed(); }
+  [[nodiscard]] double getMaxWaveSpeed() const override { return getPWaveSpeed(); }
 
-  double getPWaveSpeed() const override { return std::sqrt(lambda / rho); }
+  [[nodiscard]] double getPWaveSpeed() const override { return std::sqrt(lambda / rho); }
 
-  double getSWaveSpeed() const override { return 0.0; }
+  [[nodiscard]] double getSWaveSpeed() const override { return 0.0; }
 
-  MaterialType getMaterialType() const override { return Type; }
+  [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 };
 } // namespace seissol::model
 
