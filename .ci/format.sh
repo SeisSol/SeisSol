@@ -9,6 +9,7 @@
 format() {
     # don't use a directory with whitespace
     local allowlist_dir="
+        src/Common
         src/DynamicRupture
         src/Geometry
         src/Initializer/BatchRecorders

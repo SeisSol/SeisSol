@@ -19,7 +19,7 @@ namespace seissol::common {
 // TODO: remove once C++23 lands in SeisSol
 
 // cf. https://stackoverflow.com/a/44661987
-template<typename RangeT>
+template <typename RangeT>
 using IteratorType = decltype(std::begin(std::declval<RangeT&>()));
 
 template <typename... RangeTs>
@@ -76,6 +76,7 @@ public:
     }
 
     constexpr auto operator!=(const Iterator& other) const -> bool { return !(*this == other); }
+
 private:
     std::tuple<IteratorTs...> iterators;
     std::tuple<IteratorTs...> iteratorEnds;
@@ -86,27 +87,31 @@ private:
   Zip(bool lenient, RangeTs&&... ranges) : lenient(lenient), ranges(ranges...) {}
 
   constexpr auto begin() {
-    return Iterator<IteratorType<RangeTs>...>(lenient,
-                    tupleTransform([](auto& value) { return std::begin(value); }, ranges),
-                    tupleTransform([](auto&& value) { return std::end(value); }, ranges));
+    return Iterator<IteratorType<RangeTs>...>(
+        lenient,
+        tupleTransform([](auto& value) { return std::begin(value); }, ranges),
+        tupleTransform([](auto&& value) { return std::end(value); }, ranges));
   }
 
   constexpr auto end() {
-    return Iterator<IteratorType<RangeTs>...>(lenient,
-                    tupleTransform([](auto& value) { return std::end(value); }, ranges),
-                    tupleTransform([](auto&& value) { return std::end(value); }, ranges));
+    return Iterator<IteratorType<RangeTs>...>(
+        lenient,
+        tupleTransform([](auto& value) { return std::end(value); }, ranges),
+        tupleTransform([](auto&& value) { return std::end(value); }, ranges));
   }
 
   constexpr auto begin() const {
-    return Iterator<IteratorType<RangeTs>...>(lenient,
-                    tupleTransform([](const auto& value) { return std::cbegin(value); }, ranges),
-                    tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
+    return Iterator<IteratorType<RangeTs>...>(
+        lenient,
+        tupleTransform([](const auto& value) { return std::cbegin(value); }, ranges),
+        tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
   }
 
   constexpr auto end() const {
-    return Iterator<IteratorType<RangeTs>...>(lenient,
-                    tupleTransform([](const auto& value) { return std::cend(value); }, ranges),
-                    tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
+    return Iterator<IteratorType<RangeTs>...>(
+        lenient,
+        tupleTransform([](const auto& value) { return std::cend(value); }, ranges),
+        tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
   }
 
   private:
@@ -184,7 +189,9 @@ class Range {
 
   [[nodiscard]] constexpr auto begin() const { return Iterator(startVal, stepVal, stopVal); }
 
-  [[nodiscard]] constexpr auto end() const { return Iterator(std::optional<T>(), stepVal, stopVal); }
+  [[nodiscard]] constexpr auto end() const {
+    return Iterator(std::optional<T>(), stepVal, stopVal);
+  }
 
   private:
   T startVal;

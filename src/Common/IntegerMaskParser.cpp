@@ -15,7 +15,7 @@ auto IntegerMaskParser::parse(const std::string& maskInput)
     -> std::optional<IntegerMaskParser::MaskType> {
   MaskType resultMask{};
 
-  const auto regex = std::regex("^(\\d+|\\d+-\\d+|\\{(\\d+,?)+\\})(,|$)");
+  const auto regex = std::regex(R"(^(\d+|\d+-\d+|\{(\d+,?)+\})(,|$))");
   std::smatch match;
 
   std::string mask = maskInput;
