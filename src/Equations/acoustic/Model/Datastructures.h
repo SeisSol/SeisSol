@@ -63,6 +63,9 @@
 #include <string>
 
 namespace seissol::model {
+class AcousticLocalData;
+class AcousticNeighborData;
+
 struct AcousticMaterial : Material {
   static constexpr std::size_t NumQuantities = 4;
   static constexpr std::size_t NumberPerMechanism = 0;
@@ -73,6 +76,9 @@ struct AcousticMaterial : Material {
   // The stress-velocity formulation of the elastic model is reused.
   // By definition, the normal stress and pressure are negatives of each other.
   static inline const std::array<std::string, NumQuantities> Quantities = {"-p", "v1", "v2", "v3"};
+
+  using LocalSpecificData = AcousticLocalData;
+  using NeighborSpecificData = AcousticNeighborData;
 
   double lambda;
 

@@ -5,8 +5,8 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "WeightsModels.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "WeightsModels.h"
 
 namespace seissol::initializer::time_stepping {
 
@@ -17,8 +17,7 @@ inline bool isLtsWeightsTypeAllowed(int id) {
 inline parameters::LtsWeightsTypes convertLtsIdToType(int id) {
   if (isLtsWeightsTypeAllowed(id)) {
     return static_cast<parameters::LtsWeightsTypes>(id);
-  }
-  else {
+  } else {
     std::stringstream err;
     err << "provided LtsTWeightsType ID (" << id << ") is unknown";
     throw std::runtime_error(err.str());
@@ -26,24 +25,24 @@ inline parameters::LtsWeightsTypes convertLtsIdToType(int id) {
 }
 
 inline std::unique_ptr<LtsWeights> getLtsWeightsImplementation(parameters::LtsWeightsTypes type,
-                                                        const LtsWeightsConfig& config,
-                                                        seissol::SeisSol& seissolInstance) {
+                                                               const LtsWeightsConfig& config,
+                                                               seissol::SeisSol& seissolInstance) {
   switch (type) {
-    case parameters::LtsWeightsTypes::ExponentialWeights : {
-      return std::make_unique<ExponentialWeights>(config, seissolInstance);
-    }
-    case parameters::LtsWeightsTypes::ExponentialBalancedWeights : {
-      return std::make_unique<ExponentialBalancedWeights>(config, seissolInstance);
-    }
-    case parameters::LtsWeightsTypes::EncodedBalancedWeights : {
-      return std::make_unique<EncodedBalancedWeights>(config, seissolInstance);
-    }
-    default : {
-      return std::unique_ptr<LtsWeights>(nullptr);
-    }
+  case parameters::LtsWeightsTypes::ExponentialWeights: {
+    return std::make_unique<ExponentialWeights>(config, seissolInstance);
+  }
+  case parameters::LtsWeightsTypes::ExponentialBalancedWeights: {
+    return std::make_unique<ExponentialBalancedWeights>(config, seissolInstance);
+  }
+  case parameters::LtsWeightsTypes::EncodedBalancedWeights: {
+    return std::make_unique<EncodedBalancedWeights>(config, seissolInstance);
+  }
+  default: {
+    return std::unique_ptr<LtsWeights>(nullptr);
+  }
   }
 }
 
-}
+} // namespace seissol::initializer::time_stepping
 
-#endif //SEISSOL_LTSWEIGHTSFACTORY_H
+#endif // SEISSOL_LTSWEIGHTSFACTORY_H
