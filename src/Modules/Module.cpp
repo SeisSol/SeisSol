@@ -1,6 +1,5 @@
 #include "Module.h"
 
-#include "Parallel/MPI.h"
 #include "utils/logger.h"
 #include <cassert>
 #include <cmath>

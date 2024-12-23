@@ -41,7 +41,6 @@
  */
 
 #include "FreeSurfaceWriter.h"
-#include "Parallel/MPI.h"
 
 #include <Eigen/Dense>
 #include <Geometry/MeshDefinition.h>
