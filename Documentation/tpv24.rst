@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _tpv24:
 
 SCEC TPV24
@@ -40,14 +45,14 @@ side of the main fault. That is, the hypocenter is 8000 m from the
 junction point, and 10 000 m deep.
 
 Figure [fig:tpv24mesh] shows the fault model generated in Gmsh. The mesh
-file can be generated using https://github.com/SeisSol/Examples/blob/master/tpv24/generating_the_mesh.sh. 
+file can be generated using https://github.com/SeisSol/Examples/blob/master/tpv24/generating_the_mesh.sh.
 
 .. figure:: LatexFigures/tpv24mesh.png
    :alt: Geometry generated in Gmsh of TPV24. Main fault lies in y-plane.
    :width: 9.00000cm
    :align: center
 
-   Geometry generated in Gmsh of TPV24. The main fault lies in y-plane. 
+   Geometry generated in Gmsh of TPV24. The main fault lies in y-plane.
 
 Initial stress
 ~~~~~~~~~~~~~~
@@ -89,11 +94,11 @@ Note that the effective stress tensor is :
 
   .. math::
 
-     \bar{\sigma}_{effective}= 
+     \bar{\sigma}_{effective}=
      \begin{bmatrix}
      &\sigma_{xx} + P_f , & \sigma_{xy} ,& \sigma_{xz}  \\
      &\sigma_{xy}, &\sigma_{yy} +P_f , &\sigma_{yz} \\
-     &\sigma_{xz} ,&\sigma_{yz} ,  &\sigma_{zz} +P_f 
+     &\sigma_{xz} ,&\sigma_{yz} ,  &\sigma_{zz} +P_f
      \end{bmatrix}
 
 Nucleation parameters

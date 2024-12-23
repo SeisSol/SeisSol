@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _Meshing_with_SimModeler:
 
 Meshing with SimModeler
@@ -12,7 +17,7 @@ The created stl-file is imported via ``File > Import Discrete Data``.
 Prerequisite
 ------------
 
-The procedure to download SimModeler (GUI) and the SimModeler modeling suite (library) is detailed `here <https://github.com/SeisSol/Meshing/tree/master/SimModelerDownloadingBuilding>`__. 
+The procedure to download SimModeler (GUI) and the SimModeler modeling suite (library) is detailed `here <https://github.com/SeisSol/Meshing/tree/master/SimModelerDownloadingBuilding>`__.
 Note that to be able to properly define the boundary conditions and to be able to
 export the mesh in the proper format, SimModeler has to be `SeisSol
 customized <https://github.com/SeisSol/Meshing/tree/master/SimModelerDownloadingBuilding#customizing-simmodeler-for-seissol>`__.
@@ -33,7 +38,7 @@ the latest version of SimModeler.
 Discrete tab
 ------------
 
-After importing all your meshing files and making sure the box "Add New Part in Current Model" 
+After importing all your meshing files and making sure the box "Add New Part in Current Model"
 is ticked during the imports, you need to union all files.
 Go to "Discrete" tab and select "Union Parts". E.g., add both the fault and the box representing the domain and click apply.
 
@@ -75,7 +80,7 @@ knowing to which extend the CAD model has to be matched.
 
 | + > Surface Shape Metric > Aspect Ratio > e.g. 3 and
 | + > Volume Shape Metric > Aspect Ratio > e.g. 6 will define quality
-  levels that the mesher will try to enforce. The mesher will not necessarily create a mesh which passes all the Shape Metric set. 
+  levels that the mesher will try to enforce. The mesher will not necessarily create a mesh which passes all the Shape Metric set.
   From our experience, setting additional shape metrics does not help improving the mesh. An easy mesh can reach AR < 10. For more complex meshes, AR
   < 40 should be expected.
 

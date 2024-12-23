@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 Frontier
 ========
 
@@ -113,7 +118,7 @@ METIS/ParMETIS:
     tar -xvf parmetis-4.0.3.tar.gz
     cd parmetis-4.0.3
     sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g'  ./metis/include/metis.h
-    make config cc=mpicc cxx=mpicxx prefix=$SEISSOL_PREFIX 
+    make config cc=mpicc cxx=mpicxx prefix=$SEISSOL_PREFIX
     make install
     cp build/Linux-x86_64/libmetis/libmetis.a $SEISSOL_PREFIX/lib
     cp metis/include/metis.h $SEISSOL_PREFIX/include
@@ -230,7 +235,7 @@ The pinning on the Frontier nodes needs some special attention, since 8 out of t
 
     #!/usr/bin/env bash
     #SBATCH --job-name=seissol   # Job name
-    #SBATCH --nodes=<NUMBER-OF-NODES>               # Total number of nodes 
+    #SBATCH --nodes=<NUMBER-OF-NODES>               # Total number of nodes
     #SBATCH --account=<your-project>  # Project for billing
     #SBATCH --mail-user=<your-mail>
     #SBATCH --time=01:00:00       # Run time (d-hh:mm:ss)

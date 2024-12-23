@@ -95,15 +95,10 @@ class ADERDGBase(ABC):
 
     self.db.update(project2nFaceTo3m)
 
-    selectVelocitySpp = np.zeros((self.numberOfQuantities(), 3))
-    selectVelocitySpp[6:9,0:3] = np.eye(3)
+    selectVelocitySpp = self.mapToVelocities()[:,:3]
     self.selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
 
-    self.selectTractionSpp = np.zeros((self.numberOfQuantities(), 3), dtype=bool)
-    self.selectTractionSpp[0,0] = True
-    self.selectTractionSpp[3,1] = True
-    self.selectTractionSpp[5,2] = True
-
+    self.selectTractionSpp = self.mapToTractions()[:,:3]
     self.tractionPlusMatrix = Tensor('tractionPlusMatrix', self.selectTractionSpp.shape, self.selectTractionSpp, CSCMemoryLayout)
     self.tractionMinusMatrix = Tensor('tractionMinusMatrix', self.selectTractionSpp.shape, self.selectTractionSpp, CSCMemoryLayout)
 

@@ -45,6 +45,8 @@
 
 #include <Kernels/Precision.h>
 #include <cassert>
+#include <memory>
+#include <string>
 #include <vector>
 
 #include "utils/logger.h"
@@ -54,6 +56,9 @@
 #include "async/ExecInfo.h"
 
 #include "Monitoring/Stopwatch.h"
+
+#include "Equations/Datastructures.h"
+#include "Model/Plasticity.h"
 
 namespace seissol::writer {
 
@@ -111,6 +116,9 @@ class WaveFieldWriterExecutor {
   /** Stopwatch for the wave field backend */
   Stopwatch m_stopwatch;
 
+  std::shared_ptr<std::vector<std::string>> varNames;
+  std::shared_ptr<std::vector<std::string>> varNamesLowRes;
+
   public:
   WaveFieldWriterExecutor() = default;
 
@@ -134,12 +142,16 @@ class WaveFieldWriterExecutor {
     m_numVariables = info.bufferSize(param.bufferIds[OutputFlags]) / sizeof(bool);
     m_outputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[OutputFlags]));
 
-    const char* varNames[20] = {
-        "sigma_xx", "sigma_yy", "sigma_zz", "sigma_xy", "sigma_yz", "sigma_xz", "u",  "v", "w",
-#ifdef USE_POROELASTIC
-        "p",        "u_f",      "v_f",      "w_f",
-#endif
-        "ep_xx",    "ep_yy",    "ep_zz",    "ep_xy",    "ep_yz",    "ep_xz",    "eta"};
+    varNames = std::make_shared<std::vector<std::string>>();
+    varNamesLowRes = std::make_shared<std::vector<std::string>>();
+    for (const auto& quantity : seissol::model::MaterialT::Quantities) {
+      varNames->emplace_back(quantity);
+      varNamesLowRes->emplace_back("low_" + quantity);
+    }
+    for (const auto& quantity : seissol::model::PlasticityData::Quantities) {
+      varNames->emplace_back(quantity);
+      varNamesLowRes->emplace_back("low_" + quantity);
+    }
 
     std::vector<const char*> variables;
     for (unsigned int i = 0; i < m_numVariables; i++) {
@@ -149,7 +161,7 @@ class WaveFieldWriterExecutor {
 #else
         assert(i < 16);
 #endif
-        variables.push_back(varNames[i]);
+        variables.push_back(varNames->at(i).c_str());
       }
     }
 
@@ -192,21 +204,11 @@ class WaveFieldWriterExecutor {
       if (param.bufferIds[LowCells] >= 0) {
         // Pstrain or Integrated quantities enabled
         m_lowOutputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[LowOutputFlags]));
-        // Variables
-        std::vector<const char*> lowVariables;
-        const char* lowVarNames[NumLowvariables] = {"int_sigma_xx",
-                                                    "int_sigma_yy",
-                                                    "int_sigma_zz",
-                                                    "int_sigma_xy",
-                                                    "int_sigma_yz",
-                                                    "int_sigma_xz",
-                                                    "displacement_x",
-                                                    "displacement_y",
-                                                    "displacement_z"};
 
+        std::vector<const char*> lowVariables;
         for (size_t i = 0; i < NumLowvariables; i++) {
           if (m_lowOutputFlags[i]) {
-            lowVariables.push_back(lowVarNames[i]);
+            lowVariables.push_back(varNamesLowRes->at(i).c_str());
           }
         }
 

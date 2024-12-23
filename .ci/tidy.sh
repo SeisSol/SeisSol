@@ -12,6 +12,7 @@ format() {
     local allowlist_dir="
         auto-tuning/proxy/src
         src/DynamicRupture
+        src/Equations/acoustic/Model
         src/Geometry
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure

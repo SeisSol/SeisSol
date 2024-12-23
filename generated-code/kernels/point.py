@@ -11,6 +11,7 @@
 #
   
 import numpy as np
+import acoustic
 from yateto import Tensor, Scalar
 from kernels.multsim import OptionalDimTensor
 
@@ -33,14 +34,18 @@ def addKernels(generator, aderdg):
     mInvJInvPhisAtSources['k'] <= JInv * aderdg.db.M3inv['kl'] * basisFunctionsAtPoint['l'])
 
   #extract the moment tensors entries in SeisSol ordering (xx, yy, zz, xy, yz, xz)
-  assert(numberOfQuantities >= 6)
-  momentToNRF_spp = np.zeros((numberOfQuantities, 3, 3))
-  momentToNRF_spp[0, 0, 0] = 1
-  momentToNRF_spp[1, 1, 1] = 1
-  momentToNRF_spp[2, 2, 2] = 1
-  momentToNRF_spp[3, 0, 1] = 1
-  momentToNRF_spp[4, 1, 2] = 1
-  momentToNRF_spp[5, 0, 2] = 1
+  if not isinstance(aderdg, acoustic.AcousticADERDG):
+    assert(numberOfQuantities >= 6)
+    momentToNRF_spp = np.zeros((numberOfQuantities, 3, 3))
+    momentToNRF_spp[0, 0, 0] = 1
+    momentToNRF_spp[1, 1, 1] = 1
+    momentToNRF_spp[2, 2, 2] = 1
+    momentToNRF_spp[3, 0, 1] = 1
+    momentToNRF_spp[4, 1, 2] = 1
+    momentToNRF_spp[5, 0, 2] = 1
+  else:
+    momentToNRF_spp = np.zeros((numberOfQuantities, 3, 3))
+    momentToNRF_spp[0, 0, 0] = 1
   momentToNRF = Tensor('momentToNRF', (numberOfQuantities, 3, 3), spp=momentToNRF_spp) 
 
   momentNRFKernel = momentToNRF['tpq'] * mArea * mStiffnessTensor['pqij'] * mSlip['i'] * mNormal['j'] 

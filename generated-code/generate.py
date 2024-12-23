@@ -107,6 +107,8 @@ def main():
     equation_class = equations.ViscoelasticADERDG
   elif cmdLineArgs.equations == 'viscoelastic2':
     equation_class = equations.Viscoelastic2ADERDG
+  elif cmdLineArgs.equations == 'acoustic':
+    equation_class = equations.AcousticADERDG
   else:
     equation_class = equations.PoroelasticADERDG
 
