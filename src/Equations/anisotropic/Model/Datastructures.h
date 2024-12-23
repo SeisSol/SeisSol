@@ -25,6 +25,9 @@
 #include <string>
 
 namespace seissol::model {
+class AnisotropicLocalData;
+class AnisotropicNeighborData;
+
 struct AnisotropicMaterial : Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
@@ -34,6 +37,9 @@ struct AnisotropicMaterial : Material {
   static inline const std::string Text = "anisotropic";
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+
+  using LocalSpecificData = AnisotropicLocalData;
+  using NeighborSpecificData = AnisotropicNeighborData;
 
   double c11;
   double c12;
@@ -57,13 +63,15 @@ struct AnisotropicMaterial : Material {
   double c56;
   double c66;
 
-  double getLambdaBar() const override { return (c11 + c22 + c33) / 3.0 - 2.0 * getMuBar(); }
+  [[nodiscard]] double getLambdaBar() const override {
+    return (c11 + c22 + c33) / 3.0 - 2.0 * getMuBar();
+  }
 
-  double getMuBar() const override { return (c44 + c55 + c66) / 3.0; }
+  [[nodiscard]] double getMuBar() const override { return (c44 + c55 + c66) / 3.0; }
 
   AnisotropicMaterial() = default;
 
-  explicit AnisotropicMaterial(ElasticMaterial m) {
+  explicit AnisotropicMaterial(const ElasticMaterial& m) {
     rho = m.rho;
     c11 = m.lambda + 2 * m.mu;
     c12 = m.lambda;
@@ -209,7 +217,7 @@ struct AnisotropicMaterial : Material {
   // An analytic solution for the maximal wave speed is hard to obtain.
   // Instead of solving an optimization problem we sample the velocitiy for
   // different directions and take the maximum.
-  double getMaxWaveSpeed() const override {
+  [[nodiscard]] double getMaxWaveSpeed() const override {
     auto samplingDirections = seissol_general::init::samplingDirections::view::create(
         const_cast<double*>(seissol_general::init::samplingDirections::Values));
 
@@ -239,19 +247,19 @@ struct AnisotropicMaterial : Material {
   }
 
   // calculate P-wave speed based on averaged material parameters
-  double getPWaveSpeed() const override {
+  [[nodiscard]] double getPWaveSpeed() const override {
     double muBar = (c44 + c55 + c66) / 3.0;
     double lambdaBar = (c11 + c22 + c33) / 3.0 - 2.0 * muBar;
     return std::sqrt((lambdaBar + 2 * muBar) / rho);
   }
 
   // calculate S-wave speed based on averaged material parameters
-  double getSWaveSpeed() const override {
+  [[nodiscard]] double getSWaveSpeed() const override {
     double muBar = (c44 + c55 + c66) / 3.0;
     return std::sqrt(muBar / rho);
   }
 
-  MaterialType getMaterialType() const override { return MaterialType::Anisotropic; }
+  [[nodiscard]] MaterialType getMaterialType() const override { return MaterialType::Anisotropic; }
 };
 } // namespace seissol::model
 

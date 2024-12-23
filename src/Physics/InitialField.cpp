@@ -48,7 +48,7 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
 #ifndef USE_POROELASTIC
   bool isAcoustic = false;
 #ifndef USE_ANISOTROPIC
-  isAcoustic = materialData.local.mu <= 1e-15;
+  isAcoustic = materialData.local.getMuBar() <= 1e-15;
 #endif
   if (isAcoustic) {
     // Acoustic materials has the following wave modes:
@@ -349,7 +349,7 @@ void seissol::physics::ScholteWave::evaluate(
   for (size_t i = 0; i < points.size(); ++i) {
     const auto& x = points[i];
     const bool isAcousticPart =
-        std::abs(materialData.local.mu) < std::numeric_limits<real>::epsilon();
+        std::abs(materialData.local.getMuBar()) < std::numeric_limits<real>::epsilon();
     const auto x1 = x[0];
     const auto x3 = x[2];
     const auto t = time;
@@ -427,7 +427,7 @@ void seissol::physics::SnellsLaw::evaluate(
   for (size_t i = 0; i < points.size(); ++i) {
     const auto& x = points[i];
     const bool isAcousticPart =
-        std::abs(materialData.local.mu) < std::numeric_limits<real>::epsilon();
+        std::abs(materialData.local.getMuBar()) < std::numeric_limits<real>::epsilon();
 
     const auto x1 = x[0];
     const auto x3 = x[2];
@@ -541,7 +541,7 @@ void seissol::physics::Ocean::evaluate(double time,
     if (std::abs(g - 9.81e-3) > 10e-15) {
       logError() << "Ocean scenario only supports g=9.81e-3 currently!";
     }
-    if (materialData.local.mu != 0.0) {
+    if (materialData.local.getMuBar() > 10e-15) {
       logError() << "Ocean scenario only works for acoustic material (mu = 0.0)!";
     }
     const double pi = std::acos(-1);

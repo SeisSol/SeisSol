@@ -6,106 +6,116 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Wolf (wolf.sebastian AT in.tum.de,
+ *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
  *
  */
- 
+
 #include "Model/Common.h"
+#include <Geometry/MeshDefinition.h>
+#include <Kernels/Precision.h>
+#include <Numerical/Transformation.h>
 #include <cmath>
-#include <iostream>
+#include <generated_code/init.h>
+#include <limits>
 
 bool seissol::model::testIfAcoustic(real mu) {
   return std::abs(mu) <= std::numeric_limits<real>::epsilon();
 }
 
-void seissol::model::getBondMatrix( VrtxCoords const i_normal,
-                                    VrtxCoords const i_tangent1,
-                                    VrtxCoords const i_tangent2,
-                                    real* o_N )
-{
-  o_N[0*6 + 0] =   i_normal[0]*i_normal[0]; 
-  o_N[0*6 + 1] =   i_normal[1]*i_normal[1];
-  o_N[0*6 + 2] =   i_normal[2]*i_normal[2];
-  o_N[0*6 + 3] = 2*i_normal[2]*i_normal[1];
-  o_N[0*6 + 4] = 2*i_normal[2]*i_normal[0];
-  o_N[0*6 + 5] = 2*i_normal[1]*i_normal[0];
-  o_N[1*6 + 0] =   i_tangent1[0]*i_tangent1[0]; 
-  o_N[1*6 + 1] =   i_tangent1[1]*i_tangent1[1];
-  o_N[1*6 + 2] =   i_tangent1[2]*i_tangent1[2];
-  o_N[1*6 + 3] = 2*i_tangent1[2]*i_tangent1[1];
-  o_N[1*6 + 4] = 2*i_tangent1[2]*i_tangent1[0];
-  o_N[1*6 + 5] = 2*i_tangent1[1]*i_tangent1[0];
-  o_N[2*6 + 0] =   i_tangent2[0]*i_tangent2[0]; 
-  o_N[2*6 + 1] =   i_tangent2[1]*i_tangent2[1];
-  o_N[2*6 + 2] =   i_tangent2[2]*i_tangent2[2];
-  o_N[2*6 + 3] = 2*i_tangent2[2]*i_tangent2[1];
-  o_N[2*6 + 4] = 2*i_tangent2[2]*i_tangent2[0];
-  o_N[2*6 + 5] = 2*i_tangent2[1]*i_tangent2[0];
-  
-  o_N[3*6 + 0] = i_tangent1[0]*i_tangent2[0];
-  o_N[3*6 + 1] = i_tangent1[1]*i_tangent2[1];
-  o_N[3*6 + 2] = i_tangent1[2]*i_tangent2[2];
-  o_N[3*6 + 3] = i_tangent1[1]*i_tangent2[2] + i_tangent1[2]*i_tangent2[1];
-  o_N[3*6 + 4] = i_tangent1[0]*i_tangent2[2] + i_tangent1[2]*i_tangent2[0];
-  o_N[3*6 + 5] = i_tangent1[1]*i_tangent2[0] + i_tangent1[0]*i_tangent2[1];
-  o_N[4*6 + 0] = i_normal[0]*i_tangent2[0];
-  o_N[4*6 + 1] = i_normal[1]*i_tangent2[1];
-  o_N[4*6 + 2] = i_normal[2]*i_tangent2[2];
-  o_N[4*6 + 3] = i_normal[1]*i_tangent2[2] + i_normal[2]*i_tangent2[1];
-  o_N[4*6 + 4] = i_normal[0]*i_tangent2[2] + i_normal[2]*i_tangent2[0];
-  o_N[4*6 + 5] = i_normal[1]*i_tangent2[0] + i_normal[0]*i_tangent2[1];
-  o_N[5*6 + 0] = i_normal[0]*i_tangent1[0];
-  o_N[5*6 + 1] = i_normal[1]*i_tangent1[1];
-  o_N[5*6 + 2] = i_normal[2]*i_tangent1[2];
-  o_N[5*6 + 3] = i_normal[1]*i_tangent1[2] + i_normal[2]*i_tangent1[1];
-  o_N[5*6 + 4] = i_normal[0]*i_tangent1[2] + i_normal[2]*i_tangent1[0];
-  o_N[5*6 + 5] = i_normal[1]*i_tangent1[0] + i_normal[0]*i_tangent1[1];
-}
-void seissol::model::getFaceRotationMatrix( Eigen::Vector3d const i_normal,
-                                            Eigen::Vector3d const i_tangent1,
-                                            Eigen::Vector3d const i_tangent2,
-                                            init::T::view::type& o_T,
-                                            init::Tinv::view::type& o_Tinv )
-{
-  VrtxCoords n = {i_normal(0), i_normal(1), i_normal(2)};
-  VrtxCoords s = {i_tangent1(0), i_tangent1(1), i_tangent1(2)};
-  VrtxCoords t = {i_tangent2(0), i_tangent2(1), i_tangent2(2)};
-  getFaceRotationMatrix(n, s, t, o_T, o_Tinv);
+void seissol::model::getBondMatrix(const VrtxCoords normal,
+                                   const VrtxCoords tangent1,
+                                   const VrtxCoords tangent2,
+                                   real* matN) {
+  matN[0 * 6 + 0] = normal[0] * normal[0];
+  matN[0 * 6 + 1] = normal[1] * normal[1];
+  matN[0 * 6 + 2] = normal[2] * normal[2];
+  matN[0 * 6 + 3] = 2 * normal[2] * normal[1];
+  matN[0 * 6 + 4] = 2 * normal[2] * normal[0];
+  matN[0 * 6 + 5] = 2 * normal[1] * normal[0];
+  matN[1 * 6 + 0] = tangent1[0] * tangent1[0];
+  matN[1 * 6 + 1] = tangent1[1] * tangent1[1];
+  matN[1 * 6 + 2] = tangent1[2] * tangent1[2];
+  matN[1 * 6 + 3] = 2 * tangent1[2] * tangent1[1];
+  matN[1 * 6 + 4] = 2 * tangent1[2] * tangent1[0];
+  matN[1 * 6 + 5] = 2 * tangent1[1] * tangent1[0];
+  matN[2 * 6 + 0] = tangent2[0] * tangent2[0];
+  matN[2 * 6 + 1] = tangent2[1] * tangent2[1];
+  matN[2 * 6 + 2] = tangent2[2] * tangent2[2];
+  matN[2 * 6 + 3] = 2 * tangent2[2] * tangent2[1];
+  matN[2 * 6 + 4] = 2 * tangent2[2] * tangent2[0];
+  matN[2 * 6 + 5] = 2 * tangent2[1] * tangent2[0];
 
+  matN[3 * 6 + 0] = tangent1[0] * tangent2[0];
+  matN[3 * 6 + 1] = tangent1[1] * tangent2[1];
+  matN[3 * 6 + 2] = tangent1[2] * tangent2[2];
+  matN[3 * 6 + 3] = tangent1[1] * tangent2[2] + tangent1[2] * tangent2[1];
+  matN[3 * 6 + 4] = tangent1[0] * tangent2[2] + tangent1[2] * tangent2[0];
+  matN[3 * 6 + 5] = tangent1[1] * tangent2[0] + tangent1[0] * tangent2[1];
+  matN[4 * 6 + 0] = normal[0] * tangent2[0];
+  matN[4 * 6 + 1] = normal[1] * tangent2[1];
+  matN[4 * 6 + 2] = normal[2] * tangent2[2];
+  matN[4 * 6 + 3] = normal[1] * tangent2[2] + normal[2] * tangent2[1];
+  matN[4 * 6 + 4] = normal[0] * tangent2[2] + normal[2] * tangent2[0];
+  matN[4 * 6 + 5] = normal[1] * tangent2[0] + normal[0] * tangent2[1];
+  matN[5 * 6 + 0] = normal[0] * tangent1[0];
+  matN[5 * 6 + 1] = normal[1] * tangent1[1];
+  matN[5 * 6 + 2] = normal[2] * tangent1[2];
+  matN[5 * 6 + 3] = normal[1] * tangent1[2] + normal[2] * tangent1[1];
+  matN[5 * 6 + 4] = normal[0] * tangent1[2] + normal[2] * tangent1[0];
+  matN[5 * 6 + 5] = normal[1] * tangent1[0] + normal[0] * tangent1[1];
+}
+void seissol::model::getFaceRotationMatrix(const Eigen::Vector3d& normal,
+                                           const Eigen::Vector3d& tangent1,
+                                           const Eigen::Vector3d& tangent2,
+                                           init::T::view::type& matT,
+                                           init::Tinv::view::type& matTinv) {
+  const VrtxCoords n = {normal(0), normal(1), normal(2)};
+  const VrtxCoords s = {tangent1(0), tangent1(1), tangent1(2)};
+  const VrtxCoords t = {tangent2(0), tangent2(1), tangent2(2)};
+  getFaceRotationMatrix(n, s, t, matT, matTinv);
 }
 
-void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
-                                            VrtxCoords const i_tangent1,
-                                            VrtxCoords const i_tangent2,
-                                            init::T::view::type& o_T,
-                                            init::Tinv::view::type& o_Tinv )
-{
-  o_T.setZero();
-  o_Tinv.setZero();
-  
-  seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 0, 0);
-  seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 6, 6);
-  
-  seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 0, 0);
-  seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, 6, 6);
+void seissol::model::getFaceRotationMatrix(const VrtxCoords normal,
+                                           const VrtxCoords tangent1,
+                                           const VrtxCoords tangent2,
+                                           init::T::view::type& matT,
+                                           init::Tinv::view::type& matTinv) {
+  matT.setZero();
+  matTinv.setZero();
+
+  seissol::transformations::symmetricTensor2RotationMatrix(normal, tangent1, tangent2, matT, 0, 0);
+  seissol::transformations::tensor1RotationMatrix(normal, tangent1, tangent2, matT, 6, 6);
+
+  seissol::transformations::inverseSymmetricTensor2RotationMatrix(
+      normal, tangent1, tangent2, matTinv, 0, 0);
+  seissol::transformations::inverseTensor1RotationMatrix(normal, tangent1, tangent2, matTinv, 6, 6);
 
 #ifdef USE_VISCOELASTIC
-  for (unsigned mech = 0; mech < NUMBER_OF_RELAXATION_MECHANISMS; ++mech) {
-    unsigned const origin = 9 + mech * 6;
-    seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, origin, origin);
-    seissol::transformations::inverseSymmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, origin, origin);
+  for (unsigned mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+    const unsigned origin = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
+    seissol::transformations::symmetricTensor2RotationMatrix(
+        normal, tangent1, tangent2, matT, origin, origin);
+    seissol::transformations::inverseSymmetricTensor2RotationMatrix(
+        normal, tangent1, tangent2, matTinv, origin, origin);
   }
 #elif USE_VISCOELASTIC2
-  seissol::transformations::symmetricTensor2RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, 9, 9);
+  seissol::transformations::symmetricTensor2RotationMatrix(normal,
+                                                           tangent1,
+                                                           tangent2,
+                                                           matT,
+                                                           MaterialT::NumElasticQuantities,
+                                                           MaterialT::NumElasticQuantities);
 #elif USE_POROELASTIC
-  //pressure
-  o_T(9, 9) = 1;
-  o_Tinv(9,9) = 1;
-  //fluid velocities
-  unsigned origin = 10; 
-  seissol::transformations::tensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_T, origin, origin);
-  seissol::transformations::inverseTensor1RotationMatrix(i_normal, i_tangent1, i_tangent2, o_Tinv, origin, origin);
-#endif 
+  // pressure
+  matT(9, 9) = 1;
+  matTinv(9, 9) = 1;
+  // fluid velocities
+  unsigned origin = 10;
+  seissol::transformations::tensor1RotationMatrix(normal, tangent1, tangent2, matT, origin, origin);
+  seissol::transformations::inverseTensor1RotationMatrix(
+      normal, tangent1, tangent2, matTinv, origin, origin);
+#endif
 }
-

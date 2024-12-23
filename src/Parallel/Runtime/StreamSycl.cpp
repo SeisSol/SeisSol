@@ -28,8 +28,9 @@ void StreamRuntime::syncFromSycl(void* queuePtr) {
   device().api->syncStreamWithEvent(streamPtr, joinEventSycl);
 #else
   sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
-  auto syclEvent = syclNativeOperation(
-      *queue, true, [=](void* stream) { device().api->recordEventOnStream(event, stream); });
+  auto syclEvent = syclNativeOperation(*queue, true, [=](void* stream) {
+    device().api->recordEventOnStream(joinEventSycl, stream);
+  });
 
   // needs a submission barrier here
   // a bit hacky right now; but it works
@@ -46,7 +47,7 @@ void StreamRuntime::syncFromSycl(void* queuePtr) {
   // (at least in the case of AdaptiveCpp)
   syclEvent.wait();
 #endif
-  device().api->syncStreamWithEvent(streamPtr, event);
+  device().api->syncStreamWithEvent(streamPtr, joinEventSycl);
 #endif
 
   /*

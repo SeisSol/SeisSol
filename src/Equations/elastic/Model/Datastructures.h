@@ -25,6 +25,9 @@
 #include <string>
 
 namespace seissol::model {
+class ElasticLocalData;
+class ElasticNeighborData;
+
 struct ElasticMaterial : Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
@@ -35,12 +38,15 @@ struct ElasticMaterial : Material {
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
 
+  using LocalSpecificData = ElasticLocalData;
+  using NeighborSpecificData = ElasticNeighborData;
+
   double lambda;
   double mu;
 
-  double getLambdaBar() const override { return lambda; }
+  [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
-  double getMuBar() const override { return mu; }
+  [[nodiscard]] double getMuBar() const override { return mu; }
 
   ElasticMaterial() = default;
   ElasticMaterial(const double* materialValues, int numMaterialValues) {
@@ -80,13 +86,13 @@ struct ElasticMaterial : Material {
     stiffnessTensorView(2, 2, 2, 2) = lambda + 2 * mu;
   }
 
-  double getMaxWaveSpeed() const override { return getPWaveSpeed(); }
+  [[nodiscard]] double getMaxWaveSpeed() const override { return getPWaveSpeed(); }
 
-  double getPWaveSpeed() const override { return std::sqrt((lambda + 2 * mu) / rho); }
+  [[nodiscard]] double getPWaveSpeed() const override { return std::sqrt((lambda + 2 * mu) / rho); }
 
-  double getSWaveSpeed() const override { return std::sqrt(mu / rho); }
+  [[nodiscard]] double getSWaveSpeed() const override { return std::sqrt(mu / rho); }
 
-  MaterialType getMaterialType() const override { return Type; }
+  [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 };
 } // namespace seissol::model
 

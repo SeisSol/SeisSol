@@ -6,11 +6,13 @@
 #define SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
 
 // Gather all datastructure Headers here
+#include "Equations/acoustic/Model/Datastructures.h"      // IWYU pragma: keep
 #include "Equations/anisotropic/Model/Datastructures.h"   // IWYU pragma: keep
 #include "Equations/elastic/Model/Datastructures.h"       // IWYU pragma: keep
 #include "Equations/poroelastic/Model/Datastructures.h"   // IWYU pragma: keep
 #include "Equations/viscoelastic2/Model/Datastructures.h" // IWYU pragma: keep
 
+#include "Equations/acoustic/Model/IntegrationData.h"    // IWYU pragma: keep
 #include "Equations/anisotropic/Model/IntegrationData.h" // IWYU pragma: keep
 #include "Equations/elastic/Model/IntegrationData.h"     // IWYU pragma: keep
 #ifdef USE_POROELASTIC
@@ -30,6 +32,8 @@ using MaterialT = AnisotropicMaterial;
 using MaterialT = ViscoElasticMaterial;
 #elif defined(USE_ELASTIC)
 using MaterialT = ElasticMaterial;
+#elif defined(USE_ACOUSTIC)
+using MaterialT = AcousticMaterial;
 #elif defined(USE_POROELASTIC)
 using MaterialT = PoroElasticMaterial;
 #else

@@ -7,10 +7,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ * http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Alexander Heinecke (Intel Corp.)
  */
-
 
 #ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_TIMEBASE_H_
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_TIMEBASE_H_
@@ -23,51 +23,36 @@
 #endif // ACL_DEVICE
 
 namespace seissol {
-  struct GlobalData;
+struct GlobalData;
 } // namespace seissol
 
 namespace seissol::kernels {
 
 class TimeBase {
   protected:
-    static void checkGlobalData(GlobalData const* global, size_t alignment);
+  static void checkGlobalData(const GlobalData* global, size_t alignment);
 #ifdef USE_STP
-    kernel::spaceTimePredictor m_krnlPrototype;
+  kernel::spaceTimePredictor m_krnlPrototype;
 #else
-    kernel::derivative m_krnlPrototype;
+  kernel::derivative m_krnlPrototype;
 #endif
-    kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
+  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 
-
-  /*
-   *! Offsets of the derivatives.
-   *
-   * * Offset counting starts at the zeroth derivative with o_derivativesOffset[0]=0; increasing derivatives follow:
-   *   1st derivative: o_derivativesOffset[1]
-   *   2nd derivative: o_derivativesOffset[2]
-   *   ...
-   * * Offset are always counted from position zero; for example the sixth derivative will include all jumps over prior derivatives 0 to 5.
-   */
   unsigned int m_derivativesOffsets[ConvergenceOrder];
 
 #ifdef ACL_DEVICE
-    kernel::gpu_derivative deviceKrnlPrototype;
-    kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
-    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  kernel::gpu_derivative deviceKrnlPrototype;
+  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 
-public:
-    /**
-     * Constructor, which initializes the time kernel.
-     **/
-    TimeBase();
-
+  public:
+  /**
+   * Constructor, which initializes the time kernel.
+   **/
+  TimeBase();
 };
 
 } // namespace seissol::kernels
 
-
-
-
 #endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_TIMEBASE_H_
-

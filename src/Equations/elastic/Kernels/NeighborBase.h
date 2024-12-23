@@ -7,10 +7,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ * http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  * @author Alexander Heinecke (Intel Corp.)
  */
-
 
 #ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_NEIGHBORBASE_H_
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_NEIGHBORBASE_H_
@@ -22,16 +22,16 @@
 #endif
 
 namespace seissol {
-  struct GlobalData;
+struct GlobalData;
 } // namespace seissol
 
 namespace seissol::kernels {
 
 class NeighborBase {
   protected:
-    static void checkGlobalData(GlobalData const* global, size_t alignment);
-    kernel::neighboringFlux m_nfKrnlPrototype;
-    dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
+  static void checkGlobalData(const GlobalData* global, size_t alignment);
+  kernel::neighboringFlux m_nfKrnlPrototype;
+  dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
 
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux deviceNfKrnlPrototype;
@@ -40,11 +40,6 @@ class NeighborBase {
 #endif
 };
 
-
 } // namespace seissol::kernels
 
-
-
-
 #endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_NEIGHBORBASE_H_
-

@@ -6,23 +6,36 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  */
 
-
 #include "Kernels/Local.h"
 
+#include <Common/Constants.h>
+#include <DataTypes/ConditionalTable.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/LTS.h>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Interface.h>
+#include <Kernels/LocalBase.h>
+#include <Kernels/Precision.h>
+#include <Parallel/Runtime/Stream.h>
+#include <Physics/InitialField.h>
+#include <cstddef>
+#include <generated_code/init.h>
+#include <generated_code/kernel.h>
 #include <tensor.h>
+#include <vector>
 #include <yateto.h>
-
 
 #include <array>
 #include <cassert>
 #include <stdint.h>
-#include "GravitationalFreeSurfaceBC.h"
-#include "SeisSol.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -37,19 +50,21 @@ GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels {
 
-void LocalBase::checkGlobalData(GlobalData const* global, size_t alignment) {
+void LocalBase::checkGlobalData(const GlobalData* global, size_t alignment) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    assert( (reinterpret_cast<uintptr_t>(global->stiffnessMatrices(stiffness))) % alignment == 0 );
+    assert((reinterpret_cast<uintptr_t>(global->stiffnessMatrices(stiffness))) % alignment == 0);
   }
   for (unsigned flux = 0; flux < 4; ++flux) {
-    assert( (reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(flux))) % alignment == 0 );
-    assert( (reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(flux))) % alignment == 0 );
+    assert((reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(flux))) %
+               alignment ==
+           0);
+    assert((reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(flux))) % alignment == 0);
   }
 #endif
 }
 
-void Local::setHostGlobalData(GlobalData const* global) {
+void Local::setHostGlobalData(const GlobalData* global) {
   checkGlobalData(global, Alignment);
   m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
@@ -81,16 +96,12 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-template<typename LocalDataType>
+template <typename LocalDataType>
 struct ApplyAnalyticalSolution {
-  ApplyAnalyticalSolution(seissol::physics::InitialField* initCondition,
-                          LocalDataType& data) : initCondition(initCondition),
-                                                 localData(data) {}
+  ApplyAnalyticalSolution(seissol::physics::InitialField* initCondition, LocalDataType& data)
+      : initCondition(initCondition), localData(data) {}
 
-
-  void operator()(const real* nodes,
-                  double time,
-                  seissol::init::INodal::view::type& boundaryDofs) {
+  void operator()(const real* nodes, double time, seissol::init::INodal::view::type& boundaryDofs) {
 
     auto nodesVec = std::vector<std::array<double, 3>>{};
     int offset = 0;
@@ -106,25 +117,25 @@ struct ApplyAnalyticalSolution {
     initCondition->evaluate(time, nodesVec, localData.material(), boundaryDofs);
   }
 
-private:
+  private:
   seissol::physics::InitialField* initCondition{};
   LocalDataType& localData;
 };
 
-void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                                              LocalData& data,
-                                              LocalTmp& tmp,
-                                              // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-                                              const CellMaterialData* materialData,
-                                              CellBoundaryMapping const (*cellBoundaryMapping)[4],
-                                              double time,
-                                              double timeStepWidth) {
-  assert(reinterpret_cast<uintptr_t>(i_timeIntegratedDegreesOfFreedom) % Alignment == 0);
+void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                            LocalData& data,
+                            LocalTmp& tmp,
+                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
+                            const CellMaterialData* materialData,
+                            const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                            double time,
+                            double timeStepWidth) {
+  assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.dofs();
-  volKrnl.I = i_timeIntegratedDegreesOfFreedom;
+  volKrnl.I = timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.localIntegration().starMatrices[i];
   }
@@ -134,10 +145,10 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
 
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.dofs();
-  lfKrnl.I = i_timeIntegratedDegreesOfFreedom;
-  lfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
+  lfKrnl.I = timeIntegratedDegreesOfFreedom;
+  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
   lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
-  
+
   volKrnl.execute();
 
   for (int face = 0; face < 4; ++face) {
@@ -151,35 +162,34 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
     nodalLfKrnl.Q = data.dofs();
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
-    nodalLfKrnl._prefetch.I = i_timeIntegratedDegreesOfFreedom + tensor::I::size();
+    nodalLfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
     nodalLfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
     nodalLfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
 
     // Include some boundary conditions here.
     switch (data.cellInformation().faceTypes[face]) {
-    case FaceType::FreeSurfaceGravity:
-      {
-        assert(cellBoundaryMapping != nullptr);
-        assert(materialData != nullptr);
-        auto* displ = tmp.nodalAvgDisplacements[face].data();
-        auto displacement = init::averageNormalDisplacement::view::create(displ);
-        // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
-        const auto localG = gravitationalAcceleration;
-        auto applyFreeSurfaceBc = [&displacement, &materialData, &localG](
-            const real*, // nodes are unused
-            init::INodal::view::type& boundaryDofs) {
-          for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-            const double rho = materialData->local.rho;
-            assert(localG > 0);
-            const double pressureAtBnd = -1 * rho * localG * displacement(i);
+    case FaceType::FreeSurfaceGravity: {
+      assert(cellBoundaryMapping != nullptr);
+      assert(materialData != nullptr);
+      auto* displ = tmp.nodalAvgDisplacements[face].data();
+      auto displacement = init::averageNormalDisplacement::view::create(displ);
+      // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
+      const auto localG = gravitationalAcceleration;
+      auto applyFreeSurfaceBc =
+          [&displacement, &materialData, &localG](const real*, // nodes are unused
+                                                  init::INodal::view::type& boundaryDofs) {
+            for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+              const double rho = materialData->local.rho;
+              assert(localG > 0);
+              const double pressureAtBnd = -1 * rho * localG * displacement(i);
 
-            boundaryDofs(i,0) = 2 * pressureAtBnd - boundaryDofs(i,0);
-            boundaryDofs(i,1) = 2 * pressureAtBnd - boundaryDofs(i,1);
-            boundaryDofs(i,2) = 2 * pressureAtBnd - boundaryDofs(i,2);
-          }
-      };
+              boundaryDofs(i, 0) = 2 * pressureAtBnd - boundaryDofs(i, 0);
+              boundaryDofs(i, 1) = 2 * pressureAtBnd - boundaryDofs(i, 1);
+              boundaryDofs(i, 2) = 2 * pressureAtBnd - boundaryDofs(i, 2);
+            }
+          };
 
-      dirichletBoundary.evaluate(i_timeIntegratedDegreesOfFreedom,
+      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
                                  face,
                                  (*cellBoundaryMapping)[face],
                                  m_projectRotatedKrnlPrototype,
@@ -188,17 +198,15 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
 
       nodalLfKrnl.execute(face);
       break;
-      }
-    case FaceType::Dirichlet:
-      {
+    }
+    case FaceType::Dirichlet: {
       assert(cellBoundaryMapping != nullptr);
       auto* easiBoundaryMap = (*cellBoundaryMapping)[face].easiBoundaryMap;
       auto* easiBoundaryConstant = (*cellBoundaryMapping)[face].easiBoundaryConstant;
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
       auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
-          const real* nodes,
-          init::INodal::view::type& boundaryDofs) {
+                                   const real* nodes, init::INodal::view::type& boundaryDofs) {
         seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
         easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
         easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
@@ -208,12 +216,12 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
       };
 
       // Compute boundary in [n, t_1, t_2] basis
-      dirichletBoundary.evaluate(i_timeIntegratedDegreesOfFreedom,
-				 face,
-				 (*cellBoundaryMapping)[face],
-				 m_projectRotatedKrnlPrototype,
-				 applyEasiBoundary,
-				 dofsFaceBoundaryNodal);
+      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
+                                 face,
+                                 (*cellBoundaryMapping)[face],
+                                 m_projectRotatedKrnlPrototype,
+                                 applyEasiBoundary,
+                                 dofsFaceBoundaryNodal);
 
       // We do not need to rotate the boundary data back to the [x,y,z] basis
       // as we set the Tinv matrix to the identity matrix in the flux solver
@@ -221,15 +229,14 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
 
       nodalLfKrnl.execute(face);
       break;
-      }
-      case FaceType::Analytical:
-      {
+    }
+    case FaceType::Analytical: {
       assert(cellBoundaryMapping != nullptr);
       assert(initConds != nullptr);
       assert(initConds->size() == 1);
       ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
 
-      dirichletBoundary.evaluateTimeDependent(i_timeIntegratedDegreesOfFreedom,
+      dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
                                               face,
                                               (*cellBoundaryMapping)[face],
                                               m_projectKrnlPrototype,
@@ -239,7 +246,7 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
                                               timeStepWidth);
       nodalLfKrnl.execute(face);
       break;
-      }
+    }
     default:
       // No boundary condition.
       break;
@@ -247,14 +254,13 @@ void Local::computeIntegral(real i_timeIntegratedDegreesOfFreedom[tensor::I::siz
   }
 }
 
-void Local::computeBatchedIntegral(
-  ConditionalPointersToRealsTable& dataTable,
-  ConditionalMaterialTable& materialTable,
-  ConditionalIndicesTable& indicesTable,
-  kernels::LocalData::Loader& loader,
-  LocalTmp& tmp,
-  double timeStepWidth,
-  seissol::parallel::runtime::StreamRuntime& runtime) {
+void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
+                                   ConditionalMaterialTable& materialTable,
+                                   ConditionalIndicesTable& indicesTable,
+                                   kernels::LocalData::Loader& loader,
+                                   LocalTmp& tmp,
+                                   double timeStepWidth,
+                                   seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
@@ -265,7 +271,7 @@ void Local::computeBatchedIntegral(
 
   real* tmpMem = nullptr;
   if (dataTable.find(key) != dataTable.end()) {
-    auto &entry = dataTable[key];
+    auto& entry = dataTable[key];
 
     unsigned maxNumElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     volKrnl.numElements = maxNumElements;
@@ -274,11 +280,13 @@ void Local::computeBatchedIntegral(
     tmpMem = (real*)(device.api->getStackMemory(maxTmpMem * maxNumElements));
 
     volKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    volKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+    volKrnl.I =
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
     unsigned starOffset = 0;
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
+      volKrnl.star(i) =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
       volKrnl.extraOffset_star(i) = starOffset;
       starOffset += tensor::star::size(i);
     }
@@ -292,21 +300,23 @@ void Local::computeBatchedIntegral(
     key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
 
     if (dataTable.find(key) != dataTable.end()) {
-      auto &entry = dataTable[key];
+      auto& entry = dataTable[key];
       localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
       localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-      localFluxKrnl.I = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      localFluxKrnl.AplusT = const_cast<const real **>(entry.get(inner_keys::Wp::Id::AplusT)->getDeviceDataPtr());
+      localFluxKrnl.I =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+      localFluxKrnl.AplusT =
+          const_cast<const real**>(entry.get(inner_keys::Wp::Id::AplusT)->getDeviceDataPtr());
       localFluxKrnl.linearAllocator.initialize(tmpMem);
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
     }
 
-    ConditionalKey fsgKey(*KernelNames::BoundaryConditions,
-                          *ComputationKind::FreeSurfaceGravity,
-                          face);
-    if(dataTable.find(fsgKey) != dataTable.end()) {
-      auto nodalAvgDisplacements = dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
+    ConditionalKey fsgKey(
+        *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
+    if (dataTable.find(fsgKey) != dataTable.end()) {
+      auto nodalAvgDisplacements =
+          dataTable[fsgKey].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
       auto rhos = materialTable[fsgKey].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
       local_flux::aux::FreeSurfaceGravity freeSurfaceGravityBc;
       freeSurfaceGravityBc.g = gravitationalAcceleration;
@@ -322,12 +332,13 @@ void Local::computeBatchedIntegral(
                                          runtime);
     }
 
-    ConditionalKey dirichletKey(*KernelNames::BoundaryConditions,
-                                *ComputationKind::Dirichlet,
-                                face);
-    if(dataTable.find(dirichletKey) != dataTable.end()) {
-      auto easiBoundaryMapPtrs = dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryMap)->getDeviceDataPtr();
-      auto easiBoundaryConstantPtrs = dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryConstant)->getDeviceDataPtr();
+    ConditionalKey dirichletKey(
+        *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
+    if (dataTable.find(dirichletKey) != dataTable.end()) {
+      auto easiBoundaryMapPtrs =
+          dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryMap)->getDeviceDataPtr();
+      auto easiBoundaryConstantPtrs =
+          dataTable[dirichletKey].get(inner_keys::Wp::Id::EasiBoundaryConstant)->getDeviceDataPtr();
 
       local_flux::aux::EasiBoundary easiBoundaryBc;
       easiBoundaryBc.easiBoundaryMapPtrs = easiBoundaryMapPtrs;
@@ -351,25 +362,27 @@ void Local::computeBatchedIntegral(
 #endif
 }
 
-void Local::evaluateBatchedTimeDependentBc(
-    ConditionalPointersToRealsTable& dataTable,
-    ConditionalIndicesTable& indicesTable,
-    kernels::LocalData::Loader& loader,
-    seissol::initializer::Layer& layer,
-    seissol::initializer::LTS& lts,
-    double time,
-    double timeStepWidth,
-    seissol::parallel::runtime::StreamRuntime& runtime) {
+void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
+                                           ConditionalIndicesTable& indicesTable,
+                                           kernels::LocalData::Loader& loader,
+                                           seissol::initializer::Layer& layer,
+                                           seissol::initializer::LTS& lts,
+                                           double time,
+                                           double timeStepWidth,
+                                           seissol::parallel::runtime::StreamRuntime& runtime) {
 
 #ifdef ACL_DEVICE
   for (unsigned face = 0; face < 4; ++face) {
-    ConditionalKey analyticalKey(*KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
-    if(indicesTable.find(analyticalKey) != indicesTable.end()) {
-      const auto& cellIds = indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
+    ConditionalKey analyticalKey(
+        *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
+    if (indicesTable.find(analyticalKey) != indicesTable.end()) {
+      const auto& cellIds =
+          indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
       const size_t numElements = cellIds.size();
-      auto* analytical = reinterpret_cast<real(*)[tensor::INodal::size()]>(layer.getScratchpadMemory(lts.analyticScratch));
+      auto* analytical = reinterpret_cast<real(*)[tensor::INodal::size()]>(
+          layer.getScratchpadMemory(lts.analyticScratch));
 
-      runtime.enqueueOmpFor(numElements, [=,&cellIds](std::size_t index) {
+      runtime.enqueueOmpFor(numElements, [=, &cellIds](std::size_t index) {
         auto cellId = cellIds.at(index);
         auto data = loader.entry(cellId);
 
@@ -392,8 +405,10 @@ void Local::evaluateBatchedTimeDependentBc(
       });
 
       auto nodalLfKrnl = deviceNodalLfKrnlPrototype;
-      nodalLfKrnl.INodal = const_cast<const real**>(dataTable[analyticalKey].get(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
-      nodalLfKrnl.AminusT = const_cast<const real**>(dataTable[analyticalKey].get(inner_keys::Wp::Id::AminusT)->getDeviceDataPtr());
+      nodalLfKrnl.INodal = const_cast<const real**>(
+          dataTable[analyticalKey].get(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
+      nodalLfKrnl.AminusT = const_cast<const real**>(
+          dataTable[analyticalKey].get(inner_keys::Wp::Id::AminusT)->getDeviceDataPtr());
       nodalLfKrnl.Q = dataTable[analyticalKey].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
       nodalLfKrnl.streamPtr = runtime.stream();
       nodalLfKrnl.numElements = numElements;
@@ -401,18 +416,18 @@ void Local::evaluateBatchedTimeDependentBc(
     }
   }
 #else
-  logError() << "No GPU implementation provided";;
+  logError() << "No GPU implementation provided";
+  ;
 #endif // ACL_DEVICE
 }
 
-void Local::flopsIntegral(FaceType const faceTypes[4],
-                                            unsigned int &nonZeroFlops,
-                                            unsigned int &hardwareFlops)
-{
+void Local::flopsIntegral(const FaceType faceTypes[4],
+                          unsigned int& nonZeroFlops,
+                          unsigned int& hardwareFlops) {
   nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
   hardwareFlops = seissol::kernel::volume::HardwareFlops;
 
-  for( unsigned int face = 0; face < 4; ++face ) {
+  for (unsigned int face = 0; face < 4; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
     if (faceTypes[face] != FaceType::DynamicRupture) {
@@ -427,21 +442,21 @@ void Local::flopsIntegral(FaceType const faceTypes[4],
     switch (faceTypes[face]) {
     case FaceType::FreeSurfaceGravity:
       nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-	seissol::kernel::projectToNodalBoundary::nonZeroFlops(face);
+                      seissol::kernel::projectToNodalBoundary::nonZeroFlops(face);
       hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-	seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+                       seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
       break;
     case FaceType::Dirichlet:
       nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-	seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face);
+                      seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face);
       hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-	seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+                       seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
       break;
     case FaceType::Analytical:
       nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-	ConvergenceOrder * seissol::kernel::updateINodal::NonZeroFlops;
+                      ConvergenceOrder * seissol::kernel::updateINodal::NonZeroFlops;
       hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-	ConvergenceOrder * seissol::kernel::updateINodal::HardwareFlops;
+                       ConvergenceOrder * seissol::kernel::updateINodal::HardwareFlops;
       break;
     default:
       break;
@@ -449,8 +464,7 @@ void Local::flopsIntegral(FaceType const faceTypes[4],
   }
 }
 
-unsigned Local::bytesIntegral()
-{
+unsigned Local::bytesIntegral() {
   unsigned reals = 0;
 
   // star matrices load
@@ -460,9 +474,8 @@ unsigned Local::bytesIntegral()
 
   // DOFs write
   reals += tensor::Q::size();
-  
+
   return reals * sizeof(real);
 }
 
 } // namespace seissol::kernels
-

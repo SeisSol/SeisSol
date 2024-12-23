@@ -6,30 +6,33 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  */
-
 
 #include "Kernels/Local.h"
 
 #include <cassert>
-#include <stdint.h>
 #include <cstring>
+#include <stdint.h>
 
 #include <yateto.h>
 
 namespace seissol::kernels {
 
-void Local::setHostGlobalData(GlobalData const* global) {
+void Local::setHostGlobalData(const GlobalData* global) {
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    assert( (reinterpret_cast<uintptr_t>(global->stiffnessMatrices(stiffness))) % Alignment == 0 );
+    assert((reinterpret_cast<uintptr_t>(global->stiffnessMatrices(stiffness))) % Alignment == 0);
   }
   for (unsigned flux = 0; flux < 4; ++flux) {
-    assert( (reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(flux))) % Alignment == 0 );
-    assert( (reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(flux))) % Alignment == 0 );
+    assert((reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(flux))) %
+               Alignment ==
+           0);
+    assert((reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(flux))) % Alignment == 0);
   }
 #endif
 
@@ -40,23 +43,21 @@ void Local::setHostGlobalData(GlobalData const* global) {
   m_localKernelPrototype.selectAne = init::selectAne::Values;
 }
 
-void Local::setGlobalData(const CompoundGlobalData& global) {
-  setHostGlobalData(global.onHost);
-}
+void Local::setGlobalData(const CompoundGlobalData& global) { setHostGlobalData(global.onHost); }
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                                              LocalData& data,
-                                              LocalTmp& tmp,
-                                              // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-                                              const CellMaterialData* materialData,
-                                              CellBoundaryMapping const (*cellBoundaryMapping)[4],
-                                              double time,
-                                              double timeStepWidth) {
+                            LocalData& data,
+                            LocalTmp& tmp,
+                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
+                            const CellMaterialData* materialData,
+                            const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                            double time,
+                            double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
-  assert( (reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom)) % Alignment == 0 );
-  assert( (reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Alignment == 0 );
-  assert( (reinterpret_cast<uintptr_t>(data.dofs()))           % Alignment == 0 );
+  assert((reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.dofs())) % Alignment == 0);
 #endif
 
   alignas(Alignment) real Qext[tensor::Qext::size()];
@@ -67,18 +68,18 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.localIntegration().starMatrices[i];
   }
-  
+
   kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Qext = Qext;
   lfKrnl.I = timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
   lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
-  
+
   volKrnl.execute();
-  
-  for( unsigned int face = 0; face < 4; ++face ) {
+
+  for (unsigned int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if( data.cellInformation().faceTypes[face] != FaceType::DynamicRupture ) {
+    if (data.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
       lfKrnl.AplusT = data.localIntegration().nApNm1[face];
       lfKrnl.execute(face);
     }
@@ -96,16 +97,15 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   lKrnl.execute();
 }
 
-void Local::flopsIntegral(FaceType const faceTypes[4],
-                                            unsigned int &nonZeroFlops,
-                                            unsigned int &hardwareFlops )
-{
+void Local::flopsIntegral(const FaceType faceTypes[4],
+                          unsigned int& nonZeroFlops,
+                          unsigned int& hardwareFlops) {
   nonZeroFlops = seissol::kernel::volumeExt::NonZeroFlops;
   hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
 
-  for( unsigned int face = 0; face < 4; ++face ) {
+  for (unsigned int face = 0; face < 4; ++face) {
     if (faceTypes[face] != FaceType::DynamicRupture) {
-      nonZeroFlops  += seissol::kernel::localFluxExt::nonZeroFlops(face);
+      nonZeroFlops += seissol::kernel::localFluxExt::nonZeroFlops(face);
       hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
     }
   }
@@ -114,23 +114,19 @@ void Local::flopsIntegral(FaceType const faceTypes[4],
   hardwareFlops += seissol::kernel::local::HardwareFlops;
 }
 
-unsigned Local::bytesIntegral()
-{
+unsigned Local::bytesIntegral() {
   unsigned reals = 0;
 
   // star matrices load
-  reals += yateto::computeFamilySize<tensor::star>()
-        + tensor::w::size()
-        + tensor::W::size()
-        + tensor::E::size();
+  reals += yateto::computeFamilySize<tensor::star>() + tensor::w::size() + tensor::W::size() +
+           tensor::E::size();
   // flux solvers
   reals += 4 * tensor::AplusT::size();
 
   // DOFs write
   reals += tensor::Q::size() + tensor::Qane::size();
-  
+
   return reals * sizeof(real);
 }
 
 } // namespace seissol::kernels
-
