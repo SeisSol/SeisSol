@@ -1,4 +1,4 @@
-#include "Equations/elastic/Model/Datastructures.h"
+#include "Equations/Datastructures.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include <cstdio>
@@ -158,10 +158,10 @@ void
     taylorSum(bool integral, std::size_t count, real** target, const real** source, real start, real end, void* stream) {
       // TODO: now fixed to elastic
       if (integral) {
-        taylorSumInternal<true, seissol::model::ElasticMaterial::NumQuantities, seissol::model::ElasticMaterial::NumQuantities, real, real, ConvergenceOrder, ConvergenceOrder>(count, target, source, start, end, stream);
+        taylorSumInternal<true, seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities, real, real, ConvergenceOrder, ConvergenceOrder>(count, target, source, start, end, stream);
       }
       else {
-        taylorSumInternal<false, seissol::model::ElasticMaterial::NumQuantities, seissol::model::ElasticMaterial::NumQuantities, real, real, ConvergenceOrder, ConvergenceOrder>(count, target, source, start, end, stream);
+        taylorSumInternal<false, seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities, real, real, ConvergenceOrder, ConvergenceOrder>(count, target, source, start, end, stream);
       }
     }
 } // namespace seissol::kernels::time::aux
