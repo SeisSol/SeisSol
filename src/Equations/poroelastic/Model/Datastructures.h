@@ -48,10 +48,16 @@ struct PoroElasticMaterial : public ElasticMaterial {
   PoroElasticMaterial() = default;
 
   PoroElasticMaterial(const std::vector<double>& materialValues)
-      : ElasticMaterial(materialValues), bulkSolid(materialValues.at(0)),
-        porosity(materialValues.at(4)), permeability(materialValues.at(5)),
-        tortuosity(materialValues.at(6)), bulkFluid(materialValues.at(7)),
-        rhoFluid(materialValues.at(8)), viscosity(materialValues.at(9)) {}
+      : bulkSolid(materialValues.at(0)), porosity(materialValues.at(4)),
+        permeability(materialValues.at(5)), tortuosity(materialValues.at(6)),
+        bulkFluid(materialValues.at(7)), rhoFluid(materialValues.at(8)),
+        viscosity(materialValues.at(9)) {
+    // those are shifted right now by 1 compared to everywhere else;
+    // hence we cannot use the base class initializer here
+    rho = materialValues.at(1);
+    lambda = materialValues.at(2);
+    mu = materialValues.at(3);
+  }
   ~PoroElasticMaterial() override = default;
 
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {

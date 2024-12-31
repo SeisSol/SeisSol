@@ -3,10 +3,6 @@
 
 #include "Kernels/Precision.h"
 #include <Equations/Datastructures.h>
-#include <Equations/acoustic/Model/Datastructures.h>
-#include <Equations/anisotropic/Model/Datastructures.h>
-#include <Equations/poroelastic/Model/Datastructures.h>
-#include <Equations/viscoelastic2/Model/Datastructures.h>
 #include <Model/Datastructures.h>
 #include <array>
 
