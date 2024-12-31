@@ -43,6 +43,7 @@ format() {
         src/Equations/Datastructures.h
         src/Equations/Setup.h
         src/Initializer/BasicTypedefs.h
+        src/Initializer/CellLocalInformation.h
         src/Initializer/DeviceGraph.h
         src/Initializer/InitialFieldProjection.h
         src/Initializer/InitialFieldProjection.cpp

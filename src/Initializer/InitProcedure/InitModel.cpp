@@ -132,11 +132,10 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
   logDebug() << "Setting cell materials in the LTS tree (for interior and copy layers).";
   const auto& elements = meshReader.getElements();
-  const unsigned* ltsToMesh =
-      memoryManager.getLtsLut()->getLtsToMeshLut(memoryManager.getLts()->material.mask);
 
   for (auto& layer : memoryManager.getLtsTree()->leaves(Ghost)) {
     auto* cellInformation = layer.var(memoryManager.getLts()->cellInformation);
+    auto* secondaryInformation = layer.var(memoryManager.getLts()->secondaryInformation);
     auto* materialArray = layer.var(memoryManager.getLts()->material);
     auto* plasticityArray =
         seissolParams.model.plasticity ? layer.var(memoryManager.getLts()->plasticity) : nullptr;
@@ -146,7 +145,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 #endif
     for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
       // set the materials for the cell volume and its faces
-      auto meshId = ltsToMesh[cell];
+      auto meshId = secondaryInformation[cell].meshId;
       auto& material = materialArray[cell];
       const auto& localMaterial = materialsDB[meshId];
       const auto& element = elements[meshId];
@@ -181,7 +180,6 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, &material.local));
       }
     }
-    ltsToMesh += layer.getNumberOfCells();
   }
 }
 
@@ -308,8 +306,10 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   unsigned* ltsToMesh = nullptr;
   unsigned numberOfMeshCells = 0;
 
-  seissolInstance.getLtsLayout().getCellInformation(
-      ltsTree->var(lts->cellInformation), ltsToMesh, numberOfMeshCells);
+  seissolInstance.getLtsLayout().getCellInformation(ltsTree->var(lts->cellInformation),
+                                                    ltsTree->var(lts->secondaryInformation),
+                                                    ltsToMesh,
+                                                    numberOfMeshCells);
 
   // TODO(David): move all of this method to the MemoryManager
   seissolInstance.getMemoryManager().getLtsLutUnsafe().createLuts(
@@ -319,7 +319,8 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   seissol::initializer::time_stepping::deriveLtsSetups(ltsInfo.timeStepping.numberOfLocalClusters,
                                                        ltsInfo.meshStructure,
-                                                       ltsTree->var(lts->cellInformation));
+                                                       ltsTree->var(lts->cellInformation),
+                                                       ltsTree->var(lts->secondaryInformation));
 }
 
 void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {

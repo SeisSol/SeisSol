@@ -50,20 +50,16 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 
 #include <array>
-#include <limits>
 #include <cassert>
+#include <limits>
 
-namespace seissol {
-  namespace initializer {
-    namespace time_stepping {
-      class LtsLayout;
-    }
-  }
-}
 
-/**
- * Layout used by the LTS schemes for computation.
- **/
+  
+namespace seissol::initializer::time_stepping {
+  class LtsLayout;
+} // namespace seissol::initializer::time_stepping
+  
+
 class seissol::initializer::time_stepping::LtsLayout {
   //private:
     //! used clustering strategy
@@ -506,6 +502,7 @@ class seissol::initializer::time_stepping::LtsLayout {
      * @param o_numberOfMeshCells number of cells in the mesh.
      **/
     void getCellInformation( CellLocalInformation* io_cellLocalInformation,
+                             SecondaryCellLocalInformation* secondaryInformation,
                              unsigned int         *&o_ltsToMesh,
                              unsigned int          &o_numberOfMeshCells );
 

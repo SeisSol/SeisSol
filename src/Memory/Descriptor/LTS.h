@@ -48,6 +48,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "generated_code/tensor.h"
+#include <Initializer/CellLocalInformation.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/Helper.h"
@@ -123,6 +124,7 @@ struct LTS {
   Variable<real*> buffers;
   Variable<real*> derivatives;
   Variable<CellLocalInformation> cellInformation;
+  Variable<SecondaryCellLocalInformation> secondaryInformation;
   Variable<real* [4]> faceNeighbors;
   Variable<LocalIntegrationData> localIntegration;
   Variable<NeighboringIntegrationData> neighboringIntegration;
@@ -169,6 +171,7 @@ struct LTS {
         derivatives, LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     tree.addVar(
         cellInformation, LayerMask(), 1, allocationModeWP(AllocationPreset::Constant), true);
+    tree.addVar(secondaryInformation, LayerMask(), 1, AllocationMode::HostOnly, true);
     tree.addVar(faceNeighbors,
                 LayerMask(Ghost),
                 1,

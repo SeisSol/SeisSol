@@ -50,29 +50,29 @@
 #include "Memory/Tree/Lut.h"
 #include "Initializer/Typedefs.h"
 
-namespace seissol {
-  namespace initializer {
+
+namespace seissol::initializer {
       class EasiBoundary;
       /**
       * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
       **/
-     void initializeCellLocalMatrices( seissol::geometry::MeshReader const&      i_meshReader,
-                                       LTSTree*               io_ltsTree,
-                                       LTS*                   i_lts,
-                                       Lut*                   i_ltsLut,
+     void initializeCellLocalMatrices( seissol::geometry::MeshReader const&      meshReader,
+                                       LTSTree*               ltsTree,
+                                       LTS*                   lts,
+                                       Lut*                   ltsLut,
                                        TimeStepping const&    timeStepping,
                                        const parameters::ModelParameters& modelParameters );
                                        
-     void initializeBoundaryMappings(seissol::geometry::MeshReader const& i_meshReader,
+     void initializeBoundaryMappings(seissol::geometry::MeshReader const& meshReader,
                                      const EasiBoundary* easiBoundary,
-                                     LTSTree* io_ltsTree,
-                                     LTS* i_lts,
-                                     Lut* i_ltsLut);
+                                     LTSTree* ltsTree,
+                                     LTS* lts,
+                                     Lut* ltsLut);
  
-     void initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      i_meshReader,                                                    
-                                            LTSTree*               io_ltsTree,
-                                            LTS*                   i_lts,
-                                            Lut*                   i_ltsLut,
+     void initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      meshReader,                                                    
+                                            LTSTree*               ltsTree,
+                                            LTS*                   lts,
+                                            Lut*                   ltsLut,
                                             LTSTree*               dynRupTree,
                                             DynamicRupture*        dynRup,
                                             unsigned*              ltsFaceToMeshFace,
@@ -85,7 +85,7 @@ namespace seissol {
                                     DynamicRupture*   dynRup,
                                     LTSTree*          boundaryTree,
                                     Boundary*         boundary);
-  }
-}
+} // namespace seissol::initializer
+
 
 #endif

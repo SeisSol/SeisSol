@@ -47,6 +47,8 @@
 #include "LtsLayout.h"
 #include "MultiRate.h"
 #include "GlobalTimestep.h"
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/CellLocalInformation.h>
 #include <iterator>
 
 #include "Initializer/ParameterDB.h"
@@ -100,7 +102,7 @@ void seissol::initializer::time_stepping::LtsLayout::setMesh( const seissol::geo
   m_cellTimeStepWidths = std::move(timesteps.cellTimeStepWidths);
 }
 
-FaceType seissol::initializer::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
+seissol::FaceType seissol::initializer::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
   if (i_meshFaceType < 0 || i_meshFaceType > 7) {
     logError() << "face type" << i_meshFaceType << "not supported.";
   }
@@ -1252,6 +1254,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCrossClusterTimeStepping
 }
 
 void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLocalInformation* io_cellLocalInformation,
+                                                                          SecondaryCellLocalInformation* secondaryInformation,
                                                                           unsigned int         *&o_ltsToMesh,
                                                                           unsigned int          &o_numberOfMeshCells ) {
 	const int rank = seissol::MPI::mpi.rank();
@@ -1312,6 +1315,8 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
   o_numberOfMeshCells         = m_cells.size();
   unsigned numberOfLtsCells   = l_totalGhostLayerSize + l_totalCopyLayerSize + l_totalInteriorSize;
 
+  std::vector<int> duplicate(m_cells.size());
+
 
   // allocate memory
   // TODO: free sometime somewhere
@@ -1330,11 +1335,15 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         // get values
         unsigned int l_clusterId = m_clusteredCopy[l_cluster][l_region].first[1];
 
-        // store values
-        io_cellLocalInformation[l_ltsCell].clusterId = l_clusterId;
-
         // set mapping invalid
         o_ltsToMesh[l_ltsCell] = std::numeric_limits<unsigned int>::max();
+
+        secondaryInformation[l_ltsCell].clusterId = l_clusterId;
+        secondaryInformation[l_ltsCell].meshId = l_ghostCell;
+        secondaryInformation[l_ltsCell].duplicate = 0;
+        secondaryInformation[l_ltsCell].halo = HaloType::Ghost;
+
+        secondaryInformation[l_ltsCell].globalId = 0; // TODO:
 
         l_ltsCell++;
       }
@@ -1350,10 +1359,18 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         unsigned int l_meshId     = m_clusteredCopy[l_cluster][l_region].second[l_copyCell];
 
         // store face independent information
-        io_cellLocalInformation[l_ltsCell].clusterId = l_clusterId;
 
         // set mappings
         o_ltsToMesh[l_ltsCell]                   = l_meshId;
+
+        secondaryInformation[l_ltsCell].clusterId = l_clusterId;
+        secondaryInformation[l_ltsCell].meshId = l_meshId;
+        secondaryInformation[l_ltsCell].duplicate = duplicate[l_meshId];
+        ++duplicate[l_meshId];
+
+        secondaryInformation[l_ltsCell].halo = HaloType::Copy;
+        secondaryInformation[l_ltsCell].globalId = m_cells[l_meshId].globalId;
+        std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
 
         // iterate over faces
         for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
@@ -1390,7 +1407,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                                                     l_localNeighboringRegion );
 
             // store value
-            io_cellLocalInformation[l_ltsCell].faceNeighborIds[l_face] = l_ghostOffsets[l_cluster][l_localNeighboringRegion] + l_localGhostId;
+            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_ghostOffsets[l_cluster][l_localNeighboringRegion] + l_localGhostId;
           }
           // else neighboring cell is part of the interior or copy layer
           else if (io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::Regular ||
@@ -1416,7 +1433,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                        l_neighboringCopyRegion,
                                        l_localNeighboringCellId );
 
-              io_cellLocalInformation[l_ltsCell].faceNeighborIds[l_face] = l_copyOffsets[l_localNeighboringClusterId][l_neighboringCopyRegion] + l_localNeighboringCellId;
+              secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_copyOffsets[l_localNeighboringClusterId][l_neighboringCopyRegion] + l_localNeighboringCellId;
             }
             // neighboring cell is part of the interior: search for the position of the neighboring cell in the interior of the cluster
             else {
@@ -1428,7 +1445,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                            l_localNeighboringCellId );
 
               // store values
-              io_cellLocalInformation[l_ltsCell].faceNeighborIds[l_face] = l_interiorOffsets[l_localNeighboringClusterId] + l_localNeighboringCellId;
+              secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_interiorOffsets[l_localNeighboringClusterId] + l_localNeighboringCellId;
             }
           }
         }
@@ -1446,7 +1463,12 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
       unsigned int l_meshId     = m_clusteredInterior[l_cluster][l_interiorCell];
 
       // store face independent information
-      io_cellLocalInformation[l_ltsCell].clusterId = l_clusterId;
+      secondaryInformation[l_ltsCell].clusterId = l_clusterId;
+      secondaryInformation[l_ltsCell].meshId = l_meshId;
+      secondaryInformation[l_ltsCell].duplicate = 0;
+      secondaryInformation[l_ltsCell].halo = HaloType::Interior;
+      secondaryInformation[l_ltsCell].globalId = m_cells[l_meshId].globalId;
+      std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
 
       // set mappings
       o_ltsToMesh[l_ltsCell]                   = l_meshId;
@@ -1481,7 +1503,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                      l_neighboringCopyRegion,
                                      l_localNeighboringCellId );
 
-            io_cellLocalInformation[l_ltsCell].faceNeighborIds[l_face] = l_copyOffsets[l_localNeighboringClusterId][l_neighboringCopyRegion] + l_localNeighboringCellId;
+            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_copyOffsets[l_localNeighboringClusterId][l_neighboringCopyRegion] + l_localNeighboringCellId;
           }
           // neighboring cell is part of the interior: search for the position of the neighboring cell in the interior of the cluster
           else {
@@ -1493,7 +1515,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                          l_localNeighboringCellId );
 
             // store values
-            io_cellLocalInformation[l_ltsCell].faceNeighborIds[l_face] = l_interiorOffsets[l_localNeighboringClusterId] + l_localNeighboringCellId;
+            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_interiorOffsets[l_localNeighboringClusterId] + l_localNeighboringCellId;
           }
         }
       }

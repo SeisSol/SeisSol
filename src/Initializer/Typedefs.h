@@ -47,6 +47,7 @@
 #include <mpi.h>
 #endif
 
+#include "CellLocalInformation.h"
 #include "BasicTypedefs.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Kernels/Common.h"
@@ -93,24 +94,6 @@ struct TimeStepping {
    * Ids of the local clusters with respect to global ordering.
    */
   unsigned int *clusterIds;
-};
-
-// cell local information
-struct CellLocalInformation {
-  // types of the faces
-  FaceType faceTypes[4];
-
-  // mapping of the neighboring elements to the references element in relation to this element
-  int faceRelations[4][2];
-
-  // ids of the face neighbors
-  unsigned int faceNeighborIds[4];
-
-  // LTS setup
-  unsigned short ltsSetup;
-
-  // unique global id of the time cluster
-  unsigned int clusterId;
 };
 
 struct MeshStructure {
