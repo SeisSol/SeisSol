@@ -9,10 +9,7 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 
-
-import numpy as np
 from yateto import Tensor, simpleParameterSpace
-from yateto.memory import CSCMemoryLayout
 from kernels.multsim import OptionalDimTensor
 from kernels.common import generate_kernel_name_prefix
 
@@ -22,7 +19,6 @@ def addKernels(generator, aderdg, include_tensors, targets):
 
     numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
     numberOf2DBasisFunctions = aderdg.numberOf2DBasisFunctions()
-    numberOfQuantities = aderdg.numberOfQuantities()
 
     faceDisplacement = OptionalDimTensor(
         "faceDisplacement",

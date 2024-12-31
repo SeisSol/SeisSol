@@ -9,13 +9,10 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 
-import numpy as np
-from kernels.common import *
+from common import generate_kernel_name_prefix
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from kernels.multsim import OptionalDimTensor
-from copy import deepcopy
-import numpy as np
 
 
 def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):

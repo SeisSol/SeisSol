@@ -213,7 +213,7 @@ def main():
         if not os.path.exists(outputDir):
             os.mkdir(outputDir)
 
-        subfolders += [f"general"]
+        subfolders += ["general"]
 
         # for now, enforce Eigen as a code generator here... Until we have a shared subroutine cache
         generator = Generator(arch)

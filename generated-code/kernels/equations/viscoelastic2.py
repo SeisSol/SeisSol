@@ -10,10 +10,9 @@
 #
 
 import numpy as np
-from yateto import Tensor, Scalar, simpleParameterSpace, parameterSpaceFromRanges
+from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
 from yateto.ast.node import Add
-from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.memory import CSCMemoryLayout
 
 from kernels.aderdg import ADERDGBase

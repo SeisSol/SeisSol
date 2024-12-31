@@ -83,8 +83,6 @@ def guessMemoryLayout(env):
         print("INFO: Found gpu as a target. Memory layout will fall back to all dense")
         return os.path.join(path, "dense.xml")
 
-    # from least to most
-    importance = ["precision", "equations", "order", "pe", "multipleSimulations"]
     values = {
         "precision": env["arch"][0].lower(),
         "equations": env["equations"].lower(),

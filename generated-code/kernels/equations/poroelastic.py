@@ -6,7 +6,6 @@ import numpy as np
 
 from yateto import Tensor, Scalar
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
-from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
 from kernels.aderdg import LinearADERDG
 from kernels.multsim import OptionalDimTensor
@@ -96,13 +95,11 @@ class PoroelasticADERDG(LinearADERDG):
         stiffnessValues = [self.db.kDivMT[d].values_as_ndarray() for d in range(3)]
         fullShape = (self.numberOf3DBasisFunctions(), self.numberOf3DBasisFunctions())
 
-        qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
         stpShape = (
             self.numberOf3DBasisFunctions(),
             self.numberOfQuantities(),
             self.order,
         )
-        quantityShape = (self.numberOfQuantities(), self.numberOfQuantities())
         spaceTimePredictorRhs = OptionalDimTensor(
             "spaceTimePredictorRhs",
             self.Q.optName(),

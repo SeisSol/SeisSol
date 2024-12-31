@@ -5,7 +5,6 @@
 import numpy as np
 from kernels.multsim import OptionalDimTensor
 from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.util import tensor_collection_from_constant_expression
 from kernels.common import generate_kernel_name_prefix
 
 

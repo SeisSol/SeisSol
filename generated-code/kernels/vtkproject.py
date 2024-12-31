@@ -2,19 +2,15 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-import numpy as np
-from yateto import Tensor
 from yateto.input import parseJSONMatrixFile
-from kernels.multsim import OptionalDimTensor
 from kernels.common import generate_kernel_name_prefix
-from yateto import Tensor, Scalar, simpleParameterSpace
+from yateto import Tensor, simpleParameterSpace
 
 
 def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
     for target in targets:
         name_prefix = generate_kernel_name_prefix(targets)
 
-        vtkbase = parseJSONMatrixFile(f"{matricesDir}/vtkbase.json")
         vtko = parseJSONMatrixFile(f"{matricesDir}/vtko{aderdg.order}.json")
 
         # the following is due to a shortcut in Yateto where 1-column matrices are interpreted as rank-1 vectors

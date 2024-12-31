@@ -10,14 +10,9 @@
 # @author Sebastian Wolf (wolf.sebastian AT tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
 #
 
-import numpy as np
-from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
-from yateto.ast.node import Add
-from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
+from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
 
 from kernels.equations.elastic import ElasticADERDG as ADERDGBase
-from kernels.multsim import OptionalDimTensor
 
 
 class AnisotropicADERDG(ADERDGBase):

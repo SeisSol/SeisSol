@@ -23,7 +23,6 @@ from yateto.util import (
     tensor_collection_from_constant_expression,
 )
 from yateto.memory import CSCMemoryLayout
-from yateto.util import create_collection
 
 
 class ADERDGBase(ABC):
@@ -69,7 +68,6 @@ class ADERDGBase(ABC):
         Aplusminus_spp = self.flux_solver_spp()
         self.AplusT = Tensor("AplusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
         self.AminusT = Tensor("AminusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
-        Tshape = (self.numberOfExtendedQuantities(), self.numberOfExtendedQuantities())
         trans_spp = self.transformation_spp()
         self.T = Tensor("T", trans_spp.shape, spp=trans_spp)
         trans_inv_spp = self.transformation_inv_spp()
@@ -364,7 +362,7 @@ class LinearADERDG(ADERDGBase):
         )
         localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
         generator.addFamily(
-            f"localFlux",
+            "localFlux",
             simpleParameterSpace(4),
             localFlux,
             localFluxPrefetch,
@@ -391,7 +389,7 @@ class LinearADERDG(ADERDGBase):
                 + plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusT["qp"]
             )
             generator.addFamily(
-                f"gpu_localFlux", simpleParameterSpace(4), localFlux, target="gpu"
+                "gpu_localFlux", simpleParameterSpace(4), localFlux, target="gpu"
             )
 
     def addNeighbor(self, generator, targets):
@@ -406,7 +404,7 @@ class LinearADERDG(ADERDGBase):
         )
         neighborFluxPrefetch = lambda h, j, i: self.I
         generator.addFamily(
-            f"neighboringFlux",
+            "neighboringFlux",
             simpleParameterSpace(3, 4, 4),
             neighborFlux,
             neighborFluxPrefetch,
@@ -437,7 +435,7 @@ class LinearADERDG(ADERDGBase):
                 + minusFluxMatrixAccessor(h, j, i) * self.I["lq"] * self.AminusT["qp"]
             )
             generator.addFamily(
-                f"gpu_neighboringFlux",
+                "gpu_neighboringFlux",
                 simpleParameterSpace(3, 4, 4),
                 neighborFlux,
                 target="gpu",
