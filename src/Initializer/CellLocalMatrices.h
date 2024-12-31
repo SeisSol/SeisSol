@@ -2,22 +2,23 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2015, SeisSol Group
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * 3. Neither the name of the copyright holder nor the names of its
  *    contributors may be used to endorse or promote products derived from this
  *    software without specific prior written permission.
@@ -42,50 +43,48 @@
 #define CELLLOCALMATRICES_H_
 
 #include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/ModelParameters.h"
+#include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/Boundary.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Initializer/Parameters/ModelParameters.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
-#include "Initializer/Typedefs.h"
-
 
 namespace seissol::initializer {
-      class EasiBoundary;
-      /**
-      * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
-      **/
-     void initializeCellLocalMatrices( seissol::geometry::MeshReader const&      meshReader,
-                                       LTSTree*               ltsTree,
-                                       LTS*                   lts,
-                                       Lut*                   ltsLut,
-                                       TimeStepping const&    timeStepping,
-                                       const parameters::ModelParameters& modelParameters );
-                                       
-     void initializeBoundaryMappings(seissol::geometry::MeshReader const& meshReader,
-                                     const EasiBoundary* easiBoundary,
-                                     LTSTree* ltsTree,
-                                     LTS* lts,
-                                     Lut* ltsLut);
- 
-     void initializeDynamicRuptureMatrices( seissol::geometry::MeshReader const&      meshReader,                                                    
-                                            LTSTree*               ltsTree,
-                                            LTS*                   lts,
-                                            Lut*                   ltsLut,
-                                            LTSTree*               dynRupTree,
-                                            DynamicRupture*        dynRup,
-                                            unsigned*              ltsFaceToMeshFace,
-                                            GlobalData const&      global,
-                                            double etaHack );
+class EasiBoundary;
+/**
+ * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
+ **/
+void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
+                                 LTSTree* ltsTree,
+                                 LTS* lts,
+                                 Lut* ltsLut,
+                                 const TimeStepping& timeStepping,
+                                 const parameters::ModelParameters& modelParameters);
 
-      void copyCellMatricesToDevice(LTSTree*          ltsTree,
-                                    LTS*              lts,
-                                    LTSTree*          dynRupTree,
-                                    DynamicRupture*   dynRup,
-                                    LTSTree*          boundaryTree,
-                                    Boundary*         boundary);
+void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
+                                const EasiBoundary* easiBoundary,
+                                LTSTree* ltsTree,
+                                LTS* lts,
+                                Lut* ltsLut);
+
+void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
+                                      LTSTree* ltsTree,
+                                      LTS* lts,
+                                      Lut* ltsLut,
+                                      LTSTree* dynRupTree,
+                                      DynamicRupture* dynRup,
+                                      unsigned* ltsFaceToMeshFace,
+                                      const GlobalData& global,
+                                      double etaHack);
+
+void copyCellMatricesToDevice(LTSTree* ltsTree,
+                              LTS* lts,
+                              LTSTree* dynRupTree,
+                              DynamicRupture* dynRup,
+                              LTSTree* boundaryTree,
+                              Boundary* boundary);
 } // namespace seissol::initializer
-
 
 #endif
