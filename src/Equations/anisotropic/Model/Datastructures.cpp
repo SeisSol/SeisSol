@@ -44,10 +44,10 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
-#include <Eigen/Eigenvalues>
+#include <algorithm>
 #include <array>
-#include <cstddef>
-#include <string>
+#include <cmath>
+#include <vector>
 
 namespace seissol::model {
 double AnisotropicMaterial::getLambdaBar() const {
@@ -58,55 +58,22 @@ double AnisotropicMaterial::getMuBar() const { return (c44 + c55 + c66) / 3.0; }
 
 AnisotropicMaterial::AnisotropicMaterial() = default;
 
-AnisotropicMaterial::AnisotropicMaterial(const ElasticMaterial& m) {
+AnisotropicMaterial::AnisotropicMaterial(const ElasticMaterial& m)
+    : c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda), c14(0), c15(0), c16(0),
+      c22(m.lambda + 2 * m.mu), c23(m.lambda), c24(0), c25(0), c26(0), c33(m.lambda + 2 * m.mu),
+      c34(0), c35(0), c36(0), c44(m.mu), c45(0), c46(0), c55(m.mu), c56(0), c66(m.mu) {
   rho = m.rho;
-  c11 = m.lambda + 2 * m.mu;
-  c12 = m.lambda;
-  c13 = m.lambda;
-  c14 = 0;
-  c15 = 0;
-  c16 = 0;
-  c22 = m.lambda + 2 * m.mu;
-  c23 = m.lambda;
-  c24 = 0;
-  c25 = 0;
-  c26 = 0;
-  c33 = m.lambda + 2 * m.mu;
-  c34 = 0;
-  c35 = 0;
-  c36 = 0;
-  c44 = m.mu;
-  c45 = 0;
-  c46 = 0;
-  c55 = m.mu;
-  c56 = 0;
-  c66 = m.mu;
 }
 
 AnisotropicMaterial::AnisotropicMaterial(const std::vector<double>& materialValues)
-    : Material(materialValues) {
-  this->c11 = materialValues.at(1);
-  this->c12 = materialValues.at(2);
-  this->c13 = materialValues.at(3);
-  this->c14 = materialValues.at(4);
-  this->c15 = materialValues.at(5);
-  this->c16 = materialValues.at(6);
-  this->c22 = materialValues.at(7);
-  this->c23 = materialValues.at(8);
-  this->c24 = materialValues.at(9);
-  this->c25 = materialValues.at(10);
-  this->c26 = materialValues.at(11);
-  this->c33 = materialValues.at(12);
-  this->c34 = materialValues.at(13);
-  this->c35 = materialValues.at(14);
-  this->c36 = materialValues.at(15);
-  this->c44 = materialValues.at(16);
-  this->c45 = materialValues.at(17);
-  this->c46 = materialValues.at(18);
-  this->c55 = materialValues.at(19);
-  this->c56 = materialValues.at(20);
-  this->c66 = materialValues.at(21);
-}
+    : Material(materialValues), c11(materialValues.at(1)), c12(materialValues.at(2)),
+      c13(materialValues.at(3)), c14(materialValues.at(4)), c15(materialValues.at(5)),
+      c16(materialValues.at(6)), c22(materialValues.at(7)), c23(materialValues.at(8)),
+      c24(materialValues.at(9)), c25(materialValues.at(10)), c26(materialValues.at(11)),
+      c33(materialValues.at(12)), c34(materialValues.at(13)), c35(materialValues.at(14)),
+      c36(materialValues.at(15)), c44(materialValues.at(16)), c45(materialValues.at(17)),
+      c46(materialValues.at(18)), c55(materialValues.at(19)), c56(materialValues.at(20)),
+      c66(materialValues.at(21)) {}
 
 AnisotropicMaterial::~AnisotropicMaterial() = default;
 
@@ -228,19 +195,19 @@ double AnisotropicMaterial::getMaxWaveSpeed() const {
       maxEv = std::max(eigenvalues(i), maxEv);
     }
   }
-  return sqrt(maxEv / rho);
+  return std::sqrt(maxEv / rho);
 }
 
 // calculate P-wave speed based on averaged material parameters
 double AnisotropicMaterial::getPWaveSpeed() const {
-  double muBar = (c44 + c55 + c66) / 3.0;
-  double lambdaBar = (c11 + c22 + c33) / 3.0 - 2.0 * muBar;
+  const double muBar = (c44 + c55 + c66) / 3.0;
+  const double lambdaBar = (c11 + c22 + c33) / 3.0 - 2.0 * muBar;
   return std::sqrt((lambdaBar + 2 * muBar) / rho);
 }
 
 // calculate S-wave speed based on averaged material parameters
 double AnisotropicMaterial::getSWaveSpeed() const {
-  double muBar = (c44 + c55 + c66) / 3.0;
+  const double muBar = (c44 + c55 + c66) / 3.0;
   return std::sqrt(muBar / rho);
 }
 
