@@ -32,10 +32,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_ALLOCATOR_H_
 #define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_ALLOCATOR_H_
 
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/GlobalData.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/LTSTree.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/GlobalData.h"
+#include "Memory/Tree/LTSTree.h"
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
@@ -46,7 +46,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/Recorders.h"
 #include <device.h>
-#include <unordered_set>
 #endif
 
 namespace seissol::proxy {

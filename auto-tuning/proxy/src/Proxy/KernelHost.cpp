@@ -38,11 +38,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/PreProcessorMacros.h>
-#include <Initializer/Tree/Layer.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
 #include <Kernels/TimeCommon.h>
+#include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <memory>
 #include <omp.h>

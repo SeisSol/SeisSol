@@ -18,7 +18,6 @@ format() {
         src/Initializer/InitProcedure
         src/Initializer/Parameters
         src/Initializer/TimeStepping/LtsWeights
-        src/Initializer/Tree
         src/IO
         src/Kernels
         src/Memory

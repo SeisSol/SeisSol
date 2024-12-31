@@ -32,13 +32,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "Allocator.h"
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Initializer/GlobalData.h>
-#include <Initializer/MemoryAllocator.h>
-#include <Initializer/Tree/Layer.h>
-#include <Initializer/Tree/TimeCluster.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Memory/GlobalData.h>
+#include <Memory/MemoryAllocator.h>
+#include <Memory/Tree/Layer.h>
+#include <Memory/Tree/TimeCluster.h>
 #include <Solver/time_stepping/MiniSeisSol.h>
 #include <cstddef>
 #include <stdlib.h>
