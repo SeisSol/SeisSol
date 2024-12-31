@@ -89,7 +89,9 @@ def addKernels(generator, aderdg, include_tensors, targets):
         subTriangleDisplacement,
     )
     generator.addFamily(
-        "subTriangleVelocity", simpleParameterSpace(maxDepth + 1), subTriangleVelocity
+        "subTriangleVelocity",
+        simpleParameterSpace(maxDepth + 1),
+        subTriangleVelocity,
     )
 
     rotatedFaceDisplacement = OptionalDimTensor(
@@ -112,7 +114,9 @@ def addKernels(generator, aderdg, include_tensors, targets):
     addVelocity = (
         lambda f: faceDisplacement["kp"]
         <= faceDisplacement["kp"]
-        + aderdg.db.V3mTo2nFace[f]["kl"] * aderdg.I["lq"] * aderdg.selectVelocity["qp"]
+        + aderdg.db.V3mTo2nFace[f]["kl"]
+        * aderdg.I["lq"]
+        * aderdg.selectVelocity["qp"]
     )
     generator.addFamily("addVelocity", simpleParameterSpace(4), addVelocity)
 

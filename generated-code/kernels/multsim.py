@@ -38,7 +38,9 @@ class OptionalDimTensor(Tensor):
 
     def insertOptDim(self, sliceable, item):
         if self.hasOptDim():
-            return sliceable[0 : self._optPos] + item + sliceable[self._optPos :]
+            return (
+                sliceable[0 : self._optPos] + item + sliceable[self._optPos :]
+            )
         return sliceable
 
     def __getitem__(self, indexNames):

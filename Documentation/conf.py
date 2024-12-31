@@ -130,7 +130,13 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "SeisSol.tex", "SeisSol Documentation", "The SeisSol Group", "manual"),
+    (
+        master_doc,
+        "SeisSol.tex",
+        "SeisSol Documentation",
+        "The SeisSol Group",
+        "manual",
+    ),
 ]
 
 

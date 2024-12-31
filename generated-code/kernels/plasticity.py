@@ -140,7 +140,8 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         )
 
     generator.add(
-        "plComputeMean", meanStress["k"] <= QStressNodal["kq"] * selectBulkAverage["q"]
+        "plComputeMean",
+        meanStress["k"] <= QStressNodal["kq"] * selectBulkAverage["q"],
     )
     generator.add(
         "plSubtractMean",
@@ -150,7 +151,9 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     generator.add(
         "plComputeSecondInvariant",
         secondInvariant["k"]
-        <= QStressNodal["kq"] * QStressNodal["kq"] * weightSecondInvariant["q"],
+        <= QStressNodal["kq"]
+        * QStressNodal["kq"]
+        * weightSecondInvariant["q"],
     )
     generator.add(
         "plAdjustStresses",

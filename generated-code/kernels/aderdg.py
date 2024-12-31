@@ -37,7 +37,9 @@ class ADERDGBase(ABC):
         self.t = (lambda x: x[::-1]) if transpose else (lambda x: x)
 
         self.db = parseXMLMatrixFile(
-            "{}/matrices_{}.xml".format(matricesDir, self.numberOf3DBasisFunctions()),
+            "{}/matrices_{}.xml".format(
+                matricesDir, self.numberOf3DBasisFunctions()
+            ),
             transpose=self.transpose,
             alignStride=self.alignStride,
         )
@@ -51,7 +53,9 @@ class ADERDGBase(ABC):
             )
         )
         self.db.update(
-            parseJSONMatrixFile("{}/sampling_directions.json".format(matricesDir))
+            parseJSONMatrixFile(
+                "{}/sampling_directions.json".format(matricesDir)
+            )
         )
         self.db.update(
             parseJSONMatrixFile("{}/mass_{}.json".format(matricesDir, order))
@@ -66,15 +70,23 @@ class ADERDGBase(ABC):
         )
 
         Aplusminus_spp = self.flux_solver_spp()
-        self.AplusT = Tensor("AplusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
-        self.AminusT = Tensor("AminusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
+        self.AplusT = Tensor(
+            "AplusT", Aplusminus_spp.shape, spp=Aplusminus_spp
+        )
+        self.AminusT = Tensor(
+            "AminusT", Aplusminus_spp.shape, spp=Aplusminus_spp
+        )
         trans_spp = self.transformation_spp()
         self.T = Tensor("T", trans_spp.shape, spp=trans_spp)
         trans_inv_spp = self.transformation_inv_spp()
         self.Tinv = Tensor("Tinv", trans_inv_spp.shape, spp=trans_inv_spp)
         godunov_spp = self.godunov_spp()
-        self.QgodLocal = Tensor("QgodLocal", godunov_spp.shape, spp=godunov_spp)
-        self.QgodNeighbor = Tensor("QgodNeighbor", godunov_spp.shape, spp=godunov_spp)
+        self.QgodLocal = Tensor(
+            "QgodLocal", godunov_spp.shape, spp=godunov_spp
+        )
+        self.QgodNeighbor = Tensor(
+            "QgodNeighbor", godunov_spp.shape, spp=godunov_spp
+        )
 
         self.oneSimToMultSim = Tensor(
             "oneSimToMultSim",
@@ -118,7 +130,8 @@ class ADERDGBase(ABC):
 
         project2nFaceTo3m = tensor_collection_from_constant_expression(
             base_name="project2nFaceTo3m",
-            expressions=lambda i: self.db.rDivM[i]["jk"] * self.db.V2nTo2m["kl"],
+            expressions=lambda i: self.db.rDivM[i]["jk"]
+            * self.db.V2nTo2m["kl"],
             group_indices=simpleParameterSpace(4),
             target_indices="jl",
         )
@@ -168,7 +181,10 @@ class ADERDGBase(ABC):
         return np.ones(shape, dtype=bool)
 
     def transformation_spp(self):
-        shape = (self.numberOfExtendedQuantities(), self.numberOfExtendedQuantities())
+        shape = (
+            self.numberOfExtendedQuantities(),
+            self.numberOfExtendedQuantities(),
+        )
         return np.ones(shape, dtype=bool)
 
     def transformation_inv_spp(self):
@@ -220,7 +236,10 @@ class ADERDGBase(ABC):
             self.AplusT["ij"]
             <= fluxScale
             * self.Tinv["ki"]
-            * (self.QgodLocal["kq"] * self.starMatrix(0)["ql"] + self.QcorrLocal["kl"])
+            * (
+                self.QgodLocal["kq"] * self.starMatrix(0)["ql"]
+                + self.QcorrLocal["kl"]
+            )
             * self.T["jl"]
         )
         generator.add("computeFluxSolverLocal", computeFluxSolverLocal)
@@ -238,13 +257,16 @@ class ADERDGBase(ABC):
         generator.add("computeFluxSolverNeighbor", computeFluxSolverNeighbor)
 
         QFortran = Tensor(
-            "QFortran", (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+            "QFortran",
+            (self.numberOf3DBasisFunctions(), self.numberOfQuantities()),
         )
         multSimToFirstSim = Tensor(
             "multSimToFirstSim", (self.Q.optSize(),), spp={(0,): "1.0"}
         )
         if self.Q.hasOptDim():
-            copyQToQFortran = QFortran["kp"] <= self.Q["kp"] * multSimToFirstSim["s"]
+            copyQToQFortran = (
+                QFortran["kp"] <= self.Q["kp"] * multSimToFirstSim["s"]
+            )
         else:
             copyQToQFortran = QFortran["kp"] <= self.Q["kp"]
 
@@ -293,7 +315,10 @@ class LinearADERDG(ADERDGBase):
     def addInit(self, generator):
         super().addInit(generator)
 
-        iniShape = (self.numberOf3DQuadraturePoints(), self.numberOfQuantities())
+        iniShape = (
+            self.numberOf3DQuadraturePoints(),
+            self.numberOfQuantities(),
+        )
         iniCond = OptionalDimTensor(
             "iniCond",
             self.Q.optName(),
@@ -316,7 +341,8 @@ class LinearADERDG(ADERDGBase):
             self.Q["kp"] <= self.db.projectQP[self.t("kl")] * iniCond["lp"],
         )
         generator.add(
-            "evalAtQP", dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"]
+            "evalAtQP",
+            dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
         )
 
     def addLocal(self, generator, targets):
@@ -360,7 +386,9 @@ class LinearADERDG(ADERDGBase):
             * self.I["lq"]
             * self.AplusT["qp"]
         )
-        localFluxPrefetch = lambda i: self.I if i == 0 else (self.Q if i == 1 else None)
+        localFluxPrefetch = lambda i: (
+            self.I if i == 0 else (self.Q if i == 1 else None)
+        )
         generator.addFamily(
             "localFlux",
             simpleParameterSpace(4),
@@ -371,7 +399,8 @@ class LinearADERDG(ADERDGBase):
 
         if "gpu" in targets:
             plusFluxMatrixAccessor = (
-                lambda i: self.db.rDivM[i][self.t("km")] * self.db.fMrT[i][self.t("ml")]
+                lambda i: self.db.rDivM[i][self.t("km")]
+                * self.db.fMrT[i][self.t("ml")]
             )
             if self.kwargs["enable_premultiply_flux"]:
                 contractionResult = tensor_collection_from_constant_expression(
@@ -381,7 +410,9 @@ class LinearADERDG(ADERDGBase):
                     target_indices="kl",
                 )
                 self.db.update(contractionResult)
-                plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]["kl"]
+                plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i][
+                    "kl"
+                ]
 
             localFlux = (
                 lambda i: self.Q["kp"]
@@ -389,7 +420,10 @@ class LinearADERDG(ADERDGBase):
                 + plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusT["qp"]
             )
             generator.addFamily(
-                "gpu_localFlux", simpleParameterSpace(4), localFlux, target="gpu"
+                "gpu_localFlux",
+                simpleParameterSpace(4),
+                localFlux,
+                target="gpu",
             )
 
     def addNeighbor(self, generator, targets):
@@ -425,14 +459,16 @@ class LinearADERDG(ADERDGBase):
                     target_indices="kl",
                 )
                 self.db.update(contractionResult)
-                minusFluxMatrixAccessor = lambda h, j, i: self.db.minusFluxMatrices[
-                    h, j, i
-                ]["kl"]
+                minusFluxMatrixAccessor = (
+                    lambda h, j, i: self.db.minusFluxMatrices[h, j, i]["kl"]
+                )
 
             neighborFlux = (
                 lambda h, j, i: self.Q["kp"]
                 <= self.Q["kp"]
-                + minusFluxMatrixAccessor(h, j, i) * self.I["lq"] * self.AminusT["qp"]
+                + minusFluxMatrixAccessor(h, j, i)
+                * self.I["lq"]
+                * self.AminusT["qp"]
             )
             generator.addFamily(
                 "gpu_neighboringFlux",
@@ -446,7 +482,10 @@ class LinearADERDG(ADERDGBase):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
-            qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
+            qShape = (
+                self.numberOf3DBasisFunctions(),
+                self.numberOfQuantities(),
+            )
             dQ0 = OptionalDimTensor(
                 "dQ(0)",
                 self.Q.optName(),
@@ -468,7 +507,9 @@ class LinearADERDG(ADERDGBase):
                 power = powers[i]
                 derivativeSum = Add()
                 if self.sourceMatrix():
-                    derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
+                    derivativeSum += (
+                        derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
+                    )
                 for j in range(3):
                     derivativeSum += (
                         self.db.kDivMT[j][self.t("kl")]
@@ -476,8 +517,12 @@ class LinearADERDG(ADERDGBase):
                         * self.starMatrix(j)["qp"]
                     )
 
-                derivativeSum = DeduceIndices(self.Q["kp"].indices).visit(derivativeSum)
-                derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
+                derivativeSum = DeduceIndices(self.Q["kp"].indices).visit(
+                    derivativeSum
+                )
+                derivativeSum = EquivalentSparsityPattern().visit(
+                    derivativeSum
+                )
                 dQ = OptionalDimTensor(
                     "dQ({})".format(i),
                     self.Q.optName(),
@@ -498,9 +543,13 @@ class LinearADERDG(ADERDGBase):
 
                 derivatives.append(dQ)
 
-            derivativeTaylorExpansionExpr = self.I["kp"] <= derivativeTaylorExpansion
+            derivativeTaylorExpansionExpr = (
+                self.I["kp"] <= derivativeTaylorExpansion
+            )
             # derivativeExpr += [derivativeTaylorExpansionExpr]
-            generator.add(f"{name_prefix}derivative", derivativeExpr, target=target)
+            generator.add(
+                f"{name_prefix}derivative", derivativeExpr, target=target
+            )
             generator.add(
                 f"{name_prefix}derivativeTaylorExpansion",
                 derivativeTaylorExpansionExpr,

@@ -16,13 +16,17 @@ from kernels.equations.elastic import ElasticADERDG as ADERDGBase
 
 
 class AnisotropicADERDG(ADERDGBase):
-    def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
+    def __init__(
+        self, order, multipleSimulations, matricesDir, memLayout, **kwargs
+    ):
         super().__init__(order, multipleSimulations, matricesDir, memLayout)
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile("{}/star_anisotropic.xml".format(matricesDir), clones)
+            parseXMLMatrixFile(
+                "{}/star_anisotropic.xml".format(matricesDir), clones
+            )
         )
         memoryLayoutFromFile(memLayout, self.db, clones)
 

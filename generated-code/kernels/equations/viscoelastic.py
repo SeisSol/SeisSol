@@ -51,9 +51,9 @@ class ViscoelasticADERDG(LinearADERDG):
         for mech in range(1, numberOfMechanisms):
             offset0 = self.numberOfElasticQuantities
             offsetm = self.numberOfElasticQuantities + mech * aniso_cols
-            star_spp_new[0:star_rows, offsetm : offsetm + aniso_cols] = star_spp[
-                0:star_rows, offset0 : offset0 + aniso_cols
-            ]
+            star_spp_new[0:star_rows, offsetm : offsetm + aniso_cols] = (
+                star_spp[0:star_rows, offset0 : offset0 + aniso_cols]
+            )
         for dim in range(3):
             self.db.star[dim] = Tensor(
                 self.db.star[dim].name(), star_spp_new.shape, spp=star_spp_new

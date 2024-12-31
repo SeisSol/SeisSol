@@ -33,4 +33,6 @@ def numpy_to_tensor(
         index = tuple(nnz_indices[:, i])
         spp[index] = str(np_array[index])
 
-    return Tensor(name, np_array.shape, spp, memoryLayoutClass, alignStride, namespace)
+    return Tensor(
+        name, np_array.shape, spp, memoryLayoutClass, alignStride, namespace
+    )

@@ -5,7 +5,11 @@
 import numpy as np
 
 from yateto import Tensor, Scalar
-from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
+from yateto.input import (
+    parseXMLMatrixFile,
+    parseJSONMatrixFile,
+    memoryLayoutFromFile,
+)
 
 from kernels.aderdg import LinearADERDG
 from kernels.multsim import OptionalDimTensor
@@ -38,7 +42,9 @@ class PoroelasticADERDG(LinearADERDG):
             )
         )
         self.db.update(
-            parseJSONMatrixFile("{}/stp_{}.json".format(matricesDir, order), clones)
+            parseJSONMatrixFile(
+                "{}/stp_{}.json".format(matricesDir, order), clones
+            )
         )
 
         memoryLayoutFromFile(memLayout, self.db, clones)
@@ -92,8 +98,13 @@ class PoroelasticADERDG(LinearADERDG):
     def addTime(self, generator, targets):
         super().addTime(generator, targets)
 
-        stiffnessValues = [self.db.kDivMT[d].values_as_ndarray() for d in range(3)]
-        fullShape = (self.numberOf3DBasisFunctions(), self.numberOf3DBasisFunctions())
+        stiffnessValues = [
+            self.db.kDivMT[d].values_as_ndarray() for d in range(3)
+        ]
+        fullShape = (
+            self.numberOf3DBasisFunctions(),
+            self.numberOf3DBasisFunctions(),
+        )
 
         stpShape = (
             self.numberOf3DBasisFunctions(),
@@ -159,13 +170,17 @@ class PoroelasticADERDG(LinearADERDG):
             Bn_1, Bn = modeRange(n)
             selectModesSpp = np.zeros(fullShape)
             selectModesSpp[Bn_1:Bn, Bn_1:Bn] = np.eye(Bn - Bn_1)
-            return Tensor("selectModes({})".format(n), fullShape, spp=selectModesSpp)
+            return Tensor(
+                "selectModes({})".format(n), fullShape, spp=selectModesSpp
+            )
 
         ## Compute a matrix, which slices out one quantity
         #
         # @param quantityNumber The number of the quantity, which is sliced out
         def selectQuantity(quantityNumber):
-            selectSpp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()))
+            selectSpp = np.zeros(
+                (self.numberOfQuantities(), self.numberOfQuantities())
+            )
             selectSpp[quantityNumber, quantityNumber] = 1
             return Tensor(
                 "selectQuantity({})".format(quantityNumber),
@@ -180,7 +195,9 @@ class PoroelasticADERDG(LinearADERDG):
         #
         # @param quantityNumber The number of the quantity, which is sliced out
         def selectQuantityG(quantityNumber):
-            selectSpp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()))
+            selectSpp = np.zeros(
+                (self.numberOfQuantities(), self.numberOfQuantities())
+            )
             # The source matrix G only contains values at (o-4, o)
             selectSpp[quantityNumber - 4, quantityNumber] = 1
             return Tensor(
@@ -206,11 +223,15 @@ class PoroelasticADERDG(LinearADERDG):
             Bn_1, Bn = modeRange(n)
             stiffnessSpp = np.zeros(fullShape)
             stiffnessSpp[:, Bn_1:Bn] = -stiffnessValues[d][:, Bn_1:Bn]
-            return Tensor("kDivMTSub({},{})".format(d, n), fullShape, spp=stiffnessSpp)
+            return Tensor(
+                "kDivMTSub({},{})".format(d, n), fullShape, spp=stiffnessSpp
+            )
 
         kernels = list()
 
-        kernels.append(spaceTimePredictorRhs["kpt"] <= self.Q["kp"] * self.db.wHat["t"])
+        kernels.append(
+            spaceTimePredictorRhs["kpt"] <= self.Q["kp"] * self.db.wHat["t"]
+        )
         for n in range(self.order - 1, -1, -1):
             for o in range(self.numberOfQuantities() - 1, -1, -1):
                 kernels.append(
@@ -244,7 +265,8 @@ class PoroelasticADERDG(LinearADERDG):
                     )
             kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
         kernels.append(
-            self.I["kp"] <= timestep * spaceTimePredictor["kpt"] * self.db.timeInt["t"]
+            self.I["kp"]
+            <= timestep * spaceTimePredictor["kpt"] * self.db.timeInt["t"]
         )
 
         generator.add("spaceTimePredictor", kernels)
@@ -252,9 +274,13 @@ class PoroelasticADERDG(LinearADERDG):
         # Test to see if the kernel actually solves the system of equations
         # This part is not used in the time kernel, but for unit testing
         deltaSppLarge = np.eye(self.numberOfQuantities())
-        deltaLarge = Tensor("deltaLarge", deltaSppLarge.shape, spp=deltaSppLarge)
+        deltaLarge = Tensor(
+            "deltaLarge", deltaSppLarge.shape, spp=deltaSppLarge
+        )
         deltaSppSmall = np.eye(self.order)
-        deltaSmall = Tensor("deltaSmall", deltaSppSmall.shape, spp=deltaSppSmall)
+        deltaSmall = Tensor(
+            "deltaSmall", deltaSppSmall.shape, spp=deltaSppSmall
+        )
         minus = Scalar("minus")
 
         lhs = deltaLarge["oq"] * self.db.Z["uk"] * spaceTimePredictor["lqk"]
@@ -284,7 +310,9 @@ class PoroelasticADERDG(LinearADERDG):
             self.Q.shape(),
             alignStride=True,
         )
-        timeBasisFunctionsAtPoint = Tensor("timeBasisFunctionsAtPoint", (self.order,))
+        timeBasisFunctionsAtPoint = Tensor(
+            "timeBasisFunctionsAtPoint", (self.order,)
+        )
         evaluateDOFSAtTimeSTP = (
             QAtTimeSTP["kp"]
             <= spaceTimePredictor["kpt"] * timeBasisFunctionsAtPoint["t"]

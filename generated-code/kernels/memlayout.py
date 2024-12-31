@@ -80,7 +80,9 @@ def guessMemoryLayout(env):
     path = os.path.join(script_dir, "..", "config")
 
     if "gpu" in env["targets"]:
-        print("INFO: Found gpu as a target. Memory layout will fall back to all dense")
+        print(
+            "INFO: Found gpu as a target. Memory layout will fall back to all dense"
+        )
         return os.path.join(path, "dense.xml")
 
     values = {
@@ -92,7 +94,9 @@ def guessMemoryLayout(env):
     }
 
     candidates = findCandidates(search_path=path)
-    bestFit = max(candidates.keys(), key=lambda key: candidates[key].score(values))
+    bestFit = max(
+        candidates.keys(), key=lambda key: candidates[key].score(values)
+    )
     bestScore = candidates[bestFit].score(values)
 
     if bestScore == 0:

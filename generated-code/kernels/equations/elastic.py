@@ -15,12 +15,16 @@ from kernels.aderdg import LinearADERDG
 
 
 class ElasticADERDG(LinearADERDG):
-    def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
+    def __init__(
+        self, order, multipleSimulations, matricesDir, memLayout, **kwargs
+    ):
         super().__init__(order, multipleSimulations, matricesDir)
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }
-        self.db.update(parseXMLMatrixFile("{}/star.xml".format(matricesDir), clones))
+        self.db.update(
+            parseXMLMatrixFile("{}/star.xml".format(matricesDir), clones)
+        )
 
         memoryLayoutFromFile(memLayout, self.db, clones)
         self.kwargs = kwargs

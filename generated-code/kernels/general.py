@@ -12,11 +12,14 @@ def addStiffnessTensor(generator):
     christoffel = Tensor("christoffel", (3, 3))
 
     computeChristoffel = (
-        christoffel["ik"] <= stiffnessTensor["ijkl"] * direction["j"] * direction["l"]
+        christoffel["ik"]
+        <= stiffnessTensor["ijkl"] * direction["j"] * direction["l"]
     )
     generator.add("computeChristoffel", computeChristoffel)
 
 
 def includeMatrices(matricesDir):
-    matrices = parseJSONMatrixFile("{}/sampling_directions.json".format(matricesDir))
+    matrices = parseJSONMatrixFile(
+        "{}/sampling_directions.json".format(matricesDir)
+    )
     return set([matrices.samplingDirections])

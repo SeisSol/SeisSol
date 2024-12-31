@@ -33,7 +33,9 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
     trans_inv_spp_T = aderdg.transformation_inv_spp().transpose()
     TinvT = Tensor("TinvT", trans_inv_spp_T.shape, spp=trans_inv_spp_T)
     flux_solver_spp = aderdg.flux_solver_spp()
-    fluxSolver = Tensor("fluxSolver", flux_solver_spp.shape, spp=flux_solver_spp)
+    fluxSolver = Tensor(
+        "fluxSolver", flux_solver_spp.shape, spp=flux_solver_spp
+    )
 
     gShape = (numberOfPoints, aderdg.numberOfQuantities())
     QInterpolated = OptionalDimTensor(
@@ -72,12 +74,15 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
     fluxScale = Scalar("fluxScaleDR")
     generator.add(
         "rotateFluxMatrix",
-        fluxSolver["qp"] <= fluxScale * aderdg.starMatrix(0)["qk"] * aderdg.T["pk"],
+        fluxSolver["qp"]
+        <= fluxScale * aderdg.starMatrix(0)["qk"] * aderdg.T["pk"],
     )
 
     numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
     numberOfQuantities = aderdg.numberOfQuantities()
-    basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (numberOf3DBasisFunctions,))
+    basisFunctionsAtPoint = Tensor(
+        "basisFunctionsAtPoint", (numberOf3DBasisFunctions,)
+    )
     QAtPoint = OptionalDimTensor(
         "QAtPoint",
         aderdg.Q.optName(),
@@ -147,7 +152,9 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
         gShape,
         alignStride=True,
     )
-    slipInterpolated = Tensor("slipInterpolated", (numberOfPoints, 3), alignStride=True)
+    slipInterpolated = Tensor(
+        "slipInterpolated", (numberOfPoints, 3), alignStride=True
+    )
     tractionInterpolated = Tensor(
         "tractionInterpolated", (numberOfPoints, 3), alignStride=True
     )
@@ -170,7 +177,9 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
         * slipInterpolated["kp"]
         * spaceWeights["k"]
     )
-    generator.add("accumulateStaticFrictionalWork", accumulateStaticFrictionalWork)
+    generator.add(
+        "accumulateStaticFrictionalWork", accumulateStaticFrictionalWork
+    )
 
     ## Dynamic Rupture Precompute
     qPlus = OptionalDimTensor(
@@ -192,7 +201,9 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
     extractVelocitiesSPP = aderdg.extractVelocities()
     extractVelocities = Tensor(
-        "extractVelocities", extractVelocitiesSPP.shape, spp=extractVelocitiesSPP
+        "extractVelocities",
+        extractVelocitiesSPP.shape,
+        spp=extractVelocitiesSPP,
     )
     extractTractionsSPP = aderdg.extractTractions()
     extractTractions = Tensor(
@@ -213,7 +224,8 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
     )
 
     velocityJump = (
-        extractVelocities["lj"] * qMinus["ij"] - extractVelocities["lj"] * qPlus["ij"]
+        extractVelocities["lj"] * qMinus["ij"]
+        - extractVelocities["lj"] * qPlus["ij"]
     )
     tractionsPlus = extractTractions["mn"] * qPlus["in"]
     tractionsMinus = extractTractions["mn"] * qMinus["in"]

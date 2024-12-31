@@ -26,7 +26,8 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
             for i in range(rangeLimit)
         ]
         xf = [
-            Tensor(f"xf({i})", (((i + 1) * (i + 2)) // 2,)) for i in range(rangeLimit)
+            Tensor(f"xf({i})", (((i + 1) * (i + 2)) // 2,))
+            for i in range(rangeLimit)
         ]
 
         generator.addFamily(

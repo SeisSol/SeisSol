@@ -20,7 +20,10 @@ import os
 from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
 from yateto import gemm_configuration
 from yateto.gemm_configuration import GeneratorCollection, Eigen
-from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
+from yateto.ast.cost import (
+    BoundingBoxCostEstimator,
+    FusedGemmsBoundingBoxCostEstimator,
+)
 
 import kernels.dynamic_rupture
 import kernels.plasticity
@@ -48,7 +51,9 @@ def main():
     cmdLineParser.add_argument("--PlasticityMethod")
     cmdLineParser.add_argument("--gemm_tools")
     cmdLineParser.add_argument("--drQuadRule")
-    cmdLineParser.add_argument("--enable_premultiply_flux", action="store_true")
+    cmdLineParser.add_argument(
+        "--enable_premultiply_flux", action="store_true"
+    )
     cmdLineParser.add_argument(
         "--disable_premultiply_flux",
         dest="enable_premultiply_flux",
@@ -61,13 +66,19 @@ def main():
 
     # derive the compute platform
     gpu_platforms = ["cuda", "hip", "hipsycl", "acpp", "oneapi"]
-    targets = ["gpu", "cpu"] if cmdLineArgs.device_backend in gpu_platforms else ["cpu"]
+    targets = (
+        ["gpu", "cpu"]
+        if cmdLineArgs.device_backend in gpu_platforms
+        else ["cpu"]
+    )
 
     if cmdLineArgs.device_backend == "none":
         arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch)
     else:
         arch = useArchitectureIdentifiedBy(
-            cmdLineArgs.host_arch, cmdLineArgs.device_arch, cmdLineArgs.device_backend
+            cmdLineArgs.host_arch,
+            cmdLineArgs.device_arch,
+            cmdLineArgs.device_backend,
         )
 
     # pick up the gemm tools defined by the user
@@ -108,7 +119,9 @@ def main():
             chainforge_spec.loader.load_module()
             cost_estimators = FusedGemmsBoundingBoxCostEstimator
         except:
-            print("WARNING: ChainForge was not found. Falling back to GemmForge.")
+            print(
+                "WARNING: ChainForge was not found. Falling back to GemmForge."
+            )
 
     subfolders = []
 
@@ -118,7 +131,9 @@ def main():
     try:
         equations = equationsSpec.loader.load_module()
     except:
-        raise RuntimeError("Could not find kernels for " + cmdLineArgs.equations)
+        raise RuntimeError(
+            "Could not find kernels for " + cmdLineArgs.equations
+        )
 
     equation_class = equations.EQUATION_CLASS
 
@@ -154,8 +169,12 @@ def main():
         adg.addTime(generator, targets)
         adg.add_include_tensors(include_tensors)
 
-        kernels.vtkproject.addKernels(generator, adg, cmdLineArgs.matricesDir, targets)
-        kernels.vtkproject.includeTensors(cmdLineArgs.matricesDir, include_tensors)
+        kernels.vtkproject.addKernels(
+            generator, adg, cmdLineArgs.matricesDir, targets
+        )
+        kernels.vtkproject.includeTensors(
+            cmdLineArgs.matricesDir, include_tensors
+        )
 
         # Common kernels
         include_tensors.update(
@@ -223,7 +242,9 @@ def main():
             namespace="seissol_general",
             gemm_cfg=GeneratorCollection([Eigen(arch)]),
             cost_estimator=cost_estimators,
-            include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir),
+            include_tensors=kernels.general.includeMatrices(
+                cmdLineArgs.matricesDir
+            ),
         )
 
     def forward_files(filename):
