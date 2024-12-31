@@ -38,6 +38,8 @@ format() {
     local allowlist_file="
         src/Initializer/BasicTypedefs.h
         src/Initializer/CellLocalInformation.h
+        src/Initializer/CellLocalMatrices.h
+        src/Initializer/CellLocalMatrices.cpp
         src/Initializer/DeviceGraph.h
         src/Initializer/InitialFieldProjection.h
         src/Initializer/InitialFieldProjection.cpp

@@ -78,13 +78,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
                                       double etaHack);
-
-void copyCellMatricesToDevice(LTSTree* ltsTree,
-                              LTS* lts,
-                              LTSTree* dynRupTree,
-                              DynamicRupture* dynRup,
-                              LTSTree* boundaryTree,
-                              Boundary* boundary);
 } // namespace seissol::initializer
 
 #endif

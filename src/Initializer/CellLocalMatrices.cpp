@@ -43,12 +43,8 @@
 
 #include "CellLocalMatrices.h"
 
-#include <Initializer/BasicTypedefs.h>
-#include <cassert>
-
 #include "Equations/Setup.h" // IWYU pragma: keep
 #include "Geometry/MeshTools.h"
-#include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
@@ -56,10 +52,36 @@
 #include "Parameters/ModelParameters.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <DynamicRupture/Typedefs.h>
+#include <Equations/Datastructures.h>
+#include <Geometry/MeshDefinition.h>
+#include <Geometry/MeshReader.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Precision.h>
+#include <Memory/Descriptor/Boundary.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Lut.h>
+#include <Model/CommonDatastructures.h>
+#include <Model/Datastructures.h>
+#include <Model/ElasticSetup.h>
+#include <Numerical/Eigenvalues.h>
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <complex>
+#include <cstddef>
+#include <generated_code/init.h>
+#include <limits>
 #include <utils/logger.h>
+#include <vector>
 #ifdef ACL_DEVICE
 #include <device.h>
 #endif
+
+namespace {
 
 void setStarMatrix(
     const real* matAT, const real* matBT, const real* matCT, const real grad[3], real* starMatrix) {
@@ -76,13 +98,71 @@ void setStarMatrix(
   }
 }
 
-void seissol::initializer::initializeCellLocalMatrices(
-    const seissol::geometry::MeshReader& meshReader,
-    LTSTree* ltsTree,
-    LTS* lts,
-    Lut* ltsLut,
-    const TimeStepping& timeStepping,
-    const parameters::ModelParameters& modelParameters) {
+void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
+                          unsigned meshId,
+                          unsigned side,
+                          double* surfaceArea,
+                          double* volume) {
+  const std::vector<Vertex>& vertices = meshReader.getVertices();
+  const std::vector<Element>& elements = meshReader.getElements();
+
+  VrtxCoords normal;
+  VrtxCoords tangent1;
+  VrtxCoords tangent2;
+  MeshTools::normalAndTangents(elements[meshId], side, vertices, normal, tangent1, tangent2);
+
+  *volume = MeshTools::volume(elements[meshId], vertices);
+  *surfaceArea = MeshTools::surface(normal);
+}
+
+/**
+ * Copies an eigen3 matrix to a 2D yateto tensor
+ */
+template <typename T, int Dim1, int Dim2>
+void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
+                       yateto::DenseTensorView<2, T>& tensorView) {
+  assert(tensorView.shape(0) == dim1);
+  assert(tensorView.shape(1) == dim2);
+
+  tensorView.setZero();
+  for (size_t row = 0; row < Dim1; ++row) {
+    for (size_t col = 0; col < Dim2; ++col) {
+      tensorView(row, col) = matrix(row, col);
+    }
+  }
+}
+
+constexpr int N = tensor::Zminus::Shape[0];
+Eigen::Matrix<real, N, N>
+    extractMatrix(eigenvalues::Eigenpair<std::complex<double>,
+                                         seissol::model::MaterialT::NumQuantities> eigenpair) {
+#ifdef USE_POROELASTIC
+  constexpr std::array<int, 4> TractionIndices = {0, 3, 5, 9};
+  constexpr std::array<int, 4> VelocityIndices = {6, 7, 8, 10};
+  constexpr std::array<int, 4> ColumnIndices = {0, 1, 2, 3};
+#else
+  constexpr std::array<int, 3> TractionIndices = {0, 3, 5};
+  constexpr std::array<int, 3> VelocityIndices = {6, 7, 8};
+  constexpr std::array<int, 3> ColumnIndices = {0, 1, 2};
+#endif
+  auto matrix = eigenpair.getVectorsAsMatrix();
+  const Eigen::Matrix<double, N, N> matRT = matrix(TractionIndices, ColumnIndices).real();
+  const Eigen::Matrix<double, N, N> matRTInv = matRT.inverse();
+  const Eigen::Matrix<double, N, N> matRU = matrix(VelocityIndices, ColumnIndices).real();
+  const Eigen::Matrix<double, N, N> matM = matRU * matRTInv;
+  return matM.cast<real>();
+};
+
+} // namespace
+
+namespace seissol::initializer {
+
+void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
+                                 LTSTree* ltsTree,
+                                 LTS* lts,
+                                 Lut* ltsLut,
+                                 const TimeStepping& timeStepping,
+                                 const parameters::ModelParameters& modelParameters) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
 
@@ -134,9 +214,9 @@ void seissol::initializer::initializeCellLocalMatrices(
 #pragma omp for schedule(static)
 #endif
       for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-        unsigned clusterId = secondaryInformation[cell].clusterId;
+        const unsigned clusterId = secondaryInformation[cell].clusterId;
         auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
-        unsigned meshId = secondaryInformation[cell].meshId;
+        const unsigned meshId = secondaryInformation[cell].meshId;
 
         real x[4];
         real y[4];
@@ -166,7 +246,7 @@ void seissol::initializer::initializeCellLocalMatrices(
         setStarMatrix(
             matATData, matBTData, matCTData, gradZeta, localIntegration[cell].starMatrices[2]);
 
-        double volume = MeshTools::volume(elements[meshId], vertices);
+        const double volume = MeshTools::volume(elements[meshId], vertices);
 
         for (unsigned side = 0; side < 4; ++side) {
           VrtxCoords normal;
@@ -174,7 +254,7 @@ void seissol::initializer::initializeCellLocalMatrices(
           VrtxCoords tangent2;
           MeshTools::normalAndTangents(
               elements[meshId], side, vertices, normal, tangent1, tangent2);
-          double surface = MeshTools::surface(normal);
+          const double surface = MeshTools::surface(normal);
           MeshTools::normalize(normal, normal);
           MeshTools::normalize(tangent1, tangent1);
           MeshTools::normalize(tangent2, tangent2);
@@ -198,7 +278,7 @@ void seissol::initializer::initializeCellLocalMatrices(
 
           // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
           // must be subtracted.
-          real fluxScale = -2.0 * surface / (6.0 * volume);
+          const real fluxScale = -2.0 * surface / (6.0 * volume);
 
           const auto isSpecialBC =
               [&secondaryInformation, &cellInformation, &cellInformationAll, cell](int side) {
@@ -301,29 +381,11 @@ void seissol::initializer::initializeCellLocalMatrices(
   }
 }
 
-void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
-                          unsigned meshId,
-                          unsigned side,
-                          double* surfaceArea,
-                          double* volume) {
-  const std::vector<Vertex>& vertices = meshReader.getVertices();
-  const std::vector<Element>& elements = meshReader.getElements();
-
-  VrtxCoords normal;
-  VrtxCoords tangent1;
-  VrtxCoords tangent2;
-  MeshTools::normalAndTangents(elements[meshId], side, vertices, normal, tangent1, tangent2);
-
-  *volume = MeshTools::volume(elements[meshId], vertices);
-  *surfaceArea = MeshTools::surface(normal);
-}
-
-void seissol::initializer::initializeBoundaryMappings(
-    const seissol::geometry::MeshReader& meshReader,
-    const EasiBoundary* easiBoundary,
-    LTSTree* ltsTree,
-    LTS* lts,
-    Lut* ltsLut) {
+void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
+                                const EasiBoundary* easiBoundary,
+                                LTSTree* ltsTree,
+                                LTS* lts,
+                                Lut* ltsLut) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
 
@@ -407,54 +469,15 @@ void seissol::initializer::initializeBoundaryMappings(
   }
 }
 
-/**
- * Copies an eigen3 matrix to a 2D yateto tensor
- */
-template <typename T, int Dim1, int Dim2>
-void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
-                       yateto::DenseTensorView<2, T>& tensorView) {
-  assert(tensorView.shape(0) == dim1);
-  assert(tensorView.shape(1) == dim2);
-
-  tensorView.setZero();
-  for (size_t row = 0; row < Dim1; ++row) {
-    for (size_t col = 0; col < Dim2; ++col) {
-      tensorView(row, col) = matrix(row, col);
-    }
-  }
-}
-
-constexpr int N = tensor::Zminus::Shape[0];
-Eigen::Matrix<real, N, N>
-    extractMatrix(eigenvalues::Eigenpair<std::complex<double>,
-                                         seissol::model::MaterialT::NumQuantities> eigenpair) {
-#ifdef USE_POROELASTIC
-  constexpr std::array<int, 4> TractionIndices = {0, 3, 5, 9};
-  constexpr std::array<int, 4> VelocityIndices = {6, 7, 8, 10};
-  constexpr std::array<int, 4> ColumnIndices = {0, 1, 2, 3};
-#else
-  constexpr std::array<int, 3> TractionIndices = {0, 3, 5};
-  constexpr std::array<int, 3> VelocityIndices = {6, 7, 8};
-  constexpr std::array<int, 3> ColumnIndices = {0, 1, 2};
-#endif
-  auto matrix = eigenpair.getVectorsAsMatrix();
-  Eigen::Matrix<double, N, N> matRT = matrix(TractionIndices, ColumnIndices).real();
-  Eigen::Matrix<double, N, N> matRTInv = matRT.inverse();
-  Eigen::Matrix<double, N, N> matRU = matrix(VelocityIndices, ColumnIndices).real();
-  Eigen::Matrix<double, N, N> matM = matRU * matRTInv;
-  return matM.cast<real>();
-};
-
-void seissol::initializer::initializeDynamicRuptureMatrices(
-    const seissol::geometry::MeshReader& meshReader,
-    LTSTree* ltsTree,
-    LTS* lts,
-    Lut* ltsLut,
-    LTSTree* dynRupTree,
-    DynamicRupture* dynRup,
-    unsigned* ltsFaceToMeshFace,
-    const GlobalData& global,
-    double etaHack) {
+void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
+                                      LTSTree* ltsTree,
+                                      LTS* lts,
+                                      Lut* ltsLut,
+                                      LTSTree* dynRupTree,
+                                      DynamicRupture* dynRup,
+                                      unsigned* ltsFaceToMeshFace,
+                                      const GlobalData& global,
+                                      double etaHack) {
   real matTData[tensor::T::size()];
   real matTinvData[tensor::Tinv::size()];
   real matAPlusData[tensor::star::size(0)];
@@ -506,7 +529,7 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
     schedule(static)
 #endif
     for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
-      unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
+      const unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
 
       /// Face information
@@ -541,7 +564,8 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
       real* timeDerivative1Device = nullptr;
       real* timeDerivative2Device = nullptr;
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
-        unsigned ltsId = ltsLut->ltsId(lts->cellInformation.mask, derivativesMeshId, duplicate);
+        const unsigned ltsId =
+            ltsLut->ltsId(lts->cellInformation.mask, derivativesMeshId, duplicate);
         if (timeDerivative1 == nullptr && (cellInformation[ltsId].ltsSetup >> 9) % 2 == 1) {
           timeDerivative1 =
               derivatives[ltsLut->ltsId(lts->derivatives.mask, derivativesMeshId, duplicate)];
@@ -576,11 +600,11 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
 
       /// DR mapping for elements
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
-        unsigned plusLtsId =
+        const unsigned plusLtsId =
             (fault[meshFace].element >= 0)
                 ? ltsLut->ltsId(lts->drMapping.mask, fault[meshFace].element, duplicate)
                 : std::numeric_limits<unsigned>::max();
-        unsigned minusLtsId =
+        const unsigned minusLtsId =
             (fault[meshFace].neighborElement >= 0)
                 ? ltsLut->ltsId(lts->drMapping.mask, fault[meshFace].neighborElement, duplicate)
                 : std::numeric_limits<unsigned>::max();
@@ -638,12 +662,13 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
       /// Materials
       seissol::model::Material* plusMaterial = nullptr;
       seissol::model::Material* minusMaterial = nullptr;
-      unsigned plusLtsId = (fault[meshFace].element >= 0)
-                               ? ltsLut->ltsId(lts->material.mask, fault[meshFace].element)
-                               : std::numeric_limits<unsigned>::max();
-      unsigned minusLtsId = (fault[meshFace].neighborElement >= 0)
-                                ? ltsLut->ltsId(lts->material.mask, fault[meshFace].neighborElement)
-                                : std::numeric_limits<unsigned>::max();
+      const unsigned plusLtsId = (fault[meshFace].element >= 0)
+                                     ? ltsLut->ltsId(lts->material.mask, fault[meshFace].element)
+                                     : std::numeric_limits<unsigned>::max();
+      const unsigned minusLtsId =
+          (fault[meshFace].neighborElement >= 0)
+              ? ltsLut->ltsId(lts->material.mask, fault[meshFace].neighborElement)
+              : std::numeric_limits<unsigned>::max();
 
       assert(plusLtsId != std::numeric_limits<unsigned>::max() ||
              minusLtsId != std::numeric_limits<unsigned>::max());
@@ -709,9 +734,10 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
         // The impedance matrices are diagonal in the (visco)elastic case, so we only store
         // the values Zp, Zs. In the poroelastic case, the fluid pressure and normal component
         // of the traction depend on each other, so we need a more complicated matrix structure.
-        Eigen::Matrix<real, N, N> impedanceMatrix = extractMatrix(plusEigenpair);
-        Eigen::Matrix<real, N, N> impedanceNeigMatrix = extractMatrix(minusEigenpair);
-        Eigen::Matrix<real, N, N> etaMatrix = (impedanceMatrix + impedanceNeigMatrix).inverse();
+        const Eigen::Matrix<real, N, N> impedanceMatrix = extractMatrix(plusEigenpair);
+        const Eigen::Matrix<real, N, N> impedanceNeigMatrix = extractMatrix(minusEigenpair);
+        const Eigen::Matrix<real, N, N> etaMatrix =
+            (impedanceMatrix + impedanceNeigMatrix).inverse();
 
         auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);
         auto impedanceNeigView =
@@ -753,12 +779,12 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
           init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
       auto tractionMinusMatrix =
           init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
-      double cZpP = plusMaterial->rho * waveSpeedsPlus[ltsFace].pWaveVelocity;
-      double cZsP = plusMaterial->rho * waveSpeedsPlus[ltsFace].sWaveVelocity;
-      double cZpM = minusMaterial->rho * waveSpeedsMinus[ltsFace].pWaveVelocity;
-      double cZsM = minusMaterial->rho * waveSpeedsMinus[ltsFace].sWaveVelocity;
-      double etaP = cZpP * cZpM / (cZpP + cZpM);
-      double etaS = cZsP * cZsM / (cZsP + cZsM);
+      const double cZpP = plusMaterial->rho * waveSpeedsPlus[ltsFace].pWaveVelocity;
+      const double cZsP = plusMaterial->rho * waveSpeedsPlus[ltsFace].sWaveVelocity;
+      const double cZpM = minusMaterial->rho * waveSpeedsMinus[ltsFace].pWaveVelocity;
+      const double cZsM = minusMaterial->rho * waveSpeedsMinus[ltsFace].sWaveVelocity;
+      const double etaP = cZpP * cZpM / (cZpP + cZpM);
+      const double etaS = cZsP * cZsM / (cZsP + cZsM);
 
       tractionPlusMatrix.setZero();
       tractionPlusMatrix(0, 0) = etaP / cZpP;
@@ -828,13 +854,4 @@ void seissol::initializer::initializeDynamicRuptureMatrices(
   }
 }
 
-void seissol::initializer::copyCellMatricesToDevice(LTSTree* ltsTree,
-                                                    LTS* lts,
-                                                    LTSTree* dynRupTree,
-                                                    DynamicRupture* dynRup,
-                                                    LTSTree* boundaryTree,
-                                                    Boundary* boundary) {
-#ifdef ACL_DEVICE
-
-#endif // ACL_DEVICE
-}
+} // namespace seissol::initializer

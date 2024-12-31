@@ -231,13 +231,6 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                                    memoryManager.getLtsLut());
 
 #ifdef ACL_DEVICE
-  initializer::copyCellMatricesToDevice(memoryManager.getLtsTree(),
-                                        memoryManager.getLts(),
-                                        memoryManager.getDynamicRuptureTree(),
-                                        memoryManager.getDynamicRupture(),
-                                        memoryManager.getBoundaryTree(),
-                                        memoryManager.getBoundary());
-
   memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
 #endif
 
