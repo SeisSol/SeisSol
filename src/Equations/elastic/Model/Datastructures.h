@@ -50,6 +50,7 @@
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace seissol::model {
 class ElasticLocalData;
@@ -76,12 +77,9 @@ struct ElasticMaterial : Material {
   [[nodiscard]] double getMuBar() const override { return mu; }
 
   ElasticMaterial() = default;
-  ElasticMaterial(const double* materialValues, int numMaterialValues) {
-    assert(numMaterialValues == 3);
-
-    this->rho = materialValues[0];
-    this->mu = materialValues[1];
-    this->lambda = materialValues[2];
+  ElasticMaterial(const std::vector<double>& materialValues)
+      : lambda(materialValues.at(2)), mu(materialValues.at(1)) {
+    this->rho = materialValues.at(0);
   }
 
   ~ElasticMaterial() override = default;

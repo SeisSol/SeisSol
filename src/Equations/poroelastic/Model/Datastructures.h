@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace seissol::model {
 class PoroelasticLocalData;
@@ -46,25 +47,16 @@ struct PoroElasticMaterial : ElasticMaterial {
 
   PoroElasticMaterial() = default;
 
-  PoroElasticMaterial(const double* materialValues, int numMaterialValues) {
-    assert(numMaterialValues == 10);
-
-    this->bulkSolid = materialValues[0];
-    this->rho = materialValues[1];
-    this->lambda = materialValues[2];
-    this->mu = materialValues[3];
-    this->porosity = materialValues[4];
-    this->permeability = materialValues[5];
-    this->tortuosity = materialValues[6];
-    this->bulkFluid = materialValues[7];
-    this->rhoFluid = materialValues[8];
-    this->viscosity = materialValues[9];
-  };
+  PoroElasticMaterial(const std::vector<double>& materialValues)
+      : ElasticMaterial(materialValues), bulkSolid(materialValues.at(0)),
+        porosity(materialValues.at(4)), permeability(materialValues.at(5)),
+        tortuosity(materialValues.at(6)), bulkFluid(materialValues.at(7)),
+        rhoFluid(materialValues.at(8)), viscosity(materialValues.at(9)) {}
   ~PoroElasticMaterial() override = default;
 
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
-    double elasticMaterialVals[] = {this->rho, this->mu, this->lambda};
-    const ElasticMaterial em(elasticMaterialVals, 3);
+    const std::vector<double> elasticMaterialVals{this->rho, this->mu, this->lambda};
+    const ElasticMaterial em(elasticMaterialVals);
     em.getFullStiffnessTensor(fullTensor);
   }
 
