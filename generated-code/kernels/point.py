@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-##
+#
 # @file
 # This file is part of SeisSol.
 #
@@ -20,7 +20,7 @@ def addKernels(generator, aderdg):
     numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
     numberOfQuantities = aderdg.numberOfQuantities()
     order = aderdg.order
-    ## Point sources
+    # Point sources
     mStiffnessTensor = Tensor("stiffnessTensor", (3, 3, 3, 3))
     mSlip = Tensor("mSlip", (3,))
     mNormal = Tensor("mNormal", (3,))
@@ -102,7 +102,7 @@ def addKernels(generator, aderdg):
         )
     generator.add("sourceFSRM", sourceFSRM)
 
-    ## Receiver output
+    # Receiver output
     QAtPoint = OptionalDimTensor(
         "QAtPoint",
         aderdg.Q.optName(),

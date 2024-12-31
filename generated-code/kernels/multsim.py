@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-##
+
 # @file
 # This file is part of SeisSol.
 #
@@ -39,7 +39,7 @@ class OptionalDimTensor(Tensor):
     def insertOptDim(self, sliceable, item):
         if self.hasOptDim():
             return (
-                sliceable[0 : self._optPos] + item + sliceable[self._optPos :]
+                sliceable[0:self._optPos] + item + sliceable[self._optPos:]
             )
         return sliceable
 

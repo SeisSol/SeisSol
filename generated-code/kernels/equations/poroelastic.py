@@ -146,7 +146,7 @@ class PoroelasticADERDG(LinearADERDG):
         timestep = Scalar("timestep")
         G = {10: Scalar("Gk"), 11: Scalar("Gl"), 12: Scalar("Gm")}
 
-        ## Compute the index range for basis functions of a certain degree
+        # Compute the index range for basis functions of a certain degree
         #
         # The basis functions are ordered with increasing degree, i.e. the first
         # basis function has degree 0, the next three basis functions have degree
@@ -160,7 +160,7 @@ class PoroelasticADERDG(LinearADERDG):
             Bn_upper = choose(n + 3, 3)
             return (Bn_lower, Bn_upper)
 
-        ## Compute a matrix, which filters out all basis function of degree n
+        # Compute a matrix, which filters out all basis function of degree n
         #
         # Compute a matrix M, such that for any DOF vector Q, M*Q only contains
         # the parts of Q, which correspond to basis functions of degree n
@@ -174,7 +174,7 @@ class PoroelasticADERDG(LinearADERDG):
                 "selectModes({})".format(n), fullShape, spp=selectModesSpp
             )
 
-        ## Compute a matrix, which slices out one quantity
+        # Compute a matrix, which slices out one quantity
         #
         # @param quantityNumber The number of the quantity, which is sliced out
         def selectQuantity(quantityNumber):
@@ -188,7 +188,7 @@ class PoroelasticADERDG(LinearADERDG):
                 spp=selectSpp,
             )
 
-        ## Compute a matrix, which slides out one quantity from the upper triangular
+        # Compute a matrix, which slides out one quantity from the upper triangular
         #  part of the source matrix
         #
         # Note: G = E - diag(E)
@@ -206,13 +206,13 @@ class PoroelasticADERDG(LinearADERDG):
                 spp=selectSpp,
             )
 
-        ## Zinv(o) = $(Z - E^*_{oo} * I)^{-1}$
+        # Zinv(o) = $(Z - E^*_{oo} * I)^{-1}$
         #
         # @param o Index as described above
         def Zinv(o):
             return Tensor("Zinv({})".format(o), (self.order, self.order))
 
-        ## Submatrix of the stiffness matrix
+        # Submatrix of the stiffness matrix
         #
         # The stiffness matrix for derivatives in direction d, where only the
         # contribution from basis functions of degree n is considered

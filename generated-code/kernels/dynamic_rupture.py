@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-##
+
 # @file
 # This file is part of SeisSol.
 #
@@ -181,7 +181,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
         "accumulateStaticFrictionalWork", accumulateStaticFrictionalWork
     )
 
-    ## Dynamic Rupture Precompute
+    # Dynamic Rupture Precompute
     qPlus = OptionalDimTensor(
         "Qplus",
         aderdg.Q.optName(),

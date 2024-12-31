@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-##
+
 # @file
 # This file is part of SeisSol.
 #
@@ -51,8 +51,8 @@ class ViscoelasticADERDG(LinearADERDG):
         for mech in range(1, numberOfMechanisms):
             offset0 = self.numberOfElasticQuantities
             offsetm = self.numberOfElasticQuantities + mech * aniso_cols
-            star_spp_new[0:star_rows, offsetm : offsetm + aniso_cols] = (
-                star_spp[0:star_rows, offset0 : offset0 + aniso_cols]
+            star_spp_new[0:star_rows, offsetm:(offsetm + aniso_cols)] = (
+                star_spp[0:star_rows, offset0:(offset0 + aniso_cols)]
             )
         for dim in range(3):
             self.db.star[dim] = Tensor(
@@ -93,7 +93,7 @@ class ViscoelasticADERDG(LinearADERDG):
         spp = np.zeros(
             (self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool
         )
-        spp[0 : self.numberOfElasticQuantities, :] = True
+        spp[0:self.numberOfElasticQuantities, :] = True
         return spp
 
     def flux_solver_spp(self):
@@ -107,7 +107,7 @@ class ViscoelasticADERDG(LinearADERDG):
         spp[6:9, 6:9] = 1
         for mechs in range(self.numberOfMechanisms):
             offset = 9 + mechs * 6
-            spp[offset : offset + 6, offset : offset + 6] = 1
+            spp[offset:(offset + 6), offset:(offset + 6)] = 1
         return spp
 
     def transformation_inv_spp(self):

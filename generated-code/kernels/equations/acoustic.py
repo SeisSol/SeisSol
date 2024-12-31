@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-##
 # @file
 # This file is part of SeisSol.
 #

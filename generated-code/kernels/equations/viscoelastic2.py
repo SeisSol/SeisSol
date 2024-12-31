@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-##
 # @file
 # This file is part of SeisSol.
 #
@@ -101,7 +100,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
             (self.numberOfExtendedQuantities(), self.numberOfQuantities())
         )
         selectElaSpp[
-            0 : self.numberOfQuantities(), 0 : self.numberOfQuantities()
+            0: self.numberOfQuantities(), 0: self.numberOfQuantities()
         ] = np.eye(self.numberOfQuantities())
         self.selectEla = Tensor(
             "selectEla",
@@ -117,8 +116,8 @@ class Viscoelastic2ADERDG(ADERDGBase):
             )
         )
         selectAneSpp[
-            self.numberOfQuantities() : self.numberOfExtendedQuantities(),
-            0 : self.numberOfAnelasticQuantities(),
+            self.numberOfQuantities(): self.numberOfExtendedQuantities(),
+            0: self.numberOfAnelasticQuantities(),
         ] = np.eye(self.numberOfAnelasticQuantities())
         self.selectAne = Tensor(
             "selectAne",
@@ -177,7 +176,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
             (self.numberOfFullQuantities(), self.numberOfQuantities())
         )
         selectElaFullSpp[
-            0 : self.numberOfQuantities(), 0 : self.numberOfQuantities()
+            0: self.numberOfQuantities(), 0: self.numberOfQuantities()
         ] = np.eye(self.numberOfQuantities())
         selectElaFull = Tensor(
             "selectElaFull",
