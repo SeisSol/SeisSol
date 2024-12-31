@@ -5,27 +5,22 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
-# @author Sebastian Wolf (wolf.sebastian AT tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
+# @author Sebastian Wolf (wolf.sebastian AT tum.de)
 #
 
-from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
-
 from kernels.equations.elastic import ElasticADERDG as ADERDGBase
+from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
 
 class AnisotropicADERDG(ADERDGBase):
-    def __init__(
-        self, order, multipleSimulations, matricesDir, memLayout, **kwargs
-    ):
+    def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
         super().__init__(order, multipleSimulations, matricesDir, memLayout)
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(
-                "{}/star_anisotropic.xml".format(matricesDir), clones
-            )
+            parseXMLMatrixFile("{}/star_anisotropic.xml".format(matricesDir), clones)
         )
         memoryLayoutFromFile(memLayout, self.db, clones)
 

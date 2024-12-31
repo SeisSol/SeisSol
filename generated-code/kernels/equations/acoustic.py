@@ -5,34 +5,31 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
 # @author Jinwen Pan (jinwen.pan AT tum.de)
 #
 
 import numpy as np
-from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
+from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
 from ..aderdg import LinearADERDG
 
 
 class AcousticADERDG(LinearADERDG):
-    def __init__(
-        self, order, multipleSimulations, matricesDir, memLayout, **kwargs
-    ):
+    def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
         super().__init__(order, multipleSimulations, matricesDir)
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(
-                "{}/star_acoustic.xml".format(matricesDir), clones
-            )
+            parseXMLMatrixFile("{}/star_acoustic.xml".format(matricesDir), clones)
         )
 
         memoryLayoutFromFile(memLayout, self.db, clones)
         self.kwargs = kwargs
 
-    # The 4 quantities are pressure and three velocity components in acoustic materials.
+    # The 4 quantities are pressure and three velocity components
+    # in acoustic materials.
     def numberOfQuantities(self):
         return 4
 

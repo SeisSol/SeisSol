@@ -6,7 +6,7 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
 #
 
 

@@ -6,12 +6,12 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
 #
 
-from yateto import Tensor, simpleParameterSpace
-from kernels.multsim import OptionalDimTensor
 from kernels.common import generate_kernel_name_prefix
+from kernels.multsim import OptionalDimTensor
+from yateto import Tensor, simpleParameterSpace
 
 
 def addKernels(generator, aderdg, include_tensors, targets):
@@ -114,9 +114,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
     addVelocity = (
         lambda f: faceDisplacement["kp"]
         <= faceDisplacement["kp"]
-        + aderdg.db.V3mTo2nFace[f]["kl"]
-        * aderdg.I["lq"]
-        * aderdg.selectVelocity["qp"]
+        + aderdg.db.V3mTo2nFace[f]["kl"] * aderdg.I["lq"] * aderdg.selectVelocity["qp"]
     )
     generator.addFamily("addVelocity", simpleParameterSpace(4), addVelocity)
 

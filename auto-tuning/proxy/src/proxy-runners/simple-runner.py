@@ -2,9 +2,10 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+import argparse
 import os
 import sys
-import argparse
+
 import seissol_proxy_bindings as pb
 
 

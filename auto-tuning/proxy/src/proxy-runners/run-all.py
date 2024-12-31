@@ -2,15 +2,16 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-import sys
 import argparse
-import seissol_proxy_bindings as pb
-from progress.bar import Bar
-import pandas as pd
+import os
+import sys
+import time
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import time
-import os
+import pandas as pd
+import seissol_proxy_bindings as pb
+from progress.bar import Bar
 
 
 def main():
@@ -53,9 +54,7 @@ def main():
     config.timesteps = args.timesteps
     config.verbose = False
 
-    df = pd.DataFrame(
-        columns=["kernel type", "time", "HW GFLOPS", "NZ GFLOPS"]
-    )
+    df = pd.DataFrame(columns=["kernel type", "time", "HW GFLOPS", "NZ GFLOPS"])
     kernels = pb.Aux.get_allowed_kernels()
     with Bar("proxy...    ", max=len(kernels)) as bar:
         for index, kernel in enumerate(kernels):
@@ -98,9 +97,7 @@ def main():
         )
 
         df.plot(kind="bar", x="kernel type", y="time", rot=45)
-        plt.savefig(
-            f"{output_dir}/proxy_time_{now}.png", dpi=300, bbox_inches="tight"
-        )
+        plt.savefig(f"{output_dir}/proxy_time_{now}.png", dpi=300, bbox_inches="tight")
     elif args.output_type == "csv":
         with open(f"{output_dir}/proxy_{now}.pd", "w") as file:
             file.write(df.to_csv())

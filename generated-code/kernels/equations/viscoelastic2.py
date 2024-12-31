@@ -5,21 +5,17 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
 #
 
 import numpy as np
-from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.input import (
-    parseXMLMatrixFile,
-    parseJSONMatrixFile,
-    memoryLayoutFromFile,
-)
-from yateto.ast.node import Add
-from yateto.memory import CSCMemoryLayout
-
 from kernels.aderdg import ADERDGBase
 from kernels.multsim import OptionalDimTensor
+from yateto import Scalar, Tensor, simpleParameterSpace
+from yateto.ast.node import Add
+from yateto.input import (memoryLayoutFromFile, parseJSONMatrixFile,
+                          parseXMLMatrixFile)
+from yateto.memory import CSCMemoryLayout
 
 
 class Viscoelastic2ADERDG(ADERDGBase):
@@ -99,9 +95,9 @@ class Viscoelastic2ADERDG(ADERDGBase):
         selectElaSpp = np.zeros(
             (self.numberOfExtendedQuantities(), self.numberOfQuantities())
         )
-        selectElaSpp[
-            0: self.numberOfQuantities(), 0: self.numberOfQuantities()
-        ] = np.eye(self.numberOfQuantities())
+        selectElaSpp[0 : self.numberOfQuantities(), 0 : self.numberOfQuantities()] = (
+            np.eye(self.numberOfQuantities())
+        )
         self.selectEla = Tensor(
             "selectEla",
             (self.numberOfExtendedQuantities(), self.numberOfQuantities()),
@@ -116,8 +112,8 @@ class Viscoelastic2ADERDG(ADERDGBase):
             )
         )
         selectAneSpp[
-            self.numberOfQuantities(): self.numberOfExtendedQuantities(),
-            0: self.numberOfAnelasticQuantities(),
+            self.numberOfQuantities() : self.numberOfExtendedQuantities(),
+            0 : self.numberOfAnelasticQuantities(),
         ] = np.eye(self.numberOfAnelasticQuantities())
         self.selectAne = Tensor(
             "selectAne",
@@ -176,7 +172,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
             (self.numberOfFullQuantities(), self.numberOfQuantities())
         )
         selectElaFullSpp[
-            0: self.numberOfQuantities(), 0: self.numberOfQuantities()
+            0 : self.numberOfQuantities(), 0 : self.numberOfQuantities()
         ] = np.eye(self.numberOfQuantities())
         selectElaFull = Tensor(
             "selectElaFull",
@@ -193,10 +189,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
             )
         )
         for mech in range(self.numberOfMechanisms):
-            q1 = (
-                self.numberOfQuantities()
-                + mech * self.numberOfAnelasticQuantities()
-            )
+            q1 = self.numberOfQuantities() + mech * self.numberOfAnelasticQuantities()
             q2 = q1 + self.numberOfAnelasticQuantities()
             selectAneFullSpp[q1:q2, :, mech] = np.eye(
                 self.numberOfAnelasticQuantities()
@@ -238,15 +231,11 @@ class Viscoelastic2ADERDG(ADERDGBase):
 
         projectIniCondEla = (
             self.Q["kp"]
-            <= self.db.projectQP[self.t("kl")]
-            * iniCond["lq"]
-            * selectElaFull["qp"]
+            <= self.db.projectQP[self.t("kl")] * iniCond["lq"] * selectElaFull["qp"]
         )
         projectIniCondAne = (
             self.Qane["kpm"]
-            <= self.db.projectQP[self.t("kl")]
-            * iniCond["lq"]
-            * selectAneFull["qpm"]
+            <= self.db.projectQP[self.t("kl")] * iniCond["lq"] * selectAneFull["qpm"]
         )
         generator.add("projectIniCond", [projectIniCondEla, projectIniCondAne])
         generator.add(
@@ -258,9 +247,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
         volumeSum = Add()
         for i in range(3):
             volumeSum += (
-                self.db.kDivM[i][self.t("kl")]
-                * self.I["lq"]
-                * self.db.star[i]["qp"]
+                self.db.kDivM[i][self.t("kl")] * self.I["lq"] * self.db.star[i]["qp"]
             )
         volumeExt = self.Qext["kp"] <= volumeSum
         generator.add("volumeExt", volumeExt)
@@ -321,8 +308,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 self.Qane["kpm"]
                 <= self.Qane["kpm"]
                 + self.w["m"] * self.Qext["kq"] * self.selectAne["qp"],
-                self.Q["kp"]
-                <= self.Q["kp"] + self.Qext["kq"] * self.selectEla["qp"],
+                self.Q["kp"] <= self.Q["kp"] + self.Qext["kq"] * self.selectEla["qp"],
             ],
         )
 
@@ -370,9 +356,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
         for d in range(0, self.order):
             derivativeTaylorExpansionEla += powers[d] * dQ[d]["kp"]
             # derivativeTaylorExpansionAne += powers[d] * dQane[d]['kpm']
-        derivativeTaylorExpansionElaExpr = (
-            self.I["kp"] <= derivativeTaylorExpansionEla
-        )
+        derivativeTaylorExpansionElaExpr = self.I["kp"] <= derivativeTaylorExpansionEla
         # derivativeTaylorExpansionAneExpr = self.Iane['kpm'] <= derivativeTaylorExpansionAne
 
         def derivative(kthDer):
@@ -385,9 +369,13 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 )
             return derivativeSum
 
-        # WARNING: the following kernel may produce incorrect results, if not executed in the order as specified here
-        # the reason for that is that dQext, dQane (except dQane(0)) and potentially dQ (except dQ(0)) are allocated in temporary arrays
-        # which are smaller than the whole tensor families (even indices share the same buffer, and odd indices share the same buffer)
+        # WARNING: the following kernel may produce incorrect results,
+        # if not executed in the order as specified here
+        # the reason for that is that dQext, dQane (except dQane(0))
+        # and potentially dQ (except dQ(0)) are allocated in temporary arrays
+        # which are smaller than the whole tensor families
+        # (even indices share the same buffer,
+        # and odd indices share the same buffer)
         derivativeExpr = [
             self.I["kp"] <= powers[0] * dQ[0]["kp"],
             self.Iane["kpm"] <= powers[0] * dQane[0]["kpm"],
@@ -402,28 +390,25 @@ class Viscoelastic2ADERDG(ADERDGBase):
                 <= self.w["m"] * dQext[d]["kq"] * self.selectAne["qp"]
                 + dQane[d - 1]["kpl"] * self.W["lm"],
                 self.I["kp"] <= self.I["kp"] + powers[d] * dQ[d]["kp"],
-                self.Iane["kpm"]
-                <= self.Iane["kpm"] + powers[d] * dQane[d]["kpm"],
+                self.Iane["kpm"] <= self.Iane["kpm"] + powers[d] * dQane[d]["kpm"],
             ]
-        # TODO(David): we'll need to add intermediate results to Yateto, then the temporary storage needed can be reduced.
-        # for now, we'll interleave the Taylor expansion with the derivative computation
+        # TODO(David): we'll need to add intermediate results to Yateto,
+        # then the temporary storage needed can be reduced.
+        # for now, we'll interleave the Taylor
+        # expansion with the derivative computation
         # derivativeExpr += [
         #   derivativeTaylorExpansionElaExpr,
         #   derivativeTaylorExpansionAneExpr
         # ]
 
         generator.add("derivative", derivativeExpr)
-        generator.add(
-            "derivativeTaylorExpansionEla", derivativeTaylorExpansionElaExpr
-        )
+        generator.add("derivativeTaylorExpansionEla", derivativeTaylorExpansionElaExpr)
 
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)
         include_tensors.add(self.db.nodes2D)
         # Nodal flux kernel uses this matrix but is not supported by visco2
-        include_tensors.update(
-            [self.db.project2nFaceTo3m[i] for i in range(4)]
-        )
+        include_tensors.update([self.db.project2nFaceTo3m[i] for i in range(4)])
 
 
 EQUATION_CLASS = Viscoelastic2ADERDG

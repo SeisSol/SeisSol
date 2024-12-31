@@ -6,14 +6,14 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
 #
 
 import numpy as np
+from kernels.common import generate_kernel_name_prefix
+from kernels.multsim import OptionalDimTensor
 from yateto import Tensor
 from yateto.input import parseXMLMatrixFile
-from kernels.multsim import OptionalDimTensor
-from kernels.common import generate_kernel_name_prefix
 
 
 def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
@@ -151,9 +151,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     generator.add(
         "plComputeSecondInvariant",
         secondInvariant["k"]
-        <= QStressNodal["kq"]
-        * QStressNodal["kq"]
-        * weightSecondInvariant["q"],
+        <= QStressNodal["kq"] * QStressNodal["kq"] * weightSecondInvariant["q"],
     )
     generator.add(
         "plAdjustStresses",

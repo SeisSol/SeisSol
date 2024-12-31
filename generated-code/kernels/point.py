@@ -6,14 +6,14 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
-# @author Sebastian Wolf (wolf.sebastian AT tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
+# @author Sebastian Wolf (wolf.sebastian AT tum.de)
 #
 
-import numpy as np
 import kernels.equations.acoustic as acoustic
-from yateto import Tensor, Scalar
+import numpy as np
 from kernels.multsim import OptionalDimTensor
+from yateto import Scalar, Tensor
 
 
 def addKernels(generator, aderdg):
@@ -25,16 +25,12 @@ def addKernels(generator, aderdg):
     mSlip = Tensor("mSlip", (3,))
     mNormal = Tensor("mNormal", (3,))
     mArea = Scalar("mArea")
-    basisFunctionsAtPoint = Tensor(
-        "basisFunctionsAtPoint", (numberOf3DBasisFunctions,)
-    )
+    basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (numberOf3DBasisFunctions,))
     basisFunctionDerivativesAtPoint = Tensor(
         "basisFunctionDerivativesAtPoint", (numberOf3DBasisFunctions, 3)
     )
     timeBasisFunctionsAtPoint = Tensor("timeBasisFunctionsAtPoint", (order,))
-    mInvJInvPhisAtSources = Tensor(
-        "mInvJInvPhisAtSources", (numberOf3DBasisFunctions,)
-    )
+    mInvJInvPhisAtSources = Tensor("mInvJInvPhisAtSources", (numberOf3DBasisFunctions,))
     JInv = Scalar("JInv")
 
     generator.add(
@@ -43,7 +39,8 @@ def addKernels(generator, aderdg):
         <= JInv * aderdg.db.M3inv["kl"] * basisFunctionsAtPoint["l"],
     )
 
-    # extract the moment tensors entries in SeisSol ordering (xx, yy, zz, xy, yz, xz)
+    # extract the moment tensors entries in SeisSol ordering
+    # i.e.: (xx, yy, zz, xy, yz, xz)
     if not isinstance(aderdg, acoustic.AcousticADERDG):
         assert numberOfQuantities >= 6
         momentToNRF_spp = np.zeros((numberOfQuantities, 3, 3))
@@ -56,9 +53,7 @@ def addKernels(generator, aderdg):
     else:
         momentToNRF_spp = np.zeros((numberOfQuantities, 3, 3))
         momentToNRF_spp[0, 0, 0] = 1
-    momentToNRF = Tensor(
-        "momentToNRF", (numberOfQuantities, 3, 3), spp=momentToNRF_spp
-    )
+    momentToNRF = Tensor("momentToNRF", (numberOfQuantities, 3, 3), spp=momentToNRF_spp)
 
     momentNRFKernel = (
         momentToNRF["tpq"]
@@ -72,9 +67,7 @@ def addKernels(generator, aderdg):
         sourceNRF = (
             aderdg.Q["kt"]
             <= aderdg.Q["kt"]
-            + mInvJInvPhisAtSources["k"]
-            * momentNRFKernel
-            * aderdg.oneSimToMultSim["s"]
+            + mInvJInvPhisAtSources["k"] * momentNRFKernel * aderdg.oneSimToMultSim["s"]
         )
     else:
         sourceNRF = (
@@ -110,9 +103,7 @@ def addKernels(generator, aderdg):
         aderdg.Q.optPos(),
         (numberOfQuantities,),
     )
-    evaluateDOFSAtPoint = (
-        QAtPoint["p"] <= aderdg.Q["kp"] * basisFunctionsAtPoint["k"]
-    )
+    evaluateDOFSAtPoint = QAtPoint["p"] <= aderdg.Q["kp"] * basisFunctionsAtPoint["k"]
     generator.add("evaluateDOFSAtPoint", evaluateDOFSAtPoint)
     QDerivativeAtPoint = OptionalDimTensor(
         "QDerivativeAtPoint",
@@ -125,9 +116,7 @@ def addKernels(generator, aderdg):
         QDerivativeAtPoint["pd"]
         <= aderdg.Q["kp"] * basisFunctionDerivativesAtPoint["kd"]
     )
-    generator.add(
-        "evaluateDerivativeDOFSAtPoint", evaluateDerivativeDOFSAtPoint
-    )
+    generator.add("evaluateDerivativeDOFSAtPoint", evaluateDerivativeDOFSAtPoint)
 
     stpShape = (numberOf3DBasisFunctions, numberOfQuantities, order)
     spaceTimePredictor = OptionalDimTensor(
@@ -159,6 +148,4 @@ def addKernels(generator, aderdg):
         * basisFunctionDerivativesAtPoint["kd"]
         * timeBasisFunctionsAtPoint["t"]
     )
-    generator.add(
-        "evaluateDerivativeDOFSAtPointSTP", evaluateDerivativeDOFSAtPointSTP
-    )
+    generator.add("evaluateDerivativeDOFSAtPointSTP", evaluateDerivativeDOFSAtPointSTP)

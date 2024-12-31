@@ -6,12 +6,12 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
 #
 
-from yateto.type import Tensor
 from yateto.ast.node import IndexedTensor
 from yateto.memory import DenseMemoryLayout
+from yateto.type import Tensor
 
 
 class OptionalDimTensor(Tensor):
@@ -38,9 +38,7 @@ class OptionalDimTensor(Tensor):
 
     def insertOptDim(self, sliceable, item):
         if self.hasOptDim():
-            return (
-                sliceable[0:self._optPos] + item + sliceable[self._optPos:]
-            )
+            return sliceable[0 : self._optPos] + item + sliceable[self._optPos :]
         return sliceable
 
     def __getitem__(self, indexNames):

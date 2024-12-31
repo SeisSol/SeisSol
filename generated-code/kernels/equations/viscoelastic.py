@@ -6,14 +6,13 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
 #
 
 import numpy as np
-from yateto import Tensor
-from yateto.input import parseXMLMatrixFile, memoryLayoutFromFile
-
 from kernels.aderdg import LinearADERDG
+from yateto import Tensor
+from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
 
 class ViscoelasticADERDG(LinearADERDG):
@@ -46,14 +45,15 @@ class ViscoelasticADERDG(LinearADERDG):
             (self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool
         )
         star_spp_new[0:star_rows, 0:star_cols] = star_spp
-        """ The last 6 columns of star_spp contain the prototype sparsity pattern for
-        a mechanism. Therefore, the spp is repeated for every mechanism. """
+        """ The last 6 columns of star_spp contain the prototype
+        sparsity pattern for a mechanism. Therefore, the spp is repeated
+        for every mechanism. """
         for mech in range(1, numberOfMechanisms):
             offset0 = self.numberOfElasticQuantities
             offsetm = self.numberOfElasticQuantities + mech * aniso_cols
-            star_spp_new[0:star_rows, offsetm:(offsetm + aniso_cols)] = (
-                star_spp[0:star_rows, offset0:(offset0 + aniso_cols)]
-            )
+            star_spp_new[0:star_rows, offsetm : (offsetm + aniso_cols)] = star_spp[
+                0:star_rows, offset0 : (offset0 + aniso_cols)
+            ]
         for dim in range(3):
             self.db.star[dim] = Tensor(
                 self.db.star[dim].name(), star_spp_new.shape, spp=star_spp_new
@@ -63,9 +63,9 @@ class ViscoelasticADERDG(LinearADERDG):
             (self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool
         )
         ET_spp = self.db["ET"].spp().as_ndarray()
-        """ ET is a prototype sparsity pattern for a mechanism. Therefore, repeated for every
-        mechanism. See Kaeser and Dumbser 2006, III. Viscoelastic attenuation.
-    """
+        """ ET is a prototype sparsity pattern for a mechanism.
+        Therefore, repeated for every mechanism. See Kaeser
+        and Dumbser 2006, III. Viscoelastic attenuation."""
         for mech in range(numberOfMechanisms):
             offset = self.numberOfElasticQuantities + mech * aniso_cols
             r = slice(offset, offset + aniso_cols)
@@ -93,7 +93,7 @@ class ViscoelasticADERDG(LinearADERDG):
         spp = np.zeros(
             (self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool
         )
-        spp[0:self.numberOfElasticQuantities, :] = True
+        spp[0 : self.numberOfElasticQuantities, :] = True
         return spp
 
     def flux_solver_spp(self):
@@ -107,7 +107,7 @@ class ViscoelasticADERDG(LinearADERDG):
         spp[6:9, 6:9] = 1
         for mechs in range(self.numberOfMechanisms):
             offset = 9 + mechs * 6
-            spp[offset:(offset + 6), offset:(offset + 6)] = 1
+            spp[offset : (offset + 6), offset : (offset + 6)] = 1
         return spp
 
     def transformation_inv_spp(self):

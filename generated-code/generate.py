@@ -8,31 +8,28 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
-# @author Sebastian Wolf (wolf.sebastian AT tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
+# @author Sebastian Wolf (wolf.sebastian AT tum.de)
 #
 
 import argparse
 import importlib.util
-import sys
 import os
-
-from yateto import useArchitectureIdentifiedBy, Generator, NamespacedGenerator
-from yateto import gemm_configuration
-from yateto.gemm_configuration import GeneratorCollection, Eigen
-from yateto.ast.cost import (
-    BoundingBoxCostEstimator,
-    FusedGemmsBoundingBoxCostEstimator,
-)
+import sys
 
 import kernels.dynamic_rupture
-import kernels.plasticity
-import kernels.surface_displacement
-import kernels.point
-import kernels.nodalbc
-import kernels.memlayout
-import kernels.vtkproject
 import kernels.general
+import kernels.memlayout
+import kernels.nodalbc
+import kernels.plasticity
+import kernels.point
+import kernels.surface_displacement
+import kernels.vtkproject
+from yateto import (Generator, NamespacedGenerator, gemm_configuration,
+                    useArchitectureIdentifiedBy)
+from yateto.ast.cost import (BoundingBoxCostEstimator,
+                             FusedGemmsBoundingBoxCostEstimator)
+from yateto.gemm_configuration import Eigen, GeneratorCollection
 
 
 def main():
@@ -51,9 +48,7 @@ def main():
     cmdLineParser.add_argument("--PlasticityMethod")
     cmdLineParser.add_argument("--gemm_tools")
     cmdLineParser.add_argument("--drQuadRule")
-    cmdLineParser.add_argument(
-        "--enable_premultiply_flux", action="store_true"
-    )
+    cmdLineParser.add_argument("--enable_premultiply_flux", action="store_true")
     cmdLineParser.add_argument(
         "--disable_premultiply_flux",
         dest="enable_premultiply_flux",
@@ -66,11 +61,7 @@ def main():
 
     # derive the compute platform
     gpu_platforms = ["cuda", "hip", "hipsycl", "acpp", "oneapi"]
-    targets = (
-        ["gpu", "cpu"]
-        if cmdLineArgs.device_backend in gpu_platforms
-        else ["cpu"]
-    )
+    targets = ["gpu", "cpu"] if cmdLineArgs.device_backend in gpu_platforms else ["cpu"]
 
     if cmdLineArgs.device_backend == "none":
         arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch)
@@ -118,10 +109,8 @@ def main():
             chainforge_spec = importlib.util.find_spec("chainforge")
             chainforge_spec.loader.load_module()
             cost_estimators = FusedGemmsBoundingBoxCostEstimator
-        except:
-            print(
-                "WARNING: ChainForge was not found. Falling back to GemmForge."
-            )
+        except ModuleNotFoundError:
+            print("WARNING: ChainForge was not found. Falling back to GemmForge.")
 
     subfolders = []
 
@@ -130,10 +119,8 @@ def main():
     )
     try:
         equations = equationsSpec.loader.load_module()
-    except:
-        raise RuntimeError(
-            "Could not find kernels for " + cmdLineArgs.equations
-        )
+    except ModuleNotFoundError:
+        raise RuntimeError("Could not find kernels for " + cmdLineArgs.equations)
 
     equation_class = equations.EQUATION_CLASS
 
@@ -169,12 +156,8 @@ def main():
         adg.addTime(generator, targets)
         adg.add_include_tensors(include_tensors)
 
-        kernels.vtkproject.addKernels(
-            generator, adg, cmdLineArgs.matricesDir, targets
-        )
-        kernels.vtkproject.includeTensors(
-            cmdLineArgs.matricesDir, include_tensors
-        )
+        kernels.vtkproject.addKernels(generator, adg, cmdLineArgs.matricesDir, targets)
+        kernels.vtkproject.includeTensors(cmdLineArgs.matricesDir, include_tensors)
 
         # Common kernels
         include_tensors.update(
@@ -225,7 +208,8 @@ def main():
         )
 
     def generate_general(subfolders):
-        # we use always use double here, since these kernels are only used in the initialization
+        # we use always use double here,
+        # since these kernels are only used in the initialization
         arch = useArchitectureIdentifiedBy("d" + cmdLineArgs.host_arch[1:])
 
         outputDir = os.path.join(cmdLineArgs.outputDir, "general")
@@ -234,7 +218,8 @@ def main():
 
         subfolders += ["general"]
 
-        # for now, enforce Eigen as a code generator here... Until we have a shared subroutine cache
+        # for now, enforce Eigen as a code generator here...
+        # ...until we have a shared subroutine cache
         generator = Generator(arch)
         kernels.general.addStiffnessTensor(generator)
         generator.generate(
@@ -242,9 +227,7 @@ def main():
             namespace="seissol_general",
             gemm_cfg=GeneratorCollection([Eigen(arch)]),
             cost_estimator=cost_estimators,
-            include_tensors=kernels.general.includeMatrices(
-                cmdLineArgs.matricesDir
-            ),
+            include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir),
         )
 
     def forward_files(filename):

@@ -6,12 +6,13 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
 #
 
 import os
-import kernels.arch as arch
 import re
+
+import kernels.arch as arch
 
 
 class Candidate(object):
@@ -81,7 +82,8 @@ def guessMemoryLayout(env):
 
     if "gpu" in env["targets"]:
         print(
-            "INFO: Found gpu as a target. Memory layout will fall back to all dense"
+            "INFO: Found gpu as a target. "
+            + "Memory layout will fall back to all dense"
         )
         return os.path.join(path, "dense.xml")
 
@@ -94,14 +96,13 @@ def guessMemoryLayout(env):
     }
 
     candidates = findCandidates(search_path=path)
-    bestFit = max(
-        candidates.keys(), key=lambda key: candidates[key].score(values)
-    )
+    bestFit = max(candidates.keys(), key=lambda key: candidates[key].score(values))
     bestScore = candidates[bestFit].score(values)
 
     if bestScore == 0:
         print(
-            "WARNING: No suitable memory layout found. (Will fall back to all dense.)"
+            "WARNING: No suitable memory layout found."
+            + "(Will fall back to all dense.)"
         )
         bestFit = "dense.xml"
     print("Using memory layout {}".format(bestFit))

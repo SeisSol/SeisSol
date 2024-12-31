@@ -6,23 +6,21 @@
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
 #
 
-import numpy as np
 from abc import ABC, abstractmethod
-from kernels.common import generate_kernel_name_prefix
 
+import numpy as np
+from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Tensor, Scalar, simpleParameterSpace
+from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
-from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
-from yateto.util import (
-    tensor_from_constant_expression,
-    tensor_collection_from_constant_expression,
-)
+from yateto.input import parseJSONMatrixFile, parseXMLMatrixFile
 from yateto.memory import CSCMemoryLayout
+from yateto.util import (tensor_collection_from_constant_expression,
+                         tensor_from_constant_expression)
 
 
 class ADERDGBase(ABC):
@@ -37,9 +35,7 @@ class ADERDGBase(ABC):
         self.t = (lambda x: x[::-1]) if transpose else (lambda x: x)
 
         self.db = parseXMLMatrixFile(
-            "{}/matrices_{}.xml".format(
-                matricesDir, self.numberOf3DBasisFunctions()
-            ),
+            "{}/matrices_{}.xml".format(matricesDir, self.numberOf3DBasisFunctions()),
             transpose=self.transpose,
             alignStride=self.alignStride,
         )
@@ -53,9 +49,7 @@ class ADERDGBase(ABC):
             )
         )
         self.db.update(
-            parseJSONMatrixFile(
-                "{}/sampling_directions.json".format(matricesDir)
-            )
+            parseJSONMatrixFile("{}/sampling_directions.json".format(matricesDir))
         )
         self.db.update(
             parseJSONMatrixFile("{}/mass_{}.json".format(matricesDir, order))
@@ -70,23 +64,15 @@ class ADERDGBase(ABC):
         )
 
         Aplusminus_spp = self.flux_solver_spp()
-        self.AplusT = Tensor(
-            "AplusT", Aplusminus_spp.shape, spp=Aplusminus_spp
-        )
-        self.AminusT = Tensor(
-            "AminusT", Aplusminus_spp.shape, spp=Aplusminus_spp
-        )
+        self.AplusT = Tensor("AplusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
+        self.AminusT = Tensor("AminusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
         trans_spp = self.transformation_spp()
         self.T = Tensor("T", trans_spp.shape, spp=trans_spp)
         trans_inv_spp = self.transformation_inv_spp()
         self.Tinv = Tensor("Tinv", trans_inv_spp.shape, spp=trans_inv_spp)
         godunov_spp = self.godunov_spp()
-        self.QgodLocal = Tensor(
-            "QgodLocal", godunov_spp.shape, spp=godunov_spp
-        )
-        self.QgodNeighbor = Tensor(
-            "QgodNeighbor", godunov_spp.shape, spp=godunov_spp
-        )
+        self.QgodLocal = Tensor("QgodLocal", godunov_spp.shape, spp=godunov_spp)
+        self.QgodNeighbor = Tensor("QgodNeighbor", godunov_spp.shape, spp=godunov_spp)
 
         self.oneSimToMultSim = Tensor(
             "oneSimToMultSim",
@@ -112,7 +98,8 @@ class ADERDGBase(ABC):
             )
         )
 
-        # Note: MV2nTo2m is Vandermonde matrix from nodal to modal representation WITHOUT mass matrix factor
+        # Note: MV2nTo2m is Vandermonde matrix from nodal
+        # to modal representation WITHOUT mass matrix factor
         self.V2nTo2JacobiQuad = tensor_from_constant_expression(
             "V2nTo2JacobiQuad",
             self.db.V2mTo2JacobiQuad["ik"] * self.db.MV2nTo2m["kj"],
@@ -130,8 +117,7 @@ class ADERDGBase(ABC):
 
         project2nFaceTo3m = tensor_collection_from_constant_expression(
             base_name="project2nFaceTo3m",
-            expressions=lambda i: self.db.rDivM[i]["jk"]
-            * self.db.V2nTo2m["kl"],
+            expressions=lambda i: self.db.rDivM[i]["jk"] * self.db.V2nTo2m["kl"],
             group_indices=simpleParameterSpace(4),
             target_indices="jl",
         )
@@ -236,10 +222,7 @@ class ADERDGBase(ABC):
             self.AplusT["ij"]
             <= fluxScale
             * self.Tinv["ki"]
-            * (
-                self.QgodLocal["kq"] * self.starMatrix(0)["ql"]
-                + self.QcorrLocal["kl"]
-            )
+            * (self.QgodLocal["kq"] * self.starMatrix(0)["ql"] + self.QcorrLocal["kl"])
             * self.T["jl"]
         )
         generator.add("computeFluxSolverLocal", computeFluxSolverLocal)
@@ -264,9 +247,7 @@ class ADERDGBase(ABC):
             "multSimToFirstSim", (self.Q.optSize(),), spp={(0,): "1.0"}
         )
         if self.Q.hasOptDim():
-            copyQToQFortran = (
-                QFortran["kp"] <= self.Q["kp"] * multSimToFirstSim["s"]
-            )
+            copyQToQFortran = QFortran["kp"] <= self.Q["kp"] * multSimToFirstSim["s"]
         else:
             copyQToQFortran = QFortran["kp"] <= self.Q["kp"]
 
@@ -399,8 +380,7 @@ class LinearADERDG(ADERDGBase):
 
         if "gpu" in targets:
             plusFluxMatrixAccessor = (
-                lambda i: self.db.rDivM[i][self.t("km")]
-                * self.db.fMrT[i][self.t("ml")]
+                lambda i: self.db.rDivM[i][self.t("km")] * self.db.fMrT[i][self.t("ml")]
             )
             if self.kwargs["enable_premultiply_flux"]:
                 contractionResult = tensor_collection_from_constant_expression(
@@ -410,9 +390,7 @@ class LinearADERDG(ADERDGBase):
                     target_indices="kl",
                 )
                 self.db.update(contractionResult)
-                plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i][
-                    "kl"
-                ]
+                plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]["kl"]
 
             localFlux = (
                 lambda i: self.Q["kp"]
@@ -459,16 +437,14 @@ class LinearADERDG(ADERDGBase):
                     target_indices="kl",
                 )
                 self.db.update(contractionResult)
-                minusFluxMatrixAccessor = (
-                    lambda h, j, i: self.db.minusFluxMatrices[h, j, i]["kl"]
-                )
+                minusFluxMatrixAccessor = lambda h, j, i: self.db.minusFluxMatrices[
+                    h, j, i
+                ]["kl"]
 
             neighborFlux = (
                 lambda h, j, i: self.Q["kp"]
                 <= self.Q["kp"]
-                + minusFluxMatrixAccessor(h, j, i)
-                * self.I["lq"]
-                * self.AminusT["qp"]
+                + minusFluxMatrixAccessor(h, j, i) * self.I["lq"] * self.AminusT["qp"]
             )
             generator.addFamily(
                 "gpu_neighboringFlux",
@@ -507,9 +483,7 @@ class LinearADERDG(ADERDGBase):
                 power = powers[i]
                 derivativeSum = Add()
                 if self.sourceMatrix():
-                    derivativeSum += (
-                        derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
-                    )
+                    derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
                 for j in range(3):
                     derivativeSum += (
                         self.db.kDivMT[j][self.t("kl")]
@@ -517,12 +491,8 @@ class LinearADERDG(ADERDGBase):
                         * self.starMatrix(j)["qp"]
                     )
 
-                derivativeSum = DeduceIndices(self.Q["kp"].indices).visit(
-                    derivativeSum
-                )
-                derivativeSum = EquivalentSparsityPattern().visit(
-                    derivativeSum
-                )
+                derivativeSum = DeduceIndices(self.Q["kp"].indices).visit(derivativeSum)
+                derivativeSum = EquivalentSparsityPattern().visit(derivativeSum)
                 dQ = OptionalDimTensor(
                     "dQ({})".format(i),
                     self.Q.optName(),
@@ -534,7 +504,8 @@ class LinearADERDG(ADERDGBase):
                 )
                 self.dQs.append(dQ)
 
-                # for now, we interleave derivative and derivativeTaylorExpansion kernels.
+                # for now, we interleave derivative
+                # and derivativeTaylorExpansion kernels.
                 derivativeExpr += [
                     dQ["kp"] <= derivativeSum,
                     self.I["kp"] <= self.I["kp"] + power * dQ["kp"],
@@ -543,13 +514,9 @@ class LinearADERDG(ADERDGBase):
 
                 derivatives.append(dQ)
 
-            derivativeTaylorExpansionExpr = (
-                self.I["kp"] <= derivativeTaylorExpansion
-            )
+            derivativeTaylorExpansionExpr = self.I["kp"] <= derivativeTaylorExpansion
             # derivativeExpr += [derivativeTaylorExpansionExpr]
-            generator.add(
-                f"{name_prefix}derivative", derivativeExpr, target=target
-            )
+            generator.add(f"{name_prefix}derivative", derivativeExpr, target=target)
             generator.add(
                 f"{name_prefix}derivativeTaylorExpansion",
                 derivativeTaylorExpansionExpr,

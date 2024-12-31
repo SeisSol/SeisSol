@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-from yateto.input import parseJSONMatrixFile
 from kernels.common import generate_kernel_name_prefix
 from yateto import Tensor, simpleParameterSpace
+from yateto.input import parseJSONMatrixFile
 
 
 def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
@@ -13,7 +13,8 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
 
         vtko = parseJSONMatrixFile(f"{matricesDir}/vtko{aderdg.order}.json")
 
-        # the following is due to a shortcut in Yateto where 1-column matrices are interpreted as rank-1 vectors
+        # the following is due to a shortcut in Yateto,
+        # where 1-column matrices are interpreted as rank-1 vectors
 
         maxOrder = 8
         rangeLimit = maxOrder + 1
@@ -26,8 +27,7 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
             for i in range(rangeLimit)
         ]
         xf = [
-            Tensor(f"xf({i})", (((i + 1) * (i + 2)) // 2,))
-            for i in range(rangeLimit)
+            Tensor(f"xf({i})", (((i + 1) * (i + 2)) // 2,)) for i in range(rangeLimit)
         ]
 
         generator.addFamily(
