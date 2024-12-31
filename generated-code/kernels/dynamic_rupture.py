@@ -9,7 +9,7 @@
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
 
-from common import generate_kernel_name_prefix
+from kernels.common import generate_kernel_name_prefix
 from yateto import Tensor, Scalar, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from kernels.multsim import OptionalDimTensor
