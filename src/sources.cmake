@@ -101,6 +101,7 @@ src/DynamicRupture/Output/OutputAux.cpp
 src/DynamicRupture/Output/OutputManager.cpp
 src/DynamicRupture/Output/ReceiverBasedOutput.cpp
 
+src/Equations/anisotropic/Model/Datastructures.cpp
 src/Equations/poroelastic/Model/Datastructures.cpp
 
 src/Geometry/MeshReader.cpp

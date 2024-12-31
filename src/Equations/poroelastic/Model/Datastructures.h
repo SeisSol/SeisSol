@@ -13,7 +13,7 @@ namespace seissol::model {
 class PoroelasticLocalData;
 class PoroelasticNeighborData;
 
-struct PoroElasticMaterial : ElasticMaterial {
+struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumQuantities = 13;
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;

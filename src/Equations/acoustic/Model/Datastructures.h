@@ -67,7 +67,7 @@ namespace seissol::model {
 class AcousticLocalData;
 class AcousticNeighborData;
 
-struct AcousticMaterial : Material {
+struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
@@ -88,9 +88,8 @@ struct AcousticMaterial : Material {
   [[nodiscard]] double getMuBar() const override { return 0.0; }
 
   AcousticMaterial() = default;
-  AcousticMaterial(const std::vector<double>& materialValues) : lambda(materialValues.at(1)) {
-    this->rho = materialValues.at(0);
-  }
+  AcousticMaterial(const std::vector<double>& materialValues)
+      : Material(materialValues), lambda(materialValues.at(1)) {}
 
   ~AcousticMaterial() override = default;
 

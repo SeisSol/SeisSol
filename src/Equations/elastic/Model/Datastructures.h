@@ -78,9 +78,7 @@ struct ElasticMaterial : Material {
 
   ElasticMaterial() = default;
   ElasticMaterial(const std::vector<double>& materialValues)
-      : lambda(materialValues.at(2)), mu(materialValues.at(1)) {
-    this->rho = materialValues.at(0);
-  }
+      : Material(materialValues), lambda(materialValues.at(2)), mu(materialValues.at(1)) {}
 
   ~ElasticMaterial() override = default;
 
