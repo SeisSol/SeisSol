@@ -64,6 +64,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
     const auto [faultVertices, faultElements, elementToFault] = getElementsAlongFault();
 
+    // TODO: refactor to check for face containment directly, (will remove half of the code in this
+    // file here)
     seissol::initializer::findMeshIds(eigenPoints.data(),
                                       faultVertices,
                                       faultElements,
@@ -85,15 +87,15 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         assert(faultIndicesIt != elementToFault.end());
         const auto& faultIndices = faultIndicesIt->second;
 
-        const auto firstFaultIdx = faultIndices[0];
+        const auto firstFaultIdx = faultIndices.at(0);
 
         // find the original element which contains a fault face
         // note: this allows to project a receiver to the plus side
         //       even if it was found in the negative one
-        const auto element = meshElements[faultInfos[firstFaultIdx].element];
+        const auto& element = meshElements[faultInfos[firstFaultIdx].element];
 
         const auto closest = findClosestFaultIndex(receiver.global, element, faultIndices);
-        const auto faultItem = faultInfos[closest];
+        const auto& faultItem = faultInfos.at(closest);
 
         receiver.globalTriangle = getGlobalTriangle(faultItem.side, element, meshVertices);
         projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
@@ -146,24 +148,28 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     // note: an element can have multiple fault faces
     std::unordered_map<size_t, std::vector<size_t>> elementToFault{};
 
+    const auto handleElementFace = [&](std::size_t id, std::size_t faultIdx) {
+      // element copy done on purpose because we are recording
+      // a new vertex array and thus we need to modify vertex indices
+      // inside of each element
+      auto element = meshElements.at(id);
+
+      for (size_t vertexIdx{0}; vertexIdx < NumVertices; ++vertexIdx) {
+        faultVertices.push_back(meshVertices[element.vertices[vertexIdx]]);
+        element.vertices[vertexIdx] = faultVertices.size() - 1;
+      }
+      faultElements.push_back(element);
+      elementToFault[element.localId].push_back(faultIdx);
+    };
+
     for (size_t faultIdx{0}; faultIdx < numFaultElements; ++faultIdx) {
       const auto& faultItem = fault[faultIdx];
 
-      if ((faultItem.element >= 0) && (faultItem.neighborElement >= 0)) {
-        // element copy done on purpose because we are recording
-        // a new vertex array and thus we need to modify vertex indices
-        // inside of each element
-        std::array<Element*, NumSides> elements{&meshElements[faultItem.element],
-                                                &meshElements[faultItem.neighborElement]};
-        for (int sideId = 0; sideId < NumSides; ++sideId) {
-          auto element = (*elements[sideId]);
-
-          for (size_t vertexIdx{0}; vertexIdx < NumVertices; ++vertexIdx) {
-            faultVertices.push_back(meshVertices[element.vertices[vertexIdx]]);
-            element.vertices[vertexIdx] = faultVertices.size() - 1;
-          }
-          faultElements.push_back(element);
-          elementToFault[element.localId].push_back(faultIdx);
+      if (faultItem.element >= 0) {
+        handleElementFace(faultItem.element, faultIdx);
+        // we only care about the negative side, if the positive side is also present locally
+        if (faultItem.neighborElement >= 0) {
+          handleElementFace(faultItem.neighborElement, faultIdx);
         }
       }
     }
@@ -225,17 +231,20 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
     if (localRank == 0) {
       bool allReceiversFound{true};
+      std::size_t missing = 0;
       for (size_t idx{0}; idx < size; ++idx) {
         const auto isFound = globalContainVector[idx];
         if (!isFound) {
-          logInfo(localRank) << "pickpoint fault output: "
-                             << "receiver (" << idx + 1 << ") is not inside "
-                             << "any element along the rupture surface";
+          logWarning(localRank) << "On-fault receiver " << idx
+                                << " is not inside any element along the rupture surface";
           allReceiversFound = false;
+          ++missing;
         }
       }
       if (allReceiversFound) {
-        logInfo(localRank) << "all point receivers found along the fault";
+        logInfo(localRank) << "All point receivers found along the fault";
+      } else {
+        logError() << missing << "on-fault receivers have not been found.";
       }
     }
   }

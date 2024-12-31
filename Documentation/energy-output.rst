@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _energy_output:
 
 Energy output
@@ -9,20 +14,20 @@ Introduction
 The energy output computes the energy of the simulation. It is divided into multiple parts:
 
 - Energy in the water layer (= acoustic medium, :math:`\Omega_a`)
-    - Gravitational energy 
+    - Gravitational energy
         :math:`\int_{\Omega_a} \frac{1}{2} \rho g \eta^2 \,\mathbf{dx}`, with :math:`\rho` the density, :math:`g` the gravitational acceleration and :math:`\eta` the sea-surface elevation.
-    - Acoustic energy 
+    - Acoustic energy
         :math:`\int_{\Omega_a} \frac{1}{2K} p^2 \,\mathbf{dx}`, with :math:`p` the acoustic pressure and :math:`K` the compressibility.
-    - Acoustic kinetic energy 
+    - Acoustic kinetic energy
         :math:`\int_{\Omega_a} \frac{1}{2} \rho v^2 \,\mathbf{dx}`, with :math:`\rho` the density and :math:`v` the velocity.
 - Energy in Earth :math:`\Omega_e`
-    - Elastic kinetic energy 
+    - Elastic kinetic energy
         :math:`\int_{\Omega_e} \frac{1}{2} \rho v^2 \,\mathbf{dx}`, with :math:`\rho` the density and :math:`v` the velocity.
-    - Elastic energy 
+    - Elastic energy
         :math:`\int_{\Omega_e} \frac{1}{2} \epsilon_{ij} \sigma_{kl} \,\mathbf{dx}`, with  :math:`\epsilon_{ij}` the strain tensor and :math:`\sigma_{ij}` the stress tensor. It reduces for isotropic materials to :math:`\int_{\Omega_e} \frac{1}{2\mu} (\sigma_{ij} \sigma_{ij} -\frac{\lambda}{3\lambda+2\mu} \sigma_{kk}^2)\,\mathbf{dx}`, with :math:`\lambda` and :math:`\mu` the Lame coefficients.
 - Earthquake source energy
     - Total frictional work done by the stress change
-        :math:`W_\mathrm{total} = -\int_{0}^{t_f} \int_{\Sigma} \Delta\mathbf{\sigma}(t) \cdot \Delta\mathbf{\dot{u}}(t) \,\mathbf{dx}dt`, with :math:`\Sigma` the fault surface, :math:`\Delta\mathbf{\sigma}(t) = \mathbf{\sigma}(t) - \mathbf{\sigma}(0)` the shear traction change, and :math:`\Delta\mathbf{\dot{u}}(t)` the fault slip rate, and :math:`t_f` the end time of the simulation (see eq. 3 in Ma and Archuleta, 2006). 
+        :math:`W_\mathrm{total} = -\int_{0}^{t_f} \int_{\Sigma} \Delta\mathbf{\sigma}(t) \cdot \Delta\mathbf{\dot{u}}(t) \,\mathbf{dx}dt`, with :math:`\Sigma` the fault surface, :math:`\Delta\mathbf{\sigma}(t) = \mathbf{\sigma}(t) - \mathbf{\sigma}(0)` the shear traction change, and :math:`\Delta\mathbf{\dot{u}}(t)` the fault slip rate, and :math:`t_f` the end time of the simulation (see eq. 3 in Ma and Archuleta, 2006).
     - Static frictional work done by the stress change
         :math:`W_\mathrm{static} = -\int_{\Sigma} \frac{1}{2} \mathbf{\Delta\sigma}(t_f) \cdot \mathbf{\Delta u}(t_f) \,\mathbf{dx}` (see eq. 4 in Ma and Archuleta, 2006).
     - Radiated energy can then be computed with:
@@ -32,7 +37,7 @@ The energy output computes the energy of the simulation. It is divided into mult
         :math:`\int_{\Sigma} \Delta u_\mathrm{acc}(t_f) \,\mathbf{dx}`, with :math:`\Delta u_\mathrm{acc}` the accumulated fault slip (scalar).
 - Seismic moment
         :math:`\int_{\Sigma} \mu \Delta u_\mathrm{acc}(t_f) \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient.
-- Plastic moment 
+- Plastic moment
     :math:`\int_{\Omega_e} \mu \eta  \,\mathbf{dx}`, with :math:`\mu` the second Lame coefficient and \eta a scalar quantity measuring the accumulated material damage.
 
 Currently, the output is only supported for the elastic wave equation.
@@ -48,7 +53,7 @@ Configuration
     EnergyTerminalOutput = 1
     EnergyTerminalPrecision = 6
     EnergyOutputInterval = 0.05
-    ComputeVolumeEnergiesEveryOutput = 4 ! Compute volume energies only once every ComputeVolumeEnergiesEveryOutput * EnergyOutputInterval 
+    ComputeVolumeEnergiesEveryOutput = 4 ! Compute volume energies only once every ComputeVolumeEnergiesEveryOutput * EnergyOutputInterval
     /
 
 Energy output
@@ -83,17 +88,17 @@ The code below suggests a way to process and plot variables of the energy output
 
 .. code-block:: python
 
-	import pandas as pd
-	import numpy as np
-	import matplotlib.pylab as plt
+    import pandas as pd
+    import numpy as np
+    import matplotlib.pylab as plt
 
-	df = pd.read_csv("prefix-energy.csv")
-	df = df.pivot_table(index="time", columns="variable", values="measurement")
-	df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], df.index[1])
-	df.plot(y="seismic_moment_rate", use_index=True)
+    df = pd.read_csv("prefix-energy.csv")
+    df = df.pivot_table(index="time", columns="variable", values="measurement")
+    df["seismic_moment_rate"] = np.gradient(df["seismic_moment"], df.index[1])
+    df.plot(y="seismic_moment_rate", use_index=True)
 
-	# if ComputeVolumeEnergiesEveryOutput > 1
-	volume_output = df.dropna()
-	volume_output.plot(y="elastic_energy", use_index=True)
+    # if ComputeVolumeEnergiesEveryOutput > 1
+    volume_output = df.dropna()
+    volume_output.plot(y="elastic_energy", use_index=True)
 
-	plt.show()
+    plt.show()

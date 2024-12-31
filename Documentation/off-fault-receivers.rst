@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _off_fault_receivers:
 
 Off fault receivers
@@ -61,7 +66,7 @@ Compiling place_receivers on SuperMUC
 Load the relevant :ref:`modules <compile_run_supermuc>`.
 
 .. code-block:: bash
-  
+
   git submodule update --init
   mkdir build && cd build
   cmake ..

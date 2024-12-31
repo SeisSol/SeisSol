@@ -23,6 +23,7 @@ jobs:
           - Debug
         equation:
           - elastic
+          - acoustic
           - poroelastic
           - viscoelastic2
           - anisotropic

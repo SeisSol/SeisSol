@@ -98,8 +98,10 @@ void seissol::sourceterm::transformMomentTensor(
     }
   }
 
+#ifndef USE_ACOUSTIC
   static_assert(seissol::model::MaterialT::NumQuantities >= 6,
                 "You cannot use PointSource with less than 6 quantities.");
+#endif
 
   std::fill(forceComponents.data(), forceComponents.data() + forceComponents.size(), 0);
   // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u,

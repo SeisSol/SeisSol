@@ -18,7 +18,7 @@ void ThermalPressurization::copyLtsTreeToLocal(
     const seissol::initializer::DynamicRupture* const dynRup,
     real fullUpdateTime) {
   const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization*>(dynRup);
   temperature = layerData.var(concreteLts->temperature);
   pressure = layerData.var(concreteLts->pressure);
   theta = layerData.var(concreteLts->theta);

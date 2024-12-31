@@ -56,7 +56,7 @@ import lxml.etree as ET
 import seissolxdmf
 import seissolxdmfwriter as sxw
 from scipy import signal
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 
 sys.path.append("%s/gmpe-smtk/" %(os.path.dirname(sys.argv[0])))
 try:
@@ -118,12 +118,12 @@ def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, pe
     #TU: this is the part I m adding
     #compute vel and disp from acceleration and
     #add to the spectral acceleration time series
-    velocity_x = time_step_x * cumtrapz(acceleration_x[0:-1], initial=0.)
-    displacement_x = time_step_x * cumtrapz(velocity_x, initial=0.)
+    velocity_x = time_step_x * cumulative_trapezoid(acceleration_x[0:-1], initial=0.)
+    displacement_x = time_step_x * cumulative_trapezoid(velocity_x, initial=0.)
     x_a = np.column_stack((acceleration_x[0:-1], velocity_x, displacement_x, x_a))
 
-    velocity_y = time_step_y * cumtrapz(acceleration_y[0:-1], initial=0.)
-    displacement_y = time_step_y * cumtrapz(velocity_y, initial=0.)
+    velocity_y = time_step_y * cumulative_trapezoid(acceleration_y[0:-1], initial=0.)
+    displacement_y = time_step_y * cumulative_trapezoid(velocity_y, initial=0.)
     y_a = np.column_stack((acceleration_y[0:-1], velocity_y, displacement_y, y_a))
 
     angles = np.arange(0., 90., 1.)

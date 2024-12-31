@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _fault_output:
 
 Fault output
@@ -11,7 +16,7 @@ There are two primary methods for visualizing on-fault rupture dynamics:
 1. Evaluation of rupture characteristics at specific on-fault locations via ASCII receiver files
 2. Visualization across the entire fault surface with files that can be opened with ParaView
 
-While threads or nodes can be allocated to write the ParaView output  (see :ref:`asynchronous-output`), it is typically not required. 
+While threads or nodes can be allocated to write the ParaView output  (see :ref:`asynchronous-output`), it is typically not required.
 
 DynamicRupture Namelist OutputPointType Configuration
 -----------------------------------------------------
@@ -62,7 +67,7 @@ The **refinement** variable determines how the output mesh is created:
 - refinement = 1 subdivides each triangle into 3 or 4 subtriangles, depending on the refinement_strategy. A higher refinement value will further subdivide each subtriangle.
 
 - refinement_strategy = 1 divides each triangle into 3 triangles, all sharing the triangle barycenter as a node.
-- refinement_strategy = 2 divides each triangle into 4 triangles. 
+- refinement_strategy = 2 divides each triangle into 4 triangles.
 
 OutputMask
 ~~~~~~~~~~~

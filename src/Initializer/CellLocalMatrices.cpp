@@ -176,21 +176,12 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
 
         real nLocalData[6*6];
         seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
-        if (material[cell].local.getMaterialType() == seissol::model::MaterialType::Anisotropic) {
-          seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(nLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)),
-                                                      seissol::model::getRotatedMaterialCoefficients(nLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].neighbor[side])),
+        seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(nLocalData, material[cell].local),
+                                                      seissol::model::getRotatedMaterialCoefficients(nLocalData, material[cell].neighbor[side]),
                                                       cellInformation[cell].faceTypes[side],
                                                       qGodLocal,
                                                       qGodNeighbor );
-          seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(nLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)), 0, matATtilde );
-        } else {
-          seissol::model::getTransposedGodunovState(  material[cell].local,
-                                                      material[cell].neighbor[side],     
-                                                      cellInformation[cell].faceTypes[side],
-                                                      qGodLocal,
-                                                      qGodNeighbor );
-          seissol::model::getTransposedCoefficientMatrix( material[cell].local, 0, matATtilde );
-        }
+        seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(nLocalData, material[cell].local), 0, matATtilde );
 
         // Calculate transposed T instead
         seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);

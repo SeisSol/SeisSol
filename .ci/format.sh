@@ -9,17 +9,22 @@
 format() {
     # don't use a directory with whitespace
     local allowlist_dir="
+        auto-tuning/proxy/src
         src/Common
         src/DynamicRupture
+        src/Equations
         src/Geometry
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
         src/Initializer/Parameters
+        src/Initializer/TimeStepping/LtsWeights
+        src/Initializer/Tree
         src/IO
         src/Kernels
         src/Memory
         src/Modules
         src/Monitoring
+        src/Model
         src/Numerical
         src/Parallel
         src/Physics
@@ -31,17 +36,6 @@ format() {
 
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
-        src/Equations/elastic/Model/Datastructures.h
-        src/Equations/elastic/Model/IntegrationData.h
-        src/Equations/viscoelastic/Model/IntegrationData.h
-        src/Equations/viscoelastic2/Model/Datastructures.h
-        src/Equations/viscoelastic2/Model/IntegrationData.h
-        src/Equations/anisotropic/Model/Datastructures.h
-        src/Equations/anisotropic/Model/IntegrationData.h
-        src/Equations/poroelastic/Model/Datastructures.h
-        src/Equations/poroelastic/Model/IntegrationData.h
-        src/Equations/Datastructures.h
-        src/Equations/Setup.h
         src/Initializer/BasicTypedefs.h
         src/Initializer/CellLocalInformation.h
         src/Initializer/DeviceGraph.h
@@ -55,8 +49,6 @@ format() {
         src/Initializer/PreProcessorMacros.h
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
-        src/Model/CommonDatastructures.h
-        src/Model/Plasticity.h
         src/SeisSol.h
         src/SeisSol.cpp
         src/Main.cpp
