@@ -26,12 +26,12 @@ WriterModule::WriterModule(const std::string& prefix,
     : rank(seissol::MPI::mpi.rank()), prefix(prefix), settings(settings), pinning(pinning) {}
 
 void WriterModule::setUp() {
-  logInfo(rank) << "Output Writer" << settings.name << ": setup.";
+  logInfo() << "Output Writer" << settings.name << ": setup.";
   setExecutor(executor);
   if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi)) {
     const auto freeCpus = pinning.getFreeCPUsMask();
-    logInfo(rank) << "Output Writer" << settings.name
-                  << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Output Writer" << settings.name
+              << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -40,8 +40,8 @@ void WriterModule::setUp() {
 }
 
 void WriterModule::startup() {
-  logInfo(rank) << "Output Writer" << settings.name << ": startup, running at interval"
-                << settings.interval;
+  logInfo() << "Output Writer" << settings.name << ": startup, running at interval"
+            << settings.interval;
   init();
 
   // we want ASYNC to like us, hence we need to enter a non-zero size here
@@ -62,11 +62,10 @@ void WriterModule::simulationStart() { syncPoint(0); }
 
 void WriterModule::syncPoint(double time) {
   if (lastWrite >= 0) {
-    logInfo(rank) << "Output Writer" << settings.name << ": finishing previous write from"
-                  << lastWrite;
+    logInfo() << "Output Writer" << settings.name << ": finishing previous write from" << lastWrite;
   }
   wait();
-  logInfo(rank) << "Output Writer" << settings.name << ": preparing write at" << time;
+  logInfo() << "Output Writer" << settings.name << ": preparing write at" << time;
 
   // request the write plan
   auto writeCount = static_cast<int>(std::round(time / syncInterval()));
@@ -158,18 +157,18 @@ void WriterModule::syncPoint(double time) {
     sendBuffer(id);
   }
 
-  logInfo(rank) << "Output Writer" << settings.name << ": triggering write at" << time;
+  logInfo() << "Output Writer" << settings.name << ": triggering write at" << time;
   lastWrite = time;
   call(AsyncWriterExec{});
 }
 
 void WriterModule::simulationEnd() {
-  logInfo(rank) << "Output Writer" << settings.name << ": finishing output";
+  logInfo() << "Output Writer" << settings.name << ": finishing output";
   wait();
 }
 
 void WriterModule::shutdown() {
-  logInfo(rank) << "Output Writer" << settings.name << ": shutdown";
+  logInfo() << "Output Writer" << settings.name << ": shutdown";
   finalize();
 }
 

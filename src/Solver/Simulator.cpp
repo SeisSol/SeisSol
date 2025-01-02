@@ -121,7 +121,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
       logError() << "Simulator did not advance in time from" << m_currentTime << "to" << upcomingTime;
     }
     if (m_abort) {
-        logInfo(seissol::MPI::mpi.rank()) << "Aborting simulation.";
+        logInfo() << "Aborting simulation.";
         break; 
     }
 

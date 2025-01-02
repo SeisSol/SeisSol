@@ -38,8 +38,6 @@
  * @section DESCRIPTION
  */
 
-#include "Parallel/MPI.h"
-
 #include <Initializer/PreProcessorMacros.h> // IWYU pragma: keep
 #include <Kernels/Precision.h>
 #include <ResultWriter/FaultWriterExecutor.h>
@@ -61,8 +59,7 @@ void seissol::writer::FaultWriter::setUp() {
 
   if (isAffinityNecessary()) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
-    logInfo(seissol::MPI::mpi.rank())
-        << "Fault writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Fault writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -81,9 +78,7 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
                                         double interval,
                                         xdmfwriter::BackendType backend,
                                         const std::string& backupTimeStamp) {
-  const int rank = seissol::MPI::mpi.rank();
-
-  logInfo(rank) << "Initializing XDMF fault output.";
+  logInfo() << "Initializing XDMF fault output.";
 
   // Initialize the asynchronous module
   async::Module<FaultWriterExecutor, FaultInitParam, FaultParam>::init();
