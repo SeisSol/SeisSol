@@ -179,6 +179,9 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
 
   auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
   auto maxClusterIdToEnforce = ltsParameters.getMaxNumberOfClusters() - 1;
+
+  prepareDifferenceEnforcement();
+
   if (ltsParameters.isWiggleFactorUsed() || ltsParameters.isAutoMergeUsed()) {
     auto autoMergeBaseline = ltsParameters.getAutoMergeCostBaseline();
     if (!(ltsParameters.isWiggleFactorUsed() && ltsParameters.isAutoMergeUsed())) {
@@ -215,7 +218,8 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowed
   ltsParameters.setWiggleFactor(wiggleFactor);
 
   m_ncon = evaluateNumberOfConstraints();
-  auto finalNumberOfReductions = computeClusterIdsAndEnforceMaximumDifferenceCached(wiggleFactor);
+  const auto finalNumberOfReductions =
+      computeClusterIdsAndEnforceMaximumDifferenceCached(wiggleFactor);
 
   logInfo(rank) << "Limiting number of clusters to" << maxClusterIdToEnforce + 1;
   m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
@@ -411,12 +415,12 @@ int LtsWeights::getCluster(double timestep,
   return cluster;
 }
 
-int LtsWeights::getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face) {
+FaceType LtsWeights::getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face) {
   int bcCurrentFace = seissol::geometry::decodeBoundary(boundaryCond, cell, face, boundaryFormat);
   if (bcCurrentFace > 64) {
     bcCurrentFace = 3;
   }
-  return bcCurrentFace;
+  return static_cast<FaceType>(bcCurrentFace);
 }
 
 int LtsWeights::ipow(int x, int y) {
@@ -507,7 +511,7 @@ std::vector<int> LtsWeights::computeCostsPerTimestep() {
     PUML::Downward::faces(*m_mesh, cells[cell], faceids);
 
     for (unsigned face = 0; face < 4; ++face) {
-      const auto faceType = static_cast<FaceType>(getBoundaryCondition(boundaryCond, cell, face));
+      const auto faceType = getBoundaryCondition(boundaryCond, cell, face);
       dynamicRupture += (faceType == FaceType::DynamicRupture) ? 1 : 0;
       freeSurfaceWithGravity += (faceType == FaceType::FreeSurfaceGravity) ? 1 : 0;
     }
@@ -540,39 +544,72 @@ int LtsWeights::enforceMaximumDifference() {
   return totalNumberOfReductions;
 }
 
+void LtsWeights::prepareDifferenceEnforcement() {
+#ifdef USE_MPI
+  const auto& cells = m_mesh->cells();
+  const auto& faces = m_mesh->faces();
+  const void* boundaryCond = m_mesh->cellData(1);
+
+  std::unordered_map<int, std::vector<int>> rankToSharedFacesPre;
+  for (unsigned cell = 0; cell < cells.size(); ++cell) {
+    unsigned int faceids[4]{};
+    PUML::Downward::faces(*m_mesh, cells[cell], faceids);
+    for (unsigned f = 0; f < 4; ++f) {
+      const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
+      // Continue for regular, dynamic rupture, and periodic boundary cells
+      if (isInternalFaceType(boundary)) {
+        // We treat MPI neighbours later
+        const auto& face = faces.at(faceids[f]);
+        if (face.isShared()) {
+          rankToSharedFacesPre[face.shared()[0]].push_back(faceids[f]);
+          localFaceIdToLocalCellId[faceids[f]] = cell;
+        }
+      }
+    }
+  }
+
+  const FaceSorter faceSorter(faces);
+  for (auto& sharedFaces : rankToSharedFacesPre) {
+    std::sort(sharedFaces.second.begin(), sharedFaces.second.end(), faceSorter);
+  }
+
+  rankToSharedFaces =
+      decltype(rankToSharedFaces)(rankToSharedFacesPre.begin(), rankToSharedFacesPre.end());
+#endif // USE_MPI
+}
+
 int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
   int numberOfReductions = 0;
 
-  const std::vector<PUML::TETPUML::cell_t>& cells = m_mesh->cells();
-  const std::vector<PUML::TETPUML::face_t>& faces = m_mesh->faces();
+  const auto& cells = m_mesh->cells();
+  const auto& faces = m_mesh->faces();
   const void* boundaryCond = m_mesh->cellData(1);
 
-#ifdef USE_MPI
-  std::unordered_map<int, std::vector<int>> rankToSharedFaces;
-  std::unordered_map<int, int> localFaceIdToLocalCellId;
-#endif // USE_MPI
+  const auto cellCount = cells.size();
 
+#ifdef _OPENMP
 #pragma omp parallel for reduction(+ : numberOfReductions)
+#endif
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     int timeCluster = m_clusterIds[cell];
 
-    unsigned int faceids[4];
+    unsigned int faceids[4]{};
     PUML::Downward::faces(*m_mesh, cells[cell], faceids);
     for (unsigned f = 0; f < 4; ++f) {
       int difference = maxDifference;
-      const int boundary = getBoundaryCondition(boundaryCond, cell, f);
+      const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
       // Continue for regular, dynamic rupture, and periodic boundary cells
-      if (boundary == 0 || boundary == 3 || boundary == 6) {
+      if (isInternalFaceType(boundary)) {
         // We treat MPI neighbours later
-        const auto& face = faces[faceids[f]];
+        const auto& face = faces.at(faceids[f]);
         if (!face.isShared()) {
           int cellIds[2];
           PUML::Upward::cells(*m_mesh, face, cellIds);
 
-          int neighborCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
-          int otherTimeCluster = m_clusterIds[neighborCell];
+          const int neighborCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
+          const int otherTimeCluster = m_clusterIds[neighborCell];
 
-          if (boundary == 3) {
+          if (boundary == FaceType::DynamicRupture) {
             difference = 0;
           }
 
@@ -581,79 +618,68 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
             ++numberOfReductions;
           }
         }
-#ifdef USE_MPI
-        else {
-#pragma omp critical
-          {
-            rankToSharedFaces[face.shared()[0]].push_back(faceids[f]);
-            localFaceIdToLocalCellId[faceids[f]] = cell;
-          }
-        }
-#endif // USE_MPI
       }
     }
     m_clusterIds[cell] = timeCluster;
   }
 
 #ifdef USE_MPI
-  FaceSorter const faceSorter(faces);
-  for (auto& sharedFaces : rankToSharedFaces) {
-    std::sort(sharedFaces.second.begin(), sharedFaces.second.end(), faceSorter);
-  }
-
-  auto numExchanges = rankToSharedFaces.size();
+  const auto numExchanges = rankToSharedFaces.size();
   std::vector<MPI_Request> requests(2 * numExchanges);
   std::vector<std::vector<int>> ghost(numExchanges);
   std::vector<std::vector<int>> copy(numExchanges);
 
-  auto exchange = rankToSharedFaces.begin();
-  for (unsigned ex = 0; ex < numExchanges; ++ex) {
-    auto exchangeSize = exchange->second.size();
+  for (std::size_t ex = 0; ex < numExchanges; ++ex) {
+    const auto& exchange = rankToSharedFaces[ex];
+    const auto exchangeSize = exchange.second.size();
     ghost[ex].resize(exchangeSize);
     copy[ex].resize(exchangeSize);
 
-    for (unsigned n = 0; n < exchangeSize; ++n) {
-      copy[ex][n] = m_clusterIds[localFaceIdToLocalCellId[exchange->second[n]]];
+    for (std::size_t n = 0; n < exchangeSize; ++n) {
+      copy[ex][n] = m_clusterIds[localFaceIdToLocalCellId[exchange.second[n]]];
     }
     MPI_Isend(copy[ex].data(),
               exchangeSize,
               MPI_INT,
-              exchange->first,
+              exchange.first,
               0,
               seissol::MPI::mpi.comm(),
               &requests[ex]);
     MPI_Irecv(ghost[ex].data(),
               exchangeSize,
               MPI_INT,
-              exchange->first,
+              exchange.first,
               0,
               seissol::MPI::mpi.comm(),
               &requests[numExchanges + ex]);
-    ++exchange;
   }
 
   MPI_Waitall(2 * numExchanges, requests.data(), MPI_STATUSES_IGNORE);
 
-  exchange = rankToSharedFaces.begin();
-  for (unsigned ex = 0; ex < numExchanges; ++ex) {
-    auto exchangeSize = exchange->second.size();
-    for (unsigned n = 0; n < exchangeSize; ++n) {
+  auto* idData = m_clusterIds.data();
+#ifdef _OPENMP
+#pragma omp parallel for reduction(+ : numberOfReductions) reduction(min : idData[0 : cellCount])
+#endif
+  for (std::size_t ex = 0; ex < numExchanges; ++ex) {
+    const auto& exchange = rankToSharedFaces[ex];
+    const auto exchangeSize = exchange.second.size();
+    for (std::size_t n = 0; n < exchangeSize; ++n) {
       int difference = maxDifference;
       const int otherTimeCluster = ghost[ex][n];
 
       int cellIds[2];
-      PUML::Upward::cells(*m_mesh, faces[exchange->second[n]], cellIds);
+      PUML::Upward::cells(*m_mesh, faces[exchange.second[n]], cellIds);
       const int cell = (cellIds[0] >= 0) ? cellIds[0] : cellIds[1];
 
       unsigned int faceids[4];
       PUML::Downward::faces(*m_mesh, cells[cell], faceids);
       unsigned f = 0;
-      for (; f < 4 && static_cast<int>(faceids[f]) != exchange->second[n]; ++f) {
+      for (; f < 4 && static_cast<int>(faceids[f]) != exchange.second[n]; ++f) {
       }
       assert(f != 4);
 
-      const int boundary = getBoundaryCondition(boundaryCond, cell, f);
-      if (boundary == 3) {
+      const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
+      if (boundary == FaceType::DynamicRupture) {
         difference = 0;
       }
 
@@ -662,7 +688,6 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
         ++numberOfReductions;
       }
     }
-    ++exchange;
   }
 
 #endif // USE_MPI

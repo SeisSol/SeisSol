@@ -115,7 +115,7 @@ class LtsWeights {
                            std::vector<double>& timeSteps,
                            double maximumAllowedTimeStep);
   int getCluster(double timestep, double globalMinTimestep, double wiggleFactor, unsigned rate);
-  int getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face);
+  FaceType getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face);
   std::vector<int> computeClusterIds(double curWiggleFactor);
   // returns number of reductions for maximum difference
   int computeClusterIdsAndEnforceMaximumDifferenceCached(double curWiggleFactor);
@@ -141,7 +141,7 @@ class LtsWeights {
   const PUML::TETPUML* m_mesh{nullptr};
   std::vector<int> m_clusterIds;
   double wiggleFactor = 1.0;
-  std::map<double, decltype(m_clusterIds), std::greater<double>>
+  std::map<double, decltype(m_clusterIds), std::greater<>>
       clusteringCache; // Maps wiggle factor to clustering
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
   struct ComputeWiggleFactorResult {
@@ -151,6 +151,11 @@ class LtsWeights {
   };
   ComputeWiggleFactorResult computeBestWiggleFactor(std::optional<double> baselineCost,
                                                     bool isAutoMergeUsed);
+  void prepareDifferenceEnforcement();
+#ifdef USE_MPI
+  std::vector<std::pair<int, std::vector<int>>> rankToSharedFaces;
+  std::unordered_map<int, int> localFaceIdToLocalCellId;
+#endif // USE_MPI
 };
 } // namespace initializer::time_stepping
 } // namespace seissol
