@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2016-2017, SeisSol Group
@@ -40,185 +41,115 @@
 #ifndef MODULE_H
 #define MODULE_H
 
-#include <cassert>
-#include <climits>
-#include <cmath>
-#include <limits>
-
-#include "utils/logger.h"
-#include "Parallel/MPI.h"
-
-namespace seissol
-{
+namespace seissol {
 
 /**
  * Base class for all modules
  */
-class Module
-{
-private:
-	/** The synchronization interval for this module */
-	double m_syncInterval;
+class Module {
+  private:
+  /** The synchronization interval for this module */
+  double isyncInterval{0};
 
-	/** The next synchronization point for this module */
-	double m_nextSyncPoint;
+  /** The next synchronization point for this module */
+  double nextSyncPoint{0};
 
   /** The last time when syncPoint was called */
-	double m_lastSyncPoint;
+  double lastSyncPoint;
 
-public:
-	/**
-	 * Possible priorites for modules
-	 *
-	 * @todo Use std::numeric_limits<int> as soon as we switch to
-	 *  C++0x
-	 */
-	enum Priority
-	{
-		MAX = INT_MIN,
-		HIGHEST = -10000,
-		HIGHER = -1000,
-		HIGH = -100,
-		DEFAULT = 0,
-		LOW = 100,
-		LOWER = 1000,
-		LOWEST = 10000,
-		MIN = INT_MAX
-	};
+  public:
+  Module();
 
-public:
-	Module()
-		: m_syncInterval(0), m_nextSyncPoint(0), m_lastSyncPoint(-std::numeric_limits<double>::infinity())
-	{ }
+  virtual ~Module();
 
-	/**
-	 * Called by {@link Modules} at every synchronization point
-	 *
-	 * We have to ensure that this is "our" synchronization point before
-	 * calling {@link syncPoint}.
-	 *
-	 * @return The next synchronization point for this module
-	 */
-	double potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint)
-	{
-    if (std::abs(currentTime - m_lastSyncPoint) < timeTolerance) {
-      int const rank = seissol::MPI::mpi.rank();
-      logInfo(rank) << "Ignoring duplicate synchronisation point at time" << currentTime << "; the last sync point was at " << m_lastSyncPoint;
-    } else if (forceSyncPoint || std::abs(currentTime - m_nextSyncPoint) < timeTolerance) {
-			syncPoint(currentTime);
-      m_lastSyncPoint = currentTime;
-			m_nextSyncPoint += m_syncInterval;
-		}
+  /**
+   * Called by {@link Modules} at every synchronization point
+   *
+   * We have to ensure that this is "our" synchronization point before
+   * calling {@link syncPoint}.
+   *
+   * @return The next synchronization point for this module
+   */
+  double potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint);
 
-		return m_nextSyncPoint;
-	}
+  /**
+   * Called by {@link Modules} before the simulation starts to set the synchronization point.
+   *
+   * This is only called for modules that register for the SYNCHRONIZATION_POINT hook.
+   */
+  void setSimulationStartTime(double time);
 
-	/**
-	 * Called by {@link Modules} before the simulation starts to set the synchronization point.
-	 *
-	 * This is only called for modules that register for the SYNCHRONIZATION_POINT hook.
-	 */
-	void setSimulationStartTime(double time)
-	{
-		assert(m_syncInterval > 0);
-		m_lastSyncPoint = time;
-		m_nextSyncPoint = time + m_syncInterval;
-	}
+  //
+  // Potential hooks
+  //
 
-	//
-	// Potential hooks
-	//
+  /**
+   * Called before initializing MPI
+   */
+  virtual void preMPI() {}
 
-	/**
-	 * Called before initializing MPI
-	 */
-	virtual void preMPI()
-	{
-	}
+  /**
+   * Called after MPI initialization
+   */
+  virtual void postMPIInit() {}
 
-	/**
-	 * Called after MPI initialization
-	 */
-	virtual void postMPIInit()
-	{
-	}
+  /**
+   * Called before mesh initialization
+   */
+  virtual void preMesh() {}
 
-	/**
-	 * Called before mesh initialization
-	 */
-	virtual void preMesh()
-	{
-	}
+  /**
+   * Called after mesh initialization
+   */
+  virtual void postMesh() {}
 
-	/**
-	 * Called after mesh initialization
-	 */
-	virtual void postMesh()
-	{
-	}
+  /**
+   * Called before LTS initialization
+   */
+  virtual void preLtsInit() {}
 
-	/**
-	 * Called before LTS initialization
-	 */
-	virtual void preLtsInit()
-	{
-	}
+  /**
+   * Called after LTS initialization
+   */
+  virtual void postLtsInit() {}
 
-	/**
-	 * Called after LTS initialization
-	 */
-	virtual void postLtsInit()
-	{
-	}
+  /**
+   * Called before the model is initialized
+   */
+  virtual void preModel() {}
 
-	/**
-	 * Called before the model is initialized
-	 */
-	virtual void preModel()
-	{
-	}
+  /**
+   * Called after the model is initialized
+   */
+  virtual void postModel() {}
 
-	/**
-	 * Called after the model is initialized
-	 */
-	virtual void postModel()
-	{
-	}
+  /**
+   * Called before the actual simulation.
+   *
+   * Only called when the simulation is not started from a checkpoint
+   */
+  virtual void simulationStart() {}
 
-	/**
-	 * Called before the actual simulation.
-	 *
-	 * Only called when the simulation is not started from a checkpoint
-	 */
-	virtual void simulationStart()
-	{
-	}
+  virtual void simulationEnd() {}
 
-	/**
-	 * Called at synchronization points
-	 */
-	virtual void syncPoint(double currentTime)
-	{
-	}
+  virtual void shutdown() {}
 
-protected:
-  double syncInterval() const {
-    return m_syncInterval;
-  }
+  /**
+   * Called at synchronization points
+   */
+  virtual void syncPoint(double currentTime) {}
 
-	/**
-	 * Set the synchronization interval for this module
-	 *
-	 * This is only required for modules that register for {@link SYNCHRONIZATION_POINT}.
-	 */
-	void setSyncInterval(double interval)
-	{
-		if (m_syncInterval != 0)
-			logError() << "Synchronization interval is already set";
-		m_syncInterval = interval;
-	}
+  protected:
+  [[nodiscard]] double syncInterval() const { return isyncInterval; }
+
+  /**
+   * Set the synchronization interval for this module
+   *
+   * This is only required for modules that register for {@link SYNCHRONIZATION_POINT}.
+   */
+  void setSyncInterval(double interval);
 };
 
-}
+} // namespace seissol
 
 #endif // MODULE_H

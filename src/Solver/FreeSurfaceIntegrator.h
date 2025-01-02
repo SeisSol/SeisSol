@@ -42,13 +42,13 @@
 
 #include <memory>
 
-#include <Geometry/MeshReader.h>
-#include <Geometry/refinement/TriangleRefiner.h>
-#include <Kernels/precision.hpp>
-#include <Kernels/common.hpp>
-#include <Initializer/LTS.h>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Lut.hpp>
+#include "Geometry/MeshReader.h"
+#include "Geometry/Refinement/TriangleRefiner.h"
+#include "Kernels/Precision.h"
+#include "Kernels/Common.h"
+#include "Initializer/LTS.h"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Lut.h"
 
 #define FREESURFACE_MAX_REFINEMENT 3
 #define FREESURFACE_NUMBER_OF_COMPONENTS 3
@@ -79,7 +79,7 @@ private:
   unsigned numberOfSubTriangles;
   unsigned numberOfAlignedSubTriangles;
 
-  static constexpr auto polyDegree = CONVERGENCE_ORDER-1;
+  static constexpr auto polyDegree = ConvergenceOrder-1;
   static constexpr auto numQuadraturePoints = polyDegree*polyDegree;
   bool m_enabled;
   
@@ -100,7 +100,7 @@ public:
   real* displacements[FREESURFACE_NUMBER_OF_COMPONENTS];
 
 public:
-  std::vector<double> locationFlags;
+  std::vector<unsigned int> locationFlags;
   unsigned totalNumberOfFreeSurfaces;
   unsigned totalNumberOfTriangles;
 

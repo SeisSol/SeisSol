@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -46,8 +47,7 @@
 
 #include "SeisSol.h"
 
-namespace seissol
-{
+namespace seissol {
 
 /**
  * This class can fix cells (vertex ids) in asynchronous mode.
@@ -57,47 +57,40 @@ namespace seissol
  *
  * @tparam CellVertices Number of vertices per cell
  */
-template<int CellVertices>
-class AsyncCellIDs
-{
-private:
-	/** Null, if MPI is not enabled */
-	unsigned int* m_cells;
+template <int CellVertices>
+class AsyncCellIDs {
+  private:
+  /** Null, if MPI is not enabled */
+  std::vector<unsigned> localCells;
 
-	const unsigned int* m_constCells;
+  const unsigned int* constCells;
 
-public:
-	AsyncCellIDs(unsigned int nCells, unsigned int nVertices, const unsigned int* cells, seissol::SeisSol& seissolInstance)
-		: m_cells(0L)
-	{
+  public:
+  AsyncCellIDs(unsigned int nCells,
+               unsigned int nVertices,
+               const unsigned int* cells,
+               seissol::SeisSol& seissolInstance) {
 #ifdef USE_MPI
-		// Add the offset to the cells
-		MPI_Comm groupComm = seissolInstance.asyncIO().groupComm();
-		unsigned int offset = nVertices;
-		MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
-		offset -= nVertices;
+    // Add the offset to the cells
+    MPI_Comm groupComm = seissolInstance.asyncIO().groupComm();
+    unsigned int offset = nVertices;
+    MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
+    offset -= nVertices;
 
-		// Add the offset to all cells
-		m_cells = new unsigned int[nCells * CellVertices];
-		for (unsigned int i = 0; i < nCells * CellVertices; i++)
-			m_cells[i] = cells[i] + offset;
-		m_constCells = m_cells;
-#else // USE_MPI
-		m_constCells = cells;
+    // Add the offset to all cells
+    localCells.resize(nCells * CellVertices);
+    for (unsigned int i = 0; i < nCells * CellVertices; i++) {
+      localCells[i] = cells[i] + offset;
+    }
+    constCells = localCells.data();
+#else  // USE_MPI
+    constCells = cells;
 #endif // USE_MPI
-	}
+  }
 
-	~AsyncCellIDs()
-	{
-		delete [] m_cells;
-	}
-
-	const unsigned int* cells() const
-	{
-		return m_constCells;
-	}
+  [[nodiscard]] const unsigned int* cells() const { return constCells; }
 };
 
-}
+} // namespace seissol
 
 #endif // RESULTWRITER_ASYNCCELLIDS_H

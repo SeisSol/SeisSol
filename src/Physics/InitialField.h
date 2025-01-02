@@ -8,8 +8,8 @@
 #include <Eigen/Dense>
 
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/typedefs.hpp"
-#include "Kernels/precision.hpp"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
 #include "generated_code/init.h"
 
 namespace seissol::physics {
@@ -17,7 +17,7 @@ class InitialField {
   public:
   virtual ~InitialField() = default;
   virtual void evaluate(double time,
-                        std::vector<std::array<double, 3>> const& points,
+                        const std::vector<std::array<double, 3>>& points,
                         const CellMaterialData& materialData,
                         yateto::DenseTensorView<2, real, unsigned>& dofsQP) const = 0;
 };
@@ -25,7 +25,7 @@ class InitialField {
 class ZeroField : public InitialField {
   public:
   void evaluate(double,
-                std::vector<std::array<double, 3>> const&,
+                const std::vector<std::array<double, 3>>&,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override {
     dofsQP.setZero();
@@ -35,10 +35,10 @@ class ZeroField : public InitialField {
 class PressureInjection : public InitialField {
   public:
   PressureInjection(
-      const seissol::initializer::parameters::InitializationParameters initializationParameters);
+      const seissol::initializer::parameters::InitializationParameters& initializationParameters);
 
   void evaluate(double,
-                std::vector<std::array<double, 3>> const&,
+                const std::vector<std::array<double, 3>>&,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
@@ -60,7 +60,7 @@ class Planarwave : public InitialField {
                       Eigen::Vector3d kVec = {M_PI, M_PI, M_PI});
 
   void evaluate(double time,
-                std::vector<std::array<double, 3>> const& points,
+                const std::vector<std::array<double, 3>>& points,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
@@ -69,8 +69,10 @@ class Planarwave : public InitialField {
   std::vector<std::complex<double>> m_ampField;
   const double m_phase;
   const Eigen::Vector3d m_kVec;
-  std::array<std::complex<double>, NUMBER_OF_QUANTITIES> m_lambdaA;
-  std::array<std::complex<double>, NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES> m_eigenvectors;
+  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities> m_lambdaA;
+  std::array<std::complex<double>,
+             seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
+      m_eigenvectors;
 
   private:
   void init(const CellMaterialData& materialData);
@@ -83,7 +85,7 @@ class SuperimposedPlanarwave : public InitialField {
   SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
 
   void evaluate(double time,
-                std::vector<std::array<double, 3>> const& points,
+                const std::vector<std::array<double, 3>>& points,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
@@ -100,7 +102,7 @@ class TravellingWave : public Planarwave {
                  const TravellingWaveParameters& travellingWaveParameters);
 
   void evaluate(double time,
-                std::vector<std::array<double, 3>> const& points,
+                const std::vector<std::array<double, 3>>& points,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
@@ -114,7 +116,7 @@ class AcousticTravellingWaveITM : public InitialField {
       const CellMaterialData& materialData,
       const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersITM);
   void evaluate(double time,
-                std::vector<std::array<double, 3>> const& points,
+                const std::vector<std::array<double, 3>>& points,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 
@@ -133,7 +135,7 @@ class ScholteWave : public InitialField {
   public:
   ScholteWave() = default;
   void evaluate(double time,
-                std::vector<std::array<double, 3>> const& points,
+                const std::vector<std::array<double, 3>>& points,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 };
@@ -141,7 +143,7 @@ class SnellsLaw : public InitialField {
   public:
   SnellsLaw() = default;
   void evaluate(double time,
-                std::vector<std::array<double, 3>> const& points,
+                const std::vector<std::array<double, 3>>& points,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 };
@@ -163,7 +165,7 @@ class Ocean : public InitialField {
   public:
   Ocean(int mode, double gravitationalAcceleration);
   void evaluate(double time,
-                std::vector<std::array<double, 3>> const& points,
+                const std::vector<std::array<double, 3>>& points,
                 const CellMaterialData& materialData,
                 yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
 };

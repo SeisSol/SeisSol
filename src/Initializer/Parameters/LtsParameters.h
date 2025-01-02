@@ -29,16 +29,16 @@ AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str);
 
 class LtsParameters {
   private:
-  unsigned int rate;
-  double wiggleFactorMinimum;
-  double wiggleFactorStepsize;
-  bool wiggleFactorEnforceMaximumDifference;
-  bool autoMergeClusters;
-  double allowedPerformanceLossRatioAutoMerge;
+  unsigned int rate{};
+  double wiggleFactorMinimum{};
+  double wiggleFactorStepsize{};
+  bool wiggleFactorEnforceMaximumDifference{};
+  int maxNumberOfClusters = std::numeric_limits<int>::max() - 1;
+  bool autoMergeClusters{};
+  double allowedPerformanceLossRatioAutoMerge{};
   AutoMergeCostBaseline autoMergeCostBaseline = AutoMergeCostBaseline::BestWiggleFactor;
   LtsWeightsTypes ltsWeightsType;
   double finalWiggleFactor = 1.0;
-  int maxNumberOfClusters = std::numeric_limits<int>::max() - 1;
 
   public:
   [[nodiscard]] unsigned int getRate() const;
@@ -69,10 +69,10 @@ class LtsParameters {
 };
 
 struct TimeSteppingParameters {
-  VertexWeightParameters vertexWeight;
-  double cfl;
-  double maxTimestepWidth;
-  double endTime;
+  VertexWeightParameters vertexWeight{};
+  double cfl{};
+  double maxTimestepWidth{};
+  double endTime{};
   LtsParameters lts;
 
   TimeSteppingParameters() = default;

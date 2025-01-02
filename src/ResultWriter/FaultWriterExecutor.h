@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -44,120 +45,111 @@
 #include <mpi.h>
 #endif // USE_MPI
 
-#include "xdmfwriter/XdmfWriter.h"
-#include "async/ExecInfo.h"
+#include "Kernels/Precision.h"
 #include "Monitoring/Stopwatch.h"
-#include "Kernels/precision.hpp"
+#include "async/ExecInfo.h"
+#include "xdmfwriter/XdmfWriter.h"
 
-namespace seissol
-{
+namespace seissol::writer {
 
-namespace writer
-{
+struct FaultInitParam {
+  static const unsigned int OutputMaskSize = 20;
 
-struct FaultInitParam
-{
-	static const unsigned int OUTPUT_MASK_SIZE = 20;
-
-	bool outputMask[OUTPUT_MASK_SIZE];
-	int timestep;
-	xdmfwriter::BackendType backend;
-	std::string backupTimeStamp;
+  bool outputMask[OutputMaskSize];
+  int timestep;
+  xdmfwriter::BackendType backend;
+  std::string backupTimeStamp;
 };
 
-struct FaultParam
-{
-	double time;
+struct FaultParam {
+  double time;
 };
 
-class FaultWriterExecutor
-{
-public:
-	enum BufferIds {
-		OUTPUT_PREFIX = 0,
-		CELLS = 1,
-		VERTICES = 2,
-		VARIABLES0 = 3
-	};
+class FaultWriterExecutor {
+  public:
+  enum BufferIds { OutputPrefix = 0, Cells = 1, Vertices = 2, FaultTags = 3, Variables0 = 4 };
 
-private:
-	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter;
+  private:
+  xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter{nullptr};
 
 #ifdef USE_MPI
-	/** The MPI communicator for the writer */
-	MPI_Comm m_comm;
+  /** The MPI communicator for the writer */
+  MPI_Comm m_comm;
 #endif // USE_MPI
 
-	/** The number of variables that should be written */
-	unsigned int m_numVariables;
+  /** The number of variables that should be written */
+  unsigned int m_numVariables{0};
 
-	/** Backend stopwatch */
-	Stopwatch m_stopwatch;
+  /** Backend stopwatch */
+  Stopwatch m_stopwatch;
 
-public:
-	FaultWriterExecutor()
-		: m_xdmfWriter(0L),
+  public:
+  FaultWriterExecutor()
+      :
 #ifdef USE_MPI
-		m_comm(MPI_COMM_NULL),
+        m_comm(MPI_COMM_NULL)
 #endif // USE_MPI
-		m_numVariables(0)
-	{
-	}
 
-	/**
-	 * Initialize the XDMF writer
-	 */
-	void execInit(const async::ExecInfo &info, const FaultInitParam &param);
+  {
+  }
 
-	void exec(const async::ExecInfo &info, const FaultParam &param)
-	{
-		if (!m_xdmfWriter)
-			return;
+  /**
+   * Initialize the XDMF writer
+   */
+  void execInit(const async::ExecInfo& info, const FaultInitParam& param);
 
-		m_stopwatch.start();
+  void exec(const async::ExecInfo& info, const FaultParam& param) {
+    if (m_xdmfWriter == nullptr) {
+      return;
+    }
 
-		m_xdmfWriter->addTimeStep(param.time);
+    m_stopwatch.start();
 
-		for (unsigned int i = 0; i < m_numVariables; i++)
-			m_xdmfWriter->writeCellData(i, static_cast<const real *>(info.buffer(VARIABLES0 + i)));
+    m_xdmfWriter->addTimeStep(param.time);
 
-		m_xdmfWriter->flush();
+    for (unsigned int i = 0; i < m_numVariables; i++) {
+      m_xdmfWriter->writeCellData(i, static_cast<const real*>(info.buffer(Variables0 + i)));
+    }
 
-		m_stopwatch.pause();
-	}
+    m_xdmfWriter->flush();
 
-	void finalize()
-	{
-		if (m_xdmfWriter) {
-			m_stopwatch.printTime("Time fault writer backend:"
+    m_stopwatch.pause();
+  }
+
+  void setFaultTagsData(const unsigned int* faultTags) {
+    m_xdmfWriter->writeExtraIntCellData(faultTags);
+  }
+
+  void finalize() {
+    if (m_xdmfWriter != nullptr) {
+      m_stopwatch.printTime("Time fault writer backend:"
 #ifdef USE_MPI
-				, m_comm
+                            ,
+                            m_comm
 #endif // USE_MPI
-			);
-		}
+      );
+    }
 
 #ifdef USE_MPI
-		if (m_comm != MPI_COMM_NULL) {
-			MPI_Comm_free(&m_comm);
-			m_comm = MPI_COMM_NULL;
-		}
+    if (m_comm != MPI_COMM_NULL) {
+      MPI_Comm_free(&m_comm);
+      m_comm = MPI_COMM_NULL;
+    }
 #endif // USE_MPI
 
-		delete m_xdmfWriter;
-		m_xdmfWriter = 0L;
-	}
+    delete m_xdmfWriter;
+    m_xdmfWriter = nullptr;
+  }
 
-    static std::string getLabelName(size_t index) {
-	  return LABELS[index];
-	}
+  static std::string getLabelName(size_t index) { return Labels[index]; }
 
-private:
-	/** Variable names in the output */
-	static char const * const LABELS[];
+  private:
+  /** Variable names in the output */
+  static const char* const Labels[];
 };
 
-}
+} // namespace seissol::writer
 
-}
+// namespace seissol
 
 #endif // FAULTWRITEREXECUTOR_H

@@ -32,7 +32,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
+ * @author Alexander Breuer (breuer AT mytum.de,
+ *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
  *
  * @section LICENSE
  * Copyright (c) 2013-2014, SeisSol Group
@@ -71,23 +72,23 @@
 #ifndef KERNELS_NEIGHBORBASE_H_
 #define KERNELS_NEIGHBORBASE_H_
 
-#include <generated_code/kernel.h>
+#include "Common/Constants.h"
+#include "generated_code/kernel.h"
 #ifdef ACL_DEVICE
 #include <device.h>
 #endif
 
 namespace seissol {
-  namespace kernels {
-    class NeighborBase;
-  }
-}
 struct GlobalData;
+} // namespace seissol
 
-class seissol::kernels::NeighborBase {
+namespace seissol::kernels {
+
+class NeighborBase {
   protected:
-    static void checkGlobalData(GlobalData const* global, size_t alignment);
-    kernel::neighboringFlux m_nfKrnlPrototype;
-    dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
+  static void checkGlobalData(const GlobalData* global, size_t alignment);
+  kernel::neighboringFlux m_nfKrnlPrototype;
+  dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
 
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux deviceNfKrnlPrototype;
@@ -95,5 +96,7 @@ class seissol::kernels::NeighborBase {
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 };
+
+} // namespace seissol::kernels
 
 #endif

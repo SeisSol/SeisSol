@@ -41,23 +41,23 @@
 #ifndef MONITORING_LOOPSTATISTICS_H_
 #define MONITORING_LOOPSTATISTICS_H_
 
-#include <cassert>
+#include "Parallel/MPI.h"
 #include <algorithm>
-#include <unordered_map>
+#include <cassert>
 #include <fstream>
 #include <iomanip>
 #include <time.h>
+#include <unordered_map>
 #include <vector>
-#include "Parallel/MPI.h"
 
 namespace seissol {
 class LoopStatistics {
   public:
   void enableSampleOutput(bool enabled);
 
-  void addRegion(std::string const& name, bool includeInSummary = true);
+  void addRegion(const std::string& name, bool includeInSummary = true);
 
-  unsigned getRegion(std::string const& name) const;
+  [[nodiscard]] unsigned getRegion(const std::string& name) const;
 
   void begin(unsigned region);
 
@@ -93,7 +93,7 @@ class LoopStatistics {
     std::string name;
     std::vector<Sample> times;
     bool includeInSummary;
-    timespec begin;
+    timespec begin{};
     StatisticVariables variables;
 
     Region(const std::string& name, bool includeInSummary);

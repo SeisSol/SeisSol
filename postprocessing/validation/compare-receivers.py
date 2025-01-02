@@ -20,12 +20,12 @@ def velocity_norm(receiver):
 
 def stress_norm(receiver):
     return np.sqrt(
-        receiver["xx"] ** 2
-        + receiver["yy"] ** 2
-        + receiver["zz"] ** 2
-        + receiver["xy"] ** 2
-        + receiver["yz"] ** 2
-        + receiver["xz"] ** 2
+        receiver["s_xx"] ** 2
+        + receiver["s_yy"] ** 2
+        + receiver["s_zz"] ** 2
+        + receiver["s_xy"] ** 2
+        + receiver["s_yz"] ** 2
+        + receiver["s_xz"] ** 2
     )
 
 
@@ -138,10 +138,17 @@ def read_receiver(filename):
             l[x_index] = y
         return l
 
-    # Recently, we changed the receiver variables from u,v,w to v1,v2,v3. If the receiver is stored in legacy format, we adapt it
+    # Accomodate variable name changes
+    variables = replace("xx", "s_xx", variables)
+    variables = replace("yy", "s_yy", variables)
+    variables = replace("zz", "s_zz", variables)
+    variables = replace("xy", "s_xy", variables)
+    variables = replace("xz", "s_xz", variables)
+    variables = replace("yz", "s_yz", variables)
     variables = replace("u", "v1", variables)
     variables = replace("v", "v2", variables)
     variables = replace("w", "v3", variables)
+    
     receiver.columns = variables
     return receiver
 

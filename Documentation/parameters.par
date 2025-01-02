@@ -1,3 +1,9 @@
+! SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+!
+! SPDX-License-Identifier: BSD-3-Clause
+!
+! A sample SeisSol parameter file, with all options explained.
+
 &equations
 !yaml file defining spatial dependance of material properties
 MaterialFileName = '33_layered_constant.yaml'
@@ -16,6 +22,9 @@ ITMStartingtime = 2.0 ! Time when ITM is turned on
 ITMTime = 0.01 !Time duration for which ITM is on
 ITMVelocityscalingfactor = 2 ! Scaling factor
 ITMReflectionType = 1 ! 1 reflects both waves, 2 reflects both waves with constant velocity, 3 reflects only P-waves, 4 reflects only S-waves
+
+numflux = 'godunov' ! The numerical flux. Values: 'godunov', 'rusanov'
+numfluxnearfault = 'godunov' ! The numerical flux for faces of cells adjacent to the fault (on cells which have at least one DR face), excluding the DR faces themselves. Values: 'godunov', 'rusanov'
 /
 
 &IniCondition
@@ -29,12 +38,16 @@ cICType = 'Zero'                  ! Initial Condition
 !Scholte     A Scholte wave to test elastic-acoustic coupling
 !Snell       Snells law to test elastic-acoustic coupling
 !Ocean       An uncoupled ocean test case for acoustic equations
+!easi        Use an easi file for the input condition
 
 !The following parameters are only needed for the travelling wave IC:
 origin = 0 0 0.5             ! Origin of the wave 
 kVec = 6.283 0 0             ! Gives direction of wave propagation, the wavelength of the travelling wave is 2*pi / norm(kVec)
 k = 6.283 ! Wave number to be used for the travelling acoustic wave with ITM test case. Not to be used in other scenarios
 ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
+
+filename = ''  ! file name for the easi initial condition file
+hastime = 1    ! indicates the required support of a time dimension in the easi file. Requires easi 1.5.0 or higher.
 /
 
 &DynamicRupture
@@ -49,9 +62,12 @@ YRef = 0.0
 ZRef = -1.0
 refPointMethod = 1
 
+etahack = 1                 ! use any value smaller than one to mitigate quasi-divergent solutions in friction laws
+
 OutputPointType = 5         ! Type (0: no output, 3: ascii file, 4: paraview file, 5: 3+4)
 SlipRateOutputType=0        ! 0: (smoother) slip rate output evaluated from the difference between the velocity on both side of the fault
                             ! 1: slip rate output evaluated from the fault tractions and the failure criterion (less smooth but usually more accurate where the rupture front is well developped)
+TpProxyExponent = 0.3333333333333333 ! exponent alpha in the TP proxy slip weakening law (default is 1/3)
 /
 
 !see: https://seissol.readthedocs.io/en/latest/fault-output.html
@@ -61,6 +77,7 @@ printtimeinterval_sec = 0.2      ! Time interval at which output will be written
 OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1  ! turn on and off fault outputs
 refinement_strategy = 2
 refinement = 1
+vtkorder = -1 ! positive values enable the high-order VTKHDF format for the elementwise fault output
 /
 
 ! parameterize ascii fault file outputs
@@ -78,6 +95,7 @@ PPFileName = 'tpv33_faultreceivers.dat'
             
 &MeshNml
 MeshFile = 'tpv33_gmsh'         ! Name of mesh file
+pumlboundaryformat = 'auto'      ! the boundary data type for PUML files
 meshgenerator = 'PUML'          ! Name of meshgenerator (Netcdf or PUML)
 PartitioningLib = 'Default' ! name of the partitioning library (see src/Geometry/PartitioningLib.cpp for a list of possible options, you may need to enable additional libraries during the build process)
 /
@@ -118,6 +136,8 @@ refinement = 1
 OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3 !(optional) array that describes the region 
 ! of the wave field that should be written. Specified as 'xmin xmax ymin ymax zmin zmax'
 
+wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for the wavefield
+
 ! off-fault ascii receivers
 ReceiverOutput = 1                   ! Enable/disable off-fault ascii receiver output
 RFileName = 'tpv33_receivers.dat'    ! Record Points in extra file
@@ -125,17 +145,18 @@ pickdt = 0.005                       ! Pickpoint Sampling
 ! (Optional) Synchronization point for receivers.
 !            If omitted, receivers are written at the end of the simulation.
 ReceiverOutputInterval = 10.0
-ReceiverComputeRotation = 1          ! Compute Rotation of the velocity field at the receivers
+ReceiverComputeRotation = 0          ! Compute Rotation of the velocity field at the receivers
+ReceiverComputeStrain = 0          ! Compute strain at the receivers
 
 ! Free surface output
 SurfaceOutput = 1
 SurfaceOutputRefinement = 1
 SurfaceOutputInterval = 2.0
 
+surfacevtkorder = -1 ! positive values enable the VTKHDF high-order output for the surface output
+
 !Checkpointing
 Checkpoint = 1                       ! enable/disable checkpointing
-checkPointFile = 'checkpoint/checkpoint'
-checkPointBackend = 'mpio'           ! Checkpoint backend
 checkPointInterval = 6
 
 xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
@@ -144,6 +165,7 @@ xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
 
 EnergyOutput = 1 ! Computation of energy, written in csv file
 EnergyTerminalOutput = 1 ! Write energy to standard output
+EnergyTerminalPrecision = 6 ! Number of significant digits to display in energy terminal output
 EnergyOutputInterval = 0.05
 ComputeVolumeEnergiesEveryOutput = 4 ! Compute volume energies only once every ComputeVolumeEnergiesEveryOutput * EnergyOutputInterval
 
@@ -152,4 +174,9 @@ LoopStatisticsNetcdfOutput = 0 ! Writes detailed loop statistics. Warning: Produ
            
 &AbortCriteria
 EndTime = 15.0
+terminatorMaxTimePostRupture = 5.0   ! Stops SeisSol x sec after slip rate everywhere on the fault or seismic moment rate is below
+                                     ! the given threshold
+terminatorSlipRateThreshold = 0.5    ! Slip rate threshold for the above criteria (the proposed value should filter out locally high SR
+                                     ! in "creeping" fronts (numerical artifacts when rupture dies out).
+terminatorMomentRateThreshold = 2e18 ! Seismic moment rate threshold for the above criteria
 /

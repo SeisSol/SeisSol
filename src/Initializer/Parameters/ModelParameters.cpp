@@ -1,4 +1,6 @@
 #include "ModelParameters.h"
+#include <Initializer/Parameters/ParameterReader.h>
+#include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
 
@@ -37,10 +39,10 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
 ModelParameters readModelParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
 
-  const std::string boundaryFileName = reader->readWithDefault("boundaryfileName", std::string(""));
+  const auto boundaryFileName = reader->readPath("boundaryfileName");
   const std::string materialFileName =
-      reader->readOrFail<std::string>("materialfilename", "No material file given.");
-  const bool hasBoundaryFile = boundaryFileName != "";
+      reader->readPathOrFail("materialfilename", "No material file given.");
+  const bool hasBoundaryFile = !boundaryFileName.value_or("").empty();
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
   const bool useCellHomogenizedMaterial =
@@ -50,8 +52,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
       reader->readWithDefault("gravitationalacceleration", 9.81);
   const double tv = reader->readWithDefault("tv", 0.1);
 
-  const double freqCentral = reader->readIfRequired<double>("freqcentral", isModelViscoelastic());
-  const double freqRatio = reader->readIfRequired<double>("freqratio", isModelViscoelastic());
+  const auto freqCentral = reader->readIfRequired<double>("freqcentral", isModelViscoelastic());
+  const auto freqRatio = reader->readIfRequired<double>("freqratio", isModelViscoelastic());
   if constexpr (isModelViscoelastic()) {
     if (freqRatio <= 0) {
       logError()
@@ -63,6 +65,22 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
 
   reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
 
+  const auto flux =
+      reader->readWithDefaultStringEnum<NumericalFlux>("numflux",
+                                                       "godunov",
+                                                       {
+                                                           {"godunov", NumericalFlux::Godunov},
+                                                           {"rusanov", NumericalFlux::Rusanov},
+                                                       });
+
+  const auto fluxNearFault =
+      reader->readWithDefaultStringEnum<NumericalFlux>("numfluxnearfault",
+                                                       "godunov",
+                                                       {
+                                                           {"godunov", NumericalFlux::Godunov},
+                                                           {"rusanov", NumericalFlux::Rusanov},
+                                                       });
+
   return ModelParameters{hasBoundaryFile,
                          plasticity,
                          useCellHomogenizedMaterial,
@@ -70,8 +88,10 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          freqRatio,
                          gravitationalAcceleration,
                          tv,
-                         boundaryFileName,
+                         boundaryFileName.value_or(""),
                          materialFileName,
-                         itmParameters};
+                         itmParameters,
+                         flux,
+                         fluxNearFault};
 }
 } // namespace seissol::initializer::parameters

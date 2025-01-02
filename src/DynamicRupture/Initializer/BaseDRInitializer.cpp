@@ -1,37 +1,48 @@
 #include "BaseDRInitializer.h"
 
+#include "DynamicRupture/Misc.h"
+#include "Geometry/MeshDefinition.h"
+#include "Initializer/DynamicRupture.h"
 #include "Initializer/ParameterDB.h"
-#include "Model/common.hpp"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Layer.h"
+#include "Kernels/Precision.h"
+#include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
 #include <Eigen/Dense>
+#include <cassert>
+#include <cmath>
+#include <cstddef>
+#include <init.h>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
 
 namespace seissol::dr::initializer {
-void BaseDRInitializer::initializeFault(seissol::initializer::DynamicRupture const* const dynRup,
+void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
                                         seissol::initializer::LTSTree* const dynRupTree) {
   const int rank = seissol::MPI::mpi.rank();
   logInfo(rank) << "Initializing Fault, using a quadrature rule with "
-                << misc::numberOfBoundaryGaussPoints << " points.";
+                << misc::NumBoundaryGaussPoints << " points.";
   seissol::initializer::FaultParameterDB faultParameterDB;
-  for (auto it = dynRupTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
-       it != dynRupTree->endLeaf();
-       ++it) {
-
+  for (auto& layer : dynRupTree->leaves(Ghost)) {
     // parameters to be read from fault parameters yaml file
     std::unordered_map<std::string, real*> parameterToStorageMap;
 
     // read initial stress and nucleation stress
-    auto addStressesToStorageMap = [&parameterToStorageMap, &it, this](StressTensor& initialStress,
-                                                                       bool readNucleation) {
+    auto addStressesToStorageMap = [&parameterToStorageMap, &layer, this](
+                                       StressTensor& initialStress, bool readNucleation) {
       // return pointer to first element
-      auto getRawData = [](StressTensor::VectorOfArrays_t& vectorOfArrays) {
+      auto getRawData = [](StressTensor::VectorOfArraysT& vectorOfArrays) {
         return vectorOfArrays.data()->data();
       };
       // fault can be either initialized by traction or by cartesian stress
       // this method reads either the nucleation stress or the initial stress
-      std::vector<std::string> identifiers;
-      Parametrization parametrization;
-      std::tie(identifiers, parametrization) = this->stressIdentifiers(readNucleation);
+      auto [identifiers, parametrization] = this->stressIdentifiers(readNucleation);
       const bool isFaultParameterizedByTraction = parametrization == Parametrization::Traction;
       if (isFaultParameterizedByTraction) {
         // only read traction in normal, strike and dip direction
@@ -39,7 +50,7 @@ void BaseDRInitializer::initializeFault(seissol::initializer::DynamicRupture con
         parameterToStorageMap.insert({identifiers[1], getRawData(initialStress.xy)});
         parameterToStorageMap.insert({identifiers[2], getRawData(initialStress.xz)});
         // set the rest to zero
-        for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+        for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
           for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
             initialStress.yy[ltsFace][pointIndex] = 0.0;
             initialStress.zz[ltsFace][pointIndex] = 0.0;
@@ -61,7 +72,7 @@ void BaseDRInitializer::initializeFault(seissol::initializer::DynamicRupture con
         parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
       }
 #else
-      for (unsigned ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+      for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
         for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
           initialStress.p[ltsFace][pointIndex] = 0.0;
         }
@@ -71,72 +82,71 @@ void BaseDRInitializer::initializeFault(seissol::initializer::DynamicRupture con
       return isFaultParameterizedByTraction;
     };
 
-    StressTensor initialStress(it->getNumberOfCells());
+    StressTensor initialStress(layer.getNumberOfCells());
     const bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStress, false);
-    StressTensor nucleationStress(it->getNumberOfCells());
+    StressTensor nucleationStress(layer.getNumberOfCells());
     const bool nucleationStressParameterizedByTraction =
         addStressesToStorageMap(nucleationStress, true);
 
     // get additional parameters (for derived friction laws)
-    addAdditionalParameters(parameterToStorageMap, dynRup, it);
+    addAdditionalParameters(parameterToStorageMap, dynRup, layer);
 
     // read parameters from yaml file
     for (const auto& parameterStoragePair : parameterToStorageMap) {
       faultParameterDB.addParameter(parameterStoragePair.first, parameterStoragePair.second);
     }
-    const auto faceIDs = getFaceIDsInIterator(dynRup, it);
+    const auto faceIDs = getFaceIDsInIterator(dynRup, layer);
     queryModel(faultParameterDB, faceIDs);
 
     // rotate initial stress to fault coordinate system
     if (initialStressParameterizedByTraction) {
-      rotateTractionToCartesianStress(dynRup, it, initialStress);
+      rotateTractionToCartesianStress(dynRup, layer, initialStress);
     }
 
-    auto* initialStressInFaultCS = it->var(dynRup->initialStressInFaultCS);
-    rotateStressToFaultCS(dynRup, it, initialStressInFaultCS, initialStress);
+    auto* initialStressInFaultCS = layer.var(dynRup->initialStressInFaultCS);
+    rotateStressToFaultCS(dynRup, layer, initialStressInFaultCS, initialStress);
     // rotate nucleation stress to fault coordinate system
     if (nucleationStressParameterizedByTraction) {
-      rotateTractionToCartesianStress(dynRup, it, nucleationStress);
+      rotateTractionToCartesianStress(dynRup, layer, nucleationStress);
     }
-    real(*nucleationStressInFaultCS)[misc::numPaddedPoints][6] =
-        it->var(dynRup->nucleationStressInFaultCS);
-    rotateStressToFaultCS(dynRup, it, nucleationStressInFaultCS, nucleationStress);
+    real(*nucleationStressInFaultCS)[misc::NumPaddedPoints][6] =
+        layer.var(dynRup->nucleationStressInFaultCS);
+    rotateStressToFaultCS(dynRup, layer, nucleationStressInFaultCS, nucleationStress);
 
-    auto* initialPressure = it->var(dynRup->initialPressure);
-    auto* nucleationPressure = it->var(dynRup->nucleationPressure);
-    for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-      for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+    auto* initialPressure = layer.var(dynRup->initialPressure);
+    auto* nucleationPressure = layer.var(dynRup->nucleationPressure);
+    for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+      for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         initialPressure[ltsFace][pointIndex] = initialStress.p[ltsFace][pointIndex];
         nucleationPressure[ltsFace][pointIndex] = nucleationStress.p[ltsFace][pointIndex];
       }
     }
-    initializeOtherVariables(dynRup, it);
+    initializeOtherVariables(dynRup, layer);
   }
 }
 
 std::vector<unsigned> BaseDRInitializer::getFaceIDsInIterator(
-    seissol::initializer::DynamicRupture const* const dynRup,
-    seissol::initializer::LTSTree::leaf_iterator& it) {
-  const auto& drFaceInformation = it->var(dynRup->faceInformation);
+    const seissol::initializer::DynamicRupture* const dynRup, seissol::initializer::Layer& layer) {
+  const auto& drFaceInformation = layer.var(dynRup->faceInformation);
   std::vector<unsigned> faceIDs;
-  faceIDs.reserve(it->getNumberOfCells());
+  faceIDs.reserve(layer.getNumberOfCells());
   // collect all face IDs within this lts leaf
-  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
+  for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
     faceIDs.push_back(drFaceInformation[ltsFace].meshFace);
   }
   return faceIDs;
 }
 
 void BaseDRInitializer::queryModel(seissol::initializer::FaultParameterDB& faultParameterDB,
-                                   std::vector<unsigned> const& faceIDs) {
+                                   const std::vector<unsigned>& faceIDs) {
   // create a query and evaluate the model
   seissol::initializer::FaultGPGenerator queryGen(seissolInstance.meshReader(), faceIDs);
   faultParameterDB.evaluateModel(drParameters->faultFileName, &queryGen);
 }
 
 void BaseDRInitializer::rotateTractionToCartesianStress(
-    seissol::initializer::DynamicRupture const* const dynRup,
-    seissol::initializer::LTSTree::leaf_iterator& it,
+    const seissol::initializer::DynamicRupture* const dynRup,
+    seissol::initializer::Layer& layer,
     StressTensor& stress) {
   // create rotation kernel
   real faultTractionToCartesianMatrixValues[init::stressRotationMatrix::size()];
@@ -146,8 +156,8 @@ void BaseDRInitializer::rotateTractionToCartesianStress(
   faultTractionToCartesianRotationKernel.stressRotationMatrix =
       faultTractionToCartesianMatrixValues;
 
-  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-    const auto& drFaceInformation = it->var(dynRup->faceInformation);
+  for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+    const auto& drFaceInformation = layer.var(dynRup->faceInformation);
     const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
     const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);
 
@@ -160,7 +170,7 @@ void BaseDRInitializer::rotateTractionToCartesianStress(
         fault.normal, strike, dip, faultTractionToCartesianMatrixView, 0, 0);
 
     using namespace dr::misc::quantity_indices;
-    for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+    for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       const real initialTraction[init::initialStress::size()] = {stress.xx[ltsFace][pointIndex],
                                                                  stress.yy[ltsFace][pointIndex],
                                                                  stress.zz[ltsFace][pointIndex],
@@ -186,10 +196,10 @@ void BaseDRInitializer::rotateTractionToCartesianStress(
 }
 
 void BaseDRInitializer::rotateStressToFaultCS(
-    seissol::initializer::DynamicRupture const* const dynRup,
-    seissol::initializer::LTSTree::leaf_iterator& it,
-    real (*stressInFaultCS)[misc::numPaddedPoints][6],
-    StressTensor const& stress) {
+    const seissol::initializer::DynamicRupture* const dynRup,
+    seissol::initializer::Layer& layer,
+    real (*stressInFaultCS)[misc::NumPaddedPoints][6],
+    const StressTensor& stress) {
   // create rotation kernel
   real cartesianToFaultCSMatrixValues[init::stressRotationMatrix::size()];
   auto cartesianToFaultCSMatrixView =
@@ -197,9 +207,9 @@ void BaseDRInitializer::rotateStressToFaultCS(
   dynamicRupture::kernel::rotateStress cartesianToFaultCSRotationKernel;
   cartesianToFaultCSRotationKernel.stressRotationMatrix = cartesianToFaultCSMatrixValues;
 
-  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-    constexpr unsigned int numberOfStressComponents = 6;
-    const auto& drFaceInformation = it->var(dynRup->faceInformation);
+  for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+    constexpr unsigned int NumStressComponents = 6;
+    const auto& drFaceInformation = layer.var(dynRup->faceInformation);
     const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
     const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);
 
@@ -207,7 +217,7 @@ void BaseDRInitializer::rotateStressToFaultCS(
     seissol::transformations::inverseSymmetricTensor2RotationMatrix(
         fault.normal, fault.tangent1, fault.tangent2, cartesianToFaultCSMatrixView, 0, 0);
 
-    for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+    for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       const real initialStress[init::initialStress::size()] = {stress.xx[ltsFace][pointIndex],
                                                                stress.yy[ltsFace][pointIndex],
                                                                stress.zz[ltsFace][pointIndex],
@@ -218,7 +228,7 @@ void BaseDRInitializer::rotateStressToFaultCS(
       cartesianToFaultCSRotationKernel.initialStress = initialStress;
       cartesianToFaultCSRotationKernel.rotatedStress = rotatedStress;
       cartesianToFaultCSRotationKernel.execute();
-      for (unsigned int stressIndex = 0; stressIndex < numberOfStressComponents; ++stressIndex) {
+      for (unsigned int stressIndex = 0; stressIndex < NumStressComponents; ++stressIndex) {
         stressInFaultCS[ltsFace][pointIndex][stressIndex] = rotatedStress[stressIndex];
       }
     }
@@ -227,36 +237,35 @@ void BaseDRInitializer::rotateStressToFaultCS(
 
 void BaseDRInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializer::DynamicRupture const* const dynRup,
-    seissol::initializer::LTSInternalNode::leaf_iterator& it) {
+    const seissol::initializer::DynamicRupture* const dynRup,
+    seissol::initializer::Layer& layer) {
   // do nothing for base friction law
 }
 
 void BaseDRInitializer::initializeOtherVariables(
-    seissol::initializer::DynamicRupture const* const dynRup,
-    seissol::initializer::LTSInternalNode::leaf_iterator& it) {
+    const seissol::initializer::DynamicRupture* const dynRup, seissol::initializer::Layer& layer) {
   // initialize rupture front flag
-  bool(*ruptureTimePending)[misc::numPaddedPoints] = it->var(dynRup->ruptureTimePending);
-  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-    for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+  bool(*ruptureTimePending)[misc::NumPaddedPoints] = layer.var(dynRup->ruptureTimePending);
+  for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+    for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       ruptureTimePending[ltsFace][pointIndex] = true;
     }
   }
 
   // initialize all other variables to zero
-  real(*peakSlipRate)[misc::numPaddedPoints] = it->var(dynRup->peakSlipRate);
-  real(*ruptureTime)[misc::numPaddedPoints] = it->var(dynRup->ruptureTime);
-  real(*dynStressTime)[misc::numPaddedPoints] = it->var(dynRup->dynStressTime);
-  real(*accumulatedSlipMagnitude)[misc::numPaddedPoints] =
-      it->var(dynRup->accumulatedSlipMagnitude);
-  real(*slip1)[misc::numPaddedPoints] = it->var(dynRup->slip1);
-  real(*slip2)[misc::numPaddedPoints] = it->var(dynRup->slip2);
-  real(*slipRateMagnitude)[misc::numPaddedPoints] = it->var(dynRup->slipRateMagnitude);
-  real(*traction1)[misc::numPaddedPoints] = it->var(dynRup->traction1);
-  real(*traction2)[misc::numPaddedPoints] = it->var(dynRup->traction2);
+  real(*peakSlipRate)[misc::NumPaddedPoints] = layer.var(dynRup->peakSlipRate);
+  real(*ruptureTime)[misc::NumPaddedPoints] = layer.var(dynRup->ruptureTime);
+  real(*dynStressTime)[misc::NumPaddedPoints] = layer.var(dynRup->dynStressTime);
+  real(*accumulatedSlipMagnitude)[misc::NumPaddedPoints] =
+      layer.var(dynRup->accumulatedSlipMagnitude);
+  real(*slip1)[misc::NumPaddedPoints] = layer.var(dynRup->slip1);
+  real(*slip2)[misc::NumPaddedPoints] = layer.var(dynRup->slip2);
+  real(*slipRateMagnitude)[misc::NumPaddedPoints] = layer.var(dynRup->slipRateMagnitude);
+  real(*traction1)[misc::NumPaddedPoints] = layer.var(dynRup->traction1);
+  real(*traction2)[misc::NumPaddedPoints] = layer.var(dynRup->traction2);
 
-  for (unsigned int ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-    for (unsigned int pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+  for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+    for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       peakSlipRate[ltsFace][pointIndex] = 0;
       ruptureTime[ltsFace][pointIndex] = 0;
       dynStressTime[ltsFace][pointIndex] = 0;

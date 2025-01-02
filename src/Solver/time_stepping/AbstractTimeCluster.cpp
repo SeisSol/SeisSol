@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <cassert>
 #include "utils/logger.h"
@@ -10,9 +11,9 @@ double AbstractTimeCluster::timeStepSize() const {
   return ct.timeStepSize(syncTime);
 }
 
-AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, long timeStepRate)
-    : timeStepRate(timeStepRate), numberOfTimeSteps(0),
-      timeOfLastStageChange(std::chrono::steady_clock::now()) {
+AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize, long timeStepRate, Executor executor)
+    : timeOfLastStageChange(std::chrono::steady_clock::now()),
+      timeStepRate(timeStepRate), numberOfTimeSteps(0), executor(executor) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
 }
@@ -182,14 +183,17 @@ bool AbstractTimeCluster::mayCorrect() {
   return stepBasedCorrect;
 }
 
+Executor AbstractTimeCluster::getExecutor() const {
+  return executor;
+}
 
 bool AbstractTimeCluster::maySync() {
     return ct.stepsSinceLastSync >= ct.stepsUntilSync;
 }
 
 void AbstractTimeCluster::connect(AbstractTimeCluster &other) {
-  neighbors.emplace_back(other.ct.maxTimeStepSize, other.ct.timeStepRate);
-  other.neighbors.emplace_back(ct.maxTimeStepSize, ct.timeStepRate);
+  neighbors.emplace_back(other.ct.maxTimeStepSize, other.ct.timeStepRate, other.executor);
+  other.neighbors.emplace_back(ct.maxTimeStepSize, ct.timeStepRate, executor);
   neighbors.back().inbox = std::make_shared<MessageQueue>();
   other.neighbors.back().inbox = std::make_shared<MessageQueue>();
   neighbors.back().outbox = other.neighbors.back().inbox;
@@ -210,7 +214,7 @@ void AbstractTimeCluster::reset() {
 
   // There can be pending messages from before the sync point
   processMessages();
-  for (auto& neighbor : neighbors) {
+  for ([[maybe_unused]] const auto& neighbor : neighbors) {
     assert(!neighbor.inbox->hasMessages());
   }
   ct.stepsSinceLastSync = 0;
@@ -239,10 +243,16 @@ ActorState AbstractTimeCluster::getState() const {
 
 void AbstractTimeCluster::setPredictionTime(double time) {
   ct.predictionTime = time;
+  for (auto& neighbor : neighbors) {
+    neighbor.ct.predictionTime = time;
+  }
 }
 
 void AbstractTimeCluster::setCorrectionTime(double time) {
   ct.correctionTime = time;
+  for (auto& neighbor : neighbors) {
+    neighbor.ct.correctionTime = time;
+  }
 }
 
 long AbstractTimeCluster::getTimeStepRate() {
@@ -263,4 +273,10 @@ std::vector<NeighborCluster>* AbstractTimeCluster::getNeighborClusters(){
   return &neighbors;
 }
 
+bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
+  return std::any_of(neighbors.begin(), neighbors.end(), [&](auto& neighbor) {
+    return neighbor.executor != executor;
+  });
 }
+
+} // namespace seissol::time_stepping

@@ -6,6 +6,8 @@
 #include <queue>
 #include <variant>
 
+#include <Common/Executor.h>
+
 namespace seissol::time_stepping {
 
 struct AdvancedPredictionTimeMessage {
@@ -92,11 +94,12 @@ struct ClusterTimes {
 };
 
 struct NeighborCluster {
+  Executor executor;
   ClusterTimes ct;
   std::shared_ptr<MessageQueue> inbox = nullptr;
   std::shared_ptr<MessageQueue> outbox = nullptr;
 
-  NeighborCluster(double maxTimeStepSize, int timeStepRate);
+  NeighborCluster(double maxTimeStepSize, int timeStepRate, Executor executor);
 
 };
 

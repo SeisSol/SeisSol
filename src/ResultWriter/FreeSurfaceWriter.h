@@ -2,8 +2,10 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de,
+ * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
  *
  * @section LICENSE
  * Copyright (c) 2017, SeisSol Group
@@ -44,95 +46,87 @@
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
 
-#include <Geometry/MeshReader.h>
-#include <utils/logger.h>
-#include <async/Module.h>
-#include <Modules/Module.h>
-#include <Solver/FreeSurfaceIntegrator.h>
-#include "Checkpoint/DynStruct.h"
-#include "Monitoring/Stopwatch.h"
 #include "FreeSurfaceWriterExecutor.h"
+#include "Geometry/MeshReader.h"
+#include "Modules/Module.h"
+#include "Monitoring/Stopwatch.h"
+#include "Solver/FreeSurfaceIntegrator.h"
+#include <async/Module.h>
+#include <utils/logger.h>
 
-namespace seissol
-{
-  class SeisSol;
-namespace writer
-{
+namespace seissol {
+class SeisSol;
+namespace writer {
 
-class FreeSurfaceWriter : private async::Module<FreeSurfaceWriterExecutor, FreeSurfaceInitParam, FreeSurfaceParam>, public seissol::Module
-{
-private:
-        seissol::SeisSol& seissolInstance;
+class FreeSurfaceWriter
+    : private async::Module<FreeSurfaceWriterExecutor, FreeSurfaceInitParam, FreeSurfaceParam>,
+      public seissol::Module {
+  private:
+  seissol::SeisSol& seissolInstance;
 
-	/** Is enabled? */
-	bool m_enabled;
+  /** Is enabled? */
+  bool m_enabled{false};
 
-	/** Timestep component in the checkpoint header */
-	DynStruct::Component<int> m_timestepComp;
+  /** The asynchronous executor */
+  FreeSurfaceWriterExecutor m_executor;
 
-	/** The asynchronous executor */
-	FreeSurfaceWriterExecutor m_executor;
-
-	/** Frontend stopwatch */
-	Stopwatch m_stopwatch;
+  /** Frontend stopwatch */
+  Stopwatch m_stopwatch;
 
   /** free surface integration module. */
-  seissol::solver::FreeSurfaceIntegrator* m_freeSurfaceIntegrator;
+  seissol::solver::FreeSurfaceIntegrator* m_freeSurfaceIntegrator{nullptr};
 
-  void constructSurfaceMesh(  seissol::geometry::MeshReader const& meshReader,
-                              unsigned*&        cells,
-                              double*&          vertices,
-                              unsigned&         nCells,
-                              unsigned&         nVertices );
+  void constructSurfaceMesh(const seissol::geometry::MeshReader& meshReader,
+                            unsigned*& cells,
+                            double*& vertices,
+                            unsigned& nCells,
+                            unsigned& nVertices);
 
-public:
-	FreeSurfaceWriter(seissol::SeisSol& seissolInstance) : 
-          seissolInstance(seissolInstance), m_enabled(false), m_freeSurfaceIntegrator(NULL) {}
+  public:
+  FreeSurfaceWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
-	/**
-	 * Called by ASYNC on all ranks
-	 */
-	void setUp();
+  /**
+   * Called by ASYNC on all ranks
+   */
+  void setUp() override;
 
-	void enable();
+  void enable();
 
-	void init(  seissol::geometry::MeshReader const&                       meshReader,
-              seissol::solver::FreeSurfaceIntegrator* freeSurfaceIntegrator,
-              char const*                             outputPrefix,
-              double                                  interval,
-              xdmfwriter::BackendType                 backend,
-              const std::string& backupTimeStamp);
+  void init(const seissol::geometry::MeshReader& meshReader,
+            seissol::solver::FreeSurfaceIntegrator* freeSurfaceIntegrator,
+            const char* outputPrefix,
+            double interval,
+            xdmfwriter::BackendType backend,
+            const std::string& backupTimeStamp);
 
-	void write(double time);
+  void write(double time);
 
-	void close()
-	{
-		if (m_enabled)
-			wait();
+  void close() {
+    if (m_enabled) {
+      wait();
+    }
 
-		finalize();
+    finalize();
 
-		if (!m_enabled)
-			return;
+    if (!m_enabled) {
+      return;
+    }
 
-		m_stopwatch.printTime("Time free surface writer frontend:");
-	}
+    m_stopwatch.printTime("Time free surface writer frontend:");
+  }
 
-	void tearDown()
-	{
-		m_executor.finalize();
-	}
+  void tearDown() override { m_executor.finalize(); }
 
-	//
-	// Hooks
-	//
-	void simulationStart();
+  //
+  // Hooks
+  //
+  void simulationStart() override;
 
-	void syncPoint(double currentTime);
+  void syncPoint(double currentTime) override;
 };
 
-}
+} // namespace writer
 
-}
+} // namespace seissol
 
 #endif // FREESURFACEWRITER_H

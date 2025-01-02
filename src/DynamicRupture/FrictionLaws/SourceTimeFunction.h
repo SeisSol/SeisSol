@@ -3,19 +3,20 @@
 
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
-#include "Numerical_aux/GaussianNucleationFunction.h"
-#include "Numerical_aux/RegularizedYoffe.h"
+#include "Numerical/DeltaPulse.h"
+#include "Numerical/GaussianNucleationFunction.h"
+#include "Numerical/RegularizedYoffe.h"
 
 namespace seissol::dr::friction_law {
 class YoffeSTF {
   private:
-  real (*onsetTime)[misc::numPaddedPoints];
-  real (*tauS)[misc::numPaddedPoints];
-  real (*tauR)[misc::numPaddedPoints];
+  real (*onsetTime)[misc::NumPaddedPoints];
+  real (*tauS)[misc::NumPaddedPoints];
+  real (*tauR)[misc::NumPaddedPoints];
 
   public:
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* dynRup,
                           real fullUpdateTime);
 
   real evaluate(real currentTime,
@@ -26,12 +27,24 @@ class YoffeSTF {
 
 class GaussianSTF {
   private:
-  real (*onsetTime)[misc::numPaddedPoints];
-  real (*riseTime)[misc::numPaddedPoints];
+  real (*onsetTime)[misc::NumPaddedPoints];
+  real (*riseTime)[misc::NumPaddedPoints];
 
   public:
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* dynRup,
+                          real fullUpdateTime);
+
+  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);
+};
+
+class DeltaSTF {
+  private:
+  real (*onsetTime)[misc::NumPaddedPoints];
+
+  public:
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+                          const seissol::initializer::DynamicRupture* dynRup,
                           real fullUpdateTime);
 
   real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);

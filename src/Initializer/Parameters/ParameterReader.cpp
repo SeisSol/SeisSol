@@ -1,6 +1,55 @@
 #include "ParameterReader.h"
+#include <memory>
+#include <optional>
+#include <string>
+#include <utils/logger.h>
+#include <vector>
+
+#include "Common/Filesystem.h"
 
 namespace seissol::initializer::parameters {
+
+ParameterReader::ParameterReader(const YAML::Node& node, const std::string& rootPath, bool empty)
+    : node(node), rootPath(rootPath), empty(empty) {}
+
+std::optional<std::string> ParameterReader::readPath(const std::string& field) {
+  const auto fileName = read<std::string>(field);
+  if (fileName.has_value()) {
+    const auto lastPath = filesystem::path(rootPath);
+    auto nextPath = filesystem::path(fileName.value());
+    const auto loadFileName = [&]() {
+      if (nextPath.is_relative()) {
+        // remove file
+        return lastPath.parent_path() / nextPath;
+      } else {
+        return nextPath;
+      }
+    }();
+    // try to get the full file name (if that works)
+    if (filesystem::exists(loadFileName)) {
+      return filesystem::canonical(loadFileName);
+    } else if (filesystem::exists(nextPath)) {
+      return filesystem::canonical(nextPath);
+    } else {
+      // otherwise, just return the string (TODO: or should be fail here then?)
+      return nextPath;
+    }
+  } else {
+    return {};
+  }
+}
+
+std::string ParameterReader::readPathOrFail(const std::string& field,
+                                            const std::string& failMessage) {
+  const auto path = readPath(field);
+  if (path.has_value()) {
+    return path.value();
+  } else {
+    logError() << "The field" << field
+               << "was not found, but it is required (details: " << failMessage.c_str() << ")";
+    return "";
+  }
+}
 
 void ParameterReader::warnDeprecatedSingle(const std::string& field) {
   if (hasField(field)) {
@@ -42,7 +91,7 @@ ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
   visited.emplace(subnodeName);
   logDebug(seissol::MPI::mpi.rank()) << "Entering section" << subnodeName;
   if (subreaders.find(subnodeName) == subreaders.end()) {
-    bool empty;
+    bool empty = false;
     if (hasField(subnodeName)) {
       empty = false;
 
@@ -53,7 +102,8 @@ ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
       empty = true;
     }
     subreaders.emplace(
-        subnodeName, std::make_shared<ParameterReader>(ParameterReader(node[subnodeName], empty)));
+        subnodeName,
+        std::make_shared<ParameterReader>(ParameterReader(node[subnodeName], rootPath, empty)));
   }
   return subreaders.at(subnodeName).get();
 }

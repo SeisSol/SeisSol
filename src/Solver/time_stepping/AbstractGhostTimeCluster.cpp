@@ -1,4 +1,4 @@
-#include <Parallel/MPI.h>
+#include "Parallel/MPI.h"
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 
 
@@ -84,7 +84,7 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
                                                  int globalTimeClusterId,
                                                  int otherGlobalTimeClusterId,
                                                  const MeshStructure *meshStructure)
-    : AbstractTimeCluster(maxTimeStepSize, timeStepRate),
+    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
       globalClusterId(globalTimeClusterId),
       otherGlobalClusterId(otherGlobalTimeClusterId),
       meshStructure(meshStructure) {}
@@ -96,7 +96,6 @@ void AbstractGhostTimeCluster::reset() {
 }
 
 void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
-  const auto rank = MPI::mpi.rank();
   logError()
       << "Ghost: No update since " << timeSinceLastUpdate.count()
       << "[s] for global cluster " << globalClusterId

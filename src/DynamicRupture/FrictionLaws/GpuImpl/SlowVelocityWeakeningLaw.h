@@ -11,7 +11,7 @@ class SlowVelocityWeakeningLaw
   using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
@@ -60,18 +60,18 @@ class SlowVelocityWeakeningLaw
     const double log1 = sycl::log(details.rsSr0 * localStateVariable / localSl0);
     const double c =
         (0.5 / details.rsSr0) * sycl::exp((details.rsF0 + details.rsB * log1) / localA);
-    return localA * c / std::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
+    return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
   }
 
   /**
    * Resample the state variable. For Slow Velocity Weakening Laws,
    * we just copy the buffer into the member variable.
    */
-  void resampleStateVar(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
+  void resampleStateVar(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {
     const auto layerSize{this->currLayerSize};
     auto* stateVariable{this->stateVariable};
 
-    sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{layerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);

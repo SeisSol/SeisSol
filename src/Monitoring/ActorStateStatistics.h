@@ -1,11 +1,11 @@
 #ifndef SEISSOL_ACTORSTATESTATISTICS_H
 #define SEISSOL_ACTORSTATESTATISTICS_H
 
-#include <unordered_map>
-#include <list>
-#include <optional>
 #include "LoopStatistics.h"
 #include "Solver/time_stepping/ActorState.h"
+#include <list>
+#include <optional>
+#include <unordered_map>
 
 namespace seissol {
 class ActorStateStatistics {
@@ -20,14 +20,13 @@ class ActorStateStatistics {
     explicit Sample(seissol::time_stepping::ActorState state);
     void finish();
     seissol::time_stepping::ActorState state;
-    timespec begin;
+    timespec begin{};
     std::optional<timespec> end;
     int numEnteredRegion;
     Sample() = delete;
   };
 
   Sample currentSample;
-  bool started = false;
 
   unsigned globalClusterId;
   LoopStatistics& loopStatistics;

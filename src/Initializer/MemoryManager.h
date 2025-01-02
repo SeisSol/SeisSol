@@ -71,6 +71,7 @@
 #ifndef MEMORYMANAGER_H_
 #define MEMORYMANAGER_H_
 
+#include "Tree/Layer.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #ifdef USE_MPI
 #include <mpi.h>
@@ -78,23 +79,23 @@
 
 #include <utils/logger.h>
 
-#include <Initializer/typedefs.hpp>
+#include "Initializer/Typedefs.h"
 #include "MemoryAllocator.h"
 
-#include <Initializer/LTS.h>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Lut.hpp>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/InputAux.hpp>
-#include <Initializer/Boundary.h>
-#include <Initializer/ParameterDB.h>
+#include "Initializer/LTS.h"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Lut.h"
+#include "Initializer/DynamicRupture.h"
+#include "Initializer/InputAux.h"
+#include "Initializer/Boundary.h"
+#include "Initializer/ParameterDB.h"
 
-#include <Physics/InitialField.h>
+#include "Physics/InitialField.h"
 
 #include <vector>
 #include <memory>
 
-#include <DynamicRupture/Factory.h>
+#include "DynamicRupture/Factory.h"
 #include <yaml-cpp/yaml.h>
 
 namespace seissol {
@@ -113,6 +114,8 @@ class MemoryManager {
 
     //! LTS mesh structure
     struct MeshStructure *m_meshStructure;
+
+    unsigned int* ltsToFace;
 
     /*
      * Interior
@@ -173,6 +176,7 @@ class MemoryManager {
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
     std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
+    std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLawDevice = nullptr;
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
     std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
@@ -343,6 +347,14 @@ class MemoryManager {
       return m_iniConds;
     }
 
+    inline void setLtsToFace(unsigned int* ptr) {
+      ltsToFace = ptr;
+    }
+
+    inline unsigned int* ltsToFaceMap() const {
+      return ltsToFace;
+    }
+
     void initializeEasiBoundaryReader(const char* fileName);
 
     inline EasiBoundary* getEasiBoundaryReader() {
@@ -351,6 +363,9 @@ class MemoryManager {
 
     inline dr::friction_law::FrictionSolver* getFrictionLaw() {
         return m_FrictionLaw.get();
+    }
+    inline dr::friction_law::FrictionSolver* getFrictionLawDevice() {
+        return m_FrictionLawDevice.get();
     }
     inline  dr::initializer::BaseDRInitializer* getDRInitializer() {
         return m_DRInitializer.get();
@@ -395,6 +410,7 @@ class MemoryManager {
   void initializeFrictionLaw();
   void initFaultOutputManager(const std::string& backupTimeStamp);
   void initFrictionData();
+  void synchronizeTo(seissol::initializer::AllocationPlace place);
 };
 
 

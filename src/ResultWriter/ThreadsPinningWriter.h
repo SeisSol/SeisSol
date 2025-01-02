@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Parallel/Pin.h"
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace seissol::writer {
 class ThreadsPinningWriter {

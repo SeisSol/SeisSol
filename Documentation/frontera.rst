@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+
 .. _compile_run_frontera:
 
 
@@ -61,7 +66,7 @@ Additional already installed modules can be discovered and added with:
 
     spack external find
 
-Finally, install seissol-env with 
+Finally, install seissol-env with
 
 .. code-block:: bash
 
@@ -95,7 +100,7 @@ Then you can unload the seissol-env module and add the required dynamic librarie
 
 .. code-block:: bash
 
-    export LD_LIBRARY_PATH=$SCRATCH/lib_dump/:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=$SCRATCH/libdump/:$LD_LIBRARY_PATH
     module unload seissol-env
 
 Finally, we provide an example of launch script used for running a full-machine frontera run.
@@ -147,7 +152,7 @@ In particular, note how timeout and retry count are increased.
     export UCX_UD_MLX5_RETRY_COUNT=180
 
 
-    # Launch MPI code... 
+    # Launch MPI code...
     seissol_exe=SeisSol_Release_dskx_6_viscoelastic2
     echo $seissol_exe
     time -p ibrun $seissol_exe parameters.par

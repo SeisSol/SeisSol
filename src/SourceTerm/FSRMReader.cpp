@@ -36,23 +36,25 @@
  **/
 
 #include "FSRMReader.h"
+#include <Kernels/Precision.h>
+#include <cstddef>
 #include <utils/logger.h>
 
 #include <cassert>
 #include <fstream>
-#include <string>
 #include <stdexcept>
-
-#include "Initializer/BasicTypedefs.hpp"
+#include <string>
 
 // this code replicates the behavior of the corresponding FORTRAN code for legacy reasons. In
 // particular, this reader is not programmed to be very fail-safe...
 
+namespace {
+
 template <size_t N>
-static void readArrayOrZero(std::ifstream& filestream,
-                            std::string& header,
-                            const std::string& keyword,
-                            real* data) {
+void readArrayOrZero(std::ifstream& filestream,
+                     std::string& header,
+                     const std::string& keyword,
+                     real* data) {
   if (header.find(keyword) != std::string::npos) {
     for (size_t i = 0; i < N; ++i) {
       filestream >> data[i];
@@ -65,6 +67,8 @@ static void readArrayOrZero(std::ifstream& filestream,
     }
   }
 }
+
+} // namespace
 
 void seissol::sourceterm::FSRMSource::read(const std::string& filename) {
   logInfo() << "Reading FSRM point sources from file " << filename;

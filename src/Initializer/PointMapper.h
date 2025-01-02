@@ -2,7 +2,8 @@
  * @file
  * This file is part of SeisSol.
  *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
+ * @author Carsten Uphoff (c.uphoff AT tum.de,
+ *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
  *
  * @section LICENSE
  * Copyright (c) 2019, SeisSol Group
@@ -40,31 +41,31 @@
 #ifndef INITIALIZER_POINTMAPPER_H_
 #define INITIALIZER_POINTMAPPER_H_
 
-#include <Geometry/MeshReader.h>
+#include "Geometry/MeshReader.h"
 #include <Eigen/Dense>
 
-namespace seissol {
-  namespace initializer {
-    /** Finds the tetrahedrons that contain the points.
-     *  In "contained" we save if the point source is contained in the mesh.
-     *  We use short here as bool. For MPI use cleanDoubles afterwards.
-     */
-    void findMeshIds( Eigen::Vector3d const*  points,
-                      seissol::geometry::MeshReader const& mesh,
-                      unsigned          numPoints,
-                      short*            contained,
-                      unsigned*         meshId );
+namespace seissol::initializer {
+/** Finds the tetrahedrons that contain the points.
+ *  In "contained" we save if the point source is contained in the mesh.
+ *  We use short here as bool. For MPI use cleanDoubles afterwards.
+ */
+void findMeshIds(const Eigen::Vector3d* points,
+                 const seissol::geometry::MeshReader& mesh,
+                 std::size_t numPoints,
+                 short* contained,
+                 unsigned* meshId,
+                 double tolerance = 0);
 
-    void findMeshIds(Eigen::Vector3d const* points,
-                     std::vector<Vertex> const& vertices,
-                     std::vector<Element> const& elements,
-                     unsigned numPoints,
-                     short* contained,
-                     unsigned* meshIds);
-  #ifdef USE_MPI
-    void cleanDoubles(short* contained, unsigned numPoints);
+void findMeshIds(const Eigen::Vector3d* points,
+                 const std::vector<Vertex>& vertices,
+                 const std::vector<Element>& elements,
+                 std::size_t numPoints,
+                 short* contained,
+                 unsigned* meshIds,
+                 double tolerance = 0);
+#ifdef USE_MPI
+void cleanDoubles(short* contained, std::size_t numPoints);
 #endif
-  }
-}
+} // namespace seissol::initializer
 
 #endif

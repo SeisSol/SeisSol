@@ -40,9 +40,13 @@
 
 #include "MPI.h"
 #include "utils/stringutils.h"
-#include <unistd.h>
-#include <cstdlib>
+#include <algorithm>
 #include <cctype>
+#include <cstdlib>
+#include <mpi.h>
+#include <string>
+#include <unistd.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
@@ -52,8 +56,8 @@ void seissol::MPI::init(int& argc, char**& argv) {
   // Note: Strictly speaking, we only require MPI_THREAD_MULTIPLE if using
   // a communication thread and/or async I/O.
   // The safer (and more sane) option is to enable it by default.
-  int required = MPI_THREAD_MULTIPLE;
-  int provided;
+  const int required = MPI_THREAD_MULTIPLE;
+  int provided = 0;
   MPI_Init_thread(&argc, &argv, required, &provided);
 
   setComm(MPI_COMM_WORLD);
@@ -85,12 +89,19 @@ void seissol::MPI::setComm(MPI_Comm comm) {
   MPI_Comm_size(m_sharedMemComm, &m_sharedMemMpiSize);
 }
 
-#ifdef ACL_DEVICE
 void seissol::MPI::bindAcceleratorDevice() {
+#ifdef ACL_DEVICE
   auto& instance = seissol::AcceleratorDevice::getInstance();
   instance.bindAcceleratorDevice(0);
-}
 #endif
+}
+
+void seissol::MPI::printAcceleratorDeviceInfo() {
+#ifdef ACL_DEVICE
+  auto& instance = seissol::AcceleratorDevice::getInstance();
+  instance.printInfo();
+#endif
+}
 
 void seissol::MPI::setDataTransferModeFromEnv() {
   // TODO (Ravil, David): switch to reading this option from the parameter-file.
@@ -118,7 +129,7 @@ void seissol::MPI::setDataTransferModeFromEnv() {
       preferredDataTransferMode = DataTransferMode::Direct;
     }
 #endif
-      logInfo(m_rank) << "Selected" << option << "MPI data transfer mode as the preferred one";
+    logInfo(m_rank) << "Selected" << option << "MPI data transfer mode as the preferred one";
   }
 }
 

@@ -6,15 +6,15 @@
 namespace seissol::dr::friction_law::gpu {
 class NoTP {
   public:
-  NoTP(seissol::initializer::parameters::DRParameters* drParameters){};
+  NoTP(seissol::initializer::parameters::DRParameters* drParameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          seissol::initializer::DynamicRupture const* const dynRup,
+                          const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
-  void calcFluidPressure(real (*normalStress)[misc::numPaddedPoints],
-                         real (*mu)[misc::numPaddedPoints],
-                         real (*slipRateMagnitude)[misc::numPaddedPoints],
+  void calcFluidPressure(real (*normalStress)[misc::NumPaddedPoints],
+                         real (*mu)[misc::NumPaddedPoints],
+                         real (*slipRateMagnitude)[misc::NumPaddedPoints],
                          real deltaT,
                          bool saveTmpInTP) {}
 

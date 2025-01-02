@@ -5,7 +5,7 @@
 
 #include <Eigen/Dense>
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include "ParameterReader.h"
 
 namespace seissol::initializer::parameters {
@@ -18,11 +18,13 @@ enum class FrictionLawType : unsigned int {
   NoFault = 0,
   LinearSlipWeakening = 16,
   LinearSlipWeakeningBimaterial = 6,
+  LinearSlipWeakeningTPApprox = 1058,
   RateAndStateAgingLaw = 3,
   RateAndStateSlipLaw = 4,
   RateAndStateFastVelocityWeakening = 103,
   ImposedSlipRatesYoffe = 33,
   ImposedSlipRatesGaussian = 34,
+  ImposedSlipRatesDelta = 35,
   RateAndStateVelocityWeakening = 7,
   RateAndStateAgingNucleation = 101,
 };
@@ -45,11 +47,14 @@ struct DRParameters {
   bool isDynamicRuptureEnabled{true};
   bool isThermalPressureOn{false};
   bool isFrictionEnergyRequired{false};
+  bool isCheckAbortCriteraEnabled{false};
   OutputType outputPointType{3};
   RefPointMethod refPointMethod{0};
   SlipRateOutputType slipRateOutputType{1};
   FrictionLawType frictionLawType{0};
+  real healingThreshold{-1.0};
   real t0{0.0};
+  real tpProxyExponent{0.0};
   real rsF0{0.0};
   real rsB{0.0};
   real rsSr0{0.0};
@@ -63,8 +68,10 @@ struct DRParameters {
   real initialPressure{0.0};
   real vStar{0.0}; // Prakash-Clifton regularization parameter
   real prakashLength{0.0};
-  std::string faultFileName{""};
+  std::string faultFileName;
   Eigen::Vector3d referencePoint;
+  real terminatorSlipRateThreshold{0.0};
+  double etaHack{1.0};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);

@@ -1,5 +1,6 @@
 #include "Misc.h"
 
+#include "Geometry/MeshDefinition.h"
 #include <cmath>
 
 namespace seissol::dr::misc {

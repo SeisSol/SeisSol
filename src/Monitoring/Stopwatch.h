@@ -45,14 +45,14 @@
 #ifndef STOPWATCH_H
 #define STOPWATCH_H
 
-#include <time.h>
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
+#include <time.h>
 
 namespace seissol {
 
 /** Returns the time difference in nanoseconds. */
-inline long long difftime(timespec const& start, timespec const& end) {
+inline long long difftime(const timespec& start, const timespec& end) {
   return 1000000000L * (end.tv_sec - start.tv_sec) + end.tv_nsec - start.tv_nsec;
 }
 
@@ -66,10 +66,10 @@ inline double seconds(long long time) { return 1.0e-9 * time; }
  */
 class Stopwatch {
   private:
-  struct timespec startTime;
+  struct timespec startTime{};
 
   /** Time already spent */
-  long long time;
+  long long time{0};
 
   public:
   /**
