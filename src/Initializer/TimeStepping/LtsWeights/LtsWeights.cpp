@@ -462,7 +462,11 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
 
     int cellchanges = 0;
     if (lb != clusteringCache.end()) {
-      auto newClusterIds = computeClusterIds(curWiggleFactor);
+      // use the cache
+      const auto newClusterIds = computeClusterIds(curWiggleFactor);
+#ifdef _OPENMP
+#pragma omp parallel for reduction(+ : cellchanges)
+#endif
       for (unsigned cell = 0; cell < m_mesh->cells().size(); ++cell) {
         if (lb->second[cell] > newClusterIds[cell]) {
           ++cellchanges;
@@ -491,6 +495,9 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
 std::vector<int> LtsWeights::computeClusterIds(double curWiggleFactor) {
   const auto& cells = m_mesh->cells();
   std::vector<int> clusterIds(cells.size(), 0);
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     clusterIds[cell] = getCluster(
         m_details.cellTimeStepWidths[cell], m_details.globalMinTimeStep, curWiggleFactor, m_rate);
