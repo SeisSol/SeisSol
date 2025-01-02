@@ -4,7 +4,7 @@
 
 # ## boilerplate
 
-FROM ubuntu:24.04
+FROM nvidia/cuda:12.6.1-devel-ubuntu24.04
 
 ENV TZ=UTC
 ENV DEBIAN_FRONTEND=noninteractive
@@ -38,14 +38,7 @@ RUN apt-get update -y && apt-get upgrade -y && \
     software-properties-common \
     python3.10 python3-dev python3-pip \
     python3-setuptools python3-numpy python3-scipy \
-    libeigen3-dev libyaml-cpp-dev libopenmpi-dev libparmetis-dev libmetis-dev ninja-build && \
-    wget -O llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key && \
-    apt-key add llvm-snapshot.gpg.key && \
-    rm -f llvm-snapshot.gpg.key && \
-    add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" && \
-    add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" && \
-    apt-get -y update && \
-    apt-get -y install clang-19 clang-tidy-19 libomp-19-dev
+    libeigen3-dev libyaml-cpp-dev libopenmpi-dev libparmetis-dev libmetis-dev ninja-build
 
 # ## IO
 
@@ -103,6 +96,39 @@ RUN git clone --depth 1 --branch 1.17 https://github.com/libxsmm/libxsmm.git git
 
 # PSpaMM
 RUN pip3 install --break-system-packages git+https://github.com/SeisSol/PSpaMM.git
+
+# gemmforge/chainforge
+RUN pip3 install --break-system-packages git+https://github.com/SeisSol/gemmforge.git
+RUN pip3 install --break-system-packages git+https://github.com/SeisSol/chainforge.git
+
+# clang-18
+RUN wget -O llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key && \
+    apt-key add llvm-snapshot.gpg.key && \
+    rm -f llvm-snapshot.gpg.key && \
+    add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-18 main" && \
+    add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-18 main" && \
+    apt-get -y update && \
+    apt-get -y install libllvm18 llvm-18 llvm-18-dev clang-18 clang-tidy-18 libclang-18-dev libomp-18-dev lld-18
+
+# NOTE: ACPP up to v24.06.0 is incompatible with clang-19
+# ACPP
+RUN apt-get install -y libboost-all-dev && \
+    git clone --recursive --depth 1 --branch v24.06.0 https://github.com/AdaptiveCpp/AdaptiveCpp.git gitbuild && \
+    mkdir -p gitbuild/build && cd gitbuild/build && \
+    cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DWITH_OPENCL_BACKEND=OFF -DWITH_ROCM_BACKEND=OFF -DWITH_SSCP_COMPILER=OFF -DWITH_STDPAR_COMPILER=OFF -DWITH_ACCELERATED_CPU=OFF -DWITH_CUDA_BACKEND=ON -DWITH_LEVEL_ZERO_BACKEND=OFF -DDEFAULT_TARGETS=cuda:sm_60 && \
+    ninja install && \
+    cd ../.. && rm -rf gitbuild
+
+# ROCm/HIP for CUDA
+# NOTE: currently disabled; as this codepath is more or less deprecated. If you want to have an image which tests it nonetheless, uncomment the following lines.
+# RUN apt-get install -y libnuma-dev gnupg2 && \
+#     wget https://repo.radeon.com/amdgpu-install/6.2/ubuntu/noble/amdgpu-install_6.2.60200-1_all.deb && \
+#     apt install -y ./amdgpu-install_6.2.60200-1_all.deb && \
+#     amdgpu-install -y --usecase=hiplibsdk --no-dkms && \
+#     rm ./amdgpu-install_6.2.60200-1_all.deb && \
+#     echo 'export PATH=$PATH:/opt/rocm/bin:/opt/rocm/rocprofiler/bin:/opt/rocm/opencl/bin' | tee -a /etc/profile.d/rocm.sh && \
+#     echo 'export HIPCC_VERBOSE=7' | tee -a /etc/profile.d/rocm.sh && \
+#     echo 'export HIP_PLATFORM=nvidia' | tee -a /etc/profile.d/rocm.sh
 
 # ## setup and cleanup
 

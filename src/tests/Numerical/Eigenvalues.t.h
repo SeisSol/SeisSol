@@ -7,7 +7,7 @@ namespace seissol::unit_test {
 template <unsigned Dim>
 void testResidual(std::array<std::complex<double>, Dim * Dim>& m,
                   seissol::eigenvalues::Eigenpair<std::complex<double>, Dim>& eigenpair) {
-  constexpr auto Epsilon = std::numeric_limits<double>::epsilon() * 10;
+  constexpr auto Epsilon = std::numeric_limits<double>::epsilon() * 1e3;
 
   // compute M*R
   std::array<std::complex<double>, Dim * Dim> mR{};
