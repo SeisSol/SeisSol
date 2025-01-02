@@ -119,7 +119,8 @@ RUN apt-get install -y libboost-all-dev && \
     ninja install && \
     cd ../.. && rm -rf gitbuild
 
-# ROCm/HIP
+# ROCm/HIP for CUDA
+# NOTE: currently disabled; as this codepath is more or less deprecated. If you want to have an image which tests it nonetheless, uncomment the following lines.
 # RUN apt-get install -y libnuma-dev gnupg2 && \
 #     wget https://repo.radeon.com/amdgpu-install/6.2/ubuntu/noble/amdgpu-install_6.2.60200-1_all.deb && \
 #     apt install -y ./amdgpu-install_6.2.60200-1_all.deb && \

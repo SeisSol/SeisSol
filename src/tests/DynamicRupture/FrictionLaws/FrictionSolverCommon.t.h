@@ -4,7 +4,6 @@
 #include "DynamicRupture/Misc.h"
 #include "tests/TestHelper.h"
 
-// TODO: re-enable?
 #ifndef USE_ACOUSTIC
 
 namespace seissol::unit_test {

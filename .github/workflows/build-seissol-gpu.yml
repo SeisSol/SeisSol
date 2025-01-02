@@ -49,6 +49,7 @@ jobs:
             fc: gfortran-13 # TODO?
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             runner: ubuntu-24.04
+          # TODO: needs a working GPU runner
           #- arch: sm_60
           #  backend: cuda
           #  syclcc: acpp
@@ -155,6 +156,7 @@ jobs:
       fail-fast: false
       matrix:
         case:
+          # NOTE: the commented tests do not yet work on the GPU on this branch
           - name: tpv5
             equation: elastic
             energies: true
@@ -189,7 +191,7 @@ jobs:
             equation: elastic
             energies: true
             receivers: false # FIXME: does not work right now; disabled in the Gitlab CI
-            fault: false # FIXME: does not work right now on GPUs
+            fault: false
           - name: tpv101
             equation: elastic
             energies: true
@@ -252,6 +254,7 @@ jobs:
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             pythonbreak: true
             mpi: openmpi
+          # TODO: needs a working GPU runner
           #- arch: sm_60
           #  backend: cuda
           #  syclcc: acpp
