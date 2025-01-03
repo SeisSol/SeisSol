@@ -1,18 +1,11 @@
 ---
-<!--
-    SPDX-FileCopyrightText: 2019-2025 SeisSol Group
-
-    SPDX-License-Identifier: BSD-3-Clause
--->
-
 name: Bug report
 about: Create a report to help us improve
 title: ''
 labels: 'bug'
 assignees: ''
-
-<!-- markdownlint-disable MD041 -->
 ---
+<!-- markdownlint-disable MD041 -->
 
 ### Describe the bug
 
