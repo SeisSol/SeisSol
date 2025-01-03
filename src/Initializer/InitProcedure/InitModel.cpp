@@ -12,7 +12,6 @@
 #include "Initializer/Tree/LTSTree.h"
 #include "Initializer/Tree/Lut.h"
 #include "Initializer/Typedefs.h"
-#include "Physics/Attenuation.h"
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
@@ -36,6 +35,10 @@
 #include "Parallel/MPI.h"
 
 #include <cmath>
+
+#if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
+#include "Physics/Attenuation.h"
+#endif
 
 using namespace seissol::initializer;
 
