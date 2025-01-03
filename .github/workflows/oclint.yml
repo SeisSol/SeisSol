@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: 2025 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
+name: oclint
+on:
+  - push
+
+jobs:
+  oclint:
+    name: oclint
+    runs-on: ubuntu-22.04
+    steps:
+      - name: apt-get
+        run: |
+          sudo apt-get update
+          sudo apt-get install ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libmetis-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3.10 python3-pip
+
+          sudo apt-get purge llvm* clang*
+          
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main"
+          sudo add-apt-repository "deb-src http://apt.llvm.org/jammy/ llvm-toolchain-jammy-16 main"
+          sudo apt-get update
+
+          sudo apt-get -y install llvm-16-dev libclang-common-16-dev libclang-16-dev
+
+          sudo pip3 install numpy
+          sudo mkdir -p /opt/dependencies
+
+      - name: checkout-easi
+        uses: actions/checkout@master
+        with:
+          repository: SeisSol/easi
+
+      - name: build-easi
+        run: |
+          mkdir build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
+          make -j $(nproc) && make install
+
+      - name: checkout-seissol
+        uses: actions/checkout@v4
+        with:
+          repository: SeisSol/SeisSol
+      
+      - name: checkout-oclint
+        uses: actions/checkout@v4
+        with:
+          repository: oclint/oclint
+          path: oclint
+      
+      - name: checkout-oclint-json-compilation-database
+        uses: actions/checkout@v4
+        with:
+          repository: oclint/oclint-json-compilation-database
+          path: oclint-json-compilation-database
+
+      - name: build-oclint
+        run: |
+          cp -r $GITHUB_WORKSPACE/oclint-json-compilation-database $GITHUB_WORKSPACE/oclint
+          cd $GITHUB_WORKSPACE/oclint
+          ./oclint-scripts/build --llvm-root=$(llvm-config-16 --prefix) --release
+          ./oclint-scripts/bundle --llvm-root=$(llvm-config-16 --prefix) --release
+
+      - name: run-oclint
+        run: |
+          export LD_LIBRARY_PATH=$GITHUB_WORKSPACE/oclint/build/oclint-release/lib:$LD_LIBRARY_PATH
+          export PATH=$GITHUB_WORKSPACE/oclint/build/oclint-release/bin:$PATH
+          set -euo pipefail
+          which oclint
+          git submodule update --init
+          mkdir -p build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DORDER=6 -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+          make SeisSol-codegen
+          sed -i 's/-fprofile-abs-path //g' compile_commands.json
+          oclint-json-compilation-database
