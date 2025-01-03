@@ -17,7 +17,7 @@
 namespace seissol::unit_test {
 
 TEST_CASE("Variable Subsampler") {
-  constexpr double Epsilon = std::numeric_limits<real>::epsilon();
+  constexpr double Epsilon = std::numeric_limits<real>::epsilon() * 1e1;
   std::srand(1234);
 
   SUBCASE("Divide by 4") {

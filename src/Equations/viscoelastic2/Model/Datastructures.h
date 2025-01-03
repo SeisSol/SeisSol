@@ -57,17 +57,12 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   double Qs;
 
   ViscoElasticMaterialParametrized() = default;
-  ViscoElasticMaterialParametrized(const double* materialValues, int numMaterialValues) {
-    assert(numMaterialValues == 3 + Mechanisms * 4);
-
-    this->rho = materialValues[0];
-    this->mu = materialValues[1];
-    this->lambda = materialValues[2];
-
+  ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)
+      : ElasticMaterial(materialValues) {
     for (int mech = 0; mech < Mechanisms; ++mech) {
-      this->omega[mech] = materialValues[3 + 4 * mech];
+      this->omega[mech] = materialValues.at(3 + 4 * mech);
       for (unsigned i = 1; i < 4; ++i) {
-        this->theta[mech][i - 1] = materialValues[3 + 4 * mech + i];
+        this->theta[mech][i - 1] = materialValues.at(3 + 4 * mech + i);
       }
     }
     // This constructor is used to initialize a ViscoElasticMaterial

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: BSD-3-Clause
 
-#include "Equations/elastic/Model/Datastructures.h"
+#include "Equations/Datastructures.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include <cstdio>
@@ -178,16 +178,16 @@ void taylorSum(bool integral,
                void* stream) {
   if (integral) {
     taylorSumInternal<true,
-                      seissol::model::ElasticMaterial::NumQuantities,
-                      seissol::model::ElasticMaterial::NumQuantities,
+                      seissol::model::MaterialT::NumQuantities,
+                      seissol::model::MaterialT::NumQuantities,
                       real,
                       real,
                       ConvergenceOrder,
                       ConvergenceOrder>(count, target, source, start, end, stream);
   } else {
     taylorSumInternal<false,
-                      seissol::model::ElasticMaterial::NumQuantities,
-                      seissol::model::ElasticMaterial::NumQuantities,
+                      seissol::model::MaterialT::NumQuantities,
+                      seissol::model::MaterialT::NumQuantities,
                       real,
                       real,
                       ConvergenceOrder,

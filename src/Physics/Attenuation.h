@@ -6,6 +6,7 @@
 #define SEISSOL_SRC_PHYSICS_ATTENUATION_H_
 
 #include "Equations/Datastructures.h"
+#include <Eigen/Dense>
 #include <cmath>
 #include <cstddef>
 

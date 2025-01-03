@@ -18,6 +18,7 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
 namespace seissol::model {
 enum class MaterialType { Solid, Acoustic, Elastic, Viscoelastic, Anisotropic, Poroelastic };
@@ -46,6 +47,8 @@ struct Material {
   virtual ~Material() = default;
 
   double rho;
+  Material() = default;
+  Material(const std::vector<double>& data) : rho(data.at(0)) {}
   [[nodiscard]] virtual double getMaxWaveSpeed() const = 0;
   [[nodiscard]] virtual double getPWaveSpeed() const = 0;
   [[nodiscard]] virtual double getSWaveSpeed() const = 0;

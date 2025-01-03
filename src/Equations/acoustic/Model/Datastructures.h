@@ -23,12 +23,13 @@
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace seissol::model {
 class AcousticLocalData;
 class AcousticNeighborData;
 
-struct AcousticMaterial : Material {
+struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
@@ -49,12 +50,8 @@ struct AcousticMaterial : Material {
   [[nodiscard]] double getMuBar() const override { return 0.0; }
 
   AcousticMaterial() = default;
-  AcousticMaterial(const double* materialValues, int numMaterialValues) {
-    assert(numMaterialValues == 2);
-
-    this->rho = materialValues[0];
-    this->lambda = materialValues[1];
-  }
+  AcousticMaterial(const std::vector<double>& materialValues)
+      : Material(materialValues), lambda(materialValues.at(1)) {}
 
   ~AcousticMaterial() override = default;
 

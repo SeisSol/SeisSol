@@ -36,7 +36,7 @@ if("${spec}" MATCHES .)
 endif()
 
 execute_process(
-  COMMAND ${TEST_EXECUTOR} "${TEST_EXECUTABLE}" ${spec} --list-test-cases
+  COMMAND ${TEST_EXECUTOR} "${TEST_EXECUTABLE}" ${spec} --list-test-cases -nc
   OUTPUT_VARIABLE output
   RESULT_VARIABLE result
 )
