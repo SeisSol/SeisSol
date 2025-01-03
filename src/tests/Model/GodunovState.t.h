@@ -1,4 +1,6 @@
+#include <Equations/acoustic/Model/Datastructures.h>
 #include <cmath>
+#include <tests/TestHelper.h>
 
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
@@ -8,7 +10,7 @@
 
 namespace seissol::unit_test {
 template <typename T>
-void test_matrix(init::QgodLocal::view::type qgodLocal, T solution, double epsilon) {
+void test_matrix(init::QgodLocal::view::type& qgodLocal, const T& solution, double epsilon) {
   // compute the Frobenius norms squared: ||QgodLocal - solution||^2 and ||solution||^2
   double frobDiffSquared = 0.0;
   double frobASquared = 0.0;
@@ -23,15 +25,17 @@ void test_matrix(init::QgodLocal::view::type qgodLocal, T solution, double epsil
   REQUIRE(std::abs(frobDiffSquared) < epsilon * frobASquared * epsilon * frobASquared);
 }
 
-inline void test_nan(init::QgodLocal::view::type qgodNeighbor) {
-  for (unsigned int i = 0; i < 9; i++) {
-    for (unsigned int j = 0; j < 9; j++) {
+inline void test_nan(init::QgodLocal::view::type& qgodNeighbor) {
+  for (unsigned int i = 0; i < qgodNeighbor.shape(0); i++) {
+    for (unsigned int j = 0; j < qgodNeighbor.shape(1); j++) {
       REQUIRE(std::isnan(qgodNeighbor(i, j)));
     }
   }
 }
 
-TEST_CASE("Godunov state is correct") {
+// TODO: add acoustic Godunov state
+TEST_CASE("Godunov state is correct" *
+          doctest::skip(std::is_same_v<model::MaterialT, model::AcousticMaterial>)) {
   constexpr real Epsilon = 1e2 * std::numeric_limits<real>::epsilon();
 
   real localData[tensor::QgodLocal::size()];
@@ -42,42 +46,23 @@ TEST_CASE("Godunov state is correct") {
   qgodNeighbor.setZero();
 
   // test homogeneous material
-#ifdef USE_ANISOTROPIC
-  const model::AnisotropicMaterial local(MaterialVal1, 22);
-  model::AnisotropicMaterial neighbor(MaterialVal1, 22);
-#elif defined USE_POROELASTIC
-  const model::PoroElasticMaterial local(MaterialVal1, 10);
-  model::PoroElasticMaterial neighbor(MaterialVal1, 10);
-#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  const model::ViscoElasticMaterial local(MaterialVal1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
-  model::ViscoElasticMaterial neighbor(MaterialVal1, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
-#else
-  const model::ElasticMaterial local(MaterialVal1, 3);
-  model::ElasticMaterial neighbor(MaterialVal1, 3);
-#endif
+  const model::MaterialT local(SolutionData<model::MaterialT>::MaterialVal1);
+  model::MaterialT neighbor(SolutionData<model::MaterialT>::MaterialVal1);
 
   model::getTransposedGodunovState(local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
-  test_matrix(qgodLocal, SolutionHomogeneousLocal, Epsilon);
-  test_matrix(qgodNeighbor, SolutionHomogeneousNeighbor, Epsilon);
+  test_matrix(qgodLocal, SolutionData<model::MaterialT>::SolutionHomogeneousLocal, Epsilon);
+  test_matrix(qgodNeighbor, SolutionData<model::MaterialT>::SolutionHomogeneousNeighbor, Epsilon);
 
   // test free surface
   model::getTransposedGodunovState(local, neighbor, FaceType::FreeSurface, qgodLocal, qgodNeighbor);
-  test_matrix(qgodLocal, unit_test::SolutionBoundary, Epsilon);
+  test_matrix(qgodLocal, SolutionData<model::MaterialT>::SolutionBoundary, Epsilon);
   test_nan(qgodNeighbor);
 
   // test heterogeneous material
-#ifdef USE_ANISOTROPIC
-  neighbor = model::AnisotropicMaterial(MaterialVal2, 22);
-#elif defined USE_POROELASTIC
-  neighbor = model::PoroElasticMaterial(MaterialVal2, 10);
-#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  neighbor = model::ViscoElasticMaterial(MaterialVal2, 3 + NUMBER_OF_RELAXATION_MECHANISMS * 4);
-#else
-  neighbor = model::ElasticMaterial(MaterialVal2, 3);
-#endif
+  neighbor = model::MaterialT(SolutionData<model::MaterialT>::MaterialVal2);
 
   model::getTransposedGodunovState(local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
-  test_matrix(qgodLocal, SolutionHeterogeneousLocal, Epsilon);
-  test_matrix(qgodNeighbor, SolutionHeterogeneousNeighbor, Epsilon);
+  test_matrix(qgodLocal, SolutionData<model::MaterialT>::SolutionHeterogeneousLocal, Epsilon);
+  test_matrix(qgodNeighbor, SolutionData<model::MaterialT>::SolutionHeterogeneousNeighbor, Epsilon);
 }
 } // namespace seissol::unit_test

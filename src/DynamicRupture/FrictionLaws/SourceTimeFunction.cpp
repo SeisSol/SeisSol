@@ -49,7 +49,7 @@ void DeltaSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                                   const seissol::initializer::DynamicRupture* const dynRup,
                                   real fullUpdateTime) {
   const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta*>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);
 }
 

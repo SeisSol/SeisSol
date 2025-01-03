@@ -35,7 +35,11 @@ src/DynamicRupture/Initializer/LinearSlipWeakeningInitializer.cpp
 src/DynamicRupture/Initializer/RateAndStateInitializer.cpp
 src/DynamicRupture/Misc.cpp
 
+src/Equations/anisotropic/Model/Datastructures.cpp
+src/Equations/poroelastic/Model/Datastructures.cpp
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
+
+src/Initializer/InitialFieldProjection.cpp
 src/Initializer/PointMapper.cpp
 src/Initializer/TimeStepping/Halo.cpp
 src/Modules/Module.cpp
@@ -98,8 +102,6 @@ src/DynamicRupture/Output/OutputAux.cpp
 src/DynamicRupture/Output/OutputManager.cpp
 src/DynamicRupture/Output/ReceiverBasedOutput.cpp
 
-src/Equations/poroelastic/Model/Datastructures.cpp
-
 src/Geometry/MeshReader.cpp
 src/Geometry/MeshTools.cpp
 
@@ -109,7 +111,6 @@ src/Initializer/InitProcedure/InitMesh.cpp
 src/Initializer/InitProcedure/InitModel.cpp
 src/Initializer/InitProcedure/InitIO.cpp
 src/Initializer/InitProcedure/InitSideConditions.cpp
-src/Initializer/InitialFieldProjection.cpp
 src/Initializer/InternalState.cpp
 src/Initializer/MemoryAllocator.cpp
 src/Initializer/MemoryManager.cpp
@@ -189,6 +190,16 @@ if ("${EQUATIONS}" STREQUAL "elastic")
   target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic)
   target_compile_definitions(SeisSol-common-properties INTERFACE USE_ELASTIC)
 
+elseif ("${EQUATIONS}" STREQUAL "acoustic")
+  target_sources(SeisSol-common-lib PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/acoustic/Kernels/DirichletBoundary.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/acoustic/Kernels/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/acoustic/Kernels/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/acoustic/Kernels/Time.cpp
+    )
+  target_include_directories(SeisSol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/acoustic)
+  target_compile_definitions(SeisSol-common-properties INTERFACE USE_ACOUSTIC)
+
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
   target_sources(SeisSol-common-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/viscoelastic/Kernels/DirichletBoundary.cpp
@@ -258,6 +269,20 @@ if (WITH_GPU)
   endif()
 
   target_compile_options(SeisSol-device-lib PRIVATE -fPIC)
+  if ("${EQUATIONS}" STREQUAL "elastic")
+    target_compile_definitions(SeisSol-device-lib PRIVATE USE_ELASTIC)
+  elseif ("${EQUATIONS}" STREQUAL "acoustic")
+    target_compile_definitions(SeisSol-device-lib PRIVATE USE_ACOUSTIC)
+  elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
+    target_compile_definitions(SeisSol-device-lib PRIVATE USE_VISCOELASTIC)
+  elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
+    target_compile_definitions(SeisSol-device-lib PRIVATE USE_VISCOELASTIC2)
+  elseif ("${EQUATIONS}" STREQUAL "anisotropic")
+    target_compile_definitions(SeisSol-device-lib PRIVATE USE_ANISOTROPIC)
+  elseif ("${EQUATIONS}" STREQUAL "poroelastic")
+    target_compile_definitions(SeisSol-device-lib PRIVATE USE_STP)
+    target_compile_definitions(SeisSol-device-lib PRIVATE USE_POROELASTIC)
+  endif()
   target_include_directories(SeisSol-lib PRIVATE ${DEVICE_INCLUDE_DIRS})
 
   if ("${EQUATIONS}" STREQUAL "elastic")

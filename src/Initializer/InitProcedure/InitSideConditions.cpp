@@ -152,20 +152,31 @@ std::vector<std::unique_ptr<physics::InitialField>>
 }
 
 void initInitialCondition(seissol::SeisSol& seissolInstance) {
-  auto initConditions = buildInitialConditionList(seissolInstance);
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
   auto& memoryManager = seissolInstance.getMemoryManager();
 
-  if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero) {
-    seissol::initializer::projectInitialField(initConditions,
-                                              *memoryManager.getGlobalDataOnHost(),
-                                              seissolInstance.meshReader(),
-                                              seissolInstance.getMemoryManager(),
-                                              *memoryManager.getLts(),
-                                              *memoryManager.getLtsLut());
+  if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Easi) {
+    logInfo(seissol::MPI::mpi.rank())
+        << "Loading the initial condition from the easi file" << initConditionParams.filename;
+    seissol::initializer::projectEasiInitialField({initConditionParams.filename},
+                                                  *memoryManager.getGlobalDataOnHost(),
+                                                  seissolInstance.meshReader(),
+                                                  seissolInstance.getMemoryManager(),
+                                                  *memoryManager.getLts(),
+                                                  *memoryManager.getLtsLut(),
+                                                  initConditionParams.hasTime);
+  } else {
+    auto initConditions = buildInitialConditionList(seissolInstance);
+    if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero) {
+      seissol::initializer::projectInitialField(initConditions,
+                                                *memoryManager.getGlobalDataOnHost(),
+                                                seissolInstance.meshReader(),
+                                                seissolInstance.getMemoryManager(),
+                                                *memoryManager.getLts(),
+                                                *memoryManager.getLtsLut());
+    }
+    memoryManager.setInitialConditions(std::move(initConditions));
   }
-
-  memoryManager.setInitialConditions(std::move(initConditions));
 }
 
 void initSource(seissol::SeisSol& seissolInstance) {

@@ -2,6 +2,7 @@
 #define EQUATIONS_SETUP_H_
 
 // Gather all Setup Headers here
+#include "Equations/acoustic/Model/AcousticSetup.h"       // IWYU pragma: keep
 #include "Equations/anisotropic/Model/AnisotropicSetup.h" // IWYU pragma: keep
 #include "Equations/elastic/Model/ElasticSetup.h"         // IWYU pragma: keep
 #ifdef USE_POROELASTIC

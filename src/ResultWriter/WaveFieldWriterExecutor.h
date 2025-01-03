@@ -45,6 +45,7 @@
 
 #include <Kernels/Precision.h>
 #include <cassert>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -115,6 +116,9 @@ class WaveFieldWriterExecutor {
   /** Stopwatch for the wave field backend */
   Stopwatch m_stopwatch;
 
+  std::shared_ptr<std::vector<std::string>> varNames;
+  std::shared_ptr<std::vector<std::string>> varNamesLowRes;
+
   public:
   WaveFieldWriterExecutor() = default;
 
@@ -138,16 +142,15 @@ class WaveFieldWriterExecutor {
     m_numVariables = info.bufferSize(param.bufferIds[OutputFlags]) / sizeof(bool);
     m_outputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[OutputFlags]));
 
-    std::vector<std::string> varNames;
-    std::vector<std::string> varNamesLowRes;
-
+    varNames = std::make_shared<std::vector<std::string>>();
+    varNamesLowRes = std::make_shared<std::vector<std::string>>();
     for (const auto& quantity : seissol::model::MaterialT::Quantities) {
-      varNames.emplace_back(quantity);
-      varNamesLowRes.emplace_back("low_" + quantity);
+      varNames->emplace_back(quantity);
+      varNamesLowRes->emplace_back("low_" + quantity);
     }
     for (const auto& quantity : seissol::model::PlasticityData::Quantities) {
-      varNames.emplace_back(quantity);
-      varNamesLowRes.emplace_back("low_" + quantity);
+      varNames->emplace_back(quantity);
+      varNamesLowRes->emplace_back("low_" + quantity);
     }
 
     std::vector<const char*> variables;
@@ -158,7 +161,7 @@ class WaveFieldWriterExecutor {
 #else
         assert(i < 16);
 #endif
-        variables.push_back(varNames[i].c_str());
+        variables.push_back(varNames->at(i).c_str());
       }
     }
 
@@ -182,9 +185,9 @@ class WaveFieldWriterExecutor {
 #endif // USE_MPI
       m_waveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
       const std::string extraIntVarName = "clustering";
-
+      const auto vertexFilter = utils::Env::get<bool>("SEISSOL_VERTEXFILTER", true);
       m_waveFieldWriter->init(
-          variables, std::vector<const char*>(), extraIntVarName.c_str(), true, true);
+          variables, std::vector<const char*>(), extraIntVarName.c_str(), vertexFilter, true);
       m_waveFieldWriter->setMesh(
           info.bufferSize(param.bufferIds[Cells]) / (4 * sizeof(unsigned int)),
           static_cast<const unsigned int*>(info.buffer(param.bufferIds[Cells])),
@@ -205,7 +208,7 @@ class WaveFieldWriterExecutor {
         std::vector<const char*> lowVariables;
         for (size_t i = 0; i < NumLowvariables; i++) {
           if (m_lowOutputFlags[i]) {
-            lowVariables.push_back(varNamesLowRes[i].c_str());
+            lowVariables.push_back(varNamesLowRes->at(i).c_str());
           }
         }
 
@@ -217,7 +220,7 @@ class WaveFieldWriterExecutor {
 #endif // USE_MPI
         m_lowWaveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
 
-        m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>());
+        m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>(), "", vertexFilter);
         m_lowWaveFieldWriter->setMesh(
             info.bufferSize(param.bufferIds[LowCells]) / (4 * sizeof(unsigned int)),
             static_cast<const unsigned int*>(info.buffer(param.bufferIds[LowCells])),

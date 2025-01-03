@@ -893,7 +893,7 @@ bool seissol::initializer::isAcousticSideOfElasticAcousticInterface(CellMaterial
   return false;
 #else
   constexpr auto eps = std::numeric_limits<real>::epsilon();
-  return material.neighbor[face].mu > eps && material.local.mu < eps;
+  return material.neighbor[face].getMuBar() > eps && material.local.getMuBar() < eps;
 #endif
 }
 bool seissol::initializer::isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
@@ -902,7 +902,7 @@ bool seissol::initializer::isElasticSideOfElasticAcousticInterface(CellMaterialD
   return false;
 #else
   constexpr auto eps = std::numeric_limits<real>::epsilon();
-  return material.local.mu > eps && material.neighbor[face].mu < eps;
+  return material.local.getMuBar() > eps && material.neighbor[face].getMuBar() < eps;
 #endif
 }
 

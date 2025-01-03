@@ -53,6 +53,9 @@
 #include <string>
 
 namespace seissol::model {
+class ViscoElasticLocalData;
+class ViscoElasticNeighborData;
+
 template <std::size_t MechanismsP>
 struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr std::size_t NumberPerMechanism = 6;
@@ -63,8 +66,11 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr MaterialType Type = MaterialType::Viscoelastic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
-  static inline const std::array<std::string, NumElasticQuantities> Quantities = {
+  static inline const std::array<std::string, NumElasticQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+
+  using LocalSpecificData = ViscoElasticLocalData;
+  using NeighborSpecificData = ViscoElasticNeighborData;
 
   //! Relaxation frequencies
   double omega[zeroLengthArrayHandler(Mechanisms)];
@@ -78,17 +84,12 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   double Qs;
 
   ViscoElasticMaterialParametrized() = default;
-  ViscoElasticMaterialParametrized(const double* materialValues, int numMaterialValues) {
-    assert(numMaterialValues == 3 + Mechanisms * 4);
-
-    this->rho = materialValues[0];
-    this->mu = materialValues[1];
-    this->lambda = materialValues[2];
-
+  ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)
+      : ElasticMaterial(materialValues) {
     for (int mech = 0; mech < Mechanisms; ++mech) {
-      this->omega[mech] = materialValues[3 + 4 * mech];
+      this->omega[mech] = materialValues.at(3 + 4 * mech);
       for (unsigned i = 1; i < 4; ++i) {
-        this->theta[mech][i - 1] = materialValues[3 + 4 * mech + i];
+        this->theta[mech][i - 1] = materialValues.at(3 + 4 * mech + i);
       }
     }
     // This constructor is used to initialize a ViscoElasticMaterial
@@ -100,7 +101,7 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
 
   ~ViscoElasticMaterialParametrized() override = default;
 
-  MaterialType getMaterialType() const override { return Type; }
+  [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 };
 
 using ViscoElasticMaterial = ViscoElasticMaterialParametrized<NUMBER_OF_RELAXATION_MECHANISMS>;

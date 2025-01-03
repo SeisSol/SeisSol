@@ -1,0 +1,21 @@
+<!-- 
+Matrix:
+0          n_1*K  n_2*K  n_3*K
+n_1/rho_0  0      0      0
+n_2/rho_0  0      0      0
+n_3/rho_0  0      0      0
+
+n* is any component of the unit vector, K is the bulk modulus, 
+and rho_0 is the density in the hydrostatic model.
+-->
+
+<matrices>
+  <matrix columns="4" name="star" rows="4">
+    <entry column="1" row="2"/>
+    <entry column="1" row="3"/>
+    <entry column="1" row="4"/>
+    <entry column="2" row="1"/>
+    <entry column="3" row="1"/>
+    <entry column="4" row="1"/>
+  </matrix>
+</matrices>
