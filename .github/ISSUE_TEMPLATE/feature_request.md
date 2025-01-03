@@ -1,11 +1,16 @@
 ---
+<!--
+    SPDX-FileCopyrightText: 2019-2025 SeisSol Group
+
+    SPDX-License-Identifier: BSD-3-Clause
+-->
+
 name: Feature request
 about: Suggest adding a feature that is not yet in SeisSol  
 labels: feature
 
----
-
 <!-- markdownlint-disable MD041 -->
+---
 
 <!--*Please add a concise summary of your suggestion here.*-->
 

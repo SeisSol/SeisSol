@@ -1,11 +1,16 @@
 ---
+<!--
+    SPDX-FileCopyrightText: 2019-2025 SeisSol Group
+
+    SPDX-License-Identifier: BSD-3-Clause
+-->
+
 name: Problem using SeisSol
 about: Any problem, which evolves around how you can use SeisSol.
 labels: discussion
 
----
-
 <!-- markdownlint-disable MD041 -->
+---
 
 If you have a problem using SeisSol,
 please open a *discussion*. This could include things like:
