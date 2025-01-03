@@ -1,7 +1,12 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
 # SPDX-License-Identifier: BSD-3-Clause
 
 # Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
 # file Copyright.txt or https://cmake.org/licensing for details.
+
+# Imported copyright info from there:
+# SPDX-FileCopyrightText: 2000-2025 Kitware, Inc. and Contributors
 
 set(prefix "${TEST_PREFIX}")
 set(suffix "${TEST_SUFFIX}")
