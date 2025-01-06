@@ -56,6 +56,7 @@
 #include <iomanip>
 #include <ios>
 #include <memory>
+#include <mpi.h>
 #include <numeric>
 #include <ostream>
 #include <regex>
@@ -232,11 +233,32 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   std::iota(quantities.begin(), quantities.end(), 0);
 
   logInfo(rank) << "Finding meshIds for receivers...";
-  initializer::findMeshIds(points.data(), mesh, numberOfPoints, contained.data(), meshIds.data());
+  initializer::findMeshIds(
+      points.data(), mesh, numberOfPoints, contained.data(), meshIds.data(), 1e-3);
+  std::vector<short> globalContained(contained.begin(), contained.end());
 #ifdef USE_MPI
   logInfo(rank) << "Cleaning possible double occurring receivers for MPI...";
   initializer::cleanDoubles(contained.data(), numberOfPoints);
+  MPI_Allreduce(MPI_IN_PLACE,
+                globalContained.data(),
+                globalContained.size(),
+                MPI_SHORT,
+                MPI_MAX,
+                seissol::MPI::mpi.comm());
 #endif
+
+  bool receiversMissing = false;
+  for (int i = 0; i < numberOfPoints; ++i) {
+    if (globalContained[i] == 0) {
+      logWarning(rank) << "Receiver point" << i
+                       << "could not be found. Coordinates:" << points[i](0) << points[i](1)
+                       << points[i](2);
+      receiversMissing = true;
+    }
+  }
+  if (receiversMissing) {
+    logError() << "Some receivers could not be found. Aborting simulation.";
+  }
 
   logInfo(rank) << "Mapping receivers to LTS cells...";
   m_receiverClusters[Interior].clear();
