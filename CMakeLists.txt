@@ -666,6 +666,8 @@ endif()
                     "submodules/*"
                     "*/tests/*"
                     "external/*"
+                    "*/src/generated_code/*"
+                    "/opt/*"
             LCOV_ARGS --ignore-errors inconsistent
                       --ignore-errors unused
     )
