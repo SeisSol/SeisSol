@@ -124,6 +124,11 @@ set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
                                 src/generated_code/kernel.h
                                 src/generated_code/kernel.cpp)
 
+if (TESTING AND TESTING_GENERATED)
+  set(GENERATED_FILES_FOR_SEISSOL ${GENERATED_FILES_FOR_SEISSOL}
+                                src/generated_code/test-kernel.cpp)
+endif()
+
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/)
 
 if(PROXY_PYBINDING)
@@ -591,9 +596,12 @@ if (TESTING)
 
 
   if (TESTING_GENERATED)
+    # FIXME: fix by removing the `using namespace` in the test files
+    # and replace by ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
+    file(GLOB_RECURSE KERNEL_TESTFILES ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/**/test-kernel.cpp)
     set(seissol_test_sources
             ${seissol_test_sources}
-            ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
+            ${KERNEL_TESTFILES}
             )
   endif()
 

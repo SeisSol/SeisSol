@@ -252,6 +252,7 @@ def main():
     forward_files("kernel.cpp")
     forward_files("subroutine.cpp")
     forward_files("tensor.cpp")
+    forward_files("test-kernel.cpp")
     forward_files("gpulike_subroutine.cpp")
 
 
