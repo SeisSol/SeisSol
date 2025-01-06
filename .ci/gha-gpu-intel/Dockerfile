@@ -4,10 +4,13 @@
 
 # ## boilerplate
 
-FROM ubuntu:24.04
+FROM intel/hpckit:2024.2.1-0-devel-ubuntu22.04
 
 ENV TZ=UTC
 ENV DEBIAN_FRONTEND=noninteractive
+ENV CC=icx
+ENV CXX=icpx
+ENV FC=ifx
 
 RUN apt-get update -y && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends --fix-missing \
@@ -36,23 +39,29 @@ RUN apt-get update -y && apt-get upgrade -y && \
     libreadline-dev \
     libxml2-dev \
     software-properties-common \
-    python3.10 python3-dev python3-pip \
+    python3 python3-dev python3-pip \
     python3-setuptools python3-numpy python3-scipy \
-    libeigen3-dev libyaml-cpp-dev libopenmpi-dev libparmetis-dev libmetis-dev ninja-build && \
-    wget -O llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key && \
-    apt-key add llvm-snapshot.gpg.key && \
-    rm -f llvm-snapshot.gpg.key && \
-    add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" && \
-    add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" && \
-    apt-get -y update && \
-    apt-get -y install clang-19 clang-tidy-19 libomp-19-dev
+    libeigen3-dev libyaml-cpp-dev ninja-build \
+    numactl libnuma-dev
+
+# (Par)METIS
+
+RUN wget https://ftp.mcs.anl.gov/pub/pdetools/spack-pkgs/parmetis-4.0.3.tar.gz && \
+    tar -xvf parmetis-4.0.3.tar.gz && \
+    cd parmetis-4.0.3 && \
+    sed -i 's/IDXTYPEWIDTH 32/IDXTYPEWIDTH 64/g'  ./metis/include/metis.h && \
+    make config cc=mpiicx cxx=mpiicpx prefix=/usr && \
+    make install -j $(nproc) && \
+    cp build/Linux-x86_64/libmetis/libmetis.a /usr/lib && \
+    cp metis/include/metis.h /usr/include && \
+    cd .. && rm -rf parmetis-4.0.3
 
 # ## IO
 
 # HDF5
 RUN wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.12/hdf5-1.12.3/src/hdf5-1.12.3.tar.bz2 && \
     tar -xf hdf5-1.12.3.tar.bz2 && cd hdf5-1.12.3 && \
-    CPPFLAGS="-fPIC ${CPPFLAGS}" CC=mpicc CXX=mpicxx ./configure --enable-parallel --prefix=/usr --with-zlib --disable-shared && \
+    CPPFLAGS="-fPIC ${CPPFLAGS}" CC=mpiicx CXX=mpiicpx ./configure --enable-parallel --prefix=/usr --with-zlib --disable-shared && \
     make -j $(nproc) install && \
     cd .. && rm -rf hdf5-1.12.3
 
@@ -102,7 +111,12 @@ RUN git clone --depth 1 --branch 1.17 https://github.com/libxsmm/libxsmm.git git
     cd .. && rm -rf gitbuild
 
 # PSpaMM
-RUN pip3 install --break-system-packages git+https://github.com/SeisSol/PSpaMM.git
+RUN pip3 install git+https://github.com/SeisSol/PSpaMM.git
+
+# gemmforge/chainforge
+RUN pip3 install git+https://github.com/SeisSol/gemmforge.git
+# FIXME: chainforge does not support SYCL (e.g. tensorforge should)
+# RUN pip3 install git+https://github.com/SeisSol/chainforge.git
 
 # ## setup and cleanup
 

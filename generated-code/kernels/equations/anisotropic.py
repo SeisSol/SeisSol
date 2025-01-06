@@ -2,41 +2,38 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-##
 # @file
 # This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
-# @author Sebastian Wolf (wolf.sebastian AT tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
+# @author Carsten Uphoff (c.uphoff AT tum.de)
+# @author Sebastian Wolf (wolf.sebastian AT tum.de)
 #
-  
-import numpy as np
-from yateto import Tensor, Scalar, simpleParameterSpace
-from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile, memoryLayoutFromFile
-from yateto.ast.node import Add
-from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
 from kernels.equations.elastic import ElasticADERDG as ADERDGBase
-from kernels.multsim import OptionalDimTensor
+from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
+
 
 class AnisotropicADERDG(ADERDGBase):
-  def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
-    super().__init__(order, multipleSimulations, matricesDir, memLayout)
-    clones = {
-      'star': ['star(0)', 'star(1)', 'star(2)'],
-    }
-    self.db.update( parseXMLMatrixFile('{}/star_anisotropic.xml'.format(matricesDir), clones) )
-    memoryLayoutFromFile(memLayout, self.db, clones)
+    def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
+        super().__init__(order, multipleSimulations, matricesDir, memLayout)
+        clones = {
+            "star": ["star(0)", "star(1)", "star(2)"],
+        }
+        self.db.update(
+            parseXMLMatrixFile("{}/star_anisotropic.xml".format(matricesDir), clones)
+        )
+        memoryLayoutFromFile(memLayout, self.db, clones)
 
-    self.kwargs = kwargs
+        self.kwargs = kwargs
 
-  def name(self):
-    return 'anisotropic'
+    def name(self):
+        return "anisotropic"
 
-  def addInit(self, generator):
-      super().addInit(generator)
+    def addInit(self, generator):
+        super().addInit(generator)
 
-  def add_include_tensors(self, include_tensors):
-      super().add_include_tensors(include_tensors)
+    def add_include_tensors(self, include_tensors):
+        super().add_include_tensors(include_tensors)
+
 
 EQUATION_CLASS = AnisotropicADERDG

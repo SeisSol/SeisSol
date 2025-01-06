@@ -49,15 +49,16 @@
 
 #include "CellLocalInformation.h"
 #include "BasicTypedefs.h"
-#include "Initializer/PreProcessorMacros.h"
-#include "Kernels/Common.h"
-#include "Equations/Datastructures.h"
-#include "generated_code/tensor.h"
-#include "DynamicRupture/Typedefs.h"
 #include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Typedefs.h"
+#include "Equations/Datastructures.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
-
+#include "Initializer/PreProcessorMacros.h"
+#include "Kernels/Common.h"
+#include "generated_code/tensor.h"
+#include <Eigen/Dense>
+#include <complex>
 #include <cstddef>
 #include <vector>
 
