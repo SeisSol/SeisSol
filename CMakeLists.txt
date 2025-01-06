@@ -32,7 +32,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   endif()
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
   message(WARNING "The Intel Compiler Classic (ICC) is deprecated; consider switching to the Intel oneAPI C++ Compiler (ICX) instead.")
 endif()
 
