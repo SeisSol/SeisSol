@@ -57,6 +57,13 @@ endif()
 #       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, WITH_GPU, DEVICE_VENDOR
 #
 include(cmake/process_users_input.cmake)
+
+if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+  message(STATUS "Enable coverage computation.")
+  include(cmake/CodeCoverage.cmake)
+  append_coverage_compiler_flags()
+endif()
+
 set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
                          "VECTORSIZE=${VECTORSIZE}"
                          "REAL_SIZE=${REAL_SIZE_IN_BYTES}"
@@ -552,22 +559,6 @@ endif()
 # put every executable in the root build directory at the end
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# build SeisSol-bin
-  add_executable(SeisSol-bin src/Main.cpp)
-  set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
-
-  if (WITH_GPU)
-    target_link_libraries(SeisSol-bin PUBLIC general-sycl-offloading)
-  endif()
-  target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
-
-  install(TARGETS SeisSol-bin RUNTIME)
-# end build SeisSol-bin
-
-# build SeisSol-proxy
-  add_subdirectory(auto-tuning/proxy/src)
-# end build SeisSol-proxy
-
 if (LIKWID)
   find_package(likwid REQUIRED)
   if (BUILD_PROXY)
@@ -583,21 +574,6 @@ endif()
 if (TESTING)
   enable_testing()
   include(cmake/doctest.cmake)
-
-  # Coverage
-  if(COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
-    include(cmake/CodeCoverage.cmake)
-    append_coverage_compiler_flags()
-    setup_target_for_coverage_lcov(
-            NAME SeisSol-coverage
-            EXECUTABLE SeisSol-serial-test
-            EXCLUDE "/usr/*"
-                    "submodules/*"
-                    "*/tests/*"
-                    "external/*"
-                    "*/yaml-cpp-install/*"
-    )
-  endif()
 
   set(seissol_test_sources
           src/tests/Model/TestModel.cpp
@@ -672,7 +648,37 @@ endif()
 
   # Avoid duplicate definition of FLOP counters
   target_compile_definitions(SeisSol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
+
+  # Coverage
+  if(COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+    setup_target_for_coverage_lcov(
+            NAME seissol-coverage
+            EXECUTABLE SeisSol-serial-test
+            EXCLUDE "/usr/*"
+                    "submodules/*"
+                    "*/tests/*"
+                    "external/*"
+            LCOV_ARGS --ignore-errors inconsistent
+                      --ignore-errors unused
+    )
+  endif()
 endif()
+
+# build SeisSol-bin
+add_executable(SeisSol-bin src/Main.cpp)
+set_target_properties(SeisSol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
+
+if (WITH_GPU)
+  target_link_libraries(SeisSol-bin PUBLIC general-sycl-offloading)
+endif()
+target_link_libraries(SeisSol-bin PUBLIC SeisSol-lib)
+
+install(TARGETS SeisSol-bin RUNTIME)
+# end build SeisSol-bin
+
+# build SeisSol-proxy
+add_subdirectory(auto-tuning/proxy/src)
+# end build SeisSol-proxy
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
