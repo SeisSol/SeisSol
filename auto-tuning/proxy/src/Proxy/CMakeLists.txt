@@ -12,4 +12,4 @@ add_library(seissol-proxy-lib
     Tools.cpp
 )
 
-target_link_libraries(seissol-proxy-lib PUBLIC SeisSol-lib)
+target_link_libraries(seissol-proxy-lib PUBLIC seissol-lib)
