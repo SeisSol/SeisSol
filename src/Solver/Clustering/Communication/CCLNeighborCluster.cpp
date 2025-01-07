@@ -53,7 +53,7 @@ CCLSendNeighborCluster::CCLSendNeighborCluster(
     : remote(remote), comm(comm), SendNeighborCluster(cpuExecutor, priority) {
 #if defined(USE_CCL) && defined(CCL_NCCL)
   for (const auto& cluster : remote) {
-    void* handle;
+    void* handle = nullptr;
     ncclCommRegister(reinterpret_cast<ncclComm_t>(comm),
                      cluster.data,
                      cluster.size * sizeof(real), // TODO(David): use cluster.datatype here instead
@@ -98,7 +98,7 @@ CCLRecvNeighborCluster::CCLRecvNeighborCluster(
     : remote(remote), comm(comm), RecvNeighborCluster(cpuExecutor, priority) {
 #if defined(USE_CCL) && defined(CCL_NCCL)
   for (const auto& cluster : remote) {
-    void* handle;
+    void* handle = nullptr;
     ncclCommRegister(reinterpret_cast<ncclComm_t>(comm),
                      cluster.data,
                      cluster.size * sizeof(real), // TODO(David): use cluster.datatype here instead

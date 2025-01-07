@@ -84,12 +84,13 @@ void DynamicRuptureCluster::handleDynamicRupture() {
     layer->varSynchronizeTo(descr->imposedStatePlus, other, streamRuntime.stream());
   }
 #else
-  computeDynamicRupture(layerData);
+  computeDynamicRupture();
 #endif
 }
 void DynamicRuptureCluster::computeDynamicRupture() {
-  if (layer->getNumberOfCells() == 0)
+  if (layer->getNumberOfCells() == 0) {
     return;
+  }
 
   loopStatistics->begin(regionComputeDynamicRupture);
 
@@ -190,7 +191,8 @@ void DynamicRuptureCluster::computeDynamicRuptureFlops(long long& nonZeroFlops,
   DRFaceInformation* faceInformation = layer->var(descr->faceInformation);
 
   for (unsigned face = 0; face < layer->getNumberOfCells(); ++face) {
-    long long faceNonZeroFlops, faceHardwareFlops;
+    long long faceNonZeroFlops = 0;
+    long long faceHardwareFlops = 0;
     dynamicRuptureKernel.flopsGodunovState(
         faceInformation[face], faceNonZeroFlops, faceHardwareFlops);
 

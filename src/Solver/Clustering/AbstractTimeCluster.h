@@ -139,7 +139,6 @@ class AbstractTimeCluster {
 class CellCluster : public AbstractTimeCluster {
   protected:
   bool emptyStep(ComputeStep step) const override { return step == ComputeStep::Interact; }
-  ~CellCluster() override;
   CellCluster(double maxTimeStepSize,
               long timeStepRate,
               Executor executor,
@@ -147,12 +146,12 @@ class CellCluster : public AbstractTimeCluster {
               double priority);
 
   public:
+  ~CellCluster() override;
 };
 
 class FaceCluster : public AbstractTimeCluster {
   protected:
   bool emptyStep(ComputeStep step) const override { return step != ComputeStep::Interact; }
-  ~FaceCluster() override;
   FaceCluster(double maxTimeStepSize,
               long timeStepRate,
               Executor executor,
@@ -160,6 +159,7 @@ class FaceCluster : public AbstractTimeCluster {
               double priority);
 
   public:
+  ~FaceCluster() override;
 };
 
 } // namespace seissol::solver::clustering

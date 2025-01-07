@@ -5,6 +5,7 @@
 #pragma once
 
 #include <Common/Executor.h>
+#include <Kernels/Common.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/ActorState.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
@@ -18,7 +19,7 @@ class GhostCluster : public AbstractTimeCluster {
                std::shared_ptr<communication::RecvNeighborCluster> neighbor,
                const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
                double priority)
-      : AbstractTimeCluster(maxTimeStepSize, timeStepRate, Executor::Host, cpuExecutor, priority),
+      : AbstractTimeCluster(maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host, cpuExecutor, priority),
         neighbor(neighbor) {}
 
   LayerType getLayerType() const override { return Ghost; }
