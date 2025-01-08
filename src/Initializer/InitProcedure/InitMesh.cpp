@@ -4,11 +4,14 @@
 #include <Initializer/Parameters/MeshParameters.h>
 #include <Initializer/Parameters/SeisSolParameters.h>
 #include <Initializer/TimeStepping/LtsWeights/LtsWeights.h>
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 
 #include "utils/env.h"
 #include "utils/logger.h"
 #include <Eigen/Dense>
+#include <math.h>
 #include <mpi.h>
 #include <vector>
 
@@ -69,6 +72,31 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.extractFaultInformation(center, drParameters->refPointMethod);
 
   seissolInstance.getLtsLayout().setMesh(meshReader);
+
+  double maxPointValue[3]{-INFINITY, -INFINITY, -INFINITY};
+  double minPointValue[3]{INFINITY, INFINITY, INFINITY};
+
+  const auto vertexCount = meshReader.getVertices().size();
+#ifdef _OPENMP
+#pragma omp parallel for reduction(min : minPointValue[ : 3]) reduction(max : maxPointValue[ : 3])
+#endif
+  for (std::size_t i = 0; i < vertexCount; ++i) {
+    const auto& vertex = meshReader.getVertices()[i];
+    for (int j = 0; j < 3; ++j) {
+      maxPointValue[j] = std::max(maxPointValue[j], vertex.coords[j]);
+      minPointValue[j] = std::min(minPointValue[j], vertex.coords[j]);
+    }
+  }
+
+#ifdef USE_MPI
+  MPI_Allreduce(MPI_IN_PLACE, maxPointValue, 3, MPI_DOUBLE, MPI_MAX, seissol::MPI::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE, minPointValue, 3, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm());
+#endif
+
+  logInfo(seissol::MPI::mpi.rank())
+      << "Smallest bounding box around the mesh: <" << minPointValue[0] << minPointValue[1]
+      << minPointValue[2] << "> to <" << maxPointValue[0] << maxPointValue[1] << maxPointValue[2]
+      << ">";
 }
 
 void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
@@ -269,7 +297,7 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   watch.start();
 
   const std::string realMeshFileName = seissolParams.mesh.meshFileName;
-  bool addNC = true;
+  [[maybe_unused]] bool addNC = true;
   if (realMeshFileName.size() >= 3) {
     const auto lastCharacters = realMeshFileName.substr(realMeshFileName.size() - 3);
     addNC = lastCharacters != ".nc";

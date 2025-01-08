@@ -4,51 +4,47 @@
 #include "LtsWeights.h"
 
 namespace seissol {
-  class SeisSol;
+class SeisSol;
 
 namespace initializer::time_stepping {
 
 class ExponentialWeights : public LtsWeights {
-public:
+  public:
   explicit ExponentialWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance)
       : LtsWeights(config, seissolInstance) {}
   ~ExponentialWeights() override = default;
 
-protected:
+  protected:
   int evaluateNumberOfConstraints() final { return 1; }
   void setVertexWeights() final;
   void setAllowedImbalances() final;
 };
 
-
 class ExponentialBalancedWeights : public LtsWeights {
-public:
+  public:
   explicit ExponentialBalancedWeights(const LtsWeightsConfig& config,
-                                      seissol::SeisSol& seissolInstance) 
-      : LtsWeights(config, seissolInstance) {
-  }
+                                      seissol::SeisSol& seissolInstance)
+      : LtsWeights(config, seissolInstance) {}
   ~ExponentialBalancedWeights() override = default;
 
-protected:
+  protected:
   int evaluateNumberOfConstraints() final { return 2; }
   void setVertexWeights() final;
   void setAllowedImbalances() final;
 };
 
-
 class EncodedBalancedWeights : public LtsWeights {
-public:
-  explicit EncodedBalancedWeights(const LtsWeightsConfig& config,
-                                  seissol::SeisSol& seissolInstance)
+  public:
+  explicit EncodedBalancedWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance)
       : LtsWeights(config, seissolInstance) {}
   ~EncodedBalancedWeights() override = default;
 
-protected:
+  protected:
   int evaluateNumberOfConstraints() final;
   void setVertexWeights() final;
   void setAllowedImbalances() final;
 };
-}
-}
+} // namespace initializer::time_stepping
+} // namespace seissol
 
-#endif //SEISSOL_LTSWEIGHTSMODELS_H
+#endif // SEISSOL_LTSWEIGHTSMODELS_H
