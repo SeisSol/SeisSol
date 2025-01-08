@@ -93,6 +93,7 @@ src/ResultWriter/FreeSurfaceWriterExecutor.cpp
 src/ResultWriter/MiniSeisSolWriter.cpp
 src/ResultWriter/PostProcessor.cpp
 src/ResultWriter/ReceiverWriter.cpp
+src/ResultWriter/ParallelHdf5ReceiverWriter.cpp
 src/ResultWriter/ThreadsPinningWriter.cpp
 src/ResultWriter/WaveFieldWriter.cpp
 src/ResultWriter/FaultWriter.cpp
