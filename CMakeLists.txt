@@ -90,8 +90,10 @@ if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
   message(FATAL_ERROR "SeisSol does not support Fused Simulations yet")
 endif()
 
-# Generate version.h
+# LTO
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
+# Generate version.h
 include(GetGitRevisionDescription)
 
 # get GIT info
