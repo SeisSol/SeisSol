@@ -4,6 +4,21 @@
 #include <sstream>
 #include <string>
 
+namespace {
+static sycl::property_list derivePropertyList() {
+#if (defined(ACPP_EXT_COARSE_GRAINED_EVENTS) || defined(SYCL_EXT_ACPP_COARSE_GRAINED_EVENTS)) &&   \
+    !defined(SEISSOL_KERNELS_SYCL)
+  return {sycl::property::queue::in_order(),
+          sycl::property::queue::AdaptiveCpp_coarse_grained_events()};
+#elif defined(HIPSYCL_EXT_COARSE_GRAINED_EVENTS) && !defined(SEISSOL_KERNELS_SYCL)
+  return {sycl::property::queue::in_order(),
+          sycl::property::queue::hipSYCL_coarse_grained_events()};
+#else
+  return {sycl::property::queue::in_order()};
+#endif
+}
+} // namespace
+
 namespace seissol {
 void AcceleratorDevice::bindSyclDevice(int deviceId) {
   try {
@@ -61,6 +76,11 @@ void AcceleratorDevice::bindNativeDevice(int deviceId) {
     infoMessages.push_back(info.str());
   }
   device.api->setDevice(deviceId);
+}
+
+sycl::queue AcceleratorDevice::getInorderSyclQueue() {
+  auto property = derivePropertyList();
+  return sycl::queue(syclDevice, property);
 }
 
 void AcceleratorDevice::printInfo() {

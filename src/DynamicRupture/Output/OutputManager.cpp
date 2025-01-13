@@ -21,6 +21,8 @@
 #include "Kernels/Precision.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
+#include <Parallel/Host/SyncExecutor.h>
+#include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -252,7 +254,12 @@ void OutputManager::initElementwiseOutput() {
     });
 
     auto& self = *this;
-    writer.addHook([&](std::size_t, double) { self.updateElementwiseOutput(); });
+    writer.addHook([&](std::size_t, double) {
+      auto runtime =
+          parallel::runtime::StreamRuntime(std::make_shared<parallel::host::SyncExecutor>());
+      self.updateElementwiseOutput(runtime);
+      runtime.wait();
+    });
 
     io::writer::ScheduledWriter schedWriter;
     schedWriter.interval = printTime;
@@ -388,7 +395,9 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
   return (isFirstStep || isOutputIteration || isCloseToTimeOut);
 }
 
-void OutputManager::writePickpointOutput(double time, double dt) {
+void OutputManager::writePickpointOutput(double time,
+                                         double dt,
+                                         seissol::parallel::runtime::StreamRuntime& runtime) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {
@@ -397,6 +406,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       impl->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                             seissolParameters.drParameters.slipRateOutputType,
                             ppOutputData,
+                            runtime,
                             time);
 
       const bool isMaxCacheLevel =
@@ -405,7 +415,8 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       const bool isCloseToEnd = (seissolParameters.timeStepping.endTime - time) < dt * timeMargin;
 
       if (isMaxCacheLevel || isCloseToEnd) {
-        this->flushPickpointDataToFile();
+        auto& self = *this;
+        runtime.enqueueHost([&self]() { self.flushPickpointDataToFile(); });
       }
     }
     ++iterationStep;
@@ -446,12 +457,13 @@ void OutputManager::flushPickpointDataToFile() {
   outputData->currentCacheLevel = 0;
 }
 
-void OutputManager::updateElementwiseOutput() {
+void OutputManager::updateElementwiseOutput(seissol::parallel::runtime::StreamRuntime& runtime) {
   if (this->ewOutputBuilder) {
     const auto& seissolParameters = seissolInstance.getSeisSolParameters();
     impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                           seissolParameters.drParameters.slipRateOutputType,
-                          ewOutputData);
+                          ewOutputData,
+                          runtime);
   }
 }
 } // namespace seissol::dr::output
