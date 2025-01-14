@@ -54,7 +54,7 @@ auto main(int argc, char* argv[]) -> int {
     }
   }
 
-  const char* formatValues[] = {"plain", "json"};
+  const std::vector<std::string> formatValues = {"plain", "json"};
 
   utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol "
                    "earthquake simulation software.");
