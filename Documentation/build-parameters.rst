@@ -55,6 +55,7 @@ Generic parameters
 - ``PROXY_PYBINDING``: compile Python bindings for the SeisSol proxy
 - ``TESTING``: compile unit tests for SeisSol
 - ``TESTING_GENERATED``: compile unit tests
+- ``LTO``: enable link-time optimization
 - ``GRAPH_PARTITIONING_LIBS``: compile for the given graph partitioning libraries. Allowed options are:
 
     * ``parmetis``: Repository: https://github.com/KarypisLab/ParMETIS

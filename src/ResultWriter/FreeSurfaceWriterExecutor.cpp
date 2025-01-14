@@ -44,6 +44,7 @@
 #include <async/ExecInfo.h>
 #include <mpi.h>
 #include <string>
+#include <utils/env.h>
 #include <vector>
 
 #include "FreeSurfaceWriterExecutor.h"
@@ -91,8 +92,9 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
 #endif // USE_MPI
     m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
     const std::string extraIntVarName = "locationFlag";
-
-    m_xdmfWriter->init(variables, std::vector<const char*>(), extraIntVarName.c_str());
+    const auto vertexFilter = utils::Env::get<bool>("SEISSOL_VERTEXFILTER", true);
+    m_xdmfWriter->init(
+        variables, std::vector<const char*>(), extraIntVarName.c_str(), vertexFilter);
     m_xdmfWriter->setMesh(nCells,
                           static_cast<const unsigned int*>(info.buffer(Cells)),
                           nVertices,

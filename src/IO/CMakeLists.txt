@@ -27,4 +27,4 @@ add_library(seissol-io STATIC
     Manager.cpp
 )
 
-target_link_libraries(seissol-io PUBLIC SeisSol-common-properties)
+target_link_libraries(seissol-io PUBLIC seissol-common-properties)
