@@ -248,9 +248,8 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   bool receiversMissing = false;
   for (int i = 0; i < numberOfPoints; ++i) {
     if (globalContained[i] == 0) {
-      logWarning() << "Receiver point" << i
-                       << "could not be found. Coordinates:" << points[i](0) << points[i](1)
-                       << points[i](2);
+      logWarning() << "Receiver point" << i << "could not be found. Coordinates:" << points[i](0)
+                   << points[i](1) << points[i](2);
       receiversMissing = true;
     }
   }

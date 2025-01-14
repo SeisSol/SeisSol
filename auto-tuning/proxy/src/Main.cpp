@@ -34,7 +34,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <utils/args.h>
+#include <vector>
 
 using namespace seissol::proxy;
 

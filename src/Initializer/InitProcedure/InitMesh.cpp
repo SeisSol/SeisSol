@@ -91,10 +91,9 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   MPI_Allreduce(MPI_IN_PLACE, minPointValue, 3, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm());
 #endif
 
-  logInfo(seissol::MPI::mpi.rank())
-      << "Smallest bounding box around the mesh: <" << minPointValue[0] << minPointValue[1]
-      << minPointValue[2] << "> to <" << maxPointValue[0] << maxPointValue[1] << maxPointValue[2]
-      << ">";
+  logInfo() << "Smallest bounding box around the mesh: <" << minPointValue[0] << minPointValue[1]
+            << minPointValue[2] << "> to <" << maxPointValue[0] << maxPointValue[1]
+            << maxPointValue[2] << ">";
 }
 
 void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
