@@ -125,8 +125,8 @@ void Hdf5Reader::readDataRaw(void* data,
   _eh(H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr));
 
   std::size_t dimprod = 1;
-  for (auto dim : dims) {
-    dimprod *= dim;
+  for (std::size_t i = 1; i < dims.size(); ++i) {
+    dimprod *= dims[i];
   }
 
   const std::size_t chunksize =
