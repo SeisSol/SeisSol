@@ -112,16 +112,16 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
     const auto previousGflopsPerRank = previousGflopsSum / seissol::MPI::mpi.size();
 
     // for now, we calculate everything in GFLOP/s, and switch back to FLOP/s for output only
-    logInfo(rank) << "Performance since the start:"
-                  << UnitFlopPerS.formatPrefix(accumulatedGflopsSum * 1e9).c_str() << "(rank 0:"
-                  << UnitFlopPerS.formatPrefix(accumulatedGflopsPerSecond * 1e9).c_str()
-                  << ", average over ranks:"
-                  << UnitFlopPerS.formatPrefix(accumulatedGflopsPerRank * 1e9).c_str() << ")";
-    logInfo(rank) << "Performance since last sync point:"
-                  << UnitFlopPerS.formatPrefix(previousGflopsSum * 1e9).c_str()
-                  << "(rank 0:" << UnitFlopPerS.formatPrefix(previousGflopsPerSecond * 1e9).c_str()
-                  << ", average over ranks:"
-                  << UnitFlopPerS.formatPrefix(previousGflopsPerRank * 1e9).c_str() << ")";
+    logInfo() << "Performance since the start:"
+              << UnitFlopPerS.formatPrefix(accumulatedGflopsSum * 1e9).c_str()
+              << "(rank 0:" << UnitFlopPerS.formatPrefix(accumulatedGflopsPerSecond * 1e9).c_str()
+              << ", average over ranks:"
+              << UnitFlopPerS.formatPrefix(accumulatedGflopsPerRank * 1e9).c_str() << ")";
+    logInfo() << "Performance since last sync point:"
+              << UnitFlopPerS.formatPrefix(previousGflopsSum * 1e9).c_str()
+              << "(rank 0:" << UnitFlopPerS.formatPrefix(previousGflopsPerSecond * 1e9).c_str()
+              << ", average over ranks:"
+              << UnitFlopPerS.formatPrefix(previousGflopsPerRank * 1e9).c_str() << ")";
 
     out << wallTime << ",";
     for (size_t i = 0; i < worldSize - 1; i++) {
@@ -137,8 +137,6 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
  * Prints the measured FLOP/s.
  */
 void FlopCounter::printPerformanceSummary(double wallTime) const {
-  const int rank = seissol::MPI::mpi.rank();
-
   enum Counter {
     Libxsmm = 0,
     Pspamm,
@@ -170,45 +168,43 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
 #endif
 
 #ifndef NDEBUG
-  logInfo(rank) << "Total    libxsmm HW-FLOP: "
-                << UnitFlop.formatPrefix(totalFlops[Libxsmm]).c_str();
-  logInfo(rank) << "Total     pspamm HW-FLOP: "
-                << UnitFlop.formatPrefix(totalFlops[Pspamm]).c_str();
+  logInfo() << "Total    libxsmm HW-FLOP: " << UnitFlop.formatPrefix(totalFlops[Libxsmm]).c_str();
+  logInfo() << "Total     pspamm HW-FLOP: " << UnitFlop.formatPrefix(totalFlops[Pspamm]).c_str();
 #endif
-  logInfo(rank) << "Total calculated HW-FLOP: "
-                << UnitFlop
-                       .formatPrefix(totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] +
-                                     totalFlops[PLHardwareFlops])
-                       .c_str();
-  logInfo(rank) << "Total calculated NZ-FLOP: "
-                << UnitFlop
-                       .formatPrefix(totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops] +
-                                     totalFlops[PLNonZeroFlops])
-                       .c_str();
-  logInfo(rank) << "Total calculated HW-FLOP/s: "
-                << UnitFlopPerS
-                       .formatPrefix((totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] +
-                                      totalFlops[PLHardwareFlops]) /
-                                     wallTime)
-                       .c_str();
-  logInfo(rank) << "Total calculated NZ-FLOP/s: "
-                << UnitFlopPerS
-                       .formatPrefix((totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops] +
-                                      totalFlops[PLNonZeroFlops]) /
-                                     wallTime)
-                       .c_str();
-  logInfo(rank) << "WP calculated HW-FLOP: "
-                << UnitFlop.formatPrefix(totalFlops[WPHardwareFlops]).c_str();
-  logInfo(rank) << "WP calculated NZ-FLOP: "
-                << UnitFlop.formatPrefix(totalFlops[WPNonZeroFlops]).c_str();
-  logInfo(rank) << "DR calculated HW-FLOP: "
-                << UnitFlop.formatPrefix(totalFlops[DRHardwareFlops]).c_str();
-  logInfo(rank) << "DR calculated NZ-FLOP: "
-                << UnitFlop.formatPrefix(totalFlops[DRNonZeroFlops]).c_str();
-  logInfo(rank) << "PL calculated HW-FLOP: "
-                << UnitFlop.formatPrefix(totalFlops[PLHardwareFlops]).c_str();
-  logInfo(rank) << "PL calculated NZ-FLOP: "
-                << UnitFlop.formatPrefix(totalFlops[PLNonZeroFlops]).c_str();
+  logInfo() << "Total calculated HW-FLOP: "
+            << UnitFlop
+                   .formatPrefix(totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] +
+                                 totalFlops[PLHardwareFlops])
+                   .c_str();
+  logInfo() << "Total calculated NZ-FLOP: "
+            << UnitFlop
+                   .formatPrefix(totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops] +
+                                 totalFlops[PLNonZeroFlops])
+                   .c_str();
+  logInfo() << "Total calculated HW-FLOP/s: "
+            << UnitFlopPerS
+                   .formatPrefix((totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] +
+                                  totalFlops[PLHardwareFlops]) /
+                                 wallTime)
+                   .c_str();
+  logInfo() << "Total calculated NZ-FLOP/s: "
+            << UnitFlopPerS
+                   .formatPrefix((totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops] +
+                                  totalFlops[PLNonZeroFlops]) /
+                                 wallTime)
+                   .c_str();
+  logInfo() << "WP calculated HW-FLOP: "
+            << UnitFlop.formatPrefix(totalFlops[WPHardwareFlops]).c_str();
+  logInfo() << "WP calculated NZ-FLOP: "
+            << UnitFlop.formatPrefix(totalFlops[WPNonZeroFlops]).c_str();
+  logInfo() << "DR calculated HW-FLOP: "
+            << UnitFlop.formatPrefix(totalFlops[DRHardwareFlops]).c_str();
+  logInfo() << "DR calculated NZ-FLOP: "
+            << UnitFlop.formatPrefix(totalFlops[DRNonZeroFlops]).c_str();
+  logInfo() << "PL calculated HW-FLOP: "
+            << UnitFlop.formatPrefix(totalFlops[PLHardwareFlops]).c_str();
+  logInfo() << "PL calculated NZ-FLOP: "
+            << UnitFlop.formatPrefix(totalFlops[PLNonZeroFlops]).c_str();
 }
 void FlopCounter::incrementNonZeroFlopsLocal(long long update) {
   assert(update >= 0);

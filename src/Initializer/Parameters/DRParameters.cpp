@@ -48,9 +48,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
        (frictionLawType == FrictionLawType::ImposedSlipRatesGaussian) or
        (frictionLawType == FrictionLawType::ImposedSlipRatesDelta)) and
       (slipRateOutputType == SlipRateOutputType::TractionsAndFailure)) {
-    logWarning(seissol::MPI::mpi.rank())
-        << "SlipRateOutputType=1 is incompatible with imposed slip rates friction laws, "
-           "switching to SlipRateOutputType=0";
+    logWarning() << "SlipRateOutputType=1 is incompatible with imposed slip rates friction laws, "
+                    "switching to SlipRateOutputType=0";
     slipRateOutputType = SlipRateOutputType::VelocityDifference;
   }
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
@@ -109,7 +108,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
     } else {
       const auto hackRead2 = outputReader->read<double>("etahack");
       if (hackRead2.has_value()) {
-        logWarning(seissol::MPI::mpi.rank())
+        logWarning()
             << "Reading the etahack parameter from the output section is deprecated and may be "
                "removed in a future version of SeisSol. Put the parameter into the dynamicrupture "
                "section instead.";
