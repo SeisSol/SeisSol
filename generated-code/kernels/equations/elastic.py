@@ -1,12 +1,8 @@
 # SPDX-FileCopyrightText: 2016-2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
-# @file
-# This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de)
-#
+# SPDX-FileContributor: Carsten Uphoff
 
 from kernels.aderdg import LinearADERDG
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile

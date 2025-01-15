@@ -1,14 +1,9 @@
 # SPDX-FileCopyrightText: 2019-2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
 #
-# @file
-# This file is part of SeisSol.
-#
-# @author Carsten Uphoff (c.uphoff AT tum.de)
-# @author Sebastian Wolf (wolf.sebastian AT tum.de)
-#
+# SPDX-FileContributor: Carsten Uphoff
+# SPDX-FileContributor: Sebastian Wolf
 
 import kernels.equations.acoustic as acoustic
 import numpy as np

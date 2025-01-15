@@ -1,13 +1,8 @@
 // SPDX-FileCopyrightText: 2023-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
-
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author David Schneller
- */
+//
+// SPDX-FileContributor: David Schneller
 
 #ifndef SEISSOL_SRC_SOURCETERM_FSRMREADER_H_
 #define SEISSOL_SRC_SOURCETERM_FSRMREADER_H_

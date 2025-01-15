@@ -1,11 +1,8 @@
 // SPDX-FileCopyrightText: 2019-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
-
-/**
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- **/
+//
+// SPDX-FileContributor: Carsten Uphoff
 
 #ifndef SEISSOL_SRC_NUMERICAL_STATISTICS_H_
 #define SEISSOL_SRC_NUMERICAL_STATISTICS_H_

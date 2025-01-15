@@ -1,14 +1,8 @@
 // SPDX-FileCopyrightText: 2019-2025 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
-
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Wolf (wolf.sebastian AT tum.de,
- *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
- **/
+//
+// SPDX-FileContributor: Sebastian Wolf
 
 #include "Datastructures.h"
 #include "Equations/elastic/Model/Datastructures.h"

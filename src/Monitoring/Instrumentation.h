@@ -1,13 +1,8 @@
 // SPDX-FileCopyrightText: 2014-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
-
-/*
- * @file
- * This file is part of SeisSol.
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
- */
+//
+// SPDX-FileContributor: Sebastian Rettenberger
 
 #ifndef SEISSOL_SRC_MONITORING_INSTRUMENTATION_H_
 #define SEISSOL_SRC_MONITORING_INSTRUMENTATION_H_

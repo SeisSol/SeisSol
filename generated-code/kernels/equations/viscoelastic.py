@@ -1,13 +1,8 @@
 # SPDX-FileCopyrightText: 2016-2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
-
-# @file
-# This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de)
-#
+# SPDX-FileContributor: Carsten Uphoff
 
 import numpy as np
 from kernels.aderdg import LinearADERDG

@@ -1,13 +1,8 @@
 # SPDX-FileCopyrightText: 2019-2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
-
-# @file
-# This file is part of SeisSol.
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de)
-#
+# SPDX-FileContributor: Carsten Uphoff
 
 from yateto.ast.node import IndexedTensor
 from yateto.memory import DenseMemoryLayout

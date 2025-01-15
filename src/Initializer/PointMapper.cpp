@@ -2,18 +2,10 @@
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
-
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- * @author Alexander Heinecke (Intel Corp.)
- *
- */
+//
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Sebastian Rettenberger
+// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include "PointMapper.h"
 #include "Parallel/MPI.h"

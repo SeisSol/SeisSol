@@ -1,18 +1,10 @@
 // SPDX-FileCopyrightText: 2016-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
-
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alexander Heinecke (Alexander.Heinecke@mytum.de)
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- */
+//
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Alexander Heinecke
+// SPDX-FileContributor: Sebastian Rettenberger
 
 #ifndef SEISSOL_SRC_MONITORING_STOPWATCH_H_
 #define SEISSOL_SRC_MONITORING_STOPWATCH_H_

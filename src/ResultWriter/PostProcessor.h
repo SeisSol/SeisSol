@@ -1,14 +1,8 @@
 // SPDX-FileCopyrightText: 2016-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
-
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Vishal Sontakke (vishal.sontakke AT tum.de)
- *
- */
+//
+// SPDX-FileContributor: Vishal Sontakke
 
 #ifndef SEISSOL_SRC_RESULTWRITER_POSTPROCESSOR_H_
 #define SEISSOL_SRC_RESULTWRITER_POSTPROCESSOR_H_

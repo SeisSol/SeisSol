@@ -2,15 +2,9 @@
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
-
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Alexander Heinecke (Intel Corp.)
- *
- */
+//
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #ifdef _OPENMP
 #include <omp.h>

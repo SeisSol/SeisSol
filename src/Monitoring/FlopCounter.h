@@ -1,15 +1,8 @@
 // SPDX-FileCopyrightText: 2013-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
-
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de,
- *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- *
- */
+//
+// SPDX-FileContributor: Alexander Breuer
 
 #ifndef SEISSOL_SRC_MONITORING_FLOPCOUNTER_H_
 #define SEISSOL_SRC_MONITORING_FLOPCOUNTER_H_

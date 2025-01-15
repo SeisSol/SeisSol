@@ -1,14 +1,8 @@
 // SPDX-FileCopyrightText: 2019-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
-
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Wolf (wolf.sebastian AT tum.de,
- *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
- */
+//
+// SPDX-FileContributor: Sebastian Wolf
 
 #ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_DATASTRUCTURES_H_
