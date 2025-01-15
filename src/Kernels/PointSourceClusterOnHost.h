@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 
 #ifndef SEISSOL_SRC_KERNELS_POINTSOURCECLUSTERONHOST_H_
 #define SEISSOL_SRC_KERNELS_POINTSOURCECLUSTERONHOST_H_

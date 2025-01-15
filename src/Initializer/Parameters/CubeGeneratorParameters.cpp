@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 
 #include "CubeGeneratorParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>

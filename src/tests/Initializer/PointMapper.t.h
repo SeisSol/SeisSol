@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2020-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 
 #include "Initializer/PointMapper.h"
 #include "tests/Geometry/MockReader.h"

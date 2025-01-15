@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 
 #include "KernelHost.h"
 #include "Allocator.h"

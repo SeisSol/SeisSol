@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2020-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 
 #ifndef SEISSOL_SRC_TESTS_GEOMETRY_MOCKREADER_H_
 #define SEISSOL_SRC_TESTS_GEOMETRY_MOCKREADER_H_

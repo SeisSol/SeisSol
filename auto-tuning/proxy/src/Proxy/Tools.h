@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 
 #ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_TOOLS_H_
 #define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_TOOLS_H_

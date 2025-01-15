@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2023 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 
 #include "Kernels/PointSourceCluster.h"
 #include "Kernels/Precision.h"

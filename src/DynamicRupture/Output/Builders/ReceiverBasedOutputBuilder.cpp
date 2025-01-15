@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2022-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
 #include "Common/Constants.h"
