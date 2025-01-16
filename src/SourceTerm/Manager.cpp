@@ -70,12 +70,11 @@
  * @section DESCRIPTION
  **/
 
-#include "Parallel/MPI.h"
+#include "Manager.h"
 
 #include "FSRMReader.h"
 #include "Initializer/PointMapper.h"
 #include "Kernels/PointSourceClusterOnHost.h"
-#include "Manager.h"
 #include "Numerical/Transformation.h"
 #include "PointSource.h"
 #include "generated_code/init.h"
@@ -113,6 +112,7 @@
 
 #ifdef USE_NETCDF
 #include "NRFReader.h"
+#include "Parallel/MPI.h"
 #include <mpi.h>
 #endif
 
