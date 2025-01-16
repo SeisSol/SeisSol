@@ -72,8 +72,8 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
 }
 
 double CheckpointManager::loadCheckpoint(const std::string& file) {
-  std::size_t storesize = 1;
-  void* datastore = std::malloc(1);
+  std::size_t storesize = 0;
+  void* datastore = nullptr;
 
   logInfo(seissol::MPI::mpi.rank()) << "Loading checkpoint...";
   logInfo(seissol::MPI::mpi.rank()) << "Checkpoint file:" << file;
@@ -101,8 +101,15 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
       const std::size_t count = reader.dataCount(variable.name);
       const std::size_t currsize = count * variable.datatype->size();
       if (currsize > storesize) {
-        datastore = std::realloc(datastore, currsize);
+        std::free(datastore);
+        datastore = std::malloc(currsize);
+        if (datastore == nullptr) {
+          logError() << "Realloc failed; maybe you are reading too much (checkpoint) data?";
+        }
         storesize = currsize;
+
+        // touch memory explicitly
+        std::memset(datastore, 0, storesize);
       }
       reader.readDataRaw(datastore, variable.name, count, variable.datatype);
       const auto distribution = distributor.distribute(
