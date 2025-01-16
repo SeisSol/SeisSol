@@ -8,8 +8,8 @@
 
 #include "Parallel/MPI.h"
 
-#include <Initializer/PreProcessorMacros.h> // IWYU pragma: keep
 #include <Kernels/Precision.h>
+#include <Monitoring/Instrumentation.h> // IWYU pragma: keep
 #include <ResultWriter/FaultWriterExecutor.h>
 #include <algorithm>
 #include <async/Module.h>

@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "Initializer/Parameters/ParameterReader.h"
-#include "Initializer/PreProcessorMacros.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Instrumentation.h"
 #include <cstdlib>
 #include <ctime>
 #include <exception>

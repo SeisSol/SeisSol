@@ -29,7 +29,6 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/Refinement/MeshRefiner.h"
 #include "Modules/Modules.h"
-#include "Monitoring/Instrumentation.h"
 #include "SeisSol.h"
 #include "WaveFieldWriter.h"
 

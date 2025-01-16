@@ -11,7 +11,7 @@
 
 #include "TimeManager.h"
 #include "CommunicationManager.h"
-#include "Initializer/PreProcessorMacros.h"
+#include "Monitoring/Instrumentation.h"
 #include "Initializer/TimeStepping/Common.h"
 #include "SeisSol.h"
 #include "ResultWriter/ClusteringWriter.h"

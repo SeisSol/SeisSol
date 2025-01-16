@@ -32,7 +32,6 @@
 #endif // defined(USE_HDF) && defined(USE_MPI)
 #include "Initializer/TimeStepping/LtsWeights/WeightsFactory.h"
 #include "Modules/Modules.h"
-#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
 #include "Numerical/Statistics.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
