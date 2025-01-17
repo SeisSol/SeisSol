@@ -8,6 +8,7 @@
 #include <Solver/Clustering/ActorState.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 #include <type_traits>
+#include <utility>
 namespace seissol::solver::clustering::computation {
 
 // TODO: make mixin?
@@ -15,7 +16,7 @@ template <typename Base, ComputeStep SendStep, ComputeStep ArriveStep>
 class CopyCluster : public Base {
   public:
   // TODO: constructors
-  LayerType getLayerType() const override { return Copy; }
+  [[nodiscard]] LayerType getLayerType() const override { return Copy; }
 
   protected:
   static_assert(std::is_base_of_v<AbstractTimeCluster, Base>,
@@ -56,7 +57,7 @@ class GhostCluster : public AbstractTimeCluster {
                std::shared_ptr<communication::RecvNeighborCluster> neighbor,
                const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor)
       : AbstractTimeCluster(maxTimeStepSize, timeStepRate, Executor::Host, cpuExecutor),
-        neighbor(neighbor) {}
+        neighbor(std::move(neighbor)) {}
 
   LayerType getLayerType() const override { return Ghost; }
 

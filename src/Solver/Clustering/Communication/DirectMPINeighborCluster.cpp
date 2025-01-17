@@ -22,9 +22,8 @@ bool DirectMPISendNeighborCluster::poll() {
     MPI_Testall(requests.size(), requests.data(), &result, MPI_STATUSES_IGNORE);
     const auto done = result != 0;
     if (done && *progressEnd < progressRestart) {
-      const auto increment = progressRestart - *progressEnd;
-#pragma omp atomic
-      *progressEnd += increment;
+#pragma omp atomic write
+      *progressEnd = progressRestart;
     }
     return done;
   } else {
@@ -86,9 +85,8 @@ bool DirectMPIRecvNeighborCluster::poll() {
     MPI_Testall(requests.size(), requests.data(), &result, MPI_STATUSES_IGNORE);
     const auto done = result != 0;
     if (done && *progressEnd < progressRestart) {
-      const auto increment = progressRestart - *progressEnd;
-#pragma omp atomic
-      *progressEnd += increment;
+#pragma omp atomic write
+      *progressEnd = progressRestart;
     }
     return done;
   } else {
