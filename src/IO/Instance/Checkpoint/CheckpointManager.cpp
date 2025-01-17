@@ -18,6 +18,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <mpi.h>
