@@ -21,5 +21,5 @@ add_library(seissol-solver
     Clustering/Communication/DirectMPINeighborCluster.cpp
 )
 
-add_dependencies(seissol-solver SeisSol-codegen)
-target_link_libraries(seissol-solver PUBLIC SeisSol-common-properties)
+add_dependencies(seissol-solver seissol-codegen)
+target_link_libraries(seissol-solver PUBLIC seissol-common-properties)

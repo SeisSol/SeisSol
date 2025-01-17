@@ -292,7 +292,7 @@ endif()
 
 
 add_subdirectory(src/Solver)
-target_link_libraries(SeisSol-lib PUBLIC seissol-solver)
+target_link_libraries(seissol-lib PUBLIC seissol-solver)
 
 add_subdirectory(src/IO)
 target_link_libraries(seissol-lib PUBLIC seissol-io)
