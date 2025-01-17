@@ -201,7 +201,7 @@ Installing Libxsmm (CPU)
 
 .. code-block:: bash
 
-   git clone --depth=1 --branch 1.17 https://github.com/hfp/libxsmm
+   git clone --depth=1 --branch 1.17 https://github.com/libxsmm/libxsmm
    cd libxsmm
    make generator
    cp bin/libxsmm_gemm_generator $SEISSOL_PREFIX/bin/
