@@ -10,6 +10,7 @@
 #include <IO/Datatype/MPIType.h>
 #include <algorithm>
 #include <cstddef>
+#include <cstdio>
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>
@@ -24,6 +25,7 @@ namespace {
 
 hid_t _ehh(hid_t data, const char* file, int line) {
   if (data < 0) {
+    H5Eprint(H5Eget_current_stack(), stdout);
     logError() << "HDF5 error:" << data << "at" << file << ":" << line;
   }
   return data;
