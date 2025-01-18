@@ -52,11 +52,31 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
           writer::WriteBuffer::create(ckpTree.ids.data(), ckpTree.ids.size()),
           datatype::inferDatatype<std::size_t>()));
       for (const auto& variable : ckpTree.variables) {
+        std::shared_ptr<writer::DataSource> dataSource;
+        if (variable.pack.has_value()) {
+          // data needs to be transformed, copy
+          const auto elemSize = variable.memoryDatatype->size();
+          const auto packFn = variable.pack.value();
+          dataSource = writer::GeneratedBuffer::createElementwise<char>(
+              elemSize,
+              1,
+              std::vector<std::size_t>(),
+              [=](void* target, std::size_t index) {
+                std::invoke(packFn,
+                            target,
+                            reinterpret_cast<const void*>(
+                                reinterpret_cast<const char*>(variable.data) + index * elemSize));
+              },
+              variable.datatype);
+        } else {
+          // no transform; write-through
+          dataSource = std::make_shared<writer::WriteBuffer>(
+              variable.data, cells, variable.datatype, std::vector<std::size_t>());
+        }
         writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
             writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
             variable.name,
-            std::make_shared<writer::WriteBuffer>(
-                variable.data, cells, variable.datatype, std::vector<std::size_t>()),
+            dataSource,
             variable.datatype));
       }
     }
@@ -113,8 +133,12 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
         std::memset(datastore, 0, storesize);
       }
       reader.readDataRaw(datastore, variable.name, count, variable.datatype);
-      const auto distribution = distributor.distribute(
-          variable.data, datastore, datatype::convertToMPI(variable.datatype));
+      const auto distribution =
+          distributor.distributeRaw(variable.data,
+                                    datastore,
+                                    datatype::convertToMPI(variable.datatype),
+                                    datatype::convertToMPI(variable.memoryDatatype),
+                                    variable.unpack);
       distributions.push_back(distribution);
     }
     logInfo(seissol::MPI::mpi.rank()) << "Finishing data distribution for" << ckpTree.name;

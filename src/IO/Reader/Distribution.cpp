@@ -13,6 +13,7 @@
 #include <cstring>
 #include <functional>
 #include <mpi.h>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -288,8 +289,12 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   }
 }
 
-Distributor::DistributionInstance
-    Distributor::distributeInternal(void* target, const void* source, MPI_Datatype datatype) {
+Distributor::DistributionInstance Distributor::distributeRaw(
+    void* target,
+    const void* source,
+    MPI_Datatype datatype,
+    MPI_Datatype datatypeTarget,
+    const std::optional<std::function<void(void*, const void*)>>& transform) {
   constexpr int Tag = 30;
 
   int commsize = 0;
@@ -301,6 +306,10 @@ Distributor::DistributionInstance
   int typesizeInt = 0;
   MPI_Type_size(datatype, &typesizeInt);
   const std::size_t typesize = typesizeInt;
+
+  int typesizeTargetInt = 0;
+  MPI_Type_size(datatypeTarget, &typesizeTargetInt);
+  const std::size_t typesizeTarget = typesizeTargetInt;
 
   std::vector<MPI_Request> requests(static_cast<std::size_t>(commsize) * 2, MPI_REQUEST_NULL);
 
@@ -337,23 +346,33 @@ Distributor::DistributionInstance
                 &requests[static_cast<std::size_t>(commsize) + i]);
     }
   }
-  const auto completion =
-      [this, requests, targetChar, sourceReordered, targetReordered, typesize]() {
-        // temporary hack to make requests non-const (as it will not matter)
-        auto requests2 = requests;
-        MPI_Waitall(requests2.size(), requests2.data(), MPI_STATUSES_IGNORE);
+
+  const auto copyFn = transform.value_or([typesize](void* targetData, const void* sourceData) {
+    std::memcpy(targetData, sourceData, typesize);
+  });
+
+  const auto completion = [this,
+                           requests,
+                           targetChar,
+                           sourceReordered,
+                           targetReordered,
+                           typesize,
+                           typesizeTarget,
+                           copyFn]() {
+    // temporary hack to make requests non-const (as it will not matter)
+    auto requests2 = requests;
+    MPI_Waitall(requests2.size(), requests2.data(), MPI_STATUSES_IGNORE);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (std::size_t i = 0; i < recvReorder.size(); ++i) {
-          std::memcpy(
-              targetChar + i * typesize, targetReordered + recvReorder[i] * typesize, typesize);
-        }
+    for (std::size_t i = 0; i < recvReorder.size(); ++i) {
+      copyFn(targetChar + i * typesizeTarget, targetReordered + recvReorder[i] * typesize);
+    }
 
-        std::free(sourceReordered);
-        std::free(targetReordered);
-      };
+    std::free(sourceReordered);
+    std::free(targetReordered);
+  };
   return DistributionInstance(completion);
 }
 

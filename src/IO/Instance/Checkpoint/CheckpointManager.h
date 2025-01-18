@@ -25,6 +25,9 @@ struct CheckpointVariable {
   std::string name;
   void* data;
   std::shared_ptr<datatype::Datatype> datatype;
+  std::shared_ptr<datatype::Datatype> memoryDatatype;
+  std::optional<std::function<void(void*, const void*)>> pack;
+  std::optional<std::function<void(void*, const void*)>> unpack;
 };
 
 struct CheckpointTree {
@@ -51,8 +54,59 @@ class CheckpointManager {
     if (var.mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
-    dataRegistry[tree].variables.emplace_back(
-        CheckpointVariable{name, tree->var(var), datatype::inferDatatype<T>()});
+    dataRegistry[tree].variables.emplace_back(CheckpointVariable{
+        name, tree->var(var), datatype::inferDatatype<T>(), datatype::inferDatatype<T>()});
+  }
+
+  template <typename S, typename T>
+  void registerTransformedData(const std::string& name,
+                               initializer::LTSTree* tree,
+                               initializer::Variable<T> var,
+                               const std::function<void(void*, const void*)>& pack,
+                               const std::function<void(void*, const void*)>& unpack) {
+    if (var.mask != initializer::LayerMask(Ghost)) {
+      logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
+    }
+    dataRegistry[tree].variables.emplace_back(CheckpointVariable{name,
+                                                                 tree->var(var),
+                                                                 datatype::inferDatatype<S>(),
+                                                                 datatype::inferDatatype<T>(),
+                                                                 pack,
+                                                                 unpack});
+  }
+
+  template <std::size_t Pad, std::size_t Nopad, typename T, std::size_t Npad>
+  void registerPaddedData(const std::string& name,
+                          initializer::LTSTree* tree,
+                          initializer::Variable<T[Npad]> var) {
+    constexpr std::size_t Lines = (Npad / Pad);
+    constexpr std::size_t Nnopad = Lines * Nopad;
+    using Tpad = T[Npad];
+    using Tnopad = T[Nnopad];
+    registerTransformedData<T[Nnopad]>(
+        name,
+        tree,
+        var,
+        [](void* nopadV, const void* padV) {
+          auto* nopad = reinterpret_cast<T*>(nopadV);
+          const auto* pad = reinterpret_cast<const T*>(padV);
+          for (std::size_t i = 0; i < Lines; ++i) {
+            std::memcpy(nopad + i * Nopad, pad + i * Pad, Nnopad * sizeof(T));
+            if constexpr (Pad < Nopad) {
+              std::memset(nopad + i * Nopad + Pad, 0, Nopad - Pad);
+            }
+          }
+        },
+        [](void* padV, const void* nopadV) {
+          const auto* nopad = reinterpret_cast<const T*>(nopadV);
+          auto* pad = reinterpret_cast<T*>(padV);
+          for (std::size_t i = 0; i < Lines; ++i) {
+            std::memcpy(pad + i * Pad, nopad + i * Nopad, Nnopad * sizeof(T));
+            if constexpr (Pad > Nopad) {
+              std::memset(pad + i * Pad + Nopad, 0, Pad - Nopad);
+            }
+          }
+        });
   }
 
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter();
