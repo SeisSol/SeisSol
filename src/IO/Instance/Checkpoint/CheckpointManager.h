@@ -81,9 +81,10 @@ class CheckpointManager {
                           initializer::Variable<T[Npad]> var) {
     constexpr std::size_t Lines = (Npad / Pad);
     constexpr std::size_t Nnopad = Lines * Nopad;
+    constexpr std::size_t Nmin = Nopad < Pad ? Nopad : Pad;
     using Tpad = T[Npad];
     using Tnopad = T[Nnopad];
-    registerTransformedData<T[Nnopad]>(
+    registerTransformedData<Tnopad, Tpad>(
         name,
         tree,
         var,
@@ -91,7 +92,7 @@ class CheckpointManager {
           auto* nopad = reinterpret_cast<T*>(nopadV);
           const auto* pad = reinterpret_cast<const T*>(padV);
           for (std::size_t i = 0; i < Lines; ++i) {
-            std::memcpy(nopad + i * Nopad, pad + i * Pad, Nnopad * sizeof(T));
+            std::memcpy(nopad + i * Nopad, pad + i * Pad, Nmin * sizeof(T));
             if constexpr (Pad < Nopad) {
               std::memset(nopad + i * Nopad + Pad, 0, Nopad - Pad);
             }
@@ -101,7 +102,7 @@ class CheckpointManager {
           const auto* nopad = reinterpret_cast<const T*>(nopadV);
           auto* pad = reinterpret_cast<T*>(padV);
           for (std::size_t i = 0; i < Lines; ++i) {
-            std::memcpy(pad + i * Pad, nopad + i * Nopad, Nnopad * sizeof(T));
+            std::memcpy(pad + i * Pad, nopad + i * Nopad, Nmin * sizeof(T));
             if constexpr (Pad > Nopad) {
               std::memset(pad + i * Pad + Nopad, 0, Pad - Nopad);
             }
