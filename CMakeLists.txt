@@ -371,6 +371,8 @@ find_package(yaml-cpp REQUIRED)
 
 if ("${yaml-cpp_VERSION}" VERSION_GREATER_EQUAL "0.8")
   target_link_libraries(seissol-common-properties INTERFACE yaml-cpp::yaml-cpp)
+elseif ("${yaml-cpp_VERSION}" VERSION_GREATER_EQUAL "0.7")
+  target_link_libraries(seissol-common-properties INTERFACE yaml-cpp)
 else()
   # fallback code for old versions
   if (YAML_CPP_INCLUDE_DIR AND EXISTS "${YAML_CPP_INCLUDE_DIR}")
