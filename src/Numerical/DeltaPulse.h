@@ -1,5 +1,12 @@
-#ifndef SEISSOL_DELTAPULSE_H
-#define SEISSOL_DELTAPULSE_H
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_NUMERICAL_DELTAPULSE_H_
+#define SEISSOL_SRC_NUMERICAL_DELTAPULSE_H_
 
 namespace seissol::deltaPulse {
 
@@ -14,4 +21,4 @@ inline real deltaPulse(real time, real timeStep) {
 
 } // namespace seissol::deltaPulse
 
-#endif // SEISSOL_DELTAPULSE_H
+#endif // SEISSOL_SRC_NUMERICAL_DELTAPULSE_H_

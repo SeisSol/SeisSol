@@ -1,5 +1,12 @@
-#ifndef SEISSOL_GPU_SLIPLAW_H
-#define SEISSOL_GPU_SLIPLAW_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLIPLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLIPLAW_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/SlowVelocityWeakeningLaw.h"
 
@@ -36,4 +43,5 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
 };
 
 } // namespace seissol::dr::friction_law::gpu
-#endif // SEISSOL_GPU_SLIPLAW_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLIPLAW_H_
