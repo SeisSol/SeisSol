@@ -1,9 +1,6 @@
 # modified from https://gitlab.kitware.com/cmake/cmake/blob/master/Modules/FindCxxTest.cmake
 # Original Copyright 2000-2020 Kitware, Inc. and Contributors
 # SPDX-License-Identifier: BSD-3-Clause
-# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
-#
-# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 macro(CXXTEST_ADD_TEST_MPI _cxxtest_testname _ranks _cxxtest_outfname)
     set(_cxxtest_real_outfname ${CMAKE_CURRENT_BINARY_DIR}/${_cxxtest_outfname})
