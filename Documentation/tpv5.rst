@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _tpv5:
 
 SCEC TPV5
@@ -19,14 +27,14 @@ different from the rest of the fault surface.
 
    Diagram of TPV5. The central square patch is the nucleation zone,
    while pink and green patches with higher and lower initial stress
-   than neighbour region, respectively. 
+   than neighbour region, respectively.
 
 Geometry
 --------
 
 The fault within the three-dimensional medium is a vertical
 right-lateral strike-slip planar fault that resides in a half-space. The
-fault reaches the Earth’s surface. The rupture is allowed within a
+fault reaches the Earth surface. The rupture is allowed within a
 rectangular area that is 30000 m long :math:`\times` 15000 m deep. The
 bottom boundary of and the right and left ends of the allowed 30000 m
 :math:`\times` 15000 m rupture area are defined by a strength barrier.
@@ -35,36 +43,33 @@ The nucleation point is centered both along-dip and along-strike of the
 along-strike and 7500m depth.
 
 The mesh is generated in GMSH. All the files that are needed for the
-simulation are provided. 
-
-1. The tpv5.geo file contains the geometry for
+simulation are provided.
+The ``tpv5.geo`` file contains the geometry for
 the fault in a cubit region.
 
-2. Then the .geo file can be meshed by using:
+To convert it to a SeisSol input, two steps are necessary:
+
+1. Let GMSH mesh the ``geo`` file:
 
 ``$ gmsh tpv5.geo -3 -optimize -o tpv5.msh``
 
-3. Then convert the .msh file to 3D Gambit neutral file
+2. Then, convert the GMSH file to the PUML format for SeisSol by:
 
-``$ gmsh2gambit -i tpv5.msh -o tpv5.neu``
-
-The toolbox of **gmsh2gambit** is used for converting gmsh file to Gambit neutrual file. It can be found in SeisSol GitHub https://github.com/SeisSol/SeisSol/tree/master/preprocessing/meshing
-
-4. The 3D Gambit file can be converted to PUML format for LTS in latest version of SeisSol by:
-  
-``$ pumgen tpv5.neu tpv5``
+``$ pumgen -m msh2 tpv5.msh tpv5``
 
 The compilation and usage of PUMGen can be found in https://github.com/SeisSol/PUMGen/wiki and https://seissol.readthedocs.io/en/latest/
-The geometry file (.geo) can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/tpv5_f200m.geo. The mesh file can be generated using the bash file https://github.com/SeisSol/Examples/blob/master/tpv5/generating_the_mesh.sh.
+The geometry file (.geo) can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/tpv5_f200m.geo.
+The mesh file can also be generated using the bash file https://github.com/SeisSol/Examples/blob/master/tpv5/generating_the_mesh.sh which essentially follows
+the same two steps (running GMSH and PUMgen) as described above.
 
 
 .. figure:: LatexFigures/mesh5.png
-   :alt: Diagram of fault geometry of TPV5. 
+   :alt: Diagram of fault geometry of TPV5.
    :width: 10.00000cm
    :align: center
 
    Diagram of fault geometry of TPV5. The fault is 30000 m long and
-   15000 m wide. The square patch has a side-length of 3000m. 
+   15000 m wide. The square patch has a side-length of 3000m.
 
 Parameters
 ----------
@@ -79,7 +84,7 @@ slip-weakening fracture criterion.
 
 TPV5 uses a linear-slip weakening friction everywhere on the fault.
 There are ten parameters associated with the friction constitutive law
-and fault properties in the **parameters.par**. 
+and fault properties in the ``parameters.par``.
 It can be found at https://github.com/SeisSol/Examples/blob/master/tpv5/parameters.par.
 
 Four friction constitutive parameters are: mu\_s, mu\_d, d\_c and
@@ -111,17 +116,17 @@ compared with that elsewhere. The parameters in TPV5 are listed in Table
 
 Table: Table of LSR parameters on the fault in tpv5.
 
-Notice that there are two patches with different initial stress: the one centered at (+7.5, -7.5) has 62 MPa and (-7.5, -7.5) has 78 MPa. This initial stress is included in the fault.yaml file.
+Notice that there are two patches with different initial stress: the one centered at (+7.5, -7.5) has 62 MPa and (-7.5, -7.5) has 78 MPa. This initial stress is included in the ``fault.yaml`` file.
 
 Results
 ~~~~~~~
 
-All examples here generate surface and volume output files that can be visualized with ParaView. 
+All examples here generate surface and volume output files that can be visualized with ParaView.
 The *output* folder contains a series of files for
-fault dynamic rupture (hdf5 and .xdmf), wavefield (hdf5 and .xdmf), 
-on-fault receiver (.dat) and off-fault receivers (.dat). 
-The fault dynamic rupture and wavefield files can be loaded in Paraview. 
-For example, open Paraview and then go through File 
+fault dynamic rupture (hdf5 and .xdmf), wavefield (hdf5 and .xdmf),
+on-fault receiver (.dat) and off-fault receivers (.dat).
+The fault dynamic rupture and wavefield files can be loaded in Paraview.
+For example, open Paraview and then go through File
 :math:`>>` import :math:`>>`\ prefix-fault.xdmf.
 
 .. figure:: LatexFigures/tpv5_SRs_3s.png
@@ -130,7 +135,7 @@ For example, open Paraview and then go through File
    :align: center
 
    Fault slip rate in the along-strike direction (SRs) at 4 seconds in
-   TPV5, illustrated in Paraview. 
+   TPV5, illustrated in Paraview.
 
 In the wave filed output file (prefix.xdmf, prefix\_vertex.h5 and
 prefix\_cell.hf), the variables are shown in Table [table:wavefield]
@@ -152,7 +157,7 @@ prefix\_cell.hf), the variables are shown in Table [table:wavefield]
 +---------+-------------+---------------------------------+
 
 Table: Table of wavefield output in SeisSol. Index denotes the position
-used in *iOutputMask* in SeisSol parameter file.
+used in ``iOutputMask`` in SeisSol parameter file.
 
 In the fault dynamics output file (prefix-fault.xdmf,
 prefix-fault\_vertex,h5 and prefix-fault\_cell,h5), the variables are
@@ -185,4 +190,4 @@ shown in Table [table:faultout]
 +---------+--------------------+-------------------------------------------------------------------------------+
 
 Table: Table of fault dynamic output in SeisSol. Index denotes the
-position used in *iOutputMask* in SeisSol parameter file.
+position used in ``iOutputMask`` in SeisSol parameter file.

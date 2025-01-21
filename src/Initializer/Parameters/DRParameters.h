@@ -1,11 +1,18 @@
-#ifndef SEISSOL_DR_PARAMETERS_H
-#define SEISSOL_DR_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 
 #include <string>
 
 #include <Eigen/Dense>
 
-#include "Kernels/precision.hpp"
+#include "Kernels/Precision.h"
 #include "ParameterReader.h"
 
 namespace seissol::initializer::parameters {
@@ -24,6 +31,7 @@ enum class FrictionLawType : unsigned int {
   RateAndStateFastVelocityWeakening = 103,
   ImposedSlipRatesYoffe = 33,
   ImposedSlipRatesGaussian = 34,
+  ImposedSlipRatesDelta = 35,
   RateAndStateVelocityWeakening = 7,
   RateAndStateAgingNucleation = 101,
 };
@@ -67,7 +75,7 @@ struct DRParameters {
   real initialPressure{0.0};
   real vStar{0.0}; // Prakash-Clifton regularization parameter
   real prakashLength{0.0};
-  std::string faultFileName{""};
+  std::string faultFileName;
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
   double etaHack{1.0};
@@ -76,4 +84,5 @@ struct DRParameters {
 DRParameters readDRParameters(ParameterReader* baseReader);
 
 } // namespace seissol::initializer::parameters
-#endif // SEISSOL_PARAMETERS_H
+
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_

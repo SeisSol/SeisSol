@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 function(get_arch_flags architecture compiler)
     set(HAS_REDZONE OFF PARENT_SCOPE)
 
@@ -88,7 +95,11 @@ function(get_arch_flags architecture compiler)
         endif()
 
     elseif ("${HOST_ARCH}" STREQUAL "a64fx")
-        set(CPU_ARCH_FLAGS "-mcpu=a64fx" PARENT_SCOPE)
+        if (compiler STREQUAL "FujitsuClang")
+            set(CPU_ARCH_FLAGS "-KSVE " PARENT_SCOPE)
+        else()
+            set(CPU_ARCH_FLAGS "-mcpu=a64fx" PARENT_SCOPE)
+        endif()
     elseif ("${HOST_ARCH}" STREQUAL "neon")
         set(CPU_ARCH_FLAGS "" PARENT_SCOPE)
     elseif ("${HOST_ARCH}" STREQUAL "sve128")

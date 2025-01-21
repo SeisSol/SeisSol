@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #  GemmTools - BLAS-like Library Instantiation Software Framework
 #  email: ravil.dorozhinskii@tum.de 
 #
@@ -66,6 +73,11 @@ foreach(component ${_GEMM_TOOLS_LIST})
 
     elseif ("${component}" STREQUAL "Eigen")
         # already included by default!
+
+    elseif ("${component}" MATCHES "^[ \t\r\n]*[Nn][Oo][Nn][Ee][ \t\r\n]*$")
+        # (cf. https://cmake.org/cmake/help/latest/command/string.html#regex-specification)
+
+        # no includes necessary
 
     elseif ("${component}" STREQUAL "GemmForge")
         execute_process(COMMAND python3 -c "import gemmforge; gemmforge.print_cmake_path()"

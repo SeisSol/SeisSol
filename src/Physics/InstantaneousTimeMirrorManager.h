@@ -1,11 +1,18 @@
-#ifndef SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H
-#define SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_
+#define SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_
 
 #include "Geometry/MeshReader.h"
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Lut.hpp"
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Lut.h"
+#include "Initializer/Typedefs.h"
 #include "Modules/Module.h"
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 #include "Solver/time_stepping/TimeCluster.h"
@@ -16,8 +23,9 @@ namespace ITM {
 
 class InstantaneousTimeMirrorManager : Module {
   seissol::SeisSol& seissolInstance;
-  bool isEnabled;
-  double velocityScalingFactor{};
+  bool isEnabled{false};
+  double velocityScalingFactor{1.0};
+  double timeStepScalingFactor{1.0};
   double triggerTime{};
 
   seissol::geometry::MeshReader* meshReader{};
@@ -26,12 +34,13 @@ class InstantaneousTimeMirrorManager : Module {
   initializer::Lut* ltsLut{};
   const TimeStepping* timestepping{};
 
-  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters;
-  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* ghostTimeClusters;
+  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters{};
+  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>*
+      ghostTimeClusters{};
 
   public:
   InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance), isEnabled(false) {};
+      : seissolInstance(seissolInstance) {};
 
   void init(double velocityScalingFactor,
             double triggerTime,
@@ -70,4 +79,4 @@ void initializeTimeMirrorManagers(
 } // namespace ITM
 } // namespace seissol
 
-#endif // SEISSOL_INSTANTANEOUSTIMEMIRRORMANAGER_H
+#endif // SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_

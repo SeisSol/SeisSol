@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 Gmsh
 ====
 
@@ -31,7 +39,7 @@ Boundary conditions
 -------------------
 
 The free-surface (resp. dynamic rupture, resp. absorbing) boundary
-conditions are set using Physical Surfaces 101 (resp. 103, resp. 105). 
+conditions are set using Physical Surfaces 101 (resp. 103, resp. 105).
 The volumes should also be put into Physical Volume to be exported into
 the mesh. Here is an example from tpv33:
 
@@ -62,7 +70,7 @@ on the msh mesh generated with:
   gmsh test.geo -3 -optimize
 
 | The optimize option is very important. If not used, mesh of very poor
-  quality may be obtained. 
+  quality may be obtained.
 
 gmsh to SimModeler
 ------------------
@@ -72,7 +80,7 @@ gmsh to SimModeler
   "physical surface", mesh them (-2) and output them to an stl file (e.g.
   -o test.stl). Then the stl file can be opened with SimModeler and the mesh can be generated.
 | If SimModeler merges some features of the geometry, it is then
-  necessary to isolate the features in different stl files (i.e. running several times ``gmsh ___.geo -2 -o ___.stl`` with different surfaces listed in the physical surface listing). 
+  necessary to isolate the features in different stl files (i.e. running several times ``gmsh ___.geo -2 -o ___.stl`` with different surfaces listed in the physical surface listing).
   Then the solid name attribute of the stl files has to be modified. Finally, the stl files can be
   merged into a single stl file, to be opened in SimModeler.
 
@@ -94,14 +102,14 @@ than planar faults in previous sections. There are 5 steps to generate
 the model.
 
 1.Create topography data. The format is the following:
-  
+
 ::
-  
+
    Line 1: num_x, num_y
    Line 2 to nx: positions of nodes along the strike (in meters)
    Line nx+3 to ny+nx+3: positions of nodes along the downdip (in meters)
    Line to the end: the topography of each node (nx\*ny, in meters)
-   
+
 
 Save this file as *mytopo.dat*.
 
@@ -118,18 +126,18 @@ Save this file as *mytopo.dat*.
     depth = 100;
 
     Point(1) = { 0.5*region, 0.5*region, level, cl} ; //water level
-    Point(2) = { -0.5*region,0.5*region, level, cl} ; 
-    Point(3) = { -0.5*region,-0.5*region, level, cl} ; 
+    Point(2) = { -0.5*region,0.5*region, level, cl} ;
+    Point(3) = { -0.5*region,-0.5*region, level, cl} ;
     Point(4) = { 0.5*region, -0.5*region, level, cl} ;
 
-    Line(1) = {1,2}; Line(2) = {2,3}; Line(3) = {3,4}; Line(4) = {4,1}; 
+    Line(1) = {1,2}; Line(2) = {2,3}; Line(3) = {3,4}; Line(4) = {4,1};
 
-    Point(5) = { 0.5*region, 0.5*region,-depth, cl} ; 
+    Point(5) = { 0.5*region, 0.5*region,-depth, cl} ;
     Point(6) = { -0.5*region,0.5*region,-depth, cl} ;
-    Point(7) = { -0.5*region,-0.5*region,-depth, cl} ; 
+    Point(7) = { -0.5*region,-0.5*region,-depth, cl} ;
     Point(8) = { 0.5*region,-0.5*region, -depth, cl} ;
 
-    Line(5) = {5,6}; Line(6) = {6,7}; Line(7) = {7,8}; Line(8) = {8,5}; 
+    Line(5) = {5,6}; Line(6) = {6,7}; Line(7) = {7,8}; Line(8) = {8,5};
 
     Line(9) = {1,5}; Line(10) = {2,6}; Line(11) = {3,7}; Line(12) = {4,8};
 
@@ -154,10 +162,10 @@ then generate msh file by:
 3.Use *gmsh_plane2topo.f90* and interpol_topo.in* to shift the planar
 surface according to positions given in *mytopo.dat*.
 
-:: 
+::
 
   $ ./gmsh_plane2topo interpol_topo.in
-  
+
 gmsh_plane2topo.f90 can be found in https://github.com/daisy20170101/SeisSol_Cookbook/tree/master/tpv29
 
 The format of interpol_topo.in is following:
@@ -182,13 +190,13 @@ The format of interpol_topo.in is following:
   !
   !- optionals:
   !
-     MeshFacesToSmooth =  3, 4, 5,6  ! face #s 
+     MeshFacesToSmooth =  3, 4, 5,6  ! face #s
 
      IterMaxSmooth = 100 ! default=200
      TolerSmooth   = 0.01 ! default=0.01
 
   / ! end of data
-  
+
 
 This will generate a step1\_modified.msh file containing topography. Load this in Gmsh to double-check.
 
@@ -201,7 +209,7 @@ The format of step2.geo is following:
 
   Merge "step1_modified.msh"; // merge modified msh
 
-  Surface Loop(1) = {1,2,3,4,5,6};  
+  Surface Loop(1) = {1,2,3,4,5,6};
   Volume(1)={1};
   Physical Volume(1) = {1};
 
@@ -213,12 +221,12 @@ The new geometry with topography:
    :alt: Diagram showing the mesh with topography.
    :width: 11.00000cm
 
-   Diagram showing the geometry with topography. 
-   
+   Diagram showing the geometry with topography.
+
 5. Generate MSH mesh with the command line:
 ::
 
   & gmsh step2.geo -3 -optimize_netgen -o step2.msh
-  
+
 option optimize_netgen is necessary for optimizing meshing with good quality.
 

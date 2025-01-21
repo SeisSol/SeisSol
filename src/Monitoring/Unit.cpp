@@ -1,4 +1,11 @@
-#include "Unit.hpp"
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "Unit.h"
 
 #include <cmath>
 #include <ios>
@@ -7,11 +14,11 @@
 #include <vector>
 
 namespace {
-const static std::vector<std::string> PositivePrefixes = {
+const std::vector<std::string> PositivePrefixes = {
     "k", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"};
-const static std::vector<std::string> PositiveBytePrefixes = {
+const std::vector<std::string> PositiveBytePrefixes = {
     "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi", "Yi"};
-const static std::vector<std::string> NegativePrefixes = {
+const std::vector<std::string> NegativePrefixes = {
     "m", "µ", "n", "p", "f", "a", "z", "y", "r", "q"};
 } // namespace
 
@@ -104,7 +111,7 @@ std::string SIUnit::formatPrefix(double value, int digits) const {
   }
 }
 
-std::string SIUnit::formatScientific(double value, int digits) const {
+std::string SIUnit::formatScientific(double value, int digits) {
   std::ostringstream stream;
   stream.precision(digits);
   stream << std::scientific;

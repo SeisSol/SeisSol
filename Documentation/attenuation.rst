@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _attenuation:
 
 Attenuation
@@ -27,7 +35,7 @@ Implementation
 -  Each damping mechanism can be parametrized by its own relaxation
    frequency.
 -  It aims at resolving a frequency-independent Q with an adequate
-   number of anelastic functions and relaxation frequencies to cover the frequency range under interest. 
+   number of anelastic functions and relaxation frequencies to cover the frequency range under interest.
    Usually, 3 Maxwell bodies are enough for 5% error.
 
 Stability with Local time stepping
@@ -47,7 +55,7 @@ In ccmake, use:
 .. code::
 
     EQUATIONS                        viscoelastic2
-    NUMBER_OF_MECHANISMS             3   
+    NUMBER_OF_MECHANISMS             3
 
 Note that the equations='viscoelastic' is operational but deprecated.
 
@@ -64,7 +72,7 @@ variation of :math:`V_p`, :math:`V_s`, :math:`Q_p` and :math:`Q_s` with frequenc
 Parametrisation
 ---------------
 
-Add Inside the parameter file of SeisSol, in the '&equations' section 
+Add Inside the parameter file of SeisSol, in the '&equations' section
 (frequencies values to be adapted to the source frequency content):
 
 .. code:: fortran
@@ -98,7 +106,7 @@ FreqCentral and FreqRatio
 
 | :math:`\log(f_{i+1})-\log(f_i) =` constant.
 
-In the parameter file, one has to give a frequency ratio of maximum to minimum frequency and a central frequency. 
+In the parameter file, one has to give a frequency ratio of maximum to minimum frequency and a central frequency.
 For example, in the case of 3 mechanisms the following relations define the relaxation frequencies:
 
 | :math:`f_2 = \mathrm{FreqCentral}`
@@ -107,7 +115,7 @@ For example, in the case of 3 mechanisms the following relations define the rela
 
 | :math:`f_3 / f_1 = \mathrm{FreqRatio}`
 
-This leads  to :math:`f_1 = \mathrm{FreqCentral} / \sqrt{\mathrm{FreqRatio}}` and :math:`f_3 = \mathrm{FreqCentral}  \sqrt{\mathrm{FreqRatio}}`.  
+This leads  to :math:`f_1 = \mathrm{FreqCentral} / \sqrt{\mathrm{FreqRatio}}` and :math:`f_3 = \mathrm{FreqCentral}  \sqrt{\mathrm{FreqRatio}}`.
 
 Outside of the frequency band :math:`f_1 - f_3`, Q goes to infinity, yielding
 elastic behavior.

@@ -1,5 +1,12 @@
-#ifndef SEISSOL_NOTP_H
-#define SEISSOL_NOTP_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_THERMALPRESSURIZATION_NOTP_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_THERMALPRESSURIZATION_NOTP_H_
 
 namespace seissol::dr::friction_law {
 class NoTP {
@@ -10,17 +17,19 @@ class NoTP {
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
-  void calcFluidPressure(std::array<real, misc::numPaddedPoints>& normalStress,
-                         real (*mu)[misc::numPaddedPoints],
-                         std::array<real, misc::numPaddedPoints>& slipRateMagnitude,
+  void calcFluidPressure(std::array<real, misc::NumPaddedPoints>& normalStress,
+                         real (*mu)[misc::NumPaddedPoints],
+                         std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
                          real deltaT,
                          bool saveTmpInTP,
                          unsigned int timeIndex,
                          unsigned int ltsFace) {}
 
-  real getFluidPressure(unsigned, unsigned) const { return 0; };
+  [[nodiscard]] static real getFluidPressure(unsigned /*unused*/, unsigned /*unused*/) {
+    return 0;
+  };
 };
 
 } // namespace seissol::dr::friction_law
 
-#endif // SEISSOL_NOTP_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_THERMALPRESSURIZATION_NOTP_H_

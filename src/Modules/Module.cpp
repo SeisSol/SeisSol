@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Module.h"
 
 #include "Parallel/MPI.h"
@@ -7,13 +14,14 @@
 #include <limits>
 
 namespace seissol {
-Module::Module()
-    : isyncInterval(0), nextSyncPoint(0), lastSyncPoint(-std::numeric_limits<double>::infinity()) {}
+Module::Module() : lastSyncPoint(-std::numeric_limits<double>::infinity()) {}
+
+Module::~Module() = default;
 
 double Module::potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint) {
   if (std::abs(currentTime - lastSyncPoint) < timeTolerance) {
     const int rank = seissol::MPI::mpi.rank();
-    logInfo(rank) << "Ignoring duplicate synchronisation point at time" << currentTime
+    logInfo(rank) << "Ignoring duplicate synchronization point at time" << currentTime
                   << "; the last sync point was at " << lastSyncPoint;
   } else if (forceSyncPoint || std::abs(currentTime - nextSyncPoint) < timeTolerance) {
     syncPoint(currentTime);
@@ -27,7 +35,13 @@ double Module::potentialSyncPoint(double currentTime, double timeTolerance, bool
 void Module::setSimulationStartTime(double time) {
   assert(isyncInterval > 0);
   lastSyncPoint = time;
-  nextSyncPoint = time + isyncInterval;
+
+  // take the next expected sync point TODO: forward tolerance
+  // (calculated from time point 0)
+  nextSyncPoint = 0;
+  while (nextSyncPoint - time < 1e-6) {
+    nextSyncPoint += isyncInterval;
+  }
 }
 
 /**

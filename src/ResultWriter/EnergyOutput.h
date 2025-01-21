@@ -1,5 +1,12 @@
-#ifndef ENERGYOUTPUT_H
-#define ENERGYOUTPUT_H
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
+#define SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 
 #include <array>
 #include <fstream>
@@ -9,20 +16,14 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
-#include "Initializer/tree/Lut.hpp"
-#include "Initializer/typedefs.hpp"
-#include <Geometry/MeshReader.h>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/LTS.h>
-#include <Initializer/tree/LTSTree.hpp>
-#include <Initializer/tree/Lut.hpp>
-#include <Initializer/typedefs.hpp>
-#include <Solver/MultipleSimulations.h>
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Lut.h"
+#include "Initializer/Typedefs.h"
 
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
+#include <Solver/MultipleSimulations.h>
 
 namespace seissol {
 class SeisSol;
@@ -76,6 +77,13 @@ class EnergyOutput : public Module {
 
   EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
+  ~EnergyOutput() override;
+
+  auto operator=(const EnergyOutput&) = delete;
+  auto operator=(EnergyOutput&&) = delete;
+  EnergyOutput(const EnergyOutput&) = delete;
+  EnergyOutput(EnergyOutput&&) = delete;
+
   private:
   std::array<real, multipleSimulations::numberOfSimulations>
       computeStaticWork(const real* degreesOfFreedomPlus,
@@ -120,6 +128,13 @@ class EnergyOutput : public Module {
   std::string outputFileName;
   std::ofstream out;
 
+#ifdef ACL_DEVICE
+  real* timeDerivativePlusHost = nullptr;
+  real* timeDerivativeMinusHost = nullptr;
+  real* timeDerivativePlusHostMapped = nullptr;
+  real* timeDerivativeMinusHostMapped = nullptr;
+#endif
+
   const GlobalData* global = nullptr;
   seissol::initializer::DynamicRupture* dynRup = nullptr;
   seissol::initializer::LTSTree* dynRupTree = nullptr;
@@ -131,13 +146,13 @@ class EnergyOutput : public Module {
   EnergiesStorage energiesStorage{};
   real minTimeSinceSlipRateBelowThreshold[multipleSimulations::numberOfSimulations] = {0.0};
   real minTimeSinceMomentRateBelowThreshold[multipleSimulations::numberOfSimulations] = {0.0};
-  double terminatorMaxTimePostRupture;
-  double energyOutputInterval;
-  double terminatorMomentRateThreshold;
+  double terminatorMaxTimePostRupture{};
+  double energyOutputInterval{};
+  double terminatorMomentRateThreshold{};
   double seismicMomentPrevious[multipleSimulations::numberOfSimulations] = {0.0};
 };
 
 } // namespace writer
 } // namespace seissol
 
-#endif // ENERGYOUTPUT_H
+#endif // SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_

@@ -1,4 +1,11 @@
-#include "Initializer/typedefs.hpp"
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "Initializer/Typedefs.h"
 #ifdef ACL_DEVICE
 
 #include "Parallel/MPI.h"
@@ -25,8 +32,8 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
   receiveRegionsStates.resize(numberOfRegions);
 
   for (size_t region = 0; region < numberOfRegions; ++region) {
-    prefetchCopyRegionsStreams[region] = device.api->createGenericStream();
-    prefetchGhostRegionsStreams[region] = device.api->createGenericStream();
+    prefetchCopyRegionsStreams[region] = device.api->createStream();
+    prefetchGhostRegionsStreams[region] = device.api->createStream();
     receiveRegionsStates[region] = ReceiveState::RequiresMpiTesting;
   }
 
@@ -48,14 +55,14 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
                   static_cast<int>(meshStructure->copyRegionSizes[region]),
                   MPI_C_REAL,
                   meshStructure->neighboringClusters[region][0],
-                  timeData + meshStructure->sendIdentifiers[region],
+                  DataTagOffset + meshStructure->sendIdentifiers[region],
                   seissol::MPI::mpi.comm(),
                   meshStructure->sendRequests + region);
         MPI_Recv_init(duplicatedGhostRegions[region],
                   static_cast<int>(meshStructure->ghostRegionSizes[region]),
                   MPI_C_REAL,
                   meshStructure->neighboringClusters[region][0],
-                  timeData + meshStructure->receiveIdentifiers[region],
+                  DataTagOffset + meshStructure->receiveIdentifiers[region],
                   seissol::MPI::mpi.comm(),
                   meshStructure->receiveRequests + region);
       }
@@ -107,7 +114,7 @@ void GhostTimeClusterWithCopy<CommType>::sendCopyLayer() {
                     static_cast<int>(meshStructure->copyRegionSizes[*region]),
                     MPI_C_REAL,
                     meshStructure->neighboringClusters[*region][0],
-                    timeData + meshStructure->sendIdentifiers[*region],
+                    DataTagOffset + meshStructure->sendIdentifiers[*region],
                     seissol::MPI::mpi.comm(),
                     meshStructure->sendRequests + (*region));
         }
@@ -134,7 +141,7 @@ void GhostTimeClusterWithCopy<CommType>::receiveGhostLayer() {
                   static_cast<int>(meshStructure->ghostRegionSizes[region]),
                   MPI_C_REAL,
                   meshStructure->neighboringClusters[region][0],
-                  timeData + meshStructure->receiveIdentifiers[region],
+                  DataTagOffset + meshStructure->receiveIdentifiers[region],
                   seissol::MPI::mpi.comm(),
                   meshStructure->receiveRequests + region);
       }
@@ -221,3 +228,4 @@ void GhostTimeClusterWithCopy<CommType>::prefetchGhostRegion(int region) {
 template class GhostTimeClusterWithCopy<MPI::DataTransferMode::CopyInCopyOutHost>;
 } // namespace seissol::time_stepping
 #endif // ACL_DEVICE
+

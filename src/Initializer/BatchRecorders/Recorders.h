@@ -1,11 +1,18 @@
-#ifndef SEISSOL_RECORDERS_H
-#define SEISSOL_RECORDERS_H
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "DataTypes/ConditionalTable.hpp"
+#ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_
+#define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_
+
+#include "DataTypes/ConditionalTable.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/LTS.h"
-#include "Initializer/tree/Layer.hpp"
-#include "Kernels/Interface.hpp"
+#include "Initializer/Tree/Layer.h"
+#include "Kernels/Interface.h"
 #include "utils/logger.h"
 #include <vector>
 
@@ -73,18 +80,23 @@ class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializer::L
   void record(LTS& handler, Layer& layer) override;
 
   private:
-  void setUpContext(LTS& handler, Layer& layer, kernels::LocalData::Loader& loader) {
+  void setUpContext(LTS& handler,
+                    Layer& layer,
+                    kernels::LocalData::Loader& loader,
+                    kernels::LocalData::Loader& loaderHost) {
     currentLoader = &loader;
+    currentLoaderHost = &loaderHost;
     integratedDofsAddressCounter = 0;
     derivativesAddressCounter = 0;
     AbstractRecorder::setUpContext(handler, layer);
   }
 
   kernels::LocalData::Loader* currentLoader{nullptr};
+  kernels::LocalData::Loader* currentLoaderHost{nullptr};
   void recordTimeAndVolumeIntegrals();
   void recordFreeSurfaceGravityBc();
   void recordDirichletBc();
-  void recordAnalyticalBc();
+  void recordAnalyticalBc(LTS& handler, Layer& layer);
   void recordLocalFluxIntegral();
   void recordDisplacements();
 
@@ -100,27 +112,37 @@ class NeighIntegrationRecorder : public AbstractRecorder<seissol::initializer::L
   void record(LTS& handler, Layer& layer) override;
 
   private:
-  void setUpContext(LTS& handler, Layer& layer, kernels::NeighborData::Loader& loader) {
+  void setUpContext(LTS& handler,
+                    Layer& layer,
+                    kernels::NeighborData::Loader& loader,
+                    kernels::NeighborData::Loader& loaderHost) {
     currentLoader = &loader;
+    currentLoaderHost = &loaderHost;
     integratedDofsAddressCounter = 0;
     AbstractRecorder::setUpContext(handler, layer);
   }
   void recordDofsTimeEvaluation();
   void recordNeighbourFluxIntegrals();
   kernels::NeighborData::Loader* currentLoader{nullptr};
+  kernels::NeighborData::Loader* currentLoaderHost{nullptr};
   std::unordered_map<real*, real*> idofsAddressRegistry{};
   size_t integratedDofsAddressCounter{0};
 };
 
 class PlasticityRecorder : public AbstractRecorder<seissol::initializer::LTS> {
   public:
-  void setUpContext(LTS& handler, Layer& layer, kernels::LocalData::Loader& loader) {
+  void setUpContext(LTS& handler,
+                    Layer& layer,
+                    kernels::LocalData::Loader& loader,
+                    kernels::LocalData::Loader& loaderHost) {
     currentLoader = &loader;
+    currentLoaderHost = &loaderHost;
     AbstractRecorder::setUpContext(handler, layer);
   }
 
   void record(LTS& handler, Layer& layer) override;
   kernels::LocalData::Loader* currentLoader{nullptr};
+  kernels::LocalData::Loader* currentLoaderHost{nullptr};
 };
 
 class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializer::DynamicRupture> {
@@ -138,4 +160,4 @@ class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializer::Dyn
 
 } // namespace seissol::initializer::recording
 
-#endif // SEISSOL_RECORDERS_H
+#endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_

@@ -1,86 +1,26 @@
-/******************************************************************************
-** Copyright (c) 2015, Intel Corporation                                     **
-** All rights reserved.                                                      **
-**                                                                           **
-** Redistribution and use in source and binary forms, with or without        **
-** modification, are permitted provided that the following conditions        **
-** are met:                                                                  **
-** 1. Redistributions of source code must retain the above copyright         **
-**    notice, this list of conditions and the following disclaimer.          **
-** 2. Redistributions in binary form must reproduce the above copyright      **
-**    notice, this list of conditions and the following disclaimer in the    **
-**    documentation and/or other materials provided with the distribution.   **
-** 3. Neither the name of the copyright holder nor the names of its          **
-**    contributors may be used to endorse or promote products derived        **
-**    from this software without specific prior written permission.          **
-**                                                                           **
-** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
-** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
-** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
-** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
-** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
-** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
-** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
-** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
-** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
-** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
-** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
-******************************************************************************/
-/* Alexander Heinecke (Intel Corp.)
-******************************************************************************/
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * 
- * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
- * All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- * 
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * LTS cluster in SeisSol.
- **/
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 Intel Corporation
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#ifndef TIMECLUSTER_H_
-#define TIMECLUSTER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
+#define SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
 
 #ifdef USE_MPI
 #include <mpi.h>
 #include <list>
 #endif
 
-#include "Initializer/typedefs.hpp"
-#include "SourceTerm/typedefs.hpp"
+#include "Initializer/Typedefs.h"
+#include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 #include "Initializer/LTS.h"
-#include "Initializer/tree/LTSTree.hpp"
+#include "Initializer/Tree/LTSTree.h"
 
 #include "Kernels/Time.h"
 #include "Kernels/Local.h"
@@ -94,13 +34,13 @@
 #include "Monitoring/ActorStateStatistics.h"
 #include "Initializer/DynamicRupture.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "DynamicRupture/Output/OutputManager.hpp"
+#include "DynamicRupture/Output/OutputManager.h"
+#include <Common/Executor.h>
 
 #include "AbstractTimeCluster.h"
 
 #ifdef ACL_DEVICE
 #include <device.h>
-#include "Solver/Pipeline/DrPipeline.h"
 #endif
 
 namespace seissol {
@@ -147,6 +87,8 @@ private:
     
     kernels::DynamicRupture m_dynamicRuptureKernel;
 
+    seissol::parallel::runtime::StreamRuntime streamRuntime;
+
   /*
    * global data
    */
@@ -155,7 +97,6 @@ private:
     GlobalData *m_globalDataOnDevice{nullptr};
 #ifdef ACL_DEVICE
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    dr::pipeline::DrPipeline drPipeline;
 #endif
 
     /*
@@ -167,9 +108,10 @@ private:
     seissol::initializer::LTS*         m_lts;
     seissol::initializer::DynamicRupture* m_dynRup;
     dr::friction_law::FrictionSolver* frictionSolver;
+    dr::friction_law::FrictionSolver* frictionSolverDevice;
     dr::output::OutputManager* faultOutputManager;
 
-    std::unique_ptr<kernels::PointSourceCluster> m_sourceCluster;
+    seissol::kernels::PointSourceClusterPair m_sourceCluster;
 
     enum class ComputePart {
       Local = 0,
@@ -216,6 +158,8 @@ private:
      **/
     void computeDynamicRupture( seissol::initializer::Layer&  layerData );
 
+    void handleDynamicRupture( seissol::initializer::Layer&  layerData );
+
     /**
      * Computes all cell local integration.
      *
@@ -234,7 +178,7 @@ private:
      * @param io_derivatives time derivatives.
      * @param io_dofs degrees of freedom.
      **/
-    void computeLocalIntegration( seissol::initializer::Layer&  i_layerData, bool resetBuffers);
+    void computeLocalIntegration( seissol::initializer::Layer&  layerData, bool resetBuffers);
 
     /**
      * Computes the contribution of the neighboring cells to the boundary integral.
@@ -248,103 +192,19 @@ private:
      * @param i_faceNeighbors pointers to neighboring time buffers or derivatives.
      * @param io_dofs degrees of freedom.
      **/
-    void computeNeighboringIntegration( seissol::initializer::Layer&  i_layerData, double subTimeStart );
+    void computeNeighboringIntegration( seissol::initializer::Layer&  layerData, double subTimeStart );
+
+#ifdef ACL_DEVICE
+    void computeLocalIntegrationDevice( seissol::initializer::Layer&  layerData, bool resetBuffers);
+    void computeDynamicRuptureDevice( seissol::initializer::Layer&  layerData );
+    void computeNeighboringIntegrationDevice( seissol::initializer::Layer&  layerData, double subTimeStart );
+#endif
 
     void computeLocalIntegrationFlops(seissol::initializer::Layer& layerData);
-#ifndef ACL_DEVICE
+
     template<bool usePlasticity>
-    std::pair<long, long> computeNeighboringIntegrationImplementation(seissol::initializer::Layer& i_layerData,
-                                                                      double subTimeStart) {
-      if (i_layerData.getNumberOfCells() == 0) return {0,0};
-      SCOREP_USER_REGION( "computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION )
-
-      m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
-
-      real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
-      CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
-      CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
-      PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
-      auto* pstrain = i_layerData.var(m_lts->pstrain);
-      unsigned numberOTetsWithPlasticYielding = 0;
-
-      kernels::NeighborData::Loader loader;
-      loader.load(*m_lts, i_layerData);
-
-      real *l_timeIntegrated[4];
-      real *l_faceNeighbors_prefetch[4];
-
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(cellInformation, loader, faceNeighbors, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
-#endif
-      for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
-        auto data = loader.entry(l_cell);
-        seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
-                                                       data.cellInformation().ltsSetup,
-                                                       data.cellInformation().faceTypes,
-                                                       subTimeStart,
-                                                       timeStepSize(),
-                                                       faceNeighbors[l_cell],
-#ifdef _OPENMP
-                                                       *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
-#else
-            *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalData->integrationBufferLTS),
-#endif
-                                                       l_timeIntegrated);
-
-        l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
-                                      faceNeighbors[l_cell][1] :
-                                      drMapping[l_cell][1].godunov;
-        l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture) ?
-                                      faceNeighbors[l_cell][2] :
-                                      drMapping[l_cell][2].godunov;
-        l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture) ?
-                                      faceNeighbors[l_cell][3] :
-                                      drMapping[l_cell][3].godunov;
-
-        // fourth face's prefetches
-        if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
-          l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
-                                        faceNeighbors[l_cell+1][0] :
-                                        drMapping[l_cell+1][0].godunov;
-        } else {
-          l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
-        }
-
-        m_neighborKernel.computeNeighborsIntegral( data,
-                                                   drMapping[l_cell],
-                                                   l_timeIntegrated, l_faceNeighbors_prefetch
-        );
-
-        if constexpr (usePlasticity) {
-          updateRelaxTime();
-          numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_oneMinusIntegratingFactor,
-                                                                                             timeStepSize(),
-                                                                                             m_tv,
-                                                                                             m_globalDataOnHost,
-                                                                                             &plasticity[l_cell],
-                                                                                             data.dofs(),
-                                                                                             pstrain[l_cell] );
-        }
-#ifdef INTEGRATE_QUANTITIES
-        seissolInstance.postProcessor().integrateQuantities( m_timeStepWidth,
-                                                              i_layerData,
-                                                              l_cell,
-                                                              dofs[l_cell] );
-#endif // INTEGRATE_QUANTITIES
-      }
-
-      const long long nonZeroFlopsPlasticity =
-          i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)] +
-          numberOTetsWithPlasticYielding * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityYield)];
-      const long long hardwareFlopsPlasticity =
-          i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)] +
-          numberOTetsWithPlasticYielding * m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)];
-
-      m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_profilingId);
-
-      return {nonZeroFlopsPlasticity, hardwareFlopsPlasticity};
-    }
-#endif // ACL_DEVICE
+    std::pair<long, long> computeNeighboringIntegrationImplementation(seissol::initializer::Layer& layerData,
+                                                                      double subTimeStart);
 
     void computeLocalIntegrationFlops(unsigned numberOfCells,
                                       CellLocalInformation const* cellInformation,
@@ -409,6 +269,7 @@ public:
       seissol::initializer::LTS* i_lts,
       seissol::initializer::DynamicRupture* i_dynRup,
       seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
+      seissol::dr::friction_law::FrictionSolver* i_FrictionSolverDevice,
       dr::output::OutputManager* i_faultOutputManager,
       seissol::SeisSol& seissolInstance,
       LoopStatistics* i_loopStatistics,
@@ -425,8 +286,8 @@ public:
    *
    * @param sourceCluster Contains point sources for cluster
    */
-  void setPointSources(std::unique_ptr<kernels::PointSourceCluster> sourceCluster);
-  void freePointSources() { m_sourceCluster.reset(nullptr); }
+  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster);
+  void freePointSources() { m_sourceCluster.host.reset(nullptr); m_sourceCluster.device.reset(nullptr); }
 
   void setReceiverCluster( kernels::ReceiverCluster* receiverCluster) {
     m_receiverCluster = receiverCluster;
@@ -444,8 +305,14 @@ public:
     updateRelaxTime();
   }
 
+  void setLastSubTime(double lastSubTime) {
+    this->lastSubTime = lastSubTime;
+  }
+
 
   void reset() override;
+
+  void finalize() override;
 
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
@@ -453,6 +320,10 @@ public:
   void setReceiverTime(double receiverTime);
 
   std::vector<NeighborCluster>* getNeighborClusters();
+
+  void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream);
 };
 
-#endif
+
+#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
+

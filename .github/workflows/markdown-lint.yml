@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: markdown-lint
+on:
+  - push
+
+jobs:
+  markdown-lint:
+    name: markdown-lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        name: checkout-seissol
+
+      # cf. the docs under https://github.com/marketplace/actions/markdownlint-cli2-action
+      - uses: DavidAnson/markdownlint-cli2-action@v18
+        name: run-markdownlint
+        with:
+          globs: '**/*.md'

@@ -1,62 +1,66 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _Checkpointing:
 
-Checkpointing
-=============
+Checkpointing (Beta)
+====================
 
-Checkpointing consists of saving the simulation state at a given time, to allow restarting from that point in case of failure.
-It is parametrized within 'output' namelist of the parameter file by setting up the following variables:
+The checkpointing mechanism enables the storage and restart of a simulation to a file. There are (at least) two reasons on why that can be useful:
+
+* fault tolerance. To keep the simulation running after the simulation has failed (or e.g. a node stopped working).
+* restart with different parameters
+
+The checkpointing mechanism will automatically adapt to any given element partition. In particular, it is independent of the number of nodes.
+
+Checkpoint Writing
+~~~~~~~~~~~~~~~~~~
+
+The checkpoint writing is configured as any other output writer, i.e. you will have to add the ``output`` section the following parameter(s):
 
 .. code:: fortran
 
-   checkPointFile = '../output/check'
-   checkPointBackend = 'mpio'
-   checkPointInterval = 0.4
+   checkpoint = 1
+   checkpointinterval = 0.4
 
-| **checkPointFile** defines the path and prefix to the chechpointfile.
-| **checkPointBackend** defines the implementation used ('posix', 'hdf5', 'mpio', 'mpio_async', 'sionlib', 'none'). If 'none' is specified, checkpoints are disabled. To use the HDF5, MPI-IO or SIONlib back-ends you need to compile SeisSol with HDF5, MPI or SIONlib respectively.
-| **checkPointInterval** defines the (simulated) time interval at which checkpointing is done. 0 (default value) disables checkpointing. When using an asynchronous back-end (mpio_async), you might lose 2 * checkPointInterval of your computation.
+Thus, the checkpoint writer is also influenced by the ASYNC parameters.
 
+The checkpoint writer will, in essence, dump the current simulation data into an Hdf5 file, without altering it.
 
-If the active checkpoint back-end finds a valid checkpoint during the initialization, it will load it automatically. 
-(You cannot explicitly specify to load a checkpoint)
+Checkpoint Restart
+~~~~~~~~~~~~~~~~~~
 
-Hint: Currently only the output of the wavefield is designed to work with checkpoints. 
-Other outputs such as receivers and fault output might require additional post-processing when SeisSol is restarted from a checkpoint.
+The restart is done by adding the command line parameter ``-c <FILE>``. Note that you do not need to activate the checkpointing in the parameter file (i.e. the checkpoint writing as shown above).
 
+The checkpoint reading is then done automatically when starting SeisSol.
+Note that the checkpoint reading may take a bit of time: the data needs to be re-distributed, since the element partition will have changed compared to the previous simulation.
+Also, the checkpoint will override any set initial condition.
 
-Checkpointing Environment variables
------------------------------------
+Current Quirks and Limitations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The parallel checkpoint back-ends (HDF5, MPI-IO, SIONlib) support several tuning environment variables:
+The new checkpointing is still in its beta, hence some interesting behavior is currently allowed.
 
--  **SEISSOL_CHECKPOINT_BLOCK_SIZE** Optimize the checkpoints for a
-   specific file system block size. Set to 1 to disable the
-   optimization. Set to -1 for auto-detection with the SIONlib back-end.
-   (default: 1 (MPI-IO, HDF5) or -1 (SIONlib), MPI-IO, HDF5, SIONlib
-   back-end only)
--  **SEISSOL_CHECKPOINT_ROMIO_CB_READ** If set, the ``romio_cb_read`` in
-   the MPI info object when opening the file. (default: no value, MPI-IO
-   and HDF5 backend only)
--  **SEISSOL_CHECKPOINT_ROMIO_CB_WRITE** See
-   *SEISSOL_CHECKPOINT_ROMIO_CB_READ*
--  **SEISSOL_CHECKPOINT_CB_NODES** See
-   *SEISSOL_CHECKPOINT_ROMIO_CB_READ*
--  **SEISSOL_CHECKPOINT_ROMIO_DS_READ** See
-   *SEISSOL_CHECKPOINT_ROMIO_CB_READ*
--  **SEISSOL_CHECKPOINT_ROMIO_DS_WRITE** See
-   *SEISSOL_CHECKPOINT_ROMIO_CB_READ*
--  **SEISSOL_CHECKPOINT_SION_BACKEND** The SIONlib back-end that should
-   be used. Should be either *ansi* or *posix*. (default: 'ansi',
-   SIONlib back-end only)
--  **SEISSOL_CHECKPOINT_SION_NUM_FILES** Number of SIONlib files.
-   (default: 1, SIONlib back-end only)
--  **SEISSOL_CHECKPOINT_SION_COLL_SIZE** The collective size in SIONlib.
-   Set to 0 for disabling collective operations. See `SIONlib
-   documentation <https://apps.fz-juelich.de/jsc/sionlib/docu/collective_page.html>`__
-   for more details. (default: 0, SIONlib back-end only)
--  **SEISSOL_CHECKPOINT_SION_COLL_MODE** The collective mode for
-   SIONlib. Should be either *merge* or *normal*. See `SIONlib
-   documentation <https://apps.fz-juelich.de/jsc/sionlib/docu/collective_page.html>`__
-   for more details. (default: 'merge', SIONlib back-end only)
+Generally, a restart is possible if all necessary data is contained in the checkpoint. In particular, it is also possible to ignore data that has been written into a checkpointing file.
+The following restart configurations (besides restarting with the same configuration) are therefore possible:
+
+* isotropic/anisotropic elastic to isotropic/anisotropic elastic
+* viscoelastic to isotropic/anisotropic elastic (_not_ the other way round)
+
+For the friction laws, the following is the case:
+
+* 6 to 16,1058,33,34
+* 16,1058,33,34 to 16,1058,33,34
+* 3,4,103 to 3,4,103
+* 3,4,103 with Thermal Pressurization to 3,4,103 without Thermal Pressurization
 
 
+Note however, that the following restrictions apply.
+
+* elastic-acoustic simulations are not checkpointed completely (the face displacements are currently ignored)
+* the order of the new simulation needs to be identical (this may be subject to change)

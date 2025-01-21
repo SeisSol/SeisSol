@@ -1,24 +1,36 @@
-// Copyright (c) 2015-2020 SeisSol Group
-// Copyright (C) 2023 Intel Corporation
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 Intel Corporation
+//
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef KERNELS_POINTSOURCECLUSTER_H_
-#define KERNELS_POINTSOURCECLUSTER_H_
+#ifndef SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_
+#define SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_
 
-#include "Kernels/precision.hpp"
-#include "Numerical_aux/Functions.h"
-#include "SourceTerm/typedefs.hpp"
+#include "Kernels/Precision.h"
+#include "Numerical/Functions.h"
+#include "Parallel/Runtime/Stream.h"
+#include "SourceTerm/Typedefs.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <memory>
 
 namespace seissol::kernels {
 class PointSourceCluster {
   public:
   virtual ~PointSourceCluster() = default;
-  virtual void addTimeIntegratedPointSources(double from, double to) = 0;
-  virtual unsigned size() const = 0;
+  virtual void addTimeIntegratedPointSources(
+      double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+  [[nodiscard]] virtual unsigned size() const = 0;
+};
+
+struct PointSourceClusterPair {
+  std::unique_ptr<kernels::PointSourceCluster> host{nullptr};
+  std::unique_ptr<kernels::PointSourceCluster> device{nullptr};
 };
 
 /**
@@ -36,7 +48,7 @@ inline real computeSampleTimeIntegral(double from,
                                       double to,
                                       const double onsetTime,
                                       const double samplingInterval,
-                                      real* sample,
+                                      const real* sample,
                                       std::size_t sampleSize) {
   const auto integrate = [&samplingInterval, &sample](std::size_t index, double tFrom, double tTo) {
     /* We have f(t) = S0 (t1 - t) / dt + S1 (t - t0) / dt, hence
@@ -46,11 +58,11 @@ inline real computeSampleTimeIntegral(double from,
      */
     const auto t0 = index * samplingInterval;
     const auto t1 = t0 + samplingInterval;
-    const auto S0 = sample[index];
-    const auto S1 = sample[index + 1];
+    const auto s0 = sample[index];
+    const auto s1 = sample[index + 1];
     const auto tdiff = tTo - tFrom;
     const auto tdiff2 = 0.5 * (tTo * tTo - tFrom * tFrom);
-    return (S0 * (t1 * tdiff - tdiff2) + S1 * (tdiff2 - t0 * tdiff)) / samplingInterval;
+    return (s0 * (t1 * tdiff - tdiff2) + s1 * (tdiff2 - t0 * tdiff)) / samplingInterval;
   };
 
   if (sampleSize == 0) {
@@ -70,14 +82,14 @@ inline real computeSampleTimeIntegral(double from,
   // j_{to}   := \argmin_j s.t. t_{to}   <= j*dt =  ceil[t_{to}   / dt]
   long toIndex = MathFunctions::ceil(to / samplingInterval);
 
-  fromIndex = MathFunctions::max(0l, fromIndex);
+  fromIndex = MathFunctions::max(0L, fromIndex);
   toIndex = MathFunctions::min(static_cast<long>(sampleSize) - 1, toIndex);
   // Return zero if there is no overlap between integration interval and sample time interval
   if (fromIndex >= toIndex) {
     return 0.0;
   }
 
-  if (toIndex - fromIndex == 1l) {
+  if (toIndex - fromIndex == 1L) {
     return integrate(fromIndex, from, to);
   }
 
@@ -92,4 +104,4 @@ inline real computeSampleTimeIntegral(double from,
 
 } // namespace seissol::kernels
 
-#endif // KERNELS_POINTSOURCECLUSTER_H_
+#endif // SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_

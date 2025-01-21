@@ -1,45 +1,13 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015-2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef WAVE_FIELD_WRITER_H
-#define WAVE_FIELD_WRITER_H
+#ifndef SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITER_H_
+#define SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITER_H_
 
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
@@ -56,8 +24,7 @@
 
 #include "async/Module.h"
 
-#include "Checkpoint/DynStruct.h"
-#include "Geometry/refinement/VariableSubSampler.h"
+#include "Geometry/Refinement/VariableSubSampler.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
 #include "WaveFieldWriterExecutor.h"
@@ -70,7 +37,7 @@ class SeisSol;
 namespace refinement {
 template <typename T>
 class MeshRefiner;
-}
+} // namespace refinement
 
 namespace writer {
 
@@ -80,19 +47,16 @@ class WaveFieldWriter
   seissol::SeisSol& seissolInstance;
 
   /** True if wave field output is enabled */
-  bool m_enabled;
-
-  /** The timestep component in the checkpoint header */
-  DynStruct::Component<int> m_timestepComp;
+  bool m_enabled{false};
 
   /** False if entire region is to be written */
-  bool isExtractRegionEnabled;
+  bool isExtractRegionEnabled{false};
 
   /** The asynchronous executor */
   WaveFieldWriterExecutor m_executor;
 
   /** Variable buffer ids (high and low order variables) */
-  int m_variableBufferIds[2];
+  int m_variableBufferIds[2]{};
 
   /** The output prefix for the filename */
   std::string m_outputPrefix;
@@ -105,48 +69,44 @@ class WaveFieldWriter
 
   /** Number of variables */
 
-  unsigned int m_numVariables;
+  unsigned int m_numVariables{0};
 
   /** Number of integrated variables */
-  unsigned int m_numIntegratedVariables;
+  unsigned int m_numIntegratedVariables{};
 
   /** Flag indicated which variables should be written */
-  bool* m_outputFlags;
+  bool* m_outputFlags{nullptr};
 
   /** Flag indicated which low variables should be written */
-  bool* m_lowOutputFlags;
+  bool* m_lowOutputFlags{nullptr};
 
   /** Refined number of cells */
-  unsigned int m_numCells;
+  unsigned int m_numCells{0};
 
   /** Unrefined (low order) number of cells */
-  unsigned int m_numLowCells;
+  unsigned int m_numLowCells{0};
 
   /** Pointer to the degrees of freedom */
-  const real* m_dofs;
+  const real* m_dofs{nullptr};
 
   /** Pointer to the plastic strain */
-  const real* m_pstrain;
+  const real* m_pstrain{nullptr};
 
   /** Pointer to the integrals */
-  const real* m_integrals;
+  const real* m_integrals{nullptr};
 
   /** Mapping from the cell order to dofs order */
-  unsigned int* m_map;
+  std::vector<unsigned int> m_map;
 
   /** The stopwatch for the frontend */
   Stopwatch m_stopwatch;
 
   /** Checks if a vertex given by the vertexCoords lies inside the boxBounds */
   /*   The boxBounds is in the format: xMin, xMax, yMin, yMax, zMin, zMax */
-  bool vertexInBox(const double* const boxBounds, const double* const vertexCoords) {
-    if (vertexCoords[0] <= boxBounds[1] && vertexCoords[0] >= boxBounds[0] &&
-        vertexCoords[1] <= boxBounds[3] && vertexCoords[1] >= boxBounds[2] &&
-        vertexCoords[2] <= boxBounds[5] && vertexCoords[2] >= boxBounds[4]) {
-      return true;
-    } else {
-      return false;
-    }
+  static bool vertexInBox(const double* const boxBounds, const double* const vertexCoords) {
+    return vertexCoords[0] <= boxBounds[1] && vertexCoords[0] >= boxBounds[0] &&
+           vertexCoords[1] <= boxBounds[3] && vertexCoords[1] >= boxBounds[2] &&
+           vertexCoords[2] <= boxBounds[5] && vertexCoords[2] >= boxBounds[4];
   }
 
   refinement::TetrahedronRefiner<double>* createRefiner(int refinement);
@@ -154,14 +114,11 @@ class WaveFieldWriter
   const unsigned* adjustOffsets(refinement::MeshRefiner<double>* meshRefiner);
   std::vector<unsigned int>
       generateRefinedClusteringData(refinement::MeshRefiner<double>* meshRefiner,
-                                    const std::vector<unsigned>& LtsClusteringData,
-                                    std::map<int, int>& newToOldCellMap);
+                                    const std::vector<unsigned>& ltsClusteringData,
+                                    std::map<int, int>& newToOldCellMap) const;
 
   public:
-  WaveFieldWriter(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance), m_enabled(false), isExtractRegionEnabled(false),
-        m_numVariables(0), m_outputFlags(0L), m_lowOutputFlags(0L), m_numCells(0), m_numLowCells(0),
-        m_dofs(0L), m_pstrain(0L), m_integrals(0L), m_map(0L) {}
+  WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   /**
    * Activate the wave field output
@@ -171,7 +128,7 @@ class WaveFieldWriter
   /**
    * @return True if wave field output is enabled, false otherwise
    */
-  bool isEnabled() const { return m_enabled; }
+  [[nodiscard]] bool isEnabled() const { return m_enabled; }
 
   /**
    * Set the output prefix for the filename
@@ -181,7 +138,7 @@ class WaveFieldWriter
   /**
    * Called by ASYNC on all ranks
    */
-  void setUp();
+  void setUp() override;
 
   void setWaveFieldInterval(double interval) { setSyncInterval(interval); }
 
@@ -195,11 +152,11 @@ class WaveFieldWriter
             int order,
             int numAlignedDOF,
             const seissol::geometry::MeshReader& meshReader,
-            const std::vector<unsigned>& LtsClusteringData,
+            const std::vector<unsigned>& ltsClusteringData,
             const real* dofs,
             const real* pstrain,
             const real* integrals,
-            unsigned int* map,
+            const unsigned int* map,
             const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
             xdmfwriter::BackendType backend,
             const std::string& backupTimeStamp);
@@ -220,33 +177,30 @@ class WaveFieldWriter
 
     finalize();
 
-    if (!m_enabled)
+    if (!m_enabled) {
       return;
+    }
 
     m_stopwatch.printTime("Time wave field writer frontend:");
 
     delete[] m_outputFlags;
-    m_outputFlags = 0L;
+    m_outputFlags = nullptr;
     delete[] m_lowOutputFlags;
-    m_lowOutputFlags = 0L;
-    if (isExtractRegionEnabled) {
-      delete[] m_map;
-      m_map = 0L;
-    }
+    m_lowOutputFlags = nullptr;
   }
 
-  void tearDown() { m_executor.finalize(); }
+  void tearDown() override { m_executor.finalize(); }
 
   //
   // Hooks
   //
-  void simulationStart();
+  void simulationStart() override;
 
-  void syncPoint(double currentTime);
+  void syncPoint(double currentTime) override;
 };
 
 } // namespace writer
 
 } // namespace seissol
 
-#endif // WAVE_FIELD_WRITER_H
+#endif // SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITER_H_

@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# reason for rule exclusion:
+# * BLK100: conflicts with isort, i.e. I001,..,I005 (which is more important to be adhered)
+# * E501: hard to enforce; makes tensor operations partially unreadable
+# * E741: TODO; might be adjusted. However, the usage of `self.I` is clear
+# * E731: decreases readability
+# * E203: decreases readability; actually applied by black
+#
+# reason(s) for directory exclusion:
+# * preprocessing: TODO, to be exluded from the repository
+# * postprocessing: TODO, to be exluded from the repository
+# * submodules: submodules, need to be handled separately 
+
+[flake8]
+extend-ignore = BLK100, E501, E741, E731, E203
+exclude = preprocessing,postprocessing,submodules

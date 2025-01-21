@@ -1,5 +1,15 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "ActorStateStatistics.h"
 #include "LoopStatistics.h"
+#include <Solver/time_stepping/ActorState.h>
+#include <optional>
+#include <time.h>
 
 namespace seissol {
 
@@ -29,7 +39,7 @@ ActorStateStatistics::Sample::Sample(seissol::time_stepping::ActorState state)
   clock_gettime(CLOCK_MONOTONIC, &begin);
 }
 void ActorStateStatistics::Sample::finish() {
-  timespec endTime;
+  timespec endTime{};
   clock_gettime(CLOCK_MONOTONIC, &endTime);
   end = endTime;
 }

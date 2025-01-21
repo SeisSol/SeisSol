@@ -1,5 +1,12 @@
-#ifndef SEISSOL_GPU_RATEANDSTATEFASTVELOCITYWEAKENING_H
-#define SEISSOL_GPU_RATEANDSTATEFASTVELOCITYWEAKENING_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
 
@@ -19,8 +26,8 @@ class FastVelocityWeakeningLaw
                                       const seissol::initializer::DynamicRupture* const dynRup,
                                       real fullUpdateTime) override {
     using SelfInitializerType = seissol::initializer::LTSRateAndStateFastVelocityWeakening;
-    auto* concreteLts = dynamic_cast<const SelfInitializerType* const>(dynRup);
-    this->srW = layerData.var(concreteLts->rsSrW);
+    auto* concreteLts = dynamic_cast<const SelfInitializerType*>(dynRup);
+    this->srW = layerData.var(concreteLts->rsSrW, seissol::initializer::AllocationPlace::Device);
 
     using ParentType = RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod>;
     ParentType::copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -53,7 +60,7 @@ class FastVelocityWeakeningLaw
     const double muW{this->drParameters->muW};
     auto details = this->getCurrentLtsLayerDetails();
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -106,20 +113,20 @@ class FastVelocityWeakeningLaw
     return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
   }
 
-  void resampleStateVar(real (*devStateVariableBuffer)[misc::numPaddedPoints]) {
+  void resampleStateVar(real (*devStateVariableBuffer)[misc::NumPaddedPoints]) {
     auto* devStateVariable{this->stateVariable};
     auto* resampleMatrix{this->resampleMatrix};
 
-    constexpr auto dim0 = misc::dimSize<init::resample, 0>();
-    constexpr auto dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(dim0 == misc::numPaddedPoints);
-    static_assert(dim0 >= dim1);
+    constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
+    constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
+    static_assert(Dim0 == misc::NumPaddedPoints);
+    static_assert(Dim0 >= Dim1);
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       // NOLINTNEXTLINE
       sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
-          deltaStateVar(misc::numPaddedPoints, cgh);
+          deltaStateVar(misc::NumPaddedPoints, cgh);
 
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -131,8 +138,8 @@ class FastVelocityWeakeningLaw
         item.barrier(sycl::access::fence_space::local_space);
 
         real resampledDeltaStateVar{0.0};
-        for (size_t i{0}; i < dim1; ++i) {
-          resampledDeltaStateVar += resampleMatrix[pointIndex + i * dim0] * deltaStateVar[i];
+        for (size_t i{0}; i < Dim1; ++i) {
+          resampledDeltaStateVar += resampleMatrix[pointIndex + i * Dim0] * deltaStateVar[i];
         }
 
         devStateVariable[ltsFace][pointIndex] = localStateVariable + resampledDeltaStateVar;
@@ -143,8 +150,8 @@ class FastVelocityWeakeningLaw
   void executeIfNotConverged() {}
 
   protected:
-  real (*srW)[misc::numPaddedPoints];
+  real (*srW)[misc::NumPaddedPoints];
 };
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_GPU_RATEANDSTATEFASTVELOCITYWEAKENING_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
