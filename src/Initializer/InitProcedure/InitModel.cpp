@@ -1,3 +1,9 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Equations/Datastructures.h"
 #include "Initializer/CellLocalMatrices.h"
@@ -33,6 +39,10 @@
 #include "Parallel/MPI.h"
 
 #include <cmath>
+
+#if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
+#include "Physics/Attenuation.h"
+#endif
 
 using namespace seissol::initializer;
 

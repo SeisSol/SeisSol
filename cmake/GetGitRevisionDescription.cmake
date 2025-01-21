@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSL-1.0
+# SPDX-LicenseComments: Full text under /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#
 # - Returns a version string from Git
 #
 # These functions force a re-configure on each git commit so that you can

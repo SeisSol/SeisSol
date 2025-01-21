@@ -3,14 +3,11 @@
 # SPDX-FileCopyrightText: 2019-2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
-
-# @file
-# This file is part of SeisSol.
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de)
-# @author Sebastian Wolf (wolf.sebastian AT tum.de)
-#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+# SPDX-FileContributor: Carsten Uphoff
+# SPDX-FileContributor: Sebastian Wolf
 
 import argparse
 import importlib.util
@@ -105,11 +102,11 @@ def main():
 
     cost_estimators = BoundingBoxCostEstimator
     if "gpu" in targets:
-        try:
-            chainforge_spec = importlib.util.find_spec("chainforge")
+        chainforge_spec = importlib.util.find_spec("chainforge")
+        if chainforge_spec is not None:
             chainforge_spec.loader.load_module()
             cost_estimators = FusedGemmsBoundingBoxCostEstimator
-        except ModuleNotFoundError:
+        else:
             print("WARNING: ChainForge was not found. Falling back to GemmForge.")
 
     subfolders = []
@@ -117,10 +114,9 @@ def main():
     equationsSpec = importlib.util.find_spec(
         f"kernels.equations.{cmdLineArgs.equations}"
     )
-    try:
-        equations = equationsSpec.loader.load_module()
-    except ModuleNotFoundError:
+    if equationsSpec is None:
         raise RuntimeError("Could not find kernels for " + cmdLineArgs.equations)
+    equations = equationsSpec.loader.load_module()
 
     equation_class = equations.EQUATION_CLASS
 
@@ -252,6 +248,7 @@ def main():
     forward_files("kernel.cpp")
     forward_files("subroutine.cpp")
     forward_files("tensor.cpp")
+    forward_files("test-kernel.cpp")
     forward_files("gpulike_subroutine.cpp")
 
 

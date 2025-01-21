@@ -1,5 +1,12 @@
-#ifndef ENERGYOUTPUT_H
-#define ENERGYOUTPUT_H
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
+#define SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 
 #include <array>
 #include <fstream>
@@ -143,4 +150,4 @@ class EnergyOutput : public Module {
 } // namespace writer
 } // namespace seissol
 
-#endif // ENERGYOUTPUT_H
+#endif // SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_

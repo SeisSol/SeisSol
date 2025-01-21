@@ -1,5 +1,12 @@
-#ifndef SEISSOL_SOURCETIMEFUNCTION_H
-#define SEISSOL_SOURCETIMEFUNCTION_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SOURCETIMEFUNCTION_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SOURCETIMEFUNCTION_H_
 
 #include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -51,4 +58,5 @@ class DeltaSTF {
 };
 
 } // namespace seissol::dr::friction_law
-#endif // SEISSOL_SOURCETIMEFUNCTION_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SOURCETIMEFUNCTION_H_

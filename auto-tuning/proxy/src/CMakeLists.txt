@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: 2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_subdirectory(Proxy)
 
@@ -21,7 +24,7 @@ if (WITH_GPU)
 endif()
 
 # C/C++ proxy interface
-add_executable(SeisSol-proxy Main.cpp)
-target_link_libraries(SeisSol-proxy PUBLIC seissol-proxy-lib)
-set_target_properties(SeisSol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
-install(TARGETS SeisSol-proxy RUNTIME)
+add_executable(seissol-proxy Main.cpp)
+target_link_libraries(seissol-proxy PUBLIC seissol-proxy-lib)
+set_target_properties(seissol-proxy PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
+install(TARGETS seissol-proxy RUNTIME)

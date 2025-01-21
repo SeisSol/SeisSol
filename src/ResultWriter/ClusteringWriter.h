@@ -1,5 +1,12 @@
-#ifndef SEISSOL_CLUSTERINGWRITER_H
-#define SEISSOL_CLUSTERINGWRITER_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_RESULTWRITER_CLUSTERINGWRITER_H_
+#define SEISSOL_SRC_RESULTWRITER_CLUSTERINGWRITER_H_
 
 #include "Memory/Tree/Layer.h"
 #include <string>
@@ -36,4 +43,4 @@ class ClusteringWriter {
 
 } // namespace seissol::writer
 
-#endif // SEISSOL_CLUSTERINGWRITER_H
+#endif // SEISSOL_SRC_RESULTWRITER_CLUSTERINGWRITER_H_

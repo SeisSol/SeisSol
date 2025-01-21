@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: 2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-io STATIC
     Datatype/Datatype.cpp
@@ -27,4 +30,4 @@ add_library(seissol-io STATIC
     Manager.cpp
 )
 
-target_link_libraries(seissol-io PUBLIC SeisSol-common-properties)
+target_link_libraries(seissol-io PUBLIC seissol-common-properties)

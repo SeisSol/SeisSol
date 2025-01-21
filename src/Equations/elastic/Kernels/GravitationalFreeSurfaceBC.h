@@ -1,5 +1,12 @@
-#ifndef SEISSOL_GRAVIATIONALFREESURFACEBC_H
-#define SEISSOL_GRAVIATIONALFREESURFACEBC_H
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_GRAVITATIONALFREESURFACEBC_H_
+#define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_GRAVITATIONALFREESURFACEBC_H_
 
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
@@ -336,4 +343,4 @@ class GravitationalFreeSurfaceBc {
 
 } // namespace seissol
 
-#endif // SEISSOL_GRAVIATIONALFREESURFACEBC_H
+#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_GRAVITATIONALFREESURFACEBC_H_

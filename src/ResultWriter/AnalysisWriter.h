@@ -1,5 +1,12 @@
-#ifndef ANALYSISWRITER_H
-#define ANALYSISWRITER_H
+// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_RESULTWRITER_ANALYSISWRITER_H_
+#define SEISSOL_SRC_RESULTWRITER_ANALYSISWRITER_H_
 
 #include <array>
 #include <cmath>
@@ -72,4 +79,4 @@ class AnalysisWriter {
 
 } // namespace seissol::writer
 
-#endif // ANALYSISWRITER_H
+#endif // SEISSOL_SRC_RESULTWRITER_ANALYSISWRITER_H_
