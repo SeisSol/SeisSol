@@ -1,5 +1,12 @@
-#ifndef MODEL_POROELASTIC_DATASTRUCTURES_H_
-#define MODEL_POROELASTIC_DATASTRUCTURES_H_
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_
+#define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Model/CommonDatastructures.h"
@@ -78,4 +85,4 @@ struct PoroElasticMaterial : public ElasticMaterial {
 };
 } // namespace seissol::model
 
-#endif
+#endif // SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_

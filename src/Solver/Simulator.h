@@ -1,19 +1,14 @@
 // SPDX-FileCopyrightText: 2015-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Sebastian Rettenberger
 
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de,
- *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de,
- *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- **/
-
-#ifndef SIMULATOR_H_
-#define SIMULATOR_H_
+#ifndef SEISSOL_SRC_SOLVER_SIMULATOR_H_
+#define SEISSOL_SRC_SOLVER_SIMULATOR_H_
 
 namespace seissol {
 class Simulator;
@@ -78,4 +73,6 @@ class seissol::Simulator {
   void simulate(seissol::SeisSol& seissolInstance);
 };
 
-#endif
+
+#endif // SEISSOL_SRC_SOLVER_SIMULATOR_H_
+

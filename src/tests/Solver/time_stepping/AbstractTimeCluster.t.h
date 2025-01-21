@@ -1,4 +1,11 @@
-#include "Solver/Clustering/Solver/Clustering/AbstractTimeCluster.h"
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "Solver/Clustering/AbstractTimeCluster.h"
 #include "tests/TestHelper.h"
 #include <iostream>
 namespace seissol::unit_test {

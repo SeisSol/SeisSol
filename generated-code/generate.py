@@ -3,14 +3,11 @@
 # SPDX-FileCopyrightText: 2019-2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
-
-# @file
-# This file is part of SeisSol.
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de)
-# @author Sebastian Wolf (wolf.sebastian AT tum.de)
-#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+# SPDX-FileContributor: Carsten Uphoff
+# SPDX-FileContributor: Sebastian Wolf
 
 import argparse
 import importlib.util

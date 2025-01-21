@@ -1,5 +1,12 @@
-#ifndef SEISSOL_GPU_LINEARSLIPWEAKENING_H
-#define SEISSOL_GPU_LINEARSLIPWEAKENING_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 
@@ -435,4 +442,4 @@ class TPApprox {
 
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_GPU_LINEARSLIPWEAKENING_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_

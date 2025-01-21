@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 # From: https://raw.githubusercontent.com/bilke/cmake-modules/master/CodeCoverage.cmake
 
 # Copyright (c) 2012 - 2017, Lars Bilke

@@ -1,5 +1,12 @@
-#ifndef SEISSOL_BASEDRINITIALIZER_H
-#define SEISSOL_BASEDRINITIALIZER_H
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_
 
 #include <yaml-cpp/yaml.h>
 
@@ -181,4 +188,5 @@ class BaseDRInitializer {
 
 } // namespace dr::initializer
 } // namespace seissol
-#endif // SEISSOL_BASEDRINITIALIZER_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_

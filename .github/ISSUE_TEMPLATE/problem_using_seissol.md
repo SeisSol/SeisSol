@@ -2,9 +2,7 @@
 name: Problem using SeisSol
 about: Any problem, which evolves around how you can use SeisSol.
 labels: discussion
-
 ---
-
 <!-- markdownlint-disable MD041 -->
 
 If you have a problem using SeisSol,

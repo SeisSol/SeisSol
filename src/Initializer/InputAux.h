@@ -1,5 +1,12 @@
-#ifndef INITIALIZER_INPUTAUX_H_
-#define INITIALIZER_INPUTAUX_H_
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_INPUTAUX_H_
+#define SEISSOL_SRC_INITIALIZER_INPUTAUX_H_
 
 #include <fstream>
 #include <iterator>
@@ -166,4 +173,5 @@ class FileProcessor {
   }
 };
 } // namespace seissol::initializer
-#endif // INITIALIZER_INPUTAUX_H_
+
+#endif // SEISSOL_SRC_INITIALIZER_INPUTAUX_H_

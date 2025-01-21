@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-2-Clause
+# SPDX-LicenseComments: Full text under /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 # - Try to find ParMETIS
 # Once done this will define
 #

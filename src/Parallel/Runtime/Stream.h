@@ -1,5 +1,12 @@
-#ifndef SEISSOL_PARALLEL_RUNTIME_STREAM_HPP
-#define SEISSOL_PARALLEL_RUNTIME_STREAM_HPP
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
+#define SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 
 #include <Initializer/Tree/Layer.h>
 #include <Parallel/Host/CpuExecutor.h>
@@ -238,4 +245,4 @@ class OpenMPRuntime {
 
 } // namespace seissol::parallel::runtime
 
-#endif
+#endif // SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_

@@ -1,17 +1,13 @@
 // SPDX-FileCopyrightText: 2017-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- */
-
-#ifndef FREE_SURFACE_INTEGRATOR_H
-#define FREE_SURFACE_INTEGRATOR_H
+#ifndef SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
+#define SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 
 #include <memory>
 
@@ -101,4 +97,6 @@ class seissol::solver::FreeSurfaceIntegrator {
   bool enabled() const { return mEnabled; }
 };
 
-#endif // FREE_SURFACE_INTEGRATOR_H
+
+#endif // SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
+

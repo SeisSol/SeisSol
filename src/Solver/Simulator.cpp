@@ -1,16 +1,11 @@
 // SPDX-FileCopyrightText: 2015-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
-
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de,
- *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de,
- *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- **/
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Sebastian Rettenberger
 
 #include <Initializer/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
@@ -149,3 +144,4 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
   seissolInstance.flopCounter().printPerformanceSummary(wallTime);
 }
+
