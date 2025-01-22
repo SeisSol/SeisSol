@@ -55,7 +55,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
-#include <equation-elastic-3-double/kernel.h>
 #include <tensor.h>
 
 #include "utils/logger.h"
