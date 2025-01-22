@@ -183,7 +183,7 @@ namespace seissol::kernels {
        *
        * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
        */
-      const real factor = plasticityData->mufactor / (tV * oneMinusIntegratingFactor);
+      const real factor = plasticityData->mufactor / (T_v * oneMinusIntegratingFactor);
       dudtPstrain[q] = factor * (prevDegreesOfFreedom[q] - degreesOfFreedom[q]);
       // Integrate with explicit Euler
       pstrain[q] += timeStepWidth * dudtPstrain[q];
