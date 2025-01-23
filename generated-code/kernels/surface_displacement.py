@@ -111,7 +111,9 @@ def addKernels(generator, aderdg, include_tensors, targets):
     addVelocity = (
         lambda f: faceDisplacement["kp"]
         <= faceDisplacement["kp"]
-        + aderdg.db.V3mTo2nFace[f][aderdg.t("kl")] * aderdg.I["lq"] * aderdg.selectVelocity["qp"]
+        + aderdg.db.V3mTo2nFace[f][aderdg.t("kl")]
+        * aderdg.I["lq"]
+        * aderdg.selectVelocity["qp"]
     )
     generator.addFamily("addVelocity", simpleParameterSpace(4), addVelocity)
 

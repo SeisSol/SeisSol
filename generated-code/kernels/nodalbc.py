@@ -29,7 +29,9 @@ def addKernels(
         aderdg.numberOf2DBasisFunctions(),
     )
 
-    easi_ident_map = Tensor( "easiIdentMap", easi_ident_map.shape, easi_ident_map, alignStride=False)
+    easi_ident_map = Tensor(
+        "easiIdentMap", easi_ident_map.shape, easi_ident_map, alignStride=False
+    )
 
     easi_boundary_constant = OptionalDimTensor(
         "easiBoundaryConstant",
@@ -40,7 +42,8 @@ def addKernels(
         alignStride=True,
     )
 
-    easi_boundary_map = Tensor("easiBoundaryMap",
+    easi_boundary_map = Tensor(
+        "easiBoundaryMap",
         (
             aderdg.numberOfQuantities(),
             aderdg.numberOfQuantities(),
@@ -48,7 +51,7 @@ def addKernels(
         ),
         alignStride=False,
     )
-    
+
     create_easi_boundary_ghost_cells = (
         aderdg.INodal["la"]
         <= easi_boundary_map["abl"] * aderdg.INodal["lb"]
@@ -57,7 +60,8 @@ def addKernels(
     generator.add("createEasiBoundaryGhostCells", create_easi_boundary_ghost_cells)
 
     projectToNodalBoundary = (
-        lambda j: aderdg.INodal["kp"] <= aderdg.db.V3mTo2nFace[j][aderdg.t("km")] * aderdg.I["mp"]
+        lambda j: aderdg.INodal["kp"]
+        <= aderdg.db.V3mTo2nFace[j][aderdg.t("km")] * aderdg.I["mp"]
     )
 
     generator.addFamily(
@@ -70,7 +74,9 @@ def addKernels(
         name_prefix = generate_kernel_name_prefix(target)
         projectToNodalBoundaryRotated = (
             lambda j: aderdg.INodal["kp"]
-            <= aderdg.db.V3mTo2nFace[j][aderdg.t("kl")] * aderdg.I["lm"] * aderdg.Tinv["pm"]
+            <= aderdg.db.V3mTo2nFace[j][aderdg.t("kl")]
+            * aderdg.I["lm"]
+            * aderdg.Tinv["pm"]
         )
 
         generator.addFamily(
@@ -82,7 +88,9 @@ def addKernels(
 
         projectDerivativeToNodalBoundaryRotated = (
             lambda i, j: aderdg.INodal["kp"]
-            <= aderdg.db.V3mTo2nFace[j][aderdg.t("kl")] * aderdg.dQs[i]["lm"] * aderdg.Tinv["pm"]
+            <= aderdg.db.V3mTo2nFace[j][aderdg.t("kl")]
+            * aderdg.dQs[i]["lm"]
+            * aderdg.Tinv["pm"]
         )
 
         generator.addFamily(

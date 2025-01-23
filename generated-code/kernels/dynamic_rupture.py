@@ -145,12 +145,33 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
         gShape,
         alignStride=True,
     )
-    slipInterpolated = OptionalDimTensor('slipInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfPoints,3), alignStride=True)
+    slipInterpolated = OptionalDimTensor(
+        "slipInterpolated",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOfPoints, 3),
+        alignStride=True,
+    )
 
-    tractionInterpolated = OptionalDimTensor("tractionInterpolated", aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfPoints, 3), alignStride=True)
-    staticFrictionalWork = OptionalDimTensor('staticFrictionalWork', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (1,), alignStride=True)
+    tractionInterpolated = OptionalDimTensor(
+        "tractionInterpolated",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOfPoints, 3),
+        alignStride=True,
+    )
+    staticFrictionalWork = OptionalDimTensor(
+        "staticFrictionalWork",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (1,),
+        alignStride=True,
+    )
     minusSurfaceArea = Scalar("minusSurfaceArea")
-    spaceWeights = Tensor("spaceWeights", (numberOfPoints,1), alignStride=True)
+    spaceWeights = Tensor("spaceWeights", (numberOfPoints, 1), alignStride=True)
 
     computeTractionInterpolated = (
         tractionInterpolated["kp"]

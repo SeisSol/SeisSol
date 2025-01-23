@@ -302,16 +302,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             stream);
         device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
       }
-
-      void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-
-      constexpr auto qSize = tensor::Q::size();
-      real* timeDerivativePlusHost =
-          reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
-              maxCells * qSize * sizeof(real)));
-      real* timeDerivativeMinusHost =
-          reinterpret_cast<real*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
-              maxCells * qSize * sizeof(real)));
       const auto timeDerivativePlusPtr = [&](unsigned i) {
         return timeDerivativePlusHost + QSize * i;
       };
