@@ -331,6 +331,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                godunovData,                                                                        \
                waveSpeedsPlus,                                                                     \
                waveSpeedsMinus,                                                                    \
+               minTimeSinceSlipRateBelowThreshold,                                                 \
                sim)
 #endif
       for (unsigned i = 0; i < layerSize; ++i) {
