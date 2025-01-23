@@ -26,6 +26,7 @@
 #include <Kernels/Precision.h>
 #include <Model/CommonDatastructures.h>
 #include <Modules/Modules.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -34,7 +35,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <init.h>
-#include <iomanip>
 #include <ios>
 #include <kernel.h>
 #include <limits>
@@ -50,8 +50,7 @@
 #include <DataTypes/EncodedConstants.h>
 #endif
 
-namespace seissol {
-namespace writer {
+namespace seissol::writer {
 
 double& EnergiesStorage::gravitationalEnergy(size_t sim) {
   return energies[0 + sim * NumberOfEnergies];
@@ -155,7 +154,7 @@ void EnergyOutput::syncPoint(double time) {
   }
   if ((rank == 0) && isCheckAbortCriteraMomentRateEnabled) {
     for (size_t sim = 0; sim < multipleSimulations::numberOfSimulations; sim++) {
-      double seismicMomentRate =
+      const double seismicMomentRate =
           (energiesStorage.seismicMoment(sim) - seismicMomentPrevious[sim]) / energyOutputInterval;
       seismicMomentPrevious[sim] = energiesStorage.seismicMoment(sim);
       if (time > 0 && seismicMomentRate < terminatorMomentRateThreshold) {
@@ -371,9 +370,9 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
               localMin = std::min(drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j], localMin);
             }
           }
-          minTimeSinceSlipRateBelowThreshold[sim] =
-              std::min(localMin, minTimeSinceSlipRateBelowThreshold[sim]);
         }
+        minTimeSinceSlipRateBelowThreshold[sim] =
+            std::min(localMin, minTimeSinceSlipRateBelowThreshold[sim]);
       }
     }
   }
@@ -511,13 +510,14 @@ void EnergyOutput::computeVolumeEnergies() {
       auto* boundaryMappings = ltsLut->lookup(lts->boundaryMapping, elementId);
       // Compute gravitational energy
       for (int face = 0; face < 4; ++face) {
-        if (cellInformation.faceTypes[face] != FaceType::FreeSurfaceGravity)
+        if (cellInformation.faceTypes[face] != FaceType::FreeSurfaceGravity) {
           continue;
+        }
 
         // Displacements are stored in face-aligned coordinate system.
         // We need to rotate it to the global coordinate system.
         auto& boundaryMapping = boundaryMappings[face];
-        auto Tinv = init::Tinv::view::create(boundaryMapping.TinvData);
+        auto tinv = init::Tinv::view::create(boundaryMapping.TinvData);
         alignas(ALIGNMENT)
             real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
 
@@ -525,7 +525,7 @@ void EnergyOutput::computeVolumeEnergies() {
             init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
         for (int i = 0; i < 3; ++i) {
           for (int j = 0; j < 3; ++j) {
-            rotateDisplacementToFaceNormal(i, j) = Tinv(i + 6, j + 6);
+            rotateDisplacementToFaceNormal(i, j) = tinv(i + 6, j + 6);
           }
         }
 
@@ -570,7 +570,7 @@ void EnergyOutput::computeVolumeEnergies() {
       if (isPlasticityEnabled) {
         // plastic moment
         real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
-        real mu = material.local.getMuBar();
+        const real mu = material.local.getMuBar();
         totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size()];
       }
     }
@@ -654,23 +654,23 @@ void EnergyOutput::printEnergies() {
       const auto totalMomentumY = energiesStorage.totalMomentumY(sim);
       const auto totalMomentumZ = energiesStorage.totalMomentumZ(sim);
       if (shouldComputeVolumeEnergies()) {
-        if (totalElasticEnergy) {
+        if (totalElasticEnergy != 0.0) {
           logInfo(rank) << "Simulation:" << sim
                         << " Elastic energy (total, % kinematic, % potential): "
                         << totalElasticEnergy << " ," << ratioElasticKinematic << " ,"
                         << ratioElasticPotential;
         }
-        if (totalAcousticEnergy) {
+        if (totalAcousticEnergy != 0.0) {
           logInfo(rank) << "Simulation:" << sim
                         << " Acoustic energy (total, % kinematic, % potential): "
                         << totalAcousticEnergy << " ," << ratioAcousticKinematic << " ,"
                         << ratioAcousticPotential;
         }
-        if (energiesStorage.gravitationalEnergy(sim)) {
+        if (energiesStorage.gravitationalEnergy(sim) != 0.0) {
           logInfo(rank) << "Simulation:" << sim
                         << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
         }
-        if (energiesStorage.plasticMoment(sim)) {
+        if (energiesStorage.plasticMoment(sim) != 0.0) {
           logInfo(rank) << "Simulation:" << sim
                         << " Plastic moment (value, equivalent Mw, % total moment):"
                         << energiesStorage.plasticMoment(sim) << " ,"
@@ -680,17 +680,17 @@ void EnergyOutput::printEnergies() {
       } else {
         logInfo(rank) << "Volume energies skipped at this step";
       }
-      if (totalAcousticEnergy) {
+      if (totalAcousticEnergy != 0.0) {
         logInfo(rank) << "Simulation:" << sim
                       << " Acoustic energy (total, % kinematic, % potential): "
                       << totalAcousticEnergy << " ," << ratioAcousticKinematic << " ,"
                       << ratioAcousticPotential;
       }
-      if (energiesStorage.gravitationalEnergy(sim)) {
+      if (energiesStorage.gravitationalEnergy(sim) != 0.0) {
         logInfo(rank) << "Simulation:" << sim
                       << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
       }
-      if (energiesStorage.plasticMoment(sim)) {
+      if (energiesStorage.plasticMoment(sim) != 0.0) {
         logInfo(rank) << "Simulation:" << sim
                       << " Plastic moment (value, equivalent Mw, % total moment):"
                       << energiesStorage.plasticMoment(sim) << " ,"
@@ -699,7 +699,7 @@ void EnergyOutput::printEnergies() {
       }
       logInfo(rank) << "Simulation:" << sim << " Total momentum (X, Y, Z):" << totalMomentumX
                     << " ," << totalMomentumY << " ," << totalMomentumZ;
-      if (totalFrictionalWork) {
+      if (totalFrictionalWork != 0.0) {
         logInfo(rank) << "Simulation:" << sim
                       << " Frictional work (total, % static, % radiated): " << totalFrictionalWork
                       << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
@@ -718,7 +718,7 @@ void EnergyOutput::printEnergies() {
 
 void EnergyOutput::checkAbortCriterion(
     const real (&timeSinceThreshold)[multipleSimulations::numberOfSimulations],
-    const std::string& prefix_message) {
+    const std::string& prefixMessage) {
   const auto rank = MPI::mpi.rank();
   bool abort = true;
   if (rank == 0) {
@@ -726,13 +726,13 @@ void EnergyOutput::checkAbortCriterion(
       if ((timeSinceThreshold[sim] > 0) and
           (timeSinceThreshold[sim] < std::numeric_limits<real>::max())) {
         if (static_cast<double>(timeSinceThreshold[sim]) < terminatorMaxTimePostRupture) {
-          logInfo(rank) << prefix_message.c_str() << "below threshold since"
+          logInfo(rank) << prefixMessage.c_str() << "below threshold since"
                         << timeSinceThreshold[sim] << "in simulation: " << sim
                         << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture
                         << "s)";
           abort = false;
         } else {
-          logInfo(rank) << prefix_message.c_str() << "below threshold since"
+          logInfo(rank) << prefixMessage.c_str() << "below threshold since"
                         << timeSinceThreshold[sim] << "in simulation: " << sim
                         << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture
                         << "s)";
@@ -756,7 +756,7 @@ void EnergyOutput::writeEnergies(double time) {
 #ifdef MULTIPLE_SIMULATIONS
     const std::string fusedSuffix = std::to_string(sim);
 #else
-    const std::string fusedSuffix = "";
+    const std::string fusedSuffix = ""; // NOLINT(readability-redundant-string-init)
 #endif
     if (shouldComputeVolumeEnergies()) {
       out << time << ",gravitational_energy" << fusedSuffix << ","
@@ -794,5 +794,4 @@ bool EnergyOutput::shouldComputeVolumeEnergies() const {
   return outputId % computeVolumeEnergiesEveryOutput == 0;
 }
 
-} // namespace writer
-} // namespace seissol
+} // namespace seissol::writer

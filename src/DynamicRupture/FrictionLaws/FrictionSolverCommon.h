@@ -107,11 +107,11 @@ inline void precomputeStressFromQInterpolated(
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
 #ifdef MULTIPLE_SIMULATIONS
-  const size_t index = 1;
+  const size_t fIndex = 1;
 #else
-  const size_t index = 0;
+  const size_t fIndex = 0;
 #endif
-  static_assert(tensor::QInterpolated::Shape[index] == tensor::resample::Shape[0],
+  static_assert(tensor::QInterpolated::Shape[fIndex] == tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
 #ifndef USE_POROELASTIC

@@ -116,8 +116,8 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
 #endif
   };
 
-  auto* reshapedPoints = unsafe_reshape<2>(&data.points[0]);
-  for (size_t i = 0; i < data.Size; ++i) {
+  auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
+  for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
     reshapedPoints[i][0] = pointsView(i, 0);
     reshapedPoints[i][1] = pointsView(i, 1);
     data.weights[i] = getWeights(i);

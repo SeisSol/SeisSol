@@ -40,7 +40,7 @@ using namespace device;
 namespace seissol::kernels {
 unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                                        double timeStepWidth,
-                                       double T_v,
+                                       double tV,
                                        const GlobalData* global,
                                        const seissol::model::PlasticityData* plasticityData,
                                        real degreesOfFreedom[tensor::Q::size()],

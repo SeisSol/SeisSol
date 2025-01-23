@@ -106,7 +106,7 @@ class EnergyOutput : public Module {
 
   void checkAbortCriterion(
       const real (&timeSinceThreshold)[multipleSimulations::numberOfSimulations],
-      const std::string& prefix_message);
+      const std::string& prefixMessage);
 
   void writeHeader();
 

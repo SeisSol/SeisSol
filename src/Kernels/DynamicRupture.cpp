@@ -129,6 +129,7 @@ void DynamicRupture::spaceTimeInterpolation(
 #endif
 
 #ifdef MULTIPLE_SIMULATIONS
+  // TODO: Find a better solution here
   logError() << "Dynamic Rupture does not work yet with multiple simulations";
 #endif
 
