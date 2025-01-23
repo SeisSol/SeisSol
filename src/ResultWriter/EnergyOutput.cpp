@@ -331,7 +331,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                godunovData,                                                                        \
                waveSpeedsPlus,                                                                     \
                waveSpeedsMinus,                                                                    \
-               minTimeSinceSlipRateBelowThreshold,                                                 \
                sim)
 #endif
       for (unsigned i = 0; i < layerSize; ++i) {
@@ -359,11 +358,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           potency += potencyIncrease;
           seismicMoment += potencyIncrease * mu;
         }
-        real localMin = std::numeric_limits<real>::max();
-
+      }
+      real localMin = std::numeric_limits<real>::max();
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
-    shared(layerSize, drEnergyOutput, faceInformation, sim)
+    shared(layerSize, drEnergyOutput, faceInformation)
 #endif
         for (unsigned i = 0; i < layerSize; ++i) {
           if (faceInformation[i].plusSideOnThisRank) {
@@ -374,7 +373,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         }
         minTimeSinceSlipRateBelowThreshold[sim] =
             std::min(localMin, minTimeSinceSlipRateBelowThreshold[sim]);
-      }
     }
   }
 }
