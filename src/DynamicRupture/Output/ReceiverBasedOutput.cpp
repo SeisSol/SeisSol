@@ -425,7 +425,8 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     auto chiTau2dPoints =
         init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
     auto weights = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
-    // TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS. This is also probably wrong. Needs to be corrected when DR is implemented for fused-simulations
+    // TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS. This is also probably
+    // wrong. Needs to be corrected when DR is implemented for fused-simulations
     auto getWeights = [&weights](size_t index) {
 #ifdef MULTIPLE_SIMULATIONS
       return weights(index, 0);

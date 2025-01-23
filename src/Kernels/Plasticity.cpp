@@ -38,20 +38,20 @@ using namespace device;
 #endif
 
 namespace seissol::kernels {
-  unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
-                                         double timeStepWidth,
-                                         double T_v,
-                                         GlobalData const *global,
-                                         const seissol::model::PlasticityData* plasticityData,
-                                         real degreesOfFreedom[tensor::Q::size()],
-                                         real *pstrain) {
+unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
+                                       double timeStepWidth,
+                                       double T_v,
+                                       const GlobalData* global,
+                                       const seissol::model::PlasticityData* plasticityData,
+                                       real degreesOfFreedom[tensor::Q::size()],
+                                       real* pstrain) {
 #ifdef MULTIPLE_SIMULATIONS
-    // Todo(SW) find a better solution here
-    logError() << "Plasticity does not work with multiple simulations";
+  // Todo(SW) find a better solution here
+  logError() << "Plasticity does not work with multiple simulations";
 #else
-    assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
-    assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
-    assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
 
   alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()];
   alignas(Alignment) real qEtaNodal[tensor::QEtaNodal::size()];
@@ -232,7 +232,7 @@ namespace seissol::kernels {
     }
     return 1;
   }
-  #endif
+#endif
   return 0;
 }
 

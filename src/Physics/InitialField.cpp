@@ -134,11 +134,11 @@ void seissol::physics::SuperimposedPlanarwave::evaluate(
   dofsQP.setZero();
 
   std::vector<real> dofsPW_vector(dofsQP.size());
-  auto dofsPW =
-      yateto::DenseTensorView<2, real, unsigned>(dofsPW_vector.data(),
-                                                 {NumBasisFunctions, seissol::model::MaterialT::NumQuantities},
-                                                 {0, 0},
-                                                 {NumBasisFunctions, seissol::model::MaterialT::NumQuantities});
+  auto dofsPW = yateto::DenseTensorView<2, real, unsigned>(
+      dofsPW_vector.data(),
+      {NumBasisFunctions, seissol::model::MaterialT::NumQuantities},
+      {0, 0},
+      {NumBasisFunctions, seissol::model::MaterialT::NumQuantities});
 
   for (int pw = 0; pw < 3; pw++) {
     // evaluate each planarwave

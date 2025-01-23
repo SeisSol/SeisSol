@@ -290,13 +290,13 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       // TODO: multisim loop
       for (std::size_t i = 0; i < NumQuadPoints; ++i) {
         for (std::size_t j = 0; j < quantityCount; ++j) {
-          #ifdef MULTIPLE_SIMULATIONS
-          for(std::size_t s = 0; s < multipleSimulations::numberOfSimulations ; s++){
-          iniCond(s, i, j) = data.at(meshId * dataStride + quantityCount*i + j);
+#ifdef MULTIPLE_SIMULATIONS
+          for (std::size_t s = 0; s < multipleSimulations::numberOfSimulations; s++) {
+            iniCond(s, i, j) = data.at(meshId * dataStride + quantityCount * i + j);
           }
-          #else
-          iniCond(i, j) = data.at(meshId * dataStride + quantityCount * i + j);
-          #endif
+#else
+        iniCond(i, j) = data.at(meshId * dataStride + quantityCount * i + j);
+#endif
         }
       }
 

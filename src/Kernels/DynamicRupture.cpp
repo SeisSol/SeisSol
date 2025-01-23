@@ -132,7 +132,7 @@ void DynamicRupture::spaceTimeInterpolation(
   logError() << "Dynamic Rupture does not work yet with multiple simulations";
 #endif
 
-  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()] ;
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
   alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;

@@ -170,35 +170,36 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 
     // Include some boundary conditions here.
     switch (data.cellInformation().faceTypes[face]) {
-    case FaceType::FreeSurfaceGravity:
-      {
-        assert(cellBoundaryMapping != nullptr);
-        assert(materialData != nullptr);
-        auto* displ = tmp.nodalAvgDisplacements[face].data();
-        auto displacement = init::averageNormalDisplacement::view::create(displ);
-        // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
-        const auto localG = gravitationalAcceleration;
-        auto applyFreeSurfaceBc = [&displacement, &materialData, &localG](
-            const real*, // nodes are unused
-            init::INodal::view::type& boundaryDofs) {
-            for (unsigned int s = 0; s < multipleSimulations::numberOfSimulations; ++s) {
+    case FaceType::FreeSurfaceGravity: {
+      assert(cellBoundaryMapping != nullptr);
+      assert(materialData != nullptr);
+      auto* displ = tmp.nodalAvgDisplacements[face].data();
+      auto displacement = init::averageNormalDisplacement::view::create(displ);
+      // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
+      const auto localG = gravitationalAcceleration;
+      auto applyFreeSurfaceBc = [&displacement, &materialData, &localG](
+                                    const real*, // nodes are unused
+                                    init::INodal::view::type& boundaryDofs) {
+        for (unsigned int s = 0; s < multipleSimulations::numberOfSimulations; ++s) {
 #ifdef MULTIPLE_SIMULATIONS
-              auto slicedBoundaryDofs = boundaryDofs.subtensor(s, yateto::slice<>(), yateto::slice<>());
-              auto slicedDisplacement = displacement.subtensor(s, yateto::slice<>());
+          auto slicedBoundaryDofs = boundaryDofs.subtensor(s, yateto::slice<>(), yateto::slice<>());
+          auto slicedDisplacement = displacement.subtensor(s, yateto::slice<>());
 #else
-              auto& slicedBoundaryDofs = boundaryDofs;
-              auto& slicedDisplacement = displacement;
+          auto& slicedBoundaryDofs = boundaryDofs;
+          auto& slicedDisplacement = displacement;
 #endif
-              for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[multipleSimulations::basisFunctionDimension]; ++i) {
-                const double rho = materialData->local.rho;
-                assert(localG > 0);
-                const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);
+          for (unsigned int i = 0;
+               i < nodal::tensor::nodes2D::Shape[multipleSimulations::basisFunctionDimension];
+               ++i) {
+            const double rho = materialData->local.rho;
+            assert(localG > 0);
+            const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);
 
-                slicedBoundaryDofs(i,0) = 2 * pressureAtBnd - slicedBoundaryDofs(i,0);
-                slicedBoundaryDofs(i,1) = 2 * pressureAtBnd - slicedBoundaryDofs(i,1);
-                slicedBoundaryDofs(i,2) = 2 * pressureAtBnd - slicedBoundaryDofs(i,2);
-              }
-            }
+            slicedBoundaryDofs(i, 0) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 0);
+            slicedBoundaryDofs(i, 1) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 1);
+            slicedBoundaryDofs(i, 2) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 2);
+          }
+        }
       };
 
       dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,

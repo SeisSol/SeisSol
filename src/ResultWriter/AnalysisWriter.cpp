@@ -38,8 +38,8 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Physics/InitialField.h"
-#include "Solver/MultipleSimulations.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 
 namespace seissol::writer {
 

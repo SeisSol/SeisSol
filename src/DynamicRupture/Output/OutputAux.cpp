@@ -106,7 +106,8 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   // Generate triangle quadrature points and weights (Factory Method)
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
-  // TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS. This is also probably wrong. Needs to be corrected when DR is implemented
+  // TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS. This is also probably
+  // wrong. Needs to be corrected when DR is implemented
   auto getWeights = [&weightsView](size_t index) {
 #ifdef MULTIPLE_SIMULATIONS
     return weightsView(index, 0);
