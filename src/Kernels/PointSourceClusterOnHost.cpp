@@ -84,11 +84,11 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceNRF(unsigned source,
   krnl.mArea = -sources_->A[source];
   krnl.momentToNRF = init::momentToNRF::Values;
 #ifdef MULTIPLE_SIMULATIONS
-  // const auto originalIndex = sources_.originalIndex[source];
-  // std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};
-  // sourceToMultSim[originalIndex % MULTIPLE_SIMULATIONS] = 1.0;
-  // krnl.oneSimToMultSim = sourceToMultSim.data();
-  krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
+  const auto originalIndex = sources_->originalIndex[source];
+  std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};
+  sourceToMultSim[originalIndex % MULTIPLE_SIMULATIONS] = 1.0;
+  krnl.oneSimToMultSim = sourceToMultSim.data();
+  // krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
 #endif
   krnl.execute();
 }
@@ -111,11 +111,11 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceFSRM(unsigned source,
   krnl.momentFSRM = sources_->tensor[source].data();
   krnl.stfIntegral = slip;
 #ifdef MULTIPLE_SIMULATIONS
-  // const auto originalIndex = sources_.originalIndex[source];
-  // std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};
-  // sourceToMultSim[originalIndex % MULTIPLE_SIMULATIONS] = 1.0;
-  // krnl.oneSimToMultSim = sourceToMultSim.data();
-  krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
+  const auto originalIndex = sources_->originalIndex[source];
+  std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};
+  sourceToMultSim[originalIndex % MULTIPLE_SIMULATIONS] = 1.0;
+  krnl.oneSimToMultSim = sourceToMultSim.data();
+  // krnl.oneSimToMultSim = init::oneSimToMultSim::Values;
 #endif
   krnl.execute();
 }
