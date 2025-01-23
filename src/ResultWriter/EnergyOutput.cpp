@@ -580,11 +580,7 @@ void EnergyOutput::computeVolumeEnergies() {
       if (isPlasticityEnabled) {
         // plastic moment
         real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
-#ifdef USE_ANISOTROPIC
-        real mu = (material.local.c44 + material.local.c55 + material.local.c66) / 3.0;
-#else
-        real mu = material.local.mu;
-#endif
+        real mu = material.local.getMuBar();
         totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size()];
       }
     }
