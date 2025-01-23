@@ -27,7 +27,6 @@
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Physics/InitialField.h>
-#include <Solver/MultipleSimulations.h>
 
 #include <array>
 #include <cstddef>
@@ -55,6 +54,10 @@
 #include <set>
 #else
 #include <utils/logger.h>
+#endif
+
+#ifdef MULTIPLE_SIMULATIONS
+#include <Solver/MultipleSimulations.h>
 #endif
 
 GENERATE_HAS_MEMBER(selectAneFull)
