@@ -153,7 +153,7 @@ void EnergyOutput::syncPoint(double time) {
     reduceMinTimeSinceSlipRateBelowThreshold();
   }
   if ((rank == 0) && isCheckAbortCriteraMomentRateEnabled) {
-    for (size_t sim = 0; sim < multipleSimulations::numberOfSimulations; sim++) {
+    for (size_t sim = 0; sim < multiplesimulations::NumSimulations; sim++) {
       const double seismicMomentRate =
           (energiesStorage.seismicMoment(sim) - seismicMomentPrevious[sim]) / energyOutputInterval;
       seismicMomentPrevious[sim] = energiesStorage.seismicMoment(sim);
@@ -201,7 +201,7 @@ EnergyOutput::~EnergyOutput() {
 #endif
 }
 
-std::array<real, multipleSimulations::numberOfSimulations>
+std::array<real, multiplesimulations::NumSimulations>
     EnergyOutput::computeStaticWork(const real* degreesOfFreedomPlus,
                                     const real* degreesOfFreedomMinus,
                                     const DRFaceInformation& faceInfo,
@@ -254,15 +254,15 @@ std::array<real, multipleSimulations::numberOfSimulations>
   feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
 
-  std::array<real, multipleSimulations::numberOfSimulations> frictionalWorkReturn;
+  std::array<real, multiplesimulations::NumSimulations> frictionalWorkReturn;
   std::copy(staticFrictionalWork,
-            staticFrictionalWork + multipleSimulations::numberOfSimulations,
+            staticFrictionalWork + multiplesimulations::NumSimulations,
             std::begin(frictionalWorkReturn));
   return frictionalWorkReturn;
 }
 
 void EnergyOutput::computeDynamicRuptureEnergies() {
-  for (size_t sim = 0; sim < multipleSimulations::numberOfSimulations; sim++) {
+  for (size_t sim = 0; sim < multiplesimulations::NumSimulations; sim++) {
     double& totalFrictionalWork = energiesStorage.totalFrictionalWork(sim);
     double& staticFrictionalWork = energiesStorage.staticFrictionalWork(sim);
     double& seismicMoment = energiesStorage.seismicMoment(sim);
@@ -378,7 +378,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 }
 
 void EnergyOutput::computeVolumeEnergies() {
-  for (size_t sim = 0; sim < multipleSimulations::numberOfSimulations; sim++) {
+  for (size_t sim = 0; sim < multiplesimulations::NumSimulations; sim++) {
     // TODO: Abstract energy calculations and implement is for anisotropic and poroelastic materials
     [[maybe_unused]] auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy(sim);
     [[maybe_unused]] auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy(sim);
@@ -608,7 +608,7 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 #ifdef USE_MPI
   const auto rank = MPI::mpi.rank();
   const auto& comm = MPI::mpi.comm();
-  for (size_t sim = 0; sim < multipleSimulations::numberOfSimulations; sim++) {
+  for (size_t sim = 0; sim < multiplesimulations::NumSimulations; sim++) {
     if (rank == 0) {
       MPI_Reduce(
           MPI_IN_PLACE, &minTimeSinceSlipRateBelowThreshold[sim], 1, MPI_C_REAL, MPI_MIN, 0, comm);
@@ -627,7 +627,7 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 
 void EnergyOutput::printEnergies() {
   const auto rank = MPI::mpi.rank();
-  for (size_t sim = 0; sim < multipleSimulations::numberOfSimulations; sim++) {
+  for (size_t sim = 0; sim < multiplesimulations::NumSimulations; sim++) {
     if (rank == 0) {
       const auto totalAcousticEnergy =
           energiesStorage.acousticKineticEnergy(sim) + energiesStorage.acousticEnergy(sim);
@@ -716,12 +716,12 @@ void EnergyOutput::printEnergies() {
 }
 
 void EnergyOutput::checkAbortCriterion(
-    const real (&timeSinceThreshold)[multipleSimulations::numberOfSimulations],
+    const real (&timeSinceThreshold)[multiplesimulations::NumSimulations],
     const std::string& prefixMessage) {
   const auto rank = MPI::mpi.rank();
   bool abort = true;
   if (rank == 0) {
-    for (size_t sim = 0; sim < multipleSimulations::numberOfSimulations; sim++) {
+    for (size_t sim = 0; sim < multiplesimulations::NumSimulations; sim++) {
       if ((timeSinceThreshold[sim] > 0) and
           (timeSinceThreshold[sim] < std::numeric_limits<real>::max())) {
         if (static_cast<double>(timeSinceThreshold[sim]) < terminatorMaxTimePostRupture) {
@@ -751,12 +751,8 @@ void EnergyOutput::checkAbortCriterion(
 void EnergyOutput::writeHeader() { out << "time,variable,measurement" << std::endl; }
 
 void EnergyOutput::writeEnergies(double time) {
-  for (size_t sim = 0; sim < multipleSimulations::numberOfSimulations; sim++) {
-#ifdef MULTIPLE_SIMULATIONS
-    const std::string fusedSuffix = std::to_string(sim);
-#else
-    const std::string fusedSuffix = ""; // NOLINT(readability-redundant-string-init)
-#endif
+  for (size_t sim = 0; sim < multiplesimulations::NumSimulations; sim++) {
+    const std::string fusedSuffix = multiplesimulations::MultipleSimulations ? std::to_string(sim) : "";
     if (shouldComputeVolumeEnergies()) {
       out << time << ",gravitational_energy" << fusedSuffix << ","
           << energiesStorage.gravitationalEnergy(sim) << "\n"

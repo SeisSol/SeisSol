@@ -16,6 +16,7 @@
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/DynamicRupture.h"
 #include "Numerical/GaussianNucleationFunction.h"
+#include "Solver/MultipleSimulations.h"
 
 /**
  * Contains common functions required both for CPU and GPU impl.
@@ -106,13 +107,10 @@ inline void precomputeStressFromQInterpolated(
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
-#ifdef MULTIPLE_SIMULATIONS
-  const size_t fIndex = 1;
-#else
-  const size_t fIndex = 0;
-#endif
-  static_assert(tensor::QInterpolated::Shape[fIndex] == tensor::resample::Shape[0],
-                "Different number of quadrature points?");
+  static_assert(
+      tensor::QInterpolated::Shape[seissol::multiplesimulations::BasisFunctionDimension] ==
+          tensor::resample::Shape[0],
+      "Different number of quadrature points?");
 
 #ifndef USE_POROELASTIC
   const auto etaP = impAndEta.etaP;

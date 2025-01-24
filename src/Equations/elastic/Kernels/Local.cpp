@@ -20,6 +20,7 @@
 #include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Physics/InitialField.h>
+#include <Solver/MultipleSimulations.h>
 #include <cstddef>
 #include <generated_code/init.h>
 #include <generated_code/kernel.h>
@@ -42,7 +43,6 @@
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
-#include <Solver/MultipleSimulations.h>
 namespace seissol::kernels {
 
 void LocalBase::checkGlobalData(const GlobalData* global, size_t alignment) {
@@ -100,12 +100,14 @@ struct ApplyAnalyticalSolution {
 
     auto nodesVec = std::vector<std::array<double, 3>>{};
     int offset = 0;
-    for (unsigned int s = 0; s < multipleSimulations::numberOfSimulations; ++s) {
+    for (unsigned int s = 0; s < multiplesimulations::NumSimulations; ++s) {
 #ifdef MULTIPLE_SIMULATIONS
       auto slicedBoundaryDofs = boundaryDofs.subtensor(s, yateto::slice<>(), yateto::slice<>());
 #else
       auto& slicedBoundaryDofs = boundaryDofs;
 #endif
+      // auto slicedBoundaryDofs = seissol::multiplesimulations::multisimObjectWrap<decltype(boundaryDofs)>(
+      //     &yateto::DenseTensor::subtensor, boundaryDofs, s, yateto::slice<>(), yateto::slice<>());
       for (unsigned int i = 0; i < seissol::tensor::INodal::Shape[0]; ++i) {
         auto curNode = std::array<double, 3>{};
         curNode[0] = nodes[offset++];
@@ -180,7 +182,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       auto applyFreeSurfaceBc = [&displacement, &materialData, &localG](
                                     const real*, // nodes are unused
                                     init::INodal::view::type& boundaryDofs) {
-        for (unsigned int s = 0; s < multipleSimulations::numberOfSimulations; ++s) {
+        for (unsigned int s = 0; s < multiplesimulations::NumSimulations; ++s) {
 #ifdef MULTIPLE_SIMULATIONS
           auto slicedBoundaryDofs = boundaryDofs.subtensor(s, yateto::slice<>(), yateto::slice<>());
           auto slicedDisplacement = displacement.subtensor(s, yateto::slice<>());
@@ -189,7 +191,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
           auto& slicedDisplacement = displacement;
 #endif
           for (unsigned int i = 0;
-               i < nodal::tensor::nodes2D::Shape[multipleSimulations::basisFunctionDimension];
+               i < nodal::tensor::nodes2D::Shape[multiplesimulations::BasisFunctionDimension];
                ++i) {
             const double rho = materialData->local.rho;
             assert(localG > 0);

@@ -429,7 +429,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     // wrong. Needs to be corrected when DR is implemented for fused-simulations
     auto getWeights = [&weights](size_t index) {
 #ifdef MULTIPLE_SIMULATIONS
-      return weights(index, 0);
+      return weights(0, index);
 #else
       return weights(index);
 #endif

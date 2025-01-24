@@ -110,7 +110,7 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   // wrong. Needs to be corrected when DR is implemented
   auto getWeights = [&weightsView](size_t index) {
 #ifdef MULTIPLE_SIMULATIONS
-    return weightsView(index, 0);
+    return weightsView(0, index);
 #else
     return weightsView(index);
 #endif

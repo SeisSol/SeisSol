@@ -41,9 +41,7 @@ struct PointSources {
       seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>>
       mInvJInvPhisAtSources;
 
-#ifdef MULTIPLE_SIMULATIONS
-  std::vector<unsigned> originalIndex;
-#endif
+  std::vector<unsigned> fusedOriginalIndex;
 
   /** NRF: Basis vectors of the fault.
    * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)

@@ -27,6 +27,7 @@
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Physics/InitialField.h>
+#include <Solver/MultipleSimulations.h>
 
 #include <array>
 #include <cstddef>
@@ -294,7 +295,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       for (std::size_t i = 0; i < NumQuadPoints; ++i) {
         for (std::size_t j = 0; j < quantityCount; ++j) {
 #ifdef MULTIPLE_SIMULATIONS
-          for (std::size_t s = 0; s < seissol::multipleSimulations::numberOfSimulations; s++) {
+          for (std::size_t s = 0; s < seissol::multiplesimulations::NumSimulations; s++) {
             iniCond(s, i, j) = data.at(meshId * dataStride + quantityCount * i + j);
           }
 #else

@@ -89,7 +89,13 @@ jobs:
 
           cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
           ninja install
-
+          if [ "${{ matrix.equation }}" = elastic ]; then
+          cd ..
+          dirname="build_${matrix.equation}_${matrix.precision}_${matrix.build_type}_fused";
+          mkdir -p $dirname && cd $dirname;
+          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_FUSED_SIMULATIONS=8
+          ninja install
+          fi
       - name: test-seissol
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |

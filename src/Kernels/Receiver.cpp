@@ -39,24 +39,6 @@
 #include <unordered_map>
 #endif
 
-namespace {
-#ifdef MULTIPLE_SIMULATIONS
-template <typename F, typename... Args>
-auto multisimWrap(F&& function, size_t sim, Args&&... args) {
-  return std::invoke(std::forward<F>(function), sim, std::forward<Args>(args)...);
-}
-constexpr size_t MultisimStart = init::QAtPoint::Start[0];
-constexpr size_t MultisimEnd = init::QAtPoint::Stop[0];
-#else
-template <typename F, typename... Args>
-auto multisimWrap(F&& function, size_t sim, Args&&... args) {
-  return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
-}
-constexpr size_t MultisimStart = 0;
-constexpr size_t MultisimEnd = 1;
-#endif
-} // namespace
-
 namespace seissol::kernels {
 
 Receiver::Receiver(unsigned pointId,
@@ -218,15 +200,15 @@ double ReceiverCluster::calcReceivers(
 
         // note: necessary receiver space is reserved in advance
         receiver.output.push_back(receiverTime);
-        for (unsigned sim = MultisimStart; sim < MultisimEnd; ++sim) {
+        for (unsigned sim = seissol::multiplesimulations::MultisimStart; sim < seissol::multiplesimulations::MultisimEnd; ++sim) {
           for (auto quantity : m_quantities) {
-            if (!std::isfinite(multisimWrap(qAtPoint, sim, quantity))) {
+            if (!std::isfinite(seissol::multiplesimulations::multisimWrap(qAtPoint, sim, quantity))) {
               logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0] << ","
                          << receiver.position[1] << "," << receiver.position[2] << " in simulation"
                          << sim << "."
                          << "Aborting.";
             }
-            receiver.output.push_back(multisimWrap(qAtPoint, sim, quantity));
+            receiver.output.push_back(seissol::multiplesimulations::multisimWrap(qAtPoint, sim, quantity));
           }
           for (const auto& derived : derivedQuantities) {
             derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
@@ -271,7 +253,7 @@ size_t ReceiverCluster::ncols() const {
   for (const auto& derived : derivedQuantities) {
     ncols += derived->quantities().size();
   }
-  ncols *= MultisimEnd - MultisimStart;
+  ncols *= seissol::multiplesimulations::MultisimEnd - seissol::multiplesimulations::MultisimStart;
   return 1 + ncols;
 }
 
@@ -280,12 +262,12 @@ void ReceiverRotation::compute(size_t sim,
                                std::vector<real>& output,
                                seissol::init::QAtPoint::view::type& qAtPoint,
                                seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
-  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
-                   multisimWrap(qDerivativeAtPoint, sim, 7, 2));
-  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6, 2) -
-                   multisimWrap(qDerivativeAtPoint, sim, 8, 0));
-  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 7, 0) -
-                   multisimWrap(qDerivativeAtPoint, sim, 6, 1));
+  output.push_back(seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
+                   seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 7, 2));
+  output.push_back(seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 6, 2) -
+                   seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 8, 0));
+  output.push_back(seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 7, 0) -
+                   seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 6, 1));
 }
 
 std::vector<std::string> ReceiverStrain::quantities() const {
@@ -297,18 +279,18 @@ void ReceiverStrain::compute(size_t sim,
                              seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
   // actually 9 quantities; 3 removed due to symmetry
 
-  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6, 0));
+  output.push_back(seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 6, 0));
   output.push_back(
-      (multisimWrap(qDerivativeAtPoint, sim, 6, 1) + multisimWrap(qDerivativeAtPoint, sim, 7, 0)) /
+      (seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 6, 1) + seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 7, 0)) /
       2);
   output.push_back(
-      (multisimWrap(qDerivativeAtPoint, sim, 6, 2) + multisimWrap(qDerivativeAtPoint, sim, 8, 0)) /
+      (seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 6, 2) + seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 8, 0)) /
       2);
-  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 7, 1));
+  output.push_back(seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 7, 1));
   output.push_back(
-      (multisimWrap(qDerivativeAtPoint, sim, 7, 2) + multisimWrap(qDerivativeAtPoint, sim, 8, 1)) /
+      (seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 7, 2) + seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 8, 1)) /
       2);
-  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 8, 2));
+  output.push_back(seissol::multiplesimulations::multisimWrap(qDerivativeAtPoint, sim, 8, 2));
 }
 
 } // namespace seissol::kernels

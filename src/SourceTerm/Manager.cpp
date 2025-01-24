@@ -344,9 +344,7 @@ auto loadSourcesFromFSRM(const char* fileName,
       sources.numberOfSources = numberOfSources;
       sources.mInvJInvPhisAtSources.resize(numberOfSources);
       sources.tensor.resize(numberOfSources);
-#ifdef MULTIPLE_SIMULATIONS
-      sources.originalIndex.resize(numberOfSources);
-#endif
+      sources.fusedOriginalIndex.resize(numberOfSources); // only used in case of fused simulations
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       sources.sampleOffsets[0].resize(numberOfSources + 1);
@@ -356,9 +354,7 @@ auto loadSourcesFromFSRM(const char* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned fsrmIndex = originalIndex[sourceIndex];
-#ifdef MULTIPLE_SIMULATIONS
-        sources.originalIndex[clusterSource] = fsrmIndex;
-#endif
+        sources.fusedOriginalIndex[clusterSource] = fsrmIndex; // only used in case of fused simulations
         computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
                                      sources.mInvJInvPhisAtSources[clusterSource],
                                      meshIds[sourceIndex],
@@ -473,9 +469,7 @@ auto loadSourcesFromNRF(const char* fileName,
       sources.tensor.resize(numberOfSources);
       sources.A.resize(numberOfSources);
       sources.stiffnessTensor.resize(numberOfSources);
-#ifdef MULTIPLE_SIMULATIONS
-      sources.originalIndex.resize(numberOfSources);
-#endif
+      sources.fusedOriginalIndex.resize(numberOfSources); // only used in case of fused simulations
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       for (auto& so : sources.sampleOffsets) {
@@ -496,9 +490,7 @@ auto loadSourcesFromNRF(const char* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned nrfIndex = originalIndex[sourceIndex];
-#ifdef MULTIPLE_SIMULATIONS
-        sources.originalIndex[clusterSource] = nrfIndex;
-#endif
+        sources.fusedOriginalIndex[clusterSource] = nrfIndex;
         transformNRFSourceToInternalSource(
             nrf.centres[nrfIndex],
             meshIds[sourceIndex],

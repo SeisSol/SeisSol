@@ -83,34 +83,6 @@ build_seissol:
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON;
           make -j $(nproc);
           cd .. ;
-          if [ "$equation" = elastic ] && [ "$build_type" == Release ];
-          then 
-            dirname="build_${equation}_${precision}_${build_type}_fused";
-            echo $dirname;
-            pwd;
-            ls -la;
-            mkdir -p $dirname && cd $dirname;
-            cmake ..
-            -DNETCDF=ON
-            -DMETIS=ON
-            -DCOMMTHREAD=OFF
-            -DASAGI=OFF
-            -DHDF5=ON
-            -DCMAKE_BUILD_TYPE=$build_type
-            -DTESTING=ON
-            -DLOG_LEVEL=warning
-            -DLOG_LEVEL_MASTER=info
-            -DHOST_ARCH=${HOST}
-            -DPRECISION=$precision
-            -DEQUATIONS=$equation
-            -DNUMBER_OF_MECHANISMS=$mechanisms
-            -DNUMBER_OF_FUSED_SIMULATIONS=8
-            -DDR_QUAD_RULE=stroud
-            -DGEMM_TOOLS_LIST=LIBXSMM
-            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON;
-            make -j $(nproc);
-            cd .. ;
-          fi;
           ls -la;
           
     artifacts:

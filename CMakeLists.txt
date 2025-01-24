@@ -171,7 +171,6 @@ add_custom_command(
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated-code
      DEPENDS
-        ${CMAKE_SOURCE_DIR}/generated-code/config
         build-time-make-directory
         generated-code/generate.py
         generated-code/kernels
