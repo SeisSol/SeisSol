@@ -5,8 +5,6 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-add_subdirectory(Proxy)
-
 if (PROXY_PYBINDING)
     if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
         find_package(pybind11 2.6.2 REQUIRED)

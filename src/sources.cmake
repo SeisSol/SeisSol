@@ -302,3 +302,5 @@ endif()
 
 add_subdirectory(src/IO)
 target_link_libraries(seissol-lib PUBLIC seissol-io)
+
+add_subdirectory(src/Proxy)
