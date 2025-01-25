@@ -28,7 +28,6 @@ src/Solver/time_stepping/ActorState.cpp
 src/Solver/time_stepping/CommunicationManager.cpp
 src/Solver/time_stepping/DirectGhostTimeCluster.cpp
 src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
-src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
 src/Solver/time_stepping/TimeManager.cpp
 
@@ -94,6 +93,9 @@ add_library(seissol-lib STATIC)
 endif()
 
 target_sources(seissol-lib PRIVATE
+
+src/Solver/Estimator.cpp
+
 src/ResultWriter/EnergyOutput.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
 src/ResultWriter/FreeSurfaceWriterExecutor.cpp
