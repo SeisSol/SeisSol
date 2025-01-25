@@ -22,22 +22,22 @@
 #include <tensor.h>
 
 namespace {
-void fakeData(initializer::LTS& lts,
-                       initializer::Layer& layer,
-                       FaceType faceTp) {
-  real                      (*dofs)[tensor::Q::size()]      = layer.var(lts.dofs);
-  real**                      buffers                       = layer.var(lts.buffers);
-  real**                      derivatives                   = layer.var(lts.derivatives);
-  real*                     (*faceNeighbors)[4]             = layer.var(lts.faceNeighbors);
-  LocalIntegrationData*       localIntegration              = layer.var(lts.localIntegration);
-  NeighboringIntegrationData* neighboringIntegration        = layer.var(lts.neighboringIntegration);
-  CellLocalInformation*       cellInformation               = layer.var(lts.cellInformation);
-  real*                       bucket                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Host));
+void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp) {
+  real(*dofs)[tensor::Q::size()] = layer.var(lts.dofs);
+  real** buffers = layer.var(lts.buffers);
+  real** derivatives = layer.var(lts.derivatives);
+  real*(*faceNeighbors)[4] = layer.var(lts.faceNeighbors);
+  LocalIntegrationData* localIntegration = layer.var(lts.localIntegration);
+  NeighboringIntegrationData* neighboringIntegration = layer.var(lts.neighboringIntegration);
+  CellLocalInformation* cellInformation = layer.var(lts.cellInformation);
+  real* bucket =
+      static_cast<real*>(layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Host));
 
-  real**                      buffersDevice                       = layer.var(lts.buffersDevice);
-  real**                      derivativesDevice                   = layer.var(lts.derivativesDevice);
-  real*                     (*faceNeighborsDevice)[4]             = layer.var(lts.faceNeighborsDevice);
-  real*                       bucketDevice                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Device));
+  real** buffersDevice = layer.var(lts.buffersDevice);
+  real** derivativesDevice = layer.var(lts.derivativesDevice);
+  real*(*faceNeighborsDevice)[4] = layer.var(lts.faceNeighborsDevice);
+  real* bucketDevice = static_cast<real*>(
+      layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Device));
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     buffers[cell] = bucket + cell * tensor::I::size();
@@ -49,50 +49,58 @@ void fakeData(initializer::LTS& lts,
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = ((unsigned int)lrand48() % 4);
       cellInformation[cell].faceRelations[f][1] = ((unsigned int)lrand48() % 3);
-      cellInformation[cell].faceNeighborIds[f] =  ((unsigned int)lrand48() % layer.getNumberOfCells());
-    }    
+      cellInformation[cell].faceNeighborIds[f] =
+          ((unsigned int)lrand48() % layer.getNumberOfCells());
+    }
     cellInformation[cell].ltsSetup = 0;
   }
 
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
 #endif
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {    
+  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     for (unsigned f = 0; f < 4; ++f) {
       switch (faceTp) {
       case FaceType::FreeSurface:
-          faceNeighbors[cell][f] = buffers[cell];
-          faceNeighborsDevice[cell][f] = buffersDevice[cell];
-          break;
+        faceNeighbors[cell][f] = buffers[cell];
+        faceNeighborsDevice[cell][f] = buffersDevice[cell];
+        break;
       case FaceType::Periodic:
       case FaceType::Regular:
-          faceNeighbors[cell][f] = buffers[ cellInformation[cell].faceNeighborIds[f] ];
-          faceNeighborsDevice[cell][f] = buffersDevice[ cellInformation[cell].faceNeighborIds[f] ];
-          break;
-        default:
-          faceNeighbors[cell][f] = nullptr;
-          break;
+        faceNeighbors[cell][f] = buffers[cellInformation[cell].faceNeighborIds[f]];
+        faceNeighborsDevice[cell][f] = buffersDevice[cellInformation[cell].faceNeighborIds[f]];
+        break;
+      default:
+        faceNeighbors[cell][f] = nullptr;
+        break;
       }
     }
   }
-  
-  kernels::fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells(), false);
+
+  kernels::fillWithStuff(
+      reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.getNumberOfCells(), false);
   kernels::fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells(), false);
-  kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells(), false);
-  kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells(), false);
+  kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
+                         sizeof(LocalIntegrationData) / sizeof(real) * layer.getNumberOfCells(),
+                         false);
+  kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration),
+                         sizeof(NeighboringIntegrationData) / sizeof(real) *
+                             layer.getNumberOfCells(),
+                         false);
 
 #ifdef USE_POROELASTIC
 #ifdef _OPENMP
-  #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
 #endif
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {    
+  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     localIntegration[cell].specific.typicalTimeStepWidth = miniSeisSolTimeStep;
   }
 #endif
 
 #ifdef ACL_DEVICE
-  const auto &device = device::DeviceInstance::getInstance();
-  layer.synchronizeTo(seissol::initializer::AllocationPlace::Device, device.api->getDefaultStream());
+  const auto& device = device::DeviceInstance::getInstance();
+  layer.synchronizeTo(seissol::initializer::AllocationPlace::Device,
+                      device.api->getDefaultStream());
   device.api->syncDefaultStreamWithHost();
 #endif
 }

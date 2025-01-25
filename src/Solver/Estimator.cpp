@@ -15,44 +15,40 @@
 namespace seissol::solver {
 
 auto miniSeisSol() -> double {
-    const auto config = proxy::ProxyConfig{
-        50000,
-        10,
-        {seissol::proxy::Kernel::Local},
-        false,
-        isDeviceOn() ? Executor::Device : Executor::Host
-    };
-    const auto proxyResult = seissol::proxy::runProxy(config);
+  const auto config = proxy::ProxyConfig{50000,
+                                         10,
+                                         {seissol::proxy::Kernel::Local},
+                                         false,
+                                         isDeviceOn() ? Executor::Device : Executor::Host};
+  const auto proxyResult = seissol::proxy::runProxy(config);
 
-    return proxyResult.time;
+  return proxyResult.time;
 }
 
 auto hostDeviceSwitch() -> int {
-    if constexpr (!isDeviceOn()) {
-        return 0;
-    }
-
-    unsigned clusterSize = 1;
-    for (int i = 0; i < 20; ++i) {
-        auto config = proxy::ProxyConfig{
-            clusterSize,
-            10,
-            {seissol::proxy::Kernel::Local},
-            false,
-            Executor::Host
-        };
-        const auto resultHost = proxy::runProxy(config);
-        config.executor = Executor::Device;
-        const auto resultDevice = proxy::runProxy(config);
-
-        if (resultHost.time > resultDevice.time) {
-            return clusterSize;
-        }
-
-        clusterSize *= 2;
-    }
-
+  if constexpr (!isDeviceOn()) {
     return 0;
+  }
+
+  unsigned clusterSize = 1;
+  for (int i = 0; i < 20; ++i) {
+    auto config = proxy::ProxyConfig{clusterSize,
+                                     clusterSize < 100 ? 100 : 10,
+                                     {seissol::proxy::Kernel::Local},
+                                     false,
+                                     Executor::Host};
+    const auto resultHost = proxy::runProxy(config);
+    config.executor = Executor::Device;
+    const auto resultDevice = proxy::runProxy(config);
+
+    if (resultHost.time > resultDevice.time) {
+      return clusterSize;
+    }
+
+    clusterSize *= 2;
+  }
+
+  return 0;
 }
 
 } // namespace seissol::solver
