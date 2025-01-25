@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: 2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 name: build-seissol-cpu
 on:
@@ -152,11 +155,11 @@ jobs:
 
   seissol-run-test:
     name: seissol-run-test
-    runs-on: sccs-ci-zen2
+    runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
-    if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
+    if: ${{ github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
     strategy:
       fail-fast: false
       matrix:

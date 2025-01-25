@@ -1,3 +1,13 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_TESTS_READER_SLIPRATES_H_
+#define SEISSOL_SRC_TESTS_READER_SLIPRATES_H_
+
 double slipRates[] = {0.0,
                       1.996003997334666e+00,
                       3.984031957375965e+00,
@@ -78,3 +88,5 @@ double slipRates[] = {0.0,
                       1.320198912357644e+02,
                       1.334672336978789e+02,
                       1.349082655510201e+02};
+
+#endif // SEISSOL_SRC_TESTS_READER_SLIPRATES_H_

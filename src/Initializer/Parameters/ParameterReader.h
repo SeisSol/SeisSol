@@ -1,5 +1,12 @@
-#ifndef SEISSOL_PARAMETER_READER_H
-#define SEISSOL_PARAMETER_READER_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_PARAMETERREADER_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_PARAMETERREADER_H_
 
 #include <string>
 #include <unordered_set>
@@ -131,4 +138,4 @@ class ParameterReader {
 };
 } // namespace seissol::initializer::parameters
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_PARAMETERREADER_H_

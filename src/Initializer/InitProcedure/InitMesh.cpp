@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "InitMesh.h"
 
 #include <Geometry/MeshDefinition.h>
@@ -25,7 +32,6 @@
 #endif // defined(USE_HDF) && defined(USE_MPI)
 #include "Initializer/TimeStepping/LtsWeights/WeightsFactory.h"
 #include "Modules/Modules.h"
-#include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
 #include "Numerical/Statistics.h"
 #include "ResultWriter/MiniSeisSolWriter.h"

@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: 2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 # reason for rule exclusion:
 # * BLK100: conflicts with isort, i.e. I001,..,I005 (which is more important to be adhered)

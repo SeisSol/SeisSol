@@ -1,5 +1,12 @@
-#ifndef SEISSOL_BASE_FRICTION_SOLVER_H
-#define SEISSOL_BASE_FRICTION_SOLVER_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_BASEFRICTIONSOLVER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_BASEFRICTIONSOLVER_H_
 
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
@@ -169,4 +176,4 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 };
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_BASE_FRICTION_SOLVER_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_BASEFRICTIONSOLVER_H_

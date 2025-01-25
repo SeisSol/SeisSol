@@ -1,5 +1,12 @@
-#ifndef SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP
-#define SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_ELEMENTWISEBUILDER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_ELEMENTWISEBUILDER_H_
 
 #include "DynamicRupture/Output/FaultRefiner/FaultRefiners.h"
 #include "DynamicRupture/Output/Geometry.h"
@@ -174,4 +181,5 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   seissol::initializer::parameters::ElementwiseFaultParameters elementwiseParams;
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DR_OUTPUT_ELEMENTWISE_BUILDER_HPP
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_ELEMENTWISEBUILDER_H_
