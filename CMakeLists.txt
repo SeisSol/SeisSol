@@ -190,6 +190,8 @@ add_library(seissol-common-properties INTERFACE IMPORTED)
 
 include(src/sources.cmake)
 
+target_compile_options(seissol-common-properties INTERFACE -fPIC)
+
 # enforce code generation to run before any other target
 add_dependencies(seissol-common-properties seissol-codegen)
 
@@ -575,11 +577,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if (LIKWID)
   find_package(likwid REQUIRED)
-  if (BUILD_PROXY)
-    target_compile_definitions(seissol-proxy-lib PUBLIC LIKWID_PERFMON)
-    target_include_directories(seissol-proxy-lib PUBLIC ${LIKWID_INCLUDE_DIR})
-    target_link_libraries(seissol-proxy-lib PUBLIC likwid::likwid)
-  endif()
   target_compile_definitions(seissol-lib PUBLIC LIKWID_PERFMON)
   target_include_directories(seissol-lib PUBLIC ${LIKWID_INCLUDE_DIR})
   target_link_libraries(seissol-lib PUBLIC likwid::likwid)
