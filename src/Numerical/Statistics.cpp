@@ -1,7 +1,11 @@
-/**
- * @author Lukas Krenz (lukas.krenz AT tum.de)
- * @author Carsten Uphoff (c.uphoff AT tum.de)
- **/
+// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Lukas Krenz
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "Statistics.h"
 

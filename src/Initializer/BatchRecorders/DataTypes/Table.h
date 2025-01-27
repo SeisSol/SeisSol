@@ -1,5 +1,12 @@
-#ifndef SEISSOL_POINTERSTABLE_HPP
-#define SEISSOL_POINTERSTABLE_HPP
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_TABLE_H_
+#define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_TABLE_H_
 
 #ifdef ACL_DEVICE
 
@@ -31,11 +38,11 @@ class GenericTableEntry {
   GenericTableEntry(const GenericTableEntry& other)
       : hostVector(other.hostVector), deviceDataPtr(nullptr) {
     if (!hostVector.empty()) {
-      if (other.devicePtrs != nullptr) {
+      if (other.deviceDataPtr != nullptr) {
         deviceDataPtr = static_cast<PointerType>(
-            device.api->allocGlobMem(other.pointers.size() * sizeof(Type)));
+            device.api->allocGlobMem(other.hostVector.size() * sizeof(Type)));
         device.api->copyBetween(
-            deviceDataPtr, other.devicePtrs, other.pointers.size() * sizeof(Type));
+            deviceDataPtr, other.deviceDataPtr, other.hostVector.size() * sizeof(Type));
       }
     }
   }
@@ -109,4 +116,4 @@ struct IndicesTable {};
 } // namespace seissol::initializer::recording
 #endif // ACL_DEVICE
 
-#endif // SEISSOL_POINTERSTABLE_HPP
+#endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_TABLE_H_

@@ -1,5 +1,12 @@
-#ifndef SEISSOL_REGULARIZEDYOFFE_H
-#define SEISSOL_REGULARIZEDYOFFE_H
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_NUMERICAL_REGULARIZEDYOFFE_H_
+#define SEISSOL_SRC_NUMERICAL_REGULARIZEDYOFFE_H_
 
 namespace seissol::regularizedYoffe {
 /**
@@ -71,4 +78,4 @@ inline real regularizedYoffe(real time, real tauS, real tauR) {
 }
 } // namespace seissol::regularizedYoffe
 
-#endif // SEISSOL_REGULARIZEDYOFFE_H
+#endif // SEISSOL_SRC_NUMERICAL_REGULARIZEDYOFFE_H_

@@ -1,43 +1,11 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2015 - 2020, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Setup of SeisSol's cell local matrices.
- **/
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Sebastian Wolf
 
 #include "CellLocalMatrices.h"
 
@@ -178,23 +146,14 @@ void seissol::initializer::initializeCellLocalMatrices( seissol::geometry::MeshR
         MeshTools::normalize(tangent1, tangent1);
         MeshTools::normalize(tangent2, tangent2);
 
-        real NLocalData[6*6];
-        seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
-        if (material[cell].local.getMaterialType() == seissol::model::MaterialType::Anisotropic) {
-          seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)),
-                                                      seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].neighbor[side])),
+        real nLocalData[6*6];
+        seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
+        seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(nLocalData, material[cell].local),
+                                                      seissol::model::getRotatedMaterialCoefficients(nLocalData, material[cell].neighbor[side]),
                                                       cellInformation[cell].faceTypes[side],
                                                       QgodLocal,
                                                       QgodNeighbor );
-          seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&material[cell].local)), 0, ATtilde );
-        } else {
-          seissol::model::getTransposedGodunovState(  material[cell].local,
-                                                      material[cell].neighbor[side],     
-                                                      cellInformation[cell].faceTypes[side],
-                                                      QgodLocal,
-                                                      QgodNeighbor );
-          seissol::model::getTransposedCoefficientMatrix( material[cell].local, 0, ATtilde );
-        }
+        seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(nLocalData, material[cell].local), 0, ATtilde );
 
         // Calculate transposed T instead
         seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
@@ -783,3 +742,4 @@ void seissol::initializer::copyCellMatricesToDevice(LTSTree*          ltsTree,
 
 #endif // ACL_DEVICE
 }
+

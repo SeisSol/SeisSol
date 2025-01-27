@@ -1,38 +1,46 @@
-#pragma once
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DEVICEAUX_KERNELSAUX_H_
+#define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DEVICEAUX_KERNELSAUX_H_
 
 #include "Kernels/Precision.h"
 #include "generated_code/init.h"
 
 namespace seissol::kernels::time::aux {
-void
-    taylorSum(bool integral, std::size_t count, real** target, const real** source, real start, real end, void* stream);
+void taylorSum(bool integral,
+               std::size_t count,
+               real** target,
+               const real** source,
+               real start,
+               real end,
+               void* stream);
 } // namespace seissol::kernels::time::aux
 
 namespace seissol::kernels::local_flux::aux::details {
-  void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
-                                real** displacementDataPtrs,
-                                double* rhos,
-                                double g,
-                                size_t numElements,
-                                void* deviceStream);
+void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
+                              real** displacementDataPtrs,
+                              double* rhos,
+                              double g,
+                              size_t numElements,
+                              void* deviceStream);
 
-  void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
-                          real** easiBoundaryMapPtrs,
-                          real** easiBoundaryConstantPtrs,
-                          size_t numElements,
-                          void* deviceStream);
+void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
+                        real** easiBoundaryMapPtrs,
+                        real** easiBoundaryConstantPtrs,
+                        size_t numElements,
+                        void* deviceStream);
 } // namespace seissol::kernels::local_flux::aux::details
-
 
 namespace seissol::kernels::local_flux::aux {
 template <typename Derived>
 struct DirichletBoundaryAux {
-  void evaluate(real** dofsFaceBoundaryNodalPtrs,
-                size_t numElements,
-                void* deviceStream) {
-    static_cast<Derived*>(this)->dispatch(dofsFaceBoundaryNodalPtrs,
-                                          numElements,
-                                          deviceStream);
+  void evaluate(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) {
+    static_cast<Derived*>(this)->dispatch(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
   }
 };
 
@@ -41,29 +49,20 @@ struct FreeSurfaceGravity : public DirichletBoundaryAux<FreeSurfaceGravity> {
   double* rhos;
   double g{};
 
-  void dispatch(real** dofsFaceBoundaryNodalPtrs,
-                size_t numElements,
-                void* deviceStream) {
+  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) {
 
     assert(displacementDataPtrs != nullptr);
     assert(rhos != nullptr);
-    details::launchFreeSurfaceGravity(dofsFaceBoundaryNodalPtrs,
-                                      displacementDataPtrs,
-                                      rhos,
-                                      g,
-                                      numElements,
-                                      deviceStream);
+    details::launchFreeSurfaceGravity(
+        dofsFaceBoundaryNodalPtrs, displacementDataPtrs, rhos, g, numElements, deviceStream);
   }
 };
-
 
 struct EasiBoundary : public DirichletBoundaryAux<EasiBoundary> {
   real** easiBoundaryMapPtrs{};
   real** easiBoundaryConstantPtrs{};
 
-  void dispatch(real** dofsFaceBoundaryNodalPtrs,
-                size_t numElements,
-                void* deviceStream) {
+  void dispatch(real** dofsFaceBoundaryNodalPtrs, size_t numElements, void* deviceStream) {
 
     assert(easiBoundaryMapPtrs != nullptr);
     assert(easiBoundaryConstantPtrs != nullptr);
@@ -76,7 +75,6 @@ struct EasiBoundary : public DirichletBoundaryAux<EasiBoundary> {
 };
 
 } // namespace seissol::kernels::local_flux::aux
-
 
 namespace seissol::kernels::time::aux {
 void extractRotationMatrices(real** displacementToFaceNormalPtrs,
@@ -93,11 +91,8 @@ void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
                                                     size_t numElements,
                                                     void* deviceStream);
 
-void computeInvAcousticImpedance(double* invImpedances,
-                                 double* rhos,
-                                 double* lambdas,
-                                 size_t numElements,
-                                 void* deviceStream);
+void computeInvAcousticImpedance(
+    double* invImpedances, double* rhos, double* lambdas, size_t numElements, void* deviceStream);
 
 void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
                                    real** prevCoefficientsPtrs,
@@ -111,3 +106,5 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
                                    size_t numElements,
                                    void* deviceStream);
 } // namespace seissol::kernels::time::aux
+
+#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DEVICEAUX_KERNELSAUX_H_

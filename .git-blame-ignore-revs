@@ -1,8 +1,13 @@
 # SPDX-FileCopyrightText: 2021-2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 # apply clang-format to src/DynamicRupture
 2e6dc11046a9921ac6f593c6360a53f90fc1ac9e
 # apply changes suggested by clang-tidy to src/DynamicRupture
 9d089882fbb684bd3757c4918afd45b5805f2905
+# apply black to the relevant scripts (generated-code, proxy-runners)
+168791fd96bcec6f26116a5a91d613691d0d93ec

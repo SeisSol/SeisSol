@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _Remeshing the topography:
 
 Remeshing the topography
@@ -6,7 +14,7 @@ Remeshing the topography
 Nowadays, high resolution topographic and bathymetric data are most of
 the time available. Processing this large amount of data can be a
 challenge. For example in Gocad, intersecting such surfaces with other
-surfaces can be time-consuming and error-prone. 
+surfaces can be time-consuming and error-prone.
 To overcome these kinds of difficulties, an idea is to coarsen the meshed topography where a
 fine resolution is not necessary, before working on the surfaces in
 Gocad.

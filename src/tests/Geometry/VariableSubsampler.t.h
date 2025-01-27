@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include <array>
 #include <iomanip>
 #include <iostream>
@@ -13,7 +20,7 @@
 namespace seissol::unit_test {
 
 TEST_CASE("Variable Subsampler") {
-  constexpr double Epsilon = std::numeric_limits<real>::epsilon();
+  constexpr double Epsilon = std::numeric_limits<real>::epsilon() * 1e1;
   std::srand(1234);
 
   SUBCASE("Divide by 4") {

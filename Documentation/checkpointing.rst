@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _Checkpointing:
 
 Checkpointing (Beta)
@@ -16,7 +24,7 @@ Checkpoint Writing
 The checkpoint writing is configured as any other output writer, i.e. you will have to add the ``output`` section the following parameter(s):
 
 .. code:: fortran
-   
+
    checkpoint = 1
    checkpointinterval = 0.4
 

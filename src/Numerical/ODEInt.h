@@ -1,5 +1,12 @@
-#ifndef SEISSOL_ODEINT_H
-#define SEISSOL_ODEINT_H
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_NUMERICAL_ODEINT_H_
+#define SEISSOL_SRC_NUMERICAL_ODEINT_H_
 
 #include <Eigen/Dense>
 
@@ -102,4 +109,4 @@ class RungeKuttaODESolver {
 
 } // namespace seissol::ode
 
-#endif // SEISSOL_ODEINT_H
+#endif // SEISSOL_SRC_NUMERICAL_ODEINT_H_

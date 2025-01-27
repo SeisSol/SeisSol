@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 SimModeler CAD workflow
 ===========================
 
@@ -65,9 +73,9 @@ We use `this script <https://github.com/SeisSol/Meshing/blob/master/creating_geo
 The scripts first resample the 2D fault trace and then can smooth them.
 Finally, the smoothed and resampled traces are swept towards negative and positive (if the topography has positive elevation) z.
 
-create_fault_from_trace.py takes 3 main arguments: ``filename``, ``dipType`` and ``dipDesc``.  
+create_fault_from_trace.py takes 3 main arguments: ``filename``, ``dipType`` and ``dipDesc``.
 
-- ``filename`` is the name of the ASCII file describing the trace.  
+- ``filename`` is the name of the ASCII file describing the trace.
 - ``dipType`` allow switching between a constant (0), an along-depth dependant (1) or an along-strike dependent (2).
 - ``dipDesc`` gives either the dip angle value (dipType=0) or the 1D variation of the dip angle (dipType=1 or 2).
 

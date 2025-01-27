@@ -1,10 +1,18 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 Point source (older implementation)
 ===================================
 
-Using ``Type = 50`` is the old and non-optimal way to include a point
+Using ``Type = 50`` is an older and less-optimized way to include a point
 source in SeisSol. It might nevertheless still be useful for modeling a
-non double-couple point source (not currently possible with the nrf
-source description).
+non-double-couple point source, which is not currently possible with the nrf
+source description.
 
 Add the following section to your parameter file:
 
@@ -45,7 +53,7 @@ Where source.dat has the following format
    ...
    STF(nsubfault,ndt)
 
-Using this implementation one can specify point sources in the following form:
+This format describes point sources following the equations
 
 .. math ::
   \begin{aligned}
@@ -60,9 +68,8 @@ Using this implementation one can specify point sources in the following form:
   \rho \frac{\partial}{\partial t} w - \frac{\partial}{\partial x} \sigma_{xz} - \frac{\partial}{\partial y} \sigma_{yz} - \frac{\partial}{\partial z} \sigma_{zz} &= d_z \cdot S_k(t)\cdot \delta(x - \xi_k). \\
   \end{aligned}
 
-
-For details about the source term read section 3.3 of `An arbitrary high-order discontinuous Galerkin method for elastic
-waves on unstructured meshes – I. The two-dimensional isotropic case with external source terms 
+For details about the source term, we refer to Section 3.3 of `An arbitrary high-order discontinuous Galerkin method for elastic
+waves on unstructured meshes – I. The two-dimensional isotropic case with external source terms
 <https://academic.oup.com/gji/article-lookup/doi/10.1111/j.1365-246X.2006.03051.x>`__
 
 Mij and di are defined in a fault local coordinate system defined by strike, dip and rake, see for instance here:
@@ -73,14 +80,14 @@ In the viscoelastic case, the equations are extended by the memory variables.
 In the anisotropic case, :math:`\lambda` and :math:`\mu` are replaced by the entries of the Hooke tensor :math:`c_{ij}`.
 
 For poroelastic materials, we add the possibility to consider forces in the fluid or pressure sources.
-To do so, add these two lines before `Number of subfaults`:
+To do so, add these two lines before ``Number of subfaults``:
 
 ::
 
    header line (optional, but has to contain 'pressure' to be recognized)
    p
    header line (optional, but has to contain 'fluid' to be recognized)
-   f1 f2 f3 
+   f1 f2 f3
 
 In the case of a poroelastic material, the equations of motion differ from above equations. For the velocities in :math:`x` direction, they read:
 
@@ -90,7 +97,7 @@ In the case of a poroelastic material, the equations of motion differ from above
    \frac{\partial}{\partial t} u_f - \frac{1}{\rho^{(2)}} \frac{\partial}{\partial x} \sigma_{xx} - \frac{1}{\rho^{(2)}} \frac{\partial}{\partial y} \sigma_{xy} -  \frac{1}{\rho^{(2)}} \frac{\partial}{\partial z} \sigma_{xz} - \frac{1}{\rho^{(2)}} \frac{\rho}{\rho_f}\frac{\nu}{\kappa} u_f &= f_x \cdot S_k(t) \delta(x - \xi_k) \\
   \end{aligned}
 
-with 
+with
 
 .. math ::
   \rho^{(1)} &= \left(\rho - \frac{\rho_f^2}{m}\right), \quad \rho^{(2)} &= \left(\rho_f - \frac{m \rho}{\rho_f} \right).\\

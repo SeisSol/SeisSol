@@ -1,50 +1,19 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2016-2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef WAVE_FIELD_WRITER_EXECUTOR_H
-#define WAVE_FIELD_WRITER_EXECUTOR_H
+#ifndef SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITEREXECUTOR_H_
+#define SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITEREXECUTOR_H_
 
 #include "Parallel/MPI.h"
 
 #include <Kernels/Precision.h>
 #include <cassert>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -115,6 +84,9 @@ class WaveFieldWriterExecutor {
   /** Stopwatch for the wave field backend */
   Stopwatch m_stopwatch;
 
+  std::shared_ptr<std::vector<std::string>> varNames;
+  std::shared_ptr<std::vector<std::string>> varNamesLowRes;
+
   public:
   WaveFieldWriterExecutor() = default;
 
@@ -138,16 +110,15 @@ class WaveFieldWriterExecutor {
     m_numVariables = info.bufferSize(param.bufferIds[OutputFlags]) / sizeof(bool);
     m_outputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[OutputFlags]));
 
-    std::vector<std::string> varNames;
-    std::vector<std::string> varNamesLowRes;
-
+    varNames = std::make_shared<std::vector<std::string>>();
+    varNamesLowRes = std::make_shared<std::vector<std::string>>();
     for (const auto& quantity : seissol::model::MaterialT::Quantities) {
-      varNames.emplace_back(quantity);
-      varNamesLowRes.emplace_back("low_" + quantity);
+      varNames->emplace_back(quantity);
+      varNamesLowRes->emplace_back("low_" + quantity);
     }
     for (const auto& quantity : seissol::model::PlasticityData::Quantities) {
-      varNames.emplace_back(quantity);
-      varNamesLowRes.emplace_back("low_" + quantity);
+      varNames->emplace_back(quantity);
+      varNamesLowRes->emplace_back("low_" + quantity);
     }
 
     std::vector<const char*> variables;
@@ -158,7 +129,7 @@ class WaveFieldWriterExecutor {
 #else
         assert(i < 16);
 #endif
-        variables.push_back(varNames[i].c_str());
+        variables.push_back(varNames->at(i).c_str());
       }
     }
 
@@ -182,9 +153,9 @@ class WaveFieldWriterExecutor {
 #endif // USE_MPI
       m_waveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
       const std::string extraIntVarName = "clustering";
-
+      const auto vertexFilter = utils::Env::get<bool>("SEISSOL_VERTEXFILTER", true);
       m_waveFieldWriter->init(
-          variables, std::vector<const char*>(), extraIntVarName.c_str(), true, true);
+          variables, std::vector<const char*>(), extraIntVarName.c_str(), vertexFilter, true);
       m_waveFieldWriter->setMesh(
           info.bufferSize(param.bufferIds[Cells]) / (4 * sizeof(unsigned int)),
           static_cast<const unsigned int*>(info.buffer(param.bufferIds[Cells])),
@@ -205,7 +176,7 @@ class WaveFieldWriterExecutor {
         std::vector<const char*> lowVariables;
         for (size_t i = 0; i < NumLowvariables; i++) {
           if (m_lowOutputFlags[i]) {
-            lowVariables.push_back(varNamesLowRes[i].c_str());
+            lowVariables.push_back(varNamesLowRes->at(i).c_str());
           }
         }
 
@@ -217,7 +188,7 @@ class WaveFieldWriterExecutor {
 #endif // USE_MPI
         m_lowWaveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
 
-        m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>());
+        m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>(), "", vertexFilter);
         m_lowWaveFieldWriter->setMesh(
             info.bufferSize(param.bufferIds[LowCells]) / (4 * sizeof(unsigned int)),
             static_cast<const unsigned int*>(info.buffer(param.bufferIds[LowCells])),
@@ -318,4 +289,4 @@ class WaveFieldWriterExecutor {
 
 } // namespace seissol::writer
 
-#endif // WAVE_FIELD_WRITER_EXECUTOR_H
+#endif // SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITEREXECUTOR_H_

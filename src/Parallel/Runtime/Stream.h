@@ -1,5 +1,12 @@
-#ifndef SEISSOL_PARALLEL_RUNTIME_STREAM_HPP
-#define SEISSOL_PARALLEL_RUNTIME_STREAM_HPP
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
+#define SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 
 #include <Initializer/Tree/Layer.h>
 #include <functional>
@@ -23,12 +30,12 @@ class StreamRuntime {
   static constexpr size_t RingbufferSize = 4;
 
   StreamRuntime() : disposed(false) {
-    streamPtr = device().api->createGenericStream();
+    streamPtr = device().api->createStream();
     ringbufferPtr.resize(RingbufferSize);
     forkEvents.resize(RingbufferSize);
     joinEvents.resize(RingbufferSize);
     for (size_t i = 0; i < RingbufferSize; ++i) {
-      ringbufferPtr[i] = device().api->createGenericStream();
+      ringbufferPtr[i] = device().api->createStream();
       forkEvents[i] = device().api->createEvent();
       joinEvents[i] = device().api->createEvent();
     }
@@ -164,4 +171,4 @@ class StreamRuntime {
 
 } // namespace seissol::parallel::runtime
 
-#endif
+#endif // SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_

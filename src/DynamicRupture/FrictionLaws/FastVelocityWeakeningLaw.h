@@ -1,5 +1,14 @@
-#ifndef SEISSOL_RATEANDSTATEFASTVELOCITYWEAKENING_H
-#define SEISSOL_RATEANDSTATEFASTVELOCITYWEAKENING_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FASTVELOCITYWEAKENINGLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FASTVELOCITYWEAKENINGLAW_H_
+
+#include <cmath>
 
 #include "RateAndState.h"
 
@@ -144,7 +153,7 @@ class FastVelocityWeakeningLaw
   void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
                              unsigned ltsFace) const {
     [[maybe_unused]] const real tmp = 0.5 / this->drParameters->rsSr0 *
-                                      exp(localStateVariable[0] / this->a[ltsFace][0]) *
+                                      std::exp(localStateVariable[0] / this->a[ltsFace][0]) *
                                       this->slipRateMagnitude[ltsFace][0];
     assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
@@ -154,4 +163,4 @@ class FastVelocityWeakeningLaw
 };
 } // namespace seissol::dr::friction_law
 
-#endif // SEISSOL_RATEANDSTATEFASTVELOCITYWEAKENING_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FASTVELOCITYWEAKENINGLAW_H_

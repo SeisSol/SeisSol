@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _easi:
 
 easi
@@ -40,7 +48,7 @@ Invoking SeisSol
 
 It is recommended to place easi models in the folder that also contains
 the parameter file.
-Within the parameter-file, add the parameter ``MaterialFileName`` to 
+Within the parameter-file, add the parameter ``MaterialFileName`` to
 the equations block, e.g.
 
 .. code-block:: Fortran
@@ -88,43 +96,43 @@ when using an (isotropic) elastic, anisotropic (elastic), viscoelastic, and visc
    * - mu, lambda
      - Pa
      - |checkmark|
-     - 
+     -
      - |checkmark|
      - |checkmark|
      - Lamé parameters.
-   * - c11, ..., c66 [#]_ 
+   * - c11, ..., c66 [#]_
      - Pa
-     - 
+     -
      - |checkmark|
      -
      -
      - stiffness tensor.
    * - Qp, Qs
      -
-     - 
-     - 
+     -
+     -
      - |checkmark|
      -
      - P-wave and S-wave quality factors.
    * - bulkFriction
      -
-     - 
-     - 
+     -
+     -
      -
      - |checkmark|
      - Bulk friction coefficient.
    * - plastCo
      - Pa
-     - 
-     - 
+     -
+     -
      -
      - |checkmark|
      - Plastic cohesion.
    * - s_xx, s_yy, s_zz, s_xy, s_yz, s_xz
      - Pa
-     - 
-     - 
-     - 
+     -
+     -
+     -
      - |checkmark|
      - Initial stress tensor.
 
@@ -176,7 +184,7 @@ You must not specify both.
      - 16
      - Time of forced rupture.
    * - rs_a, rs_srW, RS_sl0
-     - 
+     -
      - 101, 103
      - Rate-and-state friction parameter.
    * - nuc_{xx, yy, zz, xy, yz, xz} or Tnuc_{n, s, d}
@@ -229,7 +237,7 @@ and get the following error log:
       what():  fault2.yaml@2: Could not find model for point [ 348441 4.76021e+06 0 ] in group 1.
 
 How to interpret this error log?
-The component at Line 2 is throwing the error (the AffineMap). 
+The component at Line 2 is throwing the error (the AffineMap).
 The AffineMap component is complaining that its output point is not accepted by any of its child components.
 In this case, the point is outside the bounds of the ASAGI file.
 

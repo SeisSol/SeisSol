@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "ThermalPressurization.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
@@ -18,7 +25,7 @@ void ThermalPressurization::copyLtsTreeToLocal(
     const seissol::initializer::DynamicRupture* const dynRup,
     real fullUpdateTime) {
   const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization*>(dynRup);
   temperature = layerData.var(concreteLts->temperature);
   pressure = layerData.var(concreteLts->pressure);
   theta = layerData.var(concreteLts->theta);

@@ -1,5 +1,12 @@
-#ifndef SEISSOL_GPU_RATEANDSTATE_H
-#define SEISSOL_GPU_RATEANDSTATE_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_RATEANDSTATE_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_RATEANDSTATE_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
@@ -54,7 +61,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
                                       const seissol::initializer::DynamicRupture* const dynRup,
                                       real fullUpdateTime) override {
-    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
+    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
     this->a = layerData.var(concreteLts->rsA, seissol::initializer::AllocationPlace::Device);
     this->sl0 = layerData.var(concreteLts->rsSl0, seissol::initializer::AllocationPlace::Device);
     this->stateVariable =
@@ -99,7 +106,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState* const>(dynRup);
+    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
     a = layerData.var(concreteLts->rsA, seissol::initializer::AllocationPlace::Device);
     sl0 = layerData.var(concreteLts->rsSl0, seissol::initializer::AllocationPlace::Device);
     stateVariable =
@@ -410,4 +417,4 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_GPU_RATEANDSTATE_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_RATEANDSTATE_H_

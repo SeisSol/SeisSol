@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "LinearSlipWeakening.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
@@ -22,7 +29,7 @@ void BiMaterialFault::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                                          const seissol::initializer::DynamicRupture* const dynRup,
                                          real fullUpdateTime) {
   const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup);
   regularisedStrength = layerData.var(concreteLts->regularisedStrength);
 }
 

@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _tpv104:
 
 SCEC TPV104
@@ -87,7 +95,7 @@ RS-SL-SRW are shown in Table [table:tpv104rsl].
    :alt: table 104
    :width: 12.0cm
    :align: center
-   
+
    Table of rate-state friction used in tpv104.
 
 To stop the rupture, the friction law changes from velocity-weakening in
@@ -96,7 +104,7 @@ sufficiently far outside this region. The transition occurs smoothly
 within a transition layer of width w = 3 km. Outside the transition
 layer, the fault is made velocity-strengthening by increasing :math:`a`
 by :math:`\triangle a= 0.01` and :math:`V_w` by
-:math:`\triangle V_{w0} = 0.9` . 
+:math:`\triangle V_{w0} = 0.9` .
 
 The input files of TPV104 can be found at https://github.com/SeisSol/Examples/tree/master/tpv104.
 
@@ -106,7 +114,7 @@ The input files of TPV104 can be found at https://github.com/SeisSol/Examples/tr
    :align: center
 
    Diagram shows the tetrahedral meshing of TPV 104 shown in the
-   ParaView panel. 
+   ParaView panel.
 
 Results
 ~~~~~~~
@@ -116,7 +124,7 @@ The rupture propagates through the transition zone into the
 velocity-strengthening region, where it smoothly and spontaneously
 arrests. Nucleation is done by imposing additional shear stress in a
 circular patch surrounding the hypocenter.
-   
+
 Figure [fig:tpv104sr] shows the slip rate on the fault along the downdip
 direction at T=5s.
 
@@ -124,14 +132,14 @@ direction at T=5s.
    :alt: Diagram shows the tetrahedral meshing of TPV104
    :width: 12.00000cm
    :align: center
-   
-   Slip rate along-strike on the fault at 2 s of TPV104. 
-   
+
+   Slip rate along-strike on the fault at 2 s of TPV104.
+
 .. figure:: LatexFigures/SRs_5s.png
    :alt: Diagram shows the tetrahedral meshing of TPV104
-   :width: 12.00000cm   
+   :width: 12.00000cm
    :align: center
-   
+
    Slip rate along-strike on the fault at 5 s of TPV 104.
 
 
