@@ -686,12 +686,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         break;
       }
       case seissol::model::MaterialType::Poroelastic: {
-        // TODO (SW) Extract this into a function
-        seissol::model::getTransposedCoefficientMatrix(
-            *dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial), 0, matAPlus);
-        seissol::model::getTransposedCoefficientMatrix(
-            *dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial), 0, matAMinus);
-
         auto plusEigenpair = seissol::model::getEigenDecomposition(
             *dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial));
         auto minusEigenpair = seissol::model::getEigenDecomposition(
@@ -721,25 +715,14 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         // TODO(SW): Make DR work with anisotropy
         break;
       }
-      case seissol::model::MaterialType::Elastic: {
-        seissol::model::getTransposedCoefficientMatrix(
-            *dynamic_cast<seissol::model::ElasticMaterial*>(plusMaterial), 0, matAPlus);
-        seissol::model::getTransposedCoefficientMatrix(
-            *dynamic_cast<seissol::model::ElasticMaterial*>(minusMaterial), 0, matAMinus);
-        break;
-      }
-      case seissol::model::MaterialType::Viscoelastic: {
-        seissol::model::getTransposedCoefficientMatrix(
-            *dynamic_cast<seissol::model::ViscoElasticMaterial*>(plusMaterial), 0, matAPlus);
-        seissol::model::getTransposedCoefficientMatrix(
-            *dynamic_cast<seissol::model::ViscoElasticMaterial*>(minusMaterial), 0, matAMinus);
-        break;
-      }
       default: {
         logError() << "The Dynamic Rupture mechanism does not work with the given material yet.";
         break;
       }
       }
+      seissol::model::getTransposedCoefficientMatrix(plusMaterial, 0, matAPlus);
+      seissol::model::getTransposedCoefficientMatrix(minusMaterial, 0, matAMinus);
+
       /// Traction matrices for "average" traction
       auto tractionPlusMatrix =
           init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
