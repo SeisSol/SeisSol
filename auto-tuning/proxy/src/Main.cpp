@@ -17,6 +17,10 @@
 #include <stdexcept>
 #include <utils/args.h>
 
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif
+
 using namespace seissol::proxy;
 
 auto main(int argc, char* argv[]) -> int {

@@ -21,6 +21,10 @@
 #include <stdlib.h>
 #include <tensor.h>
 
+#ifdef ACL_DEVICE
+#include <Initializer/MemoryManager.h>
+#endif
+
 namespace {
 void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var(lts.dofs);

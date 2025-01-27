@@ -19,6 +19,9 @@ endif()
 
 # C/C++ proxy interface
 add_executable(seissol-proxy-exe Main.cpp)
-target_link_libraries(seissol-proxy-exe PUBLIC seissol-lib)
+target_link_libraries(seissol-proxy-exe PRIVATE seissol-lib)
+if(WITH_GPU)
+  target_link_libraries(seissol-proxy-exe PRIVATE general-sycl-offloading)
+endif()
 set_target_properties(seissol-proxy-exe PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
 install(TARGETS seissol-proxy-exe RUNTIME)
