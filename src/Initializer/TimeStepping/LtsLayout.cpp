@@ -1292,6 +1292,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
 
   // current lts cell
   unsigned int l_ltsCell = 0;
+  unsigned int layerId = 0;
 
   // iterate over the setup an derive a linear layout
   for( unsigned int l_cluster = 0; l_cluster < m_clusteredInterior.size(); l_cluster++ ) {
@@ -1312,10 +1313,15 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         secondaryInformation[l_ltsCell].halo = HaloType::Ghost;
 
         secondaryInformation[l_ltsCell].globalId = 0; // TODO:
+        secondaryInformation[l_ltsCell].rank = m_clusteredCopy[l_cluster][l_region].first[0];
+        secondaryInformation[l_ltsCell].layerId = 0;
+        secondaryInformation[l_ltsCell].configId = 0;
 
         l_ltsCell++;
+        ++layerId;
       }
     }
+    layerId = 0;
 
     /*
      * iterate over copy layer
@@ -1338,6 +1344,9 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
 
         secondaryInformation[l_ltsCell].halo = HaloType::Copy;
         secondaryInformation[l_ltsCell].globalId = m_cells[l_meshId].globalId;
+        secondaryInformation[l_ltsCell].rank = rank;
+        secondaryInformation[l_ltsCell].layerId = layerId;
+        secondaryInformation[l_ltsCell].configId = 0;
         std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
 
         // iterate over faces
@@ -1419,8 +1428,10 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         }
 
         l_ltsCell++;
+        ++layerId;
       }
     }
+    layerId = 0;
 
     /*
      * interate over interior
@@ -1436,6 +1447,9 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
       secondaryInformation[l_ltsCell].duplicate = 0;
       secondaryInformation[l_ltsCell].halo = HaloType::Interior;
       secondaryInformation[l_ltsCell].globalId = m_cells[l_meshId].globalId;
+      secondaryInformation[l_ltsCell].rank = rank;
+      secondaryInformation[l_ltsCell].layerId = layerId;
+      secondaryInformation[l_ltsCell].configId = 0;
       std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
 
       // set mappings
@@ -1489,7 +1503,9 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
       }
 
       l_ltsCell++;
+      ++layerId;
     }
+    layerId = 0;
   }
 }
 
