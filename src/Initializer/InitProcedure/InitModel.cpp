@@ -15,7 +15,6 @@
 #include "Memory/Tree/LTSSync.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
-#include "Physics/Attenuation.h"
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>

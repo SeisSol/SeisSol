@@ -15,12 +15,12 @@
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>
-#include <Initializer/PreProcessorMacros.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
 #include <Kernels/TimeCommon.h>
 #include <Memory/Tree/Layer.h>
+#include <Monitoring/Instrumentation.h>
 #include <Parallel/Runtime/Stream.h>
 #include <memory>
 #include <omp.h>

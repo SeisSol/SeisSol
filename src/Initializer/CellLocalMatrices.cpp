@@ -19,19 +19,18 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <DynamicRupture/Typedefs.h>
-#include <Equations/Datastructures.h>
+#include <Equations/Datastructures.h> // IWYU pragma: keep
+#include <Equations/poroelastic/Model/Datastructures.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
-#include <Memory/Descriptor/Boundary.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
-#include <Model/Datastructures.h>
 #include <Model/ElasticSetup.h>
 #include <Numerical/Eigenvalues.h>
 #include <algorithm>
@@ -87,8 +86,8 @@ void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
 template <typename T, int Dim1, int Dim2>
 void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
                        yateto::DenseTensorView<2, T>& tensorView) {
-  assert(tensorView.shape(0) == dim1);
-  assert(tensorView.shape(1) == dim2);
+  assert(tensorView.shape(0) == Dim1);
+  assert(tensorView.shape(1) == Dim2);
 
   tensorView.setZero();
   for (size_t row = 0; row < Dim1; ++row) {
