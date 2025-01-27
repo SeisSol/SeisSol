@@ -8,6 +8,8 @@
 
 #include "SeisSol.h"
 
+#include <Common/Executor.h>
+#include <Kernels/Common.h>
 #include <climits>
 #include <memory>
 #include <optional>
@@ -48,12 +50,6 @@ bool SeisSol::init(int argc, char* argv[]) {
 #ifdef ACL_DEVICE
   printUSMInfo(MPI::mpi);
   printMPIUSMInfo(MPI::mpi);
-  printDeviceHostSwitch(MPI::mpi);
-
-  if (!useUSM() && deviceHostSwitch() > 0) {
-    logWarning(rank) << "Using the host-device execution on non-USM systems is not fully supported "
-                        "yet. Expect incorrect results.";
-  }
 #endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();
@@ -149,5 +145,20 @@ void SeisSol::setBackupTimeStamp(const std::string& stamp) {
 void SeisSol::loadCheckpoint(const std::string& file) {
   checkpointLoadFile = std::make_optional<std::string>(file);
 }
+
+Executor SeisSol::executionPlace(std::size_t clusterSize) {
+  constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
+  if (executionPlaceCutoff.has_value()) {
+    if (executionPlaceCutoff.value() <= clusterSize) {
+      return DefaultDevice;
+    } else {
+      return Executor::Host;
+    }
+  } else {
+    return DefaultDevice;
+  }
+}
+
+void SeisSol::setExecutionPlaceCutoff(std::size_t size) { executionPlaceCutoff = size; }
 
 } // namespace seissol

@@ -53,7 +53,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  ActorStateStatistics* actorStateStatistics) :
     AbstractTimeCluster(maxTimeStepSize, timeStepRate,
 #ifdef ACL_DEVICE
-      i_clusterData->getNumberOfCells() >= deviceHostSwitch() ? Executor::Device : Executor::Host
+      seissolInstance.executionPlace(i_clusterData->getNumberOfCells())
 #else
       Executor::Host
 #endif

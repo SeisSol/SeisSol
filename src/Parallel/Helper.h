@@ -73,14 +73,6 @@ void printMPIUSMInfo(const T& mpiBasic) {
     logInfo(mpiBasic.rank()) << "Using separate buffers for CPU-GPU MPI data.";
   }
 }
-
-inline int deviceHostSwitch() { return utils::Env::get<int>("SEISSOL_DEVICE_HOST_SWITCH", 0); }
-
-template <typename T>
-void printDeviceHostSwitch(const T& mpiBasic) {
-  logInfo(mpiBasic.rank()) << "Running clusters with" << deviceHostSwitch()
-                           << "or more cells on the GPU (and on the CPU otherwise)";
-}
 #endif
 
 } // namespace seissol

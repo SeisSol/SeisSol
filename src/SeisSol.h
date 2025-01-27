@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_SEISSOL_H_
 #define SEISSOL_SRC_SEISSOL_H_
 
+#include <Common/Executor.h>
 #include <IO/Manager.h>
 #include <memory>
 #include <string>
@@ -62,6 +63,10 @@ class SeisSol {
   void finalize();
 
   void loadCheckpoint(const std::string& file);
+
+  Executor executionPlace(std::size_t clusterSize);
+
+  void setExecutionPlaceCutoff(std::size_t size);
 
   initializer::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
 
@@ -250,6 +255,8 @@ class SeisSol {
   std::string m_backupTimeStamp;
 
   std::optional<std::string> checkpointLoadFile;
+
+  std::optional<std::size_t> executionPlaceCutoff;
 
   public:
   SeisSol(initializer::parameters::SeisSolParameters& parameters)
