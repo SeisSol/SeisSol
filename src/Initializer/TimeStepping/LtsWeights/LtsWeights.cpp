@@ -40,18 +40,6 @@
 
 namespace seissol::initializer::time_stepping {
 
-class FaceSorter {
-  private:
-  const std::vector<PUML::TETPUML::face_t>& m_faces;
-
-  public:
-  FaceSorter(const std::vector<PUML::TETPUML::face_t>& faces) : m_faces(faces) {}
-
-  bool operator()(unsigned int a, unsigned int b) const {
-    return m_faces[a].gid() < m_faces[b].gid();
-  }
-};
-
 double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
                                     const std::vector<int>& cellCosts,
                                     unsigned int rate,
@@ -542,9 +530,10 @@ void LtsWeights::prepareDifferenceEnforcement() {
     }
   }
 
-  const FaceSorter faceSorter(faces);
   for (auto& sharedFaces : rankToSharedFacesPre) {
-    std::sort(sharedFaces.second.begin(), sharedFaces.second.end(), faceSorter);
+    std::sort(sharedFaces.second.begin(),
+              sharedFaces.second.end(),
+              [&](unsigned int a, unsigned int b) { return faces[a].gid() < faces[b].gid(); });
   }
 
   rankToSharedFaces =
