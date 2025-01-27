@@ -65,9 +65,9 @@ set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
 
 set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
 set(DEVICE_ARCH_OPTIONS none
-        sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90 sm_100   # Nvidia
-        gfx900 gfx906 gfx908 gfx90a gfx942 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102 # AMD
-        bdw skl dg1 acm_g10 acm_g11 acm_g12 pvc Gen8 Gen9 Gen11 Gen12LP)           # Intel
+        sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90 sm_100 sm_101 sm_120   # Nvidia
+        gfx900 gfx906 gfx908 gfx90a gfx942 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102               # AMD
+        bdw skl dg1 acm_g10 acm_g11 acm_g12 pvc Gen8 Gen9 Gen11 Gen12LP)                         # Intel
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 set(PRECISION "double" CACHE STRING "Type of floating point precision, namely: double/single")
