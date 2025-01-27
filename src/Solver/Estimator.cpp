@@ -9,8 +9,11 @@
 #include "Estimator.h"
 #include <Common/Executor.h>
 #include <Kernels/Common.h>
+#include <Numerical/Statistics.h>
 #include <Proxy/Common.h>
 #include <Proxy/Runner.h>
+
+#include <utils/logger.h>
 
 namespace seissol::solver {
 
@@ -20,7 +23,14 @@ auto miniSeisSol() -> double {
                                          {seissol::proxy::Kernel::Local},
                                          false,
                                          isDeviceOn() ? Executor::Device : Executor::Host};
+
+  logInfo() << "Running MiniSeisSol with" << config.cells << "cells and" << config.timesteps
+            << "repetitions.";
   const auto proxyResult = seissol::proxy::runProxy(config);
+
+  const auto summary = statistics::parallelSummary(proxyResult.time);
+  logInfo() << "min:" << summary.min << "max" << summary.max << "mean:" << summary.mean
+            << "median:" << summary.median << "stddev:" << summary.std;
 
   return proxyResult.time;
 }
@@ -31,9 +41,10 @@ auto hostDeviceSwitch() -> int {
   }
 
   unsigned clusterSize = 1;
+  logInfo() << "Running host-device switchpoint detection test";
   for (int i = 0; i < 20; ++i) {
     auto config = proxy::ProxyConfig{clusterSize,
-                                     clusterSize < 100 ? 100 : 10,
+                                     static_cast<unsigned int>(clusterSize < 100 ? 100 : 10),
                                      {seissol::proxy::Kernel::Local},
                                      false,
                                      Executor::Host};
