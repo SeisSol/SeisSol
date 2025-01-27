@@ -20,7 +20,6 @@
 #include "generated_code/tensor.h"
 #include <DynamicRupture/Typedefs.h>
 #include <Equations/Datastructures.h> // IWYU pragma: keep
-#include <Equations/poroelastic/Model/Datastructures.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
@@ -31,7 +30,6 @@
 #include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
-#include <Model/ElasticSetup.h>
 #include <Numerical/Eigenvalues.h>
 #include <algorithm>
 #include <array>
