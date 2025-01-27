@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 
 # ensure that we have an set HIP_PATH
 if(NOT DEFINED HIP_PATH)
@@ -52,24 +59,25 @@ set(DEVICE_SRC ${DEVICE_SRC}
 set_source_files_properties(${DEVICE_SRC} PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
 
 hip_reset_flags()
-hip_add_library(SeisSol-device-lib SHARED ${DEVICE_SRC}
+hip_add_library(seissol-device-lib SHARED ${DEVICE_SRC}
         HIPCC_OPTIONS ${SEISSOL_HIPCC}
         NVCC_OPTIONS ${SEISSOL_NVCC})
 
-target_include_directories(SeisSol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
-set_property(TARGET SeisSol-device-lib PROPERTY HIP_ARCHITECTURES OFF)
-target_compile_definitions(SeisSol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
+target_include_directories(seissol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
+set_property(TARGET seissol-device-lib PROPERTY HIP_ARCHITECTURES OFF)
+target_compile_definitions(seissol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
         CONVERGENCE_ORDER=${ORDER}
         NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
         NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
         ${DR_QUAD_RULE})
 if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
-target_compile_definitions(SeisSol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 endif()
 
 if (IS_NVCC_PLATFORM)
-    set_target_properties(SeisSol-device-lib PROPERTIES LINKER_LANGUAGE HIP)
-    target_link_options(SeisSol-device-lib PRIVATE -arch=${DEVICE_ARCH})
+    set_target_properties(seissol-device-lib PROPERTIES LINKER_LANGUAGE HIP)
+    target_link_options(seissol-device-lib PRIVATE -arch=${DEVICE_ARCH})
 else()
-    target_link_libraries(SeisSol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
+    target_link_libraries(seissol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
 endif()
+

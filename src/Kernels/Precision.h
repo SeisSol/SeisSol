@@ -1,5 +1,12 @@
-#ifndef KERNELS_PRECISION_HPP_
-#define KERNELS_PRECISION_HPP_
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_KERNELS_PRECISION_H_
+#define SEISSOL_SRC_KERNELS_PRECISION_H_
 
 #ifdef USE_MPI
 #include <mpi.h>
@@ -42,4 +49,4 @@ using real = double;
 #endif
 #endif
 
-#endif
+#endif // SEISSOL_SRC_KERNELS_PRECISION_H_

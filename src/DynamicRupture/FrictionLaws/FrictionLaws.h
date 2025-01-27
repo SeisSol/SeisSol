@@ -1,5 +1,12 @@
-#ifndef SEISSOL_FRICTIONLAWS_H
-#define SEISSOL_FRICTIONLAWS_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONLAWS_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONLAWS_H_
 
 // IWYU pragma: begin_exports
 
@@ -27,4 +34,4 @@
 
 // IWYU pragma: end_exports
 
-#endif // SEISSOL_FRICTIONLAWS_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONLAWS_H_

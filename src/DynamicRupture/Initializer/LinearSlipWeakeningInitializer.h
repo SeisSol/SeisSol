@@ -1,5 +1,12 @@
-#ifndef SEISSOL_LINEARSLIPWEAKENINGINITIALIZER_H
-#define SEISSOL_LINEARSLIPWEAKENINGINITIALIZER_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_LINEARSLIPWEAKENINGINITIALIZER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_LINEARSLIPWEAKENINGINITIALIZER_H_
 
 #include "BaseDRInitializer.h"
 
@@ -40,4 +47,5 @@ class LinearSlipWeakeningBimaterialInitializer : public LinearSlipWeakeningIniti
 };
 
 } // namespace seissol::dr::initializer
-#endif // SEISSOL_LINEARSLIPWEAKENINGINITIALIZER_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_LINEARSLIPWEAKENINGINITIALIZER_H_

@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 # ## boilerplate
 
 FROM ubuntu:24.04
@@ -48,7 +55,7 @@ RUN apt-get update -y && apt-get upgrade -y && \
 # HDF5
 RUN wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.12/hdf5-1.12.3/src/hdf5-1.12.3.tar.bz2 && \
     tar -xf hdf5-1.12.3.tar.bz2 && cd hdf5-1.12.3 && \
-    CPPFLAGS="-fPIC ${CPPFLAGS}" CC=mpicc FC=mpif90 ./configure --enable-parallel --prefix=/usr --with-zlib --disable-shared && \
+    CPPFLAGS="-fPIC ${CPPFLAGS}" CC=mpicc CXX=mpicxx ./configure --enable-parallel --prefix=/usr --with-zlib --disable-shared && \
     make -j $(nproc) install && \
     cd .. && rm -rf hdf5-1.12.3
 
@@ -78,12 +85,12 @@ mkdir -p gitbuild/build && cd gitbuild/build && \
 # Lua
 RUN wget https://www.lua.org/ftp/lua-5.3.6.tar.gz && \
     tar -xzvf lua-5.3.6.tar.gz && cd lua-5.3.6/ &&\
-    make linux CC=mpicc && make local && \
+    make linux && make local && \
     cp -r install/* /usr && \
     cd .. && rm -rf lua-5.3.6
 
 # easi
-RUN git clone --recursive --depth 1 --branch v1.3.0 https://github.com/SeisSol/easi.git gitbuild && \
+RUN git clone --recursive --depth 1 --branch v1.4.0 https://github.com/SeisSol/easi.git gitbuild && \
     mkdir -p gitbuild/build && cd gitbuild/build && \
     cmake .. -GNinja -DLUA=ON -DIMPALAJIT=ON -DASAGI=ON && \
     ninja install && \

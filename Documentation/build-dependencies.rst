@@ -2,6 +2,9 @@
   SPDX-FileCopyrightText: 2018-2024 SeisSol Group
 
   SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 .. _build_dependencies:
 
@@ -201,7 +204,7 @@ Installing Libxsmm (CPU)
 
 .. code-block:: bash
 
-   git clone --depth=1 --branch 1.17 https://github.com/hfp/libxsmm
+   git clone --depth=1 --branch 1.17 https://github.com/libxsmm/libxsmm
    cd libxsmm
    make generator
    cp bin/libxsmm_gemm_generator $SEISSOL_PREFIX/bin/

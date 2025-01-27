@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Initializer/Typedefs.h"
 #ifdef ACL_DEVICE
 
@@ -25,8 +32,8 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
   receiveRegionsStates.resize(numberOfRegions);
 
   for (size_t region = 0; region < numberOfRegions; ++region) {
-    prefetchCopyRegionsStreams[region] = device.api->createGenericStream();
-    prefetchGhostRegionsStreams[region] = device.api->createGenericStream();
+    prefetchCopyRegionsStreams[region] = device.api->createStream();
+    prefetchGhostRegionsStreams[region] = device.api->createStream();
     receiveRegionsStates[region] = ReceiveState::RequiresMpiTesting;
   }
 
@@ -221,3 +228,4 @@ void GhostTimeClusterWithCopy<CommType>::prefetchGhostRegion(int region) {
 template class GhostTimeClusterWithCopy<MPI::DataTransferMode::CopyInCopyOutHost>;
 } // namespace seissol::time_stepping
 #endif // ACL_DEVICE
+
