@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Parallel/MPI.h"
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 
@@ -117,3 +124,4 @@ void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinc
 }
 
 } // namespace seissol::time_stepping
+

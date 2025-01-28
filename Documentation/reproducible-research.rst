@@ -1,14 +1,22 @@
+..
+  SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 Reproducible research
 ======================
 
-On this page we list datasets containing reproducible simulation scenarios realised with SeisSol and elementary benchmark examples. In these data sets, all required input files, etc., are provided, to promote reproducible research and open science, and to inspire new simulation scenarios. 
+On this page we list datasets containing reproducible simulation scenarios realized with SeisSol and elementary benchmark examples. In these data sets, all required input files, etc., are provided, to promote reproducible research and open science, and to inspire new simulation scenarios.
 
-Please contact us via `SeisSol Email list <mailto:seissol-maintainers@lists.lrz.de>`_, if you're interested to provide a scenario. While many data sets are hosted on Zenodo, we do not require specific formats or repositories. 
+Please contact us via `SeisSol Email list <mailto:seissol-maintainers@lists.lrz.de>`_, if you're interested to provide a scenario. While many data sets are hosted on Zenodo, we do not require specific formats or repositories.
 
 We provide datasets containing all input files of simulations in recent SeisSol publications as Zenodo repositories to promote reproducible research and open science.
 A non-exhaustive list is given below:
 
-.. list-table:: 
+.. list-table::
    :widths: 20 20 20 20 20 20 20
    :header-rows: 1
 
@@ -21,15 +29,15 @@ A non-exhaustive list is given below:
      - Data
 
    * - 2004 Mw 9.2 Sumatra |br| megathrust
-     - dynamic 
+     - dynamic
      - R
      - LSW
      - 4
      - `Uphoff et al. (2017) <https://doi.org/10.1145/3126908.3126948>`_
      - `zenodo.org/record/439946 <https://zenodo.org/record/439946>`_
 
-   * - Collective Knowledge |br| (CK) workflow 
-     - n/a 
+   * - Collective Knowledge |br| (CK) workflow
+     - n/a
      - n/a
      - n/a
      - n/a
@@ -53,7 +61,7 @@ A non-exhaustive list is given below:
      - `zenodo.org/record/2538024 <https://zenodo.org/record/2538024>`_
 
    * - 2018 Mw 7.5 Palu |br| earthquake
-     - dynamic 
+     - dynamic
      - mixed SS & N
      - fvw-RS
      - 3
@@ -115,14 +123,14 @@ A non-exhaustive list is given below:
      - 1
      - `Taufiqurrahman et al. (2022) <https://doi.org/10.1002/essoar.10510965.1>`_
      - `zenodo.org/record/6386938 <https://zenodo.org/record/6386938>`_
-     
+
    * - 2016 Mw 6.5 Norcia |br| earthquake
      - dynamic
      - N
      - LSW
      - 1
      - `Tinti et al. (2021) <https://doi.org/10.1016/j.epsl.2021.117237>`_
-     - `github repository <https://github.com/git-taufiq/NorciaMultiFault>`_  
+     - `github repository <https://github.com/git-taufiq/NorciaMultiFault>`_
 
    * - 2004 Mw 9.2 Sumatra |br| megathrust
      - dynamic
@@ -144,9 +152,9 @@ SeisSol setups for community benchmark are described in the cookbook  (see :ref:
 .. include:: table_cookbook.rst
 
 
-We provide the following small-scale examples, specifically designed for SeisSol training and tutorials, such as the  `CHEESE Advanced training on HPC for Computational Seismology <https://www.hlrs.de/training/2021-10-19-cheese/>`_ and `ICTP Advanced Workshop on Earthquake Fault Mechanics <https:We provide the following small-scale examples, specifically designed for SeisSol training and tutorials//indico.ictp.it/event/8715/overview>`_ .  These SeisSol training examples are part of the `SeisSol Docker container <https://github.com/SeisSol/Training>`_  which also includes related open-source tools (Gmsh and ParaView) and all required input files. 
+We provide the following small-scale examples, specifically designed for SeisSol training and tutorials, such as the  `CHEESE Advanced training on HPC for Computational Seismology <https://www.hlrs.de/training/2021-10-19-cheese/>`_ and `ICTP Advanced Workshop on Earthquake Fault Mechanics <https:We provide the following small-scale examples, specifically designed for SeisSol training and tutorials//indico.ictp.it/event/8715/overview>`_ .  These SeisSol training examples are part of the `SeisSol Docker container <https://github.com/SeisSol/Training>`_  which also includes related open-source tools (Gmsh and ParaView) and all required input files.
 
-.. list-table:: 
+.. list-table::
    :widths: 20 20 20 20 20 20
    :header-rows: 1
 
@@ -156,7 +164,7 @@ We provide the following small-scale examples, specifically designed for SeisSol
      - Friction |br| law [#f2]_
      - Number |br| of faults
      - Data
-     
+
    * - `TPV13 <https://github.com/SeisSol/Examples/tree/master/tpv12_13>`_
      - dynamic
      - N
@@ -165,17 +173,17 @@ We provide the following small-scale examples, specifically designed for SeisSol
      - `<https://github.com/SeisSol/Training/tree/main/tpv13>`_
 
    * - 2018 Mw 7.5 Palu earthquake |br| (reduced mesh-size)
-     - dynamic 
+     - dynamic
      - mixed SS & N
      - fvw-RS
      - 3
      - `<https://github.com/SeisSol/Training/tree/main/sulawesi>`_
-     
+
    * - `Northridge <https://github.com/SeisSol/Examples/tree/master/Northridge>`_
-     - kinematic 
+     - kinematic
      - R
      - n/a
      - 1
      - `<https://github.com/SeisSol/Training/tree/main/northridge>`_
-    
-     
+
+

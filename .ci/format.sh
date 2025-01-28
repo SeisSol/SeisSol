@@ -1,4 +1,10 @@
 #! /usr/bin/env sh
+# SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 # NOTE: This script was taken from PointCloudLibrary/pcl and adapted for SeisSol
 
@@ -9,16 +15,20 @@
 format() {
     # don't use a directory with whitespace
     local allowlist_dir="
+        auto-tuning/proxy/src
         src/DynamicRupture
+        src/Equations
         src/Geometry
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
         src/Initializer/Parameters
+        src/Initializer/TimeStepping/LtsWeights
         src/Initializer/Tree
         src/IO
         src/Kernels
         src/Modules
         src/Monitoring
+        src/Model
         src/Numerical
         src/Parallel
         src/Physics
@@ -30,17 +40,6 @@ format() {
 
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
-        src/Equations/elastic/Model/Datastructures.h
-        src/Equations/elastic/Model/IntegrationData.h
-        src/Equations/viscoelastic/Model/IntegrationData.h
-        src/Equations/viscoelastic2/Model/Datastructures.h
-        src/Equations/viscoelastic2/Model/IntegrationData.h
-        src/Equations/anisotropic/Model/Datastructures.h
-        src/Equations/anisotropic/Model/IntegrationData.h
-        src/Equations/poroelastic/Model/Datastructures.h
-        src/Equations/poroelastic/Model/IntegrationData.h
-        src/Equations/Datastructures.h
-        src/Equations/Setup.h
         src/Initializer/BasicTypedefs.h
         src/Initializer/Boundary.h
         src/Initializer/DynamicRupture.h
@@ -60,8 +59,6 @@ format() {
         src/Initializer/PreProcessorMacros.h
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
-        src/Model/CommonDatastructures.h
-        src/Model/Plasticity.h
         src/SeisSol.h
         src/SeisSol.cpp
         src/Main.cpp

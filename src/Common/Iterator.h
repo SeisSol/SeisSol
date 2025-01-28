@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_COMMON_ITERATOR_H_
 #define SEISSOL_SRC_COMMON_ITERATOR_H_
@@ -17,6 +20,10 @@
 namespace seissol::common {
 
 // TODO: remove once C++23 lands in SeisSol
+
+// cf. https://stackoverflow.com/a/44661987
+template<typename RangeT>
+using IteratorType = decltype(std::begin(std::declval<RangeT&>()));
 
 template <typename... RangeTs>
 class Zip {
@@ -72,7 +79,6 @@ public:
     }
 
     constexpr auto operator!=(const Iterator& other) const -> bool { return !(*this == other); }
-
 private:
     std::tuple<IteratorTs...> iterators;
     std::tuple<IteratorTs...> iteratorEnds;
@@ -83,25 +89,25 @@ private:
   Zip(bool lenient, RangeTs&&... ranges) : lenient(lenient), ranges(ranges...) {}
 
   constexpr auto begin() {
-    return Iterator(lenient,
+    return Iterator<IteratorType<RangeTs>...>(lenient,
                     tupleTransform([](auto& value) { return std::begin(value); }, ranges),
                     tupleTransform([](auto&& value) { return std::end(value); }, ranges));
   }
 
   constexpr auto end() {
-    return Iterator(lenient,
+    return Iterator<IteratorType<RangeTs>...>(lenient,
                     tupleTransform([](auto& value) { return std::end(value); }, ranges),
                     tupleTransform([](auto&& value) { return std::end(value); }, ranges));
   }
 
   constexpr auto begin() const {
-    return Iterator(lenient,
+    return Iterator<IteratorType<RangeTs>...>(lenient,
                     tupleTransform([](const auto& value) { return std::cbegin(value); }, ranges),
                     tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
   }
 
   constexpr auto end() const {
-    return Iterator(lenient,
+    return Iterator<IteratorType<RangeTs>...>(lenient,
                     tupleTransform([](const auto& value) { return std::cend(value); }, ranges),
                     tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
   }
@@ -179,9 +185,9 @@ class Range {
 
   Range(T start, T stop, T step) : startVal(start), stopVal(stop), stepVal(step) {}
 
-  constexpr auto begin() const { return Iterator(startVal, stepVal, stopVal); }
+  [[nodiscard]] constexpr auto begin() const { return Iterator(startVal, stepVal, stopVal); }
 
-  constexpr auto end() const { return Iterator(std::optional<T>(), stepVal, stopVal); }
+  [[nodiscard]] constexpr auto end() const { return Iterator(std::optional<T>(), stepVal, stopVal); }
 
   private:
   T startVal;

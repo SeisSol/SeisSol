@@ -1,15 +1,23 @@
-Initial Conditions
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+Initial conditions
 ==================
 
 Currently we provide the following initial conditions:
 
-Zero        
+Zero
 ----
 
-All quantities are set to zero. 
+All quantities are set to zero.
 This is the standard case to work with point sources or dynamic rupture.
 
-Planar wave  
+Planar wave
 -----------
 
 A planar wave for convergence tests.
@@ -26,7 +34,7 @@ https://github.com/SeisSol/SeisSol/tree/master/preprocessing/meshing/cube_c
 Superimposed planar wave
 ------------------------
 
-Superimposed three planar waves travelling in different directions. 
+Superimposed three planar waves travelling in different directions.
 This is especially interesting in the case of directional dependent properties such as for anisotropic materials.
 
 Travelling wave
@@ -53,17 +61,17 @@ The Travelling wave can be configured in the parameter file:
   The entries of :math:`k` are ``-P -S -S N N N +S +S +P``.
   In this example, we impose a P wave travelling in the opposite direction as :math:`k` with relative amplitude :math:`2` and an S wave travelling towards the same direction as :math:`k` with relative amplitude :math:`1`.
 
-Scholte     
+Scholte
 -------
 
 A Scholte wave to test elastic-acoustic coupling
 
-Snell       
+Snell
 -----
 
 Snells law to test elastic-acoustic coupling
 
-Ocean       
+Ocean
 -----
 
 An uncoupled ocean test case for acoustic equations
@@ -72,13 +80,13 @@ An uncoupled ocean test case for acoustic equations
 How to implement a new initial condition?
 -----------------------------------------
 
-New initial conditions can be easily implemented. Extend the class 
+New initial conditions can be easily implemented. Extend the class
 
 .. code-block:: c
 
   seissol::physics::Initalfield
 
-and implement the method 
+and implement the method
 
 .. code-block:: c
 

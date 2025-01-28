@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 Memory requirements
 ~~~~~~~~~~~~~~~~~~~
 
@@ -12,18 +20,18 @@ Therefore, a run using the viscoelastic wave equation with 100 million elements 
 LTS weight balancing strategies
 -------------------------------
 
-By default, SeisSol uses a single-constraint node-weight mesh partitioning when LTS is enabled. The node-weights are evaluated as follows: 
+By default, SeisSol uses a single-constraint node-weight mesh partitioning when LTS is enabled. The node-weights are evaluated as follows:
 
 .. math::
 
    w_{k} = c_{k} R^{L - l_{k}}
 
 
-where :math:`w_{k}` - node-weight of element :math:`k`; :math:`c_{k}` - cost of element :math:`k`, which depends whether 1) a cell is regular, 
+where :math:`w_{k}` - node-weight of element :math:`k`; :math:`c_{k}` - cost of element :math:`k`, which depends whether 1) a cell is regular,
 2) has :math:`n` dynamic rupture faces and 3) has :math:`m`  free surface with gravity faces; :math:`n, m \in [0, 4]`;  :math:`R` - LTS cluster update ratio;
 :math:`L` - total number of LTS clusters; :math:`l_{k} \in [0, L)` - time cluster number, which element :math:`k` belongs to.
 
-Because of the form of the node-weight function, we call this weight balancing strategy as *exponential*. The strategy reflects a computational 
+Because of the form of the node-weight function, we call this weight balancing strategy as *exponential*. The strategy reflects a computational
 intensity of each element, taking element-wise update frequencies into account, and thus it aims to balance computations between MPI ranks.
 However, the strategy may lead to memory imbalances, which can be a problem for systems with a limited amount of memory,
 e.g. GPUs.
@@ -36,7 +44,7 @@ To address this issue, two other multi-constraint mesh partitioning strategies a
 .. math::
 
     w_{k} \in \mathbb{R}^{2} \mid
-    w_{k} = 
+    w_{k} =
     \begin{bmatrix}
     c_{k} R^{L - l_{k}}\\
     1\\
@@ -72,5 +80,5 @@ A user can specify a particular partitioning strategy in *parameters.par* file:
     /
 
 
-Note, the default (*exponential*) strategy is going to be used if *ClusteredLTS* is :math:`\geq 2` and 
+Note, the default (*exponential*) strategy is going to be used if *ClusteredLTS* is :math:`\geq 2` and
 *LtsWeightTypeId* is not specified.

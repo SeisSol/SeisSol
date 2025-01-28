@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "SourceTimeFunction.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Tree/Layer.h"
@@ -49,7 +56,7 @@ void DeltaSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                                   const seissol::initializer::DynamicRupture* const dynRup,
                                   real fullUpdateTime) {
   const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta*>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);
 }
 

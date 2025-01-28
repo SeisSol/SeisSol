@@ -1,5 +1,12 @@
-#ifndef SEISSOL_GPU_RATEANDSTATEFASTVELOCITYWEAKENING_H
-#define SEISSOL_GPU_RATEANDSTATEFASTVELOCITYWEAKENING_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
 
@@ -19,7 +26,7 @@ class FastVelocityWeakeningLaw
                                       const seissol::initializer::DynamicRupture* const dynRup,
                                       real fullUpdateTime) override {
     using SelfInitializerType = seissol::initializer::LTSRateAndStateFastVelocityWeakening;
-    auto* concreteLts = dynamic_cast<const SelfInitializerType* const>(dynRup);
+    auto* concreteLts = dynamic_cast<const SelfInitializerType*>(dynRup);
     this->srW = layerData.var(concreteLts->rsSrW, seissol::initializer::AllocationPlace::Device);
 
     using ParentType = RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod>;
@@ -147,4 +154,4 @@ class FastVelocityWeakeningLaw
 };
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_GPU_RATEANDSTATEFASTVELOCITYWEAKENING_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_

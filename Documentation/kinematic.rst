@@ -1,9 +1,17 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _northridge:
 
 Kinematic source example - 1994 Northridge earthquake
 =====================================================
 
-We use a model of the 1994 Northridge earthquake to illustrate 
+We use a model of the 1994 Northridge earthquake to illustrate
 how to set up kinematic models in SeisSol.
 
 This Mw6.7 earthquake occurred in the San Fernando Valley region of Los Angeles, California, USA on January 17.
@@ -13,8 +21,8 @@ The ruptured fault strikes N122\ :math:`^\circ`\ E and dips at 40\ :math:`^\circ
 Geometry
 ~~~~~~~~
 
-The structural model is built with Gmsh. 
-It features a planar fault of 20 km :math:`\times` 25 km dipping 40 :math:`^\circ`, 
+The structural model is built with Gmsh.
+It features a planar fault of 20 km :math:`\times` 25 km dipping 40 :math:`^\circ`,
 within a half-space region of 100 km :math:`\times` 100 km :math:`\times` 60 km
 
 .. figure:: LatexFigures/1994northridge.png
@@ -22,17 +30,17 @@ within a half-space region of 100 km :math:`\times` 100 km :math:`\times` 60 km
    :width: 12.00000cm
    :align: center
 
-   Geometry assumed for the 1994 Northridge earthquake scenario. 
+   Geometry assumed for the 1994 Northridge earthquake scenario.
 
 Kinematic rupture Source
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Kinematic models in the *standard rupture format* can be used directly in SeisSol, 
-after converting them to nrf with the rconv tool (see next and :doc:`standard-rupture-format` for more details), with the following 
+Kinematic models in the *standard rupture format* can be used directly in SeisSol,
+after converting them to nrf with the rconv tool (see next and :doc:`standard-rupture-format` for more details), with the following
 lines in the parameter.par file:
 
 ::
-  
+
   &SourceType
   Type = 42
   FileName=’northridge.nrf’
@@ -41,7 +49,7 @@ lines in the parameter.par file:
 A description of the standard rupture format can be found at https://strike.scec.org/scecpedia/Standard_Rupture_Format.
 Please note that some variables describing the kinematic model are given in non SI units.
 
-The fault of the Northridge model is divided into 20 point-sources along strike times 25 point-sources 
+The fault of the Northridge model is divided into 20 point-sources along strike times 25 point-sources
 along dip. This can be seen in the SRF file header, whose format is the following:
 
 ::
@@ -69,7 +77,7 @@ NP Number of points in fault plane
 
 
 Each point source (subfault) is described in the file in a data block, with the following format:
-  
+
 ::
 
   LON LAT DEP STK DIP AREA TINIT DT
@@ -104,7 +112,7 @@ Project geographic coordinates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The geographic coordinates of the source model are projected to Cartesian
-coordinates with the pre-processing tool `rconv 
+coordinates with the pre-processing tool `rconv
 <https://github.com/SeisSol/SeisSol/tree/master/preprocessing/science/rconv>`_.
 
 ::
@@ -114,7 +122,7 @@ coordinates with the pre-processing tool `rconv
 Results
 ~~~~~~~
 
-The fault is ruptured over 7s, leading to a MW6.7 earthquake. 
+The fault is ruptured over 7s, leading to a MW6.7 earthquake.
 A snapshot of the vertical ground-surface velocity at 7s after rupture onset in shown below.
 
 .. figure:: LatexFigures/1994_snap2_surface.png

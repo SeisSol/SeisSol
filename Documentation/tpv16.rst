@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _tpv16:
 
 SCEC TPV16/17
@@ -43,7 +51,7 @@ provided in https://github.com/SeisSol/Examples/tree/master/tpv16.
    :width: 10.00000cm
    :align: center
 
-   Fault geometry of TPV16. Planar fault with nucleation size of 200 m. 
+   Fault geometry of TPV16. Planar fault with nucleation size of 200 m.
 
 Material parameter
 ~~~~~~~~~~~~~~~~~~
@@ -75,7 +83,7 @@ Table: Table of bulk and material parameters in TPV16/17.
    :width: 11.00000cm
    :align: center
 
-   Mapview of fault randomly-generated initial stress in TPV16. 
+   Mapview of fault randomly-generated initial stress in TPV16.
 
 Nucleation parameters
 ~~~~~~~~~~~~~~~~~~~~~
@@ -117,7 +125,7 @@ T=5.5 s.
    :width: 11.00000cm
    :align: center
 
-   Mapview of fault slip rate along strike-direction. 
+   Mapview of fault slip rate along strike-direction.
 
 There are several receivers on the fault surface. Figure
 [fig:tpv16fault] shows slip rate along the strike- and downdip-direction
@@ -129,14 +137,14 @@ on the fault at point (15 km, 0 km, -9 km).
    :align: center
 
    Fault slip along strike- (left)and downdip- (right) direction.
-   
+
 .. figure:: ./LatexFigures/tpv16_uvw1.png
    :alt: Velocity at two opposite stations across the fault surface.
    :width: 11.00000cm
    :align: center
 
    Velocity at two opposite stations across the fault surface.
-   
-   
-   
-   
+
+
+
+

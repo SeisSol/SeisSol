@@ -1,5 +1,12 @@
-#ifndef SEISSOL_ACTOR_H
-#define SEISSOL_ACTOR_H
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_H_
+#define SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_H_
 
 #include "ActorState.h"
 #include <chrono>
@@ -94,4 +101,6 @@ public:
 
 
 
-#endif //SEISSOL_ACTOR_H
+
+#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_H_
+

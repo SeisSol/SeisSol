@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "VtkHdf.h"
 
@@ -66,7 +69,6 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   // to capture by value
   auto selfGlobalElementCount = globalElementCount;
   auto selfLocalElementCount = localElementCount;
-  auto selfElementOffset = elementOffset;
   auto selfGlobalPointCount = globalPointCount;
   auto selfLocalPointCount = localPointCount;
   auto selfPointOffset = pointOffset;

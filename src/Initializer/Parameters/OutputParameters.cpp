@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "OutputParameters.h"
 #include <Equations/Datastructures.h>
 #include <Initializer/InputAux.h>
@@ -136,8 +143,10 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 
   const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
   const auto computeStrain = reader->readWithDefault("receivercomputestrain", false);
-  const auto samplingInterval = reader->readWithDefault("pickdt", 0.0);
+  const auto samplingInterval = reader->readWithDefault("pickdt", 0.005);
   const auto fileName = reader->readWithDefault("rfilename", std::string(""));
+
+  warnIntervalAndDisable(enabled, samplingInterval, "receiveroutput", "pickdt");
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
 

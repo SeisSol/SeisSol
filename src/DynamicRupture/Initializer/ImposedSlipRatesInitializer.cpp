@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "ImposedSlipRatesInitializer.h"
 
 #include "DynamicRupture/Misc.h"
@@ -33,7 +40,7 @@ void ImposedSlipRatesInitializer::initializeFault(
     std::unordered_map<std::string, real*> parameterToStorageMap;
 
     const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSImposedSlipRates* const>(dynRup);
+        dynamic_cast<const seissol::initializer::LTSImposedSlipRates*>(dynRup);
     auto* imposedSlipDirection1 = layer.var(concreteLts->imposedSlipDirection1);
     auto* imposedSlipDirection2 = layer.var(concreteLts->imposedSlipDirection2);
     auto* onsetTime = layer.var(concreteLts->onsetTime);
@@ -122,7 +129,7 @@ void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::Layer& layer) {
   const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe*>(dynRup);
   real(*tauS)[misc::NumPaddedPoints] = layer.var(concreteLts->tauS);
   real(*tauR)[misc::NumPaddedPoints] = layer.var(concreteLts->tauR);
   parameterToStorageMap.insert({"tau_S", reinterpret_cast<real*>(tauS)});
@@ -132,7 +139,7 @@ void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
 void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(
     const seissol::initializer::DynamicRupture* const dynRup, seissol::initializer::Layer& layer) {
   const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe*>(dynRup);
   real(*tauS)[misc::NumPaddedPoints] = layer.var(concreteLts->tauS);
   real(*tauR)[misc::NumPaddedPoints] = layer.var(concreteLts->tauR);
   // ensure that tauR is larger than tauS and that tauS and tauR are greater than 0 (the contrary
@@ -150,7 +157,7 @@ void ImposedSlipRatesGaussianInitializer::addAdditionalParameters(
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::Layer& layer) {
   const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesGaussian* const>(dynRup);
+      dynamic_cast<const seissol::initializer::LTSImposedSlipRatesGaussian*>(dynRup);
   real(*riseTime)[misc::NumPaddedPoints] = layer.var(concreteLts->riseTime);
   parameterToStorageMap.insert({"rupture_rise_time", reinterpret_cast<real*>(riseTime)});
 }

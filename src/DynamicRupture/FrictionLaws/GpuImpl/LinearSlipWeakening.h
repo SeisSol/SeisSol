@@ -1,5 +1,12 @@
-#ifndef SEISSOL_GPU_LINEARSLIPWEAKENING_H
-#define SEISSOL_GPU_LINEARSLIPWEAKENING_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 
@@ -174,8 +181,7 @@ class LinearSlipWeakeningLaw
   void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
                                       const seissol::initializer::DynamicRupture* const dynRup,
                                       real fullUpdateTime) override {
-    auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
+    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening*>(dynRup);
     this->dC = layerData.var(concreteLts->dC, seissol::initializer::AllocationPlace::Device);
     this->muS = layerData.var(concreteLts->muS, seissol::initializer::AllocationPlace::Device);
     this->muD = layerData.var(concreteLts->muD, seissol::initializer::AllocationPlace::Device);
@@ -336,7 +342,7 @@ class BiMaterialFault {
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial* const>(dynRup);
+        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup);
     this->regularisedStrength = layerData.var(concreteLts->regularisedStrength,
                                               seissol::initializer::AllocationPlace::Device);
   }
@@ -432,4 +438,4 @@ class TPApprox {
 
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_GPU_LINEARSLIPWEAKENING_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_

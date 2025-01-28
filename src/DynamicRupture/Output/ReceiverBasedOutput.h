@@ -1,5 +1,12 @@
-#ifndef SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP
-#define SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
 
 #include "DynamicRupture/Output/ParametersInitializer.h"
 #include "Geometry/MeshReader.h"
@@ -119,4 +126,5 @@ class ReceiverOutput {
                                           const std::array<real, 6>& rotatedStress) {};
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_

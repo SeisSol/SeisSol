@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: 2024-2025 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: coverage
+on:
+  - push
+
+jobs:
+  coverage:
+    name: coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - name: apt-get
+        run: |
+          sudo apt-get update
+          sudo apt-get install lcov ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libmetis-dev libomp-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3.10 python3-pip
+
+          sudo pip3 install setuptools numpy --break-system-packages
+          sudo mkdir -p /opt/dependencies
+
+      - name: checkout-easi
+        uses: actions/checkout@master
+        with:
+          repository: SeisSol/easi
+
+      - name: build-easi
+        run: |
+          mkdir build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
+          ninja install
+      
+      - id: checkout
+        name: checkout-seissol
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - id: build
+        name: build-seissol
+        run: |
+          mkdir build && cd build
+
+          export CC=gcc-13
+          export CXX=g++-13
+          export FC=gfortran-13
+
+          mkdir -p /opt/seissol
+
+          # run w/o netcdf for consistency with the clang-tidy check
+          export CMAKE_PREFIX_PATH=/opt/dependencies
+          cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DCOVERAGE=ON -DTESTING=ON -DTESTING_GENERATED=ON -DHOST_ARCH=hsw -DORDER=6 -DCMAKE_BUILD_TYPE=Debug -DEQUATIONS=elastic -DPRECISION=double
+          ninja
+
+      - name: seissol-coverage
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          cd build
+          ninja seissol-coverage
+      
+      - name: upload-seissol-coverage
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        with:
+          name: seissol-coverage
+          path: build/seissol-coverage

@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 Computing time vs order of accuracy
 ===================================
 
@@ -21,7 +29,7 @@ relative to order 3
 Increase due to time steps                1 1.4 1.8 2.2   2.6   3  3.4  3.8
 Increase due to number of basis functions 1 2   3.5 5.6   8.4   12 16.5 22
 theoretical increase relative to order 3  1 2.8 6.3 12.32 21.84 36 56.1 83.6
-observed increase (on SM2)                1 2.0 4.6 11.5               
+observed increase (on SM2)                1 2.0 4.6 11.5
 ========================================= = === === ===== ===== == ==== ====
 
 The last line shows the observed time increase on SuperMUC Phase 2 on a small

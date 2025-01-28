@@ -1,5 +1,12 @@
-#ifndef SEISSOL_LINEARSLIPWEAKENING_H
-#define SEISSOL_LINEARSLIPWEAKENING_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_LINEARSLIPWEAKENING_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_LINEARSLIPWEAKENING_H_
 
 #include "BaseFrictionLaw.h"
 
@@ -43,7 +50,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
     const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
+        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening*>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
     this->muS = layerData.var(concreteLts->muS);
     this->muD = layerData.var(concreteLts->muD);
@@ -325,4 +332,5 @@ class TPApprox {
 };
 
 } // namespace seissol::dr::friction_law
-#endif // SEISSOL_LINEARSLIPWEAKENING_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_LINEARSLIPWEAKENING_H_

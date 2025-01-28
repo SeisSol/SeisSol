@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 Generating a CAD model for a fully-coupled earthquake-tsunami simulation
 ==========================================================================
 
@@ -59,7 +67,7 @@ Region 3 is the solid Earth below the sea floor, region 4 is the larger ocean re
 
 The next step is to delete the solid Earth regions 3 (note that region numbers may differ). Use ``Discrete->Delete`` add regions 3, and press ``Ok``.
 
-At this point, the model has 2 regions and 1 surface. 
+At this point, the model has 2 regions and 1 surface.
 We can double-check the quality of the intersections with ``Prepare->Remove Small features``.
 Here the shortest edge in the model is 139 m, which is large enough.
 If this was not the case, small edges can be identified, and the associated node of the not yet intersected topography moved (with ``Discrete->Deform Face``).
@@ -87,7 +95,7 @@ Because of that, the error ``Cannot resolve intersecting mesh`` is raised, even 
 To deal with this problem, we extract the mesh of the sea floor and increase the sea floor depth where it is very close to the sea surface.
 This is done with:
 
-- ``Mesh->Miscellaneous->Use Discrete Geometry Mesh`` on the sea-floor and 
+- ``Mesh->Miscellaneous->Use Discrete Geometry Mesh`` on the sea-floor and
 - ``Mesh->Element Type->No Mesh->Entity`` on all other surfaces.
 - ``Volume Meshing`` should be removed.
 - ``Mesh->Generate Mesh``
@@ -100,7 +108,7 @@ Then we enforce the minimum depth of the seafloor with:
     convertInp.py seafloor.inp seafloor.stl --enforce_min_depth 40
 
 Note that the minimum depth of 40 m applies only on nodes of the seafloor triangulation, that is the effective depth varies linearly between these nodes and the coast.
-A value of 40 m makes sense due to the coarse (horizontal) resolution of the topography here used (900 m resolution). 
+A value of 40 m makes sense due to the coarse (horizontal) resolution of the topography here used (900 m resolution).
 For example, we see that with 25 m, SimModeler can successfully mesh the water layer only with a mesh size smaller than 200 m, while a value of 40 m allows at least 1 km.
 In case of a finer topography resolution, a smaller value should be used.
 

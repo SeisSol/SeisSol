@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 CAD models
 ==========
 
@@ -25,8 +33,8 @@ is available  `here <https://github.com/SeisSol/Meshing/tree/master/creating_geo
 They are documented (try -h option).
 The most important scripts are:
 
--  ``create_fault_from_trace.py`` allows creating a meshed surface from a fault trace. 
-   The fault trace is resampled, smoothed, and extended using either a constant, a depth-varying, or an along-strike varying dip. 
+-  ``create_fault_from_trace.py`` allows creating a meshed surface from a fault trace.
+   The fault trace is resampled, smoothed, and extended using either a constant, a depth-varying, or an along-strike varying dip.
 - ``create_surface_from_rectilinear_grid.py`` allows creating a meshed surface from a (possibly sparse, e.g. Slab2.0 dataset) structured dataset (e.g. netcdf).
 -  ``create_surface_from_structured_grid.py`` allows creating a meshed surface from structured grid of nodes.
    Vertices in a row or a column do not necessary share the same x and y values (non rectilinear grid).
@@ -40,7 +48,7 @@ The most important scripts are:
 Processing high-resolution topographic data
 -------------------------------------------
 
-High resolution topographic and bathymetric data are usually available. 
+High resolution topographic and bathymetric data are usually available.
 Generating geometric models including such large datasets can be challenging.
 In particular, intersecting such surfaces with other surfaces can be time-consuming and error-prone.
 Here we present various strategies and tools to overcome this challenge.
@@ -49,7 +57,7 @@ Here we present various strategies and tools to overcome this challenge.
 Using Gdal
 ----------
 
-`Gdal <https://www.gdal.org/>`__ is a powerful library to process gridded data. 
+`Gdal <https://www.gdal.org/>`__ is a powerful library to process gridded data.
 It allows, for instance, to easily resample or crop a dataset, and to convert files in handy file formats.
 Here is a commented example of our use of Gdal to create a ts surface from a high-resolution topography of Nepal (file data/merged_original.tif).
 
@@ -72,7 +80,7 @@ Topographic data coarsening with SimModeler
 To avoid dealing with too large files when building the CAD model, topography data can be coarsened where
 fine resolution is not necessary. For further details, see :doc:`remeshing-the-topography`.
 
-The same procedure can be also useful when the intersection between 2 surfaces fails in Gocad. 
+The same procedure can be also useful when the intersection between 2 surfaces fails in Gocad.
 In fact, creating a clean mesh of one of the surfaces can facilitate the intersection step in Gocad. In such a
 case, all surface already intersected with the surface that we want to
 mesh again have to be exported to SimModeler. The mesh attributes "Use
@@ -101,7 +109,7 @@ On the use of projections
 Special care must be taken when projecting from WGS84 to a projected
 coordinate system (e.g. Mercator) as the coordinates of the projected
 model can then be centered on a point distant from (0,0), which can cause
-numerical precision issues when building the geometric model or when meshing. 
+numerical precision issues when building the geometric model or when meshing.
 For instance, for the Kaikoura
 scenario, we used EPSG:3994, leading to a model centered on (6e6,-4e6) m
 for a model size of roughly 500 km. It can then be a good idea to
