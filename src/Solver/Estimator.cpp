@@ -29,8 +29,8 @@ auto miniSeisSol() -> double {
   const auto proxyResult = seissol::proxy::runProxy(config);
 
   const auto summary = statistics::parallelSummary(proxyResult.time);
-  logInfo() << "min:" << summary.min << "max" << summary.max << "mean:" << summary.mean
-            << "median:" << summary.median << "stddev:" << summary.std;
+  logInfo() << "Runtime results:" << "min:" << summary.min << "max" << summary.max
+            << "mean:" << summary.mean << "median:" << summary.median << "stddev:" << summary.std;
 
   return proxyResult.time;
 }
@@ -41,6 +41,7 @@ auto hostDeviceSwitch() -> int {
   }
 
   unsigned clusterSize = 1;
+  bool found = false;
   logInfo() << "Running host-device switchpoint detection test";
   for (int i = 0; i < 20; ++i) {
     auto config = proxy::ProxyConfig{clusterSize,
@@ -53,11 +54,22 @@ auto hostDeviceSwitch() -> int {
     const auto resultDevice = proxy::runProxy(config);
 
     if (resultHost.time > resultDevice.time) {
-      return clusterSize;
+      clusterSize -= 1;
+      found = true;
+      break;
     }
 
     clusterSize *= 2;
   }
+
+  if (!found) {
+    clusterSize = 0;
+  }
+
+  const auto summary = statistics::parallelSummary(clusterSize);
+
+  logInfo() << "Switchpoint summary:" << "min:" << summary.min << "max" << summary.max
+            << "mean:" << summary.mean << "median:" << summary.median << "stddev:" << summary.std;
 
   return 0;
 }

@@ -289,10 +289,12 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
       hdenabled = false;
       logInfo() << "No host-device switching. Everything runs on the GPU.";
     } else if (hdswitch == "auto") {
+      hdenabled = true;
       logInfo() << "Automatic host-device switchpoint detection.";
       const auto hdswitchInt = solver::hostDeviceSwitch();
       seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
     } else {
+      hdenabled = true;
       const auto hdswitchInt = utils::StringUtils::parse<int>(hdswitch);
       logInfo() << "Manual host-device cutoff set to" << hdswitchInt << ".";
       seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
