@@ -10,6 +10,7 @@
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/GlobalData.h>
+#include <Initializer/LTS.h>
 #include <Initializer/MemoryAllocator.h>
 #include <Initializer/Tree/Layer.h>
 #include <Initializer/Tree/TimeCluster.h>
@@ -26,6 +27,8 @@
 #endif
 
 namespace {
+constexpr auto TimeStepWidth = 1.0;
+
 void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var(lts.dofs);
   real** buffers = layer.var(lts.buffers);
@@ -97,7 +100,7 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
 #pragma omp parallel for schedule(static)
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-    localIntegration[cell].specific.typicalTimeStepWidth = miniSeisSolTimeStep;
+    localIntegration[cell].specific.typicalTimeStepWidth = TimeStepWidth;
   }
 #endif
 
@@ -135,8 +138,7 @@ void ProxyData::initGlobalData() {
   neighborKernel.setGlobalData(globalData);
   dynRupKernel.setGlobalData(globalData);
 
-  const auto timeStepWidth = 1.0;
-  dynRupKernel.setTimeStepWidth(timeStepWidth);
+  dynRupKernel.setTimeStepWidth(TimeStepWidth);
 }
 
 void ProxyData::initDataStructures(bool enableDR) {

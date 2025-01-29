@@ -31,6 +31,7 @@
 #include <cstddef>
 #include <string>
 #include <unordered_map>
+#include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <vector>

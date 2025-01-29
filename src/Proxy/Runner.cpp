@@ -24,7 +24,6 @@
 #endif
 
 #include "Common.h"
-#include "LikwidWrapper.h"
 
 #ifdef __MIC__
 #define __USE_RDTSC
