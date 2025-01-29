@@ -221,7 +221,7 @@ private:
     
     //! Update relax time for plasticity
     void updateRelaxTime() {
-      m_oneMinusIntegratingFactor = (m_tv > 0.0) ? 1.0 - exp(-timeStepSize() / m_tv) : 1.0;
+      m_oneMinusIntegratingFactor = (m_tv > 0.0) ? -std::expm1(-timeStepSize() / m_tv) : 1.0;
     }
 
   const LayerType layerType;
