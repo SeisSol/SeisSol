@@ -22,11 +22,11 @@ import kernels.plasticity
 import kernels.point
 import kernels.surface_displacement
 import kernels.vtkproject
-from yateto import (Generator, NamespacedGenerator, gemm_configuration,
-                    useArchitectureIdentifiedBy)
+from yateto import (Generator, GlobalRoutineCache, NamespacedGenerator,
+                    gemm_configuration, useArchitectureIdentifiedBy)
 from yateto.ast.cost import (BoundingBoxCostEstimator,
                              FusedGemmsBoundingBoxCostEstimator)
-from yateto.gemm_configuration import Eigen, GeneratorCollection
+from yateto.gemm_configuration import GeneratorCollection
 
 
 def main():
@@ -120,6 +120,10 @@ def main():
 
     equation_class = equations.EQUATION_CLASS
 
+    routine_cache = GlobalRoutineCache()
+
+    gemmTools = GeneratorCollection(gemm_generators)
+
     def generate_equation(subfolders, equation, order):
         precision = "double" if cmdLineArgs.host_arch[0] == "d" else "single"
 
@@ -194,13 +198,13 @@ def main():
         subfolders += [outputDirName]
 
         # Generate code
-        gemmTools = GeneratorCollection(gemm_generators)
         generator.generate(
             outputDir=trueOutputDir,
             namespace="seissol",
             gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=include_tensors,
+            routine_cache=routine_cache,
         )
 
     def generate_general(subfolders):
@@ -221,9 +225,10 @@ def main():
         generator.generate(
             outputDir=outputDir,
             namespace="seissol_general",
-            gemm_cfg=GeneratorCollection([Eigen(arch)]),
+            gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir),
+            routine_cache=routine_cache,
         )
 
     def forward_files(filename):
@@ -240,16 +245,15 @@ def main():
     generate_equation(subfolders, equation_class, cmdLineArgs.order)
     generate_general(subfolders)
 
+    routine_cache.generate(cmdLineArgs.outputDir, "seissol")
+
     forward_files("init.h")
     forward_files("kernel.h")
-    forward_files("subroutine.h")
     forward_files("tensor.h")
     forward_files("init.cpp")
     forward_files("kernel.cpp")
-    forward_files("subroutine.cpp")
     forward_files("tensor.cpp")
     forward_files("test-kernel.cpp")
-    forward_files("gpulike_subroutine.cpp")
 
 
 if __name__ == "__main__":
