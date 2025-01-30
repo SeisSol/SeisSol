@@ -16,6 +16,10 @@
 #include <cstddef>
 #include <init.h>
 
+#ifndef __DPCPP_COMPILER
+#include <hipSYCL/sycl/usm.hpp>
+#endif
+
 namespace seissol::dr::friction_law::gpu {
 FrictionSolverDetails::FrictionSolverDetails(
     seissol::initializer::parameters::DRParameters* drParameters)

@@ -140,16 +140,17 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
   logInfo(rank) << "Total     pspamm HW-FLOP: "
                 << UnitFlop.formatPrefix(totalFlops[Pspamm]).c_str();
 #endif
+  const auto totalHardwareFlops =
+      totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] + totalFlops[PLHardwareFlops];
+  const auto totalNonZeroFlops =
+      totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops] + totalFlops[PLNonZeroFlops];
+
+  const auto percentageUsefulFlops = totalNonZeroFlops / totalHardwareFlops * 100;
+
   logInfo(rank) << "Total calculated HW-FLOP: "
-                << UnitFlop
-                       .formatPrefix(totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] +
-                                     totalFlops[PLHardwareFlops])
-                       .c_str();
-  logInfo(rank) << "Total calculated NZ-FLOP: "
-                << UnitFlop
-                       .formatPrefix(totalFlops[WPNonZeroFlops] + totalFlops[DRNonZeroFlops] +
-                                     totalFlops[PLNonZeroFlops])
-                       .c_str();
+                << UnitFlop.formatPrefix(totalHardwareFlops).c_str();
+  logInfo(rank) << "Total calculated NZ-FLOP: " << UnitFlop.formatPrefix(totalNonZeroFlops).c_str();
+  logInfo(rank) << "NZ part of HW-FLOP:" << percentageUsefulFlops << "%";
   logInfo(rank) << "Total calculated HW-FLOP/s: "
                 << UnitFlopPerS
                        .formatPrefix((totalFlops[WPHardwareFlops] + totalFlops[DRHardwareFlops] +
