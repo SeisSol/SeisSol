@@ -219,16 +219,13 @@ struct LTS {
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
                                    LTSTree* tree) const {
-    // TODO: customize a bit more
-    constexpr std::size_t Unpadded = tensor::Q::Shape[0];
-    constexpr std::size_t Padded = tensor::Q::Size / tensor::Q::Shape[1];
-    manager.registerPaddedData<Padded, Unpadded>("dofs", tree, dofs);
+    manager.registerData("dofs", tree, dofs);
     if constexpr (kernels::size<tensor::Qane>() > 0) {
-      manager.registerPaddedData<Padded, Unpadded>("dofsAne", tree, dofsAne);
+      manager.registerData("dofsAne", tree, dofsAne);
     }
     // check plasticity usage over the layer mask (for now)
     if (plasticity.mask == LayerMask(Ghost)) {
-      manager.registerPaddedData<Padded, Unpadded>("pstrain", tree, pstrain);
+      manager.registerData("pstrain", tree, pstrain);
     }
   }
 };
