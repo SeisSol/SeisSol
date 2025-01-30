@@ -1,5 +1,12 @@
-#ifndef SEISSOL_GPU_SLOWVELOCITYWEAKENINGLAW_H
-#define SEISSOL_GPU_SLOWVELOCITYWEAKENINGLAW_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
 
@@ -67,11 +74,11 @@ class SlowVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws,
    * we just copy the buffer into the member variable.
    */
-  void resampleStateVar(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
+  void resampleStateVar(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {
     const auto layerSize{this->currLayerSize};
     auto* stateVariable{this->stateVariable};
 
-    sycl::nd_range rng{{layerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{layerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -86,4 +93,4 @@ class SlowVelocityWeakeningLaw
 };
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_GPU_SLOWVELOCITYWEAKENINGLAW_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_

@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: jsonlint
+on:
+  - push
+
+jobs:
+  jsonlint:
+    name: jsonlint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: run-jsonlint
+        run: |
+          sudo apt install -y nodejs
+          npm install jsonlint -g
+
+      - name: run-jsonlint
+        run: |
+          set -euo pipefail
+          for f in $(find ./ -iname '*.json'); do jsonlint $f -q; done

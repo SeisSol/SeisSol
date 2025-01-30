@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _fault_output:
 
 Fault output
@@ -11,7 +19,7 @@ There are two primary methods for visualizing on-fault rupture dynamics:
 1. Evaluation of rupture characteristics at specific on-fault locations via ASCII receiver files
 2. Visualization across the entire fault surface with files that can be opened with ParaView
 
-While threads or nodes can be allocated to write the ParaView output  (see :ref:`asynchronous-output`), it is typically not required. 
+While threads or nodes can be allocated to write the ParaView output  (see :ref:`asynchronous-output`), it is typically not required.
 
 DynamicRupture Namelist OutputPointType Configuration
 -----------------------------------------------------
@@ -36,7 +44,7 @@ The output type generated is determined by the **OutputPointType** variable in t
 Configuring ParaView output
 ---------------------------
 
-You can adjust the ParaView output using the Elementwise namelist. Here's an example of how to do this:
+You can adjust the ParaView output using the Elementwise namelist. Here is an example of how to do this:
 
 .. code-block:: Fortran
 
@@ -45,6 +53,7 @@ You can adjust the ParaView output using the Elementwise namelist. Here's an exa
   OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
   refinement_strategy = 1 ! or 2
   refinement = 1
+  vtkorder = -1
   /
 
 printTimeInterval_Sec
@@ -61,7 +70,7 @@ The **refinement** variable determines how the output mesh is created:
 - refinement = 1 subdivides each triangle into 3 or 4 subtriangles, depending on the refinement_strategy. A higher refinement value will further subdivide each subtriangle.
 
 - refinement_strategy = 1 divides each triangle into 3 triangles, all sharing the triangle barycenter as a node.
-- refinement_strategy = 2 divides each triangle into 4 triangles. 
+- refinement_strategy = 2 divides each triangle into 4 triangles.
 
 OutputMask
 ~~~~~~~~~~~
@@ -122,6 +131,11 @@ To generate ASCII receiver files, configure the **Pickpoint** namelist as in thi
 .. _outputmask-1:
 
 OutputMask
-~~~~~~~~~~~
+~~~~~~~~~~
 
 This is the same as for the ParaView output.
+
+High-Order VTKHDF Output
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The high-order elementwise output can be enabled by setting ``vtkorder`` in the ``elementwise`` section to a positive value, corresponding to the order of the output polynomial per cell.

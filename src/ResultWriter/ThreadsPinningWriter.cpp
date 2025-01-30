@@ -1,9 +1,20 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "ResultWriter/ThreadsPinningWriter.h"
+#include "Common/Filesystem.h"
+#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
-#include "Common/filesystem.h"
-#include <sched.h>
+#include <Parallel/Pin.h>
 #include <fstream>
-#include "Parallel/Helper.hpp"
+#include <ios>
+#include <sched.h>
+#include <sstream>
+#include <string>
 
 #ifndef __APPLE__
 #include <sys/sysinfo.h>
@@ -13,13 +24,16 @@
 #endif // __APPLE__
 
 #ifndef __APPLE__
-namespace seissol::writer::pinning::details {
+namespace {
+
+using namespace seissol::parallel;
+
 struct PinningInfo {
-  std::string coreIds{};
-  std::string numaIds{};
+  std::string coreIds;
+  std::string numaIds;
 };
 
-PinningInfo getPinningInfo(cpu_set_t const& set) {
+PinningInfo getPinningInfo(const cpu_set_t& set) {
   std::stringstream coreIdsStream;
   std::stringstream numaIdsStream;
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
@@ -52,22 +66,21 @@ PinningInfo getPinningInfo(cpu_set_t const& set) {
 
   return pinningInfo;
 }
-} // namespace seissol::writer::pinning::details
+} // namespace
 #endif // __APPLE__
 
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
 #ifndef __APPLE__
-  auto workerInfo = pinning::details::getPinningInfo(pinning.getWorkerUnionMask().set);
+  auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
-  seissol::writer::pinning::details::PinningInfo commThreadInfo;
+  PinningInfo commThreadInfo;
   if (seissol::useCommThread(seissol::MPI::mpi)) {
     auto freeCpus = pinning.getFreeCPUsMask();
-    commThreadInfo = pinning::details::getPinningInfo(freeCpus.set);
-  }
-  else {
+    commThreadInfo = getPinningInfo(freeCpus.set);
+  } else {
     cpu_set_t emptyUnion;
     CPU_ZERO(&emptyUnion);
-    commThreadInfo = pinning::details::getPinningInfo(emptyUnion);
+    commThreadInfo = getPinningInfo(emptyUnion);
   }
 
   auto workerThreads = seissol::MPI::mpi.collectContainer(workerInfo.coreIds);

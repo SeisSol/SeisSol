@@ -1,11 +1,20 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "tests/TestHelper.h"
+#include <Equations/viscoelastic2/Model/Datastructures.h>
 #include <cstdlib>
 
-#include "Equations/datastructures.hpp"
-#include "Physics/Attenuation.hpp"
+#include "Equations/Datastructures.h"
+#include "Physics/Attenuation.h"
 
 namespace seissol::unit_test {
-TEST_CASE("Attenuation") {
+TEST_CASE("Attenuation" *
+          doctest::skip(!std::is_same_v<model::MaterialT, model::ViscoElasticMaterial>)) {
   seissol::model::ViscoElasticMaterial vm;
 
   // The test data used here was picked from one cell in a coarse discretization of the Northridge
@@ -19,14 +28,14 @@ TEST_CASE("Attenuation") {
   vm.Qp = 58.40512125971850566;
   vm.Qs = 29.20256062985925283;
 
-  double freqCentral = 0.3;
-  double freqRatio = 100;
+  constexpr double FreqCentral = 0.3;
+  constexpr double FreqRatio = 100;
 
-  seissol::physics::fitAttenuation(vm, freqCentral, freqRatio);
+  seissol::physics::fitAttenuation(vm, FreqCentral, FreqRatio);
 
   REQUIRE(vm.rho == rho);
 
-  if (NUMBER_OF_RELAXATION_MECHANISMS == 3) {
+  if (model::ViscoElasticMaterial::Mechanisms == 3) {
     REQUIRE(vm.mu == doctest::Approx(33628014790.452877));
     REQUIRE(vm.lambda == doctest::Approx(29578827039.733589));
 
@@ -43,7 +52,7 @@ TEST_CASE("Attenuation") {
     REQUIRE(vm.theta[0][2] == doctest::Approx(-3439832145.2499514));
     REQUIRE(vm.theta[1][2] == doctest::Approx(-2972448165.6686354));
     REQUIRE(vm.theta[2][2] == doctest::Approx(-3894181799.6762996));
-  } else if (NUMBER_OF_RELAXATION_MECHANISMS > 0) {
+  } else if (model::ViscoElasticMaterial::Mechanisms > 0) {
     INFO("The attenuation test has been skipped, since the test data is tuned to 3 mechanisms "
          "only.");
   }

@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 Postprocessing and Visualization
 ================================
 
@@ -33,7 +41,7 @@ specify all the parameters. Here is an example of how this can look like
    #@ job_type = MPICH
    #@ class = test
    #@ node = 2
-   ####  schedule the job to exactly 1 island 
+   ####  schedule the job to exactly 1 island
    ########## (more than one will fail)
    #@ island_count=1
    #@ tasks_per_node = 28
@@ -117,7 +125,7 @@ Intel MPI, i.e. set ``#@ job_type = MPICH`` instead of
    #@ queue
    . /etc/profile . /etc/profile.d/modules.sh
    hostname
-   /opt/TurboVNC/bin/vncserver -geometry 1280x900 
+   /opt/TurboVNC/bin/vncserver -geometry 1280x900
    sleep 48h
 
 Submit the job with ``llsubmit .vis_job.ll``.
@@ -160,5 +168,5 @@ vncviewer windows is deselected. To avoid this problem, add in
 
 .. code-block:: bash
 
-   export XKL_XMODMAP_DISABLE=1 
+   export XKL_XMODMAP_DISABLE=1
 

@@ -1,59 +1,26 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * MPI Wrapper
- */
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef MPI_H
-#define MPI_H
+#ifndef SEISSOL_SRC_PARALLEL_MPI_H_
+#define SEISSOL_SRC_PARALLEL_MPI_H_
 
 #include <functional>
 #ifndef USE_MPI
 #include "MPIDummy.h"
 #else // USE_MPI
 
-#include <mpi.h>
-#include "utils/logger.h"
 #include "MPIBasic.h"
-#include <numeric>
+#include "utils/logger.h"
 #include <algorithm>
-#include <string>
+#include <mpi.h>
+#include <numeric>
 #include <optional>
+#include <string>
 
 #endif // USE_MPI
 
@@ -98,7 +65,7 @@ class MPI : public MPIBasic {
   void setComm(MPI_Comm comm);
 
   template <typename T>
-  MPI_Datatype castToMpiType() const {
+  [[nodiscard]] MPI_Datatype castToMpiType() const {
     if constexpr (std::is_same_v<T, double>) {
       return MPI_DOUBLE;
     } else if constexpr (std::is_same_v<T, float>) {
@@ -121,7 +88,7 @@ class MPI : public MPIBasic {
    * Method supports only basic types
    */
   template <typename T>
-  auto collect(T value, std::optional<MPI_Comm> comm = {}) const {
+  [[nodiscard]] auto collect(T value, std::optional<MPI_Comm> comm = {}) const {
     auto collect = std::vector<T>(m_size);
     auto type = castToMpiType<T>();
     if (not comm.has_value()) {
@@ -138,8 +105,8 @@ class MPI : public MPIBasic {
    * Method supports only basic types
    */
   template <typename ContainerType>
-  std::vector<ContainerType> collectContainer(const ContainerType& container,
-                                              std::optional<MPI_Comm> comm = {}) const {
+  [[nodiscard]] std::vector<ContainerType>
+      collectContainer(const ContainerType& container, std::optional<MPI_Comm> comm = {}) const {
     using InternalType = typename ContainerType::value_type;
 
     if (not comm.has_value()) {
@@ -181,28 +148,30 @@ class MPI : public MPIBasic {
     return collected;
   }
 
-  // executes an operation on the given MPI communicator in serial order, i.e. first it is run by rank 0, then by rank 1, then by rank 2 etc.
-  template<typename F>
+  // executes an operation on the given MPI communicator in serial order, i.e. first it is run by
+  // rank 0, then by rank 1, then by rank 2 etc.
+  template <typename F>
   void serialOrderExecute(F&& operation, std::optional<MPI_Comm> comm = {}) {
     if (!comm.has_value()) {
       comm = std::optional<MPI_Comm>(m_comm);
     }
 
-    int rank, size;
+    int rank = 0;
+    int size = 0;
     MPI_Comm_rank(comm.value(), &rank);
     MPI_Comm_size(comm.value(), &size);
 
     const int tag = 15; // TODO(David): replace by a tag allocation system one day
     char flag = 0;
     if (rank > 0) {
-      MPI_Recv(&flag, 1, MPI_CHAR, rank-1, tag, comm.value(), MPI_STATUS_IGNORE);
+      MPI_Recv(&flag, 1, MPI_CHAR, rank - 1, tag, comm.value(), MPI_STATUS_IGNORE);
     }
 
     std::invoke(std::forward<F>(operation));
 
     // size >= 1 is ensured
     if (rank < size - 1) {
-      MPI_Send(&flag, 1, MPI_CHAR, rank+1, tag, comm.value());
+      MPI_Send(&flag, 1, MPI_CHAR, rank + 1, tag, comm.value());
     }
   }
 
@@ -241,26 +210,24 @@ class MPI : public MPIBasic {
   /**
    * @return The main communicator for the application
    */
-  MPI_Comm comm() const { return m_comm; }
+  [[nodiscard]] MPI_Comm comm() const { return m_comm; }
 
   /**
    * @return The node communicator (shared memory) for the application
    */
-  MPI_Comm sharedMemComm() const { return m_sharedMemComm; }
+  [[nodiscard]] MPI_Comm sharedMemComm() const { return m_sharedMemComm; }
 
   /**
    * @return hostnames for all ranks in the communicator of the application
    */
   const auto& getHostNames() { return hostNames; }
 
-  void barrier(MPI_Comm comm) const { MPI_Barrier(comm); }
+  static void barrier(MPI_Comm comm) { MPI_Barrier(comm); }
 
   /**
    * Finalize MPI
    */
-  void finalize() {
-    MPI_Finalize();
-  }
+  static void finalize() { MPI_Finalize(); }
 
   void setDataTransferModeFromEnv();
 
@@ -272,14 +239,14 @@ class MPI : public MPIBasic {
 
   private:
   MPI_Comm m_comm;
-  MPI_Comm m_sharedMemComm;
+  MPI_Comm m_sharedMemComm{};
   MPI() : m_comm(MPI_COMM_NULL) {}
   DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
-  std::vector<std::string> hostNames{};
+  std::vector<std::string> hostNames;
 };
 
 #endif // USE_MPI
 
 } // namespace seissol
 
-#endif // MPI_H
+#endif // SEISSOL_SRC_PARALLEL_MPI_H_

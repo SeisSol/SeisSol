@@ -1,5 +1,12 @@
-#ifndef SEISSOL_GPU_NOTP_H
-#define SEISSOL_GPU_NOTP_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_NOTP_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 
@@ -12,9 +19,9 @@ class NoTP {
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
-  void calcFluidPressure(real (*normalStress)[misc::numPaddedPoints],
-                         real (*mu)[misc::numPaddedPoints],
-                         real (*slipRateMagnitude)[misc::numPaddedPoints],
+  void calcFluidPressure(real (*normalStress)[misc::NumPaddedPoints],
+                         real (*mu)[misc::NumPaddedPoints],
+                         real (*slipRateMagnitude)[misc::NumPaddedPoints],
                          real deltaT,
                          bool saveTmpInTP) {}
 
@@ -25,4 +32,4 @@ class NoTP {
 
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_GPU_NOTP_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_NOTP_H_

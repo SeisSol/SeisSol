@@ -1,5 +1,9 @@
-#ifndef SEISSOL_FRICTIONSOLVERCOMMON_T_H
-#define SEISSOL_FRICTIONSOLVERCOMMON_T_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include <numeric>
 
@@ -7,7 +11,9 @@
 #include "DynamicRupture/Misc.h"
 #include "tests/TestHelper.h"
 
-namespace seissol::unit_test::dr {
+#ifndef USE_ACOUSTIC
+
+namespace seissol::unit_test {
 
 using namespace seissol;
 using namespace seissol::dr;
@@ -16,20 +22,19 @@ TEST_CASE("Friction Solver Common") {
   FaultStresses faultStresses{};
   TractionResults tractionResults{};
   ImpedancesAndEta impAndEta;
-  alignas(ALIGNMENT)
-      real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()] = {{}};
-  alignas(ALIGNMENT)
-      real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()] = {{}};
-  alignas(ALIGNMENT) real imposedStatePlus[tensor::QInterpolated::size()] = {};
-  alignas(ALIGNMENT) real imposedStateMinus[tensor::QInterpolated::size()] = {};
-  double timeWeights[CONVERGENCE_ORDER];
+  alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()] = {{}};
+  alignas(Alignment)
+      real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()] = {{}};
+  alignas(Alignment) real imposedStatePlus[tensor::QInterpolated::size()] = {};
+  alignas(Alignment) real imposedStateMinus[tensor::QInterpolated::size()] = {};
+  double timeWeights[ConvergenceOrder];
   std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
-  constexpr real epsilon = 1e4 * std::numeric_limits<real>::epsilon();
+  constexpr real Epsilon = 1e4 * std::numeric_limits<real>::epsilon();
 
-  using QInterpolatedShapeT = real(*)[misc::numQuantities][misc::numPaddedPoints];
+  using QInterpolatedShapeT = real(*)[misc::NumQuantities][misc::NumPaddedPoints];
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
-  using ImposedStateShapeT = real(*)[misc::numPaddedPoints];
+  using ImposedStateShapeT = real(*)[misc::NumPaddedPoints];
   auto* iSPlus = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
   auto* iSMinus = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
@@ -63,9 +68,9 @@ TEST_CASE("Friction Solver Common") {
   auto t1 = [](size_t o, size_t p) { return static_cast<real>(o + p); };
   auto t2 = [](size_t o, size_t p) { return static_cast<real>(2 * (o + p)); };
 
-  for (size_t o = 0; o < CONVERGENCE_ORDER; o++) {
-    for (size_t p = 0; p < misc::numPaddedPoints; p++) {
-      for (size_t q = 0; q < 9; q++) {
+  for (size_t o = 0; o < ConvergenceOrder; o++) {
+    for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+      for (size_t q = 0; q < misc::NumQuantities; q++) {
         qIPlus[o][q][p] = qP(o, q, p);
         qIMinus[o][q][p] = qM(o, q, p);
       }
@@ -79,9 +84,9 @@ TEST_CASE("Friction Solver Common") {
         faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus);
 
     // Assure that qInterpolatedPlus and qInterpolatedMinus are const.
-    for (size_t o = 0; o < CONVERGENCE_ORDER; o++) {
-      for (size_t q = 0; q < 9; q++) {
-        for (size_t p = 0; p < misc::numPaddedPoints; p++) {
+    for (size_t o = 0; o < ConvergenceOrder; o++) {
+      for (size_t q = 0; q < misc::NumQuantities; q++) {
+        for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
           REQUIRE(qIPlus[o][q][p] == qP(o, q, p));
           REQUIRE(qIMinus[o][q][p] == qM(o, q, p));
         }
@@ -89,21 +94,21 @@ TEST_CASE("Friction Solver Common") {
     }
 
     // Assure that faultstresses were computed correctly
-    for (size_t o = 0; o < CONVERGENCE_ORDER; o++) {
-      for (size_t p = 0; p < misc::numPaddedPoints; p++) {
-        real expectedNormalStress =
+    for (size_t o = 0; o < ConvergenceOrder; o++) {
+      for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+        const real expectedNormalStress =
             impAndEta.etaP * (qM(o, 6, p) - qP(o, 6, p) + impAndEta.invZp * qP(o, 0, p) +
                               impAndEta.invZpNeig * qM(o, 0, p));
-        real expectedTraction1 =
+        const real expectedTraction1 =
             impAndEta.etaS * (qM(o, 7, p) - qP(o, 7, p) + impAndEta.invZs * qP(o, 3, p) +
                               impAndEta.invZsNeig * qM(o, 3, p));
-        real expectedTraction2 =
+        const real expectedTraction2 =
             impAndEta.etaS * (qM(o, 8, p) - qP(o, 8, p) + impAndEta.invZs * qP(o, 5, p) +
                               impAndEta.invZsNeig * qM(o, 5, p));
         REQUIRE(faultStresses.normalStress[o][p] ==
-                AbsApprox(expectedNormalStress).epsilon(epsilon));
-        REQUIRE(faultStresses.traction1[o][p] == AbsApprox(expectedTraction1).epsilon(epsilon));
-        REQUIRE(faultStresses.traction2[o][p] == AbsApprox(expectedTraction2).epsilon(epsilon));
+                AbsApprox(expectedNormalStress).epsilon(Epsilon));
+        REQUIRE(faultStresses.traction1[o][p] == AbsApprox(expectedTraction1).epsilon(Epsilon));
+        REQUIRE(faultStresses.traction2[o][p] == AbsApprox(expectedTraction2).epsilon(Epsilon));
       }
     }
   }
@@ -118,7 +123,7 @@ TEST_CASE("Friction Solver Common") {
                                                                qInterpolatedPlus,
                                                                qInterpolatedMinus,
                                                                timeWeights);
-    for (size_t p = 0; p < misc::numPaddedPoints; p++) {
+    for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
       // index 0: Minus side
       // index 1: Plus side
       real expectedNormalStress[2]{};
@@ -127,7 +132,7 @@ TEST_CASE("Friction Solver Common") {
       real expectedU[2]{};
       real expectedV[2]{};
       real expectedW[2]{};
-      for (size_t o = 0; o < CONVERGENCE_ORDER; o++) {
+      for (size_t o = 0; o < ConvergenceOrder; o++) {
         expectedNormalStress[0] += timeWeights[o] * faultStresses.normalStress[o][p];
         expectedTraction1[0] += timeWeights[o] * t1(o, p);
         expectedTraction2[0] += timeWeights[o] * t2(o, p);
@@ -148,22 +153,22 @@ TEST_CASE("Friction Solver Common") {
         expectedV[1] += timeWeights[o] * (qP(o, 7, p) + impAndEta.invZs * (t1(o, p) - qP(o, 3, p)));
         expectedW[1] += timeWeights[o] * (qP(o, 8, p) + impAndEta.invZs * (t2(o, p) - qP(o, 5, p)));
       }
-      REQUIRE(iSMinus[0][p] == AbsApprox(expectedNormalStress[0]).epsilon(epsilon));
-      REQUIRE(iSMinus[3][p] == AbsApprox(expectedTraction1[0]).epsilon(epsilon));
-      REQUIRE(iSMinus[5][p] == AbsApprox(expectedTraction2[0]).epsilon(epsilon));
-      REQUIRE(iSMinus[6][p] == AbsApprox(expectedU[0]).epsilon(epsilon));
-      REQUIRE(iSMinus[7][p] == AbsApprox(expectedV[0]).epsilon(epsilon));
-      REQUIRE(iSMinus[8][p] == AbsApprox(expectedW[0]).epsilon(epsilon));
-      REQUIRE(iSPlus[0][p] == AbsApprox(expectedNormalStress[1]).epsilon(epsilon));
-      REQUIRE(iSPlus[3][p] == AbsApprox(expectedTraction1[1]).epsilon(epsilon));
-      REQUIRE(iSPlus[5][p] == AbsApprox(expectedTraction2[1]).epsilon(epsilon));
-      REQUIRE(iSPlus[6][p] == AbsApprox(expectedU[1]).epsilon(epsilon));
-      REQUIRE(iSPlus[7][p] == AbsApprox(expectedV[1]).epsilon(epsilon));
-      REQUIRE(iSPlus[8][p] == AbsApprox(expectedW[1]).epsilon(epsilon));
+      REQUIRE(iSMinus[0][p] == AbsApprox(expectedNormalStress[0]).epsilon(Epsilon));
+      REQUIRE(iSMinus[3][p] == AbsApprox(expectedTraction1[0]).epsilon(Epsilon));
+      REQUIRE(iSMinus[5][p] == AbsApprox(expectedTraction2[0]).epsilon(Epsilon));
+      REQUIRE(iSMinus[6][p] == AbsApprox(expectedU[0]).epsilon(Epsilon));
+      REQUIRE(iSMinus[7][p] == AbsApprox(expectedV[0]).epsilon(Epsilon));
+      REQUIRE(iSMinus[8][p] == AbsApprox(expectedW[0]).epsilon(Epsilon));
+      REQUIRE(iSPlus[0][p] == AbsApprox(expectedNormalStress[1]).epsilon(Epsilon));
+      REQUIRE(iSPlus[3][p] == AbsApprox(expectedTraction1[1]).epsilon(Epsilon));
+      REQUIRE(iSPlus[5][p] == AbsApprox(expectedTraction2[1]).epsilon(Epsilon));
+      REQUIRE(iSPlus[6][p] == AbsApprox(expectedU[1]).epsilon(Epsilon));
+      REQUIRE(iSPlus[7][p] == AbsApprox(expectedV[1]).epsilon(Epsilon));
+      REQUIRE(iSPlus[8][p] == AbsApprox(expectedW[1]).epsilon(Epsilon));
     }
   }
 }
 
-} // namespace seissol::unit_test::dr
+} // namespace seissol::unit_test
 
-#endif // SEISSOL_FRICTIONSOLVERCOMMON_T_H
+#endif

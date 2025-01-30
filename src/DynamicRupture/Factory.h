@@ -1,13 +1,21 @@
-#ifndef SEISSOL_FACTORY_H
-#define SEISSOL_FACTORY_H
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FACTORY_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FACTORY_H_
 
 #include <stdexcept>
 #include <tuple>
+#include <utility>
 
 #include "DynamicRupture/Initializer/Initializers.h"
 #include "FrictionLaws/FrictionSolver.h"
 #include "Initializer/DynamicRupture.h"
-#include "Output/Output.hpp"
+#include "Output/Output.h"
 
 namespace seissol {
 class SeisSol;
@@ -23,6 +31,7 @@ struct DynamicRuptureTuple {
   std::unique_ptr<seissol::initializer::DynamicRupture> ltsTree;
   std::unique_ptr<seissol::dr::initializer::BaseDRInitializer> initializer;
   std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLaw;
+  std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLawDevice;
   std::unique_ptr<seissol::dr::output::OutputManager> output;
 };
 
@@ -34,7 +43,7 @@ class AbstractFactory {
   public:
   AbstractFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
                   seissol::SeisSol& seissolInstance)
-      : drParameters(drParameters), seissolInstance(seissolInstance) {};
+      : drParameters(std::move(drParameters)), seissolInstance(seissolInstance) {};
   virtual ~AbstractFactory() = default;
   virtual DynamicRuptureTuple produce() = 0;
 };
@@ -87,6 +96,12 @@ class ImposedSlipRatesGaussianFactory : public AbstractFactory {
   DynamicRuptureTuple produce() override;
 };
 
+class ImposedSlipRatesDeltaFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
 class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
@@ -94,9 +109,10 @@ class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
 };
 
 std::unique_ptr<seissol::dr::factory::AbstractFactory>
-    getFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> dynRupParameter,
+    getFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
                seissol::SeisSol& seissolInstance);
 
 } // namespace dr::factory
 } // namespace seissol
-#endif // SEISSOL_FACTORY_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FACTORY_H_

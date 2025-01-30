@@ -1,5 +1,12 @@
-#ifndef SEISSOL_GPU_LINEARSLIPWEAKENING_H
-#define SEISSOL_GPU_LINEARSLIPWEAKENING_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 
@@ -35,7 +42,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    */
   void calcSlipRateAndTraction(FaultStresses* devFaultStresses,
                                TractionResults* devTractionResults,
-                               real (*devStrengthBuffer)[misc::numPaddedPoints],
+                               real (*devStrengthBuffer)[misc::NumPaddedPoints],
                                unsigned int timeIndex) {
 
     auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
@@ -49,7 +56,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devSlip2{this->slip2};
     auto deltaT{this->deltaT[timeIndex]};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -95,7 +102,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    * evaluate friction law: updated mu -> friction law
    * for example see Carsten Uphoff's thesis: Eq. 2.45
    */
-  void frictionFunctionHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {
+  void frictionFunctionHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {
     auto* devMu{this->mu};
     auto* devMuS{this->muS};
     auto* devMuD{this->muD};
@@ -103,7 +110,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devPeakSlipRate{this->peakSlipRate};
     auto devHealingThreshold{this->drParameters->healingThreshold};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -134,7 +141,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devAccumulatedSlipMagnitude{this->accumulatedSlipMagnitude};
     auto* devDC{this->dC};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -150,16 +157,16 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     });
   }
 
-  void preHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {}
-  void postHook(real (*stateVariableBuffer)[misc::numPaddedPoints]) {}
+  void preHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {}
+  void postHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {}
 
   protected:
-  static constexpr real u0 = 10e-14;
-  real (*dC)[misc::numPaddedPoints];
-  real (*muS)[misc::numPaddedPoints];
-  real (*muD)[misc::numPaddedPoints];
-  real (*cohesion)[misc::numPaddedPoints];
-  real (*forcedRuptureTime)[misc::numPaddedPoints];
+  static constexpr real U0 = 10e-14;
+  real (*dC)[misc::NumPaddedPoints];
+  real (*muS)[misc::NumPaddedPoints];
+  real (*muD)[misc::NumPaddedPoints];
+  real (*cohesion)[misc::NumPaddedPoints];
+  real (*forcedRuptureTime)[misc::NumPaddedPoints];
 };
 
 template <class SpecializationT>
@@ -174,18 +181,19 @@ class LinearSlipWeakeningLaw
   void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
                                       const seissol::initializer::DynamicRupture* const dynRup,
                                       real fullUpdateTime) override {
-    auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening* const>(dynRup);
-    this->dC = layerData.var(concreteLts->dC);
-    this->muS = layerData.var(concreteLts->muS);
-    this->muD = layerData.var(concreteLts->muD);
-    this->cohesion = layerData.var(concreteLts->cohesion);
-    this->forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime);
+    auto* concreteLts = dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening*>(dynRup);
+    this->dC = layerData.var(concreteLts->dC, seissol::initializer::AllocationPlace::Device);
+    this->muS = layerData.var(concreteLts->muS, seissol::initializer::AllocationPlace::Device);
+    this->muD = layerData.var(concreteLts->muD, seissol::initializer::AllocationPlace::Device);
+    this->cohesion =
+        layerData.var(concreteLts->cohesion, seissol::initializer::AllocationPlace::Device);
+    this->forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime,
+                                            seissol::initializer::AllocationPlace::Device);
     this->specialization.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
   void calcStrengthHook(FaultStresses* devFaultStresses,
-                        real (*devStrengthBuffer)[misc::numPaddedPoints],
+                        real (*devStrengthBuffer)[misc::NumPaddedPoints],
                         unsigned int timeIndex) {
 
     auto deltaT{this->deltaT[timeIndex]};
@@ -198,7 +206,7 @@ class LinearSlipWeakeningLaw
     const auto prakashLength{this->drParameters->prakashLength};
     auto currentLayerDetails = specialization.getCurrentLayerDetails();
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         const auto ltsFace = item.get_group().get_group_id(0);
@@ -226,7 +234,7 @@ class LinearSlipWeakeningLaw
     });
   }
 
-  void calcStateVariableHook(real (*devStateVariableBuffer)[misc::numPaddedPoints],
+  void calcStateVariableHook(real (*devStateVariableBuffer)[misc::NumPaddedPoints],
                              unsigned int timeIndex) {
 
     auto* devAccumulatedSlipMagnitude{this->accumulatedSlipMagnitude};
@@ -239,7 +247,7 @@ class LinearSlipWeakeningLaw
     const auto t0{this->drParameters->t0};
     const auto tpProxyExponent{this->drParameters->tpProxyExponent};
 
-    sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
     this->queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
         auto ltsFace = item.get_group().get_group_id(0);
@@ -286,19 +294,19 @@ class NoSpecialization {
                           real fullUpdateTime) {}
 
   static real resampleSlipRate(const real* resampleMatrix,
-                               const real (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+                               const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints],
                                size_t pointIndex) {
 
     // perform matrix vector multiplication
 
-    constexpr auto dim0 = misc::dimSize<init::resample, 0>();
-    constexpr auto dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(dim0 == misc::numPaddedPoints);
-    static_assert(dim0 >= dim1);
+    constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
+    constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
+    static_assert(Dim0 == misc::NumPaddedPoints);
+    static_assert(Dim0 >= Dim1);
 
     real result{0.0};
-    for (size_t i{0}; i < dim1; ++i) {
-      result += resampleMatrix[pointIndex + i * dim0] * slipRateMagnitude[i];
+    for (size_t i{0}; i < Dim1; ++i) {
+      result += resampleMatrix[pointIndex + i * Dim0] * slipRateMagnitude[i];
     }
     return result;
   };
@@ -334,18 +342,19 @@ class BiMaterialFault {
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {
     auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial* const>(dynRup);
-    this->regularisedStrength = layerData.var(concreteLts->regularisedStrength);
+        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup);
+    this->regularisedStrength = layerData.var(concreteLts->regularisedStrength,
+                                              seissol::initializer::AllocationPlace::Device);
   }
 
   static real resampleSlipRate([[maybe_unused]] const real* resampleMatrix,
-                               const real (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+                               const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints],
                                size_t pointIndex) {
     return slipRateMagnitude[pointIndex];
   };
 
   struct Details {
-    real (*regularisedStrength)[misc::numPaddedPoints];
+    real (*regularisedStrength)[misc::NumPaddedPoints];
   };
 
   Details getCurrentLayerDetails() {
@@ -371,7 +380,6 @@ class BiMaterialFault {
                            size_t pointIndex) {
 
     auto* regularisedStrength = details.regularisedStrength[ltsFace];
-    assert(regularisedStrength != nullptr && "regularisedStrength is not initialized");
 
     const real expterm = sycl::exp(-(sycl::max(static_cast<real>(0.0), localSlipRate) + vStar) *
                                    deltaT / prakashLength);
@@ -384,7 +392,7 @@ class BiMaterialFault {
   };
 
   private:
-  real (*regularisedStrength)[misc::numPaddedPoints];
+  real (*regularisedStrength)[misc::NumPaddedPoints];
 };
 
 class TPApprox {
@@ -396,13 +404,13 @@ class TPApprox {
                           real fullUpdateTime) {}
 
   static real resampleSlipRate([[maybe_unused]] const real* resampleMatrix,
-                               const real (&slipRateMagnitude)[dr::misc::numPaddedPoints],
+                               const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints],
                                size_t pointIndex) {
     return slipRateMagnitude[pointIndex];
   };
 
   struct Details {
-    real (*regularisedStrength)[misc::numPaddedPoints];
+    real (*regularisedStrength)[misc::NumPaddedPoints];
   };
 
   Details getCurrentLayerDetails() { return Details{}; }
@@ -430,4 +438,4 @@ class TPApprox {
 
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_GPU_LINEARSLIPWEAKENING_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_

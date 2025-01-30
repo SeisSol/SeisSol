@@ -1,8 +1,17 @@
-#ifndef SEISSOL_TESTHELPER_H
-#define SEISSOL_TESTHELPER_H
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <limits>
+#ifndef SEISSOL_SRC_TESTS_TESTHELPER_H_
+#define SEISSOL_SRC_TESTS_TESTHELPER_H_
+
 #include <cmath>
+#include <limits>
+#include <ostream>
+#include <vector>
 
 #include "doctest.h"
 
@@ -95,4 +104,16 @@ inline doctest::String toString(const AbsApprox& in) {
 
 } // namespace seissol::unit_test
 
-#endif // SEISSOL_TESTHELPER_H
+namespace std {
+template <typename T>
+ostream& operator<<(ostream& stream, const std::vector<T>& vec) {
+  stream << "{";
+  for (const auto& item : vec) {
+    stream << item << ",";
+  }
+  stream << "}";
+  return stream;
+}
+} // namespace std
+
+#endif // SEISSOL_SRC_TESTS_TESTHELPER_H_

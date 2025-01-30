@@ -1,4 +1,10 @@
 #! /usr/bin/env sh
+# SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 # NOTE: This script was taken from PointCloudLibrary/pcl and adapted for SeisSol
 
@@ -9,55 +15,55 @@
 format() {
     # don't use a directory with whitespace
     local allowlist_dir="
+        auto-tuning/proxy/src
         src/DynamicRupture
+        src/Equations
         src/Geometry
-        src/Initializer/Parameters
-        src/tests/Common
-        src/tests/DynamicRupture
-        src/tests/Initializer
-        src/tests/Kernel
-        src/tests/Model
-        src/tests/Reader
-        src/tests/SourceTerm
         src/Initializer/BatchRecorders
         src/Initializer/InitProcedure
+        src/Initializer/Parameters
+        src/Initializer/TimeStepping/LtsWeights
+        src/Initializer/Tree
+        src/IO
+        src/Kernels
         src/Modules
         src/Monitoring
+        src/Model
+        src/Numerical
+        src/Parallel
         src/Physics
-        src/SourceTerm
         src/Reader
+        src/ResultWriter
+        src/SourceTerm
+        src/tests
         "
-    
+
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
-        src/Initializer/BasicTypedefs.hpp
-        src/Initializer/InputAux.hpp
+        src/Initializer/BasicTypedefs.h
+        src/Initializer/Boundary.h
+        src/Initializer/DynamicRupture.h
+        src/Initializer/DeviceGraph.h
+        src/Initializer/GlobalData.h
+        src/Initializer/GlobalData.cpp
+        src/Initializer/InitialFieldProjection.h
+        src/Initializer/InitialFieldProjection.cpp
+        src/Initializer/InputAux.h
+        src/Initializer/LTS.h
+        src/Initializer/MemoryAllocator.h
+        src/Initializer/MemoryAllocator.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
-        src/Initializer/preProcessorMacros.hpp
-        src/Initializer/time_stepping/GlobalTimestep.hpp
-        src/Initializer/time_stepping/GlobalTimestep.cpp
-        src/Initializer/tree/LTSSync.hpp
-        src/Kernels/common.hpp
-        src/Kernels/PointSourceCluster.h
-        src/Kernels/PointSourceClusterOnHost.h
-        src/Kernels/PointSourceClusterOnHost.cpp
-        src/Kernels/PointSourceClusterOnDevice.h
-        src/Kernels/PointSourceClusterOnDevice.cpp
-        src/Kernels/Touch.h
-        src/Kernels/Touch.cpp
-        src/Monitoring/instrumentation.hpp
-        src/Parallel/AcceleratorDevice.h
-        src/Parallel/AcceleratorDevice.cpp
-        src/Parallel/DataCollector.h
-        src/Parallel/Helper.hpp
-        src/ResultWriter/WaveFieldWriter.h
-        src/ResultWriter/EnergyOutput.h
-        src/ResultWriter/EnergyOutput.cpp
+        src/Initializer/PointMapper.h
+        src/Initializer/PointMapper.cpp
+        src/Initializer/PreProcessorMacros.h
+        src/Initializer/TimeStepping/GlobalTimestep.h
+        src/Initializer/TimeStepping/GlobalTimestep.cpp
         src/SeisSol.h
         src/SeisSol.cpp
-        src/main.cpp
+        src/Main.cpp
         "
+
 
     local SEISSOL_SOURCE_DIR="${2}"
     local formatter="${1}"
@@ -68,9 +74,9 @@ format() {
     fi
 
     local formatter_version=$(${formatter} --version)
-    if [ "${formatter_version}" != "clang-format version 18.1.5" ]; then
-        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 18.1.5). Given: ${formatter_version}"
-        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==18.1.5"
+    if [ "${formatter_version}" != "clang-format version 19.1.0" ]; then
+        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 19.1.0). Given: ${formatter_version}"
+        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==19.1.0"
         exit 176
     fi
 

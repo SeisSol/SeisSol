@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Parallel/AcceleratorDevice.h"
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
@@ -34,7 +41,17 @@ void AcceleratorDevice::bindSyclDevice(int deviceId) {
        << syclDevice.is_gpu() << "): " << syclDevice.get_info<sycl::info::device::name>();
   infoMessages.push_back(info.str());
 
-  sycl::property_list property{sycl::property::queue::in_order()};
+#if (defined(ACPP_EXT_COARSE_GRAINED_EVENTS) || defined(SYCL_EXT_ACPP_COARSE_GRAINED_EVENTS)) &&   \
+    !defined(SEISSOL_KERNELS_SYCL)
+  const sycl::property_list property{sycl::property::queue::in_order(),
+                                     sycl::property::queue::AdaptiveCpp_coarse_grained_events()};
+#elif defined(HIPSYCL_EXT_COARSE_GRAINED_EVENTS) && !defined(SEISSOL_KERNELS_SYCL)
+  const sycl::property_list property{sycl::property::queue::in_order(),
+                                     sycl::property::queue::hipSYCL_coarse_grained_events()};
+#else
+  const sycl::property_list property{sycl::property::queue::in_order()};
+#endif
+
   syclDefaultQueue = sycl::queue(syclDevice, property);
 }
 

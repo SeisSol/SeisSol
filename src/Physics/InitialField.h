@@ -1,5 +1,12 @@
-#ifndef PHYSICS_INITIALFIELD_H
-#define PHYSICS_INITIALFIELD_H
+// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
+#define SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
 
 #include <array>
 #include <complex>
@@ -8,8 +15,8 @@
 #include <Eigen/Dense>
 
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/typedefs.hpp"
-#include "Kernels/precision.hpp"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Precision.h"
 #include "generated_code/init.h"
 
 namespace seissol::physics {
@@ -35,7 +42,7 @@ class ZeroField : public InitialField {
 class PressureInjection : public InitialField {
   public:
   PressureInjection(
-      const seissol::initializer::parameters::InitializationParameters initializationParameters);
+      const seissol::initializer::parameters::InitializationParameters& initializationParameters);
 
   void evaluate(double,
                 const std::vector<std::array<double, 3>>&,
@@ -69,8 +76,10 @@ class Planarwave : public InitialField {
   std::vector<std::complex<double>> m_ampField;
   const double m_phase;
   const Eigen::Vector3d m_kVec;
-  std::array<std::complex<double>, NUMBER_OF_QUANTITIES> m_lambdaA;
-  std::array<std::complex<double>, NUMBER_OF_QUANTITIES * NUMBER_OF_QUANTITIES> m_eigenvectors;
+  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities> m_lambdaA;
+  std::array<std::complex<double>,
+             seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
+      m_eigenvectors;
 
   private:
   void init(const CellMaterialData& materialData);
@@ -169,4 +178,4 @@ class Ocean : public InitialField {
 };
 } // namespace seissol::physics
 
-#endif // PHYSICS_INITIALFIELD_H
+#endif // SEISSOL_SRC_PHYSICS_INITIALFIELD_H_

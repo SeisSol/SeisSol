@@ -1,43 +1,13 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef PUMLREADER_H
-#define PUMLREADER_H
+#ifndef SEISSOL_SRC_GEOMETRY_PUMLREADER_H_
+#define SEISSOL_SRC_GEOMETRY_PUMLREADER_H_
 
 #include "Initializer/Parameters/MeshParameters.h"
 #include "MeshReader.h"
@@ -54,10 +24,10 @@ inline int decodeBoundary(const void* data,
                           int face,
                           seissol::initializer::parameters::BoundaryFormat format) {
   if (format == seissol::initializer::parameters::BoundaryFormat::I32) {
-    const uint32_t* dataCasted = reinterpret_cast<const uint32_t*>(data);
+    const auto* dataCasted = reinterpret_cast<const uint32_t*>(data);
     return (dataCasted[cell] >> (8 * face)) & 0xff;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I64) {
-    const uint64_t* dataCasted = reinterpret_cast<const uint64_t*>(data);
+    const auto* dataCasted = reinterpret_cast<const uint64_t*>(data);
     return (dataCasted[cell] >> (16 * face)) & 0xffff;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I32x4) {
     const int* dataCasted = reinterpret_cast<const int*>(data);
@@ -73,12 +43,10 @@ class PUMLReader : public seissol::geometry::MeshReader {
   PUMLReader(const char* meshFile,
              const char* partitioningLib,
              double maximumAllowedTimeStep,
-             const char* checkPointFile,
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
              initializer::time_stepping::LtsWeights* ltsWeights = nullptr,
-             double tpwgt = 1.0,
-             bool readPartitionFromFile = false);
+             double tpwgt = 1.0);
 
   private:
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
@@ -91,19 +59,15 @@ class PUMLReader : public seissol::geometry::MeshReader {
   /**
    * Create the partitioning
    */
-  void partition(PUML::TETPUML& puml,
-                 initializer::time_stepping::LtsWeights* ltsWeights,
-                 double tpwgt,
-                 const char* meshFile,
-                 const char* partitioningLib,
-                 bool readPartitionFromFile,
-                 const char* checkPointFile);
-  int readPartition(PUML::TETPUML& puml, int* partition, const char* checkPointFile);
-  void writePartition(PUML::TETPUML& puml, int* partition, const char* checkPointFile);
+  static void partition(PUML::TETPUML& puml,
+                        initializer::time_stepping::LtsWeights* ltsWeights,
+                        double tpwgt,
+                        const char* meshFile,
+                        const char* partitioningLib);
   /**
    * Generate the PUML data structure
    */
-  void generatePUML(PUML::TETPUML& puml);
+  static void generatePUML(PUML::TETPUML& puml);
 
   /**
    * Get the mesh
@@ -115,4 +79,4 @@ class PUMLReader : public seissol::geometry::MeshReader {
 
 } // namespace seissol::geometry
 
-#endif // PUMLREADER_H
+#endif // SEISSOL_SRC_GEOMETRY_PUMLREADER_H_

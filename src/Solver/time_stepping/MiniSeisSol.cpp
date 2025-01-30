@@ -1,51 +1,20 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * 
- * @section LICENSE
- * Copyright (c) 2017, SeisSol Group
- * All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- * 
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * 
- **/
+// SPDX-FileCopyrightText: 2017-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "MiniSeisSol.h"
 
-#include "Kernels/Time.h"
 #include "Kernels/Local.h"
+#include "Kernels/Time.h"
 #include "Kernels/Touch.h"
 #include "Monitoring/Stopwatch.h"
-#include "utils/env.h"
+#include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
+#include "utils/env.h"
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/Recorders.h"
@@ -130,7 +99,8 @@ void seissol::localIntegration(GlobalData* globalData,
 void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
                                        initializer::LTS& lts,
                                        initializer::Layer& layer,
-                                       seissol::SeisSol& seissolInstance) {
+                                       seissol::SeisSol& seissolInstance,
+                                       seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernels::Time  timeKernel;
   timeKernel.setGlobalData(globalData);
@@ -148,8 +118,8 @@ void seissol::localIntegrationOnDevice(CompoundGlobalData& globalData,
   auto &materialTable = layer.getConditionalTable<inner_keys::Material>();
   auto &indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
-  timeKernel.computeBatchedAder(miniSeisSolTimeStep, tmp, dataTable, materialTable, false);
-  localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, 0.0);
+  timeKernel.computeBatchedAder(miniSeisSolTimeStep, tmp, dataTable, materialTable, false, runtime);
+  localKernel.computeBatchedIntegral(dataTable, materialTable, indicesTable, loader, tmp, 0.0, runtime);
 #endif
 }
 
@@ -157,13 +127,21 @@ void seissol::fakeData(initializer::LTS& lts,
                        initializer::Layer& layer,
                        FaceType faceTp) {
   real                      (*dofs)[tensor::Q::size()]      = layer.var(lts.dofs);
+#ifdef ACL_DEVICE
+  auto allocationPlace = seissol::initializer::AllocationPlace::Device;
+  real**                      buffers                       = layer.var(lts.buffersDevice);
+  real**                      derivatives                   = layer.var(lts.derivativesDevice);
+  real*                     (*faceNeighbors)[4]             = layer.var(lts.faceNeighborsDevice);
+#else
+  auto allocationPlace = seissol::initializer::AllocationPlace::Host;
   real**                      buffers                       = layer.var(lts.buffers);
   real**                      derivatives                   = layer.var(lts.derivatives);
   real*                     (*faceNeighbors)[4]             = layer.var(lts.faceNeighbors);
+#endif
   LocalIntegrationData*       localIntegration              = layer.var(lts.localIntegration);
   NeighboringIntegrationData* neighboringIntegration        = layer.var(lts.neighboringIntegration);
   CellLocalInformation*       cellInformation               = layer.var(lts.cellInformation);
-  real*                       bucket                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives));
+  real*                       bucket                        = static_cast<real*>(layer.bucket(lts.buffersDerivatives, allocationPlace));
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     buffers[cell] = bucket + cell * tensor::I::size();
@@ -184,11 +162,11 @@ void seissol::fakeData(initializer::LTS& lts,
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {    
     for (unsigned f = 0; f < 4; ++f) {
       switch (faceTp) {
-      case FaceType::freeSurface:
+      case FaceType::FreeSurface:
           faceNeighbors[cell][f] = buffers[cell];
           break;
-      case FaceType::periodic:
-      case FaceType::regular:
+      case FaceType::Periodic:
+      case FaceType::Regular:
           faceNeighbors[cell][f] = buffers[ cellInformation[cell].faceNeighborIds[f] ];
           break;
         default:
@@ -198,7 +176,7 @@ void seissol::fakeData(initializer::LTS& lts,
     }
   }
   
-  kernels::fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells(), true);
+  kernels::fillWithStuff(reinterpret_cast<real*>(dofs),   tensor::Q::size() * layer.getNumberOfCells(), false);
   kernels::fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells(), true);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration), sizeof(LocalIntegrationData)/sizeof(real) * layer.getNumberOfCells(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration), sizeof(NeighboringIntegrationData)/sizeof(real) * layer.getNumberOfCells(), false);
@@ -210,6 +188,12 @@ void seissol::fakeData(initializer::LTS& lts,
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {    
     localIntegration[cell].specific.typicalTimeStepWidth = miniSeisSolTimeStep;
   }
+#endif
+
+#ifdef ACL_DEVICE
+  const auto &device = device::DeviceInstance::getInstance();
+  layer.synchronizeTo(seissol::initializer::AllocationPlace::Device, device.api->getDefaultStream());
+  device.api->syncDefaultStreamWithHost();
 #endif
 }
 
@@ -243,6 +227,8 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
   fakeData(lts, layer);
 
 #ifdef ACL_DEVICE
+  seissol::parallel::runtime::StreamRuntime runtime;
+
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
   ltsTree.allocateScratchPads();
 
@@ -253,8 +239,8 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
   ltsTree.allocateScratchPads();
 
   auto globalData = memoryManager.getGlobalData();
-  auto runBenchmark = [&globalData, &lts, &layer, &seissolInstance]() {
-    localIntegrationOnDevice(globalData, lts, layer, seissolInstance);
+  auto runBenchmark = [&globalData, &lts, &layer, &seissolInstance, &runtime]() {
+    localIntegrationOnDevice(globalData, lts, layer, seissolInstance, runtime);
   };
 
   const auto &device = device::DeviceInstance::getInstance();
@@ -281,3 +267,4 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
 
   return stopwatch.stop();
 }
+

@@ -1,5 +1,12 @@
-#ifndef SEISSOL_FRICTION_SOLVER_INTERFACE_H
-#define SEISSOL_FRICTION_SOLVER_INTERFACE_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERINTERFACE_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERINTERFACE_H_
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -18,9 +25,13 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
   virtual void allocateAuxiliaryMemory() = 0;
   virtual void copyStaticDataToDevice() = 0;
 
+  seissol::initializer::AllocationPlace allocationPlace() override {
+    return seissol::initializer::AllocationPlace::Device;
+  }
+
   protected:
   size_t maxClusterSize{};
 };
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_FRICTION_SOLVER_INTERFACE_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERINTERFACE_H_

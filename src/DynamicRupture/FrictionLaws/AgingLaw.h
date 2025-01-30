@@ -1,5 +1,12 @@
-#ifndef SEISSOL_AGINGLAW_H
-#define SEISSOL_AGINGLAW_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_AGINGLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_AGINGLAW_H_
 
 #include "SlowVelocityWeakeningLaw.h"
 
@@ -29,11 +36,11 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
  * @return \f$ \Psi(t) \f$
  */
 #pragma omp declare simd
-  double updateStateVariable(int pointIndex,
-                             unsigned int face,
-                             double stateVarReference,
-                             double timeIncrement,
-                             double localSlipRate) const {
+  [[nodiscard]] double updateStateVariable(int pointIndex,
+                                           unsigned int face,
+                                           double stateVarReference,
+                                           double timeIncrement,
+                                           double localSlipRate) const {
     const double localSl0 = this->sl0[face][pointIndex];
     const double exp1 = exp(-localSlipRate * (timeIncrement / localSl0));
     return stateVarReference * exp1 + localSl0 / localSlipRate * (1.0 - exp1);
@@ -41,4 +48,5 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
 };
 
 } // namespace seissol::dr::friction_law
-#endif // SEISSOL_AGINGLAW_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_AGINGLAW_H_

@@ -1,8 +1,13 @@
-// Copyright (C) 2023 Intel Corporation
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 Intel Corporation
+//
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef PARTITIONINGLIB_H
-#define PARTITIONINGLIB_H
+#ifndef SEISSOL_SRC_GEOMETRY_PARTITIONINGLIB_H_
+#define SEISSOL_SRC_GEOMETRY_PARTITIONINGLIB_H_
 
 #include "PUML/Partition.h"
 #include <string_view>
@@ -14,4 +19,4 @@ std::string_view toStringView(PUML::PartitionerType type);
 
 } // namespace seissol
 
-#endif // PARTITIONINGLIB_H
+#endif // SEISSOL_SRC_GEOMETRY_PARTITIONINGLIB_H_

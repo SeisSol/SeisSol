@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 Proposed workflow for generating a CAD model of a megathrust earthquake
 ========================================================================
 
@@ -15,7 +23,7 @@ topography and slab interface
 First, we download topography and bathymetry data from GEBCO
 (`http://www.gebco.net/ <http://www.gebco.net/>`__), and we triangulate it into a GoCad ts file.
 Note that we downsample the topography data by a factor 5 for dealing with a reasonable size dataset in this tutorial.
-Note also that we use a custom transverse Mercator roughly centered at the domain center. 
+Note also that we use a custom transverse Mercator roughly centered at the domain center.
 
 .. code-block:: bash
 
@@ -59,7 +67,7 @@ For that, we first preprocess a USGS trench data file into a fault trace. Then w
 
 data/strike90.dat contains 2 lines, indicating that the extrude direction is towards West.
 
-.. code-block:: 
+.. code-block::
 
     0 -90
     1 -90
@@ -84,7 +92,7 @@ This sharp angle can be smoothed by extracting the discrete mesh as inp file (se
 
 
 .. figure:: LatexFigures/Tohoku_building_fault_model.png
-   :alt: Discrete surface for generating Tohoku's fault model 
+   :alt: Discrete surface for generating Tohoku's fault model
    :width: 11.00000cm
    :align: center
 
@@ -96,7 +104,7 @@ Final steps
 
 Finally, we create a box mesh box domain with pygmsh as follow:
 
-.. code-block:: 
+.. code-block::
 
     generate_box.py --proj "$myproj" --rangeFromTopo $topofile tmp/box.stl --zdim " -500e3" 5e3 --shrink 0.9
 

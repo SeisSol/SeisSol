@@ -1,59 +1,68 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2017-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "LoopStatistics.h"
-#include "Unit.hpp"
+#include "Unit.h"
 
+#include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
+#include <ctime>
+#include <iterator>
+#include <mpi.h>
+#include <string>
+#include <time.h>
+#include <utils/logger.h>
+#include <vector>
 #ifdef USE_NETCDF
+#include <fstream>
 #include <netcdf.h>
+#include <ostream>
+#include <sstream>
 #ifdef USE_MPI
 #include <netcdf_par.h>
 #endif // USE_MPI
 #endif // USE_NETCDF
 
 #include "Monitoring/Stopwatch.h"
-#include "Numerical_aux/Statistics.h"
-#include <utils/env.h>
+#include "Numerical/Statistics.h"
+
+#ifdef USE_NETCDF
+namespace {
+
+void check_err(const int stat, const int line, const char* file) {
+  if (stat != NC_NOERR) {
+    logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
+  }
+}
+
+template <typename T>
+nc_type type2nc() {
+  if constexpr (std::is_signed_v<T>) {
+    static_assert(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
+                  "type2nc supports 32 or 64 bit integral types only");
+    if constexpr (sizeof(T) == 4) {
+      return NC_INT;
+    } else {
+      return NC_INT64;
+    }
+  } else {
+    if constexpr (sizeof(T) == 4) {
+      return NC_UINT;
+    } else {
+      return NC_UINT64;
+    }
+  }
+}
+
+} // namespace
+#endif
 
 namespace seissol {
 
@@ -63,7 +72,7 @@ LoopStatistics::Region::Region(const std::string& name, bool includeInSummary)
     : name(name), includeInSummary(includeInSummary) {}
 
 void LoopStatistics::addRegion(const std::string& name, bool includeInSummary) {
-  regions.push_back(Region(name, includeInSummary));
+  regions.emplace_back(name, includeInSummary);
 }
 
 unsigned LoopStatistics::getRegion(const std::string& name) const {
@@ -79,7 +88,7 @@ void LoopStatistics::begin(unsigned region) {
 }
 
 void LoopStatistics::end(unsigned region, unsigned numIterations, unsigned subRegion) {
-  timespec endTime;
+  timespec endTime{};
   clock_gettime(CLOCK_MONOTONIC, &endTime);
   addSample(region, numIterations, subRegion, regions[region].begin, endTime);
 }
@@ -87,7 +96,7 @@ void LoopStatistics::end(unsigned region, unsigned numIterations, unsigned subRe
 void LoopStatistics::addSample(
     unsigned region, unsigned numIterations, unsigned subRegion, timespec begin, timespec end) {
   if (outputSamples) {
-    Sample sample;
+    Sample sample{};
     sample.begin = begin;
     sample.end = end;
     sample.numIters = numIterations;
@@ -116,28 +125,28 @@ void LoopStatistics::reset() {
 
 void LoopStatistics::printSummary(MPI_Comm comm) {
   const auto nRegions = regions.size();
-  constexpr int numberOfSumComponents = 6;
-  auto sums = std::vector<double>(numberOfSumComponents * nRegions);
+  constexpr int NumSumComponents = 6;
+  auto sums = std::vector<double>(NumSumComponents * nRegions);
   double totalTimePerRank = 0.0;
 
   // Helper functions to access sums
   auto getNumIters = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 0];
+    return sums[NumSumComponents * region + 0];
   };
   auto getNumItersSquared = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 1];
+    return sums[NumSumComponents * region + 1];
   };
   auto getTimeTimesNumIters = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 2];
+    return sums[NumSumComponents * region + 2];
   };
   auto getTime = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 3];
+    return sums[NumSumComponents * region + 3];
   };
   auto getTimeSquared = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 4];
+    return sums[NumSumComponents * region + 4];
   };
   auto getNumberOfSamples = [&sums](std::size_t region) -> double& {
-    return sums[numberOfSumComponents * region + 5];
+    return sums[NumSumComponents * region + 5];
   };
 
   for (unsigned region = 0; region < nRegions; ++region) {
@@ -154,7 +163,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
     }
   }
 
-  int rank;
+  int rank = 0;
 #ifdef USE_MPI
   MPI_Comm_rank(comm, &rank);
 #else
@@ -207,8 +216,9 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
     double totalTime = 0.0;
     logInfo(rank) << "Regression analysis of compute kernels:";
     for (unsigned region = 0; region < nRegions; ++region) {
-      if (!regions[region].includeInSummary)
+      if (!regions[region].includeInSummary) {
         continue;
+      }
       const double x = getNumIters(region);
       const double x2 = getNumItersSquared(region);
       const double y = getTime(region);
@@ -236,33 +246,6 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
   }
 }
 
-#ifdef USE_NETCDF
-static void check_err(const int stat, const int line, const char* file) {
-  if (stat != NC_NOERR) {
-    logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
-  }
-}
-
-template <typename T>
-static nc_type type2nc() {
-  if constexpr (std::is_signed_v<T>) {
-    static_assert(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
-                  "type2nc supports 32 or 64 bit integral types only");
-    if constexpr (sizeof(T) == 4) {
-      return NC_INT;
-    } else {
-      return NC_INT64;
-    }
-  } else {
-    if constexpr (sizeof(T) == 4) {
-      return NC_UINT;
-    } else {
-      return NC_UINT64;
-    }
-  }
-}
-#endif
-
 void LoopStatistics::writeSamples(const std::string& outputPrefix,
                                   bool isLoopStatisticsNetcdfOutputOn) {
   if (isLoopStatisticsNetcdfOutputOn) {
@@ -270,18 +253,19 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
     const auto rank = MPI::mpi.rank();
 #if defined(USE_NETCDF) && defined(USE_MPI)
     logInfo(rank) << "Starting to write loop statistics samples to disk.";
-    unsigned nRegions = regions.size();
+    const unsigned nRegions = regions.size();
     for (unsigned region = 0; region < nRegions; ++region) {
-      std::ofstream file;
+      const std::ofstream file;
       std::stringstream ss;
       ss << loopStatFile << regions[region].name << ".nc";
-      std::string fileName = ss.str();
+      const std::string fileName = ss.str();
 
       long nSamples = regions[region].times.size();
-      long sampleOffset;
+      long sampleOffset = 0;
       MPI_Scan(&nSamples, &sampleOffset, 1, MPI_LONG, MPI_SUM, MPI::mpi.comm());
 
-      int ncid, stat;
+      int ncid = 0;
+      int stat = 0;
       stat = nc_create_par(fileName.c_str(),
                            NC_MPIIO | NC_CLOBBER | NC_NETCDF4,
                            MPI::mpi.comm(),
@@ -289,7 +273,12 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
                            &ncid);
       check_err(stat, __LINE__, __FILE__);
 
-      int sampledim, rankdim, timespectyp, sampletyp, offsetid, sampleid;
+      int sampledim = 0;
+      int rankdim = 0;
+      int timespectyp = 0;
+      int sampletyp = 0;
+      int offsetid = 0;
+      int sampleid = 0;
 
       stat = nc_def_dim(ncid, "rank", 1 + MPI::mpi.size(), &rankdim);
       check_err(stat, __LINE__, __FILE__);
@@ -343,7 +332,8 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
       stat = nc_var_par_access(ncid, sampleid, NC_COLLECTIVE);
       check_err(stat, __LINE__, __FILE__);
 
-      std::size_t start, count;
+      std::size_t start = 0;
+      std::size_t count = 0;
       long offsetData[2];
       if (rank == 0) {
         start = 0;
