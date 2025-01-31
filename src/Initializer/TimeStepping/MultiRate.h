@@ -110,9 +110,9 @@ class seissol::initializer::time_stepping::MultiRate {
                                      double        i_maxNumberOfClusters,
                                const double       *i_cellTimeStepWidths,
                                      unsigned int *o_cellClusterIds) {
-      logInfo(seissol::MPI::mpi.rank()) << "Deriving clusters ids for min. time step width / multiRate:" << i_minimumTimeStepWidth << "/"
+      logInfo() << "Deriving clusters ids for min. time step width / multiRate:" << i_minimumTimeStepWidth << "/"
                                                                                  << i_multiRate;
-      logInfo(seissol::MPI::mpi.rank())
+      logInfo()
           << "Due to wiggle factor of" << i_wiggleFactor << "the minimum timestep size is reduced to"
           << i_wiggleFactor * i_minimumTimeStepWidth;
       const auto maxClusterId = i_maxNumberOfClusters - 1;

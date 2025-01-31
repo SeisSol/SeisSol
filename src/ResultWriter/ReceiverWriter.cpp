@@ -153,8 +153,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   }
 
   auto time = m_stopwatch.stop();
-  const int rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "Wrote receivers in" << time << "seconds.";
+  logInfo() << "Wrote receivers in" << time << "seconds.";
 }
 void ReceiverWriter::init(
     const std::string& fileNamePrefix,
@@ -182,14 +181,13 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                const seissol::initializer::LTS& lts,
                                const GlobalData* global) {
   std::vector<Eigen::Vector3d> points;
-  const auto rank = seissol::MPI::mpi.rank();
   // Only parse if we have a receiver file
   if (!m_receiverFileName.empty()) {
     points = parseReceiverFile(m_receiverFileName);
-    logInfo(rank) << "Record points read from" << m_receiverFileName;
-    logInfo(rank) << "Number of record points =" << points.size();
+    logInfo() << "Record points read from" << m_receiverFileName;
+    logInfo() << "Number of record points =" << points.size();
   } else {
-    logInfo(rank) << "No record points read.";
+    logInfo() << "No record points read.";
   }
 
   const unsigned numberOfPoints = points.size();
@@ -200,12 +198,12 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   std::vector<unsigned> quantities(seissol::model::MaterialT::Quantities.size());
   std::iota(quantities.begin(), quantities.end(), 0);
 
-  logInfo(rank) << "Finding meshIds for receivers...";
+  logInfo() << "Finding meshIds for receivers...";
   initializer::findMeshIds(
       points.data(), mesh, numberOfPoints, contained.data(), meshIds.data(), 1e-3);
   std::vector<short> globalContained(contained.begin(), contained.end());
 #ifdef USE_MPI
-  logInfo(rank) << "Cleaning possible double occurring receivers for MPI...";
+  logInfo() << "Cleaning possible double occurring receivers for MPI...";
   initializer::cleanDoubles(contained.data(), numberOfPoints);
   MPI_Allreduce(MPI_IN_PLACE,
                 globalContained.data(),
@@ -218,9 +216,8 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   bool receiversMissing = false;
   for (int i = 0; i < numberOfPoints; ++i) {
     if (globalContained[i] == 0) {
-      logWarning(rank) << "Receiver point" << i
-                       << "could not be found. Coordinates:" << points[i](0) << points[i](1)
-                       << points[i](2);
+      logWarning() << "Receiver point" << i << "could not be found. Coordinates:" << points[i](0)
+                   << points[i](1) << points[i](2);
       receiversMissing = true;
     }
   }
@@ -228,7 +225,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
     logError() << "Some receivers could not be found. Aborting simulation.";
   }
 
-  logInfo(rank) << "Mapping receivers to LTS cells...";
+  logInfo() << "Mapping receivers to LTS cells...";
   m_receiverClusters[Interior].clear();
   m_receiverClusters[Copy].clear();
   for (unsigned point = 0; point < numberOfPoints; ++point) {
