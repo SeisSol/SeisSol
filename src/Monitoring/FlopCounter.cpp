@@ -38,12 +38,16 @@ void FlopCounter::init(const std::string& outputFileNamePrefix) {
   if (rank == 0) {
     out.open(outputFileName);
     out << "time,";
-    for (size_t i = 0; i < worldSize - 1; ++i) {
-      out << "rank_" << i << "_accumulated,";
-      out << "rank_" << i << "_current,";
-    }
-    out << "rank_" << worldSize - 1 << "_accumulated,";
-    out << "rank_" << worldSize - 1 << "_current" << std::endl;
+    const auto datasetHeaders = [&](const std::string& suffix) {
+      for (size_t i = 0; i < worldSize; ++i) {
+        out << "rank_" << i << "_" << suffix << ",";
+      }
+    };
+    datasetHeaders("hw_accumulated");
+    datasetHeaders("hw_epoch");
+    datasetHeaders("nz_accumulated");
+    datasetHeaders("nz_epoch");
+    out << std::endl;
   }
 }
 
@@ -51,53 +55,53 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   const int rank = seissol::MPI::mpi.rank();
   const auto worldSize = static_cast<size_t>(seissol::MPI::mpi.size());
 
-  const long long newTotalFlops = hardwareFlopsLocal + hardwareFlopsNeighbor + hardwareFlopsOther +
-                                  hardwareFlopsDynamicRupture + hardwareFlopsPlasticity;
-  const long long diffFlops = newTotalFlops - previousTotalFlops;
-  previousTotalFlops = newTotalFlops;
+  const long long newTotalHWFlops = hardwareFlopsLocal + hardwareFlopsNeighbor +
+                                    hardwareFlopsOther + hardwareFlopsDynamicRupture +
+                                    hardwareFlopsPlasticity;
+  const long long diffHWFlops = newTotalHWFlops - previousTotalHWFlops;
+  previousTotalHWFlops = newTotalHWFlops;
+
+  const long long newTotalNZFlops = nonZeroFlopsLocal + nonZeroFlopsNeighbor + nonZeroFlopsOther +
+                                    nonZeroFlopsDynamicRupture + nonZeroFlopsPlasticity;
+  const long long diffNZFlops = newTotalNZFlops - previousTotalNZFlops;
+  previousTotalNZFlops = newTotalNZFlops;
 
   const double diffTime = wallTime - previousWallTime;
   previousWallTime = wallTime;
 
-  const double accumulatedGflopsPerSecond = newTotalFlops * 1.e-9 / wallTime;
-  const double previousGflopsPerSecond = diffFlops * 1.e-9 / diffTime;
-
-  const auto accumulatedGflopsPerSecondOnRanks =
-      seissol::MPI::mpi.collect(accumulatedGflopsPerSecond);
-  const auto previousGflopsPerSecondOnRanks = seissol::MPI::mpi.collect(previousGflopsPerSecond);
-
-  const auto accumulatedGflopsPerSecondSummary =
-      seissol::statistics::Summary(accumulatedGflopsPerSecondOnRanks);
-  const auto previousGflopsPerSecondSummary =
-      seissol::statistics::Summary(previousGflopsPerSecondOnRanks);
+  const double accumulatedHWGflopsPerSecond = newTotalHWFlops * 1.e-9 / wallTime;
+  const double accumulatedNZGflopsPerSecond = newTotalNZFlops * 1.e-9 / wallTime;
+  const double previousHWGflopsPerSecond = diffHWFlops * 1.e-9 / diffTime;
+  const double previousNZGflopsPerSecond = diffNZFlops * 1.e-9 / diffTime;
 
   if (rank == 0) {
-    // for now, we calculate everything in GFLOP/s, and switch back to FLOP/s for output only
-    logInfo() << "Performance since the start:"
-              << UnitFlopPerS.formatPrefix(accumulatedGflopsPerSecondSummary.sum * 1e9).c_str()
-              << "(per rank:"
-              << UnitFlopPerS
-                     .formatPrefix(accumulatedGflopsPerSecondSummary.mean * 1e9,
-                                   accumulatedGflopsPerSecondSummary.std * 1e9)
-                     .c_str()
-              << ")";
-    logInfo() << "Performance since last sync point:"
-              << UnitFlopPerS.formatPrefix(previousGflopsPerSecondSummary.sum * 1e9).c_str()
-              << "(per rank:"
-              << UnitFlopPerS
-                     .formatPrefix(previousGflopsPerSecondSummary.mean * 1e9,
-                                   previousGflopsPerSecondSummary.std * 1e9)
-                     .c_str()
-              << ")";
-
     out << wallTime << ",";
-    for (size_t i = 0; i < worldSize - 1; i++) {
-      out << accumulatedGflopsPerSecondOnRanks[i] << ",";
-      out << previousGflopsPerSecondOnRanks[i] << ",";
-    }
-    out << accumulatedGflopsPerSecondOnRanks[worldSize - 1] << ","
-        << previousGflopsPerSecondOnRanks[worldSize - 1] << std::endl;
   }
+
+  const auto handleFlopsDataset = [&](auto local, const std::string& message) {
+    const auto localOnRanks = seissol::MPI::mpi.collect(local);
+    const auto localSummary = seissol::statistics::Summary(localOnRanks);
+
+    if (rank == 0) {
+      // for now, we calculate everything in GFLOP/s, and switch back to FLOP/s for output only
+      logInfo()
+          << message.c_str() << UnitFlopPerS.formatPrefix(localSummary.sum * 1e9).c_str()
+          << "(per rank:"
+          << UnitFlopPerS.formatPrefix(localSummary.mean * 1e9, localSummary.std * 1e9).c_str()
+          << ")";
+      for (size_t i = 0; i < worldSize; i++) {
+        out << localOnRanks[i] << ",";
+      }
+    }
+  };
+
+  // make sure to keep it the same width. Otherwise, if may become confusing
+  handleFlopsDataset(accumulatedHWGflopsPerSecond, "HW-FLOP/s since start:");
+  handleFlopsDataset(previousHWGflopsPerSecond, "HW-FLOP/s last epoch: ");
+  handleFlopsDataset(accumulatedNZGflopsPerSecond, "NZ-FLOP/s since start:");
+  handleFlopsDataset(previousNZGflopsPerSecond, "NZ-FLOP/s last epoch: ");
+
+  out << std::endl;
 }
 
 /**
