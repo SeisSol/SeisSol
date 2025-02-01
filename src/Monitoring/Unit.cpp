@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <ios>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
