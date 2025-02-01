@@ -16,6 +16,8 @@
 #include <ostream>
 #include <string>
 
+#include "Numerical/Statistics.h"
+
 // NOLINTNEXTLINE
 long long libxsmm_num_total_flops = 0;
 // NOLINTNEXTLINE
@@ -60,33 +62,33 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   const double accumulatedGflopsPerSecond = newTotalFlops * 1.e-9 / wallTime;
   const double previousGflopsPerSecond = diffFlops * 1.e-9 / diffTime;
 
-  auto accumulatedGflopsPerSecondOnRanks = seissol::MPI::mpi.collect(accumulatedGflopsPerSecond);
-  auto previousGflopsPerSecondOnRanks = seissol::MPI::mpi.collect(previousGflopsPerSecond);
+  const auto accumulatedGflopsPerSecondOnRanks =
+      seissol::MPI::mpi.collect(accumulatedGflopsPerSecond);
+  const auto previousGflopsPerSecondOnRanks = seissol::MPI::mpi.collect(previousGflopsPerSecond);
+
+  const auto accumulatedGflopsPerSecondSummary =
+      seissol::statistics::Summary(accumulatedGflopsPerSecondOnRanks);
+  const auto previousGflopsPerSecondSummary =
+      seissol::statistics::Summary(previousGflopsPerSecondOnRanks);
 
   if (rank == 0) {
-    double accumulatedGflopsSum = 0;
-    double previousGflopsSum = 0;
-#ifdef _OPENMP
-#pragma omp simd reduction(+ : accumulatedGflopsSum, previousGflopsSum)
-#endif
-    for (size_t i = 0; i < worldSize; i++) {
-      accumulatedGflopsSum += accumulatedGflopsPerSecondOnRanks[i];
-      previousGflopsSum += previousGflopsPerSecondOnRanks[i];
-    }
-    const auto accumulatedGflopsPerRank = accumulatedGflopsSum / seissol::MPI::mpi.size();
-    const auto previousGflopsPerRank = previousGflopsSum / seissol::MPI::mpi.size();
-
     // for now, we calculate everything in GFLOP/s, and switch back to FLOP/s for output only
     logInfo() << "Performance since the start:"
-              << UnitFlopPerS.formatPrefix(accumulatedGflopsSum * 1e9).c_str()
-              << "(rank 0:" << UnitFlopPerS.formatPrefix(accumulatedGflopsPerSecond * 1e9).c_str()
-              << ", average over ranks:"
-              << UnitFlopPerS.formatPrefix(accumulatedGflopsPerRank * 1e9).c_str() << ")";
+              << UnitFlopPerS.formatPrefix(accumulatedGflopsPerSecondSummary.sum * 1e9).c_str()
+              << "(per rank:"
+              << UnitFlopPerS
+                     .formatPrefix(accumulatedGflopsPerSecondSummary.mean * 1e9,
+                                   accumulatedGflopsPerSecondSummary.std * 1e9)
+                     .c_str()
+              << ")";
     logInfo() << "Performance since last sync point:"
-              << UnitFlopPerS.formatPrefix(previousGflopsSum * 1e9).c_str()
-              << "(rank 0:" << UnitFlopPerS.formatPrefix(previousGflopsPerSecond * 1e9).c_str()
-              << ", average over ranks:"
-              << UnitFlopPerS.formatPrefix(previousGflopsPerRank * 1e9).c_str() << ")";
+              << UnitFlopPerS.formatPrefix(previousGflopsPerSecondSummary.sum * 1e9).c_str()
+              << "(per rank:"
+              << UnitFlopPerS
+                     .formatPrefix(previousGflopsPerSecondSummary.mean * 1e9,
+                                   previousGflopsPerSecondSummary.std * 1e9)
+                     .c_str()
+              << ")";
 
     out << wallTime << ",";
     for (size_t i = 0; i < worldSize - 1; i++) {
