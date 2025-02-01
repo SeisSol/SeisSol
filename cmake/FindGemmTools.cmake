@@ -82,7 +82,7 @@ foreach(component ${_GEMM_TOOLS_LIST})
     elseif ("${component}" STREQUAL "GemmForge")
         execute_process(COMMAND python3 -c "import gemmforge; gemmforge.print_cmake_path()"
                         OUTPUT_VARIABLE GEMMFORGE_PATH)
-        set(CMAKE_PREFIX_PATH "${GEMMFORGE_PATH}" ${CMAKE_MODULE_PATH})
+        set(CMAKE_PREFIX_PATH "${GEMMFORGE_PATH}" ${CMAKE_PREFIX_PATH})
         find_package(GemmForge 0.0.207 REQUIRED)
         set(DEVICE_SRC ${DEVICE_SRC} ${GemmForge_SOURCES})
         set(DEVICE_INCLUDE_DIRS ${DEVICE_INCLUDE_DIRS} ${GemmForge_INCLUDE_DIRS})
