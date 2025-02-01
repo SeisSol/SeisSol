@@ -161,6 +161,7 @@ add_custom_command(
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
      "--host_arch" ${HOST_ARCH_STR}
+     "--device_codegen" ${DEVICE_CODEGEN}
      "--device_arch" ${DEVICE_ARCH_STR}
      "--device_backend" ${DEVICE_BACKEND}
      "--order" ${ORDER}
