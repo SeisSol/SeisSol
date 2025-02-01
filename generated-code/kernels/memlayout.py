@@ -82,25 +82,28 @@ def guessMemoryLayout(env):
             "INFO: Found gpu as a target. "
             + "Memory layout will fall back to all dense"
         )
-        return os.path.join(path, "dense.xml")
-
-    values = {
-        "precision": env["arch"][0].lower(),
-        "equations": env["equations"].lower(),
-        "order": int(env["order"]),
-        "pe": arch.getCpu(env["arch"]),
-        "multipleSimulations": int(env["multipleSimulations"]),
-    }
-
-    candidates = findCandidates(search_path=path)
-    bestFit = max(candidates.keys(), key=lambda key: candidates[key].score(values))
-    bestScore = candidates[bestFit].score(values)
-
-    if bestScore == 0:
-        print(
-            "WARNING: No suitable memory layout found."
-            + "(Will fall back to all dense.)"
-        )
         bestFit = "dense.xml"
+    elif int(env["multipleSimulations"]) <= 1:
+        print("Using SIMD-aligned block sparsity.")
+        bestFit = "green.xml"
+    else:
+        values = {
+            "precision": env["arch"][0].lower(),
+            "equations": env["equations"].lower(),
+            "order": int(env["order"]),
+            "pe": arch.getCpu(env["arch"]),
+            "multipleSimulations": int(env["multipleSimulations"]),
+        }
+
+        candidates = findCandidates(search_path=path)
+        bestFit = max(candidates.keys(), key=lambda key: candidates[key].score(values))
+        bestScore = candidates[bestFit].score(values)
+
+        if bestScore == 0:
+            print(
+                "WARNING: No suitable memory layout found."
+                + "(Will fall back to all dense.)"
+            )
+            bestFit = "dense.xml"
     print("Using memory layout {}".format(bestFit))
     return os.path.join(path, bestFit)

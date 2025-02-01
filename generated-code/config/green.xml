@@ -24,4 +24,6 @@
 <matrix name="rT(3)" sparse="aligned"/>
 
 <matrix name="star" sparse="True"/>
+<matrix name="ET" sparse="True"/>
+
 </memory_layouts>
