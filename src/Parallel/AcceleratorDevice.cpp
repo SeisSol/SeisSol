@@ -71,12 +71,11 @@ void AcceleratorDevice::bindNativeDevice(int deviceId) {
 }
 
 void AcceleratorDevice::printInfo() {
-  const auto rank = seissol::MPI::mpi.rank();
   for (const auto& warn : warnMessages) {
-    logWarning(rank) << warn.c_str();
+    logWarning() << warn.c_str();
   }
   for (const auto& info : infoMessages) {
-    logInfo(rank) << info.c_str();
+    logInfo() << info.c_str();
   }
 }
 } // namespace seissol

@@ -78,8 +78,8 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   std::size_t storesize = 1;
   void* datastore = std::malloc(1);
 
-  logInfo(seissol::MPI::mpi.rank()) << "Loading checkpoint...";
-  logInfo(seissol::MPI::mpi.rank()) << "Checkpoint file:" << file;
+  logInfo() << "Loading checkpoint...";
+  logInfo() << "Checkpoint file:" << file;
 
   auto reader = reader::file::Hdf5Reader(seissol::MPI::mpi.comm());
   reader.openFile(file);
@@ -92,15 +92,14 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
     reader.openGroup(ckpTree.name);
     auto distributor = reader::Distributor(seissol::MPI::mpi.comm());
 
-    logInfo(seissol::MPI::mpi.rank()) << "Reading group IDs for" << ckpTree.name;
+    logInfo() << "Reading group IDs for" << ckpTree.name;
     auto groupIds = reader.readData<std::size_t>("__ids");
     distributor.setup(groupIds, ckpTree.ids);
 
     std::vector<reader::Distributor::DistributionInstance> distributions;
     distributions.reserve(ckpTree.variables.size());
     for (auto& variable : ckpTree.variables) {
-      logInfo(seissol::MPI::mpi.rank())
-          << "Reading variable" << ckpTree.name << "/" << variable.name;
+      logInfo() << "Reading variable" << ckpTree.name << "/" << variable.name;
       const std::size_t count = reader.dataCount(variable.name);
       const std::size_t currsize = count * variable.datatype->size();
       if (currsize > storesize) {
@@ -112,7 +111,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
           variable.data, datastore, datatype::convertToMPI(variable.datatype));
       distributions.push_back(distribution);
     }
-    logInfo(seissol::MPI::mpi.rank()) << "Finishing data distribution for" << ckpTree.name;
+    logInfo() << "Finishing data distribution for" << ckpTree.name;
     for (auto& distribution : distributions) {
       distribution.complete();
     }
@@ -123,7 +122,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   reader.closeGroup();
   reader.closeFile();
 
-  logInfo(seissol::MPI::mpi.rank()) << "Checkpoint loading complete.";
+  logInfo() << "Checkpoint loading complete.";
 
   std::free(datastore);
 

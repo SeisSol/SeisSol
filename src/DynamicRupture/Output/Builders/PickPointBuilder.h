@@ -243,14 +243,14 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       for (size_t idx{0}; idx < size; ++idx) {
         const auto isFound = globalContainVector[idx];
         if (!isFound) {
-          logWarning(localRank) << "On-fault receiver " << idx
-                                << " is not inside any element along the rupture surface";
+          logWarning() << "On-fault receiver " << idx
+                       << " is not inside any element along the rupture surface";
           allReceiversFound = false;
           ++missing;
         }
       }
       if (allReceiversFound) {
-        logInfo(localRank) << "All point receivers found along the fault";
+        logInfo() << "All point receivers found along the fault";
       } else {
         logError() << missing << "on-fault receivers have not been found.";
       }
