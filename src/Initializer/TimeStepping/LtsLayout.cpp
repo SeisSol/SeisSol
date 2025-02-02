@@ -624,25 +624,9 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior
   // unique set of local cluster
   std::set< unsigned int > l_localClusters;
 
-  // derive local clusters
-  for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
-    l_localClusters.insert( m_cellClusterIds[l_cell] );
-  }
-
-  // HACK: add ghost cell clusters as well
-  for( std::size_t i = 0; i < m_plainNeighboringRanks.size(); ++i ) {
-    for (unsigned int j = 0; j < m_numberOfPlainGhostCells[i]; ++j) {
-      l_localClusters.insert( m_plainGhostCellClusterIds[i][j] );
-    }
-  }
-
-  // HACK 2: make contiguous
-  if (!l_localClusters.empty()) {
-    const auto minLocal = *l_localClusters.begin();
-    const auto maxLocal = *l_localClusters.rbegin();
-    for (auto i = minLocal; i <= maxLocal; ++i) {
-      l_localClusters.insert(i);
-    }
+  // derive local clusters / HACK: no, always take all clusters
+  for( unsigned int i = 0; i < m_numberOfGlobalClusters; i++ ) {
+    l_localClusters.insert( i );
   }
 
   // convert set to vector
