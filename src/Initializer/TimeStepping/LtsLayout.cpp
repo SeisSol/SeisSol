@@ -237,181 +237,22 @@ void seissol::initializer::time_stepping::LtsLayout::deriveDynamicRupturePlainCo
 }
 
 void seissol::initializer::time_stepping::LtsLayout::normalizeMpiIndices() {
-	const int rank = seissol::MPI::mpi.rank();
-
-  /*
-   * Derive local mappings
-   */
-  // mapping from local mpi-faces to cell ids
-  std::vector< std::vector< unsigned int > > l_faceToCellIdMappings;
-  l_faceToCellIdMappings.resize( m_plainNeighboringRanks.size() );
-
-  // iterate over mesh and derive mapping
-  for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-      if(  m_cells[l_cell].neighborRanks[l_face] != rank ) {
-        // asert this is a regular, dynamic rupture or periodic face
-        assert(getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::Regular ||
-               getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::DynamicRupture ||
-               getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::Periodic);
-
-        // derive id of the local region
-        int l_region = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
-
-        // get unique mpi face id
-        int l_mpiIndex = m_cells[l_cell].mpiIndices[l_face];
-
-        // resize mapping array to hold this index if required
-        if( l_faceToCellIdMappings[l_region].size() <= static_cast<unsigned int>(l_mpiIndex) ) {
-          l_faceToCellIdMappings[l_region].resize( l_mpiIndex+1 );
-        }
-
-        // add the face to the mapping of this region
-        l_faceToCellIdMappings[l_region][l_mpiIndex] = l_cell;
-      }
-    }
-  }
-
-  /*
-   * Exchange and check sizes (debugging only)
-   */
-  // sizes of the mappings for the local and the neighboring ranks
-  std::vector< unsigned int > l_localMappingSizes, l_remoteMappingSizes;
-  l_localMappingSizes.resize(  m_plainNeighboringRanks.size() );
-  l_remoteMappingSizes.resize( m_plainNeighboringRanks.size() );
-
-#ifdef USE_MPI
-  // TODO please check if this ifdef is correct
-
-  // exchange information about the size of the mappings (for debugging purposes only)
-  MPI_Request *l_requests = new MPI_Request[ m_plainNeighboringRanks.size() * 2 ];
-  for( unsigned int l_neighbor = 0; l_neighbor < m_plainNeighboringRanks.size(); l_neighbor++ ) {
-    l_localMappingSizes[l_neighbor] = l_faceToCellIdMappings[l_neighbor].size();
-
-    // send this ranks copy layer size
-    MPI_Isend( &l_localMappingSizes[l_neighbor],     // buffer
-                1,                                   // size
-                MPI_UNSIGNED,                        // data type
-                m_plainNeighboringRanks[l_neighbor], // destination
-                normalizeIndices,                    // message tag
-                seissol::MPI::mpi.comm(),            // communicator
-                l_requests + l_neighbor );           // mpi request
-
-    // receive neighboring ranks copy layer size
-    MPI_Irecv( &l_remoteMappingSizes[l_neighbor],                            // buffer
-                 1,                                                          // size
-                 MPI_UNSIGNED,                                               // data type
-                 m_plainNeighboringRanks[l_neighbor],                        // source
-                 normalizeIndices,                                           // message tag
-                 seissol::MPI::mpi.comm(),                                   // communicator
-                 l_requests + l_neighbor + m_plainNeighboringRanks.size() ); // mpi request
-  }
-
-  // wait for sends/receives
-  MPI_Waitall( m_plainNeighboringRanks.size()*2, // size
-               l_requests,                       // array of requests
-               MPI_STATUS_IGNORE );              // mpi status
-#endif
-
-  // make sure the sizes of the local mapping and neighboring mapping match
-  for( unsigned int l_region = 0; l_region < m_plainNeighboringRanks.size(); l_region++ ) {
-    if( l_faceToCellIdMappings[l_region].size() != l_remoteMappingSizes[l_region] ) {
-      logError() << "mapping sizes don't match" << l_faceToCellIdMappings[l_region].size() << l_remoteMappingSizes[l_region];
-    }
-  }
-
-  /*
-   * Exchange the mappings
-   */
-  // remote mappings
-  std::vector< std::vector< unsigned int > > l_remoteFaceToCellIdMappings;
-  l_remoteFaceToCellIdMappings.resize( m_plainNeighboringRanks.size() );
-  for( unsigned int l_region = 0; l_region < m_plainNeighboringRanks.size(); l_region++ ) {
-    l_remoteFaceToCellIdMappings[l_region].resize( l_faceToCellIdMappings[l_region].size() );
-  }
-
-#ifdef USE_MPI
-  // TODO please check if this ifdef is correct
-
-  // exchange the mappings
-  for( unsigned int l_neighbor = 0; l_neighbor < m_plainNeighboringRanks.size(); l_neighbor++ ) {
-    // send this ranks copy layer size
-    MPI_Isend( &l_faceToCellIdMappings[l_neighbor][0],     // buffer
-                l_faceToCellIdMappings[l_neighbor].size(), // size
-                MPI_UNSIGNED,                              // data type
-                m_plainNeighboringRanks[l_neighbor],       // destination
-                normalizeIndices,                          // message tag
-                seissol::MPI::mpi.comm(),                  // communicator
-                l_requests + l_neighbor );                 // mpi request
-
-    // receive neighboring ranks copy layer size
-    MPI_Irecv( &l_remoteFaceToCellIdMappings[l_neighbor][0],                // buffer
-                l_remoteFaceToCellIdMappings[l_neighbor].size(),            // size
-                MPI_UNSIGNED,                                               // data type
-                m_plainNeighboringRanks[l_neighbor],                        // source
-                normalizeIndices,                                           // message tag
-                seissol::MPI::mpi.comm(),                                   // communicator
-                l_requests + l_neighbor + m_plainNeighboringRanks.size() ); // mpi request
-  }
-
-  // wait for sends/receives
-  MPI_Waitall( m_plainNeighboringRanks.size()*2, // size
-               l_requests,                       // array of requests
-               MPI_STATUS_IGNORE );              // mpi status
-#endif // USE_MPI
-
-  /*
-   * Replace the useless mpi-indices by the neighboring cell id
-   */
-  for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-      if( m_cells[l_cell].neighborRanks[l_face] != rank ) {
-        // derive id of the local region
-        int l_region = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
-
-        // assert we have a corresponding mappiong
-        assert( m_cells[l_cell].mpiIndices[l_face] < static_cast<int>(l_remoteFaceToCellIdMappings[l_region].size()) );
-
-        // replace mpi index by the cell id
-        m_cells[l_cell].mpiIndices[l_face] = l_remoteFaceToCellIdMappings[l_region][ m_cells[l_cell].mpiIndices[l_face] ];
-      }
-    }
-  }
-
   /*
    * Convert the neighboring mappings to unique and sorted lists of the neighbors
    */
   for( unsigned int l_region = 0; l_region < m_plainNeighboringRanks.size(); l_region++ ) {
+    std::vector<unsigned int> l_remoteFaceToCellIdMappings(m_mesh->getGhostlayerMetadata().at(m_plainNeighboringRanks[l_region]).size());
+    for (std::size_t i = 0; i < l_remoteFaceToCellIdMappings.size(); ++i) {
+      l_remoteFaceToCellIdMappings[i] = m_mesh->getGhostlayerMetadata().at(m_plainNeighboringRanks[l_region])[i].localId;
+    }
     // sort
-    std::sort( l_remoteFaceToCellIdMappings[l_region].begin(), l_remoteFaceToCellIdMappings[l_region].end() );
+    std::sort( l_remoteFaceToCellIdMappings.begin(), l_remoteFaceToCellIdMappings.end() );
     // unique
-    std::vector< unsigned int >::iterator l_overhead = std::unique( l_remoteFaceToCellIdMappings[l_region].begin(), l_remoteFaceToCellIdMappings[l_region].end() );
-    l_remoteFaceToCellIdMappings[l_region].erase( l_overhead, l_remoteFaceToCellIdMappings[l_region].end() );
+    auto l_overhead = std::unique( l_remoteFaceToCellIdMappings.begin(), l_remoteFaceToCellIdMappings.end() );
+    l_remoteFaceToCellIdMappings.erase( l_overhead, l_remoteFaceToCellIdMappings.end() );
 
     // store the results
-    m_plainGhostCellIds.push_back( l_remoteFaceToCellIdMappings[l_region] );
-  }
-
-  /*
-   * Replace neighboring cell id mpi indices by plain ghost region indices.
-   */
-  for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-      if( m_cells[l_cell].neighborRanks[l_face] != rank ) {
-        // derive id of the local region
-        int l_region = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
-
-        // get ghost index
-        std::vector<unsigned int>::iterator l_ghostIdIterator = std::find( m_plainGhostCellIds[l_region].begin(), m_plainGhostCellIds[l_region].end(), (unsigned int) m_cells[l_cell].mpiIndices[l_face] );
-        unsigned int l_ghostId = std::distance( m_plainGhostCellIds[l_region].begin(), l_ghostIdIterator );
-
-        // assert a match
-        assert( l_ghostId < m_plainGhostCellIds[l_region].size() );
-
-        // replace cell id with ghost index
-        m_cells[l_cell].mpiIndices[l_face] = l_ghostId;
-      }
-    }
+    m_plainGhostCellIds.push_back( l_remoteFaceToCellIdMappings );
   }
 }
 
@@ -1152,7 +993,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
             }
 
             // get mesh id in the neighboring domain
-            unsigned int l_neighboringMeshId = m_plainGhostCellIds[l_plainRegion][ m_cells[l_meshId].mpiIndices[l_face] ];
+            unsigned int l_neighboringMeshId = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[ m_cells[l_meshId].mpiIndices[l_face]].localId;
 
             unsigned int l_localGhostId = searchClusteredGhostCell( l_neighboringMeshId,
                                                                     l_cluster,

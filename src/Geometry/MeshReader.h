@@ -25,6 +25,7 @@ namespace seissol::geometry {
 struct GhostElementMetadata {
   double vertices[4][3];
   int group;
+  LocalElemId localId;
   GlobalElemId globalId;
   int clusterId;
   double timestep;
