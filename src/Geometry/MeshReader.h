@@ -26,6 +26,8 @@ struct GhostElementMetadata {
   double vertices[4][3];
   int group;
   GlobalElemId globalId;
+  int clusterId;
+  double timestep;
 };
 
 class MeshReader {

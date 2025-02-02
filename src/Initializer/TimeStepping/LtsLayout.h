@@ -30,6 +30,8 @@ namespace seissol::initializer::time_stepping {
 
 class seissol::initializer::time_stepping::LtsLayout {
   //private:
+    const seissol::geometry::MeshReader* m_mesh;
+
     //! cells in the local domain
     std::vector<Element> m_cells;
 

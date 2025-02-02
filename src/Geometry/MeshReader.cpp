@@ -262,12 +262,14 @@ void MeshReader::exchangeGhostlayerMetadata() {
 
   // assume that all vertices are stored contiguously
   const int datatypeCount = 3;
-  const std::vector<int> datatypeBlocklen{12, 1, 1};
+  const std::vector<int> datatypeBlocklen{12, 1, 1, 1, 1};
   const std::vector<MPI_Aint> datatypeDisplacement{offsetof(GhostElementMetadata, vertices),
                                                    offsetof(GhostElementMetadata, group),
-                                                   offsetof(GhostElementMetadata, globalId)};
+                                                   offsetof(GhostElementMetadata, globalId),
+                                                   offsetof(GhostElementMetadata, clusterId),
+                                                   offsetof(GhostElementMetadata, timestep)};
   const std::vector<MPI_Datatype> datatypeDatatype{
-      MPI_DOUBLE, MPI_INT, PUML::MPITypeInfer<GlobalElemId>::type()};
+      MPI_DOUBLE, MPI_INT, PUML::MPITypeInfer<GlobalElemId>::type(), MPI_INT, MPI_DOUBLE};
 
   MPI_Type_create_struct(datatypeCount,
                          datatypeBlocklen.data(),
@@ -297,6 +299,8 @@ void MeshReader::exchangeGhostlayerMetadata() {
       }
       ghost.group = element.group;
       ghost.globalId = element.globalId;
+      ghost.clusterId = element.clusterId;
+      ghost.timestep = element.timestep;
     }
 
     // TODO(David): evaluate, if MPI_Ssend (instead of just MPI_Send) makes sense here?

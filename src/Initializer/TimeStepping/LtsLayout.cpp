@@ -29,18 +29,11 @@
 seissol::initializer::time_stepping::LtsLayout::LtsLayout(const seissol::initializer::parameters::SeisSolParameters& parameters):
  m_plainCopyRegions(         NULL ),
  m_numberOfPlainGhostCells(  NULL ),
- m_plainGhostCellClusterIds( NULL ),
  seissolParams(parameters) {}
 
 seissol::initializer::time_stepping::LtsLayout::~LtsLayout() {
   // free memory of member variables
   delete[] m_numberOfPlainGhostCells;
-  if (m_plainGhostCellClusterIds != nullptr) {
-    for( unsigned int l_rank = 0; l_rank < m_plainNeighboringRanks.size(); l_rank++ ) {
-      delete[] m_plainGhostCellClusterIds[l_rank];
-    }
-  }
-  delete[] m_plainGhostCellClusterIds;
   delete[] m_plainCopyRegions;
 }
 
@@ -48,6 +41,8 @@ void seissol::initializer::time_stepping::LtsLayout::setMesh( const seissol::geo
   // TODO: remove the copy by a pointer once the mesh stays constant
   m_cells = i_mesh.getElements();
   m_fault = i_mesh.getFault();
+
+  m_mesh = &i_mesh;
 
   m_cellClusterIds.resize(m_cells.size());
   m_cellTimeStepWidths.resize(m_cells.size());
@@ -590,7 +585,7 @@ void seissol::initializer::time_stepping::LtsLayout::sortClusteredCopyGts( clust
       else if( m_cells[l_meshId].neighborRanks[l_face] != rank ) {
         unsigned int l_region = getPlainRegion( m_cells[l_meshId].neighborRanks[l_face] );
         unsigned int l_ghostId = m_cells[l_meshId].mpiIndices[l_face];
-        unsigned int l_ghostClusterId = m_plainGhostCellClusterIds[l_region][l_ghostId];
+        unsigned int l_ghostClusterId = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[l_ghostId].clusterId;
 
         if( l_ghostClusterId > io_copyRegion.first[1] ) {
           l_reorder = true;
@@ -656,7 +651,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior
         assert( l_localGhostCell < m_numberOfPlainGhostCells[l_plainRegion] );
 
         // neighboring cluster id
-        unsigned int l_neighboringClusterId = m_plainGhostCellClusterIds[l_plainRegion][l_localGhostCell];
+        unsigned int l_neighboringClusterId = m_mesh->getGhostlayerMetadata().at(m_cells[l_cell].neighborRanks[l_face])[l_localGhostCell].clusterId;
 
         // add the cell to the respective copy region
         addClusteredCopyCell( l_cell,
@@ -1092,9 +1087,9 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         secondaryInformation[l_ltsCell].duplicate = 0;
         secondaryInformation[l_ltsCell].halo = HaloType::Ghost;
 
-        secondaryInformation[l_ltsCell].globalId = 0; // TODO:
+        secondaryInformation[l_ltsCell].globalId = m_mesh->getGhostlayerMetadata().at(m_clusteredCopy[l_cluster][l_region].first[0])[l_ghostCell].globalId; // TODO: check
         secondaryInformation[l_ltsCell].rank = m_clusteredCopy[l_cluster][l_region].first[0];
-        secondaryInformation[l_ltsCell].layerId = 0;
+        secondaryInformation[l_ltsCell].layerId = layerId;
         secondaryInformation[l_ltsCell].configId = 0;
 
         l_ltsCell++;
@@ -1142,7 +1137,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
 
             // global neighboring cluster id
             unsigned int l_plainRegion = getPlainRegion( m_cells[l_meshId].neighborRanks[l_face] );
-            unsigned int l_globalNeighboringCluster = m_plainGhostCellClusterIds[l_plainRegion][ m_cells[l_meshId].mpiIndices[l_face] ];
+            unsigned int l_globalNeighboringCluster = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[ m_cells[l_meshId].mpiIndices[l_face]].clusterId;
 
             // find local neighboring region
             unsigned int l_localNeighboringRegion;
