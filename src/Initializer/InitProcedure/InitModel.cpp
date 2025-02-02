@@ -273,12 +273,8 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   assert(seissolParams.timeStepping.lts.getRate() > 0);
 
-  if (seissolParams.timeStepping.lts.getRate() == 1) {
-    seissolInstance.getLtsLayout().deriveLayout(TimeClustering::Single, 1);
-  } else {
-    seissolInstance.getLtsLayout().deriveLayout(TimeClustering::MultiRate,
+  seissolInstance.getLtsLayout().deriveLayout(TimeClustering::MultiRate,
                                                 seissolParams.timeStepping.lts.getRate());
-  }
 
   seissolInstance.getLtsLayout().getMeshStructure(ltsInfo.meshStructure);
   seissolInstance.getLtsLayout().getCrossClusterTimeStepping(ltsInfo.timeStepping);

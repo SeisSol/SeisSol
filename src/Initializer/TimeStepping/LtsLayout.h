@@ -30,9 +30,6 @@ namespace seissol::initializer::time_stepping {
 
 class seissol::initializer::time_stepping::LtsLayout {
   //private:
-    //! used clustering strategy
-    enum TimeClustering m_clusteringStrategy;
-
     //! cells in the local domain
     std::vector<Element> m_cells;
 
@@ -43,16 +40,16 @@ class seissol::initializer::time_stepping::LtsLayout {
     std::vector<double>       m_cellTimeStepWidths;
 
     //! cluster ids of the cells
-    unsigned int *m_cellClusterIds;
+    std::vector<unsigned int> m_cellClusterIds;
 
     //! number of clusters in the global domain
     unsigned int  m_numberOfGlobalClusters;
 
     //! time step widths of all clusters
-    double       *m_globalTimeStepWidths;
+    std::vector<double> m_globalTimeStepWidths;
 
     //! time step rates of all clusters
-    unsigned int *m_globalTimeStepRates;
+    std::vector<unsigned int> m_globalTimeStepRates;
 
     //! mpi tags used for communication
     enum mpiTag {
@@ -444,15 +441,6 @@ class seissol::initializer::time_stepping::LtsLayout {
      * @param mesh structure.
      **/
     void getMeshStructure( MeshStructure *&o_meshStructure );
-
-    /**
-    * Get the global cluster Id of a particular local mesh element.
-    *
-    * @param LocalMeshElementId local mesh Id of an element.
-    **/
-    unsigned getGlobalClusterId(int LocalMeshElementId) {
-      return m_cellClusterIds[LocalMeshElementId];;
-    }
 };
 
 

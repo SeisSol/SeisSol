@@ -17,6 +17,8 @@
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>
 #include <Monitoring/Unit.h>
+#include <math.h>
+#include <math.h>
 #include <iterator>
 
 #include "Initializer/ParameterDB.h"
@@ -25,9 +27,6 @@
 #include <limits>
 
 seissol::initializer::time_stepping::LtsLayout::LtsLayout(const seissol::initializer::parameters::SeisSolParameters& parameters):
- m_cellClusterIds(           NULL ),
- m_globalTimeStepWidths(     NULL ),
- m_globalTimeStepRates(      NULL ),
  m_plainCopyRegions(         NULL ),
  m_numberOfPlainGhostCells(  NULL ),
  m_plainGhostCellClusterIds( NULL ),
@@ -35,9 +34,6 @@ seissol::initializer::time_stepping::LtsLayout::LtsLayout(const seissol::initial
 
 seissol::initializer::time_stepping::LtsLayout::~LtsLayout() {
   // free memory of member variables
-  delete[] m_cellClusterIds;
-  delete[] m_globalTimeStepWidths;
-  delete[] m_globalTimeStepRates;
   delete[] m_numberOfPlainGhostCells;
   if (m_plainGhostCellClusterIds != nullptr) {
     for( unsigned int l_rank = 0; l_rank < m_plainNeighboringRanks.size(); l_rank++ ) {
@@ -53,7 +49,7 @@ void seissol::initializer::time_stepping::LtsLayout::setMesh( const seissol::geo
   m_cells = i_mesh.getElements();
   m_fault = i_mesh.getFault();
 
-  m_cellClusterIds     = new unsigned int[ m_cells.size() ];
+  m_cellClusterIds.resize(m_cells.size());
   m_cellTimeStepWidths.resize(m_cells.size());
 
   m_numberOfGlobalClusters = 0;
@@ -68,7 +64,7 @@ void seissol::initializer::time_stepping::LtsLayout::setMesh( const seissol::geo
   MPI_Allreduce( MPI_IN_PLACE, &m_numberOfGlobalClusters, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm() );
 #endif
 
-  m_globalTimeStepWidths = new double[m_numberOfGlobalClusters];
+  m_globalTimeStepWidths.resize(m_numberOfGlobalClusters);
   m_globalTimeStepWidths[0] = std::numeric_limits<double>::max();
   for (std::size_t i = 0; i < m_cells.size(); ++i) {
     m_globalTimeStepWidths[0] = std::min(m_globalTimeStepWidths[0], m_cellTimeStepWidths[i]);
@@ -953,9 +949,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
                                                                     unsigned int        i_clusterRate ) {
 	const int rank = seissol::MPI::mpi.rank();
 
-  m_clusteringStrategy = i_timeClustering;
-
-  m_globalTimeStepRates = new unsigned int[m_numberOfGlobalClusters];
+  m_globalTimeStepRates.resize(m_numberOfGlobalClusters);
   m_globalTimeStepRates[0] = 1;
   for (std::size_t i = 1; i < m_numberOfGlobalClusters; ++i) {
     m_globalTimeStepWidths[i] = m_globalTimeStepWidths[i - 1] * i_clusterRate;
@@ -971,21 +965,21 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
   // normalize mpi indices
   normalizeMpiIndices();
 
-  // normalize clustering
+  // normalize clustering (not anymore, just prints some info; done in LtsWeights/somewhere else)
   normalizeClustering();
 
   // get maximum speedups compared to GTS
-  double l_perCellSpeedup, l_clusteringSpeedup;
-  getTheoreticalSpeedup( l_perCellSpeedup, l_clusteringSpeedup );
+  double perCellSpeedup = 0;
+  double clusteringSpeedup = 0;
+  getTheoreticalSpeedup( perCellSpeedup, clusteringSpeedup );
 
   // The speedups above are computed without considering the wiggle factor
   const auto wiggleFactor = seissolParams.timeStepping.lts.getWiggleFactor();
-  l_perCellSpeedup *= wiggleFactor;
-  l_clusteringSpeedup *= wiggleFactor;
+  perCellSpeedup *= wiggleFactor;
+  clusteringSpeedup *= wiggleFactor;
 
   // get maximum speedup
-  logInfo() << "maximum theoretical speedup (compared to GTS):"
-                  << l_perCellSpeedup << "per cell LTS," << l_clusteringSpeedup << "with the used clustering.";
+  logInfo() << "Theoretical speedup to GTS:" << perCellSpeedup << "elementwise LTS;" << clusteringSpeedup << "clustered LTS (current setup)";
 
   // derive clustered copy and interior layout
   deriveClusteredCopyInterior();
