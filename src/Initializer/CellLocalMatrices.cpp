@@ -678,6 +678,12 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
       switch (plusMaterial->getMaterialType()) {
+      case seissol::model::MaterialType::Elastic: {
+        break;
+      }
+      case seissol::model::MaterialType::Viscoelastic: {
+        break;
+      }
       case seissol::model::MaterialType::Acoustic: {
         logError() << "Dynamic Rupture does not work with an acoustic material.";
         break;
