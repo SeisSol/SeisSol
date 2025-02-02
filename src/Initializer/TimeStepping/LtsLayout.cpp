@@ -13,15 +13,16 @@
 #include "utils/logger.h"
 
 #include "LtsLayout.h"
-#include "MultiRate.h"
 #include "GlobalTimestep.h"
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>
+#include <Monitoring/Unit.h>
 #include <iterator>
 
 #include "Initializer/ParameterDB.h"
 
 #include <iomanip>
+#include <limits>
 
 seissol::initializer::time_stepping::LtsLayout::LtsLayout(const seissol::initializer::parameters::SeisSolParameters& parameters):
  m_cellClusterIds(           NULL ),
@@ -53,21 +54,41 @@ void seissol::initializer::time_stepping::LtsLayout::setMesh( const seissol::geo
   m_fault = i_mesh.getFault();
 
   m_cellClusterIds     = new unsigned int[ m_cells.size() ];
+  m_cellTimeStepWidths.resize(m_cells.size());
 
-  // initialize with invalid values
-  for (unsigned int l_cell = 0; l_cell < m_cells.size(); ++l_cell) {
-    m_cellClusterIds[l_cell] = std::numeric_limits<unsigned int>::max();
+  m_numberOfGlobalClusters = 0;
+  for (std::size_t i = 0; i < m_cells.size(); ++i) {
+    m_cellClusterIds[i] = m_cells[i].clusterId;
+    m_cellTimeStepWidths[i] = m_cells[i].timestep;
+
+    m_numberOfGlobalClusters = std::max(m_numberOfGlobalClusters, m_cellClusterIds[i] + 1);
   }
 
-  // compute timesteps
-  auto timesteps = seissol::initializer::computeTimesteps(
-      seissolParams.timeStepping.cfl,
-      seissolParams.timeStepping.maxTimestepWidth,
-      seissolParams.model.materialFileName,
-      seissol::initializer::CellToVertexArray::fromMeshReader(i_mesh),
-      seissolParams);
-  
-  m_cellTimeStepWidths = std::move(timesteps.cellTimeStepWidths);
+#ifdef USE_MPI
+  MPI_Allreduce( MPI_IN_PLACE, &m_numberOfGlobalClusters, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm() );
+#endif
+
+  m_globalTimeStepWidths = new double[m_numberOfGlobalClusters];
+  m_globalTimeStepWidths[0] = std::numeric_limits<double>::max();
+  for (std::size_t i = 0; i < m_cells.size(); ++i) {
+    m_globalTimeStepWidths[0] = std::min(m_globalTimeStepWidths[0], m_cellTimeStepWidths[i]);
+  }
+#ifdef USE_MPI
+  MPI_Allreduce( MPI_IN_PLACE, &m_globalTimeStepWidths, 1, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm() );
+#endif
+
+  const auto wiggle = seissolParams.timeStepping.lts.getWiggleFactor();
+  if (wiggle == 1) {
+    logInfo() << "Minimum timestep:" << seissol::UnitTime.formatPrefix(m_globalTimeStepWidths[0]).c_str();
+  }
+  else {
+    logInfo() << "Minimum timestep (pre-wiggle):" << seissol::UnitTime.formatPrefix(m_globalTimeStepWidths[0]).c_str();
+
+    // apply wiggle here
+    m_globalTimeStepWidths[0] *= wiggle;
+    logInfo() << "Minimum timestep (with wiggle" << wiggle << "):" << seissol::UnitTime.formatPrefix(m_globalTimeStepWidths[0]).c_str();
+  }
+  logInfo() << "Global cluster count:" << m_numberOfGlobalClusters;
 }
 
 seissol::FaceType seissol::initializer::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
@@ -1136,28 +1157,11 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
 
   m_clusteringStrategy = i_timeClustering;
 
-  // derive time stepping clusters and per-cell cluster ids (w/o normalizations)
-  if( m_clusteringStrategy == TimeClustering::Single ) {
-    MultiRate::deriveClusterIds( m_cells.size(),
-                                 std::numeric_limits<unsigned int>::max(),
-                                 seissolParams.timeStepping.lts.getWiggleFactor(),
-                                 seissolParams.timeStepping.lts.getMaxNumberOfClusters(),
-                                 m_cellTimeStepWidths.data(), // TODO(David): once we fully refactor LtsLayout etc, change this
-                                 m_cellClusterIds,
-                                 m_numberOfGlobalClusters,
-                                 m_globalTimeStepWidths,
-                                 m_globalTimeStepRates  );
-  }
-  else if ( m_clusteringStrategy == TimeClustering::MultiRate ) {
-    MultiRate::deriveClusterIds( m_cells.size(),
-                                 i_clusterRate,
-                                 seissolParams.timeStepping.lts.getWiggleFactor(),
-                                 seissolParams.timeStepping.lts.getMaxNumberOfClusters(),
-                                 m_cellTimeStepWidths.data(), // TODO(David): once we fully refactor LtsLayout etc, change this
-                                 m_cellClusterIds,
-                                 m_numberOfGlobalClusters,
-                                 m_globalTimeStepWidths,
-                                 m_globalTimeStepRates );
+  m_globalTimeStepRates = new unsigned int[m_numberOfGlobalClusters];
+  m_globalTimeStepRates[0] = 1;
+  for (std::size_t i = 1; i < m_numberOfGlobalClusters; ++i) {
+    m_globalTimeStepWidths[i] = m_globalTimeStepWidths[i - 1] * i_clusterRate;
+    m_globalTimeStepRates[i] = m_globalTimeStepRates[i - 1] * i_clusterRate;
   }
 
   // derive plain copy and the interior

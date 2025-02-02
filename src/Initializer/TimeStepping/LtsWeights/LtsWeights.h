@@ -68,6 +68,8 @@ class LtsWeights {
 
   [[nodiscard]] const int* vertexWeights() const;
   [[nodiscard]] const double* imbalances() const;
+  [[nodiscard]] const std::vector<int>& clusterIds() const;
+  [[nodiscard]] const std::vector<double>& timesteps() const;
   [[nodiscard]] int nWeightsPerVertex() const;
 
   private:

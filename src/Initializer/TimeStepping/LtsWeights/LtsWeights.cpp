@@ -344,6 +344,10 @@ const double* LtsWeights::imbalances() const {
   return m_imbalances.data();
 }
 
+const std::vector<int>& LtsWeights::clusterIds() const { return m_clusterIds; }
+
+const std::vector<double>& LtsWeights::timesteps() const { return m_details.cellTimeStepWidths; }
+
 int LtsWeights::nWeightsPerVertex() const {
   assert(m_ncon != std::numeric_limits<int>::infinity() &&
          "num. constrains has not been initialized yet");

@@ -191,7 +191,6 @@ void seissol::geometry::PUMLReader::read(PUML::TETPUML& puml, const char* meshFi
     puml.addData<int>((file + ":/boundary").c_str(), PUML::CELL, {4});
   }
 
-  // TODO(David): change to uint64_t/size_t once we have an MPI module for that ready
   const size_t localCells = puml.numOriginalCells();
   size_t localStart = 0;
 
@@ -244,6 +243,9 @@ void seissol::geometry::PUMLReader::partition(PUML::TETPUML& puml,
 
   auto newPartition = partitioner->partition(graph, target);
 
+  puml.addDataArray(ltsWeights->clusterIds().data(), PUML::CELL, {});
+  puml.addDataArray(ltsWeights->timesteps().data(), PUML::CELL, {});
+
   puml.partition(newPartition.data());
 }
 
@@ -265,6 +267,8 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   const int* group = reinterpret_cast<const int*>(puml.cellData(0));
   const void* boundaryCond = puml.cellData(1);
   const auto* cellIdsAsInFile = reinterpret_cast<const size_t*>(puml.cellData(2));
+  const auto* clusterIds = reinterpret_cast<const int*>(puml.cellData(3));
+  const auto* timestep = reinterpret_cast<const double*>(puml.cellData(4));
 
   std::unordered_map<int, std::vector<unsigned int>> neighborInfo; // List of shared local face ids
 
@@ -275,6 +279,8 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   for (std::size_t i = 0; i < cells.size(); i++) {
     m_elements[i].globalId = cellIdsAsInFile[i];
     m_elements[i].localId = i;
+    m_elements[i].clusterId = clusterIds[i];
+    m_elements[i].timestep = timestep[i];
 
     // Vertices
     PUML::Downward::vertices(
