@@ -106,7 +106,6 @@ def main():
     custom_routine_generators = {}
     if "gpu" in targets:
         device_codegen = re.split(r"[,;]", cmdLineArgs.device_codegen.replace(" ", ""))
-        gemm_generators = []
 
         if "gemmforge-chainforge" in device_codegen and cmdLineArgs.device_backend in [
             "cuda",
