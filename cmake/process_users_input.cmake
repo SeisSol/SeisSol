@@ -236,6 +236,10 @@ if (NOT ${DEVICE_BACKEND} STREQUAL "none")
         list(APPEND AUTO_GEMM_TOOLS_LIST "tinytc")
     endif()
     # TODO: make obsolete
+    if ("tensorforge" IN_LIST AUTO_DEVICE_CODEGEN)
+        list(APPEND AUTO_GEMM_TOOLS_LIST "TensorForge")
+    endif()
+    # TODO: make obsolete
     if ("gemmforge-chainforge" IN_LIST AUTO_DEVICE_CODEGEN)
         list(APPEND AUTO_GEMM_TOOLS_LIST "GemmForge")
     endif()

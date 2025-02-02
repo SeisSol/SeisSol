@@ -23,6 +23,7 @@ import kernels.plasticity
 import kernels.point
 import kernels.surface_displacement
 import kernels.vtkproject
+import yateto
 from yateto import (Generator, NamespacedGenerator, gemm_configuration,
                     useArchitectureIdentifiedBy)
 from yateto.ast.cost import (BoundingBoxCostEstimator,
@@ -95,11 +96,14 @@ def main():
                 )
             else:
                 gemm_generators.append(specific_gemm_class(arch))
+        elif tool.strip().lower() == "tensorforge":
+            pass  # TODO: remove (hence differently placed than "none")
         elif tool.strip().lower() != "none":
             print(f'Unknown GEMM tool "{tool}". Please refer to the documentation.')
             sys.exit("failure")
 
     cost_estimators = BoundingBoxCostEstimator
+    custom_routine_generators = {}
     if "gpu" in targets:
         device_codegen = re.split(r"[,;]", cmdLineArgs.device_codegen.replace(" ", ""))
         gemm_generators = []
@@ -116,6 +120,10 @@ def main():
                 raise ModuleNotFoundError(
                     "Could not find chainforge. You can install it from github.com/seissol/chainforge ."
                 )
+        if "tensorforge" in device_codegen:
+            import tensorforge
+
+            custom_routine_generators["gpu"] = tensorforge.get_routine_generator(yateto)
 
     subfolders = []
 

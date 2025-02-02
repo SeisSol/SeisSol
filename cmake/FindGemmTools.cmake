@@ -92,6 +92,14 @@ foreach(component ${_GEMM_TOOLS_LIST})
         find_package(tinytc_sycl 0.3.1 REQUIRED shared)
         set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} tinytc::tinytc tinytc::tinytc_sycl)
 
+    elseif ("${component}" STREQUAL "TensorForge")
+        execute_process(COMMAND python3 -c "import tensorforge; tensorforge.print_cmake_path()"
+                        OUTPUT_VARIABLE TENSORFORGE_PATH)
+        set(CMAKE_PREFIX_PATH "${TENSORFORGE_PATH}" ${CMAKE_PREFIX_PATH})
+        find_package(TensorForge REQUIRED)
+        set(DEVICE_SRC ${DEVICE_SRC} ${TensorForge_SOURCES})
+        set(DEVICE_INCLUDE_DIRS ${DEVICE_INCLUDE_DIRS} ${TensorForge_INCLUDE_DIRS})
+
     else()
         message(FATAL_ERROR "Gemm Tools do not have a requested component, i.e. ${component}. \
                 Please, refer to the documentation")
