@@ -219,7 +219,7 @@ if (NOT ${DEVICE_BACKEND} STREQUAL "none")
         endif()
 
         # generic device GEMM tool
-        execute_process(COMMAND python3 -c "import gemmforge; gemmforge.print_cmake_path()"
+        execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import gemmforge; gemmforge.print_cmake_path()"
                         OUTPUT_VARIABLE GEMMFORGE_PATH)
         set(CMAKE_PREFIX_PATH "${GEMMFORGE_PATH}" ${CMAKE_PREFIX_PATH})
         find_package(GemmForge 0.0.207 QUIET)
