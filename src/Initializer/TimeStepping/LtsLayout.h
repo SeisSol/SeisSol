@@ -213,46 +213,6 @@ class seissol::initializer::time_stepping::LtsLayout {
     void normalizeMpiIndices();
 
     /**
-     * Helper function for synchronization.
-     */
-    void synchronizePlainGhostData(unsigned* cellData, unsigned** plainGhostData);
-
-    /**
-     * Synchronizes the cluster ids of the cells in the plain ghost layer.
-     **/
-    void synchronizePlainGhostClusterIds();
-
-    /**
-     * Enforces the same time step for all cells with dynamic rupture faces.
-     */
-    unsigned enforceDynamicRuptureGTS();
-
-    /**
-     * Enforces a maximum cluster difference between all cells.
-     * 0: GTS (no difference of cluster ids allowed).
-     * 1: Only a single difference in the cluster id is allowed, for example 2 is allowed to neighbor 1,2,3 but not 0 or 4.
-     * [...]
-     *
-     * @param i_difference maximum allowed difference.
-     * @return number of performed per-cell adjustments.
-     **/
-    unsigned int enforceMaximumDifference( unsigned int i_difference );
-
-    /**
-     * Lowers the time step width of all cells, which would require neighboring
-     * cells to have more than one time buffer.
-     *  Example:
-     *   A cell has time step 2*dt with neighboring time steps dt, 2*dt, 4*dt and 8*dt.
-     *   The scheme only provides one derivative (-> 2*dt - neighbor) and one buffer (-> 4*dt neighbor).
-     *   Therefore we have to lower the time step of the 8*dt neighbor to 4*dt.
-     *
-     * TODO: This function is not implemented but required for maximum differences other than 0 or 1.
-     *
-     * @return number of performed normalizations.
-     **/
-    unsigned int enforceSingleBuffer();
-
-    /**
      * Normalizes the clustering.
      **/
     void normalizeClustering();
