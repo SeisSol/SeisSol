@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023-2024 Technical University of Munich
+# SPDX-FileCopyrightText: 2023-2025 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
@@ -48,3 +48,11 @@ if(PARHIP_FOUND)
 endif()
 
 mark_as_advanced(PARHIP_INCLUDE_DIR PARHIP_LIBRARY)
+
+if(PARHIP_FOUND AND NOT TARGET ParHIP::ParHIP)
+    add_library(ParHIP::ParHIP INTERFACE IMPORTED)
+    set_target_properties(ParHIP::ParHIP PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${PARHIP_INCLUDE_DIR}"
+        INTERFACE_LINK_LIBRARIES "${PARHIP_LIBRARY}"
+    )
+endif()

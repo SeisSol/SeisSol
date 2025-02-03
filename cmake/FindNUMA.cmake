@@ -17,7 +17,7 @@ find_library(NUMA_LIBRARY
 
 # Standard package handling (for now, no versioning)
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(numa
+find_package_handle_standard_args(NUMA
         REQUIRED_VARS NUMA_LIBRARY NUMA_INCLUDE_DIR)
 
 if(NUMA_FOUND)
@@ -26,3 +26,11 @@ if(NUMA_FOUND)
 endif()
 
 mark_as_advanced(NUMA_INCLUDE_DIR NUMA_LIBRARY)
+
+if(NUMA_FOUND AND NOT TARGET NUMA::NUMA)
+    add_library(NUMA::NUMA INTERFACE IMPORTED)
+    set_target_properties(NUMA::NUMA PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${NUMA_INCLUDE_DIRS}"
+        INTERFACE_LINK_LIBRARIES "${NUMA_LIBRARIES}"
+    )
+endif()
