@@ -61,9 +61,8 @@ std::string ParameterReader::readPathOrFail(const std::string& field,
 void ParameterReader::warnDeprecatedSingle(const std::string& field) {
   if (hasField(field)) {
     visited.emplace(field);
-    logInfo(seissol::MPI::mpi.rank())
-        << "The field" << field
-        << "is no longer in use. You may safely remove it from your parameters file.";
+    logInfo() << "The field" << field
+              << "is no longer in use. You may safely remove it from your parameters file.";
   }
 }
 
@@ -77,9 +76,8 @@ void ParameterReader::warnUnknown(const std::string& prefix) const {
   for (const auto& subnodes : node) {
     auto field = subnodes.first.as<std::string>();
     if (visited.find(field) == visited.end()) {
-      logWarning(seissol::MPI::mpi.rank())
-          << "The field" << field << "in" << prefix
-          << "was given in the parameter file, but is unknown to SeisSol.";
+      logWarning() << "The field" << field << "in" << prefix
+                   << "was given in the parameter file, but is unknown to SeisSol.";
     }
   }
   for (const auto& pair : subreaders) {
@@ -89,23 +87,22 @@ void ParameterReader::warnUnknown(const std::string& prefix) const {
 
 void ParameterReader::markUnused(const std::vector<std::string>& fields) {
   for (const auto& field : fields) {
-    logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "is ignored (if it is found).";
+    logDebug() << "The field" << field << "is ignored (if it is found).";
     visited.emplace(field);
   }
 }
 
 ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
   visited.emplace(subnodeName);
-  logDebug(seissol::MPI::mpi.rank()) << "Entering section" << subnodeName;
+  logDebug() << "Entering section" << subnodeName;
   if (subreaders.find(subnodeName) == subreaders.end()) {
     bool empty = false;
     if (hasField(subnodeName)) {
       empty = false;
 
     } else {
-      logDebug(seissol::MPI::mpi.rank())
-          << "Section" << subnodeName
-          << "not found in the given parameter file. Using an empty reader->";
+      logDebug() << "Section" << subnodeName
+                 << "not found in the given parameter file. Using an empty reader->";
       empty = true;
     }
     subreaders.emplace(

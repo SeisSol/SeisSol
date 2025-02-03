@@ -130,21 +130,20 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   const bool elementwiseEnabled = seissolParameters.drParameters.outputPointType ==
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
-  const int rank = seissol::MPI::mpi.rank();
   if (pointEnabled) {
-    logInfo(rank) << "Enabling on-fault receiver output";
+    logInfo() << "Enabling on-fault receiver output";
     ppOutputBuilder = std::make_unique<PickPointBuilder>();
     ppOutputBuilder->setMeshReader(&userMesher);
     ppOutputBuilder->setParams(seissolParameters.output.pickpointParameters);
   }
   if (elementwiseEnabled) {
-    logInfo(rank) << "Enabling 2D fault output";
+    logInfo() << "Enabling 2D fault output";
     ewOutputBuilder = std::make_unique<ElementWiseBuilder>();
     ewOutputBuilder->setMeshReader(&userMesher);
     ewOutputBuilder->setParams(seissolParameters.output.elementwiseParameters);
   }
   if (!elementwiseEnabled && !pointEnabled) {
-    logInfo(rank) << "No dynamic rupture output enabled";
+    logInfo() << "No dynamic rupture output enabled";
   }
 }
 

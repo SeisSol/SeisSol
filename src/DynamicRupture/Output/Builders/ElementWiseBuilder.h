@@ -51,8 +51,8 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
       const auto numFaultElements = meshReader->getFault().size();
       const auto numSubTriangles = faultRefiner->getNumSubTriangles();
 
-      logInfo(localRank) << "Initializing Fault output."
-                         << "Number of sub-triangles:" << numSubTriangles;
+      logInfo() << "Initializing Fault output."
+                << "Number of sub-triangles:" << numSubTriangles;
 
       // get arrays of elements and vertices from the meshReader
       const auto& faultInfo = meshReader->getFault();

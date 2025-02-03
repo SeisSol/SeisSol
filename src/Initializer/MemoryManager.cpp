@@ -855,8 +855,7 @@ bool seissol::initializer::requiresNodalFlux(FaceType f) {
 }
 
 void seissol::initializer::MemoryManager::initializeFrictionLaw() {
-  const int rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "Initialize Friction Model";
+  logInfo() << "Initialize Friction Model";
 
   auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters);
   const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance);
@@ -907,10 +906,10 @@ void seissol::initializer::MemoryManager::initFrictionData() {
 void seissol::initializer::MemoryManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
 #ifdef ACL_DEVICE
   if (place == seissol::initializer::AllocationPlace::Device) {
-    logInfo(MPI::mpi.rank()) << "Synchronizing data... (host->device)";
+    logInfo() << "Synchronizing data... (host->device)";
   }
   else {
-    logInfo(MPI::mpi.rank()) << "Synchronizing data... (device->host)";
+    logInfo() << "Synchronizing data... (device->host)";
   }
   const auto& defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
   m_ltsTree.synchronizeTo(place, defaultStream);

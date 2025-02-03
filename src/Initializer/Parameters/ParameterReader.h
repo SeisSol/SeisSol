@@ -48,8 +48,7 @@ class ParameterReader {
     if (value.has_value()) {
       return value.value();
     } else {
-      logDebug(seissol::MPI::mpi.rank())
-          << "The field" << field << "was not specified, using fallback.";
+      logDebug() << "The field" << field << "was not specified, using fallback.";
       return defaultValue;
     }
   }
@@ -117,7 +116,7 @@ class ParameterReader {
   template <typename T>
   T readUnsafe(const std::string& field) {
     visited.emplace(field);
-    logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "was read.";
+    logDebug() << "The field" << field << "was read.";
     try {
       // booleans are stored as integers
       if constexpr (std::is_same_v<T, bool>) {

@@ -134,8 +134,7 @@ void cleanDoubles(short* contained, std::size_t numPoints) {
   }
 
   if (cleaned > 0) {
-    logInfo(myrank) << "Cleaned " << cleaned << " double occurring points on rank " << myrank
-                    << ".";
+    logInfo() << "Cleaned " << cleaned << " double occurring points on rank " << myrank << ".";
   }
 }
 #endif
