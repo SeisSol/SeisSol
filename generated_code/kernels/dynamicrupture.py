@@ -142,6 +142,7 @@ class FrictionLawBase(ScalarBase):
         self.spaceWeights = self.drconst('spaceWeights', (self.numberOfPoints,))
         self.resampleMatrix = self.drconst('resampleMatrix', (self.numberOfPoints,self.numberOfPoints))
 
+        # TODO: adjust
         self.doubledSurfaceArea = self.drvarcell('doubledSurfaceArea', datatype=FloatingPointType.DOUBLE, structAddressing=(44, 45))
     
     def generate(self, routineName, generator):
@@ -629,10 +630,11 @@ class FastVelocityWeakeningLaw(RateAndState):
         lowVelocityFriction = self.rsF0 - (self.rsB - localA) * forge.log(localSlipRate / self.rsSr0)
         steadyStateFrictionCoefficient = self.muW + (lowVelocityFriction - muW) / forge.pow(1.0 + forge.pow(localSlipRate / localSrW, 8), 1.0 / 8.0)
 
-        # FIXME: numerically unstable? Maybe exp(x) - exp(-x) = exp(x) * (1 - exp(-2*x)), and employ special function?
-        steadyStateStateVariable = localA * forge.log(self.rsSr0 / localSlipRate * (forge.exp(steadyStateFrictionCoefficient / localA) - forge.exp(-steadyStateFrictionCoefficient / localA)))
-        exp1 = forge.exp(-localSlipRate * (self.dt[i] / localSl0))
-        localStateVariable = forge.cast(steadyStateStateVariable * (1 - exp1) + exp1 * self.stateVarReference, FloatingPointType.FLOAT)
+        steadyStateStateVariable = localA * forge.log(self.rsSr0 / localSlipRate * 2.0 * forge.sinh(steadyStateFrictionCoefficient / localA))
+        preexp1 = -localSlipRate * (self.dt[i] / localSl0)
+        exp1 = forge.exp(preexp1)
+        exp1m = -forge.expm1(preexp1)
+        localStateVariable = forge.cast(steadyStateStateVariable * exp1m + exp1 * self.stateVarReference, FloatingPointType.FLOAT)
 
         routine += [
             forge.assign(self.stateVariableBuffer, localStateVariable)
