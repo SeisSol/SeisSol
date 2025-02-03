@@ -12,6 +12,7 @@
 #include "KernelDevice.h"
 #include "KernelHost.h"
 #include <Kernels/Common.h>
+#include <Parallel/Host/SyncExecutor.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cstddef>
 #include <iostream>
@@ -86,7 +87,8 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
 
   auto data = std::make_shared<ProxyData>(config.cells, enableDynamicRupture);
 
-  auto runtime = std::make_shared<seissol::parallel::runtime::StreamRuntime>();
+  auto runtime = std::make_shared<seissol::parallel::runtime::StreamRuntime>(
+      std::make_shared<parallel::host::SyncExecutor>());
 
   if (config.verbose) {
     std::cerr << "...done" << std::endl;

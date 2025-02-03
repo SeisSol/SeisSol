@@ -90,8 +90,8 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
       logError() << "Simulator did not advance in time from" << currentTime << "to" << upcomingTime;
     }
     if (aborted) {
-        logInfo() << "Aborting simulation.";
-        break; 
+      logInfo() << "Aborting simulation.";
+      break;
     }
 
     // update the DOFs
@@ -144,4 +144,3 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
   seissolInstance.flopCounter().printPerformanceSummary(wallTime);
 }
-

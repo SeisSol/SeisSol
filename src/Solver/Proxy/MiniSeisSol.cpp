@@ -55,8 +55,7 @@ Config getConfig() {
     if (config.numRepeats < 1) {
       throw std::runtime_error("expecting a positive integer number");
     }
-  }
-  catch (std::runtime_error& err) {
+  } catch (std::runtime_error& err) {
     logWarning() << "failed to read `SEISSOL_MINI_NUM_REPEATS`," << err.what();
     config.numRepeats = NumRepeats;
   }
@@ -66,8 +65,7 @@ Config getConfig() {
     if (config.numElements < 1) {
       throw std::runtime_error("expecting a positive integer number");
     }
-  }
-  catch (std::runtime_error& err) {
+  } catch (std::runtime_error& err) {
     logWarning() << "failed to read `SEISSOL_MINI_NUM_ELEMENTS`," << err.what();
     config.numElements = NumElements;
   }
@@ -219,9 +217,8 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager,
   ltsTree.fixate();
 
   auto config = mini::getConfig();
-  logInfo() << "miniSeisSol configured with"
-                << config.numElements << "elements and"
-                << config.numRepeats << "repeats per process";
+  logInfo() << "miniSeisSol configured with" << config.numElements << "elements and"
+            << config.numRepeats << "repeats per process";
 
   initializer::TimeCluster& cluster = ltsTree.child(0);
   cluster.child<Ghost>().setNumberOfCells(0);
@@ -279,4 +276,3 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager,
 
   return stopwatch.stop();
 }
-

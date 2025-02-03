@@ -8,6 +8,7 @@ namespace seissol::parallel::host {
 
 class SyncExecutor : public CpuExecutor {
   public:
+  ~SyncExecutor() override = default;
   void start(const std::function<void(CpuExecutor&)>& continuation,
              const Pinning* pinning) override;
   void wait() override;

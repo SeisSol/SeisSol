@@ -10,6 +10,8 @@
 #include <Solver/Clustering/ActorState.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 #include <memory>
+#include <utility>
+
 namespace seissol::solver::clustering::computation {
 
 class GhostCluster : public AbstractTimeCluster {
@@ -19,8 +21,12 @@ class GhostCluster : public AbstractTimeCluster {
                std::shared_ptr<communication::RecvNeighborCluster> neighbor,
                const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
                double priority)
-      : AbstractTimeCluster(maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host, cpuExecutor, priority),
-        neighbor(neighbor) {}
+      : AbstractTimeCluster(maxTimeStepSize,
+                            timeStepRate,
+                            isDeviceOn() ? Executor::Device : Executor::Host,
+                            cpuExecutor,
+                            priority),
+        neighbor(std::move(neighbor)) {}
 
   LayerType getLayerType() const override { return Ghost; }
 
@@ -35,8 +41,7 @@ class GhostCluster : public AbstractTimeCluster {
   }
 
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override {
-    const auto rank = seissol::MPI::mpi.rank();
-    logWarning(rank) << "No update since " << timeSinceLastUpdate.count()
+    logWarning(true) << "No update since " << timeSinceLastUpdate.count()
                      << "[s] for global cluster " << 0 << " with local cluster id " << 0
                      << " at state " << actorStateToString(state)
                      << " predTime = " << ct.time.at(ComputeStep::Predict)
@@ -48,7 +53,7 @@ class GhostCluster : public AbstractTimeCluster {
                      << " stepsTillSync = " << ct.stepsUntilSync
                      << " maySync = " << maySynchronize();
     for (auto& neighbor : neighbors) {
-      logWarning(rank) << "Neighbor with rate = " << neighbor.ct.timeStepRate
+      logWarning(true) << "Neighbor with rate = " << neighbor.ct.timeStepRate
                        << "PredTime = " << neighbor.ct.time.at(ComputeStep::Predict)
                        << "CorrTime = " << neighbor.ct.time.at(ComputeStep::Correct)
                        << "predictionsSinceSync = "

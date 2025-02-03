@@ -73,6 +73,4 @@ class seissol::Simulator {
   void simulate(seissol::SeisSol& seissolInstance);
 };
 
-
 #endif // SEISSOL_SRC_SOLVER_SIMULATOR_H_
-

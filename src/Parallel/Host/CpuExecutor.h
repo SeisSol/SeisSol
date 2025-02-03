@@ -12,6 +12,7 @@ class Task {
 
 class CpuExecutor {
   public:
+  virtual ~CpuExecutor() = default;
   virtual void start(const std::function<void(CpuExecutor&)>& continuation,
                      const Pinning* pinning) = 0;
   virtual void wait() = 0;

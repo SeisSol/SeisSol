@@ -15,6 +15,7 @@ class SimpleTask;
 
 class ThreadStackExecutor : public CpuExecutor {
   public:
+  ~ThreadStackExecutor() override = default;
   void start(const std::function<void(CpuExecutor&)>& continuation,
              const Pinning* pinning) override;
   std::shared_ptr<Task> add(int priority,

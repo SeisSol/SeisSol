@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2020-2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Solver/Clustering/AbstractTimeCluster.h"
 
@@ -75,11 +78,10 @@ bool AbstractTimeCluster::advanceState() {
 
 void AbstractTimeCluster::synchronize() {
   assert(state.type == StateType::ComputeDone);
-  logDebug(MPI::mpi.rank()) << "synced at" << syncTime
-                            << ", corrTime =" << ct.time[ComputeStep::Correct]
-                            << "computeSinceLastSync.at(ComputeStep::Correct)"
-                            << ct.computeSinceLastSync.at(ComputeStep::Correct)
-                            << "stepsUntilLastSync" << ct.stepsUntilSync << std::endl;
+  logDebug() << "synced at" << syncTime << ", corrTime =" << ct.time[ComputeStep::Correct]
+             << "computeSinceLastSync.at(ComputeStep::Correct)"
+             << ct.computeSinceLastSync.at(ComputeStep::Correct) << "stepsUntilLastSync"
+             << ct.stepsUntilSync << std::endl;
   state.type = StateType::Synchronized;
 }
 
@@ -136,13 +138,12 @@ ActResult AbstractTimeCluster::act() {
   auto changed = advanceState();
 
   // skip all empty and easy states (while possible)
-  while (advanceState())
-    ;
+  while (advanceState()) {
+  }
 
   if (changed) {
-    logDebug(MPI::mpi.rank()) << "State change for" << identifier() << ":"
-                              << actorStateToString(stateBefore) << "to"
-                              << actorStateToString(state) << ". Time:" << ct.time[lastStep()];
+    logDebug() << "State change for" << identifier() << ":" << actorStateToString(stateBefore)
+               << "to" << actorStateToString(state) << ". Time:" << ct.time[lastStep()];
   }
 
   const auto currentTime = std::chrono::steady_clock::now();

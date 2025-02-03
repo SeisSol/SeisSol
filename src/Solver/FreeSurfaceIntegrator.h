@@ -97,6 +97,4 @@ class seissol::solver::FreeSurfaceIntegrator {
   bool enabled() const { return mEnabled; }
 };
 
-
 #endif // SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
-

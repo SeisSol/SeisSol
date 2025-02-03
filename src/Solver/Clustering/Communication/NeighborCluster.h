@@ -9,7 +9,6 @@
 #include <Parallel/Host/CpuExecutor.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Solver/Clustering/ActorState.h>
-#include <stdexcept>
 namespace seissol::solver::clustering::communication {
 
 struct RemoteCluster {
@@ -43,6 +42,7 @@ class NeighborCluster {
 
   void startFrom(parallel::runtime::StreamRuntime& runtime);
   void stopTo(parallel::runtime::StreamRuntime& runtime);
+  bool checkDone();
 
   private:
   parallel::runtime::StreamRuntime myRuntime;

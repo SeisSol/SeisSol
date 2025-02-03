@@ -84,11 +84,11 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(unsigned maxRefinementDe
 
   mEnabled = true;
 
-	int const rank = seissol::MPI::mpi.rank();
-	logInfo() << "Initializing free surface integrator.";
+  const int rank = seissol::MPI::mpi.rank();
+  logInfo() << "Initializing free surface integrator.";
   initializeProjectionMatrices(maxRefinementDepth);
   initializeSurfaceLTSTree(lts, ltsTree, ltsLut);
-	logInfo() << "Initializing free surface integrator. Done.";
+  logInfo() << "Initializing free surface integrator. Done.";
 }
 
 void seissol::solver::FreeSurfaceIntegrator::calculateOutput() {
@@ -385,4 +385,3 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
     baseLtsId += layer.getNumberOfCells();
   }
 }
-

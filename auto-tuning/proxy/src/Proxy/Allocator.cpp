@@ -16,7 +16,7 @@
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
-#include <Solver/time_stepping/MiniSeisSol.h>
+#include <Solver/Proxy/MiniSeisSol.h>
 #include <cstddef>
 #include <stdlib.h>
 #include <tensor.h>
