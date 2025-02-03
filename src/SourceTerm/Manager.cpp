@@ -9,12 +9,11 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#include "Parallel/MPI.h"
+#include "Manager.h"
 
 #include "FSRMReader.h"
 #include "Initializer/PointMapper.h"
 #include "Kernels/PointSourceClusterOnHost.h"
-#include "Manager.h"
 #include "Numerical/Transformation.h"
 #include "PointSource.h"
 #include "generated_code/init.h"
@@ -52,6 +51,7 @@
 
 #ifdef USE_NETCDF
 #include "NRFReader.h"
+#include "Parallel/MPI.h"
 #include <mpi.h>
 #endif
 
@@ -301,12 +301,10 @@ auto loadSourcesFromFSRM(const char* fileName,
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
   // until further rewrite, we'll leave most of the raw pointers/arrays in here.
 
-  const int rank = seissol::MPI::mpi.rank();
-
   seissol::sourceterm::FSRMSource fsrm;
   fsrm.read(std::string(fileName));
 
-  logInfo(rank) << "Finding meshIds for point sources...";
+  logInfo() << "Finding meshIds for point sources...";
 
   auto contained = std::vector<short>(fsrm.numberOfSources);
   auto meshIds = std::vector<unsigned>(fsrm.numberOfSources);
@@ -315,7 +313,7 @@ auto loadSourcesFromFSRM(const char* fileName,
       fsrm.centers.data(), mesh, fsrm.numberOfSources, contained.data(), meshIds.data());
 
 #ifdef USE_MPI
-  logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
+  logInfo() << "Cleaning possible double occurring point sources for MPI...";
   initializer::cleanDoubles(contained.data(), fsrm.numberOfSources);
 #endif
 
@@ -327,7 +325,7 @@ auto loadSourcesFromFSRM(const char* fileName,
     numSources += contained[source];
   }
 
-  logInfo(rank) << "Mapping point sources to LTS cells...";
+  logInfo() << "Mapping point sources to LTS cells...";
   auto layeredClusterMapping =
       mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, lts, ltsLut, memkind);
   std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
@@ -396,7 +394,7 @@ auto loadSourcesFromFSRM(const char* fileName,
     }
   }
 
-  logInfo(rank) << ".. finished point source initialization.";
+  logInfo() << ".. finished point source initialization.";
 
   return layeredSourceClusters;
 }
@@ -412,18 +410,18 @@ auto loadSourcesFromNRF(const char* fileName,
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
   const int rank = seissol::MPI::mpi.rank();
 
-  logInfo(rank) << "Reading" << fileName;
+  logInfo() << "Reading" << fileName;
   NRF nrf;
   readNRF(fileName, nrf);
 
   auto contained = std::vector<short>(nrf.size());
   auto meshIds = std::vector<unsigned>(nrf.size());
 
-  logInfo(rank) << "Finding meshIds for point sources...";
+  logInfo() << "Finding meshIds for point sources...";
   initializer::findMeshIds(nrf.centres.data(), mesh, nrf.size(), contained.data(), meshIds.data());
 
 #ifdef USE_MPI
-  logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
+  logInfo() << "Cleaning possible double occurring point sources for MPI...";
   initializer::cleanDoubles(contained.data(), nrf.size());
 #endif
 
@@ -448,7 +446,7 @@ auto loadSourcesFromNRF(const char* fileName,
     }
   }
 
-  logInfo(rank) << "Mapping point sources to LTS cells...";
+  logInfo() << "Mapping point sources to LTS cells...";
 
   auto layeredClusterMapping =
       mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, lts, ltsLut, memkind);
@@ -506,7 +504,7 @@ auto loadSourcesFromNRF(const char* fileName,
     }
   }
 
-  logInfo(rank) << ".. finished point source initialization.";
+  logInfo() << ".. finished point source initialization.";
 
   return layeredSourceClusters;
 }
@@ -531,7 +529,7 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
   auto sourceClusters =
       std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>{};
   if (sourceType == seissol::initializer::parameters::PointSourceType::NrfSource) {
-    logInfo(seissol::MPI::mpi.rank()) << "Reading an NRF source (type 42).";
+    logInfo() << "Reading an NRF source (type 42).";
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
     sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsTree, lts, ltsLut, memkind);
 #else
@@ -539,10 +537,10 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
                   "library. However, this is not the case for this build.";
 #endif
   } else if (sourceType == seissol::initializer::parameters::PointSourceType::FsrmSource) {
-    logInfo(seissol::MPI::mpi.rank()) << "Reading an FSRM source (type 50).";
+    logInfo() << "Reading an FSRM source (type 50).";
     sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsTree, lts, ltsLut, memkind);
   } else if (sourceType == seissol::initializer::parameters::PointSourceType::None) {
-    logInfo(seissol::MPI::mpi.rank()) << "No source term specified.";
+    logInfo() << "No source term specified.";
   } else {
     logError() << "The source type" << static_cast<int>(sourceType)
                << "has been defined, but not yet been implemented in SeisSol.";

@@ -118,7 +118,7 @@ jobs:
           RETVAL_PROXY=$?
           set -e
 
-          if [ $RETVAL_EXE -ne 134 ]; then
+          if [ $RETVAL_EXE -ne 133 ]; then
             echo "Unexpected exit code for SeisSol: ${RETVAL_EXE}"
             exit 1
           fi

@@ -62,18 +62,18 @@ class FastVelocityWeakeningLaw
     const real steadyStateFrictionCoefficient =
         muW + (lowVelocityFriction - muW) /
                   std::pow(1.0 + misc::power<8, double>(localSlipRate / localSrW), 1.0 / 8.0);
-    // For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
-    // Need double precision here, otherwise this will evaluate to infinity
+    // TODO: check again, if double precision is necessary here (earlier, there were cancellation
+    // issues)
     const real steadyStateStateVariable =
-        localA * std::log(this->drParameters->rsSr0 / localSlipRate *
-                          (std::exp(steadyStateFrictionCoefficient / localA) -
-                           std::exp(-steadyStateFrictionCoefficient / localA)));
+        localA * std::log(this->drParameters->rsSr0 / localSlipRate * 2 *
+                          std::sinh(steadyStateFrictionCoefficient / localA));
 
     // exact integration of dSV/dt DGL, assuming constant V over integration step
 
-    const real exp1 = exp(-localSlipRate * (timeIncrement / localSl0));
-    const real localStateVariable =
-        steadyStateStateVariable * (1.0 - exp1) + exp1 * stateVarReference;
+    const auto preexp1 = -localSlipRate * (timeIncrement / localSl0);
+    const real exp1 = std::exp(preexp1);
+    const real exp1m = -std::expm1(preexp1);
+    const real localStateVariable = steadyStateStateVariable * exp1m + exp1 * stateVarReference;
     assert((std::isfinite(localStateVariable) || pointIndex >= misc::NumBoundaryGaussPoints) &&
            "Inf/NaN detected");
     return localStateVariable;

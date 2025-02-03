@@ -87,19 +87,19 @@ void seissol::MPI::setDataTransferModeFromEnv() {
     } else if (option == "directccl") {
       preferredDataTransferMode = DataTransferMode::DirectCCL;
     } else {
-      logWarning(m_rank) << "Ignoring `SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`."
-                         << "Expected values: direct, host.";
+      logWarning() << "Ignoring `SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`."
+                   << "Expected values: direct, host.";
       option = "direct";
     }
 #ifndef ACL_DEVICE
     if (preferredDataTransferMode != DataTransferMode::Direct) {
-      logWarning(m_rank) << "The CPU version of SeisSol supports"
-                         << "only the `direct` MPI transfer mode.";
+      logWarning() << "The CPU version of SeisSol supports"
+                   << "only the `direct` MPI transfer mode.";
       option = "direct";
       preferredDataTransferMode = DataTransferMode::Direct;
     }
 #endif
-    logInfo(m_rank) << "Selected" << option << "MPI data transfer mode as the preferred one";
+    logInfo() << "Selected" << option << "MPI data transfer mode as the preferred one";
   }
 }
 

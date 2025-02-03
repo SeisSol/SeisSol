@@ -96,11 +96,9 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
     m_stopwatch.start();
 
-    const int rank = seissol::MPI::mpi.rank();
-
     wait();
 
-    logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ".";
+    logInfo() << "Writing faultoutput at time" << utils::nospace << time << ".";
 
     FaultParam param;
     param.time = time;
@@ -116,7 +114,7 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
     m_stopwatch.pause();
 
-    logInfo(rank) << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
+    logInfo() << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
   }
 
   void close() {

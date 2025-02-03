@@ -79,13 +79,14 @@ class FastVelocityWeakeningLaw
                       sycl::pow(1.0 + sycl::pown(localSlipRate / localSrW, 8), 1.0 / 8.0);
 
         const double steadyStateStateVariable =
-            localA * sycl::log(details.rsSr0 / localSlipRate *
-                               (sycl::exp(steadyStateFrictionCoefficient / localA) -
-                                sycl::exp(-steadyStateFrictionCoefficient / localA)));
+            localA * sycl::log(details.rsSr0 / localSlipRate * 2 *
+                               sycl::sinh(steadyStateFrictionCoefficient / localA));
 
-        const double exp1 = sycl::exp(-localSlipRate * (timeIncrement / localSl0));
-        const double localStateVariable = steadyStateStateVariable * (1.0 - exp1) +
-                                          exp1 * devStateVarReference[ltsFace][pointIndex];
+        const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
+        const double exp1 = sycl::exp(preexp1);
+        const double exp1m = -sycl::expm1(preexp1);
+        const double localStateVariable =
+            steadyStateStateVariable * exp1m + exp1 * devStateVarReference[ltsFace][pointIndex];
 
         devStateVariableBuffer[ltsFace][pointIndex] = localStateVariable;
       });

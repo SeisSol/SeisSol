@@ -90,8 +90,8 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
       logError() << "Simulator did not advance in time from" << currentTime << "to" << upcomingTime;
     }
     if (aborted) {
-      logInfo(seissol::MPI::mpi.rank()) << "Aborting simulation.";
-      break;
+        logInfo() << "Aborting simulation.";
+        break; 
     }
 
     // update the DOFs

@@ -36,8 +36,7 @@ void seissol::writer::WaveFieldWriter::setUp() {
   setExecutor(m_executor);
   if (isAffinityNecessary()) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
-    logInfo(seissol::MPI::mpi.rank())
-        << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -49,23 +48,22 @@ void seissol::writer::WaveFieldWriter::enable() { m_enabled = true; }
 
 seissol::refinement::TetrahedronRefiner<double>*
     seissol::writer::WaveFieldWriter::createRefiner(int refinement) {
-  const int rank = seissol::MPI::mpi.rank();
   refinement::TetrahedronRefiner<double>* tetRefiner = nullptr;
   switch (refinement) {
   case 0:
-    logInfo(rank) << "Refinement is turned off.";
+    logInfo() << "Refinement is turned off.";
     tetRefiner = new refinement::IdentityRefiner<double>();
     break;
   case 1:
-    logInfo(rank) << "Refinement Strategy is \"Divide by 4\"";
+    logInfo() << "Refinement Strategy is \"Divide by 4\"";
     tetRefiner = new refinement::DivideTetrahedronBy4<double>();
     break;
   case 2:
-    logInfo(rank) << "Refinement Strategy is \"Divide by 8\"";
+    logInfo() << "Refinement Strategy is \"Divide by 8\"";
     tetRefiner = new refinement::DivideTetrahedronBy8<double>();
     break;
   case 3:
-    logInfo(rank) << "Refinement Strategy is \"Divide by 32\"";
+    logInfo() << "Refinement Strategy is \"Divide by 32\"";
     tetRefiner = new refinement::DivideTetrahedronBy32<double>();
     break;
   default:
@@ -147,9 +145,7 @@ void seissol::writer::WaveFieldWriter::init(
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 
-  const int rank = seissol::MPI::mpi.rank();
-
-  logInfo(rank) << "Initializing XDMF wave field output.";
+  logInfo() << "Initializing XDMF wave field output.";
 
   /** All initialization parameters */
   WaveFieldInitParam param{};
@@ -275,7 +271,7 @@ void seissol::writer::WaveFieldWriter::init(
     std::copy_n(map, numElems, m_map.begin());
   }
 
-  logInfo(rank) << "Refinement class initialized";
+  logInfo() << "Refinement class initialized";
   logDebug() << "Cells : " << numElems << "refined-to ->" << meshRefiner->getNumCells();
   logDebug() << "Vertices : " << numVerts << "refined-to ->" << meshRefiner->getNumVertices();
 
@@ -288,7 +284,7 @@ void seissol::writer::WaveFieldWriter::init(
       static_cast<unsigned int>(WaveFieldWriterExecutor::NumPlasticityVariables),
       numAlignedDOF);
 
-  logInfo(rank) << "VariableSubsampler initialized";
+  logInfo() << "VariableSubsampler initialized";
 
   // Delete the tetRefiner since it is no longer required
   delete tetRefiner;
@@ -332,7 +328,7 @@ void seissol::writer::WaveFieldWriter::init(
   refinement::MeshRefiner<double>* pLowMeshRefiner = nullptr;
   const unsigned int* constLowCells = nullptr;
   if (integrals != nullptr) {
-    logInfo(rank) << "Initialize low order output";
+    logInfo() << "Initialize low order output";
 
     // Refinement strategy (no refinement)
     const refinement::IdentityRefiner<double> lowTetRefiner;
@@ -433,15 +429,13 @@ void seissol::writer::WaveFieldWriter::write(double time) {
 
   m_stopwatch.start();
 
-  const int rank = seissol::MPI::mpi.rank();
-
   SCOREP_USER_REGION_DEFINE(r_wait);
   SCOREP_USER_REGION_BEGIN(r_wait, "wavfieldwriter_wait", SCOREP_USER_REGION_TYPE_COMMON);
-  logInfo(rank) << "Waiting for last wave field.";
+  logInfo() << "Waiting for last wave field.";
   wait();
   SCOREP_USER_REGION_END(r_wait);
 
-  logInfo(rank) << "Writing wave field at time" << utils::nospace << time << '.';
+  logInfo() << "Writing wave field at time" << utils::nospace << time << '.';
 
   unsigned int nextId = m_variableBufferIds[0];
   for (unsigned int i = 0; i < m_numVariables; i++) {
@@ -501,7 +495,7 @@ void seissol::writer::WaveFieldWriter::write(double time) {
 
   m_stopwatch.pause();
 
-  logInfo(rank) << "Writing wave field at time" << utils::nospace << time << ". Done.";
+  logInfo() << "Writing wave field at time" << utils::nospace << time << ". Done.";
 }
 
 void seissol::writer::WaveFieldWriter::simulationStart() { syncPoint(0.0); }

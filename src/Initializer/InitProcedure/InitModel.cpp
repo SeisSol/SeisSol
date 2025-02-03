@@ -220,7 +220,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                                     seissolParams.model);
 
   if (seissolParams.drParameters.etaHack != 1.0) {
-    logWarning(seissol::MPI::mpi.rank())
+    logWarning()
         << "The \"eta hack\" has been enabled to mitigate quasi-divergent solutions in the "
            "friction law. The results may not conform to the existing benchmarks.";
   }
@@ -365,7 +365,7 @@ void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION("init_model", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  logInfo(seissol::MPI::mpi.rank()) << "Begin init model.";
+  logInfo() << "Begin init model.";
 
   // Call the pre mesh initialization hook
   seissol::Modules::callHook<ModuleHook::PreModel>();
@@ -378,20 +378,20 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   // these four methods need to be called in this order.
 
   // init LTS
-  logInfo(seissol::MPI::mpi.rank()) << "Initialize LTS.";
+  logInfo() << "Initialize LTS.";
   initializeClusteredLts(ltsInfo, seissolInstance);
 
   // init cell materials (needs LTS, to place the material in; this part was translated from
   // FORTRAN)
-  logInfo(seissol::MPI::mpi.rank()) << "Initialize cell material parameters.";
+  logInfo() << "Initialize cell material parameters.";
   initializeCellMaterial(seissolInstance);
 
   // init memory layout (needs cell material values to initialize e.g. displacements correctly)
-  logInfo(seissol::MPI::mpi.rank()) << "Initialize Memory layout.";
+  logInfo() << "Initialize Memory layout.";
   initializeMemoryLayout(ltsInfo, seissolInstance);
 
   // init cell matrices
-  logInfo(seissol::MPI::mpi.rank()) << "Initialize cell-local matrices.";
+  logInfo() << "Initialize cell-local matrices.";
   initializeCellMatrices(ltsInfo, seissolInstance);
 
   watch.pause();
@@ -400,5 +400,5 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   // Call the post mesh initialization hook
   seissol::Modules::callHook<ModuleHook::PostModel>();
 
-  logInfo(seissol::MPI::mpi.rank()) << "End init model.";
+  logInfo() << "End init model.";
 }

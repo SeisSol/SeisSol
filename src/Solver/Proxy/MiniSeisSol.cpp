@@ -44,7 +44,6 @@ struct Config {
 };
 
 Config getConfig() {
-  const auto rank = seissol::MPI::mpi.rank();
   constexpr int NumRepeats{10};
   constexpr int NumElements{50000};
 
@@ -52,22 +51,24 @@ Config getConfig() {
   const utils::Env env{};
 
   try {
-    config.numRepeats = env.get("SEISSOL_MINI_NUM_REPEATS", NumRepeats);
+    config.numRepeats = utils::Env::get("SEISSOL_MINI_NUM_REPEATS", NumRepeats);
     if (config.numRepeats < 1) {
       throw std::runtime_error("expecting a positive integer number");
     }
-  } catch (std::runtime_error& err) {
-    logWarning(rank) << "failed to read `SEISSOL_MINI_NUM_REPEATS`," << err.what();
+  }
+  catch (std::runtime_error& err) {
+    logWarning() << "failed to read `SEISSOL_MINI_NUM_REPEATS`," << err.what();
     config.numRepeats = NumRepeats;
   }
 
   try {
-    config.numElements = env.get("SEISSOL_MINI_NUM_ELEMENTS", NumElements);
+    config.numElements = utils::Env::get("SEISSOL_MINI_NUM_ELEMENTS", NumElements);
     if (config.numElements < 1) {
       throw std::runtime_error("expecting a positive integer number");
     }
-  } catch (std::runtime_error& err) {
-    logWarning(rank) << "failed to read `SEISSOL_MINI_NUM_ELEMENTS`," << err.what();
+  }
+  catch (std::runtime_error& err) {
+    logWarning() << "failed to read `SEISSOL_MINI_NUM_ELEMENTS`," << err.what();
     config.numElements = NumElements;
   }
   return config;
@@ -218,8 +219,8 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager,
   ltsTree.fixate();
 
   auto config = mini::getConfig();
-  const auto rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "miniSeisSol configured with" << config.numElements << "elements and"
+  logInfo() << "miniSeisSol configured with"
+                << config.numElements << "elements and"
                 << config.numRepeats << "repeats per process";
 
   initializer::TimeCluster& cluster = ltsTree.child(0);
