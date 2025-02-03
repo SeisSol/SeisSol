@@ -56,10 +56,10 @@ foreach(component ${_GEMM_TOOLS_LIST})
         find_package(PSpaMM REQUIRED)
 
     elseif ("${component}" STREQUAL "MKL")
-        find_package(MKL REQUIRED)
-        set(GemmTools_INCLUDE_DIRS ${GemmTools_INCLUDE_DIRS} ${MKL_INCLUDE_DIRS})
-        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} ${MKL_LIBRARIES})
-        set(GemmTools_COMPILER_DEFINITIONS ${GemmTools_COMPILER_DEFINITIONS} ${MKL_COMPILER_DEFINITIONS})
+        # cf. https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2025-0/cmake-config-for-onemkl.html
+        find_package(MKL CONFIG REQUIRED PATHS $ENV{MKLROOT})
+
+        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} MKL::MKL)
 
     elseif ("${component}" STREQUAL "OpenBLAS")
         find_package(OpenBLAS REQUIRED)
