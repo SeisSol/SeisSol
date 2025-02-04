@@ -212,6 +212,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
   // Count how many we have locally
   size_t localReceiverCount = 0;
+
   for (unsigned point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
       const unsigned meshId = meshIds[point];
@@ -233,8 +234,8 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
       // but not needed for HDF5 (unless you want coordinate attributes).
       localReceiverCount++;
 
-      m_receiverClusters[layer][cluster].addReceiver(
-          meshId, point, points[point], mesh, ltsLut, lts);
+        m_receiverClusters[layer][cluster].addReceiver(
+            meshId, point, points[point], mesh, ltsLut, lts);
     }
   }
 
@@ -289,41 +290,24 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                                                 g_totalReceivers,
                                                                 globalNcols);
   }
+
+  g_hdf5Writer->writeCoordinates(points);
 }
 
 // --------------------------------------------------------------------------
 
 void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
-  if (m_receiverClusters.empty()) {
-    return;
-  }
-
   const auto rank = seissol::MPI::mpi.rank();
 
-  // For each cluster, we gather the newly sampled data.
-  // The ASCII code appended lines for each sample.
-  // Here, each cluster has output.size() / ncols samples.
-  // We combine all clusters on this rank into one big buffer, then 1 chunk write.
-
-  // Step 1: figure out total # of new samples for each cluster’s receivers
-  // Actually, each receiver might have multiple time samples.
-  // In the ASCII code, we do “nSamples = receiver.output.size() / ncols”.
-  // Summation approach:
   size_t totalNewSamples = 0;
-  // We also need the total local receivers for consistency
   size_t localReceiverCount = 0;
 
   for (auto& [layer, clusters] : m_receiverClusters) {
     for (auto& cluster : clusters) {
-      // Each cluster has many receivers, all with the same ncols
       for (auto& receiver : cluster) {
-        // Each receiver.output is a 1D array of double
-        // size = (#samples just collected) * (ncols)
         size_t thisReceiverSamples = receiver.output.size() / cluster.ncols();
         if (thisReceiverSamples > totalNewSamples) {
-          // If the code’s design is that each sync only accumulates the same # of samples for each
-          // receiver, we can track that. If it differs, more advanced logic is needed.
           totalNewSamples = thisReceiverSamples;
         }
         localReceiverCount++;
@@ -332,20 +316,10 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   }
 
   bool noData = (localReceiverCount == 0 || totalNewSamples == 0);
-
   auto actualOffset = noData ? 0 : g_localReceiverOffset;
   auto actualTimeCount = noData ? 0 : totalNewSamples;
   auto actualRecCount = noData ? 0 : localReceiverCount;
 
-  // Step 2: We now create a big buffer: (# new samples) x (localReceiverCount) x (ncols).
-  // Then we fill it in receiver order. We must match the order we used to define global offsets
-  // (the order in addPoints). We'll store doubles in row-major: slow dimension = # variables,
-  // fastest dimension = receiver or time? For clarity: data[t, localReceiverIndex, v]
-  // => data[t * (localReceiverCount*ncols) + localReceiverIndex*ncols + v]
-  // This matches the shapes used in writeChunk(...).
-
-  // To build that properly, we first gather “which receiver is #0, #1, #2 locally?” in the same
-  // order we added them. In addPoints(), we enumerated them in a certain order. Let's do a gather:
   struct LocalReceiverData {
     kernels::Receiver* rcv;
     kernels::ReceiverCluster* clus;
@@ -353,17 +327,18 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   std::vector<LocalReceiverData> localReceivers;
   localReceivers.reserve(localReceiverCount);
 
-  // Flatten all receiver pointers in the same order we added them:
+  std::vector<hsize_t> pointIds;
+  pointIds.reserve(localReceiverCount);
+
   for (auto& [layer, clusters] : m_receiverClusters) {
     for (auto& cluster : clusters) {
       for (auto& receiver : cluster) {
         localReceivers.push_back({&receiver, &cluster});
+        pointIds.push_back(receiver.pointId);
       }
     }
   }
 
-  // Make sure localReceivers.size() == localReceiverCount
-  // Now fill the data array
   unsigned ncols = localReceivers.empty() ? 0 : localReceivers[0].clus->ncols();
   std::vector<double> hdf5Data(totalNewSamples * localReceiverCount * ncols);
 
@@ -371,41 +346,29 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
     auto& rec = *localReceivers[lr].rcv;
     auto& cluster = *localReceivers[lr].clus;
     const size_t nSamples = rec.output.size() / ncols;
-    // We assume each receiver has the same # of new samples => nSamples == totalNewSamples
-    // If that’s not guaranteed, more logic is needed.
 
     for (size_t t = 0; t < nSamples; ++t) {
       for (size_t v = 0; v < ncols; ++v) {
         double value = rec.output[t * ncols + v];
-        // index in hdf5Data
         size_t idx = t * (localReceiverCount * ncols) + lr * ncols + v;
         hdf5Data[idx] = value;
       }
     }
-    // We can clear the receiver output after writing
     rec.output.clear();
   }
 
-  // Step 3: Now do a single partial write:
-  //   timeOffset   = g_nextTimeOffset
-  //   receiverOffset = g_localReceiverOffset
-  //   timeCount    = totalNewSamples
-  //   localReceiverCount
-
-  logInfo(rank) << "g_nextTimeOffset: " << g_nextTimeOffset;
-  logInfo(rank) << "g_localReceiverOffset: " << g_localReceiverOffset;
-  logInfo(rank) << "totalNewSamples: " << totalNewSamples;
-  logInfo(rank) << "localReceiverCount: " << localReceiverCount;
-
-  std::vector<double> emptyBuffer; // stays empty
-
+  std::vector<double> emptyBuffer;
   g_hdf5Writer->writeChunk(g_nextTimeOffset,
-                           actualOffset,
                            actualTimeCount,
+                           actualOffset,
                            actualRecCount,
                            noData ? emptyBuffer : hdf5Data);
 
-  // Then update g_nextTimeOffset
+  std::vector<unsigned long long> emptyPointIds;
+  g_hdf5Writer->writePointIds(actualOffset,
+                           actualRecCount,
+                           noData ? emptyPointIds : pointIds);
+
   g_nextTimeOffset += totalNewSamples;
 }
 
@@ -420,14 +383,11 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
   // --------------------------------------------------------------------------
   void ReceiverWriter::shutdown() {
-    // In ASCII version, we closed files. Now the single HDF5 file is closed in
-    // ~ParallelHdf5ReceiverWriter()
     for (auto& [layer, clusters] : m_receiverClusters) {
       for (auto& cluster : clusters) {
         cluster.freeData();
       }
     }
-    // Optionally reset or release g_hdf5Writer
     g_hdf5Writer.reset();
   }
 
