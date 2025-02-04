@@ -18,6 +18,7 @@
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Kernels/Touch.h>
+#include <Proxy/Constants.h>
 #include <cstddef>
 #include <stdlib.h>
 #include <tensor.h>
@@ -27,8 +28,6 @@
 #endif
 
 namespace {
-constexpr auto TimeStepWidth = 1.0;
-
 void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var(lts.dofs);
   real** buffers = layer.var(lts.buffers);
@@ -100,7 +99,7 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
 #pragma omp parallel for schedule(static)
 #endif
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-    localIntegration[cell].specific.typicalTimeStepWidth = TimeStepWidth;
+    localIntegration[cell].specific.typicalTimeStepWidth = seissol::proxy::Timestep;
   }
 #endif
 
@@ -138,7 +137,7 @@ void ProxyData::initGlobalData() {
   neighborKernel.setGlobalData(globalData);
   dynRupKernel.setGlobalData(globalData);
 
-  dynRupKernel.setTimeStepWidth(TimeStepWidth);
+  dynRupKernel.setTimeStepWidth(Timestep);
 }
 
 void ProxyData::initDataStructures(bool enableDR) {
