@@ -151,14 +151,15 @@ const int FaceVertexToOrientation[4][4] = {
 const int FirstFaceVertex[4] = {0, 0, 0, 1};
 } // namespace
 
-seissol::geometry::PUMLReader::PUMLReader(
-    const char* meshFile,
-    const char* partitioningLib,
-    double maximumAllowedTimeStep,
-    seissol::initializer::parameters::BoundaryFormat boundaryFormat,
-    initializer::time_stepping::LtsWeights* ltsWeights,
-    double tpwgt)
-    : seissol::geometry::MeshReader(MPI::mpi.rank()), boundaryFormat(boundaryFormat) {
+namespace seissol::geometry {
+
+PUMLReader::PUMLReader(const char* meshFile,
+                       const char* partitioningLib,
+                       double maximumAllowedTimeStep,
+                       seissol::initializer::parameters::BoundaryFormat boundaryFormat,
+                       initializer::time_stepping::LtsWeights* ltsWeights,
+                       double tpwgt)
+    : MeshReader(MPI::mpi.rank()), boundaryFormat(boundaryFormat) {
   PUML::TETPUML puml;
   puml.setComm(MPI::mpi.comm());
 
@@ -175,7 +176,7 @@ seissol::geometry::PUMLReader::PUMLReader(
   getMesh(puml);
 }
 
-void seissol::geometry::PUMLReader::read(PUML::TETPUML& puml, const char* meshFile) {
+void PUMLReader::read(PUML::TETPUML& puml, const char* meshFile) {
   SCOREP_USER_REGION("PUMLReader_read", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const std::string file(meshFile);
@@ -203,11 +204,11 @@ void seissol::geometry::PUMLReader::read(PUML::TETPUML& puml, const char* meshFi
   puml.addDataArray(cellIdsAsInFile.data(), PUML::CELL, {});
 }
 
-void seissol::geometry::PUMLReader::partition(PUML::TETPUML& puml,
-                                              initializer::time_stepping::LtsWeights* ltsWeights,
-                                              double tpwgt,
-                                              const char* meshFile,
-                                              const char* partitioningLib) {
+void PUMLReader::partition(PUML::TETPUML& puml,
+                           initializer::time_stepping::LtsWeights* ltsWeights,
+                           double tpwgt,
+                           const char* meshFile,
+                           const char* partitioningLib) {
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   auto partType = toPartitionerType(std::string_view(partitioningLib));
@@ -249,13 +250,13 @@ void seissol::geometry::PUMLReader::partition(PUML::TETPUML& puml,
   puml.partition(newPartition.data());
 }
 
-void seissol::geometry::PUMLReader::generatePUML(PUML::TETPUML& puml) {
+void PUMLReader::generatePUML(PUML::TETPUML& puml) {
   SCOREP_USER_REGION("PUMLReader_generate", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   puml.generateMesh();
 }
 
-void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
+void PUMLReader::getMesh(const PUML::TETPUML& puml) {
   SCOREP_USER_REGION("PUMLReader_getmesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const int rank = MPI::mpi.rank();
@@ -480,9 +481,9 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   }
 }
 
-void seissol::geometry::PUMLReader::addMPINeighor(const PUML::TETPUML& puml,
-                                                  int rank,
-                                                  const std::vector<unsigned int>& faces) {
+void PUMLReader::addMPINeighor(const PUML::TETPUML& puml,
+                               int rank,
+                               const std::vector<unsigned int>& faces) {
   const std::size_t id = m_MPINeighbors.size();
   MPINeighbor& neighbor = m_MPINeighbors[rank];
 
@@ -496,3 +497,9 @@ void seissol::geometry::PUMLReader::addMPINeighor(const PUML::TETPUML& puml,
     neighbor.elements[i].localElement = cellIds[0];
   }
 }
+
+bool PUMLReader::inlineTimestepCompute() const { return true; }
+
+bool PUMLReader::inlineClusterCompute() const { return true; }
+
+} // namespace seissol::geometry

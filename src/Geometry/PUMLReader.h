@@ -48,6 +48,9 @@ class PUMLReader : public seissol::geometry::MeshReader {
              initializer::time_stepping::LtsWeights* ltsWeights = nullptr,
              double tpwgt = 1.0);
 
+  bool inlineTimestepCompute() const override;
+  bool inlineClusterCompute() const override;
+
   private:
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
 

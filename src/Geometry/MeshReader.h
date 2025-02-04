@@ -74,6 +74,9 @@ class MeshReader {
   bool hasFault() const;
   bool hasPlusFault() const;
 
+  virtual bool inlineTimestepCompute() const = 0;
+  virtual bool inlineClusterCompute() const = 0;
+
   void displaceMesh(const Eigen::Vector3d& displacement);
 
   // scalingMatrix is stored column-major, i.e.
