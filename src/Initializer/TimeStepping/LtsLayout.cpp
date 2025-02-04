@@ -65,7 +65,7 @@ void seissol::initializer::time_stepping::LtsLayout::setMesh( const seissol::geo
     m_globalTimeStepWidths[0] = std::min(m_globalTimeStepWidths[0], m_cellTimeStepWidths[i]);
   }
 #ifdef USE_MPI
-  MPI_Allreduce( MPI_IN_PLACE, &m_globalTimeStepWidths, 1, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm() );
+  MPI_Allreduce( MPI_IN_PLACE, m_globalTimeStepWidths.data(), 1, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm() );
 #endif
 
   const auto wiggle = seissolParams.timeStepping.lts.getWiggleFactor();
