@@ -769,11 +769,11 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
                                                                     unsigned int        i_clusterRate ) {
 	const int rank = seissol::MPI::mpi.rank();
 
-  m_globalTimeStepRates.resize(m_numberOfGlobalClusters);
-  m_globalTimeStepRates[0] = 1;
+  m_globalTimeStepRates.resize(1);
+  m_globalTimeStepRates[0] = i_clusterRate;
+  
   for (std::size_t i = 1; i < m_numberOfGlobalClusters; ++i) {
     m_globalTimeStepWidths[i] = m_globalTimeStepWidths[i - 1] * i_clusterRate;
-    m_globalTimeStepRates[i] = m_globalTimeStepRates[i - 1] * i_clusterRate;
   }
 
   // derive plain copy and the interior
@@ -782,7 +782,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
   // derive plain ghost regions
   derivePlainGhost();
 
-  // normalize mpi indices
+  // normalize mpi indices (not anymore; just set up the ghost layers)
   normalizeMpiIndices();
 
   // normalize clustering (not anymore, just prints some info; done in LtsWeights/somewhere else)
@@ -815,12 +815,13 @@ void seissol::initializer::time_stepping::LtsLayout::getCrossClusterTimeStepping
   // set number of global clusters
   o_timeStepping.numberOfGlobalClusters = m_numberOfGlobalClusters;
 
-  o_timeStepping.globalTimeStepRates     = new unsigned int[ o_timeStepping.numberOfGlobalClusters ];
+  o_timeStepping.globalTimeStepRates     = new unsigned int[ 1 ];
   o_timeStepping.globalCflTimeStepWidths = new double[ o_timeStepping.numberOfGlobalClusters ];
+
+  o_timeStepping.globalTimeStepRates[0]     = m_globalTimeStepRates[0];
 
   // set global time step rates
   for( unsigned int l_cluster = 0; l_cluster < o_timeStepping.numberOfGlobalClusters; l_cluster++ ) {
-    o_timeStepping.globalTimeStepRates[l_cluster]     = m_globalTimeStepRates[l_cluster];
     o_timeStepping.globalCflTimeStepWidths[l_cluster] = m_globalTimeStepWidths[l_cluster];
   }
 

@@ -177,9 +177,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 #pragma omp for schedule(static)
 #endif
       for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-        const unsigned clusterId = secondaryInformation[cell].clusterId;
-        auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
-        const unsigned meshId = secondaryInformation[cell].meshId;
+        const auto clusterId = secondaryInformation[cell].clusterId;
+        const auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
+        const auto meshId = secondaryInformation[cell].meshId;
 
         real x[4];
         real y[4];
