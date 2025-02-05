@@ -15,7 +15,9 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <utils/args.h>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -39,7 +41,7 @@ auto main(int argc, char* argv[]) -> int {
     }
   }
 
-  const char* formatValues[] = {"plain", "json"};
+  const std::vector<std::string> formatValues = {"plain", "json"};
 
   utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol "
                    "earthquake simulation software.");

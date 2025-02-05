@@ -761,8 +761,7 @@ void TimeCluster::correct() {
   const auto nextCorrectionSteps = ct.nextCorrectionSteps();
   if constexpr (USE_MPI) {
     if (printProgress && (((nextCorrectionSteps / timeStepRate) % 100) == 0)) {
-      const int rank = MPI::mpi.rank();
-      logInfo(rank) << "#max-updates since sync: " << nextCorrectionSteps
+      logInfo() << "#max-updates since sync: " << nextCorrectionSteps
                     << " @ " << ct.nextCorrectionTime(syncTime);
 
       }
@@ -774,8 +773,7 @@ void TimeCluster::reset() {
 }
 
 void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
-  const auto rank = MPI::mpi.rank();
-  logWarning(rank)
+  logWarning(true)
   << "No update since " << timeSinceLastUpdate.count()
   << "[s] for global cluster " << m_globalClusterId
   << " with local cluster id " << m_clusterId
@@ -789,7 +787,7 @@ void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) 
   << " mayCorrect = " << mayCorrect()
   << " maySync = " << maySync();
   for (auto& neighbor : neighbors) {
-    logWarning(rank)
+    logWarning(true)
     << "Neighbor with rate = " << neighbor.ct.timeStepRate
     << "PredTime = " << neighbor.ct.predictionTime
     << "CorrTime = " << neighbor.ct.correctionTime

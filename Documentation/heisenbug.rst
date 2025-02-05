@@ -32,7 +32,7 @@ E.g. the GPU module can be loaded with:
     # load the (first in the list) seissol module compiled with cuda support
     module load $(module avail seissol/*-cuda-* | awk '/seissol/ {print $1}')
 
-These modules have been compiled based on the main branch of https://github.com/SeisSol/seissol-spack-aid with the command:
+These modules have been compiled based on the develop branch of spack with the command:
 
 .. code-block:: bash
 
@@ -45,12 +45,10 @@ These modules have been compiled based on the main branch of https://github.com/
     export PATH=/import/exception-dump/ulrich/python-venv/bin:$PATH
     spack external find python
     # CPU version of seissol
-    spack install -j 40 seissol@master convergence_order=4 dr_quad_rule=dunavant equations=elastic precision=single %gcc@12 +python ^easi +python
+    spack install -j 40 seissol@master convergence_order=4 dr_quad_rule=dunavant equations=elastic precision=single %gcc@12 ^easi +python
     # GPU version of seissol
-    pip3 install --user git+https://github.com/SeisSol/gemmforge.git
-    pip3 install --user git+https://github.com/SeisSol/chainforge.git
-    spack install -j 40 seissol@master convergence_order=4 dr_quad_rule=dunavant equations=elastic precision=single %gcc@12 +python +cuda cuda_arch=86  ^easi +python
-    spack module tcl refresh --upstream-modules seissol
+    spack install -j 40 seissol@master convergence_order=4 dr_quad_rule=dunavant equations=elastic precision=single %gcc@12 +cuda cuda_arch=86  ^easi +python
+    spack module tcl refresh $(spack find -d --format "{name}{/hash:5}" seissol)
 
 
 As there is no queuing system on heisenbug, you need to make sure that nobody is running anything on the GPUs.
@@ -95,7 +93,7 @@ On 2 ranks, use:
     ulimit -Ss 2097152
     # Note that it is possible to increase OMP_NUM_THREADS
     # This will speed up (the rare) portions of the code running only CPUs, e.g. the wiggle factor calculation
-    export OMP_NUM_THREADS=1
+    export OMP_NUM_THREADS=10
     export OMP_PLACES="cores"
     export OMP_PROC_BIND=spread
     mpirun -n 2 --map-by ppr:2:numa:pe=$OMP_NUM_THREADS --report-bindings seissol-launch SeisSol_Release_ssm_86_cuda_4_elastic ./parameters.par

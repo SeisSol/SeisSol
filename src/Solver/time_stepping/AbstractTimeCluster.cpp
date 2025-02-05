@@ -101,7 +101,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       break;
     case ActorAction::Sync:
       assert(state == ActorState::Corrected);
-      logDebug(MPI::mpi.rank()) << "synced at" << syncTime
+      logDebug() << "synced at" << syncTime
                                 << ", corrTime =" << ct.correctionTime
                                 << "stepsSinceLastSync" << ct.stepsSinceLastSync
                                 << "stepsUntilLastSync" << ct.stepsUntilSync

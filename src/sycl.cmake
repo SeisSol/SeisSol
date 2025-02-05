@@ -51,8 +51,7 @@ elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
   target_compile_options(seissol-device-lib PRIVATE ${EXTRA_CXX_FLAGS} "-O3")
   target_compile_definitions(seissol-device-lib PRIVATE DEVICE_ONEAPI_LANG REAL_SIZE=${REAL_SIZE_IN_BYTES} __DPCPP_COMPILER)
 
-  find_package(DpcppFlags REQUIRED)
-  target_link_libraries(seissol-device-lib PRIVATE dpcpp::device_flags)
+  target_link_libraries(seissol-device-lib PRIVATE dpcpp::device_flags ${GemmTools_LIBRARIES})
 endif()
 
 target_compile_definitions(seissol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
