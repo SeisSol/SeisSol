@@ -36,13 +36,16 @@ AsagiModule::AsagiModule() : m_mpiMode(getMPIMode()), m_totalThreads(getTotalThr
 
 AsagiMPIMode AsagiModule::getMPIMode() {
 #ifdef USE_MPI
-  std::string mpiModeName = utils::Env::get(EnvMPIMode, "WINDOWS");
-  if (mpiModeName == "WINDOWS")
+  const std::string mpiModeName = utils::Env::get(EnvMPIMode, "WINDOWS");
+  if (mpiModeName == "WINDOWS") {
     return AsagiMPIMode::Windows;
-  if (mpiModeName == "COMM_THREAD")
+  }
+  if (mpiModeName == "COMM_THREAD") {
     return AsagiMPIMode::CommThread;
-  if (mpiModeName == "OFF")
+  }
+  if (mpiModeName == "OFF") {
     return AsagiMPIMode::Off;
+  }
 
   return AsagiMPIMode::Unknown;
 #else  // USE_MPI
@@ -75,7 +78,7 @@ void AsagiModule::preMPI() {
 
 void AsagiModule::postMPIInit() {
   if (m_mpiMode == AsagiMPIMode::Unknown) {
-    std::string mpiModeName = utils::Env::get(EnvMPIMode, "");
+    const std::string mpiModeName = utils::Env::get(EnvMPIMode, "");
     logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
   } else {
     logWarning() << "Running with only one OMP thread."

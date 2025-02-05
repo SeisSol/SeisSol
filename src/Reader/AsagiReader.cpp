@@ -71,12 +71,12 @@ namespace seissol::asagi {
   grid->setParam("VALUE_POSITION", "VERTEX_CENTERED");
 
   // Set additional parameters
-  std::string blockSize = utils::Env::get((envPrefix + "_BLOCK_SIZE").c_str(), "64");
+  const std::string blockSize = utils::Env::get((envPrefix + "_BLOCK_SIZE").c_str(), "64");
   grid->setParam("BLOCK_SIZE_0", blockSize.c_str());
   grid->setParam("BLOCK_SIZE_1", blockSize.c_str());
   grid->setParam("BLOCK_SIZE_2", blockSize.c_str());
 
-  std::string cacheSize = utils::Env::get((envPrefix + "_CACHE_SIZE").c_str(), "128");
+  const std::string cacheSize = utils::Env::get((envPrefix + "_CACHE_SIZE").c_str(), "128");
   grid->setParam("CACHE_SIZE", cacheSize.c_str());
 
   grid->setParam("VARIABLE", varname);
@@ -102,14 +102,17 @@ namespace seissol::asagi {
 }
 
 NumaCacheMode AsagiReader::getNumaMode() {
-  const char* numaModeName = utils::Env::get("SEISSOL_ASAGI_NUMA_MODE", "ON");
+  const std::string numaModeName = utils::Env::get("SEISSOL_ASAGI_NUMA_MODE", "ON");
 
-  if (strcmp(numaModeName, "ON") == 0)
+  if (numaModeName == "ON") {
     return NumaCacheMode::On;
-  if (strcmp(numaModeName, "OFF") == 0)
+  }
+  if (numaModeName == "OFF") {
     return NumaCacheMode::Off;
-  if (strcmp(numaModeName, "CACHE") == 0)
+  }
+  if (numaModeName == "CACHE") {
     return NumaCacheMode::Cache;
+  }
 
   logError() << "Unknown NUMA mode:" << numaModeName;
   return NumaCacheMode::Off;
