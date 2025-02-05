@@ -112,7 +112,7 @@ seissol::geometry::CubeGenerator::CubeGenerator(
 
   if (cubePx > 1 && (cubeMinX == 6 || cubeMaxX == 6 || cubeMinY == 6 || cubeMaxY == 6 ||
                      cubeMinZ == 6 || cubeMaxZ == 6)) {
-    logWarning(rank)
+    logWarning()
         << "Atleast one boundary condition is set to 6 (periodic boundary), currently leading "
            "to incorrect results when using more than 1 MPI process";
   }
@@ -164,7 +164,7 @@ seissol::geometry::CubeGenerator::CubeGenerator(
   // output file name
   const std::string& fileName = meshFile;
 
-  logInfo(rank) << "Start generating a mesh using the CubeGenerator";
+  logInfo() << "Start generating a mesh using the CubeGenerator";
   seissol::geometry::CubeGenerator::cubeGenerator(numCubes,
                                                   numPartitions,
                                                   cubeMinX,
@@ -209,16 +209,16 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
     double tz,
     const std::string& meshFile) {
 
-  logInfo(rank) << "Total number of cubes:" << numCubes[0] << 'x' << numCubes[1] << 'x'
-                << numCubes[2] << '=' << numCubes[3];
-  logInfo(rank) << "Total number of partitions" << numPartitions[0] << 'x' << numPartitions[1]
-                << 'x' << numPartitions[2] << '=' << numPartitions[3];
-  logInfo(rank) << "Total number of cubes per partition:" << numCubesPerPart[0] << 'x'
-                << numCubesPerPart[1] << 'x' << numCubesPerPart[2] << '=' << numCubesPerPart[3];
-  logInfo(rank) << "Total number of elements per partition:" << numElemPerPart[0] << 'x'
-                << numElemPerPart[1] << 'x' << numElemPerPart[2] << '='
-                << numElemPerPart[0] * numElemPerPart[1] * numElemPerPart[2];
-  logInfo(rank) << "Using" << omp_get_max_threads() << "threads";
+  logInfo() << "Total number of cubes:" << numCubes[0] << 'x' << numCubes[1] << 'x' << numCubes[2]
+            << '=' << numCubes[3];
+  logInfo() << "Total number of partitions" << numPartitions[0] << 'x' << numPartitions[1] << 'x'
+            << numPartitions[2] << '=' << numPartitions[3];
+  logInfo() << "Total number of cubes per partition:" << numCubesPerPart[0] << 'x'
+            << numCubesPerPart[1] << 'x' << numCubesPerPart[2] << '=' << numCubesPerPart[3];
+  logInfo() << "Total number of elements per partition:" << numElemPerPart[0] << 'x'
+            << numElemPerPart[1] << 'x' << numElemPerPart[2] << '='
+            << numElemPerPart[0] * numElemPerPart[1] * numElemPerPart[2];
+  logInfo() << "Using" << omp_get_max_threads() << "threads";
 
   // Setup MPI Communicator
 #ifdef USE_MPI
@@ -1577,7 +1577,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   // Recompute additional information
   findElementsPerVertex();
 
-  logInfo(rank) << "Finished";
+  logInfo() << "Finished";
 }
 
 void seissol::geometry::CubeGenerator::findElementsPerVertex() {

@@ -118,7 +118,7 @@ jobs:
           RETVAL_PROXY=$?
           set -e
 
-          if [ $RETVAL_EXE -ne 134 ]; then
+          if [ $RETVAL_EXE -ne 133 ]; then
             echo "Unexpected exit code for SeisSol: ${RETVAL_EXE}"
             exit 1
           fi
@@ -155,11 +155,11 @@ jobs:
 
   seissol-run-test:
     name: seissol-run-test
-    runs-on: sccs-ci-zen2
+    runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
-    if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
+    if: ${{ github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
     strategy:
       fail-fast: false
       matrix:

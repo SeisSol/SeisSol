@@ -28,7 +28,6 @@ struct Config {
 };
 
 Config getConfig() {
-  const auto rank = seissol::MPI::mpi.rank();
   constexpr int numRepeats{10};
   constexpr int numElements{50000};
 
@@ -42,7 +41,7 @@ Config getConfig() {
     }
   }
   catch (std::runtime_error& err) {
-    logWarning(rank) << "failed to read `SEISSOL_MINI_NUM_REPEATS`," << err.what();
+    logWarning() << "failed to read `SEISSOL_MINI_NUM_REPEATS`," << err.what();
     config.numRepeats = numRepeats;
   }
 
@@ -53,7 +52,7 @@ Config getConfig() {
     }
   }
   catch (std::runtime_error& err) {
-    logWarning(rank) << "failed to read `SEISSOL_MINI_NUM_ELEMENTS`," << err.what();
+    logWarning() << "failed to read `SEISSOL_MINI_NUM_ELEMENTS`," << err.what();
     config.numElements = numElements;
   }
   return config;
@@ -206,8 +205,7 @@ double seissol::miniSeisSol(initializer::MemoryManager& memoryManager, bool useP
   ltsTree.fixate();
 
   auto config = mini::getConfig();
-  const auto rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "miniSeisSol configured with"
+  logInfo() << "miniSeisSol configured with"
                 << config.numElements << "elements and"
                 << config.numRepeats << "repeats per process";
 
