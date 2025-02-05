@@ -104,9 +104,6 @@ jobs:
           # TODO: change to `-Wall -Werror` at some point
           EXTRA_FLAGS="-Wall"
 
-          # FIXME: hotfix. Needs to be fixed in SeisSol itself
-          export HIP_PATH=/opt/rocm
-
           export CFLAGS="${EXTRA_FLAGS} ${CFLAGS}"
           export CXXFLAGS="${EXTRA_FLAGS} ${CXXFLAGS}"
           export FFLAGS="${EXTRA_FLAGS} ${FFLAGS}"
