@@ -11,7 +11,11 @@
 #include "AsagiModule.h"
 #include "Parallel/Helper.h"
 #include "utils/env.h"
+#include <Modules/Modules.h>
+#include <Parallel/MPI.h>
+#include <asagi.h>
 #include <string>
+#include <utils/logger.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -36,7 +40,7 @@ AsagiModule::AsagiModule() : m_mpiMode(getMPIMode()), m_totalThreads(getTotalThr
 
 AsagiMPIMode AsagiModule::getMPIMode() {
 #ifdef USE_MPI
-  const std::string mpiModeName = utils::Env::get(EnvMPIMode, "WINDOWS");
+  const std::string mpiModeName = utils::Env::get(EnvMpiMode, "WINDOWS");
   if (mpiModeName == "WINDOWS") {
     return AsagiMPIMode::Windows;
   }
@@ -78,7 +82,7 @@ void AsagiModule::preMPI() {
 
 void AsagiModule::postMPIInit() {
   if (m_mpiMode == AsagiMPIMode::Unknown) {
-    const std::string mpiModeName = utils::Env::get(EnvMPIMode, "");
+    const std::string mpiModeName = utils::Env::get(EnvMpiMode, "");
     logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
   } else {
     logWarning() << "Running with only one OMP thread."

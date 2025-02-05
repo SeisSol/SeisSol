@@ -9,6 +9,13 @@
 
 #include "AsagiReader.h"
 
+#include <Monitoring/Instrumentation.h>
+#include <Reader/AsagiModule.h>
+#include <asagi.h>
+#include <mpi.h>
+#include <utils/env.h>
+#include <utils/logger.h>
+
 namespace seissol::asagi {
 /**
  *
@@ -21,25 +28,27 @@ namespace seissol::asagi {
 
   ::asagi::Grid* grid = ::asagi::Grid::createArray();
 
-  if (utils::Env::get<bool>((envPrefix + "_SPARSE").c_str(), false)) {
+  if (utils::Env::get<bool>(envPrefix + "_SPARSE", false)) {
     grid->setParam("GRID", "CACHE");
   }
 
   // Set MPI mode
   if (AsagiModule::mpiMode() != AsagiMPIMode::Off) {
 #ifdef USE_MPI
-    ::asagi::Grid::Error err = grid->setComm(comm);
-    if (err != ::asagi::Grid::SUCCESS)
+    ::asagi::Grid::Error const err = grid->setComm(comm);
+    if (err != ::asagi::Grid::SUCCESS) {
       logError() << "Could not set ASAGI communicator:" << err;
+    }
 
 #endif // USE_MPI
 
-    if (AsagiModule::mpiMode() == AsagiMPIMode::CommThread)
+    if (AsagiModule::mpiMode() == AsagiMPIMode::CommThread) {
       grid->setParam("MPI_COMMUNICATION", "THREAD");
+    }
   }
 
   // Set NUMA mode
-  asagiThreads = utils::Env::get((envPrefix + "_NUM_THREADS").c_str(), 0u);
+  asagiThreads = utils::Env::get(envPrefix + "_NUM_THREADS", 0U);
   if (asagiThreads == 0) {
     asagiThreads = AsagiModule::totalThreads();
   } else if (static_cast<int>(asagiThreads) > AsagiModule::totalThreads()) {
@@ -71,12 +80,12 @@ namespace seissol::asagi {
   grid->setParam("VALUE_POSITION", "VERTEX_CENTERED");
 
   // Set additional parameters
-  const std::string blockSize = utils::Env::get((envPrefix + "_BLOCK_SIZE").c_str(), "64");
+  const std::string blockSize = utils::Env::get(envPrefix + "_BLOCK_SIZE", "64");
   grid->setParam("BLOCK_SIZE_0", blockSize.c_str());
   grid->setParam("BLOCK_SIZE_1", blockSize.c_str());
   grid->setParam("BLOCK_SIZE_2", blockSize.c_str());
 
-  const std::string cacheSize = utils::Env::get((envPrefix + "_CACHE_SIZE").c_str(), "128");
+  const std::string cacheSize = utils::Env::get(envPrefix + "_CACHE_SIZE", "128");
   grid->setParam("CACHE_SIZE", cacheSize.c_str());
 
   grid->setParam("VARIABLE", varname);
@@ -88,9 +97,10 @@ namespace seissol::asagi {
 #pragma omp parallel shared(abort) num_threads(asagiThreads)
 #endif // _OPENMP
   {
-    ::asagi::Grid::Error err = grid->open(file);
-    if (err != ::asagi::Grid::SUCCESS)
+    const ::asagi::Grid::Error err = grid->open(file);
+    if (err != ::asagi::Grid::SUCCESS) {
       abort = true;
+    }
   }
   // SCOREP_RECORDING_ON();
   if (abort) {

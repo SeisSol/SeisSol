@@ -11,17 +11,11 @@
 
 #ifdef USE_ASAGI
 
-#include "Parallel/MPI.h"
-
 #include <string>
 
 #include <asagi.h>
 
-#include "utils/env.h"
-#include "utils/logger.h"
-
 #include "Modules/Module.h"
-#include "Modules/Modules.h"
 
 namespace seissol::asagi {
 
@@ -40,8 +34,11 @@ class AsagiModule : public Module {
   AsagiModule();
 
   public:
+  ~AsagiModule() override = default;
   AsagiModule(const AsagiModule&) = delete;
   void operator=(const AsagiModule&) = delete;
+  AsagiModule(AsagiModule&&) = delete;
+  void operator=(AsagiModule&&) = delete;
 
   void preMPI() override;
 
@@ -90,7 +87,7 @@ class AsagiModule : public Module {
   static int totalThreads();
 
   private:
-  static inline const char* EnvMPIMode = "SEISSOL_ASAGI_MPI_MODE";
+  static inline const std::string EnvMpiMode = "SEISSOL_ASAGI_MPI_MODE";
 };
 
 } // namespace seissol::asagi
