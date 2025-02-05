@@ -7,6 +7,7 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "Geometry/MeshDefinition.h"
+#include <Common/Iterator.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/MeshParameters.h>
 #include <PUML/TypeInference.h>
@@ -353,53 +354,57 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
   }
 
   // Exchange ghost layer information and generate neighbor list
-  char** copySide = new char*[neighborInfo.size()];
-  char** ghostSide = new char*[neighborInfo.size()];
-  auto** copyFirstVertex = new unsigned long*[neighborInfo.size()];
-  auto** ghostFirstVertex = new unsigned long*[neighborInfo.size()];
+  std::vector<std::vector<char>> copySide(neighborInfo.size());
+  std::vector<std::vector<char>> ghostSide(neighborInfo.size());
+  std::vector<std::vector<unsigned long>> copyFirstVertex(neighborInfo.size());
+  std::vector<std::vector<unsigned long>> ghostFirstVertex(neighborInfo.size());
 
-  auto* requests = new MPI_Request[neighborInfo.size() * 4];
+  std::vector<MPI_Request> requests(neighborInfo.size() * 4);
 
   std::unordered_set<unsigned int> t;
 #ifndef NDEBUG
   unsigned int sum = 0;
 #endif
-  unsigned int k = 0;
-  for (auto it = neighborInfo.begin(); it != neighborInfo.end(); ++it, ++k) {
+  for (auto [k, info] : seissol::common::enumerate(neighborInfo)) {
     // Need to sort the neighborInfo vectors once
-    std::sort(it->second.begin(), it->second.end(), [&](unsigned int a, unsigned int b) {
+    std::sort(info.second.begin(), info.second.end(), [&](unsigned int a, unsigned int b) {
       return puml.faces()[a].gid() < puml.faces()[b].gid();
     });
 
-    t.insert(it->second.begin(), it->second.end());
+    t.insert(info.second.begin(), info.second.end());
 #ifndef NDEBUG
-    sum += it->second.size();
+    sum += info.second.size();
 #endif
 
     // Create MPI neighbor list
-    addMPINeighor(puml, it->first, it->second);
+    addMPINeighor(puml, info.first, info.second);
 
-    copySide[k] = new char[it->second.size()];
-    ghostSide[k] = new char[it->second.size()];
-    copyFirstVertex[k] = new unsigned long[it->second.size()];
-    ghostFirstVertex[k] = new unsigned long[it->second.size()];
+    copySide[k].resize(info.second.size());
+    ghostSide[k].resize(info.second.size());
+    copyFirstVertex[k].resize(info.second.size());
+    ghostFirstVertex[k].resize(info.second.size());
 
-    MPI_Irecv(
-        ghostSide[k], it->second.size(), MPI_CHAR, it->first, 0, MPI::mpi.comm(), &requests[k]);
-    MPI_Irecv(ghostFirstVertex[k],
-              it->second.size(),
+    MPI_Irecv(ghostSide[k].data(),
+              info.second.size(),
+              MPI_CHAR,
+              info.first,
+              0,
+              MPI::mpi.comm(),
+              &requests[k]);
+    MPI_Irecv(ghostFirstVertex[k].data(),
+              info.second.size(),
               MPI_UNSIGNED_LONG,
-              it->first,
+              info.first,
               0,
               MPI::mpi.comm(),
               &requests[neighborInfo.size() + k]);
 
     // Neighbor side
-    for (unsigned int i = 0; i < it->second.size(); i++) {
+    for (unsigned int i = 0; i < info.second.size(); i++) {
       // The side of boundary
       int cellIds[2];
-      PUML::Upward::cells(puml, faces[it->second[i]], cellIds);
-      const int side = PUML::Downward::faceSide(puml, cells[cellIds[0]], it->second[i]);
+      PUML::Upward::cells(puml, faces[info.second[i]], cellIds);
+      const int side = PUML::Downward::faceSide(puml, cells[cellIds[0]], info.second[i]);
       assert(side >= 0 && side < 4);
       copySide[k][i] = side;
 
@@ -413,17 +418,17 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
       m_elements[cellIds[0]].mpiIndices[PumlFaceToSeisSol[side]] = i;
     }
 
-    MPI_Isend(copySide[k],
-              it->second.size(),
+    MPI_Isend(copySide[k].data(),
+              info.second.size(),
               MPI_CHAR,
-              it->first,
+              info.first,
               0,
               MPI::mpi.comm(),
               &requests[neighborInfo.size() * 2 + k]);
-    MPI_Isend(copyFirstVertex[k],
-              it->second.size(),
+    MPI_Isend(copyFirstVertex[k].data(),
+              info.second.size(),
               MPI_UNSIGNED_LONG,
-              it->first,
+              info.first,
               0,
               MPI::mpi.comm(),
               &requests[neighborInfo.size() * 3 + k]);
@@ -432,14 +437,13 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
   assert(t.size() == sum);
 #endif
 
-  MPI_Waitall(neighborInfo.size() * 4, requests, MPI_STATUSES_IGNORE);
+  MPI_Waitall(neighborInfo.size() * 4, requests.data(), MPI_STATUSES_IGNORE);
 
-  k = 0;
-  for (auto it = neighborInfo.begin(); it != neighborInfo.end(); ++it, k++) {
-    for (unsigned int i = 0; i < it->second.size(); i++) {
+  for (auto [k, info] : seissol::common::enumerate(neighborInfo)) {
+    for (unsigned int i = 0; i < info.second.size(); i++) {
       // Set neighbor side
       int cellIds[2];
-      PUML::Upward::cells(puml, faces[it->second[i]], cellIds);
+      PUML::Upward::cells(puml, faces[info.second[i]], cellIds);
       assert(cellIds[1] < 0);
 
       const int side = copySide[k][i];
@@ -457,25 +461,12 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
           FaceVertexToOrientation[PumlFaceToSeisSol[side]][localFirstVertex - nvertices];
       assert(m_elements[cellIds[0]].sideOrientations[PumlFaceToSeisSol[side]] >= 0);
     }
-
-    delete[] copySide[k];
-    delete[] ghostSide[k];
-    delete[] copyFirstVertex[k];
-    delete[] ghostFirstVertex[k];
   }
-
-  delete[] copySide;
-  delete[] ghostSide;
-  delete[] copyFirstVertex;
-  delete[] ghostFirstVertex;
-  delete[] requests;
 
   // Set vertices
   m_vertices.resize(vertices.size());
   for (std::size_t i = 0; i < vertices.size(); i++) {
     memcpy(m_vertices[i].coords, vertices[i].coordinate(), 3 * sizeof(double));
-
-    const std::vector<int> elementsInt;
 
     PUML::Upward::cells(puml, vertices[i], m_vertices[i].elements);
   }

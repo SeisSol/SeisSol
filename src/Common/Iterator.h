@@ -10,7 +10,6 @@
 
 #include <iterator>
 #include <limits>
-#include <optional>
 #include <stdexcept>
 #include <tuple>
 #include <utility>
@@ -131,12 +130,12 @@ private:
   }
 
   template <typename F, typename TupleA>
-  constexpr static auto tupleTransform(F&& function, TupleA& tuple) {
+  constexpr static auto tupleTransform(F function, TupleA& tuple) {
     return std::apply([function](auto&... args) { return std::tuple{function(args)...}; }, tuple);
   }
 
   template <typename F, typename TupleA>
-  constexpr static auto tupleTransform(F&& function, const TupleA& tuple) {
+  constexpr static auto tupleTransform(F function, const TupleA& tuple) {
     return std::apply([function](const auto&... args) { return std::tuple{function(args)...}; },
                       tuple);
   }
@@ -156,6 +155,7 @@ template <typename T>
 class Range {
   public:
   class Iterator {
+public:
     // NOLINTNEXTLINE
     using iterator_category = std::input_iterator_tag;
     // NOLINTNEXTLINE
@@ -165,7 +165,7 @@ class Range {
     // NOLINTNEXTLINE
     using pointer = T*;
     // NOLINTNEXTLINE
-    using reference = T&;
+    using reference = T; // FIXME: sure?
 
     Iterator(T value, T step, T end) : value(value), step(step), end(end) {
       if (value > end) {
@@ -181,8 +181,17 @@ class Range {
       return *this;
     }
 
-    constexpr auto operator*() const { return value; }
+    constexpr auto operator*() -> reference { return value; }
 
+    constexpr auto operator*() const -> reference { return value; }
+
+    constexpr auto operator==(const Iterator& other) const -> bool {
+      return value == other.value && step == other.step && end == other.end;
+    }
+
+    constexpr auto operator!=(const Iterator& other) const -> bool { return !(*this == other); }
+
+private:
     T value;
     T step;
     T end;
@@ -192,9 +201,11 @@ class Range {
 
   [[nodiscard]] constexpr auto begin() const { return Iterator(startVal, stepVal, stopVal); }
 
-  [[nodiscard]] constexpr auto end() const {
-    return Iterator(std::optional<T>(), stepVal, stopVal);
-  }
+  [[nodiscard]] constexpr auto end() const { return Iterator(stopVal, stepVal, stopVal); }
+
+  [[nodiscard]] constexpr auto cbegin() const { return Iterator(startVal, stepVal, stopVal); }
+
+  [[nodiscard]] constexpr auto cend() const { return Iterator(stopVal, stepVal, stopVal); }
 
   private:
   T startVal;
@@ -220,9 +231,10 @@ constexpr auto range(T start, T stop, T step) {
 template <typename RangeT>
 constexpr auto enumerate(RangeT&& iterator) {
   // a tiny bit hacky to use both zip and the int range like that. But it should work.
-  return zip(true,
-             Range<std::size_t>(0, std::numeric_limits<std::size_t>::max(), 1),
-             std::forward<RangeT>(iterator));
+  return Zip<Range<std::size_t>, RangeT>(
+      true,
+      Range<std::size_t>(0, std::numeric_limits<std::size_t>::max(), 1),
+      std::forward<RangeT>(iterator));
 }
 
 } // namespace seissol::common

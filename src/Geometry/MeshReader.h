@@ -74,8 +74,8 @@ class MeshReader {
   bool hasFault() const;
   bool hasPlusFault() const;
 
-  virtual bool inlineTimestepCompute() const = 0;
-  virtual bool inlineClusterCompute() const = 0;
+  virtual bool inlineTimestepCompute() const { return false; }
+  virtual bool inlineClusterCompute() const { return false; }
 
   void displaceMesh(const Eigen::Vector3d& displacement);
 
