@@ -132,6 +132,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       isThermalPressureOn,
                       isFrictionEnergyRequired,
                       isCheckAbortCriteraEnabled,
+                      energiesFromAcrossFaultVelocities,
                       outputPointType,
                       refPointMethod,
                       slipRateOutputType,
