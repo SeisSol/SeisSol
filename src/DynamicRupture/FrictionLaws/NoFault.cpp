@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "NoFault.h"
+#include "Common/Executor.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Kernels/Precision.h"

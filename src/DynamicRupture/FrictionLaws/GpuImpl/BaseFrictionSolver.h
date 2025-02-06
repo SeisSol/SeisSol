@@ -158,7 +158,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
           auto isFrictionEnergyRequired{data->drParameters.isFrictionEnergyRequired};
           auto isCheckAbortCriteraEnabled{data->drParameters.isCheckAbortCriteraEnabled};
           auto devTerminatorSlipRateThreshold{data->drParameters.terminatorSlipRateThreshold};
-          auto energiesFromAcrossFaultVelocities{data->drParameters.energiesFromAcrossFaultVelocities};
+          auto energiesFromAcrossFaultVelocities{
+              data->drParameters.energiesFromAcrossFaultVelocities};
 
           common::savePeakSlipRateOutput<gpuRangeType>(
               devSlipRateMagnitude[ltsFace], devPeakSlipRate[ltsFace], pointIndex);
