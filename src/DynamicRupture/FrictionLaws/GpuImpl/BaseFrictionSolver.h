@@ -126,6 +126,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       auto isCheckAbortCriteraEnabled{this->drParameters->isCheckAbortCriteraEnabled};
       auto devTerminatorSlipRateThreshold{this->drParameters->terminatorSlipRateThreshold};
+      auto energiesFromAcrossFaultVelocities{this->drParameters->energiesFromAcrossFaultVelocities};
 
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -166,6 +167,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                         devSpaceWeights,
                                                         devGodunovData[ltsFace],
                                                         devSlipRateMagnitude[ltsFace],
+                                                        energiesFromAcrossFaultVelocities,
                                                         pointIndex);
           }
         });
