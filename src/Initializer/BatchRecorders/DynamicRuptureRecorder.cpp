@@ -1,5 +1,21 @@
-#include "Kernels/Interface.hpp"
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Recorders.h"
+#include <DataTypes/ConditionalKey.h>
+#include <DataTypes/EncodedConstants.h>
+#include <Initializer/DynamicRupture.h>
+#include <Initializer/Tree/Layer.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Precision.h>
+#include <array>
+#include <cstddef>
+#include <tensor.h>
+#include <vector>
 #include <yateto.h>
 
 using namespace device;
@@ -35,7 +51,7 @@ void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
       idofsMinusPtrs[faceId] = &idofsMinus[faceId * idofsSize];
     }
 
-    ConditionalKey key(*KernelNames::DrTime);
+    const ConditionalKey key(*KernelNames::DrTime);
     checkKey(key);
 
     (*currentDrTable)[key].set(inner_keys::Dr::Id::DerivativesPlus, timeDerivativePlusPtrs);
@@ -64,42 +80,42 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
   if (size > 0) {
     std::array<std::vector<real*>, *FaceId::Count> qInterpolatedPlusPtr{};
     std::array<std::vector<real*>, *FaceId::Count> idofsPlusPtr{};
-    std::array<std::vector<real*>, *FaceId::Count> TinvTPlusPtr{};
+    std::array<std::vector<real*>, *FaceId::Count> tInvTPlusPtr{};
 
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> TinvTMinusPtr {};
+    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> tInvTMinusPtr {};
 
     const size_t idofsSize = tensor::Q::size();
     for (unsigned faceId = 0; faceId < size; ++faceId) {
       const auto plusSide = faceInfo[faceId].plusSide;
       qInterpolatedPlusPtr[plusSide].push_back(&qInterpolatedPlus[faceId][0][0]);
       idofsPlusPtr[plusSide].push_back(&idofsPlus[faceId * idofsSize]);
-      TinvTPlusPtr[plusSide].push_back((&godunovData[faceId])->TinvT);
+      tInvTPlusPtr[plusSide].push_back((&godunovData[faceId])->TinvT);
 
       const auto minusSide = faceInfo[faceId].minusSide;
       const auto faceRelation = faceInfo[faceId].faceRelation;
       qInterpolatedMinusPtr[minusSide][faceRelation].push_back(&qInterpolatedMinus[faceId][0][0]);
       idofsMinusPtr[minusSide][faceRelation].push_back(&idofsMinus[faceId * idofsSize]);
-      TinvTMinusPtr[minusSide][faceRelation].push_back((&godunovData[faceId])->TinvT);
+      tInvTMinusPtr[minusSide][faceRelation].push_back((&godunovData[faceId])->TinvT);
     }
 
     for (unsigned side = 0; side < 4; ++side) {
       if (!qInterpolatedPlusPtr[side].empty()) {
-        ConditionalKey key(*KernelNames::DrSpaceMap, side);
+        const ConditionalKey key(*KernelNames::DrSpaceMap, side);
         (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedPlus,
                                    qInterpolatedPlusPtr[side]);
         (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtr[side]);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, TinvTPlusPtr[side]);
+        (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTPlusPtr[side]);
       }
       for (unsigned faceRelation = 0; faceRelation < 4; ++faceRelation) {
         if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
-          ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
+          const ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
           (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,
                                      qInterpolatedMinusPtr[side][faceRelation]);
           (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus,
                                      idofsMinusPtr[side][faceRelation]);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, TinvTMinusPtr[side][faceRelation]);
+          (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTMinusPtr[side][faceRelation]);
         }
       }
     }

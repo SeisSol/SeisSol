@@ -1,9 +1,16 @@
-#ifndef SEISSOL_BASE_FRICTION_SOLVER_H
-#define SEISSOL_BASE_FRICTION_SOLVER_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_BASEFRICTIONSOLVER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_BASEFRICTIONSOLVER_H_
 
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
-#include "Numerical_aux/SyclFunctions.h"
+#include "Numerical/SyclFunctions.h"
 #include <algorithm>
 
 namespace seissol::dr::friction_law::gpu {
@@ -18,7 +25,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
-                const double timeWeights[CONVERGENCE_ORDER],
+                const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
 
     runtime.syncToSycl(&this->queue);
@@ -27,7 +34,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
     this->currLayerSize = layerData.getNumberOfCells();
 
-    size_t requiredNumBytes = CONVERGENCE_ORDER * sizeof(double);
+    size_t requiredNumBytes = ConvergenceOrder * sizeof(double);
     auto timeWeightsCopy = this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes);
 
     {
@@ -39,7 +46,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto* devQInterpolatedMinus{this->qInterpolatedMinus};
       auto* devFaultStresses{this->faultStresses};
 
-      sycl::nd_range rng{{this->currLayerSize * misc::numPaddedPoints}, {misc::numPaddedPoints}};
+      sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
           const auto ltsFace = item.get_group().get_group_id(0);
@@ -55,7 +62,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       });
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer);
-      for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; ++timeIndex) {
+      for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
         const real t0{this->drParameters->t0};
         const real dt = deltaT[timeIndex];
         auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
@@ -119,6 +126,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
       auto isCheckAbortCriteraEnabled{this->drParameters->isCheckAbortCriteraEnabled};
       auto devTerminatorSlipRateThreshold{this->drParameters->terminatorSlipRateThreshold};
+      auto energiesFromAcrossFaultVelocities{this->drParameters->energiesFromAcrossFaultVelocities};
 
       this->queue.submit([&](sycl::handler& cgh) {
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -158,6 +166,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                                                         devTimeWeights,
                                                         devSpaceWeights,
                                                         devGodunovData[ltsFace],
+                                                        devSlipRateMagnitude[ltsFace],
+                                                        energiesFromAcrossFaultVelocities,
                                                         pointIndex);
           }
         });
@@ -169,4 +179,4 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 };
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_BASE_FRICTION_SOLVER_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_BASEFRICTIONSOLVER_H_

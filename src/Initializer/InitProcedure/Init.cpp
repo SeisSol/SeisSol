@@ -1,28 +1,41 @@
-#include "Init.hpp"
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <sstream>
+#include "Init.h"
 
-#include "InitIO.hpp"
-#include "InitMesh.hpp"
-#include "InitModel.hpp"
-#include "InitSideConditions.hpp"
+#include <Initializer/Tree/Layer.h>
+#include <Monitoring/Stopwatch.h>
+#include <utils/logger.h>
+
+#include "InitIO.h"
+#include "InitMesh.h"
+#include "InitModel.h"
+#include "InitSideConditions.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Monitoring/Unit.hpp"
-#include "Numerical_aux/Statistics.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
 
+#ifdef ACL_DEVICE
+#include "Monitoring/Unit.h"
+#include "Numerical/Statistics.h"
+#include <ostream>
+#include <sstream>
+#endif
+
 namespace {
 
-static void reportDeviceMemoryStatus() {
+void reportDeviceMemoryStatus() {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  const auto rank = seissol::MPI::mpi.rank();
   if (device.api->getCurrentlyOccupiedMem() > device.api->getMaxAvailableMem()) {
     std::stringstream stream;
 
-    stream << "Memory of device (" << rank << ") is overloaded." << std::endl
+    stream << "Memory of the device is overloaded." << std::endl
            << "Totally allocated device memory: "
            << UnitByte.formatPrefix(device.api->getCurrentlyOccupiedMem()) << std::endl
            << "Allocated unified memory: "
@@ -32,17 +45,17 @@ static void reportDeviceMemoryStatus() {
 
     logError() << stream.str();
   } else {
-    double fraction = device.api->getCurrentlyOccupiedMem() /
-                      static_cast<double>(device.api->getMaxAvailableMem());
+    const double fraction = device.api->getCurrentlyOccupiedMem() /
+                            static_cast<double>(device.api->getMaxAvailableMem());
     const auto summary = seissol::statistics::parallelSummary(fraction * 100.0);
-    logInfo(rank) << "occupied memory on devices (%):"
-                  << " mean =" << summary.mean << " std =" << summary.std << " min =" << summary.min
-                  << " median =" << summary.median << " max =" << summary.max;
+    logInfo() << "occupied memory on devices (%):"
+              << " mean =" << summary.mean << " std =" << summary.std << " min =" << summary.min
+              << " median =" << summary.median << " max =" << summary.max;
   }
 #endif
 }
 
-static void initSeisSol(seissol::SeisSol& seissolInstance) {
+void initSeisSol(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
   // set g
@@ -64,7 +77,7 @@ static void initSeisSol(seissol::SeisSol& seissolInstance) {
   sim.setFinalTime(seissolParams.timeStepping.endTime);
 }
 
-static void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
+void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
   reportDeviceMemoryStatus();
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
@@ -72,11 +85,10 @@ static void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
   pinningWriter.write(seissolInstance.getPinning());
 }
 
-static void closeSeisSol(seissol::SeisSol& seissolInstance) {
-  logInfo(seissol::MPI::mpi.rank()) << "Closing IO.";
+void closeSeisSol(seissol::SeisSol& seissolInstance) {
+  logInfo() << "Closing IO.";
   // cleanup IO
   seissolInstance.waveFieldWriter().close();
-  seissolInstance.checkPointManager().close();
   seissolInstance.faultWriter().close();
   seissolInstance.freeSurfaceWriter().close();
 
@@ -91,19 +103,19 @@ void seissol::initializer::initprocedure::seissolMain(seissol::SeisSol& seissolI
   reportHardwareRelatedStatus(seissolInstance);
 
   // just put a barrier here to make sure everyone is synched
-  logInfo(seissol::MPI::mpi.rank()) << "Finishing initialization...";
-  seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
+  logInfo() << "Finishing initialization...";
+  seissol::MPI::barrier(seissol::MPI::mpi.comm());
 
   seissol::Stopwatch watch;
-  logInfo(seissol::MPI::mpi.rank()) << "Starting simulation.";
+  logInfo() << "Starting simulation.";
   watch.start();
   seissolInstance.simulator().simulate(seissolInstance);
   watch.pause();
   watch.printTime("Time spent in simulation:");
 
   // make sure everyone is really done
-  logInfo(seissol::MPI::mpi.rank()) << "Simulation done.";
-  seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
+  logInfo() << "Simulation done.";
+  seissol::MPI::barrier(seissol::MPI::mpi.comm());
 
   closeSeisSol(seissolInstance);
 }

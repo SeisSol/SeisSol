@@ -1,5 +1,14 @@
-#ifndef SEISSOL_RATEANDSTATEFASTVELOCITYWEAKENING_H
-#define SEISSOL_RATEANDSTATEFASTVELOCITYWEAKENING_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FASTVELOCITYWEAKENINGLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FASTVELOCITYWEAKENINGLAW_H_
+
+#include <cmath>
 
 #include "RateAndState.h"
 
@@ -15,11 +24,10 @@ class FastVelocityWeakeningLaw
    * Copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
+                          const seissol::initializer::DynamicRupture* dynRup,
                           real fullUpdateTime) {
-    auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSRateAndStateFastVelocityWeakening* const>(
-            dynRup);
+    const auto* concreteLts =
+        dynamic_cast<const seissol::initializer::LTSRateAndStateFastVelocityWeakening*>(dynRup);
 
     this->srW = layerData.var(concreteLts->rsSrW);
   }
@@ -37,11 +45,11 @@ class FastVelocityWeakeningLaw
  * @return \f$ \Psi(t) \f$
  */
 #pragma omp declare simd
-  real updateStateVariable(unsigned int pointIndex,
-                           unsigned int face,
-                           real stateVarReference,
-                           real timeIncrement,
-                           real localSlipRate) const {
+  [[nodiscard]] real updateStateVariable(unsigned int pointIndex,
+                                         unsigned int face,
+                                         real stateVarReference,
+                                         real timeIncrement,
+                                         real localSlipRate) const {
     const double muW = this->drParameters->muW;
     const double localSrW = this->srW[face][pointIndex];
     const double localA = this->a[face][pointIndex];
@@ -54,19 +62,19 @@ class FastVelocityWeakeningLaw
     const real steadyStateFrictionCoefficient =
         muW + (lowVelocityFriction - muW) /
                   std::pow(1.0 + misc::power<8, double>(localSlipRate / localSrW), 1.0 / 8.0);
-    // For compiling reasons we write SINH(X)=(EXP(X)-EXP(-X))/2
-    // Need double precision here, otherwise this will evaluate to infinity
+    // TODO: check again, if double precision is necessary here (earlier, there were cancellation
+    // issues)
     const real steadyStateStateVariable =
-        localA * std::log(this->drParameters->rsSr0 / localSlipRate *
-                          (std::exp(steadyStateFrictionCoefficient / localA) -
-                           std::exp(-steadyStateFrictionCoefficient / localA)));
+        localA * std::log(this->drParameters->rsSr0 / localSlipRate * 2 *
+                          std::sinh(steadyStateFrictionCoefficient / localA));
 
     // exact integration of dSV/dt DGL, assuming constant V over integration step
 
-    const real exp1 = exp(-localSlipRate * (timeIncrement / localSl0));
-    const real localStateVariable =
-        steadyStateStateVariable * (1.0 - exp1) + exp1 * stateVarReference;
-    assert((std::isfinite(localStateVariable) || pointIndex >= misc::numberOfBoundaryGaussPoints) &&
+    const auto preexp1 = -localSlipRate * (timeIncrement / localSl0);
+    const real exp1 = std::exp(preexp1);
+    const real exp1m = -std::expm1(preexp1);
+    const real localStateVariable = steadyStateStateVariable * exp1m + exp1 * stateVarReference;
+    assert((std::isfinite(localStateVariable) || pointIndex >= misc::NumBoundaryGaussPoints) &&
            "Inf/NaN detected");
     return localStateVariable;
   }
@@ -80,17 +88,17 @@ class FastVelocityWeakeningLaw
  * @return \f$ \mu \f$
  */
 #pragma omp declare simd
-  real updateMu(unsigned int ltsFace,
-                unsigned int pointIndex,
-                real localSlipRateMagnitude,
-                real localStateVariable) const {
+  [[nodiscard]] real updateMu(unsigned int ltsFace,
+                              unsigned int pointIndex,
+                              real localSlipRateMagnitude,
+                              real localStateVariable) const {
     // mu = a * arcsinh ( V / (2*V_0) * exp (psi / a))
     const double localA = this->a[ltsFace][pointIndex];
     // x in asinh(x) for mu calculation
     const double x = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA) *
                      localSlipRateMagnitude;
     const double result = localA * misc::asinh(x);
-    assert((std::isfinite(result) || pointIndex >= misc::numberOfBoundaryGaussPoints) &&
+    assert((std::isfinite(result) || pointIndex >= misc::NumBoundaryGaussPoints) &&
            "Inf/NaN detected");
     return result;
   }
@@ -104,15 +112,15 @@ class FastVelocityWeakeningLaw
  * @return \f$ \mu \f$
  */
 #pragma omp declare simd
-  real updateMuDerivative(unsigned int ltsFace,
-                          unsigned int pointIndex,
-                          real localSlipRateMagnitude,
-                          real localStateVariable) const {
+  [[nodiscard]] real updateMuDerivative(unsigned int ltsFace,
+                                        unsigned int pointIndex,
+                                        real localSlipRateMagnitude,
+                                        real localStateVariable) const {
     const double localA = this->a[ltsFace][pointIndex];
     const double c = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA);
     const double result =
         localA * c / std::sqrt(misc::power<2, double>(localSlipRateMagnitude * c) + 1.0);
-    assert((std::isfinite(result) || pointIndex >= misc::numberOfBoundaryGaussPoints) &&
+    assert((std::isfinite(result) || pointIndex >= misc::NumBoundaryGaussPoints) &&
            "Inf/NaN detected");
     return result;
   }
@@ -120,12 +128,12 @@ class FastVelocityWeakeningLaw
   /**
    * Resample the state variable.
    */
-  void resampleStateVar(const std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                         unsigned int ltsFace) const {
-    std::array<real, misc::numPaddedPoints> deltaStateVar = {0};
-    std::array<real, misc::numPaddedPoints> resampledDeltaStateVar = {0};
+    std::array<real, misc::NumPaddedPoints> deltaStateVar = {0};
+    std::array<real, misc::NumPaddedPoints> resampledDeltaStateVar = {0};
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; ++pointIndex) {
+    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       deltaStateVar[pointIndex] =
           stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
     }
@@ -136,23 +144,23 @@ class FastVelocityWeakeningLaw
     resampleKrnl.execute();
 
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] =
           this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
     }
   }
 
-  void executeIfNotConverged(const std::array<real, misc::numPaddedPoints>& localStateVariable,
+  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
                              unsigned ltsFace) const {
     [[maybe_unused]] const real tmp = 0.5 / this->drParameters->rsSr0 *
-                                      exp(localStateVariable[0] / this->a[ltsFace][0]) *
+                                      std::exp(localStateVariable[0] / this->a[ltsFace][0]) *
                                       this->slipRateMagnitude[ltsFace][0];
     assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
 
   protected:
-  real (*srW)[misc::numPaddedPoints];
+  real (*srW)[misc::NumPaddedPoints];
 };
 } // namespace seissol::dr::friction_law
 
-#endif // SEISSOL_RATEANDSTATEFASTVELOCITYWEAKENING_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FASTVELOCITYWEAKENINGLAW_H_

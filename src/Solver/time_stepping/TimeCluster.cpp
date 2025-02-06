@@ -1,77 +1,17 @@
-/******************************************************************************
-** Copyright (c) 2015, Intel Corporation                                     **
-** All rights reserved.                                                      **
-**                                                                           **
-** Redistribution and use in source and binary forms, with or without        **
-** modification, are permitted provided that the following conditions        **
-** are met:                                                                  **
-** 1. Redistributions of source code must retain the above copyright         **
-**    notice, this list of conditions and the following disclaimer.          **
-** 2. Redistributions in binary form must reproduce the above copyright      **
-**    notice, this list of conditions and the following disclaimer in the    **
-**    documentation and/or other materials provided with the distribution.   **
-** 3. Neither the name of the copyright holder nor the names of its          **
-**    contributors may be used to endorse or promote products derived        **
-**    from this software without specific prior written permission.          **
-**                                                                           **
-** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
-** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
-** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
-** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
-** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
-** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
-** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
-** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
-** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
-** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
-** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
-******************************************************************************/
-/* Alexander Heinecke (Intel Corp.)
-******************************************************************************/
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2013-2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * LTS cluster in SeisSol.
- **/
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 Intel Corporation
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
+// SPDX-FileContributor: Sebastian Rettenberger
 
 #include "Parallel/MPI.h"
-#include <Common/Executor.hpp>
-#include <Initializer/tree/Layer.hpp>
+#include <Common/Executor.h>
+#include <Initializer/Tree/Layer.h>
 #include <Kernels/PointSourceCluster.h>
 #include <SourceTerm/Manager.h>
 
@@ -85,8 +25,8 @@
 #include "Kernels/TimeCommon.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Receiver.h"
-#include "Monitoring/FlopCounter.hpp"
-#include "Monitoring/instrumentation.hpp"
+#include "Monitoring/FlopCounter.h"
+#include "Monitoring/Instrumentation.h"
 
 #include <cassert>
 #include <cstring>
@@ -113,7 +53,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  ActorStateStatistics* actorStateStatistics) :
     AbstractTimeCluster(maxTimeStepSize, timeStepRate,
 #ifdef ACL_DEVICE
-      i_clusterData->getNumberOfCells() >= deviceHostSwitch() ? Executor::Device : Executor::Host
+      seissolInstance.executionPlace(i_clusterData->getNumberOfCells())
 #else
       Executor::Host
 #endif
@@ -132,7 +72,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     frictionSolver(i_FrictionSolver),
     frictionSolverDevice(i_FrictionSolverDevice),
     faultOutputManager(i_faultOutputManager),
-    m_sourceCluster(sourceterm::PointSourceClusterPair{nullptr, nullptr}),
+    m_sourceCluster(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
     // cells
     m_loopStatistics(i_loopStatistics),
     actorStateStatistics(actorStateStatistics),
@@ -176,7 +116,7 @@ seissol::time_stepping::TimeCluster::~TimeCluster() {
 }
 
 void seissol::time_stepping::TimeCluster::setPointSources(
-    seissol::sourceterm::PointSourceClusterPair sourceCluster) {
+    seissol::kernels::PointSourceClusterPair sourceCluster) {
   m_sourceCluster = std::move(sourceCluster);
 }
 
@@ -355,7 +295,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
 
   // local integration buffer
-  real l_integrationBuffer[tensor::I::size()] __attribute__((aligned(ALIGNMENT)));
+  alignas(Alignment) real l_integrationBuffer[tensor::I::size()];
 
   // pointer for the call of the ADER-function
   real* l_bufferPointer;
@@ -413,7 +353,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       auto& curFaceDisplacements = data.faceDisplacements()[face];
       // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
       if (curFaceDisplacements != nullptr
-          && data.cellInformation().faceTypes[face] != FaceType::freeSurfaceGravity) {
+          && data.cellInformation().faceTypes[face] != FaceType::FreeSurfaceGravity) {
         kernel::addVelocity addVelocityKrnl;
 
         addVelocityKrnl.V3mTo2nFace = m_globalDataOnHost->V3mTo2nFace;
@@ -571,7 +511,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice( s
 
   if (usePlasticity) {
     updateRelaxTime();
-    PlasticityData* plasticity = i_layerData.var(m_lts->plasticity, seissol::initializer::AllocationPlace::Device);
+    auto* plasticity = i_layerData.var(m_lts->plasticity, seissol::initializer::AllocationPlace::Device);
     unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_oneMinusIntegratingFactor,
                                                                                       timeStepWidth,
                                                                                       m_tv,
@@ -611,7 +551,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::
     flopsHardware += cellHardware;
     // Contribution from displacement/integrated displacement
     for (unsigned face = 0; face < 4; ++face) {
-      if (cellInformation->faceTypes[face] == FaceType::freeSurfaceGravity) {
+      if (cellInformation->faceTypes[face] == FaceType::FreeSurfaceGravity) {
         const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
         GravitationalFreeSurfaceBc::getFlopsDisplacementFace(face,
                                                              cellInformation[cell].faceTypes[face]);
@@ -821,8 +761,7 @@ void TimeCluster::correct() {
   const auto nextCorrectionSteps = ct.nextCorrectionSteps();
   if constexpr (USE_MPI) {
     if (printProgress && (((nextCorrectionSteps / timeStepRate) % 100) == 0)) {
-      const int rank = MPI::mpi.rank();
-      logInfo(rank) << "#max-updates since sync: " << nextCorrectionSteps
+      logInfo() << "#max-updates since sync: " << nextCorrectionSteps
                     << " @ " << ct.nextCorrectionTime(syncTime);
 
       }
@@ -834,8 +773,7 @@ void TimeCluster::reset() {
 }
 
 void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
-  const auto rank = MPI::mpi.rank();
-  logWarning(rank)
+  logWarning(true)
   << "No update since " << timeSinceLastUpdate.count()
   << "[s] for global cluster " << m_globalClusterId
   << " with local cluster id " << m_clusterId
@@ -849,7 +787,7 @@ void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) 
   << " mayCorrect = " << mayCorrect()
   << " maySync = " << maySync();
   for (auto& neighbor : neighbors) {
-    logWarning(rank)
+    logWarning(true)
     << "Neighbor with rate = " << neighbor.ct.timeStepRate
     << "PredTime = " << neighbor.ct.predictionTime
     << "CorrTime = " << neighbor.ct.correctionTime
@@ -889,7 +827,7 @@ template<bool usePlasticity>
       real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
       CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
       CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
-      PlasticityData* plasticity = i_layerData.var(m_lts->plasticity);
+      auto* plasticity = i_layerData.var(m_lts->plasticity);
       auto* pstrain = i_layerData.var(m_lts->pstrain);
       unsigned numberOTetsWithPlasticYielding = 0;
 
@@ -917,19 +855,19 @@ template<bool usePlasticity>
 #endif
                                                        l_timeIntegrated);
 
-        l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::dynamicRupture) ?
+        l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::DynamicRupture) ?
                                       faceNeighbors[l_cell][1] :
                                       drMapping[l_cell][1].godunov;
-        l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::dynamicRupture) ?
+        l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::DynamicRupture) ?
                                       faceNeighbors[l_cell][2] :
                                       drMapping[l_cell][2].godunov;
-        l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::dynamicRupture) ?
+        l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::DynamicRupture) ?
                                       faceNeighbors[l_cell][3] :
                                       drMapping[l_cell][3].godunov;
 
         // fourth face's prefetches
         if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
-          l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::dynamicRupture) ?
+          l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::DynamicRupture) ?
                                         faceNeighbors[l_cell+1][0] :
                                         drMapping[l_cell+1][0].godunov;
         } else {

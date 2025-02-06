@@ -1,5 +1,12 @@
-#ifndef SEISSOL_SLOWVELOCITYWEAKENINGLAW_H
-#define SEISSOL_SLOWVELOCITYWEAKENINGLAW_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SLOWVELOCITYWEAKENINGLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SLOWVELOCITYWEAKENINGLAW_H_
 
 #include "RateAndState.h"
 
@@ -77,15 +84,15 @@ class SlowVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the
    * member variable.
    */
-  void resampleStateVar(const std::array<real, misc::numPaddedPoints>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                         unsigned int ltsFace) const {
 #pragma omp simd
-    for (size_t pointIndex = 0; pointIndex < misc::numPaddedPoints; pointIndex++) {
+    for (size_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }
 
-  void executeIfNotConverged(const std::array<real, misc::numPaddedPoints>& localStateVariable,
+  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
                              unsigned ltsFace) {
     [[maybe_unused]] const real tmp =
         0.5 / this->drParameters->rsSr0 *
@@ -99,4 +106,4 @@ class SlowVelocityWeakeningLaw
 };
 } // namespace seissol::dr::friction_law
 
-#endif // SEISSOL_SLOWVELOCITYWEAKENINGLAW_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SLOWVELOCITYWEAKENINGLAW_H_

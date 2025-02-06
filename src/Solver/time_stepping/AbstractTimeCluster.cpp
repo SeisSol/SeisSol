@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include <algorithm>
 #include <iostream>
 #include <cassert>
@@ -94,7 +101,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       break;
     case ActorAction::Sync:
       assert(state == ActorState::Corrected);
-      logDebug(MPI::mpi.rank()) << "synced at" << syncTime
+      logDebug() << "synced at" << syncTime
                                 << ", corrTime =" << ct.correctionTime
                                 << "stepsSinceLastSync" << ct.stepsSinceLastSync
                                 << "stepsUntilLastSync" << ct.stepsUntilSync
@@ -214,7 +221,7 @@ void AbstractTimeCluster::reset() {
 
   // There can be pending messages from before the sync point
   processMessages();
-  for (auto& neighbor : neighbors) {
+  for ([[maybe_unused]] const auto& neighbor : neighbors) {
     assert(!neighbor.inbox->hasMessages());
   }
   ct.stepsSinceLastSync = 0;
@@ -243,10 +250,16 @@ ActorState AbstractTimeCluster::getState() const {
 
 void AbstractTimeCluster::setPredictionTime(double time) {
   ct.predictionTime = time;
+  for (auto& neighbor : neighbors) {
+    neighbor.ct.predictionTime = time;
+  }
 }
 
 void AbstractTimeCluster::setCorrectionTime(double time) {
   ct.correctionTime = time;
+  for (auto& neighbor : neighbors) {
+    neighbor.ct.correctionTime = time;
+  }
 }
 
 long AbstractTimeCluster::getTimeStepRate() {
@@ -274,3 +287,4 @@ bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
 }
 
 } // namespace seissol::time_stepping
+

@@ -1,45 +1,13 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2016-2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef MODULES_H
-#define MODULES_H
+#ifndef SEISSOL_SRC_MODULES_MODULES_H_
+#define SEISSOL_SRC_MODULES_MODULES_H_
 
 #include "Module.h"
 
@@ -72,28 +40,28 @@ enum class ModulePriority : int {
  * @warning The order of the hooks has to be the same they are called in SeisSol.
  */
 enum class ModuleHook : int {
-  PreMPI,
-  PostMPIInit,
-  PreMesh,
-  PostMesh,
-  PreLtsInit,
-  PostLtsInit,
-  PreModel,
-  PostModel,
+  PreMPI = 0,
+  PostMPIInit = 1,
+  PreMesh = 2,
+  PostMesh = 3,
+  PreLtsInit = 4,
+  PostLtsInit = 5,
+  PreModel = 6,
+  PostModel = 7,
   /**
    * Called when the simulation starts.
    *
    * @warning Only called when the simulation is not loaded from a checkpoint.
    */
-  SimulationStart,
+  SimulationStart = 8,
   /**
    * Global synchronization point during simulation
    *
    * Registering for this hook requires setting the update interval.
    */
-  SynchronizationPoint,
-  SimulationEnd,
-  Shutdown,
+  SynchronizationPoint = 9,
+  SimulationEnd = 10,
+  Shutdown = 11,
   FirstHook = PreMPI,
   MaxInitHooks = SimulationStart + 1,
   MaxHooks = Shutdown + 1
@@ -108,9 +76,8 @@ class Modules {
       hooks;
 
   /** The hook that should be called next */
-  ModuleHook nextHook;
+  ModuleHook nextHook{ModuleHook::FirstHook};
 
-  private:
   Modules();
 
   /**
@@ -121,13 +88,13 @@ class Modules {
   /**
    * Do the real work for handling a hook
    */
-  template <ModuleHook hook>
+  template <ModuleHook Hook>
   void _callHook() {
     for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
-      call<hook>(module);
+      call<Hook>(module);
     }
 
-    nextHook = static_cast<ModuleHook>(static_cast<int>(hook) + 1);
+    nextHook = static_cast<ModuleHook>(static_cast<int>(Hook) + 1);
   }
 
   double _callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint);
@@ -140,8 +107,7 @@ class Modules {
    */
   void _setSimulationStartTime(double time);
 
-  private:
-  template <ModuleHook hook>
+  template <ModuleHook Hook>
   static void call(Module* module);
 
   static const char* strHook(ModuleHook hook);
@@ -159,9 +125,9 @@ class Modules {
                            ModuleHook hook,
                            ModulePriority priority = ModulePriority::Default);
 
-  template <ModuleHook hook>
+  template <ModuleHook Hook>
   static void callHook() {
-    instance()._callHook<hook>();
+    instance()._callHook<Hook>();
   }
 
   /**
@@ -186,4 +152,4 @@ inline void seissol::Modules::_callHook<ModuleHook::SynchronizationPoint>() {
 
 } // namespace seissol
 
-#endif // MODULES_H
+#endif // SEISSOL_SRC_MODULES_MODULES_H_

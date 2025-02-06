@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #  libxsmm - Library targeting Intel Architecture for specialized 
 #  dense and sparse matrix operations, and deep learning primitives
 #  source code: https://github.com/hfp/libxsmm

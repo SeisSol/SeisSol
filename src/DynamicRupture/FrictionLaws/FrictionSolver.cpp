@@ -1,20 +1,29 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "FrictionSolver.h"
 
+#include "Common/Constants.h"
 #include "Initializer/DynamicRupture.h"
-#include "Initializer/tree/Layer.hpp"
-#include "Kernels/precision.hpp"
+#include "Initializer/Tree/Layer.h"
+#include "Kernels/Precision.h"
+#include <cstddef>
 
 namespace seissol::dr::friction_law {
 
-void FrictionSolver::computeDeltaT(const double timePoints[CONVERGENCE_ORDER]) {
+void FrictionSolver::computeDeltaT(const double timePoints[ConvergenceOrder]) {
   deltaT[0] = timePoints[0];
   sumDt = deltaT[0];
-  for (unsigned timeIndex = 1; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+  for (std::size_t timeIndex = 1; timeIndex < ConvergenceOrder; timeIndex++) {
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
     sumDt += deltaT[timeIndex];
   }
   // to fill last segment of Gaussian integration
-  deltaT[CONVERGENCE_ORDER - 1] = deltaT[CONVERGENCE_ORDER - 1] + deltaT[0];
+  deltaT[ConvergenceOrder - 1] = deltaT[ConvergenceOrder - 1] + deltaT[0];
   sumDt += deltaT[0];
 }
 

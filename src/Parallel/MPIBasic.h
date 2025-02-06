@@ -1,45 +1,13 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef MPI_BASIC_H
-#define MPI_BASIC_H
+#ifndef SEISSOL_SRC_PARALLEL_MPIBASIC_H_
+#define SEISSOL_SRC_PARALLEL_MPIBASIC_H_
 
 namespace seissol {
 
@@ -49,21 +17,18 @@ namespace seissol {
 class MPIBasic {
   protected:
   /** This rank */
-  int m_rank;
+  int m_rank{0};
 
   /** Rank in the shared memory sub-communicator */
-  int m_sharedMemMpiRank;
+  int m_sharedMemMpiRank{0};
 
   /** Number of processors */
-  int m_size;
+  int m_size{1};
 
   /** Number of ranks in the shared memory sub-communicator */
-  int m_sharedMemMpiSize;
+  int m_sharedMemMpiSize{1};
 
-  /** Requires threadsafe MPI */
-  bool m_threadsafe;
-
-  MPIBasic() : m_rank(0), m_size(1) {}
+  MPIBasic() = default;
 
   public:
   virtual ~MPIBasic() = default;
@@ -71,27 +36,27 @@ class MPIBasic {
   /**
    * @return The rank of this process
    */
-  int rank() const { return m_rank; }
+  [[nodiscard]] int rank() const { return m_rank; }
 
   /**
    * @return The rank within the shared memory sub-communicator
    */
-  int sharedMemMpiRank() const { return m_sharedMemMpiRank; }
+  [[nodiscard]] int sharedMemMpiRank() const { return m_sharedMemMpiRank; }
 
   /**
    * @return The total number of processes
    */
-  int size() const { return m_size; }
+  [[nodiscard]] int size() const { return m_size; }
 
   /**
    * @return The number of ranks within the shared memory sub-communicator
    */
-  int sharedMemMpiSize() const { return m_sharedMemMpiSize; }
+  [[nodiscard]] int sharedMemMpiSize() const { return m_sharedMemMpiSize; }
 
-  bool isSingleProcess() const { return size() == 1; }
+  [[nodiscard]] bool isSingleProcess() const { return size() == 1; }
 
-  bool isSingleNode() const { return size() == sharedMemMpiSize(); }
+  [[nodiscard]] bool isSingleNode() const { return size() == sharedMemMpiSize(); }
 };
 } // namespace seissol
 
-#endif // MPI_BASIC_H
+#endif // SEISSOL_SRC_PARALLEL_MPIBASIC_H_

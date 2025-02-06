@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #  GemmTools - BLAS-like Library Instantiation Software Framework
 #  email: ravil.dorozhinskii@tum.de 
 #
@@ -67,6 +74,11 @@ foreach(component ${_GEMM_TOOLS_LIST})
     elseif ("${component}" STREQUAL "Eigen")
         # already included by default!
 
+    elseif ("${component}" MATCHES "^[ \t\r\n]*[Nn][Oo][Nn][Ee][ \t\r\n]*$")
+        # (cf. https://cmake.org/cmake/help/latest/command/string.html#regex-specification)
+
+        # no includes necessary
+
     elseif ("${component}" STREQUAL "GemmForge")
         execute_process(COMMAND python3 -c "import gemmforge; gemmforge.print_cmake_path()"
                         OUTPUT_VARIABLE GEMMFORGE_PATH)
@@ -74,6 +86,11 @@ foreach(component ${_GEMM_TOOLS_LIST})
         find_package(GemmForge 0.0.207 REQUIRED)
         set(DEVICE_SRC ${DEVICE_SRC} ${GemmForge_SOURCES})
         set(DEVICE_INCLUDE_DIRS ${DEVICE_INCLUDE_DIRS} ${GemmForge_INCLUDE_DIRS})
+
+    elseif ("${component}" STREQUAL "tinytc")
+        find_package(tinytc 0.3.1 REQUIRED shared)
+        find_package(tinytc_sycl 0.3.1 REQUIRED shared)
+        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} tinytc::tinytc tinytc::tinytc_sycl)
 
     else()
         message(FATAL_ERROR "Gemm Tools do not have a requested component, i.e. ${component}. \

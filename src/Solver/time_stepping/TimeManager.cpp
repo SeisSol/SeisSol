@@ -1,53 +1,21 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Time Step width management in SeisSol.
- **/
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Sebastian Rettenberger
 
 #include "Parallel/MPI.h"
 
 #include "TimeManager.h"
 #include "CommunicationManager.h"
-#include "Initializer/preProcessorMacros.hpp"
-#include "Initializer/time_stepping/common.hpp"
+#include "Monitoring/Instrumentation.h"
+#include "Initializer/TimeStepping/Common.h"
 #include "SeisSol.h"
 #include "ResultWriter/ClusteringWriter.h"
-#include "Parallel/Helper.hpp"
+#include "Parallel/Helper.h"
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -67,7 +35,7 @@ seissol::time_stepping::TimeManager::TimeManager(seissol::SeisSol& seissolInstan
 
 seissol::time_stepping::TimeManager::~TimeManager() {}
 
-void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeStepping,
+void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping,
                                                       MeshStructure* i_meshStructure,
                                                       initializer::MemoryManager& memoryManager,
                                                       bool usePlasticity) {
@@ -77,7 +45,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
   assert( i_meshStructure         != NULL );
 
   // store the time stepping
-  m_timeStepping = i_timeStepping;
+  m_timeStepping = timeStepping;
 
   auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
 
@@ -191,9 +159,9 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& i_timeSteppi
         return static_cast<unsigned>(neighbor[1]) == otherGlobalClusterId;
       });
       if (hasNeighborRegions) {
-        assert(otherGlobalClusterId >= std::max(globalClusterId - 1, 0));
+        assert(static_cast<int>(otherGlobalClusterId) >= std::max(globalClusterId - 1, 0));
         assert(
-            otherGlobalClusterId <
+            static_cast<int>(otherGlobalClusterId) <
             std::min(globalClusterId + 2, static_cast<int>(m_timeStepping.numberOfGlobalClusters)));
         const auto otherTimeStepSize = m_timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
         const long otherTimeStepRate =
@@ -354,7 +322,7 @@ double seissol::time_stepping::TimeManager::getTimeTolerance() {
 }
 
 void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
-    std::unordered_map<LayerType, std::vector<seissol::sourceterm::PointSourceClusterPair>> sourceClusters) {
+    std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> sourceClusters) {
   for (auto& cluster : clusters) {
     auto layerClusters = sourceClusters.find(cluster->getLayerType());
     if (layerClusters != sourceClusters.end() && cluster->getClusterId() < layerClusters->second.size()) {
@@ -371,13 +339,18 @@ void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWr
   }
 }
 
-void seissol::time_stepping::TimeManager::setInitialTimes( double i_time ) {
-  assert( i_time >= 0 );
+void seissol::time_stepping::TimeManager::setInitialTimes( double time ) {
+  assert( time >= 0 );
 
-  for(auto & cluster : clusters) {
-    cluster->setPredictionTime(i_time);
-    cluster->setCorrectionTime(i_time);
-    cluster->setReceiverTime(i_time);
+  for (auto& cluster : clusters) {
+    cluster->setPredictionTime(time);
+    cluster->setCorrectionTime(time);
+    cluster->setReceiverTime(time);
+    cluster->setLastSubTime(time);
+  }
+  for (auto& cluster : *communicationManager->getGhostClusters()) {
+    cluster->setPredictionTime(time);
+    cluster->setCorrectionTime(time);
   }
 }
 
@@ -414,3 +387,4 @@ void seissol::time_stepping::TimeManager::synchronizeTo(seissol::initializer::Al
   }
 #endif
 }
+

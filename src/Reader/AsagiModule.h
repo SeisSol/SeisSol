@@ -1,60 +1,21 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2016-2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Velocity field reader Fortran interface
- */
+// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef ASAGI_MODULE_H
-#define ASAGI_MODULE_H
+#ifndef SEISSOL_SRC_READER_ASAGIMODULE_H_
+#define SEISSOL_SRC_READER_ASAGIMODULE_H_
 
 #ifdef USE_ASAGI
-
-#include "Parallel/MPI.h"
 
 #include <string>
 
 #include <asagi.h>
 
-#include "utils/env.h"
-#include "utils/logger.h"
-
 #include "Modules/Module.h"
-#include "Modules/Modules.h"
 
 namespace seissol::asagi {
 
@@ -73,8 +34,11 @@ class AsagiModule : public Module {
   AsagiModule();
 
   public:
+  ~AsagiModule() override = default;
   AsagiModule(const AsagiModule&) = delete;
   void operator=(const AsagiModule&) = delete;
+  AsagiModule(AsagiModule&&) = delete;
+  void operator=(AsagiModule&&) = delete;
 
   void preMPI() override;
 
@@ -123,11 +87,11 @@ class AsagiModule : public Module {
   static int totalThreads();
 
   private:
-  static inline const char* EnvMPIMode = "SEISSOL_ASAGI_MPI_MODE";
+  static inline const std::string EnvMpiMode = "SEISSOL_ASAGI_MPI_MODE";
 };
 
 } // namespace seissol::asagi
 
 #endif // USE_ASAGI
 
-#endif // ASAGI_MODULE_H
+#endif // SEISSOL_SRC_READER_ASAGIMODULE_H_

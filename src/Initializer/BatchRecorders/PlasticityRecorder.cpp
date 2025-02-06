@@ -1,5 +1,20 @@
-#include "Kernels/Interface.hpp"
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "Kernels/Interface.h"
 #include "Recorders.h"
+#include <DataTypes/ConditionalKey.h>
+#include <DataTypes/EncodedConstants.h>
+#include <Initializer/LTS.h>
+#include <Initializer/Tree/Layer.h>
+#include <Kernels/Precision.h>
+#include <cstddef>
+#include <tensor.h>
+#include <vector>
 #include <yateto.h>
 
 using namespace device;
@@ -32,7 +47,7 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
       initialLoadPtrs[cell] = static_cast<real*>(data.plasticity().initialLoading);
     }
 
-    ConditionalKey key(*KernelNames::Plasticity);
+    const ConditionalKey key(*KernelNames::Plasticity);
     checkKey(key);
     (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::NodalStressTensor, qstressNodalPtrs);

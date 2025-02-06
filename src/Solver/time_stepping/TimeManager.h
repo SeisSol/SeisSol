@@ -1,57 +1,25 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Sebastian Rettenberger (sebastian.rettenberger @ tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- * 
- * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
- * All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- * 
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Time step width management in SeisSol.
- **/
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef TIMEMANAGER_H_
-#define TIMEMANAGER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
+#define SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
 #include <vector>
 #include <queue>
 #include <list>
 #include <cassert>
 #include <memory>
 
-#include "Initializer/typedefs.hpp"
-#include "SourceTerm/typedefs.hpp"
+#include "Initializer/Typedefs.h"
+#include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 #include "Initializer/MemoryManager.h"
-#include "Initializer/time_stepping/LtsLayout.h"
+#include "Initializer/TimeStepping/LtsLayout.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "ResultWriter/ReceiverWriter.h"
@@ -165,7 +133,7 @@ class seissol::time_stepping::TimeManager {
      * @param sourceClusters Collection of point sources for clusters
      */
     void setPointSourcesForClusters(
-        std::unordered_map<LayerType, std::vector<seissol::sourceterm::PointSourceClusterPair>> sourceClusters);
+        std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> sourceClusters);
 
   /**
    * Returns the writer for the receivers
@@ -196,4 +164,6 @@ class seissol::time_stepping::TimeManager {
     }
 };
 
-#endif
+
+#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
+

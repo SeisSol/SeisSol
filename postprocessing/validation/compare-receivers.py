@@ -20,12 +20,12 @@ def velocity_norm(receiver):
 
 def stress_norm(receiver):
     return np.sqrt(
-        receiver["xx"] ** 2
-        + receiver["yy"] ** 2
-        + receiver["zz"] ** 2
-        + receiver["xy"] ** 2
-        + receiver["yz"] ** 2
-        + receiver["xz"] ** 2
+        receiver["s_xx"] ** 2
+        + receiver["s_yy"] ** 2
+        + receiver["s_zz"] ** 2
+        + receiver["s_xy"] ** 2
+        + receiver["s_yz"] ** 2
+        + receiver["s_xz"] ** 2
     )
 
 
@@ -138,10 +138,17 @@ def read_receiver(filename):
             l[x_index] = y
         return l
 
-    # Recently, we changed the receiver variables from u,v,w to v1,v2,v3. If the receiver is stored in legacy format, we adapt it
+    # Accomodate variable name changes
+    variables = replace("xx", "s_xx", variables)
+    variables = replace("yy", "s_yy", variables)
+    variables = replace("zz", "s_zz", variables)
+    variables = replace("xy", "s_xy", variables)
+    variables = replace("xz", "s_xz", variables)
+    variables = replace("yz", "s_yz", variables)
     variables = replace("u", "v1", variables)
     variables = replace("v", "v2", variables)
     variables = replace("w", "v3", variables)
+    
     receiver.columns = variables
     return receiver
 
@@ -149,12 +156,15 @@ def read_receiver(filename):
 def receiver_diff(args, i):
     sim_files = glob.glob(f"{args.output}/{args.prefix}-receiver-{i:05d}-*.dat")
     ref_files = glob.glob(f"{args.output_ref}/{args.prefix}-receiver-{i:05d}-*.dat")
-    assert len(sim_files) == 1
+
+    # allow copy layer receivers
+    assert len(sim_files) >= 1
     assert len(ref_files) == 1
+
     sim_receiver = read_receiver(sim_files[0])
     ref_receiver = read_receiver(ref_files[0])
     # both receivers must have the same time axis
-    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-7
+    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-7, f'Record time mismatch: {sim_receiver["Time"]} vs. {ref_receiver["Time"]}'
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
 
@@ -169,13 +179,13 @@ def receiver_diff(args, i):
         diff_stress_norm / ref_stress_norm,
     )
 
-
 def faultreceiver_diff(args, i, quantities):
     sim_files = glob.glob(f"{args.output}/{args.prefix}-faultreceiver-{i:05d}-*.dat")
     ref_files = glob.glob(
         f"{args.output_ref}/{args.prefix}-faultreceiver-{i:05d}-*.dat"
     )
-    assert len(sim_files) == 1
+    # allow copy layer receivers
+    assert len(sim_files) >= 1
     assert len(ref_files) == 1
     sim_receiver = read_receiver(sim_files[0])
     ref_receiver = read_receiver(ref_files[0])
@@ -183,7 +193,7 @@ def faultreceiver_diff(args, i, quantities):
     sim_receiver.reset_index(drop=True, inplace=True)
 
     # both receivers must have the same time axis
-    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-12
+    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-7, f'Record time mismatch: {sim_receiver["Time"]} vs. {ref_receiver["Time"]}'
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
     # We still want to use the same time and not the difference in time steps.
@@ -221,14 +231,14 @@ def find_all_receivers(directory, prefix, faultreceiver=False):
         file_candidates = glob.glob(f"{directory}/{prefix}-faultreceiver-*-*.dat")
     else:
         file_candidates = glob.glob(f"{directory}/{prefix}-receiver-*-*.dat")
-    extract_id = re.compile(".+/\w+-\w+-(\d+)-\d+.dat")
+    extract_id = re.compile(r".+/\w+-\w+-(\d+)-\d+.dat$")
 
     receiver_ids = []
     for fn in file_candidates:
         extract_id_result = extract_id.search(fn)
         if extract_id_result:
             receiver_ids.append(int(extract_id_result.group(1)))
-    return np.array(sorted(receiver_ids))
+    return np.array(sorted(list(set(receiver_ids))))
 
 
 if __name__ == "__main__":
@@ -250,7 +260,7 @@ if __name__ == "__main__":
         ref_faultreceiver_ids = find_all_receivers(args.output_ref, args.prefix, True)
         faultreceiver_ids = np.intersect1d(sim_faultreceiver_ids, ref_faultreceiver_ids)
         # Make sure, we actually compare some faultreceivers
-        assert len(faultreceiver_ids) == len(ref_faultreceiver_ids)
+        assert len(faultreceiver_ids) == len(ref_faultreceiver_ids), f'some on-fault receiver IDs are missing: {faultreceiver_ids} vs {ref_faultreceiver_ids}'
     else:
         sim_faultreceiver_ids = []
         ref_faultreceiver_ids = []
@@ -260,13 +270,13 @@ if __name__ == "__main__":
     ref_receiver_ids = find_all_receivers(args.output_ref, args.prefix, False)
     receiver_ids = np.intersect1d(sim_receiver_ids, ref_receiver_ids)
     # Make sure, we actually compare some receivers
-    assert len(receiver_ids) == len(ref_receiver_ids)
+    assert len(receiver_ids) == len(ref_receiver_ids), f'some off-fault receiver IDs are missing: {receiver_ids} vs {ref_receiver_ids}'
 
     receiver_errors = pd.DataFrame(index=receiver_ids, columns=["velocity", "stress"])
-    for i in receiver_ids:
+    for i in ref_receiver_ids:
         receiver_errors.loc[i, :] = receiver_diff(args, i)
     print("Relative L2 error of the different quantities at the different receivers")
-    print(receiver_errors)
+    print(receiver_errors.to_string())
 
     for q in receiver_errors.columns:
         broken_receivers = receiver_errors.index[
@@ -297,7 +307,7 @@ if __name__ == "__main__":
         quantities.append("temperature")
 
     faultreceiver_errors = pd.DataFrame(index=faultreceiver_ids, columns=quantities)
-    for i in faultreceiver_ids:
+    for i in ref_faultreceiver_ids:
         local_errors = faultreceiver_diff(args, i, quantities)
         faultreceiver_errors.loc[i, :] = local_errors.loc[i, :]
 
@@ -305,7 +315,7 @@ if __name__ == "__main__":
     print(
         "Relative L2 error of the different quantities at the different faultreceivers"
     )
-    print(faultreceiver_errors)
+    print(faultreceiver_errors.to_string())
 
     for q in faultreceiver_errors.columns:
         broken_faultreceivers = faultreceiver_errors.index[

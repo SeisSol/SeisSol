@@ -1,80 +1,19 @@
-/******************************************************************************
-** Copyright (c) 2015, Intel Corporation                                     **
-** All rights reserved.                                                      **
-**                                                                           **
-** Redistribution and use in source and binary forms, with or without        **
-** modification, are permitted provided that the following conditions        **
-** are met:                                                                  **
-** 1. Redistributions of source code must retain the above copyright         **
-**    notice, this list of conditions and the following disclaimer.          **
-** 2. Redistributions in binary form must reproduce the above copyright      **
-**    notice, this list of conditions and the following disclaimer in the    **
-**    documentation and/or other materials provided with the distribution.   **
-** 3. Neither the name of the copyright holder nor the names of its          **
-**    contributors may be used to endorse or promote products derived        **
-**    from this software without specific prior written permission.          **
-**                                                                           **
-** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
-** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
-** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
-** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
-** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
-** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
-** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
-** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
-** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
-** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
-** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
-******************************************************************************/
-/* Alexander Heinecke (Intel Corp.)
-******************************************************************************/
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de,
- *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2013, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Aligned memory allocation.
- **/
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 Intel Corporation
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#ifndef MEMORYALLOCATOR_H_
-#define MEMORYALLOCATOR_H_
+#ifndef SEISSOL_SRC_INITIALIZER_MEMORYALLOCATOR_H_
+#define SEISSOL_SRC_INITIALIZER_MEMORYALLOCATOR_H_
 
-#include "Kernels/precision.hpp"
+#include "Common/Constants.h"
+#include "Kernels/Precision.h"
 #include <cassert>
 #include <cstdlib>
 #include <vector>
@@ -101,14 +40,14 @@ using VectorT =
 template <typename T, std::size_t N>
 class AlignedArray {
   public:
-  inline T* data() { return data_; }
-  inline const T* data() const { return data_; }
+  T* data() { return data_; }
+  const T* data() const { return data_; }
   constexpr T& operator[](std::size_t pos) { return data_[pos]; }
   constexpr const T& operator[](std::size_t pos) const { return data_[pos]; }
-  constexpr std::size_t size() const noexcept { return N; }
+  [[nodiscard]] constexpr std::size_t size() const noexcept { return N; }
 
   private:
-  alignas(ALIGNMENT) T data_[N];
+  alignas(Alignment) T data_[N];
 };
 
 // TODO(David): make enum class
@@ -184,6 +123,12 @@ class ManagedAllocator {
    **/
   ~ManagedAllocator();
 
+  ManagedAllocator(const ManagedAllocator&) = delete;
+  auto operator=(const ManagedAllocator&) = delete;
+
+  ManagedAllocator(ManagedAllocator&&) = default;
+  auto operator=(ManagedAllocator&&) noexcept -> ManagedAllocator& = default;
+
   /**
    * Allocates a single chunk of memory with the given size and alignment.
    *
@@ -197,7 +142,18 @@ class ManagedAllocator {
 template <typename T>
 class MemkindArray {
   public:
+  MemkindArray(MemkindArray<T>&& source) = default;
   MemkindArray(const MemkindArray<T>& source) : MemkindArray(source, source.memkind) {}
+
+  auto operator=(const MemkindArray<T>& source) -> MemkindArray& {
+    if (capacity != source.capacity) {
+      resize(source.capacity);
+    }
+    copyFrom(source);
+    return *this;
+  }
+  auto operator=(MemkindArray<T>&& source) noexcept -> MemkindArray& = default;
+
   MemkindArray(const MemkindArray<T>& source, Memkind memkind)
       : MemkindArray(source.size(), memkind) {
     copyFrom(source);
@@ -207,11 +163,12 @@ class MemkindArray {
     copyFrom(source);
   }
   MemkindArray(std::size_t capacity, Memkind memkind) : MemkindArray(memkind) { resize(capacity); }
-  MemkindArray(Memkind memkind) : memkind(memkind), dataPtr(nullptr), capacity(0) {}
+  MemkindArray(Memkind memkind) : memkind(memkind) {}
+
   void resize(std::size_t capacity) {
     this->capacity = capacity;
     free(dataPtr, memkind);
-    dataPtr = allocTyped<T>(capacity, ALIGNMENT, memkind);
+    dataPtr = allocTyped<T>(capacity, Alignment, memkind);
   }
   void copyFrom(const std::vector<T>& source) {
     assert(source.size() <= capacity);
@@ -222,22 +179,22 @@ class MemkindArray {
     memcopyTyped<T>(dataPtr, source.data(), capacity, memkind, source.memkind);
   }
   ~MemkindArray() { free(dataPtr, memkind); }
-  inline T* data() noexcept { return dataPtr; }
-  inline const T* data() const noexcept { return dataPtr; }
-  inline T* begin() noexcept { return dataPtr; }
-  inline T* end() noexcept { return dataPtr + capacity; }
-  inline const T* begin() const noexcept { return dataPtr; }
-  inline const T* end() const noexcept { return dataPtr + capacity; }
+  T* data() noexcept { return dataPtr; }
+  const T* data() const noexcept { return dataPtr; }
+  T* begin() noexcept { return dataPtr; }
+  T* end() noexcept { return dataPtr + capacity; }
+  const T* begin() const noexcept { return dataPtr; }
+  const T* end() const noexcept { return dataPtr + capacity; }
   constexpr T& operator[](std::size_t index) { return dataPtr[index]; }
   constexpr const T& operator[](std::size_t index) const { return dataPtr[index]; }
-  constexpr std::size_t size() const noexcept { return capacity; }
+  [[nodiscard]] constexpr std::size_t size() const noexcept { return capacity; }
 
   private:
   T* dataPtr{nullptr};
-  std::size_t capacity;
+  std::size_t capacity{0};
   enum Memkind memkind;
 };
 
 } // namespace seissol::memory
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_MEMORYALLOCATOR_H_

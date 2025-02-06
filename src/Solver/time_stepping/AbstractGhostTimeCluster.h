@@ -1,7 +1,15 @@
-#pragma once
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTGHOSTTIMECLUSTER_H_
+#define SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTGHOSTTIMECLUSTER_H_
 
 #include <list>
-#include "Initializer/typedefs.hpp"
+#include "Initializer/Typedefs.h"
 #include "AbstractTimeCluster.h"
 
 namespace seissol::time_stepping {
@@ -43,3 +51,6 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
   ActResult act() override;
 };
 } // namespace seissol::time_stepping
+
+#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTGHOSTTIMECLUSTER_H_
+

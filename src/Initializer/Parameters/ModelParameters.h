@@ -1,5 +1,12 @@
-#ifndef SEISSOL_MODEL_PARAMETERS_H
-#define SEISSOL_MODEL_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 
 #include <string>
 
@@ -41,7 +48,7 @@ constexpr bool isModelAnisotropic() {
 #endif
 }
 
-enum class ReflectionType { BothWaves, BothWavesVelocity, Pwave, Swave };
+enum class ReflectionType { BothWaves = 1, BothWavesVelocity, Pwave, Swave };
 
 struct ITMParameters {
   bool itmEnabled;
@@ -50,6 +57,8 @@ struct ITMParameters {
   double itmVelocityScalingFactor;
   ReflectionType itmReflectionType;
 };
+
+enum class NumericalFlux { Godunov, Rusanov };
 
 struct ModelParameters {
   bool hasBoundaryFile;
@@ -62,10 +71,12 @@ struct ModelParameters {
   std::string boundaryFileName;
   std::string materialFileName;
   ITMParameters itmParameters;
+  NumericalFlux flux;
+  NumericalFlux fluxNearFault;
 };
 
 ModelParameters readModelParameters(ParameterReader* baseReader);
 ITMParameters readITMParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_

@@ -1,4 +1,63 @@
-Checks: '-*,clang-diagnostic-*,cppcoreguidelines-avoid-non-const-global-variables,llvm-*,-llvm-else-after-return,-llvm-header-guard,-llvm-qualified-auto,misc-*,misc-const-correctness,misc-misplaced-const,-misc-non-private-member-variables-in-classes,-misc-unused-parameters,modernize-use-override,modernize-use-equals-default,performance-move-const-arg,readability-non-const-parameter,readability-const-return-type,readability-identifier-naming'
+# SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# TODO: apply
+# * modernize-use-trailing-return-type
+# * readability-function-size
+# * cppcoreguidelines-pro-type-const-cast
+# * readability-convert-member-functions-to-static
+
+Checks: |
+  -*,
+  clang-diagnostic-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-avoid-const-or-ref-data-members,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-macro-usage,
+  -cppcoreguidelines-no-malloc,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-narrowing-conversions,
+  -cppcoreguidelines-pro-type-member-init,
+  -cppcoreguidelines-pro-type-const-cast
+  llvm-*,
+  -llvm-else-after-return,
+  -llvm-header-guard,
+  -llvm-qualified-auto,
+  misc-*,
+  -misc-non-private-member-variables-in-classes,
+  -misc-unused-parameters,
+  -misc-no-recursion,
+  modernize-*,
+  -modernize-avoid-c-arrays,
+  -modernize-deprecated-headers,
+  -modernize-loop-convert,
+  -modernize-pass-by-value,
+  -modernize-return-braced-init-list,
+  -modernize-use-trailing-return-type,
+  mpi-*,
+  performance-*,
+  -performance-enum-size,
+  -performance-avoid-endl,
+  readability-*,
+  -readability-else-after-return,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -readability-math-missing-parentheses,
+  -readability-function-cognitive-complexity,
+  -readability-function-size
+  -readability-suspicious-call-argument,
+  -readability-convert-member-functions-to-static,
 WarningsAsErrors: '*'
 CheckOptions:
 #  - key:             readability-identifier-naming.AbstractClassCase
@@ -68,7 +127,7 @@ CheckOptions:
 #  - key:             readability-identifier-naming.ConstexprMethodSuffix
 #    value:           CamelCase
   - key:             readability-identifier-naming.ConstexprVariableCase
-    value:           camelBack
+    value:           CamelCase
 #  - key:             readability-identifier-naming.ConstexprVariablePrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.ConstexprVariableSuffix
@@ -91,8 +150,8 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.FunctionSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.GlobalConstantCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.GlobalConstantCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.GlobalConstantPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.GlobalConstantSuffix
@@ -155,10 +214,12 @@ CheckOptions:
 #    value:           CamelCase
   - key:             readability-identifier-naming.MemberCase
     value:           camelBack
-  - key:             readability-identifier-naming.MemberPrefix
-    value:           ""
+  - key:             readability-identifier-naming.MemberIgnoredRegexp
+    value:           "^m_|_$" # TODO: temporary! Remove after more refactoring.
+#  - key:             readability-identifier-naming.MemberPrefix
+#    value:           ""
 #  - key:             readability-identifier-naming.MemberSuffix
-#    value:           CamelCase
+#    value:           ""
 #  - key:             readability-identifier-naming.MethodCase
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.MethodPrefix
@@ -225,8 +286,8 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.PublicMethodSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.StaticConstantCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.StaticConstantCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.StaticConstantPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.StaticConstantSuffix
@@ -243,26 +304,26 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.StructSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.TemplateParameterCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.TemplateParameterCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.TemplateParameterPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TemplateParameterSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.TemplateTemplateParameterCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.TemplateTemplateParameterCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.TemplateTemplateParameterPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TemplateTemplateParameterSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.TypeAliasCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.TypeAliasCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.TypeAliasPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TypeAliasSuffix
 #    value:           CamelCase
-#  - key:             readability-identifier-naming.TypedefCase
-#    value:           CamelCase
+  - key:             readability-identifier-naming.TypedefCase
+    value:           CamelCase
 #  - key:             readability-identifier-naming.TypedefPrefix
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TypedefSuffix
@@ -298,6 +359,9 @@ CheckOptions:
 #  - key:             readability-identifier-naming.VirtualMethodSuffix
 #    value:           CamelCase
 
-    # ignore Eigen, fty manually, until added to IWYU
+    # ignore Eigen, yaml-cpp, and HDF5 manually, until added to IWYU
+    # also, ignore internal GCC headers (bits/)
   - key:             misc-include-cleaner.IgnoreHeaders
-    value:           'Eigen/src/.*'
+    value:           'Eigen/src/.*|yaml-cpp/.*|H5.*|hdf5\.h|xdmfwriter/.*|yateto/.*|bits/.*|external/.*'
+  - key:             cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
+    value:           True
