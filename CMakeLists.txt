@@ -47,6 +47,9 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Cray|CrayClang")
   message(WARNING "The communication thread is not supported for the Cray compiler. Make sure to set `SEISSOL_COMMTHREAD=0` when running SeisSol in multi-node setups.")
 endif()
 
+# find Python early
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
@@ -161,6 +164,7 @@ add_custom_command(
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
      "--host_arch" ${HOST_ARCH_STR}
+     "--device_codegen" ${DEVICE_CODEGEN}
      "--device_arch" ${DEVICE_ARCH_STR}
      "--device_backend" ${DEVICE_BACKEND}
      "--order" ${ORDER}

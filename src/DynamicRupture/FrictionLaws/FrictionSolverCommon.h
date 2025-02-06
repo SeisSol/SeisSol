@@ -547,6 +547,8 @@ inline void computeFrictionEnergy(
     const double timeWeights[ConvergenceOrder],
     const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],
     const DRGodunovData& godunovData,
+    const real slipRateMagnitude[misc::NumPaddedPoints],
+    const bool energiesFromAcrossFaultVelocities,
     size_t startIndex = 0) {
 
   auto* slip = reinterpret_cast<real(*)[misc::NumPaddedPoints]>(energyData.slip);
@@ -577,10 +579,20 @@ inline void computeFrictionEnergy(
       const real interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];
       const real interpolatedSlipRate3 = qIMinus[o][W][i] - qIPlus[o][W][i];
 
-      const real interpolatedSlipRateMagnitude =
-          misc::magnitude(interpolatedSlipRate1, interpolatedSlipRate2, interpolatedSlipRate3);
+      if (energiesFromAcrossFaultVelocities) {
+        const real interpolatedSlipRateMagnitude =
+            misc::magnitude(interpolatedSlipRate1, interpolatedSlipRate2, interpolatedSlipRate3);
 
-      accumulatedSlip[i] += timeWeight * interpolatedSlipRateMagnitude;
+        accumulatedSlip[i] += timeWeight * interpolatedSlipRateMagnitude;
+      } else {
+        // we use slipRateMagnitude (computed from slipRate1 and slipRate2 in the friction law)
+        // instead of computing the slip rate magnitude from the differences in velocities
+        // calculated above (magnitude of the vector (slipRateMagnitudei)). The moment magnitude
+        // based on (slipRateMagnitudei) is typically non zero at the end of the earthquake
+        // (probably because it incorporates the velocity discontinuities inherent of DG methods,
+        // including the contributions of fault normal velocity discontinuity)
+        accumulatedSlip[i] += timeWeight * slipRateMagnitude[i];
+      }
 
       slip[0][i] += timeWeight * interpolatedSlipRate1;
       slip[1][i] += timeWeight * interpolatedSlipRate2;
