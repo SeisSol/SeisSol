@@ -20,6 +20,10 @@
 
 #include "Initializer/Parameters/DRParameters.h"
 
+namespace seissol {
+class SeisSol;
+} // namespace seissol
+
 namespace seissol::geometry {
 
 struct GhostElementMetadata {
@@ -78,6 +82,8 @@ class MeshReader {
   virtual bool inlineClusterCompute() const { return false; }
 
   void displaceMesh(const Eigen::Vector3d& displacement);
+
+  void computeTimestepIfNecessary(const seissol::SeisSol& seissolInstance);
 
   // scalingMatrix is stored column-major, i.e.
   // scalingMatrix_ij = scalingMatrix[j][i]

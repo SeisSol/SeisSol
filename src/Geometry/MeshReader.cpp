@@ -12,7 +12,10 @@
 
 #include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
+#include <Common/Iterator.h>
 #include <Initializer/Parameters/DRParameters.h>
+#include <Initializer/TimeStepping/GlobalTimestep.h>
+#include <SeisSol.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -332,6 +335,20 @@ void MeshReader::exchangeGhostlayerMetadata() {
 
   MPI_Type_free(&ghostElementType);
 #endif
+}
+
+void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInstance) {
+  if (!inlineTimestepCompute()) {
+    const auto ctvarray = seissol::initializer::CellToVertexArray::fromMeshReader(*this);
+    const auto timesteps =
+        seissol::initializer::computeTimesteps(ctvarray, seissolInstance.getSeisSolParameters());
+    for (auto [cell, timestep] : seissol::common::zip(m_elements, timesteps.cellTimeStepWidths)) {
+      cell.timestep = timestep;
+
+      // enforce GTS in the case here
+      cell.clusterId = 0;
+    }
+  }
 }
 
 } // namespace seissol::geometry

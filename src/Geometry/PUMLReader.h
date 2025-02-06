@@ -42,7 +42,6 @@ class PUMLReader : public seissol::geometry::MeshReader {
   public:
   PUMLReader(const char* meshFile,
              const char* partitioningLib,
-             double maximumAllowedTimeStep,
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
              initializer::time_stepping::LtsWeights* ltsWeights = nullptr,

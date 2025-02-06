@@ -123,12 +123,12 @@ LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissol
       m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
       boundaryFormat(config.boundaryFormat) {}
 
-void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep) {
+void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
   logInfo() << "Computing LTS weights.";
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
   m_mesh = &mesh;
-  m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
+  m_details = collectGlobalTimeStepDetails();
   m_cellCosts = computeCostsPerTimestep();
 
   auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
@@ -393,12 +393,8 @@ int LtsWeights::ipow(int x, int y) {
   return result;
 }
 
-seissol::initializer::GlobalTimestep
-    LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
+seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails() {
   return seissol::initializer::computeTimesteps(
-      1.0,
-      maximumAllowedTimeStep,
-      m_velocityModel,
       seissol::initializer::CellToVertexArray::fromPUML(*m_mesh),
       seissolInstance.getSeisSolParameters());
 }
