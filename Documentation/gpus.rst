@@ -125,7 +125,7 @@ the following will force SeisSol to allocate 1.5GB of stack GPU memory for tempo
     export DEVICE_STACK_MEM_SIZE=1.5
     mpirun -n <M x N> ./SeisSol_dsm70_cuda_* ./parameters.par
 
-The following device-specific environment variable are supported right now:
+The following device-specific environment variable is supported right now:
 
 * ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``
 
