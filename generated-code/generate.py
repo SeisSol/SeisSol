@@ -23,6 +23,7 @@ import kernels.plasticity
 import kernels.point
 import kernels.surface_displacement
 import kernels.vtkproject
+import yateto
 from yateto import (Generator, GlobalRoutineCache, NamespacedGenerator,
                     gemm_configuration, useArchitectureIdentifiedBy)
 from yateto.ast.cost import (BoundingBoxCostEstimator,
