@@ -38,27 +38,33 @@ class SlowVelocityWeakeningLaw
     decltype(seissol::initializer::parameters::DRParameters::rsB) rsB;
   };
 
-  static double
-      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, double localStateVariable) {
-    const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
-    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
-    const double log1 = sycl::log(ctx.data->drParameters.rsSr0 * localStateVariable / localSl0);
-    const double x =
-        0.5 * (localSlipRateMagnitude / ctx.data->drParameters.rsSr0) *
-        sycl::exp((ctx.data->drParameters.rsF0 + ctx.data->drParameters.rsB * log1) / localA);
-    return localA * sycl::asinh(x);
-  }
+  struct MuDetails {
+    double a{};
+    double c{};
+    double ac{};
+  };
 
-  static double updateMuDerivative(FrictionLawContext& ctx,
-                                   double localSlipRateMagnitude,
-                                   double localStateVariable) {
+  static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const double log1 = sycl::log(ctx.data->drParameters.rsSr0 * localStateVariable / localSl0);
     const double c =
-        (0.5 / ctx.data->drParameters.rsSr0) *
+        0.5 / ctx.data->drParameters.rsSr0 *
         sycl::exp((ctx.data->drParameters.rsF0 + ctx.data->drParameters.rsB * log1) / localA);
-    return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
+    return MuDetails{localA, c, localA * c};
+  }
+
+  static double
+      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, MuDetails& details) {
+    const double x = localSlipRateMagnitude * details.c;
+    return details.a * sycl::asinh(x);
+  }
+
+  static double updateMuDerivative(FrictionLawContext& ctx,
+                                   double localSlipRateMagnitude,
+                                   MuDetails& details) {
+    const double x = localSlipRateMagnitude * details.c;
+    return details.ac / sycl::sqrt(sycl::pown(x, 2) + 1.0);
   }
 
   /**

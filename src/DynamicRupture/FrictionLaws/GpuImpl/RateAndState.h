@@ -127,6 +127,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const auto localSlipRateMagnitude = devSlipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
       const auto localImpAndEta = devImpAndEta[ctx.ltsFace];
 
+      auto& exportMu = devMu[ctx.ltsFace][ctx.pointIndex];
+
       real slipRateTest{};
       bool hasConvergedLocal = RateAndStateBase::invertSlipRateIterative(ctx,
                                                                          slipRateTest,
@@ -135,14 +137,12 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                                          absoluteShearStress,
                                                                          localSlipRateMagnitude,
                                                                          localImpAndEta.invEtaS,
+                                                                         exportMu,
                                                                          settings);
       ctx.item->barrier(sycl::access::fence_space::local_space);
 
       devLocalSlipRate = 0.5 * (localSlipRateMagnitude + std::fabs(slipRateTest));
       devSlipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = std::fabs(slipRateTest);
-
-      devMu[ctx.ltsFace][ctx.pointIndex] =
-          Derived::updateMu(ctx, localSlipRateMagnitude, localStateVariable);
     }
   }
 
@@ -172,8 +172,11 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     const auto localStateVariable = devStateVariableBuffer;
     const auto slipRateMagnitude = devSlipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
-    devMu[ctx.ltsFace][ctx.pointIndex] =
-        Derived::updateMu(ctx, slipRateMagnitude, localStateVariable);
+
+    // the only mu calculation left, outside of the fixed-point loop
+    auto details = Derived::getMuDetails(ctx, localStateVariable);
+    devMu[ctx.ltsFace][ctx.pointIndex] = Derived::updateMu(ctx, slipRateMagnitude, details);
+
     const real strength = -devMu[ctx.ltsFace][ctx.pointIndex] * devNormalStress;
 
     const auto* initialStressInFaultCS = devInitialStressInFaultCS[ctx.ltsFace][ctx.pointIndex];
@@ -248,6 +251,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                       real absoluteShearStress,
                                       real slipRateMagnitude,
                                       real invEtaS,
+                                      real& exportMu,
                                       rs::Settings solverSettings) {
 
     // Note that we need double precision here, since single precision led to NaNs.
@@ -257,18 +261,25 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     double dG{0.0};
     slipRateTest = slipRateMagnitude;
 
+    auto details = Derived::getMuDetails(ctx, localStateVariable);
+
     for (unsigned i = 0; i < solverSettings.maxNumberSlipRateUpdates; i++) {
-      muF = Derived::updateMu(ctx, slipRateTest, localStateVariable);
-      dMuF = Derived::updateMuDerivative(ctx, slipRateTest, localStateVariable);
+      muF = Derived::updateMu(ctx, slipRateTest, details);
 
       g = -invEtaS * (sycl::fabs(normalStress) * muF - absoluteShearStress) - slipRateTest;
 
       const bool converged = std::fabs(g) < solverSettings.newtonTolerance;
 
       if (converged) {
+        // we've reached the fixed point
+        // NOTE: in doubt, a fixed-point mu can be recovered from slipRateTest at this point.
+        // just invert -invEtaS * (sycl::fabs(normalStress) * muF - absoluteShearStress) ==
+        // slipRateTest for muF in that case.
+        exportMu = muF;
         return true;
       }
 
+      dMuF = Derived::updateMuDerivative(ctx, slipRateTest, details);
       dG = -invEtaS * (std::fabs(normalStress) * dMuF) - 1.0;
       slipRateTest =
           sycl::max(friction_law::rs::almostZero(), static_cast<real>(slipRateTest - (g / dG)));

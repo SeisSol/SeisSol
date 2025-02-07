@@ -67,20 +67,29 @@ class FastVelocityWeakeningLaw
     devStateVariableBuffer = localStateVariable;
   }
 
-  static double
-      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, double localStateVariable) {
+  struct MuDetails {
+    double a{};
+    double c{};
+    double ac{};
+  };
+
+  static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
-    const double x = 0.5 / ctx.data->drParameters.rsSr0 * sycl::exp(localStateVariable / localA) *
-                     localSlipRateMagnitude;
-    return localA * sycl::asinh(x);
+    const double c = 0.5 / ctx.data->drParameters.rsSr0 * sycl::exp(localStateVariable / localA);
+    return MuDetails{localA, c, localA * c};
+  }
+
+  static double
+      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, MuDetails& details) {
+    const double x = details.c * localSlipRateMagnitude;
+    return details.a * sycl::asinh(x);
   }
 
   static double updateMuDerivative(FrictionLawContext& ctx,
                                    double localSlipRateMagnitude,
-                                   double localStateVariable) {
-    const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
-    const double c = 0.5 / ctx.data->drParameters.rsSr0 * sycl::exp(localStateVariable / localA);
-    return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
+                                   MuDetails& details) {
+    const double x = details.c * localSlipRateMagnitude;
+    return details.ac / sycl::sqrt(sycl::pown(x, 2) + 1.0);
   }
 
   static void resampleStateVar(FrictionLawContext& ctx) {
