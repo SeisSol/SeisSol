@@ -11,7 +11,7 @@
 #include "Common.h"
 namespace seissol::proxy {
 
-auto runProxy(ProxyConfig config) -> ProxyOutput;
+auto runProxy(const ProxyConfig& config) -> ProxyOutput;
 
 } // namespace seissol::proxy
 
