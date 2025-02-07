@@ -136,6 +136,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                                          localSlipRateMagnitude,
                                                                          localImpAndEta.invEtaS,
                                                                          settings);
+      ctx.item->barrier(sycl::access::fence_space::local_space);
 
       devLocalSlipRate = 0.5 * (localSlipRateMagnitude + std::fabs(slipRateTest));
       devSlipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = std::fabs(slipRateTest);
