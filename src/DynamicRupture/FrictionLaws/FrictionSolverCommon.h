@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 
+#include <Common/Executor.h>
 #include <limits>
 #include <type_traits>
 
@@ -54,13 +55,51 @@ struct QInterpolated {
   using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
 };
 
+template <RangeType Type>
+struct RangeExecutor;
+
+template <>
+struct RangeExecutor<RangeType::CPU> {
+  static constexpr Executor Exec = Executor::Host;
+};
+
+template <>
+struct RangeExecutor<RangeType::GPU> {
+  static constexpr Executor Exec = Executor::Device;
+};
+
+template <Executor Executor>
+struct VariableIndexing;
+
+template <>
+struct VariableIndexing<Executor::Host> {
+  static constexpr real&
+      index(real (&data)[ConvergenceOrder][misc::NumPaddedPoints], int o, int i) {
+    return data[o][i];
+  }
+
+  static constexpr real
+      index(const real (&data)[ConvergenceOrder][misc::NumPaddedPoints], int o, int i) {
+    return data[o][i];
+  }
+};
+
+template <>
+struct VariableIndexing<Executor::Device> {
+  static constexpr real& index(real (&data)[ConvergenceOrder], int o, int i) { return data[o]; }
+
+  static constexpr real index(const real (&data)[ConvergenceOrder], int o, int i) {
+    return data[o];
+  }
+};
+
 /**
  * Asserts whether all relevant arrays are properly aligned
  */
 inline void checkAlignmentPreCompute(
     const real qIPlus[ConvergenceOrder][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
     const real qIMinus[ConvergenceOrder][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
-    const FaultStresses& faultStresses) {
+    const FaultStresses<Executor::Host>& faultStresses) {
   using namespace dr::misc::quantity_indices;
   for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
@@ -100,7 +139,7 @@ inline void checkAlignmentPreCompute(
  */
 template <RangeType Type = RangeType::CPU>
 inline void precomputeStressFromQInterpolated(
-    FaultStresses& faultStresses,
+    FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
     const ImpedancesAndEta& impAndEta,
     const ImpedanceMatrices& impedanceMatrices,
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
@@ -136,15 +175,15 @@ inline void precomputeStressFromQInterpolated(
 #endif
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       auto i{startLoopIndex + index};
-      faultStresses.normalStress[o][i] =
+      VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i) =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
                   qIMinus[o][N][i] * invZpNeig);
 
-      faultStresses.traction1[o][i] =
+      VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.traction1, o, i) =
           etaS * (qIMinus[o][V][i] - qIPlus[o][V][i] + qIPlus[o][T1][i] * invZs +
                   qIMinus[o][T1][i] * invZsNeig);
 
-      faultStresses.traction2[o][i] =
+      VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.traction2, o, i) =
           etaS * (qIMinus[o][W][i] - qIPlus[o][W][i] + qIPlus[o][T2][i] * invZs +
                   qIMinus[o][T2][i] * invZsNeig);
     }
@@ -186,8 +225,8 @@ inline void checkAlignmentPostCompute(
     const real qIMinus[ConvergenceOrder][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
     const real imposedStateP[ConvergenceOrder][dr::misc::NumPaddedPoints],
     const real imposedStateM[ConvergenceOrder][dr::misc::NumPaddedPoints],
-    const FaultStresses& faultStresses,
-    const TractionResults& tractionResults) {
+    const FaultStresses<Executor::Host>& faultStresses,
+    const TractionResults<Executor::Host>& tractionResults) {
   using namespace dr::misc::quantity_indices;
 
   assert(reinterpret_cast<uintptr_t>(imposedStateP[U]) % Alignment == 0);
@@ -241,8 +280,8 @@ inline void checkAlignmentPostCompute(
  */
 template <RangeType Type = RangeType::CPU>
 inline void postcomputeImposedStateFromNewStress(
-    const FaultStresses& faultStresses,
-    const TractionResults& tractionResults,
+    const FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
+    const TractionResults<RangeExecutor<Type>::Exec>& tractionResults,
     const ImpedancesAndEta& impAndEta,
     const ImpedanceMatrices& impedanceMatrices,
     real imposedStatePlus[tensor::QInterpolated::size()],
@@ -292,9 +331,12 @@ inline void postcomputeImposedStateFromNewStress(
          index += NumPointsRange::Step) {
       auto i{startIndex + index};
 
-      const auto normalStress = faultStresses.normalStress[o][i];
-      const auto traction1 = tractionResults.traction1[o][i];
-      const auto traction2 = tractionResults.traction2[o][i];
+      const auto normalStress =
+          VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i);
+      const auto traction1 =
+          VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.traction1, o, i);
+      const auto traction2 =
+          VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.traction2, o, i);
 
       imposedStateM[N][i] += weight * normalStress;
       imposedStateM[T1][i] += weight * traction1;

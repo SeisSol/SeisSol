@@ -11,16 +11,42 @@
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Numerical/SyclFunctions.h"
+#include <Common/Constants.h>
+#include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
 #include <algorithm>
 
 namespace seissol::dr::friction_law::gpu {
+
+struct InitialVariables {
+  real absoluteShearTraction;
+  real localSlipRate;
+  real normalStress;
+  real stateVarReference;
+};
+
+struct FrictionLawContext {
+  int ltsFace;
+  int pointIndex;
+  FrictionLawData* data;
+
+  FaultStresses<Executor::Device> faultStresses{};
+  TractionResults<Executor::Device> tractionResults{};
+  real stateVariableBuffer;
+  real strengthBuffer;
+  double* devTimeWeights{nullptr};
+  real* devSpaceWeights{nullptr};
+  real* resampleMatrix{nullptr};
+  real* deltaStateVar;
+  InitialVariables initialVariables;
+  sycl::nd_item<1>* item;
+};
 
 template <typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
   explicit BaseFrictionSolver<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
       : FrictionSolverDetails(drParameters) {}
-  ~BaseFrictionSolver<Derived>() = default;
+  ~BaseFrictionSolver<Derived>() override = default;
 
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
@@ -30,53 +56,70 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
     runtime.syncToSycl(&this->queue);
 
-    FrictionSolver::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    this->copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
-    this->currLayerSize = layerData.getNumberOfCells();
+    // TODO: avoid copying the data all the time
+    // TODO: allocate FrictionLawData as constant data
 
-    size_t requiredNumBytes = ConvergenceOrder * sizeof(double);
-    auto timeWeightsCopy = this->queue.memcpy(devTimeWeights, &timeWeights[0], requiredNumBytes);
+    FrictionSolverInterface::copyLtsTreeToLocal(&dataHost, layerData, dynRup, fullUpdateTime);
+    Derived::copySpecificLtsDataTreeToLocal(&dataHost, layerData, dynRup, fullUpdateTime);
+    this->currLayerSize = layerData.getNumberOfCells();
+    dataHost.drParameters = *this->drParameters;
+
+    std::memcpy(dataHost.deltaT, deltaT, sizeof(decltype(deltaT)));
+    dataHost.sumDt = sumDt;
+
+    this->queue.memcpy(data, &dataHost, sizeof(FrictionLawData));
+
+    this->queue.memcpy(devTimeWeights, timeWeights, sizeof(double[ConvergenceOrder]));
 
     {
       constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
 
-      auto* devImpAndEta{this->impAndEta};
-      auto* devImpedanceMatrices{this->impedanceMatrices};
-      auto* devQInterpolatedPlus{this->qInterpolatedPlus};
-      auto* devQInterpolatedMinus{this->qInterpolatedMinus};
-      auto* devFaultStresses{this->faultStresses};
+      auto* data{this->data};
+      auto* devTimeWeights{this->devTimeWeights};
+      auto* devSpaceWeights{this->devSpaceWeights};
+      auto* resampleMatrix{this->resampleMatrix};
 
       sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
       this->queue.submit([&](sycl::handler& cgh) {
+        // NOLINTNEXTLINE
+        sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
+            deltaStateVar(misc::NumPaddedPoints, cgh);
+
         cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
+          FrictionLawContext ctx{};
+          ctx.data = data;
+          ctx.devTimeWeights = devTimeWeights;
+          ctx.devSpaceWeights = devSpaceWeights;
+          ctx.resampleMatrix = resampleMatrix;
+          ctx.deltaStateVar = &deltaStateVar[0];
+          ctx.item = &item;
+
+          auto* devImpAndEta{data->impAndEta};
+          auto* devImpedanceMatrices{data->impedanceMatrices};
+          auto* devQInterpolatedPlus{data->qInterpolatedPlus};
+          auto* devQInterpolatedMinus{data->qInterpolatedMinus};
+
           const auto ltsFace = item.get_group().get_group_id(0);
           const auto pointIndex = item.get_local_id(0);
 
-          common::precomputeStressFromQInterpolated<gpuRangeType>(devFaultStresses[ltsFace],
+          ctx.ltsFace = ltsFace;
+          ctx.pointIndex = pointIndex;
+
+          common::precomputeStressFromQInterpolated<gpuRangeType>(ctx.faultStresses,
                                                                   devImpAndEta[ltsFace],
                                                                   devImpedanceMatrices[ltsFace],
                                                                   devQInterpolatedPlus[ltsFace],
                                                                   devQInterpolatedMinus[ltsFace],
                                                                   pointIndex);
-        });
-      });
 
-      static_cast<Derived*>(this)->preHook(stateVariableBuffer);
-      for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
-        const real t0{this->drParameters->t0};
-        const real dt = deltaT[timeIndex];
-        auto* devInitialStressInFaultCS{this->initialStressInFaultCS};
-        const auto* devNucleationStressInFaultCS{this->nucleationStressInFaultCS};
-        auto* devInitialPressure{this->initialPressure};
-        const auto* devNucleationPressure{this->nucleationPressure};
-
-        this->queue.submit([&](sycl::handler& cgh) {
-          if (timeIndex == 0) {
-            cgh.depends_on(timeWeightsCopy);
-          }
-          cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-            auto ltsFace = item.get_group().get_group_id(0);
-            auto pointIndex = item.get_local_id(0);
+          Derived::preHook(ctx);
+          for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
+            const real t0{data->drParameters.t0};
+            const real dt = data->deltaT[timeIndex];
+            auto* devInitialStressInFaultCS{data->initialStressInFaultCS};
+            const auto* devNucleationStressInFaultCS{data->nucleationStressInFaultCS};
+            auto* devInitialPressure{data->initialPressure};
+            const auto* devNucleationPressure{data->nucleationPressure};
 
             using StdMath = seissol::functions::SyclStdFunctions;
             common::adjustInitialStress<gpuRangeType, StdMath>(
@@ -88,56 +131,41 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 t0,
                 dt,
                 pointIndex);
-          });
-        });
 
-        static_cast<Derived*>(this)->updateFrictionAndSlip(timeIndex);
-      }
-      static_cast<Derived*>(this)->postHook(stateVariableBuffer);
+            Derived::updateFrictionAndSlip(ctx, timeIndex);
+          }
+          Derived::postHook(ctx);
 
-      auto* devRuptureTimePending{this->ruptureTimePending};
-      auto* devSlipRateMagnitude{this->slipRateMagnitude};
-      auto* devRuptureTime{this->ruptureTime};
+          auto* devRuptureTimePending{data->ruptureTimePending};
+          auto* devSlipRateMagnitude{data->slipRateMagnitude};
+          auto* devRuptureTime{data->ruptureTime};
 
-      this->queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-          auto ltsFace = item.get_group().get_group_id(0);
-          auto pointIndex = item.get_local_id(0);
           common::saveRuptureFrontOutput<gpuRangeType>(devRuptureTimePending[ltsFace],
                                                        devRuptureTime[ltsFace],
                                                        devSlipRateMagnitude[ltsFace],
                                                        fullUpdateTime,
                                                        pointIndex);
-        });
-      });
 
-      static_cast<Derived*>(this)->saveDynamicStressOutput();
+          Derived::saveDynamicStressOutput(ctx);
 
-      auto* devPeakSlipRate{this->peakSlipRate};
-      auto* devImposedStatePlus{this->imposedStatePlus};
-      auto* devImposedStateMinus{this->imposedStateMinus};
-      auto* devTractionResults{this->tractionResults};
-      auto* devTimeWeights{this->devTimeWeights};
-      auto* devSpaceWeights{this->devSpaceWeights};
-      auto* devEnergyData{this->energyData};
-      auto* devGodunovData{this->godunovData};
-      auto devSumDt{this->sumDt};
+          auto* devPeakSlipRate{data->peakSlipRate};
+          auto* devImposedStatePlus{data->imposedStatePlus};
+          auto* devImposedStateMinus{data->imposedStateMinus};
+          auto* devEnergyData{data->energyData};
+          auto* devGodunovData{data->godunovData};
+          auto devSumDt{data->sumDt};
 
-      auto isFrictionEnergyRequired{this->drParameters->isFrictionEnergyRequired};
-      auto isCheckAbortCriteraEnabled{this->drParameters->isCheckAbortCriteraEnabled};
-      auto devTerminatorSlipRateThreshold{this->drParameters->terminatorSlipRateThreshold};
-      auto energiesFromAcrossFaultVelocities{this->drParameters->energiesFromAcrossFaultVelocities};
-
-      this->queue.submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-          auto ltsFace = item.get_group().get_group_id(0);
-          auto pointIndex = item.get_local_id(0);
+          auto isFrictionEnergyRequired{data->drParameters.isFrictionEnergyRequired};
+          auto isCheckAbortCriteraEnabled{data->drParameters.isCheckAbortCriteraEnabled};
+          auto devTerminatorSlipRateThreshold{data->drParameters.terminatorSlipRateThreshold};
+          auto energiesFromAcrossFaultVelocities{
+              data->drParameters.energiesFromAcrossFaultVelocities};
 
           common::savePeakSlipRateOutput<gpuRangeType>(
               devSlipRateMagnitude[ltsFace], devPeakSlipRate[ltsFace], pointIndex);
 
-          common::postcomputeImposedStateFromNewStress<gpuRangeType>(devFaultStresses[ltsFace],
-                                                                     devTractionResults[ltsFace],
+          common::postcomputeImposedStateFromNewStress<gpuRangeType>(ctx.faultStresses,
+                                                                     ctx.tractionResults,
                                                                      devImpAndEta[ltsFace],
                                                                      devImpedanceMatrices[ltsFace],
                                                                      devImposedStatePlus[ltsFace],
