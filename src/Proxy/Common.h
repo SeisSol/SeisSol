@@ -8,6 +8,7 @@
 #ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_COMMON_H_
 #define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_COMMON_H_
 
+#include <Common/Executor.h>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,7 @@ struct ProxyConfig {
   unsigned timesteps{10};
   std::vector<Kernel> kernels;
   bool verbose{true};
+  Executor executor;
 };
 
 struct ProxyOutput {

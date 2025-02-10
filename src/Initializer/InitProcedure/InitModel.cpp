@@ -18,18 +18,21 @@
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
+#include <Kernels/Common.h>
 #include <Memory/Tree/Layer.h>
-#include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
 #include <Modules/Modules.h>
 #include <Monitoring/Stopwatch.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
+#include <Solver/Estimator.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <string>
 #include <unordered_map>
+#include <utils/env.h>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 #include <vector>
 
 #include "InitModel.h"
@@ -268,6 +271,38 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   }
 }
 
+void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
+  if constexpr (isDeviceOn()) {
+    const auto hdswitch = utils::Env::get<std::string>("SEISSOL_DEVICE_HOST_SWITCH", "none");
+    bool hdenabled = false;
+    if (hdswitch == "none") {
+      hdenabled = false;
+      logInfo() << "No host-device switching. Everything runs on the GPU.";
+    } else if (hdswitch == "auto") {
+      hdenabled = true;
+      logInfo() << "Automatic host-device switchpoint detection.";
+      const auto hdswitchInt = solver::hostDeviceSwitch();
+      seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
+    } else {
+      hdenabled = true;
+      const auto hdswitchInt = utils::StringUtils::parse<int>(hdswitch);
+      logInfo() << "Manual host-device cutoff set to" << hdswitchInt << ".";
+      seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
+    }
+
+#ifdef ACL_DEVICE
+    const bool usmDefault = useUSM();
+#else
+    const bool usmDefault = false;
+#endif
+
+    if (!usmDefault && hdenabled) {
+      logWarning() << "Using the host-device execution on non-USM systems is not fully supported "
+                      "yet. Expect incorrect results.";
+    }
+  }
+}
+
 void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
@@ -364,6 +399,11 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   // FORTRAN)
   logInfo() << "Initialize cell material parameters.";
   initializeCellMaterial(seissolInstance);
+
+  if constexpr (isDeviceOn()) {
+    logInfo() << "Determine Host-Device switchpoint";
+    hostDeviceCoexecution(seissolInstance);
+  }
 
   // init memory layout (needs cell material values to initialize e.g. displacements correctly)
   logInfo() << "Initialize Memory layout.";

@@ -97,6 +97,8 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
 
   auto* outputReader = baseReader->readSubNode("output");
   const bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
+  const bool energiesFromAcrossFaultVelocities =
+      outputReader->readWithDefault("faultenergiesfromacrossfaultvelocities", false);
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
   const auto terminatorSlipRateThreshold = static_cast<real>(abortCriteriaReader->readWithDefault(
@@ -130,6 +132,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       isThermalPressureOn,
                       isFrictionEnergyRequired,
                       isCheckAbortCriteraEnabled,
+                      energiesFromAcrossFaultVelocities,
                       outputPointType,
                       refPointMethod,
                       slipRateOutputType,

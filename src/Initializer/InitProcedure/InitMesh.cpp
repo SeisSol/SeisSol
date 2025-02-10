@@ -11,6 +11,7 @@
 #include <Initializer/Parameters/MeshParameters.h>
 #include <Initializer/Parameters/SeisSolParameters.h>
 #include <Initializer/TimeStepping/LtsWeights/LtsWeights.h>
+#include <Solver/Estimator.h>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -36,7 +37,6 @@
 #include "Numerical/Statistics.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
-#include "Solver/time_stepping/MiniSeisSol.h"
 
 #include "Parallel/MPI.h"
 
@@ -112,8 +112,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   if (utils::Env::get<bool>("SEISSOL_MINISEISSOL", true)) {
     if (seissol::MPI::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
-      auto elapsedTime = seissol::miniSeisSol(
-          seissolInstance.getMemoryManager(), seissolParams.model.plasticity, seissolInstance);
+      auto elapsedTime = seissol::solver::miniSeisSol();
       nodeWeight = 1.0 / elapsedTime;
 
       const auto summary = seissol::statistics::parallelSummary(nodeWeight);

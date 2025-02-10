@@ -145,7 +145,9 @@ class BaseFrictionLaw : public FrictionSolver {
                                       impAndEta[ltsFace],
                                       timeWeights,
                                       spaceWeights,
-                                      godunovData[ltsFace]);
+                                      godunovData[ltsFace],
+                                      slipRateMagnitude[ltsFace],
+                                      this->drParameters->energiesFromAcrossFaultVelocities);
       }
     }
   }

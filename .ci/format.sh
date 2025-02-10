@@ -15,7 +15,6 @@
 format() {
     # don't use a directory with whitespace
     local allowlist_dir="
-        auto-tuning/proxy/src
         src/Common
         src/DynamicRupture
         src/Equations
@@ -33,6 +32,7 @@ format() {
         src/Numerical
         src/Parallel
         src/Physics
+        src/Proxy
         src/Reader
         src/ResultWriter
         src/SourceTerm
@@ -56,6 +56,8 @@ format() {
         src/Initializer/PreProcessorMacros.h
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
+        src/Solver/Estimator.h
+        src/Solver/Estimator.cpp
         src/SeisSol.h
         src/SeisSol.cpp
         src/Main.cpp
