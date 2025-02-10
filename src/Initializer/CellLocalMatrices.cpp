@@ -684,10 +684,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       case seissol::model::MaterialType::Viscoelastic: {
         break;
       }
-      case seissol::model::MaterialType::Acoustic: {
-        logError() << "Dynamic Rupture does not work with an acoustic material.";
-        break;
-      }
       case seissol::model::MaterialType::Poroelastic: {
         auto plusEigenpair = seissol::model::getEigenDecomposition(
             *dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial));
@@ -713,18 +709,17 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
         break;
       }
-      case seissol::model::MaterialType::Anisotropic: {
-        logError() << "The Dynamic Rupture mechanism does not work with anisotropy yet.";
-        // TODO(SW): Make DR work with anisotropy
-        break;
-      }
       default: {
-        logError() << "The Dynamic Rupture mechanism does not work with the given material yet.";
+        logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
+                      "(built with:"
+                   << model::MaterialT::Text << ")";
         break;
       }
       }
-      seissol::model::getTransposedCoefficientMatrix(plusMaterial, 0, matAPlus);
-      seissol::model::getTransposedCoefficientMatrix(minusMaterial, 0, matAMinus);
+      seissol::model::getTransposedCoefficientMatrix(
+          *dynamic_cast<model::MaterialT*>(plusMaterial), 0, matAPlus);
+      seissol::model::getTransposedCoefficientMatrix(
+          *dynamic_cast<model::MaterialT*>(minusMaterial), 0, matAMinus);
 
       /// Traction matrices for "average" traction
       auto tractionPlusMatrix =
