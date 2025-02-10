@@ -12,6 +12,7 @@
 #include <iterator>
 #include <list>
 #include <sstream>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::initializer {
@@ -138,11 +139,11 @@ std::array<T, N> convertStringToArray(const std::string& inputString,
 using StringsType = std::list<std::string>;
 class FileProcessor {
   public:
-  static StringsType getFileAsStrings(const std::string& fileName) {
+  static StringsType getFileAsStrings(const std::string& fileName, const std::string& what) {
     StringsType content;
     std::fstream paramFile(fileName, std::ios_base::in);
     if (!paramFile.is_open()) {
-      throw std::runtime_error("cannot open file: " + fileName);
+      logError() << "Cannot open file (" << what.c_str() << "):" << fileName;
     }
 
     std::string tmpString;
