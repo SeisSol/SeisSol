@@ -33,9 +33,10 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
   real** buffers = layer.var(lts.buffers);
   real** derivatives = layer.var(lts.derivatives);
   real*(*faceNeighbors)[4] = layer.var(lts.faceNeighbors);
-  LocalIntegrationData* localIntegration = layer.var(lts.localIntegration);
-  NeighboringIntegrationData* neighboringIntegration = layer.var(lts.neighboringIntegration);
-  CellLocalInformation* cellInformation = layer.var(lts.cellInformation);
+  auto* localIntegration = layer.var(lts.localIntegration);
+  auto* neighboringIntegration = layer.var(lts.neighboringIntegration);
+  auto* cellInformation = layer.var(lts.cellInformation);
+  auto* secondaryInformation = layer.var(lts.secondaryInformation);
   real* bucket =
       static_cast<real*>(layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Host));
 
@@ -55,7 +56,7 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = ((unsigned int)lrand48() % 4);
       cellInformation[cell].faceRelations[f][1] = ((unsigned int)lrand48() % 3);
-      cellInformation[cell].faceNeighborIds[f] =
+      secondaryInformation[cell].faceNeighborIds[f] =
           ((unsigned int)lrand48() % layer.getNumberOfCells());
     }
     cellInformation[cell].ltsSetup = 0;
@@ -73,8 +74,8 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
         break;
       case FaceType::Periodic:
       case FaceType::Regular:
-        faceNeighbors[cell][f] = buffers[cellInformation[cell].faceNeighborIds[f]];
-        faceNeighborsDevice[cell][f] = buffersDevice[cellInformation[cell].faceNeighborIds[f]];
+        faceNeighbors[cell][f] = buffers[secondaryInformation[cell].faceNeighborIds[f]];
+        faceNeighborsDevice[cell][f] = buffersDevice[secondaryInformation[cell].faceNeighborIds[f]];
         break;
       default:
         faceNeighbors[cell][f] = nullptr;
