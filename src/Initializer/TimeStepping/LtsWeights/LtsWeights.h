@@ -79,9 +79,6 @@ class LtsWeights {
   seissol::initializer::GlobalTimestep m_details;
 
   seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails();
-  void computeMaxTimesteps(const std::vector<double>& pWaveVel,
-                           std::vector<double>& timeSteps,
-                           double maximumAllowedTimeStep);
   int getCluster(double timestep, double globalMinTimestep, double wiggleFactor, unsigned rate);
   FaceType getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face);
   std::vector<int> computeClusterIds(double curWiggleFactor);
