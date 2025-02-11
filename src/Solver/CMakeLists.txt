@@ -8,7 +8,6 @@
 add_library(seissol-solver
     Simulator.cpp
     FreeSurfaceIntegrator.cpp
-    Proxy/MiniSeisSol.cpp
     Clustering/TimeManager.cpp
     Clustering/ActorState.cpp
     Clustering/AbstractTimeCluster.cpp

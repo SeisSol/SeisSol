@@ -105,12 +105,7 @@ TimeCluster::TimeCluster(unsigned int clusterId,
                          double priority)
     : CellCluster(maxTimeStepSize,
                   timeStepRate,
-#ifdef ACL_DEVICE
-                  clusterData->getNumberOfCells() >= deviceHostSwitch() ? Executor::Device
-                                                                        : Executor::Host,
-#else
-                  Executor::Host,
-#endif
+                  seissolInstance.executionPlace(clusterData->getNumberOfCells()),
                   cpuExecutor,
                   priority),
       // cluster ids

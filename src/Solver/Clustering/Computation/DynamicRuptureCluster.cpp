@@ -42,12 +42,7 @@ DynamicRuptureCluster::DynamicRuptureCluster(
     double priority)
     : FaceCluster(maxTimeStepSize,
                   timeStepRate,
-#ifdef ACL_DEVICE
-                  layer->getNumberOfCells() >= deviceHostSwitch() ? Executor::Device
-                                                                  : Executor::Host,
-#else
-                  Executor::Host,
-#endif
+                  seissolInstance.executionPlace(layer->getNumberOfCells()),
                   cpuExecutor,
                   priority),
       profilingId(profilingId), layer(layer), descr(descr), frictionSolver(frictionSolver),

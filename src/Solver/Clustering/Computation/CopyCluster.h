@@ -7,6 +7,8 @@
 #include <Solver/Clustering/ActorState.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 #include <Solver/Clustering/Computation/TimeCluster.h>
+
+#include <utility>
 namespace seissol::solver::clustering::computation {
 
 class CopyCluster : public TimeCluster {
@@ -41,7 +43,7 @@ class CopyCluster : public TimeCluster {
                     actorStateStatistics,
                     cpuExecutor,
                     priority),
-        neighbor(neighbor) {}
+        neighbor(std::move(neighbor)) {}
   LayerType getLayerType() const override { return Copy; }
 
   protected:
