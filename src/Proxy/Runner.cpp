@@ -25,7 +25,6 @@
 #endif
 
 #include "Common.h"
-#include "LikwidWrapper.h"
 
 #ifdef __MIC__
 #define __USE_RDTSC
@@ -53,11 +52,7 @@ void testKernel(std::shared_ptr<ProxyData>& data,
 
 namespace seissol::proxy {
 
-auto runProxy(ProxyConfig config) -> ProxyOutput {
-  LIKWID_MARKER_INIT;
-
-  registerMarkers();
-
+auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   auto kernel = [&]() {
     std::vector<std::shared_ptr<ProxyKernel>> subkernels;
     for (const auto& kernelName : config.kernels) {
@@ -71,15 +66,6 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
   }();
 
   const bool enableDynamicRupture = kernel->needsDR();
-
-#ifdef ACL_DEVICE
-  using DeviceType = ::device::DeviceInstance;
-  auto& device = DeviceType::getInstance();
-  device.api->setDevice(0);
-  device.api->initialize();
-  device.api->allocateStackMem();
-#endif
-  print_hostname();
 
   if (config.verbose) {
     std::cerr << "Allocating fake data... ";
@@ -157,11 +143,6 @@ auto runProxy(ProxyConfig config) -> ProxyOutput {
 
   data.reset();
 
-#ifdef ACL_DEVICE
-  device.finalize();
-#endif
-
-  LIKWID_MARKER_CLOSE;
   return output;
 }
 

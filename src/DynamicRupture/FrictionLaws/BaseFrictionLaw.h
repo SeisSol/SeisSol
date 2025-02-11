@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_BASEFRICTIONLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_BASEFRICTIONLAW_H_
 
+#include <Common/Constants.h>
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/Misc.h"
@@ -52,7 +53,7 @@ class BaseFrictionLaw : public FrictionSolver {
 #pragma omp parallel for schedule(static)
 #endif
       for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-        alignas(Alignment) FaultStresses faultStresses{};
+        alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
         common::precomputeStressFromQInterpolated(faultStresses,
                                                   self.impAndEta[ltsFace],
                                                   self.impedanceMatrices[ltsFace],
@@ -64,10 +65,10 @@ class BaseFrictionLaw : public FrictionSolver {
         std::array<real, misc::NumPaddedPoints> strengthBuffer{0};
 
         static_cast<Derived&>(self).preHook(stateVariableBuffer, ltsFace);
-        TractionResults tractionResults = {};
+        TractionResults<Executor::Host> tractionResults = {};
 
         // loop over sub time steps (i.e. quadrature points in time)
-        for (unsigned timeIndex = 0; timeIndex < CONVERGENCE_ORDER; timeIndex++) {
+        for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
           common::adjustInitialStress(self.initialStressInFaultCS[ltsFace],
                                       self.nucleationStressInFaultCS[ltsFace],
                                       self.initialPressure[ltsFace],
@@ -113,13 +114,15 @@ class BaseFrictionLaw : public FrictionSolver {
                 self.sumDt,
                 self.drParameters->terminatorSlipRateThreshold);
           }
-          common::computeFrictionEnergy(self.energyData[ltsFace],
-                                        self.qInterpolatedPlus[ltsFace],
-                                        self.qInterpolatedMinus[ltsFace],
-                                        self.impAndEta[ltsFace],
-                                        timeWeights,
-                                        spaceWeights,
-                                        self.godunovData[ltsFace]);
+          common::computeFrictionEnergy(energyData[ltsFace],
+                                      qInterpolatedPlus[ltsFace],
+                                      qInterpolatedMinus[ltsFace],
+                                      impAndEta[ltsFace],
+                                      timeWeights,
+                                      spaceWeights,
+                                      godunovData[ltsFace],
+                                      slipRateMagnitude[ltsFace],
+                                      this->drParameters->energiesFromAcrossFaultVelocities);
         }
       }
     });

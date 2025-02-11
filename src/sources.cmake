@@ -89,6 +89,9 @@ add_library(seissol-lib STATIC)
 endif()
 
 target_sources(seissol-lib PRIVATE
+
+src/Solver/Estimator.cpp
+
 src/ResultWriter/EnergyOutput.cpp
 src/ResultWriter/FreeSurfaceWriter.cpp
 src/ResultWriter/FreeSurfaceWriterExecutor.cpp
@@ -303,3 +306,5 @@ target_link_libraries(seissol-lib PUBLIC seissol-solver)
 
 add_subdirectory(src/IO)
 target_link_libraries(seissol-lib PUBLIC seissol-io)
+
+add_subdirectory(src/Proxy)

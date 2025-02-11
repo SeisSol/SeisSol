@@ -47,6 +47,9 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Cray|CrayClang")
   message(WARNING "The communication thread is not supported for the Cray compiler. Make sure to set `SEISSOL_COMMTHREAD=0` when running SeisSol in multi-node setups.")
 endif()
 
+# find Python early
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
@@ -161,6 +164,7 @@ add_custom_command(
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
      "--host_arch" ${HOST_ARCH_STR}
+     "--device_codegen" ${DEVICE_CODEGEN}
      "--device_arch" ${DEVICE_ARCH_STR}
      "--device_backend" ${DEVICE_BACKEND}
      "--order" ${ORDER}
@@ -189,6 +193,8 @@ add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
 add_library(seissol-common-properties INTERFACE IMPORTED)
 
 include(src/sources.cmake)
+
+target_compile_options(seissol-common-properties INTERFACE -fPIC)
 
 # enforce code generation to run before any other target
 add_dependencies(seissol-common-properties seissol-codegen)
@@ -606,11 +612,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if (LIKWID)
   find_package(likwid REQUIRED)
-  if (BUILD_PROXY)
-    target_compile_definitions(seissol-proxy-lib PUBLIC LIKWID_PERFMON)
-    target_include_directories(seissol-proxy-lib PUBLIC ${LIKWID_INCLUDE_DIR})
-    target_link_libraries(seissol-proxy-lib PUBLIC likwid::likwid)
-  endif()
   target_compile_definitions(seissol-lib PUBLIC LIKWID_PERFMON)
   target_include_directories(seissol-lib PUBLIC ${LIKWID_INCLUDE_DIR})
   target_link_libraries(seissol-lib PUBLIC likwid::likwid)

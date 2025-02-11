@@ -27,21 +27,14 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   void allocateAuxiliaryMemory() override;
   void copyStaticDataToDevice() override;
 
-  virtual void
-      copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) {}
-
   protected:
   size_t currLayerSize{};
 
-  FaultStresses* faultStresses{nullptr};
-  TractionResults* tractionResults{nullptr};
-  real (*stateVariableBuffer)[misc::NumPaddedPoints]{nullptr};
-  real (*strengthBuffer)[misc::NumPaddedPoints]{nullptr};
   real* resampleMatrix{nullptr};
   double* devTimeWeights{nullptr};
   real* devSpaceWeights{nullptr};
+
+  FrictionLawData* data{nullptr};
 
   sycl::queue queue;
 };

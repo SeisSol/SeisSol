@@ -29,8 +29,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     stf.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
   }
 
-  void updateFrictionAndSlip(const FaultStresses& faultStresses,
-                             TractionResults& tractionResults,
+  void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
+                             TractionResults<Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::NumPaddedPoints>& strengthBuffer,
                              unsigned ltsFace,

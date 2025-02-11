@@ -38,7 +38,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   protected:
   void readCoordsFromFile() {
     using namespace seissol::initializer;
-    StringsType content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName);
+    StringsType content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName,
+                                                          "pickpoint/on-fault receiver file");
     FileProcessor::removeEmptyLines(content);
 
     // iterate line by line and initialize DrRecordPoints

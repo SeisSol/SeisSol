@@ -5,7 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-add_library(seissol-proxy-lib
+add_library(seissol-proxy OBJECT
     Allocator.cpp
     Common.cpp
     Kernel.cpp
@@ -15,4 +15,5 @@ add_library(seissol-proxy-lib
     Tools.cpp
 )
 
-target_link_libraries(seissol-proxy-lib PUBLIC seissol-lib)
+target_link_libraries(seissol-proxy PUBLIC seissol-common-properties)
+target_link_libraries(seissol-lib PUBLIC seissol-proxy)

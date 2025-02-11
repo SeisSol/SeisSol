@@ -23,8 +23,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
-  void updateFrictionAndSlip(const FaultStresses& faultStresses,
-                             TractionResults& tractionResults,
+  void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
+                             TractionResults<Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::NumPaddedPoints>& strengthBuffer,
                              unsigned ltsFace,
@@ -111,7 +111,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * variable. Also sets slipRateMagnitude member to reference value.
    */
   InitialVariables
-      calcInitialVariables(const FaultStresses& faultStresses,
+      calcInitialVariables(const FaultStresses<Executor::Host>& faultStresses,
                            const std::array<real, misc::NumPaddedPoints>& localStateVariable,
                            unsigned int timeIndex,
                            unsigned int ltsFace) {
@@ -151,7 +151,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       std::array<real, misc::NumPaddedPoints>& localStateVariable,
       std::array<real, misc::NumPaddedPoints>& normalStress,
       const std::array<real, misc::NumPaddedPoints>& absoluteShearStress,
-      const FaultStresses& faultStresses,
+      const FaultStresses<Executor::Host>& faultStresses,
       unsigned int timeIndex,
       unsigned int ltsFace) {
     std::array<real, misc::NumPaddedPoints> testSlipRate{0};
@@ -207,8 +207,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                std::array<real, misc::NumPaddedPoints>& localStateVariable,
                                const std::array<real, misc::NumPaddedPoints>& normalStress,
                                const std::array<real, misc::NumPaddedPoints>& absoluteTraction,
-                               const FaultStresses& faultStresses,
-                               TractionResults& tractionResults,
+                               const FaultStresses<Executor::Host>& faultStresses,
+                               TractionResults<Executor::Host>& tractionResults,
                                unsigned int timeIndex,
                                unsigned int ltsFace) {
 #pragma omp simd
@@ -346,7 +346,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void updateNormalStress(std::array<real, misc::NumPaddedPoints>& normalStress,
-                          const FaultStresses& faultStresses,
+                          const FaultStresses<Executor::Host>& faultStresses,
                           size_t timeIndex,
                           size_t ltsFace) {
     // Todo(SW): consider poroelastic materials together with thermal pressurisation
