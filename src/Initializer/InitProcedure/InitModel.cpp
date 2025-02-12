@@ -20,8 +20,8 @@
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Kernels/Common.h>
-#include <Memory/Tree/Layer.h>
 #include <Kernels/Precision.h>
+#include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
 #include <Modules/Modules.h>

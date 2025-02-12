@@ -219,7 +219,6 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   using namespace seissol::initializer::time_stepping;
   const LtsWeightsConfig config{
       boundaryFormat,
-      seissolParams.model.materialFileName,
       seissolParams.timeStepping.lts.getRate(),
       seissolParams.timeStepping.vertexWeight.weightElement,
       seissolParams.timeStepping.vertexWeight.weightDynamicRupture,

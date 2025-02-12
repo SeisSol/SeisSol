@@ -23,8 +23,7 @@ TEST_CASE("LTS Weights") {
 #ifdef USE_MPI
   std::cout.setstate(std::ios_base::failbit);
   using namespace seissol::initializer::time_stepping;
-  const LtsWeightsConfig config{
-      seissol::initializer::parameters::BoundaryFormat::I32, "Testing/material.yaml", 2, 1, 1, 1};
+  const LtsWeightsConfig config{seissol::initializer::parameters::BoundaryFormat::I32, 2, 1, 1, 1};
 
   const seissol::initializer::parameters::LtsParameters ltsParameters(
       2,
@@ -39,6 +38,7 @@ TEST_CASE("LTS Weights") {
   seissol::initializer::parameters::SeisSolParameters seissolParameters;
   seissolParameters.timeStepping.lts = ltsParameters;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
+  seissolParameters.model.materialFileName = "Testing/material.yaml";
   seissol::SeisSol seissolInstance(seissolParameters);
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
