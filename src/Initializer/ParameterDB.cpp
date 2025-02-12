@@ -8,6 +8,7 @@
 // SPDX-FileContributor: Sebastian Wolf
 
 #include <Common/Constants.h>
+#include <Equations/Datastructures.h>
 #include <Equations/acoustic/Model/Datastructures.h>
 #include <Equations/anisotropic/Model/Datastructures.h>
 #include <Equations/elastic/Model/Datastructures.h>
@@ -24,6 +25,7 @@
 #include <easi/Query.h>
 #include <init.h>
 #include <iterator>
+#include <memory>
 #include <set>
 #include <tensor.h>
 #include <utility>
@@ -117,7 +119,7 @@ CellToVertexArray CellToVertexArray::fromVectors(
       [&](size_t i) { return groups[i]; });
 }
 
-easi::Query ElementBarycentreGenerator::generate() const {
+easi::Query ElementBarycenterGenerator::generate() const {
   easi::Query query(m_cellToVertex.size, 3);
 
 #pragma omp parallel for schedule(static)
@@ -168,7 +170,7 @@ easi::Query ElementAverageGenerator::generate() const {
   return query;
 }
 
-easi::Query FaultBarycentreGenerator::generate() const {
+easi::Query FaultBarycenterGenerator::generate() const {
   const std::vector<Fault>& fault = m_meshReader.getFault();
   const std::vector<Element>& elements = m_meshReader.getElements();
   const std::vector<Vertex>& vertices = m_meshReader.getVertices();
@@ -186,11 +188,11 @@ easi::Query FaultBarycentreGenerator::generate() const {
       side = f.neighborSide;
     }
 
-    double barycentre[3] = {0.0, 0.0, 0.0};
-    MeshTools::center(elements[element], side, vertices, barycentre);
+    double barycenter[3] = {0.0, 0.0, 0.0};
+    MeshTools::center(elements[element], side, vertices, barycenter);
     for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
       for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(q, dim) = barycentre[dim];
+        query.x(q, dim) = barycenter[dim];
       }
       query.group(q) = elements[element].faultTags[side];
     }
@@ -330,9 +332,9 @@ void MaterialParameterDB<AnisotropicMaterial>::addBindingPoints(
 
 template <class T>
 void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
-                                           const QueryGenerator* const queryGen) {
+                                           const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
-  easi::Query query = queryGen->generate();
+  easi::Query query = queryGen.generate();
   const unsigned numPoints = query.numPoints();
 
   std::vector<T> materialsFromQuery(numPoints);
@@ -341,7 +343,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
   model->evaluate(query, adapter);
 
   // Only use homogenization when ElementAverageGenerator has been supplied
-  if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(queryGen)) {
+  if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
     const unsigned numElems = numPoints / NumQuadpoints;
     const std::array<double, NumQuadpoints> quadratureWeights{gen->getQuadratureWeights()};
 
@@ -474,9 +476,9 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
 
 template <>
 void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& fileName,
-                                                             const QueryGenerator* const queryGen) {
+                                                             const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
-  easi::Query query = queryGen->generate();
+  easi::Query query = queryGen.generate();
   auto suppliedParameters = model->suppliedParameters();
   // TODO(Sebastian): inhomogeneous materials, where in some parts only mu and lambda are given
   //                  and in other parts the full elastic tensor is given
@@ -502,10 +504,9 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
   delete model;
 }
 
-void FaultParameterDB::evaluateModel(const std::string& fileName,
-                                     const QueryGenerator* const queryGen) {
+void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
-  easi::Query query = queryGen->generate();
+  easi::Query query = queryGen.generate();
 
   easi::ArraysAdapter<real> adapter;
   for (auto& kv : m_parameters) {
@@ -622,33 +623,25 @@ easi::Component* loadEasiModel(const std::string& fileName) {
   return parser.parse(fileName);
 }
 
-QueryGenerator* getBestQueryGenerator(bool anelasticity,
-                                      bool plasticity,
-                                      bool anisotropy,
-                                      bool poroelasticity,
-                                      bool useCellHomogenizedMaterial,
-                                      const CellToVertexArray& cellToVertex) {
-  QueryGenerator* queryGen = nullptr;
+std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
+                                                      bool useCellHomogenizedMaterial,
+                                                      const CellToVertexArray& cellToVertex) {
+  std::shared_ptr<QueryGenerator> queryGen;
   if (!useCellHomogenizedMaterial) {
-    queryGen = new ElementBarycentreGenerator(cellToVertex);
+    queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
   } else {
-    if (anisotropy) {
-      logWarning()
-          << "Material Averaging is not implemented for anisotropic materials. Falling back to "
-             "material properties sampled from the element barycenters instead.";
-      queryGen = new ElementBarycentreGenerator(cellToVertex);
+    if (MaterialT::Type != MaterialType::Viscoelastic || MaterialT::Type != MaterialType::Elastic) {
+      logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
+                   << " materials. Falling back to "
+                      "material properties sampled from the element barycenters instead.";
+      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
     } else if (plasticity) {
       logWarning()
           << "Material Averaging is not implemented for plastic materials. Falling back to "
              "material properties sampled from the element barycenters instead.";
-      queryGen = new ElementBarycentreGenerator(cellToVertex);
-    } else if (poroelasticity) {
-      logWarning()
-          << "Material Averaging is not implemented for poroelastic materials. Falling back to "
-             "material properties sampled from the element barycenters instead.";
-      queryGen = new ElementBarycentreGenerator(cellToVertex);
+      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
     } else {
-      queryGen = new ElementAverageGenerator(cellToVertex);
+      queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex);
     }
   }
   return queryGen;

@@ -26,16 +26,14 @@ FrictionSolverDetails::FrictionSolverDetails(
     : FrictionSolverInterface(drParameters) {}
 
 FrictionSolverDetails::~FrictionSolverDetails() {
-  if (maxClusterSize == 0)
+  if (maxClusterSize == 0) {
     return;
+  }
 
-  free(faultStresses, queue);
-  free(tractionResults, queue);
-  free(stateVariableBuffer, queue);
-  free(strengthBuffer, queue);
   free(devTimeWeights, queue);
   free(devSpaceWeights, queue);
   free(resampleMatrix, queue);
+  free(data, queue);
   queue.wait_and_throw();
 }
 
@@ -45,24 +43,8 @@ void FrictionSolverDetails::initSyclQueue() {
 }
 
 void FrictionSolverDetails::allocateAuxiliaryMemory() {
-  if (maxClusterSize == 0)
+  if (maxClusterSize == 0) {
     return;
-
-  faultStresses = static_cast<FaultStresses*>(
-      sycl::malloc_device(maxClusterSize * sizeof(FaultStresses), queue));
-
-  tractionResults = static_cast<TractionResults*>(
-      sycl::malloc_device(maxClusterSize * sizeof(TractionResults), queue));
-
-  {
-    const size_t requiredNumBytes = misc::NumPaddedPoints * maxClusterSize * sizeof(real);
-    using StateVariableType = decltype(stateVariableBuffer);
-    stateVariableBuffer =
-        reinterpret_cast<StateVariableType>(sycl::malloc_device(requiredNumBytes, queue));
-
-    using StrengthBufferType = decltype(stateVariableBuffer);
-    strengthBuffer =
-        reinterpret_cast<StrengthBufferType>(sycl::malloc_device(requiredNumBytes, queue));
   }
 
   {
@@ -74,11 +56,16 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
     const size_t requiredNumBytes = misc::NumPaddedPoints * sizeof(real);
     devSpaceWeights = static_cast<real*>(sycl::malloc_device(requiredNumBytes, queue));
   }
+
+  {
+    data = static_cast<FrictionLawData*>(sycl::malloc_device(sizeof(FrictionLawData), queue));
+  }
 }
 
 void FrictionSolverDetails::copyStaticDataToDevice() {
-  if (maxClusterSize == 0)
+  if (maxClusterSize == 0) {
     return;
+  }
 
   {
     constexpr auto Dim0 = misc::dimSize<init::resample, 0>();

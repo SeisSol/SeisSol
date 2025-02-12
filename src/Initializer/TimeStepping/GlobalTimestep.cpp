@@ -56,17 +56,12 @@ GlobalTimestep
                      const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
   using Material = seissol::model::MaterialT;
 
-  auto* queryGen = seissol::initializer::getBestQueryGenerator(
-      seissol::initializer::parameters::isModelAnelastic(),
-      seissolParams.model.plasticity,
-      seissol::initializer::parameters::isModelAnisotropic(),
-      seissol::initializer::parameters::isModelPoroelastic(),
-      seissolParams.model.useCellHomogenizedMaterial,
-      cellToVertex);
+  const auto queryGen = seissol::initializer::getBestQueryGenerator(
+      seissolParams.model.plasticity, seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
   std::vector<Material> materials(cellToVertex.size);
   seissol::initializer::MaterialParameterDB<Material> parameterDB;
   parameterDB.setMaterialVector(&materials);
-  parameterDB.evaluateModel(seissolParams.model.materialFileName, queryGen);
+  parameterDB.evaluateModel(seissolParams.model.materialFileName, *queryGen);
 
   GlobalTimestep timestep;
   timestep.cellTimeStepWidths.resize(cellToVertex.size);

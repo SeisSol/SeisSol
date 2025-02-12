@@ -26,7 +26,6 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "SeisSol.h"
 
-#include "Common/Constants.h"
 #include "Parallel/MPI.h"
 
 #ifdef USE_ASAGI
@@ -109,7 +108,6 @@ int main(int argc, char* argv[]) {
   logInfo() << "Copyright (c) 2012 -" << COMMIT_YEAR << " SeisSol Group";
   logInfo() << "Version:" << VERSION_STRING;
   logInfo() << "Built on:" << __DATE__ << __TIME__;
-  logInfo() << "Built with Convergence Order:" << ConvergenceOrder;
 #ifdef COMMIT_HASH
   logInfo() << "Last commit:" << COMMIT_HASH << "at" << COMMIT_TIMESTAMP;
 #endif

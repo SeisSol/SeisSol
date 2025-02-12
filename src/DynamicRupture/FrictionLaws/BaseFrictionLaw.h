@@ -48,7 +48,7 @@ class BaseFrictionLaw : public FrictionSolver {
 #pragma omp parallel for schedule(static)
 #endif
     for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-      alignas(Alignment) FaultStresses faultStresses{};
+      alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
@@ -75,7 +75,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                "computeDynamicRuptureUpdateFrictionAndSlip",
                                SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRuptureUpdateFrictionAndSlip");
-      TractionResults tractionResults = {};
+      TractionResults<Executor::Host> tractionResults = {};
 
       // loop over sub time steps (i.e. quadrature points in time)
       for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
