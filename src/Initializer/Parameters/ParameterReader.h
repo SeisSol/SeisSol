@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_PARAMETERREADER_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_PARAMETERREADER_H_
 
+#include <optional>
 #include <string>
 #include <unordered_set>
 
