@@ -14,7 +14,6 @@
 #include <array>
 #include <cmath>
 #include <mpi.h>
-#include <string>
 #include <vector>
 
 #include "Equations/Datastructures.h"

@@ -13,6 +13,7 @@
 #include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
 #include <Common/Iterator.h>
+#include <Initializer/ParameterDB.h>
 #include <Initializer/Parameters/DRParameters.h>
 #include <Initializer/TimeStepping/GlobalTimestep.h>
 #include <SeisSol.h>

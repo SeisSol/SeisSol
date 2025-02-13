@@ -685,10 +685,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         break;
       }
       case seissol::model::MaterialType::Poroelastic: {
-        auto plusEigenpair = seissol::model::getEigenDecomposition(
-            *dynamic_cast<seissol::model::PoroElasticMaterial*>(plusMaterial));
-        auto minusEigenpair = seissol::model::getEigenDecomposition(
-            *dynamic_cast<seissol::model::PoroElasticMaterial*>(minusMaterial));
+        auto plusEigenpair =
+            seissol::model::getEigenDecomposition(*dynamic_cast<model::MaterialT*>(plusMaterial));
+        auto minusEigenpair =
+            seissol::model::getEigenDecomposition(*dynamic_cast<model::MaterialT*>(minusMaterial));
 
         // The impedance matrices are diagonal in the (visco)elastic case, so we only store
         // the values Zp, Zs. In the poroelastic case, the fluid pressure and normal component
