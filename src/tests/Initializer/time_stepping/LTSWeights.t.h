@@ -37,6 +37,7 @@ TEST_CASE("LTS Weights") {
       seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
   seissol::initializer::parameters::SeisSolParameters seissolParameters;
   seissolParameters.timeStepping.lts = ltsParameters;
+  seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
   seissolParameters.model.materialFileName = "Testing/material.yaml";
   seissol::SeisSol seissolInstance(seissolParameters);
