@@ -156,7 +156,25 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
-  auto enabled = reader->readWithDefault("wavefieldoutput", true);
+  bool enabled = false;
+  const auto enabledPre = reader->read<bool>("wavefieldoutput");
+  if (enabledPre.has_value()) {
+    enabled = enabledPre.value();
+  } else if (reader->hasField("format")) {
+    const auto format = reader->readWithDefaultEnum<OutputFormat>(
+        "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
+
+    // TODO: deprecate the "format" value for real
+    logInfo()
+        << "Disabling/enabling the wavefield output via the \"format\" option is deprecated "
+           "and may be removed in a future version of SeisSol. Consider using the parameter "
+           "\"wavefieldoutput\" instead. To enable/disable wavefield output, add \"wavefieldoutput "
+           "= 1\" or \"wavefieldoutput = 0\" to the \"output\" section of your parameters file, "
+           "respectively.";
+
+    enabled = format == OutputFormat::Xdmf;
+  }
+
   const auto interval = reader->readWithDefault("timeinterval", VeryLongTime);
   warnIntervalAndDisable(enabled, interval, "wavefieldoutput", "timeinterval");
   const auto refinement =
@@ -177,17 +195,6 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
   const OutputInterval intervalZ = {boundsRaw[4], boundsRaw[5]};
   const OutputBounds bounds(boundsEnabled, intervalX, intervalY, intervalZ);
 
-  const auto format = reader->readWithDefaultEnum<OutputFormat>(
-      "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
-  if (enabled && format == OutputFormat::None) {
-    logInfo() << "Disabling the wavefield output by setting \"outputformat = 10\" is deprecated "
-                 "and may be removed in a future version of SeisSol. Consider using the parameter "
-                 "\"wavefieldoutput\" instead. To disable wavefield output, add \"wavefieldoutput "
-                 "= 0\" to the \"output\" section of your parameters file.";
-
-    enabled = false;
-  }
-
   const auto outputMaskString =
       reader->readOrFail<std::string>("ioutputmask", "No output mask given.");
   const std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask =
@@ -207,6 +214,10 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());
 
   const auto vtkorder = reader->readWithDefault("wavefieldvtkorder", -1);
+
+  if (enabledPre.has_value()) {
+    reader->warnDeprecated({"format"});
+  }
 
   return WaveFieldOutputParameters{enabled,
                                    vtkorder,
