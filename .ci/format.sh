@@ -33,6 +33,7 @@ format() {
         src/Physics
         src/Proxy
         src/Reader
+        src/Solver
         src/ResultWriter
         src/SourceTerm
         src/tests

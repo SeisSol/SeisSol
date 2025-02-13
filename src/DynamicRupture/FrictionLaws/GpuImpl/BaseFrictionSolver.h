@@ -48,6 +48,10 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       : FrictionSolverDetails(drParameters) {}
   ~BaseFrictionSolver<Derived>() override = default;
 
+  std::unique_ptr<FrictionSolver> clone() override {
+    return std::make_unique<Derived>(*static_cast<Derived*>(this));
+  }
+
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,

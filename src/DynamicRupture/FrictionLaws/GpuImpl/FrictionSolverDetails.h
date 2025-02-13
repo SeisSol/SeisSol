@@ -36,7 +36,6 @@ class FrictionSolverDetails : public FrictionSolverInterface {
 
   FrictionLawData* data{nullptr};
 
-  sycl::device device;
   sycl::queue queue;
 };
 } // namespace seissol::dr::friction_law::gpu

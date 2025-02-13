@@ -39,7 +39,7 @@ FrictionSolverDetails::~FrictionSolverDetails() {
 
 void FrictionSolverDetails::initSyclQueue() {
   auto& instance = seissol::AcceleratorDevice::getInstance();
-  queue = instance.getSyclDefaultQueue();
+  queue = instance.getInorderSyclQueue();
 }
 
 void FrictionSolverDetails::allocateAuxiliaryMemory() {

@@ -34,6 +34,8 @@ class AcceleratorDevice {
 
   sycl::queue& getSyclDefaultQueue() { return syclDefaultQueue; }
 
+  sycl::queue getInorderSyclQueue();
+
   void printInfo();
 
   private:
