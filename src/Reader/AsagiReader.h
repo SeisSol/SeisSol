@@ -15,12 +15,6 @@
 #include "easi/util/AsagiReader.h"
 #include <asagi.h>
 
-#include "utils/env.h"
-#include "utils/logger.h"
-
-#include "AsagiModule.h"
-#include "Monitoring/Instrumentation.h"
-
 namespace seissol::asagi {
 enum class NumaCacheMode { Off, On, Cache };
 
@@ -45,8 +39,8 @@ class AsagiReader : public easi::AsagiReader {
 #endif
   );
 
-  virtual ::asagi::Grid* open(const char* file, const char* varname);
-  virtual unsigned numberOfThreads() const;
+  ::asagi::Grid* open(const char* file, const char* varname) override;
+  [[nodiscard]] unsigned numberOfThreads() const override;
 
   private:
   static NumaCacheMode getNumaMode();

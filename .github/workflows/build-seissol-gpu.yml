@@ -112,7 +112,7 @@ jobs:
           export CXX=${{matrix.setup.cxx}}
           export FC=${{matrix.setup.fc}}
 
-          cmake .. -GNinja -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DSYCL_CC=${{matrix.setup.syclcc}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms -DCMAKE_INSTALL_PREFIX=/opt/seissol
+          cmake .. -GNinja -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DSYCL_CC=${{matrix.setup.syclcc}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
           ninja install
 
       - name: upload-seissol

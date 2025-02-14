@@ -22,8 +22,8 @@ class NoFault : public BaseFrictionLaw<NoFault> {
                           const seissol::initializer::DynamicRupture* const dynRup,
                           real fullUpdateTime) {}
 
-  static void updateFrictionAndSlip(const FaultStresses& faultStresses,
-                                    TractionResults& tractionResults,
+  static void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
+                                    TractionResults<Executor::Host>& tractionResults,
                                     std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                                     std::array<real, misc::NumPaddedPoints>& strengthBuffer,
                                     unsigned ltsFace,
