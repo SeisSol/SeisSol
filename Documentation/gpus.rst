@@ -125,10 +125,9 @@ the following will force SeisSol to allocate 1.5GB of stack GPU memory for tempo
     export DEVICE_STACK_MEM_SIZE=1.5
     mpirun -n <M x N> ./SeisSol_dsm70_cuda_* ./parameters.par
 
-The following device-specific environment variables are supported right now:
+The following device-specific environment variable is supported right now:
 
 * ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``
-* ``SEISSOL_SERIAL_NODE_DEVICE_INIT``
 
 Currently, SeisSol allocates MPI buffers using the global memory type.
 Some MPI implementations are not GPU-aware and do not support direct point-to-point
@@ -142,8 +141,3 @@ The default value is ``direct`` which copies the data out of the GPU buffers dir
    :alt: Data Flow Diagram
    :width: 10.0cm
    :align: center
-
-The environment variable ``SEISSOL_SERIAL_NODE_DEVICE_INIT`` exists to mitigate some possible execution bugs
-with regard to AMD GPU drivers. It is disabled by default and scheduled for removal long-term.
-To enable it, set ``SEISSOL_SERIAL_NODE_DEVICE_INIT=1``. To explicitly disable it,
-write ``SEISSOL_SERIAL_NODE_DEVICE_INIT=0``.

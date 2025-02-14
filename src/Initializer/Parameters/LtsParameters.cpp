@@ -7,7 +7,9 @@
 
 #include "LtsParameters.h"
 
+#include <Equations/Datastructures.h>
 #include <Initializer/Parameters/ParameterReader.h>
+#include <Model/CommonDatastructures.h>
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -17,8 +19,6 @@
 #include <stdexcept>
 #include <string>
 #include <utils/logger.h>
-
-#include "ModelParameters.h"
 
 namespace seissol::initializer::parameters {
 
@@ -153,11 +153,13 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
   const double cfl = reader->readWithDefault("cfl", 0.5);
   double maxTimestepWidth = std::numeric_limits<double>::max();
 
-  if constexpr (isModelViscoelastic()) {
+  constexpr auto IsViscoelastic =
+      seissol::model::MaterialT::Type == seissol::model::MaterialType::Viscoelastic;
+
+  if constexpr (IsViscoelastic) {
     auto* modelReader = baseReader->readSubNode("equations");
-    const auto freqCentral =
-        modelReader->readIfRequired<double>("freqcentral", isModelViscoelastic());
-    const auto freqRatio = modelReader->readIfRequired<double>("freqratio", isModelViscoelastic());
+    const auto freqCentral = modelReader->readIfRequired<double>("freqcentral", IsViscoelastic);
+    const auto freqRatio = modelReader->readIfRequired<double>("freqratio", IsViscoelastic);
     const double maxTimestepWidthDefault = 0.25 / (freqCentral * std::sqrt(freqRatio));
     maxTimestepWidth = reader->readWithDefault("fixtimestep", maxTimestepWidthDefault);
     if (maxTimestepWidth > maxTimestepWidthDefault) {

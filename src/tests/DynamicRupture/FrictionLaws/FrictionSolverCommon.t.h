@@ -19,8 +19,8 @@ using namespace seissol;
 using namespace seissol::dr;
 
 TEST_CASE("Friction Solver Common") {
-  FaultStresses faultStresses{};
-  TractionResults tractionResults{};
+  FaultStresses<Executor::Host> faultStresses{};
+  TractionResults<Executor::Host> tractionResults{};
   ImpedancesAndEta impAndEta;
   alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()] = {{}};
   alignas(Alignment)
