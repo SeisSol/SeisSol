@@ -25,8 +25,8 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters) {}
 
-  void updateFrictionAndSlip(const FaultStresses& faultStresses,
-                             TractionResults& tractionResults,
+  void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
+                             TractionResults<Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::NumPaddedPoints>& strengthBuffer,
                              unsigned int ltsFace,
@@ -63,8 +63,8 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
    *  compute the slip rate and the traction from the fault strength and fault stresses
    *  also updates the directional slip1 and slip2
    */
-  void calcSlipRateAndTraction(const FaultStresses& faultStresses,
-                               TractionResults& tractionResults,
+  void calcSlipRateAndTraction(const FaultStresses<Executor::Host>& faultStresses,
+                               TractionResults<Executor::Host>& tractionResults,
                                std::array<real, misc::NumPaddedPoints>& strength,
                                unsigned int timeIndex,
                                unsigned int ltsFace) {
@@ -147,7 +147,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     }
   }
 
-  void calcStrengthHook(const FaultStresses& faultStresses,
+  void calcStrengthHook(const FaultStresses<Executor::Host>& faultStresses,
                         std::array<real, misc::NumPaddedPoints>& strength,
                         unsigned int timeIndex,
                         unsigned int ltsFace) {
