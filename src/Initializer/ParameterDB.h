@@ -64,12 +64,9 @@ struct CellToVertexArray {
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
-QueryGenerator* getBestQueryGenerator(bool anelasticity,
-                                      bool plasticity,
-                                      bool anisotropy,
-                                      bool poroelasticity,
-                                      bool useCellHomogenizedMaterial,
-                                      const CellToVertexArray& cellToVertex);
+std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
+                                                      bool useCellHomogenizedMaterial,
+                                                      const CellToVertexArray& cellToVertex);
 
 class QueryGenerator {
   public:
@@ -77,9 +74,9 @@ class QueryGenerator {
   [[nodiscard]] virtual easi::Query generate() const = 0;
 };
 
-class ElementBarycentreGenerator : public QueryGenerator {
+class ElementBarycenterGenerator : public QueryGenerator {
   public:
-  explicit ElementBarycentreGenerator(const CellToVertexArray& cellToVertex)
+  explicit ElementBarycenterGenerator(const CellToVertexArray& cellToVertex)
       : m_cellToVertex(cellToVertex) {}
   [[nodiscard]] easi::Query generate() const override;
 
@@ -101,9 +98,9 @@ class ElementAverageGenerator : public QueryGenerator {
   std::array<std::array<double, 3>, NumQuadpoints> m_quadraturePoints{};
 };
 
-class FaultBarycentreGenerator : public QueryGenerator {
+class FaultBarycenterGenerator : public QueryGenerator {
   public:
-  FaultBarycentreGenerator(const seissol::geometry::MeshReader& meshReader, unsigned numberOfPoints)
+  FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader, unsigned numberOfPoints)
       : m_meshReader(meshReader), m_numberOfPoints(numberOfPoints) {}
   [[nodiscard]] easi::Query generate() const override;
 
@@ -127,7 +124,7 @@ class FaultGPGenerator : public QueryGenerator {
 class ParameterDB {
   public:
   virtual ~ParameterDB() = default;
-  virtual void evaluateModel(const std::string& fileName, const QueryGenerator* queryGen) = 0;
+  virtual void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) = 0;
   static easi::Component* loadModel(const std::string& fileName);
 };
 
@@ -137,7 +134,7 @@ class MaterialParameterDB : ParameterDB {
   T computeAveragedMaterial(unsigned elementIdx,
                             const std::array<double, NumQuadpoints>& quadratureWeights,
                             const std::vector<T>& materialsFromQuery);
-  void evaluateModel(const std::string& fileName, const QueryGenerator* queryGen) override;
+  void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
   void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
   void addBindingPoints(easi::ArrayOfStructsAdapter<T>& adapter) {};
 
@@ -151,7 +148,7 @@ class FaultParameterDB : ParameterDB {
   void addParameter(const std::string& parameter, real* memory, unsigned stride = 1) {
     m_parameters[parameter] = std::make_pair(memory, stride);
   }
-  void evaluateModel(const std::string& fileName, const QueryGenerator* queryGen) override;
+  void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
   static std::set<std::string> faultProvides(const std::string& fileName);
 
   private:

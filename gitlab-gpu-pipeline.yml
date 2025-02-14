@@ -173,7 +173,7 @@ gpu_run_tpv:
         - if [ "$PRECISION" = single ]; then LPREC=s; fi;
         - if [ "$PRECISION" = double ]; then LPREC=d; fi;
         - cd precomputed-seissol
-        - git checkout 2ae63167d0c5e35cb01c56198dba94a2b7a224d9
+        - git checkout 2f9558e9c441675ec6636d8fa71471acb5f5a4e5
         - cd ..
         - cd ./build_${BACKEND}_${PRECISION}_${EQUATION} ;
         - cp -r ../precomputed-seissol/tpv${tpv}/* .

@@ -80,9 +80,9 @@ foreach(component ${_GEMM_TOOLS_LIST})
         # no includes necessary
 
     elseif ("${component}" STREQUAL "GemmForge")
-        execute_process(COMMAND python3 -c "import gemmforge; gemmforge.print_cmake_path()"
+        execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import gemmforge; gemmforge.print_cmake_path()"
                         OUTPUT_VARIABLE GEMMFORGE_PATH)
-        set(CMAKE_PREFIX_PATH "${GEMMFORGE_PATH}" ${CMAKE_MODULE_PATH})
+        set(CMAKE_PREFIX_PATH "${GEMMFORGE_PATH}" ${CMAKE_PREFIX_PATH})
         find_package(GemmForge 0.0.207 REQUIRED)
         set(DEVICE_SRC ${DEVICE_SRC} ${GemmForge_SOURCES})
         set(DEVICE_INCLUDE_DIRS ${DEVICE_INCLUDE_DIRS} ${GemmForge_INCLUDE_DIRS})
@@ -91,6 +91,14 @@ foreach(component ${_GEMM_TOOLS_LIST})
         find_package(tinytc 0.3.1 REQUIRED shared)
         find_package(tinytc_sycl 0.3.1 REQUIRED shared)
         set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} tinytc::tinytc tinytc::tinytc_sycl)
+
+    elseif ("${component}" STREQUAL "TensorForge")
+        execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import tensorforge; tensorforge.print_cmake_path()"
+                        OUTPUT_VARIABLE TENSORFORGE_PATH)
+        set(CMAKE_PREFIX_PATH "${TENSORFORGE_PATH}" ${CMAKE_PREFIX_PATH})
+        find_package(TensorForge REQUIRED)
+        set(DEVICE_SRC ${DEVICE_SRC} ${TensorForge_SOURCES})
+        set(DEVICE_INCLUDE_DIRS ${DEVICE_INCLUDE_DIRS} ${TensorForge_INCLUDE_DIRS})
 
     else()
         message(FATAL_ERROR "Gemm Tools do not have a requested component, i.e. ${component}. \

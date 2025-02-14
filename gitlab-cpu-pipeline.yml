@@ -136,7 +136,7 @@ run_tpv:
         - git clone https://github.com/SeisSol/precomputed-seissol.git
         - ls
         - cd precomputed-seissol
-        - git checkout 2ae63167d0c5e35cb01c56198dba94a2b7a224d9
+        - git checkout 2f9558e9c441675ec6636d8fa71471acb5f5a4e5
         - cd ..
         - export equations=elastic
         - if [ "$tpv" = ahsp ]; then equations=anisotropic; fi;
