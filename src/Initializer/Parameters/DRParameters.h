@@ -55,6 +55,7 @@ struct DRParameters {
   bool isThermalPressureOn{false};
   bool isFrictionEnergyRequired{false};
   bool isCheckAbortCriteraEnabled{false};
+  bool energiesFromAcrossFaultVelocities{false};
   OutputType outputPointType{3};
   RefPointMethod refPointMethod{0};
   SlipRateOutputType slipRateOutputType{1};

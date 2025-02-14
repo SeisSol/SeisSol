@@ -6,14 +6,15 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "NoFault.h"
+#include "Common/Executor.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Kernels/Precision.h"
 #include <array>
 
 namespace seissol::dr::friction_law {
-void NoFault::updateFrictionAndSlip(const FaultStresses& faultStresses,
-                                    TractionResults& tractionResults,
+void NoFault::updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
+                                    TractionResults<Executor::Host>& tractionResults,
                                     std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                                     std::array<real, misc::NumPaddedPoints>& strengthBuffer,
                                     unsigned ltsFace,
