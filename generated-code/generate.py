@@ -223,6 +223,7 @@ def main():
             gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=include_tensors,
+            routine_exporters=custom_routine_generators,
         )
 
     def generate_general(subfolders):
@@ -246,6 +247,7 @@ def main():
             gemm_cfg=GeneratorCollection([Eigen(arch)]),
             cost_estimator=cost_estimators,
             include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir),
+            routine_exporters=custom_routine_generators,
         )
 
     def forward_files(filename):
