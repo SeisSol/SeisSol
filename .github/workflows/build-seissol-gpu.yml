@@ -103,8 +103,13 @@ jobs:
               mechanisms=0
           fi
 
-          if [ "${{ matrix.equation }}" = viscoelastic2 || "${{ matrix.equation }}" = poroelastic ]; then
-              pip install git+https://github.com/seissol/tensorforge@develop
+          if [ "${{ matrix.equation }}" = viscoelastic2 ] || [ "${{ matrix.equation }}" = poroelastic ]; then
+              if [ "${{ matrix.setup.cc }}" = icx ]; then
+                  # the Intel image still works with an older Python version
+                  pip install git+https://github.com/seissol/tensorforge@develop
+              else
+                  pip install --break-system-packages git+https://github.com/seissol/tensorforge@develop
+              fi
               DEVICE_CODEGEN=tensorforge
           else
               DEVICE_CODEGEN=auto
@@ -179,16 +184,16 @@ jobs:
             energies: true
             receivers: true
             fault: true
-          #- name: tpv5-visco
-          #  equation: viscoelastic2
-          #  energies: true
-          #  receivers: true
-          #  fault: true
-          #- name: tpv5-poro
-          #  equation: poroelastic
-          #  energies: true
-          #  receivers: true
-          #  fault: true
+          - name: tpv5-visco
+            equation: viscoelastic2
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv5-poro
+            equation: poroelastic
+            energies: true
+            receivers: true
+            fault: true
           - name: tpv6
             equation: elastic
             energies: true
