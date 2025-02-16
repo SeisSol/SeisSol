@@ -15,8 +15,7 @@ from yateto.ast.node import Add
 from yateto.input import (memoryLayoutFromFile, parseJSONMatrixFile,
                           parseXMLMatrixFile)
 from yateto.memory import CSCMemoryLayout
-from yateto.util import (tensor_collection_from_constant_expression,
-                         tensor_from_constant_expression)
+from yateto.util import tensor_collection_from_constant_expression
 
 
 class Viscoelastic2ADERDG(ADERDGBase):
