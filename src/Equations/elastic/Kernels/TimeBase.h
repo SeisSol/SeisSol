@@ -38,9 +38,9 @@ class TimeBase {
 
 #ifdef ACL_DEVICE
 #ifdef USE_STP
-  kernel::gpu_spaceTimePredictor gpuKrnlPrototype;
+  kernel::gpu_spaceTimePredictor deviceKrnlPrototype;
 #else
-  kernel::gpu_derivative gpuKrnlPrototype;
+  kernel::gpu_derivative deviceKrnlPrototype;
 #endif
   kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();

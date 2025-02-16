@@ -66,19 +66,20 @@ void Time::setGlobalData(const CompoundGlobalData& global) {
   for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
-        gpuKrnlPrototype.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
+        deviceKrnlPrototype.kDivMTSub(d, n) =
+            init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
       }
     }
-    gpuKrnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
+    deviceKrnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
   }
   for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-    gpuKrnlPrototype.selectQuantity(k) =
+    deviceKrnlPrototype.selectQuantity(k) =
         init::selectQuantity::Values[tensor::selectQuantity::index(k)];
-    gpuKrnlPrototype.selectQuantityG(k) =
+    deviceKrnlPrototype.selectQuantityG(k) =
         init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
   }
-  gpuKrnlPrototype.timeInt = init::timeInt::Values;
-  gpuKrnlPrototype.wHat = init::wHat::Values;
+  deviceKrnlPrototype.timeInt = init::timeInt::Values;
+  deviceKrnlPrototype.wHat = init::wHat::Values;
 #endif
 }
 
@@ -300,7 +301,7 @@ void Time::computeBatchedAder(double i_timeStepWidth,
   assert(((uintptr_t)stp) % ALIGNMENT == 0);
   std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
-  kernel::gpu_spaceTimePredictor krnl = gpuKrnlPrototype;
+  kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
