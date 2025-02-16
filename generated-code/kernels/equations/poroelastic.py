@@ -257,11 +257,14 @@ class PoroelasticADERDG(LinearADERDG):
                         )
                 if n > 0:
                     derivativeSum = spaceTimePredictorRhs["kpt"]
+                    star = (
+                        (lambda d: self.starMatrix(d)["qp"] * timestep)
+                        if target == "gpu"
+                        else lambda d: self.starMatrix(d)["qp"]
+                    )
                     for d in range(3):
                         derivativeSum += (
-                            kSub(d, n)["kl"]
-                            * spaceTimePredictor["lqt"]
-                            * self.starMatrix(d)["qp"]
+                            kSub(d, n)["kl"] * spaceTimePredictor["lqt"] * star(d)
                         )
                 kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
             kernels.append(
