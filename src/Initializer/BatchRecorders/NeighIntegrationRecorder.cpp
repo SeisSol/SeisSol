@@ -69,9 +69,9 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
               if (isNeighbProvidesDerivatives) {
                 real* nextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
-                const bool isGtsNeigbour =
+                const bool isGtsNeighbor =
                     ((dataHost.cellInformation().ltsSetup >> (face + 4)) % 2) == 1;
-                if (isGtsNeigbour) {
+                if (isGtsNeighbor) {
 
                   idofsAddressRegistry[neighborBuffer] = nextTempIDofsPtr;
                   gtsIDofsPtrs.push_back(nextTempIDofsPtr);
