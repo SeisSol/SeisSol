@@ -27,10 +27,12 @@ jobs:
           - snb # <-- needed for the self-hosted CI node for now :/
         build_type:
           - Release
-          - Debug
+          #- Debug
         equation:
           - acoustic
           - elastic
+          - poroelastic
+          - viscoelastic2
           - anisotropic
         precision:
           - single
@@ -101,6 +103,13 @@ jobs:
               mechanisms=0
           fi
 
+          if [ "${{ matrix.equation }}" = viscoelastic2 || "${{ matrix.equation }}" = poroelastic ]; then
+              pip install git+https://github.com/seissol/tensorforge@develop
+              DEVICE_CODEGEN=tensorforge
+          else
+              DEVICE_CODEGEN=auto
+          fi
+
           # TODO: change to `-Wall -Werror` at some point
           EXTRA_FLAGS="-Wall"
 
@@ -115,7 +124,7 @@ jobs:
           export CXX=${{matrix.setup.cxx}}
           export FC=${{matrix.setup.fc}}
 
-          cmake .. -GNinja -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DSYCL_CC=${{matrix.setup.syclcc}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
+          cmake .. -GNinja -DDEVICE_CODEGEN=${DEVICE_CODEGEN} -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DSYCL_CC=${{matrix.setup.syclcc}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
           ninja install
 
       - name: upload-seissol
