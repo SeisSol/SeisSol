@@ -14,8 +14,7 @@
 #include "generated_code/kernel.h"
 #include <memory>
 
-namespace seissol {
-namespace kernels {
+namespace seissol::kernels {
 class LocalBase {
   protected:
   double gravitationalAcceleration;
@@ -24,12 +23,18 @@ class LocalBase {
   kernel::local m_localKernelPrototype;
   const std::vector<std::unique_ptr<physics::InitialField>>* initConds;
 
+#ifdef ACL_DEVICE
+  kernel::gpu_volumeExt deviceVolumeKernelPrototype;
+  kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype;
+  kernel::gpu_local deviceLocalKernelPrototype;
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+#endif
+
   public:
   virtual void setInitConds(decltype(initConds) initConds) { this->initConds = initConds; }
 
   void setGravitationalAcceleration(double g) { gravitationalAcceleration = g; }
 };
-} // namespace kernels
-} // namespace seissol
+} // namespace seissol::kernels
 
 #endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_LOCALBASE_H_

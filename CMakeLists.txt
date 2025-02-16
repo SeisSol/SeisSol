@@ -365,7 +365,7 @@ if (INTEGRATE_QUANTITIES)
   target_compile_definitions(seissol-common-properties INTERFACE INTEGRATE_QUANTITIES)
 endif()
 
-if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
   target_compile_definitions(seissol-common-properties INTERFACE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 endif()
 

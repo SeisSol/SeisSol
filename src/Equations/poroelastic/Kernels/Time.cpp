@@ -62,7 +62,23 @@ void Time::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 
 #ifdef ACL_DEVICE
-  logError() << "Poroelasticity does not work on GPUs.";
+  // TODO: adjust pointers
+  for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
+    if (n > 0) {
+      for (int d = 0; d < 3; ++d) {
+        gpuKrnlPrototype.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
+      }
+    }
+    gpuKrnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
+  }
+  for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
+    gpuKrnlPrototype.selectQuantity(k) =
+        init::selectQuantity::Values[tensor::selectQuantity::index(k)];
+    gpuKrnlPrototype.selectQuantityG(k) =
+        init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
+  }
+  gpuKrnlPrototype.timeInt = init::timeInt::Values;
+  gpuKrnlPrototype.wHat = init::wHat::Values;
 #endif
 }
 
@@ -272,6 +288,63 @@ void Time::computeTaylorExpansion(real time,
 void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
   nonZeroFlops = kernel::derivativeTaylorExpansion::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
+}
+
+void Time::computeBatchedAder(double i_timeStepWidth,
+                              LocalTmp& tmp,
+                              ConditionalPointersToRealsTable& dataTable,
+                              ConditionalMaterialTable& materialTable,
+                              bool updateDisplacement) {
+#ifdef ACL_DEVICE
+  alignas(PAGESIZE_STACK) real stpRhs[tensor::spaceTimePredictorRhs::size()];
+  assert(((uintptr_t)stp) % ALIGNMENT == 0);
+  std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
+  std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
+  kernel::gpu_spaceTimePredictor krnl = gpuKrnlPrototype;
+
+  ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
+  if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
+    auto& entry = dataTable[timeVolumeKernelKey];
+
+    const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+    krnl.numElements = numElements;
+
+    krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+    krnl.Q = (entry.get(inner_keys::Wp::Id::Qdofs))->getDeviceDataPtr();
+    krnl.timestep = i_timeStepWidth;
+    krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Stp))->getDeviceDataPtr();
+    krnl.spaceTimePredictorRhs = (entry.get(inner_keys::Wp::Id::StpRhs))->getDeviceDataPtr();
+
+    std::size_t starOffset = 0;
+    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+      krnl.star(i) =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
+      krnl.extraOffset_star(i) = starOffset;
+      starOffset += tensor::star::size(i);
+    }
+
+    krnl.Gk = data.localIntegration.specific.G[10] * i_timeStepWidth;
+    krnl.Gl = data.localIntegration.specific.G[11] * i_timeStepWidth;
+    krnl.Gm = data.localIntegration.specific.G[12] * i_timeStepWidth;
+
+    krnl.streamPtr = device.api->getDefaultStream();
+
+    if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
+      assert(false && "NYI");
+    }
+
+    std::size_t zinvOffset = 0;
+    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv>(); i++) {
+      krnl.Zinv(i) =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Zinv))->getDeviceDataPtr());
+      krnl.extraOffset_Zinv(i) = zinvOffset;
+      zinvOffset += tensor::Zinv::size(i);
+    }
+    krnl.execute();
+  }
+#else
+  assert(false && "no implementation provided");
+#endif
 }
 
 } // namespace seissol::kernels
