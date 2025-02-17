@@ -291,16 +291,13 @@ void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlop
   hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }
 
-void Time::computeBatchedAder(double i_timeStepWidth,
+void Time::computeBatchedAder(double timeStepWidth,
                               LocalTmp& tmp,
                               ConditionalPointersToRealsTable& dataTable,
                               ConditionalMaterialTable& materialTable,
-                              bool updateDisplacement) {
+                              bool updateDisplacement,
+                              seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-  alignas(PAGESIZE_STACK) real stpRhs[tensor::spaceTimePredictorRhs::size()];
-  assert(((uintptr_t)stp) % ALIGNMENT == 0);
-  std::fill(std::begin(stpRhs), std::end(stpRhs), 0);
-  std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
   kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
@@ -311,8 +308,10 @@ void Time::computeBatchedAder(double i_timeStepWidth,
     krnl.numElements = numElements;
 
     krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
-    krnl.Q = (entry.get(inner_keys::Wp::Id::Qdofs))->getDeviceDataPtr();
-    krnl.timestep = i_timeStepWidth;
+    krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+    krnl.timestep = timeStepWidth;
+
+    // TODO: maybe zero init?
     krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Stp))->getDeviceDataPtr();
     krnl.spaceTimePredictorRhs = (entry.get(inner_keys::Wp::Id::StpRhs))->getDeviceDataPtr();
 
@@ -324,15 +323,19 @@ void Time::computeBatchedAder(double i_timeStepWidth,
       starOffset += tensor::star::size(i);
     }
 
-    krnl.Gk = data.localIntegration.specific.G[10] * i_timeStepWidth;
-    krnl.Gl = data.localIntegration.specific.G[11] * i_timeStepWidth;
-    krnl.Gm = data.localIntegration.specific.G[12] * i_timeStepWidth;
+    krnl.streamPtr = runtime.stream();
 
-    krnl.streamPtr = device.api->getDefaultStream();
+    /*
+    // TODO: port
+    krnl.Gk = data.localIntegration.specific.G[10] * timeStepWidth;
+    krnl.Gl = data.localIntegration.specific.G[11] * timeStepWidth;
+    krnl.Gm = data.localIntegration.specific.G[12] * timeStepWidth;
 
-    if (i_timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
+    if (timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
       assert(false && "NYI");
     }
+
+    */
 
     std::size_t zinvOffset = 0;
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv>(); i++) {
