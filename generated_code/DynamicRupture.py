@@ -62,7 +62,14 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   TinvT = Tensor('TinvT', trans_inv_spp_T.shape, spp=trans_inv_spp_T)
   flux_solver_spp = aderdg.flux_solver_spp()
   fluxSolver    = Tensor('fluxSolver', flux_solver_spp.shape, spp=flux_solver_spp)
-  
+  fluxSolverMultipleSim = OptionalDimTensor('fluxSolverMultipleSim', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), flux_solver_spp.shape)
+  fluxSolverMultiple_ijs = Tensor('fluxSolverMultiple_ijs', (flux_solver_spp.shape[0], flux_solver_spp.shape[1], aderdg.multipleSimulations))
+
+  fluxSolverModified = fluxSolverMultiple_ijs['ijs'] <= fluxSolverMultipleSim['ij']
+  generator.add('fluxSolverModified', fluxSolverModified)
+  fluxSolverModifiedReversed = fluxSolverMultipleSim['ij'] <= fluxSolverMultiple_ijs['ijs']
+  generator.add('fluxSolverModifiedReversed', fluxSolverModifiedReversed)
+
   gShape = (numberOfPoints, aderdg.numberOfQuantities())
   # QInterpolated = OptionalDimTensor('QInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   # TODO: (VK) Make this work with the original tensors
@@ -146,9 +153,16 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
                         target=target)
 
   QInterpolatedSingleSim = Tensor('QInterpolatedSingleSim', gShape, alignStride=False)
-#  nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolated['lq'] * fluxSolver['qp']
+  QInterpolatedMultipleSim = OptionalDimTensor('QInterpolatedMultipleSim',aderdg.Q.optName(),aderdg.Q.optSize(),aderdg.Q.optPos(), gShape)
+  QInterpolatedMultiple_ijs = Tensor('QInterpolatedMultiple_ijs', (gShape[0], gShape[1], aderdg.multipleSimulations))
+
+  QInterpolatedModified = QInterpolatedMultiple_ijs['ijs'] <= QInterpolatedMultipleSim['ij']
+  generator.add('QInterpolatedModified', QInterpolatedModified)
+  QInterpolatedModifiedReversed = QInterpolatedMultipleSim['ij'] <= QInterpolatedMultiple_ijs['ijs']
+  generator.add('QInterpolatedModifiedReversed', QInterpolatedModifiedReversed)
+  nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolatedMultipleSim['lq'] * fluxSolverMultipleSim['qp']
   # TODO (VK): make this work in the original tensor format by making the other variables in tensor format later
-  nodalFluxGenerator = lambda i,h: QuantitiesSingleSim['kp'] <= QuantitiesSingleSim['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolatedSingleSim['lq'] * fluxSolver['qp']
+  # nodalFluxGenerator = lambda i,h: QuantitiesSingleSim['kp'] <= QuantitiesSingleSim['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolatedSingleSim['lq'] * fluxSolver['qp']
   nodalFluxPrefetch = lambda i,h: aderdg.I
 
   for target in targets:
