@@ -33,7 +33,7 @@ Definitions
    -  Shear traction along dip (anti-dip) direction: positive (negative)
 
 -  Normal stress = negative in compression
--  Cohesion = negative (acts on shear stress components, encapsulates
+-  Cohesion = negative (acts on normal stress, encapsulates
    the effect of pore pressurization)
 -  Reference point = defines dip direction, starting point of the normal
    vector n pointing towards the fault, at +y
