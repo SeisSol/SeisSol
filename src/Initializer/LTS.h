@@ -186,7 +186,7 @@ struct LTS {
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   LTSTree* tree) {
+                                   LTSTree* tree) const {
     manager.registerData("dofs", tree, dofs);
     if constexpr (kernels::size<tensor::Qane>() > 0) {
       manager.registerData("dofsAne", tree, dofsAne);

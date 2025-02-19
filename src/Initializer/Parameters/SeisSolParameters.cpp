@@ -51,16 +51,6 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
 
   logInfo() << "SeisSol parameter file read successfully.";
 
-  auto printYesNo = [](bool yesno) { return yesno ? "yes" : "no"; };
-
-  logInfo() << "Model information:";
-  logInfo() << "Elastic model:" << printYesNo(isModelElastic());
-  logInfo() << "Viscoelastic model:" << printYesNo(isModelViscoelastic());
-  logInfo() << "Anelastic model:" << printYesNo(isModelAnelastic());
-  logInfo() << "Poroelastic model:" << printYesNo(isModelPoroelastic());
-  logInfo() << "Anisotropic model:" << printYesNo(isModelAnisotropic());
-  logInfo() << "Plasticity:" << printYesNo(modelParameters.plasticity);
-
   return SeisSolParameters{cubeGeneratorParameters,
                            drParameters,
                            initializationParameters,

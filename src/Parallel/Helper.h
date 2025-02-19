@@ -71,13 +71,6 @@ inline void printMPIUSMInfo() {
     logInfo() << "Using separate buffers for CPU-GPU MPI data.";
   }
 }
-
-inline int deviceHostSwitch() { return utils::Env::get<int>("SEISSOL_DEVICE_HOST_SWITCH", 0); }
-
-inline void printDeviceHostSwitch() {
-  logInfo() << "Running clusters with" << deviceHostSwitch()
-            << "or more cells on the GPU (and on the CPU otherwise)";
-}
 #endif
 
 } // namespace seissol
