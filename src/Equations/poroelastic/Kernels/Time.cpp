@@ -21,6 +21,8 @@ extern long long libxsmm_num_total_flops;
 #include <omp.h>
 #include <stdint.h>
 
+#include "Common/Offset.h"
+
 #include "Equations/poroelastic/Model/PoroelasticSetup.h"
 
 #include <yateto.h>
@@ -315,21 +317,26 @@ void Time::computeBatchedAder(double timeStepWidth,
     krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Stp))->getDeviceDataPtr();
     krnl.spaceTimePredictorRhs = (entry.get(inner_keys::Wp::Id::StpRhs))->getDeviceDataPtr();
 
-    std::size_t starOffset = 0;
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      krnl.star(i) =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
-      krnl.extraOffset_star(i) = starOffset;
-      starOffset += tensor::star::size(i);
+      krnl.star(i) = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
 
     krnl.streamPtr = runtime.stream();
 
+    krnl.Gkt = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+    krnl.Glt = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+    krnl.Gmt = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+    krnl.extraOffset_Gkt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[10]);
+    krnl.extraOffset_Glt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[11]);
+    krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
+
     /*
     // TODO: port
-    krnl.Gk = data.localIntegration.specific.G[10] * timeStepWidth;
-    krnl.Gl = data.localIntegration.specific.G[11] * timeStepWidth;
-    krnl.Gm = data.localIntegration.specific.G[12] * timeStepWidth;
 
     if (timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
       assert(false && "NYI");
@@ -337,7 +344,7 @@ void Time::computeBatchedAder(double timeStepWidth,
 
     */
 
-    std::size_t zinvOffset = 0;
+    std::size_t zinvOffset = SEISSOL_OFFSET(LocalIntegrationData, specific.Zinv);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv>(); i++) {
       krnl.Zinv(i) =
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Zinv))->getDeviceDataPtr());

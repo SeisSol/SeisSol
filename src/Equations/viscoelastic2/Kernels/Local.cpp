@@ -13,6 +13,8 @@
 #include <cstring>
 #include <stdint.h>
 
+#include "Common/Offset.h"
+
 #include <yateto.h>
 
 namespace seissol::kernels {
@@ -167,12 +169,10 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
     volKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
-    unsigned starOffset = 0;
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
-      volKrnl.extraOffset_star(i) = starOffset;
-      starOffset += tensor::star::size(i);
+      volKrnl.star(i) = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
     volKrnl.linearAllocator.initialize(tmpMem);
     volKrnl.streamPtr = runtime.stream();
@@ -189,8 +189,9 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
       localFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
       localFluxKrnl.I =
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      localFluxKrnl.AplusT =
-          const_cast<const real**>(entry.get(inner_keys::Wp::Id::AplusT)->getDeviceDataPtr());
+      localFluxKrnl.AplusT = const_cast<const real**>(
+          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+      localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
       localFluxKrnl.linearAllocator.initialize(tmpMem);
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
@@ -208,10 +209,15 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
     localKrnl.Iane =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
-    localKrnl.W = const_cast<const real**>(entry.get(inner_keys::Wp::Id::W)->getDeviceDataPtr());
-    localKrnl.w =
-        const_cast<const real**>(entry.get(inner_keys::Wp::Id::Omega)->getDeviceDataPtr());
-    localKrnl.E = const_cast<const real**>(entry.get(inner_keys::Wp::Id::E)->getDeviceDataPtr());
+    localKrnl.W = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    localKrnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
+    localKrnl.w = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    localKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+    localKrnl.E = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    localKrnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
     localKrnl.linearAllocator.initialize(tmpMem);
     localKrnl.streamPtr = runtime.stream();
     localKrnl.execute();

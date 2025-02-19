@@ -24,6 +24,8 @@
 #include <generated_code/tensor.h>
 #include <stdint.h>
 
+#include "Common/Offset.h"
+
 #include "utils/logger.h"
 
 namespace seissol::kernels {
@@ -163,7 +165,9 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
               neighFluxKrnl.I = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
+                  entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+              neighFluxKrnl.extraOffset_AminusT =
+                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
               tmpMem = reinterpret_cast<real*>(
                   device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));

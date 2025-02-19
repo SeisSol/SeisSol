@@ -14,6 +14,8 @@
 #include <cstring>
 #include <stdint.h>
 
+#include "Common/Offset.h"
+
 #include "generated_code/init.h"
 
 namespace seissol::kernels {
@@ -229,7 +231,9 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
               neighFluxKrnl.I = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
+                  entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+              neighFluxKrnl.extraOffset_AminusT =
+                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
               tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(
                   seissol::kernel::gpu_neighborFluxExt::TmpMaxMemRequiredInBytes * numElements));
@@ -281,7 +285,10 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
     nKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
     nKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
-    nKrnl.w = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Omega))->getDeviceDataPtr());
+    nKrnl.w = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    nKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+
     nKrnl.streamPtr = runtime.stream();
 
     nKrnl.execute();

@@ -19,6 +19,8 @@ extern long long libxsmm_num_total_flops;
 
 #include <yateto.h>
 
+#include "Common/Offset.h"
+
 #include "Kernels/DenseMatrixOps.h"
 #include "generated_code/init.h"
 
@@ -346,17 +348,21 @@ void Time::computeBatchedAder(double timeStepWidth,
       derivativesOffset += tensor::dQ::size(i);
     }
 
-    unsigned starOffset = 0;
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      krnl.star(i) =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
-      krnl.extraOffset_star(i) = starOffset;
-      starOffset += tensor::star::size(i);
+      krnl.star(i) = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
 
-    krnl.w = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Omega))->getDeviceDataPtr());
-    krnl.W = const_cast<const real**>((entry.get(inner_keys::Wp::Id::W))->getDeviceDataPtr());
-    krnl.E = const_cast<const real**>((entry.get(inner_keys::Wp::Id::E))->getDeviceDataPtr());
+    krnl.W = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
+    krnl.w = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+    krnl.E = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
 
     // powers in the taylor-series expansion
     krnl.power(0) = timeStepWidth;

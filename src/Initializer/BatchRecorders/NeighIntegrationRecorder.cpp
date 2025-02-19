@@ -155,7 +155,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
           regularPeriodicIDofs[face][faceRelation].push_back(
               idofsAddressRegistry[neighborBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
-              static_cast<real*>(data.neighboringIntegration().nAmNm1[face]));
+              reinterpret_cast<real*>(&data.neighboringIntegration()));
 #ifdef USE_VISCOELASTIC2
           regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
                                                        tensor::Qext::size() * cell);
@@ -213,7 +213,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         (*currentTable)[key].set(inner_keys::Wp::Id::Idofs,
                                  regularPeriodicIDofs[face][faceRelation]);
         (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, regularPeriodicDofs[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::AminusT,
+        (*currentTable)[key].set(inner_keys::Wp::Id::NeighborIntegrationData,
                                  regularPeriodicAminusT[face][faceRelation]);
 #ifdef USE_VISCOELASTIC2
         (*currentTable)[key].set(inner_keys::Wp::Id::DofsExt, regularDofsExt[face][faceRelation]);

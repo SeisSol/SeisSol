@@ -14,6 +14,8 @@
 
 #include "Initializer/Typedefs.h"
 
+#include "Common/Offset.h"
+
 #include "Numerical/Quadrature.h"
 #include <Parallel/Runtime/Stream.h>
 
@@ -124,13 +126,15 @@ class DirichletBoundary {
     boundaryCondition.evaluate(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
 
     auto** dofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
-    auto** nAmNm1 = dataTable[key].get(inner_keys::Wp::Id::AminusT)->getDeviceDataPtr();
 
     auto nodalLfKrnl = nodalLfKrnlPrototype;
     nodalLfKrnl.numElements = numElements;
     nodalLfKrnl.Q = dofsPtrs;
     nodalLfKrnl.INodal = const_cast<const real**>(dofsFaceBoundaryNodalPtrs);
-    nodalLfKrnl.AminusT = const_cast<const real**>(nAmNm1);
+    nodalLfKrnl.AminusT = const_cast<const real**>(
+        dataTable[key].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+    nodalLfKrnl.extraOffset_AminusT =
+        SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, faceIdx);
     nodalLfKrnl.linearAllocator.initialize(auxTmpMem);
     nodalLfKrnl.streamPtr = deviceStream;
     nodalLfKrnl.execute(faceIdx);
