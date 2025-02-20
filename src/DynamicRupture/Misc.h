@@ -17,6 +17,8 @@
 #include <tuple>
 #include <type_traits>
 
+#include "Common/Marker.h"
+
 namespace seissol::dr::misc {
 // TODO: this can be moved to yateto headers
 template <typename Tensor, int Dim>
@@ -68,7 +70,7 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
  * @return
  */
 template <size_t Exp, typename T>
-inline auto power(T base) -> T {
+SEISSOL_HOSTDEVICE inline auto power(T base) -> T {
   T result = static_cast<T>(1.0);
   for (size_t i = 0; i < Exp; ++i) {
     result *= base;
@@ -77,7 +79,7 @@ inline auto power(T base) -> T {
 }
 
 template <typename T>
-inline std::enable_if_t<std::is_floating_point_v<T>, T> square(T t) {
+SEISSOL_HOSTDEVICE inline std::enable_if_t<std::is_floating_point_v<T>, T> square(T t) {
   return t * t;
 }
 
@@ -86,7 +88,7 @@ inline std::enable_if_t<std::is_floating_point_v<T>, T> square(T t) {
  * @return magnitude of the vector
  */
 template <typename T, typename... Tn>
-inline T square(T t1, Tn... tn) {
+SEISSOL_HOSTDEVICE inline T square(T t1, Tn... tn) {
   return square(t1) + square(tn...);
 }
 
@@ -95,7 +97,7 @@ inline T square(T t1, Tn... tn) {
  * @return magnitude of the vector
  */
 template <typename T, typename... Tn>
-inline T magnitude(T t1, Tn... tn) {
+SEISSOL_HOSTDEVICE inline T magnitude(T t1, Tn... tn) {
   return std::sqrt(square(t1) + square(tn...));
 }
 
@@ -105,7 +107,7 @@ inline T magnitude(T t1, Tn... tn) {
  * @param x
  * @return asinh(x)
  */
-inline double asinh(double x) { return std::log(x + std::sqrt(x * x + 1.0)); }
+SEISSOL_HOSTDEVICE inline double asinh(double x) { return std::log(x + std::sqrt(x * x + 1.0)); }
 
 /**
  * Create strike and dip unit vectors give a fault normal vector

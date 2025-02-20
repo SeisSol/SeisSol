@@ -69,6 +69,27 @@ struct FrictionLawData {
 
   // R+S FVW
   real (*srW)[misc::NumPaddedPoints];
+
+  // TP
+  real (*temperature)[misc::NumPaddedPoints]{};
+  real (*pressure)[misc::NumPaddedPoints]{};
+  real (*theta)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*halfWidthShearZone)[misc::NumPaddedPoints]{};
+  real (*hydraulicDiffusivity)[misc::NumPaddedPoints]{};
+  real (*faultStrength)[misc::NumPaddedPoints]{};
+
+  // ISR
+  real (*imposedSlipDirection1)[misc::NumPaddedPoints];
+  real (*imposedSlipDirection2)[misc::NumPaddedPoints];
+
+  // ISR/STF
+  real (*onsetTime)[misc::NumPaddedPoints];
+  real (*tauS)[misc::NumPaddedPoints];
+  real (*tauR)[misc::NumPaddedPoints];
+  real (*riseTime)[misc::NumPaddedPoints];
 };
 
 class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver {

@@ -33,7 +33,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     Derived::copySpecificLtsDataTreeToLocal(data, layerData, dynRup, fullUpdateTime);
   }
 
-  static void updateFrictionAndSlip(FrictionLawContext& ctx, unsigned timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, unsigned timeIndex) {
     // computes fault strength, which is the critical value whether active slip exists.
     Derived::calcStrengthHook(ctx, timeIndex);
     // computes resulting slip rates, traction and slip dependent on current friction
@@ -47,7 +47,8 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    *  compute the slip rate and the traction from the fault strength and fault stresses
    *  also updates the directional slip1 and slip2
    */
-  static void calcSlipRateAndTraction(FrictionLawContext& ctx, unsigned int timeIndex) {
+  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& ctx,
+                                                     unsigned int timeIndex) {
 
     auto* devInitialStressInFaultCS{ctx.data->initialStressInFaultCS};
     auto* devImpAndEta{ctx.data->impAndEta};
@@ -72,8 +73,8 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
     // calculate slip rates
     devSlipRateMagnitude[ctx.ltsFace][ctx.pointIndex] =
-        sycl::max(static_cast<real>(0.0),
-                  (absoluteShearStress - strength) * devImpAndEta[ctx.ltsFace].invEtaS);
+        std::max(static_cast<real>(0.0),
+                 (absoluteShearStress - strength) * devImpAndEta[ctx.ltsFace].invEtaS);
     const auto divisor = strength + devImpAndEta[ctx.ltsFace].etaS *
                                         devSlipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
     devSlipRate1[ctx.ltsFace][ctx.pointIndex] =
@@ -98,7 +99,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    * evaluate friction law: updated mu -> friction law
    * for example see Carsten Uphoff's thesis: Eq. 2.45
    */
-  static void frictionFunctionHook(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void frictionFunctionHook(FrictionLawContext& ctx) {
     auto* devMu{ctx.data->mu};
     auto* devMuS{ctx.data->muS};
     auto* devMuD{ctx.data->muD};
@@ -122,7 +123,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    * currently only for linear slip weakening
    */
-  static void saveDynamicStressOutput(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx) {
     auto fullUpdateTime{ctx.data->mFullUpdateTime};
     auto* devDynStressTime{ctx.data->dynStressTime};
     auto* devDynStressTimePending{ctx.data->dynStressTimePending};
@@ -130,15 +131,15 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto* devDC{ctx.data->dC};
 
     if (devDynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
-        sycl::fabs(devAccumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex]) >=
+        std::fabs(devAccumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex]) >=
             devDC[ctx.ltsFace][ctx.pointIndex]) {
       devDynStressTime[ctx.ltsFace][ctx.pointIndex] = fullUpdateTime;
       devDynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }
 
-  static void preHook(FrictionLawContext& ctx) {}
-  static void postHook(FrictionLawContext& ctx) {}
+  SEISSOL_DEVICE static void preHook(FrictionLawContext& ctx) {}
+  SEISSOL_DEVICE static void postHook(FrictionLawContext& ctx) {}
 
   protected:
   static constexpr real U0 = 10e-14;
@@ -170,7 +171,7 @@ class LinearSlipWeakeningLaw
     SpecializationT::copyLtsTreeToLocal(data, layerData, dynRup, fullUpdateTime);
   }
 
-  static void calcStrengthHook(FrictionLawContext& ctx, unsigned int timeIndex) {
+  SEISSOL_DEVICE static void calcStrengthHook(FrictionLawContext& ctx, unsigned int timeIndex) {
 
     auto deltaT{ctx.data->deltaT[timeIndex]};
     auto* devInitialStressInFaultCS{ctx.data->initialStressInFaultCS};
@@ -188,7 +189,7 @@ class LinearSlipWeakeningLaw
                                    faultStresses.normalStress[timeIndex];
     strength =
         -devCohesion[ctx.ltsFace][ctx.pointIndex] -
-        devMu[ctx.ltsFace][ctx.pointIndex] * sycl::min(totalNormalStress, static_cast<real>(0.0));
+        devMu[ctx.ltsFace][ctx.pointIndex] * std::min(totalNormalStress, static_cast<real>(0.0));
 
     strength = SpecializationT::strengthHook(ctx,
                                              strength,
@@ -198,13 +199,13 @@ class LinearSlipWeakeningLaw
                                              prakashLength);
   }
 
-  static void calcStateVariableHook(FrictionLawContext& ctx, unsigned int timeIndex) {
+  SEISSOL_DEVICE static void calcStateVariableHook(FrictionLawContext& ctx,
+                                                   unsigned int timeIndex) {
 
     auto* devAccumulatedSlipMagnitude{ctx.data->accumulatedSlipMagnitude};
     auto* devSlipRateMagnitude{ctx.data->slipRateMagnitude};
     auto* devForcedRuptureTime{ctx.data->forcedRuptureTime};
     auto* devDC{ctx.data->dC};
-    auto* devResample{ctx.resampleMatrix};
     auto deltaT{ctx.data->deltaT[timeIndex]};
     const real tn{ctx.data->mFullUpdateTime + deltaT};
     const auto t0{ctx.data->drParameters.t0};
@@ -228,11 +229,11 @@ class LinearSlipWeakeningLaw
     if (t0 == 0) {
       f2 = 1.0 * static_cast<double>(tn >= devForcedRuptureTime[ctx.ltsFace][ctx.pointIndex]);
     } else {
-      f2 = sycl::clamp((tn - devForcedRuptureTime[ctx.ltsFace][ctx.pointIndex]) / t0,
-                       static_cast<real>(0.0),
-                       static_cast<real>(1.0));
+      f2 = std::clamp((tn - devForcedRuptureTime[ctx.ltsFace][ctx.pointIndex]) / t0,
+                      static_cast<real>(0.0),
+                      static_cast<real>(1.0));
     }
-    ctx.stateVariableBuffer = sycl::max(localStateVariable, f2);
+    ctx.stateVariableBuffer = std::max(localStateVariable, f2);
   }
 
   protected:
@@ -248,8 +249,9 @@ class NoSpecialization {
                                  const seissol::initializer::DynamicRupture* const dynRup,
                                  real fullUpdateTime) {}
 
-  static real resampleSlipRate(FrictionLawContext& ctx,
-                               const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
+  SEISSOL_DEVICE static real
+      resampleSlipRate(FrictionLawContext& ctx,
+                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
 
     // perform matrix vector multiplication
 
@@ -265,19 +267,19 @@ class NoSpecialization {
     return result;
   };
 
-  static real stateVariableHook(FrictionLawContext& ctx,
-                                real localAccumulatedSlip,
-                                real localDc,
-                                real tpProxyExponent) {
-    return sycl::min(sycl::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
+  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& ctx,
+                                               real localAccumulatedSlip,
+                                               real localDc,
+                                               real tpProxyExponent) {
+    return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   };
 
-  static real strengthHook(FrictionLawContext& ctx,
-                           real strength,
-                           real localSlipRate,
-                           real deltaT,
-                           real vStar,
-                           real prakashLength) {
+  SEISSOL_DEVICE static real strengthHook(FrictionLawContext& ctx,
+                                          real strength,
+                                          real localSlipRate,
+                                          real deltaT,
+                                          real vStar,
+                                          real prakashLength) {
     return strength;
   };
 };
@@ -296,29 +298,30 @@ class BiMaterialFault {
                                               seissol::initializer::AllocationPlace::Device);
   }
 
-  static real resampleSlipRate(FrictionLawContext& ctx,
-                               const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
+  SEISSOL_DEVICE static real
+      resampleSlipRate(FrictionLawContext& ctx,
+                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
     return slipRateMagnitude[ctx.pointIndex];
   };
 
-  static real stateVariableHook(FrictionLawContext& ctx,
-                                real localAccumulatedSlip,
-                                real localDc,
-                                real tpProxyExponent) {
-    return sycl::min(sycl::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
+  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& ctx,
+                                               real localAccumulatedSlip,
+                                               real localDc,
+                                               real tpProxyExponent) {
+    return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   };
 
-  static real strengthHook(FrictionLawContext& ctx,
-                           real faultStrength,
-                           real localSlipRate,
-                           real deltaT,
-                           real vStar,
-                           real prakashLength) {
+  SEISSOL_DEVICE static real strengthHook(FrictionLawContext& ctx,
+                                          real faultStrength,
+                                          real localSlipRate,
+                                          real deltaT,
+                                          real vStar,
+                                          real prakashLength) {
 
     auto* regularisedStrength = ctx.data->regularisedStrength[ctx.ltsFace];
 
-    const real expterm = sycl::exp(-(sycl::max(static_cast<real>(0.0), localSlipRate) + vStar) *
-                                   deltaT / prakashLength);
+    const real expterm = std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + vStar) *
+                                  deltaT / prakashLength);
 
     const real newStrength =
         regularisedStrength[ctx.pointIndex] * expterm + faultStrength * (1.0 - expterm);
@@ -337,25 +340,26 @@ class TPApprox {
                                  const seissol::initializer::DynamicRupture* const dynRup,
                                  real fullUpdateTime) {}
 
-  static real resampleSlipRate(FrictionLawContext& ctx,
-                               const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
+  SEISSOL_DEVICE static real
+      resampleSlipRate(FrictionLawContext& ctx,
+                       const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
     return slipRateMagnitude[ctx.pointIndex];
   };
 
-  static real stateVariableHook(FrictionLawContext& ctx,
-                                real localAccumulatedSlip,
-                                real localDc,
-                                real tpProxyExponent) {
-    const real factor = (1.0 + sycl::fabs(localAccumulatedSlip) / localDc);
-    return 1.0 - sycl::pow(factor, -tpProxyExponent);
+  SEISSOL_DEVICE static real stateVariableHook(FrictionLawContext& ctx,
+                                               real localAccumulatedSlip,
+                                               real localDc,
+                                               real tpProxyExponent) {
+    const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
+    return 1.0 - std::pow(factor, -tpProxyExponent);
   };
 
-  static real strengthHook(FrictionLawContext& ctx,
-                           real strength,
-                           real localSlipRate,
-                           real deltaT,
-                           real vStar,
-                           real prakashLength) {
+  SEISSOL_DEVICE static real strengthHook(FrictionLawContext& ctx,
+                                          real strength,
+                                          real localSlipRate,
+                                          real deltaT,
+                                          real vStar,
+                                          real prakashLength) {
     return strength;
   };
 };

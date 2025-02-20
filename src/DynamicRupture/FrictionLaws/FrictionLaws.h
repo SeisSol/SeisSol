@@ -26,10 +26,13 @@
 #ifdef ACL_DEVICE
 #include "GpuImpl/AgingLaw.h"
 #include "GpuImpl/FastVelocityWeakeningLaw.h"
+#include "GpuImpl/ImposedSlipRates.h"
 #include "GpuImpl/LinearSlipWeakening.h"
 #include "GpuImpl/NoFault.h"
 #include "GpuImpl/SlipLaw.h"
+#include "GpuImpl/SourceTimeFunction.h"
 #include "GpuImpl/ThermalPressurization/NoTP.h"
+#include "GpuImpl/ThermalPressurization/ThermalPressurization.h"
 #endif
 
 // IWYU pragma: end_exports

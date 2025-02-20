@@ -1,0 +1,59 @@
+namespace seissol::dr::friction_law::gpu {
+
+void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime, real fullUpdateTime) {
+  auto* data{this->data};
+  auto* devTimeWeights{this->devTimeWeights};
+  auto* devSpaceWeights{this->devSpaceWeights};
+  auto* resampleMatrix{this->resampleMatrix};
+  auto devFullUpdateTime{fullUpdateTime};
+
+  sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
+  this->queue.submit([&](sycl::handler& cgh) {
+    // NOLINTNEXTLINE
+    sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
+        deltaStateVar(misc::NumPaddedPoints, cgh);
+
+    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
+      FrictionLawContext ctx{};
+      ctx.deltaStateVar = &deltaStateVar[0];
+      ctx.item = &item;
+      ctx.data = data;
+      ctx.devTimeWeights = devTimeWeights;
+      ctx.devSpaceWeights = devSpaceWeights;
+      ctx.resampleMatrix = resampleMatrix;
+      ctx.fullUpdateTime = devFullUpdateTime;
+
+      const auto ltsFace = item.get_group().get_group_id(0);
+      const auto pointIndex = item.get_local_id(0);
+
+      ctx.ltsFace = ltsFace;
+      ctx.pointIndex = pointIndex;
+
+      evaluatePoint(ctx);
+    });
+  });
+}
+
+template class BaseFrictionSolver<NoFault>;
+template class BaseFrictionSolver<
+    LinearSlipWeakeningBase<LinearSlipWeakeningLaw<NoSpecialization>>>;
+template class BaseFrictionSolver<LinearSlipWeakeningBase<LinearSlipWeakeningLaw<BiMaterialFault>>>;
+template class BaseFrictionSolver<LinearSlipWeakeningBase<LinearSlipWeakeningLaw<TPApprox>>>;
+template class BaseFrictionSolver<
+    RateAndStateBase<SlowVelocityWeakeningLaw<AgingLaw<NoTP>, NoTP>, NoTP>>;
+template class BaseFrictionSolver<
+    RateAndStateBase<SlowVelocityWeakeningLaw<SlipLaw<NoTP>, NoTP>, NoTP>>;
+template class BaseFrictionSolver<RateAndStateBase<FastVelocityWeakeningLaw<NoTP>, NoTP>>;
+template class BaseFrictionSolver<RateAndStateBase<
+    SlowVelocityWeakeningLaw<AgingLaw<ThermalPressurization>, ThermalPressurization>,
+    ThermalPressurization>>;
+template class BaseFrictionSolver<RateAndStateBase<
+    SlowVelocityWeakeningLaw<SlipLaw<ThermalPressurization>, ThermalPressurization>,
+    ThermalPressurization>>;
+template class BaseFrictionSolver<
+    RateAndStateBase<FastVelocityWeakeningLaw<ThermalPressurization>, ThermalPressurization>>;
+template class BaseFrictionSolver<ImposedSlipRates<YoffeSTF>>;
+template class BaseFrictionSolver<ImposedSlipRates<GaussianSTF>>;
+template class BaseFrictionSolver<ImposedSlipRates<DeltaSTF>>;
+
+} // namespace seissol::dr::friction_law::gpu

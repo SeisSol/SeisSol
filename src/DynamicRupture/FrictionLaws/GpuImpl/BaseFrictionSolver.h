@@ -10,13 +10,15 @@
 
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
-#include "Numerical/SyclFunctions.h"
+#include "FrictionSolverInterface.h"
+#include "Numerical/Functions.h"
 #include <Common/Constants.h>
 #include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
 #include <algorithm>
 
-namespace seissol::dr::friction_law::gpu {
+#include "Common/Marker.h"
 
+namespace seissol::dr::friction_law::gpu {
 struct InitialVariables {
   real absoluteShearTraction;
   real localSlipRate;
@@ -31,6 +33,7 @@ struct FrictionLawContext {
 
   FaultStresses<Executor::Device> faultStresses{};
   TractionResults<Executor::Device> tractionResults{};
+  real fullUpdateTime;
   real stateVariableBuffer;
   real strengthBuffer;
   double* devTimeWeights{nullptr};
@@ -38,23 +41,147 @@ struct FrictionLawContext {
   real* resampleMatrix{nullptr};
   real* deltaStateVar;
   InitialVariables initialVariables;
-  sycl::nd_item<1>* item;
+
+  real* TpInverseFourierCoefficients;
+  real* TpGridPoints;
+  real* HeatSource;
+
+  void* item;
 };
 
-template <typename Derived>
+#ifdef __CUDACC__
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& ctx) { __syncthreads(); }
+#endif
+#ifdef SEISSOL_KERNELS_SYCL
+inline void deviceBarrier(FrictionLawContext& ctx) {
+  reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->barrier(sycl::access::fence_space::local_space);
+}
+#endif
+
+template <typename Derived> // , typename StdMath
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
   explicit BaseFrictionSolver<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
       : FrictionSolverDetails(drParameters) {}
   ~BaseFrictionSolver<Derived>() override = default;
 
+  SEISSOL_DEVICE static void evaluatePoint(FrictionLawContext& ctx) {
+    using StdMath = functions::HostStdFunctions;
+    constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
+
+    auto* devImpAndEta{ctx.data->impAndEta};
+    auto* devImpedanceMatrices{ctx.data->impedanceMatrices};
+    auto* devQInterpolatedPlus{ctx.data->qInterpolatedPlus};
+    auto* devQInterpolatedMinus{ctx.data->qInterpolatedMinus};
+
+    common::precomputeStressFromQInterpolated<gpuRangeType>(ctx.faultStresses,
+                                                            devImpAndEta[ctx.ltsFace],
+                                                            devImpedanceMatrices[ctx.ltsFace],
+                                                            devQInterpolatedPlus[ctx.ltsFace],
+                                                            devQInterpolatedMinus[ctx.ltsFace],
+                                                            ctx.pointIndex);
+
+    Derived::preHook(ctx);
+    for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
+      const real t0{ctx.data->drParameters.t0};
+      const real dt = ctx.data->deltaT[timeIndex];
+      auto* devInitialStressInFaultCS{ctx.data->initialStressInFaultCS};
+      const auto* devNucleationStressInFaultCS{ctx.data->nucleationStressInFaultCS};
+      auto* devInitialPressure{ctx.data->initialPressure};
+      const auto* devNucleationPressure{ctx.data->nucleationPressure};
+
+      common::adjustInitialStress<gpuRangeType, StdMath>(devInitialStressInFaultCS[ctx.ltsFace],
+                                                         devNucleationStressInFaultCS[ctx.ltsFace],
+                                                         devInitialPressure[ctx.ltsFace],
+                                                         devNucleationPressure[ctx.ltsFace],
+                                                         ctx.fullUpdateTime,
+                                                         t0,
+                                                         dt,
+                                                         ctx.pointIndex);
+
+      Derived::updateFrictionAndSlip(ctx, timeIndex);
+    }
+    Derived::postHook(ctx);
+
+    auto* devRuptureTimePending{ctx.data->ruptureTimePending};
+    auto* devSlipRateMagnitude{ctx.data->slipRateMagnitude};
+    auto* devRuptureTime{ctx.data->ruptureTime};
+
+    common::saveRuptureFrontOutput<gpuRangeType>(devRuptureTimePending[ctx.ltsFace],
+                                                 devRuptureTime[ctx.ltsFace],
+                                                 devSlipRateMagnitude[ctx.ltsFace],
+                                                 ctx.fullUpdateTime,
+                                                 ctx.pointIndex);
+
+    Derived::saveDynamicStressOutput(ctx);
+
+    auto* devPeakSlipRate{ctx.data->peakSlipRate};
+    auto* devImposedStatePlus{ctx.data->imposedStatePlus};
+    auto* devImposedStateMinus{ctx.data->imposedStateMinus};
+    auto* devEnergyData{ctx.data->energyData};
+    auto* devGodunovData{ctx.data->godunovData};
+    auto devSumDt{ctx.data->sumDt};
+
+    auto isFrictionEnergyRequired{ctx.data->drParameters.isFrictionEnergyRequired};
+    auto isCheckAbortCriteraEnabled{ctx.data->drParameters.isCheckAbortCriteraEnabled};
+    auto devTerminatorSlipRateThreshold{ctx.data->drParameters.terminatorSlipRateThreshold};
+    auto energiesFromAcrossFaultVelocities{
+        ctx.data->drParameters.energiesFromAcrossFaultVelocities};
+
+    common::savePeakSlipRateOutput<gpuRangeType>(
+        devSlipRateMagnitude[ctx.ltsFace], devPeakSlipRate[ctx.ltsFace], ctx.pointIndex);
+
+    common::postcomputeImposedStateFromNewStress<gpuRangeType>(ctx.faultStresses,
+                                                               ctx.tractionResults,
+                                                               devImpAndEta[ctx.ltsFace],
+                                                               devImpedanceMatrices[ctx.ltsFace],
+                                                               devImposedStatePlus[ctx.ltsFace],
+                                                               devImposedStateMinus[ctx.ltsFace],
+                                                               devQInterpolatedPlus[ctx.ltsFace],
+                                                               devQInterpolatedMinus[ctx.ltsFace],
+                                                               ctx.devTimeWeights,
+                                                               ctx.pointIndex);
+
+    if (isFrictionEnergyRequired) {
+
+      if (isCheckAbortCriteraEnabled) {
+        common::updateTimeSinceSlipRateBelowThreshold<gpuRangeType>(
+            devSlipRateMagnitude[ctx.ltsFace],
+            devRuptureTimePending[ctx.ltsFace],
+            devEnergyData[ctx.ltsFace],
+            devSumDt,
+            devTerminatorSlipRateThreshold,
+            ctx.pointIndex);
+      }
+
+      common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ctx.ltsFace],
+                                                  devQInterpolatedPlus[ctx.ltsFace],
+                                                  devQInterpolatedMinus[ctx.ltsFace],
+                                                  devImpAndEta[ctx.ltsFace],
+                                                  ctx.devTimeWeights,
+                                                  ctx.devSpaceWeights,
+                                                  devGodunovData[ctx.ltsFace],
+                                                  devSlipRateMagnitude[ctx.ltsFace],
+                                                  energiesFromAcrossFaultVelocities,
+                                                  ctx.pointIndex);
+    }
+  }
+
+  void copyParameters(seissol::parallel::runtime::StreamRuntime& runtime,
+                      const double timeWeights[ConvergenceOrder]) {
+    device::DeviceInstance::getInstance().api->copyToAsync(
+        data, &dataHost, sizeof(FrictionLawData), runtime.stream());
+    device::DeviceInstance::getInstance().api->copyToAsync(
+        devTimeWeights, timeWeights, sizeof(double[ConvergenceOrder]), runtime.stream());
+  }
+
+  void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime, real fullUpdateTime);
+
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
-
-    runtime.syncToSycl(&this->queue);
 
     // TODO: avoid copying the data all the time
     // TODO: allocate FrictionLawData as constant data
@@ -67,142 +194,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     std::memcpy(dataHost.deltaT, deltaT, sizeof(decltype(deltaT)));
     dataHost.sumDt = sumDt;
 
-    this->queue.memcpy(data, &dataHost, sizeof(FrictionLawData));
-
-    this->queue.memcpy(devTimeWeights, timeWeights, sizeof(double[ConvergenceOrder]));
-
-    {
-      constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
-
-      auto* data{this->data};
-      auto* devTimeWeights{this->devTimeWeights};
-      auto* devSpaceWeights{this->devSpaceWeights};
-      auto* resampleMatrix{this->resampleMatrix};
-
-      sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-      this->queue.submit([&](sycl::handler& cgh) {
-        // NOLINTNEXTLINE
-        sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
-            deltaStateVar(misc::NumPaddedPoints, cgh);
-
-        cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-          FrictionLawContext ctx{};
-          ctx.data = data;
-          ctx.devTimeWeights = devTimeWeights;
-          ctx.devSpaceWeights = devSpaceWeights;
-          ctx.resampleMatrix = resampleMatrix;
-          ctx.deltaStateVar = &deltaStateVar[0];
-          ctx.item = &item;
-
-          auto* devImpAndEta{data->impAndEta};
-          auto* devImpedanceMatrices{data->impedanceMatrices};
-          auto* devQInterpolatedPlus{data->qInterpolatedPlus};
-          auto* devQInterpolatedMinus{data->qInterpolatedMinus};
-
-          const auto ltsFace = item.get_group().get_group_id(0);
-          const auto pointIndex = item.get_local_id(0);
-
-          ctx.ltsFace = ltsFace;
-          ctx.pointIndex = pointIndex;
-
-          common::precomputeStressFromQInterpolated<gpuRangeType>(ctx.faultStresses,
-                                                                  devImpAndEta[ltsFace],
-                                                                  devImpedanceMatrices[ltsFace],
-                                                                  devQInterpolatedPlus[ltsFace],
-                                                                  devQInterpolatedMinus[ltsFace],
-                                                                  pointIndex);
-
-          Derived::preHook(ctx);
-          for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
-            const real t0{data->drParameters.t0};
-            const real dt = data->deltaT[timeIndex];
-            auto* devInitialStressInFaultCS{data->initialStressInFaultCS};
-            const auto* devNucleationStressInFaultCS{data->nucleationStressInFaultCS};
-            auto* devInitialPressure{data->initialPressure};
-            const auto* devNucleationPressure{data->nucleationPressure};
-
-            using StdMath = seissol::functions::SyclStdFunctions;
-            common::adjustInitialStress<gpuRangeType, StdMath>(
-                devInitialStressInFaultCS[ltsFace],
-                devNucleationStressInFaultCS[ltsFace],
-                devInitialPressure[ltsFace],
-                devNucleationPressure[ltsFace],
-                fullUpdateTime,
-                t0,
-                dt,
-                pointIndex);
-
-            Derived::updateFrictionAndSlip(ctx, timeIndex);
-          }
-          Derived::postHook(ctx);
-
-          auto* devRuptureTimePending{data->ruptureTimePending};
-          auto* devSlipRateMagnitude{data->slipRateMagnitude};
-          auto* devRuptureTime{data->ruptureTime};
-
-          common::saveRuptureFrontOutput<gpuRangeType>(devRuptureTimePending[ltsFace],
-                                                       devRuptureTime[ltsFace],
-                                                       devSlipRateMagnitude[ltsFace],
-                                                       fullUpdateTime,
-                                                       pointIndex);
-
-          Derived::saveDynamicStressOutput(ctx);
-
-          auto* devPeakSlipRate{data->peakSlipRate};
-          auto* devImposedStatePlus{data->imposedStatePlus};
-          auto* devImposedStateMinus{data->imposedStateMinus};
-          auto* devEnergyData{data->energyData};
-          auto* devGodunovData{data->godunovData};
-          auto devSumDt{data->sumDt};
-
-          auto isFrictionEnergyRequired{data->drParameters.isFrictionEnergyRequired};
-          auto isCheckAbortCriteraEnabled{data->drParameters.isCheckAbortCriteraEnabled};
-          auto devTerminatorSlipRateThreshold{data->drParameters.terminatorSlipRateThreshold};
-          auto energiesFromAcrossFaultVelocities{
-              data->drParameters.energiesFromAcrossFaultVelocities};
-
-          common::savePeakSlipRateOutput<gpuRangeType>(
-              devSlipRateMagnitude[ltsFace], devPeakSlipRate[ltsFace], pointIndex);
-
-          common::postcomputeImposedStateFromNewStress<gpuRangeType>(ctx.faultStresses,
-                                                                     ctx.tractionResults,
-                                                                     devImpAndEta[ltsFace],
-                                                                     devImpedanceMatrices[ltsFace],
-                                                                     devImposedStatePlus[ltsFace],
-                                                                     devImposedStateMinus[ltsFace],
-                                                                     devQInterpolatedPlus[ltsFace],
-                                                                     devQInterpolatedMinus[ltsFace],
-                                                                     devTimeWeights,
-                                                                     pointIndex);
-
-          if (isFrictionEnergyRequired) {
-
-            if (isCheckAbortCriteraEnabled) {
-              common::updateTimeSinceSlipRateBelowThreshold<gpuRangeType>(
-                  devSlipRateMagnitude[ltsFace],
-                  devRuptureTimePending[ltsFace],
-                  devEnergyData[ltsFace],
-                  devSumDt,
-                  devTerminatorSlipRateThreshold,
-                  pointIndex);
-            }
-
-            common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ltsFace],
-                                                        devQInterpolatedPlus[ltsFace],
-                                                        devQInterpolatedMinus[ltsFace],
-                                                        devImpAndEta[ltsFace],
-                                                        devTimeWeights,
-                                                        devSpaceWeights,
-                                                        devGodunovData[ltsFace],
-                                                        devSlipRateMagnitude[ltsFace],
-                                                        energiesFromAcrossFaultVelocities,
-                                                        pointIndex);
-          }
-        });
-      });
-    }
-
-    runtime.syncFromSycl(&this->queue);
+    copyParameters(runtime, timeWeights);
+    evaluateKernel(runtime, fullUpdateTime);
   }
 };
 } // namespace seissol::dr::friction_law::gpu

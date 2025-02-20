@@ -35,7 +35,7 @@ class FastVelocityWeakeningLaw
     data->srW = layerData.var(concreteLts->rsSrW, seissol::initializer::AllocationPlace::Device);
   }
 
-  static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
     auto& devStateVarReference{ctx.initialVariables.stateVarReference};
     auto& devLocalSlipRate{ctx.initialVariables.localSlipRate};
     auto& devStateVariableBuffer{ctx.stateVariableBuffer};
@@ -48,19 +48,19 @@ class FastVelocityWeakeningLaw
 
     const double lowVelocityFriction =
         ctx.data->drParameters.rsF0 - (ctx.data->drParameters.rsB - localA) *
-                                          sycl::log(localSlipRate / ctx.data->drParameters.rsSr0);
+                                          std::log(localSlipRate / ctx.data->drParameters.rsSr0);
 
     const double steadyStateFrictionCoefficient =
         muW + (lowVelocityFriction - muW) /
-                  sycl::pow(1.0 + sycl::pown(localSlipRate / localSrW, 8), 1.0 / 8.0);
+                  std::pow(1.0 + std::pow(localSlipRate / localSrW, 8), 1.0 / 8.0);
 
     const double steadyStateStateVariable =
-        localA * sycl::log(ctx.data->drParameters.rsSr0 / localSlipRate * 2 *
-                           sycl::sinh(steadyStateFrictionCoefficient / localA));
+        localA * std::log(ctx.data->drParameters.rsSr0 / localSlipRate * 2 *
+                          std::sinh(steadyStateFrictionCoefficient / localA));
 
     const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
-    const double exp1 = sycl::exp(preexp1);
-    const double exp1m = -sycl::expm1(preexp1);
+    const double exp1 = std::exp(preexp1);
+    const double exp1m = -std::expm1(preexp1);
     const double localStateVariable =
         steadyStateStateVariable * exp1m + exp1 * devStateVarReference;
 
@@ -73,28 +73,27 @@ class FastVelocityWeakeningLaw
     double ac{};
   };
 
-  static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
-    const double c = 0.5 / ctx.data->drParameters.rsSr0 * sycl::exp(localStateVariable / localA);
+    const double c = 0.5 / ctx.data->drParameters.rsSr0 * std::exp(localStateVariable / localA);
     return MuDetails{localA, c, localA * c};
   }
 
-  static double
+  SEISSOL_DEVICE static double
       updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, MuDetails& details) {
     const double x = details.c * localSlipRateMagnitude;
-    return details.a * sycl::asinh(x);
+    return details.a * std::asinh(x);
   }
 
-  static double updateMuDerivative(FrictionLawContext& ctx,
-                                   double localSlipRateMagnitude,
-                                   MuDetails& details) {
+  SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext& ctx,
+                                                  double localSlipRateMagnitude,
+                                                  MuDetails& details) {
     const double x = details.c * localSlipRateMagnitude;
-    return details.ac / sycl::sqrt(sycl::pown(x, 2) + 1.0);
+    return details.ac / std::sqrt(std::pow(x, 2) + 1.0);
   }
 
-  static void resampleStateVar(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
     auto* devStateVariable{ctx.data->stateVariable};
-    auto* resampleMatrix{ctx.resampleMatrix};
 
     constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
@@ -103,7 +102,7 @@ class FastVelocityWeakeningLaw
 
     const auto localStateVariable = devStateVariable[ctx.ltsFace][ctx.pointIndex];
     ctx.deltaStateVar[ctx.pointIndex] = ctx.stateVariableBuffer - localStateVariable;
-    ctx.item->barrier(sycl::access::fence_space::local_space);
+    deviceBarrier(ctx);
 
     real resampledDeltaStateVar{0.0};
     for (size_t i{0}; i < Dim1; ++i) {
@@ -114,7 +113,7 @@ class FastVelocityWeakeningLaw
     devStateVariable[ctx.ltsFace][ctx.pointIndex] = localStateVariable + resampledDeltaStateVar;
   }
 
-  static void executeIfNotConverged() {}
+  SEISSOL_DEVICE static void executeIfNotConverged() {}
 };
 } // namespace seissol::dr::friction_law::gpu
 
