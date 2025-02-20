@@ -9,6 +9,8 @@
 #ifndef SEISSOL_SRC_KERNELS_DENSEMATRIXOPS_H_
 #define SEISSOL_SRC_KERNELS_DENSEMATRIXOPS_H_
 
+#include <Kernels/Precision.h>
+
 #if defined(__SSE3__) || defined(__MIC__)
 #include <immintrin.h>
 #endif
