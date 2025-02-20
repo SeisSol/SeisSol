@@ -32,7 +32,7 @@ void ProxyKernelDeviceAder::run(ProxyData& data,
   auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
 
   const double timeStepWidth = static_cast<double>(Timestep);
-  ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
+  ComputeGraphType graphType{ComputeGraphType::AccumulatedVelocities};
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
 
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
@@ -53,7 +53,7 @@ void ProxyKernelDeviceLocalWOAder::run(ProxyData& data,
   auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
   const double timeStepWidth = 0.0;
-  ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
+  ComputeGraphType graphType{ComputeGraphType::AccumulatedVelocities};
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
 
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
@@ -75,7 +75,7 @@ void ProxyKernelDeviceLocal::run(ProxyData& data,
   auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
   const double timeStepWidth = static_cast<double>(Timestep);
-  ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
+  ComputeGraphType graphType{ComputeGraphType::AccumulatedVelocities};
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, false);
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.timeKernel.computeBatchedAder(
