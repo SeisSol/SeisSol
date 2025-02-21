@@ -12,13 +12,16 @@
 
 #include "generated_code/kernel.h"
 
-namespace seissol {
-namespace kernels {
+namespace seissol::kernels {
 class TimeBase {
   protected:
   kernel::derivative m_krnlPrototype;
+
+#ifdef ACL_DEVICE
+  kernel::gpu_derivative deviceKrnlPrototype;
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+#endif
 };
-} // namespace kernels
-} // namespace seissol
+} // namespace seissol::kernels
 
 #endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_TIMEBASE_H_
