@@ -246,13 +246,13 @@ endif()
 
 
 # check NUMBER_OF_FUSED_SIMULATIONS
-math(EXPR IS_ALIGNED_MULT_SIMULATIONS 
-        "${NUMBER_OF_FUSED_SIMULATIONS} % (${ALIGNMENT} / ${REAL_SIZE_IN_BYTES})")
+# math(EXPR IS_ALIGNED_MULT_SIMULATIONS 
+#         "${NUMBER_OF_FUSED_SIMULATIONS} % (${ALIGNMENT} / ${REAL_SIZE_IN_BYTES})")
 
-if (NOT ${NUMBER_OF_FUSED_SIMULATIONS} EQUAL 1 AND NOT ${IS_ALIGNED_MULT_SIMULATIONS} EQUAL 0)
-    math(EXPR FACTOR "${ALIGNMENT} / ${REAL_SIZE_IN_BYTES}")
-    message(FATAL_ERROR "a number of fused simulations must be multiple of ${FACTOR}")
-endif()
+# if (NOT ${NUMBER_OF_FUSED_SIMULATIONS} EQUAL 1 AND NOT ${IS_ALIGNED_MULT_SIMULATIONS} EQUAL 0)
+#     math(EXPR FACTOR "${ALIGNMENT} / ${REAL_SIZE_IN_BYTES}")
+#     message(FATAL_ERROR "a number of fused simulations must be multiple of ${FACTOR}")
+# endif()
 
 #-------------------------------------------------------------------------------
 # -------------------- COMPUTE/ADJUST ADDITIONAL PARAMETERS --------------------
