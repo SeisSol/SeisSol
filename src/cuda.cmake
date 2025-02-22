@@ -11,8 +11,8 @@ set(DEVICE_SRC ${DEVICE_SRC}
         ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cuda/PlasticityAux.cu
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/cuda/KernelsAux.cu
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.cu
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceCluster.cu)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterCudaHip.cpp)
 
 add_library(seissol-device-lib SHARED ${DEVICE_SRC})
 
