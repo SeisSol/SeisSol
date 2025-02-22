@@ -24,7 +24,7 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       FrictionLawContext ctx{};
       ctx.deltaStateVar = &deltaStateVar[0];
-      ctx.item = &item;
+      ctx.item = reinterpret_cast<void*>(&item);
       ctx.data = data;
       ctx.devTimeWeights = devTimeWeights;
       ctx.devSpaceWeights = devSpaceWeights;

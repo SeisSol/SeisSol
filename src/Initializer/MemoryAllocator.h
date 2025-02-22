@@ -49,7 +49,7 @@ class AlignedArray {
   SEISSOL_HOSTDEVICE const T* data() const { return data_; }
   SEISSOL_HOSTDEVICE constexpr T& operator[](std::size_t pos) { return data_[pos]; }
   SEISSOL_HOSTDEVICE constexpr const T& operator[](std::size_t pos) const { return data_[pos]; }
-  SEISSOL_HOSTDEVICE [[nodiscard]] constexpr std::size_t size() const noexcept { return N; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr std::size_t size() const noexcept { return N; }
 
   private:
   alignas(Alignment) T data_[N];
@@ -194,7 +194,7 @@ class MemkindArray {
   SEISSOL_HOSTDEVICE constexpr const T& operator[](std::size_t index) const {
     return dataPtr[index];
   }
-  SEISSOL_HOSTDEVICE [[nodiscard]] constexpr std::size_t size() const noexcept { return capacity; }
+  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr std::size_t size() const noexcept { return capacity; }
 
   private:
   T* dataPtr{nullptr};

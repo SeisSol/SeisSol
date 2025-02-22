@@ -69,6 +69,7 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
  * @param base
  * @return
  */
+#pragma omp declare simd
 template <size_t Exp, typename T>
 SEISSOL_HOSTDEVICE inline auto power(T base) -> T {
   T result = static_cast<T>(1.0);
@@ -78,6 +79,7 @@ SEISSOL_HOSTDEVICE inline auto power(T base) -> T {
   return result;
 }
 
+#pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE inline std::enable_if_t<std::is_floating_point_v<T>, T> square(T t) {
   return t * t;
@@ -87,6 +89,7 @@ SEISSOL_HOSTDEVICE inline std::enable_if_t<std::is_floating_point_v<T>, T> squar
  * Computes a squared sum of an N-dimensional vector
  * @return magnitude of the vector
  */
+#pragma omp declare simd
 template <typename T, typename... Tn>
 SEISSOL_HOSTDEVICE inline T square(T t1, Tn... tn) {
   return square(t1) + square(tn...);
@@ -96,9 +99,20 @@ SEISSOL_HOSTDEVICE inline T square(T t1, Tn... tn) {
  * Computes the magnitude of an N-dimensional vector
  * @return magnitude of the vector
  */
+#pragma omp declare simd
 template <typename T, typename... Tn>
 SEISSOL_HOSTDEVICE inline T magnitude(T t1, Tn... tn) {
   return std::sqrt(square(t1) + square(tn...));
+}
+
+#pragma omp declare simd
+template <typename T>
+SEISSOL_HOSTDEVICE inline T clamp(T value, T minval, T maxval) {
+#ifdef __HIP__
+  return std::max(minval, std::min(maxval, value));
+#else
+  return std::clamp(value, minval, maxval);
+#endif
 }
 
 /**
@@ -107,6 +121,7 @@ SEISSOL_HOSTDEVICE inline T magnitude(T t1, Tn... tn) {
  * @param x
  * @return asinh(x)
  */
+#pragma omp declare simd
 SEISSOL_HOSTDEVICE inline double asinh(double x) { return std::log(x + std::sqrt(x * x + 1.0)); }
 
 /**
