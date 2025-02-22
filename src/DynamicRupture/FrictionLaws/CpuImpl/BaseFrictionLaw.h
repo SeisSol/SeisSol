@@ -11,8 +11,8 @@
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/Misc.h"
-#include "FrictionSolver.h"
-#include "FrictionSolverCommon.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Monitoring/Instrumentation.h"
 

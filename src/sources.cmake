@@ -40,10 +40,10 @@ src/Kernels/PointSourceClusterOnHost.cpp
 src/Common/Filesystem.cpp
 src/Common/IntegerMaskParser.cpp
 src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
-src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
-src/DynamicRupture/FrictionLaws/NoFault.cpp
-src/DynamicRupture/FrictionLaws/SourceTimeFunction.cpp
-src/DynamicRupture/FrictionLaws/ThermalPressurization/ThermalPressurization.cpp
+src/DynamicRupture/FrictionLaws/CpuImpl/LinearSlipWeakening.cpp
+src/DynamicRupture/FrictionLaws/CpuImpl/NoFault.cpp
+src/DynamicRupture/FrictionLaws/CpuImpl/SourceTimeFunction.cpp
+src/DynamicRupture/FrictionLaws/CpuImpl/ThermalPressurization/ThermalPressurization.cpp
 src/DynamicRupture/Initializer/BaseDRInitializer.cpp
 src/DynamicRupture/Initializer/ImposedSlipRatesInitializer.cpp
 src/DynamicRupture/Initializer/LinearSlipWeakeningInitializer.cpp

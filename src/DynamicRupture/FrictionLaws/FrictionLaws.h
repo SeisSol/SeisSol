@@ -11,18 +11,19 @@
 // IWYU pragma: begin_exports
 
 // collect all friction laws here
-#include "AgingLaw.h"
-#include "BaseFrictionLaw.h"
-#include "FastVelocityWeakeningLaw.h"
-#include "ImposedSlipRates.h"
-#include "LinearSlipWeakening.h"
-#include "NoFault.h"
-#include "RateAndState.h"
-#include "SevereVelocityWeakeningLaw.h"
-#include "SlipLaw.h"
-#include "SlowVelocityWeakeningLaw.h"
-#include "SourceTimeFunction.h"
-#include "ThermalPressurization/NoTP.h"
+#include "CpuImpl/AgingLaw.h"
+#include "CpuImpl/BaseFrictionLaw.h"
+#include "CpuImpl/FastVelocityWeakeningLaw.h"
+#include "CpuImpl/ImposedSlipRates.h"
+#include "CpuImpl/LinearSlipWeakening.h"
+#include "CpuImpl/NoFault.h"
+#include "CpuImpl/RateAndState.h"
+#include "CpuImpl/SevereVelocityWeakeningLaw.h"
+#include "CpuImpl/SlipLaw.h"
+#include "CpuImpl/SlowVelocityWeakeningLaw.h"
+#include "CpuImpl/SourceTimeFunction.h"
+#include "CpuImpl/ThermalPressurization/NoTP.h"
+#include "CpuImpl/ThermalPressurization/ThermalPressurization.h"
 
 #ifdef ACL_DEVICE
 #include "GpuImpl/AgingLaw.h"

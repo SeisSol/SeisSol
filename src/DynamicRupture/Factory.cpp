@@ -8,7 +8,6 @@
 #include "Factory.h"
 
 #include "FrictionLaws/FrictionLaws.h"
-#include "FrictionLaws/ThermalPressurization/ThermalPressurization.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Initializers.h"
 #include "Initializer/Parameters/DRParameters.h"
