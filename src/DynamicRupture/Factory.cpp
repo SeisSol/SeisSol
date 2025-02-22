@@ -65,16 +65,17 @@ class RateAndStateAgingFactory : public AbstractFactory {
   using AbstractFactory::AbstractFactory;
   DynamicRuptureTuple produce() override {
     if (drParameters->isThermalPressureOn) {
-      return {std::make_unique<seissol::initializer::LTSRateAndState>(),
-              std::make_unique<seissol::dr::initializer::RateAndStateInitializer>(drParameters,
-                                                                                  seissolInstance),
-              std::make_unique<friction_law_cpu::AgingLaw<friction_law_cpu::ThermalPressurization>>(
-                  drParameters.get()),
-              std::make_unique<friction_law_gpu::AgingLaw<friction_law_gpu::ThermalPressurization>>(
-                  drParameters.get()),
-              std::make_unique<seissol::dr::output::OutputManager>(
-                  std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>(),
-                  seissolInstance)};
+      return {
+          std::make_unique<seissol::initializer::LTSRateAndStateThermalPressurization>(),
+          std::make_unique<seissol::dr::initializer::RateAndStateThermalPressurizationInitializer>(
+              drParameters, seissolInstance),
+          std::make_unique<friction_law_cpu::AgingLaw<friction_law_cpu::ThermalPressurization>>(
+              drParameters.get()),
+          std::make_unique<friction_law_gpu::AgingLaw<friction_law_gpu::ThermalPressurization>>(
+              drParameters.get()),
+          std::make_unique<seissol::dr::output::OutputManager>(
+              std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>(),
+              seissolInstance)};
     } else {
       return {
           std::make_unique<seissol::initializer::LTSRateAndState>(),
@@ -93,16 +94,17 @@ class RateAndStateSlipFactory : public AbstractFactory {
   using AbstractFactory::AbstractFactory;
   DynamicRuptureTuple produce() override {
     if (drParameters->isThermalPressureOn) {
-      return {std::make_unique<seissol::initializer::LTSRateAndState>(),
-              std::make_unique<seissol::dr::initializer::RateAndStateInitializer>(drParameters,
-                                                                                  seissolInstance),
-              std::make_unique<friction_law_cpu::SlipLaw<friction_law_cpu::ThermalPressurization>>(
-                  drParameters.get()),
-              std::make_unique<friction_law_gpu::SlipLaw<friction_law_gpu::ThermalPressurization>>(
-                  drParameters.get()),
-              std::make_unique<seissol::dr::output::OutputManager>(
-                  std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>(),
-                  seissolInstance)};
+      return {
+          std::make_unique<seissol::initializer::LTSRateAndStateThermalPressurization>(),
+          std::make_unique<seissol::dr::initializer::RateAndStateThermalPressurizationInitializer>(
+              drParameters, seissolInstance),
+          std::make_unique<friction_law_cpu::SlipLaw<friction_law_cpu::ThermalPressurization>>(
+              drParameters.get()),
+          std::make_unique<friction_law_gpu::SlipLaw<friction_law_gpu::ThermalPressurization>>(
+              drParameters.get()),
+          std::make_unique<seissol::dr::output::OutputManager>(
+              std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>(),
+              seissolInstance)};
     } else {
       return {
           std::make_unique<seissol::initializer::LTSRateAndState>(),
@@ -209,8 +211,10 @@ class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
   DynamicRuptureTuple produce() override {
     if (drParameters->isThermalPressureOn) {
       return {
-          std::make_unique<seissol::initializer::LTSRateAndStateThermalPressurization>(),
-          std::make_unique<seissol::dr::initializer::RateAndStateThermalPressurizationInitializer>(
+          std::make_unique<
+              seissol::initializer::LTSRateAndStateThermalPressurizationFastVelocityWeakening>(),
+          std::make_unique<
+              seissol::dr::initializer::RateAndStateFastVelocityThermalPressurizationInitializer>(
               drParameters, seissolInstance),
           std::make_unique<
               friction_law_cpu::FastVelocityWeakeningLaw<friction_law_cpu::ThermalPressurization>>(
@@ -240,16 +244,17 @@ class RateAndStateSevereVelocityWeakeningFactory : public AbstractFactory {
   using AbstractFactory::AbstractFactory;
   DynamicRuptureTuple produce() override {
     if (drParameters->isThermalPressureOn) {
-      return {std::make_unique<seissol::initializer::LTSRateAndState>(),
-              std::make_unique<seissol::dr::initializer::RateAndStateInitializer>(drParameters,
-                                                                                  seissolInstance),
-              std::make_unique<friction_law_cpu::SevereVelocityWeakeningLaw<
-                  friction_law_cpu::ThermalPressurization>>(drParameters.get()),
-              std::make_unique<friction_law_gpu::SevereVelocityWeakeningLaw<
-                  friction_law_gpu::ThermalPressurization>>(drParameters.get()),
-              std::make_unique<seissol::dr::output::OutputManager>(
-                  std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>(),
-                  seissolInstance)};
+      return {
+          std::make_unique<seissol::initializer::LTSRateAndStateThermalPressurization>(),
+          std::make_unique<seissol::dr::initializer::RateAndStateThermalPressurizationInitializer>(
+              drParameters, seissolInstance),
+          std::make_unique<friction_law_cpu::SevereVelocityWeakeningLaw<
+              friction_law_cpu::ThermalPressurization>>(drParameters.get()),
+          std::make_unique<friction_law_gpu::SevereVelocityWeakeningLaw<
+              friction_law_gpu::ThermalPressurization>>(drParameters.get()),
+          std::make_unique<seissol::dr::output::OutputManager>(
+              std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>(),
+              seissolInstance)};
     } else {
       return {
           std::make_unique<seissol::initializer::LTSRateAndState>(),
