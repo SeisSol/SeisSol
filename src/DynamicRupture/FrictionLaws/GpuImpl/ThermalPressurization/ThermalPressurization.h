@@ -126,10 +126,15 @@ class ThermalPressurization {
                          ctx.data->halfWidthShearZone[ctx.ltsFace][ctx.pointIndex]);
 
       // This is exp(-A dt) in Noda & Lapusta (2010) equation (10)
-      const real expTheta = std::exp(-ctx.data->drParameters.thermalDiffusivity *
-                                     ctx.data->deltaT[timeIndex] * squaredNormalizedTpGrid);
-      const real expSigma = std::exp(-ctx.data->hydraulicDiffusivity[ctx.ltsFace][ctx.pointIndex] *
-                                     ctx.data->deltaT[timeIndex] * squaredNormalizedTpGrid);
+      const real thetaTpGrid = ctx.data->drParameters.thermalDiffusivity * squaredNormalizedTpGrid;
+      const real sigmaTpGrid =
+          ctx.data->hydraulicDiffusivity[ctx.ltsFace][ctx.pointIndex] * squaredNormalizedTpGrid;
+      const real preExpTheta = -thetaTpGrid * ctx.data->deltaT[timeIndex];
+      const real preExpSigma = -sigmaTpGrid * ctx.data->deltaT[timeIndex];
+      const real expTheta = std::exp(preExpTheta);
+      const real expSigma = std::exp(preExpSigma);
+      const real exp1mTheta = -std::expm1(preExpTheta);
+      const real exp1mSigma = -std::expm1(preExpSigma);
 
       // Temperature and pressure diffusion in spectral domain over timestep
       // This is + F(t) exp(-A dt) in equation (10)
@@ -142,15 +147,11 @@ class ThermalPressurization {
       // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
       // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
       const real omega = tauV * ctx.HeatSource[tpGridPointIndex];
-      const real thetaGeneration = omega /
-                                   (ctx.data->drParameters.heatCapacity * squaredNormalizedTpGrid *
-                                    ctx.data->drParameters.thermalDiffusivity) *
-                                   (1.0 - expTheta);
+      const real thetaGeneration =
+          omega / (ctx.data->drParameters.heatCapacity * thetaTpGrid) * exp1mTheta;
       const real sigmaGeneration = omega *
                                    (ctx.data->drParameters.undrainedTPResponse + lambdaPrime) /
-                                   (ctx.data->drParameters.heatCapacity * squaredNormalizedTpGrid *
-                                    ctx.data->hydraulicDiffusivity[ctx.ltsFace][ctx.pointIndex]) *
-                                   (1.0 - expSigma);
+                                   (ctx.data->drParameters.heatCapacity * sigmaTpGrid) * exp1mSigma;
 
       // Sum both contributions up
       ctx.data->thetaTmpBuffer[ctx.ltsFace][ctx.pointIndex][tpGridPointIndex] =
