@@ -56,7 +56,7 @@ class ThermalPressurization {
                                  const seissol::initializer::DynamicRupture* const dynRup,
                                  real fullUpdateTime) {
     const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization*>(dynRup);
+        dynamic_cast<const seissol::initializer::ThermalPressurization*>(dynRup);
     const auto place = seissol::initializer::AllocationPlace::Device;
     data->temperature = layerData.var(concreteLts->temperature, place);
     data->pressure = layerData.var(concreteLts->pressure, place);
