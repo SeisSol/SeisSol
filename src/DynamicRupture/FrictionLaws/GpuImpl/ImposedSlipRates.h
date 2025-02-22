@@ -39,7 +39,7 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
       currentTime += ctx.data->deltaT[i];
     }
 
-    const auto stfEvaluated = STF::evaluate(ctx, currentTime, timeIncrement);
+    const auto stfEvaluated = STF::evaluateSTF(ctx, currentTime, timeIncrement);
 
     ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] =
         ctx.faultStresses.traction1[timeIndex] -
