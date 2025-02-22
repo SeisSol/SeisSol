@@ -476,9 +476,8 @@ if (WITH_GPU)
   # set up GPU install targets
   install(TARGETS seissol-device-lib LIBRARY)
   install(TARGETS device LIBRARY)
+  target_sources(seissol-common-lib PRIVATE ${SYCL_ONLY_SRC_FILES})
 endif()
-target_sources(seissol-common-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
-target_sources(seissol-common-lib PRIVATE ${SYCL_ONLY_SRC_FILES})
 
 # C++ compiler settings
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
