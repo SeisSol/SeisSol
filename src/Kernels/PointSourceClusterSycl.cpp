@@ -3,6 +3,8 @@
 #include <Initializer/MemoryAllocator.h>
 #include <cstddef>
 
+#include <CL/sycl.hpp>
+
 namespace seissol::kernels {
 
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
