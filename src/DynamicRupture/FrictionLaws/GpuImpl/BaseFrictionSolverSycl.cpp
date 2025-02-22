@@ -1,5 +1,19 @@
 #include "BaseFrictionSolver.h"
 
+#include "AgingLaw.h"
+#include "FastVelocityWeakeningLaw.h"
+#include "FrictionSolverInterface.h"
+#include "ImposedSlipRates.h"
+#include "LinearSlipWeakening.h"
+#include "NoFault.h"
+#include "RateAndState.h"
+#include "SevereVelocityWeakeningLaw.h"
+#include "SlipLaw.h"
+#include "SlowVelocityWeakeningLaw.h"
+#include "SourceTimeFunction.h"
+#include "ThermalPressurization/NoTP.h"
+#include "ThermalPressurization/ThermalPressurization.h"
+
 namespace seissol::dr::friction_law::gpu {
 
 template <typename T>

@@ -1,5 +1,8 @@
 #include "PointSourceCluster.h"
 
+#include <Initializer/MemoryAllocator.h>
+#include <cstddef>
+
 namespace seissol::kernels {
 
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,

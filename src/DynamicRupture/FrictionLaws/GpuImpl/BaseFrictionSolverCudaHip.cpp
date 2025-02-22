@@ -1,5 +1,6 @@
-#include "AgingLaw.h"
 #include "BaseFrictionSolver.h"
+
+#include "AgingLaw.h"
 #include "FastVelocityWeakeningLaw.h"
 #include "FrictionSolverInterface.h"
 #include "ImposedSlipRates.h"

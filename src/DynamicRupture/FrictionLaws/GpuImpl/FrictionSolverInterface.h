@@ -42,7 +42,6 @@ struct FrictionLawData {
   real (*__restrict traction2)[misc::NumPaddedPoints]{};
   real (*__restrict imposedStatePlus)[tensor::QInterpolated::size()]{};
   real (*__restrict imposedStateMinus)[tensor::QInterpolated::size()]{};
-  const real spaceWeights[misc::NumPaddedPoints]{};
   DREnergyOutput* __restrict energyData{};
   const DRGodunovData* __restrict godunovData{};
   real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
