@@ -97,9 +97,7 @@ class SevereVelocityWeakeningLaw
   }
 
   void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                             unsigned ltsFace) {
-    assert(!std::isnan(tmp) && "nonConvergence RS Newton");
-  }
+                             unsigned ltsFace) {}
 };
 } // namespace seissol::dr::friction_law::cpu
 
