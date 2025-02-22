@@ -13,6 +13,7 @@
 #define SEISSOL_SRC_INITIALIZER_MEMORYALLOCATOR_H_
 
 #include "Common/Constants.h"
+#include "Common/Marker.h"
 #include "Kernels/Precision.h"
 #include <cassert>
 #include <cstdlib>
@@ -40,11 +41,15 @@ using VectorT =
 template <typename T, std::size_t N>
 class AlignedArray {
   public:
-  T* data() { return data_; }
-  const T* data() const { return data_; }
-  constexpr T& operator[](std::size_t pos) { return data_[pos]; }
-  constexpr const T& operator[](std::size_t pos) const { return data_[pos]; }
-  [[nodiscard]] constexpr std::size_t size() const noexcept { return N; }
+  SEISSOL_HOSTDEVICE T* begin() noexcept { return data_; }
+  SEISSOL_HOSTDEVICE T* end() noexcept { return data_ + N; }
+  SEISSOL_HOSTDEVICE const T* begin() const noexcept { return data_; }
+  SEISSOL_HOSTDEVICE const T* end() const noexcept { return data_ + N; }
+  SEISSOL_HOSTDEVICE T* data() { return data_; }
+  SEISSOL_HOSTDEVICE const T* data() const { return data_; }
+  SEISSOL_HOSTDEVICE constexpr T& operator[](std::size_t pos) { return data_[pos]; }
+  SEISSOL_HOSTDEVICE constexpr const T& operator[](std::size_t pos) const { return data_[pos]; }
+  SEISSOL_HOSTDEVICE [[nodiscard]] constexpr std::size_t size() const noexcept { return N; }
 
   private:
   alignas(Alignment) T data_[N];
@@ -179,15 +184,17 @@ class MemkindArray {
     memcopyTyped<T>(dataPtr, source.data(), capacity, memkind, source.memkind);
   }
   ~MemkindArray() { free(dataPtr, memkind); }
-  T* data() noexcept { return dataPtr; }
-  const T* data() const noexcept { return dataPtr; }
-  T* begin() noexcept { return dataPtr; }
-  T* end() noexcept { return dataPtr + capacity; }
-  const T* begin() const noexcept { return dataPtr; }
-  const T* end() const noexcept { return dataPtr + capacity; }
-  constexpr T& operator[](std::size_t index) { return dataPtr[index]; }
-  constexpr const T& operator[](std::size_t index) const { return dataPtr[index]; }
-  [[nodiscard]] constexpr std::size_t size() const noexcept { return capacity; }
+  SEISSOL_HOSTDEVICE T* data() noexcept { return dataPtr; }
+  SEISSOL_HOSTDEVICE const T* data() const noexcept { return dataPtr; }
+  SEISSOL_HOSTDEVICE T* begin() noexcept { return dataPtr; }
+  SEISSOL_HOSTDEVICE T* end() noexcept { return dataPtr + capacity; }
+  SEISSOL_HOSTDEVICE const T* begin() const noexcept { return dataPtr; }
+  SEISSOL_HOSTDEVICE const T* end() const noexcept { return dataPtr + capacity; }
+  SEISSOL_HOSTDEVICE constexpr T& operator[](std::size_t index) { return dataPtr[index]; }
+  SEISSOL_HOSTDEVICE constexpr const T& operator[](std::size_t index) const {
+    return dataPtr[index];
+  }
+  SEISSOL_HOSTDEVICE [[nodiscard]] constexpr std::size_t size() const noexcept { return capacity; }
 
   private:
   T* dataPtr{nullptr};

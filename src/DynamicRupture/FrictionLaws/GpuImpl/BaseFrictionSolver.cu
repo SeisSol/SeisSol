@@ -46,8 +46,8 @@ real* TpInverseFourierCoefficients,
     ctx.TpGridPoints = TpGridPoints;
     ctx.HeatSource = HeatSource;
 
-    __shared__ real deltaStateVar[seissol::dr::misc::NumPaddedPoints];
-    ctx.deltaStateVar = &deltaStateVar[0];
+    __shared__ real shm[PaddedMultiple * seissol::dr::misc::NumPaddedPoints];
+    ctx.deltaStateVar = &shm[threadIdx.y * seissol::dr::misc::NumPaddedPoints];
     // ctx.item = nullptr;
 
     ctx.ltsFace = blockIdx.x * blockDim.y + threadIdx.y;

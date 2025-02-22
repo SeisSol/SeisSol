@@ -51,11 +51,12 @@ struct FrictionLawContext {
 
 #ifdef __CUDACC__
 SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext& ctx) { __syncthreads(); }
-#endif
-#ifdef SEISSOL_KERNELS_SYCL
+#elif defined SEISSOL_KERNELS_SYCL
 inline void deviceBarrier(FrictionLawContext& ctx) {
   reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->barrier(sycl::access::fence_space::local_space);
 }
+#else
+inline void deviceBarrier(FrictionLawContext& ctx) {}
 #endif
 
 template <typename Derived> // , typename StdMath
@@ -182,6 +183,10 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 real fullUpdateTime,
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
+
+    if (layerData.getNumberOfCells() == 0) {
+      return;
+    }
 
     // TODO: avoid copying the data all the time
     // TODO: allocate FrictionLawData as constant data

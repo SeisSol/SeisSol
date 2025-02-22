@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_COMMON_MARKER_H_
 #define SEISSOL_SRC_COMMON_MARKER_H_
 
+// host/device function markers
+
 #if defined(__CUDACC__) || defined(__HIP__)
 #define SEISSOL_DEVICE __device__
 #define SEISSOL_HOST __host__

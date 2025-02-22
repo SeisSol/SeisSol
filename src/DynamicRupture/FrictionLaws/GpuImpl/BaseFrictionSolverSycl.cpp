@@ -1,11 +1,19 @@
+#include "BaseFrictionSolver.h"
+
 namespace seissol::dr::friction_law::gpu {
 
-void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime, real fullUpdateTime) {
+template <typename T>
+void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
+                                           real fullUpdateTime) {
   auto* data{this->data};
   auto* devTimeWeights{this->devTimeWeights};
   auto* devSpaceWeights{this->devSpaceWeights};
   auto* resampleMatrix{this->resampleMatrix};
   auto devFullUpdateTime{fullUpdateTime};
+
+  auto* TpInverseFourierCoefficients{this->devTpInverseFourierCoefficients};
+  auto* TpGridPoints{this->devTpGridPoints};
+  auto* HeatSource{this->devHeatSource};
 
   sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
   this->queue.submit([&](sycl::handler& cgh) {
@@ -22,6 +30,9 @@ void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime, real ful
       ctx.devSpaceWeights = devSpaceWeights;
       ctx.resampleMatrix = resampleMatrix;
       ctx.fullUpdateTime = devFullUpdateTime;
+      ctx.TpInverseFourierCoefficients = TpInverseFourierCoefficients;
+      ctx.TpGridPoints = TpGridPoints;
+      ctx.HeatSource = HeatSource;
 
       const auto ltsFace = item.get_group().get_group_id(0);
       const auto pointIndex = item.get_local_id(0);

@@ -165,7 +165,7 @@ set(SYCL_DEPENDENT_SRC_FILES
 )
 
 set(SYCL_ONLY_SRC_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/Runtime/StreamSycl.cpp
+#  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/Runtime/StreamSycl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/AcceleratorDevice.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnDevice.cpp)
