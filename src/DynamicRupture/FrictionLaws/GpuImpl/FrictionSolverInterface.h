@@ -98,10 +98,7 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
       : seissol::dr::friction_law::FrictionSolver(drParameters) {}
   ~FrictionSolverInterface() override = default;
 
-  virtual void initSyclQueue() = 0;
-  void setMaxClusterSize(size_t size) { maxClusterSize = size; }
   virtual void allocateAuxiliaryMemory() = 0;
-  virtual void copyStaticDataToDevice() = 0;
 
   seissol::initializer::AllocationPlace allocationPlace() override {
     return seissol::initializer::AllocationPlace::Device;
@@ -143,7 +140,6 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
   }
 
   protected:
-  size_t maxClusterSize{};
   FrictionLawData dataHost;
 };
 } // namespace seissol::dr::friction_law::gpu

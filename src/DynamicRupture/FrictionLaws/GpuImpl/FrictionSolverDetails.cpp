@@ -23,18 +23,9 @@ FrictionSolverDetails::FrictionSolverDetails(
     seissol::initializer::parameters::DRParameters* drParameters)
     : FrictionSolverInterface(drParameters) {}
 
-FrictionSolverDetails::~FrictionSolverDetails() {
-  if (maxClusterSize == 0) {
-    return;
-  }
-}
-
-void FrictionSolverDetails::initSyclQueue() {}
+FrictionSolverDetails::~FrictionSolverDetails() = default;
 
 void FrictionSolverDetails::allocateAuxiliaryMemory() {
-  if (maxClusterSize == 0) {
-    return;
-  }
 
   {
     devTimeWeights =
@@ -43,12 +34,6 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
 
   {
     data = seissol::memory::allocTyped<FrictionLawData>(1, 1, memory::DeviceGlobalMemory);
-  }
-}
-
-void FrictionSolverDetails::copyStaticDataToDevice() {
-  if (maxClusterSize == 0) {
-    return;
   }
 
   {

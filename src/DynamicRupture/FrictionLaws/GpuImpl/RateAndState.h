@@ -25,13 +25,6 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
   ~RateAndStateBase() = default;
 
-  void allocateAuxiliaryMemory() override {
-    FrictionSolverDetails::allocateAuxiliaryMemory();
-    if (this->maxClusterSize == 0) {
-      return;
-    }
-  }
-
   static void
       copySpecificLtsDataTreeToLocal(FrictionLawData* data,
                                      seissol::initializer::Layer& layerData,

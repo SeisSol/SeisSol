@@ -890,14 +890,10 @@ void seissol::initializer::MemoryManager::initFrictionData() {
 
 #ifdef ACL_DEVICE
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
-      impl->initSyclQueue();
 
-      LayerMask mask = seissol::initializer::LayerMask(Ghost);
-      auto maxSize = m_dynRupTree.getMaxClusterSize(mask);
-      impl->setMaxClusterSize(maxSize);
+      const auto mask = seissol::initializer::LayerMask(Ghost);
 
       impl->allocateAuxiliaryMemory();
-      impl->copyStaticDataToDevice();
     }
 #endif // ACL_DEVICE
   }

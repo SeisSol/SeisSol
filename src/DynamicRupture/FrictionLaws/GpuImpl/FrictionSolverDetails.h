@@ -19,9 +19,7 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   explicit FrictionSolverDetails(seissol::initializer::parameters::DRParameters* drParameters);
   ~FrictionSolverDetails() override;
 
-  void initSyclQueue() override;
   void allocateAuxiliaryMemory() override;
-  void copyStaticDataToDevice() override;
 
   protected:
   size_t currLayerSize{};

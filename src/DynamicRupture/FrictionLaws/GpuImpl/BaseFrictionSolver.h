@@ -61,7 +61,7 @@ inline void deviceBarrier(FrictionLawContext& ctx) {
 inline void deviceBarrier(FrictionLawContext& ctx) {}
 #endif
 
-template <typename Derived> // , typename StdMath
+template <typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails {
   public:
   explicit BaseFrictionSolver<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
@@ -72,99 +72,85 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     using StdMath = functions::HostStdFunctions;
     constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
 
-    auto* devImpAndEta{ctx.data->impAndEta};
-    auto* devImpedanceMatrices{ctx.data->impedanceMatrices};
-    auto* devQInterpolatedPlus{ctx.data->qInterpolatedPlus};
-    auto* devQInterpolatedMinus{ctx.data->qInterpolatedMinus};
-
-    common::precomputeStressFromQInterpolated<gpuRangeType>(ctx.faultStresses,
-                                                            devImpAndEta[ctx.ltsFace],
-                                                            devImpedanceMatrices[ctx.ltsFace],
-                                                            devQInterpolatedPlus[ctx.ltsFace],
-                                                            devQInterpolatedMinus[ctx.ltsFace],
-                                                            ctx.pointIndex);
+    common::precomputeStressFromQInterpolated<gpuRangeType>(
+        ctx.faultStresses,
+        ctx.data->impAndEta[ctx.ltsFace],
+        ctx.data->impedanceMatrices[ctx.ltsFace],
+        ctx.data->qInterpolatedPlus[ctx.ltsFace],
+        ctx.data->qInterpolatedMinus[ctx.ltsFace],
+        ctx.pointIndex);
 
     Derived::preHook(ctx);
     for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
       const real t0{ctx.data->drParameters.t0};
       const real dt = ctx.data->deltaT[timeIndex];
-      auto* devInitialStressInFaultCS{ctx.data->initialStressInFaultCS};
-      const auto* devNucleationStressInFaultCS{ctx.data->nucleationStressInFaultCS};
-      auto* devInitialPressure{ctx.data->initialPressure};
-      const auto* devNucleationPressure{ctx.data->nucleationPressure};
 
-      common::adjustInitialStress<gpuRangeType, StdMath>(devInitialStressInFaultCS[ctx.ltsFace],
-                                                         devNucleationStressInFaultCS[ctx.ltsFace],
-                                                         devInitialPressure[ctx.ltsFace],
-                                                         devNucleationPressure[ctx.ltsFace],
-                                                         ctx.fullUpdateTime,
-                                                         t0,
-                                                         dt,
-                                                         ctx.pointIndex);
+      common::adjustInitialStress<gpuRangeType, StdMath>(
+          ctx.data->initialStressInFaultCS[ctx.ltsFace],
+          ctx.data->nucleationStressInFaultCS[ctx.ltsFace],
+          ctx.data->initialPressure[ctx.ltsFace],
+          ctx.data->nucleationPressure[ctx.ltsFace],
+          ctx.fullUpdateTime,
+          t0,
+          dt,
+          ctx.pointIndex);
 
       Derived::updateFrictionAndSlip(ctx, timeIndex);
     }
     Derived::postHook(ctx);
 
-    auto* devRuptureTimePending{ctx.data->ruptureTimePending};
-    auto* devSlipRateMagnitude{ctx.data->slipRateMagnitude};
-    auto* devRuptureTime{ctx.data->ruptureTime};
-
-    common::saveRuptureFrontOutput<gpuRangeType>(devRuptureTimePending[ctx.ltsFace],
-                                                 devRuptureTime[ctx.ltsFace],
-                                                 devSlipRateMagnitude[ctx.ltsFace],
+    common::saveRuptureFrontOutput<gpuRangeType>(ctx.data->ruptureTimePending[ctx.ltsFace],
+                                                 ctx.data->ruptureTime[ctx.ltsFace],
+                                                 ctx.data->slipRateMagnitude[ctx.ltsFace],
                                                  ctx.fullUpdateTime,
                                                  ctx.pointIndex);
 
     Derived::saveDynamicStressOutput(ctx);
 
-    auto* devPeakSlipRate{ctx.data->peakSlipRate};
-    auto* devImposedStatePlus{ctx.data->imposedStatePlus};
-    auto* devImposedStateMinus{ctx.data->imposedStateMinus};
-    auto* devEnergyData{ctx.data->energyData};
-    auto* devGodunovData{ctx.data->godunovData};
-    auto devSumDt{ctx.data->sumDt};
+    const auto devSumDt{ctx.data->sumDt};
 
-    auto isFrictionEnergyRequired{ctx.data->drParameters.isFrictionEnergyRequired};
-    auto isCheckAbortCriteraEnabled{ctx.data->drParameters.isCheckAbortCriteraEnabled};
-    auto devTerminatorSlipRateThreshold{ctx.data->drParameters.terminatorSlipRateThreshold};
-    auto energiesFromAcrossFaultVelocities{
+    const auto isFrictionEnergyRequired{ctx.data->drParameters.isFrictionEnergyRequired};
+    const auto isCheckAbortCriteraEnabled{ctx.data->drParameters.isCheckAbortCriteraEnabled};
+    const auto devTerminatorSlipRateThreshold{ctx.data->drParameters.terminatorSlipRateThreshold};
+    const auto energiesFromAcrossFaultVelocities{
         ctx.data->drParameters.energiesFromAcrossFaultVelocities};
 
-    common::savePeakSlipRateOutput<gpuRangeType>(
-        devSlipRateMagnitude[ctx.ltsFace], devPeakSlipRate[ctx.ltsFace], ctx.pointIndex);
+    common::savePeakSlipRateOutput<gpuRangeType>(ctx.data->slipRateMagnitude[ctx.ltsFace],
+                                                 ctx.data->peakSlipRate[ctx.ltsFace],
+                                                 ctx.pointIndex);
 
-    common::postcomputeImposedStateFromNewStress<gpuRangeType>(ctx.faultStresses,
-                                                               ctx.tractionResults,
-                                                               devImpAndEta[ctx.ltsFace],
-                                                               devImpedanceMatrices[ctx.ltsFace],
-                                                               devImposedStatePlus[ctx.ltsFace],
-                                                               devImposedStateMinus[ctx.ltsFace],
-                                                               devQInterpolatedPlus[ctx.ltsFace],
-                                                               devQInterpolatedMinus[ctx.ltsFace],
-                                                               ctx.devTimeWeights,
-                                                               ctx.pointIndex);
+    common::postcomputeImposedStateFromNewStress<gpuRangeType>(
+        ctx.faultStresses,
+        ctx.tractionResults,
+        ctx.data->impAndEta[ctx.ltsFace],
+        ctx.data->impedanceMatrices[ctx.ltsFace],
+        ctx.data->imposedStatePlus[ctx.ltsFace],
+        ctx.data->imposedStateMinus[ctx.ltsFace],
+        ctx.data->qInterpolatedPlus[ctx.ltsFace],
+        ctx.data->qInterpolatedMinus[ctx.ltsFace],
+        ctx.devTimeWeights,
+        ctx.pointIndex);
 
     if (isFrictionEnergyRequired) {
 
       if (isCheckAbortCriteraEnabled) {
         common::updateTimeSinceSlipRateBelowThreshold<gpuRangeType>(
-            devSlipRateMagnitude[ctx.ltsFace],
-            devRuptureTimePending[ctx.ltsFace],
-            devEnergyData[ctx.ltsFace],
+            ctx.data->slipRateMagnitude[ctx.ltsFace],
+            ctx.data->ruptureTimePending[ctx.ltsFace],
+            ctx.data->energyData[ctx.ltsFace],
             devSumDt,
             devTerminatorSlipRateThreshold,
             ctx.pointIndex);
       }
 
-      common::computeFrictionEnergy<gpuRangeType>(devEnergyData[ctx.ltsFace],
-                                                  devQInterpolatedPlus[ctx.ltsFace],
-                                                  devQInterpolatedMinus[ctx.ltsFace],
-                                                  devImpAndEta[ctx.ltsFace],
+      common::computeFrictionEnergy<gpuRangeType>(ctx.data->energyData[ctx.ltsFace],
+                                                  ctx.data->qInterpolatedPlus[ctx.ltsFace],
+                                                  ctx.data->qInterpolatedMinus[ctx.ltsFace],
+                                                  ctx.data->impAndEta[ctx.ltsFace],
                                                   ctx.devTimeWeights,
                                                   ctx.devSpaceWeights,
-                                                  devGodunovData[ctx.ltsFace],
-                                                  devSlipRateMagnitude[ctx.ltsFace],
+                                                  ctx.data->godunovData[ctx.ltsFace],
+                                                  ctx.data->slipRateMagnitude[ctx.ltsFace],
                                                   energiesFromAcrossFaultVelocities,
                                                   ctx.pointIndex);
     }
