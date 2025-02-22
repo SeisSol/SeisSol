@@ -18,6 +18,7 @@
 #include "LinearSlipWeakening.h"
 #include "NoFault.h"
 #include "RateAndState.h"
+#include "SevereVelocityWeakeningLaw.h"
 #include "SlipLaw.h"
 #include "SlowVelocityWeakeningLaw.h"
 #include "SourceTimeFunction.h"

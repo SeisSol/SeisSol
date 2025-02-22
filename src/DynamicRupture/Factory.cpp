@@ -238,21 +238,25 @@ class RateAndStateSevereVelocityWeakeningFactory : public AbstractFactory {
   using AbstractFactory::AbstractFactory;
   DynamicRuptureTuple produce() override {
     if (drParameters->isThermalPressureOn) {
-      return {std::make_unique<seissol::initializer::LTSRateAndState>(),
-              std::make_unique<seissol::dr::initializer::RateAndStateInitializer>(drParameters,
-                                                                                  seissolInstance),
-              nullptr,
-              std::make_unique<friction_law_gpu::SevereVelocityWeakeningLaw<
-                  friction_law_gpu::ThermalPressurization>>(drParameters.get()),
-              std::make_unique<seissol::dr::output::OutputManager>(
-                  std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>(),
-                  seissolInstance)};
+      return {
+          std::make_unique<seissol::initializer::LTSRateAndState>(),
+          std::make_unique<seissol::dr::initializer::RateAndStateInitializer>(drParameters,
+                                                                              seissolInstance),
+          std::make_unique<
+              friction_law::SevereVelocityWeakeningLaw<friction_law_gpu::ThermalPressurization>>(
+              drParameters.get()),
+          std::make_unique<friction_law_gpu::SevereVelocityWeakeningLaw<
+              friction_law_gpu::ThermalPressurization>>(drParameters.get()),
+          std::make_unique<seissol::dr::output::OutputManager>(
+              std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>(),
+              seissolInstance)};
     } else {
       return {
           std::make_unique<seissol::initializer::LTSRateAndState>(),
           std::make_unique<seissol::dr::initializer::RateAndStateInitializer>(drParameters,
                                                                               seissolInstance),
-          nullptr,
+          std::make_unique<friction_law::SevereVelocityWeakeningLaw<friction_law_gpu::NoTP>>(
+              drParameters.get()),
           std::make_unique<friction_law_gpu::SevereVelocityWeakeningLaw<friction_law_gpu::NoTP>>(
               drParameters.get()),
           std::make_unique<seissol::dr::output::OutputManager>(
