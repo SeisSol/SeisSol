@@ -12,7 +12,7 @@
 
 #include "RateAndState.h"
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 
 template <typename TPMethod>
 class FastVelocityWeakeningLaw
@@ -161,6 +161,6 @@ class FastVelocityWeakeningLaw
   protected:
   real (*srW)[misc::NumPaddedPoints];
 };
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FASTVELOCITYWEAKENINGLAW_H_

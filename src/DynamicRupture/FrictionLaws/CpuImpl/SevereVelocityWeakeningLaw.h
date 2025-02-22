@@ -10,7 +10,7 @@
 
 #include "RateAndState.h"
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 template <class TPMethod>
 class SevereVelocityWeakeningLaw
     : public RateAndStateBase<SevereVelocityWeakeningLaw<TPMethod>, TPMethod> {
@@ -101,6 +101,6 @@ class SevereVelocityWeakeningLaw
     assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
 };
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SEVEREVELOCITYWEAKENINGLAW_H_

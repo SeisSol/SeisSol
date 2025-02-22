@@ -14,7 +14,7 @@
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Numerical/RegularizedYoffe.h"
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 class YoffeSTF {
   private:
   real (*onsetTime)[misc::NumPaddedPoints];
@@ -57,6 +57,6 @@ class DeltaSTF {
   real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);
 };
 
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SOURCETIMEFUNCTION_H_

@@ -10,7 +10,7 @@
 
 #include "BaseFrictionLaw.h"
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 /**
  * Slip rates are set fixed values
  */
@@ -80,6 +80,6 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   STF stf{};
 };
 
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_IMPOSEDSLIPRATES_H_

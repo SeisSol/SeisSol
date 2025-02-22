@@ -16,7 +16,7 @@
 
 #include "Initializer/MemoryAllocator.h"
 
-#include "DynamicRupture/FrictionLaws/GpuImpl/ThermalPressurization/TPCommon.h"
+#include "DynamicRupture/FrictionLaws/TPCommon.h"
 
 namespace seissol::dr::friction_law::gpu {
 FrictionSolverDetails::FrictionSolverDetails(
@@ -60,7 +60,8 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
   }
 
   {
-    const auto data = InverseFourierCoefficients<misc::NumTpGridPoints>();
+    const auto data =
+        seissol::dr::friction_law::tp::InverseFourierCoefficients<misc::NumTpGridPoints>();
     devTpInverseFourierCoefficients =
         seissol::memory::allocTyped<real>(misc::NumTpGridPoints, 1, memory::DeviceGlobalMemory);
     seissol::memory::memcopyTyped<real>(devTpInverseFourierCoefficients,
@@ -71,7 +72,7 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
   }
 
   {
-    const auto data = GridPoints<misc::NumTpGridPoints>();
+    const auto data = seissol::dr::friction_law::tp::GridPoints<misc::NumTpGridPoints>();
     devTpGridPoints =
         seissol::memory::allocTyped<real>(misc::NumTpGridPoints, 1, memory::DeviceGlobalMemory);
     seissol::memory::memcopyTyped<real>(devTpGridPoints,
@@ -82,7 +83,7 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
   }
 
   {
-    const auto data = GaussianHeatSource<misc::NumTpGridPoints>();
+    const auto data = seissol::dr::friction_law::tp::GaussianHeatSource<misc::NumTpGridPoints>();
     devHeatSource =
         seissol::memory::allocTyped<real>(misc::NumTpGridPoints, 1, memory::DeviceGlobalMemory);
     seissol::memory::memcopyTyped<real>(devHeatSource,

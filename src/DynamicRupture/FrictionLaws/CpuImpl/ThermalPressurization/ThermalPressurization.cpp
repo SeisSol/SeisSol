@@ -10,15 +10,16 @@
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include <DynamicRupture/FrictionLaws/TPCommon.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 
-static const GridPoints<misc::NumTpGridPoints> TpGridPoints;
-static const InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFourierCoefficients;
-static const GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
+static const tp::GridPoints<misc::NumTpGridPoints> TpGridPoints;
+static const tp::InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFourierCoefficients;
+static const tp::GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
 
 void ThermalPressurization::copyLtsTreeToLocal(
     seissol::initializer::Layer& layerData,
@@ -137,4 +138,4 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
   pressure[ltsFace][pointIndex] = -pressureUpdate + drParameters->initialPressure;
 }
 
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu

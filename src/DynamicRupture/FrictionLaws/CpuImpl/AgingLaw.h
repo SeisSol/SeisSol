@@ -10,7 +10,7 @@
 
 #include "SlowVelocityWeakeningLaw.h"
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 
 /**
  * This class was not tested and compared to the Fortran FL3. Since FL3 initialization did not work
@@ -49,6 +49,6 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
   }
 };
 
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_AGINGLAW_H_

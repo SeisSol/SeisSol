@@ -12,7 +12,7 @@
 
 #include "utils/logger.h"
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 
 /**
  * Abstract Class implementing the general structure of linear slip weakening friction laws.
@@ -331,6 +331,6 @@ class TPApprox {
   seissol::initializer::parameters::DRParameters* drParameters;
 };
 
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_LINEARSLIPWEAKENING_H_

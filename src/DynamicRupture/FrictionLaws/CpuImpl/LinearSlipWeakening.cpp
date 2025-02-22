@@ -14,7 +14,7 @@
 #include <cmath>
 #include <init.h>
 #include <kernel.h>
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 
 void NoSpecialization::resampleSlipRate(
     real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
@@ -59,4 +59,4 @@ real TPApprox::stateVariableHook(real localAccumulatedSlip,
   return 1.0 - std::pow(factor, -drParameters->tpProxyExponent);
 }
 
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
