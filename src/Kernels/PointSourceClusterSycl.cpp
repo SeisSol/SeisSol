@@ -3,7 +3,7 @@
 #include <Initializer/MemoryAllocator.h>
 #include <cstddef>
 
-#include <CL/sycl.hpp>
+#include <sycl/sycl.hpp>
 
 namespace seissol::kernels {
 
