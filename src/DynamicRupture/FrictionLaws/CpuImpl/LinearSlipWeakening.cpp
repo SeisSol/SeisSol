@@ -30,7 +30,7 @@ void BiMaterialFault::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                                          real fullUpdateTime) {
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup);
-  regularisedStrength = layerData.var(concreteLts->regularisedStrength);
+  regularizedStrength = layerData.var(concreteLts->regularizedStrength);
 }
 
 #pragma omp declare simd
@@ -45,8 +45,8 @@ real BiMaterialFault::strengthHook(real faultStrength,
       std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + drParameters->vStar) * deltaT /
                drParameters->prakashLength);
   const real newStrength =
-      regularisedStrength[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);
-  regularisedStrength[ltsFace][pointIndex] = newStrength;
+      regularizedStrength[ltsFace][pointIndex] * expterm + faultStrength * (1.0 - expterm);
+  regularizedStrength[ltsFace][pointIndex] = newStrength;
   return newStrength;
 }
 

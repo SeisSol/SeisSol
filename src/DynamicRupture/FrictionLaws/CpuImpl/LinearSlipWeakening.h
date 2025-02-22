@@ -290,7 +290,7 @@ class BiMaterialFault {
 
   protected:
   seissol::initializer::parameters::DRParameters* drParameters;
-  real (*regularisedStrength)[misc::NumPaddedPoints]{};
+  real (*regularizedStrength)[misc::NumPaddedPoints]{};
 };
 
 /**

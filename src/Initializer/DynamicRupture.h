@@ -163,18 +163,18 @@ struct LTSLinearSlipWeakening : public DynamicRupture {
 };
 
 struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
-  Variable<real[dr::misc::NumPaddedPoints]> regularisedStrength;
+  Variable<real[dr::misc::NumPaddedPoints]> regularizedStrength;
 
   void addTo(LTSTree& tree) override {
     LTSLinearSlipWeakening::addTo(tree);
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(regularisedStrength, mask, 1, allocationModeDR());
+    tree.addVar(regularizedStrength, mask, 1, allocationModeDR());
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
                                    LTSTree* tree) override {
     seissol::initializer::LTSLinearSlipWeakening::registerCheckpointVariables(manager, tree);
-    manager.registerData("regularisedStrength", tree, regularisedStrength);
+    manager.registerData("regularizedStrength", tree, regularizedStrength);
   }
 };
 

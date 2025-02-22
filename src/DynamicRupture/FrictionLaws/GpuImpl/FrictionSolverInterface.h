@@ -59,7 +59,7 @@ struct FrictionLawData {
   const real (*__restrict muS)[misc::NumPaddedPoints];
   const real (*__restrict muD)[misc::NumPaddedPoints];
   const real (*__restrict forcedRuptureTime)[misc::NumPaddedPoints];
-  real (*__restrict regularisedStrength)[misc::NumPaddedPoints];
+  real (*__restrict regularizedStrength)[misc::NumPaddedPoints];
 
   // R+S
   const real (*__restrict a)[misc::NumPaddedPoints];

@@ -272,7 +272,7 @@ class BiMaterialFault {
                                  real fullUpdateTime) {
     const auto* concreteLts =
         dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup);
-    data->regularisedStrength = layerData.var(concreteLts->regularisedStrength,
+    data->regularizedStrength = layerData.var(concreteLts->regularizedStrength,
                                               seissol::initializer::AllocationPlace::Device);
   }
 
@@ -298,10 +298,10 @@ class BiMaterialFault {
     const real expterm = std::exp(-(std::max(static_cast<real>(0.0), localSlipRate) + vStar) *
                                   deltaT / prakashLength);
 
-    const real newStrength = ctx.data->regularisedStrength[ctx.ltsFace][ctx.pointIndex] * expterm +
+    const real newStrength = ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex] * expterm +
                              faultStrength * (1.0 - expterm);
 
-    ctx.data->regularisedStrength[ctx.ltsFace][ctx.pointIndex] = newStrength;
+    ctx.data->regularizedStrength[ctx.ltsFace][ctx.pointIndex] = newStrength;
     return newStrength;
   };
 };
