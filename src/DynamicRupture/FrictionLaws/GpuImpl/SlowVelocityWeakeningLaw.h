@@ -30,14 +30,6 @@ class SlowVelocityWeakeningLaw
     Derived::updateStateVariable(ctx, timeIncrement);
   }
 
-  struct Details {
-    decltype(SlowVelocityWeakeningLaw::a) a;
-    decltype(SlowVelocityWeakeningLaw::sl0) sl0;
-    decltype(seissol::initializer::parameters::DRParameters::rsSr0) rsSr0;
-    decltype(seissol::initializer::parameters::DRParameters::rsF0) rsF0;
-    decltype(seissol::initializer::parameters::DRParameters::rsB) rsB;
-  };
-
   struct MuDetails {
     double a{};
     double c{};
