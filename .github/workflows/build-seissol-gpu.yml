@@ -210,11 +210,11 @@ jobs:
             energies: true
             receivers: true
             fault: true
-          #- name: tpv105
-          #  equation: elastic
-          #  energies: true
-          #  receivers: true
-          #  fault: true
+          - name: tpv105
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
           - name: tpvahsp
             equation: anisotropic
             energies: false
