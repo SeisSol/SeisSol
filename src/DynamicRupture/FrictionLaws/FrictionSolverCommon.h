@@ -453,9 +453,9 @@ SEISSOL_HOSTDEVICE inline void
  * param[in] fullUpdateTime
  */
 template <RangeType Type = RangeType::CPU>
-// See https://github.com/llvm/llvm-project/issues/60163
-// NOLINTNEXTLINE
 SEISSOL_HOSTDEVICE inline void
+    // See https://github.com/llvm/llvm-project/issues/60163
+    // NOLINTNEXTLINE
     saveRuptureFrontOutput(bool ruptureTimePending[misc::NumPaddedPoints],
                            // See https://github.com/llvm/llvm-project/issues/60163
                            // NOLINTNEXTLINE

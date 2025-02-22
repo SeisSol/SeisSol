@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 
+#include <DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h>
 #include <array>
 #include <cstddef>
 
@@ -90,10 +91,10 @@ class ThermalPressurization {
     // copy back to LTS tree, if necessary
     if (saveTmpInTP) {
       for (int i = 0; i < misc::NumTpGridPoints; ++i) {
-        ctx.data->thetaTmpBuffer[ctx.ltsFace][ctx.pointIndex][i] =
-            ctx.data->theta[ctx.ltsFace][ctx.pointIndex][i];
-        ctx.data->sigmaTmpBuffer[ctx.ltsFace][ctx.pointIndex][i] =
-            ctx.data->sigma[ctx.ltsFace][ctx.pointIndex][i];
+        ctx.data->theta[ctx.ltsFace][ctx.pointIndex][i] =
+            ctx.data->thetaTmpBuffer[ctx.ltsFace][ctx.pointIndex][i];
+        ctx.data->sigma[ctx.ltsFace][ctx.pointIndex][i] =
+            ctx.data->sigmaTmpBuffer[ctx.ltsFace][ctx.pointIndex][i];
       }
     }
   }
