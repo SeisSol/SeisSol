@@ -127,7 +127,7 @@ RateAndStateInitializer::StateAndFriction
            "setup is correct?";
   }
   const real tmp2 = initialSlipRate * 0.5 / rsSr0 * std::exp(result.stateVariable / rsA);
-  result.frictionCoefficient = rsA * misc::asinh(tmp2);
+  result.frictionCoefficient = rsA * std::asinh(tmp2);
   return result;
 }
 

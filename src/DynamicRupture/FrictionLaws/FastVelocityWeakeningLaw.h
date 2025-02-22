@@ -97,7 +97,7 @@ class FastVelocityWeakeningLaw
     // x in asinh(x) for mu calculation
     const double x = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA) *
                      localSlipRateMagnitude;
-    const double result = localA * misc::asinh(x);
+    const double result = localA * std::asinh(x);
     assert((std::isfinite(result) || pointIndex >= misc::NumBoundaryGaussPoints) &&
            "Inf/NaN detected");
     return result;

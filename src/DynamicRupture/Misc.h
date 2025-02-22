@@ -116,15 +116,6 @@ SEISSOL_HOSTDEVICE inline T clamp(T value, T minval, T maxval) {
 }
 
 /**
- * Computes the arcus sinus hyperbolicus of x.
- * Note: precision has to be double, otherwise we would loose too much precision.
- * @param x
- * @return asinh(x)
- */
-#pragma omp declare simd
-SEISSOL_HOSTDEVICE inline double asinh(double x) { return std::log(x + std::sqrt(x * x + 1.0)); }
-
-/**
  * Create strike and dip unit vectors give a fault normal vector
  * Note: equations are explained in documentation -> left-lateral-right-lateral-normal-reverse
  * @param normal

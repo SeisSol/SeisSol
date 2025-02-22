@@ -55,7 +55,7 @@ class SlowVelocityWeakeningLaw
     // x in asinh(x) for mu calculation
     const double x = 0.5 * (localSlipRateMagnitude / this->drParameters->rsSr0) *
                      std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
-    return localA * misc::asinh(x);
+    return localA * std::asinh(x);
   }
 
 /**
