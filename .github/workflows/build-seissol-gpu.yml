@@ -38,7 +38,6 @@ jobs:
         setup:
           - arch: sm_60
             backend: cuda
-            syclcc: acpp
             cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
@@ -46,7 +45,6 @@ jobs:
             runner: ubuntu-24.04
           - arch: sm_60
             backend: cuda
-            syclcc: acpp
             cc: clang-18
             cxx: clang++-18
             fc: gfortran-13 # TODO?
@@ -55,7 +53,6 @@ jobs:
           # TODO: needs a working GPU runner
           #- arch: sm_60
           #  backend: cuda
-          #  syclcc: acpp
           #  cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
@@ -63,7 +60,6 @@ jobs:
           #  runner: sccs-ci-nv-sm60
           - arch: gfx906
             backend: hip
-            syclcc: acpp
             cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
@@ -71,7 +67,6 @@ jobs:
             runner: ubuntu-24.04
           - arch: gfx906
             backend: hip
-            syclcc: acpp
             cc: clang-18
             cxx: clang++-18
             fc: gfortran-13 # TODO?
@@ -79,7 +74,6 @@ jobs:
             runner: ubuntu-24.04
           - arch: skl
             backend: oneapi
-            syclcc: dpcpp
             cc: icx
             cxx: icpx
             fc: ifx
@@ -115,7 +109,7 @@ jobs:
           export CXX=${{matrix.setup.cxx}}
           export FC=${{matrix.setup.fc}}
 
-          cmake .. -GNinja -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DSYCL_CC=${{matrix.setup.syclcc}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
+          cmake .. -GNinja -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
           ninja install
 
       - name: upload-seissol
@@ -241,7 +235,6 @@ jobs:
         setup:
           - arch: sm_60
             backend: cuda
-            syclcc: acpp
             cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
@@ -250,7 +243,6 @@ jobs:
             mpi: openmpi
           - arch: sm_60
             backend: cuda
-            syclcc: acpp
             cc: clang-18
             cxx: clang++-18
             fc: gfortran-13 # TODO?
@@ -260,7 +252,6 @@ jobs:
           # TODO: needs a working GPU runner
           #- arch: sm_60
           #  backend: cuda
-          #  syclcc: acpp
           #  cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
