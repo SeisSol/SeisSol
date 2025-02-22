@@ -6,10 +6,11 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Parallel/AcceleratorDevice.h"
-#include "Parallel/MPI.h"
 #include "utils/logger.h"
 #include <sstream>
 #include <string>
+
+#include <device.h>
 
 namespace seissol {
 

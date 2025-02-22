@@ -9,10 +9,8 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Typedefs.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
-#include "Parallel/AcceleratorDevice.h"
 #include <cstddef>
 #include <init.h>
 

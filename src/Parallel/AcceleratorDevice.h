@@ -8,7 +8,6 @@
 #ifndef SEISSOL_SRC_PARALLEL_ACCELERATORDEVICE_H_
 #define SEISSOL_SRC_PARALLEL_ACCELERATORDEVICE_H_
 
-#include <device.h>
 #include <string>
 #include <vector>
 
