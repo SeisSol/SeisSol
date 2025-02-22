@@ -23,6 +23,7 @@ namespace seissol::initializer::parameters {
  */
 enum class FrictionLawType : unsigned int {
   NoFault = 0,
+  LinearSlipWeakeningLegacy = 2,
   LinearSlipWeakening = 16,
   LinearSlipWeakeningBimaterial = 6,
   LinearSlipWeakeningTPApprox = 1058,

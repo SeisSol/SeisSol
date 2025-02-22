@@ -12,8 +12,9 @@
 #include "Kernels/Precision.h"
 
 #include "generated_code/init.h"
+#include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
-#include <stdexcept>
+#include <string>
 #include <tuple>
 #include <type_traits>
 
@@ -123,6 +124,8 @@ SEISSOL_HOSTDEVICE inline T clamp(T value, T minval, T maxval) {
  * @param dip
  */
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip);
+
+std::string frictionLawName(seissol::initializer::parameters::FrictionLawType type);
 
 namespace quantity_indices {
 /**
