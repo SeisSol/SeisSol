@@ -29,22 +29,22 @@ struct InitialVariables {
 struct FrictionLawContext {
   int ltsFace;
   int pointIndex;
-  FrictionLawData* data;
+  FrictionLawData* __restrict data;
 
   FaultStresses<Executor::Device> faultStresses{};
   TractionResults<Executor::Device> tractionResults{};
   real fullUpdateTime;
   real stateVariableBuffer;
   real strengthBuffer;
-  double* devTimeWeights{nullptr};
-  real* devSpaceWeights{nullptr};
-  real* resampleMatrix{nullptr};
-  real* deltaStateVar;
+  const double* __restrict devTimeWeights{nullptr};
+  const real* __restrict devSpaceWeights{nullptr};
+  const real* __restrict resampleMatrix{nullptr};
+  real* __restrict deltaStateVar;
   InitialVariables initialVariables;
 
-  real* TpInverseFourierCoefficients;
-  real* TpGridPoints;
-  real* HeatSource;
+  const real* __restrict TpInverseFourierCoefficients{nullptr};
+  const real* __restrict TpGridPoints{nullptr};
+  const real* __restrict HeatSource{nullptr};
 
   void* item;
 };

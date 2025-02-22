@@ -8,19 +8,19 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                        double to,
                        seissol::parallel::runtime::StreamRuntime& runtime) {
   auto& mapping = clusterMapping.cellToSources;
-  auto* mappingPtr = mapping.data();
+  auto* __restrict mappingPtr = mapping.data();
   if (mapping.size() > 0) {
-    auto* mInvJInvPhisAtSources = sources.mInvJInvPhisAtSources.data();
-    auto* tensor = sources.tensor.data();
-    auto* a = sources.A.data();
-    auto* stiffnessTensor = sources.stiffnessTensor.data();
-    auto* onsetTime = sources.onsetTime.data();
-    auto* samplingInterval = sources.samplingInterval.data();
-    auto sampleOffsets = memory::AlignedArray<std::size_t*, 3>();
+    const auto* __restrict mInvJInvPhisAtSources = sources.mInvJInvPhisAtSources.data();
+    const auto* __restrict tensor = sources.tensor.data();
+    const auto* __restrict a = sources.A.data();
+    const auto* __restrict stiffnessTensor = sources.stiffnessTensor.data();
+    const auto* __restrict onsetTime = sources.onsetTime.data();
+    const auto* __restrict samplingInterval = sources.samplingInterval.data();
+    auto sampleOffsets = memory::AlignedArray<const std::size_t* __restrict, 3>();
     sampleOffsets[0] = sources.sampleOffsets[0].data();
     sampleOffsets[1] = sources.sampleOffsets[1].data();
     sampleOffsets[2] = sources.sampleOffsets[2].data();
-    auto sample = memory::AlignedArray<real*, 3>();
+    auto sample = memory::AlignedArray<const real* __restrict, 3>();
     sample[0] = sources.sample[0].data();
     sample[1] = sources.sample[1].data();
     sample[2] = sources.sample[2].data();

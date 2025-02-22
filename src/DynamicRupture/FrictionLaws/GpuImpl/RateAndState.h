@@ -21,8 +21,7 @@ template <class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>> {
   public:
   explicit RateAndStateBase(seissol::initializer::parameters::DRParameters* drParameters)
-      : BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>>::BaseFrictionSolver(drParameters),
-        tpMethod(TPMethod()) {}
+      : BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>>::BaseFrictionSolver(drParameters) {}
 
   ~RateAndStateBase() = default;
 
@@ -111,8 +110,6 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto& devAbsoluteShearStress{ctx.initialVariables.absoluteShearTraction};
     auto* devMu{ctx.data->mu};
 
-    auto* devSlipRateMagnitude{ctx.data->slipRateMagnitude};
-    auto* devImpAndEta{ctx.data->impAndEta};
     rs::Settings settings{};
 
     for (unsigned j = 0; j < settings.numberStateVariableUpdates; j++) {
@@ -125,8 +122,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const auto localStateVariable = devStateVariableBuffer;
       const auto normalStress = devNormalStress;
       const auto absoluteShearStress = devAbsoluteShearStress;
-      const auto localSlipRateMagnitude = devSlipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
-      const auto localImpAndEta = devImpAndEta[ctx.ltsFace];
+      const auto localSlipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
+      const auto& localImpAndEta = ctx.data->impAndEta[ctx.ltsFace];
 
       auto& exportMu = devMu[ctx.ltsFace][ctx.pointIndex];
 
@@ -143,7 +140,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       deviceBarrier(ctx);
 
       devLocalSlipRate = 0.5 * (localSlipRateMagnitude + std::fabs(slipRateTest));
-      devSlipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = std::fabs(slipRateTest);
+      ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = std::fabs(slipRateTest);
     }
   }
 
@@ -156,31 +153,21 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto& devFaultStresses{ctx.faultStresses};
     auto& devTractionResults{ctx.tractionResults};
 
-    auto* devMu{ctx.data->mu};
-    auto* devSlipRateMagnitude{ctx.data->slipRateMagnitude};
-    auto* devInitialStressInFaultCS{ctx.data->initialStressInFaultCS};
-    auto* devTraction1{ctx.data->traction1};
-    auto* devTraction2{ctx.data->traction2};
-    auto* devSlipRate1{ctx.data->slipRate1};
-    auto* devSlipRate2{ctx.data->slipRate2};
-    auto* devSlip1{ctx.data->slip1};
-    auto* devSlip2{ctx.data->slip2};
-    auto* devImpAndEta{ctx.data->impAndEta};
-    auto* devAccumulatedSlipMagnitude{ctx.data->accumulatedSlipMagnitude};
-    auto deltaTime{ctx.data->deltaT[timeIndex]};
+    const auto deltaTime{ctx.data->deltaT[timeIndex]};
 
     Derived::updateStateVariable(ctx, ctx.data->deltaT[timeIndex]);
 
     const auto localStateVariable = devStateVariableBuffer;
-    const auto slipRateMagnitude = devSlipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
+    const auto slipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
 
     // the only mu calculation left, outside of the fixed-point loop
     auto details = Derived::getMuDetails(ctx, localStateVariable);
-    devMu[ctx.ltsFace][ctx.pointIndex] = Derived::updateMu(ctx, slipRateMagnitude, details);
+    ctx.data->mu[ctx.ltsFace][ctx.pointIndex] = Derived::updateMu(ctx, slipRateMagnitude, details);
 
-    const real strength = -devMu[ctx.ltsFace][ctx.pointIndex] * devNormalStress;
+    const real strength = -ctx.data->mu[ctx.ltsFace][ctx.pointIndex] * devNormalStress;
 
-    const auto* initialStressInFaultCS = devInitialStressInFaultCS[ctx.ltsFace][ctx.pointIndex];
+    const auto* initialStressInFaultCS =
+        ctx.data->initialStressInFaultCS[ctx.ltsFace][ctx.pointIndex];
     const auto savedTraction1 = devFaultStresses.traction1[timeIndex];
     const auto savedTraction2 = devFaultStresses.traction2[timeIndex];
 
@@ -195,10 +182,11 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
         (totalTraction2 / devAbsoluteTraction) * strength - initialStressInFaultCS[5];
 
     // Compute slip
-    devAccumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] += slipRateMagnitude * deltaTime;
+    ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
+        slipRateMagnitude * deltaTime;
 
     // Update slip rate
-    const auto invEtaS = devImpAndEta[ctx.ltsFace].invEtaS;
+    const auto invEtaS = ctx.data->impAndEta[ctx.ltsFace].invEtaS;
     auto slipRate1 = -invEtaS * (traction1 - savedTraction1);
     auto slipRate2 = -invEtaS * (traction2 - savedTraction2);
 
@@ -210,20 +198,20 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     }
 
     // Save traction for flux computation
-    devTraction1[ctx.ltsFace][ctx.pointIndex] = traction1;
-    devTraction2[ctx.ltsFace][ctx.pointIndex] = traction2;
+    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = traction1;
+    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = traction2;
 
     // update directional slip
-    devSlip1[ctx.ltsFace][ctx.pointIndex] += slipRate1 * deltaTime;
-    devSlip2[ctx.ltsFace][ctx.pointIndex] += slipRate2 * deltaTime;
+    ctx.data->slip1[ctx.ltsFace][ctx.pointIndex] += slipRate1 * deltaTime;
+    ctx.data->slip2[ctx.ltsFace][ctx.pointIndex] += slipRate2 * deltaTime;
 
     // update traction
     devTractionResults.traction1[timeIndex] = traction1;
     devTractionResults.traction2[timeIndex] = traction2;
 
     // update slip rate
-    devSlipRate1[ctx.ltsFace][ctx.pointIndex] = slipRate1;
-    devSlipRate2[ctx.ltsFace][ctx.pointIndex] = slipRate2;
+    ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] = slipRate1;
+    ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] = slipRate2;
   }
 
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx) {
@@ -231,17 +219,12 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto muW{ctx.data->drParameters.muW};
     auto rsF0{ctx.data->drParameters.rsF0};
 
-    auto* devDynStressTime{ctx.data->dynStressTime};
-    auto* devDynStressTimePending{ctx.data->dynStressTimePending};
-    auto* devRuptureTime{ctx.data->ruptureTime};
-    auto* devMu{ctx.data->mu};
-
-    const auto localRuptureTime = devRuptureTime[ctx.ltsFace][ctx.pointIndex];
+    const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
     if (localRuptureTime > 0.0 && localRuptureTime <= fullUpdateTime &&
-        devDynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
-        devMu[ctx.ltsFace][ctx.pointIndex] <= (muW + 0.05 * (rsF0 - muW))) {
-      devDynStressTime[ctx.ltsFace][ctx.pointIndex] = fullUpdateTime;
-      devDynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
+        ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
+        ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <= (muW + 0.05 * (rsF0 - muW))) {
+      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = fullUpdateTime;
+      ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }
 
@@ -289,26 +272,12 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   }
 
   SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext& ctx, size_t timeIndex) {
-    auto& devFaultStresses{ctx.faultStresses};
-    auto* devInitialStressInFaultCS{ctx.data->initialStressInFaultCS};
-    auto& devNormalStress{ctx.initialVariables.normalStress};
-
-    auto& faultStresses = devFaultStresses;
-
-    devNormalStress = std::min(static_cast<real>(0.0),
-                               faultStresses.normalStress[timeIndex] +
-                                   devInitialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][0] -
-                                   TPMethod::getFluidPressure(ctx));
+    ctx.initialVariables.normalStress =
+        std::min(static_cast<real>(0.0),
+                 ctx.faultStresses.normalStress[timeIndex] +
+                     ctx.data->initialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][0] -
+                     TPMethod::getFluidPressure(ctx));
   }
-
-  protected:
-  real (*a)[misc::NumPaddedPoints];
-  real (*sl0)[misc::NumPaddedPoints];
-  real (*stateVariable)[misc::NumPaddedPoints];
-  bool* hasConverged{};
-
-  TPMethod tpMethod;
-  rs::Settings settings{};
 };
 
 } // namespace seissol::dr::friction_law::gpu

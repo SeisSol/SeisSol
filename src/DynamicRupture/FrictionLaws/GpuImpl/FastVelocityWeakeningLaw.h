@@ -36,15 +36,12 @@ class FastVelocityWeakeningLaw
   }
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
-    auto& devStateVarReference{ctx.initialVariables.stateVarReference};
-    auto& devLocalSlipRate{ctx.initialVariables.localSlipRate};
-    auto& devStateVariableBuffer{ctx.stateVariableBuffer};
     const double muW{ctx.data->drParameters.muW};
 
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const double localSrW = ctx.data->srW[ctx.ltsFace][ctx.pointIndex];
-    const double localSlipRate = devLocalSlipRate;
+    const double localSlipRate = ctx.initialVariables.localSlipRate;
 
     const double lowVelocityFriction =
         ctx.data->drParameters.rsF0 - (ctx.data->drParameters.rsB - localA) *
@@ -62,9 +59,9 @@ class FastVelocityWeakeningLaw
     const double exp1 = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
     const double localStateVariable =
-        steadyStateStateVariable * exp1m + exp1 * devStateVarReference;
+        steadyStateStateVariable * exp1m + exp1 * ctx.initialVariables.stateVarReference;
 
-    devStateVariableBuffer = localStateVariable;
+    ctx.stateVariableBuffer = localStateVariable;
   }
 
   struct MuDetails {
@@ -93,14 +90,12 @@ class FastVelocityWeakeningLaw
   }
 
   SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
-    auto* devStateVariable{ctx.data->stateVariable};
-
     constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
     static_assert(Dim0 == misc::NumPaddedPoints);
     static_assert(Dim0 >= Dim1);
 
-    const auto localStateVariable = devStateVariable[ctx.ltsFace][ctx.pointIndex];
+    const auto localStateVariable = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
     ctx.deltaStateVar[ctx.pointIndex] = ctx.stateVariableBuffer - localStateVariable;
     deviceBarrier(ctx);
 
@@ -110,7 +105,8 @@ class FastVelocityWeakeningLaw
           ctx.resampleMatrix[ctx.pointIndex + i * Dim0] * ctx.deltaStateVar[i];
     }
 
-    devStateVariable[ctx.ltsFace][ctx.pointIndex] = localStateVariable + resampledDeltaStateVar;
+    ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] =
+        localStateVariable + resampledDeltaStateVar;
   }
 
   SEISSOL_DEVICE static void executeIfNotConverged() {}

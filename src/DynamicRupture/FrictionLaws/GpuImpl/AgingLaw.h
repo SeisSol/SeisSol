@@ -19,17 +19,12 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
   using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
-    auto* devSl0{ctx.data->sl0};
-    auto& devStateVarReference{ctx.initialVariables.stateVarReference};
-    auto& devLocalSlipRate{ctx.initialVariables.localSlipRate};
-    auto& devStateVariableBuffer{ctx.stateVariableBuffer};
-
-    const double localSl0 = devSl0[ctx.ltsFace][ctx.pointIndex];
-    const double localSlipRate = devLocalSlipRate;
+    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
+    const double localSlipRate = ctx.initialVariables.localSlipRate;
     const double exp1 = std::exp(-localSlipRate * (timeIncrement / localSl0));
 
-    const double stateVarReference = devStateVarReference;
-    devStateVariableBuffer =
+    const double stateVarReference = ctx.initialVariables.stateVarReference;
+    ctx.stateVariableBuffer =
         static_cast<real>(stateVarReference * exp1 + localSl0 / localSlipRate * (1.0 - exp1));
   }
 };

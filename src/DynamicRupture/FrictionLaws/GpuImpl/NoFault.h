@@ -25,16 +25,11 @@ class NoFault : public BaseFrictionSolver<NoFault> {
                                      real fullUpdateTime) {}
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, unsigned timeIndex) {
-    auto* devTraction1{ctx.data->traction1};
-    auto* devTraction2{ctx.data->traction2};
-    auto& faultStresses{ctx.faultStresses};
-    auto& tractionResults{ctx.tractionResults};
-
     // calculate traction
-    tractionResults.traction1[timeIndex] = faultStresses.traction1[timeIndex];
-    tractionResults.traction2[timeIndex] = faultStresses.traction2[timeIndex];
-    devTraction1[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction1[timeIndex];
-    devTraction2[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction2[timeIndex];
+    ctx.tractionResults.traction1[timeIndex] = ctx.faultStresses.traction1[timeIndex];
+    ctx.tractionResults.traction2[timeIndex] = ctx.faultStresses.traction2[timeIndex];
+    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction1[timeIndex];
+    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction2[timeIndex];
   }
 
   /*

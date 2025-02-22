@@ -52,7 +52,7 @@ SEISSOL_HOSTDEVICE inline real computeSampleTimeIntegral(double from,
                                                          double to,
                                                          const double onsetTime,
                                                          const double samplingInterval,
-                                                         const real* sample,
+                                                         const real* __restrict sample,
                                                          std::size_t sampleSize) {
   const auto integrate = [&samplingInterval, &sample](std::size_t index, double tFrom, double tTo) {
     /* We have f(t) = S0 (t1 - t) / dt + S1 (t - t0) / dt, hence
@@ -112,11 +112,11 @@ constexpr std::size_t MomentFsrmSpan = tensor::momentFSRM::Shape[0];
 constexpr std::size_t MInvJInvPhisAtSourcesSpan = tensor::mInvJInvPhisAtSources::Shape[0];
 
 SEISSOL_HOSTDEVICE inline void
-    addTimeIntegratedPointSourceNRF(const memory::AlignedArray<real, 3>& slip,
-                                    const real* mInvJInvPhisAtSources,
-                                    const real* tensor,
+    addTimeIntegratedPointSourceNRF(const memory::AlignedArray<real, 3>& __restrict slip,
+                                    const real* __restrict mInvJInvPhisAtSources,
+                                    const real* __restrict tensor,
                                     real a,
-                                    const real* stiffnessTensor,
+                                    const real* __restrict stiffnessTensor,
                                     double from,
                                     double to,
                                     real dofs[tensor::Q::size()]) {
@@ -149,16 +149,17 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelNRF(
     int index,
     double from,
     double to,
-    sourceterm::CellToPointSourcesMapping* mappingPtr,
-    seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>*
-        mInvJInvPhisAtSources,
-    seissol::memory::AlignedArray<real, sourceterm::PointSources::TensorSize>* tensor,
-    real* a,
-    seissol::memory::AlignedArray<real, 81>* stiffnessTensor,
-    double* onsetTime,
-    double* samplingInterval,
-    memory::AlignedArray<std::size_t*, 3> sampleOffsets,
-    memory::AlignedArray<real*, 3> sample) {
+    sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
+    const seissol::memory::
+        AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
+    const seissol::memory::AlignedArray<real,
+                                        sourceterm::PointSources::TensorSize>* __restrict tensor,
+    const real* __restrict a,
+    const seissol::memory::AlignedArray<real, 81>* __restrict stiffnessTensor,
+    const double* __restrict onsetTime,
+    const double* __restrict samplingInterval,
+    const memory::AlignedArray<const std::size_t* __restrict, 3> sampleOffsets,
+    const memory::AlignedArray<const real* __restrict, 3> sample) {
   const unsigned startSource = mappingPtr[index].pointSourcesOffset;
   const unsigned endSource =
       mappingPtr[index].pointSourcesOffset + mappingPtr[index].numberOfPointSources;
@@ -182,12 +183,13 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelNRF(
   }
 }
 
-SEISSOL_HOSTDEVICE inline void addTimeIntegratedPointSourceFSRM(real slip,
-                                                                const real* mInvJInvPhisAtSources,
-                                                                const real* tensor,
-                                                                double from,
-                                                                double to,
-                                                                real* dofs) {
+SEISSOL_HOSTDEVICE inline void
+    addTimeIntegratedPointSourceFSRM(real slip,
+                                     const real* __restrict mInvJInvPhisAtSources,
+                                     const real* __restrict tensor,
+                                     double from,
+                                     double to,
+                                     real* __restrict dofs) {
   for (unsigned p = 0; p < MomentFsrmSpan; ++p) {
     for (unsigned k = 0; k < MInvJInvPhisAtSourcesSpan; ++k) {
       dofs[k + p * QSpan] += slip * mInvJInvPhisAtSources[k] * tensor[p];
@@ -199,16 +201,17 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelFSRM(
     int index,
     double from,
     double to,
-    sourceterm::CellToPointSourcesMapping* mappingPtr,
-    seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>*
-        mInvJInvPhisAtSources,
-    seissol::memory::AlignedArray<real, sourceterm::PointSources::TensorSize>* tensor,
-    real* a,
-    seissol::memory::AlignedArray<real, 81>* stiffnessTensor,
-    double* onsetTime,
-    double* samplingInterval,
-    memory::AlignedArray<std::size_t*, 3> sampleOffsets,
-    memory::AlignedArray<real*, 3> sample) {
+    sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
+    const seissol::memory::
+        AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
+    const seissol::memory::AlignedArray<real,
+                                        sourceterm::PointSources::TensorSize>* __restrict tensor,
+    const real* __restrict a,
+    const seissol::memory::AlignedArray<real, 81>* __restrict stiffnessTensor,
+    const double* __restrict onsetTime,
+    const double* __restrict samplingInterval,
+    const memory::AlignedArray<const std::size_t* __restrict, 3> sampleOffsets,
+    const memory::AlignedArray<const real* __restrict, 3> sample) {
   const unsigned startSource = mappingPtr[index].pointSourcesOffset;
   const unsigned endSource =
       mappingPtr[index].pointSourcesOffset + mappingPtr[index].numberOfPointSources;

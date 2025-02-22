@@ -72,9 +72,7 @@ class SlowVelocityWeakeningLaw
    * we just copy the buffer into the member variable.
    */
   SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
-    auto* stateVariable{ctx.data->stateVariable};
-
-    stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
+    ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
   }
 
   SEISSOL_DEVICE static void executeIfNotConverged() {}
