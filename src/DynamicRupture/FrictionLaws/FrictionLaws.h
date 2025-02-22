@@ -29,6 +29,7 @@
 #include "GpuImpl/ImposedSlipRates.h"
 #include "GpuImpl/LinearSlipWeakening.h"
 #include "GpuImpl/NoFault.h"
+#include "GpuImpl/SevereVelocityWeakeningLaw.h"
 #include "GpuImpl/SlipLaw.h"
 #include "GpuImpl/SourceTimeFunction.h"
 #include "GpuImpl/ThermalPressurization/NoTP.h"

@@ -46,9 +46,9 @@ std::unique_ptr<AbstractFactory>
     return std::make_unique<RateAndStateAgingFactory>(drParameters, seissolInstance);
   case seissol::initializer::parameters::FrictionLawType::RateAndStateSlipLaw:
     return std::make_unique<RateAndStateSlipFactory>(drParameters, seissolInstance);
-  case seissol::initializer::parameters::FrictionLawType::RateAndStateVelocityWeakening:
-    logError() << "friction law 7 currently disabled";
-    return {nullptr};
+  case seissol::initializer::parameters::FrictionLawType::RateAndStateSevereVelocityWeakening:
+    return std::make_unique<RateAndStateSevereVelocityWeakeningFactory>(drParameters,
+                                                                        seissolInstance);
   case seissol::initializer::parameters::FrictionLawType::RateAndStateAgingNucleation:
     logError() << "friction law 101 currently disabled";
     return {nullptr};
@@ -211,6 +211,28 @@ DynamicRuptureTuple RateAndStateFastVelocityWeakeningFactory::produce() {
             std::make_unique<friction_law::FastVelocityWeakeningLaw<friction_law::NoTP>>(
                 drParameters.get()),
             std::make_unique<friction_law_gpu::FastVelocityWeakeningLaw<friction_law_gpu::NoTP>>(
+                drParameters.get()),
+            std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>(),
+                                                    seissolInstance)};
+  }
+}
+
+DynamicRuptureTuple RateAndStateSevereVelocityWeakeningFactory::produce() {
+  if (drParameters->isThermalPressureOn) {
+    return {
+        std::make_unique<seissol::initializer::LTSRateAndState>(),
+        std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
+        nullptr,
+        std::make_unique<
+            friction_law_gpu::SevereVelocityWeakeningLaw<friction_law_gpu::ThermalPressurization>>(
+            drParameters.get()),
+        std::make_unique<output::OutputManager>(
+            std::make_unique<output::RateAndStateThermalPressurization>(), seissolInstance)};
+  } else {
+    return {std::make_unique<seissol::initializer::LTSRateAndState>(),
+            std::make_unique<initializer::RateAndStateInitializer>(drParameters, seissolInstance),
+            nullptr,
+            std::make_unique<friction_law_gpu::SevereVelocityWeakeningLaw<friction_law_gpu::NoTP>>(
                 drParameters.get()),
             std::make_unique<output::OutputManager>(std::make_unique<output::RateAndState>(),
                                                     seissolInstance)};

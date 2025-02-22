@@ -55,6 +55,7 @@ template class BaseFrictionSolver<
 template class BaseFrictionSolver<
     RateAndStateBase<SlowVelocityWeakeningLaw<SlipLaw<NoTP>, NoTP>, NoTP>>;
 template class BaseFrictionSolver<RateAndStateBase<FastVelocityWeakeningLaw<NoTP>, NoTP>>;
+template class BaseFrictionSolver<RateAndStateBase<SevereVelocityWeakeningLaw<NoTP>, NoTP>>;
 template class BaseFrictionSolver<RateAndStateBase<
     SlowVelocityWeakeningLaw<AgingLaw<ThermalPressurization>, ThermalPressurization>,
     ThermalPressurization>>;
@@ -63,6 +64,8 @@ template class BaseFrictionSolver<RateAndStateBase<
     ThermalPressurization>>;
 template class BaseFrictionSolver<
     RateAndStateBase<FastVelocityWeakeningLaw<ThermalPressurization>, ThermalPressurization>>;
+template class BaseFrictionSolver<
+    RateAndStateBase<SevereVelocityWeakeningLaw<ThermalPressurization>, ThermalPressurization>>;
 template class BaseFrictionSolver<ImposedSlipRates<YoffeSTF>>;
 template class BaseFrictionSolver<ImposedSlipRates<GaussianSTF>>;
 template class BaseFrictionSolver<ImposedSlipRates<DeltaSTF>>;

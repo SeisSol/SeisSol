@@ -45,7 +45,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
        FrictionLawType::ImposedSlipRatesYoffe,
        FrictionLawType::ImposedSlipRatesGaussian,
        FrictionLawType::ImposedSlipRatesDelta,
-       FrictionLawType::RateAndStateVelocityWeakening,
+       FrictionLawType::RateAndStateSevereVelocityWeakening,
        FrictionLawType::RateAndStateAgingNucleation});
   auto slipRateOutputType = reader->readWithDefaultEnum<SlipRateOutputType>(
       "sliprateoutputtype",
@@ -69,7 +69,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const bool isRateAndState =
       (frictionLawType == FrictionLawType::RateAndStateAgingLaw) or
       (frictionLawType == FrictionLawType::RateAndStateSlipLaw) or
-      (frictionLawType == FrictionLawType::RateAndStateVelocityWeakening) or
+      (frictionLawType == FrictionLawType::RateAndStateSevereVelocityWeakening) or
       (frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
 
   const auto rsF0 = reader->readIfRequired<real>("rs_f0", isRateAndState);
