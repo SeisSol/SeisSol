@@ -38,8 +38,10 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   auto* TpGridPoints{this->devTpGridPoints};
   auto* HeatSource{this->devHeatSource};
 
+  auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
+
   sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-  this->queue.submit([&](sycl::handler& cgh) {
+  queue->submit([&](sycl::handler& cgh) {
     // NOLINTNEXTLINE
     sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
         sharedMemory(misc::NumPaddedPoints, cgh);
