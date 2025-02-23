@@ -96,13 +96,12 @@ class FastVelocityWeakeningLaw
     static_assert(Dim0 >= Dim1);
 
     const auto localStateVariable = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
-    ctx.deltaStateVar[ctx.pointIndex] = ctx.stateVariableBuffer - localStateVariable;
+    ctx.sharedMemory[ctx.pointIndex] = ctx.stateVariableBuffer - localStateVariable;
     deviceBarrier(ctx);
 
     real resampledDeltaStateVar{0.0};
     for (size_t i{0}; i < Dim1; ++i) {
-      resampledDeltaStateVar +=
-          ctx.resampleMatrix[ctx.pointIndex + i * Dim0] * ctx.deltaStateVar[i];
+      resampledDeltaStateVar += ctx.resampleMatrix[ctx.pointIndex + i * Dim0] * ctx.sharedMemory[i];
     }
 
     ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] =

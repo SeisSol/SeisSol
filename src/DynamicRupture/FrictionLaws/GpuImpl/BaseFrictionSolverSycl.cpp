@@ -35,11 +35,11 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   this->queue.submit([&](sycl::handler& cgh) {
     // NOLINTNEXTLINE
     sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
-        deltaStateVar(misc::NumPaddedPoints, cgh);
+        sharedMemory(misc::NumPaddedPoints, cgh);
 
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       FrictionLawContext ctx{};
-      ctx.deltaStateVar = &deltaStateVar[0];
+      ctx.sharedMemory = &sharedMemory[0];
       ctx.item = reinterpret_cast<void*>(&item);
       ctx.data = data;
       ctx.devTimeWeights = devTimeWeights;

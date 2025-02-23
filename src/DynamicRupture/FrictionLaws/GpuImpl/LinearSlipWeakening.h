@@ -238,9 +238,12 @@ class NoSpecialization {
     static_assert(Dim0 == misc::NumPaddedPoints);
     static_assert(Dim0 >= Dim1);
 
+    ctx.sharedMemory[ctx.pointIndex] = slipRateMagnitude[ctx.pointIndex];
+    deviceBarrier(ctx);
+
     real result{0.0};
     for (size_t i{0}; i < Dim1; ++i) {
-      result += ctx.resampleMatrix[ctx.pointIndex + i * Dim0] * slipRateMagnitude[i];
+      result += ctx.resampleMatrix[ctx.pointIndex + i * Dim0] * ctx.sharedMemory[i];
     }
     return result;
   };

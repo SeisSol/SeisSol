@@ -39,7 +39,7 @@ struct FrictionLawContext {
   const double* __restrict devTimeWeights{nullptr};
   const real* __restrict devSpaceWeights{nullptr};
   const real* __restrict resampleMatrix{nullptr};
-  real* __restrict deltaStateVar;
+  real* __restrict sharedMemory;
   InitialVariables initialVariables;
 
   const real* __restrict TpInverseFourierCoefficients{nullptr};

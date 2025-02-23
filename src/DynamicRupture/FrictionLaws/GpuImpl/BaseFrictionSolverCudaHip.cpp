@@ -58,7 +58,7 @@ __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints) __global__
   ctx.HeatSource = HeatSource;
 
   __shared__ real shm[PaddedMultiple * seissol::dr::misc::NumPaddedPoints];
-  ctx.deltaStateVar = &shm[threadIdx.y * seissol::dr::misc::NumPaddedPoints];
+  ctx.sharedMemory = &shm[threadIdx.y * seissol::dr::misc::NumPaddedPoints];
   // ctx.item = nullptr;
 
   ctx.ltsFace = blockIdx.x * blockDim.y + threadIdx.y;
