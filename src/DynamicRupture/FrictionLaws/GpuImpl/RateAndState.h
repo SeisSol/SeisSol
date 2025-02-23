@@ -168,27 +168,19 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     const real totalTraction1 = initialStressInFaultCS[3] + savedTraction1;
     const real totalTraction2 = initialStressInFaultCS[5] + savedTraction2;
 
-    // update stress change
-    const auto traction1 =
-        (totalTraction1 / devAbsoluteTraction) * strength - initialStressInFaultCS[3];
-    const auto traction2 =
-        (totalTraction2 / devAbsoluteTraction) * strength - initialStressInFaultCS[5];
-
     // Compute slip
     ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
         slipRateMagnitude * deltaTime;
 
     // Update slip rate
-    const auto invEtaS = ctx.data->impAndEta[ctx.ltsFace].invEtaS;
-    auto slipRate1 = -invEtaS * (traction1 - savedTraction1);
-    auto slipRate2 = -invEtaS * (traction2 - savedTraction2);
+    const auto etaS = ctx.data->impAndEta[ctx.ltsFace].etaS;
+    const auto divisor = strength + etaS * slipRateMagnitude;
+    auto slipRate1 = slipRateMagnitude * totalTraction1 / divisor;
+    auto slipRate2 = slipRateMagnitude * totalTraction2 / divisor;
 
-    const real locSlipRateMagnitude = misc::magnitude(slipRate1, slipRate2);
-
-    if (locSlipRateMagnitude != 0.0) {
-      slipRate1 *= slipRateMagnitude / locSlipRateMagnitude;
-      slipRate2 *= slipRateMagnitude / locSlipRateMagnitude;
-    }
+    // calculate traction
+    const auto traction1 = savedTraction1 - etaS * slipRate1;
+    const auto traction2 = savedTraction2 - etaS * slipRate2;
 
     // Save traction for flux computation
     ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = traction1;
