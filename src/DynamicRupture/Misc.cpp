@@ -8,7 +8,10 @@
 #include "Misc.h"
 
 #include "Geometry/MeshDefinition.h"
+#include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
+#include <string>
+#include <utils/logger.h>
 
 namespace seissol::dr::misc {
 template <>

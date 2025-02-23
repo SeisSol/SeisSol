@@ -13,8 +13,10 @@
 #include "Initializer/Tree/LTSTree.h"
 #include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
 #include <cstdlib>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utils/logger.h>
