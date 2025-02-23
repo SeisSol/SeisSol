@@ -18,6 +18,10 @@
 
 #include "Common/Marker.h"
 
+#ifdef SEISSOL_KERNELS_SYCL
+#include <sycl/sycl.hpp>
+#endif
+
 namespace seissol::dr::friction_law::gpu {
 struct InitialVariables {
   real absoluteShearTraction;
