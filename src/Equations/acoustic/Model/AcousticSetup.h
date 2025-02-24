@@ -106,7 +106,6 @@ struct MaterialSetup<AcousticMaterial> {
                                           AcousticLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const AcousticMaterial& material,
-                                             real timeStepWidth,
                                              AcousticNeighborData* localData) {}
 
   static void getPlaneWaveOperator(const AcousticMaterial& material,
@@ -127,10 +126,10 @@ struct MaterialSetup<AcousticMaterial> {
     matT.setZero();
     matTinv.setZero();
 
-    seissol::transformations::tensor1RotationMatrix(normal, tangent1, tangent2, matT, 3, 3);
+    seissol::transformations::tensor1RotationMatrix(normal, tangent1, tangent2, matT, 1, 1);
 
     seissol::transformations::inverseTensor1RotationMatrix(
-        normal, tangent1, tangent2, matTinv, 3, 3);
+        normal, tangent1, tangent2, matTinv, 1, 1);
   }
 };
 } // namespace seissol::model
