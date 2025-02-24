@@ -26,17 +26,9 @@ class SlowVelocityWeakeningLaw
                                      real fullUpdateTime) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
-  static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
     Derived::updateStateVariable(ctx, timeIncrement);
   }
-
-  struct Details {
-    decltype(SlowVelocityWeakeningLaw::a) a;
-    decltype(SlowVelocityWeakeningLaw::sl0) sl0;
-    decltype(seissol::initializer::parameters::DRParameters::rsSr0) rsSr0;
-    decltype(seissol::initializer::parameters::DRParameters::rsF0) rsF0;
-    decltype(seissol::initializer::parameters::DRParameters::rsB) rsB;
-  };
 
   struct MuDetails {
     double a{};
@@ -44,40 +36,38 @@ class SlowVelocityWeakeningLaw
     double ac{};
   };
 
-  static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
-    const double log1 = sycl::log(ctx.data->drParameters.rsSr0 * localStateVariable / localSl0);
+    const double log1 = std::log(ctx.data->drParameters.rsSr0 * localStateVariable / localSl0);
     const double c =
         0.5 / ctx.data->drParameters.rsSr0 *
-        sycl::exp((ctx.data->drParameters.rsF0 + ctx.data->drParameters.rsB * log1) / localA);
+        std::exp((ctx.data->drParameters.rsF0 + ctx.data->drParameters.rsB * log1) / localA);
     return MuDetails{localA, c, localA * c};
   }
 
-  static double
+  SEISSOL_DEVICE static double
       updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, MuDetails& details) {
     const double x = localSlipRateMagnitude * details.c;
-    return details.a * sycl::asinh(x);
+    return details.a * std::asinh(x);
   }
 
-  static double updateMuDerivative(FrictionLawContext& ctx,
-                                   double localSlipRateMagnitude,
-                                   MuDetails& details) {
+  SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext& ctx,
+                                                  double localSlipRateMagnitude,
+                                                  MuDetails& details) {
     const double x = localSlipRateMagnitude * details.c;
-    return details.ac / sycl::sqrt(sycl::pown(x, 2) + 1.0);
+    return details.ac / std::sqrt(std::pow(x, 2) + 1.0);
   }
 
   /**
    * Resample the state variable. For Slow Velocity Weakening Laws,
    * we just copy the buffer into the member variable.
    */
-  static void resampleStateVar(FrictionLawContext& ctx) {
-    auto* stateVariable{ctx.data->stateVariable};
-
-    stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
+    ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
   }
 
-  static void executeIfNotConverged() {}
+  SEISSOL_DEVICE static void executeIfNotConverged() {}
 };
 } // namespace seissol::dr::friction_law::gpu
 

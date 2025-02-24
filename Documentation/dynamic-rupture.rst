@@ -207,7 +207,7 @@ Linear slip weakening can be seen as a special case of rate-and-state friction w
 Now the state variable stores the accumulated slip.
 
 TP proxy slip-weakening friction (:code:`FL=1058`)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The TP proxy slip-weakening friction has been proposed by Herrera et al. (2024), GJI, to approximate thermal pressurization in a computationally efficient way.
 The fault strength is determined by
@@ -226,12 +226,12 @@ Rate-and-state friction
 Rate-and-state friction laws allow modeling the frictional shear strength variations as a function of slip rate and of the evolving properties of the contact population (Dieterich, 1979, 1981; Ruina, 1983).
 In SeisSol, we currently support 3 types of rate-and-state friction laws, which differ by the set of ordinary differential equations describing the evolution of the state variable.
 The type of rate-and-state friction law is set by the FL variable in the DynamicRupture namelist (parameters.par):
-Friction law :code:`3` implements the ageing law, friction law :code:`4` implements the slip law, and friction law :code:`103` implements a slip law with strong rate-weakening.
+Friction law :code:`3` implements the aging law, friction law :code:`4` implements the slip law, and friction law :code:`103` implements a slip law with strong rate-weakening.
 More details about these friction laws can be found in the `SCEC benchmarks descriptions <https://strike.scec.org/cvws/benchmark_descriptions.html>`_ (TPV101 to 105) or in Pelties et al. (2013, `GMD <https://gmd.copernicus.org/articles/7/847/2014/>`_).
 
 Some parameters are considered homogeneous across the fault and defined in the main parameter file.
 Others can spatially vary (:code:`rs_a`, :code:`RS_sl0` for FL=3,4 and 103 and :code:`rs_srW` for FL=103) and are defined in the fault yaml file.
-Examples of input files for the `ageing law <https://github.com/SeisSol/Examples/tree/master/tpv101>`_
+Examples of input files for the `aging law <https://github.com/SeisSol/Examples/tree/master/tpv101>`_
 and for the `rate and state friction with strong velocity weakening <https://github.com/SeisSol/Examples/tree/master/tpv104>`_
 are available at the given links.
 
@@ -244,7 +244,7 @@ All rate-and-state friction laws are described by the following system of differ
     \frac{\partial\psi}{\partial t} &= g(V,\psi)
   \end{aligned}
 
-Ageing law (:code:`FL=3`)
+Aging law (:code:`FL=3`)
 -------------------------
 Reference benchmarks: TVP101 and TPV102
 
@@ -272,7 +272,7 @@ Friction parameters:
 
 Slip law (:code:`FL=4`)
 -----------------------
-The slip law has the same parameters as the Ageing Law.
+The slip law has the same parameters as the Aging Law.
 
 .. math::
   \begin{aligned}
@@ -280,11 +280,17 @@ The slip law has the same parameters as the Ageing Law.
     g(V, \psi) &= -V\frac{\psi}{L}\ln \left(V \frac{\psi}{L} \right)
   \end{aligned}
 
+Severe velocity weakening (:code:`FL=7`)
+----------------------------------------
+No reference benchmark.
+
+The Severe Velocity Weakening Law has the same parameters as the Aging Law does.
+
 Strong velocity weakening (:code:`FL=103`)
 ------------------------------------------
 Reference TPV103 and TPV104
 
-In addition to the ageing and the slip Law, strong velocity weakening requires two more parameters:
+In addition to the Aging and the Slip Law, strong velocity weakening requires two more parameters:
 
 +------------------+----------------------------------------+-------------------------------+
 | symbol           | quantity                               | seisSol name                  |

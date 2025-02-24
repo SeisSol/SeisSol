@@ -21,54 +21,74 @@ struct FrictionLawData {
 
   seissol::initializer::parameters::DRParameters drParameters;
 
-  ImpedancesAndEta* impAndEta{};
-  ImpedanceMatrices* impedanceMatrices{};
+  const ImpedancesAndEta* __restrict impAndEta{};
+  const ImpedanceMatrices* __restrict impedanceMatrices{};
   real mFullUpdateTime{};
   // CS = coordinate system
-  real (*initialStressInFaultCS)[misc::NumPaddedPoints][6]{};
-  real (*nucleationStressInFaultCS)[misc::NumPaddedPoints][6]{};
-  real (*cohesion)[misc::NumPaddedPoints]{};
-  real (*mu)[misc::NumPaddedPoints]{};
-  real (*accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
-  real (*slip1)[misc::NumPaddedPoints]{};
-  real (*slip2)[misc::NumPaddedPoints]{};
-  real (*slipRateMagnitude)[misc::NumPaddedPoints]{};
-  real (*slipRate1)[misc::NumPaddedPoints]{};
-  real (*slipRate2)[misc::NumPaddedPoints]{};
-  real (*ruptureTime)[misc::NumPaddedPoints]{};
-  bool (*ruptureTimePending)[misc::NumPaddedPoints]{};
-  real (*peakSlipRate)[misc::NumPaddedPoints]{};
-  real (*traction1)[misc::NumPaddedPoints]{};
-  real (*traction2)[misc::NumPaddedPoints]{};
-  real (*imposedStatePlus)[tensor::QInterpolated::size()]{};
-  real (*imposedStateMinus)[tensor::QInterpolated::size()]{};
-  real spaceWeights[misc::NumPaddedPoints]{};
-  DREnergyOutput* energyData{};
-  DRGodunovData* godunovData{};
-  real (*initialPressure)[misc::NumPaddedPoints]{};
-  real (*nucleationPressure)[misc::NumPaddedPoints]{};
+  real (*__restrict initialStressInFaultCS)[misc::NumPaddedPoints][6]{};
+  const real (*__restrict nucleationStressInFaultCS)[misc::NumPaddedPoints][6]{};
+  const real (*__restrict cohesion)[misc::NumPaddedPoints]{};
+  real (*__restrict mu)[misc::NumPaddedPoints]{};
+  real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
+  real (*__restrict slip1)[misc::NumPaddedPoints]{};
+  real (*__restrict slip2)[misc::NumPaddedPoints]{};
+  real (*__restrict slipRateMagnitude)[misc::NumPaddedPoints]{};
+  real (*__restrict slipRate1)[misc::NumPaddedPoints]{};
+  real (*__restrict slipRate2)[misc::NumPaddedPoints]{};
+  real (*__restrict ruptureTime)[misc::NumPaddedPoints]{};
+  bool (*__restrict ruptureTimePending)[misc::NumPaddedPoints]{};
+  real (*__restrict peakSlipRate)[misc::NumPaddedPoints]{};
+  real (*__restrict traction1)[misc::NumPaddedPoints]{};
+  real (*__restrict traction2)[misc::NumPaddedPoints]{};
+  real (*__restrict imposedStatePlus)[tensor::QInterpolated::size()]{};
+  real (*__restrict imposedStateMinus)[tensor::QInterpolated::size()]{};
+  DREnergyOutput* __restrict energyData{};
+  const DRGodunovData* __restrict godunovData{};
+  real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
+  const real (*__restrict nucleationPressure)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
-  real (*dynStressTime)[misc::NumPaddedPoints]{};
-  bool (*dynStressTimePending)[misc::NumPaddedPoints]{};
+  real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
+  bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints]{};
 
-  real (*qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
-  real (*qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
+  const real (*__restrict qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
+  const real (*__restrict qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
 
   // LSW
-  real (*dC)[misc::NumPaddedPoints];
-  real (*muS)[misc::NumPaddedPoints];
-  real (*muD)[misc::NumPaddedPoints];
-  real (*forcedRuptureTime)[misc::NumPaddedPoints];
-  real (*regularisedStrength)[misc::NumPaddedPoints];
+  const real (*__restrict dC)[misc::NumPaddedPoints];
+  const real (*__restrict muS)[misc::NumPaddedPoints];
+  const real (*__restrict muD)[misc::NumPaddedPoints];
+  const real (*__restrict forcedRuptureTime)[misc::NumPaddedPoints];
+  real (*__restrict regularizedStrength)[misc::NumPaddedPoints];
 
   // R+S
-  real (*a)[misc::NumPaddedPoints];
-  real (*sl0)[misc::NumPaddedPoints];
-  real (*stateVariable)[misc::NumPaddedPoints];
+  const real (*__restrict a)[misc::NumPaddedPoints];
+  const real (*__restrict sl0)[misc::NumPaddedPoints];
+  real (*__restrict stateVariable)[misc::NumPaddedPoints];
 
   // R+S FVW
-  real (*srW)[misc::NumPaddedPoints];
+  const real (*__restrict srW)[misc::NumPaddedPoints];
+
+  // TP
+  real (*__restrict temperature)[misc::NumPaddedPoints]{};
+  real (*__restrict pressure)[misc::NumPaddedPoints]{};
+  real (*__restrict theta)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*__restrict sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*__restrict thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*__restrict sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  const real (*__restrict halfWidthShearZone)[misc::NumPaddedPoints]{};
+  const real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints]{};
+  real (*__restrict faultStrength)[misc::NumPaddedPoints]{};
+
+  // ISR
+  const real (*__restrict imposedSlipDirection1)[misc::NumPaddedPoints];
+  const real (*__restrict imposedSlipDirection2)[misc::NumPaddedPoints];
+
+  // ISR/STF
+  const real (*__restrict onsetTime)[misc::NumPaddedPoints];
+  const real (*__restrict tauS)[misc::NumPaddedPoints];
+  const real (*__restrict tauR)[misc::NumPaddedPoints];
+  const real (*__restrict riseTime)[misc::NumPaddedPoints];
 };
 
 class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver {
@@ -77,10 +97,7 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
       : seissol::dr::friction_law::FrictionSolver(drParameters) {}
   ~FrictionSolverInterface() override = default;
 
-  virtual void initSyclQueue() = 0;
-  void setMaxClusterSize(size_t size) { maxClusterSize = size; }
   virtual void allocateAuxiliaryMemory() = 0;
-  virtual void copyStaticDataToDevice() = 0;
 
   seissol::initializer::AllocationPlace allocationPlace() override {
     return seissol::initializer::AllocationPlace::Device;
@@ -122,7 +139,6 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
   }
 
   protected:
-  size_t maxClusterSize{};
   FrictionLawData dataHost;
 };
 } // namespace seissol::dr::friction_law::gpu

@@ -468,78 +468,13 @@ if (WITH_GPU)
   # add SeisSol GPU part
   target_link_libraries(seissol-common-properties INTERFACE seissol-device-lib)
 
-  add_library(general-sycl-offloading SHARED
-      ${SYCL_DEPENDENT_SRC_FILES}
-      ${SYCL_ONLY_SRC_FILES})
-  target_link_libraries(general-sycl-offloading PRIVATE seissol-common-properties)
-  target_link_libraries(general-sycl-offloading PRIVATE seissol-common-lib)
-
-  set(SYCL_CC "acpp" CACHE STRING "The SYCL Compiler used for general SYCL offloading")
-  set(SYCL_CC_OPTIONS acpp hipsycl dpcpp)
-  set_property(CACHE SYCL_CC PROPERTY STRINGS ${SYCL_CC_OPTIONS})
-
-  if (SYCL_CC MATCHES "hipsycl" OR SYCL_CC MATCHES "acpp")
-    message(STATUS "Using AdaptiveCpp for general SYCL offloading")
-    # add GPU dynamic rupture target
-    # always override ACPP_TARGETS, as we may need to override it when the architecture changes
-    if (DEVICE_ARCH MATCHES "sm_*")
-      if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
-        set(SYCL_USE_NVHPC_DEFAULT ON)
-      else()
-        set(SYCL_USE_NVHPC_DEFAULT OFF)
-      endif()
-      option(SYCL_USE_NVHPC "For Nvidia GPUs, use nvhpc instead of CUDA/nvcc." ${SYCL_USE_NVHPC_DEFAULT})
-      if (SYCL_USE_NVHPC)
-        # we assume that hipsycl was compiled with nvhpc compiler collection
-        string(REPLACE sm_ cc NVCPP_ARCH ${DEVICE_ARCH})
-        set(HIPSYCL_TARGETS "cuda-nvcxx:${NVCPP_ARCH}" CACHE STRING "" FORCE)
-        set(ACPP_TARGETS "cuda-nvcxx:${NVCPP_ARCH}" CACHE STRING "" FORCE)
-      else()
-        set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-        set(ACPP_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-        target_compile_options(general-sycl-offloading PRIVATE -Wno-unknown-cuda-version)
-      endif()
-      target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_NVIDIA)
-    elseif(DEVICE_ARCH MATCHES "gfx*")
-      set(HIPSYCL_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-      set(ACPP_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-      target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_AMD)
-    else()
-      set(HIPSYCL_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-      set(ACPP_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-      target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_Intel)
-    endif()
-
-    find_package(AdaptiveCpp)
-    if (NOT AdaptiveCpp_FOUND)
-      message(WARNING "AdaptiveCpp was not found. Retrying with hipSYCL as package name...")
-      find_package(hipSYCL REQUIRED)
-    endif()
-
-    # note, we need to add openmp as a link option explicitly for some compilers.
-    # it is probably an issue of `add_sycl_to_target` macro
-    target_link_options(general-sycl-offloading PRIVATE ${OpenMP_CXX_FLAGS})
-    add_sycl_to_target(TARGET general-sycl-offloading SOURCES ${SYCL_ONLY_SRC_FILES})
-  else()
-    find_package(DpcppFlags REQUIRED)
-    message(STATUS "Using DPC++ for general SYCL offloading")
-    target_link_libraries(general-sycl-offloading PRIVATE dpcpp::device_flags)
-    target_link_libraries(seissol-common-properties INTERFACE dpcpp::interface)
-  endif()
-
-  add_dependencies(general-sycl-offloading seissol-codegen)
-
-  set_target_properties(general-sycl-offloading PROPERTIES OUTPUT_NAME "SeisSol_offloading_${EXE_NAME_PREFIX}")
   set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
   set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}")
 
   # set up GPU install targets
-  install(TARGETS general-sycl-offloading LIBRARY)
   install(TARGETS seissol-device-lib LIBRARY)
   install(TARGETS device LIBRARY)
-else()
-  # add DR source files to seissol-lib if we are compiling without any GPU support
-  target_sources(seissol-common-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
+  target_sources(seissol-common-lib PRIVATE ${SYCL_ONLY_SRC_FILES})
 endif()
 
 # C++ compiler settings
@@ -661,9 +596,6 @@ if (TESTING)
             ${seissol_test_sources}
             src/tests/TestMain.cpp)
   target_link_libraries(seissol-serial-test PRIVATE seissol-lib)
-if(WITH_GPU)
-  target_link_libraries(seissol-serial-test PRIVATE general-sycl-offloading)
-endif()
   target_include_directories(seissol-serial-test PUBLIC external/)
 
   separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
@@ -694,9 +626,6 @@ endif()
 add_executable(seissol-bin src/Main.cpp)
 set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 
-if (WITH_GPU)
-  target_link_libraries(seissol-bin PUBLIC general-sycl-offloading)
-endif()
 target_link_libraries(seissol-bin PUBLIC seissol-lib)
 
 install(TARGETS seissol-bin RUNTIME)

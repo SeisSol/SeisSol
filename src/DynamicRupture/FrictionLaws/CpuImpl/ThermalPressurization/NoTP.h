@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_THERMALPRESSURIZATION_NOTP_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_THERMALPRESSURIZATION_NOTP_H_
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 class NoTP {
   public:
   NoTP(seissol::initializer::parameters::DRParameters* drParameters) {};
@@ -30,6 +30,6 @@ class NoTP {
   };
 };
 
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_THERMALPRESSURIZATION_NOTP_H_

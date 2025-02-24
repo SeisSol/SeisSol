@@ -10,7 +10,7 @@
 
 #include "BaseFrictionLaw.h"
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 /**
  * No friction computation input stress equals output
  */
@@ -33,6 +33,6 @@ class NoFault : public BaseFrictionLaw<NoFault> {
   void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {};
   void saveDynamicStressOutput(unsigned int ltsFace) {};
 };
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_NOFAULT_H_
