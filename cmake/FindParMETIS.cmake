@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2023-2025 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-2-Clause
 # SPDX-LicenseComments: Full text under /LICENSES/
@@ -152,3 +152,11 @@ if(PARMETIS_FOUND)
 endif()
 
 mark_as_advanced(PARMETIS_INCLUDE_DIR PARMETIS_LIBRARY METIS_LIBRARY METIS_INCLUDE_DIR)
+
+if(PARMETIS_FOUND AND NOT TARGET ParMETIS::ParMETIS)
+    add_library(ParMETIS::ParMETIS INTERFACE IMPORTED)
+    set_target_properties(ParMETIS::ParMETIS PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${PARMETIS_INCLUDE_DIRS}"
+        INTERFACE_LINK_LIBRARIES "${PARMETIS_LIBRARIES}"
+    )
+endif()

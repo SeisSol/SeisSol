@@ -398,7 +398,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
 
   const double timeStepWidth = timeStepSize();
 
-  ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
+  ComputeGraphType graphType = resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
   streamRuntime.runGraph(computeGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
     m_timeKernel.computeBatchedAder(timeStepWidth,
@@ -415,9 +415,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
                                          tmp,
                                          timeStepWidth,
                                          streamRuntime);
-  });
 
-  m_localKernel.evaluateBatchedTimeDependentBc(dataTable,
+    m_localKernel.evaluateBatchedTimeDependentBc(dataTable,
                                                indicesTable,
                                                loader,
                                                i_layerData,
@@ -426,10 +425,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
                                                timeStepWidth,
                                                streamRuntime);
 
-  graphType = resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
-  computeGraphKey = initializer::GraphKey(graphType);
-
-  streamRuntime.runGraph(computeGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
     for (unsigned face = 0; face < 4; ++face) {
       ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
       if (dataTable.find(key) != dataTable.end()) {

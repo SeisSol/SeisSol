@@ -67,8 +67,7 @@ constexpr bool isExternalBoundaryFaceType(FaceType faceType) {
 }
 
 enum class ComputeGraphType {
-  LocalIntegral = 0,
-  AccumulatedVelocities,
+  AccumulatedVelocities = 0,
   StreamedVelocities,
   NeighborIntegral,
   DynamicRuptureInterface,
