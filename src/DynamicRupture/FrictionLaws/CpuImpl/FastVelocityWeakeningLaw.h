@@ -12,7 +12,7 @@
 
 #include "RateAndState.h"
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 
 template <typename TPMethod>
 class FastVelocityWeakeningLaw
@@ -97,7 +97,7 @@ class FastVelocityWeakeningLaw
     // x in asinh(x) for mu calculation
     const double x = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA) *
                      localSlipRateMagnitude;
-    const double result = localA * misc::asinh(x);
+    const double result = localA * std::asinh(x);
     assert((std::isfinite(result) || pointIndex >= misc::NumBoundaryGaussPoints) &&
            "Inf/NaN detected");
     return result;
@@ -161,6 +161,6 @@ class FastVelocityWeakeningLaw
   protected:
   real (*srW)[misc::NumPaddedPoints];
 };
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FASTVELOCITYWEAKENINGLAW_H_

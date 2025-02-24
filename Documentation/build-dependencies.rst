@@ -54,10 +54,13 @@ we always recommend installing all optional dependencies.
 
 For the GPU version, the following packages need to be installed as well:
 
-- SYCL: either AdaptiveCpp (formerly known as hipSYCL/Open SYCL) >= 23.10 or DPC++
-- gemmforge (>= 0.0.207, for Nvidia, AMD and Intel GPUs)
-- (optional, recommended) chainforge (>= 0.0.3, for Nvidia and AMD GPUs)
-- CUDA (>= 11.0) for Nvidia GPUs, or HIP (ROCm >= 6.0.0) for AMD GPUs
+- A GPU runtime model.
+
+  - CUDA (>= 11.8) for NVIDIA GPUs
+  - ROCm with HIP (>= 6.0.0) for AMD GPUs
+  - SYCL: either AdaptiveCpp (>= 23.10) or DPC++; for Intel, AMD, NVIDIA, or other GPUs (note: SYCL was mandatory up to including SeisSol 1.3.0)
+- gemmforge (>= 0.0.218, for NVIDIA, AMD and Intel GPUs)
+- chainforge (>= 0.0.3, for NVIDIA and AMD GPUs)
 
 .. _spack_installation:
 
@@ -298,11 +301,6 @@ Additional requirements for GPUs
 
 For GPUs, we need some more packages.
 
-Installing SYCL (for GPUs)
-""""""""""""""""""""""""""
-
-See section :ref:`Installing SYCL <installing_SYCL>`.
-
 Installing GemmForge, ChainForge
 """"""""""""""""""""""""""""""""
 
@@ -319,7 +317,15 @@ Conveniently, they come as Python packages and can be installed with the followi
 Note that ChainForge is optional, but highly recommended for AMD and NVIDIA GPUs.
 However, it does currently not support code generation to SYCL.
 
-Once you have SYCL and GemmForge/ChainForge ready, you are set for compiling SeisSol with GPUs.
+Once you have GemmForge/ChainForge ready, you are set for compiling SeisSol with GPUs.
+
+Installing SYCL (for GPUs; optional for AMD and NVIDIA GPUs)
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+See section :ref:`Installing SYCL <installing_SYCL>`.
+
+SYCL is necessary for non-NVIDIA and non-AMD GPUs.
+But you may (optionally) also compile SeisSol to use SYCL for NVIDIA or AMD GPUs.
 
 Compiling SeisSol
 -----------------

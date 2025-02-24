@@ -12,7 +12,7 @@
 #include "Kernels/Precision.h"
 #include <array>
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 void NoFault::updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                                     TractionResults<Executor::Host>& tractionResults,
                                     std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
@@ -26,4 +26,4 @@ void NoFault::updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultSt
         faultStresses.traction2[timeIndex][pointIndex];
   }
 }
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu

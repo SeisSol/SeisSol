@@ -10,7 +10,7 @@
 
 #include "RateAndState.h"
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 template <class Derived, class TPMethod>
 class SlowVelocityWeakeningLaw
     : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived, TPMethod>, TPMethod> {
@@ -55,7 +55,7 @@ class SlowVelocityWeakeningLaw
     // x in asinh(x) for mu calculation
     const double x = 0.5 * (localSlipRateMagnitude / this->drParameters->rsSr0) *
                      std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
-    return localA * misc::asinh(x);
+    return localA * std::asinh(x);
   }
 
 /**
@@ -104,6 +104,6 @@ class SlowVelocityWeakeningLaw
     assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
 };
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SLOWVELOCITYWEAKENINGLAW_H_

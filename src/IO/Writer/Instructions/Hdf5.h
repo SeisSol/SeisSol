@@ -15,8 +15,6 @@
 #include <string>
 #include <yaml-cpp/yaml.h>
 
-#include "utils/stringutils.h"
-
 namespace seissol::io::writer::instructions {
 class Hdf5Location {
   public:

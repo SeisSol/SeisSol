@@ -14,7 +14,7 @@
 #include "Numerical/RegularizedYoffe.h"
 #include <cstddef>
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 void YoffeSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                                   const seissol::initializer::DynamicRupture* dynRup,
                                   real fullUpdateTime) {
@@ -65,4 +65,4 @@ real DeltaSTF::evaluate(real currentTime, real timeIncrement, size_t ltsFace, si
   return deltaPulse::deltaPulse(currentTime - onsetTime[ltsFace][pointIndex], timeIncrement);
 }
 
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu

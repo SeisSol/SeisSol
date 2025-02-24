@@ -10,13 +10,13 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
-#include "FrictionSolver.h"
-#include "FrictionSolverCommon.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Monitoring/Instrumentation.h"
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 /**
  * Base class, has implementations of methods that are used by each friction law
  * Actual friction law is plugged in via CRTP.
@@ -152,6 +152,6 @@ class BaseFrictionLaw : public FrictionSolver {
     }
   }
 };
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_BASEFRICTIONLAW_H_

@@ -9,13 +9,16 @@
 #define SEISSOL_SRC_IO_WRITER_WRITER_H_
 
 #include "Instructions/Instruction.h"
-#include "async/ExecInfo.h"
 #include <IO/Writer/File/BinaryWriter.h>
 #include <IO/Writer/File/Hdf5Writer.h>
 #include <IO/Writer/Instructions/Binary.h>
 #include <IO/Writer/Instructions/Hdf5.h>
 #include <memory>
 #include <yaml-cpp/yaml.h>
+
+namespace async {
+class ExecInfo;
+} // namespace async
 
 namespace seissol::io::writer {
 

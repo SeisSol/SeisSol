@@ -80,7 +80,7 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(
       dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup);
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
-    real(*regularisedStrength)[misc::NumPaddedPoints] = layer.var(concreteLts->regularisedStrength);
+    real(*regularizedStrength)[misc::NumPaddedPoints] = layer.var(concreteLts->regularizedStrength);
     real(*mu)[misc::NumPaddedPoints] = layer.var(concreteLts->mu);
     real(*cohesion)[misc::NumPaddedPoints] = layer.var(concreteLts->cohesion);
     real(*initialStressInFaultCS)[misc::NumPaddedPoints][6] =
@@ -88,7 +88,7 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(
 
     for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-        regularisedStrength[ltsFace][pointIndex] =
+        regularizedStrength[ltsFace][pointIndex] =
             -cohesion[ltsFace][pointIndex] -
             mu[ltsFace][pointIndex] *
                 std::min(static_cast<real>(0.0), initialStressInFaultCS[ltsFace][pointIndex][0]);

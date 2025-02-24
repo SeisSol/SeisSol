@@ -11,7 +11,7 @@
 #include "BaseFrictionLaw.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 /**
  * General implementation of a rate and state solver
  * Methods are inherited via CRTP and must be implemented in the child class.
@@ -371,6 +371,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   rs::Settings settings{};
 };
 
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATE_H_

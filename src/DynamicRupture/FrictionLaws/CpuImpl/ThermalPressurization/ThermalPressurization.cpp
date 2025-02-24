@@ -10,22 +10,23 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
+#include <DynamicRupture/FrictionLaws/TPCommon.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
 
-namespace seissol::dr::friction_law {
+namespace seissol::dr::friction_law::cpu {
 
-static const GridPoints<misc::NumTpGridPoints> TpGridPoints;
-static const InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFourierCoefficients;
-static const GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
+static const tp::GridPoints<misc::NumTpGridPoints> TpGridPoints;
+static const tp::InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFourierCoefficients;
+static const tp::GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
 
 void ThermalPressurization::copyLtsTreeToLocal(
     seissol::initializer::Layer& layerData,
     const seissol::initializer::DynamicRupture* const dynRup,
     real fullUpdateTime) {
   const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSRateAndStateThermalPressurization*>(dynRup);
+      dynamic_cast<const seissol::initializer::ThermalPressurization*>(dynRup);
   temperature = layerData.var(concreteLts->temperature);
   pressure = layerData.var(concreteLts->pressure);
   theta = layerData.var(concreteLts->theta);
@@ -94,10 +95,14 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
         misc::power<2>(TpGridPoints[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex]);
 
     // This is exp(-A dt) in Noda & Lapusta (2010) equation (10)
-    const real expTheta =
-        std::exp(-drParameters->thermalDiffusivity * deltaT * squaredNormalizedTpGrid);
-    const real expSigma =
-        std::exp(-hydraulicDiffusivity[ltsFace][pointIndex] * deltaT * squaredNormalizedTpGrid);
+    const real thetaTpGrid = drParameters->thermalDiffusivity * squaredNormalizedTpGrid;
+    const real sigmaTpGrid = hydraulicDiffusivity[ltsFace][pointIndex] * squaredNormalizedTpGrid;
+    const real preExpTheta = -thetaTpGrid * deltaT;
+    const real preExpSigma = -sigmaTpGrid * deltaT;
+    const real expTheta = std::exp(preExpTheta);
+    const real expSigma = std::exp(preExpSigma);
+    const real exp1mTheta = -std::expm1(preExpTheta);
+    const real exp1mSigma = -std::expm1(preExpSigma);
 
     // Temperature and pressure diffusion in spectral domain over timestep
     // This is + F(t) exp(-A dt) in equation (10)
@@ -108,14 +113,9 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
     // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
     // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
     const real omega = tauV * HeatSource[tpGridPointIndex];
-    const real thetaGeneration =
-        omega /
-        (drParameters->heatCapacity * squaredNormalizedTpGrid * drParameters->thermalDiffusivity) *
-        (1.0 - expTheta);
+    const real thetaGeneration = omega / (drParameters->heatCapacity * thetaTpGrid) * exp1mTheta;
     const real sigmaGeneration = omega * (drParameters->undrainedTPResponse + lambdaPrime) /
-                                 (drParameters->heatCapacity * squaredNormalizedTpGrid *
-                                  hydraulicDiffusivity[ltsFace][pointIndex]) *
-                                 (1.0 - expSigma);
+                                 (drParameters->heatCapacity * sigmaTpGrid) * exp1mSigma;
 
     // Sum both contributions up
     thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = thetaDiffusion + thetaGeneration;
@@ -138,4 +138,4 @@ void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
   pressure[ltsFace][pointIndex] = -pressureUpdate + drParameters->initialPressure;
 }
 
-} // namespace seissol::dr::friction_law
+} // namespace seissol::dr::friction_law::cpu

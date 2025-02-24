@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015-2025 SeisSol Group
 // SPDX-FileCopyrightText: 2023 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -9,10 +9,14 @@
 #ifndef SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_
 #define SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_
 
+#include "Common/Marker.h"
 #include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
+
+#include <Memory/MemoryAllocator.h>
+#include <init.h>
 
 #include <algorithm>
 #include <cmath>
@@ -44,12 +48,12 @@ struct PointSourceClusterPair {
  * @param sampleSize Size of the sample
  */
 template <typename MathFunctions = seissol::functions::HostStdFunctions>
-inline real computeSampleTimeIntegral(double from,
-                                      double to,
-                                      const double onsetTime,
-                                      const double samplingInterval,
-                                      const real* sample,
-                                      std::size_t sampleSize) {
+SEISSOL_HOSTDEVICE inline real computeSampleTimeIntegral(double from,
+                                                         double to,
+                                                         const double onsetTime,
+                                                         const double samplingInterval,
+                                                         const real* __restrict sample,
+                                                         std::size_t sampleSize) {
   const auto integrate = [&samplingInterval, &sample](std::size_t index, double tFrom, double tTo) {
     /* We have f(t) = S0 (t1 - t) / dt + S1 (t - t0) / dt, hence
      * int f(t) dt =  S0 (t1 t - 0.5 t^2) / dt + S1 (0.5 t^2 - t0 t) / dt + const, thus
@@ -101,6 +105,135 @@ inline real computeSampleTimeIntegral(double from,
   integral += integrate(toIndex - 1, (toIndex - 1) * samplingInterval, to);
   return integral;
 }
+
+// workaround for NVHPC (using constexpr arrays directly caused errors in 24.01)
+constexpr std::size_t QSpan = init::Q::Stop[0] - init::Q::Start[0];
+constexpr std::size_t MomentFsrmSpan = tensor::momentFSRM::Shape[0];
+constexpr std::size_t MInvJInvPhisAtSourcesSpan = tensor::mInvJInvPhisAtSources::Shape[0];
+
+SEISSOL_HOSTDEVICE inline void
+    addTimeIntegratedPointSourceNRF(const memory::AlignedArray<real, 3>& __restrict slip,
+                                    const real* __restrict mInvJInvPhisAtSources,
+                                    const real* __restrict tensor,
+                                    real a,
+                                    const real* __restrict stiffnessTensor,
+                                    double from,
+                                    double to,
+                                    real dofs[tensor::Q::size()]) {
+  real rotatedSlip[3] = {real(0.0)};
+  for (unsigned i = 0; i < 3; ++i) {
+    for (unsigned j = 0; j < 3; ++j) {
+      rotatedSlip[j] += tensor[j + i * 3] * slip[i];
+    }
+  }
+
+  const auto mom = [&](unsigned p, unsigned q) {
+    real m = 0.0;
+    for (unsigned i = 0; i < 3; ++i) {
+      for (unsigned j = 0; j < 3; ++j) {
+        m += -a * stiffnessTensor[p + 3 * q + 9 * i + 27 * j] * rotatedSlip[i] * tensor[6 + j];
+      }
+    }
+    return m;
+  };
+
+  const real moment[6] = {mom(0, 0), mom(1, 1), mom(2, 2), mom(0, 1), mom(1, 2), mom(0, 2)};
+  for (unsigned t = 0; t < 6; ++t) {
+    for (unsigned k = 0; k < MInvJInvPhisAtSourcesSpan; ++k) {
+      dofs[k + t * QSpan] += mInvJInvPhisAtSources[k] * moment[t];
+    }
+  }
+}
+
+SEISSOL_HOSTDEVICE inline void pointSourceKernelNRF(
+    int index,
+    double from,
+    double to,
+    sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
+    const seissol::memory::
+        AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
+    const seissol::memory::AlignedArray<real,
+                                        sourceterm::PointSources::TensorSize>* __restrict tensor,
+    const real* __restrict a,
+    const seissol::memory::AlignedArray<real, 81>* __restrict stiffnessTensor,
+    const double* __restrict onsetTime,
+    const double* __restrict samplingInterval,
+    const memory::AlignedArray<const std::size_t* __restrict, 3> sampleOffsets,
+    const memory::AlignedArray<const real* __restrict, 3> sample) {
+  const unsigned startSource = mappingPtr[index].pointSourcesOffset;
+  const unsigned endSource =
+      mappingPtr[index].pointSourcesOffset + mappingPtr[index].numberOfPointSources;
+  for (unsigned source = startSource; source < endSource; ++source) {
+    memory::AlignedArray<real, 3> slip;
+    for (int i = 0; i < 3; ++i) {
+      auto o0 = sampleOffsets[i][source];
+      auto o1 = sampleOffsets[i][source + 1];
+      slip[i] = computeSampleTimeIntegral(
+          from, to, onsetTime[source], samplingInterval[source], sample[i] + o0, o1 - o0);
+    }
+
+    addTimeIntegratedPointSourceNRF(slip,
+                                    mInvJInvPhisAtSources[source].data(),
+                                    tensor[source].data(),
+                                    a[source],
+                                    stiffnessTensor[source].data(),
+                                    from,
+                                    to,
+                                    *mappingPtr[index].dofs);
+  }
+}
+
+SEISSOL_HOSTDEVICE inline void
+    addTimeIntegratedPointSourceFSRM(real slip,
+                                     const real* __restrict mInvJInvPhisAtSources,
+                                     const real* __restrict tensor,
+                                     double from,
+                                     double to,
+                                     real* __restrict dofs) {
+  for (unsigned p = 0; p < MomentFsrmSpan; ++p) {
+    for (unsigned k = 0; k < MInvJInvPhisAtSourcesSpan; ++k) {
+      dofs[k + p * QSpan] += slip * mInvJInvPhisAtSources[k] * tensor[p];
+    }
+  }
+}
+
+SEISSOL_HOSTDEVICE inline void pointSourceKernelFSRM(
+    int index,
+    double from,
+    double to,
+    sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
+    const seissol::memory::
+        AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
+    const seissol::memory::AlignedArray<real,
+                                        sourceterm::PointSources::TensorSize>* __restrict tensor,
+    const real* __restrict a,
+    const seissol::memory::AlignedArray<real, 81>* __restrict stiffnessTensor,
+    const double* __restrict onsetTime,
+    const double* __restrict samplingInterval,
+    const memory::AlignedArray<const std::size_t* __restrict, 3> sampleOffsets,
+    const memory::AlignedArray<const real* __restrict, 3> sample) {
+  const unsigned startSource = mappingPtr[index].pointSourcesOffset;
+  const unsigned endSource =
+      mappingPtr[index].pointSourcesOffset + mappingPtr[index].numberOfPointSources;
+  for (unsigned source = startSource; source < endSource; ++source) {
+    auto o0 = sampleOffsets[0][source];
+    auto o1 = sampleOffsets[0][source + 1];
+    const real slip = computeSampleTimeIntegral(
+        from, to, onsetTime[source], samplingInterval[source], sample[0] + o0, o1 - o0);
+    addTimeIntegratedPointSourceFSRM(slip,
+                                     mInvJInvPhisAtSources[source].data(),
+                                     tensor[source].data(),
+                                     from,
+                                     to,
+                                     *mappingPtr[index].dofs);
+  }
+}
+
+void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
+                       sourceterm::PointSources& sources,
+                       double from,
+                       double to,
+                       seissol::parallel::runtime::StreamRuntime& runtime);
 
 } // namespace seissol::kernels
 
