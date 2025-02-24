@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <init.h>
 #include <yateto.h>
 
 namespace seissol::multisim {

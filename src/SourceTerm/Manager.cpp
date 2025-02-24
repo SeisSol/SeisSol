@@ -260,7 +260,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
       std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources>(sources));
 
-#if defined(ACL_DEVICE) && !defined(MULTIPLE_SIMULATIONS)
+#if defined(ACL_DEVICE)
   using GpuImpl = seissol::kernels::PointSourceClusterOnDevice;
 
   auto deviceData =
