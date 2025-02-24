@@ -59,6 +59,7 @@ format() {
         src/Initializer/PreProcessorMacros.h
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
+        src/Solver/MultipleSimulations.h
         src/SeisSol.h
         src/SeisSol.cpp
         src/Main.cpp

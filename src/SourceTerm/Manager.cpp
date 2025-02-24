@@ -354,7 +354,8 @@ auto loadSourcesFromFSRM(const char* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned fsrmIndex = originalIndex[sourceIndex];
-        sources.fusedOriginalIndex[clusterSource] = fsrmIndex; // only used in case of fused simulations
+        sources.fusedOriginalIndex[clusterSource] =
+            fsrmIndex; // only used in case of fused simulations
         computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
                                      sources.mInvJInvPhisAtSources[clusterSource],
                                      meshIds[sourceIndex],

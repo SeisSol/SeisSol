@@ -22,6 +22,7 @@
 #include "Numerical/BasisFunction.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -425,15 +426,6 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     auto chiTau2dPoints =
         init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
     auto weights = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
-    // TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS. This is also probably
-    // wrong. Needs to be corrected when DR is implemented for fused-simulations
-    auto getWeights = [&weights](size_t index) {
-#ifdef MULTIPLE_SIMULATIONS
-      return weights(0, index);
-#else
-      return weights(index);
-#endif
-    };
 
     auto* rt = getCellData(local, drDescr->ruptureTime);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
@@ -442,7 +434,8 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
       for (size_t d = 0; d < NumDegFr2d; ++d) {
-        projectedRT[d] += getWeights(jBndGP) * rt[jBndGP] * phiAtPoint[d];
+        projectedRT[d] +=
+            seissol::multisim::multisimWrap(weights, 0, jBndGP) * rt[jBndGP] * phiAtPoint[d];
       }
     }
 

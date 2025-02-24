@@ -130,7 +130,7 @@ void DynamicRupture::spaceTimeInterpolation(
 
 #ifdef MULTIPLE_SIMULATIONS
   // TODO: Find a better solution here
-  logError() << "Dynamic Rupture does not work yet with multiple simulations";
+  logError() << "The Dynamic Rupture does not work yet with multiple simulations";
 #endif
 
   alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];

@@ -15,6 +15,7 @@
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include <Eigen/Dense>
+#include <Solver/MultipleSimulations.h>
 #include <cstddef>
 #include <init.h>
 #include <limits>
@@ -106,21 +107,12 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   // Generate triangle quadrature points and weights (Factory Method)
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
-  // TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS. This is also probably
-  // wrong. Needs to be corrected when DR is implemented
-  auto getWeights = [&weightsView](size_t index) {
-#ifdef MULTIPLE_SIMULATIONS
-    return weightsView(0, index);
-#else
-    return weightsView(index);
-#endif
-  };
 
   auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
     reshapedPoints[i][0] = pointsView(i, 0);
     reshapedPoints[i][1] = pointsView(i, 1);
-    data.weights[i] = getWeights(i);
+    data.weights[i] = seissol::multisim::multisimWrap(weightsView, 0, i);
   }
 
   return data;

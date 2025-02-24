@@ -118,7 +118,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   double quadratureWeights[NumQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 
-  for (unsigned sim = 0; sim < multiplesimulations::NumSimulations; ++sim) {
+  for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
     logInfo(mpi.rank()) << "Analysis for simulation" << sim << ": absolute, relative";
     logInfo(mpi.rank()) << "--------------------------";
 
@@ -217,12 +217,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         }
       }
 
-#ifdef MULTIPLE_SIMULATIONS
-      auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
-#else
-      auto numSub = numericalSolution;
-#endif
-      // auto numSub = seissol::multiplesimulations::multisimObjectWrap(&init::dofsQP::view::type::subtensor, numericalSolution, sim, yateto::slice<>(), yateto::slice<>());
+      auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
 
       // Evaluate numerical solution at quad. nodes
       kernel::evalAtQP krnl;
