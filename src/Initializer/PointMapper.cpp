@@ -1,117 +1,49 @@
-/******************************************************************************
-** Copyright (c) 2015, Intel Corporation                                     **
-** All rights reserved.                                                      **
-**                                                                           **
-** Redistribution and use in source and binary forms, with or without        **
-** modification, are permitted provided that the following conditions        **
-** are met:                                                                  **
-** 1. Redistributions of source code must retain the above copyright         **
-**    notice, this list of conditions and the following disclaimer.          **
-** 2. Redistributions in binary form must reproduce the above copyright      **
-**    notice, this list of conditions and the following disclaimer in the    **
-**    documentation and/or other materials provided with the distribution.   **
-** 3. Neither the name of the copyright holder nor the names of its          **
-**    contributors may be used to endorse or promote products derived        **
-**    from this software without specific prior written permission.          **
-**                                                                           **
-** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
-** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
-** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
-** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
-** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
-** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
-** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
-** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
-** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
-** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
-** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
-******************************************************************************/
-/* Alexander Heinecke (Intel Corp.)
-******************************************************************************/
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015-2019, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- **/
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 Intel Corporation
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Sebastian Rettenberger
+// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include "PointMapper.h"
+#include "Parallel/MPI.h"
+#include <Geometry/MeshDefinition.h>
+#include <Geometry/MeshReader.h>
+#include <Geometry/MeshTools.h>
+#include <array>
 #include <cstring>
-#include <Initializer/MemoryAllocator.h>
+#include <mpi.h>
 #include <utils/logger.h>
-#include <Parallel/MPI.h>
+#include <vector>
 
-void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
-                                        seissol::geometry::MeshReader const& mesh,
-                                        unsigned numPoints,
-                                        short* contained,
-                                        unsigned* meshIds) {
-  findMeshIds(points,
-              mesh.getVertices(),
-              mesh.getElements(),
-              numPoints,
-              contained,
-              meshIds);
+namespace seissol::initializer {
+
+void findMeshIds(const Eigen::Vector3d* points,
+                 const seissol::geometry::MeshReader& mesh,
+                 std::size_t numPoints,
+                 short* contained,
+                 unsigned* meshIds,
+                 double tolerance) {
+  findMeshIds(
+      points, mesh.getVertices(), mesh.getElements(), numPoints, contained, meshIds, tolerance);
 }
 
-void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
-                                        std::vector<Vertex> const& vertices,
-                                        std::vector<Element> const& elements,
-                                        unsigned numPoints,
-                                        short* contained,
-                                        unsigned* meshIds) {
+void findMeshIds(const Eigen::Vector3d* points,
+                 const std::vector<Vertex>& vertices,
+                 const std::vector<Element>& elements,
+                 std::size_t numPoints,
+                 short* contained,
+                 unsigned* meshIds,
+                 double tolerance) {
 
   memset(contained, 0, numPoints * sizeof(short));
 
-  double (*planeEquations)[4][4] = static_cast<double(*)[4][4]>(seissol::memory::allocate(elements.size() * sizeof(double[4][4]), ALIGNMENT));
-  for (unsigned elem = 0; elem < elements.size(); ++elem) {
-    for (int face = 0; face < 4; ++face) {
-      VrtxCoords n, p;
-      MeshTools::pointOnPlane(elements[elem], face, vertices, p);
-      MeshTools::normal(elements[elem], face, vertices, n);
-
-      for (unsigned i = 0; i < 3; ++i) {
-        planeEquations[elem][i][face] = n[i];
-      }
-      planeEquations[elem][3][face] = - MeshTools::dot(n, p);
-    }
-  }
-
-  double (*points1)[4] = new double[numPoints][4];
-  for (unsigned point = 0; point < numPoints; ++point) {
+  auto points1 = std::vector<std::array<double, 4>>(numPoints);
+  for (std::size_t point = 0; point < numPoints; ++point) {
     points1[point][0] = points[point](0);
     points1[point][1] = points[point](1);
     points1[point][2] = points[point](2);
@@ -122,37 +54,33 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (unsigned elem = 0; elem < elements.size(); ++elem) {
-#if 0 //defined(__AVX__)
-    __m256d zero = _mm256_setzero_pd();
-      __m256d planeDims[4];
-      for (unsigned i = 0; i < 4; ++i) {
-        planeDims[i] = _mm256_load_pd(&planeEquations[elem][i][0]);
+  for (std::size_t elem = 0; elem < elements.size(); ++elem) {
+    auto planeEquations = std::array<std::array<double, 4>, 4>();
+    for (int face = 0; face < 4; ++face) {
+      VrtxCoords n{};
+      VrtxCoords p{};
+      MeshTools::pointOnPlane(elements[elem], face, vertices, p);
+      MeshTools::normal(elements[elem], face, vertices, n);
+
+      for (int i = 0; i < 3; ++i) {
+        planeEquations[i][face] = n[i];
       }
+      planeEquations[3][face] = -MeshTools::dot(n, p);
+    }
+    for (std::size_t point = 0; point < numPoints; ++point) {
+      // NOLINTNEXTLINE
+      int notInside = 0;
+#ifdef _OPENMP
+#pragma omp simd reduction(+ : notInside)
 #endif
-    for (unsigned point = 0; point < numPoints; ++point) {
-      int l_notInside = 0;
-#if 0 //defined(__AVX__)
-      // Not working because <0 => 0 should actually be  <=0 => 0
-      /*__m256d result = _mm256_setzero_pd();
-      for (unsigned dim = 0; dim < 4; ++dim) {
-        result = _mm256_add_pd(result, _mm256_mul_pd(planeDims[dim], _mm256_broadcast_sd(&points1[point][dim])) );
-      }
-      // >0 => (2^64)-1 ; <0 = 0
-      __m256d inside4 = _mm256_cmp_pd(result, zero, _CMP_GE_OQ);
-      l_notInside = _mm256_movemask_pd(inside4);*/
-#else
-      double result[4] = { 0.0, 0.0, 0.0, 0.0 };
-      for (unsigned dim = 0; dim < 4; ++dim) {
-        for (unsigned face = 0; face < 4; ++face) {
-          result[face] += planeEquations[elem][dim][face] * points1[point][dim];
-        }
-      }
       for (unsigned face = 0; face < 4; ++face) {
-        l_notInside += (result[face] > 0.0) ? 1 : 0;
+        double resultFace = 0;
+        for (unsigned dim = 0; dim < 4; ++dim) {
+          resultFace += planeEquations[dim][face] * points1[point][dim];
+        }
+        notInside += (resultFace > tolerance) ? 1 : 0;
       }
-#endif
-      if (l_notInside == 0) {
+      if (notInside == 0) {
 #ifdef _OPENMP
 #pragma omp critical
         {
@@ -162,12 +90,13 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
            * it to the one with the higher meshId.
            * @todo Check if this is a problem with the numerical scheme. */
           /*if (contained[point] != 0) {
-             logError() << "point with id " << point << " was already found in a different element!";
+             logError() << "point with id " << point << " was already found in a different
+          element!";
           }*/
-          auto localId = static_cast<unsigned>(elements[elem].localId);
+          const auto localId = static_cast<unsigned>(elements[elem].localId);
           if ((contained[point] == 0) || (meshIds[point] > localId)) {
             contained[point] = 1;
-            meshIds[point] = elements[elem].localId;
+            meshIds[point] = localId;
           }
 #ifdef _OPENMP
         }
@@ -175,22 +104,24 @@ void seissol::initializers::findMeshIds(Eigen::Vector3d const* points,
       }
     }
   }
-
-  seissol::memory::free(planeEquations);
-  delete[] points1;
 }
 
 #ifdef USE_MPI
-void seissol::initializers::cleanDoubles(short* contained, unsigned numPoints)
-{
-  int myrank = seissol::MPI::mpi.rank();
-  int size = seissol::MPI::mpi.size();
+void cleanDoubles(short* contained, std::size_t numPoints) {
+  const auto myrank = seissol::MPI::mpi.rank();
+  const auto size = seissol::MPI::mpi.size();
 
-  short* globalContained = new short[size * numPoints];
-  MPI_Allgather(contained, numPoints, MPI_SHORT, globalContained, numPoints, MPI_SHORT, seissol::MPI::mpi.comm());
+  auto globalContained = std::vector<short>(size * numPoints);
+  MPI_Allgather(contained,
+                numPoints,
+                MPI_SHORT,
+                globalContained.data(),
+                numPoints,
+                MPI_SHORT,
+                seissol::MPI::mpi.comm());
 
-  unsigned cleaned = 0;
-  for (unsigned point = 0; point < numPoints; ++point) {
+  std::size_t cleaned = 0;
+  for (std::size_t point = 0; point < numPoints; ++point) {
     if (contained[point] == 1) {
       for (int rank = 0; rank < myrank; ++rank) {
         if (globalContained[rank * numPoints + point] == 1) {
@@ -203,9 +134,9 @@ void seissol::initializers::cleanDoubles(short* contained, unsigned numPoints)
   }
 
   if (cleaned > 0) {
-    logInfo(myrank) << "Cleaned " << cleaned << " double occurring points on rank " << myrank << ".";
+    logInfo() << "Cleaned " << cleaned << " double occurring points on rank " << myrank << ".";
   }
-
-  delete[] globalContained;
 }
 #endif
+
+} // namespace seissol::initializer

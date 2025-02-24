@@ -1,7 +1,13 @@
-#include <Eigen/Dense>
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "tests/Geometry/MockReader.h"
 #include "Initializer/PointMapper.h"
+#include "tests/Geometry/MockReader.h"
+#include <Eigen/Dense>
 
 namespace seissol::unit_test {
 
@@ -29,7 +35,7 @@ TEST_CASE("Point mapper") {
   unsigned meshId[3] = {std::numeric_limits<unsigned>::max(),
                         std::numeric_limits<unsigned>::max(),
                         std::numeric_limits<unsigned>::max()};
-  seissol::initializers::findMeshIds(points, mockReader, 3, contained, meshId);
+  seissol::initializer::findMeshIds(points, mockReader, 3, contained, meshId);
 
   std::array<short, 3> expectedContained = {0, 0, 1};
   std::array<unsigned, 3> expectedMeshId = {

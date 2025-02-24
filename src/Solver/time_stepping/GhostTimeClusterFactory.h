@@ -1,4 +1,12 @@
-#pragma once
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_GHOSTTIMECLUSTERFACTORY_H_
+#define SEISSOL_SRC_SOLVER_TIME_STEPPING_GHOSTTIMECLUSTERFACTORY_H_
 
 #include "Solver/time_stepping/DirectGhostTimeCluster.h"
 #ifdef ACL_DEVICE
@@ -15,7 +23,8 @@ struct GhostTimeClusterFactory {
                                                        int globalTimeClusterId,
                                                        int otherGlobalTimeClusterId,
                                                        const MeshStructure* meshStructure,
-                                                       MPI::DataTransferMode mode) {
+                                                       MPI::DataTransferMode mode,
+                                                       bool persistent) {
     switch (mode) {
 #ifdef ACL_DEVICE
     case MPI::DataTransferMode::CopyInCopyOutHost: {
@@ -24,16 +33,8 @@ struct GhostTimeClusterFactory {
                                               timeStepRate,
                                               globalTimeClusterId,
                                               otherGlobalTimeClusterId,
-                                              meshStructure);
-    }
-    case MPI::DataTransferMode::CopyInCopyOutDevice: {
-      using ghostCluster_t =
-          GhostTimeClusterWithCopy<MPI::DataTransferMode::CopyInCopyOutDevice>;
-      return std::make_unique<ghostCluster_t>(maxTimeStepSize,
-                                              timeStepRate,
-                                              globalTimeClusterId,
-                                              otherGlobalTimeClusterId,
-                                              meshStructure);
+                                              meshStructure,
+                                              persistent);
     }
 #endif // ACL_DEVICE
     case MPI::DataTransferMode::Direct: {
@@ -41,7 +42,8 @@ struct GhostTimeClusterFactory {
                                                       timeStepRate,
                                                       globalTimeClusterId,
                                                       otherGlobalTimeClusterId,
-                                                      meshStructure);
+                                                      meshStructure,
+                                                      persistent);
     }
     default: {
       return nullptr;
@@ -50,3 +52,6 @@ struct GhostTimeClusterFactory {
   }
 };
 } // namespace seissol::time_stepping
+
+#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_GHOSTTIMECLUSTERFACTORY_H_
+

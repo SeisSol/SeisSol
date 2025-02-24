@@ -1,146 +1,122 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2019, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- **/
+// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
-#ifndef KERNELS_RECEIVER_H_
-#define KERNELS_RECEIVER_H_
+#ifndef SEISSOL_SRC_KERNELS_RECEIVER_H_
+#define SEISSOL_SRC_KERNELS_RECEIVER_H_
 
+#include "Geometry/MeshReader.h"
+#include "Initializer/LTS.h"
+#include "Initializer/PointMapper.h"
+#include "Initializer/Tree/Lut.h"
+#include "Kernels/Interface.h"
+#include "Kernels/Time.h"
+#include "Numerical/BasisFunction.h"
+#include "Numerical/Transformation.h"
+#include "Parallel/DataCollector.h"
+#include "generated_code/init.h"
+#include <Common/Executor.h>
 #include <Eigen/Dense>
-#include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
-#include <Initializer/PointMapper.h>
-#include <Initializer/tree/Lut.hpp>
-#include <Kernels/Interface.hpp>
-#include <Kernels/Time.h>
-#include <Numerical_aux/BasisFunction.h>
-#include <Numerical_aux/Transformation.h>
-#include <generated_code/init.h>
+#include <optional>
 #include <vector>
 
-struct GlobalData;
 namespace seissol {
-  namespace kernels {
-    struct Receiver {
-      Receiver(unsigned pointId,
-               Eigen::Vector3d position,
-               double const* elementCoords[4],
-               kernels::LocalData data, size_t reserved)
-          : pointId(pointId),
-            position(std::move(position)),
-            data(data) {
-        output.reserve(reserved);
+struct GlobalData;
+class SeisSol;
 
-        auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], position);
-        basisFunctions = basisFunction::SampledBasisFunctions<real>(CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
-        basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(CONVERGENCE_ORDER, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
-        basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
-      }
-      unsigned pointId;
-      Eigen::Vector3d position;
-      basisFunction::SampledBasisFunctions<real> basisFunctions;
-      basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
-      kernels::LocalData data;
-      std::vector<real> output;
-    };
+namespace kernels {
+struct Receiver {
+  Receiver(unsigned pointId,
+           Eigen::Vector3d position,
+           const double* elementCoords[4],
+           kernels::LocalData dataHost,
+           kernels::LocalData dataDevice,
+           size_t reserved);
+  unsigned pointId;
+  Eigen::Vector3d position;
+  basisFunction::SampledBasisFunctions<real> basisFunctions;
+  basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
+  kernels::LocalData dataHost;
+  kernels::LocalData dataDevice;
+  std::vector<real> output;
+};
 
-    class ReceiverCluster {
-    public:
-      ReceiverCluster()
-        : m_nonZeroFlops(0), m_hardwareFlops(0),
-          m_samplingInterval(1.0e99), m_syncPointInterval(0.0)
-      {}
+struct DerivedReceiverQuantity {
+  virtual ~DerivedReceiverQuantity() = default;
+  [[nodiscard]] virtual std::vector<std::string> quantities() const = 0;
+  virtual void compute(size_t sim,
+                       std::vector<real>&,
+                       seissol::init::QAtPoint::view::type&,
+                       seissol::init::QDerivativeAtPoint::view::type&) = 0;
+};
 
-      ReceiverCluster(  GlobalData const*             global,
-                        std::vector<unsigned> const&  quantities,
-                        double                        samplingInterval,
-                        double                        syncPointInterval,
-                        bool                          computeRotation)
-        : m_quantities(quantities),
-          m_samplingInterval(samplingInterval),
-          m_syncPointInterval(syncPointInterval),
-          m_computeRotation(computeRotation){
-        m_timeKernel.setHostGlobalData(global);
-        m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
-      }
+struct ReceiverRotation : public DerivedReceiverQuantity {
+  ~ReceiverRotation() override = default;
+  [[nodiscard]] std::vector<std::string> quantities() const override;
+  void compute(size_t sim,
+               std::vector<real>& /*output*/,
+               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
+               seissol::init::QDerivativeAtPoint::view::type& /*qDerivativeAtPoint*/) override;
+};
 
-      void addReceiver( unsigned          meshId,
-                        unsigned          pointId,
-                        Eigen::Vector3d   const& point,
-                        seissol::geometry::MeshReader const& mesh,
-                        seissol::initializers::Lut const& ltsLut,
-                        seissol::initializers::LTS const& lts );
+struct ReceiverStrain : public DerivedReceiverQuantity {
+  ~ReceiverStrain() override = default;
+  [[nodiscard]] std::vector<std::string> quantities() const override;
+  void compute(size_t sim,
+               std::vector<real>& /*output*/,
+               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
+               seissol::init::QDerivativeAtPoint::view::type& /*qDerivativeAtPoint*/) override;
+};
 
-      //! Returns new receiver time
-      double calcReceivers( double time,
-                            double expansionPoint,
-                            double timeStepWidth );
+class ReceiverCluster {
+  public:
+  ReceiverCluster(seissol::SeisSol& seissolInstance);
 
-      std::vector<Receiver>::iterator begin() {
-        return m_receivers.begin();
-      }
+  ReceiverCluster(const GlobalData* global,
+                  const std::vector<unsigned>& quantities,
+                  double samplingInterval,
+                  double syncPointInterval,
+                  const std::vector<std::shared_ptr<DerivedReceiverQuantity>>& derivedQuantities,
+                  seissol::SeisSol& seissolInstance);
 
-      std::vector<Receiver>::iterator end() {
-        return m_receivers.end();
-      }
+  void addReceiver(unsigned meshId,
+                   unsigned pointId,
+                   const Eigen::Vector3d& point,
+                   const seissol::geometry::MeshReader& mesh,
+                   const seissol::initializer::Lut& ltsLut,
+                   seissol::initializer::LTS const& lts);
 
-      size_t ncols() const {
-        size_t ncols = m_quantities.size();
-        if (m_computeRotation) {
-          ncols += 3;
-        }
-#ifdef MULTIPLE_SIMULATIONS
-        ncols *= init::QAtPoint::Stop[0]-init::QAtPoint::Start[0];
-#endif
-        return 1 + ncols;
-      }
+  //! Returns new receiver time
+  double calcReceivers(
+      double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream);
 
-    private:
-      std::vector<Receiver> m_receivers;
-      seissol::kernels::Time m_timeKernel;
-      std::vector<unsigned> m_quantities;
-      unsigned m_nonZeroFlops;
-      unsigned m_hardwareFlops;
-      double m_samplingInterval;
-      double m_syncPointInterval;
-      bool m_computeRotation;
+  std::vector<Receiver>::iterator begin() { return m_receivers.begin(); }
 
-    };
-  }
-}
+  std::vector<Receiver>::iterator end() { return m_receivers.end(); }
 
-#endif
+  [[nodiscard]] size_t ncols() const;
+
+  void allocateData();
+  void freeData();
+
+  private:
+  std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
+  std::vector<size_t> deviceIndices;
+  std::vector<Receiver> m_receivers;
+  seissol::kernels::Time m_timeKernel;
+  std::vector<unsigned> m_quantities;
+  unsigned m_nonZeroFlops{};
+  unsigned m_hardwareFlops{};
+  double m_samplingInterval;
+  double m_syncPointInterval;
+  std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities;
+  seissol::SeisSol& seissolInstance;
+};
+} // namespace kernels
+} // namespace seissol
+
+#endif // SEISSOL_SRC_KERNELS_RECEIVER_H_

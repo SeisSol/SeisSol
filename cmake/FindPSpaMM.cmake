@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #  PSpaMM - Code Generator for Sparse Matrix Multiplication
 #  source code: https://github.com/peterwauligmann/PSpaMM
 #
@@ -16,7 +23,7 @@
 
 include(FindPackageHandleStandardArgs)
 
-find_program(PSpaMM_PROGRAM pspamm.py
+find_program(PSpaMM_PROGRAM pspamm-generator pspamm.py
   HINTS ENV PSpaMM_DIR
   DOC "Directory where the PSpaMM python script is located"
 )

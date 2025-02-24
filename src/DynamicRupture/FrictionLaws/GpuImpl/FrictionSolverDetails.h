@@ -1,44 +1,38 @@
-#ifndef SEISSOL_FRICTION_SOLVER_DETAILS_H
-#define SEISSOL_FRICTION_SOLVER_DETAILS_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <yaml-cpp/yaml.h>
-#include "DynamicRupture/Misc.h"
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERDETAILS_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERDETAILS_H_
+
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
-#include <CL/sycl.hpp>
-
-#ifndef __DPCPP_COMPILER
-namespace sycl = cl::sycl;
-#endif
+#include "DynamicRupture/Misc.h"
+#include <yaml-cpp/yaml.h>
 
 namespace seissol::dr::friction_law::gpu {
+
 class FrictionSolverDetails : public FrictionSolverInterface {
   public:
-  explicit FrictionSolverDetails(dr::DRParameters* drParameters);
+  explicit FrictionSolverDetails(seissol::initializer::parameters::DRParameters* drParameters);
   ~FrictionSolverDetails() override;
 
-  void initSyclQueue() override;
   void allocateAuxiliaryMemory() override;
-  void copyStaticDataToDevice() override;
-
-  virtual void
-      copySpecificLtsDataTreeToLocal(seissol::initializers::Layer& layerData,
-                                     seissol::initializers::DynamicRupture const* const dynRup,
-                                     real fullUpdateTime) = 0;
 
   protected:
   size_t currLayerSize{};
 
-  FaultStresses* faultStresses{nullptr};
-  TractionResults* tractionResults{nullptr};
-  real (*stateVariableBuffer)[misc::numPaddedPoints]{nullptr};
-  real (*strengthBuffer)[misc::numPaddedPoints]{nullptr};
   real* resampleMatrix{nullptr};
   double* devTimeWeights{nullptr};
   real* devSpaceWeights{nullptr};
+  real* devTpInverseFourierCoefficients{nullptr};
+  real* devTpGridPoints{nullptr};
+  real* devHeatSource{nullptr};
 
-  sycl::device device;
-  sycl::queue queue;
+  FrictionLawData* data{nullptr};
 };
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_FRICTION_SOLVER_DETAILS_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERDETAILS_H_

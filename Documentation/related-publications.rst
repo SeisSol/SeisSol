@@ -1,8 +1,16 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 Related publications
 ====================
 
 
-Ulrich, T., A.-A. Gabriel,, J. P., Ampuero, & W. Xu, (2019). Dynamic viability of the 2016 Mw 7.8 Kaikōura earthquake cascade on weak crustal faults. Nature communications.  
+Ulrich, T., A.-A. Gabriel,, J. P., Ampuero, & W. Xu, (2019). Dynamic viability of the 2016 Mw 7.8 Kaikōura earthquake cascade on weak crustal faults. Nature communications.
 doi: `10.1038/s41467-019-09125-w <https://doi.org/10.1038/s41467-019-09125-w>`_.
 
 Wollherr, S., A.-A. Gabriel, and C. Uphoff (2018), Off-fault plasticity in three-dimensional dynamic rupture simulations using a modal Discontinuous Galerkin method on unstructured meshes: implementation, verification and application, Geophys. J. Int., 214(3), 1556-1584, doi: `10.1093/gji/ggy213 <https://doi.org/10.1093/gji/ggy213>`_.
@@ -14,8 +22,6 @@ Breuer, A., A. Heinecke, and M. Bader (2016), Petascale Local Time Stepping for 
 Pelties, C., A. A. Gabriel, and J. P. Ampuero (2014), Verification of an ADER-DG method for complex dynamic rupture problems, Geosci. Model Dev., 7(3), 847-866, doi: `10.5194/gmd-7-847-2014 <https://doi.org/10.5194/gmd-7-847-2014>`_.
 
 Breuer, A., A. Heinecke, S. Rettenberger, M. Bader, A.-A. Gabriel, and C. Pelties (2014), Sustained Petascale Performance of Seismic Simulations with SeisSol on SuperMUC, Springer International Publishing, Cham, doi: `10.1007/978-3-319-07518-1_1 <https://doi.org/10.1007/978-3-319-07518-1_1>`_.
-
-Heinecke, A., A. Breuer, S. Rettenberger, M. Bader, A. Gabriel, C. Pelties, A. Bode, W. Barth, X. Liao, K. Vaidyanathan, M. Smelyanskiy, and P. Dubey (2014), Petascale High Order Dynamic Rupture Earthquake Simulations on Heterogeneous Supercomputers, paper presented at SC '14: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis, 16-21 Nov. 2014, doi: `10.1109/SC.2014.6 <https://doi.org/10.1109/SC.2014.6>`_.
 
 Heinecke, A., A. Breuer, S. Rettenberger, M. Bader, A. Gabriel, C. Pelties, A. Bode, W. Barth, X. Liao, K. Vaidyanathan, M. Smelyanskiy, and P. Dubey (2014), Petascale High Order Dynamic Rupture Earthquake Simulations on Heterogeneous Supercomputers, paper presented at SC '14: Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis, 16-21 Nov. 2014, doi: `10.1109/SC.2014.6 <https://doi.org/10.1109/SC.2014.6>`_.
 

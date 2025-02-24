@@ -46,7 +46,7 @@
 
 #include "utils/args.h"
 
-#include "Geometry/refinement/RefinerUtils.h"
+#include "Geometry/Refinement/RefinerUtils.h"
 
 template<typename T>
 T pow2(T v)

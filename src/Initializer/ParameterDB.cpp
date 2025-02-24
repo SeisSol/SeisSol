@@ -1,75 +1,68 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT tum.de,
- *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2017 - 2020, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- *
- **/
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Sebastian Wolf
 
+#include <Common/Constants.h>
+#include <Equations/Datastructures.h>
+#include <Equations/acoustic/Model/Datastructures.h>
+#include <Equations/anisotropic/Model/Datastructures.h>
+#include <Equations/elastic/Model/Datastructures.h>
+#include <Equations/poroelastic/Model/Datastructures.h>
+#include <Equations/viscoelastic2/Model/Datastructures.h>
+#include <Geometry/MeshDefinition.h>
+#include <Geometry/MeshTools.h>
+#include <Kernels/Precision.h>
+#include <Model/CommonDatastructures.h>
+#include <Model/Datastructures.h>
+#include <array>
+#include <cassert>
+#include <cstddef>
+#include <easi/Query.h>
+#include <init.h>
+#include <iterator>
+#include <memory>
+#include <set>
+#include <tensor.h>
+#include <utility>
+#include <vector>
 #ifdef USE_HDF
+// PUML.h needs to be included before Downward.h
 
-#include <generated_code/kernel.h>
 #include "PUML/PUML.h"
-#include "PUML/Downward.h"
-#endif
-#include <cmath>
-#include <algorithm>
-#include "ParameterDB.h"
 
-#include "SeisSol.h"
-#include "easi/YAMLParser.h"
-#include "easi/ResultAdapter.h"
-#include "Numerical_aux/Quadrature.h"
-#include "Numerical_aux/Transformation.h"
+#include "PUML/Downward.h"
+
+#include "generated_code/kernel.h"
+#endif
+#include "ParameterDB.h"
+#include <algorithm>
+#include <cmath>
+
 #include "DynamicRupture/Misc.h"
+#include "Numerical/Quadrature.h"
+#include "Numerical/Transformation.h"
+#include "SeisSol.h"
+#include "easi/ResultAdapter.h"
+#include "easi/YAMLParser.h"
 #ifdef USE_ASAGI
 #include "Reader/AsagiReader.h"
 #endif
 #include "utils/logger.h"
 
-seissol::initializers::CellToVertexArray::CellToVertexArray(
-    size_t size,
-    const CellToVertexFunction& elementCoordinates,
-    const CellToGroupFunction& elementGroups)
+namespace seissol::initializer {
+
+CellToVertexArray::CellToVertexArray(size_t size,
+                                     const CellToVertexFunction& elementCoordinates,
+                                     const CellToGroupFunction& elementGroups)
     : size(size), elementCoordinates(elementCoordinates), elementGroups(elementGroups) {}
 
-seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArray::fromMeshReader(
-    const seissol::geometry::MeshReader& meshReader) {
+CellToVertexArray
+    CellToVertexArray::fromMeshReader(const seissol::geometry::MeshReader& meshReader) {
   const auto& elements = meshReader.getElements();
   const auto& vertices = meshReader.getVertices();
 
@@ -88,9 +81,8 @@ seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArra
 }
 
 #ifdef USE_HDF
-seissol::initializers::CellToVertexArray
-    seissol::initializers::CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
-  const int* groups = mesh.cellData(0);
+CellToVertexArray CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
+  const int* groups = reinterpret_cast<const int*>(mesh.cellData(0));
   const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
   return CellToVertexArray(
@@ -110,7 +102,7 @@ seissol::initializers::CellToVertexArray
 }
 #endif
 
-seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArray::fromVectors(
+CellToVertexArray CellToVertexArray::fromVectors(
     const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
     const std::vector<int>& groups) {
   assert(vertices.size() == groups.size());
@@ -127,7 +119,7 @@ seissol::initializers::CellToVertexArray seissol::initializers::CellToVertexArra
       [&](size_t i) { return groups[i]; });
 }
 
-easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const {
+easi::Query ElementBarycenterGenerator::generate() const {
   easi::Query query(m_cellToVertex.size, 3);
 
 #pragma omp parallel for schedule(static)
@@ -142,53 +134,52 @@ easi::Query seissol::initializers::ElementBarycentreGenerator::generate() const 
   return query;
 }
 
-seissol::initializers::ElementAverageGenerator::ElementAverageGenerator(
-    const CellToVertexArray& cellToVertex)
+ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex)
     : m_cellToVertex(cellToVertex) {
-  double quadraturePoints[NUM_QUADPOINTS][3];
-  double quadratureWeights[NUM_QUADPOINTS];
-  seissol::quadrature::TetrahedronQuadrature(
-      quadraturePoints, quadratureWeights, CONVERGENCE_ORDER);
+  double quadraturePoints[NumQuadpoints][3];
+  double quadratureWeights[NumQuadpoints];
+  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, ConvergenceOrder);
 
   std::copy(
       std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
-  for (int i = 0; i < NUM_QUADPOINTS; ++i) {
+  for (std::size_t i = 0; i < NumQuadpoints; ++i) {
     std::copy(std::begin(quadraturePoints[i]),
               std::end(quadraturePoints[i]),
               std::begin(m_quadraturePoints[i]));
   }
 }
 
-easi::Query seissol::initializers::ElementAverageGenerator::generate() const {
+easi::Query ElementAverageGenerator::generate() const {
   // Generate query using quadrature points for each element
-  easi::Query query(m_cellToVertex.size * NUM_QUADPOINTS, 3);
+  easi::Query query(m_cellToVertex.size * NumQuadpoints, 3);
 
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static) collapse(2)
   for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
-    for (unsigned i = 0; i < NUM_QUADPOINTS; ++i) {
+    for (unsigned i = 0; i < NumQuadpoints; ++i) {
       auto vertices = m_cellToVertex.elementCoordinates(elem);
       Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
           vertices[0], vertices[1], vertices[2], vertices[3], m_quadraturePoints[i].data());
-      query.x(elem * NUM_QUADPOINTS + i, 0) = transformed(0);
-      query.x(elem * NUM_QUADPOINTS + i, 1) = transformed(1);
-      query.x(elem * NUM_QUADPOINTS + i, 2) = transformed(2);
-      query.group(elem * NUM_QUADPOINTS + i) = m_cellToVertex.elementGroups(elem);
+      query.x(elem * NumQuadpoints + i, 0) = transformed(0);
+      query.x(elem * NumQuadpoints + i, 1) = transformed(1);
+      query.x(elem * NumQuadpoints + i, 2) = transformed(2);
+      query.group(elem * NumQuadpoints + i) = m_cellToVertex.elementGroups(elem);
     }
   }
 
   return query;
 }
 
-easi::Query seissol::initializers::FaultBarycentreGenerator::generate() const {
-  std::vector<Fault> const& fault = m_meshReader.getFault();
-  std::vector<Element> const& elements = m_meshReader.getElements();
-  std::vector<Vertex> const& vertices = m_meshReader.getVertices();
+easi::Query FaultBarycenterGenerator::generate() const {
+  const std::vector<Fault>& fault = m_meshReader.getFault();
+  const std::vector<Element>& elements = m_meshReader.getElements();
+  const std::vector<Vertex>& vertices = m_meshReader.getVertices();
 
   easi::Query query(m_numberOfPoints * fault.size(), 3);
   unsigned q = 0;
-  for (Fault const& f : fault) {
-    int element, side;
+  for (const Fault& f : fault) {
+    int element = 0;
+    int side = 0;
     if (f.element >= 0) {
       element = f.element;
       side = f.side;
@@ -197,11 +188,11 @@ easi::Query seissol::initializers::FaultBarycentreGenerator::generate() const {
       side = f.neighborSide;
     }
 
-    double barycentre[3] = {0.0, 0.0, 0.0};
-    MeshTools::center(elements[element], side, vertices, barycentre);
+    double barycenter[3] = {0.0, 0.0, 0.0};
+    MeshTools::center(elements[element], side, vertices, barycenter);
     for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
       for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(q, dim) = barycentre[dim];
+        query.x(q, dim) = barycenter[dim];
       }
       query.group(q) = elements[element].faultTags[side];
     }
@@ -209,20 +200,22 @@ easi::Query seissol::initializers::FaultBarycentreGenerator::generate() const {
   return query;
 }
 
-easi::Query seissol::initializers::FaultGPGenerator::generate() const {
-  std::vector<Fault> const& fault = m_meshReader.getFault();
-  std::vector<Element> const& elements = m_meshReader.getElements();
+easi::Query FaultGPGenerator::generate() const {
+  const std::vector<Fault>& fault = m_meshReader.getFault();
+  const std::vector<Element>& elements = m_meshReader.getElements();
   auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
 
-  constexpr size_t numberOfPoints = dr::misc::numPaddedPoints;
+  constexpr size_t NumPoints = dr::misc::NumPaddedPoints;
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
-  easi::Query query(numberOfPoints * m_faceIDs.size(), 3);
+  easi::Query query(NumPoints * m_faceIDs.size(), 3);
   unsigned q = 0;
   // loop over all fault elements which are managed by this generator
   // note: we have one generator per LTS layer
-  for (unsigned faultId : m_faceIDs) {
+  for (const unsigned faultId : m_faceIDs) {
     const Fault& f = fault.at(faultId);
-    int element, side, sideOrientation;
+    int element = 0;
+    int side = 0;
+    int sideOrientation = 0;
     if (f.element >= 0) {
       element = f.element;
       side = f.side;
@@ -234,11 +227,11 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
     }
 
     auto coords = cellToVertex.elementCoordinates(element);
-    for (unsigned n = 0; n < numberOfPoints; ++n, ++q) {
+    for (unsigned n = 0; n < NumPoints; ++n, ++q) {
       double xiEtaZeta[3];
       double localPoints[2] = {pointsView(n, 0), pointsView(n, 1)};
       // padded points are in the middle of the tetrahedron
-      if (n >= dr::misc::numberOfBoundaryGaussPoints) {
+      if (n >= dr::misc::NumBoundaryGaussPoints) {
         localPoints[0] = 1.0 / 3.0;
         localPoints[1] = 1.0 / 3.0;
       }
@@ -255,8 +248,6 @@ easi::Query seissol::initializers::FaultGPGenerator::generate() const {
   return query;
 }
 
-namespace seissol {
-namespace initializers {
 using namespace seissol::model;
 
 template <>
@@ -265,6 +256,13 @@ void MaterialParameterDB<ElasticMaterial>::addBindingPoints(
   adapter.addBindingPoint("rho", &ElasticMaterial::rho);
   adapter.addBindingPoint("mu", &ElasticMaterial::mu);
   adapter.addBindingPoint("lambda", &ElasticMaterial::lambda);
+}
+
+template <>
+void MaterialParameterDB<AcousticMaterial>::addBindingPoints(
+    easi::ArrayOfStructsAdapter<AcousticMaterial>& adapter) {
+  adapter.addBindingPoint("rho", &AcousticMaterial::rho);
+  adapter.addBindingPoint("lambda", &AcousticMaterial::lambda);
 }
 
 template <>
@@ -297,12 +295,12 @@ void MaterialParameterDB<Plasticity>::addBindingPoints(
     easi::ArrayOfStructsAdapter<Plasticity>& adapter) {
   adapter.addBindingPoint("bulkFriction", &Plasticity::bulkFriction);
   adapter.addBindingPoint("plastCo", &Plasticity::plastCo);
-  adapter.addBindingPoint("s_xx", &Plasticity::s_xx);
-  adapter.addBindingPoint("s_yy", &Plasticity::s_yy);
-  adapter.addBindingPoint("s_zz", &Plasticity::s_zz);
-  adapter.addBindingPoint("s_xy", &Plasticity::s_xy);
-  adapter.addBindingPoint("s_yz", &Plasticity::s_yz);
-  adapter.addBindingPoint("s_xz", &Plasticity::s_xz);
+  adapter.addBindingPoint("s_xx", &Plasticity::sXX);
+  adapter.addBindingPoint("s_yy", &Plasticity::sYY);
+  adapter.addBindingPoint("s_zz", &Plasticity::sZZ);
+  adapter.addBindingPoint("s_xy", &Plasticity::sXY);
+  adapter.addBindingPoint("s_yz", &Plasticity::sYZ);
+  adapter.addBindingPoint("s_xz", &Plasticity::sXZ);
 }
 
 template <>
@@ -333,10 +331,10 @@ void MaterialParameterDB<AnisotropicMaterial>::addBindingPoints(
 }
 
 template <class T>
-void MaterialParameterDB<T>::evaluateModel(std::string const& fileName,
-                                           QueryGenerator const* const queryGen) {
+void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
+                                           const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
-  easi::Query query = queryGen->generate();
+  easi::Query query = queryGen.generate();
   const unsigned numPoints = query.numPoints();
 
   std::vector<T> materialsFromQuery(numPoints);
@@ -345,9 +343,9 @@ void MaterialParameterDB<T>::evaluateModel(std::string const& fileName,
   model->evaluate(query, adapter);
 
   // Only use homogenization when ElementAverageGenerator has been supplied
-  if (const ElementAverageGenerator* gen = dynamic_cast<const ElementAverageGenerator*>(queryGen)) {
-    const unsigned numElems = numPoints / NUM_QUADPOINTS;
-    std::array<double, NUM_QUADPOINTS> quadratureWeights{gen->getQuadratureWeights()};
+  if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
+    const unsigned numElems = numPoints / NumQuadpoints;
+    const std::array<double, NumQuadpoints> quadratureWeights{gen->getQuadratureWeights()};
 
 // Compute homogenized material parameters for every element in a specialization for the
 // particular material
@@ -375,19 +373,19 @@ void MaterialParameterDB<T>::evaluateModel(std::string const& fileName,
 template <class T>
 T MaterialParameterDB<T>::computeAveragedMaterial(
     unsigned elementIdx,
-    std::array<double, NUM_QUADPOINTS> const& quadratureWeights,
-    std::vector<T> const& materialsFromQuery) {
+    const std::array<double, NumQuadpoints>& quadratureWeights,
+    const std::vector<T>& materialsFromQuery) {
   logWarning() << "You want me to compute an average material for a generic type. In general, this "
                   "function should never be called, but always a proper specialization!";
-  unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx;
+  const unsigned globalPointIdx = NumQuadpoints * elementIdx;
   return T(materialsFromQuery[globalPointIdx]);
 }
 
 template <>
 ElasticMaterial MaterialParameterDB<ElasticMaterial>::computeAveragedMaterial(
     unsigned elementIdx,
-    std::array<double, NUM_QUADPOINTS> const& quadratureWeights,
-    std::vector<ElasticMaterial> const& materialsFromQuery) {
+    const std::array<double, NumQuadpoints>& quadratureWeights,
+    const std::vector<ElasticMaterial>& materialsFromQuery) {
   double muMeanInv = 0.0;
   double rhoMean = 0.0;
   // Average of v / E with v: Poisson's ratio, E: Young's modulus
@@ -401,10 +399,10 @@ ElasticMaterial MaterialParameterDB<ElasticMaterial>::computeAveragedMaterial(
   // Average of the bulk modulus, used for acoustic material
   double kMeanInv = 0.0;
 
-  for (unsigned quadPointIdx = 0; quadPointIdx < NUM_QUADPOINTS; ++quadPointIdx) {
+  for (unsigned quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
     // Divide by volume of reference tetrahedron (1/6)
     const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
-    const unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
+    const unsigned globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
     const auto& elementMaterial = materialsFromQuery[globalPointIdx];
     isAcoustic |= elementMaterial.mu == 0.0;
     if (!isAcoustic) {
@@ -438,17 +436,17 @@ ElasticMaterial MaterialParameterDB<ElasticMaterial>::computeAveragedMaterial(
 template <>
 ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedMaterial(
     unsigned elementIdx,
-    std::array<double, NUM_QUADPOINTS> const& quadratureWeights,
-    std::vector<ViscoElasticMaterial> const& materialsFromQuery) {
+    const std::array<double, NumQuadpoints>& quadratureWeights,
+    const std::vector<ViscoElasticMaterial>& materialsFromQuery) {
   double muMeanInv = 0.0;
   double rhoMean = 0.0;
   double vERatioMean = 0.0;
-  double QpMean = 0.0;
-  double QsMean = 0.0;
+  double qpMean = 0.0;
+  double qsMean = 0.0;
 
-  for (unsigned quadPointIdx = 0; quadPointIdx < NUM_QUADPOINTS; ++quadPointIdx) {
+  for (unsigned quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
     const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
-    const unsigned globalPointIdx = NUM_QUADPOINTS * elementIdx + quadPointIdx;
+    const unsigned globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
     const auto& elementMaterial = materialsFromQuery[globalPointIdx];
     muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
     rhoMean += elementMaterial.rho * quadWeight;
@@ -456,31 +454,31 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
         elementMaterial.lambda /
         (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
         quadWeight;
-    QpMean += elementMaterial.Qp * quadWeight;
-    QsMean += elementMaterial.Qs * quadWeight;
+    qpMean += elementMaterial.Qp * quadWeight;
+    qsMean += elementMaterial.Qs * quadWeight;
   }
 
   // Harmonic average is used for mu, so take the reciprocal
-  double muMean = 1.0 / muMeanInv;
+  const double muMean = 1.0 / muMeanInv;
   // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
-  double lambdaMean =
+  const double lambdaMean =
       (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
 
   ViscoElasticMaterial result{};
   result.rho = rhoMean;
   result.mu = muMean;
   result.lambda = lambdaMean;
-  result.Qp = QpMean;
-  result.Qs = QsMean;
+  result.Qp = qpMean;
+  result.Qs = qsMean;
 
   return result;
 }
 
 template <>
-void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(std::string const& fileName,
-                                                             QueryGenerator const* const queryGen) {
+void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& fileName,
+                                                             const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
-  easi::Query query = queryGen->generate();
+  easi::Query query = queryGen.generate();
   auto suppliedParameters = model->suppliedParameters();
   // TODO(Sebastian): inhomogeneous materials, where in some parts only mu and lambda are given
   //                  and in other parts the full elastic tensor is given
@@ -492,7 +490,7 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(std::string const& 
     std::vector<ElasticMaterial> elasticMaterials(query.numPoints());
     easi::ArrayOfStructsAdapter<ElasticMaterial> adapter(elasticMaterials.data());
     MaterialParameterDB<ElasticMaterial>().addBindingPoints(adapter);
-    unsigned numPoints = query.numPoints();
+    const unsigned numPoints = query.numPoints();
     model->evaluate(query, adapter);
 
     for (unsigned i = 0; i < numPoints; i++) {
@@ -506,10 +504,9 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(std::string const& 
   delete model;
 }
 
-void FaultParameterDB::evaluateModel(std::string const& fileName,
-                                     QueryGenerator const* const queryGen) {
+void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
-  easi::Query query = queryGen->generate();
+  easi::Query query = queryGen.generate();
 
   easi::ArraysAdapter<real> adapter;
   for (auto& kv : m_parameters) {
@@ -520,13 +517,9 @@ void FaultParameterDB::evaluateModel(std::string const& fileName,
   delete model;
 }
 
-} // namespace initializers
-} // namespace seissol
-
-std::set<std::string>
-    seissol::initializers::FaultParameterDB::faultProvides(std::string const& fileName) {
-  if (fileName.length() == 0) {
-    return std::set<std::string>();
+std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileName) {
+  if (fileName.empty()) {
+    return {};
   }
   easi::Component* model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();
@@ -534,33 +527,31 @@ std::set<std::string>
   return supplied;
 }
 
-seissol::initializers::EasiBoundary::EasiBoundary(const std::string& fileName)
-    : model(loadEasiModel(fileName)) {}
+EasiBoundary::EasiBoundary(const std::string& fileName) : model(loadEasiModel(fileName)) {}
 
-seissol::initializers::EasiBoundary::EasiBoundary(EasiBoundary&& other)
-    : model(std::move(other.model)) {}
+EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept : model(other.model) {}
 
-seissol::initializers::EasiBoundary&
-    seissol::initializers::EasiBoundary::operator=(EasiBoundary&& other) {
+EasiBoundary& EasiBoundary::operator=(EasiBoundary&& other) noexcept {
   std::swap(model, other.model);
   return *this;
 }
 
-seissol::initializers::EasiBoundary::~EasiBoundary() { delete model; }
+EasiBoundary::~EasiBoundary() { delete model; }
 
-void seissol::initializers::EasiBoundary::query(const real* nodes,
-                                                real* mapTermsData,
-                                                real* constantTermsData) const {
+void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTermsData) const {
   if (model == nullptr) {
-    logError() << "Model for easiBoundary is not initialized!";
+    logError() << "Model for easi-provided boundary is not initialized.";
   }
-  assert(tensor::INodal::Shape[1] == 9); // only supp. for elastic currently.
+  if (tensor::INodal::Shape[1] != 9) {
+    logError() << "easi-provided boundary data is only supported for elastic material at the "
+                  "moment currently.";
+  }
   assert(mapTermsData != nullptr);
   assert(constantTermsData != nullptr);
-  constexpr auto numNodes = tensor::INodal::Shape[0];
-  auto query = easi::Query{numNodes, 3};
+  constexpr auto NumNodes = tensor::INodal::Shape[0];
+  auto query = easi::Query{NumNodes, 3};
   size_t offset{0};
-  for (unsigned i = 0; i < numNodes; ++i) {
+  for (unsigned i = 0; i < NumNodes; ++i) {
     query.x(i, 0) = nodes[offset++];
     query.x(i, 1) = nodes[offset++];
     query.x(i, 2) = nodes[offset++];
@@ -612,8 +603,9 @@ void seissol::initializers::EasiBoundary::query(const real* nodes,
             termName, mapTermsData + offset, mapTerms.shape(0) * mapTerms.shape(1));
       } else {
         // Default: Extrapolate
-        for (size_t k = 0; k < mapTerms.shape(2); ++k)
+        for (size_t k = 0; k < mapTerms.shape(2); ++k) {
           mapTerms(i, j, k) = (varName == otherVarName) ? 1.0 : 0.0;
+        }
       }
       ++offset;
     }
@@ -621,7 +613,7 @@ void seissol::initializers::EasiBoundary::query(const real* nodes,
   model->evaluate(query, adapter);
 }
 
-easi::Component* seissol::initializers::loadEasiModel(const std::string& fileName) {
+easi::Component* loadEasiModel(const std::string& fileName) {
 #ifdef USE_ASAGI
   seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
   easi::YAMLParser parser(3, &asagiReader);
@@ -631,43 +623,35 @@ easi::Component* seissol::initializers::loadEasiModel(const std::string& fileNam
   return parser.parse(fileName);
 }
 
-namespace seissol::initializers {
-QueryGenerator* getBestQueryGenerator(bool anelasticity,
-                                      bool plasticity,
-                                      bool anisotropy,
-                                      bool poroelasticity,
-                                      bool useCellHomogenizedMaterial,
-                                      const CellToVertexArray& cellToVertex) {
-  QueryGenerator* queryGen = nullptr;
+std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
+                                                      bool useCellHomogenizedMaterial,
+                                                      const CellToVertexArray& cellToVertex) {
+  std::shared_ptr<QueryGenerator> queryGen;
   if (!useCellHomogenizedMaterial) {
-    queryGen = new ElementBarycentreGenerator(cellToVertex);
+    queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
   } else {
-    const auto rank = MPI::mpi.rank();
-    if (anisotropy) {
-      logWarning(rank)
-          << "Material Averaging is not implemented for anisotropic materials. Falling back to "
-             "material properties sampled from the element barycenters instead.";
-      queryGen = new ElementBarycentreGenerator(cellToVertex);
+    if (MaterialT::Type != MaterialType::Viscoelastic || MaterialT::Type != MaterialType::Elastic) {
+      logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
+                   << " materials. Falling back to "
+                      "material properties sampled from the element barycenters instead.";
+      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
     } else if (plasticity) {
-      logWarning(rank)
+      logWarning()
           << "Material Averaging is not implemented for plastic materials. Falling back to "
              "material properties sampled from the element barycenters instead.";
-      queryGen = new ElementBarycentreGenerator(cellToVertex);
-    } else if (poroelasticity) {
-      logWarning(rank)
-          << "Material Averaging is not implemented for poroelastic materials. Falling back to "
-             "material properties sampled from the element barycenters instead.";
-      queryGen = new ElementBarycentreGenerator(cellToVertex);
+      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
     } else {
-      queryGen = new ElementAverageGenerator(cellToVertex);
+      queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex);
     }
   }
   return queryGen;
 }
-} // namespace seissol::initializers
 
-template class seissol::initializers::MaterialParameterDB<seissol::model::AnisotropicMaterial>;
-template class seissol::initializers::MaterialParameterDB<seissol::model::ElasticMaterial>;
-template class seissol::initializers::MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
-template class seissol::initializers::MaterialParameterDB<seissol::model::PoroElasticMaterial>;
-template class seissol::initializers::MaterialParameterDB<seissol::model::Plasticity>;
+template class MaterialParameterDB<seissol::model::AnisotropicMaterial>;
+template class MaterialParameterDB<seissol::model::ElasticMaterial>;
+template class MaterialParameterDB<seissol::model::AcousticMaterial>;
+template class MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
+template class MaterialParameterDB<seissol::model::PoroElasticMaterial>;
+template class MaterialParameterDB<seissol::model::Plasticity>;
+
+} // namespace seissol::initializer

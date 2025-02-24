@@ -1,58 +1,27 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2014-2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Main C++ SeisSol file
- */
+// SPDX-FileCopyrightText: 2014-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef SEISSOL_H
-#define SEISSOL_H
+#ifndef SEISSOL_SRC_SEISSOL_H_
+#define SEISSOL_SRC_SEISSOL_H_
 
+#include <Common/Executor.h>
+#include <IO/Manager.h>
 #include <memory>
 #include <string>
 
 #include "utils/logger.h"
 
-#include "Checkpoint/Manager.h"
-#include "Initializer/InputParameters.hpp"
-#include "Initializer/time_stepping/LtsLayout.h"
-#include "Initializer/typedefs.hpp"
-#include "Monitoring/FlopCounter.hpp"
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/TimeStepping/LtsLayout.h"
+#include "Initializer/Typedefs.h"
+#include "Monitoring/FlopCounter.h"
 #include "Parallel/Pin.h"
+#include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/EnergyOutput.h"
@@ -93,17 +62,19 @@ class SeisSol {
    */
   void finalize();
 
-  const char* parameterFile() const { return m_parameterFile.c_str(); }
+  void loadCheckpoint(const std::string& file);
 
-  initializers::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
+  Executor executionPlace(std::size_t clusterSize);
 
-  initializers::MemoryManager& getMemoryManager() { return *(m_memoryManager.get()); }
+  void setExecutionPlaceCutoff(std::size_t size);
+
+  initializer::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
+
+  initializer::MemoryManager& getMemoryManager() { return *m_memoryManager; }
 
   time_stepping::TimeManager& timeManager() { return m_timeManager; }
 
   Simulator& simulator() { return m_simulator; }
-
-  checkpoint::Manager& checkPointManager() { return m_checkPointManager; }
 
   sourceterm::Manager& sourceTermManager() { return m_sourceTermManager; }
 
@@ -144,6 +115,16 @@ class SeisSol {
    */
   monitoring::FlopCounter& flopCounter() { return m_flopCounter; }
 
+  const std::optional<std::string>& getCheckpointLoadFile() { return checkpointLoadFile; }
+  /**
+   * Reference for timeMirrorManagers to be accessed externally when required
+   */
+  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
+            seissol::ITM::InstantaneousTimeMirrorManager>&
+      getTimeMirrorManagers() {
+    return timeMirrorManagers;
+  }
+
   /**
    * Set the mesh reader
    */
@@ -162,7 +143,7 @@ class SeisSol {
    */
   void freeMeshReader() {
     delete m_meshReader;
-    m_meshReader = 0L;
+    m_meshReader = nullptr;
   }
 
   /**
@@ -175,12 +156,8 @@ class SeisSol {
    */
   seissol::geometry::MeshReader& meshReader() { return *m_meshReader; }
 
-  void readInputParams();
-
-  const std::shared_ptr<YAML::Node> getInputParams() { return m_inputParams; }
-
-  const seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() {
-    return m_seissolparameters;
+  seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() {
+    return m_seissolParameters;
   }
 
   /**
@@ -192,11 +169,17 @@ class SeisSol {
 
   GravitationSetup& getGravitationSetup() { return gravitationSetup; }
 
-  double wiggleFactorLts = 1.0;
-  int maxNumberOfClusters = std::numeric_limits<int>::max() - 1;
+  /*
+   * sets a time stamp for backuping
+   * */
+  void setBackupTimeStamp(const std::string& stamp);
 
-  /** The only instance of this class; the main C++ functionality */
-  static SeisSol main;
+  /*
+   * returns the backup time stamp
+   * */
+  const std::string& getBackupTimeStamp() { return m_backupTimeStamp; }
+
+  seissol::io::OutputManager& getOutputManager() { return outputManager; }
 
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
@@ -207,51 +190,51 @@ class SeisSol {
   // => Initialize it first, to avoid this.
   parallel::Pinning pinning;
 
-  /** The name of the parameter file */
-  std::string m_parameterFile;
+  seissol::io::OutputManager outputManager;
 
+  //! Collection of Parameters
+  seissol::initializer::parameters::SeisSolParameters& m_seissolParameters;
+
+  //! Gravitation setup for tsunami boundary condition
   GravitationSetup gravitationSetup;
 
-  /** Async I/O handler (needs to be initialize before other I/O modules) */
+  //! Async I/O handler (needs to be initialize before other I/O modules)
   io::AsyncIO m_asyncIO;
 
-  seissol::geometry::MeshReader* m_meshReader;
+  //! Mesh Reader
+  seissol::geometry::MeshReader* m_meshReader{nullptr};
 
-  /*
-   * initializers
-   */
-  initializers::time_stepping::LtsLayout m_ltsLayout;
+  //! Lts Layout
+  initializer::time_stepping::LtsLayout m_ltsLayout;
 
-  std::unique_ptr<initializers::MemoryManager> m_memoryManager{nullptr};
+  //! Memory Manager
+  std::unique_ptr<initializer::MemoryManager> m_memoryManager{nullptr};
 
-  //! time manager
+  //! Time Manager
   time_stepping::TimeManager m_timeManager;
 
-  //! simulator
+  //! Simulator
   Simulator m_simulator;
 
-  /** Check pointing module */
-  checkpoint::Manager m_checkPointManager;
-
-  /** Source term module */
+  //! Source term module
   sourceterm::Manager m_sourceTermManager;
 
-  /** PostProcessor module **/
+  //! PostProcessor module
   writer::PostProcessor m_postProcessor;
 
-  /** Free surface integrator module **/
+  //! Free surface integrator module
   solver::FreeSurfaceIntegrator m_freeSurfaceIntegrator;
 
-  /** Free surface writer module **/
+  //! Free surface writer module
   writer::FreeSurfaceWriter m_freeSurfaceWriter;
 
-  /** Analysis writer module **/
+  //! Analysis writer module
   writer::AnalysisWriter m_analysisWriter;
 
-  /** Wavefield output module */
+  //! Wavefield output module
   writer::WaveFieldWriter m_waveFieldWriter;
 
-  /** Fault output module */
+  //! Fault output module
   writer::FaultWriter m_faultWriter;
 
   //! Receiver writer module
@@ -260,22 +243,35 @@ class SeisSol {
   //! Energy writer module
   writer::EnergyOutput m_energyOutput;
 
-  //! Input parameters
-  std::shared_ptr<YAML::Node> m_inputParams;
-
   //! Flop Counter
   monitoring::FlopCounter m_flopCounter;
 
-  seissol::initializer::parameters::SeisSolParameters m_seissolparameters;
+  //! TimeMirror Managers
+  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
+            seissol::ITM::InstantaneousTimeMirrorManager>
+      timeMirrorManagers;
 
-  /**
-   * Only one instance of this class should exist (private constructor).
-   */
-  SeisSol() : pinning(), m_meshReader(nullptr) {
-    m_memoryManager = std::make_unique<initializers::MemoryManager>();
-  }
+  //! time stamp which can be used for backuping files of previous runs
+  std::string m_backupTimeStamp;
+
+  std::optional<std::string> checkpointLoadFile;
+
+  std::optional<std::size_t> executionPlaceCutoff;
+
+  public:
+  SeisSol(initializer::parameters::SeisSolParameters& parameters)
+      : outputManager(*this), m_seissolParameters(parameters), m_ltsLayout(parameters),
+        m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
+        m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
+        m_faultWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
+        timeMirrorManagers(*this, *this) {}
+
+  SeisSol(const SeisSol&) = delete;
+  SeisSol(SeisSol&&) = delete;
+  auto operator=(const SeisSol&) = delete;
+  auto operator=(SeisSol&&) = delete;
 };
 
 } // namespace seissol
 
-#endif // SEISSOL_H
+#endif // SEISSOL_SRC_SEISSOL_H_

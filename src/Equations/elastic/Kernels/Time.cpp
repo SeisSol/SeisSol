@@ -1,123 +1,68 @@
-/******************************************************************************
-** Copyright (c) 2014-2015, Intel Corporation                                **
-** All rights reserved.                                                      **
-**                                                                           **
-** Redistribution and use in source and binary forms, with or without        **
-** modification, are permitted provided that the following conditions        **
-** are met:                                                                  **
-** 1. Redistributions of source code must retain the above copyright         **
-**    notice, this list of conditions and the following disclaimer.          **
-** 2. Redistributions in binary form must reproduce the above copyright      **
-**    notice, this list of conditions and the following disclaimer in the    **
-**    documentation and/or other materials provided with the distribution.   **
-** 3. Neither the name of the copyright holder nor the names of its          **
-**    contributors may be used to endorse or promote products derived        **
-**    from this software without specific prior written permission.          **
-**                                                                           **
-** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
-** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
-** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
-** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
-** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
-** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
-** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
-** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
-** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
-** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
-** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
-******************************************************************************/
-/* Alexander Heinecke (Intel Corp.)
-******************************************************************************/
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Time kernel of SeisSol.
- **/
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2014-2015 Intel Corporation
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#include "Kernels/TimeBase.h"
 #include "Kernels/Time.h"
 #include "Kernels/GravitationalFreeSurfaceBC.h"
+#include "Kernels/TimeBase.h"
+#include <Common/Constants.h>
+#include <DataTypes/ConditionalTable.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Interface.h>
+#include <Kernels/Precision.h>
+#include <Parallel/Runtime/Stream.h>
+#include <algorithm>
+#include <generated_code/kernel.h>
+#include <generated_code/tensor.h>
+#include <iterator>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-#include "DirichletBoundary.h"
-#pragma GCC diagnostic pop
+#include "Kernels/Common.h"
+#include "Kernels/DenseMatrixOps.h"
 
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
-#endif
-
-#include <Kernels/common.hpp>
-#include <Kernels/denseMatrixOps.hpp>
-
-#include <cstring>
 #include <cassert>
+#include <cstring>
 #include <stdint.h>
-#include <omp.h>
 
 #include <yateto.h>
+
+#include "utils/logger.h"
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
-seissol::kernels::TimeBase::TimeBase() {
+namespace seissol::kernels {
+
+TimeBase::TimeBase() {
   m_derivativesOffsets[0] = 0;
-  for (int order = 0; order < CONVERGENCE_ORDER; ++order) {
+  for (std::size_t order = 0; order < ConvergenceOrder; ++order) {
     if (order > 0) {
-      m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
+      m_derivativesOffsets[order] = tensor::dQ::size(order - 1) + m_derivativesOffsets[order - 1];
     }
   }
 }
 
-void seissol::kernels::TimeBase::checkGlobalData(GlobalData const* global, size_t alignment) {
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(0)) % alignment == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(1)) % alignment == 0 );
-  assert( ((uintptr_t)global->stiffnessMatricesTransposed(2)) % alignment == 0 );
+void TimeBase::checkGlobalData(const GlobalData* global, size_t alignment) {
+  assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(0))) % alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(1))) % alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(2))) % alignment == 0);
 }
 
-void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
+void Time::setHostGlobalData(const GlobalData* global) {
 #ifdef USE_STP
-  //Note: We could use the space time predictor for elasticity.
-  //This is not tested and experimental
-  for (int n = 0; n < CONVERGENCE_ORDER; ++n) {
+  // Note: We could use the space time predictor for elasticity.
+  // This is not tested and experimental
+  for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
-        m_krnlPrototype.kDivMTSub(d,n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d,n)];
+        m_krnlPrototype.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
       }
     }
     m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
@@ -125,17 +70,17 @@ void seissol::kernels::Time::setHostGlobalData(GlobalData const* global) {
   m_krnlPrototype.Zinv = init::Zinv::Values;
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
-#else //USE_STP
-  checkGlobalData(global, ALIGNMENT);
+#else // USE_STP
+  checkGlobalData(global, Alignment);
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
 
   projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global->V3mTo2nFace;
 
-#endif //USE_STP
+#endif // USE_STP
 }
 
-void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
+void Time::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 
 #ifdef ACL_DEVICE
@@ -148,130 +93,118 @@ void seissol::kernels::Time::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void seissol::kernels::Time::computeAder(double i_timeStepWidth,
-                                         LocalData& data,
-                                         LocalTmp& tmp,
-                                         real o_timeIntegrated[tensor::I::size()],
-                                         real* o_timeDerivatives,
-                                         bool updateDisplacement) {
+void Time::computeAder(double timeStepWidth,
+                       LocalData& data,
+                       LocalTmp& tmp,
+                       real timeIntegrated[tensor::I::size()],
+                       real* timeDerivatives,
+                       bool updateDisplacement) {
 
-  assert(reinterpret_cast<uintptr_t>(data.dofs) % ALIGNMENT == 0 );
-  assert(reinterpret_cast<uintptr_t>(o_timeIntegrated) % ALIGNMENT == 0 );
-  assert(o_timeDerivatives == nullptr || reinterpret_cast<uintptr_t>(o_timeDerivatives) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
+  assert(timeDerivatives == nullptr ||
+         reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
-  updateDisplacement &= std::any_of(std::begin(data.cellInformation.faceTypes),
-                                    std::end(data.cellInformation.faceTypes),
-                                    [](const FaceType f) {
-                                      return f == FaceType::freeSurfaceGravity;
-                                    });
+  updateDisplacement &=
+      std::any_of(std::begin(data.cellInformation().faceTypes),
+                  std::end(data.cellInformation().faceTypes),
+                  [](const FaceType f) { return f == FaceType::FreeSurfaceGravity; });
 
 #ifdef USE_STP
-  //Note: We could use the space time predictor for elasticity.
-  //This is not tested and experimental
-  alignas(PAGESIZE_STACK) real stpRhs[tensor::spaceTimePredictor::size()];
-  alignas(PAGESIZE_STACK) real stp[tensor::spaceTimePredictor::size()]{};
+  // Note: We could use the space time predictor for elasticity.
+  // This is not tested and experimental
+  alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictor::size()];
+  alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()]{};
   kernel::spaceTimePredictor krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration.starMatrices[i];
+    krnl.star(i) = data.localIntegration().starMatrices[i];
   }
-  krnl.Q = const_cast<real*>(data.dofs);
-  krnl.I = o_timeIntegrated;
-  krnl.timestep = i_timeStepWidth;
+  krnl.Q = const_cast<real*>(data.dofs());
+  krnl.I = timeIntegrated;
+  krnl.timestep = timeStepWidth;
   krnl.spaceTimePredictor = stp;
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
-#else //USE_STP
-  alignas(PAGESIZE_STACK) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
-  auto* derivativesBuffer = (o_timeDerivatives != nullptr) ? o_timeDerivatives : temporaryBuffer;
+#else  // USE_STP
+  alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
+  auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
   kernel::derivative krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration.starMatrices[i];
+    krnl.star(i) = data.localIntegration().starMatrices[i];
   }
 
   // Optional source term
-  set_ET(krnl, get_ptr_sourceMatrix(data.localIntegration.specific));
+  set_ET(krnl, get_ptr_sourceMatrix(data.localIntegration().specific));
 
-  krnl.dQ(0) = const_cast<real*>(data.dofs);
+  krnl.dQ(0) = const_cast<real*>(data.dofs());
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
   }
 
-  kernel::derivativeTaylorExpansion intKrnl;
-  intKrnl.I = o_timeIntegrated;
-  intKrnl.dQ(0) = data.dofs;
-  for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
-  }
+  krnl.I = timeIntegrated;
   // powers in the taylor-series expansion
-  intKrnl.power = i_timeStepWidth;
-  intKrnl.execute0();
+  krnl.power(0) = timeStepWidth;
+  for (std::size_t der = 1; der < ConvergenceOrder; ++der) {
+    krnl.power(der) = krnl.power(der - 1) * timeStepWidth / real(der + 1);
+  }
 
   if (updateDisplacement) {
     // First derivative if needed later in kernel
-    std::copy_n(data.dofs, tensor::dQ::size(0), derivativesBuffer);
-  } else if (o_timeDerivatives != nullptr) {
+    std::copy_n(data.dofs(), tensor::dQ::size(0), derivativesBuffer);
+  } else if (timeDerivatives != nullptr) {
     // First derivative is not needed here but later
     // Hence stream it out
-    streamstore(tensor::dQ::size(0), data.dofs, derivativesBuffer);
+    streamstore(tensor::dQ::size(0), data.dofs(), derivativesBuffer);
   }
 
-  for (unsigned der = 1; der < CONVERGENCE_ORDER; ++der) {
-    krnl.execute(der);
-
-    // update scalar for this derivative
-    intKrnl.power *= i_timeStepWidth / real(der+1);    
-    intKrnl.execute(der);
-  }
+  krnl.execute();
 
   // Do not compute it like this if at interface
   // Compute integrated displacement over time step if needed.
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (unsigned face = 0; face < 4; ++face) {
-      if (data.faceDisplacements[face] != nullptr
-          && data.cellInformation.faceTypes[face] == FaceType::freeSurfaceGravity) {
-        bc.evaluate(
-            face,
-            projectDerivativeToNodalBoundaryRotated,
-            data.boundaryMapping[face],
-            data.faceDisplacements[face],
-            tmp.nodalAvgDisplacements[face].data(),
-            *this,
-            derivativesBuffer,
-            i_timeStepWidth,
-            data.material,
-            data.cellInformation.faceTypes[face]
-        );
+      if (data.faceDisplacements()[face] != nullptr &&
+          data.cellInformation().faceTypes[face] == FaceType::FreeSurfaceGravity) {
+        bc.evaluate(face,
+                    projectDerivativeToNodalBoundaryRotated,
+                    data.boundaryMapping()[face],
+                    data.faceDisplacements()[face],
+                    tmp.nodalAvgDisplacements[face].data(),
+                    *this,
+                    derivativesBuffer,
+                    timeStepWidth,
+                    data.material(),
+                    data.cellInformation().faceTypes[face]);
       }
     }
   }
-#endif //USE_STP
+#endif // USE_STP
 }
 
-void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
-                                                LocalTmp& tmp,
-                                                ConditionalPointersToRealsTable &dataTable,
-                                                ConditionalMaterialTable &materialTable,
-                                                bool updateDisplacement) {
+void Time::computeBatchedAder(double timeStepWidth,
+                              LocalTmp& tmp,
+                              ConditionalPointersToRealsTable& dataTable,
+                              ConditionalMaterialTable& materialTable,
+                              bool updateDisplacement,
+                              seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
-  kernel::gpu_derivativeTaylorExpansion intKrnl;
 
   ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
-  if(dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
-    auto &entry = dataTable[timeVolumeKernelKey];
+  if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
+    auto& entry = dataTable[timeVolumeKernelKey];
 
     const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     derivativesKrnl.numElements = numElements;
-    intKrnl.numElements = numElements;
-
-    intKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+    derivativesKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
 
     unsigned starOffset = 0;
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      derivativesKrnl.star(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
+      derivativesKrnl.star(i) =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
       derivativesKrnl.extraOffset_star(i) = starOffset;
       starOffset += tensor::star::size(i);
     }
@@ -279,40 +212,29 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
     unsigned derivativesOffset = 0;
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
-      intKrnl.dQ(i) = const_cast<const real **>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr());
-
       derivativesKrnl.extraOffset_dQ(i) = derivativesOffset;
-      intKrnl.extraOffset_dQ(i) = derivativesOffset;
 
       derivativesOffset += tensor::dQ::size(i);
     }
 
     // stream dofs to the zero derivative
-    device.algorithms.streamBatchedData((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(),
-                                        (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
-                                        tensor::Q::Size,
-                                        derivativesKrnl.numElements,
-                                        device.api->getDefaultStream());
+    device.algorithms.streamBatchedData(
+        (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(),
+        (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
+        tensor::Q::Size,
+        derivativesKrnl.numElements,
+        runtime.stream());
 
-    const auto maxTmpMem = yateto::getMaxTmpMemRequired(intKrnl, derivativesKrnl);
+    const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
     real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(maxTmpMem * numElements));
 
-    intKrnl.power = i_timeStepWidth;
-    intKrnl.linearAllocator.initialize(tmpMem);
-    intKrnl.streamPtr = device.api->getDefaultStream();
-    intKrnl.execute0();
-
-    for (unsigned Der = 1; Der < CONVERGENCE_ORDER; ++Der) {
-      derivativesKrnl.linearAllocator.initialize(tmpMem);
-      derivativesKrnl.streamPtr = device.api->getDefaultStream();
-      derivativesKrnl.execute(Der);
-
-      // update scalar for this derivative
-      intKrnl.power *= i_timeStepWidth / real(Der + 1);
-      intKrnl.linearAllocator.initialize(tmpMem);
-      intKrnl.streamPtr = device.api->getDefaultStream();
-      intKrnl.execute(Der);
+    derivativesKrnl.power(0) = timeStepWidth;
+    for (std::size_t Der = 1; Der < ConvergenceOrder; ++Der) {
+      derivativesKrnl.power(Der) = derivativesKrnl.power(Der - 1) * timeStepWidth / real(Der + 1);
     }
+    derivativesKrnl.linearAllocator.initialize(tmpMem);
+    derivativesKrnl.streamPtr = runtime.stream();
+    derivativesKrnl.execute();
     device.api->popStackMemory();
   }
 
@@ -324,165 +246,161 @@ void seissol::kernels::Time::computeBatchedAder(double i_timeStepWidth,
                           *this,
                           dataTable,
                           materialTable,
-                          i_timeStepWidth,
-                          device);
+                          timeStepWidth,
+                          device,
+                          runtime);
     }
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 
-void seissol::kernels::Time::flopsAder( unsigned int        &o_nonZeroFlops,
-                                        unsigned int        &o_hardwareFlops ) {
-  // reset flops
-  o_nonZeroFlops = 0; o_hardwareFlops =0;
-
-  // initialization
-  o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(0);
-  o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(0);
-
-  // interate over derivatives
-  for( unsigned l_derivative = 1; l_derivative < CONVERGENCE_ORDER; l_derivative++ ) {
-    o_nonZeroFlops  += kernel::derivative::nonZeroFlops(l_derivative);
-    o_hardwareFlops += kernel::derivative::hardwareFlops(l_derivative);
-
-    // update of time integrated DOFs
-    o_nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(l_derivative);
-    o_hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(l_derivative);
-  }
-
+void Time::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+  nonZeroFlops = kernel::derivative::NonZeroFlops;
+  hardwareFlops = kernel::derivative::HardwareFlops;
 }
 
-unsigned seissol::kernels::Time::bytesAder()
-{
+unsigned Time::bytesAder() {
   unsigned reals = 0;
-  
+
   // DOFs load, tDOFs load, tDOFs write
   reals += tensor::Q::size() + 2 * tensor::I::size();
   // star matrices, source matrix
   reals += yateto::computeFamilySize<tensor::star>();
-           
+
   /// \todo incorporate derivatives
 
   return reals * sizeof(real);
 }
 
-void seissol::kernels::Time::computeIntegral( double                            i_expansionPoint,
-                                              double                            i_integrationStart,
-                                              double                            i_integrationEnd,
-                                              const real*                       i_timeDerivatives,
-                                              real                              o_timeIntegrated[tensor::I::size()] )
-{
+void Time::computeIntegral(double expansionPoint,
+                           double integrationStart,
+                           double integrationEnd,
+                           const real* timeDerivatives,
+                           real timeIntegrated[tensor::I::size()]) {
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)i_timeDerivatives)  % ALIGNMENT == 0 );
-  assert( ((uintptr_t)o_timeIntegrated)   % ALIGNMENT == 0 );
+  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
 
   // assert that this is a forwared integration in time
-  assert( i_integrationStart + (real) 1.E-10 > i_expansionPoint   );
-  assert( i_integrationEnd                   > i_integrationStart );
+  assert(integrationStart + (real)1.E-10 > expansionPoint);
+  assert(integrationEnd > integrationStart);
 
   /*
    * compute time integral.
    */
   // compute lengths of integration intervals
-  real l_deltaTLower = i_integrationStart - i_expansionPoint;
-  real l_deltaTUpper = i_integrationEnd   - i_expansionPoint;
+  const real deltaTLower = integrationStart - expansionPoint;
+  const real deltaTUpper = integrationEnd - expansionPoint;
 
   // initialization of scalars in the taylor series expansion (0th term)
-  real l_firstTerm  = (real) 1;
-  real l_secondTerm = (real) 1;
-  real l_factorial  = (real) 1;
-  
+  real firstTerm = (real)1;
+  real secondTerm = (real)1;
+  real factorial = (real)1;
+
   kernel::derivativeTaylorExpansion intKrnl;
-  intKrnl.I = o_timeIntegrated;
+  intKrnl.I = timeIntegrated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = i_timeDerivatives + m_derivativesOffsets[i];
+    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
   }
- 
+
   // iterate over time derivatives
-  for(int der = 0; der < CONVERGENCE_ORDER; ++der ) {
-    l_firstTerm  *= l_deltaTUpper;
-    l_secondTerm *= l_deltaTLower;
-    l_factorial  *= (real)(der+1);
+  for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
+    firstTerm *= deltaTUpper;
+    secondTerm *= deltaTLower;
+    factorial *= (real)(der + 1);
 
-    intKrnl.power  = l_firstTerm - l_secondTerm;
-    intKrnl.power /= l_factorial;
-
-    intKrnl.execute(der);
+    intKrnl.power(der) = firstTerm - secondTerm;
+    intKrnl.power(der) /= factorial;
   }
+  intKrnl.execute();
 }
 
-void seissol::kernels::Time::computeBatchedIntegral(double i_expansionPoint,
-                                                    double i_integrationStart,
-                                                    double i_integrationEnd,
-                                                    const real** i_timeDerivatives,
-                                                    real ** o_timeIntegratedDofs,
-                                                    unsigned numElements) {
+void Time::computeBatchedIntegral(double expansionPoint,
+                                  double integrationStart,
+                                  double integrationEnd,
+                                  const real** timeDerivatives,
+                                  real** timeIntegratedDofs,
+                                  unsigned numElements,
+                                  seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   // assert that this is a forwared integration in time
-  assert( i_integrationStart + (real) 1.E-10 > i_expansionPoint   );
-  assert( i_integrationEnd                   > i_integrationStart );
+  assert(integrationStart + (real)1.E-10 > expansionPoint);
+  assert(integrationEnd > integrationStart);
 
   /*
    * compute time integral.
    */
   // compute lengths of integration intervals
-  real deltaTLower = i_integrationStart - i_expansionPoint;
-  real deltaTUpper = i_integrationEnd - i_expansionPoint;
+  const real deltaTLower = integrationStart - expansionPoint;
+  const real deltaTUpper = integrationEnd - expansionPoint;
+
+#ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
+  // compute lengths of integration intervals
 
   // initialization of scalars in the taylor series expansion (0th term)
-  real firstTerm  = static_cast<real>(1.0);
+  real firstTerm = static_cast<real>(1.0);
   real secondTerm = static_cast<real>(1.0);
-  real factorial  = static_cast<real>(1.0);
+  real factorial = static_cast<real>(1.0);
 
   kernel::gpu_derivativeTaylorExpansion intKrnl;
   intKrnl.numElements = numElements;
-  real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(intKrnl.TmpMaxMemRequiredInBytes * numElements));
+  real* tmpMem = reinterpret_cast<real*>(
+      device.api->getStackMemory(intKrnl.TmpMaxMemRequiredInBytes * numElements));
 
-  intKrnl.I = o_timeIntegratedDofs;
+  intKrnl.I = timeIntegratedDofs;
 
   unsigned derivativesOffset = 0;
   for (size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = i_timeDerivatives;
+    intKrnl.dQ(i) = timeDerivatives;
     intKrnl.extraOffset_dQ(i) = derivativesOffset;
     derivativesOffset += tensor::dQ::size(i);
   }
 
   // iterate over time derivatives
-  for(int der = 0; der < CONVERGENCE_ORDER; ++der) {
+  for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
     firstTerm *= deltaTUpper;
     secondTerm *= deltaTLower;
     factorial *= static_cast<real>(der + 1);
 
-    intKrnl.power = firstTerm - secondTerm;
-    intKrnl.power /= factorial;
-    intKrnl.linearAllocator.initialize(tmpMem);
-    intKrnl.streamPtr = device.api->getDefaultStream();
-    intKrnl.execute(der);
+    intKrnl.power(der) = firstTerm - secondTerm;
+    intKrnl.power(der) /= factorial;
   }
+  intKrnl.linearAllocator.initialize(tmpMem);
+  intKrnl.streamPtr = runtime.stream();
+  intKrnl.execute();
   device.api->popStackMemory();
 #else
-  assert(false && "no implementation provided");
+  seissol::kernels::time::aux::taylorSum(true,
+                                         numElements,
+                                         timeIntegratedDofs,
+                                         timeDerivatives,
+                                         deltaTLower,
+                                         deltaTUpper,
+                                         runtime.stream());
+#endif
+#else
+  logError() << "No GPU implementation provided";
 #endif
 }
 
-void seissol::kernels::Time::computeTaylorExpansion( real         time,
-                                                     real         expansionPoint,
-                                                     real const*  timeDerivatives,
-                                                     real         timeEvaluated[tensor::Q::size()] ) {
+void Time::computeTaylorExpansion(real time,
+                                  real expansionPoint,
+                                  const real* timeDerivatives,
+                                  real timeEvaluated[tensor::Q::size()]) {
   /*
    * assert alignments.
    */
-  assert( ((uintptr_t)timeDerivatives)  % ALIGNMENT == 0 );
-  assert( ((uintptr_t)timeEvaluated)    % ALIGNMENT == 0 );
+  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
 
   // assert that this is a forward evaluation in time
-  assert( time >= expansionPoint );
+  assert(time >= expansionPoint);
 
-  real deltaT = time - expansionPoint;
+  const real deltaT = time - expansionPoint;
 
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
 
@@ -491,92 +409,68 @@ void seissol::kernels::Time::computeTaylorExpansion( real         time,
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
   }
-  intKrnl.power = 1.0;
- 
+  intKrnl.power(0) = 1.0;
+
   // iterate over time derivatives
-  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
-    intKrnl.execute(derivative);
-    intKrnl.power *= deltaT / real(derivative+1);
+  for (std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
+    intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / real(derivative);
   }
+
+  intKrnl.execute();
 }
 
-void seissol::kernels::Time::computeBatchedTaylorExpansion(real time,
-                                                           real expansionPoint,
-                                                           real** timeDerivatives,
-                                                           real** timeEvaluated,
-                                                           size_t numElements) {
+void Time::computeBatchedTaylorExpansion(real time,
+                                         real expansionPoint,
+                                         real** timeDerivatives,
+                                         real** timeEvaluated,
+                                         size_t numElements,
+                                         seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-  assert( timeDerivatives != nullptr );
-  assert( timeEvaluated != nullptr );
-  assert( time >= expansionPoint );
+  assert(timeDerivatives != nullptr);
+  assert(timeEvaluated != nullptr);
+  assert(time >= expansionPoint);
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
   static_assert(kernel::gpu_derivativeTaylorExpansion::TmpMaxMemRequiredInBytes == 0);
 
+  const real deltaT = time - expansionPoint;
+
+#ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
   kernel::gpu_derivativeTaylorExpansion intKrnl;
   intKrnl.numElements = numElements;
   intKrnl.I = timeEvaluated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = const_cast<const real **>(timeDerivatives);
+    intKrnl.dQ(i) = const_cast<const real**>(timeDerivatives);
     intKrnl.extraOffset_dQ(i) = m_derivativesOffsets[i];
   }
 
   // iterate over time derivatives
-  const real deltaT = time - expansionPoint;
-  intKrnl.power = 1.0;
-  for(int derivative = 0; derivative < CONVERGENCE_ORDER; ++derivative) {
-    intKrnl.streamPtr = device.api->getDefaultStream();
-    intKrnl.execute(derivative);
-    intKrnl.power *= deltaT / static_cast<real>(derivative + 1);
+  intKrnl.power(0) = 1.0;
+  for (std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
+    intKrnl.power(derivative) =
+        intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);
   }
+
+  intKrnl.streamPtr = runtime.stream();
+  intKrnl.execute();
 #else
-  assert(false && "no implementation provided");
+  seissol::kernels::time::aux::taylorSum(false,
+                                         numElements,
+                                         timeEvaluated,
+                                         const_cast<const real**>(timeDerivatives),
+                                         0,
+                                         deltaT,
+                                         runtime.stream());
+#endif
+#else
+  logError() << "No GPU implementation provided";
 #endif
 }
 
-void seissol::kernels::Time::computeDerivativeTaylorExpansion(real time,
-                                                     real expansionPoint,
-                                                     real const*  timeDerivatives,
-                                                     real timeEvaluated[tensor::Q::size()],
-                                                     unsigned order) {
-  /*
-   * assert alignments.
-   */
-  assert( ((uintptr_t)timeDerivatives)  % ALIGNMENT == 0 );
-  assert( ((uintptr_t)timeEvaluated)    % ALIGNMENT == 0 );
-
-  // assert that this is a forward evaluation in time
-  assert( time >= expansionPoint );
-
-  real deltaT = time - expansionPoint;
-
-  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
-
-  kernel::derivativeTaylorExpansion intKrnl;
-  intKrnl.I = timeEvaluated;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
-  }
-  intKrnl.power = 1.0;
-
-  // iterate over time derivatives
-  for(unsigned derivative = order; derivative < CONVERGENCE_ORDER; ++derivative) {
-    intKrnl.execute(derivative);
-    intKrnl.power *= deltaT / real(derivative+1);
-  }
+void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+  nonZeroFlops = kernel::derivativeTaylorExpansion::NonZeroFlops;
+  hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }
 
+unsigned int* Time::getDerivativesOffsets() { return m_derivativesOffsets; }
 
-void seissol::kernels::Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
-  // reset flops
-  nonZeroFlops = 0; hardwareFlops = 0;
-
-  // interate over derivatives
-  for (unsigned der = 0; der < CONVERGENCE_ORDER; ++der) {
-    nonZeroFlops  += kernel::derivativeTaylorExpansion::nonZeroFlops(der);
-    hardwareFlops += kernel::derivativeTaylorExpansion::hardwareFlops(der);
-  }
-}
-
-unsigned int* seissol::kernels::Time::getDerivativesOffsets() {
-  return m_derivativesOffsets;
-}
+} // namespace seissol::kernels

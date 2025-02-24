@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: seissol-documentation
+on:
+  - push
+
+jobs:
+  seissol-documentation:
+    name: seissol-documentation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install-packages
+        run: |
+          set -euo pipefail
+          export IFS=$'\n\t'
+          sudo apt-get update
+          sudo apt-get install -qq python3 python3-pip
+          sudo pip3 install sphinx sphinx_rtd_theme --break-system-packages
+
+      - name: build-documentation
+        run: |
+          cd Documentation && make html && cd ..

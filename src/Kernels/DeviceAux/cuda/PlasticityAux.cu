@@ -1,7 +1,20 @@
-#include <Kernels/DeviceAux/PlasticityAux.h>
-#include <init.h>
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "Kernels/DeviceAux/PlasticityAux.h"
+#include "Kernels/Precision.h"
+#include "Model/Plasticity.h"
+#include "tensor.h"
 #include <cmath>
+#include <cstddef>
+#include <driver_types.h>
+#include <init.h>
 #include <type_traits>
+#include <vector_types.h>
 
 
 // NOTE: using c++14 because of cuda@10
@@ -33,20 +46,20 @@ constexpr size_t leadDim() {
 //--------------------------------------------------------------------------------------------------
 __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
                                                unsigned *isAdjustableVector,
-                                               const PlasticityData *plasticity,
+                                               const seissol::model::PlasticityData *plasticity,
                                                const double oneMinusIntegratingFactor) {
   real *elementTensors = nodalStressTensors[blockIdx.x];
   real localStresses[NUM_STRESS_COMPONENTS];
 
 
-  constexpr auto elementTensorsColumn = leadDim<init::QStressNodal>();
+  constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal>();
   #pragma unroll
   for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
-    localStresses[i] = elementTensors[threadIdx.x + elementTensorsColumn * i];
+    localStresses[i] = elementTensors[threadIdx.x + ElementTensorsColumn * i];
   }
 
   // 1. Compute the mean stress for each node
-  real meanStress = (localStresses[0] + localStresses[1] + localStresses[2]) / 3.0f;
+  real const meanStress = (localStresses[0] + localStresses[1] + localStresses[2]) / 3.0f;
 
   // 2. Compute deviatoric stress tensor
   #pragma unroll
@@ -85,7 +98,7 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
   if (isAdjusted) {
     #pragma unroll
     for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
-      elementTensors[threadIdx.x + elementTensorsColumn * i] = localStresses[i] * factor;
+      elementTensors[threadIdx.x + ElementTensorsColumn * i] = localStresses[i] * factor;
     }
   }
   if (threadIdx.x == 0) {
@@ -95,13 +108,13 @@ __global__ void kernel_adjustDeviatoricTensors(real **nodalStressTensors,
 
 void adjustDeviatoricTensors(real **nodalStressTensors,
                              unsigned *isAdjustableVector,
-                             const PlasticityData *plasticity,
+                             const seissol::model::PlasticityData *plasticity,
                              const double oneMinusIntegratingFactor,
                              const size_t numElements,
                              void *streamPtr) {
-  constexpr unsigned numNodes = tensor::QStressNodal::Shape[0];
-  dim3 block(numNodes, 1, 1);
-  dim3 grid(numElements, 1, 1);
+  constexpr unsigned NumNodes = tensor::QStressNodal::Shape[0];
+  dim3 const block(NumNodes, 1, 1);
+  dim3 const grid(numElements, 1, 1);
   auto stream = reinterpret_cast<cudaStream_t>(streamPtr);
   kernel_adjustDeviatoricTensors<<<grid, block, 0, stream>>>(nodalStressTensors,
                                                              isAdjustableVector,
@@ -111,38 +124,38 @@ void adjustDeviatoricTensors(real **nodalStressTensors,
 
 
 //--------------------------------------------------------------------------------------------------
-__global__ void kernel_adjustPointers(real *QEtaNodal,
-                                      real **QEtaNodalPtrs,
-                                      real *QEtaModal,
-                                      real **QEtaModalPtrs,
+__global__ void kernel_adjustPointers(real *qEtaNodal,
+                                      real **qEtaNodalPtrs,
+                                      real *qEtaModal,
+                                      real **qEtaModalPtrs,
                                       real *dUdTpstrain,
                                       real **dUdTpstrainPtrs,
                                       size_t numElements) {
 
-  size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t const tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < numElements) {
-    QEtaNodalPtrs[tid] = &QEtaNodal[tensor::QEtaNodal::Size * tid];
-    QEtaModalPtrs[tid] = &QEtaModal[tensor::QEtaModal::Size * tid];
+    qEtaNodalPtrs[tid] = &qEtaNodal[tensor::QEtaNodal::Size * tid];
+    qEtaModalPtrs[tid] = &qEtaModal[tensor::QEtaModal::Size * tid];
     dUdTpstrainPtrs[tid] = &dUdTpstrain[tensor::QStressNodal::Size * tid];
   }
 }
 
-void adjustPointers(real *QEtaNodal,
-                    real **QEtaNodalPtrs,
-                    real *QEtaModal,
-                    real **QEtaModalPtrs,
+void adjustPointers(real *qEtaNodal,
+                    real **qEtaNodalPtrs,
+                    real *qEtaModal,
+                    real **qEtaModalPtrs,
                     real *dUdTpstrain,
                     real **dUdTpstrainPtrs,
                     size_t numElements,
                     void *streamPtr) {
-  dim3 block(128, 1, 1);
-  size_t numBlocks = (numElements + block.x - 1) / block.x;
-  dim3 grid(numBlocks, 1, 1);
+  dim3 const block(128, 1, 1);
+  size_t const numBlocks = (numElements + block.x - 1) / block.x;
+  dim3 const grid(numBlocks, 1, 1);
   auto stream = reinterpret_cast<cudaStream_t>(streamPtr);
-  kernel_adjustPointers<<<grid, block, 0, stream>>>(QEtaNodal,
-                                                    QEtaNodalPtrs,
-                                                    QEtaModal,
-                                                    QEtaModalPtrs,
+  kernel_adjustPointers<<<grid, block, 0, stream>>>(qEtaNodal,
+                                                    qEtaNodalPtrs,
+                                                    qEtaModal,
+                                                    qEtaModalPtrs,
                                                     dUdTpstrain,
                                                     dUdTpstrainPtrs,
                                                     numElements);
@@ -151,28 +164,28 @@ void adjustPointers(real *QEtaNodal,
 
 //--------------------------------------------------------------------------------------------------
 __global__ void kernel_computePstrains(real **pstrains,
-                                       const PlasticityData *plasticityData,
+                                       const seissol::model::PlasticityData *plasticityData,
                                        real **dofs,
                                        real *prevDofs,
                                        real **dUdTpstrain,
-                                       double T_v,
+                                       double tV,
                                        double oneMinusIntegratingFactor,
                                        double timeStepWidth,
-                                       unsigned *isAdjustableVector) {
+                                       const unsigned *isAdjustableVector) {
   if (isAdjustableVector[blockIdx.x]) {
     real *localDofs = dofs[blockIdx.x];
     real *localPrevDofs = &prevDofs[tensor::Q::Size * blockIdx.x];
-    const PlasticityData *localData = &plasticityData[blockIdx.x];
+    const seissol::model::PlasticityData *localData = &plasticityData[blockIdx.x];
     real *localPstrain = pstrains[blockIdx.x];
     real *localDuDtPstrain = dUdTpstrain[blockIdx.x];
 
     #pragma unroll
     for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
-      int q = threadIdx.x + i * leadDim<init::Q>();
-      real factor = localData->mufactor / (T_v * oneMinusIntegratingFactor);
-      real nodeDuDtPstrain = factor * (localPrevDofs[q] - localDofs[q]);
+      int const q = threadIdx.x + i * leadDim<init::Q>();
+      real const factor = localData->mufactor / (tV * oneMinusIntegratingFactor);
+      real const nodeDuDtPstrain = factor * (localPrevDofs[q] - localDofs[q]);
 
-      static_assert(leadDim<init::QStress>() == leadDim<init::Q>());
+      static_assert(leadDim<init::QStress>() == leadDim<init::Q>(), "");
       localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
       localDuDtPstrain[q] = nodeDuDtPstrain;
 
@@ -181,26 +194,26 @@ __global__ void kernel_computePstrains(real **pstrains,
 }
 
 void computePstrains(real **pstrains,
-                     const PlasticityData *plasticityData,
+                     const seissol::model::PlasticityData *plasticityData,
                      real **dofs,
                      real *prevDofs,
                      real **dUdTpstrain,
-                     double T_v,
+                     double tV,
                      double oneMinusIntegratingFactor,
                      double timeStepWidth,
                      unsigned *isAdjustableVector,
                      size_t numElements,
                      void *streamPtr) {
-  constexpr unsigned numNodes = tensor::Q::Shape[0];
-  dim3 block(numNodes, 1, 1);
-  dim3 grid(numElements, 1, 1);
+  constexpr unsigned NumNodes = tensor::Q::Shape[0];
+  dim3 const block(NumNodes, 1, 1);
+  dim3 const grid(numElements, 1, 1);
   auto stream = reinterpret_cast<cudaStream_t>(streamPtr);
   kernel_computePstrains<<<grid, block, 0, stream>>>(pstrains,
                                                      plasticityData,
                                                      dofs,
                                                      prevDofs,
                                                      dUdTpstrain,
-                                                     T_v,
+                                                     tV,
                                                      oneMinusIntegratingFactor,
                                                      timeStepWidth,
                                                      isAdjustableVector);
@@ -209,69 +222,69 @@ void computePstrains(real **pstrains,
 
 //--------------------------------------------------------------------------------------------------
 __global__ void kernel_pstrainToQEtaModal(real **pstrains,
-                                          real **QEtaModalPtrs,
-                                          unsigned *isAdjustableVector) {
-    static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
+                                          real **qEtaModalPtrs,
+                                          const unsigned *isAdjustableVector) {
+    static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>(), "");
 
     if (isAdjustableVector[blockIdx.x]) {
-    real *localQEtaModal = QEtaModalPtrs[blockIdx.x];
+    real *localQEtaModal = qEtaModalPtrs[blockIdx.x];
     real *localPstrain = pstrains[blockIdx.x];
     localQEtaModal[threadIdx.x] = localPstrain[NUM_STRESS_COMPONENTS * leadDim<init::QStressNodal>() + threadIdx.x];
   }
 }
 
 void pstrainToQEtaModal(real **pstrains,
-                       real **QEtaModalPtrs,
+                       real **qEtaModalPtrs,
                        unsigned *isAdjustableVector,
                        size_t numElements,
                        void *streamPtr) {
-  dim3 block(tensor::QEtaModal::Size, 1, 1);
-  dim3 grid(numElements, 1, 1);
+  dim3 const block(tensor::QEtaModal::Size, 1, 1);
+  dim3 const grid(numElements, 1, 1);
   auto stream = reinterpret_cast<cudaStream_t>(streamPtr);
-  kernel_pstrainToQEtaModal<<<grid, block, 0, stream>>>(pstrains, QEtaModalPtrs, isAdjustableVector);
+  kernel_pstrainToQEtaModal<<<grid, block, 0, stream>>>(pstrains, qEtaModalPtrs, isAdjustableVector);
 }
 
 
 //--------------------------------------------------------------------------------------------------
-__global__ void kernel_qEtaModalToPstrain(real **QEtaModalPtrs,
+__global__ void kernel_qEtaModalToPstrain(real **qEtaModalPtrs,
                                           real **pstrains,
-                                          unsigned *isAdjustableVector) {
-    static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
+                                          const unsigned *isAdjustableVector) {
+    static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>(), "");
 
     if (isAdjustableVector[blockIdx.x]) {
-    real *localQEtaModal = QEtaModalPtrs[blockIdx.x];
+    real *localQEtaModal = qEtaModalPtrs[blockIdx.x];
     real *localPstrain = pstrains[blockIdx.x];
     localPstrain[NUM_STRESS_COMPONENTS * leadDim<init::QStressNodal>() + threadIdx.x] = localQEtaModal[threadIdx.x];
   }
 }
 
-void qEtaModalToPstrain(real **QEtaModalPtrs,
+void qEtaModalToPstrain(real **qEtaModalPtrs,
                         real **pstrains,
                         unsigned *isAdjustableVector,
                         size_t numElements,
                         void *streamPtr) {
-  dim3 block(tensor::QEtaModal::Size, 1, 1);
-  dim3 grid(numElements, 1, 1);
+  dim3 const block(tensor::QEtaModal::Size, 1, 1);
+  dim3 const grid(numElements, 1, 1);
   auto stream = reinterpret_cast<cudaStream_t>(streamPtr);
-  kernel_qEtaModalToPstrain<<<grid, block, 0, stream>>>(QEtaModalPtrs, pstrains, isAdjustableVector);
+  kernel_qEtaModalToPstrain<<<grid, block, 0, stream>>>(qEtaModalPtrs, pstrains, isAdjustableVector);
 }
 
 
 //--------------------------------------------------------------------------------------------------
-__global__ void kernel_updateQEtaNodal(real **QEtaNodalPtrs,
-                                       real **QStressNodalPtrs,
+__global__ void kernel_updateQEtaNodal(real **qEtaNodalPtrs,
+                                       real **qStressNodalPtrs,
                                        double timeStepWidth,
-                                       unsigned *isAdjustableVector) {
+                                       const unsigned *isAdjustableVector) {
   if (isAdjustableVector[blockIdx.x]) {
-    size_t tid = threadIdx.x;
-    real *localQEtaNodal = QEtaNodalPtrs[blockIdx.x];
-    real *localQStressNodal = QStressNodalPtrs[blockIdx.x];
+    size_t const tid = threadIdx.x;
+    real *localQEtaNodal = qEtaNodalPtrs[blockIdx.x];
+    real *localQStressNodal = qStressNodalPtrs[blockIdx.x];
     real factor{0.0};
 
-    constexpr auto ld = leadDim<init::QStressNodal>();
+    constexpr auto Ld = leadDim<init::QStressNodal>();
     #pragma unroll
     for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
-      factor += localQStressNodal[tid + i * ld] * localQStressNodal[tid + i * ld];
+      factor += localQStressNodal[tid + i * Ld] * localQStressNodal[tid + i * Ld];
     }
 
     localQEtaNodal[tid] = maxValue(static_cast<real>(0.0), localQEtaNodal[tid])
@@ -279,16 +292,16 @@ __global__ void kernel_updateQEtaNodal(real **QEtaNodalPtrs,
   }
 }
 
-void updateQEtaNodal(real **QEtaNodalPtrs,
-                     real **QStressNodalPtrs,
+void updateQEtaNodal(real **qEtaNodalPtrs,
+                     real **qStressNodalPtrs,
                      double timeStepWidth,
                      unsigned *isAdjustableVector,
                      size_t numElements,
                      void *streamPtr) {
-  dim3 block(tensor::QStressNodal::Shape[0], 1, 1);
-  dim3 grid(numElements, 1, 1);
+  dim3 const block(tensor::QStressNodal::Shape[0], 1, 1);
+  dim3 const grid(numElements, 1, 1);
   auto stream = reinterpret_cast<cudaStream_t>(streamPtr);
-  kernel_updateQEtaNodal<<<grid, block, 0, stream>>>(QEtaNodalPtrs, QStressNodalPtrs, timeStepWidth, isAdjustableVector);
+  kernel_updateQEtaNodal<<<grid, block, 0, stream>>>(qEtaNodalPtrs, qStressNodalPtrs, timeStepWidth, isAdjustableVector);
 }
 
 } // namespace plasticity
@@ -296,3 +309,4 @@ void updateQEtaNodal(real **QEtaNodalPtrs,
 } // namespace device
 } // namespace kernels
 } // namespace seissol
+

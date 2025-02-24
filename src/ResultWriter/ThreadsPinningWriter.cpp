@@ -1,21 +1,39 @@
-#include "ResultWriter/ThreadsPinningWriter.h"
-#include "Parallel/MPI.h"
-#include "Common/filesystem.h"
-#include <sys/sysinfo.h>
-#include <sched.h>
-#include <fstream>
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "ResultWriter/ThreadsPinningWriter.h"
+#include "Common/Filesystem.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
+#include <Parallel/Pin.h>
+#include <fstream>
+#include <ios>
+#include <sched.h>
+#include <sstream>
+#include <string>
+
+#ifndef __APPLE__
+#include <sys/sysinfo.h>
 #ifdef USE_NUMA_AWARE_PINNING
 #include <numa.h>
 #endif // USE_NUMA_AWARE_PINNING
+#endif // __APPLE__
 
-namespace seissol::writer::pinning::details {
+#ifndef __APPLE__
+namespace {
+
+using namespace seissol::parallel;
+
 struct PinningInfo {
-  std::string coreIds{};
-  std::string numaIds{};
+  std::string coreIds;
+  std::string numaIds;
 };
 
-PinningInfo getPinningInfo(cpu_set_t const& set) {
+PinningInfo getPinningInfo(const cpu_set_t& set) {
   std::stringstream coreIdsStream;
   std::stringstream numaIdsStream;
   for (int cpu = 0; cpu < get_nprocs(); ++cpu) {
@@ -48,19 +66,22 @@ PinningInfo getPinningInfo(cpu_set_t const& set) {
 
   return pinningInfo;
 }
-} // namespace seissol::writer::pinning::details
+} // namespace
+#endif // __APPLE__
 
-void seissol::writer::ThreadsPinningWriter::write(seissol::parallel::Pinning& pinning) {
-  auto workerInfo = pinning::details::getPinningInfo(pinning.getWorkerUnionMask());
-#ifdef USE_COMM_THREAD
-  auto freeCpus = pinning.getFreeCPUsMask();
-  auto commThreadInfo = pinning::details::getPinningInfo(freeCpus);
-#else
-  cpu_set_t emptyUnion;
-  CPU_ZERO(&emptyUnion);
-  auto commThreadInfo = pinning::details::getPinningInfo(emptyUnion);
+void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
+#ifndef __APPLE__
+  auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
-#endif // USE_COMM_THREAD
+  PinningInfo commThreadInfo;
+  if (seissol::useCommThread(seissol::MPI::mpi)) {
+    auto freeCpus = pinning.getFreeCPUsMask();
+    commThreadInfo = getPinningInfo(freeCpus.set);
+  } else {
+    cpu_set_t emptyUnion;
+    CPU_ZERO(&emptyUnion);
+    commThreadInfo = getPinningInfo(emptyUnion);
+  }
 
   auto workerThreads = seissol::MPI::mpi.collectContainer(workerInfo.coreIds);
   auto workerNumas = seissol::MPI::mpi.collectContainer(workerInfo.numaIds);
@@ -89,4 +110,7 @@ void seissol::writer::ThreadsPinningWriter::write(seissol::parallel::Pinning& pi
 
     fileStream.close();
   }
+#else
+  logWarning() << "ThreadsPinningWriter is not supported on MacOS.";
+#endif // __APPLE__
 }

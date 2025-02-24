@@ -1,7 +1,20 @@
-#include "Geometry/PUMLReader.h"
-#include "Initializer/time_stepping/LtsWeights/WeightsModels.h"
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "Initializer/Parameters/LtsParameters.h"
+#include "tests/TestHelper.h"
 #include <memory>
 #include <numeric>
+
+#include "Geometry/PUMLReader.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/TimeStepping/LtsWeights/WeightsModels.h"
+#include "Initializer/Typedefs.h"
+#include "SeisSol.h"
 
 namespace seissol::unit_test {
 
@@ -9,37 +22,57 @@ TEST_CASE("LTS Weights") {
 // PUMLReader is only available with MPI
 #ifdef USE_MPI
   std::cout.setstate(std::ios_base::failbit);
-  using namespace seissol::initializers::time_stepping;
-  LtsWeightsConfig config{"Testing/material.yaml", 2, 1, 1, 1};
+  using namespace seissol::initializer::time_stepping;
+  const LtsWeightsConfig config{
+      seissol::initializer::parameters::BoundaryFormat::I32, "Testing/material.yaml", 2, 1, 1, 1};
 
-  auto ltsParameters = std::make_unique<LtsParameters>(
-      2, 1.0, 0.01, false, 100, false, 1.0, AutoMergeCostBaseline::MaxWiggleFactor);
-  auto ltsWeights = std::make_unique<ExponentialWeights>(config, ltsParameters.get());
-  seissol::geometry::PUMLReader pumlReader("Testing/mesh.h5", "Default", 5000.0, "", ltsWeights.get());
+  const seissol::initializer::parameters::LtsParameters ltsParameters(
+      2,
+      1.0,
+      0.01,
+      false,
+      100,
+      false,
+      1.0,
+      seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor,
+      seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
+  seissol::initializer::parameters::SeisSolParameters seissolParameters;
+  seissolParameters.timeStepping.lts = ltsParameters;
+  seissol::SeisSol seissolInstance(seissolParameters);
+
+  auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
+  const auto pumlReader =
+      seissol::geometry::PUMLReader("Testing/mesh.h5",
+                                    "Default",
+                                    5000.0,
+                                    seissol::initializer::parameters::BoundaryFormat::I32,
+                                    ltsWeights.get());
   std::cout.clear();
 
-  std::array<unsigned, 24> expectedWeights = {2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2,
-                                              2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1};
-  for (int i = 0; i < 24; i++) {
-    REQUIRE(ltsWeights->vertexWeights()[i] == expectedWeights[i]);
-  }
+  const auto givenWeights =
+      std::vector<unsigned>(ltsWeights->vertexWeights(), ltsWeights->vertexWeights() + 24);
+
+  const auto expectedWeights =
+      std::vector<unsigned>{2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1};
+
+  REQUIRE(givenWeights == expectedWeights);
 #endif
 }
 
 TEST_CASE("Cost function for LTS") {
   const auto eps = 10e-12;
-  using namespace initializers::time_stepping;
+  using namespace initializer::time_stepping;
 
   SUBCASE("No clusters") {
-    std::vector<int> clusterIds = {};
-    std::vector<int> cellCosts = {};
+    const std::vector<int> clusterIds = {};
+    const std::vector<int> cellCosts = {};
     const auto is = computeLocalCostOfClustering(clusterIds, cellCosts, 2, 1.0, 1.0);
     const auto should = 0.0;
     REQUIRE(AbsApprox(is).epsilon(eps) == should);
   }
 
   SUBCASE("One cluster") {
-    std::vector<int> clusterIds = {0, 0, 0, 0, 0};
+    const std::vector<int> clusterIds = {0, 0, 0, 0, 0};
     std::vector<int> cellCosts = {1, 2, 3, 4, 5};
     for (int i = 1; i <= 10; ++i) {
       const auto dt = 1.0 / i;
@@ -58,8 +91,8 @@ TEST_CASE("Cost function for LTS") {
   }
 
   SUBCASE("Two clusters") {
-    std::vector<int> clusterIds = {1, 0, 1, 1};
-    std::vector<int> cellCosts = {2, 1, 3, 1};
+    const std::vector<int> clusterIds = {1, 0, 1, 1};
+    const std::vector<int> cellCosts = {2, 1, 3, 1};
     const auto cellCostsCluster0 = 1;
     const auto cellCostsCluster1 = 2 + 3 + 1;
     for (unsigned int rate = 1; rate < 4; ++rate) {
@@ -84,8 +117,8 @@ TEST_CASE("Cost function for LTS") {
   }
 
   SUBCASE("Three clusters") {
-    std::vector<int> clusterIds = {2, 0, 1, 1, 1};
-    std::vector<int> cellCosts = {2, 1, 3, 1, 2};
+    const std::vector<int> clusterIds = {2, 0, 1, 1, 1};
+    const std::vector<int> cellCosts = {2, 1, 3, 1, 2};
     const auto cellCostsCluster0 = 1;
     const auto cellCostsCluster1 = 2 + 3 + 1;
     const auto cellCostsCluster2 = 2;
@@ -114,10 +147,10 @@ TEST_CASE("Cost function for LTS") {
 }
 
 TEST_CASE("Enforce max cluster id") {
-  using namespace seissol::initializers::time_stepping;
+  using namespace seissol::initializer::time_stepping;
   const auto clusterIds = std::vector<int>{0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1, 0};
   SUBCASE("No change") {
-    const auto should = clusterIds;
+    const auto& should = clusterIds;
     const auto is = enforceMaxClusterId(clusterIds, 6);
     REQUIRE(is == should);
   }
@@ -134,7 +167,7 @@ TEST_CASE("Enforce max cluster id") {
 }
 
 TEST_CASE("Auto merging of clusters") {
-  using namespace seissol::initializers::time_stepping;
+  using namespace seissol::initializer::time_stepping;
   const auto clusterIds = std::vector<int>{0, 0, 0, 0, 1, 1, 2};
   const auto cellCosts = std::vector<int>{1, 1, 1, 1, 3, 3, 9};
   const auto minDt = 0.5;
@@ -174,14 +207,14 @@ TEST_CASE("Auto merging of clusters") {
   SUBCASE("Some performance loss allowed") {
     SUBCASE("Merge one cluster") {
       const auto should = 1;
-      const auto is =
-          computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 1.25 * costBeforeRate2, 1, minDt);
+      const auto is = computeMaxClusterIdAfterAutoMerge(
+          clusterIds, cellCosts, 2, 1.25 * costBeforeRate2, 1, minDt);
       REQUIRE(is == should);
     }
     SUBCASE("Merge two clusters") {
       const auto should = 0;
-      const auto is =
-          computeMaxClusterIdAfterAutoMerge(clusterIds, cellCosts, 2, 2.06 * costBeforeRate2, 1, minDt);
+      const auto is = computeMaxClusterIdAfterAutoMerge(
+          clusterIds, cellCosts, 2, 2.06 * costBeforeRate2, 1, minDt);
       REQUIRE(is == should);
     }
   }

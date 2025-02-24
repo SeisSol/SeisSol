@@ -1,7 +1,15 @@
-#ifndef SEISSOL_DEVICEAUX_PLASTICITY_H
-#define SEISSOL_DEVICEAUX_PLASTICITY_H
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Initializer/BasicTypedefs.hpp>
+#ifndef SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
+#define SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
+
+#include "Initializer/BasicTypedefs.h"
+#include "Model/Plasticity.h"
 #include <stddef.h>
 
 #define NUM_STRESS_COMPONENTS 6
@@ -12,52 +20,52 @@ namespace kernels {
 namespace device {
 namespace aux {
 namespace plasticity {
-void adjustDeviatoricTensors(real **nodalStressTensors,
-                             unsigned *isAdjustableVector,
-                             const PlasticityData *plasticity,
+void adjustDeviatoricTensors(real** nodalStressTensors,
+                             unsigned* isAdjustableVector,
+                             const seissol::model::PlasticityData* plasticity,
                              double oneMinusIntegratingFactor,
                              size_t numElements,
                              void* streamPtr);
 
-void adjustPointers(real *QEtaNodal,
-                    real **QEtaNodalPtrs,
-                    real *QEtaModal,
-                    real **QEtaModalPtrs,
-                    real *dUdTpstrain,
-                    real **dUdTpstrainPtrs,
+void adjustPointers(real* qEtaNodal,
+                    real** qEtaNodalPtrs,
+                    real* qEtaModal,
+                    real** qEtaModalPtrs,
+                    real* dUdTpstrain,
+                    real** dUdTpstrainPtrs,
                     size_t numElements,
-                    void *streamPtr);
+                    void* streamPtr);
 
-void computePstrains(real **pstrains,
-                     const PlasticityData *plasticityData,
-                     real **dofs,
-                     real *prevDofs,
-                     real **dUdTpstrain,
-                     double T_v,
+void computePstrains(real** pstrains,
+                     const seissol::model::PlasticityData* plasticityData,
+                     real** dofs,
+                     real* prevDofs,
+                     real** dUdTpstrain,
+                     double tV,
                      double oneMinusIntegratingFactor,
                      double timeStepWidth,
-                     unsigned *isAdjustableVector,
+                     unsigned* isAdjustableVector,
                      size_t numElements,
-                     void *streamPtr);
+                     void* streamPtr);
 
-void pstrainToQEtaModal(real **pstrains,
-                        real **QEtaModalPtrs,
-                        unsigned *isAdjustableVector,
+void pstrainToQEtaModal(real** pstrains,
+                        real** qEtaModalPtrs,
+                        unsigned* isAdjustableVector,
                         size_t numElements,
-                        void *streamPtr);
+                        void* streamPtr);
 
-void qEtaModalToPstrain(real **QEtaModalPtrs,
-                        real **pstrains,
-                        unsigned *isAdjustableVector,
+void qEtaModalToPstrain(real** qEtaModalPtrs,
+                        real** pstrains,
+                        unsigned* isAdjustableVector,
                         size_t numElements,
-                        void *streamPtr);
+                        void* streamPtr);
 
-void updateQEtaNodal(real **QEtaNodalPtrs,
-                     real **QStressNodalPtrs,
+void updateQEtaNodal(real** qEtaNodalPtrs,
+                     real** qStressNodalPtrs,
                      double timeStepWidth,
-                     unsigned *isAdjustableVector,
+                     unsigned* isAdjustableVector,
                      size_t numElements,
-                     void *streamPtr);
+                     void* streamPtr);
 
 } // namespace plasticity
 } // namespace aux
@@ -65,5 +73,4 @@ void updateQEtaNodal(real **QEtaNodalPtrs,
 } // namespace kernels
 } // namespace seissol
 
-
-#endif // SEISSOL_DEVICEAUX_PLASTICITY_H
+#endif // SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_

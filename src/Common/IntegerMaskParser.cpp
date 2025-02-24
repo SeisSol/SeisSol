@@ -1,15 +1,30 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Common/IntegerMaskParser.h"
+#include <cstddef>
+#include <optional>
 #include <regex>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace seissol {
-std::optional<IntegerMaskParser::MaskType> IntegerMaskParser::parse(std::string mask) {
+auto IntegerMaskParser::parse(const std::string& maskInput)
+    -> std::optional<IntegerMaskParser::MaskType> {
   MaskType resultMask{};
 
-  auto const regex = std::regex("^(\\d+|\\d+-\\d+|\\{(\\d+,?)+\\})(,|$)");
+  const auto regex = std::regex("^(\\d+|\\d+-\\d+|\\{(\\d+,?)+\\})(,|$)");
   std::smatch match;
 
+  std::string mask = maskInput;
+
   while (std::regex_search(mask, match, regex)) {
-    std::string subString = match[1].str();
+    const std::string subString = match[1].str();
     mask = match.suffix();
 
     auto intRange = IntegerMaskParser::parseIntRange(subString);
@@ -33,7 +48,8 @@ std::optional<IntegerMaskParser::MaskType> IntegerMaskParser::parse(std::string 
   return resultMask;
 }
 
-IntegerMaskParser::OptionalIntVectorType IntegerMaskParser::parseIntRange(const std::string& str) {
+auto IntegerMaskParser::parseIntRange(const std::string& str)
+    -> IntegerMaskParser::OptionalIntVectorType {
   OptionalIntVectorType result{std::nullopt};
   std::size_t separator = str.find('-');
   if (separator != std::string::npos) {
@@ -52,7 +68,8 @@ IntegerMaskParser::OptionalIntVectorType IntegerMaskParser::parseIntRange(const 
   return result;
 }
 
-IntegerMaskParser::OptionalIntVectorType IntegerMaskParser::parseIntList(const std::string& str) {
+auto IntegerMaskParser::parseIntList(const std::string& str)
+    -> IntegerMaskParser::OptionalIntVectorType {
   OptionalIntVectorType result{std::nullopt};
   if (str[0] == '{') {
     std::string subStr{};
@@ -72,3 +89,4 @@ IntegerMaskParser::OptionalIntVectorType IntegerMaskParser::parseIntList(const s
   return result;
 }
 } // namespace seissol
+

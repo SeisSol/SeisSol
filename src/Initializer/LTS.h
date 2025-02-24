@@ -1,116 +1,123 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
- * All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- * 
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- **/
- 
-#ifndef INITIALIZER_LTS_H_
-#define INITIALIZER_LTS_H_
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
-#include <Initializer/typedefs.hpp>
-#include <Initializer/tree/LTSTree.hpp>
-#include <generated_code/tensor.h>
-#include <Kernels/common.hpp>
+#ifndef SEISSOL_SRC_INITIALIZER_LTS_H_
+#define SEISSOL_SRC_INITIALIZER_LTS_H_
 
-#if CONVERGENCE_ORDER < 2 || CONVERGENCE_ORDER > 8
-#error Preprocessor flag CONVERGENCE_ORDER is not in {2, 3, 4, 5, 6, 7, 8}.
-#endif
-
-#ifndef ACL_DEVICE
-#   define MEMKIND_GLOBAL   seissol::memory::HighBandwidth
-#if CONVERGENCE_ORDER <= 7
-#   define MEMKIND_TIMEDOFS seissol::memory::HighBandwidth
-#else
-#   define MEMKIND_TIMEDOFS seissol::memory::Standard
-#endif
-#if CONVERGENCE_ORDER <= 4
-#   define MEMKIND_CONSTANT seissol::memory::HighBandwidth
-#else
-#   define MEMKIND_CONSTANT seissol::memory::Standard
-#endif
-#if CONVERGENCE_DOFS <= 3
-#   define MEMKIND_DOFS     seissol::memory::HighBandwidth
-#else
-#   define MEMKIND_DOFS     seissol::memory::Standard
-#endif
-# define MEMKIND_UNIFIED  seissol::memory::Standard
-#else // ACL_DEVICE
-#	define MEMKIND_GLOBAL   seissol::memory::Standard
-#	define MEMKIND_CONSTANT seissol::memory::Standard
-#	define MEMKIND_DOFS     seissol::memory::DeviceUnifiedMemory
-#	define MEMKIND_TIMEDOFS seissol::memory::DeviceUnifiedMemory
-# define MEMKIND_UNIFIED  seissol::memory::DeviceUnifiedMemory
-#endif // ACL_DEVICE
-
-namespace seissol {
-  namespace initializers {
-    struct LTS;
-  }
-  namespace tensor {
-    class Qane;
-  }
-}
-
-struct seissol::initializers::LTS {
-  Variable<real[tensor::Q::size()]>       dofs;
-  // size is zero if Qane is not defined
-  Variable<real[ALLOW_POSSILBE_ZERO_LENGTH_ARRAY(kernels::size<tensor::Qane>())]> dofsAne;
-  Variable<real*>                         buffers;
-  Variable<real*>                         derivatives;
-  Variable<CellLocalInformation>          cellInformation;
-  Variable<real*[4]>                      faceNeighbors;
-  Variable<LocalIntegrationData>          localIntegration;
-  Variable<NeighboringIntegrationData>    neighboringIntegration;
-  Variable<CellMaterialData>              material;
-  Variable<PlasticityData>                plasticity;
-  Variable<CellDRMapping[4]>              drMapping;
-  Variable<CellBoundaryMapping[4]>        boundaryMapping;
-  Variable<real[7 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS]> pstrain;
-  Variable<real*[4]>                      faceDisplacements;
-  Bucket                                  buffersDerivatives;
-  Bucket                                  faceDisplacementsBuffer;
+#include "IO/Instance/Checkpoint/CheckpointManager.h"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Layer.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
+#include "Model/Plasticity.h"
+#include "Tree/Layer.h"
+#include "generated_code/tensor.h"
 
 #ifdef ACL_DEVICE
-  Variable<LocalIntegrationData>          localIntegrationOnDevice;
-  Variable<NeighboringIntegrationData>    neighIntegrationOnDevice;
-  ScratchpadMemory                        integratedDofsScratch;
-  ScratchpadMemory                        derivativesScratch;
-  ScratchpadMemory                        nodalAvgDisplacements;
+#include "Parallel/Helper.h"
 #endif
-  
+
+namespace seissol::tensor {
+class Qane;
+} // namespace seissol::tensor
+
+namespace seissol::initializer {
+
+enum class AllocationPreset {
+  Global,
+  Timedofs,
+  Constant,
+  Dofs,
+  TimedofsConstant,
+  ConstantShared,
+  Timebucket,
+  Plasticity,
+  PlasticityData
+};
+
+inline auto allocationModeWP(AllocationPreset preset,
+                             int convergenceOrder = seissol::ConvergenceOrder) {
+#ifndef ACL_DEVICE
+  switch (preset) {
+  case seissol::initializer::AllocationPreset::Global:
+    [[fallthrough]];
+  case seissol::initializer::AllocationPreset::TimedofsConstant:
+    return AllocationMode::HostOnlyHBM;
+  case seissol::initializer::AllocationPreset::Plasticity:
+    return AllocationMode::HostOnly;
+  case seissol::initializer::AllocationPreset::PlasticityData:
+    return AllocationMode::HostOnly;
+  case seissol::initializer::AllocationPreset::Timebucket:
+    [[fallthrough]];
+  case seissol::initializer::AllocationPreset::Timedofs:
+    return (convergenceOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+  case seissol::initializer::AllocationPreset::Constant:
+    [[fallthrough]];
+  case seissol::initializer::AllocationPreset::ConstantShared:
+    return (convergenceOrder <= 4 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+  case seissol::initializer::AllocationPreset::Dofs:
+    return (convergenceOrder <= 3 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+  default:
+    return AllocationMode::HostOnly;
+  }
+#else
+  switch (preset) {
+  case seissol::initializer::AllocationPreset::Global:
+    [[fallthrough]];
+  case seissol::initializer::AllocationPreset::Constant:
+    [[fallthrough]];
+  case seissol::initializer::AllocationPreset::TimedofsConstant:
+    return AllocationMode::HostOnly;
+  case seissol::initializer::AllocationPreset::Dofs:
+    [[fallthrough]];
+  case seissol::initializer::AllocationPreset::PlasticityData:
+    return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplitPinned;
+  case seissol::initializer::AllocationPreset::Timebucket:
+    return useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
+  default:
+    return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
+  }
+#endif
+}
+
+struct LTS {
+  Variable<real[tensor::Q::size()]> dofs;
+  // size is zero if Qane is not defined
+  Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
+  Variable<real*> buffers;
+  Variable<real*> derivatives;
+  Variable<CellLocalInformation> cellInformation;
+  Variable<real* [4]> faceNeighbors;
+  Variable<LocalIntegrationData> localIntegration;
+  Variable<NeighboringIntegrationData> neighboringIntegration;
+  Variable<CellMaterialData> material;
+  Variable<seissol::model::PlasticityData> plasticity;
+  Variable<CellDRMapping[4]> drMapping;
+  Variable<CellBoundaryMapping[4]> boundaryMapping;
+  Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
+  Variable<real* [4]> faceDisplacements;
+  Bucket buffersDerivatives;
+  Bucket faceDisplacementsBuffer;
+
+  Variable<real*> buffersDevice;
+  Variable<real*> derivativesDevice;
+  Variable<real* [4]> faceDisplacementsDevice;
+  Variable<real* [4]> faceNeighborsDevice;
+  Variable<CellDRMapping[4]> drMappingDevice;
+  Variable<CellBoundaryMapping[4]> boundaryMappingDevice;
+
+#ifdef ACL_DEVICE
+  ScratchpadMemory integratedDofsScratch;
+  ScratchpadMemory derivativesScratch;
+  ScratchpadMemory nodalAvgDisplacements;
+  ScratchpadMemory analyticScratch;
+#endif
+
   /// \todo Memkind
   void addTo(LTSTree& tree, bool usePlasticity) {
     LayerMask plasticityMask;
@@ -120,33 +127,77 @@ struct seissol::initializers::LTS {
       plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
     }
 
-    tree.addVar(                    dofs, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );
+    tree.addVar(dofs, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
     if (kernels::size<tensor::Qane>() > 0) {
-      tree.addVar(                 dofsAne, LayerMask(Ghost),     PAGESIZE_HEAP,      MEMKIND_DOFS );
+      tree.addVar(
+          dofsAne, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
     }
-    tree.addVar(                 buffers,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
-    tree.addVar(             derivatives,      LayerMask(),                 1,      MEMKIND_TIMEDOFS );
-    tree.addVar(         cellInformation,      LayerMask(),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(           faceNeighbors, LayerMask(Ghost),                 1,      MEMKIND_TIMEDOFS );
-    tree.addVar(        localIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(  neighboringIntegration, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(                material, LayerMask(Ghost),                 1,      seissol::memory::Standard );
-    tree.addVar(              plasticity,   plasticityMask,                 1,      MEMKIND_UNIFIED );
-    tree.addVar(               drMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(         boundaryMapping, LayerMask(Ghost),                 1,      MEMKIND_CONSTANT );
-    tree.addVar(                 pstrain,   plasticityMask,     PAGESIZE_HEAP,      MEMKIND_UNIFIED );
-    tree.addVar(       faceDisplacements, LayerMask(Ghost),     PAGESIZE_HEAP,      seissol::memory::Standard );
+    tree.addVar(
+        buffers, LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+    tree.addVar(
+        derivatives, LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+    tree.addVar(
+        cellInformation, LayerMask(), 1, allocationModeWP(AllocationPreset::Constant), true);
+    tree.addVar(faceNeighbors,
+                LayerMask(Ghost),
+                1,
+                allocationModeWP(AllocationPreset::TimedofsConstant),
+                true);
+    tree.addVar(localIntegration,
+                LayerMask(Ghost),
+                1,
+                allocationModeWP(AllocationPreset::ConstantShared),
+                true);
+    tree.addVar(neighboringIntegration,
+                LayerMask(Ghost),
+                1,
+                allocationModeWP(AllocationPreset::ConstantShared),
+                true);
+    tree.addVar(material, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    tree.addVar(
+        plasticity, plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);
+    tree.addVar(drMapping, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
+    tree.addVar(
+        boundaryMapping, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
+    tree.addVar(
+        pstrain, plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::PlasticityData));
+    tree.addVar(faceDisplacements, LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
 
-    tree.addBucket(buffersDerivatives,                          PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
-    tree.addBucket(faceDisplacementsBuffer,                     PAGESIZE_HEAP,      MEMKIND_TIMEDOFS );
+    // TODO(David): remove/rename "constant" flag (the data is temporary; and copying it for IO is
+    // handled differently)
+    tree.addBucket(
+        buffersDerivatives, PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
+    tree.addBucket(
+        faceDisplacementsBuffer, PagesizeHeap, allocationModeWP(AllocationPreset::Timedofs));
+
+    tree.addVar(buffersDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
+    tree.addVar(derivativesDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
+    tree.addVar(faceDisplacementsDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    tree.addVar(faceNeighborsDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    tree.addVar(drMappingDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    tree.addVar(boundaryMappingDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
 
 #ifdef ACL_DEVICE
-    tree.addVar(   localIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);
-    tree.addVar(   neighIntegrationOnDevice,   LayerMask(Ghost),  1,      seissol::memory::DeviceGlobalMemory);
-    tree.addScratchpadMemory(  integratedDofsScratch,             1,      seissol::memory::DeviceUnifiedMemory);
-    tree.addScratchpadMemory(derivativesScratch,                  1,      seissol::memory::DeviceGlobalMemory);
-    tree.addScratchpadMemory(nodalAvgDisplacements,               1,      seissol::memory::DeviceGlobalMemory);
+    tree.addScratchpadMemory(integratedDofsScratch, 1, AllocationMode::HostDeviceSplit);
+    tree.addScratchpadMemory(derivativesScratch, 1, AllocationMode::DeviceOnly);
+    tree.addScratchpadMemory(nodalAvgDisplacements, 1, AllocationMode::DeviceOnly);
+    tree.addScratchpadMemory(analyticScratch, 1, AllocationMode::HostDevicePinned);
 #endif
   }
+
+  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                   LTSTree* tree) const {
+    manager.registerData("dofs", tree, dofs);
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      manager.registerData("dofsAne", tree, dofsAne);
+    }
+    // check plasticity usage over the layer mask (for now)
+    if (plasticity.mask == LayerMask(Ghost)) {
+      manager.registerData("pstrain", tree, pstrain);
+    }
+  }
 };
-#endif
+
+} // namespace seissol::initializer
+
+#endif // SEISSOL_SRC_INITIALIZER_LTS_H_

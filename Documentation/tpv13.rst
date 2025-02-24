@@ -1,16 +1,24 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _tpv-13:
 
 SCEC TPV13
 ==========
 
-TPV13 is similar to TPV12 except for the **non-associative Drucker-Prager visco-plastic** rheology.  
+TPV13 is similar to TPV12 except for the **non-associative Drucker-Prager visco-plastic** rheology.
 
 The Drucker-Prager yield function is given by:
 
-  :math:`F(\sigma)=\sqrt{J_2(\sigma)-Y(\sigma)}`
+  :math:`F(\sigma)=\sqrt{J_2(\sigma)}-Y(\sigma)`
 
 :math:`Y(\sigma)` is the  Drucker-Prager yield stress, given as:
-  
+
   :math:`Y(\sigma) =\max(0,c\cos \phi - (\sigma_m +P_f)\sin \phi)`
 
 with  :math:`\sigma_m = (\sigma_{11}+\sigma_{22}+\sigma_{33})/3` the mean stress,
@@ -28,11 +36,11 @@ with :math:`s_{ij} = \sigma_{ij} - \sigma_m \delta_{ij}` the deviator stress com
 The yield equation has to be satisfied:
 
   :math:`F(\sigma)\leq 0`
-   
-When :math:`F(\sigma) < 0`, the material behaves like a linear isotropic elastic material, 
+
+When :math:`F(\sigma) < 0`, the material behaves like a linear isotropic elastic material,
 with Lame parameters :math:`\lambda` and  :math:`\mu`.
 
-Wen :math:`F(\sigma) = 0`, if the material is subjected to a strain that 
+Wen :math:`F(\sigma) = 0`, if the material is subjected to a strain that
 tends to cause an increase in :math:`F(\sigma)`, then the material
 yields and plastic strains accumulates.
 
@@ -47,16 +55,16 @@ Plasticity parameters
 To turn on plasticity in SeisSol, add the following lines in `parameters.par <https://github.com/SeisSol/Examples/blob/master/tpv12_13/parameters.par>`_:
 
 .. code-block:: Fortran
-  
+
   &Equations
   Plasticity = 1 ! default = 0
   Tv = 0.03 ! Plastic relaxation
   /
-  
+
 Plasticity related parameters are defined in **material.yaml**:
 
 .. code-block:: YAML
-  
+
   !Switch
   [rho, mu, lambda, plastCo, bulkFriction]: !ConstantMap
     map:
@@ -84,4 +92,4 @@ discussions.
    :align: center
 
    Figure 1: along-strike (left) and along-dip (right) slip rate in TPV12 (blue) and 13 (orange).
-   
+

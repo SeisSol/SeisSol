@@ -1,28 +1,38 @@
-#ifndef INITIALIZER_BOUNDARY_H_
-#define INITIALIZER_BOUNDARY_H_
+// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Initializer/typedefs.hpp>
-#include <Initializer/tree/LTSTree.hpp>
+#ifndef SEISSOL_SRC_INITIALIZER_BOUNDARY_H_
+#define SEISSOL_SRC_INITIALIZER_BOUNDARY_H_
 
+#include "IO/Instance/Checkpoint/CheckpointManager.h"
+#include "Initializer/Tree/LTSTree.h"
+#include "Initializer/Tree/Layer.h"
+#include "Initializer/Typedefs.h"
+#include "Parallel/Helper.h"
 
+namespace seissol::initializer {
+
+inline auto allocationModeBoundary() {
 #ifndef ACL_DEVICE
-# define MEMKIND_BOUNDARY  seissol::memory::Standard
+  return AllocationMode::HostOnly;
 #else
-# define MEMKIND_BOUNDARY  seissol::memory::DeviceUnifiedMemory
-#endif // ACL_DEVICE
-
-namespace seissol {
-  namespace initializers {
-    struct Boundary;
-  }
+  return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
+#endif
 }
 
-struct seissol::initializers::Boundary {
+struct Boundary {
   Variable<BoundaryFaceInformation> faceInformation;
-  
+
   void addTo(LTSTree& tree) {
     LayerMask mask = LayerMask(Ghost);
-    tree.addVar(faceInformation, mask, 1, MEMKIND_BOUNDARY);
+    tree.addVar(faceInformation, mask, 1, allocationModeBoundary());
   }
 };
-#endif
+
+} // namespace seissol::initializer
+
+#endif // SEISSOL_SRC_INITIALIZER_BOUNDARY_H_

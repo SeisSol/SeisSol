@@ -1,63 +1,33 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2017-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "FreeSurfaceIntegrator.h"
 
-#include <Initializer/MemoryAllocator.h>
-#include <Initializer/MemoryManager.h>
-#include <Kernels/common.hpp>
-#include <Kernels/denseMatrixOps.hpp>
-#include <Numerical_aux/Functions.h>
-#include <Numerical_aux/Quadrature.h>
-#include <Numerical_aux/Transformation.h>
-#include <Parallel/MPI.h>
-#include <generated_code/kernel.h>
+#include "Initializer/MemoryAllocator.h"
+#include "Initializer/MemoryManager.h"
+#include "Kernels/Common.h"
+#include "Kernels/DenseMatrixOps.h"
+#include "Numerical/Functions.h"
+#include "Numerical/Quadrature.h"
+#include "Numerical/Transformation.h"
+#include "Parallel/MPI.h"
+#include "generated_code/kernel.h"
+#include <Common/Iterator.h>
 #include <utils/logger.h>
 
-void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializers::LTSTree& surfaceLtsTree)
+void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializer::LTSTree& surfaceLtsTree)
 {
-  seissol::initializers::LayerMask ghostMask(Ghost);
-  surfaceLtsTree.addVar(             dofs, ghostMask,                 1,      seissol::memory::Standard );
-  surfaceLtsTree.addVar( displacementDofs, ghostMask,                 1,      seissol::memory::Standard );
-  surfaceLtsTree.addVar(             side, ghostMask,                 1,      seissol::memory::Standard );
-  surfaceLtsTree.addVar(           meshId, ghostMask,                 1,      seissol::memory::Standard );
-  surfaceLtsTree.addVar(  boundaryMapping, ghostMask,                 1,      seissol::memory::Standard );
+  seissol::initializer::LayerMask ghostMask(Ghost);
+  surfaceLtsTree.addVar(             dofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.addVar( displacementDofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.addVar(             side, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.addVar(           meshId, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.addVar(  boundaryMapping, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
 }
 
 seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator()
@@ -86,9 +56,9 @@ seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator()
 
 void seissol::solver::FreeSurfaceIntegrator::initialize(  unsigned maxRefinementDepth,
                                                           GlobalData* globalData,
-                                                          seissol::initializers::LTS* lts,
-                                                          seissol::initializers::LTSTree* ltsTree,
-                                                          seissol::initializers::Lut* ltsLut  )
+                                                          seissol::initializer::LTS* lts,
+                                                          seissol::initializer::LTSTree* ltsTree,
+                                                          seissol::initializer::Lut* ltsLut  )
 {
   if (maxRefinementDepth > FREESURFACE_MAX_REFINEMENT) {
     logError() << "Free surface integrator: Currently more than 3 levels of refinements are unsupported." << std::endl;
@@ -97,27 +67,26 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(  unsigned maxRefinement
   m_enabled = true;
 
 	int const rank = seissol::MPI::mpi.rank();
-	logInfo(rank) << "Initializing free surface integrator.";
+	logInfo() << "Initializing free surface integrator.";
   initializeProjectionMatrices(maxRefinementDepth);
   initializeSurfaceLTSTree(lts, ltsTree, ltsLut);
-	logInfo(rank) << "Initializing free surface integrator. Done.";
+	logInfo() << "Initializing free surface integrator. Done.";
 }
 
 void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
 {
   unsigned offset = 0;
-  seissol::initializers::LayerMask ghostMask(Ghost);
-  for (auto surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
-       surfaceLayer != surfaceLtsTree.endLeaf(); ++surfaceLayer) {
-    real** dofs = surfaceLayer->var(surfaceLts.dofs);
-    real** displacementDofs = surfaceLayer->var(surfaceLts.displacementDofs);
-    unsigned* side = surfaceLayer->var(surfaceLts.side);
+  seissol::initializer::LayerMask ghostMask(Ghost);
+  for (auto& surfaceLayer : surfaceLtsTree.leaves(ghostMask)) {
+    real** dofs = surfaceLayer.var(surfaceLts.dofs);
+    real** displacementDofs = surfaceLayer.var(surfaceLts.displacementDofs);
+    unsigned* side = surfaceLayer.var(surfaceLts.side);
 
-#ifdef _OPENMP
+#if defined(_OPENMP) && !NVHPC_AVOID_OMP
     #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, displacementDofs, side)
 #endif // _OPENMP
-    for (unsigned face = 0; face < surfaceLayer->getNumberOfCells(); ++face) {
-      real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)] __attribute__((aligned(ALIGNMENT)));
+    for (unsigned face = 0; face < surfaceLayer.getNumberOfCells(); ++face) {
+      alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)];
 
       kernel::subTriangleVelocity vkrnl;
       vkrnl.Q = dofs[face];
@@ -152,7 +121,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
 
       addOutput(displacements);
     }
-    offset += surfaceLayer->getNumberOfCells() * numberOfSubTriangles;
+    offset += surfaceLayer.getNumberOfCells() * numberOfSubTriangles;
   }
 }
 
@@ -162,9 +131,12 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
   // Sub triangles
   triRefiner.refine(maxRefinementDepth);
 
-  numberOfSubTriangles = triRefiner.subTris.size();
-  numberOfAlignedSubTriangles = seissol::kernels::getNumberOfAlignedReals(numberOfSubTriangles);
+  const auto projectionMatrixNCols = tensor::subTriangleProjection::Shape[tensor::subTriangleProjection::index(maxRefinementDepth)][1];
 
+  numberOfSubTriangles = triRefiner.subTris.size();
+  numberOfAlignedSubTriangles = tensor::subTriangleProjection::size(maxRefinementDepth) / projectionMatrixNCols;
+
+  assert(numberOfAlignedSubTriangles * projectionMatrixNCols == tensor::subTriangleProjection::size(maxRefinementDepth));
   assert(numberOfSubTriangles == (1u << (2u*maxRefinementDepth)));
 
   const auto projectionMatrixNumberOfReals = 4 * tensor::subTriangleProjection::size(maxRefinementDepth);
@@ -173,9 +145,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
   const auto projectionMatrixFromFaceMemorySize = projectionMatrixFromFaceMemoryNumberOfReals * sizeof(real);
 
   projectionMatrixMemory =
-      std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixMemorySize, ALIGNMENT)));
+      std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixMemorySize, Alignment)));
   projectionMatrixFromFace =
-      std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixFromFaceMemorySize, ALIGNMENT)));
+      std::unique_ptr<real>(static_cast<real*>(seissol::memory::allocate(projectionMatrixFromFaceMemorySize, Alignment)));
 
   std::fill_n(projectionMatrixMemory.get(), 0, projectionMatrixNumberOfReals);
   std::fill_n(projectionMatrixFromFace.get(), 0, projectionMatrixFromFaceMemoryNumberOfReals);
@@ -223,7 +195,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(real* pr
                                                                         double const* weights) const
 {
   unsigned nbf = 0;
-  for (unsigned d = 0; d < CONVERGENCE_ORDER; ++d) {
+  for (unsigned d = 0; d < ConvergenceOrder; ++d) {
     for (unsigned k = 0; k <= d; ++k) {
       for (unsigned j = 0; j <= d-k; ++j) {
         unsigned i = d-k-j;
@@ -248,7 +220,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces
                                                                                  const std::array<std::array<double, 2>, numQuadraturePoints>& bfPoints,
                                                                                  double const* weights) const {
   unsigned nbf = 0;
-  for (unsigned d = 0; d < CONVERGENCE_ORDER; ++d) {
+  for (unsigned d = 0; d < ConvergenceOrder; ++d) {
     for (unsigned j = 0; j <= d; ++j) {
       // Compute subtriangle average via quadrature
       double average = 0.0;
@@ -267,13 +239,13 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces
 
 seissol::solver::FreeSurfaceIntegrator::LocationFlag seissol::solver::FreeSurfaceIntegrator::getLocationFlag(
     CellMaterialData materialData, FaceType faceType, unsigned int face) {
-  if (initializers::isAcousticSideOfElasticAcousticInterface(materialData, face)) {
+  if (initializer::isAcousticSideOfElasticAcousticInterface(materialData, face)) {
     return LocationFlag::Acoustic;
-  } else if (initializers::isElasticSideOfElasticAcousticInterface(materialData, face)) {
+  } else if (initializer::isElasticSideOfElasticAcousticInterface(materialData, face)) {
     return LocationFlag::Elastic;
-  } else if (faceType == FaceType::freeSurface) {
+  } else if (faceType == FaceType::FreeSurface) {
     return LocationFlag::FreeSurface;
-  } else if (faceType == FaceType::freeSurfaceGravity) {
+  } else if (faceType == FaceType::FreeSurfaceGravity) {
     return LocationFlag::FreeSurfaceWithGravity;
   } else {
     logError() << "Internal error in free surface integrator. Called for invalid cell.";
@@ -281,11 +253,11 @@ seissol::solver::FreeSurfaceIntegrator::LocationFlag seissol::solver::FreeSurfac
   }
 }
 
-void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol::initializers::LTS* lts,
-                                                                        seissol::initializers::LTSTree* ltsTree,
-                                                                        seissol::initializers::Lut* ltsLut )
+void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol::initializer::LTS* lts,
+                                                                        seissol::initializer::LTSTree* ltsTree,
+                                                                        seissol::initializer::Lut* ltsLut )
 {
-  seissol::initializers::LayerMask ghostMask(Ghost);
+  seissol::initializer::LayerMask ghostMask(Ghost);
 
   auto const isDuplicate = [&ghostMask, ltsLut](unsigned ltsId) {
     return ltsId != ltsLut->ltsId(ghostMask, ltsLut->meshId(ghostMask, ltsId));
@@ -296,29 +268,28 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
 
   totalNumberOfFreeSurfaces = 0;
   unsigned baseLtsId = 0;
-  for ( seissol::initializers::LTSTree::leaf_iterator layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
-        layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
-        ++layer, ++surfaceLayer) {
-    CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
-    CellMaterialData* cellMaterialData = layer->var(lts->material);
+  for (auto [layer, surfaceLayer] : seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree.leaves(ghostMask))) {
+    CellLocalInformation* cellInformation = layer.var(lts->cellInformation);
+    CellMaterialData* cellMaterialData = layer.var(lts->material);
 
     unsigned numberOfFreeSurfaces = 0;
+    const auto layerSize = layer.getNumberOfCells();
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static) reduction(+ : numberOfFreeSurfaces)
 #endif // _OPENMP
-    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layerSize; ++cell) {
       if (!isDuplicate(baseLtsId + cell)) {
         for (unsigned face = 0; face < 4; ++face) {
-          if (cellInformation[cell].faceTypes[face] == FaceType::freeSurface
-          || cellInformation[cell].faceTypes[face] == FaceType::freeSurfaceGravity
-          || initializers::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
+          if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurface
+          || cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity
+          || initializer::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
             ++numberOfFreeSurfaces;
           }
         }
       }
     }
-    baseLtsId += layer->getNumberOfCells();
-    surfaceLayer->setNumberOfCells(numberOfFreeSurfaces);
+    baseLtsId += layer.getNumberOfCells();
+    surfaceLayer.setNumberOfCells(numberOfFreeSurfaces);
     totalNumberOfFreeSurfaces += numberOfFreeSurfaces;
   }
   totalNumberOfTriangles = totalNumberOfFreeSurfaces * numberOfSubTriangles;
@@ -327,34 +298,32 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
   surfaceLtsTree.touchVariables();
 
   for (unsigned dim = 0; dim < FREESURFACE_NUMBER_OF_COMPONENTS; ++dim) {
-    velocities[dim]     = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
-    displacements[dim]  = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), ALIGNMENT);
+    velocities[dim]     = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), Alignment);
+    displacements[dim]  = (real*) seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), Alignment);
   }
-  locationFlags = std::vector<double>(totalNumberOfTriangles, 0.0);
+  locationFlags = std::vector<unsigned int>(totalNumberOfTriangles, 0);
 
   /// @ yateto_todo
   baseLtsId = 0;
   unsigned surfaceCellOffset = 0; // Counts all surface cells of all layers
-  for ( seissol::initializers::LTSTree::leaf_iterator layer = ltsTree->beginLeaf(ghostMask), surfaceLayer = surfaceLtsTree.beginLeaf(ghostMask);
-        layer != ltsTree->endLeaf() && surfaceLayer != surfaceLtsTree.endLeaf();
-        ++layer, ++surfaceLayer) {
-    CellLocalInformation* cellInformation = layer->var(lts->cellInformation);
-    real (*dofs)[tensor::Q::size()] = layer->var(lts->dofs);
-    real* (*faceDisplacements)[4] = layer->var(lts->faceDisplacements);
-    real** surfaceDofs = surfaceLayer->var(surfaceLts.dofs);
-    real** displacementDofs = surfaceLayer->var(surfaceLts.displacementDofs);
-    CellMaterialData* cellMaterialData = layer->var(lts->material);
-    auto surfaceBoundaryMapping = surfaceLayer->var(surfaceLts.boundaryMapping);
-    auto boundaryMapping = layer->var(lts->boundaryMapping);
+  for (auto [layer, surfaceLayer] : seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree.leaves(ghostMask))) {
+    CellLocalInformation* cellInformation = layer.var(lts->cellInformation);
+    real (*dofs)[tensor::Q::size()] = layer.var(lts->dofs);
+    real* (*faceDisplacements)[4] = layer.var(lts->faceDisplacements);
+    real** surfaceDofs = surfaceLayer.var(surfaceLts.dofs);
+    real** displacementDofs = surfaceLayer.var(surfaceLts.displacementDofs);
+    CellMaterialData* cellMaterialData = layer.var(lts->material);
+    auto surfaceBoundaryMapping = surfaceLayer.var(surfaceLts.boundaryMapping);
+    auto boundaryMapping = layer.var(lts->boundaryMapping);
 
-    unsigned* side = surfaceLayer->var(surfaceLts.side);
-    unsigned* meshId = surfaceLayer->var(surfaceLts.meshId);
+    unsigned* side = surfaceLayer.var(surfaceLts.side);
+    unsigned* meshId = surfaceLayer.var(surfaceLts.meshId);
     unsigned surfaceCell = 0;
-    for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
       unsigned ltsId = baseLtsId + cell;
       if (!isDuplicate(ltsId)) {
         for (unsigned face = 0; face < 4; ++face) {
-          if (initializers::requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
+          if (initializer::requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
             assert(faceDisplacements[cell][face] != nullptr);
 
             surfaceDofs[surfaceCell]      = dofs[cell];
@@ -365,7 +334,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
             surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
 
             for (unsigned i = 0; i < numberOfSubTriangles; ++i) {
-              locationFlags[surfaceCellOffset * numberOfSubTriangles + i] = static_cast<double>(getLocationFlag(
+              locationFlags[surfaceCellOffset * numberOfSubTriangles + i] = static_cast<unsigned int>(getLocationFlag(
                   cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
             }
             ++surfaceCell;
@@ -374,6 +343,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
         }
       }
     }
-    baseLtsId += layer->getNumberOfCells();
+    baseLtsId += layer.getNumberOfCells();
   }
 }
+

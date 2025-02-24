@@ -1,10 +1,17 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "tests/TestHelper.h"
 #include <cstdlib>
 
-#include <SourceTerm/NRFReader.h>
-#include <SourceTerm/NRF.h>
+#include "SourceTerm/NRF.h"
+#include "SourceTerm/NRFReader.h"
 
-#include "slipRatesData.h"
+#include "SlipRatesData.h"
 
 namespace seissol::unit_test {
 TEST_CASE("NRF Reader") {
@@ -38,10 +45,10 @@ TEST_CASE("NRF Reader") {
 
   for (size_t dim = 0; dim < 3; dim++) {
     for (unsigned i = 0;
-         i < std::min((size_t)nrf.sroffsets[1][dim] - nrf.sroffsets[0][dim], slipRates[dim].size());
+         i < std::min((size_t)nrf.sroffsets[1][dim] - nrf.sroffsets[0][dim], SlipRates[dim].size());
          i++) {
       // NRF File is in cm
-      REQUIRE(nrf.sliprates[dim][i] == AbsApprox(slipRates[dim][i] / 100));
+      REQUIRE(nrf.sliprates[dim][i] == AbsApprox(SlipRates[dim][i] / 100));
     }
   }
 }

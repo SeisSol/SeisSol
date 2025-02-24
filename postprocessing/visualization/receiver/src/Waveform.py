@@ -72,6 +72,10 @@ class Waveform:
         self.waveforms[name] = wf / self.norm[name]
 
   def differentiate(self):
+    for name, wf in self.waveforms.items():
+      self.waveforms[name] = numpy.gradient(wf, self.time)
+
+  def integrate(self):
     dt = self.time[1] - self.time[0]
     for name, wf in self.waveforms.items():
-      self.waveforms[name] = numpy.gradient(wf, dt)
+      self.waveforms[name] = numpy.cumsum(wf) * dt

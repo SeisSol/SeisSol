@@ -1,10 +1,17 @@
-#ifndef SEISSOL_ACTOR_H
-#define SEISSOL_ACTOR_H
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <vector>
-#include <memory>
-#include <chrono>
+#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_H_
+#define SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_H_
+
 #include "ActorState.h"
+#include <chrono>
+#include <memory>
+#include <vector>
 
 namespace seissol::time_stepping {
 
@@ -24,7 +31,7 @@ protected:
   [[nodiscard]] double timeStepSize() const;
 
   void unsafePerformAction(ActorAction action);
-  AbstractTimeCluster(double maxTimeStepSize, long timeStepRate);
+  AbstractTimeCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
 
   virtual bool mayPredict();
   virtual bool mayCorrect();
@@ -37,16 +44,22 @@ protected:
   virtual void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) = 0;
   virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) = 0;
 
+  bool hasDifferentExecutorNeighbor();
+
 
   long timeStepRate;
   //! number of time steps
   long numberOfTimeSteps;
+  Executor executor;
 
 public:
   virtual ~AbstractTimeCluster() = default;
 
+  Executor getExecutor() const;
+
   virtual ActorAction getNextLegalAction();
   virtual ActResult act();
+  virtual void finalize();
 
   ///* Returns the priority of the cluster. Larger numbers indicate a higher priority.
   ///* Can be used e.g. to always update copy clusters before interior ones.
@@ -65,10 +78,29 @@ public:
 
   long getTimeStepRate();
 
+  /**
+   * @brief Returns the time step size of the cluster.
+   * @return the time step size of the cluster.
+   */
+  double getClusterTimes();
+  /**
+   * @brief Sets the time step size of the cluster.
+   * @param newTimeStepSize
+   */
+  void setClusterTimes(double newTimeStepSize);
+
+  /**
+   * @brief Returns the neighbor clusters of the cluster.
+   * @return the pointer to the vector of neighbor clusters.
+   */
+  std::vector<NeighborCluster>* getNeighborClusters();
+
 };
 
 }
 
 
 
-#endif //SEISSOL_ACTOR_H
+
+#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_H_
+

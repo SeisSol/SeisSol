@@ -1,12 +1,23 @@
-#ifndef SEISSOL_FRICTIONSOLVER_COMMON_H
-#define SEISSOL_FRICTIONSOLVER_COMMON_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
+
+#include <Common/Constants.h>
+#include <Common/Executor.h>
+#include <limits>
+#include <type_traits>
 
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Parameters.h"
 #include "Initializer/DynamicRupture.h"
+#include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/DynamicRupture.h"
-#include "Numerical_aux/GaussianNucleationFunction.h"
-#include <type_traits>
+#include "Numerical/GaussianNucleationFunction.h"
 
 /**
  * Contains common functions required both for CPU and GPU impl.
@@ -16,12 +27,12 @@
  */
 namespace seissol::dr::friction_law::common {
 
-template <size_t Start, size_t End, size_t Step>
+template <size_t StartT, size_t EndT, size_t StepT>
 struct ForLoopRange {
-  static constexpr size_t start{Start};
-  static constexpr size_t end{End};
-  static constexpr size_t step{Step};
-  static constexpr size_t size{End - Start};
+  static constexpr size_t Start{StartT};
+  static constexpr size_t End{EndT};
+  static constexpr size_t Step{StepT};
+  static constexpr size_t Size{EndT - StartT};
 };
 
 enum class RangeType { CPU, GPU };
@@ -29,49 +40,87 @@ enum class RangeType { CPU, GPU };
 template <RangeType Type>
 struct NumPoints {
   private:
-  using CpuRange = ForLoopRange<0, dr::misc::numPaddedPoints, 1>;
+  using CpuRange = ForLoopRange<0, dr::misc::NumPaddedPoints, 1>;
   using GpuRange = ForLoopRange<0, 1, 1>;
 
   public:
-  using Range = typename std::conditional<Type == RangeType::CPU, CpuRange, GpuRange>::type;
+  using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
 };
 
 template <RangeType Type>
 struct QInterpolated {
   private:
   using CpuRange = ForLoopRange<0, tensor::QInterpolated::size(), 1>;
-  using GpuRange = ForLoopRange<0, tensor::QInterpolated::size(), misc::numPaddedPoints>;
+  using GpuRange = ForLoopRange<0, tensor::QInterpolated::size(), misc::NumPaddedPoints>;
 
   public:
-  using Range = typename std::conditional<Type == RangeType::CPU, CpuRange, GpuRange>::type;
+  using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
+};
+
+template <RangeType Type>
+struct RangeExecutor;
+
+template <>
+struct RangeExecutor<RangeType::CPU> {
+  static constexpr Executor Exec = Executor::Host;
+};
+
+template <>
+struct RangeExecutor<RangeType::GPU> {
+  static constexpr Executor Exec = Executor::Device;
+};
+
+template <Executor Executor>
+struct VariableIndexing;
+
+template <>
+struct VariableIndexing<Executor::Host> {
+  static constexpr real&
+      index(real (&data)[ConvergenceOrder][misc::NumPaddedPoints], int o, int i) {
+    return data[o][i];
+  }
+
+  static constexpr real
+      index(const real (&data)[ConvergenceOrder][misc::NumPaddedPoints], int o, int i) {
+    return data[o][i];
+  }
+};
+
+template <>
+struct VariableIndexing<Executor::Device> {
+  static constexpr real& index(real (&data)[ConvergenceOrder], int o, int i) { return data[o]; }
+
+  static constexpr real index(const real (&data)[ConvergenceOrder], int o, int i) {
+    return data[o];
+  }
 };
 
 /**
  * Asserts whether all relevant arrays are properly aligned
  */
 inline void checkAlignmentPreCompute(
-    const real qIPlus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real qIMinus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const FaultStresses& faultStresses) {
+    const real qIPlus[ConvergenceOrder][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
+    const real qIMinus[ConvergenceOrder][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
+    const FaultStresses<Executor::Host>& faultStresses) {
   using namespace dr::misc::quantity_indices;
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % ALIGNMENT == 0);
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % Alignment == 0);
 
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % Alignment == 0);
 
-    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(faultStresses.traction1[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(faultStresses.traction2[o]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(faultStresses.traction1[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(faultStresses.traction2[o]) % Alignment == 0);
   }
 }
 
@@ -85,20 +134,24 @@ inline void checkAlignmentPreCompute(
  *             at the 2d face quadrature nodes evaluated at the time
  *             quadrature points
  * @param[in] impAndEta contains eta and impedance values
+ * @param[in] impedanceMatrices contains impedance and eta values, in the poroelastic case, these
+ * are non-diagonal matrices
  * @param[in] qInterpolatedPlus a plus side dofs interpolated at time sub-intervals
  * @param[in] qInterpolatedMinus a minus side dofs interpolated at time sub-intervals
  */
 template <RangeType Type = RangeType::CPU>
-inline void precomputeStressFromQInterpolated(
-    FaultStresses& faultStresses,
+SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
+    FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
     const ImpedancesAndEta& impAndEta,
-    const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    const ImpedanceMatrices& impedanceMatrices,
+    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
 
   static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
+#ifndef USE_POROELASTIC
   const auto etaP = impAndEta.etaP;
   const auto etaS = impAndEta.etaS;
   const auto invZp = impAndEta.invZp;
@@ -106,9 +159,9 @@ inline void precomputeStressFromQInterpolated(
   const auto invZpNeig = impAndEta.invZpNeig;
   const auto invZsNeig = impAndEta.invZsNeig;
 
-  using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
-  auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
-  auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
+  using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+  const auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
+  const auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
   using namespace dr::misc::quantity_indices;
 
@@ -116,73 +169,100 @@ inline void precomputeStressFromQInterpolated(
   checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
 #endif
 
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
-    for (auto index = Range::start; index < Range::end; index += Range::step) {
+    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       auto i{startLoopIndex + index};
-      faultStresses.normalStress[o][i] =
+      VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i) =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
                   qIMinus[o][N][i] * invZpNeig);
 
-      faultStresses.traction1[o][i] =
+      VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.traction1, o, i) =
           etaS * (qIMinus[o][V][i] - qIPlus[o][V][i] + qIPlus[o][T1][i] * invZs +
                   qIMinus[o][T1][i] * invZsNeig);
 
-      faultStresses.traction2[o][i] =
+      VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.traction2, o, i) =
           etaS * (qIMinus[o][W][i] - qIPlus[o][W][i] + qIPlus[o][T2][i] * invZs +
                   qIMinus[o][T2][i] * invZsNeig);
     }
   }
+#else
+  seissol::dynamicRupture::kernel::computeTheta krnl;
+  krnl.extractVelocities = init::extractVelocities::Values;
+  krnl.extractTractions = init::extractTractions::Values;
+
+  // Compute Theta from eq (4.53) in Carsten's thesis
+  krnl.Zplus = impedanceMatrices.impedance;
+  krnl.Zminus = impedanceMatrices.impedanceNeig;
+  krnl.eta = impedanceMatrices.eta;
+
+  alignas(Alignment) real thetaBuffer[tensor::theta::size()] = {};
+  krnl.theta = thetaBuffer;
+  auto thetaView = init::theta::view::create(thetaBuffer);
+
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+    krnl.Qplus = qInterpolatedPlus[o];
+    krnl.Qminus = qInterpolatedMinus[o];
+    krnl.execute();
+
+    for (unsigned i = 0; i < misc::NumPaddedPoints; ++i) {
+      faultStresses.normalStress[o][i] = thetaView(i, 0);
+      faultStresses.traction1[o][i] = thetaView(i, 1);
+      faultStresses.traction2[o][i] = thetaView(i, 2);
+      faultStresses.fluidPressure[o][i] = thetaView(i, 3);
+    }
+  }
+#endif
 }
 
 /**
  * Asserts whether all relevant arrays are properly aligned
  */
 inline void checkAlignmentPostCompute(
-    const real qIPlus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real qIMinus[CONVERGENCE_ORDER][dr::misc::numQuantities][dr::misc::numPaddedPoints],
-    const real imposedStateP[CONVERGENCE_ORDER][dr::misc::numPaddedPoints],
-    const real imposedStateM[CONVERGENCE_ORDER][dr::misc::numPaddedPoints],
-    const FaultStresses& faultStresses,
-    const TractionResults& tractionResults) {
+    const real qIPlus[ConvergenceOrder][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
+    const real qIMinus[ConvergenceOrder][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
+    const real imposedStateP[ConvergenceOrder][dr::misc::NumPaddedPoints],
+    const real imposedStateM[ConvergenceOrder][dr::misc::NumPaddedPoints],
+    const FaultStresses<Executor::Host>& faultStresses,
+    const TractionResults<Executor::Host>& tractionResults) {
   using namespace dr::misc::quantity_indices;
 
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[U]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[V]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[W]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[N]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[T1]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateP[T2]) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[U]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[V]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[W]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[N]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[T1]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateP[T2]) % Alignment == 0);
 
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[U]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[V]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[W]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[N]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[T1]) % ALIGNMENT == 0);
-  assert(reinterpret_cast<uintptr_t>(imposedStateM[T2]) % ALIGNMENT == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[U]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[V]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[W]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[N]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[T1]) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(imposedStateM[T2]) % Alignment == 0);
 
-  for (size_t o = 0; o < CONVERGENCE_ORDER; ++o) {
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % ALIGNMENT == 0);
+  for (size_t o = 0; o < ConvergenceOrder; ++o) {
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][N]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T1]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIPlus[o][T2]) % Alignment == 0);
 
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][U]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][V]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][W]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][N]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T1]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(qIMinus[o][T2]) % Alignment == 0);
 
-    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(tractionResults.traction1[o]) % ALIGNMENT == 0);
-    assert(reinterpret_cast<uintptr_t>(tractionResults.traction2[o]) % ALIGNMENT == 0);
+    assert(reinterpret_cast<uintptr_t>(faultStresses.normalStress[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(tractionResults.traction1[o]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(tractionResults.traction2[o]) % Alignment == 0);
   }
 }
 
@@ -193,6 +273,7 @@ inline void checkAlignmentPostCompute(
  * @param[in] faultStresses
  * @param[in] tractionResults
  * @param[in] impAndEta
+ * @param[in] impedancenceMatrices
  * @param[in] qInterpolatedPlus
  * @param[in] qInterpolatedMinus
  * @param[in] timeWeights
@@ -200,38 +281,39 @@ inline void checkAlignmentPostCompute(
  * @param[out] imposedStateMinus
  */
 template <RangeType Type = RangeType::CPU>
-inline void postcomputeImposedStateFromNewStress(
-    const FaultStresses& faultStresses,
-    const TractionResults& tractionResults,
+SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
+    const FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
+    const TractionResults<RangeExecutor<Type>::Exec>& tractionResults,
     const ImpedancesAndEta& impAndEta,
+    const ImpedanceMatrices& impedanceMatrices,
     real imposedStatePlus[tensor::QInterpolated::size()],
     real imposedStateMinus[tensor::QInterpolated::size()],
-    const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const double timeWeights[CONVERGENCE_ORDER],
+    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const double timeWeights[ConvergenceOrder],
     unsigned startIndex = 0) {
 
   // set imposed state to zero
   using QInterpolatedRange = typename QInterpolated<Type>::Range;
-  for (auto index = QInterpolatedRange::start; index < QInterpolatedRange::end;
-       index += QInterpolatedRange::step) {
+  for (auto index = QInterpolatedRange::Start; index < QInterpolatedRange::End;
+       index += QInterpolatedRange::Step) {
     auto i{startIndex + index};
     imposedStatePlus[i] = static_cast<real>(0.0);
     imposedStateMinus[i] = static_cast<real>(0.0);
   }
-
+#ifndef USE_POROELASTIC
   const auto invZs = impAndEta.invZs;
   const auto invZp = impAndEta.invZp;
   const auto invZsNeig = impAndEta.invZsNeig;
   const auto invZpNeig = impAndEta.invZpNeig;
 
-  using ImposedStateShapeT = real(*)[misc::numPaddedPoints];
+  using ImposedStateShapeT = real(*)[misc::NumPaddedPoints];
   auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
   auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
-  using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
-  auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
-  auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+  using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+  const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   using namespace dr::misc::quantity_indices;
 
@@ -241,32 +323,35 @@ inline void postcomputeImposedStateFromNewStress(
 #endif
 
   using NumPointsRange = typename NumPoints<Type>::Range;
-  real cachedImposedStateM[dr::misc::numQuantities][NumPointsRange::size];
-  real cachedImposedStateP[dr::misc::numQuantities][NumPointsRange::size];
+  real cachedImposedStateM[dr::misc::NumQuantities][NumPointsRange::Size];
+  real cachedImposedStateP[dr::misc::NumQuantities][NumPointsRange::Size];
 
-  for (auto index = NumPointsRange::start; index < NumPointsRange::end;
-       index += NumPointsRange::step) {
+  for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
+       index += NumPointsRange::Step) {
     auto i{startIndex + index};
 #pragma unroll
-    for (unsigned q = 0; q < dr::misc::numQuantities; ++q) {
+    for (unsigned q = 0; q < dr::misc::NumQuantities; ++q) {
       cachedImposedStateM[q][index] = imposedStateM[q][i];
       cachedImposedStateP[q][index] = imposedStateP[q][i];
     }
   }
 
-  for (unsigned o = 0; o < CONVERGENCE_ORDER; ++o) {
-    auto weight = static_cast<real>(timeWeights[o]);
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+    const auto weight = static_cast<real>(timeWeights[o]);
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
-    for (auto index = NumPointsRange::start; index < NumPointsRange::end;
-         index += NumPointsRange::step) {
+    for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
+         index += NumPointsRange::Step) {
       auto i{startIndex + index};
 
-      const auto normalStress = faultStresses.normalStress[o][i];
-      const auto traction1 = tractionResults.traction1[o][i];
-      const auto traction2 = tractionResults.traction2[o][i];
+      const auto normalStress =
+          VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i);
+      const auto traction1 =
+          VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.traction1, o, i);
+      const auto traction2 =
+          VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.traction2, o, i);
 
       cachedImposedStateM[N][index] += weight * normalStress;
       cachedImposedStateM[T1][index] += weight * traction1;
@@ -290,15 +375,57 @@ inline void postcomputeImposedStateFromNewStress(
     }
   }
 
-  for (auto index = NumPointsRange::start; index < NumPointsRange::end;
-       index += NumPointsRange::step) {
+  for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
+       index += NumPointsRange::Step) {
     auto i{startIndex + index};
 #pragma unroll
-    for (unsigned q = 0; q < dr::misc::numQuantities; ++q) {
+    for (unsigned q = 0; q < dr::misc::NumQuantities; ++q) {
       imposedStateM[q][i] = cachedImposedStateM[q][index];
       imposedStateP[q][i] = cachedImposedStateP[q][index];
     }
   }
+#else
+  // setup kernel
+  seissol::dynamicRupture::kernel::computeImposedStateM krnlM;
+  krnlM.extractVelocities = init::extractVelocities::Values;
+  krnlM.extractTractions = init::extractTractions::Values;
+  krnlM.mapToVelocities = init::mapToVelocities::Values;
+  krnlM.mapToTractions = init::mapToTractions::Values;
+  krnlM.Zminus = impedanceMatrices.impedanceNeig;
+  krnlM.imposedState = imposedStateMinus;
+
+  seissol::dynamicRupture::kernel::computeImposedStateP krnlP;
+  krnlP.extractVelocities = init::extractVelocities::Values;
+  krnlP.extractTractions = init::extractTractions::Values;
+  krnlP.mapToVelocities = init::mapToVelocities::Values;
+  krnlP.mapToTractions = init::mapToTractions::Values;
+  krnlP.Zplus = impedanceMatrices.impedance;
+  krnlP.imposedState = imposedStatePlus;
+
+  alignas(Alignment) real thetaBuffer[tensor::theta::size()] = {};
+  auto thetaView = init::theta::view::create(thetaBuffer);
+  krnlM.theta = thetaBuffer;
+  krnlP.theta = thetaBuffer;
+
+  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+    auto weight = timeWeights[o];
+    // copy values to yateto dataformat
+    for (unsigned i = 0; i < misc::NumPaddedPoints; ++i) {
+      thetaView(i, 0) = faultStresses.normalStress[o][i];
+      thetaView(i, 1) = tractionResults.traction1[o][i];
+      thetaView(i, 2) = tractionResults.traction2[o][i];
+      thetaView(i, 3) = faultStresses.fluidPressure[o][i];
+    }
+    // execute kernel (and hence update imposedStatePlus/Minus)
+    krnlM.Qminus = qInterpolatedMinus[o];
+    krnlM.weight = weight;
+    krnlM.execute();
+
+    krnlP.Qplus = qInterpolatedPlus[o];
+    krnlP.weight = weight;
+    krnlP.execute();
+  }
+#endif
 }
 
 /**
@@ -312,12 +439,19 @@ inline void postcomputeImposedStateFromNewStress(
  */
 template <RangeType Type = RangeType::CPU,
           typename MathFunctions = seissol::functions::HostStdFunctions>
-inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoints][6],
-                                const real nucleationStressInFaultCS[misc::numPaddedPoints][6],
-                                real fullUpdateTime,
-                                real t0,
-                                real dt,
-                                unsigned startIndex = 0) {
+// See https://github.com/llvm/llvm-project/issues/60163
+// NOLINTNEXTLINE
+SEISSOL_HOSTDEVICE inline void
+    adjustInitialStress(real initialStressInFaultCS[misc::NumPaddedPoints][6],
+                        const real nucleationStressInFaultCS[misc::NumPaddedPoints][6],
+                        // See https://github.com/llvm/llvm-project/issues/60163
+                        // NOLINTNEXTLINE
+                        real initialPressure[misc::NumPaddedPoints],
+                        const real nucleationPressure[misc::NumPaddedPoints],
+                        real fullUpdateTime,
+                        real t0,
+                        real dt,
+                        unsigned startIndex = 0) {
   if (fullUpdateTime <= t0) {
     const real gNuc =
         gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime, dt, t0);
@@ -327,11 +461,12 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
-    for (auto index = Range::start; index < Range::end; index += Range::step) {
+    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       auto pointIndex{startIndex + index};
       for (unsigned i = 0; i < 6; i++) {
         initialStressInFaultCS[pointIndex][i] += nucleationStressInFaultCS[pointIndex][i] * gNuc;
       }
+      initialPressure[pointIndex] += nucleationPressure[pointIndex] * gNuc;
     }
   }
 }
@@ -346,25 +481,26 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::numPaddedPoint
  * param[in] fullUpdateTime
  */
 template <RangeType Type = RangeType::CPU>
-// See https://github.com/llvm/llvm-project/issues/60163
-// NOLINTNEXTLINE
-inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints],
-                                   // See https://github.com/llvm/llvm-project/issues/60163
-                                   // NOLINTNEXTLINE
-                                   real ruptureTime[misc::numPaddedPoints],
-                                   const real slipRateMagnitude[misc::numPaddedPoints],
-                                   real fullUpdateTime,
-                                   unsigned startIndex = 0) {
+SEISSOL_HOSTDEVICE inline void
+    // See https://github.com/llvm/llvm-project/issues/60163
+    // NOLINTNEXTLINE
+    saveRuptureFrontOutput(bool ruptureTimePending[misc::NumPaddedPoints],
+                           // See https://github.com/llvm/llvm-project/issues/60163
+                           // NOLINTNEXTLINE
+                           real ruptureTime[misc::NumPaddedPoints],
+                           const real slipRateMagnitude[misc::NumPaddedPoints],
+                           real fullUpdateTime,
+                           unsigned startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
-  for (auto index = Range::start; index < Range::end; index += Range::step) {
+  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto pointIndex{startIndex + index};
-    constexpr real ruptureFrontThreshold = 0.001;
-    if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > ruptureFrontThreshold) {
+    constexpr real RuptureFrontThreshold = 0.001;
+    if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > RuptureFrontThreshold) {
       ruptureTime[pointIndex] = fullUpdateTime;
       ruptureTimePending[pointIndex] = false;
     }
@@ -378,55 +514,92 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::numPaddedPoints
  * param[in, out] peakSlipRate
  */
 template <RangeType Type = RangeType::CPU>
-inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::numPaddedPoints],
-                                   // See https://github.com/llvm/llvm-project/issues/60163
-                                   // NOLINTNEXTLINE
-                                   real peakSlipRate[misc::numPaddedPoints],
-                                   unsigned startIndex = 0) {
+SEISSOL_HOSTDEVICE inline void
+    savePeakSlipRateOutput(const real slipRateMagnitude[misc::NumPaddedPoints],
+                           // See https://github.com/llvm/llvm-project/issues/60163
+                           // NOLINTNEXTLINE
+                           real peakSlipRate[misc::NumPaddedPoints],
+                           unsigned startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
-  for (auto index = Range::start; index < Range::end; index += Range::step) {
+  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto pointIndex{startIndex + index};
     peakSlipRate[pointIndex] = std::max(peakSlipRate[pointIndex], slipRateMagnitude[pointIndex]);
   }
 }
-
+/**
+ * update timeSinceSlipRateBelowThreshold (used in Abort Criteria)
+ *
+ * param[in] slipRateMagnitude
+ * param[in] ruptureTimePending
+ * param[in, out] timeSinceSlipRateBelowThreshold
+ * param[in] sumDt
+ */
 template <RangeType Type = RangeType::CPU>
-inline void computeFrictionEnergy(
+SEISSOL_HOSTDEVICE inline void
+    updateTimeSinceSlipRateBelowThreshold(const real slipRateMagnitude[misc::NumPaddedPoints],
+                                          const bool ruptureTimePending[misc::NumPaddedPoints],
+                                          // See https://github.com/llvm/llvm-project/issues/60163
+                                          // NOLINTNEXTLINE
+                                          DREnergyOutput& energyData,
+                                          const real sumDt,
+                                          const real slipRateThreshold,
+                                          unsigned startIndex = 0) {
+
+  using Range = typename NumPoints<Type>::Range;
+  auto* timeSinceSlipRateBelowThreshold = energyData.timeSinceSlipRateBelowThreshold;
+
+#ifndef ACL_DEVICE
+#pragma omp simd
+#endif
+  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
+    auto pointIndex{startIndex + index};
+    if (not ruptureTimePending[pointIndex]) {
+      if (slipRateMagnitude[pointIndex] < slipRateThreshold) {
+        timeSinceSlipRateBelowThreshold[pointIndex] += sumDt;
+      } else {
+        timeSinceSlipRateBelowThreshold[pointIndex] = 0;
+      }
+    } else {
+      timeSinceSlipRateBelowThreshold[pointIndex] = std::numeric_limits<real>::max();
+    }
+  }
+}
+template <RangeType Type = RangeType::CPU>
+SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     DREnergyOutput& energyData,
-    const real qInterpolatedPlus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[CONVERGENCE_ORDER][tensor::QInterpolated::size()],
+    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     const ImpedancesAndEta& impAndEta,
-    const double timeWeights[CONVERGENCE_ORDER],
-    const real spaceWeights[NUMBER_OF_SPACE_QUADRATURE_POINTS],
+    const double timeWeights[ConvergenceOrder],
+    const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],
     const DRGodunovData& godunovData,
+    const real slipRateMagnitude[misc::NumPaddedPoints],
+    const bool energiesFromAcrossFaultVelocities,
     size_t startIndex = 0) {
 
-  auto* slip = reinterpret_cast<real(*)[misc::numPaddedPoints]>(energyData.slip);
+  auto* slip = reinterpret_cast<real(*)[misc::NumPaddedPoints]>(energyData.slip);
   auto* accumulatedSlip = energyData.accumulatedSlip;
   auto* frictionalEnergy = energyData.frictionalEnergy;
   const double doubledSurfaceArea = godunovData.doubledSurfaceArea;
 
-  using QInterpolatedShapeT = const real(*)[misc::numQuantities][misc::numPaddedPoints];
-  auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
-  auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+  using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+  const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
-  const auto aPlus = impAndEta.etaP * impAndEta.invZp;
   const auto bPlus = impAndEta.etaS * impAndEta.invZs;
-
-  const auto aMinus = impAndEta.etaP * impAndEta.invZpNeig;
   const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;
 
   using Range = typename NumPoints<Type>::Range;
-  real cachedAccumulatedSlip[Range::size];
-  real cachedFrictionalEnergy[Range::size];
-  real cachedSlip[3][Range::size];
+  real cachedAccumulatedSlip[Range::Size];
+  real cachedFrictionalEnergy[Range::Size];
+  real cachedSlip[3][Range::Size];
 
-  for (auto index = Range::start; index < Range::end; index += Range::step) {
+  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto i{startIndex + index};
     cachedAccumulatedSlip[index] = accumulatedSlip[i];
     cachedFrictionalEnergy[index] = frictionalEnergy[i];
@@ -437,41 +610,49 @@ inline void computeFrictionEnergy(
   }
 
   using namespace dr::misc::quantity_indices;
-  for (size_t o = 0; o < CONVERGENCE_ORDER; ++o) {
+  for (size_t o = 0; o < ConvergenceOrder; ++o) {
     const auto timeWeight = static_cast<real>(timeWeights[o]);
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
-    for (size_t index = Range::start; index < Range::end; index += Range::step) {
+    for (size_t index = Range::Start; index < Range::End; index += Range::Step) {
       const size_t i{startIndex + index};
 
       const real interpolatedSlipRate1 = qIMinus[o][U][i] - qIPlus[o][U][i];
       const real interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];
       const real interpolatedSlipRate3 = qIMinus[o][W][i] - qIPlus[o][W][i];
 
-      const real interpolatedSlipRateMagnitude =
-          misc::magnitude(interpolatedSlipRate1, interpolatedSlipRate2, interpolatedSlipRate3);
+      if (energiesFromAcrossFaultVelocities) {
+        const real interpolatedSlipRateMagnitude =
+            misc::magnitude(interpolatedSlipRate1, interpolatedSlipRate2, interpolatedSlipRate3);
 
-      cachedAccumulatedSlip[i] += timeWeight * interpolatedSlipRateMagnitude;
+        cachedAccumulatedSlip[i] += timeWeight * interpolatedSlipRateMagnitude;
+      } else {
+        // we use slipRateMagnitude (computed from slipRate1 and slipRate2 in the friction law)
+        // instead of computing the slip rate magnitude from the differences in velocities
+        // calculated above (magnitude of the vector (slipRateMagnitudei)). The moment magnitude
+        // based on (slipRateMagnitudei) is typically non zero at the end of the earthquake
+        // (probably because it incorporates the velocity discontinuities inherent of DG methods,
+        // including the contributions of fault normal velocity discontinuity)
+        cachedAccumulatedSlip[i] += timeWeight * slipRateMagnitude[i];
+      }
 
       cachedSlip[0][i] += timeWeight * interpolatedSlipRate1;
       cachedSlip[1][i] += timeWeight * interpolatedSlipRate2;
       cachedSlip[2][i] += timeWeight * interpolatedSlipRate3;
 
-      const real interpolatedTraction11 = aPlus * qIMinus[o][XX][i] + aMinus * qIPlus[o][XX][i];
-      const real interpolatedTraction12 = bPlus * qIMinus[o][XY][i] + bMinus * qIPlus[o][XY][i];
-      const real interpolatedTraction13 = bPlus * qIMinus[o][XZ][i] + bMinus * qIPlus[o][XZ][i];
+      const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
+      const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
 
       const auto spaceWeight = spaceWeights[i];
       const auto weight = -1.0 * timeWeight * spaceWeight * doubledSurfaceArea;
-      cachedFrictionalEnergy[i] += weight * (interpolatedTraction11 * interpolatedSlipRate1 +
-                                             interpolatedTraction12 * interpolatedSlipRate2 +
+      cachedFrictionalEnergy[i] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
                                              interpolatedTraction13 * interpolatedSlipRate3);
     }
   }
 
-  for (auto index = Range::start; index < Range::end; index += Range::step) {
+  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto i{startIndex + index};
     accumulatedSlip[i] = cachedAccumulatedSlip[index];
     frictionalEnergy[i] = cachedFrictionalEnergy[index];
@@ -484,4 +665,4 @@ inline void computeFrictionEnergy(
 
 } // namespace seissol::dr::friction_law::common
 
-#endif // SEISSOL_FRICTIONSOLVER_COMMON_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_

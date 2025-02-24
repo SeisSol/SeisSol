@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+
+def pivot_if_necessary(df):
+    if "variable" in df:
+        # the format of the energy output changed following PR #773 (02.2023), allowing
+        # to compute volume energies less frequently
+        return df.pivot_table(index="time", columns="variable", values="measurement")
+    else:
+        return df
+
+
 if __name__ == "__main__":
     import argparse
     import numpy as np
@@ -21,25 +31,22 @@ if __name__ == "__main__":
         "seismic_moment",
     ]
     energy = pd.read_csv(args.energy)
-
-    if 'variable' in energy:
-        # the format of the energy output changed following PR #773 (02.2023), allowing 
-        # to compute volume energies less frequently
-        energy = energy.pivot_table(index="time", columns="variable", values="measurement")
-
+    energy = pivot_if_necessary(energy)
     energy = energy[relevant_quantities]
+
     energy_ref = pd.read_csv(args.energy_ref)
+    energy_ref = pivot_if_necessary(energy_ref)
     energy_ref = energy_ref[relevant_quantities]
     print("Energies")
-    print(energy)
+    print(energy.to_string())
     print("Energies reference")
-    print(energy_ref)
+    print(energy_ref.to_string())
     relative_difference = ((energy - energy_ref).abs() / energy_ref).iloc[1:, :]
     print("Relative difference")
-    print(relative_difference)
+    print(relative_difference.to_string())
 
-    relative_difference_smaller_eps = (
-        relative_difference.iloc[1:, :] < args.epsilon
+    relative_difference_larger_eps = (
+        relative_difference.iloc[1:, :] > args.epsilon
     ).values
-    if not np.all(relative_difference_smaller_eps):
+    if np.any(relative_difference_larger_eps):
         sys.exit(1)

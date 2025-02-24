@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _tpv6:
 
 SCEC TPV6
@@ -74,16 +82,16 @@ far-side receiver lower than those at the near-side receiver.
    :width: 12.00000cm
    :align: center
 
-   Fault slip rate at 4 seconds in the along-strike direction in TPV6. 
+   Fault slip rate at 4 seconds in the along-strike direction in TPV6.
 
 .. figure:: LatexFigures/tpv6_SRs_7s.jpg
    :alt: Fault slip rate at 7 seconds in the along-strike direction
    :width: 12.00000cm
    :align: center
 
-   Fault slip rate at 7 seconds in the along-strike direction in TPV6. 
+   Fault slip rate at 7 seconds in the along-strike direction in TPV6.
 
 .. figure:: LatexFigures/tpv6_off_velocity.png
    :alt: Particle velocity at two opposite stations across the fault (+/- 9 km normal to the fault).
-   :width: 12.00000cm 
+   :width: 12.00000cm
    :align: center

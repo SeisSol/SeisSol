@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: codehub-hlrs-sync
+
+on: 
+  push:
+    branches:
+      - 'master'
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    name: Git Repo Sync
+    if: ${{ github.repository == 'SeisSol/SeisSol' }} # disable on forks
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: wangchucheng/git-repo-sync@master
+      with:
+        target-url: 'https://codehub.hlrs.de/coes/cheese-2p/SeisSol/SeisSol.git'
+        target-username: ${{ secrets.ACCESS_TOKEN_NAME }}
+        target-token: ${{ secrets.ACCESS_TOKEN }}
+

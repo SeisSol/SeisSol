@@ -1,48 +1,20 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2016-2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef WAVE_FIELD_WRITER_EXECUTOR_H
-#define WAVE_FIELD_WRITER_EXECUTOR_H
+#ifndef SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITEREXECUTOR_H_
+#define SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITEREXECUTOR_H_
 
 #include "Parallel/MPI.h"
 
+#include <Kernels/Precision.h>
 #include <cassert>
+#include <memory>
+#include <string>
 #include <vector>
 
 #include "utils/logger.h"
@@ -53,305 +25,268 @@
 
 #include "Monitoring/Stopwatch.h"
 
-namespace seissol
-{
+#include "Equations/Datastructures.h"
+#include "Model/Plasticity.h"
 
-namespace writer
-{
+namespace seissol::writer {
 
 /** Buffer tags for asynchronous IO */
 enum BufferTags {
-	OUTPUT_PREFIX,
-	OUTPUT_FLAGS,
-	CELLS,
-	VERTICES,
-	CLUSTERING,
-	VARIABLE0,
-	LOWCELLS,
-	LOWVERTICES,
-	LOW_OUTPUT_FLAGS,
-	LOWVARIABLE0,
-	BUFFERTAG_MAX = LOWVARIABLE0
+  OutputPrefix = 0,
+  OutputFlags = 1,
+  Cells = 2,
+  Vertices = 3,
+  Clustering = 4,
+  Variables0 = 5,
+  LowCells = 6,
+  LowVertices = 7,
+  LowOutputFlags = 8,
+  LowVariables0 = 9,
+  BuffertagMax = LowVariables0
 };
 
-struct WaveFieldInitParam
-{
-	int timestep;
-
-	int bufferIds[BUFFERTAG_MAX+1];
+struct WaveFieldInitParam {
+  int timestep;
+  int bufferIds[BuffertagMax + 1];
   xdmfwriter::BackendType backend;
+  std::string backupTimeStamp;
 };
 
-struct WaveFieldParam
-{
-	double time;
+struct WaveFieldParam {
+  double time;
 };
 
-class WaveFieldWriterExecutor
-{
-private:
-	/** The XMDF Writer used for the wave field */
-	xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* m_waveFieldWriter;
+class WaveFieldWriterExecutor {
+  private:
+  /** The XMDF Writer used for the wave field */
+  xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* m_waveFieldWriter{nullptr};
 
-	/** The XDMF Writer for low order data */
-	xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* m_lowWaveFieldWriter;
+  /** The XDMF Writer for low order data */
+  xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* m_lowWaveFieldWriter{nullptr};
 
-	/** Buffer id for the first variable for high and low order output */
-	unsigned int m_variableBufferIds[2];
+  /** Buffer id for the first variable for high and low order output */
+  unsigned int m_variableBufferIds[2];
 
-	/** The total number of (high order) variables */
-	unsigned int m_numVariables;
+  /** The total number of (high order) variables */
+  unsigned int m_numVariables{0};
 
-	/** Flag indicated which variables should be written */
-	const bool* m_outputFlags;
+  /** Flag indicated which variables should be written */
+  const bool* m_outputFlags{nullptr};
 
-	/** Flags indicating which low order variables should be written */
-	const bool* m_lowOutputFlags;
+  /** Flags indicating which low order variables should be written */
+  const bool* m_lowOutputFlags{nullptr};
 
 #ifdef USE_MPI
-	/** The MPI communicator for the XDMF writer */
-	MPI_Comm m_comm;
+  /** The MPI communicator for the XDMF writer */
+  MPI_Comm m_comm{MPI_COMM_NULL};
 #endif // USE_MPI
 
-	/** Stopwatch for the wave field backend */
-	Stopwatch m_stopwatch;
+  /** Stopwatch for the wave field backend */
+  Stopwatch m_stopwatch;
 
-public:
-	WaveFieldWriterExecutor()
-		: m_waveFieldWriter(0L),
-		  m_lowWaveFieldWriter(0L),
-		  m_numVariables(0),
-		  m_outputFlags(0L),
-		  m_lowOutputFlags(0L)
-#ifdef USE_MPI
-		  , m_comm(MPI_COMM_NULL)
-#endif // USE_MPI
-	{ }
+  std::shared_ptr<std::vector<std::string>> varNames;
+  std::shared_ptr<std::vector<std::string>> varNamesLowRes;
 
-	/**
-	 * Initialize the XDMF writers
-	 */
-	void execInit(const async::ExecInfo &info, const WaveFieldInitParam &param)
-	{
-		if (m_waveFieldWriter != 0L)
-			logError() << "Wave field writer already initialized";
+  public:
+  WaveFieldWriterExecutor() = default;
 
-		int rank = seissol::MPI::mpi.rank();
+  /**
+   * Initialize the XDMF writers
+   */
+  void execInit(const async::ExecInfo& info, const WaveFieldInitParam& param) {
+    if (m_waveFieldWriter != nullptr) {
+      logError() << "Wave field writer already initialized";
+    }
 
-		xdmfwriter::BackendType type = param.backend;
+    int rank = seissol::MPI::mpi.rank();
 
-		const char* outputPrefix = static_cast<const char*>(info.buffer(param.bufferIds[OUTPUT_PREFIX]));
+    const xdmfwriter::BackendType type = param.backend;
 
-		//
-		// High order I/O
-		//
-		m_numVariables = info.bufferSize(param.bufferIds[OUTPUT_FLAGS]) / sizeof(bool);
-		m_outputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[OUTPUT_FLAGS]));
+    const char* outputPrefix = static_cast<const char*>(info.buffer(param.bufferIds[OutputPrefix]));
 
+    //
+    // High order I/O
+    //
+    m_numVariables = info.bufferSize(param.bufferIds[OutputFlags]) / sizeof(bool);
+    m_outputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[OutputFlags]));
 
-		const char* varNames[20] = {
-			"sigma_xx",
-			"sigma_yy",
-			"sigma_zz",
-			"sigma_xy",
-			"sigma_yz",
-			"sigma_xz",
-			"u",
-			"v",
-			"w",
+    varNames = std::make_shared<std::vector<std::string>>();
+    varNamesLowRes = std::make_shared<std::vector<std::string>>();
+    for (const auto& quantity : seissol::model::MaterialT::Quantities) {
+      varNames->emplace_back(quantity);
+      varNamesLowRes->emplace_back("low_" + quantity);
+    }
+    for (const auto& quantity : seissol::model::PlasticityData::Quantities) {
+      varNames->emplace_back(quantity);
+      varNamesLowRes->emplace_back("low_" + quantity);
+    }
+
+    std::vector<const char*> variables;
+    for (unsigned int i = 0; i < m_numVariables; i++) {
+      if (m_outputFlags[i]) {
 #ifdef USE_POROELASTIC
-			"p",
-			"u_f",
-			"v_f",
-			"w_f",
-#endif
-			"ep_xx",
-			"ep_yy",
-			"ep_zz",
-			"ep_xy",
-			"ep_yz",
-			"ep_xz",
-			"eta"
-		};
-
-		std::vector<const char*> variables;
-		for (unsigned int i = 0; i < m_numVariables; i++) {
-			if (m_outputFlags[i]) {
-#ifdef USE_POROELASTIC
-				assert(i < 20);
+        assert(i < 20);
 #else
-				assert(i < 16);
+        assert(i < 16);
 #endif
-				variables.push_back(varNames[i]);
+        variables.push_back(varNames->at(i).c_str());
       }
-		}
+    }
 
 #ifdef USE_MPI
-	// Split the communicator into two - those containing vertices and those
-	//  not containing any vertices.
-	int commColour = (info.bufferSize(param.bufferIds[CELLS]) == 0)?0:1;
-	MPI_Comm_split(seissol::MPI::mpi.comm(), commColour, rank, &m_comm);
-	// Start the if statement
-	if (info.bufferSize(param.bufferIds[CELLS]) != 0) {
-		// Get the new rank
-		MPI_Comm_rank(m_comm, &rank);
+    // Split the communicator into two - those containing vertices and those
+    //  not containing any vertices.
+    const int commColour = (info.bufferSize(param.bufferIds[Cells]) == 0) ? 0 : 1;
+    MPI_Comm_split(seissol::MPI::mpi.comm(), commColour, rank, &m_comm);
+    // Start the if statement
+    if (info.bufferSize(param.bufferIds[Cells]) != 0) {
+      // Get the new rank
+      MPI_Comm_rank(m_comm, &rank);
 #endif // USE_MPI
 
-		// Initialize the I/O handler and write the mesh
-		m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>(
-			type, outputPrefix, param.timestep);
+      // Initialize the I/O handler and write the mesh
+      m_waveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>(
+          type, outputPrefix, param.timestep);
 
 #ifdef USE_MPI
-		m_waveFieldWriter->setComm(m_comm);
+      m_waveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
+      m_waveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
+      const std::string extraIntVarName = "clustering";
+      const auto vertexFilter = utils::Env::get<bool>("SEISSOL_VERTEXFILTER", true);
+      m_waveFieldWriter->init(
+          variables, std::vector<const char*>(), extraIntVarName.c_str(), vertexFilter, true);
+      m_waveFieldWriter->setMesh(
+          info.bufferSize(param.bufferIds[Cells]) / (4 * sizeof(unsigned int)),
+          static_cast<const unsigned int*>(info.buffer(param.bufferIds[Cells])),
+          info.bufferSize(param.bufferIds[Vertices]) / (3 * sizeof(double)),
+          static_cast<const double*>(info.buffer(param.bufferIds[Vertices])),
+          param.timestep != 0);
 
-		m_waveFieldWriter->init(variables, std::vector<const char*>(), true, true, true);
-		m_waveFieldWriter->setMesh(
-			info.bufferSize(param.bufferIds[CELLS]) / (4*sizeof(unsigned int)),
-			static_cast<const unsigned int*>(info.buffer(param.bufferIds[CELLS])),
-			info.bufferSize(param.bufferIds[VERTICES]) / (3*sizeof(double)),
-			static_cast<const double*>(info.buffer(param.bufferIds[VERTICES])),
-			param.timestep != 0);
+      setClusteringData(static_cast<const unsigned int*>(info.buffer(param.bufferIds[Clustering])));
+      logInfo() << "High order output initialized";
 
-		setClusteringData(static_cast<const unsigned int*>(info.buffer(param.bufferIds[CLUSTERING])));
-		logInfo(rank) << "High order output initialized";
+      //
+      // Low order I/O
+      //
+      if (param.bufferIds[LowCells] >= 0) {
+        // Pstrain or Integrated quantities enabled
+        m_lowOutputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[LowOutputFlags]));
 
-		//
-		// Low order I/O
-		//
-		if (param.bufferIds[LOWCELLS] >= 0) {
-			// Pstrain or Integrated quantities enabled
-			m_lowOutputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[LOW_OUTPUT_FLAGS]));
-			// Variables
-			std::vector<const char*> lowVariables;
-			const char* lowVarNames[NUM_LOWVARIABLES] = {
-				"int_sigma_xx",
-				"int_sigma_yy",
-				"int_sigma_zz",
-				"int_sigma_xy",
-				"int_sigma_yz",
-				"int_sigma_xz",
-				"displacement_x",
-				"displacement_y",
-				"displacement_z"
-			};
+        std::vector<const char*> lowVariables;
+        for (size_t i = 0; i < NumLowvariables; i++) {
+          if (m_lowOutputFlags[i]) {
+            lowVariables.push_back(varNamesLowRes->at(i).c_str());
+          }
+        }
 
-			for (size_t i = 0; i < NUM_LOWVARIABLES; i++) {
-				if (m_lowOutputFlags[i]) {
-					lowVariables.push_back(lowVarNames[i]);
-				}
-			}
-
-			m_lowWaveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>(
-				type, (std::string(outputPrefix)+"-low").c_str());
+        m_lowWaveFieldWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>(
+            type, (std::string(outputPrefix) + "-low").c_str());
 
 #ifdef USE_MPI
-		m_lowWaveFieldWriter->setComm(m_comm);
+        m_lowWaveFieldWriter->setComm(m_comm);
 #endif // USE_MPI
+        m_lowWaveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
 
-			m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>());
-			m_lowWaveFieldWriter->setMesh(
-				info.bufferSize(param.bufferIds[LOWCELLS]) / (4*sizeof(unsigned int)),
-				static_cast<const unsigned int*>(info.buffer(param.bufferIds[LOWCELLS])),
-				info.bufferSize(param.bufferIds[LOWVERTICES]) / (3*sizeof(double)),
-				static_cast<const double*>(info.buffer(param.bufferIds[LOWVERTICES])),
-				param.timestep != 0);
+        m_lowWaveFieldWriter->init(lowVariables, std::vector<const char*>(), "", vertexFilter);
+        m_lowWaveFieldWriter->setMesh(
+            info.bufferSize(param.bufferIds[LowCells]) / (4 * sizeof(unsigned int)),
+            static_cast<const unsigned int*>(info.buffer(param.bufferIds[LowCells])),
+            info.bufferSize(param.bufferIds[LowVertices]) / (3 * sizeof(double)),
+            static_cast<const double*>(info.buffer(param.bufferIds[LowVertices])),
+            param.timestep != 0);
 
-			logInfo(rank) << "Low order output initialized";
-		}
+        logInfo() << "Low order output initialized";
+      }
 
-		// Save ids for the variables
-		m_variableBufferIds[0] = param.bufferIds[VARIABLE0];
-		m_variableBufferIds[1] = param.bufferIds[LOWVARIABLE0];
+      // Save ids for the variables
+      m_variableBufferIds[0] = param.bufferIds[Variables0];
+      m_variableBufferIds[1] = param.bufferIds[LowVariables0];
 
-		logInfo(rank) << "Initializing XDMF wave field output. Done.";
+      logInfo() << "Initializing XDMF wave field output. Done.";
 #ifdef USE_MPI
-	}
-	// End the if statement
+    }
+    // End the if statement
 #endif // USE_MPI
-	}
+  }
 
-	void setClusteringData(const unsigned *Clustering) {
-	  m_waveFieldWriter->writeClusteringInfo(Clustering);
-	}
+  void setClusteringData(const unsigned* clustering) {
+    m_waveFieldWriter->writeExtraIntCellData(clustering);
+  }
 
-	void exec(const async::ExecInfo &info, const WaveFieldParam &param)
-	{
+  void exec(const async::ExecInfo& info, const WaveFieldParam& param) {
 #ifdef USE_MPI
-	// Execute this function only if m_waveFieldWriter is initialized
-		if (m_waveFieldWriter != 0L) {
+    // Execute this function only if m_waveFieldWriter is initialized
+    if (m_waveFieldWriter != nullptr) {
 #endif // USE_MPI
-		m_stopwatch.start();
+      m_stopwatch.start();
 
-		// High order output
-		m_waveFieldWriter->addTimeStep(param.time);
+      // High order output
+      m_waveFieldWriter->addTimeStep(param.time);
 
-		unsigned int nextId = 0;
-		for (unsigned int i = 0; i < m_numVariables; i++) {
-			if (m_outputFlags[i]) {
-				m_waveFieldWriter->writeCellData(nextId,
-					static_cast<const real*>(info.buffer(m_variableBufferIds[0]+nextId)));
+      unsigned int nextId = 0;
+      for (unsigned int i = 0; i < m_numVariables; i++) {
+        if (m_outputFlags[i]) {
+          m_waveFieldWriter->writeCellData(
+              nextId, static_cast<const real*>(info.buffer(m_variableBufferIds[0] + nextId)));
 
-				nextId++;
-			}
-		}
+          nextId++;
+        }
+      }
 
-		m_waveFieldWriter->flush();
+      m_waveFieldWriter->flush();
 
-		// Low order output
-		if (m_lowWaveFieldWriter) {
-			m_lowWaveFieldWriter->addTimeStep(param.time);
+      // Low order output
+      if (m_lowWaveFieldWriter != nullptr) {
+        m_lowWaveFieldWriter->addTimeStep(param.time);
 
-		nextId = 0;
-		for (unsigned int i = 0; i < NUM_LOWVARIABLES; i++) {
-			if (m_lowOutputFlags[i]) {
-				m_lowWaveFieldWriter->writeCellData(nextId,
-					static_cast<const real*>(info.buffer(m_variableBufferIds[1]+nextId)));
+        nextId = 0;
+        for (unsigned int i = 0; i < NumLowvariables; i++) {
+          if (m_lowOutputFlags[i]) {
+            m_lowWaveFieldWriter->writeCellData(
+                nextId, static_cast<const real*>(info.buffer(m_variableBufferIds[1] + nextId)));
 
-			nextId++;
-			}
-		}
+            nextId++;
+          }
+        }
 
-			m_lowWaveFieldWriter->flush();
-		}
+        m_lowWaveFieldWriter->flush();
+      }
 
-		m_stopwatch.pause();
+      m_stopwatch.pause();
 #ifdef USE_MPI
-		}
+    }
 #endif // USE_MPI
-	}
+  }
 
-	void finalize()
-	{
-		if (m_waveFieldWriter) {
-			m_stopwatch.printTime("Time wave field writer backend:"
+  void finalize() {
+    if (m_waveFieldWriter != nullptr) {
+      m_stopwatch.printTime("Time wave field writer backend:"
 #ifdef USE_MPI
-				, m_comm
+                            ,
+                            m_comm
 #endif // USE_MPI
-			);
-		}
+      );
+    }
 
 #ifdef USE_MPI
-		if (m_comm != MPI_COMM_NULL) {
-			MPI_Comm_free(&m_comm);
-			m_comm = MPI_COMM_NULL;
-		}
+    if (m_comm != MPI_COMM_NULL) {
+      MPI_Comm_free(&m_comm);
+      m_comm = MPI_COMM_NULL;
+    }
 #endif // USE_MPI
 
-		delete m_waveFieldWriter;
-		m_waveFieldWriter = 0L;
-		delete m_lowWaveFieldWriter;
-		m_lowWaveFieldWriter = 0L;
-	}
+    delete m_waveFieldWriter;
+    m_waveFieldWriter = nullptr;
+    delete m_lowWaveFieldWriter;
+    m_lowWaveFieldWriter = nullptr;
+  }
 
-public:
-	static const unsigned int NUM_PLASTICITY_VARIABLES = 7;
-	static const unsigned int NUM_INTEGRATED_VARIABLES = 9;
-	static const unsigned int NUM_LOWVARIABLES = NUM_INTEGRATED_VARIABLES;
+  static constexpr unsigned int NumPlasticityVariables = 7;
+  static constexpr unsigned int NumIntegratedVariables = 9;
+  static constexpr unsigned int NumLowvariables = NumIntegratedVariables;
 };
 
-}
+} // namespace seissol::writer
 
-}
-
-#endif // WAVE_FIELD_WRITER_EXECUTOR_H
+#endif // SEISSOL_SRC_RESULTWRITER_WAVEFIELDWRITEREXECUTOR_H_

@@ -1,14 +1,35 @@
-#include "Common/filesystem.h"
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "OutputAux.h"
+#include "Common/Constants.h"
+#include "DynamicRupture/Output/DataTypes.h"
+#include "DynamicRupture/Output/Geometry.h"
+#include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
-#include "Numerical_aux/BasisFunction.h"
-#include "Numerical_aux/Quadrature.h"
-#include "Numerical_aux/Transformation.h"
-#include "OutputAux.hpp"
+#include "Kernels/Precision.h"
+#include "Numerical/BasisFunction.h"
+#include "Numerical/Transformation.h"
 #include <Eigen/Dense>
-#include <ctime>
-#include <iomanip>
+#include <cstddef>
+#include <init.h>
 #include <limits>
-#include <unordered_map>
+#include <tuple>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
+
+namespace {
+double distance(const double v1[2], const double v2[2]) {
+  const Eigen::Vector2d vector1(v1[0], v1[1]);
+  const Eigen::Vector2d vector2(v2[0], v2[1]);
+  return (vector1 - vector2).norm();
+}
+} // namespace
 
 namespace seissol::dr {
 
@@ -85,19 +106,14 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   // Generate triangle quadrature points and weights (Factory Method)
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
-  auto* reshapedPoints = unsafe_reshape<2>(&data.points[0]);
-  for (size_t i = 0; i < data.size; ++i) {
+  auto* reshapedPoints = unsafe_reshape<2>(data.points.data());
+  for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
     reshapedPoints[i][0] = pointsView(i, 0);
     reshapedPoints[i][1] = pointsView(i, 1);
     data.weights[i] = weightsView(i);
   }
 
   return data;
-}
-
-double distance(const double v1[2], const double v2[2]) {
-  Eigen::Vector2d vector1(v1[0], v1[1]), vector2(v2[0], v2[1]);
-  return (vector1 - vector2).norm();
 }
 
 std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
@@ -120,8 +136,8 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 }
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
-  auto quadratureData = generateTriangleQuadrature(CONVERGENCE_ORDER + 1);
-  double(*trianglePoints2D)[2] = unsafe_reshape<2>(&quadratureData.points[0]);
+  auto quadratureData = generateTriangleQuadrature(ConvergenceOrder + 1);
+  double(*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
   for (auto& geoPoint : geoPoints) {
 
@@ -131,14 +147,14 @@ void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
 
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
-    std::tie(nearestPoint, shortestDistance) =
-        getNearestFacePoint(targetPoint2D, trianglePoints2D, quadratureData.size);
+    std::tie(nearestPoint, shortestDistance) = getNearestFacePoint(
+        targetPoint2D, trianglePoints2D, seissol::dr::TriangleQuadratureData::Size);
     geoPoint.nearestGpIndex = nearestPoint;
   }
 }
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly) {
-  int i1 = int((nearestGpIndex - 1) / (nPoly + 2)) + 1;
+  int i1 = ((nearestGpIndex - 1) / (nPoly + 2)) + 1;
   int j1 = (nearestGpIndex - 1) % (nPoly + 2) + 1;
   if (i1 == 1) {
     i1 = i1 + 1;
@@ -187,8 +203,8 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
   auto getBasisFunctions = [&point](const VrtxCoords* elementCoords[4]) {
     auto referenceCoords = transformations::tetrahedronGlobalToReference(
         *elementCoords[0], *elementCoords[1], *elementCoords[2], *elementCoords[3], point);
-    basisFunction::SampledBasisFunctions<real> sampler(
-        CONVERGENCE_ORDER, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
+    const basisFunction::SampledBasisFunctions<real> sampler(
+        ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
     return sampler.m_data;
   };
 
@@ -227,6 +243,14 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints&
   }
   return cells;
 }
+std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints) {
+  std::vector<unsigned int> faultTags(receiverPoints.size());
+
+  for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+    faultTags[pointIndex] = receiverPoints[pointIndex].faultTag;
+  }
+  return faultTags;
+}
 
 real computeTriangleArea(ExtTriangle& triangle) {
   const auto p0 = triangle.point(0).getAsEigen3LibVector();
@@ -239,29 +263,3 @@ real computeTriangleArea(ExtTriangle& triangle) {
   return 0.5 * normal.norm();
 }
 } // namespace seissol::dr
-
-namespace seissol::dr::filesystem_aux {
-std::string getTimeStamp() {
-  std::time_t time = std::time(nullptr);
-  std::tm tm = *std::localtime(&time);
-
-  std::stringstream timeStamp;
-  timeStamp << std::put_time(&tm, "%F_%T");
-  return timeStamp.str();
-}
-
-void generateBackupFileIfNecessary(std::string fileName, std::string fileExtension) {
-  std::stringstream fullName;
-  fullName << fileName << '.' << fileExtension;
-  seissol::filesystem::path path(fullName.str());
-  seissol::filesystem::directory_entry entry(path);
-
-  if (seissol::directoryExists(entry)) {
-    auto stamp = getTimeStamp();
-    std::stringstream backupFileName;
-    backupFileName << fileName << ".bak_" << stamp << '.' << fileExtension;
-    seissol::filesystem::path copyPath(backupFileName.str());
-    seissol::filesystem::rename(path, copyPath);
-  }
-}
-} // namespace seissol::dr::filesystem_aux
