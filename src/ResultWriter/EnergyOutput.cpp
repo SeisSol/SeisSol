@@ -101,7 +101,7 @@ void EnergyOutput::init(
     return;
   }
   const auto rank = MPI::mpi.rank();
-  logInfo(rank) << "Initializing energy output.";
+  logInfo() << "Initializing energy output.";
 
   energyOutputInterval = parameters.interval;
   isFileOutputEnabled = rank == 0;
@@ -147,7 +147,7 @@ void EnergyOutput::init(
 void EnergyOutput::syncPoint(double time) {
   assert(isEnabled);
   const auto rank = MPI::mpi.rank();
-  logInfo(rank) << "Writing energy output at time" << time;
+  logInfo() << "Writing energy output at time" << time;
   computeEnergies();
   reduceEnergies();
   if (isCheckAbortCriteraSlipRateEnabled) {
@@ -179,7 +179,7 @@ void EnergyOutput::syncPoint(double time) {
     writeEnergies(time);
   }
   ++outputId;
-  logInfo(rank) << "Writing energy output at time" << time << "Done.";
+  logInfo() << "Writing energy output at time" << time << "Done.";
 }
 
 void EnergyOutput::simulationStart() {
@@ -651,56 +651,55 @@ void EnergyOutput::printEnergies() {
     const auto totalMomentumZ = energiesStorage.totalMomentumZ(sim);
     if (shouldComputeVolumeEnergies()) {
       if (shouldPrint(totalElasticEnergy)) {
-        logInfo(rank) << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                      << " Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
-                      << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
+        logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                  << " Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
+                  << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
       }
       if (shouldPrint(totalAcousticEnergy)) {
-        logInfo(rank) << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                      << " Acoustic energy (total, % kinematic, % potential): "
-                      << totalAcousticEnergy << " ," << ratioAcousticKinematic << " ,"
-                      << ratioAcousticPotential;
+        logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                  << " Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
+                  << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
       }
       if (shouldPrint(energiesStorage.gravitationalEnergy(sim))) {
-        logInfo(rank) << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                      << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
+        logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                  << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
       }
       if (shouldPrint(energiesStorage.plasticMoment(sim))) {
-        logInfo(rank) << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                      << " Plastic moment (value, equivalent Mw, % total moment):"
-                      << energiesStorage.plasticMoment(sim) << " ,"
-                      << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(sim)) - 6.07 << " ,"
-                      << ratioPlasticMoment;
+        logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                  << " Plastic moment (value, equivalent Mw, % total moment):"
+                  << energiesStorage.plasticMoment(sim) << " ,"
+                  << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(sim)) - 6.07 << " ,"
+                  << ratioPlasticMoment;
       }
     } else {
-      logInfo(rank) << "Volume energies skipped at this step";
+      logInfo() << "Volume energies skipped at this step";
     }
     if (shouldPrint(totalAcousticEnergy)) {
-      logInfo(rank) << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                    << " Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
-                    << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
+      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                << " Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
+                << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
     }
     if (shouldPrint(energiesStorage.gravitationalEnergy(sim))) {
-      logInfo(rank) << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                    << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
+      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
     }
     if (shouldPrint(energiesStorage.plasticMoment(sim))) {
-      logInfo(rank) << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                    << " Plastic moment (value, equivalent Mw, % total moment):"
-                    << energiesStorage.plasticMoment(sim) << " ,"
-                    << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(sim)) - 6.07 << " ,"
-                    << ratioPlasticMoment;
+      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                << " Plastic moment (value, equivalent Mw, % total moment):"
+                << energiesStorage.plasticMoment(sim) << " ,"
+                << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(sim)) - 6.07 << " ,"
+                << ratioPlasticMoment;
     }
-    logInfo(rank) << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                  << " Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY
-                  << " ," << totalMomentumZ;
+    logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+              << " Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY << " ,"
+              << totalMomentumZ;
     if (shouldPrint(totalFrictionalWork)) {
-      logInfo(rank) << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                    << " Frictional work (total, % static, % radiated): " << totalFrictionalWork
-                    << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
-      logInfo(rank) << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                    << " Seismic moment (without plasticity):" << energiesStorage.seismicMoment(sim)
-                    << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment(sim)) - 6.07;
+      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                << " Frictional work (total, % static, % radiated): " << totalFrictionalWork << " ,"
+                << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
+      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                << " Seismic moment (without plasticity):" << energiesStorage.seismicMoment(sim)
+                << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment(sim)) - 6.07;
     }
     if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
       logError() << fusedPrefix << " Detected Inf/NaN in energies. Aborting.";
@@ -712,22 +711,18 @@ void EnergyOutput::checkAbortCriterion(const real (&timeSinceThreshold)[multisim
                                        const std::string& prefixMessage) {
   const auto rank = MPI::mpi.rank();
   bool abort = true;
-  if (rank == 0) {
-    for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-      if ((timeSinceThreshold[sim] > 0) and
-          (timeSinceThreshold[sim] < std::numeric_limits<real>::max())) {
-        if (static_cast<double>(timeSinceThreshold[sim]) < terminatorMaxTimePostRupture) {
-          logInfo(rank) << prefixMessage.c_str() << "below threshold since"
-                        << timeSinceThreshold[sim] << "in simulation: " << sim
-                        << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture
-                        << "s)";
-          abort = false;
-        } else {
-          logInfo(rank) << prefixMessage.c_str() << "below threshold since"
-                        << timeSinceThreshold[sim] << "in simulation: " << sim
-                        << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture
-                        << "s)";
-        }
+  for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
+    if ((timeSinceThreshold[sim] > 0) and
+        (timeSinceThreshold[sim] < std::numeric_limits<real>::max())) {
+      if (static_cast<double>(timeSinceThreshold[sim]) < terminatorMaxTimePostRupture) {
+        logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
+                  << "in simulation: " << sim
+                  << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
+        abort = false;
+      } else {
+        logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
+                  << "in simulation: " << sim
+                  << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
       }
     }
   }

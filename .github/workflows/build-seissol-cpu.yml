@@ -9,6 +9,9 @@ name: build-seissol-cpu
 on:
   - push
 
+env:
+  precomputed-hash: 25f4852ff78ce5804304aa8015488c523df2eb06
+
 jobs:
   seissol-build-test:
     name: seissol-build-test
@@ -87,7 +90,7 @@ jobs:
             TESTING_COMMAND="";
           fi;
 
-          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
+          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DASAGI=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
           ninja install
           if [ "${{ matrix.equation }}" = elastic ]; then
           cd ..
@@ -124,7 +127,7 @@ jobs:
           RETVAL_PROXY=$?
           set -e
 
-          if [ $RETVAL_EXE -ne 134 ]; then
+          if [ $RETVAL_EXE -ne 133 ]; then
             echo "Unexpected exit code for SeisSol: ${RETVAL_EXE}"
             exit 1
           fi
@@ -161,11 +164,11 @@ jobs:
 
   seissol-run-test:
     name: seissol-run-test
-    runs-on: sccs-ci-zen2
+    runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
-    if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
+    if: ${{ github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
     strategy:
       fail-fast: false
       matrix:
@@ -302,7 +305,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: seissol/precomputed-seissol
-          ref: be764d550211b997819c85bb898f6eb6007d3418
+          ref: ${{env.precomputed-hash}}
           path: precomputed
       - name: get-seissol
         uses: actions/download-artifact@v4

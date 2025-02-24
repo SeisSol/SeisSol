@@ -27,6 +27,8 @@
 #include "Kernels/Common.h"
 #include "Kernels/Touch.h"
 
+#include <DynamicRupture/Misc.h>
+
 #include "Common/Iterator.h"
 
 #include "generated_code/tensor.h"
@@ -42,29 +44,7 @@ void seissol::initializer::MemoryManager::initialize()
   // initialize global matrices
   GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, memory::Standard);
   if constexpr (seissol::isDeviceOn()) {
-    // the serial order for initialization is needed for some (older) driver versions on some GPUs
-    bool serialize = false;
-    const char* envvalue = std::getenv("SEISSOL_SERIAL_NODE_DEVICE_INIT");
-    if (envvalue != nullptr) {
-      if (strcmp(envvalue, "1") == 0) {
-        serialize = true;
-      }
-      else if (strcmp(envvalue, "0") == 0) {
-        serialize = false;
-      }
-      else {
-        logError() << "Invalid value for \"SEISSOL_SERIAL_NODE_DEVICE_INIT\"";
-      }
-    }
-    if (serialize) {
-      logInfo(MPI::mpi.rank()) << "Initializing device global data on a node in serial order.";
-      MPI::mpi.serialOrderExecute([&]() {
-        GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
-      }, MPI::mpi.sharedMemComm());
-    }
-    else {
-      GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
-    }
+    GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
   }
 }
 
@@ -877,10 +857,13 @@ bool seissol::initializer::requiresNodalFlux(FaceType f) {
 }
 
 void seissol::initializer::MemoryManager::initializeFrictionLaw() {
-  const int rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "Initialize Friction Model";
+  const auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters);
+  logInfo() << "Initialize Friction Model";
 
-  auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters);
+  logInfo() << "Friction law:" << dr::misc::frictionLawName(drParameters->frictionLawType).c_str()
+    << "(" << static_cast<int>(drParameters->frictionLawType) << ")";
+  logInfo() << "Thermal pressurization:" << (drParameters->isThermalPressureOn ? "on" : "off");
+
   const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance);
   auto product = factory->produce();
   m_dynRup = std::move(product.ltsTree);
@@ -913,14 +896,10 @@ void seissol::initializer::MemoryManager::initFrictionData() {
 
 #ifdef ACL_DEVICE
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
-      impl->initSyclQueue();
 
-      LayerMask mask = seissol::initializer::LayerMask(Ghost);
-      auto maxSize = m_dynRupTree.getMaxClusterSize(mask);
-      impl->setMaxClusterSize(maxSize);
+      const auto mask = seissol::initializer::LayerMask(Ghost);
 
       impl->allocateAuxiliaryMemory();
-      impl->copyStaticDataToDevice();
     }
 #endif // ACL_DEVICE
   }
@@ -929,10 +908,10 @@ void seissol::initializer::MemoryManager::initFrictionData() {
 void seissol::initializer::MemoryManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
 #ifdef ACL_DEVICE
   if (place == seissol::initializer::AllocationPlace::Device) {
-    logInfo(MPI::mpi.rank()) << "Synchronizing data... (host->device)";
+    logInfo() << "Synchronizing data... (host->device)";
   }
   else {
-    logInfo(MPI::mpi.rank()) << "Synchronizing data... (device->host)";
+    logInfo() << "Synchronizing data... (device->host)";
   }
   const auto& defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
   m_ltsTree.synchronizeTo(place, defaultStream);

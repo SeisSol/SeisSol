@@ -55,7 +55,7 @@ struct PointSources {
   seissol::memory::MemkindArray<real> A;
 
   /// elasticity tensor
-  seissol::memory::MemkindArray<std::array<real, 81>> stiffnessTensor;
+  seissol::memory::MemkindArray<seissol::memory::AlignedArray<real, 81>> stiffnessTensor;
 
   /// onset time
   seissol::memory::MemkindArray<double> onsetTime;

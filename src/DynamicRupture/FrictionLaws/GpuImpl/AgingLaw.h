@@ -18,27 +18,16 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
   using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
   using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
 
-  void updateStateVariable(double timeIncrement) {
-    auto* devSl0{this->sl0};
-    auto* devStateVarReference{this->initialVariables.stateVarReference};
-    auto* devLocalSlipRate{this->initialVariables.localSlipRate};
-    auto* devStateVariableBuffer{this->stateVariableBuffer};
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
+    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
+    const double localSlipRate = ctx.initialVariables.localSlipRate;
+    const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
+    const double exp1 = std::exp(preexp1);
+    const double exp1m = -std::expm1(preexp1);
 
-    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
-
-        const double localSl0 = devSl0[ltsFace][pointIndex];
-        const double localSlipRate = devLocalSlipRate[ltsFace][pointIndex];
-        const double exp1 = sycl::exp(-localSlipRate * (timeIncrement / localSl0));
-
-        const double stateVarReference = devStateVarReference[ltsFace][pointIndex];
-        devStateVariableBuffer[ltsFace][pointIndex] =
-            static_cast<real>(stateVarReference * exp1 + localSl0 / localSlipRate * (1.0 - exp1));
-      });
-    });
+    const double stateVarReference = ctx.initialVariables.stateVarReference;
+    ctx.stateVariableBuffer =
+        static_cast<real>(stateVarReference * exp1 + localSl0 / localSlipRate * exp1m);
   }
 };
 

@@ -164,7 +164,7 @@ class WaveFieldWriterExecutor {
           param.timestep != 0);
 
       setClusteringData(static_cast<const unsigned int*>(info.buffer(param.bufferIds[Clustering])));
-      logInfo(rank) << "High order output initialized";
+      logInfo() << "High order output initialized";
 
       //
       // Low order I/O
@@ -196,14 +196,14 @@ class WaveFieldWriterExecutor {
             static_cast<const double*>(info.buffer(param.bufferIds[LowVertices])),
             param.timestep != 0);
 
-        logInfo(rank) << "Low order output initialized";
+        logInfo() << "Low order output initialized";
       }
 
       // Save ids for the variables
       m_variableBufferIds[0] = param.bufferIds[Variables0];
       m_variableBufferIds[1] = param.bufferIds[LowVariables0];
 
-      logInfo(rank) << "Initializing XDMF wave field output. Done.";
+      logInfo() << "Initializing XDMF wave field output. Done.";
 #ifdef USE_MPI
     }
     // End the if statement

@@ -8,9 +8,11 @@
 #ifndef SEISSOL_SRC_NUMERICAL_DELTAPULSE_H_
 #define SEISSOL_SRC_NUMERICAL_DELTAPULSE_H_
 
+#include "Common/Marker.h"
+
 namespace seissol::deltaPulse {
 
-inline real deltaPulse(real time, real timeStep) {
+SEISSOL_HOSTDEVICE inline real deltaPulse(real time, real timeStep) {
 
   if (time > 0 && time <= timeStep) {
     return (1 / timeStep);

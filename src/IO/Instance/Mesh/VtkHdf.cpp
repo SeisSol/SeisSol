@@ -145,7 +145,7 @@ void VtkHdfWriter::addHook(const std::function<void(std::size_t, double)>& hook)
 }
 
 std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWriter::makeWriter() {
-  logInfo(seissol::MPI::mpi.rank()) << "Adding VTK writer" << name << "of order" << targetDegree;
+  logInfo() << "Adding VTK writer" << name << "of order" << targetDegree;
   auto self = *this;
   return [self](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
     for (const auto& hook : self.hooks) {

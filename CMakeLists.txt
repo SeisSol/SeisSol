@@ -47,6 +47,9 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Cray|CrayClang")
   message(WARNING "The communication thread is not supported for the Cray compiler. Make sure to set `SEISSOL_COMMTHREAD=0` when running SeisSol in multi-node setups.")
 endif()
 
+# find Python early
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 # set hardware specific definition needed for seissol compilation
 # 'process_users_input' returns the following:
 #
@@ -157,6 +160,7 @@ add_custom_command(
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
      "--host_arch" ${HOST_ARCH_STR}
+     "--device_codegen" ${DEVICE_CODEGEN}
      "--device_arch" ${DEVICE_ARCH_STR}
      "--device_backend" ${DEVICE_BACKEND}
      "--order" ${ORDER}
@@ -185,6 +189,8 @@ add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
 add_library(seissol-common-properties INTERFACE IMPORTED)
 
 include(src/sources.cmake)
+
+target_compile_options(seissol-common-properties INTERFACE -fPIC)
 
 # enforce code generation to run before any other target
 add_dependencies(seissol-common-properties seissol-codegen)
@@ -265,8 +271,7 @@ if (NUMA_AWARE_PINNING)
   target_compile_definitions(seissol-common-properties INTERFACE USE_NUMA_AWARE_PINNING)
   find_package(NUMA REQUIRED)
 
-  target_include_directories(seissol-common-properties SYSTEM INTERFACE ${NUMA_INCLUDE_DIR})
-  target_link_libraries(seissol-common-properties INTERFACE ${NUMA_LIBRARY})
+  target_link_libraries(seissol-common-properties INTERFACE NUMA::NUMA)
 endif()
 
 #set(HDF5_PREFER_PARALLEL True)
@@ -281,9 +286,15 @@ if (HDF5)
   if (MPI)
     set(HDF5_PREFER_PARALLEL True)
   endif()
-  find_package(HDF5 REQUIRED COMPONENTS C HL)
-  target_include_directories(seissol-common-properties INTERFACE ${HDF5_INCLUDE_DIRS})
-  target_link_libraries(seissol-common-properties INTERFACE ${HDF5_C_HL_LIBRARIES} ${HDF5_C_LIBRARIES})
+  if (NETCDF)
+    find_package(HDF5 REQUIRED COMPONENTS C HL)
+    target_include_directories(seissol-common-properties INTERFACE ${HDF5_INCLUDE_DIRS})
+    target_link_libraries(seissol-common-properties INTERFACE ${HDF5_C_HL_LIBRARIES} ${HDF5_C_LIBRARIES})
+  else()
+    find_package(HDF5 REQUIRED COMPONENTS C)
+    target_include_directories(seissol-common-properties INTERFACE ${HDF5_INCLUDE_DIRS})
+    target_link_libraries(seissol-common-properties INTERFACE ${HDF5_C_LIBRARIES})
+  endif()
   target_compile_definitions(seissol-common-properties INTERFACE USE_HDF)
   if (NOT HDF5_IS_PARALLEL)
     message(WARNING "The found parallel Hdf5 installation is not parallel. Compile errors will occur.")
@@ -297,22 +308,21 @@ if ("parmetis" IN_LIST GRAPH_PARTITIONING_LIBS)
       message(WARNING "Found METIS compiled with IDXTYPEWIDTH = 32. It is strongly recommend to compile METIS with IDXTYPEWIDTH = 64, because otherwise the partitioning of large meshes might fail.")
   endif()
   find_package(ParMETIS REQUIRED)
-  target_include_directories(seissol-common-properties INTERFACE ${PARMETIS_INCLUDE_DIRS})
-  target_link_libraries(seissol-common-properties INTERFACE ${PARMETIS_LIBRARIES})
+  target_link_libraries(seissol-common-properties INTERFACE ParMETIS::ParMETIS)
   target_compile_definitions(seissol-common-properties INTERFACE USE_METIS USE_PARMETIS)
 endif()
 if ("parhip" IN_LIST GRAPH_PARTITIONING_LIBS)
-    find_package(ParHIP REQUIRED)
-    target_link_libraries(seissol-common-properties INTERFACE ParHIP::ParHIP)
-    target_compile_definitions(seissol-common-properties INTERFACE USE_PARHIP)
+  find_package(ParHIP REQUIRED)
+  target_link_libraries(seissol-common-properties INTERFACE ParHIP::ParHIP)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_PARHIP)
 endif()
 if ("ptscotch" IN_LIST GRAPH_PARTITIONING_LIBS)
-    find_package(SCOTCH REQUIRED)
-    target_link_libraries(seissol-common-properties INTERFACE SCOTCH::ptscotch SCOTCH::ptscotcherr)
-    target_compile_definitions(seissol-common-properties INTERFACE USE_PTSCOTCH)
+  find_package(SCOTCH REQUIRED)
+  target_link_libraries(seissol-common-properties INTERFACE SCOTCH::ptscotch SCOTCH::ptscotcherr)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_PTSCOTCH)
 endif()
 if (NOT GRAPH_PARTITIONING_LIBS)
-    message(WARNING "Compiling without graph partitioning library; expect poor performance in multi-rank runs.")
+  message(WARNING "Compiling without graph partitioning library; expect poor performance in multi-rank runs.")
 endif()
 
 find_package(PkgConfig REQUIRED) 
@@ -377,6 +387,8 @@ find_package(yaml-cpp REQUIRED)
 
 if ("${yaml-cpp_VERSION}" VERSION_GREATER_EQUAL "0.8")
   target_link_libraries(seissol-common-properties INTERFACE yaml-cpp::yaml-cpp)
+elseif ("${yaml-cpp_VERSION}" VERSION_GREATER_EQUAL "0.7")
+  target_link_libraries(seissol-common-properties INTERFACE yaml-cpp)
 else()
   # fallback code for old versions
   if (YAML_CPP_INCLUDE_DIR AND EXISTS "${YAML_CPP_INCLUDE_DIR}")
@@ -455,78 +467,13 @@ if (WITH_GPU)
   # add SeisSol GPU part
   target_link_libraries(seissol-common-properties INTERFACE seissol-device-lib)
 
-  add_library(general-sycl-offloading SHARED
-      ${SYCL_DEPENDENT_SRC_FILES}
-      ${SYCL_ONLY_SRC_FILES})
-  target_link_libraries(general-sycl-offloading PRIVATE seissol-common-properties)
-  target_link_libraries(general-sycl-offloading PRIVATE seissol-common-lib)
-
-  set(SYCL_CC "acpp" CACHE STRING "The SYCL Compiler used for general SYCL offloading")
-  set(SYCL_CC_OPTIONS acpp hipsycl dpcpp)
-  set_property(CACHE SYCL_CC PROPERTY STRINGS ${SYCL_CC_OPTIONS})
-
-  if (SYCL_CC MATCHES "hipsycl" OR SYCL_CC MATCHES "acpp")
-    message(STATUS "Using AdaptiveCpp for general SYCL offloading")
-    # add GPU dynamic rupture target
-    # always override ACPP_TARGETS, as we may need to override it when the architecture changes
-    if (DEVICE_ARCH MATCHES "sm_*")
-      if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
-        set(SYCL_USE_NVHPC_DEFAULT ON)
-      else()
-        set(SYCL_USE_NVHPC_DEFAULT OFF)
-      endif()
-      option(SYCL_USE_NVHPC "For Nvidia GPUs, use nvhpc instead of CUDA/nvcc." ${SYCL_USE_NVHPC_DEFAULT})
-      if (SYCL_USE_NVHPC)
-        # we assume that hipsycl was compiled with nvhpc compiler collection
-        string(REPLACE sm_ cc NVCPP_ARCH ${DEVICE_ARCH})
-        set(HIPSYCL_TARGETS "cuda-nvcxx:${NVCPP_ARCH}" CACHE STRING "" FORCE)
-        set(ACPP_TARGETS "cuda-nvcxx:${NVCPP_ARCH}" CACHE STRING "" FORCE)
-      else()
-        set(HIPSYCL_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-        set(ACPP_TARGETS "cuda:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-        target_compile_options(general-sycl-offloading PRIVATE -Wno-unknown-cuda-version)
-      endif()
-      target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_NVIDIA)
-    elseif(DEVICE_ARCH MATCHES "gfx*")
-      set(HIPSYCL_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-      set(ACPP_TARGETS "hip:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-      target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_AMD)
-    else()
-      set(HIPSYCL_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-      set(ACPP_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}" CACHE STRING "" FORCE)
-      target_compile_definitions(general-sycl-offloading PRIVATE SYCL_PLATFORM_Intel)
-    endif()
-
-    find_package(AdaptiveCpp)
-    if (NOT AdaptiveCpp_FOUND)
-      message(WARNING "AdaptiveCpp was not found. Retrying with hipSYCL as package name...")
-      find_package(hipSYCL REQUIRED)
-    endif()
-
-    # note, we need to add openmp as a link option explicitly for some compilers.
-    # it is probably an issue of `add_sycl_to_target` macro
-    target_link_options(general-sycl-offloading PRIVATE ${OpenMP_CXX_FLAGS})
-    add_sycl_to_target(TARGET general-sycl-offloading SOURCES ${SYCL_ONLY_SRC_FILES})
-  else()
-    find_package(DpcppFlags REQUIRED)
-    message(STATUS "Using DPC++ for general SYCL offloading")
-    target_link_libraries(general-sycl-offloading PRIVATE dpcpp::device_flags)
-    target_link_libraries(seissol-common-properties INTERFACE dpcpp::interface)
-  endif()
-
-  add_dependencies(general-sycl-offloading seissol-codegen)
-
-  set_target_properties(general-sycl-offloading PROPERTIES OUTPUT_NAME "SeisSol_offloading_${EXE_NAME_PREFIX}")
   set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
   set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}")
 
   # set up GPU install targets
-  install(TARGETS general-sycl-offloading LIBRARY)
   install(TARGETS seissol-device-lib LIBRARY)
   install(TARGETS device LIBRARY)
-else()
-  # add DR source files to seissol-lib if we are compiling without any GPU support
-  target_sources(seissol-common-lib PRIVATE ${SYCL_DEPENDENT_SRC_FILES})
+  target_sources(seissol-common-lib PRIVATE ${SYCL_ONLY_SRC_FILES})
 endif()
 
 # C++ compiler settings
@@ -574,11 +521,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if (LIKWID)
   find_package(likwid REQUIRED)
-  if (BUILD_PROXY)
-    target_compile_definitions(seissol-proxy-lib PUBLIC LIKWID_PERFMON)
-    target_include_directories(seissol-proxy-lib PUBLIC ${LIKWID_INCLUDE_DIR})
-    target_link_libraries(seissol-proxy-lib PUBLIC likwid::likwid)
-  endif()
   target_compile_definitions(seissol-lib PUBLIC LIKWID_PERFMON)
   target_include_directories(seissol-lib PUBLIC ${LIKWID_INCLUDE_DIR})
   target_link_libraries(seissol-lib PUBLIC likwid::likwid)
@@ -653,9 +595,6 @@ if (TESTING)
             ${seissol_test_sources}
             src/tests/TestMain.cpp)
   target_link_libraries(seissol-serial-test PRIVATE seissol-lib)
-if(WITH_GPU)
-  target_link_libraries(seissol-serial-test PRIVATE general-sycl-offloading)
-endif()
   target_include_directories(seissol-serial-test PUBLIC external/)
 
   separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
@@ -686,9 +625,6 @@ endif()
 add_executable(seissol-bin src/Main.cpp)
 set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 
-if (WITH_GPU)
-  target_link_libraries(seissol-bin PUBLIC general-sycl-offloading)
-endif()
 target_link_libraries(seissol-bin PUBLIC seissol-lib)
 
 install(TARGETS seissol-bin RUNTIME)

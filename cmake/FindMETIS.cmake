@@ -55,10 +55,18 @@ find_library(METIS_LIBRARY
 
 # Try compiling and running test program
 if (METIS_LIBRARY)
+  if (GKLIB_FOUND)
+    set(_METIS_INCLUDE_DIRS ${METIS_INCLUDE_DIR} ${GKLIB_INCLUDE_DIRS})
+    set(_METIS_LIBRARIES ${METIS_LIBRARY} ${GKLIB_LIBRARIES})
+  else()
+    set(_METIS_INCLUDE_DIRS ${METIS_INCLUDE_DIR})
+    set(_METIS_LIBRARIES ${METIS_LIBRARY})
+  endif()
+  mark_as_advanced(_METIS_INCLUDE_DIRS _METIS_LIBRARIES)
 
   # Set flags for building test program
-  set(CMAKE_REQUIRED_INCLUDES ${METIS_INCLUDE_DIR})
-  set(CMAKE_REQUIRED_LIBRARIES ${METIS_LIBRARY})
+  set(CMAKE_REQUIRED_INCLUDES ${_METIS_INCLUDE_DIRS})
+  set(CMAKE_REQUIRED_LIBRARIES ${_METIS_LIBRARIES})
 
   # Build and run test program
   include(CheckCXXSourceRuns)
@@ -96,8 +104,8 @@ find_package_handle_standard_args(METIS REQUIRED_VARS
                                   METIS_TEST_RUNS)
 
 if(METIS_FOUND)
-  set(METIS_LIBRARIES ${METIS_LIBRARY})
-  set(METIS_INCLUDE_DIRS ${METIS_INCLUDE_DIR})
+  set(METIS_LIBRARIES ${_METIS_LIBRARIES})
+  set(METIS_INCLUDE_DIRS ${_METIS_INCLUDE_DIRS})
   if (_METIS_64_BIT_INTEGER)
     set(METIS_64_BIT_INTEGER TRUE)
   endif()

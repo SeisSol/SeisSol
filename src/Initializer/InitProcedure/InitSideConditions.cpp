@@ -12,7 +12,6 @@
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 
-#include "Parallel/MPI.h"
 #include <Equations/Datastructures.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
@@ -145,8 +144,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
     logError() << "Non-implemented initial condition type:"
                << static_cast<int>(initConditionParams.type);
   }
-  logInfo(seissol::MPI::mpi.rank())
-      << "Using initial condition" << initialConditionDescription << ".";
+  logInfo() << "Using initial condition" << initialConditionDescription << ".";
   return initConditions;
 }
 
@@ -155,8 +153,7 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
   auto& memoryManager = seissolInstance.getMemoryManager();
 
   if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Easi) {
-    logInfo(seissol::MPI::mpi.rank())
-        << "Loading the initial condition from the easi file" << initConditionParams.filename;
+    logInfo() << "Loading the initial condition from the easi file" << initConditionParams.filename;
     seissol::initializer::projectEasiInitialField({initConditionParams.filename},
                                                   *memoryManager.getGlobalDataOnHost(),
                                                   seissolInstance.meshReader(),
@@ -201,10 +198,10 @@ void initBoundary(seissol::SeisSol& seissolInstance) {
 } // namespace
 
 void seissol::initializer::initprocedure::initSideConditions(seissol::SeisSol& seissolInstance) {
-  logInfo(seissol::MPI::mpi.rank()) << "Setting initial conditions.";
+  logInfo() << "Setting initial conditions.";
   initInitialCondition(seissolInstance);
-  logInfo(seissol::MPI::mpi.rank()) << "Reading source.";
+  logInfo() << "Reading source.";
   initSource(seissolInstance);
-  logInfo(seissol::MPI::mpi.rank()) << "Setting up boundary conditions.";
+  logInfo() << "Setting up boundary conditions.";
   initBoundary(seissolInstance);
 }

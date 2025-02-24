@@ -84,8 +84,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     return;
   }
 
-  logInfo(mpi.rank()) << "Print analysis for initial conditions"
-                      << static_cast<int>(initialConditionType) << " at time " << simulationTime;
+  logInfo() << "Print analysis for initial conditions" << static_cast<int>(initialConditionType)
+            << " at time " << simulationTime;
 
   const auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
@@ -119,8 +119,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 
   for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
-    logInfo(mpi.rank()) << "Analysis for simulation" << sim << ": absolute, relative";
-    logInfo(mpi.rank()) << "--------------------------";
+    logInfo() << "Analysis for simulation" << sim << ": absolute, relative";
+    logInfo() << "--------------------------";
 
     using ErrorArrayT = std::array<double, NumQuantities>;
     using MeshIdArrayT = std::array<unsigned int, NumQuantities>;
@@ -344,11 +344,11 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         const auto errL1Rel = errL1 / analyticalL1MPI[i];
         const auto errL2Rel = std::sqrt(errL2MPI[i] / analyticalL2MPI[i]);
         const auto errLInfRel = errLInf / analyticalLInfMPI[i];
-        logInfo(mpi.rank()) << "L1  , var[" << i << "] =\t" << errL1 << "\t" << errL1Rel;
-        logInfo(mpi.rank()) << "L2  , var[" << i << "] =\t" << errL2 << "\t" << errL2Rel;
-        logInfo(mpi.rank()) << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel
-                            << "at rank " << errLInfRecv[i].rank << "\tat [" << centerRecv[0]
-                            << ",\t" << centerRecv[1] << ",\t" << centerRecv[2] << "\t]";
+        logInfo() << "L1  , var[" << i << "] =\t" << errL1 << "\t" << errL1Rel;
+        logInfo() << "L2  , var[" << i << "] =\t" << errL2 << "\t" << errL2Rel;
+        logInfo() << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel << "at rank "
+                  << errLInfRecv[i].rank << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1]
+                  << ",\t" << centerRecv[2] << "\t]";
         csvWriter.addObservation(std::to_string(i), "L1", errL1);
         csvWriter.addObservation(std::to_string(i), "L2", errL2);
         csvWriter.addObservation(std::to_string(i), "LInf", errLInf);

@@ -23,6 +23,7 @@ namespace seissol::initializer::parameters {
  */
 enum class FrictionLawType : unsigned int {
   NoFault = 0,
+  LinearSlipWeakeningLegacy = 2,
   LinearSlipWeakening = 16,
   LinearSlipWeakeningBimaterial = 6,
   LinearSlipWeakeningTPApprox = 1058,
@@ -32,7 +33,7 @@ enum class FrictionLawType : unsigned int {
   ImposedSlipRatesYoffe = 33,
   ImposedSlipRatesGaussian = 34,
   ImposedSlipRatesDelta = 35,
-  RateAndStateVelocityWeakening = 7,
+  RateAndStateSevereVelocityWeakening = 7,
   RateAndStateAgingNucleation = 101,
 };
 
@@ -55,6 +56,7 @@ struct DRParameters {
   bool isThermalPressureOn{false};
   bool isFrictionEnergyRequired{false};
   bool isCheckAbortCriteraEnabled{false};
+  bool energiesFromAcrossFaultVelocities{false};
   OutputType outputPointType{3};
   RefPointMethod refPointMethod{0};
   SlipRateOutputType slipRateOutputType{1};

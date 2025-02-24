@@ -8,7 +8,6 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "FreeSurfaceWriter.h"
-#include "Parallel/MPI.h"
 
 #include <Eigen/Dense>
 #include <Geometry/MeshDefinition.h>
@@ -93,8 +92,8 @@ void seissol::writer::FreeSurfaceWriter::setUp() {
   setExecutor(m_executor);
   if (isAffinityNecessary()) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
-    logInfo(seissol::MPI::mpi.rank())
-        << "Free surface writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Free surface writer thread affinity:"
+              << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -114,11 +113,9 @@ void seissol::writer::FreeSurfaceWriter::init(
     return;
   }
 
-  const int rank = seissol::MPI::mpi.rank();
-
   m_freeSurfaceIntegrator = freeSurfaceIntegrator;
 
-  logInfo(rank) << "Initializing free surface output.";
+  logInfo() << "Initializing free surface output.";
 
   // Initialize the asynchronous module
   async::Module<FreeSurfaceWriterExecutor, FreeSurfaceInitParam, FreeSurfaceParam>::init();
@@ -192,11 +189,9 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
 
   m_stopwatch.start();
 
-  const int rank = seissol::MPI::mpi.rank();
-
   wait();
 
-  logInfo(rank) << "Writing free surface at time" << utils::nospace << time << ".";
+  logInfo() << "Writing free surface at time" << utils::nospace << time << ".";
 
   FreeSurfaceParam param;
   param.time = time;
@@ -209,7 +204,7 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
 
   m_stopwatch.pause();
 
-  logInfo(rank) << "Writing free surface at time" << utils::nospace << time << ". Done.";
+  logInfo() << "Writing free surface at time" << utils::nospace << time << ". Done.";
 }
 
 void seissol::writer::FreeSurfaceWriter::simulationStart() { syncPoint(0.0); }
