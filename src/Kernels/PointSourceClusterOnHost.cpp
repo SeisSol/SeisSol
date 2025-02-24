@@ -20,6 +20,10 @@
 #include <tensor.h>
 #include <utility>
 
+#ifdef MULTIPLE_SIMULATIONS
+#include <array>
+#endif
+
 namespace seissol::kernels {
 
 PointSourceClusterOnHost::PointSourceClusterOnHost(

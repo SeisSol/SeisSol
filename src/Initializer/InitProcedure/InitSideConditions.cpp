@@ -16,7 +16,9 @@
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
 #include <Physics/InitialField.h>
+#include <Solver/MultipleSimulations.h>
 #include <SourceTerm/Manager.h>
+#include <cmath>
 #include <cstddef>
 #include <cstdlib>
 #include <memory>

@@ -20,6 +20,7 @@
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
 #include <Numerical/Transformation.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
