@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_COMMON_H_
 
 #include <cassert>
+#include <mpi.h>
 #include <set>
 
 #include "Parallel/MPI.h"
@@ -219,6 +220,23 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
   unsigned short **l_sendBuffer    = new unsigned short*[ i_numberOfClusters ];
   unsigned short **l_receiveBuffer = new unsigned short*[ i_numberOfClusters ];
 
+  std::vector<MPI_Request> sendRequestsRaw;
+  std::vector<MPI_Request> recvRequestsRaw;
+  std::vector<MPI_Request*> sendRequests;
+  std::vector<MPI_Request*> receiveRequests;
+  for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
+    for( unsigned int l_region = 0; l_region < io_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
+      sendRequestsRaw.push_back(MPI_REQUEST_NULL);
+      recvRequestsRaw.push_back(MPI_REQUEST_NULL);
+    }
+  }
+  std::size_t point = 0;
+  for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
+    sendRequests.push_back(sendRequestsRaw.data() + point);
+    receiveRequests.push_back(recvRequestsRaw.data() + point);
+    point += io_meshStructure[l_cluster].numberOfRegions;
+  }
+
   unsigned l_cell = 0;
 
   for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
@@ -245,7 +263,7 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
                  io_meshStructure[l_cluster].neighboringClusters[l_region][0],  // destination
                  io_meshStructure[l_cluster].sendIdentifiers[l_region],         // message tag
                  seissol::MPI::mpi.comm(),                                      // communicator
-                 io_meshStructure[l_cluster].sendRequests+l_region );           // mpi request
+                 sendRequests[l_cluster]+l_region );           // mpi request
 
       l_copyRegionOffset += io_meshStructure[l_cluster].numberOfCopyRegionCells[l_region];
 
@@ -255,7 +273,7 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
                  io_meshStructure[l_cluster].neighboringClusters[l_region][0],   // source
                  io_meshStructure[l_cluster].receiveIdentifiers[l_region],       // message tag
                  seissol::MPI::mpi.comm(),                                       // communicator
-                 io_meshStructure[l_cluster].receiveRequests+l_region );         // mpi request
+                 receiveRequests[l_cluster]+l_region );         // mpi request
 
       l_ghostRegionOffset += io_meshStructure[l_cluster].numberOfGhostRegionCells[l_region];
     }
@@ -267,10 +285,10 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
   // wait for communication
   for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
     MPI_Waitall( io_meshStructure[l_cluster].numberOfRegions, // size
-                 io_meshStructure[l_cluster].receiveRequests, // array of requests
+                 sendRequests[l_cluster], // array of requests
                  MPI_STATUS_IGNORE );                         // mpi status
     MPI_Waitall( io_meshStructure[l_cluster].numberOfRegions, // size
-                 io_meshStructure[l_cluster].sendRequests,    // array of requests
+                 receiveRequests[l_cluster],    // array of requests
                  MPI_STATUS_IGNORE );                         // mpi status
   }
 

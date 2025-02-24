@@ -8,7 +8,6 @@
 #include "EnergyOutput.h"
 
 #include "DynamicRupture/Misc.h"
-#include "Kernels/DynamicRupture.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"

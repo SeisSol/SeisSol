@@ -9,13 +9,13 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 
 #include <Common/Executor.h>
+#include <cmath>
 #include <limits>
 #include <type_traits>
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/DynamicRupture.h"
+#include "DynamicRupture/Typedefs.h"
+#include "Initializer/Typedefs.h"
 #include "Numerical/GaussianNucleationFunction.h"
 
 /**
