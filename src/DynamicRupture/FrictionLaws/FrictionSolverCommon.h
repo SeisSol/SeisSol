@@ -627,7 +627,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
         const real interpolatedSlipRateMagnitude =
             misc::magnitude(interpolatedSlipRate1, interpolatedSlipRate2, interpolatedSlipRate3);
 
-        cachedAccumulatedSlip[i] += timeWeight * interpolatedSlipRateMagnitude;
+        cachedAccumulatedSlip[index] += timeWeight * interpolatedSlipRateMagnitude;
       } else {
         // we use slipRateMagnitude (computed from slipRate1 and slipRate2 in the friction law)
         // instead of computing the slip rate magnitude from the differences in velocities
@@ -635,20 +635,20 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
         // based on (slipRateMagnitudei) is typically non zero at the end of the earthquake
         // (probably because it incorporates the velocity discontinuities inherent of DG methods,
         // including the contributions of fault normal velocity discontinuity)
-        cachedAccumulatedSlip[i] += timeWeight * slipRateMagnitude[i];
+        cachedAccumulatedSlip[index] += timeWeight * slipRateMagnitude[i];
       }
 
-      cachedSlip[0][i] += timeWeight * interpolatedSlipRate1;
-      cachedSlip[1][i] += timeWeight * interpolatedSlipRate2;
-      cachedSlip[2][i] += timeWeight * interpolatedSlipRate3;
+      cachedSlip[0][index] += timeWeight * interpolatedSlipRate1;
+      cachedSlip[1][index] += timeWeight * interpolatedSlipRate2;
+      cachedSlip[2][index] += timeWeight * interpolatedSlipRate3;
 
       const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
       const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
 
       const auto spaceWeight = spaceWeights[i];
       const auto weight = -1.0 * timeWeight * spaceWeight * doubledSurfaceArea;
-      cachedFrictionalEnergy[i] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
-                                             interpolatedTraction13 * interpolatedSlipRate3);
+      cachedFrictionalEnergy[index] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
+                                                 interpolatedTraction13 * interpolatedSlipRate3);
     }
   }
 
