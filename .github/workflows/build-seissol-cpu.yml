@@ -29,11 +29,24 @@ jobs:
           - Release
           #- Debug
         equation:
-          - acoustic
-          - elastic
-          - poroelastic
-          - viscoelastic2
-          - anisotropic
+          - type: acoustic
+            multisim: 1
+            mechanisms: 0
+          - type: elastic
+            multisim: 1
+            mechanisms: 0
+          - type: poroelastic
+            multisim: 1
+            mechanisms: 0
+          - type: viscoelastic2
+            multisim: 1
+            mechanisms: 3
+          - type: anisotropic
+            multisim: 1
+            mechanisms: 0
+          - type: elastic
+            multisim: 8
+            mechanisms: 0
         precision:
           - single
           - double
@@ -90,15 +103,8 @@ jobs:
             TESTING_COMMAND="";
           fi;
 
-          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DASAGI=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
+          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DASAGI=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
           ninja install
-          if [ "${{ matrix.equation }}" = elastic ]; then
-          cd ..
-          dirname="build_${matrix.equation}_${matrix.precision}_${matrix.build_type}_fused";
-          mkdir -p $dirname && cd $dirname;
-          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_FUSED_SIMULATIONS=8
-          ninja install
-          fi
       - name: test-seissol
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
@@ -121,9 +127,9 @@ jobs:
 
           cd build
           set +e
-          ${TESTING_COMMAND} ./SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}}
+          ${TESTING_COMMAND} ./SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}
           RETVAL_EXE=$?
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}}
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}
           RETVAL_PROXY=$?
           set -e
 
@@ -147,19 +153,19 @@ jobs:
               precision=d
           fi
           cd build
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 ader
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 localwoader
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 local
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 neigh
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 neigh_dr
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 godunov_dr
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 all
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 ader
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 localwoader
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 local
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 neigh
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 neigh_dr
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 godunov_dr
+          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 all
   
       - name: upload-seissol
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation.type}}-${{matrix.equation.multisim}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
   seissol-run-test:
@@ -175,76 +181,97 @@ jobs:
         case:
           - name: tpv5
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv5-nuc
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv5-visco
             equation: viscoelastic2
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv5-poro
             equation: poroelastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv6
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv13
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv16
             equation: elastic
+            multisim: 1
             energies: true
             receivers: false # FIXME: do not work right now; disabled in the Gitlab CI
             fault: true
           #- name: tpv33
           #  equation: elastic
+          #  multisim: 1
           #  energies: true
           #  receivers: true
           #  fault: true
           - name: tpv101
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv101-slip
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv104
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv105
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpvahsp
             equation: anisotropic
+            multisim: 1
             energies: false
             receivers: true
             fault: false
           - name: tpvgaussian
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpvyoffe
             equation: elastic
+            multisim: 1
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpvloh1-fused
+            equation: elastic
+            multisim: 8
             energies: true
             receivers: true
             fault: true
@@ -310,7 +337,7 @@ jobs:
       - name: get-seissol
         uses: actions/download-artifact@v4
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.case.multisim}}-${{matrix.setup.cc}}
           path: install
       - name: run-seissol
         id: run
