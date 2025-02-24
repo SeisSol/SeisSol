@@ -235,6 +235,20 @@ void computeEigenvaluesWithLapack(std::array<std::complex<T>, Dim * Dim>& m,
     }
   }
 }
+
+template <typename T, size_t Dim>
+void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
+                        Eigenpair<std::complex<T>, Dim>& output) {
+  computeEigenvaluesWithLapack(m, output);
+}
+} // namespace seissol::eigenvalues
+#else
+namespace seissol::eigenvalues {
+template <typename T, size_t Dim>
+void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
+                        Eigenpair<std::complex<T>, Dim>& output) {
+  computeEigenvaluesWithEigen3(m, output);
+}
 } // namespace seissol::eigenvalues
 #endif // USE_POROELASTIC
 

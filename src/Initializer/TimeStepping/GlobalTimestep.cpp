@@ -14,7 +14,6 @@
 #include <array>
 #include <cmath>
 #include <mpi.h>
-#include <string>
 #include <vector>
 
 #include "Equations/Datastructures.h"
@@ -52,10 +51,7 @@ double
 namespace seissol::initializer {
 
 GlobalTimestep
-    computeTimesteps(double cfl,
-                     double maximumAllowedTimeStep,
-                     const std::string& velocityModel,
-                     const seissol::initializer::CellToVertexArray& cellToVertex,
+    computeTimesteps(const seissol::initializer::CellToVertexArray& cellToVertex,
                      const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
   using Material = seissol::model::MaterialT;
 
@@ -64,7 +60,7 @@ GlobalTimestep
   std::vector<Material> materials(cellToVertex.size);
   seissol::initializer::MaterialParameterDB<Material> parameterDB;
   parameterDB.setMaterialVector(&materials);
-  parameterDB.evaluateModel(velocityModel, *queryGen);
+  parameterDB.evaluateModel(seissolParams.model.materialFileName, *queryGen);
 
   GlobalTimestep timestep;
   timestep.cellTimeStepWidths.resize(cellToVertex.size);
@@ -73,7 +69,11 @@ GlobalTimestep
     const double pWaveVel = materials[cell].getMaxWaveSpeed();
     const std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
     timestep.cellTimeStepWidths[cell] =
-        computeCellTimestep(vertices, pWaveVel, cfl, maximumAllowedTimeStep, seissolParams);
+        computeCellTimestep(vertices,
+                            pWaveVel,
+                            seissolParams.timeStepping.cfl,
+                            seissolParams.timeStepping.maxTimestepWidth,
+                            seissolParams);
   }
 
   const auto minmaxCellPosition =

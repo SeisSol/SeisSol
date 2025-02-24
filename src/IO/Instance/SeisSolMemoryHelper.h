@@ -13,7 +13,7 @@
 #include <IO/Writer/Instructions/Hdf5.h>
 #include <IO/Writer/Writer.h>
 #include <Initializer/MemoryManager.h>
-#include <Initializer/Tree/LTSTree.h>
+#include <Memory/Tree/LTSTree.h>
 #include <type_traits>
 namespace seissol::io::instance {
 

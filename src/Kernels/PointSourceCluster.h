@@ -15,7 +15,7 @@
 #include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
 
-#include <Initializer/MemoryAllocator.h>
+#include <Memory/MemoryAllocator.h>
 #include <init.h>
 
 #include <algorithm>

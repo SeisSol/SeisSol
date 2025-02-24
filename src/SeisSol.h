@@ -160,6 +160,10 @@ class SeisSol {
     return m_seissolParameters;
   }
 
+  const seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() const {
+    return m_seissolParameters;
+  }
+
   /**
    * Deletes memoryManager. MemoryManager desctructor will destroy LTS Tree and
    * memoryAllocator i.e., the main components of SeisSol. Therefore, call this function

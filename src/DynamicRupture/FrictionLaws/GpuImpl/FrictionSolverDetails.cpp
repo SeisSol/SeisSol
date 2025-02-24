@@ -14,7 +14,7 @@
 #include <cstddef>
 #include <init.h>
 
-#include "Initializer/MemoryAllocator.h"
+#include "Memory/MemoryAllocator.h"
 
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 

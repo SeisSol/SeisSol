@@ -6,9 +6,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "SourceTimeFunction.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Tree/Layer.h"
 #include "Numerical/DeltaPulse.h"
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Numerical/RegularizedYoffe.h"

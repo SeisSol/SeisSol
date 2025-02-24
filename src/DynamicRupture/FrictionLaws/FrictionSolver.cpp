@@ -8,9 +8,9 @@
 #include "FrictionSolver.h"
 
 #include "Common/Constants.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Tree/Layer.h"
 #include <cstddef>
 
 namespace seissol::dr::friction_law {

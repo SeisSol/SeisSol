@@ -8,9 +8,9 @@
 
 #include "GlobalData.h"
 #include "generated_code/init.h"
-#include <Initializer/MemoryAllocator.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
+#include <Memory/MemoryAllocator.h>
 #include <cassert>
 #include <cstddef>
 #include <tensor.h>
