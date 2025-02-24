@@ -10,6 +10,8 @@
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "Equations/Datastructures.h" // IWYU pragma: keep
+#include "Equations/Setup.h"          // IWYU pragma: keep
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
