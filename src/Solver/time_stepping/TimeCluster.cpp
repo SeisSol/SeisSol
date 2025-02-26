@@ -257,9 +257,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
   std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], MULTIPLE_SIMULATIONS> qInterpolatedPlus;
   std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], MULTIPLE_SIMULATIONS> qInterpolatedMinus;  
   int dQ_DR_Size = 0;
+  int dQ_Size = 0;
   for (unsigned int i = 0; i < CONVERGENCE_ORDER; i++) {
     dQ_DR_Size += tensor::dQ_DR::size(i);
+    dQ_Size += tensor::dQ::size(i);
   }
+
+  int numSimulationsIfAligned = dQ_Size/dQ_DR_Size;
 
   m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
 
@@ -279,30 +283,30 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( std::array<seis
   {
   LIKWID_MARKER_START("computeDynamicRuptureSpaceTimeInterpolation");
   }
-  for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+  for (unsigned int sim = 0; sim < MULTIPLE_SIMULATIONS; sim++) {
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
-    for (unsigned face = 0; face < layerData[i]->getNumberOfCells(); ++face) {
+    for (unsigned face = 0; face < layerData[sim]->getNumberOfCells(); ++face) {
       std::vector<real> timeDerivativePlusDR(dQ_DR_Size, 0.0);
       std::vector<real> timeDerivativeMinusDR(dQ_DR_Size, 0.0);
       for(unsigned int j = 0; j < dQ_DR_Size; j++){
-        timeDerivativePlusDR[j] = timeDerivativePlus[i][face][j*MULTIPLE_SIMULATIONS + i];
-        timeDerivativeMinusDR[j] = timeDerivativeMinus[i][face][j*MULTIPLE_SIMULATIONS + i];
+        timeDerivativePlusDR[j] = timeDerivativePlus[sim][face][j*numSimulationsIfAligned + sim];
+        timeDerivativeMinusDR[j] = timeDerivativeMinus[sim][face][j*numSimulationsIfAligned + sim];
       }
       
-      unsigned prefetchFace = (face < layerData[i]->getNumberOfCells() - 1) ? face + 1 : face;
+      unsigned prefetchFace = (face < layerData[sim]->getNumberOfCells() - 1) ? face + 1 : face;
       m_dynamicRuptureKernel.spaceTimeInterpolation(
-          faceInformation[i][face],
+          faceInformation[sim][face],
           m_globalDataOnHost,
-          &godunovData[i][face],
-          &drEnergyOutput[i][face],
+          &godunovData[sim][face],
+          &drEnergyOutput[sim][face],
           timeDerivativePlusDR.data(),
           timeDerivativeMinusDR.data(),
-          qInterpolatedPlus[i][face], // DR part
-          qInterpolatedMinus[i][face],
-          timeDerivativePlus[i][prefetchFace],
-          timeDerivativeMinus[i][prefetchFace]);
+          qInterpolatedPlus[sim][face], // DR part
+          qInterpolatedMinus[sim][face],
+          timeDerivativePlus[sim][prefetchFace],
+          timeDerivativeMinus[sim][prefetchFace]);
     }
   }
   SCOREP_USER_REGION_END(myRegionHandle)
