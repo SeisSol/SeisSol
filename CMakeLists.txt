@@ -96,10 +96,6 @@ if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
   set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 
-if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
-  message(FATAL_ERROR "SeisSol does not support Fused Simulations yet")
-endif()
-
 # LTO
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
@@ -235,6 +231,9 @@ target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LE
 target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER}
                                                      LOGLEVEL0=${LOG_LEVEL_MASTER})
 
+if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
+  target_compile_definitions(seissol-common-properties INTERFACE MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
+endif()
 
 if (PLASTICITY_METHOD STREQUAL "ip")
   target_compile_definitions(seissol-common-properties INTERFACE USE_PLASTICITY_IP)
@@ -439,6 +438,10 @@ if ("${DEVICE_ARCH_STR}" STREQUAL "none")
   set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
 else()
   set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
+endif()
+
+if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
+  set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_f${NUMBER_OF_FUSED_SIMULATIONS}")
 endif()
 
 if (SHARED)
