@@ -127,10 +127,19 @@ jobs:
 
           cd build
           set +e
-          ${TESTING_COMMAND} ./SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}
-          RETVAL_EXE=$?
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}
-          RETVAL_PROXY=$?
+          if [ ${{ matrix.equation.multisim }} -gt 1 ]; then
+            echo "Running with multisim"
+            ${TESTING_COMMAND} ./SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}_f${{matrix.equation.multisim}}
+            RETVAL_EXE=$?
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}_f${{matrix.equation.multisim}}
+            RETVAL_PROXY=$?
+          else
+            echo "Running without multisim"
+            ${TESTING_COMMAND} ./SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}
+            RETVAL_EXE=$?
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}
+            RETVAL_PROXY=$?
+          fi
           set -e
 
           if [ $RETVAL_EXE -ne 133 ]; then
@@ -153,14 +162,24 @@ jobs:
               precision=d
           fi
           cd build
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 ader
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 localwoader
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 local
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 neigh
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 neigh_dr
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 godunov_dr
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 all
-  
+          if [ ${{ matrix.equation.multisim }} -gt 1 ]; then
+            echo "Running with multisim"
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}_f${{matrix.equation.multisim}} 100 1 ader
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}_f${{matrix.equation.multisim}} 100 1 localwoader
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}_f${{matrix.equation.multisim}} 100 1 local
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}_f${{matrix.equation.multisim}} 100 1 neigh
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}}_f${{matrix.equation.multisim}} 100 1 all
+          else
+            echo "Running without multisim"
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 ader
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 localwoader
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 local
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 neigh
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 neigh_dr
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 godunov_dr
+            ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation.type}} 100 1 all
+          fi
+ 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}

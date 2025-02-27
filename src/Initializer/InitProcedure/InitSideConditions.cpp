@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
+#include <math.h>
 #include <memory>
 #include <string>
 #include <utility>
