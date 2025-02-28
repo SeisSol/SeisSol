@@ -18,7 +18,7 @@ double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
   std::array<std::complex<double>, 169> AT_values{};
   auto AT = yateto::DenseTensorView<2, std::complex<double>>(AT_values.data(), {13, 13});
   seissol::model::getTransposedCoefficientMatrix(*this, 0, AT);
-  seissol::eigenvalues::computeEigenvaluesWithLapack(AT_values, eigendecomposition);
+  seissol::eigenvalues::computeEigenvalues(AT_values, eigendecomposition);
   double maxEv = std::numeric_limits<double>::lowest();
   for (int i = 0; i < 13; i++) {
     maxEv = eigendecomposition.values.at(i).real() > maxEv ? eigendecomposition.values.at(i).real()

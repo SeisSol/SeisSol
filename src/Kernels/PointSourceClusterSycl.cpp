@@ -7,7 +7,7 @@
 
 #include "PointSourceCluster.h"
 
-#include <Initializer/MemoryAllocator.h>
+#include <Memory/MemoryAllocator.h>
 #include <cstddef>
 
 #include <sycl/sycl.hpp>

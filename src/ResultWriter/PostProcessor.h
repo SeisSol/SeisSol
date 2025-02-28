@@ -10,9 +10,9 @@
 #define SEISSOL_SRC_RESULTWRITER_POSTPROCESSOR_H_
 
 #include "Initializer/PreProcessorMacros.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Layer.h"
 #include "Initializer/Typedefs.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
 #include <array>
 #include <vector>
 

@@ -10,8 +10,8 @@
 
 #include "PointSource.h"
 #include <Equations/Datastructures.h>
-#include <Initializer/MemoryAllocator.h>
 #include <Kernels/Precision.h>
+#include <Memory/MemoryAllocator.h>
 #include <SourceTerm/Typedefs.h>
 #include <algorithm>
 #include <cmath>

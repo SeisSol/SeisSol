@@ -65,6 +65,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.displaceMesh(displacement);
   meshReader.scaleMesh(scalingMatrix);
 
+  meshReader.computeTimestepIfNecessary(seissolInstance);
+
   logInfo() << "Exchanging ghostlayer metadata.";
   meshReader.exchangeGhostlayerMetadata();
 
@@ -217,7 +219,6 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   using namespace seissol::initializer::time_stepping;
   const LtsWeightsConfig config{
       boundaryFormat,
-      seissolParams.model.materialFileName,
       seissolParams.timeStepping.lts.getRate(),
       seissolParams.timeStepping.vertexWeight.weightElement,
       seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
@@ -227,7 +228,6 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
   auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
                                                        seissolParams.mesh.partitioningLib.c_str(),
-                                                       seissolParams.timeStepping.maxTimestepWidth,
                                                        boundaryFormat,
                                                        ltsWeights.get(),
                                                        nodeWeight);

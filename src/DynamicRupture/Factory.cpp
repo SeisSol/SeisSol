@@ -8,9 +8,9 @@
 #include "Factory.h"
 
 #include "FrictionLaws/FrictionLaws.h"
-#include "Initializer/DynamicRupture.h"
 #include "Initializer/Initializers.h"
 #include "Initializer/Parameters/DRParameters.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Output/Output.h"
 #include <memory>
 #include <utils/logger.h>

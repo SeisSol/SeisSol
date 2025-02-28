@@ -624,6 +624,10 @@ void NetcdfReader::checkNcError(int error) {
 #endif // NETCDF_PASSIVE
 }
 
+bool NetcdfReader::inlineTimestepCompute() const { return false; }
+
+bool NetcdfReader::inlineClusterCompute() const { return false; }
+
 } // namespace seissol::geometry
 
 #endif // USE_NETCDF

@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_SOURCETIMEFUNCTION_H_
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/DynamicRupture.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Numerical/DeltaPulse.h"
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Numerical/RegularizedYoffe.h"

@@ -9,8 +9,8 @@
 #ifndef SEISSOL_SRC_INITIALIZER_GLOBALDATA_H_
 #define SEISSOL_SRC_INITIALIZER_GLOBALDATA_H_
 
+#include "Initializer/Typedefs.h"
 #include "MemoryAllocator.h"
-#include "Typedefs.h"
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
