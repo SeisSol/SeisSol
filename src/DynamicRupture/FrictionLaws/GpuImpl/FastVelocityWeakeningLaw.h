@@ -9,6 +9,8 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
+#include <DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h>
+#include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
 
 namespace seissol::dr::friction_law::gpu {
 
@@ -18,140 +20,95 @@ class FastVelocityWeakeningLaw
   public:
   using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {}
+  static void copyLtsTreeToLocal(FrictionLawData* data,
+                                 seissol::initializer::Layer& layerData,
+                                 const seissol::initializer::DynamicRupture* const dynRup,
+                                 real fullUpdateTime) {}
 
-  void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
-                                      const seissol::initializer::DynamicRupture* const dynRup,
-                                      real fullUpdateTime) override {
+  static void
+      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+                                     seissol::initializer::Layer& layerData,
+                                     const seissol::initializer::DynamicRupture* const dynRup,
+                                     real fullUpdateTime) {
     using SelfInitializerType = seissol::initializer::LTSRateAndStateFastVelocityWeakening;
-    auto* concreteLts = dynamic_cast<const SelfInitializerType*>(dynRup);
-    this->srW = layerData.var(concreteLts->rsSrW, seissol::initializer::AllocationPlace::Device);
-
-    using ParentType = RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod>;
-    ParentType::copySpecificLtsDataTreeToLocal(layerData, dynRup, fullUpdateTime);
+    const auto* concreteLts = dynamic_cast<const SelfInitializerType*>(dynRup);
+    data->srW = layerData.var(concreteLts->rsSrW, seissol::initializer::AllocationPlace::Device);
   }
 
-  struct Details {
-    decltype(FastVelocityWeakeningLaw::a) a;
-    decltype(FastVelocityWeakeningLaw::sl0) sl0;
-    decltype(FastVelocityWeakeningLaw::srW) srW;
-    decltype(seissol::initializer::parameters::DRParameters::rsSr0) rsSr0;
-    decltype(seissol::initializer::parameters::DRParameters::rsF0) rsF0;
-    decltype(seissol::initializer::parameters::DRParameters::rsB) rsB;
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
+    const double muW{ctx.data->drParameters.muW};
+
+    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
+    const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
+    const double localSrW = ctx.data->srW[ctx.ltsFace][ctx.pointIndex];
+    const double localSlipRate = ctx.initialVariables.localSlipRate;
+
+    const double lowVelocityFriction =
+        ctx.data->drParameters.rsF0 - (ctx.data->drParameters.rsB - localA) *
+                                          std::log(localSlipRate / ctx.data->drParameters.rsSr0);
+
+    const double steadyStateFrictionCoefficient =
+        muW + (lowVelocityFriction - muW) /
+                  std::pow(1.0 + std::pow(localSlipRate / localSrW, 8), 1.0 / 8.0);
+
+    const double steadyStateStateVariable =
+        localA * std::log(ctx.data->drParameters.rsSr0 / localSlipRate * 2 *
+                          std::sinh(steadyStateFrictionCoefficient / localA));
+
+    const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
+    const double exp1 = std::exp(preexp1);
+    const double exp1m = -std::expm1(preexp1);
+    const double localStateVariable =
+        steadyStateStateVariable * exp1m + exp1 * ctx.initialVariables.stateVarReference;
+
+    ctx.stateVariableBuffer = localStateVariable;
+  }
+
+  struct MuDetails {
+    double a{};
+    double c{};
+    double ac{};
   };
 
-  Details getCurrentLtsLayerDetails() {
-    Details details{};
-    details.a = this->a;
-    details.sl0 = this->sl0;
-    details.srW = this->srW;
-    details.rsSr0 = this->drParameters->rsSr0;
-    details.rsF0 = this->drParameters->rsF0;
-    details.rsB = this->drParameters->rsB;
-    return details;
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
+    const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
+    const double c = 0.5 / ctx.data->drParameters.rsSr0 * std::exp(localStateVariable / localA);
+    return MuDetails{localA, c, localA * c};
   }
 
-  void updateStateVariable(double timeIncrement) {
-    auto* devStateVarReference{this->initialVariables.stateVarReference};
-    auto* devLocalSlipRate{this->initialVariables.localSlipRate};
-    auto* devStateVariableBuffer{this->stateVariableBuffer};
-    const double muW{this->drParameters->muW};
-    auto details = this->getCurrentLtsLayerDetails();
-
-    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
-
-        const double localSl0 = details.sl0[ltsFace][pointIndex];
-        const double localA = details.a[ltsFace][pointIndex];
-        const double localSrW = details.srW[ltsFace][pointIndex];
-        const double localSlipRate = devLocalSlipRate[ltsFace][pointIndex];
-
-        const double lowVelocityFriction =
-            details.rsF0 - (details.rsB - localA) * sycl::log(localSlipRate / details.rsSr0);
-
-        const double steadyStateFrictionCoefficient =
-            muW + (lowVelocityFriction - muW) /
-                      sycl::pow(1.0 + sycl::pown(localSlipRate / localSrW, 8), 1.0 / 8.0);
-
-        const double steadyStateStateVariable =
-            localA * sycl::log(details.rsSr0 / localSlipRate * 2 *
-                               sycl::sinh(steadyStateFrictionCoefficient / localA));
-
-        const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
-        const double exp1 = sycl::exp(preexp1);
-        const double exp1m = -sycl::expm1(preexp1);
-        const double localStateVariable =
-            steadyStateStateVariable * exp1m + exp1 * devStateVarReference[ltsFace][pointIndex];
-
-        devStateVariableBuffer[ltsFace][pointIndex] = localStateVariable;
-      });
-    });
+  SEISSOL_DEVICE static double
+      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, MuDetails& details) {
+    const double x = details.c * localSlipRateMagnitude;
+    return details.a * std::asinh(x);
   }
 
-  static double updateMu(double localSlipRateMagnitude,
-                         double localStateVariable,
-                         Details details,
-                         size_t ltsFace,
-                         size_t pointIndex) {
-    const double localA = details.a[ltsFace][pointIndex];
-    const double x =
-        0.5 / details.rsSr0 * sycl::exp(localStateVariable / localA) * localSlipRateMagnitude;
-    return localA * sycl::asinh(x);
+  SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext& ctx,
+                                                  double localSlipRateMagnitude,
+                                                  MuDetails& details) {
+    const double x = details.c * localSlipRateMagnitude;
+    return details.ac / std::sqrt(std::pow(x, 2) + 1.0);
   }
 
-  static double updateMuDerivative(double localSlipRateMagnitude,
-                                   double localStateVariable,
-                                   Details details,
-                                   size_t ltsFace,
-                                   size_t pointIndex) {
-    const double localA = details.a[ltsFace][pointIndex];
-    const double c = 0.5 / details.rsSr0 * sycl::exp(localStateVariable / localA);
-    return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
-  }
-
-  void resampleStateVar(real (*devStateVariableBuffer)[misc::NumPaddedPoints]) {
-    auto* devStateVariable{this->stateVariable};
-    auto* resampleMatrix{this->resampleMatrix};
-
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
     constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
     static_assert(Dim0 == misc::NumPaddedPoints);
     static_assert(Dim0 >= Dim1);
 
-    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      // NOLINTNEXTLINE
-      sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
-          deltaStateVar(misc::NumPaddedPoints, cgh);
+    const auto localStateVariable = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
+    ctx.sharedMemory[ctx.pointIndex] = ctx.stateVariableBuffer - localStateVariable;
+    deviceBarrier(ctx);
 
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
+    real resampledDeltaStateVar{0.0};
+    for (size_t i{0}; i < Dim1; ++i) {
+      resampledDeltaStateVar += ctx.resampleMatrix[ctx.pointIndex + i * Dim0] * ctx.sharedMemory[i];
+    }
 
-        const auto localStateVariable = devStateVariable[ltsFace][pointIndex];
-        deltaStateVar[pointIndex] =
-            devStateVariableBuffer[ltsFace][pointIndex] - localStateVariable;
-        item.barrier(sycl::access::fence_space::local_space);
-
-        real resampledDeltaStateVar{0.0};
-        for (size_t i{0}; i < Dim1; ++i) {
-          resampledDeltaStateVar += resampleMatrix[pointIndex + i * Dim0] * deltaStateVar[i];
-        }
-
-        devStateVariable[ltsFace][pointIndex] = localStateVariable + resampledDeltaStateVar;
-      });
-    });
+    ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] =
+        localStateVariable + resampledDeltaStateVar;
   }
 
-  void executeIfNotConverged() {}
-
-  protected:
-  real (*srW)[misc::NumPaddedPoints];
+  SEISSOL_DEVICE static void executeIfNotConverged() {}
 };
 } // namespace seissol::dr::friction_law::gpu
 
