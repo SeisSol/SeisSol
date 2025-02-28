@@ -110,8 +110,13 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
 
   auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
+    #ifdef MULTIPLE_SIMULATIONS
+    reshapedPoints[i][0] = pointsView(0, i);
+    reshapedPoints[i][1] = pointsView(1, i);
+    #else
     reshapedPoints[i][0] = pointsView(i, 0);
     reshapedPoints[i][1] = pointsView(i, 1);
+    #endif
     data.weights[i] = seissol::multisim::multisimWrap(weightsView, 0, i);
   }
 
