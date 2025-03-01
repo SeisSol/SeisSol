@@ -32,18 +32,20 @@ seissol::statistics::Summary::Summary(const std::vector<double>& values) : media
   min = sortedValues[0];
   max = sortedValues[n - 1];
 
-  mean = 0.0;
-  auto meanOfSquares = 0.0;
+  sum = 0.0;
   for (const auto num : sortedValues) {
-    mean += num;
-    meanOfSquares += num * num;
+    sum += num;
+  }
+  mean = sum / n;
+
+  auto variance = 0.0;
+  for (const auto num : sortedValues) {
+    const auto diff = mean - num;
+    variance += diff * diff;
   }
 
-  mean /= n;
-  meanOfSquares /= n;
+  variance /= n;
 
-  // Note that this computation is numerically unstable!
-  const auto variance = meanOfSquares - mean * mean;
   std = std::sqrt(variance);
 }
 
