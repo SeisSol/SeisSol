@@ -15,16 +15,17 @@
 namespace seissol::dr::friction_law::gpu {
 class NoTP {
   public:
-  NoTP(seissol::initializer::parameters::DRParameters* drParameters) {};
-
   static void copyLtsTreeToLocal(FrictionLawData* data,
                                  seissol::initializer::Layer& layerData,
                                  const seissol::initializer::DynamicRupture* const dynRup,
                                  real fullUpdateTime) {}
 
-  static void calcFluidPressure(FrictionLawContext& ctx, bool saveTmpInTP) {}
+  SEISSOL_DEVICE static void
+      calcFluidPressure(FrictionLawContext& ctx, int timeIndex, bool saveTmpInTP) {}
 
-  static real getFluidPressure(FrictionLawContext& /*unused*/) { return static_cast<real>(0.0); };
+  SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& /*unused*/) {
+    return static_cast<real>(0.0);
+  };
 };
 
 } // namespace seissol::dr::friction_law::gpu

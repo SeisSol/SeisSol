@@ -27,4 +27,6 @@
 #error no precision was defined
 #endif
 
+#endif
+
 #endif // SEISSOL_SRC_KERNELS_DENSEMATRIXOPSSVE_H_
