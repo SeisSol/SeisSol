@@ -168,6 +168,7 @@ add_custom_command(
      "--device_arch" ${DEVICE_ARCH_STR}
      "--device_backend" ${DEVICE_BACKEND}
      "--order" ${ORDER}
+     "--materialorder" ${MATERIAL_ORDER}
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
@@ -425,6 +426,7 @@ target_include_directories(seissol-common-properties INTERFACE
 )
 
 target_compile_definitions(seissol-common-properties INTERFACE
+    MATERIAL_ORDER=${MATERIAL_ORDER}
     CONVERGENCE_ORDER=${ORDER}
     NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
     ${DR_QUAD_RULE}

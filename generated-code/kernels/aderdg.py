@@ -21,8 +21,9 @@ from yateto.util import (tensor_collection_from_constant_expression,
 
 
 class ADERDGBase(ABC):
-    def __init__(self, order, multipleSimulations, matricesDir):
+    def __init__(self, order, multipleSimulations, matricesDir, materialorder):
         self.order = order
+        self.materialorder = materialorder
 
         self.alignStride = lambda name: True
         if multipleSimulations > 1:
@@ -31,11 +32,20 @@ class ADERDGBase(ABC):
         self.transpose = lambda name: transpose
         self.t = (lambda x: x[::-1]) if transpose else (lambda x: x)
 
-        self.db = parseXMLMatrixFile(
-            "{}/matrices_{}.xml".format(matricesDir, self.numberOf3DBasisFunctions()),
-            transpose=self.transpose,
-            alignStride=self.alignStride,
-        )
+        if materialorder is None:
+            self.db = parseXMLMatrixFile(
+                "{}/matrices_{}.xml".format(
+                    matricesDir, self.numberOf3DBasisFunctions()
+                ),
+                transpose=self.transpose,
+                alignStride=self.alignStride,
+            )
+        else:
+            self.db = parseJSONMatrixFile(
+                f"{matricesDir}/linear-ader-{self.order}-h{self.materialorder}.json",
+                transpose=self.transpose,
+                alignStride=self.alignStride,
+            )
         clonesQP = {"v": ["evalAtQP"], "vInv": ["projectQP"]}
         self.db.update(
             parseXMLMatrixFile(
@@ -114,9 +124,10 @@ class ADERDGBase(ABC):
 
         project2nFaceTo3m = tensor_collection_from_constant_expression(
             base_name="project2nFaceTo3m",
-            expressions=lambda i: self.db.rDivM[i]["jk"] * self.db.V2nTo2m["kl"],
+            expressions=lambda i: self.db.rDivM[i][self.m("jk")]
+            * self.db.V2nTo2m["kl"],
             group_indices=simpleParameterSpace(4),
-            target_indices="jl",
+            target_indices=self.m("jl"),
         )
 
         self.db.update(project2nFaceTo3m)
@@ -156,11 +167,25 @@ class ADERDGBase(ABC):
         return (self.order + 1) ** 3
 
     def godunov_spp(self):
-        shape = (self.numberOfQuantities(), self.numberOfQuantities())
+        if self.materialorder is None:
+            shape = (self.numberOfQuantities(), self.numberOfQuantities())
+        else:
+            shape = (
+                self.materialdim(),
+                self.numberOfQuantities(),
+                self.numberOfQuantities(),
+            )
         return np.ones(shape, dtype=bool)
 
     def flux_solver_spp(self):
-        shape = (self.numberOfQuantities(), self.numberOfExtendedQuantities())
+        if self.materialorder is None:
+            shape = (self.numberOfQuantities(), self.numberOfExtendedQuantities())
+        else:
+            shape = (
+                self.materialdim(),
+                self.numberOfQuantities(),
+                self.numberOfExtendedQuantities(),
+            )
         return np.ones(shape, dtype=bool)
 
     def transformation_spp(self):
@@ -171,7 +196,8 @@ class ADERDGBase(ABC):
         return np.ones(shape, dtype=bool)
 
     def transformation_inv_spp(self):
-        return self.godunov_spp()
+        shape = (self.numberOfQuantities(), self.numberOfQuantities())
+        return np.ones(shape, dtype=bool)
 
     def extractVelocities(self):
         extractVelocitiesSPP = np.zeros((3, self.numberOfQuantities()))
@@ -216,21 +242,24 @@ class ADERDGBase(ABC):
 
         fluxScale = Scalar("fluxScale")
         computeFluxSolverLocal = (
-            self.AplusT["ij"]
+            self.AplusT[self.m("ij")]
             <= fluxScale
             * self.Tinv["ki"]
-            * (self.QgodLocal["kq"] * self.starMatrix(0)["ql"] + self.QcorrLocal["kl"])
+            * (
+                self.QgodLocal[self.m("kq")] * self.starMatrix(0)[self.m("ql")]
+                + self.QcorrLocal[self.m("kl")]
+            )
             * self.T["jl"]
         )
         generator.add("computeFluxSolverLocal", computeFluxSolverLocal)
 
         computeFluxSolverNeighbor = (
-            self.AminusT["ij"]
+            self.AminusT[self.m("ij")]
             <= fluxScale
             * self.Tinv["ki"]
             * (
-                self.QgodNeighbor["kq"] * self.starMatrix(0)["ql"]
-                + self.QcorrNeighbor["kl"]
+                self.QgodNeighbor[self.m("kq")] * self.starMatrix(0)[self.m("ql")]
+                + self.QcorrNeighbor[self.m("kl")]
             )
             * self.T["jl"]
         )
@@ -275,6 +304,29 @@ class ADERDGBase(ABC):
     def add_include_tensors(self, include_tensors):
         include_tensors.add(self.db.samplingDirections)
         include_tensors.add(self.db.M2inv)
+
+    def m(self, indices):
+        if self.materialorder is None:
+            return indices
+        else:
+            return "M" + indices
+
+    def mt(self, indices):
+        return self.m(self.t(indices))
+
+    def materialdim(self):
+        return (
+            self.materialorder * (self.materialorder + 1) * (self.materialorder + 2)
+        ) // 6
+
+    def matdup(self, matrix):
+        if self.materialorder is not None:
+            # cf. https://stackoverflow.com/a/22635561
+            newspp = np.array([matrix.spp().as_ndarray()] * self.materialdim())
+
+            return Tensor(matrix.name(), shape=newspp.shape, spp=newspp)
+        else:
+            return matrix
 
 
 class LinearADERDG(ADERDGBase):
@@ -329,9 +381,9 @@ class LinearADERDG(ADERDGBase):
             volumeSum = self.Q["kp"]
             for i in range(3):
                 volumeSum += (
-                    self.db.kDivM[i][self.t("kl")]
+                    self.db.kDivM[i][self.mt("kl")]
                     * self.I["lq"]
-                    * self.starMatrix(i)["qp"]
+                    * self.starMatrix(i)[self.m("qp")]
                 )
             if self.sourceMatrix():
                 volumeSum += self.I["kq"] * self.sourceMatrix()["qp"]
@@ -341,9 +393,9 @@ class LinearADERDG(ADERDGBase):
             localFluxNodal = (
                 lambda i: self.Q["kp"]
                 <= self.Q["kp"]
-                + self.db.project2nFaceTo3m[i]["kn"]
+                + self.db.project2nFaceTo3m[i][self.m("kn")]
                 * self.INodal["no"]
-                * self.AminusT["op"]
+                * self.AminusT[self.m("op")]
             )
             localFluxNodalPrefetch = lambda i: (
                 self.I if i == 0 else (self.Q if i == 1 else None)
@@ -359,10 +411,10 @@ class LinearADERDG(ADERDGBase):
         localFlux = (
             lambda i: self.Q["kp"]
             <= self.Q["kp"]
-            + self.db.rDivM[i][self.t("km")]
+            + self.db.rDivM[i][self.mt("km")]
             * self.db.fMrT[i][self.t("ml")]
             * self.I["lq"]
-            * self.AplusT["qp"]
+            * self.AplusT[self.m("qp")]
         )
         localFluxPrefetch = lambda i: (
             self.I if i == 0 else (self.Q if i == 1 else None)
@@ -377,22 +429,25 @@ class LinearADERDG(ADERDGBase):
 
         if "gpu" in targets:
             plusFluxMatrixAccessor = (
-                lambda i: self.db.rDivM[i][self.t("km")] * self.db.fMrT[i][self.t("ml")]
+                lambda i: self.db.rDivM[i][self.mt("km")]
+                * self.db.fMrT[i][self.t("ml")]
             )
             if self.kwargs["enable_premultiply_flux"]:
                 contractionResult = tensor_collection_from_constant_expression(
                     "plusFluxMatrices",
                     plusFluxMatrixAccessor,
                     simpleParameterSpace(4),
-                    target_indices="kl",
+                    target_indices=self.m("kl"),
                 )
                 self.db.update(contractionResult)
-                plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]["kl"]
+                plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i][
+                    self.m("kl")
+                ]
 
             localFlux = (
                 lambda i: self.Q["kp"]
                 <= self.Q["kp"]
-                + plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusT["qp"]
+                + plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusT[self.m("qp")]
             )
             generator.addFamily(
                 "gpu_localFlux",
@@ -405,11 +460,11 @@ class LinearADERDG(ADERDGBase):
         neighborFlux = (
             lambda h, j, i: self.Q["kp"]
             <= self.Q["kp"]
-            + self.db.rDivM[i][self.t("km")]
+            + self.db.rDivM[i][self.mt("km")]
             * self.db.fP[h][self.t("mn")]
             * self.db.rT[j][self.t("nl")]
             * self.I["lq"]
-            * self.AminusT["qp"]
+            * self.AminusT[self.m("qp")]
         )
         neighborFluxPrefetch = lambda h, j, i: self.I
         generator.addFamily(
@@ -422,7 +477,7 @@ class LinearADERDG(ADERDGBase):
 
         if "gpu" in targets:
             minusFluxMatrixAccessor = (
-                lambda h, j, i: self.db.rDivM[i][self.t("km")]
+                lambda h, j, i: self.db.rDivM[i][self.mt("km")]
                 * self.db.fP[h][self.t("mn")]
                 * self.db.rT[j][self.t("nl")]
             )
@@ -431,17 +486,19 @@ class LinearADERDG(ADERDGBase):
                     "minusFluxMatrices",
                     minusFluxMatrixAccessor,
                     simpleParameterSpace(3, 4, 4),
-                    target_indices="kl",
+                    target_indices=self.m("kl"),
                 )
                 self.db.update(contractionResult)
                 minusFluxMatrixAccessor = lambda h, j, i: self.db.minusFluxMatrices[
                     h, j, i
-                ]["kl"]
+                ][self.m("kl")]
 
             neighborFlux = (
                 lambda h, j, i: self.Q["kp"]
                 <= self.Q["kp"]
-                + minusFluxMatrixAccessor(h, j, i) * self.I["lq"] * self.AminusT["qp"]
+                + minusFluxMatrixAccessor(h, j, i)
+                * self.I["lq"]
+                * self.AminusT[self.m("qp")]
             )
             generator.addFamily(
                 "gpu_neighboringFlux",
@@ -483,9 +540,9 @@ class LinearADERDG(ADERDGBase):
                     derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
                 for j in range(3):
                     derivativeSum += (
-                        self.db.kDivMT[j][self.t("kl")]
+                        self.db.kDivMT[j][self.mt("kl")]
                         * derivatives[-1]["lq"]
-                        * self.starMatrix(j)["qp"]
+                        * self.starMatrix(j)[self.m("qp")]
                     )
 
                 derivativeSum = DeduceIndices(self.Q["kp"].indices).visit(derivativeSum)
