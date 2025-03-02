@@ -12,8 +12,18 @@ from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
 
 
 class AnisotropicADERDG(ADERDGBase):
-    def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
-        super().__init__(order, multipleSimulations, matricesDir, memLayout)
+    def __init__(
+        self,
+        order,
+        multipleSimulations,
+        matricesDir,
+        memLayout,
+        materialorder,
+        **kwargs
+    ):
+        super().__init__(
+            order, multipleSimulations, matricesDir, memLayout, materialorder
+        )
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }
@@ -21,6 +31,9 @@ class AnisotropicADERDG(ADERDGBase):
             parseXMLMatrixFile("{}/star_anisotropic.xml".format(matricesDir), clones)
         )
         memoryLayoutFromFile(memLayout, self.db, clones)
+
+        for i in range(3):
+            self.db.star[i] = self.matdup(self.db.star[i])
 
         self.kwargs = kwargs
 

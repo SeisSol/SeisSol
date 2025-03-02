@@ -23,10 +23,11 @@ class Viscoelastic2ADERDG(ADERDGBase):
         multipleSimulations,
         matricesDir,
         memLayout,
+        materialorder,
         numberOfMechanisms,
         **kwargs,
     ):
-        super().__init__(order, multipleSimulations, matricesDir)
+        super().__init__(order, multipleSimulations, matricesDir, materialorder)
 
         self.numberOfMechanisms = numberOfMechanisms
 
@@ -39,6 +40,9 @@ class Viscoelastic2ADERDG(ADERDGBase):
             )
         )
         memoryLayoutFromFile(memLayout, self.db, clones)
+
+        for i in range(3):
+            self.db.star[i] = self.matdup(self.db.star[i])
 
         self._qShapeExtended = (
             self.numberOf3DBasisFunctions(),
@@ -245,7 +249,9 @@ class Viscoelastic2ADERDG(ADERDGBase):
         volumeSum = Add()
         for i in range(3):
             volumeSum += (
-                self.db.kDivM[i][self.t("kl")] * self.I["lq"] * self.db.star[i]["qp"]
+                self.db.kDivM[i][self.mt("kl")]
+                * self.I["lq"]
+                * self.db.star[i][self.m("qp")]
             )
         volumeExt = self.Qext["kp"] <= volumeSum
         generator.add("volumeExt", volumeExt)
@@ -253,10 +259,10 @@ class Viscoelastic2ADERDG(ADERDGBase):
         localFluxExt = (
             lambda i: self.Qext["kp"]
             <= self.Qext["kp"]
-            + self.db.rDivM[i][self.t("km")]
+            + self.db.rDivM[i][self.mt("km")]
             * self.db.fMrT[i][self.t("ml")]
             * self.I["lq"]
-            * self.AplusT["qp"]
+            * self.AplusT[self.m("qp")]
         )
         localFluxExtPrefetch = lambda i: (
             self.I if i == 0 else (self.Q if i == 1 else None)
@@ -286,11 +292,11 @@ class Viscoelastic2ADERDG(ADERDGBase):
         neighbourFluxExt = (
             lambda h, j, i: self.Qext["kp"]
             <= self.Qext["kp"]
-            + self.db.rDivM[i][self.t("km")]
+            + self.db.rDivM[i][self.mt("km")]
             * self.db.fP[h][self.t("mn")]
             * self.db.rT[j][self.t("nl")]
             * self.I["lq"]
-            * self.AminusT["qp"]
+            * self.AminusT[self.m("qp")]
         )
         neighbourFluxExtPrefetch = lambda h, j, i: self.I
         generator.addFamily(
@@ -361,9 +367,9 @@ class Viscoelastic2ADERDG(ADERDGBase):
             derivativeSum = Add()
             for j in range(3):
                 derivativeSum += (
-                    self.db.kDivMT[j][self.t("kl")]
+                    self.db.kDivMT[j][self.mt("kl")]
                     * dQ[kthDer - 1]["lq"]
-                    * self.db.star[j]["qp"]
+                    * self.db.star[j][self.m("qp")]
                 )
             return derivativeSum
 
