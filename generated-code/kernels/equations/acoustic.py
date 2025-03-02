@@ -13,14 +13,25 @@ from ..aderdg import LinearADERDG
 
 
 class AcousticADERDG(LinearADERDG):
-    def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
-        super().__init__(order, multipleSimulations, matricesDir)
+    def __init__(
+        self,
+        order,
+        multipleSimulations,
+        matricesDir,
+        memLayout,
+        materialorder,
+        **kwargs
+    ):
+        super().__init__(order, multipleSimulations, matricesDir, materialorder)
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
             parseXMLMatrixFile("{}/star_acoustic.xml".format(matricesDir), clones)
         )
+
+        for i in range(3):
+            self.db.star[i] = self.matdup(self.db.star[i])
 
         memoryLayoutFromFile(memLayout, self.db, clones)
         self.kwargs = kwargs

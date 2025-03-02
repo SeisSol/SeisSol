@@ -210,7 +210,7 @@ class PoroelasticADERDG(LinearADERDG):
         def kSub(d, n):
             Bn_1, Bn = modeRange(n)
             stiffnessSpp = np.zeros(fullShape)
-            stiffnessSpp[:, Bn_1:Bn] = -stiffnessValues[d][:, Bn_1:Bn]
+            stiffnessSpp[..., Bn_1:Bn] = -stiffnessValues[d][..., Bn_1:Bn]
             return Tensor("kDivMTSub({},{})".format(d, n), fullShape, spp=stiffnessSpp)
 
         kernels = list()
@@ -243,9 +243,9 @@ class PoroelasticADERDG(LinearADERDG):
                 derivativeSum = spaceTimePredictorRhs["kpt"]
                 for d in range(3):
                     derivativeSum += (
-                        kSub(d, n)["kl"]
+                        kSub(d, n)[self.mt("kl")]
                         * spaceTimePredictor["lqt"]
-                        * self.starMatrix(d)["qp"]
+                        * self.starMatrix(d)[self.m("qp")]
                     )
             kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
         kernels.append(

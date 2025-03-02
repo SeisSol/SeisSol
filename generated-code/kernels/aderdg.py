@@ -168,26 +168,12 @@ class ADERDGBase(ABC):
         return (self.order + 1) ** 3
 
     def godunov_spp(self):
-        if self.materialorder is None:
-            shape = (self.numberOfQuantities(), self.numberOfQuantities())
-        else:
-            shape = (
-                self.materialdim(),
-                self.numberOfQuantities(),
-                self.numberOfQuantities(),
-            )
-        return np.ones(shape, dtype=bool)
+        shape = (self.numberOfQuantities(), self.numberOfQuantities())
+        return self.matdup(np.ones(shape, dtype=bool))
 
     def flux_solver_spp(self):
-        if self.materialorder is None:
-            shape = (self.numberOfQuantities(), self.numberOfExtendedQuantities())
-        else:
-            shape = (
-                self.materialdim(),
-                self.numberOfQuantities(),
-                self.numberOfExtendedQuantities(),
-            )
-        return np.ones(shape, dtype=bool)
+        shape = (self.numberOfQuantities(), self.numberOfExtendedQuantities())
+        return self.matdup(np.ones(shape, dtype=bool))
 
     def transformation_spp(self):
         shape = (
@@ -322,10 +308,13 @@ class ADERDGBase(ABC):
 
     def matdup(self, matrix):
         if self.materialorder is not None:
-            # cf. https://stackoverflow.com/a/22635561
-            newspp = np.array([matrix.spp().as_ndarray()] * self.materialdim())
+            if isinstance(matrix, Tensor):
+                # cf. https://stackoverflow.com/a/22635561
+                newspp = np.array([matrix.spp().as_ndarray()] * self.materialdim())
 
-            return Tensor(matrix.name(), shape=newspp.shape, spp=newspp)
+                return Tensor(matrix.name(), shape=newspp.shape, spp=newspp)
+            else:
+                return np.array([matrix] * self.materialdim())
         else:
             return matrix
 
