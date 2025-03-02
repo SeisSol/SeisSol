@@ -41,6 +41,7 @@ def main():
     cmdLineParser.add_argument("--device_backend", default=None)
     cmdLineParser.add_argument("--device_arch", default=None)
     cmdLineParser.add_argument("--order", type=int)
+    cmdLineParser.add_argument("--materialorder", type=int)
     cmdLineParser.add_argument("--numberOfMechanisms", type=int)
     cmdLineParser.add_argument("--memLayout")
     cmdLineParser.add_argument("--multipleSimulations", type=int)
