@@ -50,7 +50,7 @@ Generic parameters
 - ``LOG_LEVEL_MASTER``: determines the minimum relevance level of log messages that are printed. Possible values are ``error``, ``warning``, ``info``, and ``debug``.
 - ``ASAGI``: enable or disable ASAGI as input for fault and material information. Note that easi will need to be built with ASAGI support if you select this option.
 - ``COVERAGE``: determine the code coverage (currently only relevant for the CI).
-- ``DR_QUAD_RULE``: the quadrature rule used for the Dynamic Rupture. Currently permits either ``dunavant`` or ``stroud``, referring to the respective quadrature scheme names.
+- ``DR_QUAD_RULE``: the quadrature rule used for the Dynamic Rupture. Currently permits either ``dunavant``, ``stroud``, or ``witherden_vincent``; referring to the respective quadrature scheme names.
 - ``PLASTICITY_METHOD``: changes the plasticity matrices to be used. Options are
 
     * ``nb``: nodal basis
