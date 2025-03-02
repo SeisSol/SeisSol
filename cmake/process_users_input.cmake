@@ -45,7 +45,8 @@ set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
 
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 
-set(MATERIAL_ORDER 1 CACHE STRING "Material order (possible: 1,2)")
+set(MATERIAL_ORDER 1 CACHE STRING "Material order (possible: 1,2,3)")
+set(MATERIAL_ORDER_OPTIONS 1 2 3)
 
 set(EQUATIONS "elastic" CACHE STRING "Equation set used")
 set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic)
@@ -141,6 +142,7 @@ check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
+check_parameter("MATERIAL_ORDER" ${MATERIAL_ORDER} "${MATERIAL_ORDER_OPTIONS}")
 
 string(REPLACE "," ";" GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
 
