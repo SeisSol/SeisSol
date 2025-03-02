@@ -65,7 +65,7 @@ struct MaterialSetup<HighOrderMaterial<BaseMaterialT, Order>> {
       const MaterialT& material,
       const double n[3],
       std::complex<double> mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
-    // TODO
+    ::seissol::model::getPlaneWaveOperator<BaseMaterialT>(material.materials[0], n, mdata);
   }
 
   template <typename T>
