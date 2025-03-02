@@ -61,11 +61,11 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
       reader->readWithDefault("gravitationalacceleration", 9.81);
   const double tv = reader->readWithDefault("tv", 0.1);
 
-  constexpr auto IsViscoelastic = model::MaterialT::Type == model::MaterialType::Viscoelastic;
+  constexpr auto IsAnelastic = model::MaterialT::Mechanisms > 0;
 
-  const auto freqCentral = reader->readIfRequired<double>("freqcentral", IsViscoelastic);
-  const auto freqRatio = reader->readIfRequired<double>("freqratio", IsViscoelastic);
-  if constexpr (IsViscoelastic) {
+  const auto freqCentral = reader->readIfRequired<double>("freqcentral", IsAnelastic);
+  const auto freqRatio = reader->readIfRequired<double>("freqratio", IsAnelastic);
+  if constexpr (IsAnelastic) {
     if (freqRatio <= 0) {
       logError() << "The freqratio parameter must be positive; but that is currently not the case.";
     }

@@ -24,6 +24,7 @@ struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumQuantities = 13;
   static constexpr std::size_t NumElasticQuantities = 13;
   static constexpr std::size_t NumberPerMechanism = 0;
+  static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Poroelastic;
   static constexpr LocalSolver Solver = LocalSolver::SpaceTimePredictorPoroelastic;
@@ -41,6 +42,10 @@ struct PoroElasticMaterial : public ElasticMaterial {
                                                                         "v1_f",
                                                                         "v2_f",
                                                                         "v3_f"};
+  static constexpr std::size_t Parameters = ElasticMaterial::Parameters + 7;
+
+  static constexpr bool SupportsDR = true;
+  static constexpr bool SupportsLTS = true;
 
   using LocalSpecificData = PoroelasticLocalData;
   using NeighborSpecificData = PoroelasticNeighborData;

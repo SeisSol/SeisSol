@@ -22,11 +22,16 @@ class HighOrderMaterial : public Material {
   static constexpr std::size_t NumQuantities = BaseMaterialT::NumQuantities;
   static constexpr std::size_t NumElasticQuantities = BaseMaterialT::NumElasticQuantities;
   static constexpr std::size_t NumberPerMechanism = BaseMaterialT::NumberPerMechanism;
+  static constexpr std::size_t TractionQuantities = BaseMaterialT::TractionQuantities;
   static constexpr std::size_t Mechanisms = BaseMaterialT::Mechanisms;
   static constexpr MaterialType Type = BaseMaterialT::Type;
   static constexpr LocalSolver Solver = BaseMaterialT::Solver;
   static inline const std::string Text = BaseMaterialT::Text + "-h" + std::to_string(Order);
   static inline const std::array<std::string, NumQuantities> Quantities = BaseMaterialT::Quantities;
+  static constexpr std::size_t Parameters = Functions3D * BaseMaterialT::Parameters;
+
+  static constexpr bool SupportsDR = BaseMaterialT::SupportsDR;
+  static constexpr bool SupportsLTS = BaseMaterialT::SupportsLTS;
 
   using LocalSpecificData = typename BaseMaterialT::LocalSpecificData;
   using NeighborSpecificData = typename BaseMaterialT::NeighborSpecificData;
@@ -36,6 +41,7 @@ class HighOrderMaterial : public Material {
   HighOrderMaterial() = default;
   HighOrderMaterial(const std::vector<double>& data) {
     const auto perMaterial = data.size() / materials.size();
+    assert(perMaterial == BaseMaterialT::Parameters);
     for (std::size_t i = 0; i < materials.size(); ++i) {
       std::vector<double> perData(data.begin() + perMaterial * i,
                                   data.begin() + perMaterial * (i + 1));
