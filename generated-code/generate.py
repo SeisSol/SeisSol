@@ -168,6 +168,9 @@ def main():
         cmdArgsDict = vars(cmdLineArgs)
         cmdArgsDict["memLayout"] = mem_layout
 
+        if cmdArgsDict["materialorder"] == 1:
+            cmdArgsDict["materialorder"] = None
+
         adg = equation(**cmdArgsDict)
 
         include_tensors = set()

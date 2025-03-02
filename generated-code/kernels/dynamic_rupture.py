@@ -17,20 +17,19 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
     clones = dict()
 
     # Load matrices
-    if aderdg.materialorder is None:
-        db = parseJSONMatrixFile(
-            f"{matricesDir}/dr_{drQuadRule}_matrices_{aderdg.order}.json",
-            clones,
-            alignStride=aderdg.alignStride,
-            transpose=aderdg.transpose,
+    matrixFile = f"{matricesDir}/dr-{drQuadRule}-{aderdg.order}.json"
+    if aderdg.materialorder is not None:
+        matrixFile = (
+            f"{matricesDir}/dr-{drQuadRule}-{aderdg.order}-h{aderdg.materialorder}.json"
         )
-    else:
-        db = parseJSONMatrixFile(
-            f"{matricesDir}/dr-{drQuadRule}-{aderdg.order}-h{aderdg.materialorder}.json",
-            clones,
-            alignStride=aderdg.alignStride,
-            transpose=aderdg.transpose,
-        )
+
+    db = parseJSONMatrixFile(
+        matrixFile,
+        clones,
+        alignStride=aderdg.alignStride,
+        transpose=aderdg.transpose,
+    )
+
     numberOfPoints = db.resample.shape()[0]
 
     # Determine matrices

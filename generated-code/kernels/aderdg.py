@@ -33,19 +33,20 @@ class ADERDGBase(ABC):
         self.t = (lambda x: x[::-1]) if transpose else (lambda x: x)
 
         if materialorder is None:
-            self.db = parseXMLMatrixFile(
-                "{}/matrices_{}.xml".format(
-                    matricesDir, self.numberOf3DBasisFunctions()
-                ),
-                transpose=self.transpose,
-                alignStride=self.alignStride,
-            )
+            matrixFile = f"{matricesDir}/linear-ader-{self.order}.xml"
+            parseFunction = parseXMLMatrixFile
         else:
-            self.db = parseJSONMatrixFile(
-                f"{matricesDir}/linear-ader-{self.order}-h{self.materialorder}.json",
-                transpose=self.transpose,
-                alignStride=self.alignStride,
+            matrixFile = (
+                f"{matricesDir}/linear-ader-{self.order}-h{self.materialorder}.json"
             )
+            parseFunction = parseJSONMatrixFile
+
+        self.db = parseFunction(
+            matrixFile,
+            transpose=self.transpose,
+            alignStride=self.alignStride,
+        )
+
         clonesQP = {"v": ["evalAtQP"], "vInv": ["projectQP"]}
         self.db.update(
             parseXMLMatrixFile(
