@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
 
+#include <Model/HighOrderMaterial.h>
+
 // IWYU pragma: begin_exports
 
 // Gather all datastructure Headers here
@@ -34,17 +36,23 @@
 
 namespace seissol::model {
 #if defined(USE_ANISOTROPIC)
-using MaterialT = AnisotropicMaterial;
+using BaseMaterialT = AnisotropicMaterial;
 #elif defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
-using MaterialT = ViscoElasticMaterial;
+using BaseMaterialT = ViscoElasticMaterial;
 #elif defined(USE_ELASTIC)
-using MaterialT = ElasticMaterial;
+using BaseMaterialT = ElasticMaterial;
 #elif defined(USE_ACOUSTIC)
-using MaterialT = AcousticMaterial;
+using BaseMaterialT = AcousticMaterial;
 #elif defined(USE_POROELASTIC)
-using MaterialT = PoroElasticMaterial;
+using BaseMaterialT = PoroElasticMaterial;
 #else
 #error "Material class unknown."
+#endif
+
+#if MATERIAL_ORDER > 1
+using MaterialT = HighOrderMaterial<BaseMaterialT, MATERIAL_ORDER>;
+#else
+using MaterialT = BaseMaterialT;
 #endif
 } // namespace seissol::model
 
