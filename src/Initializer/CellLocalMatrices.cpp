@@ -274,12 +274,23 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
           auto rusanovPlusView = init::QcorrLocal::view::create(rusanovPlusData);
           auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
-          for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]);
-               i++) {
-            centralFluxView(i, i) = 0.5;
-            rusanovPlusView(i, i) = wavespeed * 0.5;
-            rusanovMinusView(i, i) = -wavespeed * 0.5;
+#if MATERIAL_ORDER > 1
+          for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[1], tensor::QgodLocal::Shape[2]);
+               ++i) {
+            for (size_t j = 0; j < tensor::QgodLocal::Shape[0]; ++j) {
+              centralFluxView(j, i, i) = 0.5;
+              rusanovPlusView(j, i, i) = wavespeed * 0.5;
+              rusanovMinusView(j, i, i) = -wavespeed * 0.5;
+            }
           }
+#else
+        for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]);
+             i++) {
+          centralFluxView(i, i) = 0.5;
+          rusanovPlusView(i, i) = wavespeed * 0.5;
+          rusanovMinusView(i, i) = -wavespeed * 0.5;
+        }
+#endif
 
           // check if we're on a face that has an adjacent cell with DR face
           const auto fluxDefault =
@@ -684,6 +695,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       case seissol::model::MaterialType::Viscoelastic: {
         break;
       }
+#if MATERIAL_ORDER == 1
       case seissol::model::MaterialType::Poroelastic: {
         auto plusEigenpair =
             seissol::model::getEigenDecomposition(*dynamic_cast<model::MaterialT*>(plusMaterial));
@@ -709,6 +721,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
         break;
       }
+#endif
       default: {
         logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
                       "(built with:"

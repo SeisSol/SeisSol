@@ -244,6 +244,7 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(MaterialType materialt
                                                           T& qGodLocal,
                                                           T& qGodNeighbor,
                                                           Tmatrix& R) {
+#if MATERIAL_ORDER == 1
   for (size_t i = 0; i < seissol::model::MaterialT::NumElasticQuantities; i++) {
     for (size_t j = 0; j < seissol::model::MaterialT::NumElasticQuantities; j++) {
       qGodNeighbor(i, j) = std::numeric_limits<double>::signaling_NaN();
@@ -283,6 +284,7 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(MaterialType materialt
     break;
   }
   }
+#endif
 }
 
 #endif // SEISSOL_SRC_MODEL_COMMON_H_

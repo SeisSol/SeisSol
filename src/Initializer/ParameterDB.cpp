@@ -19,6 +19,7 @@
 #include <Kernels/Precision.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Datastructures.h>
+#include <Model/HighOrderMaterial.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -122,6 +123,21 @@ CellToVertexArray CellToVertexArray::fromVectors(
 easi::Query ElementBarycenterGenerator::generate() const {
   easi::Query query(m_cellToVertex.size, 3);
 
+#pragma omp parallel for schedule(static)
+  for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
+    auto vertices = m_cellToVertex.elementCoordinates(elem);
+    Eigen::Vector3d barycenter = (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
+    query.x(elem, 0) = barycenter(0);
+    query.x(elem, 1) = barycenter(1);
+    query.x(elem, 2) = barycenter(2);
+    query.group(elem) = m_cellToVertex.elementGroups(elem);
+  }
+  return query;
+}
+
+easi::Query ElementInterpolationGenerator::generate() const {
+  easi::Query query(m_cellToVertex.size, 3);
+  //* seissol::init::vInv::Shape[0]
 #pragma omp parallel for schedule(static)
   for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
     auto vertices = m_cellToVertex.elementCoordinates(elem);
@@ -359,6 +375,24 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     for (unsigned i = 0; i < numPoints; ++i) {
       m_materials->at(i) = T(materialsFromQuery[i]);
     }
+  }
+  delete model;
+}
+
+template <typename BaseMaterialT, std::size_t Order>
+void MaterialParameterDB<seissol::model::HighOrderMaterial<BaseMaterialT, Order>>::evaluateModel(
+    const std::string& fileName, const QueryGenerator& queryGen) {
+  easi::Component* model = loadEasiModel(fileName);
+  easi::Query query = queryGen.generate();
+  const unsigned numPoints = query.numPoints();
+
+  std::vector<BaseMaterialT> materialsFromQuery(numPoints);
+  easi::ArrayOfStructsAdapter<BaseMaterialT> adapter(materialsFromQuery.data());
+  MaterialParameterDB<BaseMaterialT>().addBindingPoints(adapter);
+  model->evaluate(query, adapter);
+
+  for (unsigned i = 0; i < numPoints; ++i) {
+    m_materials->at(i).materials[0] = BaseMaterialT(materialsFromQuery[i]);
   }
   delete model;
 }
@@ -626,6 +660,7 @@ easi::Component* loadEasiModel(const std::string& fileName) {
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
                                                       bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex) {
+#if MATERIAL_ORDER == 1
   std::shared_ptr<QueryGenerator> queryGen;
   if (!useCellHomogenizedMaterial) {
     queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
@@ -645,6 +680,9 @@ std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
     }
   }
   return queryGen;
+#else
+  return std::make_shared<ElementInterpolationGenerator>(cellToVertex);
+#endif
 }
 
 template class MaterialParameterDB<seissol::model::AnisotropicMaterial>;
@@ -653,5 +691,8 @@ template class MaterialParameterDB<seissol::model::AcousticMaterial>;
 template class MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
 template class MaterialParameterDB<seissol::model::PoroElasticMaterial>;
 template class MaterialParameterDB<seissol::model::Plasticity>;
+
+template class MaterialParameterDB<
+    seissol::model::HighOrderMaterial<ElasticMaterial, MATERIAL_ORDER>>;
 
 } // namespace seissol::initializer
