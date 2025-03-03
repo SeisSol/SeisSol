@@ -79,13 +79,13 @@ SEISSOL_HOSTDEVICE inline real smoothStepIncrement(real currentTime, real dt, re
   */
   if (currentTime <= 0) {
     return 0.0;
-  } else if (currentTime < std::min(t0, dt)) {
+  } else if (currentTime <= dt) {
     return smoothStepIncrementBegin<MathFunctions>(currentTime, t0);
-  } else if (currentTime >= t0 && currentTime < t0 + dt) {
-    return smoothStepIncrementEnd<MathFunctions>(currentTime - dt, t0);
-  } else if (currentTime < t0) {
-    // implicitly by else if 1: currentTime >= dt
+  } else if (currentTime > dt && currentTime < t0) {
     return smoothStepIncrementMiddle<MathFunctions>(currentTime, dt, t0);
+  } else if (currentTime < t0 + dt) {
+    // implicitly by else if 1: currentTime >= dt
+    return smoothStepIncrementEnd<MathFunctions>(currentTime - dt, t0);
   } else {
     return 0.0;
   }
