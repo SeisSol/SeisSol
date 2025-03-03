@@ -1,5 +1,12 @@
-#ifndef ANALYSISWRITER_H
-#define ANALYSISWRITER_H
+// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_RESULTWRITER_ANALYSISWRITER_H_
+#define SEISSOL_SRC_RESULTWRITER_ANALYSISWRITER_H_
 
 #include <array>
 #include <cmath>
@@ -32,9 +39,15 @@ class CsvAnalysisWriter {
 
   ~CsvAnalysisWriter();
 
+  CsvAnalysisWriter(const CsvAnalysisWriter&) = delete;
+  auto operator=(const CsvAnalysisWriter&) = delete;
+
+  CsvAnalysisWriter(CsvAnalysisWriter&&) = delete;
+  auto operator=(CsvAnalysisWriter&&) = delete;
+
   private:
   std::ofstream out;
-  bool isEnabled;
+  bool isEnabled{false};
   std::string fileName;
 };
 
@@ -47,14 +60,13 @@ class AnalysisWriter {
     int rank;
   };
 
-  bool isEnabled; // TODO(Lukas) Do we need this?
-  const seissol::geometry::MeshReader* meshReader;
+  bool isEnabled{false}; // TODO(Lukas) Do we need this?
+  const seissol::geometry::MeshReader* meshReader{};
 
   std::string fileName;
 
   public:
-  AnalysisWriter(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance), isEnabled(false) {}
+  AnalysisWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   void init(const seissol::geometry::MeshReader* meshReader, std::string_view fileNamePrefix) {
     isEnabled = true;
@@ -67,4 +79,4 @@ class AnalysisWriter {
 
 } // namespace seissol::writer
 
-#endif // ANALYSISWRITER_H
+#endif // SEISSOL_SRC_RESULTWRITER_ANALYSISWRITER_H_

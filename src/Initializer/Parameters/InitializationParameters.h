@@ -1,5 +1,12 @@
-#ifndef SEISSOL_INITIALIZATION_PARAMETERS_H
-#define SEISSOL_INITIALIZATION_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_
 
 #include <Eigen/Dense>
 
@@ -20,7 +27,8 @@ enum class InitializationType : int {
   Ocean0,
   Ocean1,
   Ocean2,
-  PressureInjection
+  PressureInjection,
+  Easi
 };
 
 struct InitializationParameters {
@@ -31,9 +39,11 @@ struct InitializationParameters {
   double magnitude;
   double width;
   double k;
+  std::string filename;
+  bool hasTime;
 };
 
 InitializationParameters readInitializationParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_INITIALIZATIONPARAMETERS_H_

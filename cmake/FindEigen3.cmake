@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-2-Clause
+
 # - Try to find Eigen3 lib
 #
 # This module supports requiring a minimum version, e.g. you can do

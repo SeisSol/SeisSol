@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_INSTANCE_POINT_PYTABLES_H_
 #define SEISSOL_SRC_IO_INSTANCE_POINT_PYTABLES_H_
@@ -17,6 +20,7 @@ namespace seissol::io::instance::point {
 
 class Pytables : public TableWriter {
   public:
+  ~Pytables() override = default;
   Pytables();
 
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() override;

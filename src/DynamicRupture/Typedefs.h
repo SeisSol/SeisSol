@@ -1,9 +1,17 @@
-#ifndef DR_TYPEDEFS
-#define DR_TYPEDEFS
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
 
 #include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
+#include <Common/Executor.h>
 
 namespace seissol::dr {
 
@@ -25,12 +33,19 @@ struct ImpedanceMatrices {
   alignas(Alignment) real eta[tensor::eta::size()] = {};
 };
 
+template <Executor Executor>
+struct FaultStresses;
+
+template <Executor Executor>
+struct TractionResults;
+
 /**
  * Struct that contains all input stresses
  * normalStress in direction of the face normal, traction1, traction2 in the direction of the
  * respective tangential vectors
  */
-struct FaultStresses {
+template <>
+struct FaultStresses<Executor::Host> {
   alignas(Alignment) real normalStress[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
   alignas(Alignment) real traction1[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
   alignas(Alignment) real traction2[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
@@ -41,11 +56,35 @@ struct FaultStresses {
  * Struct that contains all traction results
  * traction1, traction2 in the direction of the respective tangential vectors
  */
-struct TractionResults {
+template <>
+struct TractionResults<Executor::Host> {
   alignas(Alignment) real traction1[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
   alignas(Alignment) real traction2[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
 };
 
+/**
+ * Struct that contains all input stresses
+ * normalStress in direction of the face normal, traction1, traction2 in the direction of the
+ * respective tangential vectors
+ */
+template <>
+struct FaultStresses<Executor::Device> {
+  real normalStress[ConvergenceOrder] = {{}};
+  real traction1[ConvergenceOrder] = {{}};
+  real traction2[ConvergenceOrder] = {{}};
+  real fluidPressure[ConvergenceOrder] = {{}};
+};
+
+/**
+ * Struct that contains all traction results
+ * traction1, traction2 in the direction of the respective tangential vectors
+ */
+template <>
+struct TractionResults<Executor::Device> {
+  real traction1[ConvergenceOrder] = {{}};
+  real traction2[ConvergenceOrder] = {{}};
+};
+
 } // namespace seissol::dr
 
-#endif
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_

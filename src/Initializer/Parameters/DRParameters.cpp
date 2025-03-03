@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "DRParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>
 #include <Kernels/Precision.h>
@@ -27,11 +34,12 @@ DRParameters readDRParameters(ParameterReader* baseReader, int i) {
                                                OutputType::AtPickpoint,
                                                OutputType::Elementwise,
                                                OutputType::AtPickpointAndElementwise});
-  const auto frictionLawType = reader->readWithDefaultEnum<FrictionLawType>(
+  auto frictionLawType = reader->readWithDefaultEnum<FrictionLawType>(
       "fl",
       FrictionLawType::NoFault,
       {FrictionLawType::NoFault,
        FrictionLawType::LinearSlipWeakening,
+       FrictionLawType::LinearSlipWeakeningLegacy,
        FrictionLawType::LinearSlipWeakeningBimaterial,
        FrictionLawType::LinearSlipWeakeningTPApprox,
        FrictionLawType::RateAndStateAgingLaw,
@@ -39,18 +47,23 @@ DRParameters readDRParameters(ParameterReader* baseReader, int i) {
        FrictionLawType::RateAndStateFastVelocityWeakening,
        FrictionLawType::ImposedSlipRatesYoffe,
        FrictionLawType::ImposedSlipRatesGaussian,
-       FrictionLawType::RateAndStateVelocityWeakening,
+       FrictionLawType::ImposedSlipRatesDelta,
+       FrictionLawType::RateAndStateSevereVelocityWeakening,
        FrictionLawType::RateAndStateAgingNucleation});
+  if (frictionLawType == FrictionLawType::LinearSlipWeakeningLegacy) {
+    logWarning() << "Using FL=2 for the linear slip weakening friction law is deprecated; consider "
+                    "switching it to FL=16";
+  }
   auto slipRateOutputType = reader->readWithDefaultEnum<SlipRateOutputType>(
       "sliprateoutputtype",
       SlipRateOutputType::TractionsAndFailure,
       {SlipRateOutputType::VelocityDifference, SlipRateOutputType::TractionsAndFailure});
   if (((frictionLawType == FrictionLawType::ImposedSlipRatesYoffe) or
-       (frictionLawType == FrictionLawType::ImposedSlipRatesGaussian)) and
+       (frictionLawType == FrictionLawType::ImposedSlipRatesGaussian) or
+       (frictionLawType == FrictionLawType::ImposedSlipRatesDelta)) and
       (slipRateOutputType == SlipRateOutputType::TractionsAndFailure)) {
-    logWarning(seissol::MPI::mpi.rank())
-        << "SlipRateOutputType=1 is incompatible with imposed slip rates friction laws, "
-           "switching to SlipRateOutputType=0";
+    logWarning() << "SlipRateOutputType=1 is incompatible with imposed slip rates friction laws, "
+                    "switching to SlipRateOutputType=0";
     slipRateOutputType = SlipRateOutputType::VelocityDifference;
   }
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
@@ -63,7 +76,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, int i) {
   const bool isRateAndState =
       (frictionLawType == FrictionLawType::RateAndStateAgingLaw) or
       (frictionLawType == FrictionLawType::RateAndStateSlipLaw) or
-      (frictionLawType == FrictionLawType::RateAndStateVelocityWeakening) or
+      (frictionLawType == FrictionLawType::RateAndStateSevereVelocityWeakening) or
       (frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
 
   const auto rsF0 = reader->readIfRequired<real>("rs_f0", isRateAndState);
@@ -72,20 +85,24 @@ DRParameters readDRParameters(ParameterReader* baseReader, int i) {
   const auto rsInitialSlipRate1 = reader->readIfRequired<real>("rs_inisliprate1", isRateAndState);
   const auto rsInitialSlipRate2 = reader->readIfRequired<real>("rs_inisliprate2", isRateAndState);
 
-  const auto muW = reader->readIfRequired<real>(
-      "rs_muw", frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
+  const auto muW = reader->readIfRequiredAlternatives<real>(
+      {"rs_muw", "mu_w"}, frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
 
-  const auto thermalDiffusivity =
-      reader->readIfRequired<real>("tp_thermaldiffusivity", isThermalPressureOn);
-  const auto heatCapacity = reader->readIfRequired<real>("tp_heatcapacity", isThermalPressureOn);
-  const auto undrainedTPResponse =
-      reader->readIfRequired<real>("tp_undrainedtpresponse", isThermalPressureOn);
-  const auto initialTemperature = reader->readIfRequired<real>("tp_initemp", isThermalPressureOn);
-  const auto initialPressure = reader->readIfRequired<real>("tp_inipressure", isThermalPressureOn);
+  const auto thermalDiffusivity = reader->readIfRequiredAlternatives<real>(
+      {"tp_thermaldiffusivity", "alpha_th"}, isThermalPressureOn);
+  const auto heatCapacity =
+      reader->readIfRequiredAlternatives<real>({"tp_heatcapacity", "rho_c"}, isThermalPressureOn);
+  const auto undrainedTPResponse = reader->readIfRequiredAlternatives<real>(
+      {"tp_undrainedtpresponse", "tp_lambda"}, isThermalPressureOn);
+  const auto initialTemperature =
+      reader->readIfRequiredAlternatives<real>({"tp_initemp", "initemp"}, isThermalPressureOn);
+  const auto initialPressure = reader->readIfRequiredAlternatives<real>(
+      {"tp_inipressure", "inipressure"}, isThermalPressureOn);
 
   const bool isBiMaterial = frictionLawType == FrictionLawType::LinearSlipWeakeningBimaterial;
-  const auto vStar = reader->readIfRequired<real>("pc_vstar", isBiMaterial);
-  const auto prakashLength = reader->readIfRequired<real>("pc_prakashlength", isBiMaterial);
+  const auto vStar = reader->readIfRequiredAlternatives<real>({"pc_vstar", "v_star"}, isBiMaterial);
+  const auto prakashLength =
+      reader->readIfRequiredAlternatives<real>({"pc_prakashlength", "l"}, isBiMaterial);
 
   auto faultFileName = reader->readPath("modelfilename");
 
@@ -102,6 +119,8 @@ DRParameters readDRParameters(ParameterReader* baseReader, int i) {
 
   auto* outputReader = baseReader->readSubNode("output");
   const bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
+  const bool energiesFromAcrossFaultVelocities =
+      outputReader->readWithDefault("faultenergiesfromacrossfaultvelocities", false);
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
   const auto terminatorSlipRateThreshold = static_cast<real>(abortCriteriaReader->readWithDefault(
@@ -111,7 +130,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, int i) {
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
 
   // if there is no fileName given for the fault, assume that we do not use dynamic rupture
-  const bool isDynamicRuptureEnabled = faultFileName.value_or("") != "";
+  const bool isDynamicRuptureEnabled = !faultFileName.value_or("").empty();
 
   const double etaHack = [&]() {
     const auto hackRead1 = reader->read<double>("etahack");
@@ -120,7 +139,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, int i) {
     } else {
       const auto hackRead2 = outputReader->read<double>("etahack");
       if (hackRead2.has_value()) {
-        logWarning(seissol::MPI::mpi.rank())
+        logWarning()
             << "Reading the etahack parameter from the output section is deprecated and may be "
                "removed in a future version of SeisSol. Put the parameter into the dynamicrupture "
                "section instead.";
@@ -135,6 +154,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, int i) {
                       isThermalPressureOn,
                       isFrictionEnergyRequired,
                       isCheckAbortCriteraEnabled,
+                      energiesFromAcrossFaultVelocities,
                       outputPointType,
                       refPointMethod,
                       slipRateOutputType,

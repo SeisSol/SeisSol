@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "WriterModule.h"
 #include "utils/logger.h"
@@ -23,17 +26,15 @@ namespace seissol::io::writer::module {
 WriterModule::WriterModule(const std::string& prefix,
                            const ScheduledWriter& settings,
                            const parallel::Pinning& pinning)
-    : prefix(prefix), settings(settings), lastWrite(-1), pinning(pinning) {
-  rank = seissol::MPI::mpi.rank();
-}
+    : rank(seissol::MPI::mpi.rank()), prefix(prefix), settings(settings), pinning(pinning) {}
 
 void WriterModule::setUp() {
-  logInfo(rank) << "Output Writer" << settings.name << ": setup.";
+  logInfo() << "Output Writer" << settings.name << ": setup.";
   setExecutor(executor);
   if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi)) {
     const auto freeCpus = pinning.getFreeCPUsMask();
-    logInfo(rank) << "Output Writer" << settings.name
-                  << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Output Writer" << settings.name
+              << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -42,8 +43,8 @@ void WriterModule::setUp() {
 }
 
 void WriterModule::startup() {
-  logInfo(rank) << "Output Writer" << settings.name << ": startup, running at interval"
-                << settings.interval;
+  logInfo() << "Output Writer" << settings.name << ": startup, running at interval"
+            << settings.interval;
   init();
 
   // we want ASYNC to like us, hence we need to enter a non-zero size here
@@ -64,11 +65,10 @@ void WriterModule::simulationStart() { syncPoint(0); }
 
 void WriterModule::syncPoint(double time) {
   if (lastWrite >= 0) {
-    logInfo(rank) << "Output Writer" << settings.name << ": finishing previous write from"
-                  << lastWrite;
+    logInfo() << "Output Writer" << settings.name << ": finishing previous write from" << lastWrite;
   }
   wait();
-  logInfo(rank) << "Output Writer" << settings.name << ": preparing write at" << time;
+  logInfo() << "Output Writer" << settings.name << ": preparing write at" << time;
 
   // request the write plan
   auto writeCount = static_cast<int>(std::round(time / syncInterval()));
@@ -78,7 +78,7 @@ void WriterModule::syncPoint(double time) {
   std::unordered_set<DataSource*> handledSources;
   std::vector<int> idsToSend;
   std::unordered_set<int> idSet;
-  for (auto& instruction : writer.getInstructions()) {
+  for (const auto& instruction : writer.getInstructions()) {
     for (auto& dataSource : instruction->dataSources()) {
       if (handledSources.find(dataSource.get()) == handledSources.end()) {
         // TODO: make a better flag than distributed here
@@ -90,7 +90,7 @@ void WriterModule::syncPoint(double time) {
             if (dynamic_cast<WriteBuffer*>(dataSource.get()) != nullptr) {
               // pass-through buffer
               auto* writeBuffer = dynamic_cast<WriteBuffer*>(dataSource.get());
-              auto pointer = writeBuffer->getLocalPointer();
+              const auto* pointer = writeBuffer->getLocalPointer();
               auto size = writeBuffer->getLocalSize();
               if (pointerMap.find(pointer) == pointerMap.end()) {
                 BufferPointer repr;
@@ -160,18 +160,18 @@ void WriterModule::syncPoint(double time) {
     sendBuffer(id);
   }
 
-  logInfo(rank) << "Output Writer" << settings.name << ": triggering write at" << time;
+  logInfo() << "Output Writer" << settings.name << ": triggering write at" << time;
   lastWrite = time;
   call(AsyncWriterExec{});
 }
 
 void WriterModule::simulationEnd() {
-  logInfo(rank) << "Output Writer" << settings.name << ": finishing output";
+  logInfo() << "Output Writer" << settings.name << ": finishing output";
   wait();
 }
 
 void WriterModule::shutdown() {
-  logInfo(rank) << "Output Writer" << settings.name << ": shutdown";
+  logInfo() << "Output Writer" << settings.name << ": shutdown";
   finalize();
 }
 

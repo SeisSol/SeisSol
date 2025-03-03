@@ -1,46 +1,14 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2014-2015, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2014-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
 #include "Initializer/Parameters/ParameterReader.h"
-#include "Initializer/PreProcessorMacros.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Instrumentation.h"
 #include <cstdlib>
 #include <ctime>
 #include <exception>
@@ -58,11 +26,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "SeisSol.h"
 
-#include "Common/Constants.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "Modules/Modules.h"
 #include "Parallel/MPI.h"
-#include "SeisSol.h"
 
 #ifdef USE_ASAGI
 #include "Reader/AsagiModule.h"
@@ -81,7 +45,7 @@
 #include "Version.h"
 
 namespace {
-static std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
+std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
   // Read parameter file input from file
   fty::Loader<fty::AsLowercase> loader{};
   std::shared_ptr<YAML::Node> inputParams = nullptr;
@@ -115,6 +79,8 @@ int main(int argc, char* argv[]) {
   seissol::MPI::mpi.init(argc, argv);
   const int rank = seissol::MPI::mpi.rank();
 
+  utils::Logger::setRank(rank);
+
   LIKWID_MARKER_INIT;
 #pragma omp parallel
   {
@@ -138,27 +104,26 @@ int main(int argc, char* argv[]) {
   SCOREP_USER_REGION("SeisSol", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   // Print welcome message
-  logInfo(rank) << "Welcome to SeisSol";
-  logInfo(rank) << "Copyright (c) 2012 -" << COMMIT_YEAR << " SeisSol Group";
-  logInfo(rank) << "Version:" << VERSION_STRING;
-  logInfo(rank) << "Built on:" << __DATE__ << __TIME__;
-  logInfo(rank) << "Built with Convergence Order:" << ConvergenceOrder;
+  logInfo() << "Welcome to SeisSol";
+  logInfo() << "Copyright (c) 2012 -" << COMMIT_YEAR << " SeisSol Group";
+  logInfo() << "Version:" << VERSION_STRING;
+  logInfo() << "Built on:" << __DATE__ << __TIME__;
 #ifdef COMMIT_HASH
-  logInfo(rank) << "Last commit:" << COMMIT_HASH << "at" << COMMIT_TIMESTAMP;
+  logInfo() << "Last commit:" << COMMIT_HASH << "at" << COMMIT_TIMESTAMP;
 #endif
-  logInfo(rank) << "Compiled with HOST_ARCH =" << SEISSOL_HOST_ARCH;
+  logInfo() << "Compiled with HOST_ARCH =" << SEISSOL_HOST_ARCH;
 #ifdef ACL_DEVICE
-  logInfo(rank) << "Compiled with DEVICE_BACKEND =" << SEISSOL_DEVICE_BACKEND;
-  logInfo(rank) << "Compiled with DEVICE_ARCH =" << SEISSOL_DEVICE_ARCH;
+  logInfo() << "Compiled with DEVICE_BACKEND =" << SEISSOL_DEVICE_BACKEND;
+  logInfo() << "Compiled with DEVICE_ARCH =" << SEISSOL_DEVICE_ARCH;
 #endif
 
   if (utils::Env::get<bool>("FLOATING_POINT_EXCEPTION", false)) {
     // Check if on a GNU system (Linux) or other platform
 #if defined(__GNUC__) || defined(__linux__)
     feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
-    logInfo(rank) << "Enabling floating point exception handlers.";
+    logInfo() << "Enabling floating point exception handlers.";
 #else
-    logInfo(rank) << "Floating-point exceptions not supported on this platform.";
+    logInfo() << "Floating-point exceptions not supported on this platform.";
 #endif
   }
 
@@ -174,7 +139,7 @@ int main(int argc, char* argv[]) {
     [[fallthrough]];
   }
   case utils::Args::Error: {
-    seissol::MPI::mpi.finalize();
+    seissol::MPI::finalize();
     exit(1);
     break;
   }
@@ -182,12 +147,12 @@ int main(int argc, char* argv[]) {
     break;
   }
   }
-  const auto parameterFile = args.getAdditionalArgument("file", "parameters.par");
-  logInfo(rank) << "Using the parameter file" << parameterFile;
+  const auto* parameterFile = args.getAdditionalArgument("file", "parameters.par");
+  logInfo() << "Using the parameter file" << parameterFile;
   // read parameter file input
   const auto yamlParams = readYamlParams(parameterFile);
   seissol::initializer::parameters::ParameterReader parameterReader(
-      *yamlParams.get(), parameterFile, false);
+      *yamlParams, parameterFile, false);
   auto parameters = seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
   parameterReader.warnUnknown();
 
@@ -195,14 +160,14 @@ int main(int argc, char* argv[]) {
   seissol::SeisSol seissolInstance(parameters);
 
   if (args.isSet("checkpoint")) {
-    const auto checkpointFile = args.getArgument<const char*>("checkpoint");
+    const auto* checkpointFile = args.getArgument<const char*>("checkpoint");
     seissolInstance.loadCheckpoint(checkpointFile);
   }
 
   // run SeisSol
   const bool runSeisSol = seissolInstance.init(argc, argv);
 
-  const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(0L));
+  const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
   seissolInstance.setBackupTimeStamp(stamp);
 
   // Run SeisSol

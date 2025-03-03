@@ -1,5 +1,12 @@
-#ifndef SEISSOL_FRICTIONSOLVER_H
-#define SEISSOL_FRICTIONSOLVER_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVER_H_
 
 #include "DynamicRupture/Misc.h"
 #include "Initializer/DynamicRupture.h"
@@ -33,7 +40,7 @@ class FrictionSolver {
   virtual ~FrictionSolver() = default;
 
   virtual void evaluate(seissol::initializer::Layer& layerData,
-                        const seissol::initializer::DynamicRupture* const dynRup,
+                        const seissol::initializer::DynamicRupture* dynRup,
                         real fullUpdateTime,
                         const double timeWeights[ConvergenceOrder],
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
@@ -48,7 +55,7 @@ class FrictionSolver {
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
+                          const seissol::initializer::DynamicRupture* dynRup,
                           real fullUpdateTime);
 
   virtual seissol::initializer::AllocationPlace allocationPlace();
@@ -59,43 +66,43 @@ class FrictionSolver {
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
   real deltaT[ConvergenceOrder] = {};
-  real sumDt;
+  real sumDt{};
 
   seissol::initializer::parameters::DRParameters* drParameters;
-  ImpedancesAndEta* impAndEta;
-  ImpedanceMatrices* impedanceMatrices;
-  real mFullUpdateTime;
+  ImpedancesAndEta* impAndEta{};
+  ImpedanceMatrices* impedanceMatrices{};
+  real mFullUpdateTime{};
   // CS = coordinate system
-  real (*initialStressInFaultCS)[misc::NumPaddedPoints][6];
-  real (*nucleationStressInFaultCS)[misc::NumPaddedPoints][6];
-  real (*cohesion)[misc::NumPaddedPoints];
-  real (*mu)[misc::NumPaddedPoints];
-  real (*accumulatedSlipMagnitude)[misc::NumPaddedPoints];
-  real (*slip1)[misc::NumPaddedPoints];
-  real (*slip2)[misc::NumPaddedPoints];
-  real (*slipRateMagnitude)[misc::NumPaddedPoints];
-  real (*slipRate1)[misc::NumPaddedPoints];
-  real (*slipRate2)[misc::NumPaddedPoints];
-  real (*ruptureTime)[misc::NumPaddedPoints];
-  bool (*ruptureTimePending)[misc::NumPaddedPoints];
-  real (*peakSlipRate)[misc::NumPaddedPoints];
-  real (*traction1)[misc::NumPaddedPoints];
-  real (*traction2)[misc::NumPaddedPoints];
-  real (*imposedStatePlus)[tensor::QInterpolated::size()];
-  real (*imposedStateMinus)[tensor::QInterpolated::size()];
-  real spaceWeights[misc::NumPaddedPoints];
+  real (*initialStressInFaultCS)[misc::NumPaddedPoints][6]{};
+  real (*nucleationStressInFaultCS)[misc::NumPaddedPoints][6]{};
+  real (*cohesion)[misc::NumPaddedPoints]{};
+  real (*mu)[misc::NumPaddedPoints]{};
+  real (*accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
+  real (*slip1)[misc::NumPaddedPoints]{};
+  real (*slip2)[misc::NumPaddedPoints]{};
+  real (*slipRateMagnitude)[misc::NumPaddedPoints]{};
+  real (*slipRate1)[misc::NumPaddedPoints]{};
+  real (*slipRate2)[misc::NumPaddedPoints]{};
+  real (*ruptureTime)[misc::NumPaddedPoints]{};
+  bool (*ruptureTimePending)[misc::NumPaddedPoints]{};
+  real (*peakSlipRate)[misc::NumPaddedPoints]{};
+  real (*traction1)[misc::NumPaddedPoints]{};
+  real (*traction2)[misc::NumPaddedPoints]{};
+  real (*imposedStatePlus)[tensor::QInterpolated::size()]{};
+  real (*imposedStateMinus)[tensor::QInterpolated::size()]{};
+  real spaceWeights[misc::NumPaddedPoints]{};
   DREnergyOutput* energyData{};
   DRGodunovData* godunovData{};
-  real (*initialPressure)[misc::NumPaddedPoints];
-  real (*nucleationPressure)[misc::NumPaddedPoints];
+  real (*initialPressure)[misc::NumPaddedPoints]{};
+  real (*nucleationPressure)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
-  real (*dynStressTime)[misc::NumPaddedPoints];
-  bool (*dynStressTimePending)[misc::NumPaddedPoints];
+  real (*dynStressTime)[misc::NumPaddedPoints]{};
+  bool (*dynStressTimePending)[misc::NumPaddedPoints]{};
 
-  real (*qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()];
-  real (*qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()];
+  real (*qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
+  real (*qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
 };
 } // namespace seissol::dr::friction_law
 
-#endif // SEISSOL_FRICTIONSOLVER_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVER_H_

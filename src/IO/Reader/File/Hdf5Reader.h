@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_READER_FILE_HDF5READER_H_
 #define SEISSOL_SRC_IO_READER_FILE_HDF5READER_H_
@@ -38,7 +41,7 @@ class Hdf5Reader {
   std::size_t attributeCount(const std::string& name);
   void readAttributeRaw(void* data,
                         const std::string& name,
-                        std::shared_ptr<datatype::Datatype> type);
+                        const std::shared_ptr<datatype::Datatype>& type);
   template <typename T>
   std::vector<T>
       readData(const std::string& name,
@@ -52,7 +55,7 @@ class Hdf5Reader {
   void readDataRaw(void* data,
                    const std::string& name,
                    std::size_t count,
-                   std::shared_ptr<datatype::Datatype> targetType);
+                   const std::shared_ptr<datatype::Datatype>& targetType);
   void closeGroup();
   void closeFile();
 

@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Xml.h"
 
@@ -10,14 +13,15 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 namespace seissol::io::instance::metadata {
 
-XmlInstructor::XmlInstructor(const std::string file) : file(file) {}
+XmlInstructor::XmlInstructor(const std::string& file) : file(file) {}
 
 void XmlInstructor::addText(const std::string& text) { cache << text; }
 
-void XmlInstructor::addBuffer(std::shared_ptr<writer::DataSource> dataSource) {
+void XmlInstructor::addBuffer(const std::shared_ptr<writer::DataSource>& dataSource) {
   if (dataSource->distributed()) {
     flush();
     instructionList.push_back(
@@ -73,7 +77,7 @@ void XmlEntry::write(XmlInstructor& instructor) const {
 
 XmlNode::XmlNode(const std::string& name) : XmlEntry(name) {}
 
-void XmlNode::addNode(std::shared_ptr<XmlEntry> entry) { entries.push_back(entry); }
+void XmlNode::addNode(const std::shared_ptr<XmlEntry>& entry) { entries.push_back(entry); }
 
 void XmlNode::innerWrite(XmlInstructor& instructor) const {
   for (const auto& entry : entries) {
@@ -87,7 +91,7 @@ void XmlData::innerWrite(XmlInstructor& instructor) const { instructor.addBuffer
 
 std::shared_ptr<XmlEntry> XmlFile::getRoot() { return root; }
 
-void XmlFile::setRoot(std::shared_ptr<XmlEntry> entry) { root = entry; }
+void XmlFile::setRoot(std::shared_ptr<XmlEntry> entry) { root = std::move(entry); }
 
 std::vector<std::shared_ptr<writer::instructions::WriteInstruction>>
     XmlFile::instructions(const std::string& file) const {

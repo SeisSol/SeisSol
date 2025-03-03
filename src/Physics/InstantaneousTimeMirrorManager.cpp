@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "InstantaneousTimeMirrorManager.h"
 #include "Initializer/CellLocalMatrices.h"
 #include "Modules/Modules.h"
@@ -40,20 +47,19 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
 void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   Module::syncPoint(currentTime);
 
-  const auto rank = MPI::mpi.rank();
-  logInfo(rank) << "InstantaneousTimeMirrorManager: Factor " << velocityScalingFactor;
+  logInfo() << "InstantaneousTimeMirrorManager: Factor " << velocityScalingFactor;
   if (!isEnabled) {
-    logInfo(rank) << "InstantaneousTimeMirrorManager: Skipping syncing at " << currentTime
-                  << "as it is disabled";
+    logInfo() << "InstantaneousTimeMirrorManager: Skipping syncing at " << currentTime
+              << "as it is disabled";
     return;
   }
 
-  logInfo(rank) << "InstantaneousTimeMirrorManager Syncing at " << currentTime;
+  logInfo() << "InstantaneousTimeMirrorManager Syncing at " << currentTime;
 
-  logInfo(rank) << "Scaling velocitites by factor of " << velocityScalingFactor;
+  logInfo() << "Scaling velocitites by factor of " << velocityScalingFactor;
   updateVelocities();
 
-  logInfo(rank) << "Updating CellLocalMatrices";
+  logInfo() << "Updating CellLocalMatrices";
   initializer::initializeCellLocalMatrices(*meshReader,
                                            ltsTree,
                                            lts,
@@ -62,10 +68,10 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
                                            seissolInstance.getSeisSolParameters().model);
   // An empty timestepping is added. Need to discuss what exactly is to be sent here
 
-  logInfo(rank) << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor;
+  logInfo() << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor;
   updateTimeSteps();
 
-  logInfo(rank) << "Finished flipping.";
+  logInfo() << "Finished flipping.";
   isEnabled = false;
 }
 
@@ -75,40 +81,47 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
 #else
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
   auto reflectionType = itmParameters.itmReflectionType;
-  for (auto it = ltsTree->beginLeaf(initializer::LayerMask(Ghost)); it != ltsTree->endLeaf();
-       ++it) {
-    CellMaterialData* materials = it->var(lts->material);
+  for (auto& layer : ltsTree->leaves(Ghost)) {
+    CellMaterialData* materials = layer.var(lts->material);
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves) {
-      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
-        // Refocusing both waves
+// Refocusing both waves
+#ifndef USE_ACOUSTIC
         material.local.mu *= velocityScalingFactor * velocityScalingFactor;
+#endif
         material.local.lambda *= velocityScalingFactor * velocityScalingFactor;
         for (int i = 0; i < 4; i++) {
+#ifndef USE_ACOUSTIC
           material.neighbor[i].mu *= velocityScalingFactor * velocityScalingFactor;
+#endif
           material.neighbor[i].lambda *= velocityScalingFactor * velocityScalingFactor;
         }
       }
     }
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWavesVelocity) {
-      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing both waves with constant velocities
         material.local.lambda *= velocityScalingFactor;
+#ifndef USE_ACOUSTIC
         material.local.mu *= velocityScalingFactor;
+#endif
         material.local.rho *= velocityScalingFactor;
         for (int i = 0; i < 4; i++) {
           material.neighbor[i].lambda *= velocityScalingFactor;
+#ifndef USE_ACOUSTIC
           material.neighbor[i].mu *= velocityScalingFactor;
+#endif
           material.neighbor[i].rho *= velocityScalingFactor;
         }
       }
     }
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
-      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only P-waves
         material.local.lambda *= velocityScalingFactor * velocityScalingFactor;
@@ -119,7 +132,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     }
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
-      for (unsigned cell = 0; cell < it->getNumberOfCells(); ++cell) {
+      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only S-waves
         // material.local.lambda =
@@ -128,11 +141,13 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
         // material.local.mu *= velocityScalingFactor;
         // material.local.rho *= velocityScalingFactor;
         material.local.rho = material.local.rho * material.local.lambda /
-                             (material.local.lambda + 2.0 * material.local.mu -
-                              2.0 * material.local.mu * velocityScalingFactor);
-        material.local.lambda = material.local.lambda + 2.0 * material.local.mu -
-                                2.0 * material.local.mu * velocityScalingFactor;
+                             (material.local.lambda + 2.0 * material.local.getMuBar() -
+                              2.0 * material.local.getMuBar() * velocityScalingFactor);
+        material.local.lambda = material.local.lambda + 2.0 * material.local.getMuBar() -
+                                2.0 * material.local.getMuBar() * velocityScalingFactor;
+#ifndef USE_ACOUSTIC
         material.local.mu = velocityScalingFactor * material.local.mu;
+#endif
 
         for (int i = 0; i < 4; i++) {
           // material.neighbor[i].lambda =
@@ -141,13 +156,16 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
           //     velocityScalingFactor;
           // material.neighbor[i].mu *= velocityScalingFactor;
           // material.neighbor[i].rho *= velocityScalingFactor;
-          material.neighbor[i].rho = material.neighbor[i].rho * material.neighbor[i].lambda /
-                                     (material.neighbor[i].lambda + 2.0 * material.neighbor[i].mu -
-                                      2.0 * material.neighbor[i].mu * velocityScalingFactor);
-          material.neighbor[i].lambda = material.neighbor[i].lambda +
-                                        2.0 * material.neighbor[i].mu -
-                                        2.0 * material.neighbor[i].mu * velocityScalingFactor;
+          material.neighbor[i].rho =
+              material.neighbor[i].rho * material.neighbor[i].lambda /
+              (material.neighbor[i].lambda + 2.0 * material.neighbor[i].getMuBar() -
+               2.0 * material.neighbor[i].getMuBar() * velocityScalingFactor);
+          material.neighbor[i].lambda =
+              material.neighbor[i].lambda + 2.0 * material.neighbor[i].getMuBar() -
+              2.0 * material.neighbor[i].getMuBar() * velocityScalingFactor;
+#ifndef USE_ACOUSTIC
           material.neighbor[i].mu = velocityScalingFactor * material.neighbor[i].mu;
+#endif
         }
       }
     }
@@ -167,7 +185,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   {
     for (auto& cluster : *timeClusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
-      auto neighborClusters = cluster->getNeighborClusters();
+      auto* neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
         neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() /
                                            velocityScalingFactor);
@@ -176,7 +194,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
 
     for (auto& cluster : *ghostTimeClusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
-      auto ghostNeighborClusters = cluster->getNeighborClusters();
+      auto* ghostNeighborClusters = cluster->getNeighborClusters();
       for (auto& neighborcluster : *ghostNeighborClusters) {
         neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() /
                                            velocityScalingFactor);
@@ -197,7 +215,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
 
     for (auto& cluster : *timeClusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() * timeStepScalingFactor);
-      auto neighborClusters = cluster->getNeighborClusters();
+      auto* neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
         neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() *
                                            timeStepScalingFactor);
@@ -206,7 +224,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
 
     for (auto& cluster : *ghostTimeClusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() * timeStepScalingFactor);
-      auto ghostNeighborClusters = cluster->getNeighborClusters();
+      auto* ghostNeighborClusters = cluster->getNeighborClusters();
       for (auto& neighborcluster : *ghostNeighborClusters) {
         neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() *
                                            timeStepScalingFactor);

@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"
@@ -50,6 +57,9 @@ std::string intToStringWithFixedDigits(int number, int width) {
   return str;
 }
 
+namespace {
+
+
 struct NativeFormat {};
 struct WideFormat {};
 template <typename T, typename U = NativeFormat>
@@ -74,10 +84,9 @@ std::ostream& operator<<(std::ostream& stream, FormattedBuildinType<T, U> obj) {
   return stream;
 }
 
-namespace seissol::dr::output {
-std::string buildFileName(std::string namePrefix,
-                          std::string nameSuffix,
-                          std::string fileExtension = std::string()) {
+std::string buildFileName(const std::string& namePrefix,
+                          const std::string& nameSuffix,
+                          const std::string& fileExtension = std::string()) {
   std::stringstream fileName;
   fileName << namePrefix << '-' << nameSuffix;
   if (fileExtension.empty()) {
@@ -88,19 +97,7 @@ std::string buildFileName(std::string namePrefix,
   }
 }
 
-std::string buildMPIFileName(std::string namePrefix,
-                             std::string nameSuffix,
-                             std::string fileExtension = std::string()) {
-#ifdef PARALLEL
-  std::stringstream suffix;
-  suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(MPI::mpi.rank());
-  return buildFileName(namePrefix, suffix.str(), fileExtension);
-#else
-  return buildFileName(namePrefix, nameSuffix, fileExtension);
-#endif
-}
-
-std::string buildIndexedMPIFileName(std::string namePrefix,
+std::string buildIndexedMPIFileName(const std::string& namePrefix,
                                     int index,
                                     int numFused,
                                     std::string nameSuffix,
@@ -110,12 +107,17 @@ std::string buildIndexedMPIFileName(std::string namePrefix,
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
          << makeFormatted<int, WideFormat>(numFused) << '-'
          << makeFormatted<int, WideFormat>(MPI::mpi.rank());
+
 #else
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
          << makeFormatted<int, WideFormat>(numFused);
 #endif
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
+
+} // namespace
+
+namespace seissol::dr::output {
 
 OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
                              seissol::SeisSol& seissolInstance,
@@ -146,21 +148,20 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   const bool elementwiseEnabled = seissolParameters.drParameters[numFused]->outputPointType ==
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
-  const int rank = seissol::MPI::mpi.rank();
   if (pointEnabled) {
-    logInfo(rank) << "Enabling on-fault receiver output";
+    logInfo() << "Enabling on-fault receiver output";
     ppOutputBuilder = std::make_unique<PickPointBuilder>();
     ppOutputBuilder->setMeshReader(&userMesher);
     ppOutputBuilder->setParams(seissolParameters.output.pickpointParameters);
   }
   if (elementwiseEnabled) {
-    logInfo(rank) << "Enabling 2D fault output";
+    logInfo() << "Enabling 2D fault output";
     ewOutputBuilder = std::make_unique<ElementWiseBuilder>();
     ewOutputBuilder->setMeshReader(&userMesher);
     ewOutputBuilder->setParams(seissolParameters.output.elementwiseParameters);
   }
   if (!elementwiseEnabled && !pointEnabled) {
-    logInfo(rank) << "No dynamic rupture output enabled";
+    logInfo() << "No dynamic rupture output enabled";
   }
 }
 
@@ -215,8 +216,9 @@ void OutputManager::initElementwiseOutput() {
     std::vector<real*> dataPointers;
     auto recordPointers = [&dataPointers](auto& var, int) {
       if (var.isActive) {
-        for (int dim = 0; dim < var.dim(); ++dim)
+        for (int dim = 0; dim < var.dim(); ++dim) {
           dataPointers.push_back(var.data[dim]);
+        }
       }
     };
     misc::forEach(ewOutputData->vars, recordPointers);
@@ -343,7 +345,7 @@ void OutputManager::initPickpointOutput() {
           auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
           const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
-          const auto initialStress = reinterpret_cast<const real*>(initialStressVar[face]);
+          const auto* initialStress = reinterpret_cast<const real*>(initialStressVar[face]);
 
           seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
           alignAlongDipAndStrikeKernel.stressRotationMatrix =
@@ -378,19 +380,17 @@ void OutputManager::init() {
 }
 
 void OutputManager::initFaceToLtsMap() {
-  if (drTree) {
+  if (drTree != nullptr) {
     const size_t readerFaultSize = meshReader->getFault().size();
     const size_t ltsFaultSize = drTree->getNumberOfCells(Ghost);
 
     faceToLtsMap.resize(std::max(readerFaultSize, ltsFaultSize));
     globalFaceToLtsMap.resize(faceToLtsMap.size());
-    for (auto it = drTree->beginLeaf(seissol::initializer::LayerMask(Ghost));
-         it != drTree->endLeaf();
-         ++it) {
+    for (auto& layer : drTree->leaves(Ghost)) {
 
-      DRFaceInformation* faceInformation = it->var(drDescr->faceInformation);
-      for (size_t ltsFace = 0; ltsFace < it->getNumberOfCells(); ++ltsFace) {
-        faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&(*it), ltsFace);
+      DRFaceInformation* faceInformation = layer.var(drDescr->faceInformation);
+      for (size_t ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+        faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
       }
     }
 

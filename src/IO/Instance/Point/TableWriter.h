@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_H_
 #define SEISSOL_SRC_IO_INSTANCE_POINT_TABLEWRITER_H_
@@ -22,6 +25,7 @@ struct TableQuantity {
 
 class TableWriter {
   public:
+  virtual ~TableWriter() = default;
   TableWriter();
 
   void addQuantity(const TableQuantity& quantity);
@@ -33,7 +37,7 @@ class TableWriter {
     addCellRaw(&data, sizeof(T));
   }
 
-  std::shared_ptr<datatype::Datatype> getRowDatatype() const;
+  [[nodiscard]] std::shared_ptr<datatype::Datatype> getRowDatatype() const;
 
   void resetStorage();
 

@@ -1,5 +1,12 @@
-#ifndef SEISSOL_DR_OUTPUT_DATA_TYPES_HPP
-#define SEISSOL_DR_OUTPUT_DATA_TYPES_HPP
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -18,8 +25,15 @@
 namespace seissol::dr::output {
 template <int DIM>
 struct VarT {
+  VarT() = default;
   ~VarT() { releaseData(); }
   constexpr int dim() { return DIM; }
+
+  VarT(const VarT&) = delete;
+  auto operator=(const VarT&) -> VarT& = delete;
+
+  VarT(VarT&&) = default;
+  auto operator=(VarT&&) -> VarT& = default;
 
   real* operator[](int dim) {
     assert(dim < DIM && "access is out of the DIM. bounds");
@@ -52,8 +66,9 @@ struct VarT {
         std::memset(static_cast<void*>(data[dim]), 0, size * maxCacheLevel * sizeof(real));
       }
     } else {
-      for (int dim = 0; dim < DIM; ++dim)
+      for (int dim = 0; dim < DIM; ++dim) {
         data[dim] = nullptr;
+      }
     }
   }
 
@@ -136,8 +151,8 @@ struct ReceiverOutputData {
   std::vector<Eigen::Matrix<real, 2, 2>, Eigen::aligned_allocator<Eigen::Matrix<real, 2, 2>>>
       jacobianT2d;
 
-  std::vector<FaultDirections> faultDirections{};
-  std::vector<double> cachedTime{};
+  std::vector<FaultDirections> faultDirections;
+  std::vector<double> cachedTime;
   size_t currentCacheLevel{0};
   size_t maxCacheLevel{50};
   bool isActive{false};
@@ -152,4 +167,4 @@ struct ReceiverOutputData {
 };
 } // namespace seissol::dr
 
-#endif // SEISSOL_DR_OUTPUT_DATA_TYPES_HPP
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-import os
+import subprocess
 import numpy as np
 
 parser = argparse.ArgumentParser(description="create coastline vtk file from gmt")
@@ -10,30 +10,34 @@ parser.add_argument("--proj", nargs=1, metavar=("projname"), help="project the d
 parser.add_argument("--resolution", nargs=1, metavar=("resolution"), default=("i"), help="Coastline resolution,  (f)ull, (h)igh, (i)ntermediate, (l)ow, and (c)rude")
 parser.add_argument("--recenter", nargs=2, metavar=("x", "y"), default=([0, 0]), help="translate coordinate array (e.g. x_new = x_old - x)", type=float)
 parser.add_argument("--z", nargs=1, metavar=("elevation"), default=([0]), help="z coordinate of coastline", type=float)
+parser.add_argument("--filter_by_area", nargs=1, metavar=("min_area"), help="remove closed feature of area smaller than min_area (-A option of pscoast)", type=float)
 args = parser.parse_args()
 
+command = f"gmt pscoast -R{args.lon[0]}/{args.lon[1]}/{args.lat[0]}/{args.lat[1]} -D{args.resolution[0]} -M -W"
+if args.filter_by_area:
+    command += f" -A{args.filter_by_area[0]}"
 
 # export cordinates from GMT
-os.system("module load gmt")
-os.system(f"gmt pscoast -R{args.lon[0]}/{args.lon[1]}/{args.lat[0]}/{args.lat[1]} -D{args.resolution[0]} -M -W > coastline.dat")
+result = subprocess.run(command.split(), capture_output=True, text=True)
 
 # Read GMT file
 xyz = []
 segments = []
 nvert = 0
 newPolyLine = True
-with open("coastline.dat") as fid:
-    for line in fid:
-        if line.startswith("#"):
-            continue
-        if line.startswith(">"):
-            newPolyLine = True
-        else:
-            xyz.append([float(val) for val in line.split()])
-            nvert = nvert + 1
-            if not newPolyLine:
-                segments.append([nvert - 1, nvert])
-            newPolyLine = False
+for line in result.stdout.split('\n'):
+    if not line:
+        continue
+    if line.startswith("#"):
+        continue
+    if line.startswith(">"):
+        newPolyLine = True
+    else:
+        xyz.append([float(val) for val in line.split()])
+        nvert = nvert + 1
+        if not newPolyLine:
+            segments.append([nvert - 1, nvert])
+        newPolyLine = False
 
 xyz = np.asarray(xyz)
 # add extra column for z coordinates

@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "ClusteringWriter.h"
 
 #include "Common/Filesystem.h"
@@ -11,9 +18,7 @@
 #include "Parallel/MPI.h"
 namespace seissol::writer {
 
-ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPrefix(outputPrefix) {
-
-}
+ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPrefix(outputPrefix) {}
 
 void ClusteringWriter::addCluster(unsigned profilingId,
                                   unsigned localClusterId,
@@ -60,21 +65,14 @@ void ClusteringWriter::write() const {
         if (layerType != LayerType::Interior && layerType != LayerType::Copy) {
           logError() << "Encountered illegal layer type in ClusteringWriter.";
         }
-        const auto layerTypeStr = layerType == Interior ? "Interior" : "Copy";
-            fileStream
-            << curProfilingIds[i] << ","
-            << curLocalClusterIds[i] << ","
-            << layerTypeStr << ","
-            << curSizes[i] << ","
-            << curDynamicRuptureSizes[i] << ","
-            << rank << ","
-            << localRank << "\n";
+        const auto* layerTypeStr = layerType == Interior ? "Interior" : "Copy";
+        fileStream << curProfilingIds[i] << "," << curLocalClusterIds[i] << "," << layerTypeStr
+                   << "," << curSizes[i] << "," << curDynamicRuptureSizes[i] << "," << rank << ","
+                   << localRank << "\n";
       }
-
     }
 
     fileStream.close();
-
   }
 }
 

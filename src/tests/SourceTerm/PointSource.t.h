@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "SourceTerm/PointSource.h"
 #include "tests/TestHelper.h"
 
@@ -9,8 +16,9 @@ TEST_CASE("Transform moment tensor") {
   constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
 
   // strike = dip = rake = pi / 3
-  real strike, dip, rake;
-  strike = dip = rake = M_PI / 3.0;
+  real strike = M_PI / 3.0;
+  real dip = M_PI / 3.0;
+  real rake = M_PI / 3.0;
 
   // M_xy = M_yx = 1, others are zero
   real localMomentTensorXY[3][3] = {

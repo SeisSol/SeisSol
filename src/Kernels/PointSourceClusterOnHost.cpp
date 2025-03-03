@@ -1,6 +1,10 @@
-// Copyright (c) 2015-2024 SeisSol Group
-// Copyright (c) 2023 Intel Corporation
+// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 Intel Corporation
+//
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "PointSourceClusterOnHost.h"
 
@@ -13,13 +17,14 @@
 #include <SourceTerm/Typedefs.h>
 #include <memory>
 #include <tensor.h>
+#include <utility>
 
 namespace seissol::kernels {
 
 PointSourceClusterOnHost::PointSourceClusterOnHost(
     std::shared_ptr<sourceterm::ClusterMapping> mapping,
     std::shared_ptr<sourceterm::PointSources> sources)
-    : clusterMapping_(mapping), sources_(sources) {}
+    : clusterMapping_(std::move(mapping)), sources_(std::move(sources)) {}
 
 void PointSourceClusterOnHost::addTimeIntegratedPointSources(
     double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {

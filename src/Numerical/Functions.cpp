@@ -1,9 +1,17 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Functions.h"
+
 #include <array>
+#include <cmath>
 #include <cstdint>
 
-namespace seissol {
-namespace functions {
+namespace seissol::functions {
 
 uint64_t rangeProduct(uint64_t from, uint64_t to) {
   uint64_t product = 1;
@@ -17,7 +25,7 @@ double JacobiP(unsigned n, unsigned a, unsigned b, double x) {
   if (n == 0) {
     return 1.0;
   }
-  double pm2;
+  double pm2 = 0.0;
   double pm1 = 1.0;
   double pm = 0.5 * a - 0.5 * b + (1.0 + 0.5 * (a + b)) * x;
   const double a2B2 = static_cast<double>(a * a) - static_cast<double>(b * b);
@@ -54,7 +62,7 @@ double SingularityFreeJacobiP(unsigned n, unsigned a, unsigned b, double x, doub
   if (n == 0) {
     return 1.0;
   }
-  double pm2;
+  double pm2 = 0.0;
   double pm1 = 1.0;
   double pm = (0.5 * a - 0.5 * b) * y + (1.0 + 0.5 * (a + b)) * x;
   for (unsigned m = 2; m <= n; ++m) {
@@ -71,8 +79,12 @@ std::array<double, 3>
   if (n == 0) {
     return {1.0, 0.0, 0.0};
   }
-  double pm2, ddxPm2, ddyPm2;
-  double pm1 = 1.0, ddxPm1 = 0.0, ddyPm1 = 0.0;
+  double pm2 = 0.0;
+  double ddxPm2 = 0.0;
+  double ddyPm2 = 0.0;
+  double pm1 = 1.0;
+  double ddxPm1 = 0.0;
+  double ddyPm1 = 0.0;
   double pm = SingularityFreeJacobiP(1, a, b, x, y);
   double ddxPm = 1.0 + 0.5 * (a + b);
   double ddyPm = 0.5 * (static_cast<double>(a) - static_cast<double>(b));
@@ -157,33 +169,32 @@ std::array<double, 3> gradTetraDubinerP(const std::array<unsigned, 3>& i,
 }
 
 template <>
-double DubinerP<1u>(const std::array<unsigned, 1u>& i, const std::array<double, 1u>& xi) {
+double DubinerP<1U>(const std::array<unsigned, 1U>& i, const std::array<double, 1U>& xi) {
   return JacobiP(i[0], 0, 0, 2.0 * xi[0] - 1.0);
 }
 template <>
-double DubinerP<2u>(const std::array<unsigned, 2u>& i, const std::array<double, 2u>& xi) {
+double DubinerP<2U>(const std::array<unsigned, 2U>& i, const std::array<double, 2U>& xi) {
   return TriDubinerP(i, xi);
 }
 template <>
-double DubinerP<3u>(const std::array<unsigned, 3u>& i, const std::array<double, 3u>& xi) {
+double DubinerP<3U>(const std::array<unsigned, 3U>& i, const std::array<double, 3U>& xi) {
   return TetraDubinerP(i, xi);
 }
 
 template <>
-std::array<double, 1u> gradDubinerP<1u>(const std::array<unsigned, 1u>& i,
-                                        const std::array<double, 1u>& xi) {
+std::array<double, 1U> gradDubinerP<1U>(const std::array<unsigned, 1U>& i,
+                                        const std::array<double, 1U>& xi) {
   return {JacobiPDerivative(i[0], 0, 0, 2.0 * xi[0] - 1.0)};
 }
 template <>
-std::array<double, 2u> gradDubinerP<2u>(const std::array<unsigned, 2u>& i,
-                                        const std::array<double, 2u>& xi) {
+std::array<double, 2U> gradDubinerP<2U>(const std::array<unsigned, 2U>& i,
+                                        const std::array<double, 2U>& xi) {
   return gradTriDubinerP(i, xi);
 }
 template <>
-std::array<double, 3u> gradDubinerP<3u>(const std::array<unsigned, 3u>& i,
-                                        const std::array<double, 3u>& xi) {
+std::array<double, 3U> gradDubinerP<3U>(const std::array<unsigned, 3U>& i,
+                                        const std::array<double, 3U>& xi) {
   return gradTetraDubinerP(i, xi);
 }
 
-} // namespace functions
-} // namespace seissol
+} // namespace seissol::functions

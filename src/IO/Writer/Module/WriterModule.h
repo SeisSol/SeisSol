@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_WRITER_MODULE_WRITERMODULE_H_
 #define SEISSOL_SRC_IO_WRITER_MODULE_WRITERMODULE_H_
@@ -40,7 +43,7 @@ class WriterModule : public seissol::Module, private AsyncWriterModule {
   std::unordered_map<const void*, BufferPointer> pointerMap;
   std::unordered_map<std::size_t, std::vector<int>> bufferMap;
   ScheduledWriter settings;
-  double lastWrite;
+  double lastWrite{-1};
   const parallel::Pinning& pinning;
 };
 

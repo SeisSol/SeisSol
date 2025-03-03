@@ -1,5 +1,12 @@
-#ifndef SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP
-#define SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_
 
 #include "DynamicRupture/Output/ParametersInitializer.h"
 #include "Geometry/MeshReader.h"
@@ -29,11 +36,11 @@ class ReceiverOutput {
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-                       std::shared_ptr<ReceiverOutputData> state,
+                       std::shared_ptr<ReceiverOutputData> outputData,
                        unsigned int nFused = 0.0,
                        double time = 0.0);
 
-  virtual std::vector<std::size_t> getOutputVariables() const;
+  [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
   protected:
   seissol::initializer::LTS* wpDescr{nullptr};
@@ -51,7 +58,7 @@ class ReceiverOutput {
     int nearestGpIndex{};
     int nearestInternalGpIndex{};
 
-    std::size_t index;
+    std::size_t index{};
 
     real iniTraction1{};
     real iniTraction2{};
@@ -83,7 +90,7 @@ class ReceiverOutput {
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};
 
-    ReceiverOutputData* state;
+    ReceiverOutputData* state{};
   };
 
   template <typename T>
@@ -114,15 +121,16 @@ class ReceiverOutput {
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }
   virtual real computeStateVariable(LocalInfo& local) { return 0.0; }
-  void updateLocalTractions(LocalInfo& local, real strength);
+  static void updateLocalTractions(LocalInfo& local, real strength);
   real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
-  virtual void
-      computeSlipRate(LocalInfo& local, const std::array<real, 6>&, const std::array<real, 6>&);
-  void computeSlipRate(LocalInfo& local,
-                       const std::array<double, 3>& tangent1,
-                       const std::array<double, 3>& tangent2,
-                       const std::array<double, 3>& strike,
-                       const std::array<double, 3>& dip);
+  virtual void computeSlipRate(LocalInfo& local,
+                               const std::array<real, 6>& /*rotatedUpdatedStress*/,
+                               const std::array<real, 6>& /*rotatedStress*/);
+  static void computeSlipRate(LocalInfo& local,
+                              const std::array<double, 3>& tangent1,
+                              const std::array<double, 3>& tangent2,
+                              const std::array<double, 3>& strike,
+                              const std::array<double, 3>& dip);
   virtual void outputSpecifics(std::shared_ptr<ReceiverOutputData>& data,
                                const LocalInfo& local,
                                size_t outputSpecifics,
@@ -131,4 +139,5 @@ class ReceiverOutput {
                                           const std::array<real, 6>& rotatedStress) {};
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DR_RECEIVER_BASED_OUTPUT_HPP
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_RECEIVERBASEDOUTPUT_H_

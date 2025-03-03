@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "ODEInt.h"
 #include <Kernels/Precision.h>
 #include <cassert>
@@ -244,7 +251,7 @@ RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storage
   for (auto i = 0; i < numberOfStages; ++i) {
     curStoragePtrs.clear();
     for (const unsigned long storageSize : storageSizes) {
-      curStoragePtrs.push_back(storages.emplace_back(std::vector<real>(storageSize)).data());
+      curStoragePtrs.push_back(storages.emplace_back(storageSize).data());
     }
     stages.emplace_back(curStoragePtrs, storageSizes);
   }
@@ -252,7 +259,7 @@ RungeKuttaODESolver::RungeKuttaODESolver(const std::vector<std::size_t>& storage
   // Initialize buffer
   curStoragePtrs.clear();
   for (const unsigned long storageSize : storageSizes) {
-    curStoragePtrs.push_back(storages.emplace_back(std::vector<real>(storageSize)).data());
+    curStoragePtrs.push_back(storages.emplace_back(storageSize).data());
   }
   buffer.updateStoragesAndSizes(curStoragePtrs, storageSizes);
 }

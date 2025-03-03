@@ -1,8 +1,17 @@
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include <numeric>
 
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "tests/TestHelper.h"
+
+#ifndef USE_ACOUSTIC
 
 namespace seissol::unit_test {
 
@@ -10,8 +19,8 @@ using namespace seissol;
 using namespace seissol::dr;
 
 TEST_CASE("Friction Solver Common") {
-  FaultStresses faultStresses{};
-  TractionResults tractionResults{};
+  FaultStresses<Executor::Host> faultStresses{};
+  TractionResults<Executor::Host> tractionResults{};
   ImpedancesAndEta impAndEta;
   alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()] = {{}};
   alignas(Alignment)
@@ -61,7 +70,7 @@ TEST_CASE("Friction Solver Common") {
 
   for (size_t o = 0; o < ConvergenceOrder; o++) {
     for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
-      for (size_t q = 0; q < 9; q++) {
+      for (size_t q = 0; q < misc::NumQuantities; q++) {
         qIPlus[o][q][p] = qP(o, q, p);
         qIMinus[o][q][p] = qM(o, q, p);
       }
@@ -76,7 +85,7 @@ TEST_CASE("Friction Solver Common") {
 
     // Assure that qInterpolatedPlus and qInterpolatedMinus are const.
     for (size_t o = 0; o < ConvergenceOrder; o++) {
-      for (size_t q = 0; q < 9; q++) {
+      for (size_t q = 0; q < misc::NumQuantities; q++) {
         for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
           REQUIRE(qIPlus[o][q][p] == qP(o, q, p));
           REQUIRE(qIMinus[o][q][p] == qM(o, q, p));
@@ -161,3 +170,5 @@ TEST_CASE("Friction Solver Common") {
 }
 
 } // namespace seissol::unit_test
+
+#endif

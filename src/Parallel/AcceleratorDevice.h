@@ -1,22 +1,15 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * The files which include this header should be added to
- * `general-sycl-offloading` CMake target
- */
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef ACCELERATOR_DEVICE_H
-#define ACCELERATOR_DEVICE_H
+#ifndef SEISSOL_SRC_PARALLEL_ACCELERATORDEVICE_H_
+#define SEISSOL_SRC_PARALLEL_ACCELERATORDEVICE_H_
 
-#include <CL/sycl.hpp>
-#include <device.h>
 #include <string>
 #include <vector>
-
-#ifndef __DPCPP_COMPILER
-namespace sycl = cl::sycl;
-#endif
 
 namespace seissol {
 class AcceleratorDevice {
@@ -26,27 +19,16 @@ class AcceleratorDevice {
     return instance;
   }
 
-  void bindAcceleratorDevice(int deviceId) {
-    bindSyclDevice(deviceId);
-    bindNativeDevice(deviceId);
-  }
-
-  sycl::device& getSyclDevice() { return syclDevice; }
-
-  sycl::queue& getSyclDefaultQueue() { return syclDefaultQueue; }
+  void bindAcceleratorDevice(int deviceId) { bindNativeDevice(deviceId); }
 
   void printInfo();
 
   private:
   void bindNativeDevice(int deviceId);
-  void bindSyclDevice(int deviceId);
-
-  sycl::device syclDevice;
-  sycl::queue syclDefaultQueue;
 
   std::vector<std::string> infoMessages;
   std::vector<std::string> warnMessages;
 };
 } // namespace seissol
 
-#endif
+#endif // SEISSOL_SRC_PARALLEL_ACCELERATORDEVICE_H_

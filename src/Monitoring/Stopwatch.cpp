@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Stopwatch.h"
 
 #include "Parallel/MPI.h"
@@ -10,7 +17,7 @@
 
 namespace seissol {
 
-Stopwatch::Stopwatch() : time(0) {}
+Stopwatch::Stopwatch() = default;
 
 /**
  * Reset the stopwatch to zero
@@ -28,7 +35,7 @@ void Stopwatch::start() { clock_gettime(CLOCK_MONOTONIC, &startTime); }
  * @return measured time (until now) in seconds
  */
 double Stopwatch::split() {
-  struct timespec end;
+  struct timespec end{};
   clock_gettime(CLOCK_MONOTONIC, &end);
 
   return seconds(difftime(startTime, end));
@@ -40,7 +47,7 @@ double Stopwatch::split() {
  * @return measured time (until now) in seconds
  */
 double Stopwatch::pause() {
-  struct timespec end;
+  struct timespec end{};
   clock_gettime(CLOCK_MONOTONIC, &end);
 
   time += difftime(startTime, end);
@@ -73,8 +80,9 @@ void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
   double min = time;
   double max = time;
 
-  if (comm == MPI_COMM_NULL)
+  if (comm == MPI_COMM_NULL) {
     comm = seissol::MPI::mpi.comm();
+  }
 
   MPI_Comm_rank(comm, &rank);
 
@@ -83,20 +91,20 @@ void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
     MPI_Reduce(MPI_IN_PLACE, &min, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
     MPI_Reduce(MPI_IN_PLACE, &max, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
 
-    int size;
+    int size = 0;
     MPI_Comm_size(comm, &size);
     avg /= size;
   } else {
-    MPI_Reduce(&avg, 0L, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
-    MPI_Reduce(&min, 0L, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
-    MPI_Reduce(&max, 0L, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
+    MPI_Reduce(&avg, nullptr, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+    MPI_Reduce(&min, nullptr, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
+    MPI_Reduce(&max, nullptr, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
   }
 #endif // USE_MPI
 
-  logInfo(rank) << text << UnitTime.formatTime(avg).c_str()
+  logInfo() << text << UnitTime.formatTime(avg).c_str()
 #ifdef USE_MPI
-                << "(min:" << utils::nospace << UnitTime.formatTime(min).c_str()
-                << ", max: " << UnitTime.formatTime(max).c_str() << ')'
+            << "(min:" << utils::nospace << UnitTime.formatTime(min).c_str()
+            << ", max: " << UnitTime.formatTime(max).c_str() << ')'
 #endif // USE_MPI
       ;
 }

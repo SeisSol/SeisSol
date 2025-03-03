@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 Point Source
 ============
 
@@ -14,7 +22,7 @@ Validation interface established within the 6th Framework Programme
 project.
 
 LOH1 is used as an example here to illustrate the implementation of
-source point for earthquake nucleation in SeisSol. The details of the LOH1 model can also be found at 
+source point for earthquake nucleation in SeisSol. The details of the LOH1 model can also be found at
 the `point source example <https://github.com/SeisSol/Examples/blob/master/WP2_LOH1/>`__.
 
 The model uses Right-handed Cartesian, x positive North, y positive
@@ -58,7 +66,7 @@ Point source input
 ~~~~~~~~~~~~~~~~~~
 
 The point source needs to be turned on in *parameter.par* file.
-:: 
+::
 
   &SourceType
   Type = 50
@@ -79,7 +87,7 @@ Results
    :align: center
 
    Benchmark of x-component particle velocity at receiver point 1 (0.0,
-   693.0,0.1). Bule is 4-order SeisSol and orange is SISMOWINE result. 
+   693.0,0.1). Bule is 4-order SeisSol and orange is SISMOWINE result.
 
-   
-   
+
+

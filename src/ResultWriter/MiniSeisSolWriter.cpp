@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "MiniSeisSolWriter.h"
 #include "Common/Filesystem.h"
 #include "Parallel/MPI.h"
@@ -15,8 +22,9 @@ void seissol::writer::MiniSeisSolWriter::write(double elapsedTime, double weight
 
   if (seissol::MPI::mpi.rank() == 0) {
     std::vector<size_t> ranks(seissol::MPI::mpi.size());
-    for (size_t i = 0; i < ranks.size(); ++i)
+    for (size_t i = 0; i < ranks.size(); ++i) {
       ranks[i] = i;
+    }
 
     std::sort(ranks.begin(), ranks.end(), [&elapsedTimeVector](const size_t& i, const size_t& j) {
       return elapsedTimeVector[i] > elapsedTimeVector[j];

@@ -1,5 +1,12 @@
-#ifndef PHYSICS_INITIALFIELD_H
-#define PHYSICS_INITIALFIELD_H
+// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
+#define SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
 
 #include <array>
 #include <complex>
@@ -35,7 +42,7 @@ class ZeroField : public InitialField {
 class PressureInjection : public InitialField {
   public:
   PressureInjection(
-      const seissol::initializer::parameters::InitializationParameters initializationParameters);
+      const seissol::initializer::parameters::InitializationParameters& initializationParameters);
 
   void evaluate(double,
                 const std::vector<std::array<double, 3>>&,
@@ -171,4 +178,4 @@ class Ocean : public InitialField {
 };
 } // namespace seissol::physics
 
-#endif // PHYSICS_INITIALFIELD_H
+#endif // SEISSOL_SRC_PHYSICS_INITIALFIELD_H_

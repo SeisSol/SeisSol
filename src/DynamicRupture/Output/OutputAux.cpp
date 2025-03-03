@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "OutputAux.h"
 #include "Common/Constants.h"
 #include "DynamicRupture/Output/DataTypes.h"
@@ -15,6 +22,14 @@
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
+
+namespace {
+double distance(const double v1[2], const double v2[2]) {
+  const Eigen::Vector2d vector1(v1[0], v1[1]);
+  const Eigen::Vector2d vector2(v2[0], v2[1]);
+  return (vector1 - vector2).norm();
+}
+} // namespace
 
 namespace seissol::dr {
 
@@ -116,11 +131,6 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   return data;
 }
 
-double distance(const double v1[2], const double v2[2]) {
-  const Eigen::Vector2d vector1(v1[0], v1[1]), vector2(v2[0], v2[1]);
-  return (vector1 - vector2).norm();
-}
-
 std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            const double (*facePoints)[2],
                                            const unsigned numFacePoints) {
@@ -142,7 +152,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
   auto quadratureData = generateTriangleQuadrature(ConvergenceOrder + 1);
-  double(*trianglePoints2D)[2] = unsafe_reshape<2>(&quadratureData.points[0]);
+  double(*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
   for (auto& geoPoint : geoPoints) {
 
@@ -152,14 +162,14 @@ void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
 
     int nearestPoint{-1};
     double shortestDistance = std::numeric_limits<double>::max();
-    std::tie(nearestPoint, shortestDistance) =
-        getNearestFacePoint(targetPoint2D, trianglePoints2D, quadratureData.Size);
+    std::tie(nearestPoint, shortestDistance) = getNearestFacePoint(
+        targetPoint2D, trianglePoints2D, seissol::dr::TriangleQuadratureData::Size);
     geoPoint.nearestGpIndex = nearestPoint;
   }
 }
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly) {
-  int i1 = int((nearestGpIndex - 1) / (nPoly + 2)) + 1;
+  int i1 = ((nearestGpIndex - 1) / (nPoly + 2)) + 1;
   int j1 = (nearestGpIndex - 1) % (nPoly + 2) + 1;
   if (i1 == 1) {
     i1 = i1 + 1;

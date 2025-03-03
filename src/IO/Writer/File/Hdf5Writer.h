@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_WRITER_FILE_HDF5WRITER_H_
 #define SEISSOL_SRC_IO_WRITER_FILE_HDF5WRITER_H_
@@ -24,11 +27,11 @@ class Hdf5File {
   void openDataset(const std::string& name);
   void writeAttribute(const async::ExecInfo& info,
                       const std::string& name,
-                      std::shared_ptr<DataSource> source);
+                      const std::shared_ptr<DataSource>& source);
   void writeData(const async::ExecInfo& info,
                  const std::string& name,
-                 std::shared_ptr<DataSource> source,
-                 std::shared_ptr<datatype::Datatype> targetType,
+                 const std::shared_ptr<DataSource>& source,
+                 const std::shared_ptr<datatype::Datatype>& targetType,
                  int compress);
   void closeDataset();
   void closeGroup();

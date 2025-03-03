@@ -1,5 +1,12 @@
-#ifndef SEISSOL_DR_OUTPUT_REFINERS_HPP
-#define SEISSOL_DR_OUTPUT_REFINERS_HPP
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_FAULTREFINER_FAULTREFINERS_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_FAULTREFINER_FAULTREFINERS_H_
 
 #include "DynamicRupture/Output/DataTypes.h"
 #include "Initializer/Parameters/OutputParameters.h"
@@ -18,14 +25,14 @@ class FaultRefiner {
   using PointsPair = std::pair<ExtVrtxCoords, ExtVrtxCoords>;
   using TrianglePair = std::pair<ExtTriangle, ExtTriangle>;
 
-  virtual int getNumSubTriangles() const = 0;
+  [[nodiscard]] virtual int getNumSubTriangles() const = 0;
   virtual void refineAndAccumulate(Data data, TrianglePair face) = 0;
   virtual ~FaultRefiner() = default;
 
   ReceiverPoints&& moveAllReceiverPoints() { return std::move(points); }
 
   protected:
-  ReceiverPoints points{};
+  ReceiverPoints points;
 
   static constexpr size_t Global = 0;
   static constexpr size_t Reference = 1;
@@ -37,22 +44,23 @@ class FaultRefiner {
 
 class NoRefiner : public FaultRefiner {
   public:
-  int getNumSubTriangles() const final { return 1; }
+  [[nodiscard]] int getNumSubTriangles() const final { return 1; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
 class FaultFaceTripleRefiner : public FaultRefiner {
   public:
-  int getNumSubTriangles() const final { return 3; }
+  [[nodiscard]] int getNumSubTriangles() const final { return 3; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
 class FaultFaceQuadRefiner : public FaultRefiner {
   public:
-  int getNumSubTriangles() const final { return 4; }
+  [[nodiscard]] int getNumSubTriangles() const final { return 4; }
   void refineAndAccumulate(Data data, TrianglePair face) final;
 };
 
 std::unique_ptr<FaultRefiner> get(seissol::initializer::parameters::FaultRefinement strategy);
 } // namespace seissol::dr::output::refiner
-#endif // SEISSOL_DR_OUTPUT_REFINERS_HPP
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_FAULTREFINER_FAULTREFINERS_H_

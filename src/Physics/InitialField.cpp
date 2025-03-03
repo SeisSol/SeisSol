@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include <Equations/Datastructures.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
@@ -32,19 +39,19 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          std::vector<int> varField,
                                          std::vector<std::complex<double>> ampField)
     : m_varField(std::move(varField)), m_ampField(std::move(ampField)), m_phase(phase),
-      m_kVec(kVec) {
+      m_kVec(std::move(kVec)) {
   init(materialData);
 }
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          double phase,
                                          Eigen::Vector3d kVec)
-    : m_phase(phase), m_kVec(kVec) {
+    : m_phase(phase), m_kVec(std::move(kVec)) {
 
 #ifndef USE_POROELASTIC
   bool isAcoustic = false;
 #ifndef USE_ANISOTROPIC
-  isAcoustic = materialData.local.mu <= 1e-15;
+  isAcoustic = materialData.local.getMuBar() <= 1e-15;
 #endif
   if (isAcoustic) {
     // Acoustic materials has the following wave modes:
@@ -168,21 +175,23 @@ seissol::physics::TravellingWave::TravellingWave(
 
 seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
     const CellMaterialData& materialData,
-    const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm) {
+    const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm)
+    : rho0(materialData.local.rho),
+      c0(sqrt(materialData.local.getLambdaBar() / materialData.local.rho)),
+      k(acousticTravellingWaveParametersItm.k),
+      tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime), tITMPlus(tITMMinus + tau),
+      tau(acousticTravellingWaveParametersItm.itmDuration),
+      n(acousticTravellingWaveParametersItm.itmVelocityScalingFactor) {
 #ifdef USE_ANISOTROPIC
   logError() << "This has not been yet implemented for anisotropic material";
 #else
   logInfo() << "Starting Test for Acoustic Travelling Wave with ITM";
-  rho0 = materialData.local.rho;
-  c0 = sqrt(materialData.local.lambda / materialData.local.rho);
+
   logInfo() << "rho0 = " << rho0;
   logInfo() << "c0 = " << c0;
-  k = acousticTravellingWaveParametersItm.k;
+
   logInfo() << "k = " << k;
-  tITMMinus = acousticTravellingWaveParametersItm.itmStartingTime;
-  tau = acousticTravellingWaveParametersItm.itmDuration;
-  tITMPlus = tITMMinus + tau;
-  n = acousticTravellingWaveParametersItm.itmVelocityScalingFactor;
+
   logInfo() << "Setting up the Initial Conditions";
   init(materialData);
 #endif
@@ -292,15 +301,15 @@ void seissol::physics::TravellingWave::evaluate(
 }
 
 seissol::physics::PressureInjection::PressureInjection(
-    const seissol::initializer::parameters::InitializationParameters initializationParameters)
+    const seissol::initializer::parameters::InitializationParameters& initializationParameters)
     : m_parameters(initializationParameters) {
   const auto o1 = m_parameters.origin[0];
   const auto o2 = m_parameters.origin[1];
   const auto o3 = m_parameters.origin[2];
   const auto magnitude = m_parameters.magnitude;
   const auto width = m_parameters.width;
-  logInfo(0) << "Prepare gaussian pressure perturbation with center at (" << o1 << ", " << o2
-             << ", " << o3 << "), magnitude = " << magnitude << ", width = " << width << ".";
+  logInfo() << "Prepare gaussian pressure perturbation with center at (" << o1 << ", " << o2 << ", "
+            << o3 << "), magnitude = " << magnitude << ", width = " << width << ".";
 }
 
 void seissol::physics::PressureInjection::evaluate(
@@ -347,7 +356,7 @@ void seissol::physics::ScholteWave::evaluate(
   for (size_t i = 0; i < points.size(); ++i) {
     const auto& x = points[i];
     const bool isAcousticPart =
-        std::abs(materialData.local.mu) < std::numeric_limits<real>::epsilon();
+        std::abs(materialData.local.getMuBar()) < std::numeric_limits<real>::epsilon();
     const auto x1 = x[0];
     const auto x3 = x[2];
     const auto t = time;
@@ -425,7 +434,7 @@ void seissol::physics::SnellsLaw::evaluate(
   for (size_t i = 0; i < points.size(); ++i) {
     const auto& x = points[i];
     const bool isAcousticPart =
-        std::abs(materialData.local.mu) < std::numeric_limits<real>::epsilon();
+        std::abs(materialData.local.getMuBar()) < std::numeric_limits<real>::epsilon();
 
     const auto x1 = x[0];
     const auto x3 = x[2];
@@ -539,7 +548,7 @@ void seissol::physics::Ocean::evaluate(double time,
     if (std::abs(g - 9.81e-3) > 10e-15) {
       logError() << "Ocean scenario only supports g=9.81e-3 currently!";
     }
-    if (materialData.local.mu != 0.0) {
+    if (materialData.local.getMuBar() > 10e-15) {
       logError() << "Ocean scenario only works for acoustic material (mu = 0.0)!";
     }
     const double pi = std::acos(-1);

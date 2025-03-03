@@ -1,5 +1,12 @@
-#ifndef INITIALIZER_TREE_LTSSYNC
-#define INITIALIZER_TREE_LTSSYNC
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_TREE_LTSSYNC_H_
+#define SEISSOL_SRC_INITIALIZER_TREE_LTSSYNC_H_
 
 #include <cstddef>
 #include <cstring>
@@ -53,7 +60,7 @@ template <typename T>
 void synchronizeLTSTreeDuplicates(const seissol::initializer::Variable<T>& handle,
                                   seissol::initializer::MemoryManager& memoryManager) {
   const auto& meshToLts = memoryManager.getLtsLut()->getMeshToLtsLut(handle.mask);
-  unsigned* duplicatedMeshIds = memoryManager.getLtsLut()->getDuplicatedMeshIds(handle.mask);
+  const unsigned* duplicatedMeshIds = memoryManager.getLtsLut()->getDuplicatedMeshIds(handle.mask);
   const unsigned numberOfDuplicatedMeshIds =
       memoryManager.getLtsLut()->getNumberOfDuplicatedMeshIds(handle.mask);
   T* var = memoryManager.getLtsTree()->var(handle);
@@ -77,4 +84,4 @@ void synchronizeLTSTreeDuplicates(const seissol::initializer::Variable<T>& handl
 } // namespace initializer
 } // namespace seissol
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_TREE_LTSSYNC_H_

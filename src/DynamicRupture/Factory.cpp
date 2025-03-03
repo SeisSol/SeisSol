@@ -1,20 +1,19 @@
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Factory.h"
 
 #include "FrictionLaws/FrictionLaws.h"
-#include "FrictionLaws/ThermalPressurization/ThermalPressurization.h"
 #include "Initializer/DynamicRupture.h"
 #include "Initializer/Initializers.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Output/Output.h"
 #include <memory>
 #include <utils/logger.h>
-
-// for now, fake the friction laws to be on CPU instead, if we have no GPU
-#ifdef ACL_DEVICE
-namespace friction_law_gpu = seissol::dr::friction_law::gpu;
-#else
-namespace friction_law_gpu = seissol::dr::friction_law;
-#endif
 
 namespace seissol::dr::factory {
 std::unique_ptr<AbstractFactory>
@@ -40,16 +39,9 @@ std::unique_ptr<AbstractFactory>
   case seissol::initializer::parameters::FrictionLawType::RateAndStateAgingLaw:
     return std::make_unique<RateAndStateAgingFactory>(drParameters, seissolInstance, numFused);
   case seissol::initializer::parameters::FrictionLawType::RateAndStateSlipLaw:
-    return std::make_unique<RateAndStateSlipFactory>(drParameters, seissolInstance, numFused);
-  case seissol::initializer::parameters::FrictionLawType::RateAndStateVelocityWeakening:
-    logError() << "friction law 7 currently disabled";
-    return std::unique_ptr<AbstractFactory>(nullptr);
-  case seissol::initializer::parameters::FrictionLawType::RateAndStateAgingNucleation:
-    logError() << "friction law 101 currently disabled";
-    return std::unique_ptr<AbstractFactory>(nullptr);
-  case seissol::initializer::parameters::FrictionLawType::RateAndStateFastVelocityWeakening:
-    return std::make_unique<RateAndStateFastVelocityWeakeningFactory>(
-        drParameters, seissolInstance, numFused);
+  case seissol::initializer::parameters::FrictionLawType::RateAndStateSevereVelocityWeakening:
+    return std::make_unique<RateAndStateSevereVelocityWeakeningFactory>(drParameters,
+                                                                        seissolInstance, numFused);
   default:
     logError() << "unknown friction law";
     return nullptr;
@@ -61,7 +53,6 @@ DynamicRuptureTuple NoFaultFactory::produce() {
           std::make_unique<initializer::NoFaultInitializer>(drParameters, seissolInstance),
           std::make_unique<friction_law::NoFault>(drParameters.get()),
           std::make_unique<friction_law::NoFault>(drParameters.get()),
-          std::make_unique<output::OutputManager>(
               std::make_unique<output::NoFault>(), seissolInstance, numFused)};
 }
 

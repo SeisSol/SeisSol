@@ -1,46 +1,13 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2016, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Tree for managing lts data.
- **/
+// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
-#ifndef INITIALIZER_TREE_LTSTREE_HPP_
-#define INITIALIZER_TREE_LTSTREE_HPP_
+#ifndef SEISSOL_SRC_INITIALIZER_TREE_LTSTREE_H_
+#define SEISSOL_SRC_INITIALIZER_TREE_LTSTREE_H_
 
 #include "LTSInternalNode.h"
 #include "Layer.h"
@@ -57,8 +24,8 @@ class LTSTree : public LTSInternalNode {
   std::vector<MemoryInfo> varInfo;
   std::vector<MemoryInfo> bucketInfo;
   seissol::memory::ManagedAllocator m_allocator;
-  std::vector<size_t> variableSizes{}; /*!< sizes of variables within the entire tree in bytes */
-  std::vector<size_t> bucketSizes{};   /*!< sizes of buckets within the entire tree in bytes */
+  std::vector<size_t> variableSizes; /*!< sizes of variables within the entire tree in bytes */
+  std::vector<size_t> bucketSizes;   /*!< sizes of buckets within the entire tree in bytes */
 
 #ifdef ACL_DEVICE
   std::vector<MemoryInfo> scratchpadMemInfo{};
@@ -93,20 +60,20 @@ class LTSTree : public LTSInternalNode {
 
   void fixate() {
     setPostOrderPointers();
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->allocatePointerArrays(varInfo.size(), bucketInfo.size());
+    for (auto& leaf : leaves()) {
+      leaf.allocatePointerArrays(varInfo.size(), bucketInfo.size());
 #ifdef ACL_DEVICE
-      it->allocateScratchpadArrays(scratchpadMemInfo.size());
+      leaf.allocateScratchpadArrays(scratchpadMemInfo.size());
 #endif
     }
   }
 
-  inline TimeCluster& child(unsigned index) {
-    return *static_cast<TimeCluster*>(m_children[index].get());
+  TimeCluster& child(unsigned index) {
+    return *dynamic_cast<TimeCluster*>(m_children[index].get());
   }
 
-  inline const TimeCluster& child(unsigned index) const {
-    return *static_cast<TimeCluster*>(m_children[index].get());
+  [[nodiscard]] const TimeCluster& child(unsigned index) const {
+    return *dynamic_cast<TimeCluster*>(m_children[index].get());
   }
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
@@ -120,9 +87,9 @@ class LTSTree : public LTSInternalNode {
     return static_cast<T*>(varUntyped(handle.index, place));
   }
 
-  const MemoryInfo& info(unsigned index) const { return varInfo[index]; }
+  [[nodiscard]] const MemoryInfo& info(unsigned index) const { return varInfo[index]; }
 
-  inline unsigned getNumberOfVariables() const { return varInfo.size(); }
+  [[nodiscard]] unsigned getNumberOfVariables() const { return varInfo.size(); }
 
   template <typename T>
   void addVar(Variable<T>& handle,
@@ -170,8 +137,8 @@ class LTSTree : public LTSInternalNode {
     m_vars.resize(varInfo.size());
     variableSizes.resize(varInfo.size(), 0);
 
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->addVariableSizes(varInfo, variableSizes);
+    for (auto& leaf : leaves()) {
+      leaf.addVariableSizes(varInfo, variableSizes);
     }
 
     for (unsigned var = 0; var < varInfo.size(); ++var) {
@@ -181,9 +148,9 @@ class LTSTree : public LTSInternalNode {
     }
 
     std::fill(variableSizes.begin(), variableSizes.end(), 0);
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForVariables(varInfo, m_vars, variableSizes);
-      it->addVariableSizes(varInfo, variableSizes);
+    for (auto& leaf : leaves()) {
+      leaf.setMemoryRegionsForVariables(varInfo, m_vars, variableSizes);
+      leaf.addVariableSizes(varInfo, variableSizes);
     }
   }
 
@@ -191,8 +158,8 @@ class LTSTree : public LTSInternalNode {
     m_buckets.resize(bucketInfo.size());
     bucketSizes.resize(bucketInfo.size(), 0);
 
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->addBucketSizes(bucketSizes);
+    for (auto& leaf : leaves()) {
+      leaf.addBucketSizes(bucketSizes);
     }
 
     for (unsigned bucket = 0; bucket < bucketInfo.size(); ++bucket) {
@@ -203,9 +170,9 @@ class LTSTree : public LTSInternalNode {
     }
 
     std::fill(bucketSizes.begin(), bucketSizes.end(), 0);
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForBuckets(m_buckets, bucketSizes);
-      it->addBucketSizes(bucketSizes);
+    for (auto& leaf : leaves()) {
+      leaf.setMemoryRegionsForBuckets(m_buckets, bucketSizes);
+      leaf.addBucketSizes(bucketSizes);
     }
   }
 
@@ -220,8 +187,8 @@ class LTSTree : public LTSInternalNode {
     scratchpadMemories.resize(scratchpadMemInfo.size());
     scratchpadMemSizes.resize(scratchpadMemInfo.size(), 0);
 
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->findMaxScratchpadSizes(scratchpadMemSizes);
+    for (auto& leaf : leaves()) {
+      leaf.findMaxScratchpadSizes(scratchpadMemSizes);
     }
 
     for (size_t id = 0; id < scratchpadMemSizes.size(); ++id) {
@@ -233,26 +200,26 @@ class LTSTree : public LTSInternalNode {
                                       scratchpadMemInfo[id].allocMode);
     }
 
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->setMemoryRegionsForScratchpads(scratchpadMemories);
+    for (auto& leaf : leaves()) {
+      leaf.setMemoryRegionsForScratchpads(scratchpadMemories);
     }
   }
 #endif
 
   void touchVariables() {
-    for (auto it = beginLeaf(); it != endLeaf(); ++it) {
-      it->touchVariables(varInfo);
+    for (auto& leaf : leaves()) {
+      leaf.touchVariables(varInfo);
     }
   }
 
-  const std::vector<size_t>& getVariableSizes() { return variableSizes; }
+  [[nodiscard]] const std::vector<size_t>& getVariableSizes() const { return variableSizes; }
 
-  const std::vector<size_t>& getBucketSizes() { return bucketSizes; }
+  [[nodiscard]] const std::vector<size_t>& getBucketSizes() const { return bucketSizes; }
 
-  size_t getMaxClusterSize(LayerMask mask) {
+  [[nodiscard]] size_t getMaxClusterSize(LayerMask mask = LayerMask()) const {
     size_t maxClusterSize{0};
-    for (auto it = beginLeaf(mask); it != endLeaf(); ++it) {
-      const size_t currClusterSize = static_cast<size_t>(it->getNumberOfCells());
+    for (const auto& leaf : leaves(mask)) {
+      const auto currClusterSize = static_cast<size_t>(leaf.getNumberOfCells());
       maxClusterSize = std::max(currClusterSize, maxClusterSize);
     }
     return maxClusterSize;
@@ -261,4 +228,4 @@ class LTSTree : public LTSInternalNode {
 
 } // namespace seissol::initializer
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_TREE_LTSTREE_H_

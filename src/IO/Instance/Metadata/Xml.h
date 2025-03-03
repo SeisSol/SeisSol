@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_INSTANCE_METADATA_XML_H_
 #define SEISSOL_SRC_IO_INSTANCE_METADATA_XML_H_
@@ -15,11 +18,11 @@ namespace seissol::io::instance::metadata {
 
 class XmlInstructor {
   public:
-  XmlInstructor(const std::string file);
+  XmlInstructor(const std::string& file);
 
   void addText(const std::string& text);
 
-  void addBuffer(std::shared_ptr<writer::DataSource> dataSource);
+  void addBuffer(const std::shared_ptr<writer::DataSource>& dataSource);
 
   void flush();
 
@@ -75,6 +78,7 @@ inline std::string XmlAttribute::getImmediate<std::string>() const {
 
 class XmlEntry {
   public:
+  virtual ~XmlEntry() = default;
   XmlEntry(const std::string& name);
 
   XmlEntry& addAttribute(const XmlAttribute& attribute);
@@ -91,9 +95,10 @@ class XmlEntry {
 
 class XmlNode : public XmlEntry {
   public:
+  ~XmlNode() override = default;
   XmlNode(const std::string& name);
 
-  void addNode(std::shared_ptr<XmlEntry> entry);
+  void addNode(const std::shared_ptr<XmlEntry>& entry);
 
   protected:
   void innerWrite(XmlInstructor& instructor) const override;
@@ -104,6 +109,7 @@ class XmlNode : public XmlEntry {
 
 class XmlData : public XmlEntry {
   public:
+  ~XmlData() override = default;
   XmlData(const std::string& name);
 
   template <typename T>
@@ -119,7 +125,7 @@ class XmlData : public XmlEntry {
   }
 
   template <typename T>
-  void setBuffer(const T*) {}
+  void setBuffer(const T* /*unused*/) {}
 
   template <typename T>
   const T* getBuffer() const;
@@ -152,7 +158,7 @@ class XmlFile {
 
   void setRoot(std::shared_ptr<XmlEntry> entry);
 
-  std::vector<std::shared_ptr<writer::instructions::WriteInstruction>>
+  [[nodiscard]] std::vector<std::shared_ptr<writer::instructions::WriteInstruction>>
       instructions(const std::string& file) const;
 };
 

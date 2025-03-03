@@ -1,5 +1,12 @@
-#ifndef SEISSOL_BASICTYPEDEFS_HPP
-#define SEISSOL_BASICTYPEDEFS_HPP
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
+#define SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
 
 constexpr int DataTagOffset = 2;
 
@@ -56,12 +63,11 @@ constexpr bool isExternalBoundaryFaceType(FaceType faceType) {
 }
 
 enum class ComputeGraphType {
-  LocalIntegral = 0,
-  AccumulatedVelocities,
+  AccumulatedVelocities = 0,
   StreamedVelocities,
   NeighborIntegral,
   DynamicRuptureInterface,
   Count
 };
 
-#endif // SEISSOL_BASICTYPEDEFS_HPP
+#endif // SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_

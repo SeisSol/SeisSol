@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "InitIO.h"
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
@@ -12,6 +19,7 @@
 #include <Initializer/Tree/Layer.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Model/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <algorithm>
 #include <cstring>
@@ -28,6 +36,7 @@ namespace {
 
 // static void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 //   auto& checkpoint = seissolInstance.getOutputManager().getCheckpointManager();
+
 
 //   {
 //     auto* tree = seissolInstance.getMemoryManager().getLtsTree();
@@ -79,7 +88,7 @@ namespace {
 //   }
 // }
 
-static void setupOutput(seissol::SeisSol& seissolInstance) {
+void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
   auto* lts = memoryManager.getLts();
@@ -115,7 +124,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         reinterpret_cast<const real*>(ltsTree->var(lts->dofs)),
         reinterpret_cast<const real*>(ltsTree->var(lts->pstrain)),
         seissolInstance.postProcessor().getIntegrals(ltsTree),
-        ltsLut->getMeshToLtsLut(lts->dofs.mask)[0],
+        ltsLut->getMeshToLtsLut(lts->dofs.mask)[0].data(),
         seissolParams.output.waveFieldParameters,
         seissolParams.output.xdmfWriterBackend,
         backupTimeStamp);
@@ -170,7 +179,7 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
         celllist.push_back(i);
       }
     }
-    std::size_t* cellIndices = new std::size_t[celllist.size()];
+    auto* cellIndices = new std::size_t[celllist.size()];
     std::copy(celllist.begin(), celllist.end(), cellIndices);
 
     io::writer::ScheduledWriter schedWriter;
@@ -205,31 +214,13 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     });
 
-    // TODO: make those being read from the material class
-    std::vector<std::string> quantityLabels = {
-        "sigma_xx",
-        "sigma_yy",
-        "sigma_zz",
-        "sigma_xy",
-        "sigma_yz",
-        "sigma_xz",
-        "u",
-        "v",
-        "w",
-#ifdef USE_POROELASTIC
-        "p",
-        "u_f",
-        "v_f",
-        "w_f",
-#endif
-    };
-    std::vector<std::string> plasticityLabels = {
-        "ep_xx", "ep_yy", "ep_zz", "ep_xy", "ep_yz", "ep_xz", "eta"};
-    for (std::size_t quantity = 0; quantity < seissol::model::MaterialT::NumQuantities;
+    for (std::size_t quantity = 0; quantity < seissol::model::MaterialT::Quantities.size();
          ++quantity) {
       if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
         writer.addPointData<real>(
-            quantityLabels[quantity], {}, [=](real* target, std::size_t index) {
+            seissol::model::MaterialT::Quantities[quantity],
+            {},
+            [=](real* target, std::size_t index) {
               const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, cellIndices[index]);
               const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
               kernel::projectBasisToVtkVolume vtkproj;
@@ -242,10 +233,13 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     }
     if (seissolParams.model.plasticity) {
-      for (std::size_t quantity = 0; quantity < 7; ++quantity) {
+      for (std::size_t quantity = 0; quantity < seissol::model::PlasticityData::Quantities.size();
+           ++quantity) {
         if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
           writer.addPointData<real>(
-              plasticityLabels[quantity], {}, [=](real* target, std::size_t index) {
+              seissol::model::PlasticityData::Quantities[quantity],
+              {},
+              [=](real* target, std::size_t index) {
                 const auto* dofsAllQuantities = ltsLut->lookup(lts->pstrain, cellIndices[index]);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj;
@@ -386,13 +380,12 @@ static void setupOutput(seissol::SeisSol& seissolInstance) {
                       seissolParams.output.energyParameters);
   }
 
-  seissolInstance.flopCounter().init(seissolParams.output.prefix.c_str());
+  seissolInstance.flopCounter().init(seissolParams.output.prefix);
 
-  seissolInstance.analysisWriter().init(&seissolInstance.meshReader(),
-                                        seissolParams.output.prefix.c_str());
+  seissolInstance.analysisWriter().init(&seissolInstance.meshReader(), seissolParams.output.prefix);
 }
 
-static void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
+void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
   seissolInstance.getMemoryManager().initFaultOutputManager(backupTimeStamp);
   auto faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
@@ -402,7 +395,7 @@ static void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   }
 }
 
-static void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
+void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   if (seissolParams.output.waveFieldParameters.enabled &&
       seissolParams.output.waveFieldParameters.vtkorder < 0) {
@@ -413,7 +406,7 @@ static void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   }
 }
 
-static void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
+void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
   if (seissolParams.output.freeSurfaceParameters.enabled) {
@@ -432,7 +425,7 @@ static void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
   }
 }
 
-static void setIntegralMask(seissol::SeisSol& seissolInstance) {
+void setIntegralMask(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   seissolInstance.postProcessor().setIntegrationMask(
       seissolParams.output.waveFieldParameters.integrationMask);
@@ -442,18 +435,18 @@ static void setIntegralMask(seissol::SeisSol& seissolInstance) {
 
 void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
   const auto rank = MPI::mpi.rank();
-  logInfo(rank) << "Begin init output.";
+  logInfo() << "Begin init output.";
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const filesystem::path outputPath(seissolParams.output.prefix);
   const auto outputDir = filesystem::directory_entry(outputPath.parent_path());
   if (!filesystem::exists(outputDir)) {
-    logWarning(rank) << "Output directory does not exist yet. We therefore create it now.";
+    logWarning() << "Output directory does not exist yet. We therefore create it now.";
     if (rank == 0) {
       filesystem::create_directory(outputDir);
     }
   }
-  MPI::mpi.barrier(MPI::mpi.comm());
+  seissol::MPI::barrier(MPI::mpi.comm());
 
   // always enable checkpointing first
   // enableCheckpointing(seissolInstance);
@@ -463,5 +456,5 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
   initFaultOutputManager(seissolInstance);
   // setupCheckpointing(seissolInstance);
   setupOutput(seissolInstance);
-  logInfo(rank) << "End init output.";
+  logInfo() << "End init output.";
 }

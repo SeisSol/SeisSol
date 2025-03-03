@@ -1,47 +1,15 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT in.tum.de, https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2013-2020, SeisSol Group
- * All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- * 
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- * 
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Typedefs for the implementation.
- **/
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Sebastian Wolf
 
-#ifndef TYPEDEFS_HPP
-#define TYPEDEFS_HPP
+#ifndef SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
+#define SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 
 #include <array>
 #ifdef USE_MPI
@@ -49,15 +17,16 @@
 #endif
 
 #include "BasicTypedefs.h"
-#include "Initializer/PreProcessorMacros.h"
-#include "Kernels/Common.h"
-#include "Equations/Datastructures.h"
-#include "generated_code/tensor.h"
-#include "DynamicRupture/Typedefs.h"
 #include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Typedefs.h"
+#include "Equations/Datastructures.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
-
+#include "Initializer/PreProcessorMacros.h"
+#include "Kernels/Common.h"
+#include "generated_code/tensor.h"
+#include <Eigen/Dense>
+#include <complex>
 #include <cstddef>
 #include <vector>
 
@@ -347,17 +316,7 @@ struct LocalIntegrationData {
   real nApNm1[4][seissol::tensor::AplusT::size()];
 
   // equation-specific data
-  //TODO(Lukas/Sebastian):
-  //Get rid of ifdefs
-#if defined USE_ANISOTROPIC
-  seissol::model::AnisotropicLocalData specific;
-#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  seissol::model::ViscoElasticLocalData specific;
-#elif defined USE_ELASTIC
-  seissol::model::ElasticLocalData specific;
-#elif defined USE_POROELASTIC
-  seissol::model::PoroelasticLocalData specific;
-#endif
+  seissol::model::MaterialT::LocalSpecificData specific;
 };
 
 // data for the neighboring boundary integration
@@ -366,38 +325,13 @@ struct NeighboringIntegrationData {
   real nAmNm1[4][seissol::tensor::AminusT::size()];
 
   // equation-specific data
-  //TODO(Lukas/Sebastian):
-  //Get rid of ifdefs
-#if defined USE_ANISOTROPIC
-  seissol::model::AnisotropicNeighborData specific;
-#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  seissol::model::ViscoElasticNeighborData specific;
-#elif defined USE_ELASTIC
-  seissol::model::ElasticNeighborData specific;
-#elif defined USE_POROELASTIC
-  seissol::model::PoroelasticNeighborData specific;
-#endif
+  seissol::model::MaterialT::NeighborSpecificData specific;
 };
 
 // material constants per cell
 struct CellMaterialData {
-  //TODO(Lukas/Sebastian):
-  //Get rid of ifdefs
-#if defined USE_ANISOTROPIC
-  seissol::model::AnisotropicMaterial local;
-  seissol::model::AnisotropicMaterial neighbor[4];
-#elif defined USE_VISCOELASTIC || defined USE_VISCOELASTIC2
-  seissol::model::ViscoElasticMaterial local;
-  seissol::model::ViscoElasticMaterial neighbor[4];
-#elif defined USE_ELASTIC
-  seissol::model::ElasticMaterial local;
-  seissol::model::ElasticMaterial neighbor[4];
-#elif defined USE_POROELASTIC
-  seissol::model::PoroElasticMaterial local;
-  seissol::model::PoroElasticMaterial neighbor[4];
-#else
-  static_assert(false, "No Compiler flag for the material behavior has been given. Current implementation allows: USE_ANISOTROPIC, USE_ELASTIC, USE_POROELASTIC, USE_VISCOELASTIC, USE_VISCOELASTIC2");
-#endif
+  seissol::model::MaterialT local;
+  seissol::model::MaterialT neighbor[4];
 };
 
 struct DRFaceInformation {
@@ -492,4 +426,6 @@ struct PressureInjectionParameters {
 
 } // namespace seissol
 
-#endif
+
+#endif // SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
+

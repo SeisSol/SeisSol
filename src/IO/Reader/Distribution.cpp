@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Distribution.h"
 
@@ -13,6 +16,7 @@
 #include <cstring>
 #include <functional>
 #include <mpi.h>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -21,7 +25,7 @@
 #include "utils/logger.h"
 
 namespace {
-static int getRank(std::size_t id, std::size_t count, int commsize) {
+int getRank(std::size_t id, std::size_t count, int commsize) {
   const std::size_t piece1 = (count + commsize - 1) / commsize;
   const std::size_t rest = count % commsize;
   const std::size_t part1 = piece1 * rest;
@@ -34,7 +38,7 @@ static int getRank(std::size_t id, std::size_t count, int commsize) {
 }
 
 template <typename T>
-static std::vector<T> computeHistogram(const std::vector<T>& input) {
+std::vector<T> computeHistogram(const std::vector<T>& input) {
   std::vector<T> output(input.size() + 1);
   for (std::size_t i = 1; i < output.size(); ++i) {
     output[i] = output[i - 1] + input[i - 1];
@@ -43,12 +47,12 @@ static std::vector<T> computeHistogram(const std::vector<T>& input) {
 }
 
 template <typename T>
-static std::vector<std::pair<T, int>> distributeIds(const std::vector<std::pair<T, int>>& source,
-                                                    MPI_Comm comm,
-                                                    MPI_Datatype sizetype,
-                                                    MPI_Datatype datatype,
-                                                    int tag) {
-  int commsize;
+std::vector<std::pair<T, int>> distributeIds(const std::vector<std::pair<T, int>>& source,
+                                             MPI_Comm comm,
+                                             MPI_Datatype sizetype,
+                                             MPI_Datatype datatype,
+                                             int tag) {
+  int commsize = 0;
   MPI_Comm_size(comm, &commsize);
 
   std::vector<std::size_t> sourceToSend(commsize);
@@ -113,7 +117,7 @@ static std::vector<std::pair<T, int>> distributeIds(const std::vector<std::pair<
   return outputIntermediate;
 }
 
-static std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
+std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
     const std::vector<std::pair<std::pair<std::size_t, int>, int>>& sourceToTargetRankMap,
     const std::vector<std::size_t>& source,
     bool recv,
@@ -121,10 +125,11 @@ static std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
     MPI_Datatype sizetype,
     MPI_Datatype datatype,
     int tag) {
-  int commsize;
+  int commsize = 0;
   MPI_Comm_size(comm, &commsize);
 
-  std::vector<std::size_t> sendOffsets, sendReorder;
+  std::vector<std::size_t> sendOffsets;
+  std::vector<std::size_t> sendReorder;
 
   auto sourceToTarget = distributeIds<std::pair<std::size_t, int>>(
       sourceToTargetRankMap, comm, sizetype, datatype, tag);
@@ -178,8 +183,8 @@ Distributor::Distributor(MPI_Comm comm) : comm(comm) {}
 
 void Distributor::setup(const std::vector<std::size_t>& sourceIds,
                         const std::vector<std::size_t>& targetIds) {
-  int commsize;
-  int commrank;
+  int commsize = 0;
+  int commrank = 0;
 
   constexpr int TagToIntermediateSource = 20;
   constexpr int TagToIntermediateTarget = 21;
@@ -201,7 +206,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   for (const auto& targetId : targetIds) {
     localMax = std::max(localMax, targetId);
   }
-  std::size_t globalMax;
+  std::size_t globalMax = 0;
   MPI_Allreduce(&localMax, &globalMax, 1, sizetype, MPI_MAX, comm);
   auto globalCount = globalMax + 1;
 
@@ -222,7 +227,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
     for (std::size_t i = 0; i < sourceIds.size(); ++i) {
       if (seenIds.find(sourceIds[i]) == seenIds.end()) {
         seenIds.insert(sourceIds[i]);
-        source.push_back({sourceIds[i], getRank(sourceIds[i], globalCount, commsize)});
+        source.emplace_back(sourceIds[i], getRank(sourceIds[i], globalCount, commsize));
       }
     }
   }
@@ -232,7 +237,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
     for (std::size_t i = 0; i < targetIds.size(); ++i) {
       if (seenIds.find(targetIds[i]) == seenIds.end()) {
         seenIds.insert(targetIds[i]);
-        target.push_back({targetIds[i], getRank(targetIds[i], globalCount, commsize)});
+        target.emplace_back(targetIds[i], getRank(targetIds[i], globalCount, commsize));
       }
     }
   }
@@ -287,19 +292,27 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   }
 }
 
-Distributor::DistributionInstance
-    Distributor::distributeInternal(void* target, const void* source, MPI_Datatype datatype) {
+Distributor::DistributionInstance Distributor::distributeRaw(
+    void* target,
+    const void* source,
+    MPI_Datatype datatype,
+    MPI_Datatype datatypeTarget,
+    const std::optional<std::function<void(void*, const void*)>>& transform) {
   constexpr int Tag = 30;
 
-  int commsize;
-  int commrank;
+  int commsize = 0;
+  int commrank = 0;
 
   MPI_Comm_size(comm, &commsize);
   MPI_Comm_rank(comm, &commrank);
 
-  int typesizeInt;
+  int typesizeInt = 0;
   MPI_Type_size(datatype, &typesizeInt);
   const std::size_t typesize = typesizeInt;
+
+  int typesizeTargetInt = 0;
+  MPI_Type_size(datatypeTarget, &typesizeTargetInt);
+  const std::size_t typesizeTarget = typesizeTargetInt;
 
   std::vector<MPI_Request> requests(static_cast<std::size_t>(commsize) * 2, MPI_REQUEST_NULL);
 
@@ -336,23 +349,33 @@ Distributor::DistributionInstance
                 &requests[static_cast<std::size_t>(commsize) + i]);
     }
   }
-  const auto completion =
-      [this, requests, targetChar, sourceReordered, targetReordered, typesize]() {
-        // temporary hack to make requests non-const (as it will not matter)
-        auto requests2 = requests;
-        MPI_Waitall(requests2.size(), requests2.data(), MPI_STATUSES_IGNORE);
+
+  const auto copyFn = transform.value_or([typesize](void* targetData, const void* sourceData) {
+    std::memcpy(targetData, sourceData, typesize);
+  });
+
+  const auto completion = [this,
+                           requests,
+                           targetChar,
+                           sourceReordered,
+                           targetReordered,
+                           typesize,
+                           typesizeTarget,
+                           copyFn]() {
+    // temporary hack to make requests non-const (as it will not matter)
+    auto requests2 = requests;
+    MPI_Waitall(requests2.size(), requests2.data(), MPI_STATUSES_IGNORE);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (std::size_t i = 0; i < recvReorder.size(); ++i) {
-          std::memcpy(
-              targetChar + i * typesize, targetReordered + recvReorder[i] * typesize, typesize);
-        }
+    for (std::size_t i = 0; i < recvReorder.size(); ++i) {
+      copyFn(targetChar + i * typesizeTarget, targetReordered + recvReorder[i] * typesize);
+    }
 
-        std::free(sourceReordered);
-        std::free(targetReordered);
-      };
+    std::free(sourceReordered);
+    std::free(targetReordered);
+  };
   return DistributionInstance(completion);
 }
 
@@ -363,6 +386,6 @@ void Distributor::DistributionInstance::complete() {
 }
 
 Distributor::DistributionInstance::DistributionInstance(const std::function<void()>& completion)
-    : completion(completion), completed(false) {}
+    : completion(completion) {}
 
 } // namespace seissol::io::reader

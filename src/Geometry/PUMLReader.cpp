@@ -1,40 +1,10 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- */
+// SPDX-FileCopyrightText: 2017-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
 #include "Geometry/MeshDefinition.h"
 #include <Geometry/MeshReader.h>
@@ -132,7 +102,7 @@ inline std::string bcToString(int id) {
  * @param sideBC: boundary condition tag at the side to check
  * @param cellIdAsInFile: Original cell id as it is given in the h5 file
  */
-inline bool checkMeshCorrectnessLocally(PUML::TETPUML::face_t face,
+inline bool checkMeshCorrectnessLocally(const PUML::TETPUML::face_t& face,
                                         const int* cellNeighbors,
                                         int side,
                                         int sideBC,
@@ -242,12 +212,10 @@ void seissol::geometry::PUMLReader::partition(PUML::TETPUML& puml,
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   auto partType = toPartitionerType(std::string_view(partitioningLib));
-  logInfo(MPI::mpi.rank()) << "Using the" << toStringView(partType)
-                           << "partition library and strategy.";
+  logInfo() << "Using the" << toStringView(partType) << "partition library and strategy.";
   if (partType == PUML::PartitionerType::None) {
-    logWarning(MPI::mpi.rank())
-        << partitioningLib
-        << "not found. Expect poor performance as the mesh is not properly partitioned.";
+    logWarning() << partitioningLib
+                 << "not found. Expect poor performance as the mesh is not properly partitioned.";
   }
   auto partitioner = PUML::TETPartition::getPartitioner(partType);
   if (partitioner == nullptr) {
@@ -296,7 +264,7 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
   const int* group = reinterpret_cast<const int*>(puml.cellData(0));
   const void* boundaryCond = puml.cellData(1);
-  const size_t* cellIdsAsInFile = reinterpret_cast<const size_t*>(puml.cellData(2));
+  const auto* cellIdsAsInFile = reinterpret_cast<const size_t*>(puml.cellData(2));
 
   std::unordered_map<int, std::vector<unsigned int>> neighborInfo; // List of shared local face ids
 
@@ -380,19 +348,17 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   // Exchange ghost layer information and generate neighbor list
   char** copySide = new char*[neighborInfo.size()];
   char** ghostSide = new char*[neighborInfo.size()];
-  unsigned long** copyFirstVertex = new unsigned long*[neighborInfo.size()];
-  unsigned long** ghostFirstVertex = new unsigned long*[neighborInfo.size()];
+  auto** copyFirstVertex = new unsigned long*[neighborInfo.size()];
+  auto** ghostFirstVertex = new unsigned long*[neighborInfo.size()];
 
-  MPI_Request* requests = new MPI_Request[neighborInfo.size() * 4];
+  auto* requests = new MPI_Request[neighborInfo.size() * 4];
 
   std::unordered_set<unsigned int> t;
 #ifndef NDEBUG
   unsigned int sum = 0;
 #endif
   unsigned int k = 0;
-  for (std::unordered_map<int, std::vector<unsigned int>>::iterator it = neighborInfo.begin();
-       it != neighborInfo.end();
-       ++it, ++k) {
+  for (auto it = neighborInfo.begin(); it != neighborInfo.end(); ++it, ++k) {
     // Need to sort the neighborInfo vectors once
     std::sort(it->second.begin(), it->second.end(), [&](unsigned int a, unsigned int b) {
       return puml.faces()[a].gid() < puml.faces()[b].gid();
@@ -462,9 +428,7 @@ void seissol::geometry::PUMLReader::getMesh(const PUML::TETPUML& puml) {
   MPI_Waitall(neighborInfo.size() * 4, requests, MPI_STATUSES_IGNORE);
 
   k = 0;
-  for (std::unordered_map<int, std::vector<unsigned int>>::const_iterator it = neighborInfo.begin();
-       it != neighborInfo.end();
-       ++it, k++) {
+  for (auto it = neighborInfo.begin(); it != neighborInfo.end(); ++it, k++) {
     for (unsigned int i = 0; i < it->second.size(); i++) {
       // Set neighbor side
       int cellIds[2];

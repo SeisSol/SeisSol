@@ -1,3 +1,12 @@
+! SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+!
+! SPDX-License-Identifier: BSD-3-Clause
+! SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/!
+!
+! SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+!
+! A sample SeisSol parameter file, with all options explained.
+
 &equations
 !yaml file defining spatial dependance of material properties
 MaterialFileName = '33_layered_constant.yaml'
@@ -32,12 +41,16 @@ cICType = 'Zero'                  ! Initial Condition
 !Scholte     A Scholte wave to test elastic-acoustic coupling
 !Snell       Snells law to test elastic-acoustic coupling
 !Ocean       An uncoupled ocean test case for acoustic equations
+!easi        Use an easi file for the input condition
 
 !The following parameters are only needed for the travelling wave IC:
 origin = 0 0 0.5             ! Origin of the wave 
 kVec = 6.283 0 0             ! Gives direction of wave propagation, the wavelength of the travelling wave is 2*pi / norm(kVec)
 k = 6.283 ! Wave number to be used for the travelling acoustic wave with ITM test case. Not to be used in other scenarios
 ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
+
+filename = ''  ! file name for the easi initial condition file
+hastime = 1    ! indicates the required support of a time dimension in the easi file. Requires easi 1.5.0 or higher.
 /
 
 &DynamicRupture
@@ -67,7 +80,7 @@ printtimeinterval_sec = 0.2      ! Time interval at which output will be written
 OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1  ! turn on and off fault outputs
 refinement_strategy = 2
 refinement = 1
-vtkoutput = -1 ! positive values enable the high-order VTKHDF format for the elementwise fault output
+vtkorder = -1 ! positive values enable the high-order VTKHDF format for the elementwise fault output
 /
 
 ! parameterize ascii fault file outputs
@@ -158,6 +171,9 @@ EnergyTerminalOutput = 1 ! Write energy to standard output
 EnergyTerminalPrecision = 6 ! Number of significant digits to display in energy terminal output
 EnergyOutputInterval = 0.05
 ComputeVolumeEnergiesEveryOutput = 4 ! Compute volume energies only once every ComputeVolumeEnergiesEveryOutput * EnergyOutputInterval
+FaultEnergiesFromAcrossFaultVelocities = 0 ! 1: (less accurate but kept for backward compatibilty ) compute potency and seismic moment 
+                                           ! based on slip rate interpolated from velocities differences across the fault
+                                           ! 0: (default) computed from slipRate1 and slipRate2 from the friction law
 
 LoopStatisticsNetcdfOutput = 0 ! Writes detailed loop statistics. Warning: Produces terabytes of data!
 /

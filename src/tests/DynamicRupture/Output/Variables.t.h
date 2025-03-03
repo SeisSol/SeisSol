@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "Initializer/MemoryAllocator.h"
@@ -19,8 +26,9 @@ TEST_CASE("DR Variables") {
     output::DrVarsT drVars;
 
     std::array<bool, std::tuple_size<output::DrVarsT>::value> mask{};
-    for (size_t i = 0; i < std::tuple_size<output::DrVarsT>::value; ++i)
+    for (size_t i = 0; i < std::tuple_size<output::DrVarsT>::value; ++i) {
       mask[i] = true;
+    }
 
     auto assignMask = [&mask](auto& var, int index) { var.isActive = mask[index]; };
 
@@ -41,8 +49,9 @@ TEST_CASE("DR Variables") {
     output::DrVarsT drVars;
 
     std::array<bool, std::tuple_size<output::DrVarsT>::value> mask{};
-    for (size_t i = 0; i < std::tuple_size<output::DrVarsT>::value; ++i)
+    for (size_t i = 0; i < std::tuple_size<output::DrVarsT>::value; ++i) {
       mask[i] = true;
+    }
 
     auto assignMask = [&mask](auto& var, int index) { var.isActive = mask[index]; };
 

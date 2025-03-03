@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "AsyncWriter.h"
 
@@ -23,10 +26,10 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
   const size_t size = info.bufferSize(PlanId);
   const char* strData = reinterpret_cast<const char*>(data);
 
-  int rank;
+  int rank = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   if (printPlan && rank == 0) {
-    logInfo(rank) << "Printing current plan:" << std::string(strData, strData + size);
+    logInfo() << "Printing current plan:" << std::string(strData, strData + size);
   }
 
   {

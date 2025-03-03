@@ -1,13 +1,16 @@
-// Copyright (C) 2013-2023 SeisSol group
-// Copyright (C) 2023 Intel Corporation
+// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 Intel Corporation
+//
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Touch.h"
 
 #include "generated_code/tensor.h"
 #include <utils/logger.h>
 #include <Kernels/Precision.h>
-#include <cstddef>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
@@ -22,7 +25,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
 #endif
   for (unsigned cell = 0; cell < numberOfCells; ++cell) {
     real* buffer = buffers[cell];
-    if (buffer != NULL) {
+    if (buffer != nullptr) {
       for (unsigned dof = 0; dof < tensor::Q::size(); ++dof) {
         buffer[dof] = (real)0;
       }
@@ -30,7 +33,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
 
     // touch derivatives
     real* derivative = derivatives[cell];
-    if (derivative != NULL) {
+    if (derivative != nullptr) {
       for (unsigned dof = 0; dof < yateto::computeFamilySize<tensor::dQ>(); ++dof) {
         derivative[dof] = (real)0;
       }

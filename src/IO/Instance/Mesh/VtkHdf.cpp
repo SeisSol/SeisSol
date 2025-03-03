@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "VtkHdf.h"
 
@@ -25,15 +28,13 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
                            std::size_t localElementCount,
                            std::size_t dimension,
                            std::size_t targetDegree)
-    : localElementCount(localElementCount), globalElementCount(localElementCount), elementOffset(0),
-      name(name), targetDegree(targetDegree) {
+    : localElementCount(localElementCount), globalElementCount(localElementCount), name(name),
+      pointsPerElement(dimension == 2
+                           ? ((targetDegree + 1) * (targetDegree + 2)) / 2
+                           : ((targetDegree + 1) * (targetDegree + 2) * (targetDegree + 3)) / 6),
+      type(dimension == 2 ? 69 : 71), targetDegree(targetDegree) {
   // 69: Lagrange triangle
   // 71: Lagrange tetrahedron
-
-  type = dimension == 2 ? 69 : 71;
-  pointsPerElement = dimension == 2
-                         ? ((targetDegree + 1) * (targetDegree + 2)) / 2
-                         : ((targetDegree + 1) * (targetDegree + 2) * (targetDegree + 3)) / 6;
 
   MPI_Exscan(&localElementCount,
              &elementOffset,
@@ -68,7 +69,6 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   // to capture by value
   auto selfGlobalElementCount = globalElementCount;
   auto selfLocalElementCount = localElementCount;
-  auto selfElementOffset = elementOffset;
   auto selfGlobalPointCount = globalPointCount;
   auto selfLocalPointCount = localPointCount;
   auto selfPointOffset = pointOffset;
@@ -145,7 +145,7 @@ void VtkHdfWriter::addHook(const std::function<void(std::size_t, double)>& hook)
 }
 
 std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWriter::makeWriter() {
-  logInfo(seissol::MPI::mpi.rank()) << "Adding VTK writer" << name << "of order" << targetDegree;
+  logInfo() << "Adding VTK writer" << name << "of order" << targetDegree;
   auto self = *this;
   return [self](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
     for (const auto& hook : self.hooks) {
@@ -153,10 +153,10 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
     }
     const auto filename = prefix + "-" + self.name + "-" + std::to_string(counter) + ".vtkhdf";
     auto writer = writer::Writer();
-    for (auto& instruction : self.instructionsConst) {
+    for (const auto& instruction : self.instructionsConst) {
       writer.addInstruction(instruction(filename, time));
     }
-    for (auto& instruction : self.instructions) {
+    for (const auto& instruction : self.instructions) {
       writer.addInstruction(instruction(filename, time));
     }
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(

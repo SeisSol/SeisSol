@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _tpv12:
 
 SCEC TPV12
@@ -24,7 +32,7 @@ A square nucleation area of 3 :math:`\times` 3 km is assumed.
 In fault coordinates, it is centered at (0, -12) km, that is at a depth of 10.3923 km.
 The CAD model (see :ref:`Figure 2 <TP12_figure_2>`) and mesh are generated with `Gmsh <https://gmsh.info/>`_. All the files that are needed for
 the simulation are provided `here <https://github.com/SeisSol/Examples/tree/master/tpv12_13>`_.
-The geometry and mesh generation process is similar to TPV5. 
+The geometry and mesh generation process is similar to TPV5.
 
 .. _TP12_figure_2:
 
@@ -42,7 +50,7 @@ Nucleation strategy
 
 In previous benchmarks, nucleation is achieved by imposing higher
 initial shear stress within the nucleation zone. In TPV12 and TPV13,
-nucleation is achieved by decreasing the static friction coefficient, 
+nucleation is achieved by decreasing the static friction coefficient,
 leading the initial shear stress to exceed fault strength.
 
 
@@ -106,7 +114,7 @@ orientated for rupture of the normal fault. Below, the stress is isotropic.
 Results
 ~~~~~~~
 
-SeisSol output can be visualized directly in Paraview by loading their xdmf files. 
+SeisSol output can be visualized directly in Paraview by loading their xdmf files.
 
 .. figure:: LatexFigures/SR_W_tpv12.png
    :alt: fault and volume output of TPV12 vizualized in Paraview.
@@ -114,4 +122,4 @@ SeisSol output can be visualized directly in Paraview by loading their xdmf file
    :align: center
 
    Figure 3: Fault and volume output of TPV12 visualized in Paraview. Fault slip rate in dip-direction
-   (SRd) and vertical velocity (w) in the volume. A cut-view of the volume output allows visualizing the unstructured tetrahedral mesh. 
+   (SRd) and vertical velocity (w) in the volume. A cut-view of the volume output allows visualizing the unstructured tetrahedral mesh.

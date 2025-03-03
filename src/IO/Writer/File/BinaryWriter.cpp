@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "BinaryWriter.h"
 #include <IO/Writer/Instructions/Binary.h>
@@ -23,7 +26,7 @@ void BinaryFile::openFile(const std::string& name) {
                 &file);
 }
 void BinaryFile::writeGlobal(const void* data, std::size_t size) {
-  int rank;
+  int rank = 0;
   MPI_Comm_rank(comm, &rank);
   if (rank == 0) {
     MPI_File_write(file, data, size, MPI_BYTE, MPI_STATUS_IGNORE);

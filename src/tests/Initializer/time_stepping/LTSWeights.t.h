@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Initializer/Parameters/LtsParameters.h"
 #include "tests/TestHelper.h"
 #include <memory>
@@ -143,7 +150,7 @@ TEST_CASE("Enforce max cluster id") {
   using namespace seissol::initializer::time_stepping;
   const auto clusterIds = std::vector<int>{0, 1, 2, 3, 4, 5, 6, 6, 5, 4, 3, 2, 1, 0};
   SUBCASE("No change") {
-    const auto should = clusterIds;
+    const auto& should = clusterIds;
     const auto is = enforceMaxClusterId(clusterIds, 6);
     REQUIRE(is == should);
   }

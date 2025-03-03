@@ -1,5 +1,12 @@
-#ifndef SEISSOL_LINEARSLIPWEAKENINGINITIALIZER_H
-#define SEISSOL_LINEARSLIPWEAKENINGINITIALIZER_H
+// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_LINEARSLIPWEAKENINGINITIALIZER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_LINEARSLIPWEAKENINGINITIALIZER_H_
 
 #include "BaseDRInitializer.h"
 
@@ -14,16 +21,16 @@ class LinearSlipWeakeningInitializer : public BaseDRInitializer {
   /**
    * Computes initial friction and slip rates
    */
-  void initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
-                       seissol::initializer::LTSTree* const dynRupTree) override;
+  void initializeFault(const seissol::initializer::DynamicRupture* dynRup,
+                       seissol::initializer::LTSTree* dynRupTree) override;
 
   protected:
   /**
    * Adds the additional parameters mu_s, mu_d, d_c, cohesion and if available forced_rupture_time.
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               const seissol::initializer::DynamicRupture* const dynRup,
-                               seissol::initializer::LTSInternalNode::LeafIterator& it) override;
+                               const seissol::initializer::DynamicRupture* dynRup,
+                               seissol::initializer::Layer& layer) override;
 };
 
 /**
@@ -35,9 +42,10 @@ class LinearSlipWeakeningBimaterialInitializer : public LinearSlipWeakeningIniti
   /**
    * Computes initial value for the regularized strength
    */
-  void initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
-                       seissol::initializer::LTSTree* const dynRupTree) override;
+  void initializeFault(const seissol::initializer::DynamicRupture* dynRup,
+                       seissol::initializer::LTSTree* dynRupTree) override;
 };
 
 } // namespace seissol::dr::initializer
-#endif // SEISSOL_LINEARSLIPWEAKENINGINITIALIZER_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_LINEARSLIPWEAKENINGINITIALIZER_H_

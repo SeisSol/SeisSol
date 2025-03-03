@@ -1,42 +1,10 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2017-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "LoopStatistics.h"
 #include "Unit.h"
@@ -68,14 +36,14 @@
 #ifdef USE_NETCDF
 namespace {
 
-static void check_err(const int stat, const int line, const char* file) {
+void check_err(const int stat, const int line, const char* file) {
   if (stat != NC_NOERR) {
     logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
   }
 }
 
 template <typename T>
-static nc_type type2nc() {
+nc_type type2nc() {
   if constexpr (std::is_signed_v<T>) {
     static_assert(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
                   "type2nc supports 32 or 64 bit integral types only");
@@ -104,7 +72,7 @@ LoopStatistics::Region::Region(const std::string& name, bool includeInSummary)
     : name(name), includeInSummary(includeInSummary) {}
 
 void LoopStatistics::addRegion(const std::string& name, bool includeInSummary) {
-  regions.push_back(Region(name, includeInSummary));
+  regions.emplace_back(name, includeInSummary);
 }
 
 unsigned LoopStatistics::getRegion(const std::string& name) const {
@@ -120,7 +88,7 @@ void LoopStatistics::begin(unsigned region) {
 }
 
 void LoopStatistics::end(unsigned region, unsigned numIterations, unsigned subRegion) {
-  timespec endTime;
+  timespec endTime{};
   clock_gettime(CLOCK_MONOTONIC, &endTime);
   addSample(region, numIterations, subRegion, regions[region].begin, endTime);
 }
@@ -128,7 +96,7 @@ void LoopStatistics::end(unsigned region, unsigned numIterations, unsigned subRe
 void LoopStatistics::addSample(
     unsigned region, unsigned numIterations, unsigned subRegion, timespec begin, timespec end) {
   if (outputSamples) {
-    Sample sample;
+    Sample sample{};
     sample.begin = begin;
     sample.end = end;
     sample.numIters = numIterations;
@@ -195,7 +163,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
     }
   }
 
-  int rank;
+  int rank = 0;
 #ifdef USE_MPI
   MPI_Comm_rank(comm, &rank);
 #else
@@ -203,12 +171,11 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
 #endif
 
   const auto summary = seissol::statistics::parallelSummary(totalTimePerRank);
-  logInfo(rank) << "Time spent in compute kernels: mean =" << summary.mean
-                << " std =" << summary.std << " min =" << summary.min
-                << " median =" << summary.median << " max =" << summary.max;
+  logInfo() << "Time spent in compute kernels: mean =" << summary.mean << " std =" << summary.std
+            << " min =" << summary.min << " median =" << summary.median << " max =" << summary.max;
 
   const auto loadImbalance = 1.0 - summary.mean / summary.max;
-  logInfo(rank) << "Load imbalance:" << 100.0 * loadImbalance << "%";
+  logInfo() << "Load imbalance:" << 100.0 * loadImbalance << "%";
 
 #ifdef USE_MPI
   MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, comm);
@@ -246,10 +213,11 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
 
   if (rank == 0) {
     double totalTime = 0.0;
-    logInfo(rank) << "Regression analysis of compute kernels:";
+    logInfo() << "Regression analysis of compute kernels:";
     for (unsigned region = 0; region < nRegions; ++region) {
-      if (!regions[region].includeInSummary)
+      if (!regions[region].includeInSummary) {
         continue;
+      }
       const double x = getNumIters(region);
       const double x2 = getNumItersSquared(region);
       const double y = getTime(region);
@@ -262,18 +230,18 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
       const double se = std::sqrt((stderror[region] / (n - 2)) / xv);
 
       const char* names[] = {"constant", "per element"};
-      logInfo(rank) << regions[region].name << "(total time):" << y
-                    << "s ( =" << UnitTime.formatTime(y).c_str() << ")";
+      logInfo() << regions[region].name << "(total time):" << y
+                << "s ( =" << UnitTime.formatTime(y).c_str() << ")";
       for (unsigned c = 0; c < 2; ++c) {
-        logInfo(rank) << regions[region].name << "(" << names[c]
-                      << "):" << regressionCoeffs[2 * region + c] << "(sample size:" << n
-                      << ", standard error:" << se << ")";
+        logInfo() << regions[region].name << "(" << names[c]
+                  << "):" << regressionCoeffs[2 * region + c] << "(sample size:" << n
+                  << ", standard error:" << se << ")";
       }
       totalTime += y;
     }
 
-    logInfo(rank) << "Total time spent in compute kernels:" << totalTime
-                  << "s ( =" << UnitTime.formatTime(totalTime).c_str() << ")";
+    logInfo() << "Total time spent in compute kernels:" << totalTime
+              << "s ( =" << UnitTime.formatTime(totalTime).c_str() << ")";
   }
 }
 
@@ -283,7 +251,7 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
     const auto loopStatFile = outputPrefix + "-loopStat-";
     const auto rank = MPI::mpi.rank();
 #if defined(USE_NETCDF) && defined(USE_MPI)
-    logInfo(rank) << "Starting to write loop statistics samples to disk.";
+    logInfo() << "Starting to write loop statistics samples to disk.";
     const unsigned nRegions = regions.size();
     for (unsigned region = 0; region < nRegions; ++region) {
       const std::ofstream file;
@@ -292,10 +260,11 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
       const std::string fileName = ss.str();
 
       long nSamples = regions[region].times.size();
-      long sampleOffset;
+      long sampleOffset = 0;
       MPI_Scan(&nSamples, &sampleOffset, 1, MPI_LONG, MPI_SUM, MPI::mpi.comm());
 
-      int ncid, stat;
+      int ncid = 0;
+      int stat = 0;
       stat = nc_create_par(fileName.c_str(),
                            NC_MPIIO | NC_CLOBBER | NC_NETCDF4,
                            MPI::mpi.comm(),
@@ -303,7 +272,12 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
                            &ncid);
       check_err(stat, __LINE__, __FILE__);
 
-      int sampledim, rankdim, timespectyp, sampletyp, offsetid, sampleid;
+      int sampledim = 0;
+      int rankdim = 0;
+      int timespectyp = 0;
+      int sampletyp = 0;
+      int offsetid = 0;
+      int sampleid = 0;
 
       stat = nc_def_dim(ncid, "rank", 1 + MPI::mpi.size(), &rankdim);
       check_err(stat, __LINE__, __FILE__);
@@ -357,7 +331,8 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
       stat = nc_var_par_access(ncid, sampleid, NC_COLLECTIVE);
       check_err(stat, __LINE__, __FILE__);
 
-      std::size_t start, count;
+      std::size_t start = 0;
+      std::size_t count = 0;
       long offsetData[2];
       if (rank == 0) {
         start = 0;
@@ -380,9 +355,9 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
       stat = nc_close(ncid);
       check_err(stat, __LINE__, __FILE__);
     }
-    logInfo(rank) << "Finished writing loop statistics samples.";
+    logInfo() << "Finished writing loop statistics samples.";
 #else
-    logWarning(rank) << "Writing loop statistics requires NetCDF and MPI.";
+    logWarning() << "Writing loop statistics requires NetCDF and MPI.";
 #endif
   }
 }

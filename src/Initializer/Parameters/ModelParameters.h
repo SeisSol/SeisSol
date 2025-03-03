@@ -1,45 +1,18 @@
-#ifndef SEISSOL_MODEL_PARAMETERS_H
-#define SEISSOL_MODEL_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 
 #include <string>
 
 #include "ParameterReader.h"
 
 namespace seissol::initializer::parameters {
-
-constexpr bool isModelAnelastic() { return NUMBER_OF_RELAXATION_MECHANISMS > 0; }
-
-constexpr bool isModelElastic() {
-#ifdef USE_ELASTIC
-  return true;
-#else
-  return false;
-#endif
-}
-
-constexpr bool isModelViscoelastic() {
-#if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
-  return true;
-#else
-  return false;
-#endif
-}
-
-constexpr bool isModelPoroelastic() {
-#ifdef USE_POROELASTIC
-  return true;
-#else
-  return false;
-#endif
-}
-
-constexpr bool isModelAnisotropic() {
-#ifdef USE_ANISOTROPIC
-  return true;
-#else
-  return false;
-#endif
-}
 
 enum class ReflectionType { BothWaves = 1, BothWavesVelocity, Pwave, Swave };
 
@@ -52,6 +25,8 @@ struct ITMParameters {
 };
 
 enum class NumericalFlux { Godunov, Rusanov };
+
+std::string fluxToString(NumericalFlux flux);
 
 struct ModelParameters {
   bool hasBoundaryFile;
@@ -72,4 +47,4 @@ ModelParameters readModelParameters(ParameterReader* baseReader);
 ITMParameters readITMParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_

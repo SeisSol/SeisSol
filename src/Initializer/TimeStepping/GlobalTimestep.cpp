@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "GlobalTimestep.h"
 
 #include <Common/Constants.h>
@@ -16,7 +23,7 @@
 
 namespace {
 
-static double
+double
     computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
                         double pWaveVel,
                         double cfl,
@@ -52,17 +59,12 @@ GlobalTimestep
                      const seissol::initializer::parameters::SeisSolParameters& seissolParams) {
   using Material = seissol::model::MaterialT;
 
-  auto* queryGen = seissol::initializer::getBestQueryGenerator(
-      seissol::initializer::parameters::isModelAnelastic(),
-      seissolParams.model.plasticity,
-      seissol::initializer::parameters::isModelAnisotropic(),
-      seissol::initializer::parameters::isModelPoroelastic(),
-      seissolParams.model.useCellHomogenizedMaterial,
-      cellToVertex);
+  const auto queryGen = seissol::initializer::getBestQueryGenerator(
+      seissolParams.model.plasticity, seissolParams.model.useCellHomogenizedMaterial, cellToVertex);
   std::vector<Material> materials(cellToVertex.size);
   seissol::initializer::MaterialParameterDB<Material> parameterDB;
   parameterDB.setMaterialVector(&materials);
-  parameterDB.evaluateModel(velocityModel, queryGen);
+  parameterDB.evaluateModel(velocityModel, *queryGen);
 
   GlobalTimestep timestep;
   timestep.cellTimeStepWidths.resize(cellToVertex.size);

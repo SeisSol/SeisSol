@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
 #define SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
@@ -95,7 +98,7 @@ class VtkHdfWriter {
   std::string name;
   std::size_t localElementCount;
   std::size_t globalElementCount;
-  std::size_t elementOffset;
+  std::size_t elementOffset{0};
   std::size_t localPointCount;
   std::size_t globalPointCount;
   std::size_t pointOffset;

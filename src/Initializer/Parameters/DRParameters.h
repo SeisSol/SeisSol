@@ -1,5 +1,12 @@
-#ifndef SEISSOL_DR_PARAMETERS_H
-#define SEISSOL_DR_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 
 #include <string>
 
@@ -16,6 +23,7 @@ namespace seissol::initializer::parameters {
  */
 enum class FrictionLawType : unsigned int {
   NoFault = 0,
+  LinearSlipWeakeningLegacy = 2,
   LinearSlipWeakening = 16,
   LinearSlipWeakeningBimaterial = 6,
   LinearSlipWeakeningTPApprox = 1058,
@@ -24,7 +32,8 @@ enum class FrictionLawType : unsigned int {
   RateAndStateFastVelocityWeakening = 103,
   ImposedSlipRatesYoffe = 33,
   ImposedSlipRatesGaussian = 34,
-  RateAndStateVelocityWeakening = 7,
+  ImposedSlipRatesDelta = 35,
+  RateAndStateSevereVelocityWeakening = 7,
   RateAndStateAgingNucleation = 101,
 };
 
@@ -47,6 +56,7 @@ struct DRParameters {
   bool isThermalPressureOn{false};
   bool isFrictionEnergyRequired{false};
   bool isCheckAbortCriteraEnabled{false};
+  bool energiesFromAcrossFaultVelocities{false};
   OutputType outputPointType{3};
   RefPointMethod refPointMethod{0};
   SlipRateOutputType slipRateOutputType{1};
@@ -67,7 +77,7 @@ struct DRParameters {
   real initialPressure{0.0};
   real vStar{0.0}; // Prakash-Clifton regularization parameter
   real prakashLength{0.0};
-  std::string faultFileName{""};
+  std::string faultFileName;
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
   double etaHack{1.0};
@@ -76,4 +86,5 @@ struct DRParameters {
 DRParameters readDRParameters(ParameterReader* baseReader, int i);
 
 } // namespace seissol::initializer::parameters
-#endif // SEISSOL_PARAMETERS_H
+
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
