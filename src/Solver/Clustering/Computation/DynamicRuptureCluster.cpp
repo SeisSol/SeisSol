@@ -22,6 +22,10 @@
 #include <Solver/Clustering/ActorState.h>
 #include <xdmfwriter/scorep_wrapper.h>
 
+#ifdef ACL_DEVICE
+#include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
+#endif
+
 namespace seissol::solver::clustering::computation {
 
 DynamicRuptureCluster::DynamicRuptureCluster(
@@ -223,6 +227,21 @@ void DynamicRuptureCluster::synchronizeTo(seissol::initializer::AllocationPlace 
   if ((place == initializer::AllocationPlace::Host && executor == Executor::Device) ||
       (place == initializer::AllocationPlace::Device && executor == Executor::Host)) {
     layer->synchronizeTo(place, stream);
+  }
+#endif
+}
+
+void DynamicRuptureCluster::initFrictionSolverDevice() {
+#ifdef ACL_DEVICE
+  if (concurrentClusters()) {
+    frictionSolverDeviceStorage = this->frictionSolverDevice->clone();
+    this->frictionSolverDevice = frictionSolverDeviceStorage.get();
+
+    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(
+            this->frictionSolverDevice)) {
+      // TODO(David): remove duplicate constant data
+      impl->allocateAuxiliaryMemory();
+    }
   }
 #endif
 }

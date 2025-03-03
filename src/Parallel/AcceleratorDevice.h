@@ -21,8 +21,6 @@ class AcceleratorDevice {
 
   void bindAcceleratorDevice(int deviceId) { bindNativeDevice(deviceId); }
 
-  sycl::queue getInorderSyclQueue();
-
   void printInfo();
 
   private:

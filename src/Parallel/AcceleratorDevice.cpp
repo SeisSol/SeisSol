@@ -29,11 +29,6 @@ void AcceleratorDevice::bindNativeDevice(int deviceId) {
   device.api->setDevice(deviceId);
 }
 
-sycl::queue AcceleratorDevice::getInorderSyclQueue() {
-  auto property = derivePropertyList();
-  return sycl::queue(syclDevice, property);
-}
-
 void AcceleratorDevice::printInfo() {
   for (const auto& warn : warnMessages) {
     logWarning() << warn.c_str();

@@ -497,8 +497,7 @@ if (WITH_GPU)
       target_compile_definitions(seissol-common-properties INTERFACE CCL_ONECCL)
     endif()
   endif()
-else()
-  # add DR source files to seissol-lib if we are compiling without any GPU support
+  
   target_sources(seissol-common-lib PRIVATE ${SYCL_ONLY_SRC_FILES})
 endif()
 
