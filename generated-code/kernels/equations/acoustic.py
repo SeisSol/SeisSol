@@ -48,5 +48,8 @@ class AcousticADERDG(LinearADERDG):
         extractTractionsSPP[0, 0] = 1
         return extractTractionsSPP
 
+    def name(self):
+        return "acoustic"
+
 
 EQUATION_CLASS = AcousticADERDG

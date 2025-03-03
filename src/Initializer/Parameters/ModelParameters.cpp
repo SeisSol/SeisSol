@@ -6,7 +6,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "ModelParameters.h"
+#include <Equations/Datastructures.h>
 #include <Initializer/Parameters/ParameterReader.h>
+#include <Model/CommonDatastructures.h>
 #include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
@@ -59,12 +61,13 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
       reader->readWithDefault("gravitationalacceleration", 9.81);
   const double tv = reader->readWithDefault("tv", 0.1);
 
-  const auto freqCentral = reader->readIfRequired<double>("freqcentral", isModelViscoelastic());
-  const auto freqRatio = reader->readIfRequired<double>("freqratio", isModelViscoelastic());
-  if constexpr (isModelViscoelastic()) {
+  constexpr auto IsViscoelastic = model::MaterialT::Type == model::MaterialType::Viscoelastic;
+
+  const auto freqCentral = reader->readIfRequired<double>("freqcentral", IsViscoelastic);
+  const auto freqRatio = reader->readIfRequired<double>("freqratio", IsViscoelastic);
+  if constexpr (IsViscoelastic) {
     if (freqRatio <= 0) {
-      logError()
-          << "The freqratio parameter must be positive---but that is currently not the case.";
+      logError() << "The freqratio parameter must be positive; but that is currently not the case.";
     }
   }
 
@@ -101,4 +104,15 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          flux,
                          fluxNearFault};
 }
+
+std::string fluxToString(NumericalFlux flux) {
+  if (flux == NumericalFlux::Godunov) {
+    return "Godunov flux";
+  }
+  if (flux == NumericalFlux::Rusanov) {
+    return "Rusanov flux";
+  }
+  return "(unknown flux)";
+}
+
 } // namespace seissol::initializer::parameters

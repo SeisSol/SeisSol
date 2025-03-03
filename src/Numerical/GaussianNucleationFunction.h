@@ -19,8 +19,9 @@ namespace seissol::gaussianNucleationFunction {
 /**
  * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
  */
+#pragma omp declare simd
 template <typename MathFunctions>
-inline real smoothStep(real currentTime, real t0) {
+SEISSOL_HOSTDEVICE inline real smoothStep(real currentTime, real t0) {
   if (currentTime <= 0) {
     return 0.0;
   } else if (currentTime < t0) {
@@ -32,23 +33,26 @@ inline real smoothStep(real currentTime, real t0) {
 }
 
 // start situation: G(T - dt) = 0; i.e. we have (G(T) - 0 = G(T)) as increment
+#pragma omp declare simd
 template <typename MathFunctions>
-inline real smoothStepIncrementBegin(real currentTime, real t0) {
+SEISSOL_HOSTDEVICE inline real smoothStepIncrementBegin(real currentTime, real t0) {
   const real tau = currentTime - t0;
   return MathFunctions::exp(tau * tau / (currentTime * (currentTime - 2.0 * t0)));
 }
 
 // end situation: G(T) = 1; thus we obtain (1 - G(T - dt)) as increment
+#pragma omp declare simd
 template <typename MathFunctions>
-inline real smoothStepIncrementEnd(real currentTime, real t0) {
+SEISSOL_HOSTDEVICE inline real smoothStepIncrementEnd(real currentTime, real t0) {
   const real tau = currentTime - t0;
   return -MathFunctions::expm1(tau * tau / (currentTime * (currentTime - 2.0 * t0)));
 }
 
 // all other situations: we have a function of the form (exp(a) - exp(b)) as increment
 // reformulate (exp(a) - exp(b)) = exp(b) * (exp(a - b) - 1)
+#pragma omp declare simd
 template <typename MathFunctions>
-inline real smoothStepIncrementMiddle(real currentTime, real dt, real t0) {
+SEISSOL_HOSTDEVICE inline real smoothStepIncrementMiddle(real currentTime, real dt, real t0) {
   const real previousTime = currentTime - dt;
   const real tau0 = previousTime - t0;
   const real tau1 = currentTime - t0;
@@ -65,8 +69,9 @@ inline real smoothStepIncrementMiddle(real currentTime, real dt, real t0) {
 /**
  * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
  */
+#pragma omp declare simd
 template <typename MathFunctions = seissol::functions::HostStdFunctions>
-inline real smoothStepIncrement(real currentTime, real dt, real t0) {
+SEISSOL_HOSTDEVICE inline real smoothStepIncrement(real currentTime, real dt, real t0) {
   /*
    * We compute
   return smoothStep<MathFunctions>(currentTime, t0) -

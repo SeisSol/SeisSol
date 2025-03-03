@@ -171,12 +171,11 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
 #endif
 
   const auto summary = seissol::statistics::parallelSummary(totalTimePerRank);
-  logInfo(rank) << "Time spent in compute kernels: mean =" << summary.mean
-                << " std =" << summary.std << " min =" << summary.min
-                << " median =" << summary.median << " max =" << summary.max;
+  logInfo() << "Time spent in compute kernels: mean =" << summary.mean << " std =" << summary.std
+            << " min =" << summary.min << " median =" << summary.median << " max =" << summary.max;
 
   const auto loadImbalance = 1.0 - summary.mean / summary.max;
-  logInfo(rank) << "Load imbalance:" << 100.0 * loadImbalance << "%";
+  logInfo() << "Load imbalance:" << 100.0 * loadImbalance << "%";
 
 #ifdef USE_MPI
   MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, comm);
@@ -214,7 +213,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
 
   if (rank == 0) {
     double totalTime = 0.0;
-    logInfo(rank) << "Regression analysis of compute kernels:";
+    logInfo() << "Regression analysis of compute kernels:";
     for (unsigned region = 0; region < nRegions; ++region) {
       if (!regions[region].includeInSummary) {
         continue;
@@ -231,18 +230,18 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
       const double se = std::sqrt((stderror[region] / (n - 2)) / xv);
 
       const char* names[] = {"constant", "per element"};
-      logInfo(rank) << regions[region].name << "(total time):" << y
-                    << "s ( =" << UnitTime.formatTime(y).c_str() << ")";
+      logInfo() << regions[region].name << "(total time):" << y
+                << "s ( =" << UnitTime.formatTime(y).c_str() << ")";
       for (unsigned c = 0; c < 2; ++c) {
-        logInfo(rank) << regions[region].name << "(" << names[c]
-                      << "):" << regressionCoeffs[2 * region + c] << "(sample size:" << n
-                      << ", standard error:" << se << ")";
+        logInfo() << regions[region].name << "(" << names[c]
+                  << "):" << regressionCoeffs[2 * region + c] << "(sample size:" << n
+                  << ", standard error:" << se << ")";
       }
       totalTime += y;
     }
 
-    logInfo(rank) << "Total time spent in compute kernels:" << totalTime
-                  << "s ( =" << UnitTime.formatTime(totalTime).c_str() << ")";
+    logInfo() << "Total time spent in compute kernels:" << totalTime
+              << "s ( =" << UnitTime.formatTime(totalTime).c_str() << ")";
   }
 }
 
@@ -252,7 +251,7 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
     const auto loopStatFile = outputPrefix + "-loopStat-";
     const auto rank = MPI::mpi.rank();
 #if defined(USE_NETCDF) && defined(USE_MPI)
-    logInfo(rank) << "Starting to write loop statistics samples to disk.";
+    logInfo() << "Starting to write loop statistics samples to disk.";
     const unsigned nRegions = regions.size();
     for (unsigned region = 0; region < nRegions; ++region) {
       const std::ofstream file;
@@ -356,9 +355,9 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
       stat = nc_close(ncid);
       check_err(stat, __LINE__, __FILE__);
     }
-    logInfo(rank) << "Finished writing loop statistics samples.";
+    logInfo() << "Finished writing loop statistics samples.";
 #else
-    logWarning(rank) << "Writing loop statistics requires NetCDF and MPI.";
+    logWarning() << "Writing loop statistics requires NetCDF and MPI.";
 #endif
   }
 }

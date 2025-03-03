@@ -51,14 +51,14 @@ set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
 set(HOST_ARCH "hsw" CACHE STRING "Type of host architecture")
-set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx naples rome milan bergamo thunderx2t99 power9 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2)
+set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx naples rome milan bergamo turin thunderx2t99 power9 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2 apple-m3 apple-m4 rvv128 rvv256 rvv512 rvv1024 rvv2048 rvv4096)
 # size of a vector registers in bytes for a given architecture
-set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64     32   32    32      64       16     16     256     16     16     32     64     128     256      128      128)
-set(HOST_ARCH_VECTORSIZE  16  16  32  32  64  64  64     32   32    32      64       16     16      64     16     16     32     64     128     256       16       16)
+set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64     32   32    32      64    64    16     16     256     16     16     32     64     128     256      128      128      128      128     16     32     64     128     256     512)
+set(HOST_ARCH_VECTORSIZE  16  16  32  32  64  64  64     32   32    32      64    64    16     16      64     16     16     32     64     128     256       16       16       16       16     16     32     64     128     256     512)
 set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
-set(DEVICE_BACKEND "none" CACHE STRING "Type of GPU backend")
+set(DEVICE_BACKEND "none" CACHE STRING "Type of GPU backend (enables the GPU build, if not set to none)")
 set(DEVICE_BACKEND_OPTIONS none cuda hip hipsycl oneapi)
 set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
 
@@ -107,9 +107,13 @@ set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS}
 
 set(GEMM_TOOLS_LIST "auto" CACHE STRING "GEMM tool(s) used for CPU code generation")
 set(GEMM_TOOLS_OPTIONS "auto" "none"
-        "LIBXSMM,PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM,PSpaMM,GemmForge" "Eigen,GemmForge"
-        "LIBXSMM_JIT,PSpaMM" "LIBXSMM_JIT" "LIBXSMM_JIT,PSpaMM,GemmForge")
+        "LIBXSMM;PSpaMM" "LIBXSMM" "MKL" "OpenBLAS" "BLIS" "PSpaMM" "Eigen" "LIBXSMM;PSpaMM"
+        "LIBXSMM_JIT;PSpaMM" "LIBXSMM_JIT")
 set_property(CACHE GEMM_TOOLS_LIST PROPERTY STRINGS ${GEMM_TOOLS_OPTIONS})
+
+set(DEVICE_CODEGEN "auto" CACHE STRING "GPU code generators")
+set(DEVICE_CODEGEN_OPTIONS "auto" "gemmforge-chainforge" "tensorforge" "tinytc")
+set_property(CACHE DEVICE_CODEGEN PROPERTY STRINGS ${DEVICE_CODEGEN_OPTIONS})
 
 #-------------------------------------------------------------------------------
 # ------------------------------- ERROR CHECKING -------------------------------
@@ -135,6 +139,8 @@ check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
+
+string(REPLACE "," ";" GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
 
 # deduce GEMM_TOOLS_LIST based on the host arch
 if (GEMM_TOOLS_LIST STREQUAL "auto")
@@ -181,21 +187,9 @@ if (GEMM_TOOLS_LIST STREQUAL "auto")
         message(STATUS "Adding Eigen as last resort option")
         list(APPEND AUTO_GEMM_TOOLS_LIST "Eigen")
     endif()
-
-    list(JOIN AUTO_GEMM_TOOLS_LIST "," GEMM_TOOLS_LIST)
-endif()
-
-if (NOT ${DEVICE_BACKEND} STREQUAL "none")
-    message(STATUS "GPUs are enabled, adding GemmForge (and ChainForge, if available)")
-    set(GEMM_TOOLS_LIST "${GEMM_TOOLS_LIST},GemmForge")
-    set(WITH_GPU on)
-    # note: GPU builds currently don't support CPU-only execution (hence the following message)
-    message(STATUS "Compiling SeisSol for GPU")
 else()
-    set(WITH_GPU off)
-    message(STATUS "Compiling SeisSol for CPU")
+    set(AUTO_GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
 endif()
-message(STATUS "GEMM_TOOLS are: ${GEMM_TOOLS_LIST}")
 
 if (DEVICE_ARCH MATCHES "sm_*")
     set(DEVICE_VENDOR "nvidia")
@@ -209,7 +203,62 @@ else()
     set(IS_NVIDIA_OR_AMD OFF)
 endif()
 
+if (NOT ${DEVICE_BACKEND} STREQUAL "none")
+    string(REPLACE "," ";" DEVICE_CODEGEN ${DEVICE_CODEGEN})
+
+    if (${DEVICE_CODEGEN} STREQUAL "auto")
+        set(AUTO_DEVICE_CODEGEN)
+        # vendor-specific device GEMM tools
+        if (${DEVICE_BACKEND} STREQUAL "oneapi" AND ${DEVICE_VENDOR} STREQUAL "intel")
+            find_package(tinytc 0.3.1 QUIET)
+            find_package(tinytc_sycl 0.3.1 QUIET)
+            if (tinytc_FOUND AND tinytc_sycl_FOUND)
+                message(STATUS "Intel GPUs are enabled, adding Tiny Tensor Compiler")
+                list(APPEND AUTO_DEVICE_CODEGEN "tinytc")
+            endif()
+        endif()
+
+        # generic device GEMM tool
+        execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import gemmforge; gemmforge.print_cmake_path()"
+                        OUTPUT_VARIABLE GEMMFORGE_PATH)
+        set(CMAKE_PREFIX_PATH "${GEMMFORGE_PATH}" ${CMAKE_PREFIX_PATH})
+        find_package(GemmForge 0.0.207 QUIET)
+        if (GemmForge_FOUND)
+            message(STATUS "GPUs are enabled, adding GemmForge (and ChainForge, if available)")
+            list(APPEND AUTO_DEVICE_CODEGEN "gemmforge-chainforge")
+        endif()
+    else()
+        set(AUTO_DEVICE_CODEGEN ${DEVICE_CODEGEN})
+    endif()
+
+    # TODO: make obsolete
+    if ("tinytc" IN_LIST AUTO_DEVICE_CODEGEN)
+        list(APPEND AUTO_GEMM_TOOLS_LIST "tinytc")
+    endif()
+    # TODO: make obsolete
+    if ("tensorforge" IN_LIST AUTO_DEVICE_CODEGEN)
+        list(APPEND AUTO_GEMM_TOOLS_LIST "TensorForge")
+    endif()
+    # TODO: make obsolete
+    if ("gemmforge-chainforge" IN_LIST AUTO_DEVICE_CODEGEN)
+        list(APPEND AUTO_GEMM_TOOLS_LIST "GemmForge")
+    endif()
+
+    set(WITH_GPU ON)
+    # note: GPU builds currently don't support CPU-only execution (hence the following message)
+    message(STATUS "Compiling SeisSol for GPU")
+else()
+    set(WITH_GPU OFF)
+    message(STATUS "Compiling SeisSol for CPU")
+endif()
+
+list(JOIN AUTO_GEMM_TOOLS_LIST "," GEMM_TOOLS_LIST)
+message(STATUS "GEMM_TOOLS are: ${GEMM_TOOLS_LIST}")
+
 if (WITH_GPU)
+    list(JOIN AUTO_DEVICE_CODEGEN "," DEVICE_CODEGEN)
+    message(STATUS "DEVICE_CODEGEN are: ${DEVICE_CODEGEN}")
+
     # the premultiplication was only so far demonstrated to be efficient on AMD+NVIDIA HW; enable on others by demand
     option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${IS_NVIDIA_OR_AMD})
 

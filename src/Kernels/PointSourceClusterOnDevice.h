@@ -25,21 +25,6 @@ class PointSourceClusterOnDevice : public PointSourceCluster {
   unsigned size() const override;
 
   private:
-  static void addTimeIntegratedPointSourceNRF(const std::array<real, 3>& slip,
-                                              const real* mInvJInvPhisAtSources,
-                                              const real* tensor,
-                                              real a,
-                                              const real* stiffnessTensor,
-                                              double from,
-                                              double to,
-                                              real* dofs);
-  static void addTimeIntegratedPointSourceFSRM(real slip,
-                                               const real* mInvJInvPhisAtSources,
-                                               const real* tensor,
-                                               double from,
-                                               double to,
-                                               real* dofs);
-
   std::shared_ptr<sourceterm::ClusterMapping> clusterMapping_;
   std::shared_ptr<sourceterm::PointSources> sources_;
 };

@@ -53,7 +53,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  ActorStateStatistics* actorStateStatistics) :
     AbstractTimeCluster(maxTimeStepSize, timeStepRate,
 #ifdef ACL_DEVICE
-      i_clusterData->getNumberOfCells() >= deviceHostSwitch() ? Executor::Device : Executor::Host
+      seissolInstance.executionPlace(i_clusterData->getNumberOfCells())
 #else
       Executor::Host
 #endif
@@ -398,7 +398,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
 
   const double timeStepWidth = timeStepSize();
 
-  ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
+  ComputeGraphType graphType = resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
   streamRuntime.runGraph(computeGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
     m_timeKernel.computeBatchedAder(timeStepWidth,
@@ -415,9 +415,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
                                          tmp,
                                          timeStepWidth,
                                          streamRuntime);
-  });
 
-  m_localKernel.evaluateBatchedTimeDependentBc(dataTable,
+    m_localKernel.evaluateBatchedTimeDependentBc(dataTable,
                                                indicesTable,
                                                loader,
                                                i_layerData,
@@ -426,10 +425,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
                                                timeStepWidth,
                                                streamRuntime);
 
-  graphType = resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
-  computeGraphKey = initializer::GraphKey(graphType);
-
-  streamRuntime.runGraph(computeGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
     for (unsigned face = 0; face < 4; ++face) {
       ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
       if (dataTable.find(key) != dataTable.end()) {
@@ -761,8 +756,7 @@ void TimeCluster::correct() {
   const auto nextCorrectionSteps = ct.nextCorrectionSteps();
   if constexpr (USE_MPI) {
     if (printProgress && (((nextCorrectionSteps / timeStepRate) % 100) == 0)) {
-      const int rank = MPI::mpi.rank();
-      logInfo(rank) << "#max-updates since sync: " << nextCorrectionSteps
+      logInfo() << "#max-updates since sync: " << nextCorrectionSteps
                     << " @ " << ct.nextCorrectionTime(syncTime);
 
       }
@@ -774,8 +768,7 @@ void TimeCluster::reset() {
 }
 
 void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
-  const auto rank = MPI::mpi.rank();
-  logWarning(rank)
+  logWarning(true)
   << "No update since " << timeSinceLastUpdate.count()
   << "[s] for global cluster " << m_globalClusterId
   << " with local cluster id " << m_clusterId
@@ -789,7 +782,7 @@ void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) 
   << " mayCorrect = " << mayCorrect()
   << " maySync = " << maySync();
   for (auto& neighbor : neighbors) {
-    logWarning(rank)
+    logWarning(true)
     << "Neighbor with rate = " << neighbor.ct.timeStepRate
     << "PredTime = " << neighbor.ct.predictionTime
     << "CorrTime = " << neighbor.ct.correctionTime

@@ -8,7 +8,10 @@
 
 #include "SeisSol.h"
 
+#include <Common/Executor.h>
+#include <Kernels/Common.h>
 #include <climits>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <sys/resource.h>
@@ -36,44 +39,37 @@ bool SeisSol::init(int argc, char* argv[]) {
   }
 
 #ifdef USE_MPI
-  logInfo(rank) << "Using MPI with #ranks:" << seissol::MPI::mpi.size();
-  logInfo(rank) << "Node-wide (shared memory) MPI with #ranks/node:"
-                << seissol::MPI::mpi.sharedMemMpiSize();
+  logInfo() << "Using MPI with #ranks:" << seissol::MPI::mpi.size();
+  logInfo() << "Node-wide (shared memory) MPI with #ranks/node:"
+            << seissol::MPI::mpi.sharedMemMpiSize();
   seissol::MPI::mpi.printAcceleratorDeviceInfo();
   // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
   seissol::MPI::mpi.setDataTransferModeFromEnv();
 
-  printPersistentMpiInfo(seissol::MPI::mpi);
+  printPersistentMpiInfo();
 #endif
 #ifdef ACL_DEVICE
-  printUSMInfo(MPI::mpi);
-  printMPIUSMInfo(MPI::mpi);
-  printDeviceHostSwitch(MPI::mpi);
-
-  if (!useUSM() && deviceHostSwitch() > 0) {
-    logWarning(rank) << "Using the host-device execution on non-USM systems is not fully supported "
-                        "yet. Expect incorrect results.";
-  }
+  printUSMInfo();
+  printMPIUSMInfo();
 #endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();
-  logInfo(rank) << "Using OMP with #threads/rank:" << omp_get_max_threads();
+  logInfo() << "Using OMP with #threads/rank:" << omp_get_max_threads();
   if (!parallel::Pinning::areAllCpusOnline()) {
-    logInfo(rank) << "Some CPUs are offline. Only online CPUs are considered.";
-    logInfo(rank) << "Online Mask            (this node)   :"
-                  << parallel::Pinning::maskToString(pinning.getOnlineMask());
+    logInfo() << "Some CPUs are offline. Only online CPUs are considered.";
+    logInfo() << "Online Mask            (this node)   :"
+              << parallel::Pinning::maskToString(pinning.getOnlineMask());
   }
-  logInfo(rank) << "OpenMP worker affinity (this process):"
-                << parallel::Pinning::maskToString(
-                       seissol::parallel::Pinning::getWorkerUnionMask());
-  logInfo(rank) << "OpenMP worker affinity (this node)   :"
-                << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask());
+  logInfo() << "OpenMP worker affinity (this process):"
+            << parallel::Pinning::maskToString(seissol::parallel::Pinning::getWorkerUnionMask());
+  logInfo() << "OpenMP worker affinity (this node)   :"
+            << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask());
 
   seissol::printCommThreadInfo(seissol::MPI::mpi);
   if (seissol::useCommThread(seissol::MPI::mpi)) {
     auto freeCpus = pinning.getFreeCPUsMask();
-    logInfo(rank) << "Communication thread affinity        :"
-                  << parallel::Pinning::maskToString(freeCpus);
+    logInfo() << "Communication thread affinity        :"
+              << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError()
           << "There are no free CPUs left. Make sure to leave one for the communication thread. If "
@@ -93,13 +89,13 @@ bool SeisSol::init(int argc, char* argv[]) {
     constexpr auto ReasonableStackLimitInKb = 0x200'000ULL;                    // [kiB] (2 GiB)
     constexpr auto ReasonableStackLimit = ReasonableStackLimitInKb * 0x400ULL; // [B] (2 GiB)
     if (rlim.rlim_cur == RLIM_INFINITY) {
-      logInfo(rank) << "The stack size ulimit is unlimited.";
+      logInfo() << "The stack size ulimit is unlimited.";
     } else {
-      logInfo(rank) << "The stack size ulimit is" << rlimInKb
-                    << "[kiB] ( =" << UnitByte.formatPrefix(rlim.rlim_cur).c_str() << ").";
+      logInfo() << "The stack size ulimit is" << rlimInKb
+                << "[kiB] ( =" << UnitByte.formatPrefix(rlim.rlim_cur).c_str() << ").";
     }
     if (rlim.rlim_cur < ReasonableStackLimit) {
-      logWarning(rank)
+      logWarning()
           << "Stack size of" << rlimInKb
           << "[kiB] ( =" << UnitByte.formatPrefix(rlim.rlim_cur).c_str()
           << ") is lower than recommended minimum of" << ReasonableStackLimitInKb
@@ -132,13 +128,11 @@ void SeisSol::finalize() {
 
   Modules::callHook<ModuleHook::Shutdown>();
 
-  const int rank = seissol::MPI::mpi.rank();
-
   m_timeManager.freeDynamicResources();
 
   seissol::MPI::finalize();
 
-  logInfo(rank) << "SeisSol done. Goodbye.";
+  logInfo() << "SeisSol done. Goodbye.";
 }
 
 void SeisSol::setBackupTimeStamp(const std::string& stamp) {
@@ -149,5 +143,20 @@ void SeisSol::setBackupTimeStamp(const std::string& stamp) {
 void SeisSol::loadCheckpoint(const std::string& file) {
   checkpointLoadFile = std::make_optional<std::string>(file);
 }
+
+Executor SeisSol::executionPlace(std::size_t clusterSize) {
+  constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
+  if (executionPlaceCutoff.has_value()) {
+    if (executionPlaceCutoff.value() <= clusterSize) {
+      return DefaultDevice;
+    } else {
+      return Executor::Host;
+    }
+  } else {
+    return DefaultDevice;
+  }
+}
+
+void SeisSol::setExecutionPlaceCutoff(std::size_t size) { executionPlaceCutoff = size; }
 
 } // namespace seissol

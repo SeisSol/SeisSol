@@ -32,9 +32,8 @@
 namespace seissol::dr::initializer {
 void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
                                         seissol::initializer::LTSTree* const dynRupTree) {
-  const int rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "Initializing Fault, using a quadrature rule with "
-                << misc::NumBoundaryGaussPoints << " points.";
+  logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
+            << " points.";
   seissol::initializer::FaultParameterDB faultParameterDB;
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     // parameters to be read from fault parameters yaml file
@@ -147,8 +146,8 @@ std::vector<unsigned> BaseDRInitializer::getFaceIDsInIterator(
 void BaseDRInitializer::queryModel(seissol::initializer::FaultParameterDB& faultParameterDB,
                                    const std::vector<unsigned>& faceIDs) {
   // create a query and evaluate the model
-  seissol::initializer::FaultGPGenerator queryGen(seissolInstance.meshReader(), faceIDs);
-  faultParameterDB.evaluateModel(drParameters->faultFileName, &queryGen);
+  const seissol::initializer::FaultGPGenerator queryGen(seissolInstance.meshReader(), faceIDs);
+  faultParameterDB.evaluateModel(drParameters->faultFileName, queryGen);
 }
 
 void BaseDRInitializer::rotateTractionToCartesianStress(

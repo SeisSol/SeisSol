@@ -111,6 +111,6 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
     fileStream.close();
   }
 #else
-  logWarning(MPI::mpi.rank()) << "ThreadsPinningWriter is not supported on MacOS.";
+  logWarning() << "ThreadsPinningWriter is not supported on MacOS.";
 #endif // __APPLE__
 }
