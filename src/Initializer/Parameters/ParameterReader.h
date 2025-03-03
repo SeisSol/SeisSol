@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_PARAMETERREADER_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_PARAMETERREADER_H_
 
+#include <optional>
 #include <string>
 #include <unordered_set>
 
@@ -82,11 +83,44 @@ class ParameterReader {
   template <typename T>
   T readIfRequired(const std::string& field, bool required) {
     if (required) {
-      const std::string failMessage =
-          "The field " + field + " is required, but not found in the parameters file.";
+      const std::string failMessage = "The field " + field + " is required.";
       return readOrFail<T>(field, failMessage);
     } else {
       markUnused({field});
+      return T{};
+    }
+  }
+
+  template <typename T>
+  T readIfRequiredAlternatives(const std::vector<std::string>& fields, bool required) {
+    if (required) {
+      bool found = false;
+      T value = T{};
+      for (std::size_t i = 0; i < fields.size(); ++i) {
+        if (found) {
+          if (i > 0) {
+            warnDeprecatedSingle(fields[i]);
+          } else {
+            markUnused({fields[0]});
+          }
+        } else {
+          const auto tryRead = read<T>(fields[i]);
+          if (tryRead.has_value()) {
+            found = true;
+            value = tryRead.value();
+            if (i > 0) {
+              logWarning() << "The field name" << fields[i]
+                           << "is deprecated; consider changing its name to" << fields[0];
+            }
+          }
+        }
+      }
+      if (!found) {
+        logError() << "The field" << fields[0] << "was not found, but it is required";
+      }
+      return value;
+    } else {
+      markUnused(fields);
       return T{};
     }
   }

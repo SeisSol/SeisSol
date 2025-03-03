@@ -297,7 +297,8 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
 
   const double timeStepWidth = timeStepSize();
 
-  ComputeGraphType graphType{ComputeGraphType::LocalIntegral};
+  ComputeGraphType graphType =
+      resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
   streamRuntime.runGraph(
       computeGraphKey, *layer, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
@@ -306,23 +307,16 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
 
         localKernel.computeBatchedIntegral(
             dataTable, materialTable, indicesTable, loader, tmp, timeStepWidth, streamRuntime);
-      });
 
-  localKernel.evaluateBatchedTimeDependentBc(dataTable,
-                                             indicesTable,
-                                             loader,
-                                             *layer,
-                                             *lts,
-                                             ct.time.at(ComputeStep::Correct),
-                                             timeStepWidth,
-                                             streamRuntime);
+        localKernel.evaluateBatchedTimeDependentBc(dataTable,
+                                                   indicesTable,
+                                                   loader,
+                                                   *layer,
+                                                   *lts,
+                                                   ct.time.at(ComputeStep::Correct),
+                                                   timeStepWidth,
+                                                   streamRuntime);
 
-  graphType =
-      resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
-  computeGraphKey = initializer::GraphKey(graphType);
-
-  streamRuntime.runGraph(
-      computeGraphKey, *layer, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
         for (unsigned face = 0; face < 4; ++face) {
           const ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
           if (dataTable.find(key) != dataTable.end()) {

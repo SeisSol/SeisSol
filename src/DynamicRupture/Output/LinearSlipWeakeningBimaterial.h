@@ -14,15 +14,15 @@ namespace seissol::dr::output {
 class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
   real computeLocalStrength(LocalInfo& local) override {
     using DrLtsDescrType = seissol::initializer::LTSLinearSlipWeakeningBimaterial;
-    const auto* const regularisedStrengths =
-        getCellData(local, static_cast<DrLtsDescrType*>(drDescr)->regularisedStrength);
-    return regularisedStrengths[local.nearestGpIndex];
+    const auto* const regularizedStrengths =
+        getCellData(local, static_cast<DrLtsDescrType*>(drDescr)->regularizedStrength);
+    return regularizedStrengths[local.nearestGpIndex];
   }
 
   std::vector<std::size_t> getOutputVariables() const override {
     using DrLtsDescrType = seissol::initializer::LTSLinearSlipWeakeningBimaterial;
     auto baseVector = LinearSlipWeakening::getOutputVariables();
-    baseVector.push_back(static_cast<DrLtsDescrType*>(drDescr)->regularisedStrength.index);
+    baseVector.push_back(static_cast<DrLtsDescrType*>(drDescr)->regularizedStrength.index);
     return baseVector;
   }
 };

@@ -10,22 +10,16 @@
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/Misc.h"
-#include <CL/sycl.hpp>
 #include <yaml-cpp/yaml.h>
 
-#ifndef __DPCPP_COMPILER
-namespace sycl = cl::sycl;
-#endif
-
 namespace seissol::dr::friction_law::gpu {
+
 class FrictionSolverDetails : public FrictionSolverInterface {
   public:
   explicit FrictionSolverDetails(seissol::initializer::parameters::DRParameters* drParameters);
   ~FrictionSolverDetails() override;
 
-  void initSyclQueue() override;
   void allocateAuxiliaryMemory() override;
-  void copyStaticDataToDevice() override;
 
   protected:
   size_t currLayerSize{};
@@ -33,10 +27,11 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   real* resampleMatrix{nullptr};
   double* devTimeWeights{nullptr};
   real* devSpaceWeights{nullptr};
+  real* devTpInverseFourierCoefficients{nullptr};
+  real* devTpGridPoints{nullptr};
+  real* devHeatSource{nullptr};
 
   FrictionLawData* data{nullptr};
-
-  sycl::queue queue;
 };
 } // namespace seissol::dr::friction_law::gpu
 

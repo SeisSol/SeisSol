@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <ios>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -59,14 +60,15 @@ std::string SIUnit::formatTime(double value, bool exact, int digits) const {
     if (done) {
       stream << " ";
     }
-    stream << formatPrefix(seconds, digits);
+    stream << formatPrefix(seconds, {}, digits);
     done = true;
   }
   return stream.str();
 }
 
-std::string SIUnit::formatPrefix(double value, int digits) const {
+std::string SIUnit::formatPrefix(double value, std::optional<double> error, int digits) const {
   double mantissa = std::abs(value);
+  double errorOrZero = error.value_or(0);
   int position = 0;
   const double skip = binary ? 1024 : 1000;
   const double sign = value < 0 ? -1 : 1;
@@ -75,11 +77,13 @@ std::string SIUnit::formatPrefix(double value, int digits) const {
   if (mantissa != 0) {
     while (mantissa < 1 && position > -100) {
       mantissa *= skip;
+      errorOrZero *= skip;
       --position;
     }
   }
   while (mantissa >= skip && position < 100) {
     mantissa /= skip;
+    errorOrZero /= skip;
     ++position;
   }
 
@@ -87,7 +91,7 @@ std::string SIUnit::formatPrefix(double value, int digits) const {
       (!binary && position > static_cast<int>(PositivePrefixes.size())) ||
       -position > static_cast<int>(NegativePrefixes.size())) {
     // out of range, default to scientific notation
-    return formatScientific(value, digits);
+    return formatScientific(value, error, digits);
   } else {
     const std::string prefix = [&]() {
       if (position < 0) {
@@ -106,16 +110,30 @@ std::string SIUnit::formatPrefix(double value, int digits) const {
     std::ostringstream stream;
     stream.precision(digits);
     stream << std::fixed;
-    stream << sign * mantissa << " " << prefix << unit;
+    if (error.has_value()) {
+      stream << "(";
+    }
+    stream << sign * mantissa;
+    if (error.has_value()) {
+      stream << " ± " << errorOrZero << ")";
+    }
+    stream << " " << prefix << unit;
     return stream.str();
   }
 }
 
-std::string SIUnit::formatScientific(double value, int digits) {
+std::string SIUnit::formatScientific(double value, std::optional<double> error, int digits) const {
   std::ostringstream stream;
   stream.precision(digits);
   stream << std::scientific;
+  if (error.has_value()) {
+    stream << "(";
+  }
   stream << value;
+  if (error.has_value()) {
+    stream << " ± " << error.value() << ")";
+  }
+  stream << " " << unit;
   return stream.str();
 }
 

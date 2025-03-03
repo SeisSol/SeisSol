@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: be764d550211b997819c85bb898f6eb6007d3418
+  precomputed-hash: 25f4852ff78ce5804304aa8015488c523df2eb06
 
 jobs:
   seissol-build-test:
@@ -38,7 +38,6 @@ jobs:
         setup:
           - arch: sm_60
             backend: cuda
-            syclcc: acpp
             cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
@@ -46,7 +45,6 @@ jobs:
             runner: ubuntu-24.04
           - arch: sm_60
             backend: cuda
-            syclcc: acpp
             cc: clang-18
             cxx: clang++-18
             fc: gfortran-13 # TODO?
@@ -55,7 +53,6 @@ jobs:
           # TODO: needs a working GPU runner
           #- arch: sm_60
           #  backend: cuda
-          #  syclcc: acpp
           #  cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
@@ -63,7 +60,6 @@ jobs:
           #  runner: sccs-ci-nv-sm60
           - arch: gfx906
             backend: hip
-            syclcc: acpp
             cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
@@ -71,7 +67,6 @@ jobs:
             runner: ubuntu-24.04
           - arch: gfx906
             backend: hip
-            syclcc: acpp
             cc: clang-18
             cxx: clang++-18
             fc: gfortran-13 # TODO?
@@ -79,7 +74,6 @@ jobs:
             runner: ubuntu-24.04
           - arch: skl
             backend: oneapi
-            syclcc: dpcpp
             cc: icx
             cxx: icpx
             fc: ifx
@@ -104,9 +98,6 @@ jobs:
           # TODO: change to `-Wall -Werror` at some point
           EXTRA_FLAGS="-Wall"
 
-          # FIXME: hotfix. Needs to be fixed in SeisSol itself
-          export HIP_PATH=/opt/rocm
-
           export CFLAGS="${EXTRA_FLAGS} ${CFLAGS}"
           export CXXFLAGS="${EXTRA_FLAGS} ${CXXFLAGS}"
           export FFLAGS="${EXTRA_FLAGS} ${FFLAGS}"
@@ -115,7 +106,7 @@ jobs:
           export CXX=${{matrix.setup.cxx}}
           export FC=${{matrix.setup.fc}}
 
-          cmake .. -GNinja -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DSYCL_CC=${{matrix.setup.syclcc}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
+          cmake .. -GNinja -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
           ninja install
 
       - name: upload-seissol
@@ -210,11 +201,11 @@ jobs:
             energies: true
             receivers: true
             fault: true
-          #- name: tpv105
-          #  equation: elastic
-          #  energies: true
-          #  receivers: true
-          #  fault: true
+          - name: tpv105
+            equation: elastic
+            energies: true
+            receivers: true
+            fault: true
           - name: tpvahsp
             equation: anisotropic
             energies: false
@@ -241,7 +232,6 @@ jobs:
         setup:
           - arch: sm_60
             backend: cuda
-            syclcc: acpp
             cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
@@ -250,7 +240,6 @@ jobs:
             mpi: openmpi
           - arch: sm_60
             backend: cuda
-            syclcc: acpp
             cc: clang-18
             cxx: clang++-18
             fc: gfortran-13 # TODO?
@@ -260,7 +249,6 @@ jobs:
           # TODO: needs a working GPU runner
           #- arch: sm_60
           #  backend: cuda
-          #  syclcc: acpp
           #  cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran

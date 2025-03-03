@@ -23,18 +23,14 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
                                      const seissol::initializer::DynamicRupture* const dynRup,
                                      real fullUpdateTime) {}
 
-  static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
-    auto* devSl0{ctx.data->sl0};
-    auto& devStateVarReference{ctx.initialVariables.stateVarReference};
-    auto& devLocalSlipRate{ctx.initialVariables.localSlipRate};
-    auto& devStateVariableBuffer{ctx.stateVariableBuffer};
-    const double localSl0 = devSl0[ctx.ltsFace][ctx.pointIndex];
-    const double localSlipRate = devLocalSlipRate;
-    const double exp1 = sycl::exp(-localSlipRate * (timeIncrement / localSl0));
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
+    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
+    const double localSlipRate = ctx.initialVariables.localSlipRate;
+    const double exp1 = std::exp(-localSlipRate * (timeIncrement / localSl0));
 
-    const double stateVarReference = devStateVarReference;
-    devStateVariableBuffer =
-        localSl0 / localSlipRate * sycl::pow(localSlipRate * stateVarReference / localSl0, exp1);
+    const double stateVarReference = ctx.initialVariables.stateVarReference;
+    ctx.stateVariableBuffer =
+        localSl0 / localSlipRate * std::pow(localSlipRate * stateVarReference / localSl0, exp1);
   }
 };
 

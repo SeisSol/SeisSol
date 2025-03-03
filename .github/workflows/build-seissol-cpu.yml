@@ -9,6 +9,9 @@ name: build-seissol-cpu
 on:
   - push
 
+env:
+  precomputed-hash: 25f4852ff78ce5804304aa8015488c523df2eb06
+
 jobs:
   seissol-build-test:
     name: seissol-build-test
@@ -296,7 +299,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: seissol/precomputed-seissol
-          ref: be764d550211b997819c85bb898f6eb6007d3418
+          ref: ${{env.precomputed-hash}}
           path: precomputed
       - name: get-seissol
         uses: actions/download-artifact@v4

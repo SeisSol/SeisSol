@@ -15,12 +15,14 @@
 #include "Initializer/Tree/LTSTree.h"
 #include "Initializer/Tree/Lut.h"
 #include "Initializer/Typedefs.h"
+#include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Tree/Layer.h>
 #include <Kernels/Common.h>
+#include <Kernels/Precision.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
 #include <Modules/Modules.h>
@@ -31,6 +33,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utils/env.h>
@@ -57,13 +60,13 @@ using MaterialT = seissol::model::MaterialT;
 using Plasticity = seissol::model::Plasticity;
 
 template <typename T>
-std::vector<T> queryDB(seissol::initializer::QueryGenerator* queryGen,
+std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerator>& queryGen,
                        const std::string& fileName,
                        size_t size) {
   std::vector<T> vectorDB(size);
   seissol::initializer::MaterialParameterDB<T> parameterDB;
   parameterDB.setMaterialVector(&vectorDB);
-  parameterDB.evaluateModel(fileName, queryGen);
+  parameterDB.evaluateModel(fileName, *queryGen);
   return vectorDB;
 }
 
@@ -93,18 +96,13 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   }
 
   // just a helper function for better readability
-  auto getBestQueryGenerator = [&](const seissol::initializer::CellToVertexArray& ctvArray) {
+  const auto getBestQueryGenerator = [&](const seissol::initializer::CellToVertexArray& ctvArray) {
     return seissol::initializer::getBestQueryGenerator(
-        seissol::initializer::parameters::isModelAnelastic(),
-        seissolParams.model.plasticity,
-        seissol::initializer::parameters::isModelAnisotropic(),
-        seissol::initializer::parameters::isModelPoroelastic(),
-        seissolParams.model.useCellHomogenizedMaterial,
-        ctvArray);
+        seissolParams.model.plasticity, seissolParams.model.useCellHomogenizedMaterial, ctvArray);
   };
 
   // material retrieval for copy+interior layers
-  seissol::initializer::QueryGenerator* queryGen =
+  const auto queryGen =
       getBestQueryGenerator(seissol::initializer::CellToVertexArray::fromMeshReader(meshReader));
   auto materialsDB = queryDB<MaterialT>(
       queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
@@ -118,7 +116,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   }
 
   // material retrieval for ghost layers
-  seissol::initializer::QueryGenerator* queryGenGhost = getBestQueryGenerator(
+  auto queryGenGhost = getBestQueryGenerator(
       seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups));
   auto materialsDBGhost =
       queryDB<MaterialT>(queryGenGhost, seissolParams.model.materialFileName, ghostVertices.size());
@@ -412,6 +410,17 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   LtsInfo ltsInfo;
 
   // these four methods need to be called in this order.
+  logInfo() << "Model info:";
+  logInfo() << "Material:" << MaterialT::Text.c_str();
+  logInfo() << "Order:" << ConvergenceOrder;
+  logInfo() << "Precision:" << (sizeof(real) == 4 ? "single (f32)" : "double (f64)");
+  logInfo() << "Plasticity:"
+            << (seissolInstance.getSeisSolParameters().model.plasticity ? "on" : "off");
+  logInfo() << "Flux:"
+            << parameters::fluxToString(seissolInstance.getSeisSolParameters().model.flux).c_str();
+  logInfo() << "Flux near fault:"
+            << parameters::fluxToString(seissolInstance.getSeisSolParameters().model.fluxNearFault)
+                   .c_str();
 
   // init LTS
   logInfo() << "Initialize LTS.";

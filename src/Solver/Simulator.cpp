@@ -85,6 +85,9 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
   Stopwatch::print("Time spent for initial IO:", ioStopwatch.split(), seissol::MPI::mpi.comm());
 
+  // use an empty log message as visual separator
+  logInfo() << "";
+
   while (finalTime > currentTime + timeTolerance) {
     if (upcomingTime < currentTime + timeTolerance) {
       logError() << "Simulator did not advance in time from" << currentTime << "to" << upcomingTime;
@@ -95,9 +98,11 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     }
 
     // update the DOFs
+    logInfo() << "Start simulation epoch.";
     computeStopwatch.start();
     seissolInstance.timeManager().advanceInTime(upcomingTime);
     computeStopwatch.pause();
+    logInfo() << "End simulation epoch. Sync point.";
 
     ioStopwatch.start();
 
@@ -121,6 +126,9 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
         "Time spent this phase (blocking IO):", ioStopwatch.split(), seissol::MPI::mpi.comm());
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
+
+    // use an empty log message as visual separator
+    logInfo() << "";
   }
 
   // synchronize data (TODO(David): synchronize lazily)

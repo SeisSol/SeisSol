@@ -138,7 +138,7 @@ inline void checkAlignmentPreCompute(
  * @param[in] qInterpolatedMinus a minus side dofs interpolated at time sub-intervals
  */
 template <RangeType Type = RangeType::CPU>
-inline void precomputeStressFromQInterpolated(
+SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
     const ImpedancesAndEta& impAndEta,
     const ImpedanceMatrices& impedanceMatrices,
@@ -279,7 +279,7 @@ inline void checkAlignmentPostCompute(
  * @param[out] imposedStateMinus
  */
 template <RangeType Type = RangeType::CPU>
-inline void postcomputeImposedStateFromNewStress(
+SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     const FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
     const TractionResults<RangeExecutor<Type>::Exec>& tractionResults,
     const ImpedancesAndEta& impAndEta,
@@ -413,16 +413,17 @@ template <RangeType Type = RangeType::CPU,
           typename MathFunctions = seissol::functions::HostStdFunctions>
 // See https://github.com/llvm/llvm-project/issues/60163
 // NOLINTNEXTLINE
-inline void adjustInitialStress(real initialStressInFaultCS[misc::NumPaddedPoints][6],
-                                const real nucleationStressInFaultCS[misc::NumPaddedPoints][6],
-                                // See https://github.com/llvm/llvm-project/issues/60163
-                                // NOLINTNEXTLINE
-                                real initialPressure[misc::NumPaddedPoints],
-                                const real nucleationPressure[misc::NumPaddedPoints],
-                                real fullUpdateTime,
-                                real t0,
-                                real dt,
-                                unsigned startIndex = 0) {
+SEISSOL_HOSTDEVICE inline void
+    adjustInitialStress(real initialStressInFaultCS[misc::NumPaddedPoints][6],
+                        const real nucleationStressInFaultCS[misc::NumPaddedPoints][6],
+                        // See https://github.com/llvm/llvm-project/issues/60163
+                        // NOLINTNEXTLINE
+                        real initialPressure[misc::NumPaddedPoints],
+                        const real nucleationPressure[misc::NumPaddedPoints],
+                        real fullUpdateTime,
+                        real t0,
+                        real dt,
+                        unsigned startIndex = 0) {
   if (fullUpdateTime <= t0) {
     const real gNuc =
         gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime, dt, t0);
@@ -452,15 +453,16 @@ inline void adjustInitialStress(real initialStressInFaultCS[misc::NumPaddedPoint
  * param[in] fullUpdateTime
  */
 template <RangeType Type = RangeType::CPU>
-// See https://github.com/llvm/llvm-project/issues/60163
-// NOLINTNEXTLINE
-inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::NumPaddedPoints],
-                                   // See https://github.com/llvm/llvm-project/issues/60163
-                                   // NOLINTNEXTLINE
-                                   real ruptureTime[misc::NumPaddedPoints],
-                                   const real slipRateMagnitude[misc::NumPaddedPoints],
-                                   real fullUpdateTime,
-                                   unsigned startIndex = 0) {
+SEISSOL_HOSTDEVICE inline void
+    // See https://github.com/llvm/llvm-project/issues/60163
+    // NOLINTNEXTLINE
+    saveRuptureFrontOutput(bool ruptureTimePending[misc::NumPaddedPoints],
+                           // See https://github.com/llvm/llvm-project/issues/60163
+                           // NOLINTNEXTLINE
+                           real ruptureTime[misc::NumPaddedPoints],
+                           const real slipRateMagnitude[misc::NumPaddedPoints],
+                           real fullUpdateTime,
+                           unsigned startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
 
@@ -484,11 +486,12 @@ inline void saveRuptureFrontOutput(bool ruptureTimePending[misc::NumPaddedPoints
  * param[in, out] peakSlipRate
  */
 template <RangeType Type = RangeType::CPU>
-inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::NumPaddedPoints],
-                                   // See https://github.com/llvm/llvm-project/issues/60163
-                                   // NOLINTNEXTLINE
-                                   real peakSlipRate[misc::NumPaddedPoints],
-                                   unsigned startIndex = 0) {
+SEISSOL_HOSTDEVICE inline void
+    savePeakSlipRateOutput(const real slipRateMagnitude[misc::NumPaddedPoints],
+                           // See https://github.com/llvm/llvm-project/issues/60163
+                           // NOLINTNEXTLINE
+                           real peakSlipRate[misc::NumPaddedPoints],
+                           unsigned startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
 
@@ -509,7 +512,7 @@ inline void savePeakSlipRateOutput(const real slipRateMagnitude[misc::NumPaddedP
  * param[in] sumDt
  */
 template <RangeType Type = RangeType::CPU>
-inline void
+SEISSOL_HOSTDEVICE inline void
     updateTimeSinceSlipRateBelowThreshold(const real slipRateMagnitude[misc::NumPaddedPoints],
                                           const bool ruptureTimePending[misc::NumPaddedPoints],
                                           // See https://github.com/llvm/llvm-project/issues/60163
@@ -539,7 +542,7 @@ inline void
   }
 }
 template <RangeType Type = RangeType::CPU>
-inline void computeFrictionEnergy(
+SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     DREnergyOutput& energyData,
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],

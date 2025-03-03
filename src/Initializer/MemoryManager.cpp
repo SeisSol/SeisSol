@@ -28,6 +28,8 @@
 #include "Kernels/Common.h"
 #include "Kernels/Touch.h"
 
+#include <DynamicRupture/Misc.h>
+
 #include "Common/Iterator.h"
 
 #include "generated_code/tensor.h"
@@ -851,9 +853,13 @@ bool seissol::initializer::requiresNodalFlux(FaceType f) {
 }
 
 void seissol::initializer::MemoryManager::initializeFrictionLaw() {
+  const auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters);
   logInfo() << "Initialize Friction Model";
 
-  auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters);
+  logInfo() << "Friction law:" << dr::misc::frictionLawName(drParameters->frictionLawType).c_str()
+    << "(" << static_cast<int>(drParameters->frictionLawType) << ")";
+  logInfo() << "Thermal pressurization:" << (drParameters->isThermalPressureOn ? "on" : "off");
+
   const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance);
   auto product = factory->produce();
   m_dynRup = std::move(product.ltsTree);
@@ -887,14 +893,10 @@ void seissol::initializer::MemoryManager::initFrictionData() {
 #ifdef ACL_DEVICE
     if (!concurrentClusters()) {
       if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
-        impl->initSyclQueue();
 
-        LayerMask mask = seissol::initializer::LayerMask(Ghost);
-        auto maxSize = m_dynRupTree.getMaxClusterSize(mask);
-        impl->setMaxClusterSize(maxSize);
+        const auto mask = seissol::initializer::LayerMask(Ghost);
 
         impl->allocateAuxiliaryMemory();
-        impl->copyStaticDataToDevice();
       }
     }
 #endif // ACL_DEVICE
