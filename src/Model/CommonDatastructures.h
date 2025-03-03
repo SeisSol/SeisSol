@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_MODEL_COMMONDATASTRUCTURES_H_
 #define SEISSOL_SRC_MODEL_COMMONDATASTRUCTURES_H_
 
+#include <Initializer/Parameters/ModelParameters.h>
 #include <array>
 #include <limits>
 #include <string>
@@ -47,7 +48,7 @@ struct Material {
   Material() = default;
   Material(const std::vector<double>& data) : rho(data.at(0)) {}
 
-  virtual void initialize() {}
+  virtual void initialize(const initializer::parameters::ModelParameters& parameters) {}
 
   [[nodiscard]] virtual double getMaxWaveSpeed() const = 0;
   [[nodiscard]] virtual double getPWaveSpeed() const = 0;
