@@ -1,6 +1,7 @@
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @author Martin Kaeser (martin.kaeser AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/kaeser)
 % @author Sebastian Rettenberger (rettenbs AT in.tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger,_M.Sc.)
