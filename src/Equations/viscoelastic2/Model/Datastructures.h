@@ -16,8 +16,10 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Model/CommonDatastructures.h"
 #include "generated_code/tensor.h"
+#include <Initializer/Parameters/ModelParameters.h>
 #include <Kernels/LinearCK/Solver.h>
 #include <Kernels/LinearCKAnelastic/Solver.h>
+#include <Physics/Attenuation.h>
 #include <array>
 #include <cstddef>
 #include <string>
@@ -82,6 +84,10 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   ~ViscoElasticMaterialParametrized() override = default;
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
+
+  void initialize(const initializer::parameters::ModelParameters& parameters) override {
+    physics::fitAttenuation<Mechanisms>(*this, parameters.freqCentral, parameters.freqRatio);
+  }
 };
 
 using ViscoElasticMaterial = ViscoElasticMaterialParametrized<Config::RelaxationMechanisms>;
