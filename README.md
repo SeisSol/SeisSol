@@ -1,5 +1,5 @@
 <!--
-    SPDX-FileCopyrightText: 2012-2024 SeisSol Group
+    SPDX-FileCopyrightText: 2012 SeisSol Group
 
     SPDX-License-Identifier: BSD-3-Clause
     SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/

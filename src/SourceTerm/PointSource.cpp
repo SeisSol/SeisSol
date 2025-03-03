@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 // SPDX-FileCopyrightText: 2023 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
