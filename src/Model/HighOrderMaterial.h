@@ -61,6 +61,7 @@ class HighOrderMaterial : public Material {
     materials[0].getFullStiffnessTensor(fullTensor);
   }
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
+  [[nodiscard]] double maximumTimestep() const override { return materials[0].maximumTimestep(); }
 };
 
 } // namespace seissol::model

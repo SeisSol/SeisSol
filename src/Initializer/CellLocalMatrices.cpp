@@ -452,6 +452,13 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
                                       double etaHack) {
+
+  if constexpr (!model::MaterialT::SupportsDR) {
+    logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
+                  "(built with:"
+               << model::MaterialT::Text << ")";
+  }
+
   real matTData[tensor::T::size()];
   real matTinvData[tensor::Tinv::size()];
   real matAPlusData[tensor::star::size(0)];
@@ -689,12 +696,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
       switch (plusMaterial->getMaterialType()) {
-      case seissol::model::MaterialType::Elastic: {
-        break;
-      }
-      case seissol::model::MaterialType::Viscoelastic: {
-        break;
-      }
 #if MATERIAL_ORDER == 1
       case seissol::model::MaterialType::Poroelastic: {
         auto plusEigenpair =
@@ -722,12 +723,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         break;
       }
 #endif
-      default: {
-        logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
-                      "(built with:"
-                   << model::MaterialT::Text << ")";
+      default:
         break;
-      }
       }
       seissol::model::getTransposedCoefficientMatrix(
           *dynamic_cast<model::MaterialT*>(plusMaterial), 0, matAPlus);
