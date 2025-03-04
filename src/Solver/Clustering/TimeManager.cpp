@@ -19,7 +19,7 @@
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/Layer.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Parallel/Host/SyncExecutor.h>

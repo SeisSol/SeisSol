@@ -48,8 +48,8 @@
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Initializer/LTS.h>
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Layer.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/GravitationalFreeSurfaceBC.h>

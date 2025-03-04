@@ -9,7 +9,7 @@
 #define SEISSOL_ACTOR_H
 
 #include "ActorState.h"
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <chrono>
 #include <memory>

@@ -4,7 +4,7 @@
 
 #include "DirectMPINeighborCluster.h"
 #include <AbstractAPI.h>
-#include <Initializer/MemoryAllocator.h>
+#include <Memory/MemoryAllocator.h>
 #include <Parallel/MPI.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 #include <mpi.h>

@@ -20,11 +20,11 @@
 #include <Common/Iterator.h>
 #include <Geometry/Refinement/TriangleRefiner.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Initializer/LTS.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Initializer/PreProcessorMacros.h>
-#include <Initializer/Tree/LTSTree.h>
-#include <Initializer/Tree/Layer.h>
-#include <Initializer/Tree/Lut.h>
+#include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Layer.h>
+#include <Memory/Tree/Lut.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <algorithm>

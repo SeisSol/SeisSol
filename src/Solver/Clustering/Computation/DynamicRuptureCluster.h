@@ -9,8 +9,8 @@
 #include "Solver/Clustering/AbstractTimeCluster.h"
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/Output/OutputManager.h>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Tree/Layer.h>
 #include <Monitoring/ActorStateStatistics.h>
 #include <Parallel/Helper.h>
 #include <Parallel/Runtime/Stream.h>

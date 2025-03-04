@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cassert>

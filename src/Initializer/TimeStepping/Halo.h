@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <Initializer/Tree/LTSTree.h>
+#include <Memory/Tree/LTSTree.h>
 #include <cstddef>
 #include <mpi.h>
 #include <vector>

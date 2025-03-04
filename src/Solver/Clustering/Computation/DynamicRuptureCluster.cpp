@@ -10,9 +10,9 @@
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Initializer/DynamicRupture.h>
+#include <Memory/Descriptor/DynamicRupture.h>
 #include <Initializer/PreProcessorMacros.h>
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/Layer.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Monitoring/ActorStateStatistics.h>

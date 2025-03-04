@@ -43,19 +43,19 @@
 #ifndef TIMECLUSTER_H_
 #define TIMECLUSTER_H_
 
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/Layer.h>
 #ifdef USE_MPI
 #include <list>
 #include <mpi.h>
 #endif
 
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/LTSTree.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/LTSTree.h"
 #include "Initializer/Typedefs.h"
 #include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 
-#include "Initializer/DynamicRupture.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Kernels/Local.h"
 #include "Kernels/Neighbor.h"
 #include "Kernels/Plasticity.h"

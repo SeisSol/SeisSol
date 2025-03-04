@@ -4,8 +4,8 @@
 
 #include "Halo.h"
 
-#include <Initializer/Tree/LTSTree.h>
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Layer.h>
 #include <Parallel/MPI.h>
 #include <mpi.h>
 namespace seissol::initializer {
