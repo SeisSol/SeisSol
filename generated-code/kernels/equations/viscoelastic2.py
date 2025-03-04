@@ -8,12 +8,14 @@
 
 import numpy as np
 from kernels.aderdg import ADERDGBase
+from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.ast.node import Add
 from yateto.input import (memoryLayoutFromFile, parseJSONMatrixFile,
                           parseXMLMatrixFile)
 from yateto.memory import CSCMemoryLayout
+from yateto.util import tensor_collection_from_constant_expression
 
 
 class Viscoelastic2ADERDG(ADERDGBase):
@@ -83,11 +85,12 @@ class Viscoelastic2ADERDG(ADERDGBase):
             ),
         )
         self.w = Tensor("w", (self.numberOfMechanisms,))
+
+        # TODO(David): re-enable CSCMemoryLayout here for GPUs
         self.W = Tensor(
             "W",
             (self.numberOfMechanisms, self.numberOfMechanisms),
             np.eye(self.numberOfMechanisms, dtype=bool),
-            CSCMemoryLayout,
         )
 
         selectElaSpp = np.zeros(
@@ -242,73 +245,109 @@ class Viscoelastic2ADERDG(ADERDGBase):
         )
 
     def addLocal(self, generator, targets):
-        volumeSum = Add()
-        for i in range(3):
-            volumeSum += (
-                self.db.kDivM[i][self.t("kl")] * self.I["lq"] * self.db.star[i]["qp"]
+        for target in targets:
+            name_prefix = generate_kernel_name_prefix(target)
+
+            volumeSum = Add()
+            for i in range(3):
+                volumeSum += (
+                    self.db.kDivM[i][self.t("kl")]
+                    * self.I["lq"]
+                    * self.db.star[i]["qp"]
+                )
+            volumeExt = self.Qext["kp"] <= volumeSum
+            generator.add(f"{name_prefix}volumeExt", volumeExt, target=target)
+
+            plusFluxMatrixAccessor = (
+                lambda i: self.db.rDivM[i][self.t("km")] * self.db.fMrT[i][self.t("ml")]
             )
-        volumeExt = self.Qext["kp"] <= volumeSum
-        generator.add("volumeExt", volumeExt)
+            if self.kwargs["enable_premultiply_flux"] and target == "gpu":
+                contractionResult = tensor_collection_from_constant_expression(
+                    "plusFluxMatrices",
+                    plusFluxMatrixAccessor,
+                    simpleParameterSpace(4),
+                    target_indices="kl",
+                )
+                self.db.update(contractionResult)
+                plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]["kl"]
 
-        localFluxExt = (
-            lambda i: self.Qext["kp"]
-            <= self.Qext["kp"]
-            + self.db.rDivM[i][self.t("km")]
-            * self.db.fMrT[i][self.t("ml")]
-            * self.I["lq"]
-            * self.AplusT["qp"]
-        )
-        localFluxExtPrefetch = lambda i: (
-            self.I if i == 0 else (self.Q if i == 1 else None)
-        )
-        generator.addFamily(
-            "localFluxExt",
-            simpleParameterSpace(4),
-            localFluxExt,
-            localFluxExtPrefetch,
-        )
+            localFluxExt = (
+                lambda i: self.Qext["kp"]
+                <= self.Qext["kp"]
+                + plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusT["qp"]
+            )
+            localFluxExtPrefetch = lambda i: (
+                self.I if i == 0 else (self.Q if i == 1 else None)
+            )
+            generator.addFamily(
+                f"{name_prefix}localFluxExt",
+                simpleParameterSpace(4),
+                localFluxExt,
+                localFluxExtPrefetch,
+                target=target,
+            )
 
-        generator.add(
-            "local",
-            [
-                self.Qane["kpm"]
-                <= self.Qane["kpm"]
-                + self.w["m"] * self.Qext["kq"] * self.selectAne["qp"]
-                + self.Iane["kpl"] * self.W["lm"],
-                self.Q["kp"]
-                <= self.Q["kp"]
-                + self.Qext["kq"] * self.selectEla["qp"]
-                + self.Iane["kqm"] * self.E["qmp"],
-            ],
-        )
+            generator.add(
+                f"{name_prefix}local",
+                [
+                    self.Qane["kpm"]
+                    <= self.Qane["kpm"]
+                    + self.w["m"] * self.Qext["kq"] * self.selectAne["qp"]
+                    + self.Iane["kpl"] * self.W["lm"],
+                    self.Q["kp"]
+                    <= self.Q["kp"]
+                    + self.Qext["kq"] * self.selectEla["qp"]
+                    + self.Iane["kqm"] * self.E["qmp"],
+                ],
+                target=target,
+            )
 
     def addNeighbor(self, generator, targets):
-        neighbourFluxExt = (
-            lambda h, j, i: self.Qext["kp"]
-            <= self.Qext["kp"]
-            + self.db.rDivM[i][self.t("km")]
-            * self.db.fP[h][self.t("mn")]
-            * self.db.rT[j][self.t("nl")]
-            * self.I["lq"]
-            * self.AminusT["qp"]
-        )
-        neighbourFluxExtPrefetch = lambda h, j, i: self.I
-        generator.addFamily(
-            "neighbourFluxExt",
-            simpleParameterSpace(3, 4, 4),
-            neighbourFluxExt,
-            neighbourFluxExtPrefetch,
-        )
+        for target in targets:
+            name_prefix = generate_kernel_name_prefix(target)
 
-        generator.add(
-            "neighbour",
-            [
-                self.Qane["kpm"]
-                <= self.Qane["kpm"]
-                + self.w["m"] * self.Qext["kq"] * self.selectAne["qp"],
-                self.Q["kp"] <= self.Q["kp"] + self.Qext["kq"] * self.selectEla["qp"],
-            ],
-        )
+            minusFluxMatrixAccessor = (
+                lambda h, j, i: self.db.rDivM[i][self.t("km")]
+                * self.db.fP[h][self.t("mn")]
+                * self.db.rT[j][self.t("nl")]
+            )
+            if self.kwargs["enable_premultiply_flux"] and target == "gpu":
+                contractionResult = tensor_collection_from_constant_expression(
+                    "minusFluxMatrices",
+                    minusFluxMatrixAccessor,
+                    simpleParameterSpace(3, 4, 4),
+                    target_indices="kl",
+                )
+                self.db.update(contractionResult)
+                minusFluxMatrixAccessor = lambda h, j, i: self.db.minusFluxMatrices[
+                    h, j, i
+                ]["kl"]
+
+            neighborFluxExt = (
+                lambda h, j, i: self.Qext["kp"]
+                <= self.Qext["kp"]
+                + minusFluxMatrixAccessor(h, j, i) * self.I["lq"] * self.AminusT["qp"]
+            )
+            neighborFluxExtPrefetch = lambda h, j, i: self.I
+            generator.addFamily(
+                f"{name_prefix}neighborFluxExt",
+                simpleParameterSpace(3, 4, 4),
+                neighborFluxExt,
+                neighborFluxExtPrefetch,
+                target=target,
+            )
+
+            generator.add(
+                f"{name_prefix}neighbor",
+                [
+                    self.Qane["kpm"]
+                    <= self.Qane["kpm"]
+                    + self.w["m"] * self.Qext["kq"] * self.selectAne["qp"],
+                    self.Q["kp"]
+                    <= self.Q["kp"] + self.Qext["kq"] * self.selectEla["qp"],
+                ],
+                target=target,
+            )
 
     def addTime(self, generator, targets):
         qShape = (self.numberOf3DBasisFunctions(), self.numberOfQuantities())
@@ -349,58 +388,67 @@ class Viscoelastic2ADERDG(ADERDGBase):
 
         powers = [Scalar(f"power({i})") for i in range(self.order)]
 
-        derivativeTaylorExpansionEla = Add()
-        # derivativeTaylorExpansionAne = Add()
-        for d in range(0, self.order):
-            derivativeTaylorExpansionEla += powers[d] * dQ[d]["kp"]
-            # derivativeTaylorExpansionAne += powers[d] * dQane[d]['kpm']
-        derivativeTaylorExpansionElaExpr = self.I["kp"] <= derivativeTaylorExpansionEla
-        # derivativeTaylorExpansionAneExpr = self.Iane['kpm'] <= derivativeTaylorExpansionAne
+        for target in targets:
+            name_prefix = generate_kernel_name_prefix(target)
 
-        def derivative(kthDer):
-            derivativeSum = Add()
-            for j in range(3):
-                derivativeSum += (
-                    self.db.kDivMT[j][self.t("kl")]
-                    * dQ[kthDer - 1]["lq"]
-                    * self.db.star[j]["qp"]
-                )
-            return derivativeSum
+            derivativeTaylorExpansionEla = Add()
+            # derivativeTaylorExpansionAne = Add()
+            for d in range(0, self.order):
+                derivativeTaylorExpansionEla += powers[d] * dQ[d]["kp"]
+                # derivativeTaylorExpansionAne += powers[d] * dQane[d]['kpm']
+            derivativeTaylorExpansionElaExpr = (
+                self.I["kp"] <= derivativeTaylorExpansionEla
+            )
+            # derivativeTaylorExpansionAneExpr = self.Iane['kpm'] <= derivativeTaylorExpansionAne
 
-        # WARNING: the following kernel may produce incorrect results,
-        # if not executed in the order as specified here
-        # the reason for that is that dQext, dQane (except dQane(0))
-        # and potentially dQ (except dQ(0)) are allocated in temporary arrays
-        # which are smaller than the whole tensor families
-        # (even indices share the same buffer,
-        # and odd indices share the same buffer)
-        derivativeExpr = [
-            self.I["kp"] <= powers[0] * dQ[0]["kp"],
-            self.Iane["kpm"] <= powers[0] * dQane[0]["kpm"],
-        ]
-        for d in range(1, self.order):
-            derivativeExpr += [
-                dQext[d]["kp"] <= derivative(d),
-                dQ[d]["kp"]
-                <= dQext[d]["kq"] * self.selectEla["qp"]
-                + dQane[d - 1]["kqm"] * self.E["qmp"],
-                dQane[d]["kpm"]
-                <= self.w["m"] * dQext[d]["kq"] * self.selectAne["qp"]
-                + dQane[d - 1]["kpl"] * self.W["lm"],
-                self.I["kp"] <= self.I["kp"] + powers[d] * dQ[d]["kp"],
-                self.Iane["kpm"] <= self.Iane["kpm"] + powers[d] * dQane[d]["kpm"],
+            def derivative(kthDer):
+                derivativeSum = Add()
+                for j in range(3):
+                    derivativeSum += (
+                        self.db.kDivMT[j][self.t("kl")]
+                        * dQ[kthDer - 1]["lq"]
+                        * self.db.star[j]["qp"]
+                    )
+                return derivativeSum
+
+            # WARNING: the following kernel may produce incorrect results,
+            # if not executed in the order as specified here
+            # the reason for that is that dQext, dQane (except dQane(0))
+            # and potentially dQ (except dQ(0)) are allocated in temporary arrays
+            # which are smaller than the whole tensor families
+            # (even indices share the same buffer,
+            # and odd indices share the same buffer)
+            derivativeExpr = [
+                self.I["kp"] <= powers[0] * dQ[0]["kp"],
+                self.Iane["kpm"] <= powers[0] * dQane[0]["kpm"],
             ]
-        # TODO(David): we'll need to add intermediate results to Yateto,
-        # then the temporary storage needed can be reduced.
-        # for now, we'll interleave the Taylor
-        # expansion with the derivative computation
-        # derivativeExpr += [
-        #   derivativeTaylorExpansionElaExpr,
-        #   derivativeTaylorExpansionAneExpr
-        # ]
+            for d in range(1, self.order):
+                derivativeExpr += [
+                    dQext[d]["kp"] <= derivative(d),
+                    dQ[d]["kp"]
+                    <= dQext[d]["kq"] * self.selectEla["qp"]
+                    + dQane[d - 1]["kqm"] * self.E["qmp"],
+                    dQane[d]["kpm"]
+                    <= self.w["m"] * dQext[d]["kq"] * self.selectAne["qp"]
+                    + dQane[d - 1]["kpl"] * self.W["lm"],
+                    self.I["kp"] <= self.I["kp"] + powers[d] * dQ[d]["kp"],
+                    self.Iane["kpm"] <= self.Iane["kpm"] + powers[d] * dQane[d]["kpm"],
+                ]
+            # TODO(David): we'll need to add intermediate results to Yateto,
+            # then the temporary storage needed can be reduced.
+            # for now, we'll interleave the Taylor
+            # expansion with the derivative computation
+            # derivativeExpr += [
+            #   derivativeTaylorExpansionElaExpr,
+            #   derivativeTaylorExpansionAneExpr
+            # ]
 
-        generator.add("derivative", derivativeExpr)
-        generator.add("derivativeTaylorExpansionEla", derivativeTaylorExpansionElaExpr)
+            generator.add(f"{name_prefix}derivative", derivativeExpr, target=target)
+            generator.add(
+                f"{name_prefix}derivativeTaylorExpansionEla",
+                derivativeTaylorExpansionElaExpr,
+                target=target,
+            )
 
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)
