@@ -224,11 +224,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         }
       }
 
-#ifdef MULTIPLE_SIMULATIONS
-      auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
-#else
       auto numSub = numericalSolution;
-#endif
 
       // Evaluate numerical solution at quad. nodes
       auto dofs = ltsLut->lookup(lts->dofs, meshId);

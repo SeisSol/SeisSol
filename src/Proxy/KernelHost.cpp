@@ -198,20 +198,20 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
 
       faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)
                                      ? faceNeighbors[cell][1]
-                                     : drMapping[cell][1].godunov;
+                                     : drMapping[cell][1].godunov[0]; //(TODO: cleaner fix)
       faceNeighborsPrefetch[1] = (cellInformation[cell].faceTypes[2] != FaceType::DynamicRupture)
                                      ? faceNeighbors[cell][2]
-                                     : drMapping[cell][2].godunov;
+                                     : drMapping[cell][2].godunov[0]; //(TODO: cleaner fix)
       faceNeighborsPrefetch[2] = (cellInformation[cell].faceTypes[3] != FaceType::DynamicRupture)
                                      ? faceNeighbors[cell][3]
-                                     : drMapping[cell][3].godunov;
+                                     : drMapping[cell][3].godunov[0]; //(TODO: cleaner fix)
 
       // fourth face's prefetches
       if (cell < (nrOfCells - 1)) {
         faceNeighborsPrefetch[3] =
             (cellInformation[cell + 1].faceTypes[0] != FaceType::DynamicRupture)
                 ? faceNeighbors[cell + 1][0]
-                : drMapping[cell + 1][0].godunov;
+                : drMapping[cell + 1][0].godunov[0]; //(TODO: cleaner fix)
       } else {
         faceNeighborsPrefetch[3] = faceNeighbors[cell][3];
       }

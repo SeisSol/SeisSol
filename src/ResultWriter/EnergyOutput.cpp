@@ -335,7 +335,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = layer.var(dynRup[sim]->waveSpeedsPlus);
     seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = layer.var(dynRup[sim]->waveSpeedsMinus);
     const auto layerSize = layer.getNumberOfCells();
->>>>>>> davschneller/even-more-archs
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(                                                                \
@@ -360,7 +359,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                                                   timeDerivativeMinusPtr(i),
                                                   faceInformation[i],
                                                   godunovData[i],
-                                                  drEnergyOutput[i].slip);
+                                                  drEnergyOutput[i].slip)[sim];
 
           const real muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
                               waveSpeedsPlus[i].sWaveVelocity;
@@ -380,9 +379,9 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
-    shared(it, drEnergyOutput, faceInformation), firstprivate(sim)
+    shared(drEnergyOutput, faceInformation), firstprivate(sim, layerSize)
 #endif
-        for (unsigned i = 0; i < it->getNumberOfCells(); ++i) {
+        for (unsigned i = 0; i < layerSize; ++i) {
           if (faceInformation[i].plusSideOnThisRank) {
             for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
               if (drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j] < localMin) {
@@ -706,113 +705,22 @@ void EnergyOutput::printEnergies() {
                         << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(sim)) - 6.07 << " ,"
                         << ratioPlasticMoment;
         }
+        logInfo(rank) << "Simulation:" << sim << " Total momentum (X, Y, Z):" << totalMomentumX
+                      << " ," << totalMomentumY << " ," << totalMomentumZ;
+        if (totalFrictionalWork) {
+          logInfo(rank) << "Simulation:" << sim
+                        << " Frictional work (total, % static, % radiated): " << totalFrictionalWork
+                        << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
+          logInfo(rank) << "Simulation:" << sim << " Seismic moment (without plasticity):"
+                        << energiesStorage.seismicMoment(sim) << " Mw:"
+                        << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment(sim)) - 6.07;
+        }
+        if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
+          logError() << "Simulation:" << sim << " Detected Inf/NaN in energies. Aborting.";
+        }
       } else {
-        logInfo(rank) << "Volume energies skipped at this step";
+        logInfo(rank) << "Simulation:" << sim << " Volume energies skipped at this step";
       }
-      if (totalAcousticEnergy) {
-        logInfo(rank) << "Simulation:" << sim
-                      << " Acoustic energy (total, % kinematic, % potential): "
-                      << totalAcousticEnergy << " ," << ratioAcousticKinematic << " ,"
-                      << ratioAcousticPotential;
-      }
-      if (energiesStorage.gravitationalEnergy(sim)) {
-        logInfo(rank) << "Simulation:" << sim
-                      << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
-      }
-      if (energiesStorage.plasticMoment(sim)) {
-        logInfo(rank) << "Simulation:" << sim
-                      << " Plastic moment (value, equivalent Mw, % total moment):"
-                      << energiesStorage.plasticMoment(sim) << " ,"
-                      << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(sim)) - 6.07 << " ,"
-                      << ratioPlasticMoment;
-      }
-      logInfo(rank) << "Simulation:" << sim << " Total momentum (X, Y, Z):" << totalMomentumX
-                    << " ," << totalMomentumY << " ," << totalMomentumZ;
-      if (totalFrictionalWork) {
-        logInfo(rank) << "Simulation:" << sim
-                      << " Frictional work (total, % static, % radiated): " << totalFrictionalWork
-                      << " ," << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
-        logInfo(rank) << "Simulation:" << sim << " Seismic moment (without plasticity):"
-                      << energiesStorage.seismicMoment(sim) << " Mw:"
-                      << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment(sim)) - 6.07;
-      }
-      if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
-        logError() << "Simulation:" << sim << " Detected Inf/NaN in energies. Aborting.";
-      }
-    } else {
-      logInfo(rank) << "Simulation:" << sim << " Volume energies skipped at this step";
-
-  if (rank == 0) {
-    const auto totalAcousticEnergy =
-        energiesStorage.acousticKineticEnergy() + energiesStorage.acousticEnergy();
-    const auto totalElasticEnergy =
-        energiesStorage.elasticKineticEnergy() + energiesStorage.elasticEnergy();
-    const auto ratioElasticKinematic =
-        100.0 * energiesStorage.elasticKineticEnergy() / totalElasticEnergy;
-    const auto ratioElasticPotential = 100.0 * energiesStorage.elasticEnergy() / totalElasticEnergy;
-    const auto ratioAcousticKinematic =
-        100.0 * energiesStorage.acousticKineticEnergy() / totalAcousticEnergy;
-    const auto ratioAcousticPotential =
-        100.0 * energiesStorage.acousticEnergy() / totalAcousticEnergy;
-    const auto totalFrictionalWork = energiesStorage.totalFrictionalWork();
-    const auto staticFrictionalWork = energiesStorage.staticFrictionalWork();
-    const auto radiatedEnergy = totalFrictionalWork - staticFrictionalWork;
-    const auto ratioFrictionalStatic = 100.0 * staticFrictionalWork / totalFrictionalWork;
-    const auto ratioFrictionalRadiated = 100.0 * radiatedEnergy / totalFrictionalWork;
-    const auto ratioPlasticMoment =
-        100.0 * energiesStorage.plasticMoment() /
-        (energiesStorage.plasticMoment() + energiesStorage.seismicMoment());
-    const auto totalMomentumX = energiesStorage.totalMomentumX();
-    const auto totalMomentumY = energiesStorage.totalMomentumY();
-    const auto totalMomentumZ = energiesStorage.totalMomentumZ();
-
-    const auto outputPrecision =
-        seissolInstance.getSeisSolParameters().output.energyParameters.terminalPrecision;
-
-    const auto shouldPrint = [](double thresholdValue) {
-      return std::abs(thresholdValue) > 1.e-20;
-    };
-
-    if (shouldComputeVolumeEnergies()) {
-      if (shouldPrint(totalElasticEnergy)) {
-        logInfo() << std::setprecision(outputPrecision)
-                  << "Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
-                  << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
-      }
-      if (shouldPrint(totalAcousticEnergy)) {
-        logInfo() << std::setprecision(outputPrecision)
-                  << "Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
-                  << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
-      }
-      if (shouldPrint(energiesStorage.gravitationalEnergy())) {
-        logInfo() << std::setprecision(outputPrecision)
-                  << "Gravitational energy:" << energiesStorage.gravitationalEnergy();
-      }
-      if (shouldPrint(energiesStorage.plasticMoment())) {
-        logInfo() << std::setprecision(outputPrecision)
-                  << "Plastic moment (value, equivalent Mw, % total moment):"
-                  << energiesStorage.plasticMoment() << " ,"
-                  << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment()) - 6.07 << " ,"
-                  << ratioPlasticMoment;
-      }
-      logInfo() << std::setprecision(outputPrecision)
-                << "Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY << " ,"
-                << totalMomentumZ;
-    } else {
-      logInfo() << "Volume energies skipped at this step";
-    }
-
-    if (shouldPrint(totalFrictionalWork)) {
-      logInfo() << std::setprecision(outputPrecision)
-                << "Frictional work (total, % static, % radiated): " << totalFrictionalWork << " ,"
-                << ratioFrictionalStatic << " ," << ratioFrictionalRadiated;
-      logInfo() << std::setprecision(outputPrecision)
-                << "Seismic moment (without plasticity):" << energiesStorage.seismicMoment()
-                << " Mw:" << 2.0 / 3.0 * std::log10(energiesStorage.seismicMoment()) - 6.07;
-    }
-
-    if (!std::isfinite(totalElasticEnergy + totalAcousticEnergy)) {
-      logError() << "Detected Inf/NaN in energies. Aborting.";
     }
   }
 }
@@ -838,16 +746,8 @@ void EnergyOutput::checkAbortCriterion(
                         << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture
                         << "s)";
         }
-    if ((timeSinceThreshold > 0) and (timeSinceThreshold < std::numeric_limits<real>::max())) {
-      if (static_cast<double>(timeSinceThreshold) < terminatorMaxTimePostRupture) {
-        logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold
-                  << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
-      } else {
-        logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold
-                  << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
-        abort = true;
-      }
-    }
+  }
+}
   }
 #ifdef USE_MPI
   const auto& comm = MPI::mpi.comm();

@@ -235,8 +235,8 @@ void ProxyData::initDataStructures(bool enableDR) {
         const unsigned drFace = (unsigned int)lrand48() % interior.getNumberOfCells();
         drm.side = side;
         drm.faceRelation = orientation;
-        drm.godunov = imposedStatePlus[drFace];
-        drm.fluxSolver = fluxSolverPlus[drFace];
+        drm.godunov[0] = imposedStatePlus[drFace]; // for fused-simulations, do it for just the first simulation
+        drm.fluxSolver[0] = fluxSolverPlus[drFace]; // for fused-simulations, do it for just the first simulation
       }
     }
 

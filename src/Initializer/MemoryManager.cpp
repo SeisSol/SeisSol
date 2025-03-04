@@ -7,7 +7,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
->>>>>>> davschneller/even-more-archs
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -884,12 +883,11 @@ bool seissol::initializer::requiresNodalFlux(FaceType f) {
 }
 
 void seissol::initializer::MemoryManager::initializeFrictionLaw() {
-  const auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters);
   logInfo() << "Initialize Friction Model";
 
-  logInfo() << "Friction law:" << dr::misc::frictionLawName(drParameters->frictionLawType).c_str()
-    << "(" << static_cast<int>(drParameters->frictionLawType) << ")";
-  logInfo() << "Thermal pressurization:" << (drParameters->isThermalPressureOn ? "on" : "off");
+  logInfo() << "Friction law:" << dr::misc::frictionLawName(m_seissolParams->drParameters[0]->frictionLawType).c_str()
+    << "(" << static_cast<int>(m_seissolParams->drParameters[0]->frictionLawType) << ")";
+  logInfo() << "Thermal pressurization:" << (m_seissolParams->drParameters[0]->isThermalPressureOn ? "on" : "off");
 
 
   for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {

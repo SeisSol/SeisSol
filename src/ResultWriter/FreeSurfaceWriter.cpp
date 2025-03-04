@@ -211,7 +211,7 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
 
 	m_stopwatch.pause();
 
-	logInfo(rank) << "Writing free surface at time" << utils::nospace << time << ". Done.";
+	logInfo() << "Writing free surface at time" << utils::nospace << time << ". Done.";
 
 }
 
