@@ -10,9 +10,9 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_INTERFACE_H_
 
 #include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/InterfaceHelper.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/InterfaceHelper.h"
 
 namespace seissol::kernels {
 struct alignas(Alignment) LocalTmp {

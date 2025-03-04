@@ -11,8 +11,8 @@
 #define SEISSOL_SRC_SOURCETERM_TYPEDEFS_H_
 
 #include "Common/Constants.h"
-#include "Initializer/MemoryAllocator.h"
 #include "Kernels/Precision.h"
+#include "Memory/MemoryAllocator.h"
 #include "generated_code/tensor.h"
 #include <array>
 #include <cstdlib>

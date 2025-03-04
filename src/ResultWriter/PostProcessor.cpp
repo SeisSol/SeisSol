@@ -8,10 +8,10 @@
 
 #include "PostProcessor.h"
 #include <Common/Constants.h>
-#include <Initializer/Tree/LTSTree.h>
-#include <Initializer/Tree/Layer.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Layer.h>
 #include <array>
 
 void seissol::writer::PostProcessor::integrateQuantities(const double timestep,

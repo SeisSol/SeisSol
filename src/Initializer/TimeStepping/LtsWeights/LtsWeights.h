@@ -30,7 +30,6 @@ class SeisSol;
 namespace initializer::time_stepping {
 struct LtsWeightsConfig {
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
-  std::string velocityModel;
   unsigned rate{};
   int vertexWeightElement{};
   int vertexWeightDynamicRupture{};
@@ -64,10 +63,12 @@ class LtsWeights {
   LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance);
 
   virtual ~LtsWeights() = default;
-  void computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
+  void computeWeights(PUML::TETPUML const& mesh);
 
   [[nodiscard]] const int* vertexWeights() const;
   [[nodiscard]] const double* imbalances() const;
+  [[nodiscard]] const std::vector<int>& clusterIds() const;
+  [[nodiscard]] const std::vector<double>& timesteps() const;
   [[nodiscard]] int nWeightsPerVertex() const;
 
   private:
@@ -76,10 +77,7 @@ class LtsWeights {
   protected:
   seissol::initializer::GlobalTimestep m_details;
 
-  seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails(double maximumAllowedTimeStep);
-  void computeMaxTimesteps(const std::vector<double>& pWaveVel,
-                           std::vector<double>& timeSteps,
-                           double maximumAllowedTimeStep);
+  seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails();
   int getCluster(double timestep, double globalMinTimestep, double wiggleFactor, unsigned rate);
   FaceType getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face);
   std::vector<int> computeClusterIds(double curWiggleFactor);
@@ -95,7 +93,6 @@ class LtsWeights {
   virtual void setAllowedImbalances() = 0;
   virtual int evaluateNumberOfConstraints() = 0;
 
-  std::string m_velocityModel;
   unsigned m_rate{};
   std::vector<int> m_vertexWeights;
   std::vector<double> m_imbalances;
