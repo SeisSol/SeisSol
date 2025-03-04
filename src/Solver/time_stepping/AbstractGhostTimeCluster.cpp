@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Parallel/MPI.h"
+#include <Kernels/Common.h>
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 
 
@@ -27,7 +28,7 @@ bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests,
 
 bool AbstractGhostTimeCluster::testForCopyLayerSends() {
   SCOREP_USER_REGION( "testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION )
-  return testQueue(meshStructure->sendRequests, sendQueue);
+  return testQueue(sendRequests.data(), sendQueue);
 }
 
 ActResult AbstractGhostTimeCluster::act() {
@@ -94,7 +95,7 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
     : AbstractTimeCluster(maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
       globalClusterId(globalTimeClusterId),
       otherGlobalClusterId(otherGlobalTimeClusterId),
-      meshStructure(meshStructure) {}
+      meshStructure(meshStructure), sendRequests(meshStructure->numberOfRegions), recvRequests(meshStructure->numberOfRegions) {}
 
 void AbstractGhostTimeCluster::reset() {
   AbstractTimeCluster::reset();

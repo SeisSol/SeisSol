@@ -10,9 +10,6 @@
 
 #include <IO/Datatype/Datatype.h>
 #include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
-#include <IO/Reader/Distribution.h>
-#include <IO/Reader/File/Hdf5Reader.h>
 #include <IO/Writer/Instructions/Data.h>
 #include <IO/Writer/Writer.h>
 #include <Memory/Tree/LTSTree.h>
@@ -21,6 +18,10 @@
 #include <unordered_map>
 
 #include "utils/logger.h"
+
+namespace seissol::io::writer {
+class Writer;
+} // namespace seissol::io::writer
 
 namespace seissol::io::instance::checkpoint {
 

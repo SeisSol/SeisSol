@@ -8,10 +8,6 @@
 #ifndef SEISSOL_SRC_KERNELS_PRECISION_H_
 #define SEISSOL_SRC_KERNELS_PRECISION_H_
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
-
 #if REAL_SIZE == 8
 #define DOUBLE_PRECISION
 #elif REAL_SIZE == 4
