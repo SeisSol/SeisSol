@@ -446,46 +446,38 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
   real matAPlusData[tensor::star::size(0)];
   real matAMinusData[tensor::star::size(0)];
 
-  const std::vector<Fault>& fault = meshReader.getFault();
-  const std::vector<Element>& elements = meshReader.getElements();
-  CellDRMapping(*drMapping)[4] = ltsTree->var(lts->drMapping);
-  CellDRMapping(*drMappingDevice)[4] = ltsTree->var(lts->drMappingDevice);
-  CellMaterialData* material = ltsTree->var(lts->material);
-  real** derivatives = ltsTree->var(lts->derivatives);
-  real*(*faceNeighbors)[4] = ltsTree->var(lts->faceNeighbors);
-  real** derivativesDevice = ltsTree->var(lts->derivativesDevice);
-  real*(*faceNeighborsDevice)[4] = ltsTree->var(lts->faceNeighborsDevice);
-  CellLocalInformation* cellInformation = ltsTree->var(lts->cellInformation);
+  const auto& fault = meshReader.getFault();
+  const auto& elements = meshReader.getElements();
+  auto* drMapping = ltsTree->var(lts->drMapping);
+  auto* drMappingDevice = ltsTree->var(lts->drMappingDevice);
+  auto* material = ltsTree->var(lts->material);
+  auto* derivatives = ltsTree->var(lts->derivatives);
+  auto* faceNeighbors = ltsTree->var(lts->faceNeighbors);
+  auto* derivativesDevice = ltsTree->var(lts->derivativesDevice);
+  auto* faceNeighborsDevice = ltsTree->var(lts->faceNeighborsDevice);
+  auto* cellInformation = ltsTree->var(lts->cellInformation);
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
-    real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
-    real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
-    real** timeDerivativePlusDevice = layer.var(dynRup->timeDerivativePlusDevice);
-    real** timeDerivativeMinusDevice = layer.var(dynRup->timeDerivativeMinusDevice);
-    DRGodunovData* godunovData = layer.var(dynRup->godunovData);
-    real(*imposedStatePlus)[tensor::QInterpolated::size()] =
-        layer.var(dynRup->imposedStatePlus, AllocationPlace::Host);
-    real(*imposedStateMinus)[tensor::QInterpolated::size()] =
-        layer.var(dynRup->imposedStateMinus, AllocationPlace::Host);
-    real(*fluxSolverPlus)[tensor::fluxSolver::size()] =
-        layer.var(dynRup->fluxSolverPlus, AllocationPlace::Host);
-    real(*fluxSolverMinus)[tensor::fluxSolver::size()] =
-        layer.var(dynRup->fluxSolverMinus, AllocationPlace::Host);
-    real(*imposedStatePlusDevice)[tensor::QInterpolated::size()] =
-        layer.var(dynRup->imposedStatePlus, AllocationPlace::Device);
-    real(*imposedStateMinusDevice)[tensor::QInterpolated::size()] =
-        layer.var(dynRup->imposedStateMinus, AllocationPlace::Device);
-    real(*fluxSolverPlusDevice)[tensor::fluxSolver::size()] =
-        layer.var(dynRup->fluxSolverPlus, AllocationPlace::Device);
-    real(*fluxSolverMinusDevice)[tensor::fluxSolver::size()] =
-        layer.var(dynRup->fluxSolverMinus, AllocationPlace::Device);
-    DRFaceInformation* faceInformation = layer.var(dynRup->faceInformation);
-    seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
-    seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
-    seissol::dr::ImpedancesAndEta* impAndEta = layer.var(dynRup->impAndEta);
-    seissol::dr::ImpedanceMatrices* impedanceMatrices = layer.var(dynRup->impedanceMatrices);
+    auto* timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
+    auto* timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
+    auto* timeDerivativePlusDevice = layer.var(dynRup->timeDerivativePlusDevice);
+    auto* timeDerivativeMinusDevice = layer.var(dynRup->timeDerivativeMinusDevice);
+    auto* godunovData = layer.var(dynRup->godunovData);
+    auto* imposedStatePlus = layer.var(dynRup->imposedStatePlus, AllocationPlace::Host);
+    auto* imposedStateMinus = layer.var(dynRup->imposedStateMinus, AllocationPlace::Host);
+    auto* fluxSolverPlus = layer.var(dynRup->fluxSolverPlus, AllocationPlace::Host);
+    auto* fluxSolverMinus = layer.var(dynRup->fluxSolverMinus, AllocationPlace::Host);
+    auto* imposedStatePlusDevice = layer.var(dynRup->imposedStatePlus, AllocationPlace::Device);
+    auto* imposedStateMinusDevice = layer.var(dynRup->imposedStateMinus, AllocationPlace::Device);
+    auto* fluxSolverPlusDevice = layer.var(dynRup->fluxSolverPlus, AllocationPlace::Device);
+    auto* fluxSolverMinusDevice = layer.var(dynRup->fluxSolverMinus, AllocationPlace::Device);
+    auto* faceInformation = layer.var(dynRup->faceInformation);
+    auto* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
+    auto* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
+    auto* impAndEta = layer.var(dynRup->impAndEta);
+    auto* impedanceMatrices = layer.var(dynRup->impedanceMatrices);
 
 #ifdef _OPENMP
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
