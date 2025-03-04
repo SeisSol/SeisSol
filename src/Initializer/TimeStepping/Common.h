@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_COMMON_H_
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_COMMON_H_
 
+#include <Initializer/CellLocalInformation.h>
 #include <cassert>
 #include <mpi.h>
 #include <set>
@@ -331,7 +332,8 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
  **/
 inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
                              struct MeshStructure        *io_meshStructure,
-                             struct CellLocalInformation *io_cellLocalInformation ) {
+                             struct CellLocalInformation *io_cellLocalInformation,
+                             struct SecondaryCellLocalInformation *secondaryInformation  ) {
   unsigned int l_cell = 0;
 
   // iterate over time clusters
@@ -353,18 +355,18 @@ inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
            io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::Periodic ||
            io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::DynamicRupture) {
 	  // get neighboring cell id
-	  unsigned int l_neighbor = io_cellLocalInformation[l_cell].faceNeighborIds[l_face];
+	  unsigned int l_neighbor = secondaryInformation[l_cell].faceNeighborIds[l_face];
 
           // set the cluster id
-          l_neighboringClusterIds[l_face] = io_cellLocalInformation[l_neighbor].clusterId;
+          l_neighboringClusterIds[l_face] = secondaryInformation[l_neighbor].clusterId;
         }
       }
 
       // set the lts setup for this cell
-      io_cellLocalInformation[l_cell].ltsSetup = getLtsSetup( io_cellLocalInformation[l_cell].clusterId,
+      io_cellLocalInformation[l_cell].ltsSetup = getLtsSetup( secondaryInformation[l_cell].clusterId,
                                                               l_neighboringClusterIds,
                                                               io_cellLocalInformation[l_cell].faceTypes,
-                                                              io_cellLocalInformation[l_cell].faceNeighborIds,
+                                                              secondaryInformation[l_cell].faceNeighborIds,
                                                               (l_clusterCell < io_meshStructure[l_cluster].numberOfCopyCells) );
       // assert that the cell operates at least on buffers or derivatives
       assert( ( ( io_cellLocalInformation[l_cell].ltsSetup >> 8 ) % 2 ||
@@ -404,7 +406,7 @@ inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
             io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::Periodic ||
             io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::DynamicRupture ) {
           // get neighboring cell id
-          unsigned int l_neighbor = io_cellLocalInformation[l_cell].faceNeighborIds[l_face];
+          unsigned int l_neighbor = secondaryInformation[l_cell].faceNeighborIds[l_face];
 
           // get neighboring setup
           l_neighboringSetups[l_face] = io_cellLocalInformation[l_neighbor].ltsSetup;

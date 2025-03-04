@@ -55,6 +55,9 @@ class CubeGenerator : public seissol::geometry::MeshReader {
                      double tz,
                      const std::string& meshFile);
 
+  bool inlineTimestepCompute() const override;
+  bool inlineClusterCompute() const override;
+
   private:
   void findElementsPerVertex();
   void addMPINeighbor(int localID, int bndRank, int elemSize, const int* bndElemLocalIds);

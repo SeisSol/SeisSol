@@ -10,7 +10,6 @@
 
 #include <iterator>
 #include <limits>
-#include <optional>
 #include <stdexcept>
 #include <tuple>
 #include <utility>
@@ -22,7 +21,7 @@ namespace seissol::common {
 // TODO: remove once C++23 lands in SeisSol
 
 // cf. https://stackoverflow.com/a/44661987
-template<typename RangeT>
+template <typename RangeT>
 using IteratorType = decltype(std::begin(std::declval<RangeT&>()));
 
 template <typename... RangeTs>
@@ -79,6 +78,7 @@ public:
     }
 
     constexpr auto operator!=(const Iterator& other) const -> bool { return !(*this == other); }
+
 private:
     std::tuple<IteratorTs...> iterators;
     std::tuple<IteratorTs...> iteratorEnds;
@@ -89,27 +89,31 @@ private:
   Zip(bool lenient, RangeTs&&... ranges) : lenient(lenient), ranges(ranges...) {}
 
   constexpr auto begin() {
-    return Iterator<IteratorType<RangeTs>...>(lenient,
-                    tupleTransform([](auto& value) { return std::begin(value); }, ranges),
-                    tupleTransform([](auto&& value) { return std::end(value); }, ranges));
+    return Iterator<IteratorType<RangeTs>...>(
+        lenient,
+        tupleTransform([](auto& value) { return std::begin(value); }, ranges),
+        tupleTransform([](auto&& value) { return std::end(value); }, ranges));
   }
 
   constexpr auto end() {
-    return Iterator<IteratorType<RangeTs>...>(lenient,
-                    tupleTransform([](auto& value) { return std::end(value); }, ranges),
-                    tupleTransform([](auto&& value) { return std::end(value); }, ranges));
+    return Iterator<IteratorType<RangeTs>...>(
+        lenient,
+        tupleTransform([](auto& value) { return std::end(value); }, ranges),
+        tupleTransform([](auto&& value) { return std::end(value); }, ranges));
   }
 
   constexpr auto begin() const {
-    return Iterator<IteratorType<RangeTs>...>(lenient,
-                    tupleTransform([](const auto& value) { return std::cbegin(value); }, ranges),
-                    tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
+    return Iterator<IteratorType<RangeTs>...>(
+        lenient,
+        tupleTransform([](const auto& value) { return std::cbegin(value); }, ranges),
+        tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
   }
 
   constexpr auto end() const {
-    return Iterator<IteratorType<RangeTs>...>(lenient,
-                    tupleTransform([](const auto& value) { return std::cend(value); }, ranges),
-                    tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
+    return Iterator<IteratorType<RangeTs>...>(
+        lenient,
+        tupleTransform([](const auto& value) { return std::cend(value); }, ranges),
+        tupleTransform([](const auto& value) { return std::cend(value); }, ranges));
   }
 
   private:
@@ -126,12 +130,12 @@ private:
   }
 
   template <typename F, typename TupleA>
-  constexpr static auto tupleTransform(F&& function, TupleA& tuple) {
+  constexpr static auto tupleTransform(F function, TupleA& tuple) {
     return std::apply([function](auto&... args) { return std::tuple{function(args)...}; }, tuple);
   }
 
   template <typename F, typename TupleA>
-  constexpr static auto tupleTransform(F&& function, const TupleA& tuple) {
+  constexpr static auto tupleTransform(F function, const TupleA& tuple) {
     return std::apply([function](const auto&... args) { return std::tuple{function(args)...}; },
                       tuple);
   }
@@ -149,8 +153,11 @@ constexpr auto zip(RangeTs&&... ranges) {
 
 template <typename T>
 class Range {
+  static_assert(std::is_integral_v<T>, "For now, T needs to be integer");
+
   public:
   class Iterator {
+public:
     // NOLINTNEXTLINE
     using iterator_category = std::input_iterator_tag;
     // NOLINTNEXTLINE
@@ -158,9 +165,12 @@ class Range {
     // NOLINTNEXTLINE
     using value_type = T;
     // NOLINTNEXTLINE
-    using pointer = T*;
+    using pointer = const T*;
     // NOLINTNEXTLINE
-    using reference = T&;
+    using reference =
+        std::conditional_t<std::is_trivially_copyable_v<T> && sizeof(T) <= sizeof(std::size_t),
+                           T,
+                           const T&>;
 
     Iterator(T value, T step, T end) : value(value), step(step), end(end) {
       if (value > end) {
@@ -176,8 +186,17 @@ class Range {
       return *this;
     }
 
-    constexpr auto operator*() const { return value; }
+    constexpr auto operator*() -> reference { return value; }
 
+    constexpr auto operator*() const -> reference { return value; }
+
+    constexpr auto operator==(const Iterator& other) const -> bool {
+      return value == other.value && step == other.step && end == other.end;
+    }
+
+    constexpr auto operator!=(const Iterator& other) const -> bool { return !(*this == other); }
+
+private:
     T value;
     T step;
     T end;
@@ -187,7 +206,11 @@ class Range {
 
   [[nodiscard]] constexpr auto begin() const { return Iterator(startVal, stepVal, stopVal); }
 
-  [[nodiscard]] constexpr auto end() const { return Iterator(std::optional<T>(), stepVal, stopVal); }
+  [[nodiscard]] constexpr auto end() const { return Iterator(stopVal, stepVal, stopVal); }
+
+  [[nodiscard]] constexpr auto cbegin() const { return Iterator(startVal, stepVal, stopVal); }
+
+  [[nodiscard]] constexpr auto cend() const { return Iterator(stopVal, stepVal, stopVal); }
 
   private:
   T startVal;
@@ -213,9 +236,10 @@ constexpr auto range(T start, T stop, T step) {
 template <typename RangeT>
 constexpr auto enumerate(RangeT&& iterator) {
   // a tiny bit hacky to use both zip and the int range like that. But it should work.
-  return zip(true,
-             Range<std::size_t>(0, std::numeric_limits<std::size_t>::max(), 1),
-             std::forward<RangeT>(iterator));
+  return Zip<Range<std::size_t>, RangeT>(
+      true,
+      Range<std::size_t>(0, std::numeric_limits<std::size_t>::max(), 1),
+      std::forward<RangeT>(iterator));
 }
 
 } // namespace seissol::common

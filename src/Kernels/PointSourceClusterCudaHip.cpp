@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "PointSourceCluster.h"
-#include <Initializer/MemoryAllocator.h>
+#include <Memory/MemoryAllocator.h>
 #include <cstddef>
 
 #ifdef __HIP__

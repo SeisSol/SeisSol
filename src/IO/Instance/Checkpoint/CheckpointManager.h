@@ -11,8 +11,9 @@
 #include <IO/Datatype/Datatype.h>
 #include <IO/Datatype/Inference.h>
 #include <IO/Writer/Instructions/Data.h>
-#include <Initializer/Tree/LTSTree.h>
-#include <Initializer/Tree/Layer.h>
+#include <IO/Writer/Writer.h>
+#include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Layer.h>
 #include <string>
 #include <unordered_map>
 

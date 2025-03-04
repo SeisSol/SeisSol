@@ -11,6 +11,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 #define SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 
+#include "CellLocalInformation.h"
 #include "BasicTypedefs.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
@@ -59,24 +60,6 @@ struct TimeStepping {
    * Ids of the local clusters with respect to global ordering.
    */
   unsigned int *clusterIds;
-};
-
-// cell local information
-struct CellLocalInformation {
-  // types of the faces
-  FaceType faceTypes[4];
-
-  // mapping of the neighboring elements to the references element in relation to this element
-  int faceRelations[4][2];
-
-  // ids of the face neighbors
-  unsigned int faceNeighborIds[4];
-
-  // LTS setup
-  unsigned short ltsSetup;
-
-  // unique global id of the time cluster
-  unsigned int clusterId;
 };
 
 struct MeshStructure {
