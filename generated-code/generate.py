@@ -151,6 +151,7 @@ def main():
                 "device_arch": cmdLineArgs.device_arch,
                 "multipleSimulations": cmdLineArgs.multipleSimulations,
                 "targets": targets,
+                "gemmgen": gemm_tool_list,
             }
             mem_layout = kernels.memlayout.guessMemoryLayout(env)
         elif not os.path.isabs(cmdLineArgs.memLayout):

@@ -11,6 +11,7 @@
 
 #include "Equations/Setup.h" // IWYU pragma: keep
 #include "Geometry/MeshTools.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
@@ -287,12 +288,19 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
           // exclude boundary conditions
           static const std::vector<FaceType> GodunovBoundaryConditions = {
-              FaceType::FreeSurface, FaceType::FreeSurfaceGravity, FaceType::Analytical};
+              FaceType::FreeSurface,
+              FaceType::FreeSurfaceGravity,
+              FaceType::Analytical,
+              FaceType::Outflow};
 
-          const auto enforceGodunov = std::any_of(
+          const auto enforceGodunovBc = std::any_of(
               GodunovBoundaryConditions.begin(),
               GodunovBoundaryConditions.end(),
               [&](auto condition) { return condition == cellInformation[cell].faceTypes[side]; });
+
+          const auto enforceGodunovEa = isAtElasticAcousticInterface(material[cell], side);
+
+          const auto enforceGodunov = enforceGodunovBc || enforceGodunovEa;
 
           const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 
