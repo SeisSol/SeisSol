@@ -60,6 +60,9 @@ struct Material {
   }
   virtual void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const = 0;
   [[nodiscard]] virtual MaterialType getMaterialType() const = 0;
+
+  // very temporary; if someone has a better solution, remove that one here
+  virtual void setMuLambda(double mu, double lambda) {}
 };
 
 struct Plasticity {

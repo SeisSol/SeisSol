@@ -63,6 +63,8 @@ struct AnisotropicMaterial : public Material {
   double c56;
   double c66;
 
+  void setMuLambda(double mu, double lambda) override;
+
   [[nodiscard]] double getLambdaBar() const override;
 
   [[nodiscard]] double getMuBar() const override;

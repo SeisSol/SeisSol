@@ -45,6 +45,11 @@ struct ElasticMaterial : Material {
   double lambda;
   double mu;
 
+  void setMuLambda(double mu, double lambda) override {
+    this->lambda = lambda;
+    this->mu = mu;
+  }
+
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
   [[nodiscard]] double getMuBar() const override { return mu; }
