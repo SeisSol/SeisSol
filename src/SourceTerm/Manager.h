@@ -10,7 +10,7 @@
 #define SEISSOL_SRC_SOURCETERM_MANAGER_H_
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/Tree/Lut.h"
+#include "Memory/Tree/Lut.h"
 #include "Solver/time_stepping/TimeManager.h"
 #include <cstdarg>
 

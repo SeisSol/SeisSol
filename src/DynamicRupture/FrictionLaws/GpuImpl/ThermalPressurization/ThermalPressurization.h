@@ -13,9 +13,9 @@
 #include <cstddef>
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/DynamicRupture.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::friction_law::gpu {
 

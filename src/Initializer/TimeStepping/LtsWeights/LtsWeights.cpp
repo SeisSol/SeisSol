@@ -40,18 +40,6 @@
 
 namespace seissol::initializer::time_stepping {
 
-class FaceSorter {
-  private:
-  const std::vector<PUML::TETPUML::face_t>& m_faces;
-
-  public:
-  FaceSorter(const std::vector<PUML::TETPUML::face_t>& faces) : m_faces(faces) {}
-
-  bool operator()(unsigned int a, unsigned int b) const {
-    return m_faces[a].gid() < m_faces[b].gid();
-  }
-};
-
 double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
                                     const std::vector<int>& cellCosts,
                                     unsigned int rate,
@@ -129,18 +117,18 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
 }
 
 LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance)
-    : seissolInstance(seissolInstance), m_velocityModel(config.velocityModel), m_rate(config.rate),
+    : seissolInstance(seissolInstance), m_rate(config.rate),
       m_vertexWeightElement(config.vertexWeightElement),
       m_vertexWeightDynamicRupture(config.vertexWeightDynamicRupture),
       m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
       boundaryFormat(config.boundaryFormat) {}
 
-void LtsWeights::computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep) {
+void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
   logInfo() << "Computing LTS weights.";
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
   m_mesh = &mesh;
-  m_details = collectGlobalTimeStepDetails(maximumAllowedTimeStep);
+  m_details = collectGlobalTimeStepDetails();
   m_cellCosts = computeCostsPerTimestep();
 
   auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
@@ -356,6 +344,10 @@ const double* LtsWeights::imbalances() const {
   return m_imbalances.data();
 }
 
+const std::vector<int>& LtsWeights::clusterIds() const { return m_clusterIds; }
+
+const std::vector<double>& LtsWeights::timesteps() const { return m_details.cellTimeStepWidths; }
+
 int LtsWeights::nWeightsPerVertex() const {
   assert(m_ncon != std::numeric_limits<int>::infinity() &&
          "num. constrains has not been initialized yet");
@@ -401,12 +393,8 @@ int LtsWeights::ipow(int x, int y) {
   return result;
 }
 
-seissol::initializer::GlobalTimestep
-    LtsWeights::collectGlobalTimeStepDetails(double maximumAllowedTimeStep) {
+seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails() {
   return seissol::initializer::computeTimesteps(
-      1.0,
-      maximumAllowedTimeStep,
-      m_velocityModel,
       seissol::initializer::CellToVertexArray::fromPUML(*m_mesh),
       seissolInstance.getSeisSolParameters());
 }
@@ -540,9 +528,10 @@ void LtsWeights::prepareDifferenceEnforcement() {
     }
   }
 
-  const FaceSorter faceSorter(faces);
   for (auto& sharedFaces : rankToSharedFacesPre) {
-    std::sort(sharedFaces.second.begin(), sharedFaces.second.end(), faceSorter);
+    std::sort(sharedFaces.second.begin(),
+              sharedFaces.second.end(),
+              [&](unsigned int a, unsigned int b) { return faces[a].gid() < faces[b].gid(); });
   }
 
   rankToSharedFaces =
