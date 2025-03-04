@@ -13,17 +13,17 @@
 #include <omp.h>
 #endif
 
-#include "MemoryAllocator.h"
+#include "Memory/MemoryAllocator.h"
 #include "SeisSol.h"
 #include "MemoryManager.h"
 #include "InternalState.h"
-#include "Tree/Layer.h"
+#include "Memory/Tree/Layer.h"
 #include <cstddef>
 #include <yateto.h>
 #include <unordered_set>
 #include <cmath>
 #include <type_traits>
-#include "GlobalData.h"
+#include "Memory/GlobalData.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/Common.h"
 #include "Kernels/Touch.h"
@@ -276,7 +276,8 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
   real** derivativesDevice = m_ltsTree.var(m_lts.derivativesDevice);  // faceNeighborIds are ltsIds and not layer-local
   real *(*faceNeighborsDevice)[4] = layer.var(m_lts.faceNeighborsDevice);
 #endif
-  CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
+  auto* cellInformation = layer.var(m_lts.cellInformation);
+  auto* secondaryInformation = layer.var(m_lts.secondaryInformation);
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     for (unsigned face = 0; face < 4; ++face) {
@@ -285,16 +286,16 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
 	  cellInformation[cell].faceTypes[face] == FaceType::DynamicRupture) {
         // neighboring cell provides derivatives
         if( (cellInformation[cell].ltsSetup >> face) % 2 ) {
-          faceNeighbors[cell][face] = derivatives[ cellInformation[cell].faceNeighborIds[face] ];
+          faceNeighbors[cell][face] = derivatives[ secondaryInformation[cell].faceNeighborIds[face] ];
 #ifdef ACL_DEVICE
-          faceNeighborsDevice[cell][face] = derivativesDevice[ cellInformation[cell].faceNeighborIds[face] ];
+          faceNeighborsDevice[cell][face] = derivativesDevice[ secondaryInformation[cell].faceNeighborIds[face] ];
 #endif
         }
         // neighboring cell provides a time buffer
         else {
-          faceNeighbors[cell][face] = buffers[ cellInformation[cell].faceNeighborIds[face] ];
+          faceNeighbors[cell][face] = buffers[ secondaryInformation[cell].faceNeighborIds[face] ];
 #ifdef ACL_DEVICE
-          faceNeighborsDevice[cell][face] = buffersDevice[ cellInformation[cell].faceNeighborIds[face] ];
+          faceNeighborsDevice[cell][face] = buffersDevice[ secondaryInformation[cell].faceNeighborIds[face] ];
 #endif
         }
         assert(faceNeighbors[cell][face] != nullptr);

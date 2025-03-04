@@ -5,20 +5,22 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
 #include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "Equations/Datastructures.h" // IWYU pragma: keep
+#include "Equations/Setup.h"          // IWYU pragma: keep
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Layer.h"
-#include "Initializer/Tree/Lut.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
+#include "Memory/Tree/Lut.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include <algorithm>
@@ -36,7 +38,7 @@
 #ifdef ACL_DEVICE
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/Layer.h>
 #include <memory>
 #include <tensor.h>
 #endif

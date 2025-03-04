@@ -13,7 +13,7 @@
 #include "Layer.h"
 #include "TimeCluster.h"
 
-#include "Initializer/MemoryAllocator.h"
+#include "Memory/MemoryAllocator.h"
 
 namespace seissol::initializer {
 

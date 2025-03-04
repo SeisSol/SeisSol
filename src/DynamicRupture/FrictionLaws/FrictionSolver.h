@@ -9,9 +9,9 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVER_H_
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/DynamicRupture.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/DynamicRupture.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
 
 namespace seissol::dr::friction_law {

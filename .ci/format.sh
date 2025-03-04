@@ -15,6 +15,7 @@
 format() {
     # don't use a directory with whitespace
     local allowlist_dir="
+        src/Common
         src/DynamicRupture
         src/Equations
         src/Geometry
@@ -22,9 +23,9 @@ format() {
         src/Initializer/InitProcedure
         src/Initializer/Parameters
         src/Initializer/TimeStepping/LtsWeights
-        src/Initializer/Tree
         src/IO
         src/Kernels
+        src/Memory
         src/Modules
         src/Monitoring
         src/Model
@@ -42,17 +43,13 @@ format() {
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
         src/Initializer/BasicTypedefs.h
-        src/Initializer/Boundary.h
-        src/Initializer/DynamicRupture.h
+        src/Initializer/CellLocalInformation.h
+        src/Initializer/CellLocalMatrices.h
+        src/Initializer/CellLocalMatrices.cpp
         src/Initializer/DeviceGraph.h
-        src/Initializer/GlobalData.h
-        src/Initializer/GlobalData.cpp
         src/Initializer/InitialFieldProjection.h
         src/Initializer/InitialFieldProjection.cpp
         src/Initializer/InputAux.h
-        src/Initializer/LTS.h
-        src/Initializer/MemoryAllocator.h
-        src/Initializer/MemoryAllocator.cpp
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
         src/Initializer/PointMapper.h

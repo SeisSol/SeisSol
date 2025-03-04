@@ -10,9 +10,10 @@
 #define SEISSOL_SRC_SOURCETERM_MANAGER_H_
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/Tree/Lut.h"
-#include <Initializer/LTS.h>
+#include "Memory/Tree/Lut.h"
+#include <Memory/Descriptor/LTS.h>
 #include <Initializer/Parameters/SourceParameters.h>
+#include "Solver/time_stepping/TimeManager.h"
 #include <cstdarg>
 
 namespace seissol::solver::clustering {

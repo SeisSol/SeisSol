@@ -9,10 +9,10 @@
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_
 
 #include "DataTypes/ConditionalTable.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/Layer.h"
 #include "Kernels/Interface.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Layer.h"
 #include "utils/logger.h"
 #include <vector>
 

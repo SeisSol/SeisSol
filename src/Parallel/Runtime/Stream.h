@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 #define SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_
 
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/Layer.h>
 #include <Parallel/Host/CpuExecutor.h>
 #include <functional>
 #include <mutex>

@@ -47,6 +47,8 @@ struct Element {
   /** Material of the element */
   ElemGroup group;
   ElemFaultTags faultTags; // member of struct Element
+  int clusterId;
+  double timestep;
 };
 
 struct Vertex {

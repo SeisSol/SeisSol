@@ -20,12 +20,19 @@
 
 #include "Initializer/Parameters/DRParameters.h"
 
+namespace seissol {
+class SeisSol;
+} // namespace seissol
+
 namespace seissol::geometry {
 
 struct GhostElementMetadata {
   double vertices[4][3];
   int group;
+  LocalElemId localId;
   GlobalElemId globalId;
+  int clusterId;
+  double timestep;
 };
 
 class MeshReader {
@@ -71,7 +78,12 @@ class MeshReader {
   bool hasFault() const;
   bool hasPlusFault() const;
 
+  virtual bool inlineTimestepCompute() const { return false; }
+  virtual bool inlineClusterCompute() const { return false; }
+
   void displaceMesh(const Eigen::Vector3d& displacement);
+
+  void computeTimestepIfNecessary(const seissol::SeisSol& seissolInstance);
 
   // scalingMatrix is stored column-major, i.e.
   // scalingMatrix_ij = scalingMatrix[j][i]

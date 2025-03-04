@@ -11,7 +11,7 @@
 
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/DeviceGraph.h"
-#include "Initializer/MemoryAllocator.h"
+#include "Memory/MemoryAllocator.h"
 #include "Node.h"
 #include "Parallel/Helper.h"
 #include <bitset>

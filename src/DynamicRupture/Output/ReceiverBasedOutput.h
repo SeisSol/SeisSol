@@ -10,11 +10,11 @@
 
 #include "DynamicRupture/Output/ParametersInitializer.h"
 #include "Geometry/MeshReader.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/LTS.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/Tree/Lut.h"
 #include "Parallel/Runtime/Stream.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Lut.h"
 
 #include <DynamicRupture/Misc.h>
 #include <memory>
