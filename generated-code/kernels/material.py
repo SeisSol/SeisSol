@@ -14,6 +14,9 @@ from yateto.input import parseJSONMatrixFile
 def addKernels(
     generator, aderdg, matricesDir, PlasticityMethod, materialorder, includeTensors
 ):
+    if materialorder is None:
+        materialorder = 1
+
     # Load matrices
     db = parseJSONMatrixFile(
         f"{matricesDir}/hom-{PlasticityMethod}-h{materialorder}.json",
