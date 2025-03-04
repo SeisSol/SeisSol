@@ -136,16 +136,28 @@ easi::Query ElementBarycenterGenerator::generate() const {
 }
 
 easi::Query ElementInterpolationGenerator::generate() const {
-  easi::Query query(m_cellToVertex.size, 3);
-  //* seissol::init::vInv::Shape[0]
+  easi::Query query(m_cellToVertex.size * seissol::init::hompoints::Shape[0], 3);
+
+  const auto pointview =
+      seissol::init::hompoints::view::create(const_cast<double*>(seissol::init::hompoints::Values));
+
 #pragma omp parallel for schedule(static)
   for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
-    auto vertices = m_cellToVertex.elementCoordinates(elem);
-    Eigen::Vector3d barycenter = (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25;
-    query.x(elem, 0) = barycenter(0);
-    query.x(elem, 1) = barycenter(1);
-    query.x(elem, 2) = barycenter(2);
-    query.group(elem) = m_cellToVertex.elementGroups(elem);
+    const auto vertices = m_cellToVertex.elementCoordinates(elem);
+    const auto group = m_cellToVertex.elementGroups(elem);
+    for (std::size_t i = 0; i < seissol::init::hompoints::Shape[0]; ++i) {
+      const std::size_t entry = elem * seissol::init::hompoints::Shape[0] + i;
+      std::array<double, 3> refpoint;
+      refpoint[0] = pointview(i, 0);
+      refpoint[1] = pointview(i, 1);
+      refpoint[2] = pointview(i, 2);
+      const Eigen::Vector3d point = seissol::transformations::tetrahedronReferenceToGlobal(
+          vertices[0], vertices[1], vertices[2], vertices[3], refpoint.data());
+      query.x(entry, 0) = point(0);
+      query.x(entry, 1) = point(1);
+      query.x(entry, 2) = point(2);
+      query.group(entry) = group;
+    }
   }
   return query;
 }
@@ -391,8 +403,11 @@ void MaterialParameterDB<seissol::model::HighOrderMaterial<BaseMaterialT, Order>
   MaterialParameterDB<BaseMaterialT>().addBindingPoints(adapter);
   model->evaluate(query, adapter);
 
-  for (unsigned i = 0; i < numPoints; ++i) {
-    m_materials->at(i).materials[0] = BaseMaterialT(materialsFromQuery[i]);
+  for (unsigned i = 0; i < numPoints / seissol::init::hompoints::Shape[0]; ++i) {
+    for (int j = 0; j < seissol::init::hompoints::Shape[0]; ++j) {
+      m_materials->at(i).materials[j] =
+          BaseMaterialT(materialsFromQuery[i * seissol::init::hompoints::Shape[0] + j]);
+    }
   }
   delete model;
 }

@@ -19,6 +19,10 @@
 #include <vector>
 
 namespace seissol::model {
+void AnisotropicMaterial::setMuLambda(double mu, double lambda) {
+  // TODO: what to do here?
+}
+
 double AnisotropicMaterial::getLambdaBar() const {
   return (c11 + c22 + c33) / 3.0 - 2.0 * getMuBar();
 }

@@ -46,6 +46,8 @@ struct AcousticMaterial : public Material {
 
   double lambda;
 
+  void setMuLambda(double mu, double lambda) override { this->lambda = lambda; }
+
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
   [[nodiscard]] double getMuBar() const override { return 0.0; }
