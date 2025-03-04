@@ -175,10 +175,6 @@ void seissol::writer::FreeSurfaceWriter::init(
 	Modules::registerHook(*this, ModuleHook::SimulationStart);
   	Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 	setSyncInterval(interval);
-  // Register for the synchronization point hook
-  Modules::registerHook(*this, ModuleHook::SimulationStart);
-  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
-  setSyncInterval(interval);
 
   delete[] cells;
   delete[] vertices;
