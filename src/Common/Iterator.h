@@ -153,6 +153,8 @@ constexpr auto zip(RangeTs&&... ranges) {
 
 template <typename T>
 class Range {
+  static_assert(std::is_integral_v<T>, "For now, T needs to be integer");
+
   public:
   class Iterator {
 public:
@@ -163,9 +165,12 @@ public:
     // NOLINTNEXTLINE
     using value_type = T;
     // NOLINTNEXTLINE
-    using pointer = T*;
+    using pointer = const T*;
     // NOLINTNEXTLINE
-    using reference = T; // FIXME: sure?
+    using reference =
+        std::conditional_t<std::is_trivially_copyable_v<T> && sizeof(T) <= sizeof(std::size_t),
+                           T,
+                           const T&>;
 
     Iterator(T value, T step, T end) : value(value), step(step), end(end) {
       if (value > end) {
