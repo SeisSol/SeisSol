@@ -3,7 +3,6 @@
 #include <Kernels/Common.h>
 #include <Model/CommonDatastructures.h>
 #include <array>
-#include <equation-elastic-6-double/init.h>
 #include <limits>
 #include <numeric>
 #include <string>
