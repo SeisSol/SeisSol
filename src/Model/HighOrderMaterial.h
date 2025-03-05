@@ -55,6 +55,13 @@ class HighOrderMaterial : public Material {
   }
 
   // TODO: refine all of those
+  [[nodiscard]] double getRhoBar() const override {
+    double rhobar = 0;
+    for (const auto& material : materials) {
+      rhobar += material.getRhoBar();
+    }
+    return rhobar / materials.size();
+  }
   [[nodiscard]] double getMaxWaveSpeed() const override {
     // TODO: search maximum of polynomial
     double maxWavespeed = 0;

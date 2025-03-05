@@ -53,6 +53,7 @@ struct Material {
   [[nodiscard]] virtual double getMaxWaveSpeed() const = 0;
   [[nodiscard]] virtual double getPWaveSpeed() const = 0;
   [[nodiscard]] virtual double getSWaveSpeed() const = 0;
+  [[nodiscard]] virtual double getRhoBar() const { return rho; }
   [[nodiscard]] virtual double getMuBar() const = 0;
   [[nodiscard]] virtual double getLambdaBar() const = 0;
   [[nodiscard]] virtual double maximumTimestep() const {

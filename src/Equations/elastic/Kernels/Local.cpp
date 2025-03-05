@@ -173,7 +173,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
           [&displacement, &materialData, &localG](const real*, // nodes are unused
                                                   init::INodal::view::type& boundaryDofs) {
             for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-              const double rho = materialData->local.rho;
+              const double rho = materialData->local.getRhoBar();
               assert(localG > 0);
               const double pressureAtBnd = -1 * rho * localG * displacement(i);
 

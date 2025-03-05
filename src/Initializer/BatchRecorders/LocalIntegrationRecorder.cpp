@@ -239,7 +239,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           t[face].push_back(dataHost.boundaryMappingDevice()[face].TData);
           tInv[face].push_back(dataHost.boundaryMappingDevice()[face].TinvData);
 
-          rhos[face].push_back(dataHost.material().local.rho);
+          rhos[face].push_back(dataHost.material().local.getRhoBar());
           lambdas[face].push_back(dataHost.material().local.getLambdaBar());
 
           real* displ{&nodalAvgDisplacements[nodalAvgDisplacementsCounter]};
