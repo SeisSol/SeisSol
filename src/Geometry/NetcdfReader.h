@@ -19,6 +19,9 @@ class NetcdfReader : public seissol::geometry::MeshReader {
   public:
   NetcdfReader(int rank, int nProcs, const char* meshFile);
 
+  bool inlineTimestepCompute() const override;
+  bool inlineClusterCompute() const override;
+
   private:
   /**
    * Adds the information about an MPI neighbor

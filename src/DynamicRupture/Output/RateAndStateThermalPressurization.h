@@ -10,7 +10,7 @@
 
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include <DynamicRupture/Output/RateAndState.h>
-#include <Initializer/DynamicRupture.h>
+#include <Memory/Descriptor/DynamicRupture.h>
 
 namespace seissol::dr::output {
 class RateAndStateThermalPressurization : public RateAndState {

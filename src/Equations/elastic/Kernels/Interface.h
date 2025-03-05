@@ -10,8 +10,8 @@
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_INTERFACE_H_
 
 #include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/InterfaceHelper.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/InterfaceHelper.h"
 
 namespace seissol::kernels {
 struct LocalTmp {
