@@ -98,8 +98,17 @@ class HighOrderMaterial : public Material {
     return lambdabar / materials.size();
   }
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
-    // for now, take the base material here
-    materials[0].getFullStiffnessTensor(fullTensor);
+    fullTensor = std::array<double, 81>();
+    for (const auto& material : materials) {
+      std::array<double, 81> temp;
+      material.getFullStiffnessTensor(temp);
+      for (std::size_t i = 0; i < 81; ++i) {
+        fullTensor[i] += temp[i];
+      }
+    }
+    for (std::size_t i = 0; i < 81; ++i) {
+      fullTensor[i] /= materials.size();
+    }
   }
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
   [[nodiscard]] double maximumTimestep() const override {

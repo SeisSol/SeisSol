@@ -42,6 +42,9 @@ struct Material {
   static inline const std::array<std::string, NumQuantities> Quantities = {};
   static constexpr std::size_t Parameters = 1; // rho
 
+  static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsLTS = false;
+
   virtual ~Material() = default;
 
   double rho;

@@ -675,29 +675,30 @@ easi::Component* loadEasiModel(const std::string& fileName) {
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
                                                       bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex) {
-#if MATERIAL_ORDER == 1
-  std::shared_ptr<QueryGenerator> queryGen;
-  if (!useCellHomogenizedMaterial) {
-    queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
+  if constexpr (MATERIAL_ORDER > 1) {
+    return std::make_shared<ElementInterpolationGenerator>(cellToVertex);
   } else {
-    if (MaterialT::Type != MaterialType::Viscoelastic || MaterialT::Type != MaterialType::Elastic) {
-      logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
-                   << " materials. Falling back to "
-                      "material properties sampled from the element barycenters instead.";
-      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
-    } else if (plasticity) {
-      logWarning()
-          << "Material Averaging is not implemented for plastic materials. Falling back to "
-             "material properties sampled from the element barycenters instead.";
+    std::shared_ptr<QueryGenerator> queryGen;
+    if (!useCellHomogenizedMaterial) {
       queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
     } else {
-      queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex);
+      if (MaterialT::Type != MaterialType::Viscoelastic ||
+          MaterialT::Type != MaterialType::Elastic) {
+        logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
+                     << " materials. Falling back to "
+                        "material properties sampled from the element barycenters instead.";
+        queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
+      } else if (plasticity) {
+        logWarning()
+            << "Material Averaging is not implemented for plastic materials. Falling back to "
+               "material properties sampled from the element barycenters instead.";
+        queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
+      } else {
+        queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex);
+      }
     }
+    return queryGen;
   }
-  return queryGen;
-#else
-  return std::make_shared<ElementInterpolationGenerator>(cellToVertex);
-#endif
 }
 
 template class MaterialParameterDB<seissol::model::AnisotropicMaterial>;
