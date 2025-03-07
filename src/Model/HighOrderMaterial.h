@@ -33,6 +33,7 @@ class HighOrderMaterial : public Material {
   static inline const std::array<std::string, NumQuantities> Quantities = BaseMaterialT::Quantities;
   static constexpr std::size_t Parameters = Samples3D * BaseMaterialT::Parameters;
 
+  static constexpr bool VaryingWavespeeds = true;
   static constexpr bool SupportsDR = BaseMaterialT::SupportsDR;
   static constexpr bool SupportsLTS = BaseMaterialT::SupportsLTS;
 

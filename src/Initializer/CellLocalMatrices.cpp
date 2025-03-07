@@ -19,6 +19,7 @@
 #include "Parameters/ModelParameters.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <DynamicRupture/Misc.h>
 #include <DynamicRupture/Typedefs.h>
 #include <Equations/Datastructures.h> // IWYU pragma: keep
 #include <Geometry/MeshDefinition.h>
@@ -37,6 +38,8 @@
 #include <cassert>
 #include <complex>
 #include <cstddef>
+#include <equation-elastic-6-double/init.h>
+#include <equation-elastic-6-double/kernel.h>
 #include <generated_code/init.h>
 #include <limits>
 #include <utils/logger.h>
@@ -664,36 +667,75 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
 
       /// Wave speeds and Coefficient Matrices
-      auto matAPlus = init::star::view<0>::create(matAPlusData);
-      auto matAMinus = init::star::view<0>::create(matAMinusData);
 
-      waveSpeedsPlus[ltsFace].density = plusMaterial->getRhoBar();
-      waveSpeedsMinus[ltsFace].density = minusMaterial->getRhoBar();
-      waveSpeedsPlus[ltsFace].pWaveVelocity = plusMaterial->getPWaveSpeed();
-      waveSpeedsPlus[ltsFace].sWaveVelocity = plusMaterial->getSWaveSpeed();
-      waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
-      waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
+      constexpr std::size_t Loopsize =
+          model::MaterialT::VaryingWavespeeds ? dr::misc::NumPaddedPoints : 1;
 
-      // calculate Impedances Z and eta
-      impAndEta[ltsFace].zp =
-          (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].pWaveVelocity);
-      impAndEta[ltsFace].zpNeig =
-          (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].pWaveVelocity);
-      impAndEta[ltsFace].zs =
-          (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].sWaveVelocity);
-      impAndEta[ltsFace].zsNeig =
-          (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].sWaveVelocity);
+#if MATERIAL_ORDER > 1
+      real datain[init::wavespeedsM::size()];
+      real dataout[init::wavespeedsMQP::size()];
+      auto wavespeedsIn = init::wavespeedsM::view::create(datain);
+      auto wavespeedsOut = init::wavespeedsMQP::view::create(dataout);
+      kernel::homWavespeeds wavespeedproject;
+      for (int i = 0; i < 16; ++i) {
+        wavespeedproject.homV3mTo2n.data[i] = init::homV3mTo2n::Values[i];
+      }
+      wavespeedproject.homproject = init::homproject::Values;
+      wavespeedproject.wavespeedsM = datain;
+      wavespeedproject.wavespeedsMQP = dataout;
 
-      impAndEta[ltsFace].invZp = 1 / impAndEta[ltsFace].zp;
-      impAndEta[ltsFace].invZpNeig = 1 / impAndEta[ltsFace].zpNeig;
-      impAndEta[ltsFace].invZs = 1 / impAndEta[ltsFace].zs;
-      impAndEta[ltsFace].invZsNeig = 1 / impAndEta[ltsFace].zsNeig;
+      const auto projectData = [&](const auto* material, auto& wavespeeds, int face, int frel) {
+        for (std::size_t i = 0; i < model::MaterialT::Samples3D; ++i) {
+          const auto* castedMaterial = dynamic_cast<const model::MaterialT*>(material);
+          wavespeedsIn(i, 0) = castedMaterial->materials[i].getRhoBar();
+          wavespeedsIn(i, 1) = castedMaterial->materials[i].getPWaveSpeed();
+          wavespeedsIn(i, 2) = castedMaterial->materials[i].getSWaveSpeed();
+        }
+        wavespeedproject.execute(face, frel);
+        for (std::size_t i = 0; i < dr::misc::NumBoundaryGaussPoints; ++i) {
+          wavespeeds.density_[i] = wavespeedsOut(i, 0);
+          wavespeeds.pWaveVelocity_[i] = wavespeedsOut(i, 1);
+          wavespeeds.sWaveVelocity_[i] = wavespeedsOut(i, 2);
+        }
+      };
 
-      impAndEta[ltsFace].etaP =
-          etaHack / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
-      impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
-      impAndEta[ltsFace].etaS =
-          1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
+      projectData(plusMaterial, waveSpeedsPlus[ltsFace], faceInformation[ltsFace].plusSide, 0);
+      projectData(minusMaterial,
+                  waveSpeedsMinus[ltsFace],
+                  faceInformation[ltsFace].minusSide,
+                  faceInformation[ltsFace].faceRelation);
+#else
+      waveSpeedsPlus[ltsFace].density_[0] = plusMaterial->getRhoBar();
+      waveSpeedsPlus[ltsFace].pWaveVelocity_[0] = plusMaterial->getPWaveSpeed();
+      waveSpeedsPlus[ltsFace].sWaveVelocity_[0] = plusMaterial->getSWaveSpeed();
+      waveSpeedsMinus[ltsFace].density_[0] = minusMaterial->getRhoBar();
+      waveSpeedsMinus[ltsFace].pWaveVelocity_[0] = minusMaterial->getPWaveSpeed();
+      waveSpeedsMinus[ltsFace].sWaveVelocity_[0] = minusMaterial->getSWaveSpeed();
+#endif
+
+      for (std::size_t i = 0; i < Loopsize; ++i) {
+        // calculate Impedances Z and eta
+        impAndEta[ltsFace].zp_[i] =
+            (waveSpeedsPlus[ltsFace].density_[i] * waveSpeedsPlus[ltsFace].pWaveVelocity_[i]);
+        impAndEta[ltsFace].zpNeig_[i] =
+            (waveSpeedsMinus[ltsFace].density_[i] * waveSpeedsMinus[ltsFace].pWaveVelocity_[i]);
+        impAndEta[ltsFace].zs_[i] =
+            (waveSpeedsPlus[ltsFace].density_[i] * waveSpeedsPlus[ltsFace].sWaveVelocity_[i]);
+        impAndEta[ltsFace].zsNeig_[i] =
+            (waveSpeedsMinus[ltsFace].density_[i] * waveSpeedsMinus[ltsFace].sWaveVelocity_[i]);
+
+        impAndEta[ltsFace].invZp_[i] = 1 / impAndEta[ltsFace].zp_[i];
+        impAndEta[ltsFace].invZpNeig_[i] = 1 / impAndEta[ltsFace].zpNeig_[i];
+        impAndEta[ltsFace].invZs_[i] = 1 / impAndEta[ltsFace].zs_[i];
+        impAndEta[ltsFace].invZsNeig_[i] = 1 / impAndEta[ltsFace].zsNeig_[i];
+
+        impAndEta[ltsFace].etaP_[i] =
+            etaHack / (1.0 / impAndEta[ltsFace].zp_[i] + 1.0 / impAndEta[ltsFace].zpNeig_[i]);
+        impAndEta[ltsFace].invEtaS_[i] =
+            1.0 / impAndEta[ltsFace].zs_[i] + 1.0 / impAndEta[ltsFace].zsNeig_[i];
+        impAndEta[ltsFace].etaS_[i] =
+            1.0 / (1.0 / impAndEta[ltsFace].zs_[i] + 1.0 / impAndEta[ltsFace].zsNeig_[i]);
+      }
 
       switch (plusMaterial->getMaterialType()) {
 #if MATERIAL_ORDER == 1
@@ -726,20 +768,17 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       default:
         break;
       }
-      seissol::model::getTransposedCoefficientMatrix(
-          *dynamic_cast<model::MaterialT*>(plusMaterial), 0, matAPlus);
-      seissol::model::getTransposedCoefficientMatrix(
-          *dynamic_cast<model::MaterialT*>(minusMaterial), 0, matAMinus);
 
+      // TODO:
       /// Traction matrices for "average" traction
       auto tractionPlusMatrix =
           init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
       auto tractionMinusMatrix =
           init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
-      const double cZpP = plusMaterial->getRhoBar() * waveSpeedsPlus[ltsFace].pWaveVelocity;
-      const double cZsP = plusMaterial->getRhoBar() * waveSpeedsPlus[ltsFace].sWaveVelocity;
-      const double cZpM = minusMaterial->getRhoBar() * waveSpeedsMinus[ltsFace].pWaveVelocity;
-      const double cZsM = minusMaterial->getRhoBar() * waveSpeedsMinus[ltsFace].sWaveVelocity;
+      const double cZpP = plusMaterial->getRhoBar() * waveSpeedsPlus[ltsFace].pWaveVelocity_[0];
+      const double cZsP = plusMaterial->getRhoBar() * waveSpeedsPlus[ltsFace].sWaveVelocity_[0];
+      const double cZpM = minusMaterial->getRhoBar() * waveSpeedsMinus[ltsFace].pWaveVelocity_[0];
+      const double cZsM = minusMaterial->getRhoBar() * waveSpeedsMinus[ltsFace].sWaveVelocity_[0];
       const double etaP = cZpP * cZpM / (cZpP + cZpM);
       const double etaS = cZsP * cZsM / (cZsP + cZsM);
 
@@ -790,11 +829,20 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
+      // flux matrices
       dynamicRupture::kernel::rotateFluxMatrix krnl;
       krnl.T = matTData;
 
       real(*fluxSolverPlusHost)[tensor::fluxSolver::size()] = layer.var(dynRup->fluxSolverPlus);
       real(*fluxSolverMinusHost)[tensor::fluxSolver::size()] = layer.var(dynRup->fluxSolverMinus);
+
+      auto matAPlus = init::star::view<0>::create(matAPlusData);
+      auto matAMinus = init::star::view<0>::create(matAMinusData);
+
+      seissol::model::getTransposedCoefficientMatrix(
+          *dynamic_cast<model::MaterialT*>(plusMaterial), 0, matAPlus);
+      seissol::model::getTransposedCoefficientMatrix(
+          *dynamic_cast<model::MaterialT*>(minusMaterial), 0, matAMinus);
 
       krnl.fluxSolver = fluxSolverPlusHost[ltsFace];
       krnl.fluxScaleDR = -2.0 * plusSurfaceArea / (6.0 * plusVolume);

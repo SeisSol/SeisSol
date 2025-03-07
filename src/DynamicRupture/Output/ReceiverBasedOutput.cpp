@@ -312,38 +312,45 @@ void ReceiverOutput::calcFaultOutput(
 
 void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
   const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
-  const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
-  const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
+  const real normalDivisor =
+      1.0 / (impAndEta.zpNeig(local.nearestGpIndex) + impAndEta.zp(local.nearestGpIndex));
+  const real shearDivisor =
+      1.0 / (impAndEta.zsNeig(local.nearestGpIndex) + impAndEta.zs(local.nearestGpIndex));
 
   auto diff = [&local](int i) {
     return local.faceAlignedValuesMinus[i] - local.faceAlignedValuesPlus[i];
   };
 
-  local.faceAlignedStress12 =
-      local.faceAlignedValuesPlus[QuantityIndices::XY] +
-      ((diff(QuantityIndices::XY) + impAndEta.zsNeig * diff(QuantityIndices::V)) * impAndEta.zs) *
-          shearDivisor;
+  local.faceAlignedStress12 = local.faceAlignedValuesPlus[QuantityIndices::XY] +
+                              ((diff(QuantityIndices::XY) +
+                                impAndEta.zsNeig(local.nearestGpIndex) * diff(QuantityIndices::V)) *
+                               impAndEta.zs(local.nearestGpIndex)) *
+                                  shearDivisor;
 
-  local.faceAlignedStress13 =
-      local.faceAlignedValuesPlus[QuantityIndices::XZ] +
-      ((diff(QuantityIndices::XZ) + impAndEta.zsNeig * diff(QuantityIndices::W)) * impAndEta.zs) *
-          shearDivisor;
+  local.faceAlignedStress13 = local.faceAlignedValuesPlus[QuantityIndices::XZ] +
+                              ((diff(QuantityIndices::XZ) +
+                                impAndEta.zsNeig(local.nearestGpIndex) * diff(QuantityIndices::W)) *
+                               impAndEta.zs(local.nearestGpIndex)) *
+                                  shearDivisor;
 
   local.transientNormalTraction =
       local.faceAlignedValuesPlus[QuantityIndices::XX] +
-      ((diff(QuantityIndices::XX) + impAndEta.zpNeig * diff(QuantityIndices::U)) * impAndEta.zp) *
+      ((diff(QuantityIndices::XX) +
+        impAndEta.zpNeig(local.nearestGpIndex) * diff(QuantityIndices::U)) *
+       impAndEta.zp(local.nearestGpIndex)) *
           normalDivisor;
 
   local.faultNormalVelocity =
       local.faceAlignedValuesPlus[QuantityIndices::U] +
       (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]) *
-          impAndEta.invZp;
+          impAndEta.invZp(local.nearestGpIndex);
 
   real missingSigmaValues =
       (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]);
-  missingSigmaValues *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
-                                                  local.waveSpeedsPlus->pWaveVelocity,
-                                              2));
+  missingSigmaValues *=
+      (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity(local.nearestGpIndex) /
+                                local.waveSpeedsPlus->pWaveVelocity(local.nearestGpIndex),
+                            2));
 
   local.faceAlignedStress22 = local.faceAlignedValuesPlus[QuantityIndices::YY] + missingSigmaValues;
   local.faceAlignedStress33 = local.faceAlignedValuesPlus[QuantityIndices::ZZ] + missingSigmaValues;
@@ -375,10 +382,12 @@ void ReceiverOutput::computeSlipRate(LocalInfo& local,
                                      const std::array<real, 6>& rotatedStress) {
 
   const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
-  local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
-                                               rotatedStress[QuantityIndices::XY]);
-  local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
-                                            rotatedStress[QuantityIndices::XZ]);
+  local.slipRateStrike =
+      -impAndEta.invEtaS(local.nearestGpIndex) *
+      (rotatedUpdatedStress[QuantityIndices::XY] - rotatedStress[QuantityIndices::XY]);
+  local.slipRateDip =
+      -impAndEta.invEtaS(local.nearestGpIndex) *
+      (rotatedUpdatedStress[QuantityIndices::XZ] - rotatedStress[QuantityIndices::XZ]);
 }
 
 void ReceiverOutput::computeSlipRate(LocalInfo& local,

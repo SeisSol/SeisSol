@@ -64,9 +64,10 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
     // calculate slip rates
     ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] =
-        std::max(static_cast<real>(0.0), (absoluteShearStress - strength) * devImpAndEta.invEtaS);
-    const auto divisor =
-        strength + devImpAndEta.etaS * ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
+        std::max(static_cast<real>(0.0),
+                 (absoluteShearStress - strength) * devImpAndEta.invEtaS(ctx.pointIndex));
+    const auto divisor = strength + devImpAndEta.etaS(ctx.pointIndex) *
+                                        ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
     ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] =
         ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] * totalStress1 / divisor;
     ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] =
@@ -74,10 +75,10 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     // calculate traction
     tractionResults.traction1[timeIndex] =
         faultStresses.traction1[timeIndex] -
-        devImpAndEta.etaS * ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex];
+        devImpAndEta.etaS(ctx.pointIndex) * ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex];
     tractionResults.traction2[timeIndex] =
         faultStresses.traction2[timeIndex] -
-        devImpAndEta.etaS * ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex];
+        devImpAndEta.etaS(ctx.pointIndex) * ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex];
     ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction1[timeIndex];
     ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = tractionResults.traction2[timeIndex];
     // update directional slip

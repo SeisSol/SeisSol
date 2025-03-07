@@ -45,12 +45,14 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       const real stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
-      this->traction1[ltsFace][pointIndex] =
-          faultStresses.traction1[timeIndex][pointIndex] -
-          this->impAndEta[ltsFace].etaS * imposedSlipDirection1[ltsFace][pointIndex] * stfEvaluated;
-      this->traction2[ltsFace][pointIndex] =
-          faultStresses.traction2[timeIndex][pointIndex] -
-          this->impAndEta[ltsFace].etaS * imposedSlipDirection2[ltsFace][pointIndex] * stfEvaluated;
+      this->traction1[ltsFace][pointIndex] = faultStresses.traction1[timeIndex][pointIndex] -
+                                             this->impAndEta[ltsFace].etaS(pointIndex) *
+                                                 imposedSlipDirection1[ltsFace][pointIndex] *
+                                                 stfEvaluated;
+      this->traction2[ltsFace][pointIndex] = faultStresses.traction2[timeIndex][pointIndex] -
+                                             this->impAndEta[ltsFace].etaS(pointIndex) *
+                                                 imposedSlipDirection2[ltsFace][pointIndex] *
+                                                 stfEvaluated;
 
       this->slipRate1[ltsFace][pointIndex] =
           this->imposedSlipDirection1[ltsFace][pointIndex] * stfEvaluated;

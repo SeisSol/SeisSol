@@ -42,6 +42,7 @@ struct Material {
   static inline const std::array<std::string, NumQuantities> Quantities = {};
   static constexpr std::size_t Parameters = 1; // rho
 
+  static constexpr bool VaryingWavespeeds = false;
   static constexpr bool SupportsDR = false;
   static constexpr bool SupportsLTS = false;
 
@@ -79,12 +80,6 @@ struct Plasticity {
   double sXY;
   double sYZ;
   double sXZ;
-};
-
-struct IsotropicWaveSpeeds {
-  double density;
-  double pWaveVelocity;
-  double sWaveVelocity;
 };
 } // namespace seissol::model
 

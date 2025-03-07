@@ -4,15 +4,21 @@
 # SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
-# SPDX-FileContributor: Carsten Uphoff
 
 import numpy as np
-from yateto import Tensor
+from yateto import Tensor, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 
 
 def addKernels(
-    generator, aderdg, matricesDir, PlasticityMethod, materialorder, includeTensors
+    generator,
+    aderdg,
+    matricesDir,
+    PlasticityMethod,
+    materialorder,
+    order,
+    drQuadRule,
+    includeTensors,
 ):
     if materialorder is None:
         materialorder = 1
@@ -45,6 +51,26 @@ def addKernels(
         [
             aderdg.QgodLocal["Mij"] <= db.homproject["MK"] * godLocalM["Kij"],
             aderdg.QgodNeighbor["Mij"] <= db.homproject["MK"] * godNeighborM["Kij"],
+        ],
+    )
+
+    drdb = parseJSONMatrixFile(
+        f"{matricesDir}/homdr-{PlasticityMethod}-{drQuadRule}-{order}-h{materialorder}.json",
+        clones=dict(),
+        alignStride=aderdg.alignStride,
+    )
+
+    wavespeedsM = Tensor("wavespeedsM", shape=(numberOfNodes, 3))
+    wavespeedsMQP = Tensor("wavespeedsMQP", shape=(drdb.homV3mTo2n[0, 0].shape()[0], 3))
+
+    generator.addFamily(
+        "homWavespeeds",
+        simpleParameterSpace(4, 4),
+        lambda face, frel: [
+            wavespeedsMQP["pN"]
+            <= drdb.homV3mTo2n[face, frel]["pM"]
+            * db.homproject["MK"]
+            * wavespeedsM["KN"]
         ],
     )
 

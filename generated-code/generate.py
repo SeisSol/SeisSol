@@ -17,13 +17,13 @@ import sys
 
 import kernels.dynamic_rupture
 import kernels.general
+import kernels.material
 import kernels.memlayout
 import kernels.nodalbc
 import kernels.plasticity
 import kernels.point
 import kernels.surface_displacement
 import kernels.vtkproject
-import kernels.material
 import yateto
 from yateto import (Generator, GlobalRoutineCache, NamespacedGenerator,
                     gemm_configuration, useArchitectureIdentifiedBy)
@@ -217,11 +217,14 @@ def main():
             generator, adg, include_tensors, targets
         )
         kernels.point.addKernels(generator, adg)
-        kernels.material.addKernels(generator,
+        kernels.material.addKernels(
+            generator,
             adg,
             cmdLineArgs.matricesDir,
             cmdLineArgs.PlasticityMethod,
             cmdLineArgs.materialorder,
+            cmdLineArgs.order,
+            cmdLineArgs.drQuadRule,
             include_tensors,
         )
 

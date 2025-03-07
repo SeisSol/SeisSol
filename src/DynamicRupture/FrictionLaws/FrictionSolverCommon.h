@@ -140,8 +140,8 @@ inline void checkAlignmentPreCompute(
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
-    const ImpedancesAndEta& impAndEta,
-    const ImpedanceMatrices& impedanceMatrices,
+    const ImpedancesAndEta<model::MaterialT::VaryingWavespeeds>& impAndEta,
+    const ImpedanceMatrices<model::MaterialT::VaryingWavespeeds>& impedanceMatrices,
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
@@ -150,13 +150,6 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
                 "Different number of quadrature points?");
 
 #ifndef USE_POROELASTIC
-  const auto etaP = impAndEta.etaP;
-  const auto etaS = impAndEta.etaS;
-  const auto invZp = impAndEta.invZp;
-  const auto invZs = impAndEta.invZs;
-  const auto invZpNeig = impAndEta.invZpNeig;
-  const auto invZsNeig = impAndEta.invZsNeig;
-
   using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
   const auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   const auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
@@ -175,6 +168,13 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 #endif
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       auto i{startLoopIndex + index};
+      const auto etaP = impAndEta.etaP(i);
+      const auto etaS = impAndEta.etaS(i);
+      const auto invZp = impAndEta.invZp(i);
+      const auto invZs = impAndEta.invZs(i);
+      const auto invZpNeig = impAndEta.invZpNeig(i);
+      const auto invZsNeig = impAndEta.invZsNeig(i);
+
       VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i) =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
                   qIMinus[o][N][i] * invZpNeig);
@@ -282,8 +282,8 @@ template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     const FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
     const TractionResults<RangeExecutor<Type>::Exec>& tractionResults,
-    const ImpedancesAndEta& impAndEta,
-    const ImpedanceMatrices& impedanceMatrices,
+    const ImpedancesAndEta<model::MaterialT::VaryingWavespeeds>& impAndEta,
+    const ImpedanceMatrices<model::MaterialT::VaryingWavespeeds>& impedanceMatrices,
     real imposedStatePlus[tensor::QInterpolated::size()],
     real imposedStateMinus[tensor::QInterpolated::size()],
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
@@ -300,10 +300,6 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     imposedStateMinus[i] = static_cast<real>(0.0);
   }
 #ifndef USE_POROELASTIC
-  const auto invZs = impAndEta.invZs;
-  const auto invZp = impAndEta.invZp;
-  const auto invZsNeig = impAndEta.invZsNeig;
-  const auto invZpNeig = impAndEta.invZpNeig;
 
   using ImposedStateShapeT = real(*)[misc::NumPaddedPoints];
   auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
@@ -330,6 +326,10 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
          index += NumPointsRange::Step) {
       auto i{startIndex + index};
+      const auto invZs = impAndEta.invZs(i);
+      const auto invZp = impAndEta.invZp(i);
+      const auto invZsNeig = impAndEta.invZsNeig(i);
+      const auto invZpNeig = impAndEta.invZpNeig(i);
 
       const auto normalStress =
           VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i);
@@ -546,7 +546,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     DREnergyOutput& energyData,
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
-    const ImpedancesAndEta& impAndEta,
+    const ImpedancesAndEta<model::MaterialT::VaryingWavespeeds>& impAndEta,
     const double timeWeights[ConvergenceOrder],
     const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],
     const DRGodunovData& godunovData,
@@ -563,9 +563,6 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
-  const auto bPlus = impAndEta.etaS * impAndEta.invZs;
-  const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;
-
   using Range = typename NumPoints<Type>::Range;
 
   using namespace dr::misc::quantity_indices;
@@ -577,6 +574,9 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
 #endif
     for (size_t index = Range::Start; index < Range::End; index += Range::Step) {
       const size_t i{startIndex + index};
+
+      const auto bPlus = impAndEta.etaS(i) * impAndEta.invZs(i);
+      const auto bMinus = impAndEta.etaS(i) * impAndEta.invZsNeig(i);
 
       const real interpolatedSlipRate1 = qIMinus[o][U][i] - qIPlus[o][U][i];
       const real interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];

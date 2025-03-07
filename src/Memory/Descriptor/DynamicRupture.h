@@ -16,6 +16,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
 #include "generated_code/tensor.h"
+#include <Equations/Datastructures.h>
 
 namespace seissol::initializer {
 
@@ -40,12 +41,12 @@ struct DynamicRupture {
   Variable<real[tensor::fluxSolver::size()]> fluxSolverPlus;
   Variable<real[tensor::fluxSolver::size()]> fluxSolverMinus;
   Variable<DRFaceInformation> faceInformation;
-  Variable<model::IsotropicWaveSpeeds> waveSpeedsPlus;
-  Variable<model::IsotropicWaveSpeeds> waveSpeedsMinus;
+  Variable<seissol::dr::IsotropicWaveSpeeds<model::MaterialT::VaryingWavespeeds>> waveSpeedsPlus;
+  Variable<seissol::dr::IsotropicWaveSpeeds<model::MaterialT::VaryingWavespeeds>> waveSpeedsMinus;
   Variable<DREnergyOutput> drEnergyOutput;
 
-  Variable<seissol::dr::ImpedancesAndEta> impAndEta;
-  Variable<seissol::dr::ImpedanceMatrices> impedanceMatrices;
+  Variable<seissol::dr::ImpedancesAndEta<model::MaterialT::VaryingWavespeeds>> impAndEta;
+  Variable<seissol::dr::ImpedanceMatrices<model::MaterialT::VaryingWavespeeds>> impedanceMatrices;
   // size padded for vectorization
   // CS = coordinate system
   Variable<real[dr::misc::NumPaddedPoints][6]> initialStressInFaultCS;

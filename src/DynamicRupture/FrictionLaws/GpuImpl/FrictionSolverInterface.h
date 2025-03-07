@@ -21,8 +21,8 @@ struct FrictionLawData {
 
   seissol::initializer::parameters::DRParameters drParameters;
 
-  const ImpedancesAndEta* __restrict impAndEta{};
-  const ImpedanceMatrices* __restrict impedanceMatrices{};
+  const ImpedancesAndEta<model::MaterialT::VaryingWavespeeds>* __restrict impAndEta{};
+  const ImpedanceMatrices<model::MaterialT::VaryingWavespeeds>* __restrict impedanceMatrices{};
   real mFullUpdateTime{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[misc::NumPaddedPoints][6]{};
