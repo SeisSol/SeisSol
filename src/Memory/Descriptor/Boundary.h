@@ -9,9 +9,9 @@
 #define SEISSOL_SRC_INITIALIZER_BOUNDARY_H_
 
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Layer.h"
 #include "Initializer/Typedefs.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
 
 namespace seissol::initializer {

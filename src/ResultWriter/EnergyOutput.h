@@ -15,11 +15,11 @@
 #include <string>
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Lut.h"
 #include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Lut.h"
 
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Module.h"

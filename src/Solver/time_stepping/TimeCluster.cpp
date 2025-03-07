@@ -10,16 +10,9 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "Parallel/MPI.h"
-#include <Common/Constants.h>
-#include <DynamicRupture/FrictionLaws/FrictionSolver.h>
-#include <DynamicRupture/Output/OutputManager.h>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/Tree/Layer.h>
-#include <Initializer/Typedefs.h>
-#include <array>
-#include <memory>
-#include <tensor.h>
+
 #include <Common/Executor.h>
+#include <Memory/Tree/Layer.h>
 #include <Kernels/PointSourceCluster.h>
 #include <SourceTerm/Manager.h>
 

@@ -26,7 +26,8 @@ class Candidate(object):
         "equations": 2,
         "order": 3,
         "pe": 4,
-        "multipleSimulations": 5,
+        "gemmgen": 5,
+        "multipleSimulations": 6,
     }
 
     def __init__(self, atts):
@@ -36,7 +37,9 @@ class Candidate(object):
         sc = 0
         for key, val in reqs.items():
             if key in self.atts:
-                if val == self.atts[key]:
+                if val == self.atts[key] or (
+                    key == "gemmgen" and self.atts[key] in val
+                ):
                     sc += 2 ** self.IMPORTANCE[key]
                 else:  # requirement not satisifed
                     return 0
@@ -51,6 +54,7 @@ def findCandidates(search_path):
 
     archs = arch.getArchitectures()
     pes = [arch.getCpu(a) for a in archs]
+    gemmgen = ["pspamm", "libxsmm"]
 
     candidates = dict()
     for c in os.listdir(search_path):
@@ -67,6 +71,8 @@ def findCandidates(search_path):
                 atts["precision"] = att.lower()
             elif att.lower() in pes:
                 atts["pe"] = att.lower()
+            elif att.lower() in gemmgen:
+                atts["gemmgen"] = att.lower()
             else:
                 atts["equations"] = att
         candidates[c] = Candidate(atts)
@@ -82,25 +88,26 @@ def guessMemoryLayout(env):
             "INFO: Found gpu as a target. "
             + "Memory layout will fall back to all dense"
         )
-        return os.path.join(path, "dense.xml")
-
-    values = {
-        "precision": env["arch"][0].lower(),
-        "equations": env["equations"].lower(),
-        "order": int(env["order"]),
-        "pe": arch.getCpu(env["arch"]),
-        "multipleSimulations": int(env["multipleSimulations"]),
-    }
-
-    candidates = findCandidates(search_path=path)
-    bestFit = max(candidates.keys(), key=lambda key: candidates[key].score(values))
-    bestScore = candidates[bestFit].score(values)
-
-    if bestScore == 0:
-        print(
-            "WARNING: No suitable memory layout found."
-            + "(Will fall back to all dense.)"
-        )
         bestFit = "dense.xml"
+    else:
+        values = {
+            "precision": env["arch"][0].lower(),
+            "equations": env["equations"].lower(),
+            "order": int(env["order"]),
+            "pe": arch.getCpu(env["arch"]),
+            "multipleSimulations": int(env["multipleSimulations"]),
+            "gemmgen": set(gg.lower() for gg in env["gemmgen"]),
+        }
+
+        candidates = findCandidates(search_path=path)
+        bestFit = max(candidates.keys(), key=lambda key: candidates[key].score(values))
+        bestScore = candidates[bestFit].score(values)
+
+        if bestScore == 0:
+            print(
+                "WARNING: No suitable memory layout found."
+                + "(Will fall back to all dense.)"
+            )
+            bestFit = "dense.xml"
     print("Using memory layout {}".format(bestFit))
     return os.path.join(path, bestFit)

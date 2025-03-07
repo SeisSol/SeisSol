@@ -15,10 +15,10 @@
 #include "SeisSol.h"
 #include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/Tree/Layer.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Tree/Layer.h>
 #include <Model/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <algorithm>
@@ -110,9 +110,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     // record the clustering info i.e., distribution of elements within an LTS tree
     const std::vector<Element>& meshElements = seissolInstance.meshReader().getElements();
     std::vector<unsigned> ltsClusteringData(meshElements.size());
-    auto& ltsLayout = seissolInstance.getLtsLayout();
     for (const auto& element : meshElements) {
-      ltsClusteringData[element.localId] = ltsLayout.getGlobalClusterId(element.localId);
+      ltsClusteringData[element.localId] = element.clusterId;
     }
     // Initialize wave field output
     seissolInstance.waveFieldWriter().init(

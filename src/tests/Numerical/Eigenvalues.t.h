@@ -48,12 +48,8 @@ TEST_CASE("Eigenvalues are correctly computed") {
     }};
     for (auto& m : matrices) {
       seissol::eigenvalues::Eigenpair<std::complex<double>, dim> eigenpair{};
-      seissol::eigenvalues::computeEigenvaluesWithEigen3(m, eigenpair);
+      seissol::eigenvalues::computeEigenvalues(m, eigenpair);
       testResidual<dim>(m, eigenpair);
-#ifdef USE_POROELASTIC
-      seissol::eigenvalues::computeEigenvaluesWithLapack(m, eigenpair);
-      testResidual<dim>(m, eigenpair);
-#endif
     }
   }
 }

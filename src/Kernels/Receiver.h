@@ -10,11 +10,11 @@
 #define SEISSOL_SRC_KERNELS_RECEIVER_H_
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/LTS.h"
 #include "Initializer/PointMapper.h"
-#include "Initializer/Tree/Lut.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Time.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Lut.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"

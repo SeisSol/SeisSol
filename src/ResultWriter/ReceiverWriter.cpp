@@ -10,12 +10,12 @@
 
 #include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Initializer/PointMapper.h>
-#include <Initializer/Tree/Layer.h>
-#include <Initializer/Tree/Lut.h>
 #include <Kernels/Receiver.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Layer.h>
+#include <Memory/Tree/Lut.h>
 #include <algorithm>
 #include <cassert>
 #include <cctype>

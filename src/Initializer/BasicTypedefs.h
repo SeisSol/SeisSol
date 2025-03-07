@@ -8,7 +8,11 @@
 #ifndef SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
 #define SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
 
+namespace seissol {
+
 constexpr int DataTagOffset = 2;
+
+enum class HaloType { Ghost, Copy, Interior };
 
 enum class TimeClustering {
   // global time stepping
@@ -69,5 +73,7 @@ enum class ComputeGraphType {
   DynamicRuptureInterface,
   Count
 };
+
+} // namespace seissol
 
 #endif // SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
