@@ -31,6 +31,8 @@ class GridPoints {
           misc::TpMaxWaveNumber * std::exp(-misc::TpLogDz * (misc::NumTpGridPoints - i - 1));
     }
   }
+
+#pragma omp declare simd
   const RealT& operator[](size_t i) const { return values[i]; };
   const std::array<RealT, N>& data() const { return values; }
 
@@ -53,6 +55,8 @@ class InverseFourierCoefficients {
     values[0] = std::sqrt(2 / M_PI) * localGridPoints[0] * (1 + misc::TpLogDz);
     values[N - 1] = std::sqrt(2 / M_PI) * localGridPoints[N - 1] * 0.5 * misc::TpLogDz;
   }
+
+#pragma omp declare simd
   const RealT& operator[](size_t i) const { return values[i]; };
   const std::array<RealT, N>& data() const { return values; }
 
@@ -75,6 +79,8 @@ class GaussianHeatSource {
       values[i] = factor * heatGeneration;
     }
   }
+
+#pragma omp declare simd
   const RealT& operator[](size_t i) const { return values[i]; };
   const std::array<RealT, N>& data() const { return values; }
 

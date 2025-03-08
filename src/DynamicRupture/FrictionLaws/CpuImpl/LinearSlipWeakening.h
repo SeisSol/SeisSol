@@ -211,11 +211,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   protected:
-  real (*dC)[misc::NumPaddedPoints]{};
-  real (*muS)[misc::NumPaddedPoints]{};
-  real (*muD)[misc::NumPaddedPoints]{};
-  real (*cohesion)[misc::NumPaddedPoints]{};
-  real (*forcedRuptureTime)[misc::NumPaddedPoints]{};
+  real (*__restrict dC)[misc::NumPaddedPoints]{};
+  real (*__restrict muS)[misc::NumPaddedPoints]{};
+  real (*__restrict muD)[misc::NumPaddedPoints]{};
+  real (*__restrict cohesion)[misc::NumPaddedPoints]{};
+  real (*__restrict forcedRuptureTime)[misc::NumPaddedPoints]{};
   SpecializationT specialization;
 };
 
@@ -290,7 +290,7 @@ class BiMaterialFault {
 
   protected:
   seissol::initializer::parameters::DRParameters* drParameters;
-  real (*regularizedStrength)[misc::NumPaddedPoints]{};
+  real (*__restrict regularizedStrength)[misc::NumPaddedPoints]{};
 };
 
 /**

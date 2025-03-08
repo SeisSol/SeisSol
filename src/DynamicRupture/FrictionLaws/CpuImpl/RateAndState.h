@@ -363,9 +363,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
   protected:
   // Attributes
-  real (*a)[misc::NumPaddedPoints]{};
-  real (*sl0)[misc::NumPaddedPoints]{};
-  real (*stateVariable)[misc::NumPaddedPoints]{};
+  real (*__restrict a)[misc::NumPaddedPoints]{};
+  real (*__restrict sl0)[misc::NumPaddedPoints]{};
+  real (*__restrict stateVariable)[misc::NumPaddedPoints]{};
 
   TPMethod tpMethod;
   rs::Settings settings{};

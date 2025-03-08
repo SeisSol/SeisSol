@@ -75,8 +75,8 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   void saveDynamicStressOutput(unsigned int ltsFace) {}
 
   protected:
-  real (*imposedSlipDirection1)[misc::NumPaddedPoints]{};
-  real (*imposedSlipDirection2)[misc::NumPaddedPoints]{};
+  real (*__restrict imposedSlipDirection1)[misc::NumPaddedPoints]{};
+  real (*__restrict imposedSlipDirection2)[misc::NumPaddedPoints]{};
   STF stf{};
 };
 

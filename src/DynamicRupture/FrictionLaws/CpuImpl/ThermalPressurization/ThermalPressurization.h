@@ -73,15 +73,15 @@ class ThermalPressurization {
   }
 
   protected:
-  real (*temperature)[misc::NumPaddedPoints]{};
-  real (*pressure)[misc::NumPaddedPoints]{};
-  real (*theta)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*halfWidthShearZone)[misc::NumPaddedPoints]{};
-  real (*hydraulicDiffusivity)[misc::NumPaddedPoints]{};
-  real (*faultStrength)[misc::NumPaddedPoints]{};
+  real (*__restrict temperature)[misc::NumPaddedPoints]{};
+  real (*__restrict pressure)[misc::NumPaddedPoints]{};
+  real (*__restrict theta)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*__restrict sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*__restrict thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*__restrict sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*__restrict halfWidthShearZone)[misc::NumPaddedPoints]{};
+  real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints]{};
+  real (*__restrict faultStrength)[misc::NumPaddedPoints]{};
 
   private:
   seissol::initializer::parameters::DRParameters* drParameters;
