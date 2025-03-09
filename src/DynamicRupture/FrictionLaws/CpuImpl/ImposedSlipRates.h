@@ -1,12 +1,12 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_IMPOSEDSLIPRATES_H_
-#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_IMPOSEDSLIPRATES_H_
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_IMPOSEDSLIPRATES_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_IMPOSEDSLIPRATES_H_
 
 #include "BaseFrictionLaw.h"
 
@@ -82,4 +82,4 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
 
 } // namespace seissol::dr::friction_law::cpu
 
-#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_IMPOSEDSLIPRATES_H_
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_IMPOSEDSLIPRATES_H_

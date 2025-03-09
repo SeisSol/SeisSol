@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2019 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SEISSOL_SRC_INITIALIZER_TREE_INTERFACEHELPER_H_
-#define SEISSOL_SRC_INITIALIZER_TREE_INTERFACEHELPER_H_
+#ifndef SEISSOL_SRC_MEMORY_TREE_INTERFACEHELPER_H_
+#define SEISSOL_SRC_MEMORY_TREE_INTERFACEHELPER_H_
 
 #include "easi/util/Magic.h"
 
@@ -113,4 +113,4 @@ struct extract_type<F<X>> {
     };                                                                                             \
   };
 
-#endif // SEISSOL_SRC_INITIALIZER_TREE_INTERFACEHELPER_H_
+#endif // SEISSOL_SRC_MEMORY_TREE_INTERFACEHELPER_H_
