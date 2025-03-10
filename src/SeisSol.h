@@ -14,6 +14,7 @@
 #include <memory>
 #include <string>
 
+#include "utils/env.h"
 #include "utils/logger.h"
 
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -185,6 +186,8 @@ class SeisSol {
 
   seissol::io::OutputManager& getOutputManager() { return outputManager; }
 
+  utils::Env& env() { return m_env; }
+
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
   // Otherwise it will NOT work.
@@ -262,13 +265,15 @@ class SeisSol {
 
   std::optional<std::size_t> executionPlaceCutoff;
 
+  utils::Env m_env;
+
   public:
-  SeisSol(initializer::parameters::SeisSolParameters& parameters)
+  SeisSol(initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
       : outputManager(*this), m_seissolParameters(parameters), m_ltsLayout(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
         m_faultWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
-        timeMirrorManagers(*this, *this) {}
+        timeMirrorManagers(*this, *this), m_env(env) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "WriterModule.h"
+#include "utils/env.h"
 #include "utils/logger.h"
 #include <IO/Writer/Instructions/Data.h>
 #include <IO/Writer/Module/AsyncWriter.h>
@@ -31,7 +32,9 @@ WriterModule::WriterModule(const std::string& prefix,
 void WriterModule::setUp() {
   logInfo() << "Output Writer" << settings.name << ": setup.";
   setExecutor(executor);
-  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi)) {
+  // TODO: adjust the CommThread call here
+  utils::Env env("SEISSOL_");
+  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
     const auto freeCpus = pinning.getFreeCPUsMask();
     logInfo() << "Output Writer" << settings.name
               << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);

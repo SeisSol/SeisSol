@@ -15,7 +15,7 @@
 
 namespace seissol::geometry {
 
-class NetcdfReader : public seissol::geometry::MeshReader {
+class NetcdfReader : public MeshReader {
   public:
   NetcdfReader(int rank, int nProcs, const char* meshFile);
 
