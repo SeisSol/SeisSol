@@ -210,10 +210,8 @@ struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
 struct ThermalPressurization {
   Variable<real[dr::misc::NumPaddedPoints]> temperature;
   Variable<real[dr::misc::NumPaddedPoints]> pressure;
-  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> theta;
-  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> sigma;
-  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> thetaTmpBuffer;
-  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> sigmaTmpBuffer;
+  Variable<real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> theta;
+  Variable<real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> sigma;
   Variable<real[dr::misc::NumPaddedPoints]> faultStrength;
   Variable<real[dr::misc::NumPaddedPoints]> halfWidthShearZone;
   Variable<real[dr::misc::NumPaddedPoints]> hydraulicDiffusivity;
@@ -224,8 +222,6 @@ struct ThermalPressurization {
     tree.addVar(pressure, mask, Alignment, allocationModeDR());
     tree.addVar(theta, mask, Alignment, allocationModeDR(), true);
     tree.addVar(sigma, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(thetaTmpBuffer, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(sigmaTmpBuffer, mask, Alignment, allocationModeDR(), true);
     tree.addVar(faultStrength, mask, Alignment, allocationModeDR(), true);
     tree.addVar(halfWidthShearZone, mask, Alignment, allocationModeDR(), true);
     tree.addVar(hydraulicDiffusivity, mask, Alignment, allocationModeDR(), true);

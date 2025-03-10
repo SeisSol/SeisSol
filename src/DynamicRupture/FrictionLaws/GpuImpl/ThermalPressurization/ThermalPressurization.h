@@ -62,8 +62,6 @@ class ThermalPressurization {
     data->pressure = layerData.var(concreteLts->pressure, place);
     data->theta = layerData.var(concreteLts->theta, place);
     data->sigma = layerData.var(concreteLts->sigma, place);
-    data->thetaTmpBuffer = layerData.var(concreteLts->thetaTmpBuffer, place);
-    data->sigmaTmpBuffer = layerData.var(concreteLts->sigmaTmpBuffer, place);
     data->faultStrength = layerData.var(concreteLts->faultStrength, place);
     data->halfWidthShearZone = layerData.var(concreteLts->halfWidthShearZone, place);
     data->hydraulicDiffusivity = layerData.var(concreteLts->hydraulicDiffusivity, place);
@@ -78,25 +76,8 @@ class ThermalPressurization {
     ctx.data->faultStrength[ctx.ltsFace][ctx.pointIndex] =
         -ctx.data->mu[ctx.ltsFace][ctx.pointIndex] * ctx.initialVariables.normalStress;
 
-    for (int i = 0; i < misc::NumTpGridPoints; ++i) {
-      ctx.data->thetaTmpBuffer[ctx.ltsFace][ctx.pointIndex][i] =
-          ctx.data->theta[ctx.ltsFace][ctx.pointIndex][i];
-      ctx.data->sigmaTmpBuffer[ctx.ltsFace][ctx.pointIndex][i] =
-          ctx.data->sigma[ctx.ltsFace][ctx.pointIndex][i];
-    }
-
     // use Theta/Sigma from last timestep
-    updateTemperatureAndPressure(ctx, timeIndex);
-
-    // copy back to LTS tree, if necessary
-    if (saveTmpInTP) {
-      for (int i = 0; i < misc::NumTpGridPoints; ++i) {
-        ctx.data->theta[ctx.ltsFace][ctx.pointIndex][i] =
-            ctx.data->thetaTmpBuffer[ctx.ltsFace][ctx.pointIndex][i];
-        ctx.data->sigma[ctx.ltsFace][ctx.pointIndex][i] =
-            ctx.data->sigmaTmpBuffer[ctx.ltsFace][ctx.pointIndex][i];
-      }
-    }
+    updateTemperatureAndPressure(ctx, timeIndex, saveTmpInTP);
   }
 
   SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& ctx) {
@@ -107,7 +88,8 @@ class ThermalPressurization {
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
   SEISSOL_DEVICE static void updateTemperatureAndPressure(FrictionLawContext& ctx,
-                                                          unsigned int timeIndex) {
+                                                          unsigned int timeIndex,
+                                                          bool saveTmpInTP) {
     real temperatureUpdate = 0.0;
     real pressureUpdate = 0.0;
 
@@ -139,9 +121,9 @@ class ThermalPressurization {
       // Temperature and pressure diffusion in spectral domain over timestep
       // This is + F(t) exp(-A dt) in equation (10)
       const real thetaDiffusion =
-          ctx.data->thetaTmpBuffer[ctx.ltsFace][ctx.pointIndex][tpGridPointIndex] * expTheta;
+          ctx.data->theta[ctx.ltsFace][tpGridPointIndex][ctx.pointIndex] * expTheta;
       const real sigmaDiffusion =
-          ctx.data->sigmaTmpBuffer[ctx.ltsFace][ctx.pointIndex][tpGridPointIndex] * expSigma;
+          ctx.data->sigma[ctx.ltsFace][tpGridPointIndex][ctx.pointIndex] * expSigma;
 
       // Heat generation during timestep
       // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
@@ -154,20 +136,21 @@ class ThermalPressurization {
                                    (ctx.data->drParameters.heatCapacity * sigmaTpGrid) * exp1mSigma;
 
       // Sum both contributions up
-      ctx.data->thetaTmpBuffer[ctx.ltsFace][ctx.pointIndex][tpGridPointIndex] =
-          thetaDiffusion + thetaGeneration;
-      ctx.data->sigmaTmpBuffer[ctx.ltsFace][ctx.pointIndex][tpGridPointIndex] =
-          sigmaDiffusion + sigmaGeneration;
+      const auto thetaNew = thetaDiffusion + thetaGeneration;
+      const auto sigmaNew = sigmaDiffusion + sigmaGeneration;
 
       // Recover temperature and altered pressure using inverse Fourier transformation from the new
       // contribution
       const real scaledInverseFourierCoefficient =
           ctx.TpInverseFourierCoefficients[tpGridPointIndex] /
           ctx.data->halfWidthShearZone[ctx.ltsFace][ctx.pointIndex];
-      temperatureUpdate += scaledInverseFourierCoefficient *
-                           ctx.data->thetaTmpBuffer[ctx.ltsFace][ctx.pointIndex][tpGridPointIndex];
-      pressureUpdate += scaledInverseFourierCoefficient *
-                        ctx.data->sigmaTmpBuffer[ctx.ltsFace][ctx.pointIndex][tpGridPointIndex];
+      temperatureUpdate += scaledInverseFourierCoefficient * thetaNew;
+      pressureUpdate += scaledInverseFourierCoefficient * sigmaNew;
+
+      if (saveTmpInTP) {
+        ctx.data->theta[ctx.ltsFace][tpGridPointIndex][ctx.pointIndex] = thetaNew;
+        ctx.data->sigma[ctx.ltsFace][tpGridPointIndex][ctx.pointIndex] = sigmaNew;
+      }
     }
     // Update pore pressure change: sigma = pore pressure + lambda' * temperature
     pressureUpdate -= lambdaPrime * temperatureUpdate;

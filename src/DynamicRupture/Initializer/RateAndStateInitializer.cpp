@@ -13,6 +13,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
+#include <Common/Constants.h>
 #include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
 #include <cstdlib>
@@ -157,12 +158,8 @@ void ThermalPressurizationInitializer::initializeFault(
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     real(*temperature)[misc::NumPaddedPoints] = layer.var(concreteLts->temperature);
     real(*pressure)[misc::NumPaddedPoints] = layer.var(concreteLts->pressure);
-    real(*theta)[misc::NumPaddedPoints][misc::NumTpGridPoints] = layer.var(concreteLts->theta);
-    real(*sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints] = layer.var(concreteLts->sigma);
-    real(*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints] =
-        layer.var(concreteLts->thetaTmpBuffer);
-    real(*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints] =
-        layer.var(concreteLts->sigmaTmpBuffer);
+    auto* theta = layer.var(concreteLts->theta);
+    auto* sigma = layer.var(concreteLts->sigma);
 
     for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
@@ -170,10 +167,8 @@ void ThermalPressurizationInitializer::initializeFault(
         pressure[ltsFace][pointIndex] = drParameters->initialPressure;
         for (unsigned tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
              ++tpGridPointIndex) {
-          theta[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
-          sigma[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
-          thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
-          sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
+          theta[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
+          sigma[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
         }
       }
     }

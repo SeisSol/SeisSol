@@ -72,10 +72,8 @@ struct FrictionLawData {
   // TP
   real (*__restrict temperature)[misc::NumPaddedPoints]{};
   real (*__restrict pressure)[misc::NumPaddedPoints]{};
-  real (*__restrict theta)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*__restrict sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*__restrict thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*__restrict sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*__restrict theta)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
+  real (*__restrict sigma)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
   const real (*__restrict halfWidthShearZone)[misc::NumPaddedPoints]{};
   const real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints]{};
   real (*__restrict faultStrength)[misc::NumPaddedPoints]{};
