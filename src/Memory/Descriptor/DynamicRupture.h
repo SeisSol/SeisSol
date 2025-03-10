@@ -214,7 +214,6 @@ struct ThermalPressurization {
   Variable<real[dr::misc::NumPaddedPoints]> pressure;
   Variable<real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> theta;
   Variable<real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> sigma;
-  Variable<real[dr::misc::NumPaddedPoints]> faultStrength;
   Variable<real[dr::misc::NumPaddedPoints]> halfWidthShearZone;
   Variable<real[dr::misc::NumPaddedPoints]> hydraulicDiffusivity;
 
@@ -224,7 +223,6 @@ struct ThermalPressurization {
     tree.addVar(pressure, mask, Alignment, allocationModeDR());
     tree.addVar(theta, mask, Alignment, allocationModeDR());
     tree.addVar(sigma, mask, Alignment, allocationModeDR());
-    tree.addVar(faultStrength, mask, Alignment, allocationModeDR(), true);
     tree.addVar(halfWidthShearZone, mask, Alignment, allocationModeDR(), true);
     tree.addVar(hydraulicDiffusivity, mask, Alignment, allocationModeDR(), true);
   }

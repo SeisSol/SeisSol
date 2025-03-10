@@ -62,22 +62,8 @@ class ThermalPressurization {
     data->pressure = layerData.var(concreteLts->pressure, place);
     data->theta = layerData.var(concreteLts->theta, place);
     data->sigma = layerData.var(concreteLts->sigma, place);
-    data->faultStrength = layerData.var(concreteLts->faultStrength, place);
     data->halfWidthShearZone = layerData.var(concreteLts->halfWidthShearZone, place);
     data->hydraulicDiffusivity = layerData.var(concreteLts->hydraulicDiffusivity, place);
-  }
-
-  /**
-   * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face
-   * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree
-   */
-  SEISSOL_DEVICE static void
-      calcFluidPressure(FrictionLawContext& ctx, int timeIndex, bool saveTmpInTP) {
-    ctx.data->faultStrength[ctx.ltsFace][ctx.pointIndex] =
-        -ctx.data->mu[ctx.ltsFace][ctx.pointIndex] * ctx.initialVariables.normalStress;
-
-    // use Theta/Sigma from last timestep
-    updateTemperatureAndPressure(ctx, timeIndex, saveTmpInTP);
   }
 
   SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& ctx) {
@@ -85,16 +71,19 @@ class ThermalPressurization {
   }
 
   /**
+   * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face
+   * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree.
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
-  SEISSOL_DEVICE static void updateTemperatureAndPressure(FrictionLawContext& ctx,
-                                                          unsigned int timeIndex,
-                                                          bool saveTmpInTP) {
+  SEISSOL_DEVICE static void
+      calcFluidPressure(FrictionLawContext& ctx, int timeIndex, bool saveTmpInTP) {
     real temperatureUpdate = 0.0;
     real pressureUpdate = 0.0;
 
-    const real tauV =
-        ctx.data->faultStrength[ctx.ltsFace][ctx.pointIndex] * ctx.initialVariables.localSlipRate;
+    const real faultStrength =
+        -ctx.data->mu[ctx.ltsFace][ctx.pointIndex] * ctx.initialVariables.normalStress;
+
+    const real tauV = faultStrength * ctx.initialVariables.localSlipRate;
     const real lambdaPrime = ctx.data->drParameters.undrainedTPResponse *
                              ctx.data->drParameters.thermalDiffusivity /
                              (ctx.data->hydraulicDiffusivity[ctx.ltsFace][ctx.pointIndex] -

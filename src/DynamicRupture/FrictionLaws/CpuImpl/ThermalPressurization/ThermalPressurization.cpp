@@ -30,7 +30,6 @@ void ThermalPressurization::copyLtsTreeToLocal(
   pressure = layerData.var(concreteLts->pressure);
   theta = layerData.var(concreteLts->theta);
   sigma = layerData.var(concreteLts->sigma);
-  faultStrength = layerData.var(concreteLts->faultStrength);
   halfWidthShearZone = layerData.var(concreteLts->halfWidthShearZone);
   hydraulicDiffusivity = layerData.var(concreteLts->hydraulicDiffusivity);
 }
@@ -43,83 +42,70 @@ void ThermalPressurization::calcFluidPressure(
     bool saveTPinLTS,
     unsigned int timeIndex,
     unsigned int ltsFace) {
-  for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
-    // compute fault strength
-    faultStrength[ltsFace][pointIndex] = -mu[ltsFace][pointIndex] * normalStress[pointIndex];
+#pragma omp simd
+  for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    real temperatureUpdate = 0.0;
+    real pressureUpdate = 0.0;
 
-    // use Theta/Sigma from last timestep
-    updateTemperatureAndPressure(
-        slipRateMagnitude[pointIndex], deltaT, pointIndex, timeIndex, ltsFace, saveTPinLTS);
-  }
-}
+    const real faultStrength = -mu[ltsFace][pointIndex] * normalStress[pointIndex];
+    const real tauV = faultStrength * slipRateMagnitude[pointIndex];
+    const real lambdaPrime =
+        drParameters->undrainedTPResponse * drParameters->thermalDiffusivity /
+        (hydraulicDiffusivity[ltsFace][pointIndex] - drParameters->thermalDiffusivity);
 
-void ThermalPressurization::updateTemperatureAndPressure(real slipRateMagnitude,
-                                                         real deltaT,
-                                                         unsigned int pointIndex,
-                                                         unsigned int timeIndex,
-                                                         unsigned int ltsFace,
-                                                         bool saveTPinLTS) {
-  real temperatureUpdate = 0.0;
-  real pressureUpdate = 0.0;
+    for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
+         ++tpGridPointIndex) {
+      // Gaussian shear zone in spectral domain, normalized by w
+      // \hat{l} / w
+      const real squaredNormalizedTpGrid =
+          misc::power<2>(TpGridPoints[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex]);
 
-  const real tauV = faultStrength[ltsFace][pointIndex] * slipRateMagnitude;
-  const real lambdaPrime =
-      drParameters->undrainedTPResponse * drParameters->thermalDiffusivity /
-      (hydraulicDiffusivity[ltsFace][pointIndex] - drParameters->thermalDiffusivity);
+      // This is exp(-A dt) in Noda & Lapusta (2010) equation (10)
+      const real thetaTpGrid = drParameters->thermalDiffusivity * squaredNormalizedTpGrid;
+      const real sigmaTpGrid = hydraulicDiffusivity[ltsFace][pointIndex] * squaredNormalizedTpGrid;
+      const real preExpTheta = -thetaTpGrid * deltaT;
+      const real preExpSigma = -sigmaTpGrid * deltaT;
+      const real expTheta = std::exp(preExpTheta);
+      const real expSigma = std::exp(preExpSigma);
+      const real exp1mTheta = -std::expm1(preExpTheta);
+      const real exp1mSigma = -std::expm1(preExpSigma);
 
-#pragma omp simd reduction(+ : temperatureUpdate, pressureUpdate)
-  for (unsigned int tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
-       tpGridPointIndex++) {
-    // Gaussian shear zone in spectral domain, normalized by w
-    // \hat{l} / w
-    const real squaredNormalizedTpGrid =
-        misc::power<2>(TpGridPoints[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex]);
+      // Temperature and pressure diffusion in spectral domain over timestep
+      // This is + F(t) exp(-A dt) in equation (10)
+      const real thetaDiffusion = theta[ltsFace][tpGridPointIndex][pointIndex] * expTheta;
+      const real sigmaDiffusion = sigma[ltsFace][tpGridPointIndex][pointIndex] * expSigma;
 
-    // This is exp(-A dt) in Noda & Lapusta (2010) equation (10)
-    const real thetaTpGrid = drParameters->thermalDiffusivity * squaredNormalizedTpGrid;
-    const real sigmaTpGrid = hydraulicDiffusivity[ltsFace][pointIndex] * squaredNormalizedTpGrid;
-    const real preExpTheta = -thetaTpGrid * deltaT;
-    const real preExpSigma = -sigmaTpGrid * deltaT;
-    const real expTheta = std::exp(preExpTheta);
-    const real expSigma = std::exp(preExpSigma);
-    const real exp1mTheta = -std::expm1(preExpTheta);
-    const real exp1mSigma = -std::expm1(preExpSigma);
+      // Heat generation during timestep
+      // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
+      // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
+      const real omega = tauV * HeatSource[tpGridPointIndex];
+      const real thetaGeneration = omega / (drParameters->heatCapacity * thetaTpGrid) * exp1mTheta;
+      const real sigmaGeneration = omega * (drParameters->undrainedTPResponse + lambdaPrime) /
+                                   (drParameters->heatCapacity * sigmaTpGrid) * exp1mSigma;
 
-    // Temperature and pressure diffusion in spectral domain over timestep
-    // This is + F(t) exp(-A dt) in equation (10)
-    const real thetaDiffusion = theta[ltsFace][tpGridPointIndex][pointIndex] * expTheta;
-    const real sigmaDiffusion = sigma[ltsFace][tpGridPointIndex][pointIndex] * expSigma;
+      // Sum both contributions up
+      const auto thetaNew = thetaDiffusion + thetaGeneration;
+      const auto sigmaNew = sigmaDiffusion + sigmaGeneration;
 
-    // Heat generation during timestep
-    // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
-    // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
-    const real omega = tauV * HeatSource[tpGridPointIndex];
-    const real thetaGeneration = omega / (drParameters->heatCapacity * thetaTpGrid) * exp1mTheta;
-    const real sigmaGeneration = omega * (drParameters->undrainedTPResponse + lambdaPrime) /
-                                 (drParameters->heatCapacity * sigmaTpGrid) * exp1mSigma;
+      // Recover temperature and altered pressure using inverse Fourier transformation from the new
+      // contribution
+      const real scaledInverseFourierCoefficient =
+          TpInverseFourierCoefficients[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex];
+      temperatureUpdate += scaledInverseFourierCoefficient * thetaNew;
+      pressureUpdate += scaledInverseFourierCoefficient * sigmaNew;
 
-    // Sum both contributions up
-    const auto thetaNew = thetaDiffusion + thetaGeneration;
-    const auto sigmaNew = sigmaDiffusion + sigmaGeneration;
-
-    // Recover temperature and altered pressure using inverse Fourier transformation from the new
-    // contribution
-    const real scaledInverseFourierCoefficient =
-        TpInverseFourierCoefficients[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex];
-    temperatureUpdate += scaledInverseFourierCoefficient * thetaNew;
-    pressureUpdate += scaledInverseFourierCoefficient * sigmaNew;
-
-    if (saveTPinLTS) {
-      theta[ltsFace][tpGridPointIndex][pointIndex] = thetaNew;
-      sigma[ltsFace][tpGridPointIndex][pointIndex] = sigmaNew;
+      if (saveTPinLTS) {
+        theta[ltsFace][tpGridPointIndex][pointIndex] = thetaNew;
+        sigma[ltsFace][tpGridPointIndex][pointIndex] = sigmaNew;
+      }
     }
-  }
-  // Update pore pressure change: sigma = pore pressure + lambda' * temperature
-  pressureUpdate -= lambdaPrime * temperatureUpdate;
+    // Update pore pressure change: sigma = pore pressure + lambda' * temperature
+    pressureUpdate -= lambdaPrime * temperatureUpdate;
 
-  // Temperature and pore pressure change at single GP on the fault + initial values
-  temperature[ltsFace][pointIndex] = temperatureUpdate + drParameters->initialTemperature;
-  pressure[ltsFace][pointIndex] = -pressureUpdate + drParameters->initialPressure;
+    // Temperature and pore pressure change at single GP on the fault + initial values
+    temperature[ltsFace][pointIndex] = temperatureUpdate + drParameters->initialTemperature;
+    pressure[ltsFace][pointIndex] = -pressureUpdate + drParameters->initialPressure;
+  }
 }
 
 } // namespace seissol::dr::friction_law::cpu

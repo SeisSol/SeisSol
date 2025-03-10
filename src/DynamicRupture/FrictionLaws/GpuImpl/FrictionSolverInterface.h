@@ -76,7 +76,6 @@ struct FrictionLawData {
   real (*__restrict sigma)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
   const real (*__restrict halfWidthShearZone)[misc::NumPaddedPoints]{};
   const real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints]{};
-  real (*__restrict faultStrength)[misc::NumPaddedPoints]{};
 
   // ISR
   const real (*__restrict imposedSlipDirection1)[misc::NumPaddedPoints];

@@ -59,6 +59,7 @@ class ThermalPressurization {
   /**
    * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face
    * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree
+   * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
   void calcFluidPressure(const std::array<real, misc::NumPaddedPoints>& normalStress,
                          const real (*mu)[misc::NumPaddedPoints],
@@ -79,20 +80,9 @@ class ThermalPressurization {
   real (*__restrict sigma)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
   real (*__restrict halfWidthShearZone)[misc::NumPaddedPoints]{};
   real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints]{};
-  real (*__restrict faultStrength)[misc::NumPaddedPoints]{};
 
   private:
   seissol::initializer::parameters::DRParameters* drParameters;
-
-  /**
-   * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
-   */
-  void updateTemperatureAndPressure(real slipRateMagnitude,
-                                    real deltaT,
-                                    unsigned int pointIndex,
-                                    unsigned int timeIndex,
-                                    unsigned int ltsFace,
-                                    bool saveTPinLTS);
 };
 } // namespace seissol::dr::friction_law::cpu
 
