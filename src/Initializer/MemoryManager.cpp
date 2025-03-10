@@ -33,7 +33,6 @@
 #include "Common/Iterator.h"
 
 #include "generated_code/tensor.h"
-#include "GlobalData.h"
 #include "InternalState.h"
 #include "SeisSol.h"
 

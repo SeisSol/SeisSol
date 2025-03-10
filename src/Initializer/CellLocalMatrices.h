@@ -39,15 +39,16 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 LTS* lts,
                                 Lut* ltsLut);
 
-void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
-                                      LTSTree* ltsTree,
-                                      LTS* lts,
-                                      Lut* ltsLut,
-                                      std::array<LTSTree*, MULTIPLE_SIMULATIONS>          dynRupTree,
-                                      std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS>   dynRup,
-                                      unsigned* ltsFaceToMeshFace,
-                                      const GlobalData& global,
-                                      double etaHack);
+void initializeDynamicRuptureMatrices(
+    const seissol::geometry::MeshReader& i_meshReader,
+    LTSTree* io_ltsTree,
+    LTS* i_lts,
+    Lut* i_ltsLut,
+    std::array<LTSTree*, MULTIPLE_SIMULATIONS> dynRupTree,
+    std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS> dynRup,
+    unsigned* ltsFaceToMeshFace,
+    const GlobalData& global,
+    double etaHack);
 } // namespace seissol::initializer
 
 #endif // SEISSOL_SRC_INITIALIZER_CELLLOCALMATRICES_H_
