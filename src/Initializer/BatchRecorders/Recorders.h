@@ -109,6 +109,8 @@ class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializer::L
 
 class NeighIntegrationRecorder : public AbstractRecorder<seissol::initializer::LTS> {
   public:
+  NeighIntegrationRecorder(GlobalData* global) : global(global) {}
+
   void record(LTS& handler, Layer& layer) override;
 
   private:
@@ -127,6 +129,7 @@ class NeighIntegrationRecorder : public AbstractRecorder<seissol::initializer::L
   kernels::NeighborData::Loader* currentLoaderHost{nullptr};
   std::unordered_map<real*, real*> idofsAddressRegistry{};
   size_t integratedDofsAddressCounter{0};
+  GlobalData* global;
 };
 
 class PlasticityRecorder : public AbstractRecorder<seissol::initializer::LTS> {

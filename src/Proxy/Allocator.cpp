@@ -276,7 +276,8 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
 
   seissol::initializer::recording::CompositeRecorder<seissol::initializer::LTS> recorder;
   recorder.addRecorder(new seissol::initializer::recording::LocalIntegrationRecorder);
-  recorder.addRecorder(new seissol::initializer::recording::NeighIntegrationRecorder);
+  recorder.addRecorder(
+      new seissol::initializer::recording::NeighIntegrationRecorder(&globalDataOnDevice));
 
   recorder.addRecorder(new seissol::initializer::recording::PlasticityRecorder);
   recorder.record(lts, layer);

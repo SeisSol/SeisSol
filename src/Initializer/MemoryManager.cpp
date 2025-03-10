@@ -794,7 +794,7 @@ void seissol::initializer::MemoryManager::initializeEasiBoundaryReader(const cha
 void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticity) {
   recording::CompositeRecorder<seissol::initializer::LTS> recorder;
   recorder.addRecorder(new recording::LocalIntegrationRecorder);
-  recorder.addRecorder(new recording::NeighIntegrationRecorder);
+  recorder.addRecorder(new recording::NeighIntegrationRecorder(&m_globalDataOnDevice));
 
   if (usePlasticity) {
     recorder.addRecorder(new recording::PlasticityRecorder);

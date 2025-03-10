@@ -111,13 +111,15 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
 void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
   real*(*faceNeighborsDevice)[4] = currentLayer->var(currentHandler->faceNeighborsDevice);
 
-  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
-  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
-  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicAminusT {};
+  std::array<std::vector<real*>, *FaceId::Count> regularPeriodicDofs{};
+  std::array<std::vector<real*>, *FaceId::Count> regularPeriodicIDofs{};
+  std::array<std::vector<real*>, *FaceId::Count> regularPeriodicAminusT{};
+  std::array<std::vector<real*>, *FaceId::Count> regularGlobalMatrix{};
 
-  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofs {};
-  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
-  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
+  std::array<std::vector<real*>, *FaceId::Count> drDofs{};
+  std::array<std::vector<real*>, *FaceId::Count> drGodunov{};
+  std::array<std::vector<real*>, *FaceId::Count> drFluxSolver{};
+  std::array<std::vector<real*>, *FaceId::Count> drGlobalMatrix{};
 
   CellDRMapping(*drMappingDevice)[4] = currentLayer->var(currentHandler->drMappingDevice);
 
@@ -143,11 +145,12 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
           assert((*FaceRelations::Count) > faceRelation &&
                  "incorrect face relation count has been detected");
 
-          regularPeriodicDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs()));
-          regularPeriodicIDofs[face][faceRelation].push_back(
-              idofsAddressRegistry[neighbourBufferPtr]);
-          regularPeriodicAminusT[face][faceRelation].push_back(
+          regularPeriodicDofs[face].push_back(static_cast<real*>(data.dofs()));
+          regularPeriodicIDofs[face].push_back(idofsAddressRegistry[neighbourBufferPtr]);
+          regularPeriodicAminusT[face].push_back(
               static_cast<real*>(data.neighboringIntegration().nAmNm1[face]));
+          regularGlobalMatrix[face].push_back(
+              const_cast<real*>(global->minusFluxMatrices.data[faceRelation]));
         }
         break;
       }
@@ -159,9 +162,11 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
             drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");
-        drDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs()));
-        drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
-        drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
+        drDofs[face].push_back(static_cast<real*>(data.dofs()));
+        drGodunov[face].push_back(drMappingDevice[cell][face].godunov);
+        drFluxSolver[face].push_back(drMappingDevice[cell][face].fluxSolver);
+        drGlobalMatrix[face].push_back(
+            const_cast<real*>(global->nodalFluxMatrices.data[faceRelation]));
 
         break;
       }
@@ -187,33 +192,26 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
 
   for (unsigned int face = 0; face < 4; ++face) {
     // regular and periodic
-    for (size_t faceRelation = 0; faceRelation < (*FaceRelations::Count); ++faceRelation) {
-      if (!regularPeriodicDofs[face][faceRelation].empty()) {
-        const ConditionalKey key(*KernelNames::NeighborFlux,
-                                 (FaceKinds::Regular || FaceKinds::Periodic),
-                                 face,
-                                 faceRelation);
-        checkKey(key);
+    if (!regularPeriodicDofs[face].empty()) {
+      const ConditionalKey key(
+          *KernelNames::NeighborFlux, (FaceKinds::Regular || FaceKinds::Periodic), face);
+      checkKey(key);
 
-        (*currentTable)[key].set(inner_keys::Wp::Id::Idofs,
-                                 regularPeriodicIDofs[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, regularPeriodicDofs[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::AminusT,
-                                 regularPeriodicAminusT[face][faceRelation]);
-      }
+      (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, regularPeriodicIDofs[face]);
+      (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, regularPeriodicDofs[face]);
+      (*currentTable)[key].set(inner_keys::Wp::Id::AminusT, regularPeriodicAminusT[face]);
+      (*currentTable)[key].set(inner_keys::Wp::Id::Global, regularGlobalMatrix[face]);
     }
 
     // dynamic rupture
-    for (unsigned faceRelation = 0; faceRelation < (*DrFaceRelations::Count); ++faceRelation) {
-      if (!drDofs[face][faceRelation].empty()) {
-        const ConditionalKey key(
-            *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
-        checkKey(key);
+    if (!drDofs[face].empty()) {
+      const ConditionalKey key(*KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face);
+      checkKey(key);
 
-        (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, drDofs[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::Godunov, drGodunov[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::FluxSolver, drFluxSolver[face][faceRelation]);
-      }
+      (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, drDofs[face]);
+      (*currentTable)[key].set(inner_keys::Wp::Id::Godunov, drGodunov[face]);
+      (*currentTable)[key].set(inner_keys::Wp::Id::FluxSolver, drFluxSolver[face]);
+      (*currentTable)[key].set(inner_keys::Wp::Id::Global, drGlobalMatrix[face]);
     }
   }
 }

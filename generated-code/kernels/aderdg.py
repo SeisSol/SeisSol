@@ -438,6 +438,11 @@ class LinearADERDG(ADERDGBase):
                     h, j, i
                 ]["kl"]
 
+                dummyMinusFluxMatrix = Tensor(
+                    "dummyMinusFluxMatrix",
+                    shape=self.db.minusFluxMatrices[0, 0, 0].shape(),
+                )["kl"]
+
             neighborFlux = (
                 lambda h, j, i: self.Q["kp"]
                 <= self.Q["kp"]
@@ -447,6 +452,13 @@ class LinearADERDG(ADERDGBase):
                 "gpu_neighboringFlux",
                 simpleParameterSpace(3, 4, 4),
                 neighborFlux,
+                target="gpu",
+            )
+            generator.add(
+                "gpu_neighboringFlux2",
+                self.Q["kp"]
+                <= self.Q["kp"]
+                + dummyMinusFluxMatrix * self.I["lq"] * self.AminusT["qp"],
                 target="gpu",
             )
 

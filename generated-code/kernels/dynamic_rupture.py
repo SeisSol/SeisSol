@@ -126,6 +126,22 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
             target=target,
         )
 
+    if "gpu" in targets:
+        dummyV3mTo2nTWDivM = Tensor(
+            "dummyV3mTo2nTWDivM",
+            shape=db.V3mTo2nTWDivM[0, 0].shape(),
+            alignStride=aderdg.alignStride,
+        )
+        generator.add(
+            f"gpu_nodalFlux2",
+            aderdg.extendedQTensor()["kp"]
+            <= aderdg.extendedQTensor()["kp"]
+            + dummyV3mTo2nTWDivM[aderdg.t("kl")]
+            * QInterpolated["lq"]
+            * fluxSolver["qp"],
+            target="gpu",
+        )
+
     # Energy output
     # Minus and plus refer to the original implementation of Christian Pelties,
     # where the normal points from the plus side to the minus side

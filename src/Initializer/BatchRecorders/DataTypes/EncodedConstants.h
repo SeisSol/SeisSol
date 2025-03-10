@@ -40,6 +40,7 @@ struct Wp {
     EasiBoundaryMap,
     EasiBoundaryConstant,
     Analytical,
+    Global,
     Count
   };
 };
