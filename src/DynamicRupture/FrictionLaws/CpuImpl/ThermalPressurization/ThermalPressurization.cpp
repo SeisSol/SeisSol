@@ -11,7 +11,6 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include <DynamicRupture/FrictionLaws/TPCommon.h>
-#include <algorithm>
 #include <array>
 #include <cmath>
 

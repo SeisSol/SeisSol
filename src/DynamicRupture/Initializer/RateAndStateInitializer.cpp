@@ -13,7 +13,6 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
-#include <Common/Constants.h>
 #include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
 #include <cstdlib>

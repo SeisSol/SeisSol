@@ -93,8 +93,8 @@ class ThermalPressurization {
     real temperatureUpdate = 0.0;
     real pressureUpdate = 0.0;
 
-    const real tauV = ctx.data->faultStrength[ctx.ltsFace][ctx.pointIndex] *
-                      ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
+    const real tauV =
+        ctx.data->faultStrength[ctx.ltsFace][ctx.pointIndex] * ctx.initialVariables.localSlipRate;
     const real lambdaPrime = ctx.data->drParameters.undrainedTPResponse *
                              ctx.data->drParameters.thermalDiffusivity /
                              (ctx.data->hydraulicDiffusivity[ctx.ltsFace][ctx.pointIndex] -
