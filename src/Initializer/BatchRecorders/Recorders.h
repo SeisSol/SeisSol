@@ -150,6 +150,7 @@ class PlasticityRecorder : public AbstractRecorder<seissol::initializer::LTS> {
 
 class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializer::DynamicRupture> {
   public:
+  DynamicRuptureRecorder(GlobalData* global) : global(global) {}
   void record(DynamicRupture& handler, Layer& layer) override;
 
   private:
@@ -159,6 +160,7 @@ class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializer::Dyn
   void recordDofsTimeEvaluation();
   void recordSpaceInterpolation();
   std::unordered_map<real*, real*> idofsAddressRegistry{};
+  GlobalData* global;
 };
 
 } // namespace seissol::initializer::recording

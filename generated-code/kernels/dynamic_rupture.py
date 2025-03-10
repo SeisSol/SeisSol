@@ -142,6 +142,18 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
             target="gpu",
         )
 
+        dummyV3mTo2n = Tensor(
+            "dummyV3mTo2n",
+            shape=db.V3mTo2n[0, 0].shape(),
+            alignStride=aderdg.alignStride,
+        )
+        generator.add(
+            f"gpu_evaluateAndRotateQAtInterpolationPoints2",
+            QInterpolated["kp"]
+            <= dummyV3mTo2n[aderdg.t("kl")] * aderdg.Q["lq"] * TinvT["qp"],
+            target="gpu",
+        )
+
     # Energy output
     # Minus and plus refer to the original implementation of Christian Pelties,
     # where the normal points from the plus side to the minus side

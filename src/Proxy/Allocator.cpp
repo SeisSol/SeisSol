@@ -289,7 +289,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
     dynRupTree.allocateScratchPads();
 
     CompositeRecorder<seissol::initializer::DynamicRupture> drRecorder;
-    drRecorder.addRecorder(new DynamicRuptureRecorder);
+    drRecorder.addRecorder(new DynamicRuptureRecorder(&globalDataOnDevice));
 
     auto& drLayer = dynRupTree.child(0).child<Interior>();
     drRecorder.record(dynRup, drLayer);

@@ -59,6 +59,7 @@ struct Dr {
     QInterpolatedPlus,
     QInterpolatedMinus,
     TinvT,
+    Global,
     Count
   };
 };
