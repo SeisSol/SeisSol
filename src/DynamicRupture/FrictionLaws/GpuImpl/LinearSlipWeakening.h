@@ -57,9 +57,9 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     auto& strength = ctx.strengthBuffer;
 
     // calculate absolute value of stress in Y and Z direction
-    const real totalStress1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][3] +
+    const real totalStress1 = ctx.data->initialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
                               faultStresses.traction1[timeIndex];
-    const real totalStress2 = ctx.data->initialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][5] +
+    const real totalStress2 = ctx.data->initialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
                               faultStresses.traction2[timeIndex];
     const real absoluteShearStress = misc::magnitude(totalStress1, totalStress2);
     // calculate slip rates
@@ -166,8 +166,11 @@ class LinearSlipWeakeningLaw
     auto& strength = ctx.strengthBuffer;
 
     const real totalNormalStress =
-        ctx.data->initialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][0] +
-        faultStresses.normalStress[timeIndex];
+        ctx.data->initialStressInFaultCS[ctx.ltsFace][0][ctx.pointIndex] +
+        ctx.faultStresses.normalStress[timeIndex] +
+        ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] +
+        ctx.faultStresses.fluidPressure[timeIndex];
+
     strength = -ctx.data->cohesion[ctx.ltsFace][ctx.pointIndex] -
                ctx.data->mu[ctx.ltsFace][ctx.pointIndex] *
                    std::min(totalNormalStress, static_cast<real>(0.0));

@@ -27,6 +27,8 @@ inline auto allocationModeDR() {
 #endif
 }
 
+// NOTE: for the sake of GPU performance, make sure that NumPaddedPoints is always last.
+
 struct DynamicRupture {
   public:
   virtual ~DynamicRupture() = default;
@@ -52,8 +54,8 @@ struct DynamicRupture {
   Variable<seissol::dr::ImpedanceMatrices> impedanceMatrices;
   // size padded for vectorization
   // CS = coordinate system
-  Variable<real[dr::misc::NumPaddedPoints][6]> initialStressInFaultCS;
-  Variable<real[dr::misc::NumPaddedPoints][6]> nucleationStressInFaultCS;
+  Variable<real[6][dr::misc::NumPaddedPoints]> initialStressInFaultCS;
+  Variable<real[6][dr::misc::NumPaddedPoints]> nucleationStressInFaultCS;
   // will be always zero, if not using poroelasticity
   Variable<real[dr::misc::NumPaddedPoints]> initialPressure;
   Variable<real[dr::misc::NumPaddedPoints]> nucleationPressure;

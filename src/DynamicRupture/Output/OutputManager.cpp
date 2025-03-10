@@ -345,7 +345,11 @@ void OutputManager::initPickpointOutput() {
           auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
           const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
-          const auto* initialStress = reinterpret_cast<const real*>(initialStressVar[face]);
+          const auto* initialStress = initialStressVar[face];
+          std::array<real, 6> unrotatedInitialStress{};
+          for (std::size_t i = 0; i < unrotatedInitialStress.size(); ++i) {
+            unrotatedInitialStress[i] = initialStress[i][receiver.nearestGpIndex];
+          }
 
           seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
           alignAlongDipAndStrikeKernel.stressRotationMatrix =
@@ -353,7 +357,7 @@ void OutputManager::initPickpointOutput() {
           alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
               outputData->stressFaceAlignedToGlb[i].data();
 
-          alignAlongDipAndStrikeKernel.initialStress = initialStress;
+          alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
           alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
           alignAlongDipAndStrikeKernel.execute();
         }
