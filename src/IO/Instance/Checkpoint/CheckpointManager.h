@@ -11,7 +11,6 @@
 #include <IO/Datatype/Datatype.h>
 #include <IO/Datatype/Inference.h>
 #include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Writer.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <string>
