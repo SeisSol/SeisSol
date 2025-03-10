@@ -260,7 +260,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),
                  ctx.faultStresses.normalStress[timeIndex] +
-                     ctx.data->initialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][0] -
+                     ctx.data->initialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][0] +
+                     ctx.faultStresses.fluidPressure[timeIndex] +
+                     ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] -
                      TPMethod::getFluidPressure(ctx));
   }
 };

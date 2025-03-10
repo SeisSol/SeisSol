@@ -167,7 +167,9 @@ class LinearSlipWeakeningLaw
 
     const real totalNormalStress =
         ctx.data->initialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][0] +
-        faultStresses.normalStress[timeIndex];
+        ctx.faultStresses.normalStress[timeIndex] +
+        ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] +
+        ctx.faultStresses.fluidPressure[timeIndex];
     strength = -ctx.data->cohesion[ctx.ltsFace][ctx.pointIndex] -
                ctx.data->mu[ctx.ltsFace][ctx.pointIndex] *
                    std::min(totalNormalStress, static_cast<real>(0.0));
