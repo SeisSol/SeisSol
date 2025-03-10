@@ -66,8 +66,8 @@ class FrictionSolver {
   ImpedanceMatrices* __restrict impedanceMatrices{};
   real mFullUpdateTime{};
   // CS = coordinate system
-  real (*__restrict initialStressInFaultCS)[misc::NumPaddedPoints][6]{};
-  real (*__restrict nucleationStressInFaultCS)[misc::NumPaddedPoints][6]{};
+  real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
+  real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints]{};
   real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};

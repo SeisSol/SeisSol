@@ -80,10 +80,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     devStateVarReference = devStateVariableBuffer;
 
-    const real totalTraction1 = devInitialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][3] +
+    const real totalTraction1 = devInitialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
                                 faultStresses.traction1[timeIndex];
 
-    const real totalTraction2 = devInitialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][5] +
+    const real totalTraction2 = devInitialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
                                 faultStresses.traction2[timeIndex];
 
     devAbsoluteShearTraction = misc::magnitude(totalTraction1, totalTraction2);
@@ -159,14 +159,13 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     const real strength = -ctx.data->mu[ctx.ltsFace][ctx.pointIndex] * devNormalStress;
 
-    const auto* initialStressInFaultCS =
-        ctx.data->initialStressInFaultCS[ctx.ltsFace][ctx.pointIndex];
+    const auto* initialStressInFaultCS = ctx.data->initialStressInFaultCS[ctx.ltsFace];
     const auto savedTraction1 = devFaultStresses.traction1[timeIndex];
     const auto savedTraction2 = devFaultStresses.traction2[timeIndex];
 
     // calculate absolute value of stress in Y and Z direction
-    const real totalTraction1 = initialStressInFaultCS[3] + savedTraction1;
-    const real totalTraction2 = initialStressInFaultCS[5] + savedTraction2;
+    const real totalTraction1 = initialStressInFaultCS[3][ctx.pointIndex] + savedTraction1;
+    const real totalTraction2 = initialStressInFaultCS[5][ctx.pointIndex] + savedTraction2;
 
     // Compute slip
     ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
@@ -260,7 +259,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),
                  ctx.faultStresses.normalStress[timeIndex] +
-                     ctx.data->initialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][0] +
+                     ctx.data->initialStressInFaultCS[ctx.ltsFace][0][ctx.pointIndex] +
                      ctx.faultStresses.fluidPressure[timeIndex] +
                      ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] -
                      TPMethod::getFluidPressure(ctx));

@@ -71,9 +71,9 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
-      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][3][pointIndex] +
                                   faultStresses.traction1[timeIndex][pointIndex];
-      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][5][pointIndex] +
                                   faultStresses.traction2[timeIndex][pointIndex];
       const real absoluteTraction = misc::magnitude(totalTraction1, totalTraction2);
 
@@ -154,7 +154,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate fault strength (Uphoff eq 2.44) with addition cohesion term
-      const real totalNormalStress = this->initialStressInFaultCS[ltsFace][pointIndex][0] +
+      const real totalNormalStress = this->initialStressInFaultCS[ltsFace][0][pointIndex] +
                                      faultStresses.normalStress[timeIndex][pointIndex] +
                                      this->initialPressure[ltsFace][pointIndex] +
                                      faultStresses.fluidPressure[timeIndex][pointIndex];
