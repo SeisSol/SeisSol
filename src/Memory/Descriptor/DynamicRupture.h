@@ -222,8 +222,8 @@ struct ThermalPressurization {
     const auto mask = LayerMask(Ghost);
     tree.addVar(temperature, mask, Alignment, allocationModeDR());
     tree.addVar(pressure, mask, Alignment, allocationModeDR());
-    tree.addVar(theta, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(sigma, mask, Alignment, allocationModeDR(), true);
+    tree.addVar(theta, mask, Alignment, allocationModeDR());
+    tree.addVar(sigma, mask, Alignment, allocationModeDR());
     tree.addVar(faultStrength, mask, Alignment, allocationModeDR(), true);
     tree.addVar(halfWidthShearZone, mask, Alignment, allocationModeDR(), true);
     tree.addVar(hydraulicDiffusivity, mask, Alignment, allocationModeDR(), true);
@@ -233,6 +233,8 @@ struct ThermalPressurization {
                                    LTSTree* tree) const {
     manager.registerData("temperature", tree, temperature);
     manager.registerData("pressure", tree, pressure);
+    manager.registerData("theta", tree, theta);
+    manager.registerData("sigma", tree, sigma);
   }
 };
 
