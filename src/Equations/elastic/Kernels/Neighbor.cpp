@@ -113,38 +113,38 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       }
     case FaceType::DynamicRupture:
       {
-        real dummydofs[tensor::Q::size()] = {0.0};
-        kernel::dofsModified dofsModifiedKrnl;
-        dofsModifiedKrnl.Q = data.dofs();
-        dofsModifiedKrnl.Q_ijs = dummydofs;
-        dofsModifiedKrnl.execute();
-        // No neighboring cell contribution, interior bc.
-      #ifdef MULTIPLE_SIMULATIONS
-        for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
-          // \todo (VK): reactivate this once the QInterpolated's alignment/stride is fixed
-          // assert(reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov[i]) % ALIGNMENT == 0);
-          dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
-          drKrnl.fluxSolver = cellDrMapping[face].fluxSolver[i];
-          drKrnl.QInterpolatedSingleSim = cellDrMapping[face].godunov[i];
-          drKrnl.singleSimQ = dummydofs + tensor::Q::Shape[1] * tensor::Q::Shape[2] * i;
-          drKrnl._prefetch.I = faceNeighborsPrefetch[face];
-          drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation); //(DEBUG notes): the nodalFlux kernel does correct things when the input is correctly given.
-          //(DEBUG notes: now need to verify if the right thing is going into the kernel or not)
+        real fluxSolver_ijs[init::fluxSolverMultipleSim::size()];
+        real godunov_ijs[init::QInterpolatedMultipleSim::size()];
+  
+        for (int sim = 0; sim < MULTIPLE_SIMULATIONS; ++sim) {
+          std::memcpy(&fluxSolver_ijs[sim * init::fluxSolver::size()],
+                      cellDrMapping[face].fluxSolver[sim],
+                      init::fluxSolver::size() * sizeof(real));
+          std::memcpy(&godunov_ijs[sim * init::QInterpolated::size()],
+                      cellDrMapping[face].godunov[sim],
+                      init::QInterpolated::size() * sizeof(real));
         }
-        kernel::dofsModifiedReversed dofModifiedReversedKrnl;
-        dofModifiedReversedKrnl.Q = data.dofs();
-        dofModifiedReversedKrnl.Q_ijs = dummydofs;
-        dofModifiedReversedKrnl.execute();
-      #else
-      assert(reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov) % Alignment == 0);
-      dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
-      drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
-      drKrnl.QInterpolated = cellDrMapping[face].godunov;
-      drKrnl.Q = data.dofs();
-      drKrnl._prefetch.I = faceNeighborsPrefetch[face];
-      drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
-      #endif
-
+  
+        real fluxSolver[init::fluxSolverMultipleSim::size()];
+        real godunov[init::QInterpolatedMultipleSim::size()];
+  
+        dynamicRupture::kernel::fluxSolverModifiedReversed fluxSolverKrnl;
+        fluxSolverKrnl.fluxSolverMultiple_ijs = fluxSolver_ijs;
+        fluxSolverKrnl.fluxSolverMultipleSim = fluxSolver;
+        fluxSolverKrnl.execute();
+  
+        dynamicRupture::kernel::QInterpolatedModifiedReversed godunovKrnl;
+        godunovKrnl.QInterpolatedMultiple_ijs = godunov_ijs;
+        godunovKrnl.QInterpolatedMultipleSim = godunov;
+        godunovKrnl.execute();
+  
+        assert(reinterpret_cast<uintptr_t>(godunov) % Alignment == 0);
+        dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
+        drKrnl.fluxSolverMultipleSim = fluxSolver;
+        drKrnl.QInterpolatedMultipleSim = godunov;
+        drKrnl.Q = data.dofs();
+        drKrnl._prefetch.I = faceNeighborsPrefetch[face];
+        drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       break;
     }
     default:
