@@ -24,10 +24,10 @@
 
 namespace seissol::dr::friction_law::gpu {
 struct InitialVariables {
-  real absoluteShearTraction;
-  real localSlipRate;
-  real normalStress;
-  real stateVarReference;
+  real absoluteShearTraction{};
+  real localSlipRate{};
+  real normalStress{};
+  real stateVarReference{};
 };
 
 struct FrictionLawContext {
@@ -37,14 +37,14 @@ struct FrictionLawContext {
 
   FaultStresses<Executor::Device> faultStresses{};
   TractionResults<Executor::Device> tractionResults{};
-  real fullUpdateTime;
-  real stateVariableBuffer;
-  real strengthBuffer;
+  real fullUpdateTime{};
+  real stateVariableBuffer{};
+  real strengthBuffer{};
   const double* __restrict devTimeWeights{nullptr};
   const real* __restrict devSpaceWeights{nullptr};
   const real* __restrict resampleMatrix{nullptr};
   real* __restrict sharedMemory;
-  InitialVariables initialVariables;
+  InitialVariables initialVariables{};
 
   const real* __restrict TpInverseFourierCoefficients{nullptr};
   const real* __restrict TpGridPoints{nullptr};
