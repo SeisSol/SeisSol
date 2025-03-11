@@ -242,6 +242,7 @@ def main():
             gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=include_tensors,
+            routine_exporters=custom_routine_generators,
             routine_cache=routine_cache,
         )
 
@@ -266,6 +267,7 @@ def main():
             gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir),
+            routine_exporters=custom_routine_generators,
             routine_cache=routine_cache,
         )
 

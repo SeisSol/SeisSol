@@ -7,6 +7,7 @@
 
 import numpy as np
 from kernels.aderdg import LinearADERDG
+from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor
 from yateto.input import (memoryLayoutFromFile, parseJSONMatrixFile,
@@ -27,7 +28,7 @@ class PoroelasticADERDG(LinearADERDG):
         matricesDir,
         memLayout,
         numberOfMechanisms,
-        **kwargs
+        **kwargs,
     ):
 
         super().__init__(order, multipleSimulations, matricesDir)
@@ -138,7 +139,6 @@ class PoroelasticADERDG(LinearADERDG):
             alignStride=True,
         )
         timestep = Scalar("timestep")
-        G = {10: Scalar("Gk"), 11: Scalar("Gl"), 12: Scalar("Gm")}
 
         # Compute the index range for basis functions of a certain degree
         #
@@ -213,46 +213,82 @@ class PoroelasticADERDG(LinearADERDG):
             stiffnessSpp[..., Bn_1:Bn] = -stiffnessValues[d][..., Bn_1:Bn]
             return Tensor("kDivMTSub({},{})".format(d, n), fullShape, spp=stiffnessSpp)
 
-        kernels = list()
-
-        kernels.append(spaceTimePredictorRhs["kpt"] <= self.Q["kp"] * self.db.wHat["t"])
-        for n in range(self.order - 1, -1, -1):
-            for o in range(self.numberOfQuantities() - 1, -1, -1):
-                kernels.append(
-                    spaceTimePredictor["kpt"]
-                    <= spaceTimePredictor["kpt"]
-                    + selectModes(n)["kl"]
-                    * selectQuantity(o)["pq"]
-                    * spaceTimePredictorRhs["lqu"]
-                    * Zinv(o)["ut"]
-                )
-                # G only has one relevant non-zero entry in each iteration, so we make it a scalar
-                # G[o] = E[o-4, o] * timestep
-                # In addition E only has non-zero entries, if o > 10
-                if o >= 10:
-                    kernels.append(
-                        spaceTimePredictorRhs["kpt"]
-                        <= spaceTimePredictorRhs["kpt"]
-                        + G[o]
-                        * selectQuantityG(o)["pv"]
-                        * selectQuantity(o)["vq"]
-                        * selectModes(n)["kl"]
-                        * spaceTimePredictor["lqt"]
-                    )
-            if n > 0:
-                derivativeSum = spaceTimePredictorRhs["kpt"]
-                for d in range(3):
-                    derivativeSum += (
-                        kSub(d, n)[self.mt("kl")]
-                        * spaceTimePredictor["lqt"]
-                        * self.starMatrix(d)[self.m("qp")]
-                    )
-            kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
-        kernels.append(
-            self.I["kp"] <= timestep * spaceTimePredictor["kpt"] * self.db.timeInt["t"]
+        QAtTimeSTP = OptionalDimTensor(
+            "QAtTimeSTP",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            self.Q.shape(),
+            alignStride=True,
         )
+        timeBasisFunctionsAtPoint = Tensor("timeBasisFunctionsAtPoint", (self.order,))
 
-        generator.add("spaceTimePredictor", kernels)
+        for target in targets:
+            name_prefix = generate_kernel_name_prefix(target)
+
+            if target == 'cpu':
+                G = {10: Scalar("Gk"), 11: Scalar("Gl"), 12: Scalar("Gm")}
+            else:
+                G = {10: Tensor("Gkt", ())[''] * timestep,
+                     11: Tensor("Glt", ())[''] * timestep,
+                     12: Tensor("Gmt", ())[''] * timestep,}
+
+            kernels = list()
+
+            kernels.append(
+                spaceTimePredictorRhs["kpt"] <= self.Q["kp"] * self.db.wHat["t"]
+            )
+            for n in range(self.order - 1, -1, -1):
+                for o in range(self.numberOfQuantities() - 1, -1, -1):
+                    kernels.append(
+                        spaceTimePredictor["kpt"]
+                        <= spaceTimePredictor["kpt"]
+                        + selectModes(n)["kl"]
+                        * selectQuantity(o)["pq"]
+                        * spaceTimePredictorRhs["lqu"]
+                        * Zinv(o)["ut"]
+                    )
+                    # G only has one relevant non-zero entry in each iteration, so we make it a scalar
+                    # G[o] = E[o-4, o] * timestep
+                    # In addition E only has non-zero entries, if o > 10
+                    if o >= 10:
+                        kernels.append(
+                            spaceTimePredictorRhs["kpt"]
+                            <= spaceTimePredictorRhs["kpt"]
+                            + G[o]
+                            * selectQuantityG(o)["pv"]
+                            * selectQuantity(o)["vq"]
+                            * selectModes(n)["kl"]
+                            * spaceTimePredictor["lqt"]
+                        )
+                if n > 0:
+                    derivativeSum = spaceTimePredictorRhs["kpt"]
+                    star = (
+                        (lambda d: self.starMatrix(d)[self.m("qp")] * timestep)
+                        if target == "gpu"
+                        else lambda d: self.starMatrix(d)[self.m("qp")]
+                    )
+                    for d in range(3):
+                        derivativeSum += (
+                            kSub(d, n)[self.mt("kl")] * spaceTimePredictor["lqt"] * star(d)
+                        )
+                kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
+            kernels.append(
+                self.I["kp"]
+                <= timestep * spaceTimePredictor["kpt"] * self.db.timeInt["t"]
+            )
+
+            generator.add(f"{name_prefix}spaceTimePredictor", kernels, target=target)
+
+            evaluateDOFSAtTimeSTP = (
+                QAtTimeSTP["kp"]
+                <= spaceTimePredictor["kpt"] * timeBasisFunctionsAtPoint["t"]
+            )
+            generator.add(
+                f"{name_prefix}evaluateDOFSAtTimeSTP",
+                evaluateDOFSAtTimeSTP,
+                target=target,
+            )
 
         # Test to see if the kernel actually solves the system of equations
         # This part is not used in the time kernel, but for unit testing
@@ -280,21 +316,6 @@ class PoroelasticADERDG(LinearADERDG):
                 * spaceTimePredictor["mqu"]
             )
         generator.add("stpTestRhs", testRhs["lou"] <= rhs)
-
-        QAtTimeSTP = OptionalDimTensor(
-            "QAtTimeSTP",
-            self.Q.optName(),
-            self.Q.optSize(),
-            self.Q.optPos(),
-            self.Q.shape(),
-            alignStride=True,
-        )
-        timeBasisFunctionsAtPoint = Tensor("timeBasisFunctionsAtPoint", (self.order,))
-        evaluateDOFSAtTimeSTP = (
-            QAtTimeSTP["kp"]
-            <= spaceTimePredictor["kpt"] * timeBasisFunctionsAtPoint["t"]
-        )
-        generator.add("evaluateDOFSAtTimeSTP", evaluateDOFSAtTimeSTP)
 
     def add_include_tensors(self, include_tensors):
         super().add_include_tensors(include_tensors)

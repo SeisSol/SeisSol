@@ -22,11 +22,10 @@ struct Wp {
   enum struct Id : size_t {
     Dofs = 0,
     Idofs,
-    Star,
+    LocalIntegrationData,
+    NeighborIntegrationData,
     Buffers,
     Derivatives,
-    AplusT,
-    AminusT,
     Godunov,
     FluxSolver,
     Ivelocities, // 6th, 7the and 8th columns of Idofs
@@ -39,6 +38,13 @@ struct Wp {
     Tinv,
     EasiBoundaryMap,
     EasiBoundaryConstant,
+    Stp,
+    StpRhs,
+    IdofsAne,
+    DofsAne,
+    DofsExt,
+    DerivativesAne,
+    DerivativesExt,
     Analytical,
     Count
   };
