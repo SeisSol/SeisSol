@@ -51,11 +51,13 @@ void DeltaSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
   auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta* const>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);
+  godunovData = layerData.var(concreteLts->godunovData);
 }
 
 real DeltaSTF::evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex) {
   // Currently, the delta pulse is normalized in time equivalent to FL33 and FL34
-  return deltaPulse::deltaPulse(currentTime - onsetTime[ltsFace][pointIndex], timeIncrement);
+  const double surfaceArea = godunovData[ltsFace].doubledSurfaceArea * 0.5;
+  return deltaPulse::deltaPulse(currentTime - onsetTime[ltsFace][pointIndex], timeIncrement, surfaceArea);
 }
 
 } // namespace seissol::dr::friction_law

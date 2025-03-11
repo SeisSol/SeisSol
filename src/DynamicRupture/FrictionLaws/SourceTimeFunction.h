@@ -41,6 +41,7 @@ class GaussianSTF {
 class DeltaSTF {
   private:
   real (*onsetTime)[misc::NumPaddedPoints];
+  DRGodunovData* godunovData;
 
   public:
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
