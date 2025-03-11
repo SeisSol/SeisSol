@@ -112,12 +112,10 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    * currently only for linear slip weakening
    */
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx) {
-    const auto fullUpdateTime{ctx.data->mFullUpdateTime};
-
     if (ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
         std::fabs(ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex]) >=
             ctx.data->dC[ctx.ltsFace][ctx.pointIndex]) {
-      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = fullUpdateTime;
+      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = ctx.fullUpdateTime;
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }
@@ -186,7 +184,7 @@ class LinearSlipWeakeningLaw
   SEISSOL_DEVICE static void calcStateVariableHook(FrictionLawContext& ctx,
                                                    unsigned int timeIndex) {
     const auto deltaT{ctx.data->deltaT[timeIndex]};
-    const real tn{ctx.data->mFullUpdateTime + deltaT};
+    const real tn{ctx.fullUpdateTime + deltaT};
     const auto t0{ctx.data->drParameters.t0};
     const auto tpProxyExponent{ctx.data->drParameters.tpProxyExponent};
 

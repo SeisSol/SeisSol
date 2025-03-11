@@ -23,7 +23,6 @@ struct FrictionLawData {
 
   const ImpedancesAndEta* __restrict impAndEta{};
   const ImpedanceMatrices* __restrict impedanceMatrices{};
-  real mFullUpdateTime{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
   const real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints]{};
@@ -126,7 +125,6 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
     data->imposedStateMinus = layerData.var(dynRup->imposedStateMinus, place);
     data->energyData = layerData.var(dynRup->drEnergyOutput, place);
     data->godunovData = layerData.var(dynRup->godunovData, place);
-    data->mFullUpdateTime = fullUpdateTime;
     data->dynStressTime = layerData.var(dynRup->dynStressTime, place);
     data->dynStressTimePending = layerData.var(dynRup->dynStressTimePending, place);
     data->qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus, place);
