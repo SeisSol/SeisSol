@@ -73,6 +73,18 @@ inline void printMPIUSMInfo() {
 }
 #endif
 
+inline bool concurrentClusters() { return utils::Env::get<bool>("SEISSOL_CONCURRENT", true); }
+
+template <typename T>
+void printConcurrentClusters(const T& mpiBasic) {
+  if (concurrentClusters()) {
+    logInfo(mpiBasic.rank()) << "Running with concurrent clusters. If you run out of memory, "
+                                "consider disabling this option (`SEISSOL_CONCURRENT=0`).";
+  } else {
+    logInfo(mpiBasic.rank()) << "Running with sequential clusters.";
+  }
+}
+
 } // namespace seissol
 
 #endif // SEISSOL_SRC_PARALLEL_HELPER_H_
