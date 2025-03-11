@@ -22,7 +22,7 @@ struct MaterialSetup<HighOrderMaterial<BaseMaterialT, Order>> {
     real starMData[seissol::tensor::starM::size()]{};
     auto starM = seissol::init::starM::view::create(starMData);
     for (std::size_t i = 0; i < MaterialT::Samples3D; ++i) {
-      auto subM = starM.subtensor(i, yateto::slice<>(), yateto::slice<>());
+      auto subM = starM.subtensor(yateto::slice<>(), i, yateto::slice<>());
       ::seissol::model::getTransposedCoefficientMatrix<BaseMaterialT>(
           material.materials[i], dim, subM);
     }
@@ -44,8 +44,8 @@ struct MaterialSetup<HighOrderMaterial<BaseMaterialT, Order>> {
     auto godLocalM = seissol::init::godLocalM::view::create(godLocalMData);
     auto godNeighborM = seissol::init::godNeighborM::view::create(godNeighborMData);
     for (std::size_t i = 0; i < MaterialT::Samples3D; ++i) {
-      auto subLocal = godLocalM.subtensor(i, yateto::slice<>(), yateto::slice<>());
-      auto subNeighbor = godNeighborM.subtensor(i, yateto::slice<>(), yateto::slice<>());
+      auto subLocal = godLocalM.subtensor(yateto::slice<>(), i, yateto::slice<>());
+      auto subNeighbor = godNeighborM.subtensor(yateto::slice<>(), i, yateto::slice<>());
       ::seissol::model::getTransposedGodunovState<BaseMaterialT>(
           local.materials[i], neighbor.materials[i], faceType, subLocal, subNeighbor);
     }

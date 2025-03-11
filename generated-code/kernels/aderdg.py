@@ -292,11 +292,12 @@ class ADERDGBase(ABC):
         include_tensors.add(self.db.samplingDirections)
         include_tensors.add(self.db.M2inv)
 
-    def m(self, indices):
+    def m(self, indices, index="M"):
         if self.materialorder is None:
             return indices
         else:
-            return "M" + indices
+            assert len(indices) == 2
+            return indices[0] + index + indices[1]
 
     def mt(self, indices):
         return self.m(self.t(indices))
@@ -310,13 +311,22 @@ class ADERDGBase(ABC):
         if self.materialorder is not None:
             if isinstance(matrix, Tensor):
                 # cf. https://stackoverflow.com/a/22635561
-                newspp = np.array([matrix.spp().as_ndarray()] * self.materialdim())
+                newspp = np.array(
+                    [matrix.spp().as_ndarray()] * self.materialdim()
+                ).transpose((1, 0, 2))
 
                 return Tensor(matrix.name(), shape=newspp.shape, spp=newspp)
             else:
-                return np.array([matrix] * self.materialdim())
+                return np.array([matrix] * self.materialdim()).transpose((1, 0, 2))
         else:
             return matrix
+
+    def modshape(self, shape, xdim):
+        if self.materialorder is not None:
+            assert len(shape) == 3
+            return tuple([shape[0]] + [xdim] + [shape[2]])
+        else:
+            return shape
 
 
 class LinearADERDG(ADERDGBase):

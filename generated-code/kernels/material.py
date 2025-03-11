@@ -33,24 +33,30 @@ def addKernels(
     numberOfNodes = db.homproject.shape()[1]
 
     starM = Tensor(
-        "starM", shape=tuple([numberOfNodes] + list(aderdg.starMatrix(0).shape())[1:])
+        "starM",
+        shape=aderdg.modshape(aderdg.starMatrix(0).shape(), numberOfNodes),
     )
     godLocalM = Tensor(
-        "godLocalM", shape=tuple([numberOfNodes] + list(aderdg.QgodLocal.shape())[1:])
+        "godLocalM",
+        shape=aderdg.modshape(aderdg.QgodLocal.shape(), numberOfNodes),
     )
     godNeighborM = Tensor(
         "godNeighborM",
-        shape=tuple([numberOfNodes] + list(aderdg.QgodNeighbor.shape())[1:]),
+        shape=aderdg.modshape(aderdg.QgodNeighbor.shape(), numberOfNodes),
     )
 
     generator.add(
-        "homStar", aderdg.starMatrix(0)["Mij"] <= db.homproject["MK"] * starM["Kij"]
+        "homStar",
+        aderdg.starMatrix(0)[aderdg.m("ij")]
+        <= db.homproject["MK"] * starM[aderdg.m("ij", "K")],
     )
     generator.add(
         "homFluxsolver",
         [
-            aderdg.QgodLocal["Mij"] <= db.homproject["MK"] * godLocalM["Kij"],
-            aderdg.QgodNeighbor["Mij"] <= db.homproject["MK"] * godNeighborM["Kij"],
+            aderdg.QgodLocal[aderdg.m("ij")]
+            <= db.homproject["MK"] * godLocalM[aderdg.m("ij", "K")],
+            aderdg.QgodNeighbor[aderdg.m("ij")]
+            <= db.homproject["MK"] * godNeighborM[aderdg.m("ij", "K")],
         ],
     )
 

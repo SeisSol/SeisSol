@@ -263,7 +263,8 @@ class Viscoelastic2ADERDG(ADERDGBase):
             generator.add(f"{name_prefix}volumeExt", volumeExt, target=target)
 
             plusFluxMatrixAccessor = (
-                lambda i: self.db.rDivM[i][self.mt("km")] * self.db.fMrT[i][self.t("ml")]
+                lambda i: self.db.rDivM[i][self.mt("km")]
+                * self.db.fMrT[i][self.t("ml")]
             )
             if self.kwargs["enable_premultiply_flux"] and target == "gpu":
                 contractionResult = tensor_collection_from_constant_expression(
@@ -330,7 +331,9 @@ class Viscoelastic2ADERDG(ADERDGBase):
             neighborFluxExt = (
                 lambda h, j, i: self.Qext["kp"]
                 <= self.Qext["kp"]
-                + minusFluxMatrixAccessor(h, j, i) * self.I["lq"] * self.AminusT[self.m("qp")]
+                + minusFluxMatrixAccessor(h, j, i)
+                * self.I["lq"]
+                * self.AminusT[self.m("qp")]
             )
             neighborFluxExtPrefetch = lambda h, j, i: self.I
             generator.addFamily(
