@@ -21,8 +21,6 @@
 
 namespace seissol::kernels {
 
-constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
-
 class DynamicRupture {
   private:
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;

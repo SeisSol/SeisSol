@@ -20,6 +20,8 @@
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters//SeisSolParameters.h"
 
+#include "Parallel/MPI.h"
+
 namespace {
 
 double
