@@ -128,11 +128,6 @@ void DynamicRupture::spaceTimeInterpolation(
                 "The tensors Q and I need to match in size");
 #endif
 
-#ifdef MULTIPLE_SIMULATIONS
-  // TODO: Find a better solution here
-  logError() << "The Dynamic Rupture does not work yet with multiple simulations";
-#endif
-
   alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
   alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
 

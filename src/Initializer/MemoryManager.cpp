@@ -8,6 +8,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
+#include <Solver/MultipleSimulations.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -464,6 +465,12 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
 
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
+
+  if constexpr (multisim::MultisimEnabled) {
+    if (m_dynRupTree.getNumberOfCells() > 0) {
+      logError() << "The dynamic rupture does not yet support fused simulations.";
+    }
+  }
 
 #ifdef ACL_DEVICE
   MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree, *m_dynRup.get());
