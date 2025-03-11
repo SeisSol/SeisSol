@@ -138,8 +138,8 @@ easi::Query ElementBarycenterGenerator::generate() const {
 easi::Query ElementInterpolationGenerator::generate() const {
   easi::Query query(m_cellToVertex.size * seissol::init::hompoints::Shape[0], 3);
 
-  const auto pointview =
-      seissol::init::hompoints::view::create(const_cast<double*>(seissol::init::hompoints::Values));
+  auto pointview =
+      seissol::init::hompoints::view::create(const_cast<real*>(seissol::init::hompoints::Values));
 
 #pragma omp parallel for schedule(static)
   for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {

@@ -127,7 +127,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                                          normalStress,
                                                                          absoluteShearStress,
                                                                          localSlipRateMagnitude,
-                                                                         localImpAndEta.invEtaS,
+                                                                         localImpAndEta.invEtaS(ctx.pointIndex),
                                                                          exportMu,
                                                                          settings);
       deviceBarrier(ctx);
