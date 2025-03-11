@@ -141,7 +141,7 @@ template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
     const ImpedancesAndEta<model::MaterialT::VaryingWavespeeds>& impAndEta,
-    const ImpedanceMatrices<model::MaterialT::VaryingWavespeeds>& impedanceMatrices,
+    const ImpedanceMatrices& impedanceMatrices,
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
@@ -283,7 +283,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     const FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
     const TractionResults<RangeExecutor<Type>::Exec>& tractionResults,
     const ImpedancesAndEta<model::MaterialT::VaryingWavespeeds>& impAndEta,
-    const ImpedanceMatrices<model::MaterialT::VaryingWavespeeds>& impedanceMatrices,
+    const ImpedanceMatrices& impedanceMatrices,
     real imposedStatePlus[tensor::QInterpolated::size()],
     real imposedStateMinus[tensor::QInterpolated::size()],
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],

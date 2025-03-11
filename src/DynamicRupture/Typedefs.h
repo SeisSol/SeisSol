@@ -115,45 +115,10 @@ struct ImpedancesAndEta<true> {
  * Stores the impedance matrices for an element and its neighbor for a poroelastic material.
  * This generalizes equation (4.51) from Carsten's thesis
  */
-template <bool Pointwise>
-struct ImpedanceMatrices;
-
-template <>
-struct ImpedanceMatrices<false> {
-  alignas(Alignment) real impedance_[tensor::Zplus::size()] = {};
-  alignas(Alignment) real impedanceNeig_[tensor::Zminus::size()] = {};
-  alignas(Alignment) real eta_[tensor::eta::size()] = {};
-#pragma omp declare simd
-  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr const real* __restrict impedance(int index) const {
-    return impedance_;
-  }
-#pragma omp declare simd
-  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr const real* __restrict impedanceNeig(int index) const {
-    return impedanceNeig_;
-  }
-#pragma omp declare simd
-  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr const real* __restrict eta(int index) const {
-    return eta_;
-  }
-};
-
-template <>
-struct ImpedanceMatrices<true> {
-  alignas(Alignment) PointData<real[tensor::Zplus::size()]> impedance_ = {};
-  alignas(Alignment) PointData<real[tensor::Zminus::size()]> impedanceNeig_ = {};
-  alignas(Alignment) PointData<real[tensor::eta::size()]> eta_ = {};
-#pragma omp declare simd
-  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr const real* __restrict impedance(int index) const {
-    return impedance_[index];
-  }
-#pragma omp declare simd
-  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr const real* __restrict impedanceNeig(int index) const {
-    return impedanceNeig_[index];
-  }
-#pragma omp declare simd
-  [[nodiscard]] SEISSOL_HOSTDEVICE constexpr const real* __restrict eta(int index) const {
-    return eta_[index];
-  }
+struct ImpedanceMatrices {
+  alignas(Alignment) real impedance[tensor::Zplus::size()]{};
+  alignas(Alignment) real impedanceNeig[tensor::Zminus::size()]{};
+  alignas(Alignment) real eta[tensor::eta::size()]{};
 };
 
 template <bool Pointwise>

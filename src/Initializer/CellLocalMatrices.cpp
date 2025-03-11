@@ -38,8 +38,6 @@
 #include <cassert>
 #include <complex>
 #include <cstddef>
-#include <equation-elastic-6-double/init.h>
-#include <equation-elastic-6-double/kernel.h>
 #include <generated_code/init.h>
 #include <limits>
 #include <utils/logger.h>

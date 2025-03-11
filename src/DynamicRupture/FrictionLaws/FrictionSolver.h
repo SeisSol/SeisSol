@@ -64,7 +64,7 @@ class FrictionSolver {
 
   seissol::initializer::parameters::DRParameters* drParameters;
   ImpedancesAndEta<model::MaterialT::VaryingWavespeeds>* impAndEta{};
-  ImpedanceMatrices<model::MaterialT::VaryingWavespeeds>* impedanceMatrices{};
+  ImpedanceMatrices* impedanceMatrices{};
   real mFullUpdateTime{};
   // CS = coordinate system
   real (*initialStressInFaultCS)[misc::NumPaddedPoints][6]{};

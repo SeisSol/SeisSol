@@ -46,7 +46,7 @@ struct DynamicRupture {
   Variable<DREnergyOutput> drEnergyOutput;
 
   Variable<seissol::dr::ImpedancesAndEta<model::MaterialT::VaryingWavespeeds>> impAndEta;
-  Variable<seissol::dr::ImpedanceMatrices<model::MaterialT::VaryingWavespeeds>> impedanceMatrices;
+  Variable<seissol::dr::ImpedanceMatrices> impedanceMatrices;
   // size padded for vectorization
   // CS = coordinate system
   Variable<real[dr::misc::NumPaddedPoints][6]> initialStressInFaultCS;
