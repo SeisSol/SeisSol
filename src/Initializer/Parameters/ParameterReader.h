@@ -16,8 +16,6 @@
 #include <utils/stringutils.h>
 #include <yaml-cpp/yaml.h>
 
-#include "Parallel/MPI.h"
-
 namespace seissol::initializer::parameters {
 
 // converts a string to lower case, and trims it.
