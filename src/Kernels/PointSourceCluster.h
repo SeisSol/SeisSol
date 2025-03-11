@@ -14,8 +14,7 @@
 #include "Numerical/Functions.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
-
-#include <Initializer/MemoryAllocator.h>
+#include <Memory/MemoryAllocator.h>
 #include <Solver/MultipleSimulations.h>
 #include <init.h>
 

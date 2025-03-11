@@ -24,10 +24,7 @@ struct SeisSolParameters;
 } // namespace parameters
 
 GlobalTimestep
-    computeTimesteps(double cfl,
-                     double maximumAllowedTimeStep,
-                     const std::string& velocityModel,
-                     const seissol::initializer::CellToVertexArray& cellToVertex,
+    computeTimesteps(const seissol::initializer::CellToVertexArray& cellToVertex,
                      const seissol::initializer::parameters::SeisSolParameters& seissolParams);
 } // namespace seissol::initializer
 

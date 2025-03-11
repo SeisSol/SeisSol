@@ -21,6 +21,7 @@ struct Summary {
   double min;
   double median;
   double max;
+  double sum;
 };
 
 auto parallelSummary(double value) -> Summary;

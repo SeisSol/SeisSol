@@ -38,7 +38,8 @@ struct FlopCounter {
 
   private:
   std::ofstream out;
-  long long previousTotalFlops = 0;
+  long long previousTotalHWFlops = 0;
+  long long previousTotalNZFlops = 0;
   double previousWallTime = 0;
   // global variables for summing-up SeisSol internal counters
   long long nonZeroFlopsLocal = 0;

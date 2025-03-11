@@ -86,11 +86,7 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
   seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator.data());
   seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities>
       eigendecomposition;
-#ifdef USE_POROELASTIC
-  computeEigenvaluesWithLapack(planeWaveOperator, eigendecomposition);
-#else
-  computeEigenvaluesWithEigen3(planeWaveOperator, eigendecomposition);
-#endif
+  computeEigenvalues(planeWaveOperator, eigendecomposition);
   m_lambdaA = eigendecomposition.values;
   m_eigenvectors = eigendecomposition.vectors;
 }
