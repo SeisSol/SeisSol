@@ -30,7 +30,7 @@ void RateAndStateInitializer::initializeFault(
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
 
-    bool(*dynStressTimePending)[misc::NumPaddedPoints] =
+    bool (*dynStressTimePending)[misc::NumPaddedPoints] =
         layer.var(concreteLts->dynStressTimePending);
     real(*slipRate1)[misc::NumPaddedPoints] = layer.var(concreteLts->slipRate1);
     real(*slipRate2)[misc::NumPaddedPoints] = layer.var(concreteLts->slipRate2);

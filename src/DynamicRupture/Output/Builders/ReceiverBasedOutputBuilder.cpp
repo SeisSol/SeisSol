@@ -153,7 +153,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
         for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
           const auto& array3d = ghostMetadataItr->second[neighborIndex].vertices[vertexIdx];
           auto* data = const_cast<double*>(array3d);
-          neighborElemCoords[vertexIdx] = reinterpret_cast<double(*)[3]>(data);
+          neighborElemCoords[vertexIdx] = reinterpret_cast<double (*)[3]>(data);
         }
       }
 

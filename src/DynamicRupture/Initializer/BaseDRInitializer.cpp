@@ -251,7 +251,7 @@ void BaseDRInitializer::addAdditionalParameters(
 void BaseDRInitializer::initializeOtherVariables(
     const seissol::initializer::DynamicRupture* const dynRup, seissol::initializer::Layer& layer) {
   // initialize rupture front flag
-  bool(*ruptureTimePending)[misc::NumPaddedPoints] = layer.var(dynRup->ruptureTimePending);
+  bool (*ruptureTimePending)[misc::NumPaddedPoints] = layer.var(dynRup->ruptureTimePending);
   for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
     for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       ruptureTimePending[ltsFace][pointIndex] = true;
