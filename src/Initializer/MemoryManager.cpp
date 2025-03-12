@@ -8,6 +8,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
+#include <Solver/MultipleSimulations.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -174,14 +175,6 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
 
 #ifdef USE_MPI
 void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
-  // reset mpi requests
-  for( unsigned int l_cluster = 0; l_cluster < m_ltsTree.numChildren(); l_cluster++ ) {
-    for( unsigned int l_region = 0; l_region < m_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
-      m_meshStructure[l_cluster].sendRequests[l_region] = MPI_REQUEST_NULL;
-      m_meshStructure[l_cluster].receiveRequests[l_region] = MPI_REQUEST_NULL;
-    }
-  }
-
 #ifdef ACL_DEVICE
   const auto allocationPlace = seissol::initializer::AllocationPlace::Device;
 #else
@@ -464,6 +457,12 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
 
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
+
+  if constexpr (multisim::MultisimEnabled) {
+    if (m_dynRupTree.getNumberOfCells() > 0) {
+      logError() << "The dynamic rupture does not yet support fused simulations.";
+    }
+  }
 
 #ifdef ACL_DEVICE
   MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree, *m_dynRup.get());

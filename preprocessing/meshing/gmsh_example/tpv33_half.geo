@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
 lc= 5000;
 lc_fault = 100;
 

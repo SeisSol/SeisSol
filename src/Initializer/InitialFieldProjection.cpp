@@ -27,6 +27,8 @@
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Lut.h>
 #include <Physics/InitialField.h>
+#include <Solver/MultipleSimulations.h>
+
 #include <array>
 #include <cstddef>
 #include <easi/Query.h>
@@ -54,6 +56,8 @@
 #else
 #include <utils/logger.h>
 #endif
+
+#include <Solver/MultipleSimulations.h>
 
 GENERATE_HAS_MEMBER(selectAneFull)
 GENERATE_HAS_MEMBER(selectElaFull)
@@ -158,14 +162,10 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       }
 
       const CellMaterialData& material = ltsLut.lookup(lts.material, meshId);
-#ifdef MULTIPLE_SIMULATIONS
-      for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-        auto sub = iniCond.subtensor(s, yateto::slice<>(), yateto::slice<>());
+      for (int s = 0; s < multisim::NumSimulations; ++s) {
+        auto sub = multisim::simtensor(iniCond, s);
         iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, material, sub);
       }
-#else
-    iniFields[0]->evaluate(0.0, quadraturePointsXyz, material, iniCond);
-#endif
 
       krnl.Q = ltsLut.lookup(lts.dofs, meshId);
       if constexpr (kernels::HasSize<tensor::Qane>::Value) {
@@ -286,9 +286,13 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
 #endif
     for (unsigned int meshId = 0; meshId < elements.size(); ++meshId) {
       // TODO: multisim loop
-      for (std::size_t i = 0; i < NumQuadPoints; ++i) {
-        for (std::size_t j = 0; j < quantityCount; ++j) {
-          iniCond(i, j) = data.at(meshId * dataStride + quantityCount * i + j);
+
+      for (std::size_t s = 0; s < seissol::multisim::NumSimulations; s++) {
+        auto sub = multisim::simtensor(iniCond, s);
+        for (std::size_t i = 0; i < NumQuadPoints; ++i) {
+          for (std::size_t j = 0; j < quantityCount; ++j) {
+            sub(i, j) = data.at(meshId * dataStride + quantityCount * i + j);
+          }
         }
       }
 
