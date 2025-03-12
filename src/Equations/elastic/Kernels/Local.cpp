@@ -20,6 +20,7 @@
 #include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Physics/InitialField.h>
+#include <Solver/MultipleSimulations.h>
 #include <cstddef>
 #include <generated_code/init.h>
 #include <generated_code/kernel.h>
@@ -99,16 +100,20 @@ struct ApplyAnalyticalSolution {
 
     auto nodesVec = std::vector<std::array<double, 3>>{};
     int offset = 0;
-    for (unsigned int i = 0; i < seissol::tensor::INodal::Shape[0]; ++i) {
-      auto curNode = std::array<double, 3>{};
-      curNode[0] = nodes[offset++];
-      curNode[1] = nodes[offset++];
-      curNode[2] = nodes[offset++];
-      nodesVec.push_back(curNode);
-    }
+    for (unsigned int s = 0; s < multisim::NumSimulations; ++s) {
+      auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
 
-    assert(initCondition != nullptr);
-    initCondition->evaluate(time, nodesVec, localData.material(), boundaryDofs);
+      for (unsigned int i = 0; i < seissol::tensor::INodal::Shape[0]; ++i) {
+        auto curNode = std::array<double, 3>{};
+        curNode[0] = nodes[offset++];
+        curNode[1] = nodes[offset++];
+        curNode[2] = nodes[offset++];
+        nodesVec.push_back(curNode);
+      }
+
+      assert(initCondition != nullptr);
+      initCondition->evaluate(time, nodesVec, localData.material(), slicedBoundaryDofs);
+    }
   }
 
   private:
@@ -172,14 +177,21 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       auto applyFreeSurfaceBc =
           [&displacement, &materialData, &localG](const real*, // nodes are unused
                                                   init::INodal::view::type& boundaryDofs) {
-            for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-              const double rho = materialData->local.rho;
-              assert(localG > 0);
-              const double pressureAtBnd = -1 * rho * localG * displacement(i);
+            for (unsigned int s = 0; s < multisim::NumSimulations; ++s) {
+              auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
+              auto slicedDisplacement = multisim::simtensor(displacement, s);
 
-              boundaryDofs(i, 0) = 2 * pressureAtBnd - boundaryDofs(i, 0);
-              boundaryDofs(i, 1) = 2 * pressureAtBnd - boundaryDofs(i, 1);
-              boundaryDofs(i, 2) = 2 * pressureAtBnd - boundaryDofs(i, 2);
+              for (unsigned int i = 0;
+                   i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
+                   ++i) {
+                const double rho = materialData->local.rho;
+                assert(localG > 0);
+                const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);
+
+                slicedBoundaryDofs(i, 0) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 0);
+                slicedBoundaryDofs(i, 1) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 1);
+                slicedBoundaryDofs(i, 2) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 2);
+              }
             }
           };
 

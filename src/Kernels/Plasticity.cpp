@@ -45,6 +45,10 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                                        const seissol::model::PlasticityData* plasticityData,
                                        real degreesOfFreedom[tensor::Q::size()],
                                        real* pstrain) {
+#ifdef MULTIPLE_SIMULATIONS
+  // Todo(SW) find a better solution here
+  logError() << "Plasticity does not work with multiple simulations";
+#else
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
@@ -121,7 +125,7 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   bool adjust = false;
   for (unsigned ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
     // Compute yield := (t_c / tau - 1) r for every node,
-    // where r = 1 - exp(-timeStepWidth / T_v)
+    // where r = 1 - exp(-timeStepWidth / tV)
     if (tau[ip] > taulim[ip]) {
       adjust = true;
       yieldFactor[ip] = (taulim[ip] / tau[ip] - 1.0) * oneMinusIntegratingFactor;
@@ -159,7 +163,7 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
       /**
        * Equation (10) from Wollherr et al.:
        *
-       * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu T_v)
+       * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu tV)
        *
        * where (11)
        *
@@ -168,14 +172,14 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
        *
        * Thus,
        *
-       * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu T_v) s_{ij}   if     tau >= taulim
+       * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu tV) s_{ij}   if     tau >= taulim
        *                    { 0                                    else
        *
        * Consider tau >= taulim first. We have (1 - tau_c/tau) = -yield / r. Therefore,
        *
-       * d/dt strain_{ij} = -1 / (2mu T_v r) yield s_{ij}
-       *                  = -1 / (2mu T_v r) (sigmaNew_{ij} - sigma_{ij})
-       *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu T_v r)
+       * d/dt strain_{ij} = -1 / (2mu tV r) yield s_{ij}
+       *                  = -1 / (2mu tV r) (sigmaNew_{ij} - sigma_{ij})
+       *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu tV r)
        *
        * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
        */
@@ -228,7 +232,7 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     }
     return 1;
   }
-
+#endif
   return 0;
 }
 
@@ -416,7 +420,6 @@ unsigned Plasticity::computePlasticityBatched(
   } else {
     return 0;
   }
-
 #else
   logError() << "No GPU implementation provided";
   return 0;

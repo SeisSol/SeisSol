@@ -11,19 +11,12 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 #define SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
-
 #include "CellLocalInformation.h"
 #include "BasicTypedefs.h"
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
-#include "Initializer/PreProcessorMacros.h"
-#include "Kernels/Common.h"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
 #include <complex>
@@ -31,6 +24,10 @@
 #include <vector>
 
 namespace seissol {
+
+namespace kernels {
+constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
+} // namespace kernels
 
 // cross-cluster time stepping information
 struct TimeStepping {
@@ -146,19 +143,6 @@ struct MeshStructure {
    * Message identifiers for the receives.
    */
   int *receiveIdentifiers;
-
-#ifdef USE_MPI
-  /*
-   * MPI send requests.
-   */
-  MPI_Request *sendRequests;
-
-  /*
-   * MPI receive requests.
-   */
-  MPI_Request *receiveRequests;
-#endif
-
 };
 
 struct GlobalData {  

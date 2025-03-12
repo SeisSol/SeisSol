@@ -8,6 +8,8 @@
 #include "CubeGeneratorParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>
 
+#include "Parallel/MPI.h"
+
 namespace seissol::initializer::parameters {
 
 CubeGeneratorParameters readCubeGeneratorParameters(ParameterReader* baseReader) {

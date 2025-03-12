@@ -2,6 +2,7 @@ function signal2 = decon_con(wavelet1,signal1,wavelet2,dt,cf_left,cf_right)
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @section LICENSE
 % Copyright (c) SeisSol Group

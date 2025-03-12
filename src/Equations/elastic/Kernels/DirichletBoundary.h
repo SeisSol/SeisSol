@@ -17,6 +17,8 @@
 #include "Numerical/Quadrature.h"
 #include <Parallel/Runtime/Stream.h>
 
+#include "Solver/MultipleSimulations.h"
+
 #ifdef ACL_DEVICE
 #include "Equations/elastic/Kernels/DeviceAux/KernelsAux.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
@@ -67,7 +69,8 @@ class DirichletBoundary {
 
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
 
-    static_assert(nodal::tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
+    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
+                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
                   "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
@@ -152,7 +155,8 @@ class DirichletBoundary {
     // TODO(Lukas) Implement functions which depend on the interior values...
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
 
-    static_assert(nodal::tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
+    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
+                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
                   "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);

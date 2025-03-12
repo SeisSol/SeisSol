@@ -16,6 +16,7 @@
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -103,17 +104,16 @@ void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point)
     file << "TITLE = \"Temporal Signal for receiver number " << std::setfill('0') << std::setw(5)
          << (pointId + 1) << "\"" << std::endl;
     file << "VARIABLES = \"Time\"";
-#ifdef MULTIPLE_SIMULATIONS
-    for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
+
+    for (unsigned sim = seissol::multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
       for (const auto& name : names) {
-        file << ",\"" << name << sim << "\"";
+        if constexpr (seissol::multisim::MultisimEnabled) {
+          file << ",\"" << name << sim << "\"";
+        } else {
+          file << ",\"" << name << "\"";
+        }
       }
     }
-#else
-    for (auto const& name : names) {
-      file << ",\"" << name << "\"";
-    }
-#endif
     file << std::endl;
     for (int d = 0; d < 3; ++d) {
       file << "# x" << (d + 1) << "       " << std::scientific << std::setprecision(12) << point[d]

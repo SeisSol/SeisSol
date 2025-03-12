@@ -39,6 +39,7 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Physics/InitialField.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 
 namespace seissol::writer {
 
@@ -117,13 +118,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   double quadratureWeights[NumQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 
-#ifdef MULTIPLE_SIMULATIONS
-  constexpr unsigned multipleSimulations = MULTIPLE_SIMULATIONS;
-#else
-  constexpr unsigned MultipleSimulations = 1;
-#endif
-
-  for (unsigned sim = 0; sim < MultipleSimulations; ++sim) {
+  for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
     logInfo() << "Analysis for simulation" << sim << ": absolute, relative";
     logInfo() << "--------------------------";
 
@@ -222,11 +217,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         }
       }
 
-#ifdef MULTIPLE_SIMULATIONS
-      auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
-#else
-      auto numSub = numericalSolution;
-#endif
+      auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
 
       // Evaluate numerical solution at quad. nodes
       kernel::evalAtQP krnl;

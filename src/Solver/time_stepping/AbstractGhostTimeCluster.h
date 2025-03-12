@@ -12,12 +12,16 @@
 #include "Initializer/Typedefs.h"
 #include "AbstractTimeCluster.h"
 
+#include "Parallel/MPI.h"
+
 namespace seissol::time_stepping {
 class AbstractGhostTimeCluster : public AbstractTimeCluster {
   protected:
   const int globalClusterId;
   const int otherGlobalClusterId;
   const MeshStructure* meshStructure;
+  std::vector<MPI_Request> sendRequests;
+  std::vector<MPI_Request> recvRequests;
   std::list<unsigned int> sendQueue;
   std::list<unsigned int> receiveQueue;
 

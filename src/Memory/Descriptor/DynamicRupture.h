@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_
 
 #include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Typedefs.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Tree/LTSTree.h"
