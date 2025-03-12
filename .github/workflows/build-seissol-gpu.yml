@@ -57,9 +57,9 @@ jobs:
           - type: anisotropic
             multisim: 1
             mechanisms: 0
-          #- type: elastic
-          #  multisim: 8
-          #  mechanisms: 0
+          - type: elastic
+            multisim: 32
+            mechanisms: 0
         precision:
           - single
           - double
@@ -118,7 +118,7 @@ jobs:
         run: |
           mkdir build && cd build
 
-          if [ "${{ matrix.equation }}" = viscoelastic2 ] || [ "${{ matrix.equation }}" = poroelastic ]; then
+          if [ "${{ matrix.equation.type }}" = viscoelastic2 ] || [ "${{ matrix.equation.type }}" = poroelastic ] || [ "${{ matrix.equation.multisim }}" != 1 ]; then
               if [ "${{ matrix.setup.cc }}" = icx ]; then
                   # the Intel image still works with an older Python version
                   pip install git+https://github.com/seissol/tensorforge@develop
@@ -283,12 +283,12 @@ jobs:
             energies: true
             receivers: true
             fault: true
-          #- name: tpvloh1-fused
-          #  equation: elastic
-          #  multisim: 8
-          #  energies: true
-          #  receivers: true
-          #  fault: true
+          - name: tpvloh1-fused
+            equation: elastic
+            multisim: 8
+            energies: true
+            receivers: true
+            fault: true
         precision:
           - single
         order:
