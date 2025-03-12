@@ -1,6 +1,10 @@
-# SPDX-FileCopyrightText: 2024 Technical University of Munich
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 import argparse
 import datetime
@@ -111,11 +115,13 @@ def licenseHeader(authorspans, authors, commentstyle="//"):
     alines = []
     for author in authors:
         alines += [f"{commentstyle} SPDX-FileContributor: {author}"]
+
+    # NOTE: the escaped SPDX is needed to make the REUSE linter happy
     return (
         crlines
         + [
             f"{commentstyle}",
-            f"{commentstyle} SPDX-License-Identifier: {Settings.LICENSE}",
+            f"{commentstyle} {'SPDX'}-License-Identifier: {Settings.LICENSE}",
             f"{commentstyle} SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/",
             f"{commentstyle}",
             f"{commentstyle} SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff",
