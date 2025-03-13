@@ -628,24 +628,27 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
       int difference = maxDifference;
       const int otherTimeCluster = ghost[ex][n];
 
-      int cellIds[2];
-      PUML::Upward::cells(*m_mesh, faces[exchange.second[n]], cellIds);
+      int cellIds[2]{};
+      PUML::Upward::cells(*m_mesh, faces.at(exchange.second[n]), cellIds);
       const int cell = (cellIds[0] >= 0) ? cellIds[0] : cellIds[1];
 
-      unsigned int faceids[4];
+      unsigned int faceids[4]{};
       PUML::Downward::faces(*m_mesh, cells[cell], faceids);
       unsigned f = 0;
-      for (; f < 4 && static_cast<int>(faceids[f]) != exchange.second[n]; ++f) {
+      while (f < 4 && static_cast<int>(faceids[f]) != exchange.second[n]) {
+        ++f;
       }
-      assert(f != 4);
+      if (f == 4) {
+        logError() << "Internal error (associated face not found).";
+      }
 
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
       if (boundary == FaceType::DynamicRupture) {
         difference = 0;
       }
 
-      if (m_clusterIds[cell] > otherTimeCluster + difference) {
-        m_clusterIds[cell] = otherTimeCluster + difference;
+      if (idData[cell] > otherTimeCluster + difference) {
+        idData[cell] = otherTimeCluster + difference;
         ++numberOfReductions;
       }
     }
