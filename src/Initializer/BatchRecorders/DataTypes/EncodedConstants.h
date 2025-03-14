@@ -40,6 +40,7 @@ struct Wp {
     EasiBoundaryMap,
     EasiBoundaryConstant,
     Analytical,
+    Global,
     Count
   };
 };
@@ -58,6 +59,7 @@ struct Dr {
     QInterpolatedPlus,
     QInterpolatedMinus,
     TinvT,
+    Global,
     Count
   };
 };
