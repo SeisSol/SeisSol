@@ -71,9 +71,9 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
-      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][3][pointIndex] +
                                   faultStresses.traction1[timeIndex][pointIndex];
-      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][5][pointIndex] +
                                   faultStresses.traction2[timeIndex][pointIndex];
       const real absoluteTraction = misc::magnitude(totalTraction1, totalTraction2);
 
@@ -154,7 +154,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate fault strength (Uphoff eq 2.44) with addition cohesion term
-      const real totalNormalStress = this->initialStressInFaultCS[ltsFace][pointIndex][0] +
+      const real totalNormalStress = this->initialStressInFaultCS[ltsFace][0][pointIndex] +
                                      faultStresses.normalStress[timeIndex][pointIndex] +
                                      this->initialPressure[ltsFace][pointIndex] +
                                      faultStresses.fluidPressure[timeIndex][pointIndex];
@@ -211,11 +211,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   protected:
-  real (*dC)[misc::NumPaddedPoints]{};
-  real (*muS)[misc::NumPaddedPoints]{};
-  real (*muD)[misc::NumPaddedPoints]{};
-  real (*cohesion)[misc::NumPaddedPoints]{};
-  real (*forcedRuptureTime)[misc::NumPaddedPoints]{};
+  real (*__restrict dC)[misc::NumPaddedPoints]{};
+  real (*__restrict muS)[misc::NumPaddedPoints]{};
+  real (*__restrict muD)[misc::NumPaddedPoints]{};
+  real (*__restrict cohesion)[misc::NumPaddedPoints]{};
+  real (*__restrict forcedRuptureTime)[misc::NumPaddedPoints]{};
   SpecializationT specialization;
 };
 
@@ -290,7 +290,7 @@ class BiMaterialFault {
 
   protected:
   seissol::initializer::parameters::DRParameters* drParameters;
-  real (*regularizedStrength)[misc::NumPaddedPoints]{};
+  real (*__restrict regularizedStrength)[misc::NumPaddedPoints]{};
 };
 
 /**

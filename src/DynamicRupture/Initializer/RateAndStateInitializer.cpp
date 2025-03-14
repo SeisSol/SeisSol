@@ -39,8 +39,7 @@ void RateAndStateInitializer::initializeFault(
     real(*stateVariable)[misc::NumPaddedPoints] = layer.var(concreteLts->stateVariable);
     real(*rsSl0)[misc::NumPaddedPoints] = layer.var(concreteLts->rsSl0);
     real(*rsA)[misc::NumPaddedPoints] = layer.var(concreteLts->rsA);
-    real(*initialStressInFaultCS)[misc::NumPaddedPoints][6] =
-        layer.var(concreteLts->initialStressInFaultCS);
+    auto* initialStressInFaultCS = layer.var(concreteLts->initialStressInFaultCS);
 
     const real initialSlipRate =
         misc::magnitude(drParameters->rsInitialSlipRate1, drParameters->rsInitialSlipRate2);
@@ -53,9 +52,9 @@ void RateAndStateInitializer::initializeFault(
         slipRate2[ltsFace][pointIndex] = drParameters->rsInitialSlipRate2;
         // compute initial friction and state
         auto stateAndFriction =
-            computeInitialStateAndFriction(initialStressInFaultCS[ltsFace][pointIndex][XY],
-                                           initialStressInFaultCS[ltsFace][pointIndex][XZ],
-                                           initialStressInFaultCS[ltsFace][pointIndex][XX],
+            computeInitialStateAndFriction(initialStressInFaultCS[ltsFace][XY][pointIndex],
+                                           initialStressInFaultCS[ltsFace][XZ][pointIndex],
+                                           initialStressInFaultCS[ltsFace][XX][pointIndex],
                                            rsA[ltsFace][pointIndex],
                                            drParameters->rsB,
                                            rsSl0[ltsFace][pointIndex],
@@ -157,12 +156,8 @@ void ThermalPressurizationInitializer::initializeFault(
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     real(*temperature)[misc::NumPaddedPoints] = layer.var(concreteLts->temperature);
     real(*pressure)[misc::NumPaddedPoints] = layer.var(concreteLts->pressure);
-    real(*theta)[misc::NumPaddedPoints][misc::NumTpGridPoints] = layer.var(concreteLts->theta);
-    real(*sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints] = layer.var(concreteLts->sigma);
-    real(*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints] =
-        layer.var(concreteLts->thetaTmpBuffer);
-    real(*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints] =
-        layer.var(concreteLts->sigmaTmpBuffer);
+    auto* theta = layer.var(concreteLts->theta);
+    auto* sigma = layer.var(concreteLts->sigma);
 
     for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
@@ -170,10 +165,8 @@ void ThermalPressurizationInitializer::initializeFault(
         pressure[ltsFace][pointIndex] = drParameters->initialPressure;
         for (unsigned tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
              ++tpGridPointIndex) {
-          theta[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
-          sigma[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
-          thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
-          sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
+          theta[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
+          sigma[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
         }
       }
     }

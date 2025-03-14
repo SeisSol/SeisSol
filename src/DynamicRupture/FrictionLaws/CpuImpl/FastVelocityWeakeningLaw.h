@@ -159,7 +159,7 @@ class FastVelocityWeakeningLaw
   }
 
   protected:
-  real (*srW)[misc::NumPaddedPoints];
+  real (*__restrict srW)[misc::NumPaddedPoints];
 };
 } // namespace seissol::dr::friction_law::cpu
 
