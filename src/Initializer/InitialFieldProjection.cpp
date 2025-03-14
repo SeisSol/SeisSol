@@ -83,7 +83,7 @@ struct EasiLoader {
   std::unique_ptr<easi::YAMLParser> parser;
   EasiLoader(bool hasTime, const std::vector<std::string>& files) : hasTime(hasTime) {
 #ifdef USE_ASAGI
-    asagiReader = std::make_unique<seissol::asagi::AsagiReader>("SEISSOL_ASAGI");
+    asagiReader = std::make_unique<seissol::asagi::AsagiReader>();
 #else
     asagiReader.reset();
 #endif

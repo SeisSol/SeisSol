@@ -60,7 +60,7 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
 #endif // USE_MPI
     m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
     const std::string extraIntVarName = "locationFlag";
-    const auto vertexFilter = utils::Env::get<bool>("SEISSOL_VERTEXFILTER", true);
+    const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
     m_xdmfWriter->init(
         variables, std::vector<const char*>(), extraIntVarName.c_str(), vertexFilter);
     m_xdmfWriter->setMesh(nCells,
