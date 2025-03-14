@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -84,10 +84,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     devStateVarReference = devStateVariableBuffer;
 
-    const real totalTraction1 = devInitialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][3] +
+    const real totalTraction1 = devInitialStressInFaultCS[ctx.ltsFace][3][ctx.pointIndex] +
                                 faultStresses.traction1[timeIndex];
 
-    const real totalTraction2 = devInitialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][5] +
+    const real totalTraction2 = devInitialStressInFaultCS[ctx.ltsFace][5][ctx.pointIndex] +
                                 faultStresses.traction2[timeIndex];
 
     devAbsoluteShearTraction = misc::magnitude(totalTraction1, totalTraction2);
@@ -163,14 +163,13 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     const real strength = -ctx.data->mu[ctx.ltsFace][ctx.pointIndex] * devNormalStress;
 
-    const auto* initialStressInFaultCS =
-        ctx.data->initialStressInFaultCS[ctx.ltsFace][ctx.pointIndex];
+    const auto* initialStressInFaultCS = ctx.data->initialStressInFaultCS[ctx.ltsFace];
     const auto savedTraction1 = devFaultStresses.traction1[timeIndex];
     const auto savedTraction2 = devFaultStresses.traction2[timeIndex];
 
     // calculate absolute value of stress in Y and Z direction
-    const real totalTraction1 = initialStressInFaultCS[3] + savedTraction1;
-    const real totalTraction2 = initialStressInFaultCS[5] + savedTraction2;
+    const real totalTraction1 = initialStressInFaultCS[3][ctx.pointIndex] + savedTraction1;
+    const real totalTraction2 = initialStressInFaultCS[5][ctx.pointIndex] + savedTraction2;
 
     // Compute slip
     ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
@@ -204,15 +203,14 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   }
 
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx) {
-    auto fullUpdateTime{ctx.data->mFullUpdateTime};
     auto muW{ctx.data->drParameters.muW};
     auto rsF0{ctx.data->drParameters.rsF0};
 
     const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
-    if (localRuptureTime > 0.0 && localRuptureTime <= fullUpdateTime &&
+    if (localRuptureTime > 0.0 && localRuptureTime <= ctx.fullUpdateTime &&
         ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
         ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <= (muW + 0.05 * (rsF0 - muW))) {
-      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = fullUpdateTime;
+      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = ctx.fullUpdateTime;
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }
@@ -264,7 +262,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),
                  ctx.faultStresses.normalStress[timeIndex] +
-                     ctx.data->initialStressInFaultCS[ctx.ltsFace][ctx.pointIndex][0] -
+                     ctx.data->initialStressInFaultCS[ctx.ltsFace][0][ctx.pointIndex] +
+                     ctx.faultStresses.fluidPressure[timeIndex] +
+                     ctx.data->initialPressure[ctx.ltsFace][ctx.pointIndex] -
                      TPMethod::getFluidPressure(ctx));
   }
 };

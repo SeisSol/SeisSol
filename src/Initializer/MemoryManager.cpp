@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -9,6 +9,7 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include <Parallel/Helper.h>
+#include <Solver/MultipleSimulations.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -452,6 +453,12 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
 
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
+
+  if constexpr (multisim::MultisimEnabled) {
+    if (m_dynRupTree.getNumberOfCells() > 0) {
+      logError() << "The dynamic rupture does not yet support fused simulations.";
+    }
+  }
 
 #ifdef ACL_DEVICE
   MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree, *m_dynRup.get());

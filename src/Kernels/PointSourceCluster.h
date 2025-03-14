@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2025 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 // SPDX-FileCopyrightText: 2023 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -14,8 +14,8 @@
 #include "Numerical/Functions.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
-
 #include <Memory/MemoryAllocator.h>
+#include <Solver/MultipleSimulations.h>
 #include <init.h>
 
 #include <algorithm>
@@ -107,13 +107,28 @@ SEISSOL_HOSTDEVICE inline real computeSampleTimeIntegral(double from,
 }
 
 // workaround for NVHPC (using constexpr arrays directly caused errors in 24.01)
-constexpr std::size_t QSpan = init::Q::Stop[0] - init::Q::Start[0];
+constexpr std::size_t QSpan = init::Q::Stop[multisim::BasisFunctionDimension] -
+                              init::Q::Start[multisim::BasisFunctionDimension];
+constexpr std::size_t QMultiSpan = init::Q::Stop[0] - init::Q::Start[0];
 constexpr std::size_t MomentFsrmSpan = tensor::momentFSRM::Shape[0];
 constexpr std::size_t MInvJInvPhisAtSourcesSpan = tensor::mInvJInvPhisAtSources::Shape[0];
+
+#ifdef MULTIPLE_SIMULATIONS
+SEISSOL_HOSTDEVICE constexpr auto&
+    dofsAccessor(real* __restrict dofs, unsigned k, unsigned t, unsigned f) {
+  return dofs[(k + t * QSpan) * QMultiSpan + f];
+}
+#else
+SEISSOL_HOSTDEVICE constexpr auto&
+    dofsAccessor(real* __restrict dofs, unsigned k, unsigned t, unsigned f) {
+  return dofs[k + t * QSpan];
+}
+#endif
 
 SEISSOL_HOSTDEVICE inline void
     addTimeIntegratedPointSourceNRF(const memory::AlignedArray<real, 3>& __restrict slip,
                                     const real* __restrict mInvJInvPhisAtSources,
+                                    unsigned fusedOriginalIndex,
                                     const real* __restrict tensor,
                                     real a,
                                     const real* __restrict stiffnessTensor,
@@ -140,7 +155,7 @@ SEISSOL_HOSTDEVICE inline void
   const real moment[6] = {mom(0, 0), mom(1, 1), mom(2, 2), mom(0, 1), mom(1, 2), mom(0, 2)};
   for (unsigned t = 0; t < 6; ++t) {
     for (unsigned k = 0; k < MInvJInvPhisAtSourcesSpan; ++k) {
-      dofs[k + t * QSpan] += mInvJInvPhisAtSources[k] * moment[t];
+      dofsAccessor(dofs, k, t, fusedOriginalIndex) += mInvJInvPhisAtSources[k] * moment[t];
     }
   }
 }
@@ -152,6 +167,7 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelNRF(
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
     const seissol::memory::
         AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
+    const unsigned* __restrict fusedOriginalIndex,
     const seissol::memory::AlignedArray<real,
                                         sourceterm::PointSources::TensorSize>* __restrict tensor,
     const real* __restrict a,
@@ -174,6 +190,7 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelNRF(
 
     addTimeIntegratedPointSourceNRF(slip,
                                     mInvJInvPhisAtSources[source].data(),
+                                    fusedOriginalIndex[source],
                                     tensor[source].data(),
                                     a[source],
                                     stiffnessTensor[source].data(),
@@ -186,13 +203,14 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelNRF(
 SEISSOL_HOSTDEVICE inline void
     addTimeIntegratedPointSourceFSRM(real slip,
                                      const real* __restrict mInvJInvPhisAtSources,
+                                     unsigned fusedOriginalIndex,
                                      const real* __restrict tensor,
                                      double from,
                                      double to,
                                      real* __restrict dofs) {
   for (unsigned p = 0; p < MomentFsrmSpan; ++p) {
     for (unsigned k = 0; k < MInvJInvPhisAtSourcesSpan; ++k) {
-      dofs[k + p * QSpan] += slip * mInvJInvPhisAtSources[k] * tensor[p];
+      dofsAccessor(dofs, k, p, fusedOriginalIndex) += slip * mInvJInvPhisAtSources[k] * tensor[p];
     }
   }
 }
@@ -204,6 +222,7 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelFSRM(
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
     const seissol::memory::
         AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
+    const unsigned* __restrict fusedOriginalIndex,
     const seissol::memory::AlignedArray<real,
                                         sourceterm::PointSources::TensorSize>* __restrict tensor,
     const real* __restrict a,
@@ -222,6 +241,7 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelFSRM(
         from, to, onsetTime[source], samplingInterval[source], sample[0] + o0, o1 - o0);
     addTimeIntegratedPointSourceFSRM(slip,
                                      mInvJInvPhisAtSources[source].data(),
+                                     fusedOriginalIndex[source],
                                      tensor[source].data(),
                                      from,
                                      to,

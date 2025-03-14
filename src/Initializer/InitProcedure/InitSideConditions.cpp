@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -16,9 +16,12 @@
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
 #include <Physics/InitialField.h>
+#include <Solver/MultipleSimulations.h>
 #include <SourceTerm/Manager.h>
+#include <cmath>
 #include <cstddef>
 #include <cstdlib>
+#include <math.h>
 #include <memory>
 #include <string>
 #include <utility>
@@ -70,27 +73,19 @@ std::vector<std::unique_ptr<physics::InitialField>>
     initialConditionDescription = "Planar wave";
     auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0);
 
-#ifdef MULTIPLE_SIMULATIONS
-    for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      const double phase = (2.0 * M_PI * s) / MULTIPLE_SIMULATIONS;
+    for (int s = 0; s < seissol::multisim::NumSimulations; ++s) {
+      const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
       initConditions.emplace_back(new physics::Planarwave(materialData, phase));
     }
-#else
-    initConditions.emplace_back(new physics::Planarwave(materialData));
-#endif
   } else if (initConditionParams.type ==
              seissol::initializer::parameters::InitializationType::SuperimposedPlanarwave) {
     initialConditionDescription = "Super-imposed planar wave";
-#ifdef MULTIPLE_SIMULATIONS
-    for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      initConditions.emplace_back(new physics::SuperimposedPlanarwave(
-          memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
-          (2.0 * M_PI * s) / MULTIPLE_SIMULATIONS));
+
+    auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0);
+    for (int s = 0; s < seissol::multisim::NumSimulations; ++s) {
+      const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
+      initConditions.emplace_back(new physics::SuperimposedPlanarwave(materialData, phase));
     }
-#else
-    initConditions.emplace_back(new physics::SuperimposedPlanarwave(
-        memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0)));
-#endif
   } else if (initConditionParams.type ==
              seissol::initializer::parameters::InitializationType::Zero) {
     initialConditionDescription = "Zero";

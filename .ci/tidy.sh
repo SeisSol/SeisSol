@@ -1,5 +1,5 @@
 #! /usr/bin/env sh
-# SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2023 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -58,6 +58,7 @@ format() {
         src/Initializer/PreProcessorMacros.h
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
+        src/Solver/MultipleSimulations.h
         src/Solver/Estimator.h
         src/Solver/Estimator.cpp
         src/SeisSol.h

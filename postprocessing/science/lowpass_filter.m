@@ -2,6 +2,7 @@ function s_filt = lowpass_filter(s,dt,cf_left,cf_right)
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @section LICENSE
 % Copyright (c) SeisSol Group

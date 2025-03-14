@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -17,6 +17,7 @@
 #include "DynamicRupture/Typedefs.h"
 #include "Initializer/Typedefs.h"
 #include "Numerical/GaussianNucleationFunction.h"
+#include "Solver/MultipleSimulations.h"
 
 /**
  * Contains common functions required both for CPU and GPU impl.
@@ -145,8 +146,8 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
-
-  static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
+  static_assert(tensor::QInterpolated::Shape[seissol::multisim::BasisFunctionDimension] ==
+                    tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
 #ifndef USE_POROELASTIC
@@ -414,8 +415,8 @@ template <RangeType Type = RangeType::CPU,
 // See https://github.com/llvm/llvm-project/issues/60163
 // NOLINTNEXTLINE
 SEISSOL_HOSTDEVICE inline void
-    adjustInitialStress(real initialStressInFaultCS[misc::NumPaddedPoints][6],
-                        const real nucleationStressInFaultCS[misc::NumPaddedPoints][6],
+    adjustInitialStress(real initialStressInFaultCS[6][misc::NumPaddedPoints],
+                        const real nucleationStressInFaultCS[6][misc::NumPaddedPoints],
                         // See https://github.com/llvm/llvm-project/issues/60163
                         // NOLINTNEXTLINE
                         real initialPressure[misc::NumPaddedPoints],
@@ -436,7 +437,7 @@ SEISSOL_HOSTDEVICE inline void
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       auto pointIndex{startIndex + index};
       for (unsigned i = 0; i < 6; i++) {
-        initialStressInFaultCS[pointIndex][i] += nucleationStressInFaultCS[pointIndex][i] * gNuc;
+        initialStressInFaultCS[i][pointIndex] += nucleationStressInFaultCS[i][pointIndex] * gNuc;
       }
       initialPressure[pointIndex] += nucleationPressure[pointIndex] * gNuc;
     }

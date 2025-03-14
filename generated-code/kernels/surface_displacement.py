@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2017-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2017 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -111,7 +111,9 @@ def addKernels(generator, aderdg, include_tensors, targets):
     addVelocity = (
         lambda f: faceDisplacement["kp"]
         <= faceDisplacement["kp"]
-        + aderdg.db.V3mTo2nFace[f]["kl"] * aderdg.I["lq"] * aderdg.selectVelocity["qp"]
+        + aderdg.db.V3mTo2nFace[f][aderdg.t("kl")]
+        * aderdg.I["lq"]
+        * aderdg.selectVelocity["qp"]
     )
     generator.addFamily("addVelocity", simpleParameterSpace(4), addVelocity)
 

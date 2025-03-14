@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -115,8 +115,7 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
     if (nucleationStressParameterizedByTraction) {
       rotateTractionToCartesianStress(dynRup, layer, nucleationStress);
     }
-    real(*nucleationStressInFaultCS)[misc::NumPaddedPoints][6] =
-        layer.var(dynRup->nucleationStressInFaultCS);
+    auto* nucleationStressInFaultCS = layer.var(dynRup->nucleationStressInFaultCS);
     rotateStressToFaultCS(dynRup, layer, nucleationStressInFaultCS, nucleationStress);
 
     auto* initialPressure = layer.var(dynRup->initialPressure);
@@ -204,7 +203,7 @@ void BaseDRInitializer::rotateTractionToCartesianStress(
 void BaseDRInitializer::rotateStressToFaultCS(
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::Layer& layer,
-    real (*stressInFaultCS)[misc::NumPaddedPoints][6],
+    real (*stressInFaultCS)[6][misc::NumPaddedPoints],
     const StressTensor& stress) {
   // create rotation kernel
   real cartesianToFaultCSMatrixValues[init::stressRotationMatrix::size()];
@@ -235,7 +234,7 @@ void BaseDRInitializer::rotateStressToFaultCS(
       cartesianToFaultCSRotationKernel.rotatedStress = rotatedStress;
       cartesianToFaultCSRotationKernel.execute();
       for (unsigned int stressIndex = 0; stressIndex < NumStressComponents; ++stressIndex) {
-        stressInFaultCS[ltsFace][pointIndex][stressIndex] = rotatedStress[stressIndex];
+        stressInFaultCS[ltsFace][stressIndex][pointIndex] = rotatedStress[stressIndex];
       }
     }
   }
@@ -251,7 +250,7 @@ void BaseDRInitializer::addAdditionalParameters(
 void BaseDRInitializer::initializeOtherVariables(
     const seissol::initializer::DynamicRupture* const dynRup, seissol::initializer::Layer& layer) {
   // initialize rupture front flag
-  bool(*ruptureTimePending)[misc::NumPaddedPoints] = layer.var(dynRup->ruptureTimePending);
+  bool (*ruptureTimePending)[misc::NumPaddedPoints] = layer.var(dynRup->ruptureTimePending);
   for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
     for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       ruptureTimePending[ltsFace][pointIndex] = true;

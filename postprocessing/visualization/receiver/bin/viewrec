@@ -1,3 +1,7 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2015 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 python3 $DIR/../src/viewrec.py

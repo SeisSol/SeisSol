@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2019 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -19,6 +19,7 @@
 #include <math.h>
 #include <tensor.h>
 
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Numerical/Eigenvalues.h"
 #include "Physics/InitialField.h"
@@ -129,8 +130,12 @@ void seissol::physics::SuperimposedPlanarwave::evaluate(
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
-  real dofsPwData[tensor::dofsQP::size()];
-  yateto::DenseTensorView<2, real, unsigned> dofsPW = init::dofsQP::view::create(dofsPwData);
+  std::vector<real> dofsPwVector(dofsQP.size());
+  auto dofsPW = yateto::DenseTensorView<2, real, unsigned>(
+      dofsPwVector.data(),
+      {NumBasisFunctions, seissol::model::MaterialT::NumQuantities},
+      {0, 0},
+      {NumBasisFunctions, seissol::model::MaterialT::NumQuantities});
 
   for (int pw = 0; pw < 3; pw++) {
     // evaluate each planarwave
