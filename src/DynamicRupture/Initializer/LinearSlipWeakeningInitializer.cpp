@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -27,7 +27,7 @@ void LinearSlipWeakeningInitializer::initializeFault(
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening*>(dynRup);
   for (auto& layer : dynRupTree->leaves(Ghost)) {
-    bool(*dynStressTimePending)[misc::NumPaddedPoints] =
+    bool (*dynStressTimePending)[misc::NumPaddedPoints] =
         layer.var(concreteLts->dynStressTimePending);
     real(*slipRate1)[misc::NumPaddedPoints] = layer.var(concreteLts->slipRate1);
     real(*slipRate2)[misc::NumPaddedPoints] = layer.var(concreteLts->slipRate2);

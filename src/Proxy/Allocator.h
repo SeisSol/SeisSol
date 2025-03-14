@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -6,8 +6,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_ALLOCATOR_H_
-#define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_ALLOCATOR_H_
+#ifndef SEISSOL_SRC_PROXY_ALLOCATOR_H_
+#define SEISSOL_SRC_PROXY_ALLOCATOR_H_
 
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -60,4 +60,4 @@ struct ProxyData {
 
 } // namespace seissol::proxy
 
-#endif // SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_ALLOCATOR_H_
+#endif // SEISSOL_SRC_PROXY_ALLOCATOR_H_

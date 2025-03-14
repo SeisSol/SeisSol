@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2019 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -16,8 +16,10 @@ from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseJSONMatrixFile, parseXMLMatrixFile
 from yateto.memory import CSCMemoryLayout
-from yateto.util import (tensor_collection_from_constant_expression,
-                         tensor_from_constant_expression)
+from yateto.util import (
+    tensor_collection_from_constant_expression,
+    tensor_from_constant_expression,
+)
 
 
 class ADERDGBase(ABC):
@@ -106,7 +108,7 @@ class ADERDGBase(ABC):
         self.INodal = OptionalDimTensor(
             "INodal",
             "s",
-            False,  # multipleSimulations,
+            multipleSimulations,
             0,
             (self.numberOf2DBasisFunctions(), self.numberOfQuantities()),
             alignStride=True,
@@ -114,7 +116,8 @@ class ADERDGBase(ABC):
 
         project2nFaceTo3m = tensor_collection_from_constant_expression(
             base_name="project2nFaceTo3m",
-            expressions=lambda i: self.db.rDivM[i]["jk"] * self.db.V2nTo2m["kl"],
+            expressions=lambda i: self.db.rDivM[i][self.t("jk")]
+            * self.db.V2nTo2m["kl"],
             group_indices=simpleParameterSpace(4),
             target_indices="jl",
         )

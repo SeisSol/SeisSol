@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2025 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: header-check
+on:
+  - push
+
+jobs:
+  header-check:
+    name: header-check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: apt-get
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install python3 python3-pip
+
+      - name: run-header-checker
+        run: |
+          set -euo pipefail
+          python .ci/header.py src

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,14 +9,15 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 
 #include <Common/Executor.h>
+#include <cmath>
 #include <limits>
 #include <type_traits>
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/DynamicRupture.h"
-#include "Memory/Descriptor/DynamicRupture.h"
+#include "DynamicRupture/Typedefs.h"
+#include "Initializer/Typedefs.h"
 #include "Numerical/GaussianNucleationFunction.h"
+#include "Solver/MultipleSimulations.h"
 
 /**
  * Contains common functions required both for CPU and GPU impl.
@@ -145,8 +146,8 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
-
-  static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
+  static_assert(tensor::QInterpolated::Shape[seissol::multisim::BasisFunctionDimension] ==
+                    tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
 #ifndef USE_POROELASTIC

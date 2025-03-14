@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -34,4 +34,3 @@ private:
 } // namespace seissol::time_stepping
 
 #endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_DIRECTGHOSTTIMECLUSTER_H_
-

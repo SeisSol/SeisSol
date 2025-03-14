@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
@@ -30,9 +31,7 @@ def main():
 
     def fixName(name):
         parts = name.split("_")
-        return "".join(
-            part[0].upper() + part[1:] for part in parts if len(part) > 0
-        )
+        return "".join(part[0].upper() + part[1:] for part in parts if len(part) > 0)
 
     def sanitizeFile(file, name):
         if file.name != name:
@@ -51,6 +50,7 @@ def main():
             checkFile(root / prefile, ".hpp", ".h")
             checkFile(root / prefile, ".h", ".h")
             checkFile(root / prefile, ".cpp", ".cpp")
+            checkFile(root / prefile, ".cu", ".cu")
         if args.dirs:
             for prefile in dirs:
                 checkFile(root / prefile, None, "")

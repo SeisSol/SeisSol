@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2020 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -61,6 +61,9 @@ class GravitationalFreeSurfaceBc {
     // and substituting the previous coefficient eta_t
     // This implementation sums up the Taylor series directly without storing
     // all coefficients.
+#ifdef MULTIPLE_SIMULATIONS
+    logError() << "The Free Surface Gravity BC kernel does not work with multiple simulations";
+#else
 
     // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
     assert(boundaryMapping.nodes != nullptr);
@@ -176,6 +179,7 @@ class GravitationalFreeSurfaceBc {
     rotateFaceDisplacementKrnl.displacementRotationMatrix = rotateDisplacementToGlobalData;
     rotateFaceDisplacementKrnl.rotatedFaceDisplacement = displacementNodalData;
     rotateFaceDisplacementKrnl.execute();
+#endif
   }
 
 #ifdef ACL_DEVICE
