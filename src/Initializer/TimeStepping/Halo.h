@@ -1,8 +1,12 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#pragma once
+#ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_HALO_H_
+#define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_HALO_H_
 
 #include <Memory/Tree/LTSTree.h>
 #include <cstddef>
@@ -34,3 +38,4 @@ void haloCommunication(const HaloStructure& comm,
                        MPI_Datatype datatype);
 
 } // namespace seissol::initializer
+#endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_HALO_H_

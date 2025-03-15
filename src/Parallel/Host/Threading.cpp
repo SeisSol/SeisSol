@@ -1,6 +1,14 @@
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Threading.h"
 #include <atomic>
 #include <omp.h>
+
+#include "Parallel/HostEvent.h"
 
 namespace seissol::parallel::host {
 
@@ -19,6 +27,20 @@ class FromDeviceEvent : public Task {
     while (!poll())
       ;
   }
+};
+
+class ToDeviceEvent : public Task {
+  private:
+  seissol::parallel::HostEvent event;
+
+  public:
+  ToDeviceEvent(void* stream) { event.streamWait(stream); }
+
+  void init() {}
+  void record() { event.complete(); }
+  bool poll() { return event.completed(); }
+
+  void wait() override { event.hostWait(); }
 };
 #endif
 

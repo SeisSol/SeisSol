@@ -1,6 +1,9 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DynamicRuptureCluster.h"
 #include "SeisSol.h"
@@ -10,11 +13,11 @@
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Memory/Descriptor/DynamicRupture.h>
 #include <Initializer/PreProcessorMacros.h>
-#include <Memory/Tree/Layer.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Tree/Layer.h>
 #include <Monitoring/ActorStateStatistics.h>
 #include <Monitoring/LoopStatistics.h>
 #include <Parallel/Helper.h>

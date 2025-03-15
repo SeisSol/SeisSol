@@ -5,9 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
 #include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep

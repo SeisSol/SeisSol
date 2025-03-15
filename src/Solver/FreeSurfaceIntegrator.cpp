@@ -8,10 +8,10 @@
 
 #include "FreeSurfaceIntegrator.h"
 
-#include "Memory/MemoryAllocator.h"
 #include "Initializer/MemoryManager.h"
 #include "Kernels/Common.h"
 #include "Kernels/DenseMatrixOps.h"
+#include "Memory/MemoryAllocator.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
@@ -20,13 +20,13 @@
 #include <Common/Iterator.h>
 #include <Geometry/Refinement/TriangleRefiner.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Memory/Descriptor/LTS.h>
 #include <Initializer/PreProcessorMacros.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
-#include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -296,7 +296,8 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
   surfaceLtsTree.fixate();
 
   totalNumberOfFreeSurfaces = 0;
-  for (auto [layer, surfaceLayer] : seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree.leaves(ghostMask))) {
+  for (auto [layer, surfaceLayer] :
+       seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree.leaves(ghostMask))) {
     auto* cellInformation = layer.var(lts->cellInformation);
     auto* secondaryInformation = layer.var(lts->secondaryInformation);
     auto* cellMaterialData = layer.var(lts->material);
@@ -335,10 +336,11 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
 
   /// @ yateto_todo
   unsigned surfaceCellOffset = 0; // Counts all surface cells of all layers
-  for (auto [layer, surfaceLayer] : seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree.leaves(ghostMask))) {
+  for (auto [layer, surfaceLayer] :
+       seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree.leaves(ghostMask))) {
     auto* cellInformation = layer.var(lts->cellInformation);
-    real (*dofs)[tensor::Q::size()] = layer.var(lts->dofs);
-    real* (*faceDisplacements)[4] = layer.var(lts->faceDisplacements);
+    real(*dofs)[tensor::Q::size()] = layer.var(lts->dofs);
+    real*(*faceDisplacements)[4] = layer.var(lts->faceDisplacements);
     real** surfaceDofs = surfaceLayer.var(surfaceLts.dofs);
     real** displacementDofs = surfaceLayer.var(surfaceLts.displacementDofs);
     auto* cellMaterialData = layer.var(lts->material);
@@ -359,8 +361,8 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
             surfaceDofs[surfaceCell] = dofs[cell];
             displacementDofs[surfaceCell] = faceDisplacements[cell][face];
 
-            side[surfaceCell]             = face;
-            meshId[surfaceCell]           = secondaryInformation[cell].meshId;
+            side[surfaceCell] = face;
+            meshId[surfaceCell] = secondaryInformation[cell].meshId;
             surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
 
             for (unsigned i = 0; i < numberOfSubTriangles; ++i) {

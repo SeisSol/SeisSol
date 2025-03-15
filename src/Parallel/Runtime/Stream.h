@@ -227,22 +227,6 @@ class StreamRuntime {
 #endif
 };
 
-class HostRuntime {
-  public:
-};
-
-class NativeRuntime {
-  public:
-};
-
-class SyclRuntime {
-  public:
-};
-
-class OpenMPRuntime {
-  public:
-};
-
 } // namespace seissol::parallel::runtime
 
 #endif // SEISSOL_SRC_PARALLEL_RUNTIME_STREAM_H_

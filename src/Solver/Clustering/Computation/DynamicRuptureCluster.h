@@ -1,9 +1,12 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef FACECLUSTER_H_
-#define FACECLUSTER_H_
+#ifndef SEISSOL_SRC_SOLVER_CLUSTERING_COMPUTATION_DYNAMICRUPTURECLUSTER_H_
+#define SEISSOL_SRC_SOLVER_CLUSTERING_COMPUTATION_DYNAMICRUPTURECLUSTER_H_
 
 #include "Kernels/DynamicRupture.h"
 #include "Solver/Clustering/AbstractTimeCluster.h"
@@ -106,4 +109,4 @@ class DynamicRuptureCluster : public FaceCluster {
 };
 } // namespace seissol::solver::clustering::computation
 
-#endif
+#endif // SEISSOL_SRC_SOLVER_CLUSTERING_COMPUTATION_DYNAMICRUPTURECLUSTER_H_

@@ -11,9 +11,9 @@
 
 #include "Geometry/MeshReader.h"
 #include "Memory/Tree/Lut.h"
-#include <Memory/Descriptor/LTS.h>
-#include <Initializer/Parameters/SourceParameters.h>
 #include "Solver/Clustering/TimeManager.h"
+#include <Initializer/Parameters/SourceParameters.h>
+#include <Memory/Descriptor/LTS.h>
 #include <cstdarg>
 
 namespace seissol::solver::clustering {

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef TIMEMANAGER_H_
-#define TIMEMANAGER_H_
+#ifndef SEISSOL_SRC_SOLVER_CLUSTERING_TIMEMANAGER_H_
+#define SEISSOL_SRC_SOLVER_CLUSTERING_TIMEMANAGER_H_
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Parallel/Host/CpuExecutor.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
@@ -142,4 +142,4 @@ class TimeManager {
 
 } // namespace seissol::solver::clustering
 
-#endif
+#endif // SEISSOL_SRC_SOLVER_CLUSTERING_TIMEMANAGER_H_

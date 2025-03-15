@@ -13,8 +13,8 @@
 
 #include "Geometry/MeshReader.h"
 #include "Geometry/Refinement/TriangleRefiner.h"
-#include "Kernels/Precision.h"
 #include "Kernels/Common.h"
+#include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"

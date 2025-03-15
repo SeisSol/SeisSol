@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -19,9 +19,9 @@
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Memory/Tree/Layer.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/PointSourceCluster.h>
+#include <Memory/Tree/Layer.h>
 #include <Parallel/Host/SyncExecutor.h>
 #include <ResultWriter/ReceiverWriter.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
