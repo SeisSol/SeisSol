@@ -462,10 +462,10 @@ void EnergyOutput::computeVolumeEnergies() {
         const double curMomentumY = rho * v;
         const double curMomentumZ = rho * w;
 
-        if (std::abs(material.local.mu) < 10e-14) {
+        if (std::abs(material.local.getMuBar()) < 10e-14) {
           // Acoustic
           constexpr int PIdx = 0;
-          const auto k = material.local.lambda;
+          const auto k = material.local.getLambdaBar();
           const auto p = numSub(qp, PIdx);
           const double curAcousticEnergy = (p * p) / (2 * k);
           totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
@@ -484,8 +484,8 @@ void EnergyOutput::computeVolumeEnergies() {
 
           auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
-          const auto lambda = material.local.lambda;
-          const auto mu = material.local.mu;
+          const auto lambda = material.local.getLambdaBar();
+          const auto mu = material.local.getMuBar();
           const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
           auto computeStrain = [&](int i, int j) {
             double strain = 0.0;
@@ -726,7 +726,9 @@ void EnergyOutput::checkAbortCriterion(
   }
 }
 
-void EnergyOutput::writeHeader() { out << "time,variable,simulation_index,measurement" << std::endl; }
+void EnergyOutput::writeHeader() {
+  out << "time,variable,simulation_index,measurement" << std::endl;
+}
 
 void EnergyOutput::writeEnergies(double time) {
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
@@ -734,8 +736,8 @@ void EnergyOutput::writeEnergies(double time) {
     if (shouldComputeVolumeEnergies()) {
       out << time << ",gravitational_energy," << fusedSuffix << ","
           << energiesStorage.gravitationalEnergy(sim) << "\n"
-          << time << ",acoustic_energy," << fusedSuffix << "," << energiesStorage.acousticEnergy(sim)
-          << "\n"
+          << time << ",acoustic_energy," << fusedSuffix << ","
+          << energiesStorage.acousticEnergy(sim) << "\n"
           << time << ",acoustic_kinetic_energy," << fusedSuffix << ","
           << energiesStorage.acousticKineticEnergy(sim) << "\n"
           << time << ",elastic_energy," << fusedSuffix << "," << energiesStorage.elasticEnergy(sim)
