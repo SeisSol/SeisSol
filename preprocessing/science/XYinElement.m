@@ -2,6 +2,7 @@ function inside = XYinElement(x,y,xS,yS)
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @section LICENSE
 % Copyright (c) SeisSol Group

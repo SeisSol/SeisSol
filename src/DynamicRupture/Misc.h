@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -103,6 +103,10 @@ SEISSOL_HOSTDEVICE inline T square(T t1, Tn... tn) {
 #pragma omp declare simd
 template <typename T, typename... Tn>
 SEISSOL_HOSTDEVICE inline T magnitude(T t1, Tn... tn) {
+  static_assert((std::is_same_v<T, Tn> && ...), "All types need to be equal.");
+  if constexpr (sizeof...(Tn) == 1) {
+    return std::hypot(t1, tn...);
+  }
   return std::sqrt(square(t1) + square(tn...));
 }
 

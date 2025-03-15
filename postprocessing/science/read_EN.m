@@ -1,6 +1,7 @@
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @author Stephanie Wollherr
 %

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 ##
 # @file
 # This file is part of SeisSol.
@@ -84,6 +85,27 @@ class Lowpass(Filter):
     b, a = scipy.signal.butter(self.lowpassOrder.value(), cutoff, 'low', fs=Fs)
     for name in wf.waveforms.keys():
       wf.waveforms[name] = scipy.signal.filtfilt(b, a, wf.waveforms[name])
+      
+class MultipleSimulations(Filter):
+  def __init__(self, parent = None):
+    super(MultipleSimulations, self).__init__('Multiple Simulations', parent)
+
+    simulationIndexLabel = QLabel('Simulation Index', self)
+    self.simulationIndex = QSpinBox(self)
+    self.simulationIndex.setValue(0)
+    self.simulationIndex.valueChanged.connect(self.filterChanged)
+
+    filterLayout = QFormLayout(self)
+    filterLayout.addRow(simulationIndexLabel, self.simulationIndex)
+    
+  def apply(self, wf):
+    simulationIndex = str(self.simulationIndex.value())
+    removeDigits = lambda s: ''.join(filter(lambda x: not x.isdigit(), s))
+    containsNoDigits = lambda s: not any(c.isdigit() for c in s)
+    testSimulationIndex = lambda s: simulationIndex in s or containsNoDigits(s)
+
+    wf.norms = {removeDigits(k):v for k,v in wf.norms.items() if testSimulationIndex(k)}
+    wf.waveforms = {removeDigits(k):v for k,v in wf.waveforms.items() if testSimulationIndex(k)}
       
 class Deconvolve(Filter):
   def __init__(self, parent = None):

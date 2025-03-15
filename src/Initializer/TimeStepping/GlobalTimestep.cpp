@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -19,6 +19,8 @@
 #include "Equations/Datastructures.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters//SeisSolParameters.h"
+
+#include "Parallel/MPI.h"
 
 namespace {
 

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2019 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -94,10 +94,6 @@ if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
   #       device code for nvidia gpus. This scenario is used in
   #       SeisSol's GPU CI pipeline.
   set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
-endif()
-
-if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
-  message(FATAL_ERROR "SeisSol does not support Fused Simulations yet")
 endif()
 
 # LTO
@@ -236,6 +232,9 @@ target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LE
 target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER}
                                                      LOGLEVEL0=${LOG_LEVEL_MASTER})
 
+if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
+  target_compile_definitions(seissol-common-properties INTERFACE MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
+endif()
 
 if (PLASTICITY_METHOD STREQUAL "ip")
   target_compile_definitions(seissol-common-properties INTERFACE USE_PLASTICITY_IP)
@@ -444,6 +443,10 @@ else()
 endif()
 if (MATERIAL_ORDER GREATER 1)
   set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_h${MATERIAL_ORDER}")
+endif()
+
+if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
+  set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_f${NUMBER_OF_FUSED_SIMULATIONS}")
 endif()
 
 if (SHARED)

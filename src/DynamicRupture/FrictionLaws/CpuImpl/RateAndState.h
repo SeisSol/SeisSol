@@ -1,12 +1,12 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATE_H_
-#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATE_H_
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_RATEANDSTATE_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_RATEANDSTATE_H_
 
 #include "BaseFrictionLaw.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
@@ -128,9 +128,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
-      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][3][pointIndex] +
                                   faultStresses.traction1[timeIndex][pointIndex];
-      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][5][pointIndex] +
                                   faultStresses.traction2[timeIndex][pointIndex];
       absoluteTraction[pointIndex] = misc::magnitude(totalTraction1, totalTraction2);
 
@@ -229,9 +229,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                 localStateVariable[pointIndex]);
       const real strength = -this->mu[ltsFace][pointIndex] * normalStress[pointIndex];
       // calculate absolute value of stress in Y and Z direction
-      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][pointIndex][3] +
+      const real totalTraction1 = this->initialStressInFaultCS[ltsFace][3][pointIndex] +
                                   faultStresses.traction1[timeIndex][pointIndex];
-      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][pointIndex][5] +
+      const real totalTraction2 = this->initialStressInFaultCS[ltsFace][5][pointIndex] +
                                   faultStresses.traction2[timeIndex][pointIndex];
 
       const auto divisor = strength + this->impAndEta[ltsFace].etaS(pointIndex) *
@@ -354,7 +354,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     for (size_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       normalStress[pointIndex] = std::min(static_cast<real>(0.0),
                                           faultStresses.normalStress[timeIndex][pointIndex] +
-                                              this->initialStressInFaultCS[ltsFace][pointIndex][0] +
+                                              this->initialStressInFaultCS[ltsFace][0][pointIndex] +
                                               faultStresses.fluidPressure[timeIndex][pointIndex] +
                                               this->initialPressure[ltsFace][pointIndex] -
                                               tpMethod.getFluidPressure(ltsFace, pointIndex));
@@ -363,9 +363,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
   protected:
   // Attributes
-  real (*a)[misc::NumPaddedPoints]{};
-  real (*sl0)[misc::NumPaddedPoints]{};
-  real (*stateVariable)[misc::NumPaddedPoints]{};
+  real (*__restrict a)[misc::NumPaddedPoints]{};
+  real (*__restrict sl0)[misc::NumPaddedPoints]{};
+  real (*__restrict stateVariable)[misc::NumPaddedPoints]{};
 
   TPMethod tpMethod;
   rs::Settings settings{};
@@ -373,4 +373,4 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
 } // namespace seissol::dr::friction_law::cpu
 
-#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATE_H_
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_RATEANDSTATE_H_
