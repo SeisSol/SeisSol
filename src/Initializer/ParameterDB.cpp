@@ -676,13 +676,17 @@ std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
                                                       bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex) {
   if constexpr (MATERIAL_ORDER > 1) {
+    if (!useCellHomogenizedMaterial) {
+      logWarning() << "Material Averaging is not implemented for high-order materials yet. Falling "
+                      "back to interpolation.";
+    }
     return std::make_shared<ElementInterpolationGenerator>(cellToVertex);
   } else {
     std::shared_ptr<QueryGenerator> queryGen;
     if (!useCellHomogenizedMaterial) {
       queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
     } else {
-      if (MaterialT::Type != MaterialType::Viscoelastic ||
+      if (MaterialT::Type != MaterialType::Viscoelastic &&
           MaterialT::Type != MaterialType::Elastic) {
         logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
                      << " materials. Falling back to "
