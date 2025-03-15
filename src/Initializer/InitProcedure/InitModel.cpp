@@ -119,27 +119,20 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   auto materialsDBGhost =
       queryDB<MaterialT>(queryGenGhost, seissolParams.model.materialFileName, ghostVertices.size());
 
-#if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
-  // we need to compute all model parameters before we can use them...
-  // TODO(David): integrate this with the Viscoelastic material class or the ParameterDB directly?
-  logDebug() << "Initializing attenuation.";
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t i = 0; i < materialsDB.size(); ++i) {
     auto& cellMat = materialsDB[i];
-    seissol::physics::fitAttenuation(
-        cellMat, seissolParams.model.freqCentral, seissolParams.model.freqRatio);
+    cellMat.initialize(seissolParams.model);
   }
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t i = 0; i < materialsDBGhost.size(); ++i) {
     auto& cellMat = materialsDBGhost[i];
-    seissol::physics::fitAttenuation(
-        cellMat, seissolParams.model.freqCentral, seissolParams.model.freqRatio);
+    cellMat.initialize(seissolParams.model);
   }
-#endif
 
   logDebug() << "Setting cell materials in the LTS tree (for interior and copy layers).";
   const auto& elements = meshReader.getElements();

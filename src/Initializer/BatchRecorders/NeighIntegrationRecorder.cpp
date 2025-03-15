@@ -34,7 +34,7 @@ void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
   idofsAddressRegistry.clear();
 
   recordDofsTimeEvaluation();
-  recordNeighbourFluxIntegrals();
+  recordNeighborFluxIntegrals();
 }
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
@@ -53,13 +53,13 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
       auto dataHost = currentLoaderHost->entry(cell);
 
       for (unsigned face = 0; face < 4; ++face) {
-        real* neighbourBuffer = faceNeighborsDevice[cell][face];
+        real* neighborBuffer = faceNeighborsDevice[cell][face];
 
-        // check whether a neighbour element idofs has not been counted twice
-        if ((idofsAddressRegistry.find(neighbourBuffer) == idofsAddressRegistry.end())) {
+        // check whether a neighbor element idofs has not been counted twice
+        if ((idofsAddressRegistry.find(neighborBuffer) == idofsAddressRegistry.end())) {
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
-          if (neighbourBuffer != nullptr) {
+          if (neighborBuffer != nullptr) {
             if (dataHost.cellInformation().faceTypes[face] != FaceType::Outflow &&
                 dataHost.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
 
@@ -69,22 +69,22 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
               if (isNeighbProvidesDerivatives) {
                 real* nextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
-                const bool isGtsNeigbour =
+                const bool isGtsNeighbor =
                     ((dataHost.cellInformation().ltsSetup >> (face + 4)) % 2) == 1;
-                if (isGtsNeigbour) {
+                if (isGtsNeighbor) {
 
-                  idofsAddressRegistry[neighbourBuffer] = nextTempIDofsPtr;
+                  idofsAddressRegistry[neighborBuffer] = nextTempIDofsPtr;
                   gtsIDofsPtrs.push_back(nextTempIDofsPtr);
-                  gtsDerivativesPtrs.push_back(neighbourBuffer);
+                  gtsDerivativesPtrs.push_back(neighborBuffer);
 
                 } else {
-                  idofsAddressRegistry[neighbourBuffer] = nextTempIDofsPtr;
+                  idofsAddressRegistry[neighborBuffer] = nextTempIDofsPtr;
                   ltsIDofsPtrs.push_back(nextTempIDofsPtr);
-                  ltsDerivativesPtrs.push_back(neighbourBuffer);
+                  ltsDerivativesPtrs.push_back(neighborBuffer);
                 }
                 integratedDofsAddressCounter += tensor::I::size();
               } else {
-                idofsAddressRegistry[neighbourBuffer] = neighbourBuffer;
+                idofsAddressRegistry[neighborBuffer] = neighborBuffer;
               }
             }
           }
@@ -108,7 +108,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
   }
 }
 
-void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
+void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   real*(*faceNeighborsDevice)[4] = currentLayer->var(currentHandler->faceNeighborsDevice);
 
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
@@ -119,7 +119,15 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
 
+  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
+  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
+
   CellDRMapping(*drMappingDevice)[4] = currentLayer->var(currentHandler->drMappingDevice);
+
+#ifdef USE_VISCOELASTIC2
+  auto* dofsExt =
+      currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch, AllocationPlace::Device);
+#endif
 
   const auto size = currentLayer->getNumberOfCells();
   for (unsigned cell = 0; cell < size; ++cell) {
@@ -133,9 +141,9 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
       case FaceType::Periodic: {
         // compute face type relation
 
-        real* neighbourBufferPtr = faceNeighborsDevice[cell][face];
+        real* neighborBufferPtr = faceNeighborsDevice[cell][face];
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
-        if (neighbourBufferPtr != nullptr) {
+        if (neighborBufferPtr != nullptr) {
           const unsigned faceRelation = dataHost.cellInformation().faceRelations[face][1] +
                                         3 * dataHost.cellInformation().faceRelations[face][0] +
                                         12 * face;
@@ -145,9 +153,13 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
 
           regularPeriodicDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs()));
           regularPeriodicIDofs[face][faceRelation].push_back(
-              idofsAddressRegistry[neighbourBufferPtr]);
+              idofsAddressRegistry[neighborBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
-              static_cast<real*>(data.neighboringIntegration().nAmNm1[face]));
+              reinterpret_cast<real*>(&data.neighboringIntegration()));
+#ifdef USE_VISCOELASTIC2
+          regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
+                                                       tensor::Qext::size() * cell);
+#endif
         }
         break;
       }
@@ -162,7 +174,10 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         drDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs()));
         drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
         drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
-
+#ifdef USE_VISCOELASTIC2
+        drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
+                                                tensor::Qext::size() * cell);
+#endif
         break;
       }
       case FaceType::Outflow:
@@ -198,8 +213,11 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         (*currentTable)[key].set(inner_keys::Wp::Id::Idofs,
                                  regularPeriodicIDofs[face][faceRelation]);
         (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, regularPeriodicDofs[face][faceRelation]);
-        (*currentTable)[key].set(inner_keys::Wp::Id::AminusT,
+        (*currentTable)[key].set(inner_keys::Wp::Id::NeighborIntegrationData,
                                  regularPeriodicAminusT[face][faceRelation]);
+#ifdef USE_VISCOELASTIC2
+        (*currentTable)[key].set(inner_keys::Wp::Id::DofsExt, regularDofsExt[face][faceRelation]);
+#endif
       }
     }
 
@@ -213,6 +231,9 @@ void NeighIntegrationRecorder::recordNeighbourFluxIntegrals() {
         (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, drDofs[face][faceRelation]);
         (*currentTable)[key].set(inner_keys::Wp::Id::Godunov, drGodunov[face][faceRelation]);
         (*currentTable)[key].set(inner_keys::Wp::Id::FluxSolver, drFluxSolver[face][faceRelation]);
+#ifdef USE_VISCOELASTIC2
+        (*currentTable)[key].set(inner_keys::Wp::Id::DofsExt, drDofsExt[face][faceRelation]);
+#endif
       }
     }
   }

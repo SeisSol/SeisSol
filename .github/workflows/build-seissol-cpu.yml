@@ -21,12 +21,13 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('{0}_{1}{2}_{3}_{4}{5}',
+          format('{0}_{1}{2}_{3}_{4}{5}{6}',
             matrix.build_type,
             matrix.precision == 'single' && 's' || 'd',
             matrix.arch,
             matrix.order,
             matrix.equation.type,
+            matrix.equation.materialorder != 1 && format('_h{0}', matrix.equation.materialorder) || '',
             matrix.equation.multisim != 1 && format('_f{0}', matrix.equation.multisim) || ''
           )
         }}
@@ -44,21 +45,31 @@ jobs:
           - type: acoustic
             multisim: 1
             mechanisms: 0
+            materialorder: 1
           - type: elastic
             multisim: 1
             mechanisms: 0
+            materialorder: 1
           - type: poroelastic
             multisim: 1
             mechanisms: 0
+            materialorder: 1
           - type: viscoelastic2
             multisim: 1
             mechanisms: 3
+            materialorder: 1
           - type: anisotropic
             multisim: 1
             mechanisms: 0
+            materialorder: 1
           - type: elastic
             multisim: 8
             mechanisms: 0
+            materialorder: 1
+          - type: elastic
+            multisim: 1
+            mechanisms: 0
+            materialorder: 2
         precision:
           - single
           - double
@@ -110,7 +121,7 @@ jobs:
             TESTING_COMMAND="";
           fi;
 
-          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DASAGI=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
+          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DASAGI=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DMATERIAL_ORDER=${{ matrix.equation.materialorder }}
           ninja install
 
       - name: test-seissol
@@ -165,7 +176,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation.type}}-${{matrix.equation.multisim}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation.type}}-${{matrix.equation.materialorder}}-${{matrix.equation.multisim}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
   seissol-run-test:
@@ -178,12 +189,13 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('{0}_{1}{2}_{3}_{4}{5}',
+          format('{0}_{1}{2}_{3}_{4}{5}{6}',
             matrix.build_type,
             matrix.precision == 'single' && 's' || 'd',
             matrix.arch,
             matrix.order,
             matrix.case.equation,
+            matrix.equation.materialorder != 1 && format('_h{0}', matrix.equation.materialorder) || '',
             matrix.case.multisim != 1 && format('_f{0}', matrix.case.multisim) || ''
           )
         }}
@@ -349,7 +361,7 @@ jobs:
       - name: get-seissol
         uses: actions/download-artifact@v4
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.case.multisim}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.equation.materialorder}}-${{matrix.case.multisim}}-${{matrix.setup.cc}}
           path: install
       - name: run-seissol
         id: run

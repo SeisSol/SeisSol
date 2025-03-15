@@ -43,11 +43,11 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
 
     ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] =
         ctx.faultStresses.traction1[timeIndex] -
-        ctx.data->impAndEta[ctx.ltsFace].etaS *
+        ctx.data->impAndEta[ctx.ltsFace].etaS(ctx.pointIndex) *
             ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
     ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] =
         ctx.faultStresses.traction2[timeIndex] -
-        ctx.data->impAndEta[ctx.ltsFace].etaS *
+        ctx.data->impAndEta[ctx.ltsFace].etaS(ctx.pointIndex) *
             ctx.data->imposedSlipDirection2[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
 
     ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] =
