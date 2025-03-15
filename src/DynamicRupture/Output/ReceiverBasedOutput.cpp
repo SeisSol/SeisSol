@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -129,14 +129,13 @@ void ReceiverOutput::calcFaultOutput(
 #endif
 
     const auto* initStresses = getCellData(local, drDescr->initialStressInFaultCS);
-    const auto* initStress = initStresses[local.nearestGpIndex];
 
     local.frictionCoefficient = getCellData(local, drDescr->mu)[local.nearestGpIndex];
     local.stateVariable = this->computeStateVariable(local);
 
-    local.iniTraction1 = initStress[QuantityIndices::XY];
-    local.iniTraction2 = initStress[QuantityIndices::XZ];
-    local.iniNormalTraction = initStress[QuantityIndices::XX];
+    local.iniTraction1 = initStresses[QuantityIndices::XY][local.nearestGpIndex];
+    local.iniTraction2 = initStresses[QuantityIndices::XZ][local.nearestGpIndex];
+    local.iniNormalTraction = initStresses[QuantityIndices::XX][local.nearestGpIndex];
     local.fluidPressure = this->computeFluidPressure(local);
 
     const auto& normal = outputData->faultDirections[i].faceNormal;
@@ -249,8 +248,12 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& totalTractions = std::get<VariableID::TotalTractions>(outputData->vars);
     if (totalTractions.isActive) {
+      std::array<real, tensor::initialStress::size()> unrotatedInitStress{};
       std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
-      alignAlongDipAndStrikeKernel.initialStress = initStress;
+      for (std::size_t i = 0; i < unrotatedInitStress.size(); ++i) {
+        unrotatedInitStress[i] = initStresses[i][local.nearestGpIndex];
+      }
+      alignAlongDipAndStrikeKernel.initialStress = unrotatedInitStress.data();
       alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitStress.data();
       alignAlongDipAndStrikeKernel.execute();
 

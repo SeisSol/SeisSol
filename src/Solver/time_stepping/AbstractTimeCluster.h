@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2020 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -103,4 +103,3 @@ public:
 
 
 #endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_H_
-

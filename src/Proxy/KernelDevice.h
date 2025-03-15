@@ -1,12 +1,12 @@
-// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2020 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNELDEVICE_H_
-#define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNELDEVICE_H_
+#ifndef SEISSOL_SRC_PROXY_KERNELDEVICE_H_
+#define SEISSOL_SRC_PROXY_KERNELDEVICE_H_
 
 #include "KernelHost.h"
 
@@ -50,4 +50,4 @@ std::shared_ptr<ProxyKernel> getProxyKernelDevice(Kernel kernel);
 
 } // namespace seissol::proxy
 
-#endif // SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNELDEVICE_H_
+#endif // SEISSOL_SRC_PROXY_KERNELDEVICE_H_
