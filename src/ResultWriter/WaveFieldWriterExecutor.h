@@ -124,11 +124,8 @@ class WaveFieldWriterExecutor {
     std::vector<const char*> variables;
     for (unsigned int i = 0; i < m_numVariables; i++) {
       if (m_outputFlags[i]) {
-#ifdef USE_POROELASTIC
-        assert(i < 20);
-#else
-        assert(i < 16);
-#endif
+        assert(i <
+               seissol::model::MaterialT::Quantities + seissol::model::PlasticityData::Quantities);
         variables.push_back(varNames->at(i).c_str());
       }
     }
