@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -9,8 +9,8 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#ifndef SEISSOL_SRC_INITIALIZER_MEMORYALLOCATOR_H_
-#define SEISSOL_SRC_INITIALIZER_MEMORYALLOCATOR_H_
+#ifndef SEISSOL_SRC_MEMORY_MEMORYALLOCATOR_H_
+#define SEISSOL_SRC_MEMORY_MEMORYALLOCATOR_H_
 
 #include "Common/Constants.h"
 #include "Common/Marker.h"
@@ -204,4 +204,4 @@ class MemkindArray {
 
 } // namespace seissol::memory
 
-#endif // SEISSOL_SRC_INITIALIZER_MEMORYALLOCATOR_H_
+#endif // SEISSOL_SRC_MEMORY_MEMORYALLOCATOR_H_

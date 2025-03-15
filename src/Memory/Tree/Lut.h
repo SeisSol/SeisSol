@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2016 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SEISSOL_SRC_INITIALIZER_TREE_LUT_H_
-#define SEISSOL_SRC_INITIALIZER_TREE_LUT_H_
+#ifndef SEISSOL_SRC_MEMORY_TREE_LUT_H_
+#define SEISSOL_SRC_MEMORY_TREE_LUT_H_
 
 #include "LTSTree.h"
 #include "Layer.h"
@@ -96,4 +96,4 @@ class seissol::initializer::Lut {
   }
 };
 
-#endif // SEISSOL_SRC_INITIALIZER_TREE_LUT_H_
+#endif // SEISSOL_SRC_MEMORY_TREE_LUT_H_

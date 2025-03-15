@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2016 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -13,6 +13,7 @@
 #include <Reader/AsagiModule.h>
 #include <asagi.h>
 #include <mpi.h>
+#include <string>
 #include <utils/env.h>
 #include <utils/logger.h>
 
