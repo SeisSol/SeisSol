@@ -12,6 +12,7 @@
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include <Common/Constants.h>
+#include <Equations/Datastructures.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
 #include <Initializer/BasicTypedefs.h>
@@ -415,7 +416,6 @@ void EnergyOutput::computeVolumeEnergies() {
     for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
       const real volume = MeshTools::volume(elements[elementId], vertices);
       const CellMaterialData& material = ltsLut->lookup(lts->material, elementId);
-#if defined(USE_ELASTIC) || defined(USE_VISCOELASTIC2)
       auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
       auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
@@ -447,8 +447,10 @@ void EnergyOutput::computeVolumeEnergies() {
 
       auto numSub = multisim::simtensor(numericalSolution, sim);
 
+      // TODO: move to the material class (maybe done by #1297 + MaterialT::NumTractionQuantities)
+      constexpr int UIdx = model::MaterialT::Type == model::MaterialType::Acoustic ? 1 : 6;
+
       for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
-        constexpr int UIdx = 6;
         const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
         const auto rho = material.local.rho;
 
@@ -522,7 +524,7 @@ void EnergyOutput::computeVolumeEnergies() {
             init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
         for (int i = 0; i < 3; ++i) {
           for (int j = 0; j < 3; ++j) {
-            rotateDisplacementToFaceNormal(i, j) = tinv(i + 6, j + 6);
+            rotateDisplacementToFaceNormal(i, j) = tinv(i + UIdx, j + UIdx);
           }
         }
 
@@ -555,7 +557,6 @@ void EnergyOutput::computeVolumeEnergies() {
           totalGravitationalEnergyLocal += curWeight * curEnergy;
         }
       }
-#endif
 
       if (isPlasticityEnabled) {
         // plastic moment
@@ -607,6 +608,11 @@ void EnergyOutput::printEnergies() {
       seissolInstance.getSeisSolParameters().output.energyParameters.terminalPrecision;
 
   const auto shouldPrint = [](double thresholdValue) { return std::abs(thresholdValue) > 1.e-20; };
+  if (model::MaterialT::Type != model::MaterialType::Elastic &&
+      model::MaterialT::Type != model::MaterialType::Viscoelastic &&
+      model::MaterialT::Type != model::MaterialType::Acoustic && shouldComputeVolumeEnergies()) {
+    logInfo() << "WARNING: the volume energies printed here may be inaccurate.";
+  }
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     const std::string fusedPrefix =
         multisim::MultisimEnabled ? "[" + std::to_string(sim) + "]" : "";
