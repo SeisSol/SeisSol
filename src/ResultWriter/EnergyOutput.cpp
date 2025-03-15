@@ -579,19 +579,12 @@ void EnergyOutput::reduceEnergies() {
 #ifdef USE_MPI
   const auto rank = MPI::mpi.rank();
   const auto& comm = MPI::mpi.comm();
-
-  const auto count = static_cast<int>(energiesStorage.energies.size());
-  if (rank == 0) {
-    MPI_Reduce(MPI_IN_PLACE, energiesStorage.energies.data(), count, MPI_DOUBLE, MPI_SUM, 0, comm);
-  } else {
-    MPI_Reduce(energiesStorage.energies.data(),
-               energiesStorage.energies.data(),
-               count,
-               MPI_DOUBLE,
-               MPI_SUM,
-               0,
-               comm);
-  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                energiesStorage.energies.data(),
+                static_cast<int>(energiesStorage.energies.size()),
+                MPI_DOUBLE,
+                MPI_SUM,
+                comm);
 #endif
 }
 
@@ -599,20 +592,12 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 #ifdef USE_MPI
   const auto rank = MPI::mpi.rank();
   const auto& comm = MPI::mpi.comm();
-  for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-    if (rank == 0) {
-      MPI_Reduce(
-          MPI_IN_PLACE, &minTimeSinceSlipRateBelowThreshold[sim], 1, MPI_C_REAL, MPI_MIN, 0, comm);
-    } else {
-      MPI_Reduce(&minTimeSinceSlipRateBelowThreshold[sim],
-                 &minTimeSinceSlipRateBelowThreshold[sim],
-                 1,
-                 MPI_C_REAL,
-                 MPI_MIN,
-                 0,
-                 comm);
-    }
-  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                minTimeSinceSlipRateBelowThreshold.data(),
+                static_cast<int>(minTimeSinceSlipRateBelowThreshold.size()),
+                MPI_C_REAL,
+                MPI_MIN,
+                comm);
 #endif
 }
 
@@ -706,8 +691,9 @@ void EnergyOutput::printEnergies() {
   }
 }
 
-void EnergyOutput::checkAbortCriterion(const real (&timeSinceThreshold)[multisim::NumSimulations],
-                                       const std::string& prefixMessage) {
+void EnergyOutput::checkAbortCriterion(
+    const std::array<real, multisim::NumSimulations>& timeSinceThreshold,
+    const std::string& prefixMessage) {
   const auto rank = MPI::mpi.rank();
   bool abort = true;
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
