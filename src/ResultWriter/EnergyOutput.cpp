@@ -726,23 +726,23 @@ void EnergyOutput::checkAbortCriterion(
   }
 }
 
-void EnergyOutput::writeHeader() { out << "time,variable,measurement" << std::endl; }
+void EnergyOutput::writeHeader() { out << "time,variable,simulation_index,measurement" << std::endl; }
 
 void EnergyOutput::writeEnergies(double time) {
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-    const std::string fusedSuffix = multisim::MultisimEnabled ? std::to_string(sim) : "";
+    const std::string fusedSuffix = std::to_string(sim);
     if (shouldComputeVolumeEnergies()) {
-      out << time << ",gravitational_energy" << fusedSuffix << ","
+      out << time << ",gravitational_energy," << fusedSuffix << ","
           << energiesStorage.gravitationalEnergy(sim) << "\n"
-          << time << ",acoustic_energy" << fusedSuffix << "," << energiesStorage.acousticEnergy(sim)
+          << time << ",acoustic_energy," << fusedSuffix << "," << energiesStorage.acousticEnergy(sim)
           << "\n"
-          << time << ",acoustic_kinetic_energy" << fusedSuffix << ","
+          << time << ",acoustic_kinetic_energy," << fusedSuffix << ","
           << energiesStorage.acousticKineticEnergy(sim) << "\n"
-          << time << ",elastic_energy" << fusedSuffix << "," << energiesStorage.elasticEnergy(sim)
+          << time << ",elastic_energy," << fusedSuffix << "," << energiesStorage.elasticEnergy(sim)
           << "\n"
-          << time << ",elastic_kinetic_energy" << fusedSuffix << ","
+          << time << ",elastic_kinetic_energy," << fusedSuffix << ","
           << energiesStorage.elasticKineticEnergy(sim) << "\n"
-          << time << ",plastic_moment" << fusedSuffix << "," << energiesStorage.plasticMoment(sim)
+          << time << ",plastic_moment," << fusedSuffix << "," << energiesStorage.plasticMoment(sim)
           << "\n"
           << time << ",momentumX," << fusedSuffix << "," << energiesStorage.totalMomentumX(sim)
           << "\n"
@@ -751,14 +751,14 @@ void EnergyOutput::writeEnergies(double time) {
           << time << ",momentumZ," << fusedSuffix << "," << energiesStorage.totalMomentumZ(sim)
           << "\n";
     }
-    out << time << ",total_frictional_work" << fusedSuffix << ","
+    out << time << ",total_frictional_work," << fusedSuffix << ","
         << energiesStorage.totalFrictionalWork(sim) << "\n"
-        << time << ",static_frictional_work" << fusedSuffix << ","
+        << time << ",static_frictional_work," << fusedSuffix << ","
         << energiesStorage.staticFrictionalWork(sim) << "\n"
-        << time << ",seismic_moment" << fusedSuffix << "," << energiesStorage.seismicMoment(sim)
+        << time << ",seismic_moment," << fusedSuffix << "," << energiesStorage.seismicMoment(sim)
         << "\n"
-        << time << ",potency" << fusedSuffix << "," << energiesStorage.potency(sim) << "\n"
-        << time << ",plastic_moment" << fusedSuffix << "," << energiesStorage.plasticMoment(sim)
+        << time << ",potency," << fusedSuffix << "," << energiesStorage.potency(sim) << "\n"
+        << time << ",plastic_moment," << fusedSuffix << "," << energiesStorage.plasticMoment(sim)
         << std::endl;
   }
 }
