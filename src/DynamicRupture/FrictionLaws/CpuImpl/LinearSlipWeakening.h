@@ -178,7 +178,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     alignas(Alignment) real resampledSlipRate[misc::NumPaddedPoints]{};
     specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
 
-    const real time = this->mFullUpdateTime + this->deltaT[timeIndex];
+    real time = this->mFullUpdateTime;
+    for (int i = 0; i <= timeIndex; ++i) {
+      time += this->deltaT[i];
+    }
 #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // integrate slip rate to get slip = state variable
