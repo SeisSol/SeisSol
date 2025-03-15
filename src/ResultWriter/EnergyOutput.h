@@ -104,7 +104,7 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion(const real (&timeSinceThreshold)[multisim::NumSimulations],
+  void checkAbortCriterion(const std::array<real, multisim::NumSimulations>& timeSinceThreshold,
                            const std::string& prefixMessage);
 
   void writeHeader();
@@ -143,12 +143,12 @@ class EnergyOutput : public Module {
   seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
-  real minTimeSinceSlipRateBelowThreshold[multisim::NumSimulations] = {0.0};
-  real minTimeSinceMomentRateBelowThreshold[multisim::NumSimulations] = {0.0};
+  std::array<real, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold;
+  std::array<real, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold;
   double terminatorMaxTimePostRupture{};
   double energyOutputInterval{};
   double terminatorMomentRateThreshold{};
-  double seismicMomentPrevious[multisim::NumSimulations] = {0.0};
+  std::array<double, multisim::NumSimulations> seismicMomentPrevious;
 };
 
 } // namespace writer
