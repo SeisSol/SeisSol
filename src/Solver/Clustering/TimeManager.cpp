@@ -14,7 +14,6 @@
 #include "SeisSol.h"
 #include "Solver/Clustering/Communication/CommunicationManager.h"
 #include "TimeManager.h"
-#include <AbstractAPI.h>
 #include <Common/Executor.h>
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/MemoryManager.h>

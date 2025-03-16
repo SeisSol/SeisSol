@@ -6,6 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "HelperThread.h"
 
+#include <utility>
+
 #ifdef ACL_DEVICE
 #include <device.h>
 #endif
@@ -13,7 +15,7 @@
 namespace seissol::parallel {
 
 HelperThread::HelperThread(std::function<bool()> function, const Pinning* pinning)
-    : function(function), pinning(pinning), isFinished(false), shouldReset(false), thread() {}
+    : function(std::move(function)), pinning(pinning), isFinished(false), shouldReset(false) {}
 
 [[nodiscard]] bool HelperThread::finished() const { return isFinished.load(); }
 

@@ -10,6 +10,7 @@
 
 #include <Memory/Tree/Layer.h>
 #include <Parallel/Host/CpuExecutor.h>
+#include <Parallel/Host/SyncExecutor.h>
 #include <functional>
 #include <mutex>
 #include <omp.h>
@@ -25,17 +26,17 @@ namespace seissol::parallel::runtime {
 class StreamRuntime {
   private:
   std::shared_ptr<seissol::parallel::host::CpuExecutor> cpu;
+  static std::mutex mutexCPU;
 #ifdef ACL_DEVICE
   private:
   static device::DeviceInstance& device() { return device::DeviceInstance::getInstance(); }
-  static std::mutex mutexCPU;
 
   public:
   static constexpr size_t RingbufferSize = 4;
 
-  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu,
+  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu = std::make_shared<host::SyncExecutor>(),
                 double priority = 0.0)
-      : cpu(cpu), disposed(false), priority(priority) {
+      : cpu(cpu), , priority(priority) {
     streamPtr = device().api->createStream(priority);
     ringbufferPtr.resize(RingbufferSize);
     for (size_t i = 0; i < RingbufferSize; ++i) {
@@ -151,29 +152,6 @@ class StreamRuntime {
     }
   }
 
-  template <typename F>
-  void envSycl(void* queue, F&& handler) {
-    syncToSycl(queue);
-    std::invoke(handler);
-    syncFromSycl(queue);
-  }
-
-  void syncToSycl(void* queue);
-  void syncFromSycl(void* queue);
-
-  /*
-  // disabled unless using a modern compiler
-    template <typename F>
-    void envOMP(omp_depend_t& depobj, F&& handler) {
-      syncToOMP(depobj);
-      std::invoke(handler);
-      syncFromOMP(depobj);
-    }
-
-    void syncToOMP(omp_depend_t& depobj);
-    void syncFromOMP(omp_depend_t& depobj);
-  */
-
   void recycleEvent(void* eventPtr) { events.push(eventPtr); }
 
   void* getEvent() {
@@ -197,7 +175,7 @@ class StreamRuntime {
   void waitEvent(void* eventPtr) { device().api->syncStreamWithEvent(stream(), eventPtr); }
 
   private:
-  bool disposed;
+  bool disposed{};
   double priority;
   void* streamPtr;
   std::vector<void*> ringbufferPtr;
@@ -205,25 +183,49 @@ class StreamRuntime {
   std::queue<void*> events;
 #else
   public:
-  void wait() {}
+  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu = std::make_shared<host::SyncExecutor>(),
+                double priority = 0.0) : cpu(cpu) {}
+  void wait() {
+    last->wait();
+  }
   void dispose() {}
 
   template <typename F>
   void enqueueHost(F&& handler) {
-    std::invoke(std::forward<F>(handler));
+    last = cpu->add(0, 1, [handler](std::size_t) {
+      std::invoke(handler);
+    }, {});
   }
 
   template <typename F>
   void enqueueOmpFor(std::size_t elemCount, F&& handler) {
     if (elemCount > 0) {
+      last = cpu->add(0, elemCount, handler, {});
+      /*
       enqueueHost([=]() {
 #pragma omp parallel for schedule(static)
         for (std::size_t i = 0; i < elemCount; ++i) {
           std::invoke(handler, i);
         }
-      });
+      });*/
     }
   }
+
+  void* getEvent() {
+    return nullptr;
+  }
+
+  void* recordEvent() {
+    return nullptr;
+  }
+
+  void waitEvent(void* eventPtr) {
+
+  }
+
+  void recycleEvent(void* eventPtr) {}
+  private:
+  std::shared_ptr<host::Task> last;
 #endif
 };
 

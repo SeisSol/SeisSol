@@ -6,7 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DirectMPINeighborCluster.h"
-#include <AbstractAPI.h>
 #include <Memory/MemoryAllocator.h>
 #include <Parallel/MPI.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>

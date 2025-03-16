@@ -47,7 +47,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION("simulate", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
-  parallel::runtime::StreamRuntime syncRuntime(std::make_shared<parallel::host::SyncExecutor>());
+  parallel::runtime::StreamRuntime syncRuntime;
   faultOutputManager->writePickpointOutput(0.0, 0.0, syncRuntime);
   syncRuntime.wait();
 

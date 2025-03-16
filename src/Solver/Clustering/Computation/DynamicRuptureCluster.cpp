@@ -7,7 +7,6 @@
 
 #include "DynamicRuptureCluster.h"
 #include "SeisSol.h"
-#include <AbstractAPI.h>
 #include <Common/Executor.h>
 #include <DataTypes/EncodedConstants.h>
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>

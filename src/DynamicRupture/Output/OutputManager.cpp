@@ -261,8 +261,7 @@ void OutputManager::initElementwiseOutput() {
 
     auto& self = *this;
     writer.addHook([&](std::size_t, double) {
-      auto runtime =
-          parallel::runtime::StreamRuntime(std::make_shared<parallel::host::SyncExecutor>());
+      auto runtime = parallel::runtime::StreamRuntime();
       self.updateElementwiseOutput(runtime);
       runtime.wait();
     });

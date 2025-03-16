@@ -10,7 +10,6 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "Parallel/MPI.h"
-#include <AbstractAPI.h>
 #include <Common/Executor.h>
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>

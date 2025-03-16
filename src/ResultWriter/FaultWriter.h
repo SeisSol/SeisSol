@@ -55,7 +55,7 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
   dr::output::OutputManager* callbackObject{nullptr};
 
-  parallel::runtime::StreamRuntime runtime{std::make_shared<parallel::host::SyncExecutor>()};
+  parallel::runtime::StreamRuntime runtime;
 
   public:
   FaultWriter(seissol::SeisSol& seissolInstance)
