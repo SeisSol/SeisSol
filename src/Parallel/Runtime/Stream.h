@@ -36,7 +36,7 @@ class StreamRuntime {
 
   StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu = std::make_shared<host::SyncExecutor>(),
                 double priority = 0.0)
-      : cpu(cpu), , priority(priority) {
+      : cpu(cpu), priority(priority) {
     streamPtr = device().api->createStream(priority);
     ringbufferPtr.resize(RingbufferSize);
     for (size_t i = 0; i < RingbufferSize; ++i) {
