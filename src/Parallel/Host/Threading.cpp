@@ -10,6 +10,8 @@
 
 #include "Parallel/HostEvent.h"
 
+#include "utils/logger.h"
+
 namespace seissol::parallel::host {
 
 #ifdef ACL_DEVICE
@@ -44,22 +46,6 @@ class ToDeviceEvent : public Task {
 };
 #endif
 
-class SimpleEvent : public Task {
-  private:
-  std::shared_ptr<std::atomic<bool>> data;
-
-  public:
-  SimpleEvent() : data(std::make_shared<std::atomic<bool>>(false)) {}
-  void init() { data->store(false); }
-  void record() { data->store(true); }
-  bool poll() { return data->load(); }
-
-  void wait() override {
-    while (!poll())
-      ; // TODO: yield?
-  }
-};
-
 struct SimpleTask {
   std::function<bool()> ready;
   std::function<void(std::size_t)> function;
@@ -70,6 +56,7 @@ struct SimpleTask {
 void ThreadStackExecutor::start(const std::function<void(CpuExecutor&)>& continuation,
                                 const Pinning* pinning) {
   running.store(true);
+  completing.store(false);
   completed.store(false);
   auto thread = HelperThread(
       [this, continuation] {
@@ -84,7 +71,7 @@ void ThreadStackExecutor::start(const std::function<void(CpuExecutor&)>& continu
 
 void ThreadStackExecutor::task(int priority, SimpleTask&& task) {
   std::lock_guard tasksLock(tasksMutex);
-  tasksMap[priority].emplace_back(std::move(task));
+  tasksMap[priority].emplace_back(std::make_shared<SimpleTask>(std::move(task)));
 }
 
 std::shared_ptr<Task> ThreadStackExecutor::add(int priority,
@@ -96,14 +83,15 @@ std::shared_ptr<Task> ThreadStackExecutor::add(int priority,
   task(priority,
        SimpleTask{[=]() {
                     for (const auto& event : pollList) {
-                      if (!static_cast<SimpleEvent*>(event.get())->poll()) {
+                      if (!dynamic_cast<SimpleEvent*>(event.get())->poll()) {
                         return false;
                       }
                     }
                     return true;
                   },
                   function,
-                  [=]() { returnEvent->record(); }});
+                  [=]() { returnEvent->record(); },
+                  size});
   return returnEvent;
 }
 
@@ -113,16 +101,22 @@ std::shared_ptr<Task> ThreadStackExecutor::fromDevice(void* stream) {
 }
 */
 
-void ThreadStackExecutor::complete() { completed.store(true); }
+void ThreadStackExecutor::wait() {
+  while (!completed.load()) {
+  }
+}
+
+void ThreadStackExecutor::complete() { completing.store(true); }
 
 // emulate a de-facto pthread-like runtime; until all OMP features are implemented properly
 void ThreadStackExecutor::run() {
   std::vector<SimpleTask> nextTasks;
   std::vector<std::unique_ptr<std::atomic<int>>> done;
-#pragma omp parallel shared(nextTasks, done)
+
+  std::atomic<bool> allEmpty{false};
+#pragma omp parallel shared(nextTasks, done, allEmpty)
   {
     while (running.load()) {
-      bool allEmpty = true;
 #pragma omp single
       {
         std::lock_guard tasksLock(tasksMutex);
@@ -134,20 +128,23 @@ void ThreadStackExecutor::run() {
             allEmpty = false;
           }
           for (auto it = tasks.begin(); it != tasks.end(); ++it) {
-            if (std::invoke(it->ready)) {
-              nextTasks.emplace_back(*it);
+            if (std::invoke(it->get()->ready)) {
+              nextTasks.emplace_back(**it);
               done.emplace_back(std::make_unique<std::atomic<int>>(omp_get_num_threads()));
               it = tasks.erase(it);
             }
           }
         }
+        allEmpty = done.empty();
       }
-      if (allEmpty && completed.load()) {
+
+      // implicit barrier here
+      if (allEmpty && completing.load()) {
         break;
       }
       for (std::size_t j = 0; j < nextTasks.size(); ++j) {
         auto& task = nextTasks[j];
-#pragma omp for nowait schedule(static)
+#pragma omp for nowait schedule(dynamic, 4)
         for (std::size_t i = 0; i < task.size; ++i) {
           std::invoke(task.function, i);
         }
@@ -159,6 +156,7 @@ void ThreadStackExecutor::run() {
 #pragma omp barrier
     }
   }
+  completed.store(true);
 }
 
 } // namespace seissol::parallel::host

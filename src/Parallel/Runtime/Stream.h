@@ -23,6 +23,12 @@
 
 namespace seissol::parallel::runtime {
 
+#ifdef ACL_DEVICE
+using EventT = void*;
+#else
+using EventT = std::vector<std::shared_ptr<host::Task>>;
+#endif
+
 class StreamRuntime {
   private:
   std::shared_ptr<seissol::parallel::host::CpuExecutor> cpu;
@@ -34,7 +40,8 @@ class StreamRuntime {
   public:
   static constexpr size_t RingbufferSize = 4;
 
-  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu = std::make_shared<host::SyncExecutor>(),
+  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu =
+                    std::make_shared<host::SyncExecutor>(),
                 double priority = 0.0)
       : cpu(cpu), priority(priority) {
     streamPtr = device().api->createStream(priority);
@@ -183,49 +190,49 @@ class StreamRuntime {
   std::queue<void*> events;
 #else
   public:
-  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu = std::make_shared<host::SyncExecutor>(),
-                double priority = 0.0) : cpu(cpu) {}
+  StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu =
+                    std::make_shared<host::SyncExecutor>(),
+                double priority = 0.0)
+      : cpu(cpu) {}
   void wait() {
-    last->wait();
+    for (auto& task : waitTasks) {
+      task->wait();
+    }
   }
   void dispose() {}
 
   template <typename F>
   void enqueueHost(F&& handler) {
-    last = cpu->add(0, 1, [handler](std::size_t) {
-      std::invoke(handler);
-    }, {});
+    auto last = cpu->add(0, 1, [handler](std::size_t) { std::invoke(handler); }, waitTasks);
+    waitTasks = std::vector<std::shared_ptr<host::Task>>();
+    waitTasks.emplace_back(last);
   }
 
   template <typename F>
   void enqueueOmpFor(std::size_t elemCount, F&& handler) {
     if (elemCount > 0) {
-      last = cpu->add(0, elemCount, handler, {});
-      /*
-      enqueueHost([=]() {
-#pragma omp parallel for schedule(static)
-        for (std::size_t i = 0; i < elemCount; ++i) {
-          std::invoke(handler, i);
-        }
-      });*/
+      auto last = cpu->add(0, elemCount, handler, waitTasks);
+      waitTasks = std::vector<std::shared_ptr<host::Task>>();
+      waitTasks.emplace_back(last);
     }
   }
 
-  void* getEvent() {
-    return nullptr;
+  void* getEvent() { return nullptr; }
+
+  EventT recordEvent() { return waitTasks; }
+
+  void waitEvent(EventT eventPtr) {
+    for (const auto& event : eventPtr) {
+      waitTasks.emplace_back(event);
+    }
   }
 
-  void* recordEvent() {
-    return nullptr;
+  void recycleEvent(EventT eventPtr) {
+    // nop
   }
 
-  void waitEvent(void* eventPtr) {
-
-  }
-
-  void recycleEvent(void* eventPtr) {}
   private:
-  std::shared_ptr<host::Task> last;
+  std::vector<std::shared_ptr<host::Task>> waitTasks;
 #endif
 };
 

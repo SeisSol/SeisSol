@@ -44,88 +44,86 @@ class BaseFrictionLaw : public FrictionSolver {
       return;
     }
     auto& self = *this;
-    runtime.enqueueHost([=, &self, &layerData] {
-      BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    runtime.enqueueHost([fullUpdateTime, dynRup, &self, &layerData] {
+      static_cast<BaseFrictionLaw&>(self).copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
       static_cast<Derived&>(self).copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-
-      // loop over all dynamic rupture faces, in this LTS layer
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif
-      for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
-        alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
-        common::precomputeStressFromQInterpolated(faultStresses,
-                                                  self.impAndEta[ltsFace],
-                                                  self.impedanceMatrices[ltsFace],
-                                                  self.qInterpolatedPlus[ltsFace],
-                                                  self.qInterpolatedMinus[ltsFace]);
-
-        // define some temporary variables
-        std::array<real, misc::NumPaddedPoints> stateVariableBuffer{0};
-        std::array<real, misc::NumPaddedPoints> strengthBuffer{0};
-
-        static_cast<Derived&>(self).preHook(stateVariableBuffer, ltsFace);
-        TractionResults<Executor::Host> tractionResults = {};
-
-        // loop over sub time steps (i.e. quadrature points in time)
-        for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
-          common::adjustInitialStress(self.initialStressInFaultCS[ltsFace],
-                                      self.nucleationStressInFaultCS[ltsFace],
-                                      self.initialPressure[ltsFace],
-                                      self.nucleationPressure[ltsFace],
-                                      self.mFullUpdateTime,
-                                      self.drParameters->t0,
-                                      self.deltaT[timeIndex]);
-
-          static_cast<Derived&>(self).updateFrictionAndSlip(faultStresses,
-                                                            tractionResults,
-                                                            stateVariableBuffer,
-                                                            strengthBuffer,
-                                                            ltsFace,
-                                                            timeIndex);
-        }
-        static_cast<Derived&>(self).postHook(stateVariableBuffer, ltsFace);
-
-        common::saveRuptureFrontOutput(self.ruptureTimePending[ltsFace],
-                                       self.ruptureTime[ltsFace],
-                                       self.slipRateMagnitude[ltsFace],
-                                       self.mFullUpdateTime);
-
-        static_cast<Derived&>(self).saveDynamicStressOutput(ltsFace);
-
-        common::savePeakSlipRateOutput(self.slipRateMagnitude[ltsFace], self.peakSlipRate[ltsFace]);
-        common::postcomputeImposedStateFromNewStress(faultStresses,
-                                                     tractionResults,
-                                                     self.impAndEta[ltsFace],
-                                                     self.impedanceMatrices[ltsFace],
-                                                     self.imposedStatePlus[ltsFace],
-                                                     self.imposedStateMinus[ltsFace],
-                                                     self.qInterpolatedPlus[ltsFace],
-                                                     self.qInterpolatedMinus[ltsFace],
-                                                     timeWeights);
-
-        if (self.drParameters->isFrictionEnergyRequired) {
-
-          if (self.drParameters->isCheckAbortCriteraEnabled) {
-            common::updateTimeSinceSlipRateBelowThreshold(
-                self.slipRateMagnitude[ltsFace],
-                self.ruptureTimePending[ltsFace],
-                self.energyData[ltsFace],
-                self.sumDt,
-                self.drParameters->terminatorSlipRateThreshold);
-          }
-          common::computeFrictionEnergy(energyData[ltsFace],
-                                        qInterpolatedPlus[ltsFace],
-                                        qInterpolatedMinus[ltsFace],
-                                        impAndEta[ltsFace],
-                                        timeWeights,
-                                        spaceWeights,
-                                        godunovData[ltsFace],
-                                        slipRateMagnitude[ltsFace],
-                                        this->drParameters->energiesFromAcrossFaultVelocities);
-        }
-      }
     });
+    runtime.enqueueOmpFor(
+        layerData.getNumberOfCells(),
+        [fullUpdateTime, &self, &layerData, timeWeights](std::size_t ltsFace) {
+          alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
+          common::precomputeStressFromQInterpolated(faultStresses,
+                                                    self.impAndEta[ltsFace],
+                                                    self.impedanceMatrices[ltsFace],
+                                                    self.qInterpolatedPlus[ltsFace],
+                                                    self.qInterpolatedMinus[ltsFace]);
+
+          // define some temporary variables
+          std::array<real, misc::NumPaddedPoints> stateVariableBuffer{0};
+          std::array<real, misc::NumPaddedPoints> strengthBuffer{0};
+
+          static_cast<Derived&>(self).preHook(stateVariableBuffer, ltsFace);
+          TractionResults<Executor::Host> tractionResults = {};
+
+          // loop over sub time steps (i.e. quadrature points in time)
+          for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
+            common::adjustInitialStress(self.initialStressInFaultCS[ltsFace],
+                                        self.nucleationStressInFaultCS[ltsFace],
+                                        self.initialPressure[ltsFace],
+                                        self.nucleationPressure[ltsFace],
+                                        self.mFullUpdateTime,
+                                        self.drParameters->t0,
+                                        self.deltaT[timeIndex]);
+
+            static_cast<Derived&>(self).updateFrictionAndSlip(faultStresses,
+                                                              tractionResults,
+                                                              stateVariableBuffer,
+                                                              strengthBuffer,
+                                                              ltsFace,
+                                                              timeIndex);
+          }
+          static_cast<Derived&>(self).postHook(stateVariableBuffer, ltsFace);
+
+          common::saveRuptureFrontOutput(self.ruptureTimePending[ltsFace],
+                                         self.ruptureTime[ltsFace],
+                                         self.slipRateMagnitude[ltsFace],
+                                         self.mFullUpdateTime);
+
+          static_cast<Derived&>(self).saveDynamicStressOutput(ltsFace);
+
+          common::savePeakSlipRateOutput(self.slipRateMagnitude[ltsFace],
+                                         self.peakSlipRate[ltsFace]);
+          common::postcomputeImposedStateFromNewStress(faultStresses,
+                                                       tractionResults,
+                                                       self.impAndEta[ltsFace],
+                                                       self.impedanceMatrices[ltsFace],
+                                                       self.imposedStatePlus[ltsFace],
+                                                       self.imposedStateMinus[ltsFace],
+                                                       self.qInterpolatedPlus[ltsFace],
+                                                       self.qInterpolatedMinus[ltsFace],
+                                                       timeWeights);
+
+          if (self.drParameters->isFrictionEnergyRequired) {
+
+            if (self.drParameters->isCheckAbortCriteraEnabled) {
+              common::updateTimeSinceSlipRateBelowThreshold(
+                  self.slipRateMagnitude[ltsFace],
+                  self.ruptureTimePending[ltsFace],
+                  self.energyData[ltsFace],
+                  self.sumDt,
+                  self.drParameters->terminatorSlipRateThreshold);
+            }
+            common::computeFrictionEnergy(self.energyData[ltsFace],
+                                          self.qInterpolatedPlus[ltsFace],
+                                          self.qInterpolatedMinus[ltsFace],
+                                          self.impAndEta[ltsFace],
+                                          timeWeights,
+                                          self.spaceWeights,
+                                          self.godunovData[ltsFace],
+                                          self.slipRateMagnitude[ltsFace],
+                                          self.drParameters->energiesFromAcrossFaultVelocities);
+          }
+        });
   }
 };
 } // namespace seissol::dr::friction_law::cpu

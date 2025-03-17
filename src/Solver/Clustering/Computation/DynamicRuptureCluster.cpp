@@ -60,6 +60,7 @@ DynamicRuptureCluster::DynamicRuptureCluster(
 
   computeFlops();
 
+  initFrictionSolver();
   initFrictionSolverDevice();
   // TODO(David): activate here already
   // frictionSolver->copyLtsTreeToLocal(*layer, descr, 0);
@@ -102,29 +103,35 @@ void DynamicRuptureCluster::computeDynamicRupture() {
   real** timeDerivativeMinus = layer->var(descr->timeDerivativeMinus);
   auto* qInterpolatedPlus = layer->var(descr->qInterpolatedPlus);
   auto* qInterpolatedMinus = layer->var(descr->qInterpolatedMinus);
+  auto* globalDataOnHost = this->globalDataOnHost;
+  auto* dynamicRuptureKernel = &this->dynamicRuptureKernel;
+  auto* frictionSolver = this->frictionSolver;
 
-  dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
-  frictionSolver->computeDeltaT(dynamicRuptureKernel.timePoints);
+  const auto timestepSize = timeStepSize();
+  streamRuntime.enqueueHost([=]() {
+    dynamicRuptureKernel->setTimeStepWidth(timestepSize);
+    frictionSolver->computeDeltaT(dynamicRuptureKernel->timePoints);
+  });
 
   const auto numberOfCells = layer->getNumberOfCells();
 
   streamRuntime.enqueueOmpFor(numberOfCells, [=](std::size_t face) {
     const unsigned prefetchFace = (face < numberOfCells - 1) ? face + 1 : face;
-    dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
-                                                globalDataOnHost,
-                                                &godunovData[face],
-                                                &drEnergyOutput[face],
-                                                timeDerivativePlus[face],
-                                                timeDerivativeMinus[face],
-                                                qInterpolatedPlus[face],
-                                                qInterpolatedMinus[face],
-                                                timeDerivativePlus[prefetchFace],
-                                                timeDerivativeMinus[prefetchFace]);
+    dynamicRuptureKernel->spaceTimeInterpolation(faceInformation[face],
+                                                 globalDataOnHost,
+                                                 &godunovData[face],
+                                                 &drEnergyOutput[face],
+                                                 timeDerivativePlus[face],
+                                                 timeDerivativeMinus[face],
+                                                 qInterpolatedPlus[face],
+                                                 qInterpolatedMinus[face],
+                                                 timeDerivativePlus[prefetchFace],
+                                                 timeDerivativeMinus[prefetchFace]);
   });
   frictionSolver->evaluate(*layer,
                            descr,
                            ct.time[ComputeStep::Interact],
-                           dynamicRuptureKernel.timeWeights,
+                           dynamicRuptureKernel->timeWeights,
                            streamRuntime);
   loopStatistics->end(regionComputeDynamicRupture, layer->getNumberOfCells(), profilingId);
 }
@@ -246,6 +253,13 @@ void DynamicRuptureCluster::initFrictionSolverDevice() {
     }
   }
 #endif
+}
+
+void DynamicRuptureCluster::initFrictionSolver() {
+  if (concurrentClusters()) {
+    frictionSolverStorage = this->frictionSolver->clone();
+    this->frictionSolver = frictionSolverStorage.get();
+  }
 }
 
 } // namespace seissol::solver::clustering::computation

@@ -8,13 +8,32 @@
 #define SEISSOL_SRC_PARALLEL_HOST_CPUEXECUTOR_H_
 
 #include <Parallel/Pin.h>
+#include <atomic>
 #include <functional>
 #include <memory>
 namespace seissol::parallel::host {
 
 class Task {
   public:
+  virtual ~Task() = default;
   virtual void wait() = 0;
+};
+
+class SimpleEvent : public Task {
+  private:
+  std::shared_ptr<std::atomic<bool>> data;
+
+  public:
+  SimpleEvent() : data(std::make_shared<std::atomic<bool>>(false)) {}
+  void init() { data->store(false); }
+  void record() { data->store(true); }
+  bool poll() { return data->load(); }
+
+  void wait() override {
+    while (!poll()) {
+      // TODO: yield?
+    }
+  }
 };
 
 class CpuExecutor {

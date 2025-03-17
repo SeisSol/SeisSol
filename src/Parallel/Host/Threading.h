@@ -29,15 +29,17 @@ class ThreadStackExecutor : public CpuExecutor {
                             const std::function<void(std::size_t)>& function,
                             const std::vector<std::shared_ptr<Task>>& pollList) override;
   // std::shared_ptr<Task> fromDevice(void* stream) override;
+  void wait() override;
 
   private:
   void task(int priority, SimpleTask&& task);
   void run();
   void complete();
   std::atomic<bool> running;
+  std::atomic<bool> completing;
   std::atomic<bool> completed;
   std::mutex tasksMutex;
-  std::map<int, std::list<SimpleTask>> tasksMap;
+  std::map<int, std::list<std::shared_ptr<SimpleTask>>> tasksMap;
 };
 
 } // namespace seissol::parallel::host

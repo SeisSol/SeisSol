@@ -5,7 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-add_library(seissol-solver
+add_library(seissol-solver OBJECT
     Simulator.cpp
     FreeSurfaceIntegrator.cpp
     Clustering/TimeManager.cpp

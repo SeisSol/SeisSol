@@ -76,6 +76,7 @@ class DynamicRuptureCluster : public FaceCluster {
   seissol::initializer::DynamicRupture* descr;
   seissol::dr::friction_law::FrictionSolver* frictionSolver;
   seissol::dr::friction_law::FrictionSolver* frictionSolverDevice;
+  std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionSolverStorage{nullptr};
   std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionSolverDeviceStorage{nullptr};
   seissol::dr::output::OutputManager* faultOutputManager;
 
@@ -105,6 +106,7 @@ class DynamicRuptureCluster : public FaceCluster {
   void runCompute(ComputeStep step) override;
 
   private:
+  void initFrictionSolver();
   void initFrictionSolverDevice();
 };
 } // namespace seissol::solver::clustering::computation

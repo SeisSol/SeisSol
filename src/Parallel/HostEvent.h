@@ -10,12 +10,17 @@
 
 #include <cstdint>
 #include <cstring>
-#include <device.h>
 #include <memory>
 #include <optional>
+
+#ifdef ACL_DEVICE
+#include <device.h>
+#endif
+
 namespace seissol::parallel {
 
 class HostEvent {
+#ifdef ACL_DEVICE
   public:
   HostEvent() : managed(true), value(nullptr) {
     value = reinterpret_cast<uint32_t*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
@@ -140,6 +145,7 @@ class HostEventPool {
 
   std::size_t size;
   std::vector<HostEventBuffer> buffers;
+#endif
 };
 
 } // namespace seissol::parallel

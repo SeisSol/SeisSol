@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_CLUSTERING_ACTORSTATE_H_
 #define SEISSOL_SRC_SOLVER_CLUSTERING_ACTORSTATE_H_
 
+#include <Parallel/Runtime/Stream.h>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -29,7 +30,7 @@ struct Message {
   ComputeStep step;
   double time;
   long stepsSinceSync;
-  void* completionEvent;
+  std::optional<parallel::runtime::EventT> completionEvent;
 };
 
 inline std::ostream& operator<<(std::ostream& stream, const Message& message);
@@ -93,7 +94,7 @@ struct NeighborCluster {
   std::string identifier;
   std::shared_ptr<MessageQueue> inbox = nullptr;
   std::shared_ptr<MessageQueue> outbox = nullptr;
-  std::unordered_map<ComputeStep, void*> events;
+  std::unordered_map<ComputeStep, std::optional<parallel::runtime::EventT>> events;
 
   NeighborCluster(double maxTimeStepSize, int timeStepRate, Executor executor);
 };

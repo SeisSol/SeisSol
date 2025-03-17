@@ -80,7 +80,7 @@ class AbstractTimeCluster {
   //! number of time steps
   long numberOfTimeSteps;
 
-  std::queue<void*> events;
+  std::queue<parallel::runtime::EventT> events;
 
   int phaseSteps{};
 

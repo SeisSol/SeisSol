@@ -9,47 +9,50 @@
 #define SEISSOL_SRC_SOLVER_CLUSTERING_COMMUNICATION_DIRECTMPINEIGHBORCLUSTER_H_
 
 #include "NeighborCluster.h"
-#include <Parallel/Host/CpuExecutor.h>
 #include <Parallel/Runtime/Stream.h>
 #include <mpi.h>
 #include <vector>
 
 namespace seissol::solver::clustering::communication {
 
-class DirectMPISendNeighborCluster : public SendNeighborCluster {
+class DirectMPISendNeighborClusterGPU : public SendNeighborCluster {
   public:
   bool poll() override;
   void start(parallel::runtime::StreamRuntime& runtime) override;
   void stop(parallel::runtime::StreamRuntime& runtime) override;
 
-  DirectMPISendNeighborCluster(const std::vector<RemoteCluster>& remote,
-                               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-                               double priority);
-  ~DirectMPISendNeighborCluster() override;
+  DirectMPISendNeighborClusterGPU(const std::vector<RemoteCluster>& remote,
+                                  const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                                  double priority);
+  ~DirectMPISendNeighborClusterGPU() override;
 
   private:
   std::vector<MPI_Request> requests;
   std::vector<int> status;
   std::mutex requestMutex;
-  std::shared_ptr<parallel::host::SimpleEvent> event;
+  uint32_t progressRestart{0};
+  uint32_t* progressEnd;
+  uint32_t progressStart{0};
 };
 
-class DirectMPIRecvNeighborCluster : public RecvNeighborCluster {
+class DirectMPIRecvNeighborClusterGPU : public RecvNeighborCluster {
   public:
   bool poll() override;
   void start(parallel::runtime::StreamRuntime& runtime) override;
   void stop(parallel::runtime::StreamRuntime& runtime) override;
 
-  DirectMPIRecvNeighborCluster(const std::vector<RemoteCluster>& remote,
-                               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-                               double priority);
-  ~DirectMPIRecvNeighborCluster() override;
+  DirectMPIRecvNeighborClusterGPU(const std::vector<RemoteCluster>& remote,
+                                  const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                                  double priority);
+  ~DirectMPIRecvNeighborClusterGPU() override;
 
   private:
   std::vector<MPI_Request> requests;
   std::vector<int> status;
   std::mutex requestMutex;
-  std::shared_ptr<parallel::host::SimpleEvent> event;
+  uint32_t progressRestart{0};
+  uint32_t* progressEnd;
+  uint32_t progressStart{0};
 };
 
 /*

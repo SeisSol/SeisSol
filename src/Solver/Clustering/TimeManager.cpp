@@ -22,6 +22,7 @@
 #include <Kernels/PointSourceCluster.h>
 #include <Memory/Tree/Layer.h>
 #include <Parallel/Host/SyncExecutor.h>
+#include <Parallel/Host/Threading.h>
 #include <ResultWriter/ReceiverWriter.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/ActorState.h>
@@ -57,7 +58,7 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
   loopStatistics.enableSampleOutput(
       seissolInstance.getSeisSolParameters().output.loopStatisticsNetcdfOutput);
 
-  cpuExecutor = std::make_shared<parallel::host::SyncExecutor>();
+  cpuExecutor = std::make_shared<parallel::host::ThreadStackExecutor>();
 }
 
 void TimeManager::addClusters(initializer::ClusterLayout& layout,

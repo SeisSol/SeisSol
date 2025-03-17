@@ -44,14 +44,14 @@ NeighborCluster::NeighborCluster(const std::shared_ptr<parallel::host::CpuExecut
     : myRuntime(parallel::runtime::StreamRuntime(cpuExecutor, priority)) {}
 
 void NeighborCluster::startFrom(parallel::runtime::StreamRuntime& runtime) {
-  void* event = runtime.recordEvent();
+  parallel::runtime::EventT event = runtime.recordEvent();
   this->myRuntime.waitEvent(event);
   start(this->myRuntime);
 }
 
 void NeighborCluster::stopTo(parallel::runtime::StreamRuntime& runtime) {
   stop(this->myRuntime);
-  void* event = this->myRuntime.recordEvent();
+  parallel::runtime::EventT event = this->myRuntime.recordEvent();
   runtime.waitEvent(event);
 }
 

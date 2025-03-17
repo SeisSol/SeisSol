@@ -123,7 +123,7 @@ void AbstractTimeCluster::postCompute(ComputeStep step) {
       message.time = ct.time[step];
       message.stepsSinceSync = ct.computeSinceLastSync[step];
       if (events.empty()) {
-        message.completionEvent = nullptr;
+        message.completionEvent = std::optional<parallel::runtime::EventT>();
       } else {
         message.completionEvent = events.back();
       }
@@ -205,11 +205,11 @@ void AbstractTimeCluster::preCompute(ComputeStep step) {
     for (auto& neighbor : neighbors) {
       // (only) wait upon all events that we haven't waited upon yet
       auto eventfind = neighbor.events.find(step);
-      if (eventfind != neighbor.events.end() && neighbor.events.at(step) != nullptr) {
-        streamRuntime.waitEvent(eventfind->second);
+      if (eventfind != neighbor.events.end() && eventfind->second.has_value()) {
+        streamRuntime.waitEvent(eventfind->second.value());
 
         // forget about events that have been waited upon already
-        eventfind->second = nullptr;
+        eventfind->second = std::optional<parallel::runtime::EventT>();
       }
     }
   }
