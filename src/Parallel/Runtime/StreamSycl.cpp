@@ -10,30 +10,31 @@
 #include "Parallel/AcceleratorDevice.h"
 #include "Parallel/SyclInterop.h"
 
+#include <semaphore.h>
+
 namespace seissol::parallel::runtime {
 
 void StreamRuntime::syncToSycl(void* queuePtr) {
+  void* event = getEvent();
 #ifdef SEISSOL_KERNELS_SYCL
-  device().api->recordEventOnStream(forkEventSycl, streamPtr);
-  device().api->syncStreamWithEvent(queuePtr, forkEventSycl);
+  device().api->recordEventOnStream(event, streamPtr);
+  device().api->syncStreamWithEvent(queuePtr, event);
 #else
   sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
-  auto* localForkEventSycl{forkEventSycl};
-  device().api->recordEventOnStream(localForkEventSycl, streamPtr);
-  syclNativeOperation(*queue, true, [=](void* stream) {
-    device().api->syncStreamWithEvent(stream, localForkEventSycl);
-  });
+  device().api->recordEventOnStream(event, streamPtr);
+  syclNativeOperation(
+      *queue, true, [=](void* stream) { device().api->syncStreamWithEvent(stream, event); });
 #endif
 }
 void StreamRuntime::syncFromSycl(void* queuePtr) {
+  void* event = getEvent();
 #ifdef SEISSOL_KERNELS_SYCL
-  device().api->recordEventOnStream(joinEventSycl, queuePtr);
-  device().api->syncStreamWithEvent(streamPtr, joinEventSycl);
+  device().api->recordEventOnStream(event, queuePtr);
+  device().api->syncStreamWithEvent(streamPtr, event);
 #else
   sycl::queue* queue = static_cast<sycl::queue*>(queuePtr);
-  auto syclEvent = syclNativeOperation(*queue, true, [=](void* stream) {
-    device().api->recordEventOnStream(joinEventSycl, stream);
-  });
+  auto syclEvent = syclNativeOperation(
+      *queue, true, [=](void* stream) { device().api->recordEventOnStream(event, stream); });
 
   // needs a submission barrier here
   // a bit hacky right now; but it works
@@ -50,20 +51,8 @@ void StreamRuntime::syncFromSycl(void* queuePtr) {
   // (at least in the case of AdaptiveCpp)
   syclEvent.wait();
 #endif
-  device().api->syncStreamWithEvent(streamPtr, joinEventSycl);
+  device().api->syncStreamWithEvent(streamPtr, event);
 #endif
-
-  /*
-  // the following will not work, because SYCL may decide to postpone execution a bit
-  // effectively, there may be no solution but removing SYCL entirely, or making SYCL the
-  over-arching runtime
-  // or, potentially OpenMP could play as glue, once it gains its interop functionality
-  auto* localJoinEventSycl{joinEventSycl};
-  syclNativeOperation(*queue, true, [=](void* stream) {
-    device().api->recordEventOnStream(localJoinEventSycl, stream);
-  });
-  device().api->syncStreamWithEvent(streamPtr, localJoinEventSycl);
-  */
 }
 
 } // namespace seissol::parallel::runtime
