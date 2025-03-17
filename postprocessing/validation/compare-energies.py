@@ -38,12 +38,12 @@ def get_sub_simulation(df, fused_index):
 
 def perform_check(energy, energy_ref, epsilon):
     print("Energies")
-    print(energy)
+    print(energy.to_string())
     print("Energies reference")
-    print(energy_ref)
+    print(energy_ref.to_string())
     relative_difference = ((energy - energy_ref).abs() / energy_ref).iloc[1:, :]
     print("Relative difference")
-    print(relative_difference)
+    print(relative_difference.to_string())
 
     relative_difference_larger_eps = (relative_difference.iloc[1:, :] > epsilon).values
     return np.any(relative_difference_larger_eps)
