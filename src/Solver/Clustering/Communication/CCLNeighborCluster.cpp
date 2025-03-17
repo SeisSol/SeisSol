@@ -24,6 +24,11 @@ constexpr ncclDataType_t CclReal = ncclDataType_t::ncclFloat64;
 #elif REAL_SIZE == 4
 constexpr ncclDataType_t CclReal = ncclDataType_t::ncclFloat32;
 #endif
+
+#if defined(CCL_NCCL) || (defined(CCL_RCCL) && NCCL_VERSION_CODE >= 22005)
+#define USE_CCL_REGISTER
+#endif
+
 #endif
 
 namespace seissol::solver::clustering::communication {
@@ -54,7 +59,7 @@ CCLSendNeighborCluster::CCLSendNeighborCluster(
     const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
     double priority)
     : remote(remote), comm(comm), SendNeighborCluster(cpuExecutor, priority) {
-#if defined(USE_CCL) && defined(CCL_NCCL)
+#ifdef USE_CCL_REGISTER
   for (const auto& cluster : remote) {
     void* handle = nullptr;
     ncclCommRegister(reinterpret_cast<ncclComm_t>(comm),
@@ -66,7 +71,7 @@ CCLSendNeighborCluster::CCLSendNeighborCluster(
 #endif
 }
 CCLSendNeighborCluster::~CCLSendNeighborCluster() {
-#if defined(USE_CCL) && defined(CCL_NCCL)
+#ifdef USE_CCL_REGISTER
   for (void* handle : memoryHandles) {
     ncclCommDeregister(reinterpret_cast<ncclComm_t>(comm), &handle);
   }
@@ -99,7 +104,7 @@ CCLRecvNeighborCluster::CCLRecvNeighborCluster(
     const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
     double priority)
     : remote(remote), comm(comm), RecvNeighborCluster(cpuExecutor, priority) {
-#if defined(USE_CCL) && defined(CCL_NCCL)
+#ifdef USE_CCL_REGISTER
   for (const auto& cluster : remote) {
     void* handle = nullptr;
     ncclCommRegister(reinterpret_cast<ncclComm_t>(comm),
@@ -111,7 +116,7 @@ CCLRecvNeighborCluster::CCLRecvNeighborCluster(
 #endif
 }
 CCLRecvNeighborCluster::~CCLRecvNeighborCluster() {
-#if defined(USE_CCL) && defined(CCL_NCCL)
+#ifdef USE_CCL_REGISTER
   for (void* handle : memoryHandles) {
     ncclCommDeregister(reinterpret_cast<ncclComm_t>(comm), &handle);
   }
