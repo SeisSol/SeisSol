@@ -18,6 +18,8 @@
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
 #include <Eigen/Dense>
+#include <Equations/Datastructures.h>
+#include <Model/CommonDatastructures.h>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -71,19 +73,19 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
         parameterToStorageMap.insert({identifiers[4], getRawData(initialStress.yz)});
         parameterToStorageMap.insert({identifiers[5], getRawData(initialStress.xz)});
       }
-#ifdef USE_POROELASTIC
-      if (isFaultParameterizedByTraction) {
-        parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.p)});
+      if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+        if (isFaultParameterizedByTraction) {
+          parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.p)});
+        } else {
+          parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
+        }
       } else {
-        parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
-      }
-#else
-      for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
-        for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
-          initialStress.p[ltsFace][pointIndex] = 0.0;
+        for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+          for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
+            initialStress.p[ltsFace][pointIndex] = 0.0;
+          }
         }
       }
-#endif
 
       return isFaultParameterizedByTraction;
     };
@@ -300,15 +302,15 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     tractionNames = {"T_n", "T_s", "T_d"};
     cartesianNames = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
   }
-#ifdef USE_POROELASTIC
-  if (readNucleation) {
-    tractionNames.push_back("nuc_p");
-    cartesianNames.push_back("nuc_p");
-  } else {
-    tractionNames.push_back("p");
-    cartesianNames.push_back("p");
+  if (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+    if (readNucleation) {
+      tractionNames.emplace_back("nuc_p");
+      cartesianNames.emplace_back("nuc_p");
+    } else {
+      tractionNames.emplace_back("p");
+      cartesianNames.emplace_back("p");
+    }
   }
-#endif
 
   bool allTractionParametersSupplied = true;
   bool allCartesianParametersSupplied = true;
