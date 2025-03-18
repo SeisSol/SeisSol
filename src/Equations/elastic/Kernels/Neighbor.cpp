@@ -125,8 +125,8 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
                       init::QInterpolated::size() * sizeof(real));
         }
   
-        real fluxSolver[init::fluxSolverMultipleSim::size()];
-        real godunov[init::QInterpolatedMultipleSim::size()];
+        alignas(Alignment) real fluxSolver[init::fluxSolverMultipleSim::size()];
+        alignas(Alignment) real godunov[init::QInterpolatedMultipleSim::size()];
   
         dynamicRupture::kernel::fluxSolverModifiedReversed fluxSolverKrnl;
         fluxSolverKrnl.fluxSolverMultiple_ijs = fluxSolver_ijs;

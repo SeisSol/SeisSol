@@ -152,7 +152,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
                         target=target)
 
   QInterpolatedSingleSim = Tensor('QInterpolatedSingleSim', gShape, alignStride=False)
-  QInterpolatedMultipleSim = OptionalDimTensor('QInterpolatedMultipleSim',aderdg.Q.optName(),aderdg.Q.optSize(),aderdg.Q.optPos(), gShape)
+  QInterpolatedMultipleSim = OptionalDimTensor('QInterpolatedMultipleSim',aderdg.Q.optName(),aderdg.Q.optSize(),aderdg.Q.optPos(), gShape, alignStride=True)
   QInterpolatedMultiple_ijs = Tensor('QInterpolatedMultiple_ijs', (gShape[0], gShape[1], aderdg.multipleSimulations))
 
   QInterpolatedModified = QInterpolatedMultiple_ijs['ijs'] <= QInterpolatedMultipleSim['ij']
