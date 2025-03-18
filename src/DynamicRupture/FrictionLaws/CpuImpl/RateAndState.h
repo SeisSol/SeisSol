@@ -234,8 +234,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       const real totalTraction2 = this->initialStressInFaultCS[ltsFace][5][pointIndex] +
                                   faultStresses.traction2[timeIndex][pointIndex];
 
-      const auto divisor =
-          strength + this->impAndEta[ltsFace].etaS * this->slipRateMagnitude[ltsFace][pointIndex];
+      const auto divisor = strength + this->impAndEta[ltsFace].etaS(pointIndex) *
+                                          this->slipRateMagnitude[ltsFace][pointIndex];
       this->slipRate1[ltsFace][pointIndex] =
           this->slipRateMagnitude[ltsFace][pointIndex] * totalTraction1 / divisor;
       this->slipRate2[ltsFace][pointIndex] =
@@ -244,10 +244,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       // calculate traction
       tractionResults.traction1[timeIndex][pointIndex] =
           faultStresses.traction1[timeIndex][pointIndex] -
-          this->impAndEta[ltsFace].etaS * this->slipRate1[ltsFace][pointIndex];
+          this->impAndEta[ltsFace].etaS(pointIndex) * this->slipRate1[ltsFace][pointIndex];
       tractionResults.traction2[timeIndex][pointIndex] =
           faultStresses.traction2[timeIndex][pointIndex] -
-          this->impAndEta[ltsFace].etaS * this->slipRate2[ltsFace][pointIndex];
+          this->impAndEta[ltsFace].etaS(pointIndex) * this->slipRate2[ltsFace][pointIndex];
       this->traction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
       this->traction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
 
@@ -317,7 +317,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
             ltsFace, pointIndex, slipRateTest[pointIndex], localStateVariable[pointIndex]);
         dMuF[pointIndex] = static_cast<Derived*>(this)->updateMuDerivative(
             ltsFace, pointIndex, slipRateTest[pointIndex], localStateVariable[pointIndex]);
-        g[pointIndex] = -this->impAndEta[ltsFace].invEtaS *
+        g[pointIndex] = -this->impAndEta[ltsFace].invEtaS(pointIndex) *
                             (std::fabs(normalStress[pointIndex]) * muF[pointIndex] -
                              absoluteShearStress[pointIndex]) -
                         slipRateTest[pointIndex];
@@ -334,7 +334,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
 
         // derivative of g
-        dG[pointIndex] = -this->impAndEta[ltsFace].invEtaS *
+        dG[pointIndex] = -this->impAndEta[ltsFace].invEtaS(pointIndex) *
                              (std::fabs(normalStress[pointIndex]) * dMuF[pointIndex]) -
                          1.0;
         // newton update

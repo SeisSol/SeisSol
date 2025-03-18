@@ -12,6 +12,7 @@
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include <Common/Constants.h>
+#include <Equations/Datastructures.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
 #include <Initializer/BasicTypedefs.h>
@@ -270,6 +271,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     double& potency = energiesStorage.potency(sim);
     minTimeSinceSlipRateBelowThreshold[sim] = std::numeric_limits<real>::max();
 
+    real points[seissol::kernels::NumSpaceQuadraturePoints][2];
+    alignas(Alignment) real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints];
+    seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
+
 #ifdef ACL_DEVICE
     void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 #endif
@@ -314,11 +319,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
       const auto timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
 #endif
-      DRGodunovData* godunovData = layer.var(dynRup->godunovData);
-      DRFaceInformation* faceInformation = layer.var(dynRup->faceInformation);
-      DREnergyOutput* drEnergyOutput = layer.var(dynRup->drEnergyOutput);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
+      auto* godunovData = layer.var(dynRup->godunovData);
+      auto* faceInformation = layer.var(dynRup->faceInformation);
+      auto* drEnergyOutput = layer.var(dynRup->drEnergyOutput);
+      auto* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
+      auto* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
       const auto layerSize = layer.getNumberOfCells();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
@@ -332,10 +337,12 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                godunovData,                                                                        \
                waveSpeedsPlus,                                                                     \
                waveSpeedsMinus,                                                                    \
+               spaceWeights,                                                                       \
                sim)
 #endif
       for (unsigned i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
+#pragma omp simd reduction(+ : totalFrictionalWork)
           for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
             totalFrictionalWork += drEnergyOutput[i].frictionalEnergy[j];
           }
@@ -345,12 +352,25 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                                                     godunovData[i],
                                                     drEnergyOutput[i].slip)[sim];
 
-          const real muPlus = waveSpeedsPlus[i].density * waveSpeedsPlus[i].sWaveVelocity *
-                              waveSpeedsPlus[i].sWaveVelocity;
-          const real muMinus = waveSpeedsMinus[i].density * waveSpeedsMinus[i].sWaveVelocity *
-                               waveSpeedsMinus[i].sWaveVelocity;
-          const real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
-          real potencyIncrease = 0.0;
+          double muPlus = 0;
+          double muMinus = 0;
+          if (model::MaterialT::VaryingWavespeeds) {
+#pragma omp simd reduction(+ : muPlus, muMinus)
+            for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
+              muPlus += waveSpeedsPlus[i].density(j) * waveSpeedsPlus[i].sWaveVelocity(j) *
+                        waveSpeedsPlus[i].sWaveVelocity(j) * spaceWeights[j];
+              muMinus += waveSpeedsMinus[i].density(j) * waveSpeedsMinus[i].sWaveVelocity(j) *
+                         waveSpeedsMinus[i].sWaveVelocity(j) * spaceWeights[j];
+            }
+          } else {
+            muPlus = waveSpeedsPlus[i].density(0) * waveSpeedsPlus[i].sWaveVelocity(0) *
+                     waveSpeedsPlus[i].sWaveVelocity(0);
+            muMinus = waveSpeedsMinus[i].density(0) * waveSpeedsMinus[i].sWaveVelocity(0) *
+                      waveSpeedsMinus[i].sWaveVelocity(0);
+          }
+          const double mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
+          double potencyIncrease = 0.0;
+#pragma omp simd reduction(+ : potencyIncrease)
           for (unsigned k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
             potencyIncrease += drEnergyOutput[i].accumulatedSlip[k];
           }
@@ -450,7 +470,7 @@ void EnergyOutput::computeVolumeEnergies() {
       for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
         constexpr int UIdx = 6;
         const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
-        const auto rho = material.local.rho;
+        const auto rho = material.local.getRhoBar();
 
         const auto u = numSub(qp, UIdx + 0);
         const auto v = numSub(qp, UIdx + 1);
@@ -460,10 +480,10 @@ void EnergyOutput::computeVolumeEnergies() {
         const double curMomentumY = rho * v;
         const double curMomentumZ = rho * w;
 
-        if (std::abs(material.local.mu) < 10e-14) {
+        if (std::abs(material.local.getMuBar()) < 10e-14) {
           // Acoustic
           constexpr int PIdx = 0;
-          const auto k = material.local.lambda;
+          const auto k = material.local.getLambdaBar();
           const auto p = numSub(qp, PIdx);
           const double curAcousticEnergy = (p * p) / (2 * k);
           totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
@@ -482,8 +502,8 @@ void EnergyOutput::computeVolumeEnergies() {
 
           auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
-          const auto lambda = material.local.lambda;
-          const auto mu = material.local.mu;
+          const auto lambda = material.local.getLambdaBar();
+          const auto mu = material.local.getMuBar();
           const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
           auto computeStrain = [&](int i, int j) {
             double strain = 0.0;
@@ -538,7 +558,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
         // Perform quadrature
         const auto surface = MeshTools::surface(elements[elementId], face, vertices);
-        const auto rho = material.local.rho;
+        const auto rho = material.local.getRhoBar();
 
         static_assert(NumQuadraturePointsTri == init::rotatedFaceDisplacementAtQuadratureNodes::
                                                     Shape[multisim::BasisFunctionDimension]);

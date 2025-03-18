@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
+#include <Model/HighOrderMaterial.h>
 #include <memory>
 #include <set>
 #include <string>
@@ -84,6 +85,16 @@ class ElementBarycenterGenerator : public QueryGenerator {
   CellToVertexArray m_cellToVertex;
 };
 
+class ElementInterpolationGenerator : public QueryGenerator {
+  public:
+  explicit ElementInterpolationGenerator(const CellToVertexArray& cellToVertex)
+      : m_cellToVertex(cellToVertex) {}
+  [[nodiscard]] easi::Query generate() const override;
+
+  private:
+  CellToVertexArray m_cellToVertex;
+};
+
 class ElementAverageGenerator : public QueryGenerator {
   public:
   explicit ElementAverageGenerator(const CellToVertexArray& cellToVertex);
@@ -140,6 +151,17 @@ class MaterialParameterDB : ParameterDB {
 
   private:
   std::vector<T>* m_materials{};
+};
+
+template <typename BaseMaterialT, std::size_t Order>
+class MaterialParameterDB<seissol::model::HighOrderMaterial<BaseMaterialT, Order>> : ParameterDB {
+  public:
+  using MaterialT = seissol::model::HighOrderMaterial<BaseMaterialT, Order>;
+  void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
+  void setMaterialVector(std::vector<MaterialT>* materials) { m_materials = materials; }
+
+  private:
+  std::vector<MaterialT>* m_materials{};
 };
 
 class FaultParameterDB : ParameterDB {

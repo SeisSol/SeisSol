@@ -78,11 +78,11 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       const real absoluteTraction = misc::magnitude(totalTraction1, totalTraction2);
 
       // calculate slip rates
-      this->slipRateMagnitude[ltsFace][pointIndex] =
-          std::max(static_cast<real>(0.0),
-                   (absoluteTraction - strength[pointIndex]) * this->impAndEta[ltsFace].invEtaS);
+      this->slipRateMagnitude[ltsFace][pointIndex] = std::max(
+          static_cast<real>(0.0),
+          (absoluteTraction - strength[pointIndex]) * this->impAndEta[ltsFace].invEtaS(pointIndex));
 
-      const auto divisor = strength[pointIndex] + this->impAndEta[ltsFace].etaS *
+      const auto divisor = strength[pointIndex] + this->impAndEta[ltsFace].etaS(pointIndex) *
                                                       this->slipRateMagnitude[ltsFace][pointIndex];
       this->slipRate1[ltsFace][pointIndex] =
           this->slipRateMagnitude[ltsFace][pointIndex] * totalTraction1 / divisor;
@@ -92,10 +92,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       // calculate traction
       tractionResults.traction1[timeIndex][pointIndex] =
           faultStresses.traction1[timeIndex][pointIndex] -
-          this->impAndEta[ltsFace].etaS * this->slipRate1[ltsFace][pointIndex];
+          this->impAndEta[ltsFace].etaS(pointIndex) * this->slipRate1[ltsFace][pointIndex];
       tractionResults.traction2[timeIndex][pointIndex] =
           faultStresses.traction2[timeIndex][pointIndex] -
-          this->impAndEta[ltsFace].etaS * this->slipRate2[ltsFace][pointIndex];
+          this->impAndEta[ltsFace].etaS(pointIndex) * this->slipRate2[ltsFace][pointIndex];
       this->traction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
       this->traction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
 

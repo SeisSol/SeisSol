@@ -11,6 +11,7 @@
 #include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
+#include <Equations/Datastructures.h>
 
 namespace seissol::dr::friction_law {
 /**
@@ -60,7 +61,7 @@ class FrictionSolver {
   real sumDt{};
 
   seissol::initializer::parameters::DRParameters* __restrict drParameters;
-  ImpedancesAndEta* __restrict impAndEta{};
+  ImpedancesAndEta<model::MaterialT::VaryingWavespeeds>* __restrict impAndEta{};
   ImpedanceMatrices* __restrict impedanceMatrices{};
   real mFullUpdateTime{};
   // CS = coordinate system
