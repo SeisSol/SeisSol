@@ -78,46 +78,33 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
 
   const auto size = currentLayer->getNumberOfCells();
   if (size > 0) {
-    std::array<std::vector<real*>, *FaceId::Count> qInterpolatedPlusPtr{};
-    std::array<std::vector<real*>, *FaceId::Count> idofsPlusPtr{};
-    std::array<std::vector<real*>, *FaceId::Count> tInvTPlusPtr{};
-
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> qInterpolatedMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> idofsMinusPtr {};
-    std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> tInvTMinusPtr {};
+    std::vector<real*> qInterpolatedPtr{};
+    std::vector<real*> idofsPtr{};
+    std::vector<real*> tInvTPtr{};
+    std::vector<real*> globalPtr{};
 
     const size_t idofsSize = tensor::Q::size();
     for (unsigned faceId = 0; faceId < size; ++faceId) {
       const auto plusSide = faceInfo[faceId].plusSide;
-      qInterpolatedPlusPtr[plusSide].push_back(&qInterpolatedPlus[faceId][0][0]);
-      idofsPlusPtr[plusSide].push_back(&idofsPlus[faceId * idofsSize]);
-      tInvTPlusPtr[plusSide].push_back((&godunovData[faceId])->TinvT);
+      qInterpolatedPtr.push_back(&qInterpolatedPlus[faceId][0][0]);
+      idofsPtr.push_back(&idofsPlus[faceId * idofsSize]);
+      tInvTPtr.push_back((&godunovData[faceId])->TinvT);
+      globalPtr.push_back(const_cast<real*>(global->faceToNodalMatrices(plusSide, 0)));
 
       const auto minusSide = faceInfo[faceId].minusSide;
       const auto faceRelation = faceInfo[faceId].faceRelation;
-      qInterpolatedMinusPtr[minusSide][faceRelation].push_back(&qInterpolatedMinus[faceId][0][0]);
-      idofsMinusPtr[minusSide][faceRelation].push_back(&idofsMinus[faceId * idofsSize]);
-      tInvTMinusPtr[minusSide][faceRelation].push_back((&godunovData[faceId])->TinvT);
+      qInterpolatedPtr.push_back(&qInterpolatedMinus[faceId][0][0]);
+      idofsPtr.push_back(&idofsMinus[faceId * idofsSize]);
+      tInvTPtr.push_back((&godunovData[faceId])->TinvT);
+      globalPtr.push_back(const_cast<real*>(global->faceToNodalMatrices(minusSide, faceRelation)));
     }
 
-    for (unsigned side = 0; side < 4; ++side) {
-      if (!qInterpolatedPlusPtr[side].empty()) {
-        const ConditionalKey key(*KernelNames::DrSpaceMap, side);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedPlus,
-                                   qInterpolatedPlusPtr[side]);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtr[side]);
-        (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTPlusPtr[side]);
-      }
-      for (unsigned faceRelation = 0; faceRelation < 4; ++faceRelation) {
-        if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
-          const ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,
-                                     qInterpolatedMinusPtr[side][faceRelation]);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsMinus,
-                                     idofsMinusPtr[side][faceRelation]);
-          (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTMinusPtr[side][faceRelation]);
-        }
-      }
+    if (!qInterpolatedPtr.empty()) {
+      const ConditionalKey key(*KernelNames::DrSpaceMap);
+      (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedPlus, qInterpolatedPtr);
+      (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPtr);
+      (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTPtr);
+      (*currentDrTable)[key].set(inner_keys::Dr::Id::Global, globalPtr);
     }
   }
 }
