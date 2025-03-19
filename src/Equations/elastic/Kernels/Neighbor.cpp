@@ -113,8 +113,8 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       }
     case FaceType::DynamicRupture:
       {
-        real fluxSolver_ijs[init::fluxSolverMultipleSim::size()];
-        real godunov_ijs[init::QInterpolatedMultipleSim::size()];
+        real fluxSolver_ijs[init::fluxSolverMultipleSim::size()]{};
+        real godunov_ijs[init::QInterpolatedMultipleSim::size()]{};
   
         for (int sim = 0; sim < MULTIPLE_SIMULATIONS; ++sim) {
           std::memcpy(&fluxSolver_ijs[sim * init::fluxSolver::size()],
@@ -125,8 +125,8 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
                       init::QInterpolated::size() * sizeof(real));
         }
   
-        alignas(Alignment) real fluxSolver[init::fluxSolverMultipleSim::size()];
-        alignas(Alignment) real godunov[init::QInterpolatedMultipleSim::size()];
+        alignas(Alignment) real fluxSolver[init::fluxSolverMultipleSim::size()]{};
+        alignas(Alignment) real godunov[init::QInterpolatedMultipleSim::size()]{};
   
         dynamicRupture::kernel::fluxSolverModifiedReversed fluxSolverKrnl;
         fluxSolverKrnl.fluxSolverMultiple_ijs = fluxSolver_ijs;
