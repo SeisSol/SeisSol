@@ -14,30 +14,23 @@
 #include "Parallel/MPI.h"
 #include "easi/util/AsagiReader.h"
 #include <asagi.h>
+#include <utils/env.h>
 
 namespace seissol::asagi {
 enum class NumaCacheMode { Off, On, Cache };
 
 class AsagiReader : public easi::AsagiReader {
   private:
-  /** Prefix for environment variables */
-  const std::string envPrefix;
-
   /** Number of threads used by ASAGI */
   unsigned int asagiThreads;
 
-#ifdef USE_MPI
   /** MPI communicator used by ASAGI */
   MPI_Comm comm;
-#endif
+
+  utils::Env env{"SEISSOL_"};
 
   public:
-  AsagiReader(const char* envPrefix
-#ifdef USE_MPI
-              ,
-              MPI_Comm comm = seissol::MPI::mpi.comm()
-#endif
-  );
+  AsagiReader(MPI_Comm comm = seissol::MPI::mpi.comm());
 
   ::asagi::Grid* open(const char* file, const char* varname) override;
   [[nodiscard]] unsigned numberOfThreads() const override;

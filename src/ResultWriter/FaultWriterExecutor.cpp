@@ -60,7 +60,7 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
     m_xdmfWriter->setComm(m_comm);
 #endif // USE_MPI
     m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
-    const auto vertexFilter = utils::Env::get<bool>("SEISSOL_VERTEXFILTER", true);
+    const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
     m_xdmfWriter->init(variables, std::vector<const char*>(), "fault-tag", vertexFilter, true);
     m_xdmfWriter->setMesh(nCells,
                           static_cast<const unsigned int*>(info.buffer(Cells)),

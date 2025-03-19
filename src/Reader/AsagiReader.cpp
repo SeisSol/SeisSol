@@ -29,7 +29,7 @@ namespace seissol::asagi {
 
   ::asagi::Grid* grid = ::asagi::Grid::createArray();
 
-  if (utils::Env::get<bool>(envPrefix + "_SPARSE", false)) {
+  if (env.get<bool>("SPARSE", false)) {
     grid->setParam("GRID", "CACHE");
   }
 
@@ -49,7 +49,7 @@ namespace seissol::asagi {
   }
 
   // Set NUMA mode
-  asagiThreads = utils::Env::get(envPrefix + "_NUM_THREADS", 0U);
+  asagiThreads = env.get("ASAGI_NUM_THREADS", 0U);
   if (asagiThreads == 0) {
     asagiThreads = AsagiModule::totalThreads();
   } else if (static_cast<int>(asagiThreads) > AsagiModule::totalThreads()) {
@@ -81,12 +81,12 @@ namespace seissol::asagi {
   grid->setParam("VALUE_POSITION", "VERTEX_CENTERED");
 
   // Set additional parameters
-  const std::string blockSize = utils::Env::get(envPrefix + "_BLOCK_SIZE", "64");
+  const std::string blockSize = env.get("ASAGI_BLOCK_SIZE", "64");
   grid->setParam("BLOCK_SIZE_0", blockSize.c_str());
   grid->setParam("BLOCK_SIZE_1", blockSize.c_str());
   grid->setParam("BLOCK_SIZE_2", blockSize.c_str());
 
-  const std::string cacheSize = utils::Env::get(envPrefix + "_CACHE_SIZE", "128");
+  const std::string cacheSize = env.get("ASAGI_CACHE_SIZE", "128");
   grid->setParam("CACHE_SIZE", cacheSize.c_str());
 
   grid->setParam("VARIABLE", varname);
@@ -113,7 +113,7 @@ namespace seissol::asagi {
 }
 
 NumaCacheMode AsagiReader::getNumaMode() {
-  const std::string numaModeName = utils::Env::get("SEISSOL_ASAGI_NUMA_MODE", "ON");
+  const std::string numaModeName = AsagiModule::getInstance().getEnv().get("ASAGI_NUMA_MODE", "ON");
 
   if (numaModeName == "ON") {
     return NumaCacheMode::On;
@@ -131,19 +131,7 @@ NumaCacheMode AsagiReader::getNumaMode() {
 
 unsigned AsagiReader::numberOfThreads() const { return asagiThreads; }
 
-AsagiReader::AsagiReader(const char* envPrefix
-#ifdef USE_MPI
-                         ,
-                         MPI_Comm comm
-#endif
-                         )
-    : envPrefix(envPrefix)
-#ifdef USE_MPI
-      ,
-      comm(comm)
-#endif
-{
-}
+AsagiReader::AsagiReader(MPI_Comm comm) : comm(comm) {}
 
 } // namespace seissol::asagi
 

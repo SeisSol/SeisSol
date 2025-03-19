@@ -109,7 +109,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
 #if defined(USE_HDF) && defined(USE_MPI)
   double nodeWeight = 1.0;
 
-  if (utils::Env::get<bool>("SEISSOL_MINISEISSOL", true)) {
+  if (seissolInstance.env().get<bool>("MINISEISSOL", true)) {
     if (seissol::MPI::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
       auto elapsedTime = seissol::solver::miniSeisSol();

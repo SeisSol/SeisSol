@@ -41,7 +41,8 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   int masterRank = 0;
   unsigned int groupSize = 1;
 #ifdef USE_MPI
-  groupSize = utils::Env::get<unsigned int>("SEISSOL_NETCDF_GROUP_SIZE", 1);
+  // TODO: use SeisSolInstance
+  groupSize = utils::Env("SEISSOL_").get<unsigned int>("NETCDF_GROUP_SIZE", 1);
   if (nProcs % groupSize != 0) {
     logError() << "#Processes must be a multiple of the group size" << groupSize;
   }
