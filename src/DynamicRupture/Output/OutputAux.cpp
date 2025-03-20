@@ -206,15 +206,17 @@ double
   // view the triangle as an intersection of hyperplanes
 
   double sidemin = std::numeric_limits<double>::max();
-  for (auto [p1, p2] : seissol::common::zip(
-           std::vector{face.point(0).coords, face.point(1).coords, face.point(2).coords},
-           std::vector{face.point(1).coords, face.point(2).coords, face.point(0).coords})) {
+  for (auto [i1, i2] : seissol::common::zip(std::vector{0, 1, 2}, std::vector{1, 2, 0})) {
+    const auto& p1 = face.point(i1).coords;
+    const auto& p2 = face.point(i2).coords;
     VrtxCoords sidevec{0.0, 0.0, 0.0};
     VrtxCoords hypersupport{0.0, 0.0, 0.0};
     MeshTools::sub(p2, p1, sidevec);
     MeshTools::cross(faceNormal, sidevec, hypersupport);
-    const auto sidevalue = MeshTools::dot(hypersupport, point.coords);
-    sidemin = std::min(sidemin, sidevalue);
+    const auto sidevalue = MeshTools::dot(hypersupport, p1);
+    const auto pointvalue = MeshTools::dot(hypersupport, point.coords);
+    const auto containvalue = pointvalue - sidevalue;
+    sidemin = std::min(sidemin, containvalue);
   }
   return sidemin;
 }
