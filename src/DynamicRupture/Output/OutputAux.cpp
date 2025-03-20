@@ -9,11 +9,13 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
+#include "Geometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
+#include <Common/Iterator.h>
 #include <Eigen/Dense>
 #include <Solver/MultipleSimulations.h>
 #include <cstddef>
@@ -194,6 +196,27 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
   // Note: faceNormal may not be precisely a unit vector
   const double faceNormalLength = MeshTools::norm(faceNormal);
   return MeshTools::dot(faceNormal, diff) / faceNormalLength;
+}
+
+// (NOTE: only the sign really has a meaning; except maybe for some small tolerance)
+// (reason: lack of normalization, probably)
+double
+    isInsideFace(const ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal) {
+
+  // view the triangle as an intersection of hyperplanes
+
+  double sidemin = std::numeric_limits<double>::max();
+  for (auto [p1, p2] : seissol::common::zip(
+           std::vector{face.point(0).coords, face.point(1).coords, face.point(2).coords},
+           std::vector{face.point(1).coords, face.point(2).coords, face.point(0).coords})) {
+    VrtxCoords sidevec{0.0, 0.0, 0.0};
+    VrtxCoords hypersupport{0.0, 0.0, 0.0};
+    MeshTools::sub(p2, p1, sidevec);
+    MeshTools::cross(faceNormal, sidevec, hypersupport);
+    const auto sidevalue = MeshTools::dot(hypersupport, point.coords);
+    sidemin = std::min(sidemin, sidevalue);
+  }
+  return sidemin;
 }
 
 PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,

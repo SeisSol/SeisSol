@@ -49,6 +49,9 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            const double (*facePoints)[2],
                                            unsigned numFacePoints);
 
+double
+    isInsideFace(const ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal);
+
 void projectPointToFace(ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal);
 
 double getDistanceFromPointToFace(const ExtVrtxCoords& point,
