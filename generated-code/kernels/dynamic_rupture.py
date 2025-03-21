@@ -50,7 +50,7 @@ from copy import deepcopy
 def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
   clones = dict()
-
+  alignStride = False if aderdg.multipleSimulations > 1 else True
   # Load matrices
   db = parseJSONMatrixFile(f'{matricesDir}/dr_{drQuadRule}_matrices_{aderdg.order}.json', clones, alignStride=aderdg.alignStride, transpose=aderdg.transpose)  
   numberOfPoints = db.resample.shape()[0]
@@ -62,17 +62,17 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   flux_solver_spp = aderdg.flux_solver_spp()
   fluxSolver    = Tensor('fluxSolver', flux_solver_spp.shape, spp=flux_solver_spp)
   fluxSolverMultipleSim = OptionalDimTensor('fluxSolverMultipleSim', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), flux_solver_spp.shape)
-  fluxSolverMultiple_ijs = Tensor('fluxSolverMultiple_ijs', (flux_solver_spp.shape[0], flux_solver_spp.shape[1], aderdg.multipleSimulations))
+  fluxSolverMultiple_ijs = OptionalDimTensor('fluxSolverMultiple_ijs', aderdg.Q.optName(), aderdg.Q.optSize(), 2, flux_solver_spp.shape)
 
-  fluxSolverModified = fluxSolverMultiple_ijs['ijs'] <= fluxSolverMultipleSim['ij']
+  fluxSolverModified = fluxSolverMultiple_ijs['ij'] <= fluxSolverMultipleSim['ij']
   generator.add('fluxSolverModified', fluxSolverModified)
-  fluxSolverModifiedReversed = fluxSolverMultipleSim['ij'] <= fluxSolverMultiple_ijs['ijs']
+  fluxSolverModifiedReversed = fluxSolverMultipleSim['ij'] <= fluxSolverMultiple_ijs['ij']
   generator.add('fluxSolverModifiedReversed', fluxSolverModifiedReversed)
 
   gShape = (numberOfPoints, aderdg.numberOfQuantities())
   # QInterpolated = OptionalDimTensor('QInterpolated', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), gShape, alignStride=True)
   # TODO: (VK) Make this work with the original tensors
-  QInterpolated = Tensor('QInterpolated', gShape, alignStride=False)
+  QInterpolated = Tensor('QInterpolated', gShape, alignStride=alignStride)
 
   stressRotationMatrix = Tensor("stressRotationMatrix", (6, 6))
   initialStress = Tensor("initialStress", (6, ))
@@ -86,10 +86,9 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
   originalQ = Tensor('originalQ', (numberOfPoints,))
   resampledQ = Tensor('resampledQ', (numberOfPoints,))
-  if aderdg.multipleSimulations > 1:
-    resampleKernel = resampledQ['i'] <= db.resample['ji'] * originalQ['j']
-  else:
-    resampleKernel = resampledQ['i'] <= db.resample['ij'] * originalQ['j']
+
+  resampleKernel = resampledQ['i'] <= db.resample[aderdg.t('ij')] * originalQ['j']
+
   generator.add('resampleParameter', resampleKernel )
 
   generator.add('transposeTinv', TinvT['ij'] <= aderdg.Tinv['ji'])
@@ -153,11 +152,12 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
   QInterpolatedSingleSim = Tensor('QInterpolatedSingleSim', gShape, alignStride=False)
   QInterpolatedMultipleSim = OptionalDimTensor('QInterpolatedMultipleSim',aderdg.Q.optName(),aderdg.Q.optSize(),aderdg.Q.optPos(), gShape, alignStride=True)
-  QInterpolatedMultiple_ijs = Tensor('QInterpolatedMultiple_ijs', (gShape[0], gShape[1], aderdg.multipleSimulations))
+  # QInterpolatedMultiple_ijs = Tensor('QInterpolatedMultiple_ijs', (gShape[0], gShape[1], aderdg.multipleSimulations))
+  QInterpolatedMultiple_ijs = OptionalDimTensor('QInterpolatedMultiple_ijs', aderdg.Q.optName(), aderdg.Q.optSize(), 2, gShape, alignStride=False)
 
-  QInterpolatedModified = QInterpolatedMultiple_ijs['ijs'] <= QInterpolatedMultipleSim['ij']
+  QInterpolatedModified = QInterpolatedMultiple_ijs['ij'] <= QInterpolatedMultipleSim['ij']
   generator.add('QInterpolatedModified', QInterpolatedModified)
-  QInterpolatedModifiedReversed = QInterpolatedMultipleSim['ij'] <= QInterpolatedMultiple_ijs['ijs']
+  QInterpolatedModifiedReversed = QInterpolatedMultipleSim['ij'] <= QInterpolatedMultiple_ijs['ij']
   generator.add('QInterpolatedModifiedReversed', QInterpolatedModifiedReversed)
   nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolatedMultipleSim['lq'] * fluxSolverMultipleSim['qp']
   # TODO (VK): make this work in the original tensor format by making the other variables in tensor format later
