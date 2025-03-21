@@ -14,7 +14,28 @@ General
 
 Memory requirements per node are difficult to predict because the elements are not distributed equally when Local Time-Stepping (LTS) is enabled.
 However, an adequate rule of thumb to estimate memory requirements is to multiply the number of elements with the number of degrees of freedom per element and then multiply this number with a factor of 10.
-Therefore, a run using the viscoelastic wave equation with 100 million elements of order 5 requires about 1.4 terabytes of memory.
+Given the number of basis function per element function of the order of accuracy n:
+
+.. math::
+
+   N_b = \frac{n(n+1)(n+2)}{6}
+
+And the number of variables (with :math:`Q_p` number of relaxation mechanisms used for viscoelastic attenuation, typically 3):
+
+.. math::
+
+   N_v = 9 + 6 Q_p
+
+
+A run using the viscoelastic wave equation with 100 million elements of order 5 counts 
+
+
+.. math::
+
+   N_{\text{dof}} = N_v N_b N_{\text{cells}} = 35 \times 27 \times 100,000,000 = 9.45 \times 10^{10} \text{ DOF}
+
+
+and therfore would require about 0.9 terabytes (:math:`=9.45 \times 10^{10}/1024^4`) of memory.
 
 
 LTS weight balancing strategies
