@@ -39,6 +39,7 @@
 #include <kernel.h>
 #include <limits>
 #include <mpi.h>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <tensor.h>
@@ -181,14 +182,14 @@ void EnergyOutput::syncPoint(double time) {
   logInfo() << "Writing energy output at time" << time << "Done.";
 }
 
-void EnergyOutput::simulationStart() {
+void EnergyOutput::simulationStart(std::optional<double> checkpointTime) {
   if (isFileOutputEnabled) {
     out.open(outputFileName);
     out << std::scientific;
     out << std::setprecision(std::numeric_limits<real>::max_digits10);
     writeHeader();
   }
-  syncPoint(0.0);
+  syncPoint(checkpointTime.value_or(0));
 }
 
 EnergyOutput::~EnergyOutput() {

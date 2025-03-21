@@ -135,7 +135,7 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
   //
   // Hooks
   //
-  void simulationStart() override;
+  void simulationStart(std::optional<double> checkpointTime) override;
 
   void syncPoint(double currentTime) override;
 };

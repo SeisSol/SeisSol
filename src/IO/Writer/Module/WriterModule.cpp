@@ -17,6 +17,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -61,7 +62,11 @@ void WriterModule::startup() {
   setSyncInterval(settings.interval);
 }
 
-void WriterModule::simulationStart() { syncPoint(0); }
+void WriterModule::simulationStart(std::optional<double> checkpointTime) {
+  if (checkpointTime.value_or(0) == 0) {
+    syncPoint(0);
+  }
+}
 
 void WriterModule::syncPoint(double time) {
   if (lastWrite >= 0) {
