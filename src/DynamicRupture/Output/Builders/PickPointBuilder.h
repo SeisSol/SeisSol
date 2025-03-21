@@ -116,15 +116,17 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     auto closest = std::optional<std::size_t>();
 
     for (auto [faceIdx, faultItem] : seissol::common::enumerate(fault)) {
-      const auto face =
-          getGlobalTriangle(faultItem.side, meshElements.at(faultItem.element), meshVertices);
-      const auto insideQuantifier = isInsideFace(point, face, faultItem.normal);
+      if (faultItem.element >= 0) {
+        const auto face =
+            getGlobalTriangle(faultItem.side, meshElements.at(faultItem.element), meshVertices);
+        const auto insideQuantifier = isInsideFace(point, face, faultItem.normal);
 
-      if (insideQuantifier > -1e-12) {
-        const auto distance = getDistanceFromPointToFace(point, face, faultItem.normal);
-        if (minDistance > distance) {
-          minDistance = distance;
-          closest = faceIdx;
+        if (insideQuantifier > -1e-12) {
+          const auto distance = getDistanceFromPointToFace(point, face, faultItem.normal);
+          if (minDistance > distance) {
+            minDistance = distance;
+            closest = faceIdx;
+          }
         }
       }
     }

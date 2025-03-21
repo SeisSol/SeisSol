@@ -18,6 +18,7 @@
 #include <Common/Iterator.h>
 #include <Eigen/Dense>
 #include <Solver/MultipleSimulations.h>
+#include <algorithm>
 #include <cstddef>
 #include <init.h>
 #include <limits>
