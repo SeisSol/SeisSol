@@ -27,7 +27,7 @@ And the number of variables (with :math:`Q_p` number of relaxation mechanisms us
    N_v = 9 + 6 Q_p
 
 
-A run using the viscoelastic wave equation with 100 million elements of order 5 counts 
+A run using the viscoelastic wave equation with 100 million elements of order 5 counts
 
 
 .. math::
