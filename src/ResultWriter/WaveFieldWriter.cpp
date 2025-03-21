@@ -20,6 +20,7 @@
 #include <map>
 #include <memory>
 #include <mpi.h>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <utility>
@@ -498,6 +499,10 @@ void seissol::writer::WaveFieldWriter::write(double time) {
   logInfo() << "Writing wave field at time" << utils::nospace << time << ". Done.";
 }
 
-void seissol::writer::WaveFieldWriter::simulationStart() { syncPoint(0.0); }
+void seissol::writer::WaveFieldWriter::simulationStart(std::optional<double> checkpointTime) {
+  if (checkpointTime.value_or(0) == 0) {
+    syncPoint(0.0);
+  }
+}
 
 void seissol::writer::WaveFieldWriter::syncPoint(double currentTime) { write(currentTime); }
