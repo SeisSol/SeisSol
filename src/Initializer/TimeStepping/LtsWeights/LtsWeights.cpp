@@ -513,6 +513,7 @@ void LtsWeights::prepareDifferenceEnforcement() {
   std::unordered_map<int, std::vector<std::size_t>> rankToSharedFacesPre;
   for (unsigned cell = 0; cell < cells.size(); ++cell) {
     unsigned int faceids[4]{};
+    bool atBoundary = false;
     PUML::Downward::faces(*m_mesh, cells[cell], faceids);
     for (unsigned f = 0; f < 4; ++f) {
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
@@ -523,8 +524,12 @@ void LtsWeights::prepareDifferenceEnforcement() {
         if (face.isShared()) {
           rankToSharedFacesPre[face.shared()[0]].push_back(faceids[f]);
           localFaceIdToLocalCellId[faceids[f]] = cell;
+          atBoundary = true;
         }
       }
+    }
+    if (atBoundary) {
+      boundaryCells.emplace_back(cell);
     }
   }
 
@@ -627,7 +632,8 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
 #ifdef _OPENMP
 #pragma omp parallel for reduction(+ : numberOfReductions)
 #endif
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
+  for (unsigned bcell = 0; bcell < boundaryCells.size(); ++bcell) {
+    const auto cell = boundaryCells[bcell];
     int& timeCluster = m_clusterIds[cell];
 
     unsigned int faceids[4]{};
