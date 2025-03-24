@@ -51,6 +51,13 @@
 #include <DataTypes/EncodedConstants.h>
 #endif
 
+namespace {
+constexpr bool VolumeEnergyApproximation =
+    model::MaterialT::Type != model::MaterialType::Elastic &&
+    model::MaterialT::Type != model::MaterialType::Viscoelastic &&
+    model::MaterialT::Type != model::MaterialType::Acoustic;
+} // namespace
+
 namespace seissol::writer {
 
 double& EnergiesStorage::gravitationalEnergy(size_t sim) {
@@ -102,6 +109,11 @@ void EnergyOutput::init(
   }
   const auto rank = MPI::mpi.rank();
   logInfo() << "Initializing energy output.";
+
+  if constexpr (VolumeEnergyApproximation) {
+    logWarning() << "The volume energies printed for the given equation system"
+                 << model::MaterialT::Text << "are, by now, only an isotropic approximation.";
+  }
 
   energyOutputInterval = parameters.interval;
   isFileOutputEnabled = rank == 0;
@@ -608,14 +620,10 @@ void EnergyOutput::printEnergies() {
       seissolInstance.getSeisSolParameters().output.energyParameters.terminalPrecision;
 
   const auto shouldPrint = [](double thresholdValue) { return std::abs(thresholdValue) > 1.e-20; };
-  if (model::MaterialT::Type != model::MaterialType::Elastic &&
-      model::MaterialT::Type != model::MaterialType::Viscoelastic &&
-      model::MaterialT::Type != model::MaterialType::Acoustic && shouldComputeVolumeEnergies()) {
-    logInfo() << "WARNING: the volume energies printed here may be inaccurate.";
-  }
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     const std::string fusedPrefix =
         multisim::MultisimEnabled ? "[" + std::to_string(sim) + "]" : "";
+    const std::string approxPrefix = VolumeEnergyApproximation ? "[approximated]" : "";
     const auto totalAcousticEnergy =
         energiesStorage.acousticKineticEnergy(sim) + energiesStorage.acousticEnergy(sim);
     const auto totalElasticEnergy =
@@ -642,20 +650,24 @@ void EnergyOutput::printEnergies() {
     if (shouldComputeVolumeEnergies()) {
       if (shouldPrint(totalElasticEnergy)) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                  << approxPrefix.c_str()
                   << " Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
                   << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
       }
       if (shouldPrint(totalAcousticEnergy)) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                  << approxPrefix.c_str()
                   << " Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
                   << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
       }
       if (shouldPrint(energiesStorage.gravitationalEnergy(sim))) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                  << approxPrefix.c_str()
                   << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
       }
       if (shouldPrint(energiesStorage.plasticMoment(sim))) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                  << approxPrefix.c_str()
                   << " Plastic moment (value, equivalent Mw, % total moment):"
                   << energiesStorage.plasticMoment(sim) << " ,"
                   << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(sim)) - 6.07 << " ,"
