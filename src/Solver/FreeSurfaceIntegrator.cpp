@@ -49,10 +49,10 @@ seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator()
   for (unsigned dim = 0; dim < FREESURFACE_NUMBER_OF_COMPONENTS; ++dim) {
     seissol::memory::free(velocities[dim]);
     seissol::memory::free(displacements[dim]);
-
-    seissol::memory::free(projectionMatrixMemory);
-    seissol::memory::free(projectionMatrixFromFace);
   }
+
+  seissol::memory::free(projectionMatrixMemory);
+  seissol::memory::free(projectionMatrixFromFace);
 }
 
 
