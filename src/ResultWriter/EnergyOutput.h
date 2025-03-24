@@ -24,6 +24,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
+#include "Solver/MultipleSimulations.h"
 
 namespace seissol {
 class SeisSol;
@@ -31,7 +32,7 @@ namespace writer {
 
 struct EnergiesStorage {
   static constexpr size_t NumberOfEnergies = 10;
-  std::array<double, MULTIPLE_SIMULATIONS * NumberOfEnergies> energies{};
+  std::array<double, seissol::multipleSimulations::numberOfSimulations * NumberOfEnergies> energies{};
 
   double& gravitationalEnergy(size_t sim);
 
@@ -61,9 +62,9 @@ struct EnergiesStorage {
 class EnergyOutput : public Module {
   public:
   void init(GlobalData* newGlobal,
-            std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, MULTIPLE_SIMULATIONS>&
+            std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, seissol::multipleSimulations::numberOfSimulations>&
                 newDynRup,
-            std::array<seissol::initializer::LTSTree*, MULTIPLE_SIMULATIONS>& newDynRuptTree,
+            std::array<seissol::initializer::LTSTree*, seissol::multipleSimulations::numberOfSimulations>& newDynRuptTree,
             seissol::geometry::MeshReader* newMeshReader,
             seissol::initializer::LTSTree* newLtsTree,
             seissol::initializer::LTS* newLts,
@@ -86,7 +87,7 @@ class EnergyOutput : public Module {
   EnergyOutput(EnergyOutput&&) = delete;
 
   private:
-  std::array<real, MULTIPLE_SIMULATIONS>
+  std::array<real, seissol::multipleSimulations::numberOfSimulations>
       computeStaticWork(const real* degreesOfFreedomPlus,
                         const real* degreesOfFreedomMinus,
                         const DRFaceInformation& faceInfo,
@@ -106,7 +107,7 @@ class EnergyOutput : public Module {
   void printEnergies();
 
   void checkAbortCriterion(
-      const real (&timeSinceThreshold)[MULTIPLE_SIMULATIONS],
+      const real (&timeSinceThreshold)[seissol::multipleSimulations::numberOfSimulations],
       const std::string& prefix_message);
 
   void writeHeader();
@@ -137,22 +138,20 @@ class EnergyOutput : public Module {
 #endif
 
   const GlobalData* global = nullptr;
-  // seissol::initializer::DynamicRupture* dynRup = nullptr;
-  // seissol::initializer::LTSTree* dynRupTree = nullptr;
-  std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, MULTIPLE_SIMULATIONS> dynRup;
-  std::array<seissol::initializer::LTSTree*, MULTIPLE_SIMULATIONS> dynRupTree;
+  std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, seissol::multipleSimulations::numberOfSimulations> dynRup;
+  std::array<seissol::initializer::LTSTree*, seissol::multipleSimulations::numberOfSimulations> dynRupTree;
   seissol::geometry::MeshReader* meshReader = nullptr;
   seissol::initializer::LTSTree* ltsTree = nullptr;
   seissol::initializer::LTS* lts = nullptr;
   seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
-  real minTimeSinceSlipRateBelowThreshold[MULTIPLE_SIMULATIONS] = {0.0};
-  real minTimeSinceMomentRateBelowThreshold[MULTIPLE_SIMULATIONS] = {0.0};
+  real minTimeSinceSlipRateBelowThreshold[seissol::multipleSimulations::numberOfSimulations] = {0.0};
+  real minTimeSinceMomentRateBelowThreshold[seissol::multipleSimulations::numberOfSimulations] = {0.0};
   double terminatorMaxTimePostRupture;
   double energyOutputInterval;
   double terminatorMomentRateThreshold;
-  double seismicMomentPrevious[MULTIPLE_SIMULATIONS] = {0.0};
+  double seismicMomentPrevious[seissol::multipleSimulations::numberOfSimulations] = {0.0};
 };
 
 } // namespace writer

@@ -31,6 +31,7 @@
 #include "ResultWriter/PostProcessor.h"
 #include "ResultWriter/WaveFieldWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
+#include "Solver/MultipleSimulations.h"
 #include "Solver/Simulator.h"
 #include "Solver/time_stepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
@@ -99,12 +100,9 @@ class SeisSol {
   /**
    * Get the fault writer module
    */
-
-  // std::vector<writer::FaultWriter>& faultWriter() {return m_faultWriter;}
-  std::array<std::unique_ptr<writer::FaultWriter>, MULTIPLE_SIMULATIONS>& faultWriter() {
+  std::array<std::unique_ptr<writer::FaultWriter>, seissol::multipleSimulations::numberOfSimulations>& faultWriter() {
     return m_faultWriter;
   }
-  // writer::FaultWriter& faultWriter() { return m_faultWriter; }
 
   /**
    * Get the receiver writer module
@@ -245,9 +243,7 @@ class SeisSol {
   writer::WaveFieldWriter m_waveFieldWriter;
 
   //! Fault output module
-  std::array<std::unique_ptr<writer::FaultWriter>, MULTIPLE_SIMULATIONS> m_faultWriter = {nullptr};
-  // std::vector<writer::FaultWriter> m_faultWriter;
-  // writer::FaultWriter m_faultWriter;
+  std::array<std::unique_ptr<writer::FaultWriter>, seissol::multipleSimulations::numberOfSimulations> m_faultWriter = {nullptr};
 
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
@@ -277,7 +273,7 @@ class SeisSol {
         m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
         m_receiverWriter(*this), m_energyOutput(*this),
         timeMirrorManagers(*this, *this) {
-          for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+          for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
             m_faultWriter[i] = std::make_unique<writer::FaultWriter>(*this);
             m_faultWriter[i]->setfusedNumber(i);
           }

@@ -34,6 +34,7 @@
 #include "Initializer/ParameterDB.h"
 
 #include "Physics/InitialField.h"
+#include "Solver/MultipleSimulations.h"
 
 #include <vector>
 #include <memory>
@@ -115,17 +116,12 @@ class MemoryManager {
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
-    std::array<LTSTree*, MULTIPLE_SIMULATIONS> m_dynRupTree = {nullptr};
-    // LTSTree m_dynRupTree;
-    std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS> m_dynRup = {nullptr};
-    // std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
-    std::array<std::shared_ptr<dr::initializer::BaseDRInitializer>, MULTIPLE_SIMULATIONS> m_DRInitializer = {nullptr};
-    // std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
-    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> m_FrictionLaw = {nullptr};
-    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> m_FrictionLawDevice = {nullptr};
-    // std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
-    std::array<std::shared_ptr<dr::output::OutputManager>, MULTIPLE_SIMULATIONS> m_faultOutputManager = {nullptr};
-    // std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
+    std::array<LTSTree*, seissol::multipleSimulations::numberOfSimulations> m_dynRupTree = {nullptr};
+    std::array<std::shared_ptr<DynamicRupture>, seissol::multipleSimulations::numberOfSimulations> m_dynRup = {nullptr};
+    std::array<std::shared_ptr<dr::initializer::BaseDRInitializer>, seissol::multipleSimulations::numberOfSimulations> m_DRInitializer = {nullptr};
+    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, seissol::multipleSimulations::numberOfSimulations> m_FrictionLaw = {nullptr};
+    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, seissol::multipleSimulations::numberOfSimulations> m_FrictionLawDevice = {nullptr};
+    std::array<std::shared_ptr<dr::output::OutputManager>, seissol::multipleSimulations::numberOfSimulations> m_faultOutputManager = {nullptr};
     std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
     LTSTree m_boundaryTree;
@@ -271,11 +267,11 @@ class MemoryManager {
       return m_ltsLut;
     }
 
-    inline std::array<LTSTree*, MULTIPLE_SIMULATIONS> getDynamicRuptureTree() {
+    inline std::array<LTSTree*, seissol::multipleSimulations::numberOfSimulations> getDynamicRuptureTree() {
       return m_dynRupTree;
     }
                           
-    inline std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS> getDynamicRupture() {
+    inline std::array<std::shared_ptr<DynamicRupture>, seissol::multipleSimulations::numberOfSimulations> getDynamicRupture() {
       return m_dynRup;
     }
 
@@ -309,26 +305,26 @@ class MemoryManager {
       return &m_easiBoundary;
     }
 
-    inline std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> getFrictionLaw() {
+    inline std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, seissol::multipleSimulations::numberOfSimulations> getFrictionLaw() {
         return m_FrictionLaw;
     }
 
-    inline std::array<std::shared_ptr<dr::initializer::BaseDRInitializer>, MULTIPLE_SIMULATIONS> getDRInitializer() {
+    inline std::array<std::shared_ptr<dr::initializer::BaseDRInitializer>, seissol::multipleSimulations::numberOfSimulations> getDRInitializer() {
         return m_DRInitializer;
     }
     
-    inline std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, MULTIPLE_SIMULATIONS> getFrictionLawDevice() {
+    inline std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, seissol::multipleSimulations::numberOfSimulations> getFrictionLawDevice() {
         return m_FrictionLawDevice;
     }
     
-    inline std::array<std::shared_ptr<seissol::dr::output::OutputManager>, MULTIPLE_SIMULATIONS> getFaultOutputManager() {
+    inline std::array<std::shared_ptr<seissol::dr::output::OutputManager>, seissol::multipleSimulations::numberOfSimulations> getFaultOutputManager() {
         return m_faultOutputManager;
     }
     // inline seissol::initializer::parameters::DRParameters* getDRParameters() {
     //     return m_seissolParams->drParameters.data();
     // }
 
-    inline std::array<std::shared_ptr<seissol::initializer::parameters::DRParameters>, MULTIPLE_SIMULATIONS> getDRParameters(){
+    inline std::array<std::shared_ptr<seissol::initializer::parameters::DRParameters>, seissol::multipleSimulations::numberOfSimulations> getDRParameters(){
       return m_seissolParams->drParameters;
     }
 

@@ -17,6 +17,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
+#include "Solver/MultipleSimulations.h"
 
 #include <array>
 
@@ -40,12 +41,12 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 Lut* ltsLut);
 
 void initializeDynamicRuptureMatrices(
-    const seissol::geometry::MeshReader& i_meshReader,
-    LTSTree* io_ltsTree,
-    LTS* i_lts,
-    Lut* i_ltsLut,
-    std::array<LTSTree*, MULTIPLE_SIMULATIONS> dynRupTree,
-    std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS> dynRup,
+    const seissol::geometry::MeshReader& meshReader,
+    LTSTree* ltsTree,
+    LTS* lts,
+    Lut* ltsLut,
+    std::array<LTSTree*, seissol::multipleSimulations::numberOfSimulations> dynRupTree,
+    std::array<std::shared_ptr<DynamicRupture>, seissol::multipleSimulations::numberOfSimulations> dynRup,
     unsigned* ltsFaceToMeshFace,
     const GlobalData& global,
     double etaHack);

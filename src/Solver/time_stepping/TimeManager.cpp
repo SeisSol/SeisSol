@@ -16,6 +16,7 @@
 #include "SeisSol.h"
 #include "ResultWriter/ClusteringWriter.h"
 #include "Parallel/Helper.h"
+#include "Solver/MultipleSimulations.h"
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -62,9 +63,9 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
     const long timeStepRate = ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
          static_cast<long>(l_globalClusterId));
 
-    std::array<long, MULTIPLE_SIMULATIONS> numDynRupCells;
+    std::array<long, seissol::multipleSimulations::numberOfSimulations> numDynRupCells;
     // Dynamic rupture
-    for (unsigned i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+    for (unsigned i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
       auto& dynRupTree = memoryManager.getDynamicRuptureTree()[i]->child(localClusterId);
       const long numberOfDynRupCells = dynRupTree.child(Interior).getNumberOfCells() +
         dynRupTree.child(Copy).getNumberOfCells() +
@@ -92,12 +93,12 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
       const bool printProgress = (localClusterId == m_timeStepping.numberOfLocalClusters - 1) && (type == Interior);
       const auto profilingId = l_globalClusterId + offsetMonitoring;
       auto* layerData = &memoryManager.getLtsTree()->child(localClusterId).child(type);
-      std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupInteriorData;
-      std::array<seissol::initializer::Layer*, MULTIPLE_SIMULATIONS> dynRupCopyData;
+      std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations> dynRupInteriorData;
+      std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations> dynRupCopyData;
 
       // auto* dynRupInteriorData = &dynRupTree.child(Interior);
       // auto* dynRupCopyData = &dynRupTree.child(Copy);
-      for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+      for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
         dynRupCopyData[i] =
             &memoryManager.getDynamicRuptureTree()[i]->child(localClusterId).child(Copy);
         dynRupInteriorData[i] =
@@ -246,19 +247,21 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
 
 }
 
-void seissol::time_stepping::TimeManager::setFaultOutputManager(std::array<std::shared_ptr<seissol::dr::output::OutputManager>, MULTIPLE_SIMULATIONS>& faultOutputManager) {
-  for(unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
-  m_faultOutputManager[i] = faultOutputManager[i].get();
+void seissol::time_stepping::TimeManager::setFaultOutputManager(
+    std::array<std::shared_ptr<seissol::dr::output::OutputManager>,
+               seissol::multipleSimulations::numberOfSimulations>& faultOutputManager) {
+  for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+    m_faultOutputManager[i] = faultOutputManager[i].get();
   }
-  
-  for(auto& cluster : clusters) {
+
+  for (auto& cluster : clusters) {
     cluster->setFaultOutputManager(faultOutputManager);
   }
 }
 
-std::array<seissol::dr::output::OutputManager*, MULTIPLE_SIMULATIONS>&
+std::array<seissol::dr::output::OutputManager*, seissol::multipleSimulations::numberOfSimulations>&
     seissol::time_stepping::TimeManager::getFaultOutputManager() {
-  for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+  for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
     assert(m_faultOutputManager[i] != nullptr);
   }
   return m_faultOutputManager;

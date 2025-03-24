@@ -25,6 +25,7 @@
 #include "IO/Datatype/Inference.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Kernels/Common.h"
+#include "Solver/MultipleSimulations.h"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
 #include <complex>
@@ -360,10 +361,8 @@ struct DREnergyOutput {
 struct CellDRMapping {
   unsigned side;
   unsigned faceRelation;
-//  real* godunov; // extend for multiple simulations -> array of pointers
-//  real* fluxSolver; // extend for multiple simulations -> array of pointers
-  std::array<real*, MULTIPLE_SIMULATIONS> godunov; //(TO DISCUSS) What is this godunov and what is the godunov data in Dynamic Rupture?
-  std::array<real*, MULTIPLE_SIMULATIONS> fluxSolver;
+  std::array<real*, seissol::multipleSimulations::numberOfSimulations> godunov;
+  std::array<real*, seissol::multipleSimulations::numberOfSimulations> fluxSolver;
 };
 
 struct CellBoundaryMapping {

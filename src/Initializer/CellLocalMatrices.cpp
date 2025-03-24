@@ -17,6 +17,7 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include "Parameters/ModelParameters.h"
+#include "Solver/MultipleSimulations.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <DynamicRupture/Typedefs.h>
@@ -441,12 +442,12 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 }
 
 void initializeDynamicRuptureMatrices(
-  const seissol::geometry::MeshReader& i_meshReader,
-  LTSTree* io_ltsTree,
-  LTS* i_lts,
-  Lut* i_ltsLut,
-  std::array<LTSTree*, MULTIPLE_SIMULATIONS> dynRupTree,
-  std::array<std::shared_ptr<DynamicRupture>, MULTIPLE_SIMULATIONS> dynRup,
+  const seissol::geometry::MeshReader& meshReader,
+  LTSTree* ltsTree,
+  LTS* lts,
+  Lut* ltsLut,
+  std::array<LTSTree*, seissol::multipleSimulations::numberOfSimulations> dynRupTree,
+  std::array<std::shared_ptr<DynamicRupture>, seissol::multipleSimulations::numberOfSimulations> dynRup,
   unsigned* ltsFaceToMeshFace,
   const GlobalData& global,
   double etaHack) {
@@ -456,18 +457,18 @@ real TinvData[tensor::Tinv::size()] = {0.0};
 real APlusData[tensor::star::size(0)] = {0.0};
 real AMinusData[tensor::star::size(0)] = {0.0};
 
-const std::vector<Fault>& fault = i_meshReader.getFault();
-const std::vector<Element>& elements = i_meshReader.getElements();
-CellDRMapping (*drMapping)[4] = io_ltsTree->var(i_lts->drMapping);
-CellDRMapping (*drMappingDevice)[4] = io_ltsTree->var(i_lts->drMappingDevice);
-CellMaterialData* material = io_ltsTree->var(i_lts->material);
-real** derivatives = io_ltsTree->var(i_lts->derivatives); // The WP derivatives pointer thing
-real* (*faceNeighbors)[4] = io_ltsTree->var(i_lts->faceNeighbors);
-real** derivativesDevice = io_ltsTree->var(i_lts->derivativesDevice);
-real* (*faceNeighborsDevice)[4] = io_ltsTree->var(i_lts->faceNeighborsDevice);
-CellLocalInformation* cellInformation = io_ltsTree->var(i_lts->cellInformation);
+const std::vector<Fault>& fault = meshReader.getFault();
+const std::vector<Element>& elements = meshReader.getElements();
+CellDRMapping (*drMapping)[4] = ltsTree->var(lts->drMapping);
+CellDRMapping (*drMappingDevice)[4] = ltsTree->var(lts->drMappingDevice);
+CellMaterialData* material = ltsTree->var(lts->material);
+real** derivatives = ltsTree->var(lts->derivatives); // The WP derivatives pointer thing
+real* (*faceNeighbors)[4] = ltsTree->var(lts->faceNeighbors);
+real** derivativesDevice = ltsTree->var(lts->derivativesDevice);
+real* (*faceNeighborsDevice)[4] = ltsTree->var(lts->faceNeighborsDevice);
+CellLocalInformation* cellInformation = ltsTree->var(lts->cellInformation);
 
-for(unsigned int i=0; i < MULTIPLE_SIMULATIONS; i++){
+for(unsigned int i=0; i < seissol::multipleSimulations::numberOfSimulations; i++){
 unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
 for (auto& layer : dynRupTree[i]->leaves(Ghost)) {
@@ -530,19 +531,19 @@ for (auto& layer : dynRupTree[i]->leaves(Ghost)) {
       real* timeDerivative2Device = nullptr;
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
         unsigned ltsId =
-            i_ltsLut->ltsId(i_lts->cellInformation.mask, derivativesMeshId, duplicate);
+            ltsLut->ltsId(lts->cellInformation.mask, derivativesMeshId, duplicate);
         if (timeDerivative1 == nullptr && (cellInformation[ltsId].ltsSetup >> 9) % 2 == 1) {
           timeDerivative1 =
-              derivatives[i_ltsLut->ltsId(i_lts->derivatives.mask, derivativesMeshId, duplicate)];
-          timeDerivative1Device = derivativesDevice[i_ltsLut->ltsId(
-              i_lts->derivatives.mask, derivativesMeshId, duplicate)];
+              derivatives[ltsLut->ltsId(lts->derivatives.mask, derivativesMeshId, duplicate)];
+          timeDerivative1Device = derivativesDevice[ltsLut->ltsId(
+              lts->derivatives.mask, derivativesMeshId, duplicate)];
         }
         if (timeDerivative2 == nullptr &&
             (cellInformation[ltsId].ltsSetup >> derivativesSide) % 2 == 1) {
-          timeDerivative2 = faceNeighbors[i_ltsLut->ltsId(
-              i_lts->faceNeighbors.mask, derivativesMeshId, duplicate)][derivativesSide];
-          timeDerivative2Device = faceNeighborsDevice[i_ltsLut->ltsId(
-              i_lts->faceNeighbors.mask, derivativesMeshId, duplicate)][derivativesSide];
+          timeDerivative2 = faceNeighbors[ltsLut->ltsId(
+              lts->faceNeighbors.mask, derivativesMeshId, duplicate)][derivativesSide];
+          timeDerivative2Device = faceNeighborsDevice[ltsLut->ltsId(
+              lts->faceNeighbors.mask, derivativesMeshId, duplicate)][derivativesSide];
         }
       }
 
@@ -566,10 +567,10 @@ for (auto& layer : dynRupTree[i]->leaves(Ghost)) {
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
         unsigned plusLtsId =
             (fault[meshFace].element >= 0)
-                ? i_ltsLut->ltsId(i_lts->drMapping.mask, fault[meshFace].element, duplicate)
+                ? ltsLut->ltsId(lts->drMapping.mask, fault[meshFace].element, duplicate)
                 : std::numeric_limits<unsigned>::max();
         unsigned minusLtsId = (fault[meshFace].neighborElement >= 0)
-                                  ? i_ltsLut->ltsId(i_lts->drMapping.mask,
+                                  ? ltsLut->ltsId(lts->drMapping.mask,
                                                     fault[meshFace].neighborElement,
                                                     duplicate)
                                   : std::numeric_limits<unsigned>::max();
@@ -625,11 +626,11 @@ for (auto& layer : dynRupTree[i]->leaves(Ghost)) {
       seissol::model::Material* plusMaterial;
       seissol::model::Material* minusMaterial;
       unsigned plusLtsId = (fault[meshFace].element >= 0)
-                               ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].element)
+                               ? ltsLut->ltsId(lts->material.mask, fault[meshFace].element)
                                : std::numeric_limits<unsigned>::max();
       unsigned minusLtsId =
           (fault[meshFace].neighborElement >= 0)
-              ? i_ltsLut->ltsId(i_lts->material.mask, fault[meshFace].neighborElement)
+              ? ltsLut->ltsId(lts->material.mask, fault[meshFace].neighborElement)
               : std::numeric_limits<unsigned>::max();
 
       assert(plusLtsId != std::numeric_limits<unsigned>::max() ||
@@ -753,14 +754,14 @@ for (auto& layer : dynRupTree[i]->leaves(Ghost)) {
     double plusSurfaceArea, plusVolume, minusSurfaceArea, minusVolume;
     double surfaceArea = 0;
     if (fault[meshFace].element >= 0) {
-      surfaceAreaAndVolume( i_meshReader, fault[meshFace].element, fault[meshFace].side, &plusSurfaceArea, &plusVolume );
+      surfaceAreaAndVolume( meshReader, fault[meshFace].element, fault[meshFace].side, &plusSurfaceArea, &plusVolume );
       surfaceArea = plusSurfaceArea;
     } else {
       /// Blow up solution on purpose if used by mistake. This happens automatically with higher ranks for DR copy clusters
       plusSurfaceArea = 1.e99; plusVolume = 1.0;
     }
     if (fault[meshFace].neighborElement >= 0) {
-      surfaceAreaAndVolume( i_meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
+      surfaceAreaAndVolume( meshReader, fault[meshFace].neighborElement, fault[meshFace].neighborSide, &minusSurfaceArea, &minusVolume );
       surfaceArea = minusSurfaceArea;
     } else {
       /// Blow up solution on purpose if used by mistake. This happens automatically with higher ranks for DR copy clusters

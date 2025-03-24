@@ -25,6 +25,7 @@
 #include "Initializer/TimeStepping/LtsLayout.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Solver/FreeSurfaceIntegrator.h"
+#include "Solver/MultipleSimulations.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
@@ -91,8 +92,7 @@ class seissol::time_stepping::TimeManager {
     ActorStateStatisticsManager actorStateStatisticsManager;
     
     //! dynamic rupture output
-    // dr::output::OutputManager* m_faultOutputManager{};
-    std::array<dr::output::OutputManager*, MULTIPLE_SIMULATIONS> m_faultOutputManager{}; // Set an array of faultoutputManagers?
+    std::array<dr::output::OutputManager*, seissol::multipleSimulations::numberOfSimulations> m_faultOutputManager{};
 
   public:
     /**
@@ -118,9 +118,9 @@ class seissol::time_stepping::TimeManager {
                      initializer::MemoryManager& memoryManager,
                      bool usePlasticity);
 
-    void setFaultOutputManager(std::array<std::shared_ptr<seissol::dr::output::OutputManager>, MULTIPLE_SIMULATIONS>& faultOutputManager);
+    void setFaultOutputManager(std::array<std::shared_ptr<seissol::dr::output::OutputManager>, seissol::multipleSimulations::numberOfSimulations>& faultOutputManager);
 
-    std::array<seissol::dr::output::OutputManager*, MULTIPLE_SIMULATIONS>& getFaultOutputManager();
+    std::array<seissol::dr::output::OutputManager*, seissol::multipleSimulations::numberOfSimulations>& getFaultOutputManager();
 
     /**
      * Advance in time until all clusters reach the next synchronization time.

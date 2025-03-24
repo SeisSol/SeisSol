@@ -86,9 +86,9 @@ double& EnergiesStorage::totalMomentumZ(size_t sim) {
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, MULTIPLE_SIMULATIONS>&
+    std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, seissol::multipleSimulations::numberOfSimulations>&
         newDynRup,
-    std::array<seissol::initializer::LTSTree*, MULTIPLE_SIMULATIONS>& newDynRuptTree,
+    std::array<seissol::initializer::LTSTree*, seissol::multipleSimulations::numberOfSimulations>& newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
     seissol::initializer::LTSTree* newLtsTree,
     seissol::initializer::LTS* newLts,
