@@ -60,10 +60,11 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
   pstrainShape = (numberOfNodes, 7)
 
   pstrain = OptionalDimTensor('pstrain', 's', aderdg.multipleSimulations, 0, pstrainShape, alignStride=True)
-  pstrain_ijs = Tensor('pstrain_ijs', (pstrainShape[0], pstrainShape[1], aderdg.multipleSimulations))
-  pstrainModified = pstrain_ijs['ijs'] <= pstrain['ij']
+  pstrain_ijs = OptionalDimTensor('pstrain_ijs', 's', aderdg.multipleSimulations, 2, pstrainShape, alignStride=False)
+  # pstrain_ijs = Tensor('pstrain_ijs', (pstrainShape[0], pstrainShape[1], aderdg.multipleSimulations))
+  pstrainModified = pstrain_ijs['ij'] <= pstrain['ij']
   generator.add('pstrainModified', pstrainModified)
-  pstrainModifiedReversed = pstrain['ij'] <= pstrain_ijs['ijs']
+  pstrainModifiedReversed = pstrain['ij'] <= pstrain_ijs['ij']
   generator.add('pstrainModifiedReversed', pstrainModifiedReversed)
 
   if aderdg.multipleSimulations > 1:
