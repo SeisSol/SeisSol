@@ -115,10 +115,10 @@ class LtsWeights {
   ComputeWiggleFactorResult computeBestWiggleFactor(std::optional<double> baselineCost,
                                                     bool isAutoMergeUsed);
   void prepareDifferenceEnforcement();
-#ifdef USE_MPI
-  std::vector<std::pair<int, std::vector<int>>> rankToSharedFaces;
-  std::unordered_map<int, int> localFaceIdToLocalCellId;
-#endif // USE_MPI
+
+  std::vector<std::pair<int, std::vector<std::size_t>>> rankToSharedFaces;
+  std::unordered_map<std::size_t, std::size_t> localFaceIdToLocalCellId;
+  std::unordered_map<std::size_t, std::pair<std::size_t, std::size_t>> sharedFaceToExchangeId;
 };
 } // namespace initializer::time_stepping
 } // namespace seissol
