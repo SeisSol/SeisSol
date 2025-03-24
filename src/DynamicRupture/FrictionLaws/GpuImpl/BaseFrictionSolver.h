@@ -24,10 +24,10 @@
 
 namespace seissol::dr::friction_law::gpu {
 struct InitialVariables {
-  real absoluteShearTraction;
-  real localSlipRate;
-  real normalStress;
-  real stateVarReference;
+  real absoluteShearTraction{};
+  real localSlipRate{};
+  real normalStress{};
+  real stateVarReference{};
 };
 
 struct FrictionLawContext {
@@ -37,14 +37,14 @@ struct FrictionLawContext {
 
   FaultStresses<Executor::Device> faultStresses{};
   TractionResults<Executor::Device> tractionResults{};
-  real fullUpdateTime;
-  real stateVariableBuffer;
-  real strengthBuffer;
+  real fullUpdateTime{};
+  real stateVariableBuffer{};
+  real strengthBuffer{};
   const double* __restrict devTimeWeights{nullptr};
   const real* __restrict devSpaceWeights{nullptr};
   const real* __restrict resampleMatrix{nullptr};
   real* __restrict sharedMemory;
-  InitialVariables initialVariables;
+  InitialVariables initialVariables{};
 
   const real* __restrict TpInverseFourierCoefficients{nullptr};
   const real* __restrict TpGridPoints{nullptr};
@@ -85,16 +85,20 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         ctx.pointIndex);
 
     Derived::preHook(ctx);
+
+    real updateTime = ctx.fullUpdateTime;
     for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
       const real t0{ctx.data->drParameters.t0};
       const real dt = ctx.data->deltaT[timeIndex];
+
+      updateTime += dt;
 
       common::adjustInitialStress<gpuRangeType, StdMath>(
           ctx.data->initialStressInFaultCS[ctx.ltsFace],
           ctx.data->nucleationStressInFaultCS[ctx.ltsFace],
           ctx.data->initialPressure[ctx.ltsFace],
           ctx.data->nucleationPressure[ctx.ltsFace],
-          ctx.fullUpdateTime,
+          updateTime,
           t0,
           dt,
           ctx.pointIndex);

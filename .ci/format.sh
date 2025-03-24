@@ -1,5 +1,5 @@
 #! /usr/bin/env sh
-# SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2021 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -74,9 +74,9 @@ format() {
     fi
 
     local formatter_version=$(${formatter} --version)
-    if [ "${formatter_version}" != "clang-format version 19.1.0" ]; then
-        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 19.1.0). Given: ${formatter_version}"
-        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==19.1.0"
+    if [ "${formatter_version}" != "clang-format version 20.1.0" ]; then
+        echo "Your clang-format tool in \"${formatter}\" does not have the correct version (should be 20.1.0). Given: ${formatter_version}"
+        echo "Hint: you may install the required clang-format via pip, by typing: pip3 install clang-format==20.1.0"
         exit 176
     fi
 
