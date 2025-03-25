@@ -286,7 +286,7 @@ jobs:
             multisim: 8
             energies: true
             receivers: true
-            fault: true
+            fault: false # NYI
         precision:
           - single
           - double
