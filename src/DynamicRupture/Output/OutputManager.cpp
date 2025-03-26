@@ -107,7 +107,6 @@ std::string buildIndexedMPIFileName(const std::string& namePrefix,
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
          << makeFormatted<int, WideFormat>(numFused) << '-'
          << makeFormatted<int, WideFormat>(MPI::mpi.rank());
-
 #else
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
          << makeFormatted<int, WideFormat>(numFused);
