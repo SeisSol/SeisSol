@@ -218,6 +218,15 @@ if (NOT ${DEVICE_BACKEND} STREQUAL "none")
             endif()
         endif()
 
+        execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import tensorforge; tensorforge.print_cmake_path()"
+                        OUTPUT_VARIABLE TENSORFORGE_PATH)
+        set(CMAKE_PREFIX_PATH "${TENSORFORGE_PATH}" ${CMAKE_PREFIX_PATH})
+        find_package(TensorForge QUIET)
+        if (GemmForge_FOUND)
+            message(STATUS "GPUs are enabled, adding TensorForge")
+            list(APPEND AUTO_DEVICE_CODEGEN "tensorforge")
+        endif()
+
         # generic device GEMM tool
         execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import gemmforge; gemmforge.print_cmake_path()"
                         OUTPUT_VARIABLE GEMMFORGE_PATH)
