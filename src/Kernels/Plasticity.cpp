@@ -17,6 +17,7 @@
 #include <Kernels/Precision.h>
 #include <Model/Plasticity.h>
 #include <Parallel/Runtime/Stream.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -64,7 +65,7 @@ namespace seissol::kernels {
     pstrainModifiedKrnl.execute();
 #endif
 
-  for (unsigned int sim = 0; sim < MULTIPLE_SIMULATIONS; sim++) {
+  for (unsigned int sim = 0; sim < seissol::multipleSimulations::numberOfSimulations; sim++) {
       alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()];
       alignas(Alignment) real qEtaNodal[tensor::QEtaNodal::size()];
       alignas(Alignment) real qEtaModal[tensor::QEtaModal::size()];
@@ -102,7 +103,6 @@ namespace seissol::kernels {
   // copy dofs for later comparison, only first dof of stresses required
   //  @todo multiple sims
 
-  real prevDegreesOfFreedom[tensor::QStress::size()];
   for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
     prevDegreesOfFreedom[q] = degreesOfFreedom[q];
   }
@@ -188,7 +188,11 @@ namespace seissol::kernels {
      *                = sigma_{ij} + yield s_{ij}
      */
     kernel::plAdjustStresses adjKrnl;
+    #ifdef MULTIPLE_SIMULATIONS
     adjKrnl.QStress = dofsUninterleaved + tensor::Q::Shape[1] * tensor::Q::Shape[2] * sim;
+    #else
+    adjKrnl.QStress = degreesOfFreedom;
+    #endif
     adjKrnl.vInv = global->vandermondeMatrixInverse;
     adjKrnl.QStressNodal = qStressNodal;
     adjKrnl.yieldFactor = yieldFactor;
@@ -282,7 +286,7 @@ namespace seissol::kernels {
     }
   }
 }
-
+    #ifdef MULTIPLE_SIMULATIONS
     kernel::dofsModifiedReversed dofsModifiedReversedKrnl;
     dofsModifiedReversedKrnl.Q = degreesOfFreedom;
     dofsModifiedReversedKrnl.Q_ijs = dofsUninterleaved;
@@ -292,7 +296,8 @@ namespace seissol::kernels {
     pstrainModifiedReversedKrnl.pstrain = pstrain;
     pstrainModifiedReversedKrnl.pstrain_ijs = pstrainUninterleaved;
     pstrainModifiedReversedKrnl.execute();
-
+    #endif
+    
 if(atLeastOnePlasticYield){
   return 1;
 }
