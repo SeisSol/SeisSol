@@ -43,9 +43,9 @@ class seissol::Simulator {
     /**
      * Sets the final time of the simulation.
      *
-     * @param i_finalTime final time.
+     * @param finalTime final time.
      **/
-    void setFinalTime( double i_finalTime );
+    void setFinalTime( double finalTime );
 
     /**
      * Sets the m_usePlasticity
@@ -57,9 +57,9 @@ class seissol::Simulator {
     /**
      * Sets the current time of the simulation (useful for checkpoints)
      *
-     * @param i_currentTime current time
+     * @param currentTime current time
      */
-    void setCurrentTime( double i_currentTime );
+    void setCurrentTime( double currentTime );
 
     /**
      * update m_abort to abort the main loop of the simulation (see terminator)

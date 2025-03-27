@@ -18,6 +18,7 @@
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 #include "time_stepping/TimeManager.h"
 
 seissol::Simulator::Simulator():
@@ -26,18 +27,18 @@ seissol::Simulator::Simulator():
   m_usePlasticity(  false ),
   m_abort( false ) {}
 
-void seissol::Simulator::setFinalTime( double i_finalTime ) {
-  assert( i_finalTime > 0 );
-  m_finalTime = i_finalTime;
+void seissol::Simulator::setFinalTime( double finalTime ) {
+  assert( finalTime > 0 );
+  m_finalTime = finalTime;
 }
 
 void seissol::Simulator::setUsePlasticity( bool plasticity ) {
   m_usePlasticity = plasticity;
 }
 
-void seissol::Simulator::setCurrentTime( double i_currentTime ) {
-	assert( i_currentTime >= 0 );
-	m_currentTime = i_currentTime;
+void seissol::Simulator::setCurrentTime( double currentTime ) {
+	assert( currentTime >= 0 );
+	m_currentTime = currentTime;
 }
 
 void seissol::Simulator::abort() {
@@ -51,7 +52,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   // auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
    auto faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
 
-   for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+   for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
      faultOutputManager[i]->writePickpointOutput(0.0, 0.0);
    }
 
