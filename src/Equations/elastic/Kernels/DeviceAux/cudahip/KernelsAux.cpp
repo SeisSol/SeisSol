@@ -9,7 +9,6 @@
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include <cstdio>
-#include <cuda.h>
 #include <init.h>
 #include <tensor.h>
 #include <yateto.h>

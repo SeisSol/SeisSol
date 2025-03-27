@@ -11,10 +11,8 @@
 #include "tensor.h"
 #include <cmath>
 #include <cstddef>
-#include <driver_types.h>
 #include <init.h>
 #include <type_traits>
-#include <vector_types.h>
 
 #include <Solver/MultipleSimulations.h>
 
