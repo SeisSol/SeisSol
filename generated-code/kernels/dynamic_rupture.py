@@ -100,7 +100,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   numberOfQuantities = aderdg.numberOfQuantities()
   basisFunctionsAtPoint = Tensor('basisFunctionsAtPoint', (numberOf3DBasisFunctions,))
   qShape = (aderdg.numberOf3DBasisFunctions(), aderdg.numberOfQuantities())
-  QuantitiesSingleSim = Tensor('singleSimQ', qShape, alignStride=False)
+  QuantitiesSingleSim = Tensor('singleSimQ', qShape, alignStride=alignStride)
   QAtPoint = Tensor('QAtPoint', (aderdg.numberOfQuantities(), ))
   # QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
 

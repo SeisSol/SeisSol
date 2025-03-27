@@ -169,21 +169,13 @@ void DynamicRupture::spaceTimeInterpolation(
     real const* minusPrefetch = (timeInterval < ConvergenceOrder-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinusPrefetch;
     
     krnl.QInterpolated = &QInterpolatedPlus[timeInterval][0]; // Only Q interpolate changes
-    #ifdef MULTIPLE_SIMULATIONS
     krnl.singleSimQ = degreesOfFreedomPlus;
-    #else
-    krnl.Q = degreesOfFreedomPlus;
-    #endif
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = plusPrefetch;
     krnl.execute(faceInfo.plusSide, 0);
     
     krnl.QInterpolated = &QInterpolatedMinus[timeInterval][0]; // Only Q interpolate changes
-    #ifdef MULTIPLE_SIMULATIONS
     krnl.singleSimQ = degreesOfFreedomMinus;
-    #else
-    krnl.Q = degreesOfFreedomMinus;
-    #endif
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = minusPrefetch;
     krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
