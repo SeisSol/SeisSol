@@ -16,18 +16,27 @@
 
 #include <Solver/MultipleSimulations.h>
 
+#ifdef __HIP__
+#include "hip/hip_runtime.h"
+using StreamT = hipStream_t;
+#endif
+#ifdef __CUDACC__
+using StreamT = cudaStream_t;
+#endif
+
 #ifdef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
 namespace {
-  constexpr std::size_t Blocksize = 128;
+constexpr std::size_t Blocksize = 128;
 
-  template<typename SourceRealT>
-  constexpr std::size_t RestFunctions(std::size_t SourceOrder, std::size_t ThisOrder) {
-    std::size_t total = 0;
-    for (std::size_t j = ThisOrder; j < SourceOrder; ++j) {
-      total += seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder - ThisOrder);
-    }
-    return total;
+template <typename SourceRealT>
+constexpr std::size_t RestFunctions(std::size_t SourceOrder, std::size_t ThisOrder) {
+  std::size_t total = 0;
+  for (std::size_t j = ThisOrder; j < SourceOrder; ++j) {
+    total +=
+        seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder - ThisOrder);
   }
+  return total;
+}
 
 template <bool Integral,
           std::size_t Quantities,
@@ -38,33 +47,36 @@ template <bool Integral,
           std::size_t TargetOrder,
           std::size_t Offset,
           std::size_t SharedOffset>
-static __device__ __forceinline__
-void taylorSumInner(TargetRealT* const __restrict__ target,
-                                  const SourceRealT* const __restrict__ source,
-                                  TargetRealT start,
-                                  TargetRealT end,
-                                  TargetRealT startCoeff,
-                                  TargetRealT endCoeff,
-                                  SourceRealT* const __restrict__ shmem,
-                                  TargetRealT reg[Quantities]) {
-  constexpr std::size_t MemorySize = seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) * Quantities;
+static __device__ __forceinline__ void taylorSumInner(TargetRealT* const __restrict__ target,
+                                                      const SourceRealT* const __restrict__ source,
+                                                      TargetRealT start,
+                                                      TargetRealT end,
+                                                      TargetRealT startCoeff,
+                                                      TargetRealT endCoeff,
+                                                      SourceRealT* const __restrict__ shmem,
+                                                      TargetRealT reg[Quantities]) {
+  constexpr std::size_t MemorySize =
+      seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) * Quantities;
   constexpr std::size_t SourceStride =
       seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder - ThisOrder);
   constexpr std::size_t TargetStride =
       seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
-  constexpr std::size_t RestMemSize = SharedOffset > 0 ? 0 : RestFunctions<SourceRealT>(SourceOrder, ThisOrder) * Quantities;
+  constexpr std::size_t RestMemSize =
+      SharedOffset > 0 ? 0 : RestFunctions<SourceRealT>(SourceOrder, ThisOrder) * Quantities;
   constexpr std::size_t SourceMemSize = SourceStride * Quantities;
   constexpr bool UseShared = MemorySize >= RestMemSize;
   constexpr std::size_t LoadSize = UseShared ? RestMemSize : SourceMemSize;
-  constexpr TargetRealT DivisionCoefficient = Integral ? static_cast<TargetRealT>(ThisOrder + 2) : static_cast<TargetRealT>(ThisOrder + 1);
+  constexpr TargetRealT DivisionCoefficient =
+      Integral ? static_cast<TargetRealT>(ThisOrder + 2) : static_cast<TargetRealT>(ThisOrder + 1);
 
-  static_assert(seissol::tensor::dQ::size(ThisOrder) == SourceMemSize, "Tensor size mismatch in explicit kernel.");
+  static_assert(seissol::tensor::dQ::size(ThisOrder) == SourceMemSize,
+                "Tensor size mismatch in explicit kernel.");
 
   if constexpr (LoadSize > 0) {
     __syncthreads();
     constexpr std::size_t Rounds = LoadSize / Blocksize;
     constexpr std::size_t Rest = LoadSize % Blocksize;
-  #pragma unroll
+#pragma unroll
     for (std::size_t j = 0; j < Rounds; ++j) {
       shmem[j * Blocksize + threadIdx.x] = source[Offset + j * Blocksize + threadIdx.x];
     }
@@ -82,7 +94,8 @@ void taylorSumInner(TargetRealT* const __restrict__ target,
 #pragma unroll
     for (std::size_t j = 0; j < Quantities; ++j) {
       // FIXME: non-optimal warp utilization (as before... But now it's in registers)
-        reg[j] += coeff * static_cast<TargetRealT>(shmem[SharedOffset + SourceStride * j + threadIdx.x]);
+      reg[j] +=
+          coeff * static_cast<TargetRealT>(shmem[SharedOffset + SourceStride * j + threadIdx.x]);
     }
   }
   // TODO(David): are we sure about this? Or is ThisOrder + 1 < SourceOrder enough?
@@ -109,93 +122,111 @@ template <bool Integral,
           typename TargetRealT,
           std::size_t SourceOrder,
           std::size_t TargetOrder>
-static __global__ __launch_bounds__(Blocksize)
-void taylorSumKernel(TargetRealT** targetBatch,
-                                  const SourceRealT** sourceBatch,
-                                  TargetRealT start,
-                                  TargetRealT end) {
-    int batchId = blockIdx.x;
+static __global__ __launch_bounds__(Blocksize) void taylorSumKernel(TargetRealT** targetBatch,
+                                                                    const SourceRealT** sourceBatch,
+                                                                    TargetRealT start,
+                                                                    TargetRealT end) {
+  int batchId = blockIdx.x;
 
-    __shared__ SourceRealT shmem[seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) * Quantities];
-    TargetRealT __restrict__ reg[Quantities] = {0};
+  __shared__ SourceRealT
+      shmem[seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) *
+            Quantities];
+  TargetRealT __restrict__ reg[Quantities] = {0};
 
-    const SourceRealT * const __restrict__ source = const_cast<const SourceRealT*>(sourceBatch[batchId]);
-    TargetRealT * const __restrict__ target = targetBatch[batchId];
+  const SourceRealT* const __restrict__ source =
+      const_cast<const SourceRealT*>(sourceBatch[batchId]);
+  TargetRealT* const __restrict__ target = targetBatch[batchId];
 
-    const TargetRealT startCoeff = Integral ? start : 0;
-    const TargetRealT endCoeff = Integral ? end : 1;
+  const TargetRealT startCoeff = Integral ? start : 0;
+  const TargetRealT endCoeff = Integral ? end : 1;
 
-    taylorSumInner<Integral, Quantities, 0, SourceRealT, TargetRealT, SourceOrder, TargetOrder, 0, 0>(
+  taylorSumInner<Integral, Quantities, 0, SourceRealT, TargetRealT, SourceOrder, TargetOrder, 0, 0>(
       target, source, start, end, startCoeff, endCoeff, shmem, reg);
 
-    constexpr std::size_t TargetStride =
+  constexpr std::size_t TargetStride =
       seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
 
-    if (threadIdx.x < TargetStride) {
-  #pragma unroll
-      for (std::size_t j = 0; j < Quantities; ++j) {
-          target[TargetStride * j + threadIdx.x] = reg[j];
-      }
+  if (threadIdx.x < TargetStride) {
+#pragma unroll
+    for (std::size_t j = 0; j < Quantities; ++j) {
+      target[TargetStride * j + threadIdx.x] = reg[j];
     }
+  }
 }
 
-  template <
-          bool Integral,
+template <bool Integral,
           std::size_t SourceQuantities,
           std::size_t TargetQuantities,
           typename SourceRealT,
           typename TargetRealT,
           std::size_t SourceOrder,
           std::size_t TargetOrder>
-void
-  static taylorSumInternal(std::size_t count, TargetRealT** target, const SourceRealT** source, TargetRealT start, TargetRealT end, void* stream) {
+void static taylorSumInternal(std::size_t count,
+                              TargetRealT** target,
+                              const SourceRealT** source,
+                              TargetRealT start,
+                              TargetRealT end,
+                              void* stream) {
   constexpr std::size_t Quantities = std::min(SourceQuantities, TargetQuantities);
   constexpr std::size_t TargetStride =
       seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
 
-      dim3 threads(Blocksize);
-      dim3 blocks(count);
+  dim3 threads(Blocksize);
+  dim3 blocks(count);
 
-      cudaStream_t castedStream = reinterpret_cast<cudaStream_t>(stream);
+  StreamT castedStream = reinterpret_cast<StreamT>(stream);
 
-  taylorSumKernel<Integral, Quantities, SourceRealT, TargetRealT, SourceOrder, TargetOrder><<<blocks, threads, 0, castedStream>>>(target, source, start, end);
+  taylorSumKernel<Integral, Quantities, SourceRealT, TargetRealT, SourceOrder, TargetOrder>
+      <<<blocks, threads, 0, castedStream>>>(target, source, start, end);
 }
 } // namespace
 
 namespace seissol::kernels::time::aux {
-void
-    taylorSum(bool integral, std::size_t count, real** target, const real** source, real start, real end, void* stream) {
-      // TODO: now fixed to elastic
-      if (integral) {
-        taylorSumInternal<true, seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities, real, real, ConvergenceOrder, ConvergenceOrder>(count, target, source, start, end, stream);
-      }
-      else {
-        taylorSumInternal<false, seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities, real, real, ConvergenceOrder, ConvergenceOrder>(count, target, source, start, end, stream);
-      }
-    }
+void taylorSum(bool integral,
+               std::size_t count,
+               real** target,
+               const real** source,
+               real start,
+               real end,
+               void* stream) {
+  // TODO: now fixed to elastic
+  if (integral) {
+    taylorSumInternal<true,
+                      seissol::model::MaterialT::NumQuantities,
+                      seissol::model::MaterialT::NumQuantities,
+                      real,
+                      real,
+                      ConvergenceOrder,
+                      ConvergenceOrder>(count, target, source, start, end, stream);
+  } else {
+    taylorSumInternal<false,
+                      seissol::model::MaterialT::NumQuantities,
+                      seissol::model::MaterialT::NumQuantities,
+                      real,
+                      real,
+                      ConvergenceOrder,
+                      ConvergenceOrder>(count, target, source, start, end, stream);
+  }
+}
 } // namespace seissol::kernels::time::aux
 #endif
 
 namespace seissol::kernels::local_flux::aux::details {
 
-template<typename Tensor>
-__forceinline__  __device__
-constexpr size_t leadDim() {
+template <typename Tensor>
+__forceinline__ __device__ constexpr size_t leadDim() {
   if constexpr (multisim::MultisimEnabled) {
     return Tensor::Stop[1] - Tensor::Start[1];
-  }
-  else {
+  } else {
     return Tensor::Stop[0] - Tensor::Start[0];
   }
 }
 
-template<typename Tensor>
-__forceinline__  __device__
-constexpr size_t linearDim() {
+template <typename Tensor>
+__forceinline__ __device__ constexpr size_t linearDim() {
   if constexpr (multisim::MultisimEnabled) {
     return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
-  }
-  else {
+  } else {
     return Tensor::Stop[0] - Tensor::Start[0];
   }
 }
@@ -203,54 +234,48 @@ constexpr size_t linearDim() {
 constexpr auto getblock(int size) {
   if constexpr (multisim::MultisimEnabled) {
     return dim3(multisim::NumSimulations, size);
-  }
-  else {
+  } else {
     return dim3(size);
   }
 }
 
-__forceinline__  __device__ auto linearidx() {
+__forceinline__ __device__ auto linearidx() {
   if constexpr (multisim::MultisimEnabled) {
     return threadIdx.y * multisim::NumSimulations + threadIdx.x;
-  }
-  else {
+  } else {
     return threadIdx.x;
   }
 }
 
-__forceinline__  __device__ auto linearsize() {
+__forceinline__ __device__ auto linearsize() {
   if constexpr (multisim::MultisimEnabled) {
     return blockDim.y * blockDim.x;
-  }
-  else {
+  } else {
     return blockDim.x;
   }
 }
 
-__forceinline__  __device__ auto simidx() {
+__forceinline__ __device__ auto simidx() {
   if constexpr (multisim::MultisimEnabled) {
     return threadIdx.x;
-  }
-  else {
+  } else {
     return 0;
   }
 }
 
-__forceinline__  __device__ auto validx() {
+__forceinline__ __device__ auto validx() {
   if constexpr (multisim::MultisimEnabled) {
     return threadIdx.y;
-  }
-  else {
+  } else {
     return threadIdx.x;
   }
 }
 
-__global__ void kernelFreeSurfaceGravity(
-  real** dofsFaceBoundaryNodalPtrs,
-  real** displacementDataPtrs,
-  double* rhos,
-  double g,
-  size_t numElements) {
+__global__ void kernelFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
+                                         real** displacementDataPtrs,
+                                         double* rhos,
+                                         double g,
+                                         size_t numElements) {
 
   const int tid = linearidx();
   const int elementId = blockIdx.x;
@@ -259,16 +284,18 @@ __global__ void kernelFreeSurfaceGravity(
     real* elementBoundaryDofs = dofsFaceBoundaryNodalPtrs[elementId];
     real* elementDisplacement = displacementDataPtrs[elementId];
 
-    constexpr auto numNodes = seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * multisim::NumSimulations;
+    constexpr auto numNodes =
+        seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] *
+        multisim::NumSimulations;
     if (tid < numNodes) {
       constexpr auto ldINodal = linearDim<seissol::init::INodal>();
 
       const auto pressureAtBnd = static_cast<real>(-1.0) * rho * g * elementDisplacement[tid];
 
-      #pragma unroll
+#pragma unroll
       for (int component{0}; component < 3; ++component) {
         elementBoundaryDofs[tid + component * ldINodal] =
-          2.0 * pressureAtBnd - elementBoundaryDofs[tid + component * ldINodal];
+            2.0 * pressureAtBnd - elementBoundaryDofs[tid + component * ldINodal];
       }
     }
   }
@@ -282,19 +309,15 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
                               void* deviceStream) {
   dim3 block = getblock(seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
   dim3 grid(numElements, 1, 1);
-  auto stream = reinterpret_cast<cudaStream_t>(deviceStream);
-  kernelFreeSurfaceGravity<<<grid, block, 0, stream>>>(dofsFaceBoundaryNodalPtrs,
-                                                       displacementDataPtrs,
-                                                       rhos,
-                                                       g,
-                                                       numElements);
+  auto stream = reinterpret_cast<StreamT>(deviceStream);
+  kernelFreeSurfaceGravity<<<grid, block, 0, stream>>>(
+      dofsFaceBoundaryNodalPtrs, displacementDataPtrs, rhos, g, numElements);
 }
 
-
-__global__ void  kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
-                                    real** easiBoundaryMapPtrs,
-                                    real** easiBoundaryConstantPtrs,
-                                    size_t numElements) {
+__global__ void kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
+                                   real** easiBoundaryMapPtrs,
+                                   real** easiBoundaryConstantPtrs,
+                                   size_t numElements) {
 
   const int tid = validx();
   const int elementId = blockIdx.x;
@@ -305,8 +328,10 @@ __global__ void  kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
   __shared__ __align__(8) real resultTerm[iNodalDim1][iNodalDim0][multisim::NumSimulations];
 
   constexpr auto ldConstantDim = leadDim<seissol::init::easiBoundaryConstant>();
-  constexpr auto constantDim0 = seissol::tensor::easiBoundaryConstant::Shape[multisim::BasisFunctionDimension + 0];
-  constexpr auto constantDim1 = seissol::tensor::easiBoundaryConstant::Shape[multisim::BasisFunctionDimension + 1];
+  constexpr auto constantDim0 =
+      seissol::tensor::easiBoundaryConstant::Shape[multisim::BasisFunctionDimension + 0];
+  constexpr auto constantDim1 =
+      seissol::tensor::easiBoundaryConstant::Shape[multisim::BasisFunctionDimension + 1];
   __shared__ __align__(8) real rightTerm[iNodalDim1][ldConstantDim][multisim::NumSimulations];
 
   constexpr auto ldMapDim = leadDim<seissol::init::easiBoundaryMap>();
@@ -317,7 +342,6 @@ __global__ void  kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
 
   static_assert(iNodalDim1 == constantDim0, "supposed to be equal");
   static_assert(iNodalDim1 == mapDim0, "supposed to be equal");
-
 
   if (elementId < numElements) {
     real* dofsFaceBoundaryNodal = dofsFaceBoundaryNodalPtrs[elementId];
@@ -334,7 +358,8 @@ __global__ void  kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
     __syncthreads();
 
     for (int i = 0; i < iNodalDim1; ++i) {
-      if (tid < iNodalDim0) resultTerm[i][tid][simidx()] = 0.0;
+      if (tid < iNodalDim0)
+        resultTerm[i][tid][simidx()] = 0.0;
     }
     __syncthreads();
 
@@ -357,12 +382,12 @@ __global__ void  kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
 
     if (tid < iNodalDim0) {
       for (int a = 0; a < iNodalDim1; ++a) {
-        dofsFaceBoundaryNodal[linearidx() + a * ldINodalDim] = resultTerm[a][tid][simidx()] + rightTerm[a][tid][simidx()];
+        dofsFaceBoundaryNodal[linearidx() + a * ldINodalDim] =
+            resultTerm[a][tid][simidx()] + rightTerm[a][tid][simidx()];
       }
     }
   }
 }
-
 
 void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
                         real** easiBoundaryMapPtrs,
@@ -372,15 +397,11 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
 
   dim3 block = getblock(yateto::leadDim<seissol::init::INodal>());
   dim3 grid(numElements, 1, 1);
-  auto stream = reinterpret_cast<cudaStream_t>(deviceStream);
-  kernelEasiBoundary<<<grid, block, 0, stream>>>(dofsFaceBoundaryNodalPtrs,
-                                                 easiBoundaryMapPtrs,
-                                                 easiBoundaryConstantPtrs,
-                                                 numElements);
+  auto stream = reinterpret_cast<StreamT>(deviceStream);
+  kernelEasiBoundary<<<grid, block, 0, stream>>>(
+      dofsFaceBoundaryNodalPtrs, easiBoundaryMapPtrs, easiBoundaryConstantPtrs, numElements);
 }
 } // namespace seissol::kernels::local_flux::aux::details
-
-
 
 namespace seissol::kernels::time::aux {
 __global__ void kernelextractRotationMatrices(real** displacementToFaceNormalPtrs,
@@ -415,21 +436,17 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
                              void* deviceStream) {
   dim3 block(3, 3, 1);
   dim3 grid(numElements, 1, 1);
-  auto stream = reinterpret_cast<cudaStream_t>(deviceStream);
+  auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelextractRotationMatrices<<<grid, block, 0, stream>>>(
-    displacementToFaceNormalPtrs,
-    displacementToGlobalDataPtrs,
-    TPtrs,
-    TinvPtrs,
-    numElements);
+      displacementToFaceNormalPtrs, displacementToGlobalDataPtrs, TPtrs, TinvPtrs, numElements);
 }
 
-__global__  void kernelInitializeTaylorSeriesForGravitationalBoundary(
-  real** prevCoefficientsPtrs,
-  real** integratedDisplacementNodalPtrs,
-  real** rotatedFaceDisplacementPtrs,
-  double deltaTInt,
-  size_t numElements) {
+__global__ void
+    kernelInitializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
+                                                         real** integratedDisplacementNodalPtrs,
+                                                         real** rotatedFaceDisplacementPtrs,
+                                                         double deltaTInt,
+                                                         size_t numElements) {
 
   const int elementId = blockIdx.x;
   if (elementId < numElements) {
@@ -437,10 +454,12 @@ __global__  void kernelInitializeTaylorSeriesForGravitationalBoundary(
     auto* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
     const auto* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
 
-    assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] <= yateto::leadDim<seissol::init::rotatedFaceDisplacement>());
+    assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] <=
+           yateto::leadDim<seissol::init::rotatedFaceDisplacement>());
 
     const int tid = threadIdx.x;
-    constexpr auto num2dNodes = seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
+    constexpr auto num2dNodes =
+        seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
     if (tid < num2dNodes) {
       prevCoefficients[tid] = rotatedFaceDisplacement[tid];
       integratedDisplacementNodal[tid] = deltaTInt * rotatedFaceDisplacement[tid];
@@ -448,23 +467,22 @@ __global__  void kernelInitializeTaylorSeriesForGravitationalBoundary(
   }
 }
 
-void initializeTaylorSeriesForGravitationalBoundary(
-  real** prevCoefficientsPtrs,
-  real** integratedDisplacementNodalPtrs,
-  real** rotatedFaceDisplacementPtrs,
-  double deltaTInt,
-  size_t numElements,
-  void* deviceStream) {
+void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
+                                                    real** integratedDisplacementNodalPtrs,
+                                                    real** rotatedFaceDisplacementPtrs,
+                                                    double deltaTInt,
+                                                    size_t numElements,
+                                                    void* deviceStream) {
 
   dim3 block(yateto::leadDim<seissol::nodal::init::nodes2D>(), 1, 1);
   dim3 grid(numElements, 1, 1);
-  auto stream = reinterpret_cast<cudaStream_t>(deviceStream);
+  auto stream = reinterpret_cast<StreamT>(deviceStream);
   kernelInitializeTaylorSeriesForGravitationalBoundary<<<grid, block, 0, stream>>>(
-    prevCoefficientsPtrs,
-    integratedDisplacementNodalPtrs,
-    rotatedFaceDisplacementPtrs,
-    deltaTInt,
-    numElements);
+      prevCoefficientsPtrs,
+      integratedDisplacementNodalPtrs,
+      rotatedFaceDisplacementPtrs,
+      deltaTInt,
+      numElements);
 }
 
 __global__ void kernelComputeInvAcousticImpedance(double* invImpedances,
@@ -478,19 +496,14 @@ __global__ void kernelComputeInvAcousticImpedance(double* invImpedances,
   }
 }
 
-void computeInvAcousticImpedance(double* invImpedances,
-                                 double* rhos,
-                                 double* lambdas,
-                                 size_t numElements,
-                                 void* deviceStream) {
+void computeInvAcousticImpedance(
+    double* invImpedances, double* rhos, double* lambdas, size_t numElements, void* deviceStream) {
   constexpr size_t blockSize{256};
   dim3 block(blockSize, 1, 1);
   dim3 grid((numElements + blockSize - 1) / blockSize, 1, 1);
-  auto stream = reinterpret_cast<cudaStream_t>(deviceStream);
-  kernelComputeInvAcousticImpedance<<<grid, block, 0, stream>>>(invImpedances,
-                                                                rhos,
-                                                                lambdas,
-                                                                numElements);
+  auto stream = reinterpret_cast<StreamT>(deviceStream);
+  kernelComputeInvAcousticImpedance<<<grid, block, 0, stream>>>(
+      invImpedances, rhos, lambdas, numElements);
 }
 
 __global__ void kernelUpdateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
@@ -507,7 +520,8 @@ __global__ void kernelUpdateRotatedFaceDisplacement(real** rotatedFaceDisplaceme
   if (elementId < numElements) {
     constexpr int pIdx = 0;
     constexpr int uIdx = 6;
-    constexpr auto num2dNodes = seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
+    constexpr auto num2dNodes =
+        seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
 
     const int tid = threadIdx.x;
     if (tid < num2dNodes) {
@@ -525,7 +539,8 @@ __global__ void kernelUpdateRotatedFaceDisplacement(real** rotatedFaceDisplaceme
       const auto rho = rhos[elementId];
       const auto invImpedance = invImpedances[elementId];
 
-      const double curCoeff = uInside - invImpedance * (rho * g * prevCoefficients[tid] + pressureInside);
+      const double curCoeff =
+          uInside - invImpedance * (rho * g * prevCoefficients[tid] + pressureInside);
 #else
       const double curCoeff = uInside;
 #endif
@@ -539,7 +554,8 @@ __global__ void kernelUpdateRotatedFaceDisplacement(real** rotatedFaceDisplaceme
       rotatedFaceDisplacement[tid + 1 * ldFaceDisplacement] += factorEvaluated * vInside;
       rotatedFaceDisplacement[tid + 2 * ldFaceDisplacement] += factorEvaluated * wInside;
 
-      constexpr auto ldIntegratedFaceDisplacement = yateto::leadDim<seissol::init::averageNormalDisplacement>();
+      constexpr auto ldIntegratedFaceDisplacement =
+          yateto::leadDim<seissol::init::averageNormalDisplacement>();
       static_assert(num2dNodes <= ldIntegratedFaceDisplacement, "");
 
       real* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
@@ -561,18 +577,16 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
                                    void* deviceStream) {
   dim3 block(yateto::leadDim<seissol::nodal::init::nodes2D>(), 1, 1);
   dim3 grid(numElements, 1, 1);
-  auto stream = reinterpret_cast<cudaStream_t>(deviceStream);
-  kernelUpdateRotatedFaceDisplacement<<<grid, block, 0, stream>>>(
-    rotatedFaceDisplacementPtrs,
-    prevCoefficientsPtrs,
-    integratedDisplacementNodalPtrs,
-    dofsFaceNodalPtrs,
-    invImpedances,
-    rhos,
-    g,
-    factorEvaluated,
-    factorInt,
-    numElements);
+  auto stream = reinterpret_cast<StreamT>(deviceStream);
+  kernelUpdateRotatedFaceDisplacement<<<grid, block, 0, stream>>>(rotatedFaceDisplacementPtrs,
+                                                                  prevCoefficientsPtrs,
+                                                                  integratedDisplacementNodalPtrs,
+                                                                  dofsFaceNodalPtrs,
+                                                                  invImpedances,
+                                                                  rhos,
+                                                                  g,
+                                                                  factorEvaluated,
+                                                                  factorInt,
+                                                                  numElements);
 }
 } // namespace seissol::kernels::time::aux
-
