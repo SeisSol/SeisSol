@@ -24,6 +24,7 @@
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Parallel/Runtime/Stream.h>
+#include <Solver/MultipleSimulations.h>
 #include <cstddef>
 #include <generated_code/tensor.h>
 
@@ -116,7 +117,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
         real fluxSolver_ijs[init::fluxSolverMultipleSim::size()]{};
         real godunov_ijs[init::QInterpolatedMultipleSim::size()]{};
   
-        for (int sim = 0; sim < MULTIPLE_SIMULATIONS; ++sim) {
+        for (int sim = 0; sim < seissol::multipleSimulations::numberOfSimulations; ++sim) {
           std::memcpy(&fluxSolver_ijs[sim * init::fluxSolver::size()],
                       cellDrMapping[face].fluxSolver[sim],
                       init::fluxSolver::size() * sizeof(real));
