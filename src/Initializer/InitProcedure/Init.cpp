@@ -19,6 +19,7 @@
 #include "Parallel/MPI.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 
 #ifdef ACL_DEVICE
 #include "Monitoring/Unit.h"
@@ -64,7 +65,7 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
 
   // initialization procedure
   seissol::initializer::initprocedure::initMesh(seissolInstance);
-  seissol::initializer::initprocedure::initModel(seissolInstance); // Seems to be correct until here. 
+  seissol::initializer::initprocedure::initModel(seissolInstance);
   seissol::initializer::initprocedure::initSideConditions(seissolInstance);
   seissol::initializer::initprocedure::initIO(seissolInstance);
 
@@ -89,8 +90,7 @@ void closeSeisSol(seissol::SeisSol& seissolInstance) {
   logInfo() << "Closing IO.";
   // cleanup IO
   seissolInstance.waveFieldWriter().close();
-  // seissolInstance.checkPointManager().close();
-  for (unsigned int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+  for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
     seissolInstance.faultWriter()[i]->close();
   }
   seissolInstance.freeSurfaceWriter().close();

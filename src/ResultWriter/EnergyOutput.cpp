@@ -233,21 +233,13 @@ std::array<real, multipleSimulations::numberOfSimulations>
   std::memcpy(QMinus, degreesOfFreedomMinus, sizeof(QMinus));
 
   krnl.QInterpolated = QInterpolatedPlus;
-  #ifdef MULTIPLE_SIMULATIONS
   krnl.singleSimQ = QPlus;
-  #else
-  krnl.Q = QPlus;
-  #endif
   krnl.TinvT = godunovData.TinvT;
   krnl._prefetch.QInterpolated = QInterpolatedPlus;
   krnl.execute(faceInfo.plusSide, 0);
 
   krnl.QInterpolated = QInterpolatedMinus;
-  #ifdef MULTIPLE_SIMULATIONS
   krnl.singleSimQ = QMinus;
-  #else
-  krnl.Q = QMinus;
-  #endif
   krnl.TinvT = godunovData.TinvT;
   krnl._prefetch.QInterpolated = QInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);

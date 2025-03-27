@@ -53,7 +53,7 @@ void ReceiverOutput::getDofs(real (&dofs)[tensor::Q::Shape[1] * tensor::Q::Shape
                              int meshId,
                              unsigned int nFused)
 #else
-void ReceiverOutput::getDofs(real (&dofs)[tensor::Q::size()], int meshId)
+void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId, unsigned int nFused)
 #endif
 {
   // get DOFs from 0th derivatives
@@ -64,6 +64,7 @@ void ReceiverOutput::getDofs(real (&dofs)[tensor::Q::size()], int meshId)
   device::DeviceInstance::getInstance().api->copyFrom(
       &dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
 #else
+  #ifdef MULTIPLE_SIMULATIONS
   real dummydofs[tensor::Q::size()] = {0.0};
   kernel::dofsModified dofsModifiedKrnl;
   dofsModifiedKrnl.Q = derivatives;
@@ -73,6 +74,9 @@ void ReceiverOutput::getDofs(real (&dofs)[tensor::Q::size()], int meshId)
   std::copy(dummydofs + NumBasisFunctions * tensor::Q::Shape[2] * nFused,
             dummydofs + NumBasisFunctions * tensor::Q::Shape[2] * (nFused + 1),
             &dofs[0]);
+  #else
+  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+  #endif
 #endif
 }
 #ifdef MULTIPLE_SIMULATIONS
@@ -81,7 +85,7 @@ void ReceiverOutput::getNeighbourDofs(real (&dofs)[tensor::Q::Shape[1] * tensor:
                                       int side,
                                       unsigned int nFused)
 #else
-void ReceiverOutput::getNeighbourDofs(real (&dofs)[tensor::Q::size()], int meshId, int side)
+void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side, unsigned int nFused)
 #endif
 {
   real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
@@ -92,6 +96,7 @@ void ReceiverOutput::getNeighbourDofs(real (&dofs)[tensor::Q::size()], int meshI
       &dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
 #else
   //(TODO Discuss: check and verify if this is right)
+  #ifdef MULTIPLE_SIMULATIONS
   real dummydofs[tensor::Q::size()] = {0.0};
   kernel::dofsModified dofsModifiedKrnl;
   dofsModifiedKrnl.Q = derivatives;
@@ -101,7 +106,9 @@ void ReceiverOutput::getNeighbourDofs(real (&dofs)[tensor::Q::size()], int meshI
   std::copy(dummydofs + NumBasisFunctions * tensor::Q::Shape[2] * nFused,
             dummydofs + NumBasisFunctions * tensor::Q::Shape[2] * (nFused + 1),
             &dofs[0]);
-
+  #else
+  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+  #endif
 #endif
 }
 

@@ -84,7 +84,6 @@ class Time : public TimeBase {
                                   real expansionPoint,
                                   const real* timeDerivatives,
                                   real timeEvaluated[tensor::singleSimQ::size()]);
-    unsigned int* getDerivativesOffsetsDR();
 #endif
 
     void computeBatchedTaylorExpansion(real time,
@@ -96,6 +95,7 @@ class Time : public TimeBase {
 
     void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
 
+    unsigned int* getDerivativesOffsetsDR();
     unsigned int* getDerivativesOffsets();
 };
 
