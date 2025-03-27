@@ -161,20 +161,34 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     if gpu_target in targets:
         name_prefix = generate_kernel_name_prefix(gpu_target)
 
-        # suffix `M` stands for `Matrix`
-        replicateInitialLoadingM = Tensor(
-            name="replicateInitialLoadingM",
-            shape=(numberOfNodes, 1),
-            spp=np.ones((numberOfNodes, 1)),
-        )
-        initialLoadingM = Tensor("initialLoadingM", (1, 6))
+        if aderdg.transpose:
+            # for now, copy the tensors into here and rename them; until gemmforge/chainforge is deprecated
+            initialLoading = Tensor("initialLoadingM", (6,))
+            replicateInitialLoading = OptionalDimTensor(
+                "replicateInitialLoadingM",
+                aderdg.Q.optName(),
+                aderdg.Q.optSize(),
+                aderdg.Q.optPos(),
+                replicateIniLShape,
+                spp=replicateIniLSpp,
+                alignStride=True,
+            )
+            matreplace = replicateInitialLoading["k"] * initialLoading["p"]
+        else:
+            # suffix `M` stands for `Matrix`
+            replicateInitialLoadingM = Tensor(
+                name="replicateInitialLoadingM",
+                shape=(numberOfNodes, 1),
+                spp=np.ones((numberOfNodes, 1)),
+            )
+            initialLoadingM = Tensor("initialLoadingM", (1, 6))
+
+            matreplace = replicateInitialLoadingM["km"] * initialLoadingM["mp"]
 
         # Note: the last term was change on purpose because
         # GemmForge doesn't currently support tensor product operation
         convert_to_nodal = (
-            QStressNodal["kp"]
-            <= db.v[aderdg.t("kl")] * QStress["lp"]
-            + replicateInitialLoadingM["km"] * initialLoadingM["mp"]
+            QStressNodal["kp"] <= db.v[aderdg.t("kl")] * QStress["lp"] + matreplace
         )
 
         generator.add(

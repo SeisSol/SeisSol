@@ -30,6 +30,7 @@
 #include "device.h"
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
+#include <Solver/MultipleSimulations.h>
 using namespace device;
 #endif
 
@@ -247,7 +248,7 @@ unsigned Plasticity::computePlasticityBatched(
 #ifdef ACL_DEVICE
   static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
                 "modal and nodal dofs must have the same leading dimensions");
-  static_assert(tensor::Q::Shape[0] == tensor::v::Shape[0],
+  static_assert(tensor::Q::Shape[multisim::BasisFunctionDimension] == tensor::v::Shape[0],
                 "modal dofs and vandermonde matrix must hage the same leading dimensions");
 
   DeviceInstance& device = DeviceInstance::getInstance();

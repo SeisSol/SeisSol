@@ -226,12 +226,14 @@ class PoroelasticADERDG(LinearADERDG):
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
-            if target == 'cpu':
+            if target == "cpu":
                 G = {10: Scalar("Gk"), 11: Scalar("Gl"), 12: Scalar("Gm")}
             else:
-                G = {10: Tensor("Gkt", ())[''] * timestep,
-                     11: Tensor("Glt", ())[''] * timestep,
-                     12: Tensor("Gmt", ())[''] * timestep,}
+                G = {
+                    10: Tensor("Gkt", ())[""] * timestep,
+                    11: Tensor("Glt", ())[""] * timestep,
+                    12: Tensor("Gmt", ())[""] * timestep,
+                }
 
             kernels = list()
 

@@ -23,7 +23,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
         alignStride=aderdg.alignStride,
         transpose=aderdg.transpose,
     )
-    numberOfPoints = db.resample.shape()[0]
+    numberOfPoints = aderdg.t(db.resample.shape())[0]
 
     # Determine matrices
     # Note: This does only work because the flux does not depend
@@ -62,7 +62,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
 
     originalQ = Tensor("originalQ", (numberOfPoints,))
     resampledQ = Tensor("resampledQ", (numberOfPoints,))
-    resampleKernel = resampledQ["i"] <= db.resample["ij"] * originalQ["j"]
+    resampleKernel = resampledQ["i"] <= db.resample[aderdg.t("ij")] * originalQ["j"]
     generator.add("resampleParameter", resampleKernel)
 
     generator.add("transposeTinv", TinvT["ij"] <= aderdg.Tinv["ji"])

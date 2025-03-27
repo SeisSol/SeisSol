@@ -13,8 +13,10 @@
 namespace seissol {
 
 #define SEISSOL_OFFSET(type, member) (offsetof(type, member) / sizeof(real))
-#define SEISSOL_ARRAY_OFFSET(type, member, arrayidx) (SEISSOL_OFFSET(type, member[0]) + (arrayidx) * (SEISSOL_OFFSET(type, member[1]) - SEISSOL_OFFSET(type, member[0])))
+#define SEISSOL_ARRAY_OFFSET(type, member, arrayidx)                                               \
+  (SEISSOL_OFFSET(type, member[0]) +                                                               \
+   (arrayidx) * (SEISSOL_OFFSET(type, member[1]) - SEISSOL_OFFSET(type, member[0])))
 
 } // namespace seissol
 
-#endif // SEISSOL_SRC_COMMON_CONSTANTS_H_
+#endif // SEISSOL_SRC_COMMON_OFFSET_H_
