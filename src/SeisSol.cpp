@@ -46,11 +46,11 @@ bool SeisSol::init(int argc, char* argv[]) {
   // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
   seissol::MPI::mpi.setDataTransferModeFromEnv();
 
-  printPersistentMpiInfo();
+  printPersistentMpiInfo(m_env);
 #endif
 #ifdef ACL_DEVICE
-  printUSMInfo();
-  printMPIUSMInfo();
+  printUSMInfo(m_env);
+  printMPIUSMInfo(m_env);
 #endif
 #ifdef _OPENMP
   pinning.checkEnvVariables();
@@ -65,8 +65,8 @@ bool SeisSol::init(int argc, char* argv[]) {
   logInfo() << "OpenMP worker affinity (this node)   :"
             << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask());
 
-  seissol::printCommThreadInfo(seissol::MPI::mpi);
-  if (seissol::useCommThread(seissol::MPI::mpi)) {
+  seissol::printCommThreadInfo(seissol::MPI::mpi, m_env);
+  if (seissol::useCommThread(seissol::MPI::mpi, m_env)) {
     auto freeCpus = pinning.getFreeCPUsMask();
     logInfo() << "Communication thread affinity        :"
               << parallel::Pinning::maskToString(freeCpus);
