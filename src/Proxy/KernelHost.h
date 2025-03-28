@@ -1,12 +1,12 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNELHOST_H_
-#define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNELHOST_H_
+#ifndef SEISSOL_SRC_PROXY_KERNELHOST_H_
+#define SEISSOL_SRC_PROXY_KERNELHOST_H_
 
 #include "Common.h"
 #include "Kernel.h"
@@ -59,4 +59,4 @@ std::shared_ptr<ProxyKernel> getProxyKernelHost(Kernel kernel);
 
 } // namespace seissol::proxy
 
-#endif // SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNELHOST_H_
+#endif // SEISSOL_SRC_PROXY_KERNELHOST_H_

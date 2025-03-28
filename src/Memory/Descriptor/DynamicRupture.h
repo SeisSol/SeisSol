@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2016 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -6,10 +6,11 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SEISSOL_SRC_INITIALIZER_DYNAMICRUPTURE_H_
-#define SEISSOL_SRC_INITIALIZER_DYNAMICRUPTURE_H_
+#ifndef SEISSOL_SRC_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_
+#define SEISSOL_SRC_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_
 
 #include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Typedefs.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Tree/LTSTree.h"
@@ -26,6 +27,8 @@ inline auto allocationModeDR() {
   return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
 #endif
 }
+
+// NOTE: for the sake of GPU performance, make sure that NumPaddedPoints is always last.
 
 struct DynamicRupture {
   public:
@@ -48,8 +51,8 @@ struct DynamicRupture {
   Variable<seissol::dr::ImpedanceMatrices> impedanceMatrices;
   // size padded for vectorization
   // CS = coordinate system
-  Variable<real[dr::misc::NumPaddedPoints][6]> initialStressInFaultCS;
-  Variable<real[dr::misc::NumPaddedPoints][6]> nucleationStressInFaultCS;
+  Variable<real[6][dr::misc::NumPaddedPoints]> initialStressInFaultCS;
+  Variable<real[6][dr::misc::NumPaddedPoints]> nucleationStressInFaultCS;
   // will be always zero, if not using poroelasticity
   Variable<real[dr::misc::NumPaddedPoints]> initialPressure;
   Variable<real[dr::misc::NumPaddedPoints]> nucleationPressure;
@@ -210,11 +213,8 @@ struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
 struct ThermalPressurization {
   Variable<real[dr::misc::NumPaddedPoints]> temperature;
   Variable<real[dr::misc::NumPaddedPoints]> pressure;
-  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> theta;
-  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> sigma;
-  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> thetaTmpBuffer;
-  Variable<real[dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]> sigmaTmpBuffer;
-  Variable<real[dr::misc::NumPaddedPoints]> faultStrength;
+  Variable<real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> theta;
+  Variable<real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> sigma;
   Variable<real[dr::misc::NumPaddedPoints]> halfWidthShearZone;
   Variable<real[dr::misc::NumPaddedPoints]> hydraulicDiffusivity;
 
@@ -222,11 +222,8 @@ struct ThermalPressurization {
     const auto mask = LayerMask(Ghost);
     tree.addVar(temperature, mask, Alignment, allocationModeDR());
     tree.addVar(pressure, mask, Alignment, allocationModeDR());
-    tree.addVar(theta, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(sigma, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(thetaTmpBuffer, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(sigmaTmpBuffer, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(faultStrength, mask, Alignment, allocationModeDR(), true);
+    tree.addVar(theta, mask, Alignment, allocationModeDR());
+    tree.addVar(sigma, mask, Alignment, allocationModeDR());
     tree.addVar(halfWidthShearZone, mask, Alignment, allocationModeDR(), true);
     tree.addVar(hydraulicDiffusivity, mask, Alignment, allocationModeDR(), true);
   }
@@ -235,6 +232,8 @@ struct ThermalPressurization {
                                    LTSTree* tree) const {
     manager.registerData("temperature", tree, temperature);
     manager.registerData("pressure", tree, pressure);
+    manager.registerData("theta", tree, theta);
+    manager.registerData("sigma", tree, sigma);
   }
 };
 
@@ -306,4 +305,4 @@ struct LTSImposedSlipRatesDelta : public LTSImposedSlipRates {};
 
 } // namespace seissol::initializer
 
-#endif // SEISSOL_SRC_INITIALIZER_DYNAMICRUPTURE_H_
+#endif // SEISSOL_SRC_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_
