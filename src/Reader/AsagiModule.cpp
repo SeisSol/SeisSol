@@ -14,6 +14,7 @@
 #include <Modules/Modules.h>
 #include <Parallel/MPI.h>
 #include <asagi.h>
+#include <memory>
 #include <string>
 #include <utils/logger.h>
 
@@ -23,7 +24,8 @@
 
 namespace seissol::asagi {
 
-AsagiModule::AsagiModule() : m_mpiMode(getMPIMode()), m_totalThreads(getTotalThreads()) {
+AsagiModule::AsagiModule(utils::Env& env)
+    : m_env(env), m_mpiMode(getMPIMode(env)), m_totalThreads(getTotalThreads(env)) {
   // Register for the pre MPI hook
   Modules::registerHook(*this, ModuleHook::PreMPI);
 
@@ -38,9 +40,9 @@ AsagiModule::AsagiModule() : m_mpiMode(getMPIMode()), m_totalThreads(getTotalThr
   }
 }
 
-AsagiMPIMode AsagiModule::getMPIMode() {
+AsagiMPIMode AsagiModule::getMPIMode(utils::Env& env) {
 #ifdef USE_MPI
-  const std::string mpiModeName = utils::Env::get(EnvMpiMode, "WINDOWS");
+  const std::string mpiModeName = env.get(EnvMpiMode, "WINDOWS");
   if (mpiModeName == "WINDOWS") {
     return AsagiMPIMode::Windows;
   }
@@ -57,18 +59,20 @@ AsagiMPIMode AsagiModule::getMPIMode() {
 #endif // USE_MPI
 }
 
-int AsagiModule::getTotalThreads() {
+int AsagiModule::getTotalThreads(utils::Env& env) {
   int totalThreads = 1;
 
 #ifdef _OPENMP
   totalThreads = omp_get_max_threads();
-  if (seissol::useCommThread(seissol::MPI::mpi)) {
+  if (seissol::useCommThread(seissol::MPI::mpi, env)) {
     totalThreads++;
   }
 #endif // _OPENMP
 
   return totalThreads;
 }
+
+utils::Env& AsagiModule::getEnv() { return m_env; }
 
 void AsagiModule::preMPI() {
   // Communication threads required
@@ -82,7 +86,7 @@ void AsagiModule::preMPI() {
 
 void AsagiModule::postMPIInit() {
   if (m_mpiMode == AsagiMPIMode::Unknown) {
-    const std::string mpiModeName = utils::Env::get(EnvMpiMode, "");
+    const std::string mpiModeName = m_env.get(EnvMpiMode, "");
     logError() << "Unknown ASAGI MPI mode:" << mpiModeName;
   } else {
     logWarning() << "Running with only one OMP thread."
@@ -104,14 +108,17 @@ void AsagiModule::postModel() {
 #endif // USE_MPI
 }
 
-AsagiModule& AsagiModule::getInstance() {
-  static AsagiModule instance;
-  return instance;
+void AsagiModule::initInstance(utils::Env& env) {
+  AsagiModule::instance = std::make_shared<AsagiModule>(env);
 }
+
+AsagiModule& AsagiModule::getInstance() { return *AsagiModule::instance; }
 
 AsagiMPIMode AsagiModule::mpiMode() { return getInstance().m_mpiMode; }
 
 int AsagiModule::totalThreads() { return getInstance().m_totalThreads; }
+
+std::shared_ptr<AsagiModule> AsagiModule::instance{nullptr};
 
 } // namespace seissol::asagi
 
