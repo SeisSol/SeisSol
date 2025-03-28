@@ -32,6 +32,7 @@
 #include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
+#include <Solver/MultipleSimulations.h>
 #include <Solver/time_stepping/TimeManager.h>
 #include <SourceTerm/NRF.h>
 #include <SourceTerm/Typedefs.h>
@@ -342,7 +343,7 @@ auto loadSourcesFromFSRM(const char* fileName,
       sources.numberOfSources = numberOfSources;
       sources.mInvJInvPhisAtSources.resize(numberOfSources);
       sources.tensor.resize(numberOfSources);
-      sources.fusedOriginalIndex.resize(numberOfSources); // only used in case of fused simulations
+      sources.simulationIndex.resize(numberOfSources);
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       sources.sampleOffsets[0].resize(numberOfSources + 1);
@@ -352,8 +353,7 @@ auto loadSourcesFromFSRM(const char* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned fsrmIndex = originalIndex[sourceIndex];
-        sources.fusedOriginalIndex[clusterSource] =
-            fsrmIndex; // only used in case of fused simulations
+        sources.simulationIndex[clusterSource] = fsrmIndex % multisim::NumSimulations;
         computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
                                      sources.mInvJInvPhisAtSources[clusterSource],
                                      meshIds[sourceIndex],
@@ -468,7 +468,7 @@ auto loadSourcesFromNRF(const char* fileName,
       sources.tensor.resize(numberOfSources);
       sources.A.resize(numberOfSources);
       sources.stiffnessTensor.resize(numberOfSources);
-      sources.fusedOriginalIndex.resize(numberOfSources); // only used in case of fused simulations
+      sources.simulationIndex.resize(numberOfSources);
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       for (auto& so : sources.sampleOffsets) {
@@ -489,7 +489,7 @@ auto loadSourcesFromNRF(const char* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned nrfIndex = originalIndex[sourceIndex];
-        sources.fusedOriginalIndex[clusterSource] = nrfIndex;
+        sources.simulationIndex[clusterSource] = nrfIndex % multisim::NumSimulations;
         transformNRFSourceToInternalSource(
             nrf.centres[nrfIndex],
             meshIds[sourceIndex],
