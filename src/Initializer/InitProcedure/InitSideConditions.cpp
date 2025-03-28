@@ -15,6 +15,7 @@
 #include <Equations/Datastructures.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
+#include <Model/CommonDatastructures.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
 #include <SourceTerm/Manager.h>
@@ -30,7 +31,6 @@
 
 namespace {
 
-#if NUMBER_OF_RELAXATION_MECHANISMS == 0
 TravellingWaveParameters getTravellingWaveInformation(seissol::SeisSol& seissolInstance) {
   const auto& initConditionParams = seissolInstance.getSeisSolParameters().initialization;
 
@@ -60,7 +60,6 @@ AcousticTravellingWaveParametersITM
 
   return acousticTravellingWaveParametersITM;
 }
-#endif
 
 std::vector<std::unique_ptr<physics::InitialField>>
     buildInitialConditionList(seissol::SeisSol& seissolInstance) {
@@ -90,17 +89,17 @@ std::vector<std::unique_ptr<physics::InitialField>>
              seissol::initializer::parameters::InitializationType::Zero) {
     initialConditionDescription = "Zero";
     initConditions.emplace_back(new physics::ZeroField());
-  }
-#if NUMBER_OF_RELAXATION_MECHANISMS == 0
-  else if (initConditionParams.type ==
-           seissol::initializer::parameters::InitializationType::Travelling) {
+  } else if (initConditionParams.type ==
+                 seissol::initializer::parameters::InitializationType::Travelling &&
+             model::MaterialT::Mechanisms == 0) {
     initialConditionDescription = "Travelling wave";
     auto travellingWaveParameters = getTravellingWaveInformation(seissolInstance);
     initConditions.emplace_back(new physics::TravellingWave(
         memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
         travellingWaveParameters));
   } else if (initConditionParams.type ==
-             seissol::initializer::parameters::InitializationType::AcousticTravellingWithITM) {
+                 seissol::initializer::parameters::InitializationType::AcousticTravellingWithITM &&
+             model::MaterialT::Mechanisms == 0) {
     initialConditionDescription = "Acoustic Travelling Wave with ITM";
     auto acousticTravellingWaveParametersITM =
         getAcousticTravellingWaveITMInformation(seissolInstance);
@@ -108,42 +107,42 @@ std::vector<std::unique_ptr<physics::InitialField>>
         memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
         acousticTravellingWaveParametersITM));
   } else if (initConditionParams.type ==
-             seissol::initializer::parameters::InitializationType::Scholte) {
+                 seissol::initializer::parameters::InitializationType::Scholte &&
+             model::MaterialT::Mechanisms == 0) {
     initialConditionDescription = "Scholte wave (elastic-acoustic)";
     initConditions.emplace_back(new physics::ScholteWave());
   } else if (initConditionParams.type ==
-             seissol::initializer::parameters::InitializationType::Snell) {
+                 seissol::initializer::parameters::InitializationType::Snell &&
+             model::MaterialT::Mechanisms == 0) {
     initialConditionDescription = "Snell's law (elastic-acoustic)";
     initConditions.emplace_back(new physics::SnellsLaw());
   } else if (initConditionParams.type ==
-             seissol::initializer::parameters::InitializationType::Ocean0) {
+                 seissol::initializer::parameters::InitializationType::Ocean0 &&
+             model::MaterialT::Mechanisms == 0) {
     initialConditionDescription =
         "Ocean, an uncoupled ocean test case for acoustic equations (mode 0)";
     const auto g = seissolInstance.getGravitationSetup().acceleration;
     initConditions.emplace_back(new physics::Ocean(0, g));
   } else if (initConditionParams.type ==
-             seissol::initializer::parameters::InitializationType::Ocean1) {
+                 seissol::initializer::parameters::InitializationType::Ocean1 &&
+             model::MaterialT::Mechanisms == 0) {
     initialConditionDescription =
         "Ocean, an uncoupled ocean test case for acoustic equations (mode 1)";
     const auto g = seissolInstance.getGravitationSetup().acceleration;
     initConditions.emplace_back(new physics::Ocean(1, g));
   } else if (initConditionParams.type ==
-             seissol::initializer::parameters::InitializationType::Ocean2) {
+                 seissol::initializer::parameters::InitializationType::Ocean2 &&
+             model::MaterialT::Mechanisms == 0) {
     initialConditionDescription =
         "Ocean, an uncoupled ocean test case for acoustic equations (mode 2)";
     const auto g = seissolInstance.getGravitationSetup().acceleration;
     initConditions.emplace_back(new physics::Ocean(2, g));
   } else if (initConditionParams.type ==
-             seissol::initializer::parameters::InitializationType::PressureInjection) {
+                 seissol::initializer::parameters::InitializationType::PressureInjection &&
+             model::MaterialT::Type == model::MaterialType::Poroelastic) {
     initialConditionDescription = "Pressure Injection";
-#ifndef USE_POROELASTIC
-    logError()
-        << "The initial condition 'Pressure Injection' only works with poroelastic materials.";
-#endif
     initConditions.emplace_back(new physics::PressureInjection(initConditionParams));
-  }
-#endif // NUMBER_OF_RELAXATION_MECHANISMS == 0
-  else {
+  } else {
     logError() << "Non-implemented initial condition type:"
                << static_cast<int>(initConditionParams.type);
   }

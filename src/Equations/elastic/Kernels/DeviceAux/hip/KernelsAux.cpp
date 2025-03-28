@@ -491,15 +491,11 @@ __global__ void kernelUpdateRotatedFaceDisplacement(real** rotatedFaceDisplaceme
       const auto pressureInside = dofsFaceNodal[tid + pIdx * ldINodal];
 
       real* prevCoefficients = prevCoefficientsPtrs[elementId];
-#ifdef USE_ELASTIC
       const auto rho = rhos[elementId];
       const auto invImpedance = invImpedances[elementId];
 
       const double curCoeff =
           uInside - invImpedance * (rho * g * prevCoefficients[tid] + pressureInside);
-#else
-      const double curCoeff = uInside;
-#endif
       prevCoefficients[tid] = curCoeff;
 
       constexpr auto ldFaceDisplacement = yateto::leadDim<seissol::init::faceDisplacement>();

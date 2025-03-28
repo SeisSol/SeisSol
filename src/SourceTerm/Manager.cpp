@@ -20,6 +20,7 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Common/Constants.h>
+#include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
 #include <Geometry/MeshTools.h>
 #include <Initializer/Parameters/SourceParameters.h>
@@ -370,17 +371,18 @@ auto loadSourcesFromFSRM(const char* fileName,
         for (unsigned i = 0; i < PointSources::TensorSize; ++i) {
           sources.tensor[clusterSource][i] *= fsrm.areas[fsrmIndex];
         }
-#ifndef USE_POROELASTIC
-        const seissol::model::Material& material =
-            ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
-        for (unsigned i = 0; i < 3; ++i) {
-          sources.tensor[clusterSource][6 + i] /= material.rho;
+        if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
+          const seissol::model::Material& material =
+              ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
+          for (unsigned i = 0; i < 3; ++i) {
+            sources.tensor[clusterSource][6 + i] /= material.rho;
+          }
+        } else {
+          logWarning()
+              << "The poroelastic equation does not scale the force components with the "
+                 "density. For the definition of the sources in poroelastic media, we refer "
+                 "to the documentation of SeisSol.";
         }
-#else
-        logWarning() << "The poroelastic equation does not scale the force components with the "
-                        "density. For the definition of the sources in poroelastic media, we refer "
-                        "to the documentation of SeisSol.";
-#endif
 
         sources.onsetTime[clusterSource] = fsrm.onsets[fsrmIndex];
         sources.samplingInterval[clusterSource] = fsrm.timestep;
