@@ -208,7 +208,7 @@ jobs:
           #- name: tpv5-poro
           #  equation: poroelastic
           #  multisim: 1
-          #  energies: true
+          #  energies: false # incomplete, hence disabled
           #  receivers: true
           #  fault: true
           - name: tpv6
@@ -227,8 +227,8 @@ jobs:
             equation: elastic
             multisim: 1
             energies: true
-            receivers: false # FIXME: does not work right now; disabled in the Gitlab CI
-            fault: false
+            receivers: true
+            fault: true
           - name: tpv101
             equation: elastic
             multisim: 1
