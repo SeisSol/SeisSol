@@ -172,8 +172,11 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
   ltsParameters.setWiggleFactor(wiggleFactor);
 
   m_ncon = evaluateNumberOfConstraints();
-  const auto finalNumberOfReductions =
-      computeClusterIdsAndEnforceMaximumDifferenceCached(wiggleFactor);
+  auto finalNumberOfReductions = computeClusterIdsAndEnforceMaximumDifferenceCached(wiggleFactor);
+
+  if (!ltsParameters.getWiggleFactorEnforceMaximumDifference()) {
+    finalNumberOfReductions += enforceMaximumDifference();
+  }
 
   logInfo() << "Limiting number of clusters to" << maxClusterIdToEnforce + 1;
   m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
