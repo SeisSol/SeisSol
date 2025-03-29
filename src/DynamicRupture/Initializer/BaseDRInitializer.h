@@ -183,7 +183,7 @@ class BaseDRInitializer {
    * to false, check identifiers for the initial stress
    * @return vector of strings, with the identifiers for the initial stress.
    */
-  std::pair<std::vector<std::string>, Parametrization> stressIdentifiers(bool readNucleation);
+  std::pair<std::vector<std::string>, Parametrization> stressIdentifiers(int readNucleation);
 };
 
 } // namespace dr::initializer

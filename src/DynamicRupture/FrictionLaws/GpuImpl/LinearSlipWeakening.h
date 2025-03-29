@@ -185,7 +185,7 @@ class LinearSlipWeakeningLaw
                                                    unsigned int timeIndex) {
     const auto deltaT{ctx.data->deltaT[timeIndex]};
     const real tn{ctx.data->mFullUpdateTime + deltaT};
-    const auto t0{ctx.data->drParameters.t0};
+    const auto t0{ctx.data->drParameters.t0[0]};
     const auto tpProxyExponent{ctx.data->drParameters.tpProxyExponent};
 
     const real resampledSlipRate =

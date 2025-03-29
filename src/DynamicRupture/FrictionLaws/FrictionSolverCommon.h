@@ -422,11 +422,12 @@ SEISSOL_HOSTDEVICE inline void
                         const real nucleationPressure[misc::NumPaddedPoints],
                         real fullUpdateTime,
                         real t0,
+                        real s0,
                         real dt,
                         unsigned startIndex = 0) {
-  if (fullUpdateTime <= t0) {
+  if (fullUpdateTime <= t0 && fullUpdateTime >= s0) {
     const real gNuc =
-        gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime, dt, t0);
+        gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime - s0, dt, t0);
 
     using Range = typename NumPoints<Type>::Range;
 

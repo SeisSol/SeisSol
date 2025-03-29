@@ -67,7 +67,8 @@ class FrictionSolver {
   real mFullUpdateTime{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[misc::NumPaddedPoints][6]{};
-  real (*__restrict nucleationStressInFaultCS)[misc::NumPaddedPoints][6]{};
+  real (*__restrict nucleationStressInFaultCS[initializer::parameters::MaxNucleactions])
+      [misc::NumPaddedPoints][6]{};
   real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
@@ -87,7 +88,8 @@ class FrictionSolver {
   DREnergyOutput* __restrict energyData{};
   DRGodunovData* __restrict godunovData{};
   real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
-  real (*__restrict nucleationPressure)[misc::NumPaddedPoints]{};
+  real (*__restrict nucleationPressure[initializer::parameters::MaxNucleactions])
+      [misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};

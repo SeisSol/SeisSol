@@ -26,7 +26,8 @@ struct FrictionLawData {
   real mFullUpdateTime{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[misc::NumPaddedPoints][6]{};
-  const real (*__restrict nucleationStressInFaultCS)[misc::NumPaddedPoints][6]{};
+  const real (*__restrict nucleationStressInFaultCS[initializer::parameters::MaxNucleactions])
+      [misc::NumPaddedPoints][6]{};
   const real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
@@ -45,7 +46,8 @@ struct FrictionLawData {
   DREnergyOutput* __restrict energyData{};
   const DRGodunovData* __restrict godunovData{};
   real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
-  const real (*__restrict nucleationPressure)[misc::NumPaddedPoints]{};
+  const real (*__restrict nucleationPressure[initializer::parameters::MaxNucleactions])
+      [misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
@@ -89,6 +91,8 @@ struct FrictionLawData {
   const real (*__restrict tauS)[misc::NumPaddedPoints];
   const real (*__restrict tauR)[misc::NumPaddedPoints];
   const real (*__restrict riseTime)[misc::NumPaddedPoints];
+
+  const real (*__restrict samples)[dr::misc::MaxSampleCount][dr::misc::NumPaddedPoints];
 };
 
 class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver {
@@ -112,7 +116,10 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
     data->impAndEta = layerData.var(dynRup->impAndEta, place);
     data->impedanceMatrices = layerData.var(dynRup->impedanceMatrices, place);
     data->initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS, place);
-    data->nucleationStressInFaultCS = layerData.var(dynRup->nucleationStressInFaultCS, place);
+    for (std::size_t i = 0; i < dynRup->nucleationStressInFaultCS.size(); ++i) {
+      data->nucleationStressInFaultCS[i] =
+          layerData.var(dynRup->nucleationStressInFaultCS[i], place);
+    }
     data->mu = layerData.var(dynRup->mu, place);
     data->accumulatedSlipMagnitude = layerData.var(dynRup->accumulatedSlipMagnitude, place);
     data->slip1 = layerData.var(dynRup->slip1, place);
@@ -135,7 +142,9 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
     data->qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus, place);
     data->qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus, place);
     data->initialPressure = layerData.var(dynRup->initialPressure, place);
-    data->nucleationPressure = layerData.var(dynRup->nucleationPressure, place);
+    for (std::size_t i = 0; i < dynRup->nucleationPressure.size(); ++i) {
+      data->nucleationPressure[i] = layerData.var(dynRup->nucleationPressure[i], place);
+    }
   }
 
   protected:
