@@ -65,7 +65,7 @@ class FrictionSolver {
   real mFullUpdateTime{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
-  real (*__restrict nucleationStressInFaultCS[initializer::parameters::MaxNucleactions])
+  real (*__restrict nucleationStressInFaultCS[seissol::initializer::parameters::MaxNucleactions])
       [6][misc::NumPaddedPoints]{};
   real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};

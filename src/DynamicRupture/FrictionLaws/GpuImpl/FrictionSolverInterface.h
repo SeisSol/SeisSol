@@ -25,8 +25,8 @@ struct FrictionLawData {
   const ImpedanceMatrices* __restrict impedanceMatrices{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
-  const real (*__restrict nucleationStressInFaultCS[initializer::parameters::MaxNucleactions])
-      [6][misc::NumPaddedPoints]{};
+  const real (*__restrict nucleationStressInFaultCS
+                  [seissol::initializer::parameters::MaxNucleactions])[6][misc::NumPaddedPoints]{};
   const real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
@@ -87,8 +87,6 @@ struct FrictionLawData {
   const real (*__restrict tauS)[misc::NumPaddedPoints];
   const real (*__restrict tauR)[misc::NumPaddedPoints];
   const real (*__restrict riseTime)[misc::NumPaddedPoints];
-
-  const real (*__restrict samples)[dr::misc::MaxSampleCount][dr::misc::NumPaddedPoints];
 };
 
 class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver {
