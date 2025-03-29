@@ -489,7 +489,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior
 
         // local id in the ghost region
         unsigned int l_localGhostCell = m_cells[l_cell].mpiIndices[l_face];
-        assert( l_localGhostCell < m_numberOfPlainGhostCells[l_plainRegion] );
+        assert( l_localGhostCell < m_mesh->getGhostlayerMetadata().at(m_cells[l_cell].neighborRanks[l_face]).size() );
 
         // neighboring cluster id
         unsigned int l_neighboringClusterId = m_mesh->getGhostlayerMetadata().at(m_cells[l_cell].neighborRanks[l_face])[l_localGhostCell].clusterId;

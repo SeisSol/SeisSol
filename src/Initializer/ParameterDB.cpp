@@ -630,7 +630,7 @@ std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
   if (!useCellHomogenizedMaterial) {
     queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
   } else {
-    if (MaterialT::Type != MaterialType::Viscoelastic || MaterialT::Type != MaterialType::Elastic) {
+    if (MaterialT::Type != MaterialType::Viscoelastic && MaterialT::Type != MaterialType::Elastic) {
       logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
                    << " materials. Falling back to "
                       "material properties sampled from the element barycenters instead.";
