@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -150,7 +150,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
-    const auto persistent = usePersistentMpi();
+    const auto persistent = usePersistentMpi(seissolInstance.env());
     const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[localClusterId]);
     for (unsigned int otherGlobalClusterId = 0; otherGlobalClusterId < m_timeStepping.numberOfGlobalClusters; ++otherGlobalClusterId) {
       const bool hasNeighborRegions = std::any_of(meshStructure->neighboringClusters,
@@ -202,7 +202,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
 
   std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
 
-  if (seissol::useCommThread(MPI::mpi)) {
+  if (seissol::useCommThread(MPI::mpi, seissolInstance.env())) {
     communicationManager = std::make_unique<ThreadedCommunicationManager>(std::move(ghostClusters),
                                                                           &seissolInstance.getPinning()
                                                                           );

@@ -2,6 +2,7 @@ function s_filt = bandpass_filter(s,dt,cf_lowleft,cf_lowright,c_highcut,deg)
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @section LICENSE
 % Copyright (c) SeisSol Group

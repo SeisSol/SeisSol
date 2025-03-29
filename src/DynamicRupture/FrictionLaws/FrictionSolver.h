@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,8 +9,6 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVER_H_
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "Kernels/DynamicRupture.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -66,9 +64,9 @@ class FrictionSolver {
   ImpedanceMatrices* __restrict impedanceMatrices{};
   real mFullUpdateTime{};
   // CS = coordinate system
-  real (*__restrict initialStressInFaultCS)[misc::NumPaddedPoints][6]{};
+  real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
   real (*__restrict nucleationStressInFaultCS[initializer::parameters::MaxNucleactions])
-      [misc::NumPaddedPoints][6]{};
+      [6][misc::NumPaddedPoints]{};
   real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};

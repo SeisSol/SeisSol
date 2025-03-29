@@ -1,12 +1,12 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_BASEFRICTIONLAW_H_
-#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_BASEFRICTIONLAW_H_
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
 
 #include <yaml-cpp/yaml.h>
 
@@ -78,13 +78,15 @@ class BaseFrictionLaw : public FrictionSolver {
       TractionResults<Executor::Host> tractionResults = {};
 
       // loop over sub time steps (i.e. quadrature points in time)
+      real updateTime = this->mFullUpdateTime;
       for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
+        updateTime += this->deltaT[timeIndex];
         for (int i = 0; i < this->drParameters->nucleationCount; ++i) {
           common::adjustInitialStress(initialStressInFaultCS[ltsFace],
                                       nucleationStressInFaultCS[i][ltsFace],
                                       initialPressure[ltsFace],
                                       nucleationPressure[i][ltsFace],
-                                      this->mFullUpdateTime,
+                                      updateTime,
                                       this->drParameters->t0[i],
                                       this->drParameters->s0[i],
                                       this->deltaT[timeIndex]);
@@ -157,4 +159,4 @@ class BaseFrictionLaw : public FrictionSolver {
 };
 } // namespace seissol::dr::friction_law::cpu
 
-#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_BASEFRICTIONLAW_H_
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_

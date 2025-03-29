@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -615,7 +615,7 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
 
 easi::Component* loadEasiModel(const std::string& fileName) {
 #ifdef USE_ASAGI
-  seissol::asagi::AsagiReader asagiReader("SEISSOL_ASAGI");
+  seissol::asagi::AsagiReader asagiReader;
   easi::YAMLParser parser(3, &asagiReader);
 #else
   easi::YAMLParser parser(3);

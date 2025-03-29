@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNEL_H_
-#define SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNEL_H_
+#ifndef SEISSOL_SRC_PROXY_KERNEL_H_
+#define SEISSOL_SRC_PROXY_KERNEL_H_
 
 #include "Allocator.h"
 #include <Parallel/Runtime/Stream.h>
@@ -62,4 +62,4 @@ class ChainKernel : public ProxyKernel {
 
 } // namespace seissol::proxy
 
-#endif // SEISSOL_AUTO_TUNING_PROXY_SRC_PROXY_KERNEL_H_
+#endif // SEISSOL_SRC_PROXY_KERNEL_H_

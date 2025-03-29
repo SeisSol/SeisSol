@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -71,7 +71,7 @@ void ImposedSlipRatesInitializer::initializeFault(
     for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
       for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         for (unsigned int dim = 0; dim < 6; ++dim) {
-          initialStressInFaultCS[ltsFace][pointIndex][dim] = 0;
+          initialStressInFaultCS[ltsFace][dim][pointIndex] = 0;
         }
         initialPressure[ltsFace][pointIndex] = 0;
       }
@@ -83,7 +83,7 @@ void ImposedSlipRatesInitializer::initializeFault(
       for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
         for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
           for (unsigned int dim = 0; dim < 6; ++dim) {
-            nucleationStressInFaultCS[ltsFace][pointIndex][dim] = 0;
+            nucleationStressInFaultCS[ltsFace][dim][pointIndex] = 0;
           }
           nucleationPressure[ltsFace][pointIndex] = 0;
         }
