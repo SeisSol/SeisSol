@@ -8,8 +8,11 @@
 #include "DRParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>
 #include <Kernels/Precision.h>
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
+#include <string>
 #include <utils/logger.h>
 
 namespace seissol::initializer::parameters {

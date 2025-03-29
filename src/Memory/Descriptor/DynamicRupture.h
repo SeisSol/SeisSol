@@ -241,11 +241,6 @@ struct ThermalPressurization {
   Variable<real[dr::misc::NumPaddedPoints]> halfWidthShearZone;
   Variable<real[dr::misc::NumPaddedPoints]> hydraulicDiffusivity;
 
-  Variable<real[ConvergenceOrder][dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]>
-      exp1cache;
-  Variable<real[ConvergenceOrder][dr::misc::NumPaddedPoints][seissol::dr::misc::NumTpGridPoints]>
-      exp1mcache;
-
   void addTo(LTSTree& tree) {
     const auto mask = LayerMask(Ghost);
     tree.addVar(temperature, mask, Alignment, allocationModeDR());
