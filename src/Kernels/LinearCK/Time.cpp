@@ -56,28 +56,11 @@ void TimeBase::checkGlobalData(const GlobalData* global, size_t alignment) {
 }
 
 void Time::setHostGlobalData(const GlobalData* global) {
-#ifdef USE_STP
-  // Note: We could use the space time predictor for elasticity.
-  // This is not tested and experimental
-  for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
-    if (n > 0) {
-      for (int d = 0; d < 3; ++d) {
-        m_krnlPrototype.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
-      }
-    }
-    m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
-  }
-  m_krnlPrototype.Zinv = init::Zinv::Values;
-  m_krnlPrototype.timeInt = init::timeInt::Values;
-  m_krnlPrototype.wHat = init::wHat::Values;
-#else // USE_STP
   checkGlobalData(global, Alignment);
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
 
   projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global->V3mTo2nFace;
-
-#endif // USE_STP
 }
 
 void Time::setGlobalData(const CompoundGlobalData& global) {
@@ -111,22 +94,6 @@ void Time::computeAder(double timeStepWidth,
                   std::end(data.cellInformation().faceTypes),
                   [](const FaceType f) { return f == FaceType::FreeSurfaceGravity; });
 
-#ifdef USE_STP
-  // Note: We could use the space time predictor for elasticity.
-  // This is not tested and experimental
-  alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictor::size()];
-  alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()]{};
-  kernel::spaceTimePredictor krnl = m_krnlPrototype;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration().starMatrices[i];
-  }
-  krnl.Q = const_cast<real*>(data.dofs());
-  krnl.I = timeIntegrated;
-  krnl.timestep = timeStepWidth;
-  krnl.spaceTimePredictor = stp;
-  krnl.spaceTimePredictorRhs = stpRhs;
-  krnl.execute();
-#else  // USE_STP
   alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
@@ -181,7 +148,6 @@ void Time::computeAder(double timeStepWidth,
       }
     }
   }
-#endif // USE_STP
 }
 
 void Time::computeBatchedAder(double timeStepWidth,

@@ -9,12 +9,14 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_INTERFACE_H_
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_INTERFACE_H_
 
-#include "Equations/elastic/Kernels/GravitationalFreeSurfaceBC.h"
+#include "Kernels/LinearCK/GravitationalFreeSurfaceBC.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/InterfaceHelper.h"
+#include <Common/Constants.h>
 
 namespace seissol::kernels {
 struct LocalTmp {
+  alignas(Alignment) real timeIntegratedAne[zeroLengthArrayHandler(kernels::size<tensor::Iane>())]{};
   alignas(Alignment)
       std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
   GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
@@ -28,6 +30,7 @@ LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
                                     localIntegration,
                                     neighboringIntegration,
                                     dofs,
+                                    dofsAne,
                                     faceDisplacements,
                                     boundaryMapping,
                                     material)
@@ -40,6 +43,7 @@ LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
                                     localIntegration,
                                     neighboringIntegration,
                                     dofs,
+                                    dofsAne,
                                     faceDisplacements,
                                     faceDisplacementsDevice,
                                     plasticity,

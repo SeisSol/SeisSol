@@ -14,6 +14,7 @@
 #include "Model/CommonDatastructures.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
+#include <Kernels/LinearCK/Solver.h>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -30,7 +31,6 @@ struct AcousticMaterial : public Material {
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Acoustic;
-  static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "acoustic";
   // The stress-velocity formulation of the elastic model is reused.
   // By definition, the normal stress and pressure are negatives of each other.
@@ -38,6 +38,7 @@ struct AcousticMaterial : public Material {
 
   using LocalSpecificData = AcousticLocalData;
   using NeighborSpecificData = AcousticNeighborData;
+  using Solver = kernels::solver::linearck::Solver;
 
   double lambda;
 

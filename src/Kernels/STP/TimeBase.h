@@ -27,13 +27,13 @@ namespace seissol::kernels {
 class TimeBase {
   protected:
   static void checkGlobalData(const GlobalData* global, size_t alignment);
-  kernel::derivative m_krnlPrototype;
+  kernel::spaceTimePredictor m_krnlPrototype;
   kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 
   unsigned int m_derivativesOffsets[ConvergenceOrder];
 
 #ifdef ACL_DEVICE
-  kernel::gpu_derivative deviceKrnlPrototype;
+  kernel::gpu_spaceTimePredictor deviceKrnlPrototype;
   kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif

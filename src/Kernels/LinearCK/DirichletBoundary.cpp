@@ -13,7 +13,7 @@
 #include <generated_code/tensor.h>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
-#include "Kernels/DirichletBoundary.h"
+#include "DirichletBoundary.h"
 #pragma GCC diagnostic pop
 
 #ifndef NDEBUG
