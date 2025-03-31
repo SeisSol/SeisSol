@@ -17,6 +17,7 @@
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Initializer/Parameters/ParameterReader.h>
 #include <Initializer/Parameters/SourceParameters.h>
+#include <Solver/MultipleSimulations.h>
 #include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
@@ -26,8 +27,8 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
 
   const CubeGeneratorParameters cubeGeneratorParameters =
       readCubeGeneratorParameters(parameterReader);
-  std::array<std::shared_ptr<DRParameters>, MULTIPLE_SIMULATIONS> drParameters;
-  for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+  std::array<std::shared_ptr<DRParameters>, seissol::multipleSimulations::numberOfSimulations> drParameters;
+  for (int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
     drParameters[i] = std::make_shared<DRParameters>(readDRParameters(parameterReader, i));
   }
   const InitializationParameters initializationParameters =

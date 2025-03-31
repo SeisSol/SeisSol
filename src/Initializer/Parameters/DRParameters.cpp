@@ -8,6 +8,7 @@
 #include "DRParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>
 #include <Kernels/Precision.h>
+#include <Solver/MultipleSimulations.h>
 #include <cmath>
 #include <cstddef>
 #include <string>
@@ -106,7 +107,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, int i) {
 
   auto faultFileName = reader->readPath("modelfilename");
 
-  if (MULTIPLE_SIMULATIONS > 1) {
+  if (seissol::multipleSimulations::numberOfSimulations > 1) {
     if (faultFileName) {
       size_t pos = faultFileName->find(".yaml");
       if (pos != std::string::npos) {
