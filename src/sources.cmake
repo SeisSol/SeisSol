@@ -238,6 +238,16 @@ elseif ("${EQUATIONS}" STREQUAL "anisotropic")
   target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/anisotropic)
   target_compile_definitions(seissol-common-properties INTERFACE USE_ANISOTROPIC)
 
+  elseif ("${EQUATIONS}" STREQUAL "damage")
+  target_sources(seissol-common-lib PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damage/Kernels/DirichletBoundary.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damage/Kernels/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damage/Kernels/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damage/Kernels/Time.cpp
+  )
+  target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damage)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_DAMAGE)
+
 elseif ("${EQUATIONS}" STREQUAL "poroelastic")
   target_sources(seissol-common-lib PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic/Kernels/Neighbor.cpp
@@ -291,6 +301,8 @@ if (WITH_GPU)
   elseif ("${EQUATIONS}" STREQUAL "poroelastic")
     target_compile_definitions(seissol-device-lib PRIVATE USE_STP)
     target_compile_definitions(seissol-device-lib PRIVATE USE_POROELASTIC)
+  elseif ("${EQUATIONS}" STREQUAL "damage")
+    target_compile_definitions(seissol-device-lib PRIVATE USE_DAMAGE)
   endif()
   target_include_directories(seissol-lib PRIVATE ${DEVICE_INCLUDE_DIRS})
 

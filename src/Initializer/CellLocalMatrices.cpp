@@ -684,6 +684,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       case seissol::model::MaterialType::Viscoelastic: {
         break;
       }
+      case seissol::model::MaterialType::Damage: {
+        break;
+      }
       case seissol::model::MaterialType::Poroelastic: {
         auto plusEigenpair =
             seissol::model::getEigenDecomposition(*dynamic_cast<model::MaterialT*>(plusMaterial));

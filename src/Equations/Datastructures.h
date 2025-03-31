@@ -16,10 +16,14 @@
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/viscoelastic2/Model/Datastructures.h"
+#include "Equations/damage/Model/Datastructures.h"
 
 #include "Equations/acoustic/Model/IntegrationData.h"
 #include "Equations/anisotropic/Model/IntegrationData.h"
 #include "Equations/elastic/Model/IntegrationData.h"
+#ifdef USE_DAMAGE
+#include "Equations/damage/Model/IntegrationData.h"
+#endif
 #ifdef USE_POROELASTIC
 #include "Equations/poroelastic/Model/IntegrationData.h"
 #endif
@@ -43,6 +47,8 @@ using MaterialT = ElasticMaterial;
 using MaterialT = AcousticMaterial;
 #elif defined(USE_POROELASTIC)
 using MaterialT = PoroElasticMaterial;
+#elif defined(USE_DAMAGE)
+using MaterialT = DamageMaterial;
 #else
 #error "Material class unknown."
 #endif

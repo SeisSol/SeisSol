@@ -12,6 +12,7 @@
 #include <Equations/acoustic/Model/Datastructures.h>
 #include <Equations/anisotropic/Model/Datastructures.h>
 #include <Equations/elastic/Model/Datastructures.h>
+#include <Equations/damage/Model/Datastructures.h>
 #include <Equations/poroelastic/Model/Datastructures.h>
 #include <Equations/viscoelastic2/Model/Datastructures.h>
 #include <Geometry/MeshDefinition.h>
@@ -276,6 +277,14 @@ void MaterialParameterDB<ViscoElasticMaterial>::addBindingPoints(
 }
 
 template <>
+void MaterialParameterDB<DamageMaterial>::addBindingPoints(
+    easi::ArrayOfStructsAdapter<DamageMaterial>& adapter) {
+  adapter.addBindingPoint("rho", &DamageMaterial::rho);
+  adapter.addBindingPoint("mu", &DamageMaterial::mu);
+  adapter.addBindingPoint("lambda", &DamageMaterial::lambda);
+}
+
+template <>
 void MaterialParameterDB<PoroElasticMaterial>::addBindingPoints(
     easi::ArrayOfStructsAdapter<PoroElasticMaterial>& adapter) {
   adapter.addBindingPoint("bulk_solid", &PoroElasticMaterial::bulkSolid);
@@ -500,6 +509,39 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
     easi::ArrayOfStructsAdapter<AnisotropicMaterial> arrayOfStructsAdapter(m_materials->data());
     addBindingPoints(arrayOfStructsAdapter);
     model->evaluate(query, arrayOfStructsAdapter);
+  }
+  delete model;
+}
+
+template <>
+void MaterialParameterDB<DamageMaterial>::evaluateModel(const std::string& fileName,
+                                           const QueryGenerator& queryGen) {
+  easi::Component* model = loadEasiModel(fileName);
+  easi::Query query = queryGen.generate();
+  const unsigned numPoints = query.numPoints();
+
+  std::vector<DamageMaterial> materialsFromQuery(numPoints);
+  easi::ArrayOfStructsAdapter<DamageMaterial> adapter(materialsFromQuery.data());
+  MaterialParameterDB<DamageMaterial>().addBindingPoints(adapter);
+  model->evaluate(query, adapter);
+
+  // Only use homogenization when ElementAverageGenerator has been supplied
+  if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
+    const unsigned numElems = numPoints / NumQuadpoints;
+    const std::array<double, NumQuadpoints> quadratureWeights{gen->getQuadratureWeights()};
+
+// Compute homogenized material parameters for every element in a specialization for the
+// particular material
+#pragma omp parallel for
+    for (unsigned elementIdx = 0; elementIdx < numElems; ++elementIdx) {
+      m_materials->at(elementIdx) =
+          this->computeAveragedMaterial(elementIdx, quadratureWeights, materialsFromQuery);
+    }
+  } else {
+    // Usual behavior without homogenization
+    for (unsigned i = 0; i < numPoints; ++i) {
+      m_materials->at(i) = DamageMaterial(materialsFromQuery[i]);
+    }
   }
   delete model;
 }

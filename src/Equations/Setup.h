@@ -14,6 +14,9 @@
 #include "Equations/acoustic/Model/AcousticSetup.h"
 #include "Equations/anisotropic/Model/AnisotropicSetup.h"
 #include "Equations/elastic/Model/ElasticSetup.h"
+#ifdef USE_DAMAGE
+#include "Equations/damage/Model/DamageSetup.h"
+#endif
 #ifdef USE_POROELASTIC
 #include "Equations/poroelastic/Model/PoroelasticSetup.h"
 #endif
