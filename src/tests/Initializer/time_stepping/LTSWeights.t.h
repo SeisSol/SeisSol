@@ -40,7 +40,8 @@ TEST_CASE("LTS Weights") {
   seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
   seissolParameters.model.materialFileName = "Testing/material.yaml";
-  seissol::SeisSol seissolInstance(seissolParameters);
+  const utils::Env env("SEISSOL_");
+  seissol::SeisSol seissolInstance(seissolParameters, env);
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
   const auto pumlReader =

@@ -50,6 +50,11 @@ inline bool useUSM(utils::Env& env) {
   return env.get<bool>("USM", device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
 }
 
+inline bool useUSM() {
+  utils::Env env("SEISSOL_");
+  return useUSM(env);
+}
+
 inline void printUSMInfo(utils::Env& env) {
   if (useUSM(env)) {
     logInfo() << "Using unified buffers for CPU-GPU data.";
@@ -61,6 +66,11 @@ inline void printUSMInfo(utils::Env& env) {
 inline bool useMPIUSM(utils::Env& env) {
   return env.get<bool>("USM_MPI",
                        device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+}
+
+inline bool useMPIUSM() {
+  utils::Env env("SEISSOL_");
+  return useMPIUSM(env);
 }
 
 inline void printMPIUSMInfo(utils::Env& env) {
