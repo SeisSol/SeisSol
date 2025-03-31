@@ -11,8 +11,8 @@
 #include <Equations/Datastructures.h>
 #include <Equations/acoustic/Model/Datastructures.h>
 #include <Equations/anisotropic/Model/Datastructures.h>
-#include <Equations/elastic/Model/Datastructures.h>
 #include <Equations/damage/Model/Datastructures.h>
+#include <Equations/elastic/Model/Datastructures.h>
 #include <Equations/poroelastic/Model/Datastructures.h>
 #include <Equations/viscoelastic2/Model/Datastructures.h>
 #include <Geometry/MeshDefinition.h>
@@ -515,7 +515,7 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
 
 template <>
 void MaterialParameterDB<DamageMaterial>::evaluateModel(const std::string& fileName,
-                                           const QueryGenerator& queryGen) {
+                                                        const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
   const unsigned numPoints = query.numPoints();

@@ -13,10 +13,10 @@
 // Gather all datastructure Headers here
 #include "Equations/acoustic/Model/Datastructures.h"
 #include "Equations/anisotropic/Model/Datastructures.h"
+#include "Equations/damage/Model/Datastructures.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/viscoelastic2/Model/Datastructures.h"
-#include "Equations/damage/Model/Datastructures.h"
 
 #include "Equations/acoustic/Model/IntegrationData.h"
 #include "Equations/anisotropic/Model/IntegrationData.h"

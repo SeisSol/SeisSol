@@ -183,7 +183,7 @@ struct MaterialSetup<DamageMaterial> {
   }
 
   static DamageMaterial getRotatedMaterialCoefficients(real rotationParameters[36],
-                                                        DamageMaterial& material) {
+                                                       DamageMaterial& material) {
     return material;
   }
 
