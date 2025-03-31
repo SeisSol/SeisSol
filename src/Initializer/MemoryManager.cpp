@@ -27,6 +27,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/Common.h"
 #include "Kernels/Touch.h"
+#include "Solver/MultipleSimulations.h"
 
 #include <DynamicRupture/Misc.h>
 
@@ -448,8 +449,8 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& iTi
   m_ltsTree.allocateVariables();
   m_ltsTree.touchVariables();
 
-  /// Dynamic rupture tree
-  for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+  /// Dynamic rupture trees
+  for (int i = 0; i < seissol::multipleSimulations::numberOfSimulations ; i++) {
     m_dynRupTree[i] = new LTSTree();
     m_dynRup[i]->addTo(*m_dynRupTree[i]);
     m_dynRupTree[i]->setNumberOfTimeClusters(iTimeStepping.numberOfGlobalClusters);
@@ -468,25 +469,6 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& iTi
     m_dynRupTree[i]->allocateVariables();
     m_dynRupTree[i]->touchVariables();
   }
-
-  // m_dynRup->addTo(m_dynRupTree);
-  // m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfGlobalClusters);
-  // m_dynRupTree.fixate();
-
-  // for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
-  //   TimeCluster& cluster = m_dynRupTree.child(tc);
-  //   cluster.child<Ghost>().setNumberOfCells(0);
-  //   if (tc >= i_timeStepping.numberOfLocalClusters) {
-  //       cluster.child<Copy>().setNumberOfCells(0);
-  //       cluster.child<Interior>().setNumberOfCells(0);
-  //   } else {
-  //       cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
-  //       cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
-  //   }
-  // }
-
-  // m_dynRupTree.allocateVariables();
-  // m_dynRupTree.touchVariables();
 
 #ifdef ACL_DEVICE
   MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree, *m_dynRup.get());
@@ -893,7 +875,7 @@ void seissol::initializer::MemoryManager::initializeFrictionLaw() {
   logInfo() << "Thermal pressurization:" << (m_seissolParams->drParameters[0]->isThermalPressureOn ? "on" : "off");
 
 
-  for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+  for (int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
     auto drParameters = m_seissolParams->drParameters[i];
     const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance, i);
     auto product = factory->produce();
@@ -905,7 +887,7 @@ void seissol::initializer::MemoryManager::initializeFrictionLaw() {
 }
 
 void seissol::initializer::MemoryManager::initFaultOutputManager(const std::string& backupTimeStamp) {
-  for (int i = 0; i < MULTIPLE_SIMULATIONS; i++) {
+  for (int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
     if (m_seissolParams->drParameters[i]->isDynamicRuptureEnabled) {
       m_faultOutputManager[i]->setInputParam(seissolInstance.meshReader());
       m_faultOutputManager[i]->setLtsData(
@@ -918,7 +900,7 @@ void seissol::initializer::MemoryManager::initFaultOutputManager(const std::stri
 
 
 void seissol::initializer::MemoryManager::initFrictionData() {
-  for(int i=0; i < MULTIPLE_SIMULATIONS; i++){
+  for(int i=0; i < seissol::multipleSimulations::numberOfSimulations; i++){
 
   if (m_seissolParams->drParameters[i]->isDynamicRuptureEnabled) {
 
