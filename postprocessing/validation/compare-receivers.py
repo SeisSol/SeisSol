@@ -117,13 +117,19 @@ def integrate_quantity_in_time(receiver, quantity):
 
 
 def get_number_of_fused_sims(columns):
+    # a _very_ hacky way to ignore the velocities here
+    # (which are by now: v1,v2,v3 without fusing)
+    # (with fusing: v1N, v2N, v3N. E.g. v14, v24, v34 for simulation 4)
+    extract_fused = re.compile(r"^[^v].*?(\d+)$")
     # omit time
     relevant_columns = columns[1:]
     try:
-        max_index = 0
+        max_index = -2
         for c in relevant_columns:
-            current_index = int(c[-1])
-            max_index = current_index if current_index > max_index else max_index
+            fused = extract_fused.search(c)
+            if fused:
+                current_index = int(fused.group(1))
+                max_index = current_index if current_index > max_index else max_index
         return max_index + 1
     except Exception as e:
         print(e)
@@ -146,8 +152,10 @@ def read_receiver(filename):
         variables = [s.strip().replace('"', "") for s in variable_line]
         # find first row without comments
         first_row = 2
-        while lines[first_row][0] == "#":
+        while first_row < len(lines) and lines[first_row][0] == "#":
             first_row += 1
+
+        assert first_row < len(lines), f"Empty file: {filename}"
 
         # since dr-cpp merge, fault receiver files start writing at Time=0
         # (before they were writing at Time=dt)
@@ -156,7 +164,7 @@ def read_receiver(filename):
         isFaultReceiver = "faultreceiver" in filename
         if t0 == 0 and isFaultReceiver:
             first_row += 1
-    receiver = pd.read_csv(filename, header=None, skiprows=first_row, sep="\s+")
+    receiver = pd.read_csv(filename, header=None, skiprows=first_row, sep=r"\s+")
 
     def replace(x, y, l, max_fused=-1):
         if max_fused < 0:
@@ -183,7 +191,7 @@ def read_receiver(filename):
     variables = replace("u", "v1", variables, number_of_fused_sims)
     variables = replace("v", "v2", variables, number_of_fused_sims)
     variables = replace("w", "v3", variables, number_of_fused_sims)
-    
+
     receiver.columns = variables
     return receiver
 
@@ -199,7 +207,9 @@ def receiver_diff(args, i):
     sim_receiver = read_receiver(sim_files[0])
     ref_receiver = read_receiver(ref_files[0])
     # both receivers must have the same time axis
-    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-7, f'Record time mismatch: {sim_receiver["Time"]} vs. {ref_receiver["Time"]}'
+    assert (
+        np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-7
+    ), f'Record time mismatch: {sim_receiver["Time"]} vs. {ref_receiver["Time"]}'
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
 
@@ -231,6 +241,7 @@ def receiver_diff(args, i):
         max_stress,
     )
 
+
 def faultreceiver_diff(args, i, quantities):
     sim_files = glob.glob(f"{args.output}/{args.prefix}-faultreceiver-{i:05d}-*.dat")
     ref_files = glob.glob(
@@ -245,7 +256,9 @@ def faultreceiver_diff(args, i, quantities):
     sim_receiver.reset_index(drop=True, inplace=True)
 
     # both receivers must have the same time axis
-    assert np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-7, f'Record time mismatch: {sim_receiver["Time"]} vs. {ref_receiver["Time"]}'
+    assert (
+        np.max(np.abs(sim_receiver["Time"] - ref_receiver["Time"])) < 1e-7
+    ), f'Record time mismatch: {sim_receiver["Time"]} vs. {ref_receiver["Time"]}'
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
     # We still want to use the same time and not the difference in time steps.
@@ -312,7 +325,9 @@ if __name__ == "__main__":
         ref_faultreceiver_ids = find_all_receivers(args.output_ref, args.prefix, True)
         faultreceiver_ids = np.intersect1d(sim_faultreceiver_ids, ref_faultreceiver_ids)
         # Make sure, we actually compare some faultreceivers
-        assert len(faultreceiver_ids) == len(ref_faultreceiver_ids), f'some on-fault receiver IDs are missing: {faultreceiver_ids} vs {ref_faultreceiver_ids}'
+        assert len(faultreceiver_ids) == len(
+            ref_faultreceiver_ids
+        ), f"some on-fault receiver IDs are missing: {faultreceiver_ids} vs {ref_faultreceiver_ids}"
     else:
         sim_faultreceiver_ids = []
         ref_faultreceiver_ids = []
@@ -322,7 +337,9 @@ if __name__ == "__main__":
     ref_receiver_ids = find_all_receivers(args.output_ref, args.prefix, False)
     receiver_ids = np.intersect1d(sim_receiver_ids, ref_receiver_ids)
     # Make sure, we actually compare some receivers
-    assert len(receiver_ids) == len(ref_receiver_ids), f'some off-fault receiver IDs are missing: {receiver_ids} vs {ref_receiver_ids}'
+    assert len(receiver_ids) == len(
+        ref_receiver_ids
+    ), f"some off-fault receiver IDs are missing: {receiver_ids} vs {ref_receiver_ids}"
 
     receiver_errors = pd.DataFrame(index=receiver_ids, columns=["velocity", "stress"])
     for i in ref_receiver_ids:
