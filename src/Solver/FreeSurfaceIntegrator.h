@@ -42,15 +42,15 @@ private:
     void addTo(seissol::initializer::LTSTree& surfaceLtsTree);
   };
 
-  std::unique_ptr<real> projectionMatrixMemory;
-  real* projectionMatrix[4];
-  std::unique_ptr<real> projectionMatrixFromFace;
-  unsigned numberOfSubTriangles;
-  unsigned numberOfAlignedSubTriangles;
+  real* projectionMatrixMemory{nullptr};
+  real* projectionMatrix[4]{};
+  real* projectionMatrixFromFace{nullptr};
+  unsigned numberOfSubTriangles{0};
+  unsigned numberOfAlignedSubTriangles{0};
 
   static constexpr auto polyDegree = ConvergenceOrder-1;
   static constexpr auto numQuadraturePoints = polyDegree*polyDegree;
-  bool m_enabled;
+  bool m_enabled{false};
   
   void initializeProjectionMatrices(unsigned maxRefinementDepth);
   void computeSubTriangleAverages(real* projectionMatrixRow,
@@ -68,10 +68,9 @@ public:
   real* velocities[FREESURFACE_NUMBER_OF_COMPONENTS];
   real* displacements[FREESURFACE_NUMBER_OF_COMPONENTS];
 
-public:
   std::vector<unsigned int> locationFlags;
   unsigned totalNumberOfFreeSurfaces;
-  unsigned totalNumberOfTriangles;
+  unsigned totalNumberOfTriangles{0};
 
   SurfaceLTS surfaceLts;
   seissol::initializer::LTSTree surfaceLtsTree;
