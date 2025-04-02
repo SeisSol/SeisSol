@@ -513,39 +513,6 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
   delete model;
 }
 
-template <>
-void MaterialParameterDB<DamageMaterial>::evaluateModel(const std::string& fileName,
-                                                        const QueryGenerator& queryGen) {
-  easi::Component* model = loadEasiModel(fileName);
-  easi::Query query = queryGen.generate();
-  const unsigned numPoints = query.numPoints();
-
-  std::vector<DamageMaterial> materialsFromQuery(numPoints);
-  easi::ArrayOfStructsAdapter<DamageMaterial> adapter(materialsFromQuery.data());
-  MaterialParameterDB<DamageMaterial>().addBindingPoints(adapter);
-  model->evaluate(query, adapter);
-
-  // Only use homogenization when ElementAverageGenerator has been supplied
-  if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
-    const unsigned numElems = numPoints / NumQuadpoints;
-    const std::array<double, NumQuadpoints> quadratureWeights{gen->getQuadratureWeights()};
-
-// Compute homogenized material parameters for every element in a specialization for the
-// particular material
-#pragma omp parallel for
-    for (unsigned elementIdx = 0; elementIdx < numElems; ++elementIdx) {
-      m_materials->at(elementIdx) =
-          this->computeAveragedMaterial(elementIdx, quadratureWeights, materialsFromQuery);
-    }
-  } else {
-    // Usual behavior without homogenization
-    for (unsigned i = 0; i < numPoints; ++i) {
-      m_materials->at(i) = DamageMaterial(materialsFromQuery[i]);
-    }
-  }
-  delete model;
-}
-
 void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
@@ -694,6 +661,7 @@ template class MaterialParameterDB<seissol::model::ElasticMaterial>;
 template class MaterialParameterDB<seissol::model::AcousticMaterial>;
 template class MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
 template class MaterialParameterDB<seissol::model::PoroElasticMaterial>;
+template class MaterialParameterDB<seissol::model::DamageMaterial>;
 template class MaterialParameterDB<seissol::model::Plasticity>;
 
 } // namespace seissol::initializer
