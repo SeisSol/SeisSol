@@ -32,9 +32,9 @@ struct MaterialSetup<DamageMaterial> {
     real lambda2mu = material.lambda + 2.0 * material.mu;
     real rhoInv = 1.0 / material.rho;
 
-    real lambda2muInvRho = (material.lambda + 2.0 * material.mu)/material.rho;
-    real lambdaInvRho = (material.lambda)/material.rho;
-    real muInvRho = (material.mu)/material.rho;
+    real lambda2muInvRho = (material.lambda + 2.0 * material.mu) / material.rho;
+    real lambdaInvRho = (material.lambda) / material.rho;
+    real muInvRho = (material.mu) / material.rho;
 
     /* For strain-vel formula:
     {eps_xx, eps_yy, eps_zz, eps_xy, eps_yz, eps_zz, vx, vy, vz} */
@@ -47,8 +47,8 @@ struct MaterialSetup<DamageMaterial> {
       matM(1, 6) = -lambdaInvRho;
       matM(2, 6) = -lambdaInvRho;
       if (!testIfAcoustic(material.mu)) {
-        matM(3, 7) = -2.0*muInvRho;
-        matM(5, 8) = -2.0*muInvRho;
+        matM(3, 7) = -2.0 * muInvRho;
+        matM(5, 8) = -2.0 * muInvRho;
       }
       break;
 
@@ -60,8 +60,8 @@ struct MaterialSetup<DamageMaterial> {
       matM(0, 7) = -lambdaInvRho;
       matM(2, 7) = -lambdaInvRho;
       if (!testIfAcoustic(material.mu)) {
-        matM(3, 6) = -2.0*muInvRho;
-        matM(4, 8) = -2.0*muInvRho;
+        matM(3, 6) = -2.0 * muInvRho;
+        matM(4, 8) = -2.0 * muInvRho;
       }
       break;
 
@@ -73,8 +73,8 @@ struct MaterialSetup<DamageMaterial> {
       matM(0, 8) = -lambdaInvRho;
       matM(1, 8) = -lambdaInvRho;
       if (!testIfAcoustic(material.mu)) {
-        matM(5, 6) = -2.0*muInvRho;
-        matM(4, 7) = -2.0*muInvRho;
+        matM(5, 6) = -2.0 * muInvRho;
+        matM(4, 7) = -2.0 * muInvRho;
       }
       break;
 
@@ -120,10 +120,10 @@ struct MaterialSetup<DamageMaterial> {
     R(4, 3) = 1.0;
 
     R(0, 4) = -1.0;
-    R(2, 4) = (local.lambda + 2*local.mu)/local.lambda;
+    R(2, 4) = (local.lambda + 2 * local.mu) / local.lambda;
 
     R(0, 5) = -1.0;
-    R(1, 5) = (local.lambda + 2*local.mu)/local.lambda;
+    R(1, 5) = (local.lambda + 2 * local.mu) / local.lambda;
 
     if (testIfAcoustic(neighbor.mu)) {
       // scale for better condition number of R
@@ -146,40 +146,50 @@ struct MaterialSetup<DamageMaterial> {
     }
 
     Matrix99 C = Matrix99::Zero();
-    C(0,0) = local.lambda + 2.0*local.mu; C(0,1) = local.lambda; C(0,2) = local.lambda;
-    C(1,0) = local.lambda; C(1,1) = local.lambda + 2.0*local.mu; C(1,2) = local.lambda;
-    C(2,0) = local.lambda; C(2,1) = local.lambda; C(2,2) = local.lambda + 2.0*local.mu;
-    C(3,3) = 2.0*local.mu; C(4,4) = 2.0*local.mu; C(5,5) = 2.0*local.mu;
-    C(6,6) = 1; C(7,7) = 1; C(8,8) = 1;
+    C(0, 0) = local.lambda + 2.0 * local.mu;
+    C(0, 1) = local.lambda;
+    C(0, 2) = local.lambda;
+    C(1, 0) = local.lambda;
+    C(1, 1) = local.lambda + 2.0 * local.mu;
+    C(1, 2) = local.lambda;
+    C(2, 0) = local.lambda;
+    C(2, 1) = local.lambda;
+    C(2, 2) = local.lambda + 2.0 * local.mu;
+    C(3, 3) = 2.0 * local.mu;
+    C(4, 4) = 2.0 * local.mu;
+    C(5, 5) = 2.0 * local.mu;
+    C(6, 6) = 1;
+    C(7, 7) = 1;
+    C(8, 8) = 1;
     // Convert to stress for free-surface condition
-    Matrix99 R_sig = (C*R).eval();
+    Matrix99 R_sig = (C * R).eval();
 
     if (faceType == FaceType::FreeSurface) {
       MaterialType materialtype =
           testIfAcoustic(local.mu) ? MaterialType::Acoustic : MaterialType::Elastic;
       getTransposedFreeSurfaceGodunovState(materialtype, QgodLocal, QgodNeighbor, R_sig);
-      
+
       Matrix99 Qgod = Matrix99::Zero();
       for (unsigned i = 0; i < Qgod.cols(); ++i) {
         for (unsigned j = 0; j < Qgod.rows(); ++j) {
-          Qgod(i,j) = -QgodLocal(j,i);
-          Qgod(i,j) = QgodLocal(j,i);
+          Qgod(i, j) = -QgodLocal(j, i);
+          Qgod(i, j) = QgodLocal(j, i);
         }
       }
       // Convert to back to strain with the free-surface constraints
       Matrix99 Qgod_temp = Matrix99::Zero();
-      Qgod_temp = ((C.inverse()*Qgod)*C).eval();
+      Qgod_temp = ((C.inverse() * Qgod) * C).eval();
 
       for (unsigned i = 0; i < Qgod.cols(); ++i) {
         for (unsigned j = 0; j < Qgod.rows(); ++j) {
-          QgodLocal(i,j) = -Qgod_temp(j,i);
-          QgodLocal(i,j) = Qgod_temp(j,i);
+          QgodLocal(i, j) = -Qgod_temp(j, i);
+          QgodLocal(i, j) = Qgod_temp(j, i);
         }
       }
 
     } else {
       // Currently, QgodLocal and QgodNeighbor will not be used in the corrector step.
-      // No need to account for heterogeneous effect 
+      // No need to account for heterogeneous effect
       // (in the same way as free-surf) here for Rusanov flux.
       Matrix99 chi = Matrix99::Zero();
       if (!testIfAcoustic(local.mu)) {
