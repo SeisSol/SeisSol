@@ -343,12 +343,14 @@ auto loadSourcesFromFSRM(const char* fileName,
       sources.numberOfSources = numberOfSources;
       sources.mInvJInvPhisAtSources.resize(numberOfSources);
       sources.tensor.resize(numberOfSources);
-      sources.simulationIndex.resize(numberOfSources);
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       sources.sampleOffsets[0].resize(numberOfSources + 1);
       sources.sampleOffsets[0][0] = 0;
       sources.sample[0].resize(fsrm.numberOfSamples * numberOfSources);
+
+      // only actively used in the case of fused simulations
+      sources.simulationIndex.resize(numberOfSources);
 
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
@@ -468,13 +470,15 @@ auto loadSourcesFromNRF(const char* fileName,
       sources.tensor.resize(numberOfSources);
       sources.A.resize(numberOfSources);
       sources.stiffnessTensor.resize(numberOfSources);
-      sources.simulationIndex.resize(numberOfSources);
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       for (auto& so : sources.sampleOffsets) {
         so.resize(numberOfSources + 1);
         so[0] = 0;
       }
+
+      // only actively used in the case of fused simulations
+      sources.simulationIndex.resize(numberOfSources);
 
       for (std::size_t i = 0; i < Offsets().size(); ++i) {
         std::size_t sampleSize = 0;
