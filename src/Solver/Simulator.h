@@ -31,6 +31,8 @@ class seissol::Simulator {
 
     //! If true, the while loop of the simulation will be aborted (see terminator)
     bool m_abort;
+
+    bool checkpoint{false};
   public:
     /**
      * Constructor, which initializes all values.
