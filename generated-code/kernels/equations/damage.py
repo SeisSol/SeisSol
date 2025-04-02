@@ -16,7 +16,7 @@ class DamageADERDG(ADERDGBase):
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }
-        self.db.update(parseXMLMatrixFile("{}/star.xml".format(matricesDir), clones))
+        self.db.update(parseXMLMatrixFile("{}/matrices_damage.xml".format(matricesDir), clones))
 
         memoryLayoutFromFile(memLayout, self.db, clones)
         self.kwargs = kwargs
