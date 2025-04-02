@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,8 +9,6 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVER_H_
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "Kernels/DynamicRupture.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
 
@@ -68,9 +66,9 @@ class FrictionSolver {
   real deltaT[ConvergenceOrder] = {};
   real sumDt{};
 
-  seissol::initializer::parameters::DRParameters* drParameters;
-  ImpedancesAndEta* impAndEta{};
-  ImpedanceMatrices* impedanceMatrices{};
+  seissol::initializer::parameters::DRParameters* __restrict drParameters;
+  ImpedancesAndEta* __restrict impAndEta{};
+  ImpedanceMatrices* __restrict impedanceMatrices{};
   real mFullUpdateTime{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
@@ -91,17 +89,17 @@ class FrictionSolver {
   real (*__restrict imposedStatePlus)[tensor::QInterpolated::size()]{};
   real (*__restrict imposedStateMinus)[tensor::QInterpolated::size()]{};
   real spaceWeights[misc::NumPaddedPoints]{};
-  DREnergyOutput* energyData{};
-  DRGodunovData* godunovData{};
-  real (*initialPressure)[misc::NumPaddedPoints]{};
-  real (*nucleationPressure)[misc::NumPaddedPoints]{};
+  DREnergyOutput* __restrict energyData{};
+  DRGodunovData* __restrict godunovData{};
+  real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
+  real (*__restrict nucleationPressure)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
-  real (*dynStressTime)[misc::NumPaddedPoints]{};
-  bool (*dynStressTimePending)[misc::NumPaddedPoints]{};
+  real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
+  bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints]{};
 
-  real (*qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
-  real (*qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
+  real (*__restrict qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
+  real (*__restrict qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
 };
 } // namespace seissol::dr::friction_law
 

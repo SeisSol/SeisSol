@@ -5,7 +5,14 @@ def pivot_if_necessary(df):
     if "variable" in df:
         # the format of the energy output changed following PR #773 (02.2023), allowing
         # to compute volume energies less frequently
-        return df.pivot_table(index="time", columns="variable", values="measurement")
+        indices = ["time"]
+        if "simulation_index" in df.columns:
+            indices += ["simulation_index"]
+        return (
+            df.pivot_table(index=indices, columns="variable", values="measurement")
+            .reset_index()
+            .astype({idx: "int64" for idx in indices})
+        )
     else:
         return df
 
@@ -38,12 +45,12 @@ def get_sub_simulation(df, fused_index):
 
 def perform_check(energy, energy_ref, epsilon):
     print("Energies")
-    print(energy)
+    print(energy.to_string())
     print("Energies reference")
-    print(energy_ref)
+    print(energy_ref.to_string())
     relative_difference = ((energy - energy_ref).abs() / energy_ref).iloc[1:, :]
     print("Relative difference")
-    print(relative_difference)
+    print(relative_difference.to_string())
 
     relative_difference_larger_eps = (relative_difference.iloc[1:, :] > epsilon).values
     return np.any(relative_difference_larger_eps)
@@ -74,8 +81,16 @@ if __name__ == "__main__":
     energy_ref = pd.read_csv(args.energy_ref)
     energy_ref = pivot_if_necessary(energy_ref)
 
-    assert get_number_of_fused_sims(energy) == get_number_of_fused_sims(energy_ref)
+    sims = get_number_of_fused_sims(energy)
+    sims_ref = get_number_of_fused_sims(energy_ref)
+    assert sims >= sims_ref, f"Simulation count mismatch: {sims} vs. {sims_ref}"
     number_of_fused_sims = get_number_of_fused_sims(energy)
+
+    # restrict to present quantities only (the rest is assumed to be zero or undefined)
+    relevant_quantities = list(
+        set(energy.columns) & set(energy_ref.columns) & set(relevant_quantities)
+    )
+    relevant_quantities = list(sorted(relevant_quantities))
 
     if number_of_fused_sims < 0:
         result = perform_check(energy, energy_ref, args.epsilon)

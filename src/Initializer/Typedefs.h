@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -11,20 +11,12 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 #define SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 
-#include <array>
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
-
 #include "CellLocalInformation.h"
 #include "BasicTypedefs.h"
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
-#include "Initializer/PreProcessorMacros.h"
-#include "Kernels/Common.h"
 #include "Solver/MultipleSimulations.h"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
@@ -33,6 +25,10 @@
 #include <vector>
 
 namespace seissol {
+
+namespace kernels {
+constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
+} // namespace kernels
 
 // cross-cluster time stepping information
 struct TimeStepping {
@@ -148,19 +144,6 @@ struct MeshStructure {
    * Message identifiers for the receives.
    */
   int *receiveIdentifiers;
-
-#ifdef USE_MPI
-  /*
-   * MPI send requests.
-   */
-  MPI_Request *sendRequests;
-
-  /*
-   * MPI receive requests.
-   */
-  MPI_Request *receiveRequests;
-#endif
-
 };
 
 struct GlobalData {  
@@ -361,8 +344,8 @@ struct DREnergyOutput {
 struct CellDRMapping {
   unsigned side;
   unsigned faceRelation;
-  std::array<real*, seissol::multipleSimulations::numberOfSimulations> godunov;
-  std::array<real*, seissol::multipleSimulations::numberOfSimulations> fluxSolver;
+  std::array<real*, seissol::multisim::NumSimulations> godunov;
+  std::array<real*, seissol::multisim::NumSimulations> fluxSolver;
 };
 
 struct CellBoundaryMapping {
@@ -410,4 +393,3 @@ struct PressureInjectionParameters {
 
 
 #endif // SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
-

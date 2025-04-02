@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -8,6 +8,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
+#include <Solver/MultipleSimulations.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -179,14 +180,6 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
 
 #ifdef USE_MPI
 void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
-  // reset mpi requests
-  for( unsigned int lCluster = 0; lCluster < m_ltsTree.numChildren(); lCluster++ ) {
-    for( unsigned int lRegion = 0; lRegion < m_meshStructure[lCluster].numberOfRegions; lRegion++ ) {
-      m_meshStructure[lCluster].sendRequests[lRegion] = MPI_REQUEST_NULL;
-      m_meshStructure[lCluster].receiveRequests[lRegion] = MPI_REQUEST_NULL;
-    }
-  }
-
 #ifdef ACL_DEVICE
   const auto allocationPlace = seissol::initializer::AllocationPlace::Device;
 #else
@@ -450,7 +443,7 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& iTi
   m_ltsTree.touchVariables();
 
   /// Dynamic rupture trees
-  for (int i = 0; i < seissol::multipleSimulations::numberOfSimulations ; i++) {
+  for (int i = 0; i < seissol::multisim::NumSimulations ; i++) {
     m_dynRupTree[i] = new LTSTree();
     m_dynRup[i]->addTo(*m_dynRupTree[i]);
     m_dynRupTree[i]->setNumberOfTimeClusters(iTimeStepping.numberOfGlobalClusters);
@@ -875,7 +868,7 @@ void seissol::initializer::MemoryManager::initializeFrictionLaw() {
   logInfo() << "Thermal pressurization:" << (m_seissolParams->drParameters[0]->isThermalPressureOn ? "on" : "off");
 
 
-  for (int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+  for (int i = 0; i < seissol::multisim::NumSimulations; i++) {
     auto drParameters = m_seissolParams->drParameters[i];
     const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance, i);
     auto product = factory->produce();
@@ -887,7 +880,7 @@ void seissol::initializer::MemoryManager::initializeFrictionLaw() {
 }
 
 void seissol::initializer::MemoryManager::initFaultOutputManager(const std::string& backupTimeStamp) {
-  for (int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+  for (int i = 0; i < seissol::multisim::NumSimulations; i++) {
     if (m_seissolParams->drParameters[i]->isDynamicRuptureEnabled) {
       m_faultOutputManager[i]->setInputParam(seissolInstance.meshReader());
       m_faultOutputManager[i]->setLtsData(
@@ -900,7 +893,7 @@ void seissol::initializer::MemoryManager::initFaultOutputManager(const std::stri
 
 
 void seissol::initializer::MemoryManager::initFrictionData() {
-  for(int i=0; i < seissol::multipleSimulations::numberOfSimulations; i++){
+  for(int i=0; i < seissol::multisim::NumSimulations; i++){
 
   if (m_seissolParams->drParameters[i]->isDynamicRuptureEnabled) {
 

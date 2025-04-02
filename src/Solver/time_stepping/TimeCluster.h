@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -105,13 +105,13 @@ private:
      * element data
      */     
     seissol::initializer::Layer* m_clusterData;
-    std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations> dynRupInteriorData;
-    std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations> dynRupCopyData;
+    std::array<seissol::initializer::Layer*, seissol::multisim::NumSimulations> dynRupInteriorData;
+    std::array<seissol::initializer::Layer*, seissol::multisim::NumSimulations> dynRupCopyData;
     seissol::initializer::LTS*         m_lts;
-    std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, seissol::multipleSimulations::numberOfSimulations> m_dynRup;
-    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, seissol::multipleSimulations::numberOfSimulations> frictionSolver;
-    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, seissol::multipleSimulations::numberOfSimulations> frictionSolverDevice;
-    std::array<std::shared_ptr<dr::output::OutputManager>, seissol::multipleSimulations::numberOfSimulations> faultOutputManager;
+    std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, seissol::multisim::NumSimulations> m_dynRup;
+    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, seissol::multisim::NumSimulations> frictionSolver;
+    std::array<std::shared_ptr<dr::friction_law::FrictionSolver>, seissol::multisim::NumSimulations> frictionSolverDevice;
+    std::array<std::shared_ptr<dr::output::OutputManager>, seissol::multisim::NumSimulations> faultOutputManager;
 
     seissol::kernels::PointSourceClusterPair m_sourceCluster;
 
@@ -158,7 +158,7 @@ private:
     /**
      * Computes dynamic rupture.
      **/
-    void computeDynamicRupture( std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations>&  layerData );
+    void computeDynamicRupture( std::array<seissol::initializer::Layer*, seissol::multisim::NumSimulations>&  layerData );
 
     void handleDynamicRupture( seissol::initializer::Layer&  layerData );
 
@@ -213,7 +213,7 @@ private:
     void computeNeighborIntegrationFlops(seissol::initializer::Layer &layerData);
 
     void computeDynamicRuptureFlops(
-          std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations>& layerData,
+          std::array<seissol::initializer::Layer*, seissol::multisim::NumSimulations>& layerData,
                                                                       long long&                    nonZeroFlops,
                                                                       long long&                    hardwareFlops);
                                           
@@ -264,13 +264,13 @@ public:
       DynamicRuptureScheduler* dynamicRuptureScheduler, // Need only one scheduler and multiple data structures
       CompoundGlobalData globalData,
       seissol::initializer::Layer *clusterData,
-      std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations> dynRupInteriorData,
-      std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations> dynRupCopyData,
+      std::array<seissol::initializer::Layer*, seissol::multisim::NumSimulations> dynRupInteriorData,
+      std::array<seissol::initializer::Layer*, seissol::multisim::NumSimulations> dynRupCopyData,
       seissol::initializer::LTS* lts,
-      std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, seissol::multipleSimulations::numberOfSimulations> dynRup,
-      std::array<std::shared_ptr<seissol::dr::friction_law::FrictionSolver>, seissol::multipleSimulations::numberOfSimulations> frictionSolver,
-      std::array<std::shared_ptr<seissol::dr::friction_law::FrictionSolver>, seissol::multipleSimulations::numberOfSimulations> frictionSolverDevice,
-      std::array<std::shared_ptr<dr::output::OutputManager>, seissol::multipleSimulations::numberOfSimulations> faultOutputManager,
+      std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, seissol::multisim::NumSimulations> dynRup,
+      std::array<std::shared_ptr<seissol::dr::friction_law::FrictionSolver>, seissol::multisim::NumSimulations> frictionSolver,
+      std::array<std::shared_ptr<seissol::dr::friction_law::FrictionSolver>, seissol::multisim::NumSimulations> frictionSolverDevice,
+      std::array<std::shared_ptr<dr::output::OutputManager>, seissol::multisim::NumSimulations> faultOutputManager,
       seissol::SeisSol& seissolInstance,
       LoopStatistics* loopStatistics,
       ActorStateStatistics* actorStateStatistics);
@@ -293,7 +293,7 @@ public:
     m_receiverCluster = receiverCluster;
   }
 
-  void setFaultOutputManager(std::array<std::shared_ptr<dr::output::OutputManager>, seissol::multipleSimulations::numberOfSimulations> outputManager) {
+  void setFaultOutputManager(std::array<std::shared_ptr<dr::output::OutputManager>, seissol::multisim::NumSimulations> outputManager) {
     faultOutputManager = outputManager;
   }
 
@@ -326,4 +326,3 @@ public:
 
 
 #endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
-

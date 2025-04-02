@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -83,14 +83,14 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   writer::ThreadsPinningWriter pinningWriter(seissolParams.output.prefix);
-  pinningWriter.write(seissolInstance.getPinning());
+  pinningWriter.write(seissolInstance.getPinning(), seissolInstance.env());
 }
 
 void closeSeisSol(seissol::SeisSol& seissolInstance) {
   logInfo() << "Closing IO.";
   // cleanup IO
   seissolInstance.waveFieldWriter().close();
-  for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+  for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
     seissolInstance.faultWriter()[i]->close();
   }
   seissolInstance.freeSurfaceWriter().close();

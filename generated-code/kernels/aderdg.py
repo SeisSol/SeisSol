@@ -49,7 +49,10 @@ from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseXMLMatrixFile, parseJSONMatrixFile
 from yateto.util import tensor_from_constant_expression, tensor_collection_from_constant_expression
 from yateto.memory import CSCMemoryLayout
-from yateto.util import create_collection
+from yateto.util import (
+    tensor_collection_from_constant_expression,
+    tensor_from_constant_expression,
+)
 
 
 class ADERDGBase(ABC):

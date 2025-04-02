@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SEISSOL_SRC_INITIALIZER_TREE_LTSINTERNALNODE_H_
-#define SEISSOL_SRC_INITIALIZER_TREE_LTSINTERNALNODE_H_
+#ifndef SEISSOL_SRC_MEMORY_TREE_LTSINTERNALNODE_H_
+#define SEISSOL_SRC_MEMORY_TREE_LTSINTERNALNODE_H_
 
 #include "Layer.h"
 #include "Node.h"
@@ -188,4 +188,4 @@ public:
 
 } // namespace seissol::initializer
 
-#endif // SEISSOL_SRC_INITIALIZER_TREE_LTSINTERNALNODE_H_
+#endif // SEISSOL_SRC_MEMORY_TREE_LTSINTERNALNODE_H_

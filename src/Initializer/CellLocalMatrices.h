@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -45,8 +45,8 @@ void initializeDynamicRuptureMatrices(
     LTSTree* ltsTree,
     LTS* lts,
     Lut* ltsLut,
-    std::array<LTSTree*, seissol::multipleSimulations::numberOfSimulations> dynRupTree,
-    std::array<std::shared_ptr<DynamicRupture>, seissol::multipleSimulations::numberOfSimulations> dynRup,
+    std::array<LTSTree*, seissol::multisim::NumSimulations> dynRupTree,
+    std::array<std::shared_ptr<DynamicRupture>, seissol::multisim::NumSimulations> dynRup,
     unsigned* ltsFaceToMeshFace,
     const GlobalData& global,
     double etaHack);

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -59,14 +59,15 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
 #ifdef USE_MPI
     m_xdmfWriter->setComm(m_comm);
 #endif // USE_MPI
-		m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
-		
-		m_xdmfWriter->init(variables, std::vector<const char*>(), "fault-tag", true, true);
-		m_xdmfWriter->setMesh(nCells, static_cast<const unsigned int*>(info.buffer(Cells)),
-			nVertices, static_cast<const double*>(info.buffer(Vertices)),
-			param.timestep != 0);
-		setFaultTagsData(static_cast<const unsigned int*>(info.buffer(FaultTags)));
-
+    m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
+    const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
+    m_xdmfWriter->init(variables, std::vector<const char*>(), "fault-tag", vertexFilter, true);
+    m_xdmfWriter->setMesh(nCells,
+                          static_cast<const unsigned int*>(info.buffer(Cells)),
+                          nVertices,
+                          static_cast<const double*>(info.buffer(Vertices)),
+                          param.timestep != 0);
+    setFaultTagsData(static_cast<const unsigned int*>(info.buffer(FaultTags)));
 
 		logInfo(rank) << "Initializing XDMF fault output for Simulation: " << nFused << " Done.";
 	}

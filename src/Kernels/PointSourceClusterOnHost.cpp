@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 // SPDX-FileCopyrightText: 2023 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -18,6 +18,10 @@
 #include <memory>
 #include <tensor.h>
 #include <utility>
+
+#ifdef MULTIPLE_SIMULATIONS
+#include <array>
+#endif
 
 namespace seissol::kernels {
 
@@ -39,10 +43,10 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSources(
       if (sources_->mode == sourceterm::PointSourceMode::Nrf) {
         for (unsigned source = startSource; source < endSource; ++source) {
           addTimeIntegratedPointSourceNRF(source, from, to, *mapping[m].dofs);
-        } 
         }
-        else {
+      } else {
         for (unsigned source = startSource; source < endSource; ++source) {
+
           addTimeIntegratedPointSourceFSRM(source, from, to, *mapping[m].dofs);
         }
       }
@@ -84,9 +88,9 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceNRF(unsigned source,
   krnl.mArea = -sources_->A[source];
   krnl.momentToNRF = init::momentToNRF::Values;
 #ifdef MULTIPLE_SIMULATIONS
-  const auto originalIndex = sources_->originalIndex[source];
-  std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};
-  sourceToMultSim[originalIndex % MULTIPLE_SIMULATIONS] = 1.0;
+  const auto simulationIndex = sources_->simulationIndex[source];
+  std::array<real, seissol::multisim::NumSimulations> sourceToMultSim{};
+  sourceToMultSim[simulationIndex] = 1.0;
   krnl.oneSimToMultSim = sourceToMultSim.data();
 #endif
   krnl.execute();
@@ -110,9 +114,9 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceFSRM(unsigned source,
   krnl.momentFSRM = sources_->tensor[source].data();
   krnl.stfIntegral = slip;
 #ifdef MULTIPLE_SIMULATIONS
-  const auto originalIndex = sources_->originalIndex[source];
-  std::array<real, MULTIPLE_SIMULATIONS> sourceToMultSim{};
-  sourceToMultSim[originalIndex % MULTIPLE_SIMULATIONS] = 1.0;
+  const auto simulationIndex = sources_->simulationIndex[source];
+  std::array<real, seissol::multisim::NumSimulations> sourceToMultSim{};
+  sourceToMultSim[simulationIndex] = 1.0;
   krnl.oneSimToMultSim = sourceToMultSim.data();
 #endif
   krnl.execute();

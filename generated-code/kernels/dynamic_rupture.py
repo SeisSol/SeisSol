@@ -1,7 +1,4 @@
-#!/usr/bin/env python3
-##
-# @file
-# This file is part of SeisSol.
+# SPDX-FileCopyrightText: 2016 SeisSol Group
 #
 # @author Carsten Uphoff (c.uphoff AT tum.de, http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
 #
@@ -150,7 +147,6 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
                         interpolateQPrefetch if target == 'cpu' else None,
                         target=target)
 
-  QInterpolatedSingleSim = Tensor('QInterpolatedSingleSim', gShape, alignStride=False)
   QInterpolatedMultipleSim = OptionalDimTensor('QInterpolatedMultipleSim',aderdg.Q.optName(),aderdg.Q.optSize(),aderdg.Q.optPos(), gShape, alignStride=True)
   QInterpolatedMultiple_ijs = OptionalDimTensor('QInterpolatedMultiple_ijs', aderdg.Q.optName(), aderdg.Q.optSize(), 2, gShape, alignStride=False)
 
@@ -160,7 +156,6 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   generator.add('QInterpolatedModifiedReversed', QInterpolatedModifiedReversed)
   nodalFluxGenerator = lambda i,h: aderdg.extendedQTensor()['kp'] <= aderdg.extendedQTensor()['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolatedMultipleSim['lq'] * fluxSolverMultipleSim['qp']
   # TODO (VK): make this work in the original tensor format by making the other variables in tensor format later
-  # nodalFluxGenerator = lambda i,h: QuantitiesSingleSim['kp'] <= QuantitiesSingleSim['kp'] + db.V3mTo2nTWDivM[i,h][aderdg.t('kl')] * QInterpolatedSingleSim['lq'] * fluxSolver['qp']
   nodalFluxPrefetch = lambda i,h: aderdg.I
 
   for target in targets:

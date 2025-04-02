@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -194,7 +194,7 @@ class WaveFieldWriter
   //
   // Hooks
   //
-  void simulationStart() override;
+  void simulationStart(std::optional<double> checkpointTime) override;
 
   void syncPoint(double currentTime) override;
 };

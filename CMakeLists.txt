@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2019 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -434,13 +434,13 @@ endif()
 
 # adjust prefix name of executables
 if ("${DEVICE_ARCH_STR}" STREQUAL "none")
-  if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
-    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}_f${NUMBER_OF_FUSED_SIMULATIONS}")
-  else()
-    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
-  endif()
+  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
 else()
   set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
+endif()
+
+if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
+  set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_f${NUMBER_OF_FUSED_SIMULATIONS}")
 endif()
 
 if (SHARED)

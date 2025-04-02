@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2017-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2017 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -13,6 +13,7 @@
 #include <async/Module.h>
 #include <cassert>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <utils/logger.h>
 
@@ -150,7 +151,11 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   setSyncInterval(interval);
 }
 
-void seissol::writer::FaultWriter::simulationStart() { syncPoint(0.0); }
+void seissol::writer::FaultWriter::simulationStart(std::optional<double> checkpointTime) {
+  if (checkpointTime.value_or(0) == 0) {
+    syncPoint(0.0);
+  }
+}
 
 void seissol::writer::FaultWriter::syncPoint(double currentTime) {
   SCOREP_USER_REGION("faultoutput_elementwise", SCOREP_USER_REGION_TYPE_FUNCTION)

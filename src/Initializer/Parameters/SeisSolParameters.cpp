@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -27,8 +27,8 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
 
   const CubeGeneratorParameters cubeGeneratorParameters =
       readCubeGeneratorParameters(parameterReader);
-  std::array<std::shared_ptr<DRParameters>, seissol::multipleSimulations::numberOfSimulations> drParameters;
-  for (int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+  std::array<std::shared_ptr<DRParameters>, seissol::multisim::NumSimulations> drParameters;
+  for (int i = 0; i < seissol::multisim::NumSimulations; i++) {
     drParameters[i] = std::make_shared<DRParameters>(readDRParameters(parameterReader, i));
   }
   const InitializationParameters initializationParameters =

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2016 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -153,7 +153,7 @@ class WaveFieldWriterExecutor {
 #endif // USE_MPI
       m_waveFieldWriter->setBackupTimeStamp(param.backupTimeStamp);
       const std::string extraIntVarName = "clustering";
-      const auto vertexFilter = utils::Env::get<bool>("SEISSOL_VERTEXFILTER", true);
+      const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
       m_waveFieldWriter->init(
           variables, std::vector<const char*>(), extraIntVarName.c_str(), vertexFilter, true);
       m_waveFieldWriter->setMesh(

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,14 +9,15 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 
 #include <Common/Executor.h>
+#include <cmath>
 #include <limits>
 #include <type_traits>
 
 #include "DynamicRupture/Misc.h"
-#include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/DynamicRupture.h"
-#include "Memory/Descriptor/DynamicRupture.h"
+#include "DynamicRupture/Typedefs.h"
+#include "Initializer/Typedefs.h"
 #include "Numerical/GaussianNucleationFunction.h"
+#include "Solver/MultipleSimulations.h"
 
 /**
  * Contains common functions required both for CPU and GPU impl.
@@ -435,12 +436,12 @@ SEISSOL_HOSTDEVICE inline void
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
-    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      auto pointIndex{startIndex + index};
-      for (unsigned i = 0; i < 6; i++) {
-        initialStressInFaultCS[i][pointIndex] += nucleationStressInFaultCS[i][pointIndex] * gNuc;
-      }
-      initialPressure[pointIndex] += nucleationPressure[pointIndex] * gNuc;
+  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
+    auto pointIndex{startIndex + index};
+    for (unsigned i = 0; i < 6; i++) {
+      initialStressInFaultCS[i][pointIndex] += nucleationStressInFaultCS[i][pointIndex] * gNuc;
+    }
+    initialPressure[pointIndex] += nucleationPressure[pointIndex] * gNuc;
     }
   }
 }

@@ -2,6 +2,7 @@ function [data]=loadmatfile(name)
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @author Christian Pelties (pelties AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/pelties)
 %

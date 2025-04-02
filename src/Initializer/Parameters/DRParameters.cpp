@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -107,7 +107,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, int i) {
 
   auto faultFileName = reader->readPath("modelfilename");
 
-  if (seissol::multipleSimulations::numberOfSimulations > 1) {
+  if (seissol::multisim::NumSimulations > 1) {
     if (faultFileName) {
       size_t pos = faultFileName->find(".yaml");
       if (pos != std::string::npos) {

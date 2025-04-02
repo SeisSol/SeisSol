@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -15,6 +15,7 @@
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/Unit.h"
+#include "MultipleSimulations.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
@@ -52,7 +53,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   // auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
    auto faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
 
-   for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+   for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
      faultOutputManager[i]->writePickpointOutput(0.0, 0.0);
    }
 
@@ -70,8 +71,11 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
 
   // Write initial wave field snapshot
-  if (m_currentTime == 0.0) {
-    Modules::callHook<ModuleHook::SimulationStart>();
+  if (checkpoint) {
+    Modules::callSimulationStartHook(m_currentTime);
+  }
+  else {
+    Modules::callSimulationStartHook(std::optional<double>{});
   }
 
   // intialize wave field and checkpoint time

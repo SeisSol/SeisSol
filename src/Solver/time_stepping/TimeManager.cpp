@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -63,9 +63,9 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
     const long timeStepRate = ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
          static_cast<long>(l_globalClusterId));
 
-    std::array<long, seissol::multipleSimulations::numberOfSimulations> numDynRupCells;
+    std::array<long, seissol::multisim::NumSimulations> numDynRupCells;
     // Dynamic rupture
-    for (unsigned i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+    for (unsigned i = 0; i < seissol::multisim::NumSimulations; i++) {
       auto& dynRupTree = memoryManager.getDynamicRuptureTree()[i]->child(localClusterId);
       const long numberOfDynRupCells = dynRupTree.child(Interior).getNumberOfCells() +
         dynRupTree.child(Copy).getNumberOfCells() +
@@ -93,12 +93,12 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
       const bool printProgress = (localClusterId == m_timeStepping.numberOfLocalClusters - 1) && (type == Interior);
       const auto profilingId = l_globalClusterId + offsetMonitoring;
       auto* layerData = &memoryManager.getLtsTree()->child(localClusterId).child(type);
-      std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations> dynRupInteriorData;
-      std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations> dynRupCopyData;
+      std::array<seissol::initializer::Layer*, seissol::multisim::NumSimulations> dynRupInteriorData;
+      std::array<seissol::initializer::Layer*, seissol::multisim::NumSimulations> dynRupCopyData;
 
       // auto* dynRupInteriorData = &dynRupTree.child(Interior);
       // auto* dynRupCopyData = &dynRupTree.child(Copy);
-      for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+      for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
         dynRupCopyData[i] =
             &memoryManager.getDynamicRuptureTree()[i]->child(localClusterId).child(Copy);
         dynRupInteriorData[i] =
@@ -177,7 +177,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
 #ifdef USE_MPI
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
-    const auto persistent = usePersistentMpi();
+    const auto persistent = usePersistentMpi(seissolInstance.env());
     const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[localClusterId]);
     for (unsigned int otherGlobalClusterId = 0; otherGlobalClusterId < m_timeStepping.numberOfGlobalClusters; ++otherGlobalClusterId) {
       const bool hasNeighborRegions = std::any_of(meshStructure->neighboringClusters,
@@ -229,7 +229,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
 
   std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
 
-  if (seissol::useCommThread(MPI::mpi)) {
+  if (seissol::useCommThread(MPI::mpi, seissolInstance.env())) {
     communicationManager = std::make_unique<ThreadedCommunicationManager>(std::move(ghostClusters),
                                                                           &seissolInstance.getPinning()
                                                                           );
@@ -249,8 +249,8 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
 
 void seissol::time_stepping::TimeManager::setFaultOutputManager(
     std::array<std::shared_ptr<seissol::dr::output::OutputManager>,
-               seissol::multipleSimulations::numberOfSimulations>& faultOutputManager) {
-  for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+               seissol::multisim::NumSimulations>& faultOutputManager) {
+  for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
     m_faultOutputManager[i] = faultOutputManager[i].get();
   }
 
@@ -259,9 +259,9 @@ void seissol::time_stepping::TimeManager::setFaultOutputManager(
   }
 }
 
-std::array<seissol::dr::output::OutputManager*, seissol::multipleSimulations::numberOfSimulations>&
+std::array<seissol::dr::output::OutputManager*, seissol::multisim::NumSimulations>&
     seissol::time_stepping::TimeManager::getFaultOutputManager() {
-  for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+  for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
     assert(m_faultOutputManager[i] != nullptr);
   }
   return m_faultOutputManager;

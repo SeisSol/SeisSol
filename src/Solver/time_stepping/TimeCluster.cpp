@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -45,16 +45,16 @@ seissol::time_stepping::TimeCluster::TimeCluster(
         dynamicRuptureScheduler, // Need only one scheduler and multiple data structures
     CompoundGlobalData globalData,
     seissol::initializer::Layer* clusterData,
-    std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations> dynRupInteriorData,
-    std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations> dynRupCopyData,
+    std::array<seissol::initializer::Layer*, seissol::multisim::NumSimulations> dynRupInteriorData,
+    std::array<seissol::initializer::Layer*, seissol::multisim::NumSimulations> dynRupCopyData,
     seissol::initializer::LTS* lts,
-    std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, seissol::multipleSimulations::numberOfSimulations>
+    std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, seissol::multisim::NumSimulations>
         dynRup,
-    std::array<std::shared_ptr<seissol::dr::friction_law::FrictionSolver>, seissol::multipleSimulations::numberOfSimulations>
+    std::array<std::shared_ptr<seissol::dr::friction_law::FrictionSolver>, seissol::multisim::NumSimulations>
         frictionSolver,
-    std::array<std::shared_ptr<seissol::dr::friction_law::FrictionSolver>, seissol::multipleSimulations::numberOfSimulations>
+    std::array<std::shared_ptr<seissol::dr::friction_law::FrictionSolver>, seissol::multisim::NumSimulations>
         frictionSolverDevice,
-    std::array<std::shared_ptr<dr::output::OutputManager>, seissol::multipleSimulations::numberOfSimulations>
+    std::array<std::shared_ptr<dr::output::OutputManager>, seissol::multisim::NumSimulations>
         faultOutputManager,
     seissol::SeisSol& seissolInstance,
     LoopStatistics* loopStatistics,
@@ -166,11 +166,11 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 
 #ifndef ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeDynamicRupture(
-    std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations>&
+    std::array<seissol::initializer::Layer*, seissol::multisim::NumSimulations>&
         layerData) {
   bool layerzero = true;
 
-  for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+  for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
     if (layerData[i]->getNumberOfCells() > 0) {
       layerzero = false;
     }
@@ -185,13 +185,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
 
   m_loopStatistics->begin(m_regionComputeDynamicRupture);
 
-  std::array<DRFaceInformation*, seissol::multipleSimulations::numberOfSimulations> faceInformation;
-  std::array<DRGodunovData*, seissol::multipleSimulations::numberOfSimulations> godunovData;
-  std::array<DREnergyOutput*, seissol::multipleSimulations::numberOfSimulations> drEnergyOutput;
-  std::array<real**, seissol::multipleSimulations::numberOfSimulations> timeDerivativePlus;
-  std::array<real**, seissol::multipleSimulations::numberOfSimulations> timeDerivativeMinus;
-  std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], seissol::multipleSimulations::numberOfSimulations> qInterpolatedPlus;
-  std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], seissol::multipleSimulations::numberOfSimulations> qInterpolatedMinus;  
+  std::array<DRFaceInformation*, seissol::multisim::NumSimulations> faceInformation;
+  std::array<DRGodunovData*, seissol::multisim::NumSimulations> godunovData;
+  std::array<DREnergyOutput*, seissol::multisim::NumSimulations> drEnergyOutput;
+  std::array<real**, seissol::multisim::NumSimulations> timeDerivativePlus;
+  std::array<real**, seissol::multisim::NumSimulations> timeDerivativeMinus;
+  std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], seissol::multisim::NumSimulations> qInterpolatedPlus;
+  std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], seissol::multisim::NumSimulations> qInterpolatedMinus;  
   int dQ_DR_Size = 0;
   int dQ_Size = 0;
   for (unsigned int i = 0; i < CONVERGENCE_ORDER; i++) {
@@ -203,7 +203,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
 
   m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
 
-  for (unsigned int i=0; i < seissol::multipleSimulations::numberOfSimulations; i++){
+  for (unsigned int i=0; i < seissol::multisim::NumSimulations; i++){
     faceInformation[i] = layerData[i]->var(m_dynRup[i]->faceInformation);
     godunovData[i] = layerData[i]->var(m_dynRup[i]->godunovData);
     drEnergyOutput[i] = layerData[i]->var(m_dynRup[i]->drEnergyOutput);
@@ -219,7 +219,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
   {
   LIKWID_MARKER_START("computeDynamicRuptureSpaceTimeInterpolation");
   }
-  for (unsigned int sim = 0; sim < seissol::multipleSimulations::numberOfSimulations; sim++) {
+  for (unsigned int sim = 0; sim < seissol::multisim::NumSimulations; sim++) {
 #ifdef _OPENMP
   #pragma omp parallel for schedule(static)
 #endif
@@ -253,7 +253,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
   }
 
   SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_COMMON )
-  for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+  for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
     frictionSolver[i]->evaluate(*layerData[i], m_dynRup[i].get(), ct.correctionTime, m_dynamicRuptureKernel.timeWeights, streamRuntime);
   }
   SCOREP_USER_REGION_END(myRegionHandle)
@@ -264,7 +264,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
 
   unsigned int numberofCells = 0;
 
-  for(unsigned int i = 0 ; i < seissol::multipleSimulations::numberOfSimulations; i++){
+  for(unsigned int i = 0 ; i < seissol::multisim::NumSimulations; i++){
     numberofCells += layerData[i]->getNumberOfCells();
   }
 
@@ -319,14 +319,14 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice( seissol::
 
 void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops( 
   // seissol::initializer::Layer& layerData,
-          std::array<seissol::initializer::Layer*, seissol::multipleSimulations::numberOfSimulations>& layerData,
+          std::array<seissol::initializer::Layer*, seissol::multisim::NumSimulations>& layerData,
                                                                       long long&                    nonZeroFlops,
                                                                       long long&                    hardwareFlops )
 {
   nonZeroFlops = 0;
   hardwareFlops = 0;
 
-  for(unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++)
+  for(unsigned int i = 0; i < seissol::multisim::NumSimulations; i++)
 {  
   DRFaceInformation* faceInformation = layerData[i]->var(m_dynRup[i]->faceInformation);
 
@@ -780,7 +780,7 @@ void TimeCluster::correct() { // Here, need to think what to do
   auto timeStepLocal = timeStepSize();
   if (dynamicRuptureScheduler->isFirstClusterWithDynamicRuptureFaces() &&
       dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
-    for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+    for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
       faultOutputManager[i]->writePickpointOutput(ct.correctionTime + timeStepLocal,
                                                   timeStepLocal);
     } /// \todo this method needs modification to incorporate fused simulations

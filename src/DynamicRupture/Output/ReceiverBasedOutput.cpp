@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -22,7 +22,7 @@
 #include "Numerical/BasisFunction.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
-#include <Common/Constants.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cassert>

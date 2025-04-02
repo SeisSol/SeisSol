@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -92,7 +92,7 @@ class seissol::time_stepping::TimeManager {
     ActorStateStatisticsManager actorStateStatisticsManager;
     
     //! dynamic rupture output
-    std::array<dr::output::OutputManager*, seissol::multipleSimulations::numberOfSimulations> m_faultOutputManager{};
+    std::array<dr::output::OutputManager*, seissol::multisim::NumSimulations> m_faultOutputManager{};
 
   public:
     /**
@@ -118,9 +118,9 @@ class seissol::time_stepping::TimeManager {
                      initializer::MemoryManager& memoryManager,
                      bool usePlasticity);
 
-    void setFaultOutputManager(std::array<std::shared_ptr<seissol::dr::output::OutputManager>, seissol::multipleSimulations::numberOfSimulations>& faultOutputManager);
+    void setFaultOutputManager(std::array<std::shared_ptr<seissol::dr::output::OutputManager>, seissol::multisim::NumSimulations>& faultOutputManager);
 
-    std::array<seissol::dr::output::OutputManager*, seissol::multipleSimulations::numberOfSimulations>& getFaultOutputManager();
+    std::array<seissol::dr::output::OutputManager*, seissol::multisim::NumSimulations>& getFaultOutputManager();
 
     /**
      * Advance in time until all clusters reach the next synchronization time.
@@ -171,4 +171,3 @@ class seissol::time_stepping::TimeManager {
 
 
 #endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
-

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -199,15 +199,14 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   }
 
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx) {
-    auto fullUpdateTime{ctx.data->mFullUpdateTime};
     auto muW{ctx.data->drParameters.muW};
     auto rsF0{ctx.data->drParameters.rsF0};
 
     const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
-    if (localRuptureTime > 0.0 && localRuptureTime <= fullUpdateTime &&
+    if (localRuptureTime > 0.0 && localRuptureTime <= ctx.fullUpdateTime &&
         ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
         ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <= (muW + 0.05 * (rsF0 - muW))) {
-      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = fullUpdateTime;
+      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = ctx.fullUpdateTime;
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }

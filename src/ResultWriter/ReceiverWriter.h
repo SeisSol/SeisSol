@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2019 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -54,7 +54,7 @@ class ReceiverWriter : public seissol::Module {
   // Hooks
   //
   void syncPoint(double /*currentTime*/) override;
-  void simulationStart() override;
+  void simulationStart(std::optional<double> checkpointTime) override;
   void shutdown() override;
 
   private:

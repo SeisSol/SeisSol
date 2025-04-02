@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2020 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -40,7 +40,8 @@ TEST_CASE("LTS Weights") {
   seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
   seissolParameters.model.materialFileName = "Testing/material.yaml";
-  seissol::SeisSol seissolInstance(seissolParameters);
+  const utils::Env env("SEISSOL_");
+  seissol::SeisSol seissolInstance(seissolParameters, env);
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
   const auto pumlReader =

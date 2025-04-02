@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2019 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -19,6 +19,7 @@
 #include <math.h>
 #include <tensor.h>
 
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Numerical/Eigenvalues.h"
 #include "Physics/InitialField.h"

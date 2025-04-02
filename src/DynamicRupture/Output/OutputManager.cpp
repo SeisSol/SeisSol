@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -344,11 +344,7 @@ void OutputManager::initPickpointOutput() {
           auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
           const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
-          const auto* initialStress = initialStressVar[face];
-          std::array<real, 6> unrotatedInitialStress{};
-          for (std::size_t i = 0; i < unrotatedInitialStress.size(); ++i) {
-            unrotatedInitialStress[i] = initialStress[i][receiver.nearestGpIndex];
-          }
+          const auto* initialStress = reinterpret_cast<const real*>(initialStressVar[face]);
 
           seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
           alignAlongDipAndStrikeKernel.stressRotationMatrix =
@@ -356,7 +352,7 @@ void OutputManager::initPickpointOutput() {
           alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
               outputData->stressFaceAlignedToGlb[i].data();
 
-          alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
+          alignAlongDipAndStrikeKernel.initialStress = initialStress;
           alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
           alignAlongDipAndStrikeKernel.execute();
         }

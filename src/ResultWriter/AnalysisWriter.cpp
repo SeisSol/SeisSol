@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2019 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -38,9 +38,8 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Physics/InitialField.h"
-#include "Initializer/PreProcessorMacros.h"
-#include "Solver/MultipleSimulations.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 
 namespace seissol::writer {
 
@@ -119,13 +118,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   double quadratureWeights[NumQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 
-#ifdef MULTIPLE_SIMULATIONS
-  constexpr unsigned MultipleSimulations = MULTIPLE_SIMULATIONS;
-#else
-  constexpr unsigned MultipleSimulations = 1;
-#endif
-
-  for (unsigned sim = 0; sim < MultipleSimulations; ++sim) {
+  for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
     logInfo() << "Analysis for simulation" << sim << ": absolute, relative";
     logInfo() << "--------------------------";
 

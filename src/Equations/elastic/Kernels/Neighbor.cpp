@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 // SPDX-FileCopyrightText: 2014-2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -117,7 +117,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
         real fluxSolver_ijs[init::fluxSolverMultipleSim::size()]{};
         real godunov_ijs[init::QInterpolatedMultipleSim::size()]{};
   
-        for (int sim = 0; sim < seissol::multipleSimulations::numberOfSimulations; ++sim) {
+        for (int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
           std::memcpy(&fluxSolver_ijs[sim * init::fluxSolver::size()],
                       cellDrMapping[face].fluxSolver[sim],
                       init::fluxSolver::size() * sizeof(real));

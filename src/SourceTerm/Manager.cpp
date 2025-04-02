@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -32,6 +32,7 @@
 #include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
+#include <Solver/MultipleSimulations.h>
 #include <Solver/time_stepping/TimeManager.h>
 #include <SourceTerm/NRF.h>
 #include <SourceTerm/Typedefs.h>
@@ -260,7 +261,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
       std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources>(sources));
 
-#if defined(ACL_DEVICE) && !defined(MULTIPLE_SIMULATIONS)
+#if defined(ACL_DEVICE)
   using GpuImpl = seissol::kernels::PointSourceClusterOnDevice;
 
   auto deviceData =
@@ -342,17 +343,19 @@ auto loadSourcesFromFSRM(const char* fileName,
       sources.numberOfSources = numberOfSources;
       sources.mInvJInvPhisAtSources.resize(numberOfSources);
       sources.tensor.resize(numberOfSources);
-      sources.originalIndex.resize(numberOfSources);
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       sources.sampleOffsets[0].resize(numberOfSources + 1);
       sources.sampleOffsets[0][0] = 0;
       sources.sample[0].resize(fsrm.numberOfSamples * numberOfSources);
 
+      // only actively used in the case of fused simulations
+      sources.simulationIndex.resize(numberOfSources);
+
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned fsrmIndex = originalIndex[sourceIndex];
-
+        sources.simulationIndex[clusterSource] = fsrmIndex % multisim::NumSimulations;
         computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
                                      sources.mInvJInvPhisAtSources[clusterSource],
                                      meshIds[sourceIndex],
@@ -467,13 +470,15 @@ auto loadSourcesFromNRF(const char* fileName,
       sources.tensor.resize(numberOfSources);
       sources.A.resize(numberOfSources);
       sources.stiffnessTensor.resize(numberOfSources);
-      sources.originalIndex.resize(numberOfSources);
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       for (auto& so : sources.sampleOffsets) {
         so.resize(numberOfSources + 1);
         so[0] = 0;
       }
+
+      // only actively used in the case of fused simulations
+      sources.simulationIndex.resize(numberOfSources);
 
       for (std::size_t i = 0; i < Offsets().size(); ++i) {
         std::size_t sampleSize = 0;
@@ -488,6 +493,7 @@ auto loadSourcesFromNRF(const char* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned nrfIndex = originalIndex[sourceIndex];
+        sources.simulationIndex[clusterSource] = nrfIndex % multisim::NumSimulations;
         transformNRFSourceToInternalSource(
             nrf.centres[nrfIndex],
             meshIds[sourceIndex],

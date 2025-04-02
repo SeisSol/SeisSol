@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2019 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -67,9 +67,10 @@ class DirichletBoundary {
     projectKrnl.execute(faceIdx);
 
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
-  
-    static_assert(nodal::tensor::nodes2D::Shape[multipleSimulations::basisFunctionDimension] == tensor::INodal::Shape[multipleSimulations::basisFunctionDimension],
-		  "Need evaluation at all nodes!");
+
+    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
+                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
+                  "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
 
@@ -152,8 +153,10 @@ class DirichletBoundary {
                              double timeStepWidth) const {
     // TODO(Lukas) Implement functions which depend on the interior values...
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
-    static_assert(nodal::tensor::nodes2D::Shape[multipleSimulations::basisFunctionDimension] == tensor::INodal::Shape[multipleSimulations::basisFunctionDimension],
-		  "Need evaluation at all nodes!");
+
+    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
+                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
+                  "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
 

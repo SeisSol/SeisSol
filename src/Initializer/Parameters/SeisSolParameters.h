@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -25,7 +25,7 @@ namespace seissol::initializer::parameters {
 
 struct SeisSolParameters {
   CubeGeneratorParameters cubeGenerator;
-  std::array<std::shared_ptr<DRParameters>, seissol::multipleSimulations::numberOfSimulations> drParameters;
+  std::array<std::shared_ptr<DRParameters>, seissol::multisim::NumSimulations> drParameters;
   InitializationParameters initialization;
   MeshParameters mesh;
   ModelParameters model;

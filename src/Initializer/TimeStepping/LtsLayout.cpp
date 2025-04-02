@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -489,7 +489,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior
 
         // local id in the ghost region
         unsigned int l_localGhostCell = m_cells[l_cell].mpiIndices[l_face];
-        assert( l_localGhostCell < m_numberOfPlainGhostCells[l_plainRegion] );
+        assert( l_localGhostCell < m_mesh->getGhostlayerMetadata().at(m_cells[l_cell].neighborRanks[l_face]).size() );
 
         // neighboring cluster id
         unsigned int l_neighboringClusterId = m_mesh->getGhostlayerMetadata().at(m_cells[l_cell].neighborRanks[l_face])[l_localGhostCell].clusterId;
@@ -1216,11 +1216,6 @@ void seissol::initializer::time_stepping::LtsLayout::getMeshStructure( MeshStruc
     }
 
     o_meshStructure[l_cluster].numberOfInteriorCells = m_clusteredInterior[l_cluster].size();
-
-#ifdef USE_MPI
-    o_meshStructure[l_cluster].sendRequests    = new MPI_Request[ m_clusteredCopy[l_cluster].size() ];
-    o_meshStructure[l_cluster].receiveRequests = new MPI_Request[ m_clusteredCopy[l_cluster].size() ];
-#endif
   }
 }
 

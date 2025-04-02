@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -30,7 +30,7 @@ void RateAndStateInitializer::initializeFault(
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
 
-    bool(*dynStressTimePending)[misc::NumPaddedPoints] =
+    bool (*dynStressTimePending)[misc::NumPaddedPoints] =
         layer.var(concreteLts->dynStressTimePending);
     real(*slipRate1)[misc::NumPaddedPoints] = layer.var(concreteLts->slipRate1);
     real(*slipRate2)[misc::NumPaddedPoints] = layer.var(concreteLts->slipRate2);
@@ -156,12 +156,8 @@ void ThermalPressurizationInitializer::initializeFault(
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     real(*temperature)[misc::NumPaddedPoints] = layer.var(concreteLts->temperature);
     real(*pressure)[misc::NumPaddedPoints] = layer.var(concreteLts->pressure);
-    real(*theta)[misc::NumPaddedPoints][misc::NumTpGridPoints] = layer.var(concreteLts->theta);
-    real(*sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints] = layer.var(concreteLts->sigma);
-    real(*thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints] =
-        layer.var(concreteLts->thetaTmpBuffer);
-    real(*sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints] =
-        layer.var(concreteLts->sigmaTmpBuffer);
+    auto* theta = layer.var(concreteLts->theta);
+    auto* sigma = layer.var(concreteLts->sigma);
 
     for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
@@ -169,10 +165,8 @@ void ThermalPressurizationInitializer::initializeFault(
         pressure[ltsFace][pointIndex] = drParameters->initialPressure;
         for (unsigned tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
              ++tpGridPointIndex) {
-          theta[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
-          sigma[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
-          thetaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
-          sigmaTmpBuffer[ltsFace][pointIndex][tpGridPointIndex] = 0.0;
+          theta[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
+          sigma[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
         }
       }
     }

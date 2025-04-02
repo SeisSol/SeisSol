@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -391,7 +391,7 @@ void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   seissolInstance.getMemoryManager().initFaultOutputManager(backupTimeStamp);
   auto faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
-  for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+  for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
     seissolInstance.getMemoryManager().getFaultOutputManager()[i]->initFaceToLtsMap();
   }
 }

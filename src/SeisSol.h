@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2014-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2014 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "utils/env.h"
 #include "utils/logger.h"
 
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -100,7 +101,7 @@ class SeisSol {
   /**
    * Get the fault writer module
    */
-  std::array<std::unique_ptr<writer::FaultWriter>, seissol::multipleSimulations::numberOfSimulations>& faultWriter() {
+  std::array<std::unique_ptr<writer::FaultWriter>, seissol::multisim::NumSimulations>& faultWriter() {
     return m_faultWriter;
   }
 
@@ -189,6 +190,8 @@ class SeisSol {
 
   seissol::io::OutputManager& getOutputManager() { return outputManager; }
 
+  utils::Env& env() { return m_env; }
+
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
   // Otherwise it will NOT work.
@@ -243,7 +246,7 @@ class SeisSol {
   writer::WaveFieldWriter m_waveFieldWriter;
 
   //! Fault output module
-  std::array<std::unique_ptr<writer::FaultWriter>, seissol::multipleSimulations::numberOfSimulations> m_faultWriter = {nullptr};
+  std::array<std::unique_ptr<writer::FaultWriter>, seissol::multisim::NumSimulations> m_faultWriter = {nullptr};
 
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
@@ -266,14 +269,16 @@ class SeisSol {
 
   std::optional<std::size_t> executionPlaceCutoff;
 
+  utils::Env m_env{"SEISSOL_"};
+
   public:
-  SeisSol(initializer::parameters::SeisSolParameters& parameters)
+  SeisSol(initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
       : outputManager(*this), m_seissolParameters(parameters), m_ltsLayout(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
         m_receiverWriter(*this), m_energyOutput(*this),
         timeMirrorManagers(*this, *this) {
-          for (unsigned int i = 0; i < seissol::multipleSimulations::numberOfSimulations; i++) {
+          for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
             m_faultWriter[i] = std::make_unique<writer::FaultWriter>(*this);
             m_faultWriter[i]->setfusedNumber(i);
           }
