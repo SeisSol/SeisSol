@@ -28,7 +28,6 @@
 #include <vector>
 #include <yateto.h>
 
-#include "Common/Offset.h"
 
 #include <array>
 #include <cassert>
@@ -42,6 +41,10 @@
 #include "Kernels/Common.h"
 
 #include "utils/logger.h"
+
+#ifdef ACL_DEVICE
+#include "Common/Offset.h"
+#endif
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)

@@ -21,7 +21,9 @@ extern long long libxsmm_num_total_flops;
 #include <omp.h>
 #include <stdint.h>
 
+#ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#endif
 
 #include "Equations/poroelastic/Model/PoroelasticSetup.h"
 
@@ -343,6 +345,11 @@ void Time::computeBatchedAder(double timeStepWidth,
     }
 
     */
+    /*runtime.enqueueOmpFor(numElements, [](std::size_t i) {
+      if (timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
+        // TODO
+      }
+    });*/
 
     std::size_t zinvOffset = SEISSOL_OFFSET(LocalIntegrationData, specific.Zinv);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv>(); i++) {

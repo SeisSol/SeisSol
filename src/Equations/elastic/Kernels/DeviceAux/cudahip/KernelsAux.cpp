@@ -130,7 +130,7 @@ static __global__ __launch_bounds__(Blocksize) void taylorSumKernel(TargetRealT*
   __shared__ SourceRealT
       shmem[seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) *
             Quantities];
-  TargetRealT __restrict__ reg[Quantities] = {0};
+  TargetRealT reg[Quantities] = {0};
 
   const SourceRealT* const __restrict__ source =
       const_cast<const SourceRealT*>(sourceBatch[batchId]);
