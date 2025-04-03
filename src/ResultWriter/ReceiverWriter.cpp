@@ -27,6 +27,7 @@
 #include <memory>
 #include <mpi.h>
 #include <numeric>
+#include <optional>
 #include <ostream>
 #include <regex>
 #include <sstream>
@@ -252,7 +253,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   }
 }
 
-void ReceiverWriter::simulationStart() {
+void ReceiverWriter::simulationStart(std::optional<double> checkpointTime) {
   for (auto& [layer, clusters] : m_receiverClusters) {
     for (auto& cluster : clusters) {
       cluster.allocateData();

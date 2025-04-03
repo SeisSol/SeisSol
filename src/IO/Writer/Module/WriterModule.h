@@ -30,7 +30,7 @@ class WriterModule : public seissol::Module, private AsyncWriterModule {
                const parallel::Pinning& pinning);
   void startup();
   void setUp() override;
-  void simulationStart() override;
+  void simulationStart(std::optional<double> checkpointTime) override;
   void syncPoint(double time) override;
   void simulationEnd() override;
   void shutdown() override;

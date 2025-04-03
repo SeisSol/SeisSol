@@ -15,6 +15,7 @@
 #include <sched.h>
 #include <sstream>
 #include <string>
+#include <utils/env.h>
 
 #ifndef __APPLE__
 #include <sys/sysinfo.h>
@@ -69,12 +70,13 @@ PinningInfo getPinningInfo(const cpu_set_t& set) {
 } // namespace
 #endif // __APPLE__
 
-void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
+void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning,
+                                                  utils::Env& env) {
 #ifndef __APPLE__
   auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
   PinningInfo commThreadInfo;
-  if (seissol::useCommThread(seissol::MPI::mpi)) {
+  if (seissol::useCommThread(seissol::MPI::mpi, env)) {
     auto freeCpus = pinning.getFreeCPUsMask();
     commThreadInfo = getPinningInfo(freeCpus.set);
   } else {
