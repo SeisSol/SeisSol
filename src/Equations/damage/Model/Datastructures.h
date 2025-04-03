@@ -11,6 +11,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_DAMAGE_MODEL_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_DAMAGE_MODEL_DATASTRUCTURES_H_
 
+#include "Equations/elastic/Model/Datastructures.h"
 #include "Model/CommonDatastructures.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
@@ -40,42 +41,69 @@ struct DamageMaterial : Material {
 
   double lambda;
   double mu;
+  double gammaR;
+  double Cd; // damage evolution coefficient
+  double lambdaE; // effective
+  double muE; // effective
+  double gammaE; // effective
+  // store the initial strain for predictor step
+  double epsInit_xx;
+  double epsInit_yy;
+  double epsInit_zz;
+  double epsInit_xy;
+  double epsInit_yz;
+  double epsInit_xz;
+  // track the total strain for predictor step
+  double epsTot_xx;
+  double epsTot_yy;
+  double epsTot_zz;
+  double epsTot_xy;
+  double epsTot_yz;
+  double epsTot_xz;
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
   [[nodiscard]] double getMuBar() const override { return mu; }
 
   DamageMaterial() = default;
+  
+  void assignTotalStrain() override {
+        this->epsTot_xx = this->epsInit_xx;
+        this->epsTot_yy = this->epsInit_yy;
+        this->epsTot_zz = this->epsInit_zz;
+        this->epsTot_xy = this->epsInit_xy;
+        this->epsTot_yz = this->epsInit_yz;
+        this->epsTot_xz = this->epsInit_xz;
+      }
+
+  // This initialization is not used for material initialization with easi
   DamageMaterial(const std::vector<double>& materialValues)
-      : Material(materialValues), lambda(materialValues.at(2)), mu(materialValues.at(1)) {}
+      : Material(materialValues), lambda(materialValues.at(2)), mu(materialValues.at(1)) {
+        this->gammaR = materialValues.at(3);
+        this->Cd = materialValues.at(4);
+        this->epsInit_xx = materialValues.at(5);
+        this->epsInit_yy = materialValues.at(6);
+        this->epsInit_zz = materialValues.at(7);
+        this->epsInit_xy = materialValues.at(8);
+        this->epsInit_yz = materialValues.at(9);
+        this->epsInit_xz = materialValues.at(10);
+        // Initialize the total strain also as initial strain
+        // This is not useful at the init phase, how to init these values later?
+        this->epsTot_xx = materialValues.at(5);
+        this->epsTot_yy = materialValues.at(6);
+        this->epsTot_zz = materialValues.at(7);
+        this->epsTot_xy = materialValues.at(8);
+        this->epsTot_yz = materialValues.at(9);
+        this->epsTot_xz = materialValues.at(10);
+      }
 
   ~DamageMaterial() override = default;
 
+  // Use the same elasticity tensor calculation as Elastic case
   void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const override {
-
-    auto stiffnessTensorView =
-        seissol_general::init::stiffnessTensor::view::create(fullTensor.data());
-    stiffnessTensorView.setZero();
-    stiffnessTensorView(0, 0, 0, 0) = lambda + 2 * mu;
-    stiffnessTensorView(0, 0, 1, 1) = lambda;
-    stiffnessTensorView(0, 0, 2, 2) = lambda;
-    stiffnessTensorView(0, 1, 0, 1) = mu;
-    stiffnessTensorView(0, 1, 1, 0) = mu;
-    stiffnessTensorView(0, 2, 0, 2) = mu;
-    stiffnessTensorView(0, 2, 2, 0) = mu;
-    stiffnessTensorView(1, 0, 0, 1) = mu;
-    stiffnessTensorView(1, 0, 1, 0) = mu;
-    stiffnessTensorView(1, 1, 0, 0) = lambda;
-    stiffnessTensorView(1, 1, 1, 1) = lambda + 2 * mu;
-    stiffnessTensorView(1, 1, 2, 2) = lambda;
-    stiffnessTensorView(1, 2, 1, 2) = mu;
-    stiffnessTensorView(1, 2, 2, 1) = mu;
-    stiffnessTensorView(2, 0, 0, 2) = mu;
-    stiffnessTensorView(2, 0, 2, 0) = mu;
-    stiffnessTensorView(2, 1, 2, 1) = mu;
-    stiffnessTensorView(2, 2, 0, 0) = lambda;
-    stiffnessTensorView(2, 2, 1, 1) = lambda;
-    stiffnessTensorView(2, 2, 2, 2) = lambda + 2 * mu;
+    const std::vector<double> elasticMaterialVals{this->rho, this->mu, this->lambda};
+    const ElasticMaterial em(elasticMaterialVals);
+    em.getFullStiffnessTensor(fullTensor);
   }
 
   [[nodiscard]] double getMaxWaveSpeed() const override { return getPWaveSpeed(); }

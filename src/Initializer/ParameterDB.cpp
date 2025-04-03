@@ -282,6 +282,20 @@ void MaterialParameterDB<DamageMaterial>::addBindingPoints(
   adapter.addBindingPoint("rho", &DamageMaterial::rho);
   adapter.addBindingPoint("mu", &DamageMaterial::mu);
   adapter.addBindingPoint("lambda", &DamageMaterial::lambda);
+  adapter.addBindingPoint("gammaR", &DamageMaterial::gammaR);
+  adapter.addBindingPoint("Cd", &DamageMaterial::Cd);
+  adapter.addBindingPoint("epsxx_alpha", &DamageMaterial::epsInit_xx);
+  adapter.addBindingPoint("epsyy_alpha", &DamageMaterial::epsInit_yy);
+  adapter.addBindingPoint("epszz_alpha", &DamageMaterial::epsInit_zz);
+  adapter.addBindingPoint("epsxy_alpha", &DamageMaterial::epsInit_xy);
+  adapter.addBindingPoint("epsyz_alpha", &DamageMaterial::epsInit_yz);
+  adapter.addBindingPoint("epszx_alpha", &DamageMaterial::epsInit_xz);
+  // adapter.addBindingPoint("epsxx_alpha", &DamageMaterial::epsTot_xx);
+  // adapter.addBindingPoint("epsyy_alpha", &DamageMaterial::epsTot_yy);
+  // adapter.addBindingPoint("epszz_alpha", &DamageMaterial::epsTot_zz);
+  // adapter.addBindingPoint("epsxy_alpha", &DamageMaterial::epsTot_xy);
+  // adapter.addBindingPoint("epsyz_alpha", &DamageMaterial::epsTot_yz);
+  // adapter.addBindingPoint("epszx_alpha", &DamageMaterial::epsTot_xz);
 }
 
 template <>
@@ -367,6 +381,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     // Usual behavior without homogenization
     for (unsigned i = 0; i < numPoints; ++i) {
       m_materials->at(i) = T(materialsFromQuery[i]);
+      m_materials->at(i).assignTotalStrain();
     }
   }
   delete model;

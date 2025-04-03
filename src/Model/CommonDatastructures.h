@@ -51,6 +51,7 @@ struct Material {
   double rho;
   Material() = default;
   Material(const std::vector<double>& data) : rho(data.at(0)) {}
+  virtual void assignTotalStrain() {};
   [[nodiscard]] virtual double getMaxWaveSpeed() const = 0;
   [[nodiscard]] virtual double getPWaveSpeed() const = 0;
   [[nodiscard]] virtual double getSWaveSpeed() const = 0;
@@ -70,6 +71,7 @@ struct Plasticity {
   double sXY;
   double sYZ;
   double sXZ;
+  virtual void assignTotalStrain() {};
 };
 
 struct IsotropicWaveSpeeds {
