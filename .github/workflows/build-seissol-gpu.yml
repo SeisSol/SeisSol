@@ -40,7 +40,7 @@ jobs:
           - snb # <-- needed for the self-hosted CI node for now :/
         build_type:
           - Release
-          - Debug
+          #- Debug
         equation:
           - type: acoustic
             multisim: 1
@@ -48,18 +48,18 @@ jobs:
           - type: elastic
             multisim: 1
             mechanisms: 0
-          #- type: poroelastic
-          #  multisim: 1
-          #  mechanisms: 0
-          #- type: viscoelastic2
-          #  multisim: 1
-          #  mechanisms: 3
+          - type: poroelastic
+            multisim: 1
+            mechanisms: 0
+          - type: viscoelastic2
+            multisim: 1
+            mechanisms: 3
           - type: anisotropic
             multisim: 1
             mechanisms: 0
-          #- type: elastic
-          #  multisim: 8
-          #  mechanisms: 0
+          - type: elastic
+            multisim: 32
+            mechanisms: 0
         precision:
           - single
           - double
@@ -118,6 +118,18 @@ jobs:
         run: |
           mkdir build && cd build
 
+          if [ "${{ matrix.equation.type }}" = viscoelastic2 ] || [ "${{ matrix.equation.type }}" = poroelastic ] || [ "${{ matrix.equation.multisim }}" != 1 ]; then
+              if [ "${{ matrix.setup.cc }}" = icx ]; then
+                  # the Intel image still works with an older Python version
+                  pip install git+https://github.com/seissol/tensorforge@develop
+              else
+                  pip install --break-system-packages git+https://github.com/seissol/tensorforge@develop
+              fi
+              DEVICE_CODEGEN=tensorforge
+          else
+              DEVICE_CODEGEN=auto
+          fi
+
           # TODO: change to `-Wall -Werror` at some point
           EXTRA_FLAGS="-Wall"
 
@@ -129,7 +141,7 @@ jobs:
           export CXX=${{matrix.setup.cxx}}
           export FC=${{matrix.setup.fc}}
 
-          cmake .. -GNinja -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
+          cmake .. -GNinja -DDEVICE_CODEGEN=${DEVICE_CODEGEN} -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
           ninja install
 
       - name: upload-seissol
@@ -199,18 +211,18 @@ jobs:
             energies: true
             receivers: true
             fault: true
-          #- name: tpv5-visco
-          #  equation: viscoelastic2
-          #  multisim: 1
-          #  energies: true
-          #  receivers: true
-          #  fault: true
-          #- name: tpv5-poro
-          #  equation: poroelastic
-          #  multisim: 1
-          #  energies: false # incomplete, hence disabled
-          #  receivers: true
-          #  fault: true
+          - name: tpv5-visco
+            equation: viscoelastic2
+            multisim: 1
+            energies: true
+            receivers: true
+            fault: true
+          - name: tpv5-poro
+            equation: poroelastic
+            multisim: 1
+            energies: false # incomplete, hence disabled
+            receivers: true
+            fault: true
           - name: tpv6
             equation: elastic
             multisim: 1
@@ -271,12 +283,12 @@ jobs:
             energies: true
             receivers: true
             fault: true
-          #- name: tpvloh1-fused
-          #  equation: elastic
-          #  multisim: 8
-          #  energies: true
-          #  receivers: true
-          #  fault: false # NYI
+          - name: tpvloh1-fused
+            equation: elastic
+            multisim: 8
+            energies: true
+            receivers: true
+            fault: false # NYI
         precision:
           - single
         order:

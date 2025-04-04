@@ -37,7 +37,11 @@ class TimeBase {
   unsigned int m_derivativesOffsets[ConvergenceOrder];
 
 #ifdef ACL_DEVICE
+#ifdef USE_STP
+  kernel::gpu_spaceTimePredictor deviceKrnlPrototype;
+#else
   kernel::gpu_derivative deviceKrnlPrototype;
+#endif
   kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif

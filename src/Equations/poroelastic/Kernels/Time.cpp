@@ -21,6 +21,10 @@ extern long long libxsmm_num_total_flops;
 #include <omp.h>
 #include <stdint.h>
 
+#ifdef ACL_DEVICE
+#include "Common/Offset.h"
+#endif
+
 #include "Equations/poroelastic/Model/PoroelasticSetup.h"
 
 #include <yateto.h>
@@ -62,7 +66,24 @@ void Time::setGlobalData(const CompoundGlobalData& global) {
   setHostGlobalData(global.onHost);
 
 #ifdef ACL_DEVICE
-  logError() << "Poroelasticity does not work on GPUs.";
+  // TODO: adjust pointers
+  for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
+    if (n > 0) {
+      for (int d = 0; d < 3; ++d) {
+        deviceKrnlPrototype.kDivMTSub(d, n) =
+            init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
+      }
+    }
+    deviceKrnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
+  }
+  for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
+    deviceKrnlPrototype.selectQuantity(k) =
+        init::selectQuantity::Values[tensor::selectQuantity::index(k)];
+    deviceKrnlPrototype.selectQuantityG(k) =
+        init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
+  }
+  deviceKrnlPrototype.timeInt = init::timeInt::Values;
+  deviceKrnlPrototype.wHat = init::wHat::Values;
 #endif
 }
 
@@ -272,6 +293,76 @@ void Time::computeTaylorExpansion(real time,
 void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
   nonZeroFlops = kernel::derivativeTaylorExpansion::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
+}
+
+void Time::computeBatchedAder(double timeStepWidth,
+                              LocalTmp& tmp,
+                              ConditionalPointersToRealsTable& dataTable,
+                              ConditionalMaterialTable& materialTable,
+                              bool updateDisplacement,
+                              seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype;
+
+  ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
+  if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
+    auto& entry = dataTable[timeVolumeKernelKey];
+
+    const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+    krnl.numElements = numElements;
+
+    krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+    krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+    krnl.timestep = timeStepWidth;
+
+    // TODO: maybe zero init?
+    krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Stp))->getDeviceDataPtr();
+    krnl.spaceTimePredictorRhs = (entry.get(inner_keys::Wp::Id::StpRhs))->getDeviceDataPtr();
+
+    for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+      krnl.star(i) = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+    }
+
+    krnl.streamPtr = runtime.stream();
+
+    krnl.Gkt = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+    krnl.Glt = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+    krnl.Gmt = const_cast<const real**>(
+        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+    krnl.extraOffset_Gkt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[10]);
+    krnl.extraOffset_Glt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[11]);
+    krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
+
+    /*
+    // TODO: port
+
+    if (timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
+      assert(false && "NYI");
+    }
+
+    */
+    /*runtime.enqueueOmpFor(numElements, [](std::size_t i) {
+      if (timeStepWidth != data.localIntegration.specific.typicalTimeStepWidth) {
+        // TODO
+      }
+    });*/
+
+    std::size_t zinvOffset = SEISSOL_OFFSET(LocalIntegrationData, specific.Zinv);
+    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::Zinv>(); i++) {
+      krnl.Zinv(i) =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Zinv))->getDeviceDataPtr());
+      krnl.extraOffset_Zinv(i) = zinvOffset;
+      zinvOffset += tensor::Zinv::size(i);
+    }
+    krnl.execute();
+  }
+#else
+  assert(false && "no implementation provided");
+#endif
 }
 
 } // namespace seissol::kernels

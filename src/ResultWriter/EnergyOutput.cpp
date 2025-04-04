@@ -351,7 +351,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       for (unsigned i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
           for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
-            totalFrictionalWork += drEnergyOutput[i].frictionalEnergy[j];
+            totalFrictionalWork +=
+                drEnergyOutput[i].frictionalEnergy[j * seissol::multisim::NumSimulations + sim];
           }
           staticFrictionalWork += computeStaticWork(timeDerivativePlusPtr(i),
                                                     timeDerivativeMinusPtr(i),
@@ -366,7 +367,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           const real mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
           real potencyIncrease = 0.0;
           for (unsigned k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
-            potencyIncrease += drEnergyOutput[i].accumulatedSlip[k];
+            potencyIncrease +=
+                drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim];
           }
           potencyIncrease *=
               0.5 * godunovData[i].doubledSurfaceArea / seissol::dr::misc::NumBoundaryGaussPoints;
@@ -377,12 +379,15 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       real localMin = std::numeric_limits<real>::max();
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
-    shared(layerSize, drEnergyOutput, faceInformation)
+    shared(layerSize, drEnergyOutput, faceInformation, sim)
 #endif
       for (unsigned i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
           for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
-            localMin = std::min(drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j], localMin);
+            localMin = std::min(
+                drEnergyOutput[i]
+                    .timeSinceSlipRateBelowThreshold[j * seissol::multisim::NumSimulations + sim],
+                localMin);
           }
         }
       }
@@ -575,7 +580,7 @@ void EnergyOutput::computeVolumeEnergies() {
         // plastic moment
         real* pstrainCell = ltsLut->lookup(lts->pstrain, elementId);
         const real mu = material.local.getMuBar();
-        totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size()];
+        totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size() + sim];
       }
     }
   }

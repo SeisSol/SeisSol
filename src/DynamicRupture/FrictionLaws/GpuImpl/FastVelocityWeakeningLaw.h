@@ -92,16 +92,25 @@ class FastVelocityWeakeningLaw
   SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
     constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(Dim0 == misc::NumPaddedPoints);
+    static_assert(Dim0 == misc::NumPaddedPointsSingle);
     static_assert(Dim0 >= Dim1);
 
     const auto localStateVariable = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
     ctx.sharedMemory[ctx.pointIndex] = ctx.stateVariableBuffer - localStateVariable;
     deviceBarrier(ctx);
 
+    const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
+    const auto simId = ctx.pointIndex % multisim::NumSimulations;
+
     real resampledDeltaStateVar{0.0};
     for (size_t i{0}; i < Dim1; ++i) {
-      resampledDeltaStateVar += ctx.resampleMatrix[ctx.pointIndex + i * Dim0] * ctx.sharedMemory[i];
+      if constexpr (multisim::MultisimEnabled) {
+        resampledDeltaStateVar += ctx.resampleMatrix[simPointIndex * Dim1 + i] *
+                                  ctx.sharedMemory[i * multisim::NumSimulations + simId];
+      } else {
+        resampledDeltaStateVar +=
+            ctx.resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
+      }
     }
 
     ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] =
