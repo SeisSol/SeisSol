@@ -272,6 +272,17 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(MaterialType materialt
     setBlocks(qGodLocal, S, tractionIndices, velocityIndices);
     break;
   }
+  case MaterialType::Damage: {
+    std::array<int, 3> tractionIndices = {0, 3, 5};
+    std::array<int, 4> velocityIndices = {6, 7, 8, 9};
+    using Matrix33 = Eigen::Matrix<double, 3, 3>;
+    using Matrix43 = Eigen::Matrix<double, 4, 3>;
+    Matrix33 R11 = R(tractionIndices, {0, 1, 2});
+    Matrix43 R21 = R(velocityIndices, {0, 1, 2});
+    Matrix43 S = (-(R21 * R11.inverse())).eval();
+    setBlocks(qGodLocal, S, tractionIndices, velocityIndices);
+    break;
+  }
   default: {
     std::array<int, 3> tractionIndices = {0, 3, 5};
     std::array<int, 3> velocityIndices = {6, 7, 8};

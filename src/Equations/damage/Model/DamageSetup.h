@@ -20,7 +20,7 @@
 #include <Equations/damage/Model/IntegrationData.h>
 
 namespace seissol::model {
-using Matrix99 = Eigen::Matrix<double, 9, 9>;
+using Matrix1010 = Eigen::Matrix<double, 10, 10>;
 
 template <>
 struct MaterialSetup<DamageMaterial> {
@@ -29,15 +29,12 @@ struct MaterialSetup<DamageMaterial> {
       getTransposedCoefficientMatrix(const DamageMaterial& material, unsigned dim, T& matM) {
     matM.setZero();
 
-    real lambda2mu = material.lambda + 2.0 * material.mu;
-    real rhoInv = 1.0 / material.rho;
-
     real lambda2muInvRho = (material.lambda + 2.0 * material.mu) / material.rho;
     real lambdaInvRho = (material.lambda) / material.rho;
     real muInvRho = (material.mu) / material.rho;
 
     /* For strain-vel formula:
-    {eps_xx, eps_yy, eps_zz, eps_xy, eps_yz, eps_zz, vx, vy, vz} */
+    {eps_xx, eps_yy, eps_zz, eps_xy, eps_yz, eps_zz, vx, vy, vz, alpha} */
     switch (dim) {
     case 0:
       matM(6, 0) = -1.0;
@@ -50,6 +47,9 @@ struct MaterialSetup<DamageMaterial> {
         matM(3, 7) = -2.0 * muInvRho;
         matM(5, 8) = -2.0 * muInvRho;
       }
+      matM(9, 6) = 0.0;
+      matM(9, 7) = 0.0;
+      matM(9, 8) = 0.0;
       break;
 
     case 1:
@@ -63,6 +63,9 @@ struct MaterialSetup<DamageMaterial> {
         matM(3, 6) = -2.0 * muInvRho;
         matM(4, 8) = -2.0 * muInvRho;
       }
+      matM(9, 6) = 0.0;
+      matM(9, 7) = 0.0;
+      matM(9, 8) = 0.0;
       break;
 
     case 2:
@@ -76,6 +79,9 @@ struct MaterialSetup<DamageMaterial> {
         matM(5, 6) = -2.0 * muInvRho;
         matM(4, 7) = -2.0 * muInvRho;
       }
+      matM(9, 6) = 0.0;
+      matM(9, 7) = 0.0;
+      matM(9, 8) = 0.0;
       break;
 
     default:
@@ -92,10 +98,10 @@ struct MaterialSetup<DamageMaterial> {
     QgodNeighbor.setZero();
 
     // Eigenvectors are precomputed
-    Matrix99 R = Matrix99::Zero();
+    Matrix1010 R = Matrix1010::Zero();
 
     /* For strain-vel formula:
-    {-cp, -cs, -cs, 0, 0, 0, cs, cs, cp} */
+    {-cp, -cs, -cs, 0, 0, 0, cs, cs, cp, 0} */
     if (testIfAcoustic(local.mu)) {
       R(0, 0) = local.lambda;
       R(1, 0) = local.lambda;
@@ -144,8 +150,9 @@ struct MaterialSetup<DamageMaterial> {
       R(0, 8) = 1.0;
       R(6, 8) = -std::sqrt((neighbor.lambda + 2 * neighbor.mu) / neighbor.rho);
     }
+    R(9, 9) = 1.0;
 
-    Matrix99 C = Matrix99::Zero();
+    Matrix1010 C = Matrix1010::Zero();
     C(0, 0) = local.lambda + 2.0 * local.mu;
     C(0, 1) = local.lambda;
     C(0, 2) = local.lambda;
@@ -161,15 +168,16 @@ struct MaterialSetup<DamageMaterial> {
     C(6, 6) = 1;
     C(7, 7) = 1;
     C(8, 8) = 1;
+    C(9, 9) = 1;
     // Convert to stress for free-surface condition
-    Matrix99 R_sig = (C * R).eval();
+    Matrix1010 R_sig = (C * R).eval();
 
     if (faceType == FaceType::FreeSurface) {
       MaterialType materialtype =
           testIfAcoustic(local.mu) ? MaterialType::Acoustic : MaterialType::Elastic;
       getTransposedFreeSurfaceGodunovState(materialtype, QgodLocal, QgodNeighbor, R_sig);
 
-      Matrix99 Qgod = Matrix99::Zero();
+      Matrix1010 Qgod = Matrix1010::Zero();
       for (unsigned i = 0; i < Qgod.cols(); ++i) {
         for (unsigned j = 0; j < Qgod.rows(); ++j) {
           Qgod(i, j) = -QgodLocal(j, i);
@@ -177,7 +185,7 @@ struct MaterialSetup<DamageMaterial> {
         }
       }
       // Convert to back to strain with the free-surface constraints
-      Matrix99 Qgod_temp = Matrix99::Zero();
+      Matrix1010 Qgod_temp = Matrix1010::Zero();
       Qgod_temp = ((C.inverse() * Qgod) * C).eval();
 
       for (unsigned i = 0; i < Qgod.cols(); ++i) {
@@ -191,7 +199,7 @@ struct MaterialSetup<DamageMaterial> {
       // Currently, QgodLocal and QgodNeighbor will not be used in the corrector step.
       // No need to account for heterogeneous effect
       // (in the same way as free-surf) here for Rusanov flux.
-      Matrix99 chi = Matrix99::Zero();
+      Matrix1010 chi = Matrix1010::Zero();
       if (!testIfAcoustic(local.mu)) {
         chi(2, 2) = 1.0;
         chi(1, 1) = 1.0;
@@ -207,7 +215,7 @@ struct MaterialSetup<DamageMaterial> {
           QgodNeighbor(i, j) = godunov(j, i);
         }
       }
-      for (unsigned idx = 0; idx < 9; ++idx) {
+      for (unsigned idx = 0; idx < godunov.cols(); ++idx) {
         QgodLocal(idx, idx) += 1.0;
       }
     }
@@ -229,6 +237,10 @@ struct MaterialSetup<DamageMaterial> {
         normal, tangent1, tangent2, matTinv, 0, 0);
     seissol::transformations::inverseTensor1RotationMatrix(
         normal, tangent1, tangent2, matTinv, 6, 6);
+    
+    // damage
+    matT(9, 9) = 1;
+    matTinv(9, 9) = 1;
   }
 
   static DamageMaterial getRotatedMaterialCoefficients(real rotationParameters[36],

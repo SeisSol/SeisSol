@@ -22,7 +22,7 @@ class DamageADERDG(ADERDGBase):
         self.kwargs = kwargs
 
     def numberOfQuantities(self):
-        return 9
+        return 10
 
     def name(self):
         return "damage"
