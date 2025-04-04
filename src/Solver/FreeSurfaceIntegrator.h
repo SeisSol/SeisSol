@@ -44,15 +44,15 @@ class seissol::solver::FreeSurfaceIntegrator {
     void addTo(seissol::initializer::LTSTree& surfaceLtsTree);
   };
 
-  std::unique_ptr<real> projectionMatrixMemory;
-  real* projectionMatrix[4];
-  std::unique_ptr<real> projectionMatrixFromFace;
-  unsigned numberOfSubTriangles;
-  unsigned numberOfAlignedSubTriangles;
+  real* projectionMatrixMemory{nullptr};
+  real* projectionMatrix[4]{};
+  real* projectionMatrixFromFace{nullptr};
+  unsigned numberOfSubTriangles{0};
+  unsigned numberOfAlignedSubTriangles{0};
 
   static constexpr auto polyDegree = ConvergenceOrder - 1;
   static constexpr auto numQuadraturePoints = polyDegree * polyDegree;
-  bool mEnabled;
+  bool mEnabled{false};
 
   void initializeProjectionMatrices(unsigned maxRefinementDepth);
   void computeSubTriangleAverages(
@@ -74,10 +74,9 @@ class seissol::solver::FreeSurfaceIntegrator {
   real* velocities[FREESURFACE_NUMBER_OF_COMPONENTS];
   real* displacements[FREESURFACE_NUMBER_OF_COMPONENTS];
 
-  public:
   std::vector<unsigned int> locationFlags;
   unsigned totalNumberOfFreeSurfaces;
-  unsigned totalNumberOfTriangles;
+  unsigned totalNumberOfTriangles{0};
 
   SurfaceLTS surfaceLts;
   seissol::initializer::LTSTree surfaceLtsTree;
@@ -94,7 +93,7 @@ class seissol::solver::FreeSurfaceIntegrator {
 
   void calculateOutput();
 
-  bool enabled() const { return mEnabled; }
+  [[nodiscard]] bool enabled() const { return mEnabled; }
 };
 
 #endif // SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_

@@ -274,7 +274,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
 void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
   if constexpr (isDeviceOn()) {
-    const auto hdswitch = utils::Env::get<std::string>("SEISSOL_DEVICE_HOST_SWITCH", "none");
+    const auto hdswitch = seissolInstance.env().get<std::string>("DEVICE_HOST_SWITCH", "none");
     bool hdenabled = false;
     if (hdswitch == "none") {
       hdenabled = false;

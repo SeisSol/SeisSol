@@ -37,8 +37,9 @@ void seissol::Simulator::setFinalTime(double finalTime) {
 void seissol::Simulator::setUsePlasticity(bool plasticity) { usePlasticity = plasticity; }
 
 void seissol::Simulator::setCurrentTime(double currentTime) {
-  assert(currentTime > 0);
+  assert(currentTime >= 0);
   this->currentTime = currentTime;
+  checkpoint = true;
 }
 
 void seissol::Simulator::abort() { aborted = true; }
@@ -65,8 +66,10 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   const double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
 
   // Write initial wave field snapshot
-  if (currentTime == 0.0) {
-    Modules::callHook<ModuleHook::SimulationStart>();
+  if (checkpoint) {
+    Modules::callSimulationStartHook(currentTime);
+  } else {
+    Modules::callSimulationStartHook(std::optional<double>{});
   }
 
   // intialize wave field and checkpoint time

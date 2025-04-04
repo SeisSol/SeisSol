@@ -49,9 +49,7 @@ void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(
   surfaceLtsTree.addVar(boundaryMapping, ghostMask, 1, initializer::AllocationMode::HostOnly);
 }
 
-seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator()
-    : projectionMatrixMemory(nullptr), numberOfSubTriangles(0), numberOfAlignedSubTriangles(0),
-      mEnabled(false), totalNumberOfTriangles(0) {
+seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
   for (auto& face : projectionMatrix) {
     face = nullptr;
   }
@@ -69,6 +67,9 @@ seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
     seissol::memory::free(velocities[dim]);
     seissol::memory::free(displacements[dim]);
   }
+
+  seissol::memory::free(projectionMatrixMemory);
+  seissol::memory::free(projectionMatrixFromFace);
 }
 
 void seissol::solver::FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
@@ -133,7 +134,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput() {
       kernel::subTriangleDisplacement dkrnl;
       dkrnl.faceDisplacement = displacementDofs[face];
       dkrnl.MV2nTo2m = nodal::init::MV2nTo2m::Values;
-      dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace.get();
+      dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace;
       dkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
       dkrnl.execute(triRefiner.maxDepth);
 
@@ -162,23 +163,20 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(
 
   const auto projectionMatrixNumberOfReals =
       4 * tensor::subTriangleProjection::size(maxRefinementDepth);
-  const auto projectionMatrixMemorySize = projectionMatrixNumberOfReals * sizeof(real);
   const auto projectionMatrixFromFaceMemoryNumberOfReals =
       tensor::subTriangleProjectionFromFace::size(maxRefinementDepth);
-  const auto projectionMatrixFromFaceMemorySize =
-      projectionMatrixFromFaceMemoryNumberOfReals * sizeof(real);
 
-  projectionMatrixMemory = std::unique_ptr<real>(
-      static_cast<real*>(seissol::memory::allocate(projectionMatrixMemorySize, Alignment)));
-  projectionMatrixFromFace = std::unique_ptr<real>(
-      static_cast<real*>(seissol::memory::allocate(projectionMatrixFromFaceMemorySize, Alignment)));
+  projectionMatrixMemory =
+      seissol::memory::allocTyped<real>(projectionMatrixNumberOfReals, Alignment);
+  projectionMatrixFromFace =
+      seissol::memory::allocTyped<real>(projectionMatrixFromFaceMemoryNumberOfReals, Alignment);
 
-  std::fill_n(projectionMatrixMemory.get(), 0, projectionMatrixNumberOfReals);
-  std::fill_n(projectionMatrixFromFace.get(), 0, projectionMatrixFromFaceMemoryNumberOfReals);
+  std::fill_n(projectionMatrixMemory, 0, projectionMatrixNumberOfReals);
+  std::fill_n(projectionMatrixFromFace, 0, projectionMatrixFromFaceMemoryNumberOfReals);
 
   for (unsigned face = 0; face < 4; ++face) {
-    projectionMatrix[face] = projectionMatrixMemory.get() +
-                             face * tensor::subTriangleProjection::size(maxRefinementDepth);
+    projectionMatrix[face] =
+        projectionMatrixMemory + face * tensor::subTriangleProjection::size(maxRefinementDepth);
   }
 
   // Triangle quadrature points and weights
@@ -207,8 +205,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(
       }
       computeSubTriangleAverages(projectionMatrix[face] + tri, points3D, weights);
       if (face == 0) {
-        computeSubTriangleAveragesFromFaces(
-            projectionMatrixFromFace.get() + tri, points2D, weights);
+        computeSubTriangleAveragesFromFaces(projectionMatrixFromFace + tri, points2D, weights);
       }
     }
   }
@@ -327,10 +324,8 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
   surfaceLtsTree.touchVariables();
 
   for (unsigned dim = 0; dim < FREESURFACE_NUMBER_OF_COMPONENTS; ++dim) {
-    velocities[dim] =
-        (real*)seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), Alignment);
-    displacements[dim] =
-        (real*)seissol::memory::allocate(totalNumberOfTriangles * sizeof(real), Alignment);
+    velocities[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
+    displacements[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
   }
   locationFlags = std::vector<unsigned int>(totalNumberOfTriangles, 0);
 

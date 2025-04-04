@@ -11,6 +11,7 @@
 #include <cassert>
 #include <cstddef>
 #include <limits>
+#include <optional>
 #include <utility>
 #include <utils/logger.h>
 
@@ -77,6 +78,12 @@ double Modules::_callSyncHook(double currentTime, double timeTolerance, bool for
   return nextSyncTime;
 }
 
+void Modules::_callSimulationStartHook(std::optional<double> checkpointTime) {
+  for (auto& [_, module] : hooks[static_cast<size_t>(ModuleHook::SimulationStart)]) {
+    module->simulationStart(checkpointTime);
+  }
+}
+
 void Modules::_setSimulationStartTime(double time) {
   assert(static_cast<int>(nextHook) <= static_cast<int>(ModuleHook::SynchronizationPoint));
 
@@ -99,6 +106,10 @@ double Modules::callSyncHook(double currentTime, double timeTolerance, bool forc
   return instance()._callSyncHook(currentTime, timeTolerance, forceSyncPoint);
 }
 
+void Modules::callSimulationStartHook(std::optional<double> checkpointTime) {
+  instance()._callSimulationStartHook(checkpointTime);
+}
+
 void Modules::setSimulationStartTime(double time) { instance()._setSimulationStartTime(time); }
 
 // Create all template instances for call
@@ -116,7 +127,6 @@ MODULES_CALL_INSTANCE(ModuleHook::PreLtsInit, preLtsInit)
 MODULES_CALL_INSTANCE(ModuleHook::PostLtsInit, postLtsInit)
 MODULES_CALL_INSTANCE(ModuleHook::PreModel, preModel)
 MODULES_CALL_INSTANCE(ModuleHook::PostModel, postModel)
-MODULES_CALL_INSTANCE(ModuleHook::SimulationStart, simulationStart)
 MODULES_CALL_INSTANCE(ModuleHook::SimulationEnd, simulationEnd)
 MODULES_CALL_INSTANCE(ModuleHook::Shutdown, shutdown)
 

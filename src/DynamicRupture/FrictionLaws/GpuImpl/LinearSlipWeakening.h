@@ -187,16 +187,20 @@ class LinearSlipWeakeningLaw
 
   SEISSOL_DEVICE static void calcStateVariableHook(FrictionLawContext& ctx,
                                                    unsigned int timeIndex) {
-    const auto deltaT{ctx.data->deltaT[timeIndex]};
-    const real tn{ctx.fullUpdateTime + deltaT};
     const auto t0{ctx.data->drParameters.t0};
     const auto tpProxyExponent{ctx.data->drParameters.tpProxyExponent};
+
+    real tn = ctx.fullUpdateTime;
+    for (int i = 0; i <= timeIndex; ++i) {
+      tn += ctx.data->deltaT[i];
+    }
 
     const real resampledSlipRate =
         SpecializationT::resampleSlipRate(ctx, ctx.data->slipRateMagnitude[ctx.ltsFace]);
 
     // integrate slip rate to get slip = state variable
-    ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] += resampledSlipRate * deltaT;
+    ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
+        resampledSlipRate * ctx.data->deltaT[timeIndex];
 
     // Actually slip is already the stateVariable for this FL, but to simplify the next
     // equations we divide it here by the critical distance.

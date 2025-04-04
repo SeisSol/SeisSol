@@ -68,10 +68,12 @@ int main(int argc, char* argv[]) {
   device.api->allocateStackMem();
 #endif // ACL_DEVICE
 
+  utils::Env env("SEISSOL_");
+
 #ifdef USE_ASAGI
   // Construct an instance of AsagiModule, to initialize it.
   // It needs to be done here, as it registers PRE_MPI hooks
-  seissol::asagi::AsagiModule::getInstance();
+  seissol::asagi::AsagiModule::initInstance(env);
 #endif
   // Call pre MPI hooks
   seissol::Modules::callHook<ModuleHook::PreMPI>();
@@ -117,13 +119,14 @@ int main(int argc, char* argv[]) {
   logInfo() << "Compiled with DEVICE_ARCH =" << SEISSOL_DEVICE_ARCH;
 #endif
 
-  if (utils::Env::get<bool>("FLOATING_POINT_EXCEPTION", false)) {
+  if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
     // Check if on a GNU system (Linux) or other platform
 #if defined(__GNUC__) || defined(__linux__)
     feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
     logInfo() << "Enabling floating point exception handlers.";
 #else
-    logInfo() << "Floating-point exceptions not supported on this platform.";
+    logInfo() << "Floating-point exception handling was requested, but is not supported on this "
+                 "platform.";
 #endif
   }
 
@@ -161,7 +164,7 @@ int main(int argc, char* argv[]) {
   parameterReader.warnUnknown();
 
   // Initialize SeisSol
-  seissol::SeisSol seissolInstance(parameters);
+  seissol::SeisSol seissolInstance(parameters, env);
 
   if (args.isSet("checkpoint")) {
     const auto* checkpointFile = args.getArgument<const char*>("checkpoint");

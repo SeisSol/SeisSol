@@ -19,6 +19,7 @@
 #include <async/Module.h>
 #include <cassert>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <utils/logger.h>
 #include <vector>
@@ -207,7 +208,11 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
   logInfo() << "Writing free surface at time" << utils::nospace << time << ". Done.";
 }
 
-void seissol::writer::FreeSurfaceWriter::simulationStart() { syncPoint(0.0); }
+void seissol::writer::FreeSurfaceWriter::simulationStart(std::optional<double> checkpointTime) {
+  if (checkpointTime.value_or(0) == 0) {
+    syncPoint(0.0);
+  }
+}
 
 void seissol::writer::FreeSurfaceWriter::syncPoint(double currentTime) {
   SCOREP_USER_REGION("freesurfaceoutput", SCOREP_USER_REGION_TYPE_FUNCTION)

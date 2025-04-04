@@ -12,6 +12,7 @@
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include <Common/Constants.h>
+#include <Equations/Datastructures.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
 #include <Initializer/BasicTypedefs.h>
@@ -39,6 +40,7 @@
 #include <kernel.h>
 #include <limits>
 #include <mpi.h>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <tensor.h>
@@ -49,6 +51,13 @@
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
 #endif
+
+namespace {
+constexpr bool VolumeEnergyApproximation =
+    model::MaterialT::Type != model::MaterialType::Elastic &&
+    model::MaterialT::Type != model::MaterialType::Viscoelastic &&
+    model::MaterialT::Type != model::MaterialType::Acoustic;
+} // namespace
 
 namespace seissol::writer {
 
@@ -101,6 +110,11 @@ void EnergyOutput::init(
   }
   const auto rank = MPI::mpi.rank();
   logInfo() << "Initializing energy output.";
+
+  if constexpr (VolumeEnergyApproximation) {
+    logWarning() << "The volume energies printed for the given equation system"
+                 << model::MaterialT::Text << "are, by now, only an isotropic approximation.";
+  }
 
   energyOutputInterval = parameters.interval;
   isFileOutputEnabled = rank == 0;
@@ -181,14 +195,14 @@ void EnergyOutput::syncPoint(double time) {
   logInfo() << "Writing energy output at time" << time << "Done.";
 }
 
-void EnergyOutput::simulationStart() {
+void EnergyOutput::simulationStart(std::optional<double> checkpointTime) {
   if (isFileOutputEnabled) {
     out.open(outputFileName);
     out << std::scientific;
     out << std::setprecision(std::numeric_limits<real>::max_digits10);
     writeHeader();
   }
-  syncPoint(0.0);
+  syncPoint(checkpointTime.value_or(0));
 }
 
 EnergyOutput::~EnergyOutput() {
@@ -415,7 +429,6 @@ void EnergyOutput::computeVolumeEnergies() {
     for (std::size_t elementId = 0; elementId < elements.size(); ++elementId) {
       const real volume = MeshTools::volume(elements[elementId], vertices);
       const CellMaterialData& material = ltsLut->lookup(lts->material, elementId);
-#if defined(USE_ELASTIC) || defined(USE_VISCOELASTIC2)
       auto& cellInformation = ltsLut->lookup(lts->cellInformation, elementId);
       auto& faceDisplacements = ltsLut->lookup(lts->faceDisplacements, elementId);
 
@@ -447,8 +460,10 @@ void EnergyOutput::computeVolumeEnergies() {
 
       auto numSub = multisim::simtensor(numericalSolution, sim);
 
+      // TODO: move to the material class (maybe done by #1297 + MaterialT::NumTractionQuantities)
+      constexpr int UIdx = model::MaterialT::Type == model::MaterialType::Acoustic ? 1 : 6;
+
       for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
-        constexpr int UIdx = 6;
         const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
         const auto rho = material.local.rho;
 
@@ -460,10 +475,10 @@ void EnergyOutput::computeVolumeEnergies() {
         const double curMomentumY = rho * v;
         const double curMomentumZ = rho * w;
 
-        if (std::abs(material.local.mu) < 10e-14) {
+        if (std::abs(material.local.getMuBar()) < 10e-14) {
           // Acoustic
           constexpr int PIdx = 0;
-          const auto k = material.local.lambda;
+          const auto k = material.local.getLambdaBar();
           const auto p = numSub(qp, PIdx);
           const double curAcousticEnergy = (p * p) / (2 * k);
           totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
@@ -482,8 +497,8 @@ void EnergyOutput::computeVolumeEnergies() {
 
           auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
-          const auto lambda = material.local.lambda;
-          const auto mu = material.local.mu;
+          const auto lambda = material.local.getLambdaBar();
+          const auto mu = material.local.getMuBar();
           const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
           auto computeStrain = [&](int i, int j) {
             double strain = 0.0;
@@ -522,7 +537,7 @@ void EnergyOutput::computeVolumeEnergies() {
             init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
         for (int i = 0; i < 3; ++i) {
           for (int j = 0; j < 3; ++j) {
-            rotateDisplacementToFaceNormal(i, j) = tinv(i + 6, j + 6);
+            rotateDisplacementToFaceNormal(i, j) = tinv(i + UIdx, j + UIdx);
           }
         }
 
@@ -555,7 +570,6 @@ void EnergyOutput::computeVolumeEnergies() {
           totalGravitationalEnergyLocal += curWeight * curEnergy;
         }
       }
-#endif
 
       if (isPlasticityEnabled) {
         // plastic moment
@@ -579,19 +593,12 @@ void EnergyOutput::reduceEnergies() {
 #ifdef USE_MPI
   const auto rank = MPI::mpi.rank();
   const auto& comm = MPI::mpi.comm();
-
-  const auto count = static_cast<int>(energiesStorage.energies.size());
-  if (rank == 0) {
-    MPI_Reduce(MPI_IN_PLACE, energiesStorage.energies.data(), count, MPI_DOUBLE, MPI_SUM, 0, comm);
-  } else {
-    MPI_Reduce(energiesStorage.energies.data(),
-               energiesStorage.energies.data(),
-               count,
-               MPI_DOUBLE,
-               MPI_SUM,
-               0,
-               comm);
-  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                energiesStorage.energies.data(),
+                static_cast<int>(energiesStorage.energies.size()),
+                MPI_DOUBLE,
+                MPI_SUM,
+                comm);
 #endif
 }
 
@@ -599,20 +606,12 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 #ifdef USE_MPI
   const auto rank = MPI::mpi.rank();
   const auto& comm = MPI::mpi.comm();
-  for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-    if (rank == 0) {
-      MPI_Reduce(
-          MPI_IN_PLACE, &minTimeSinceSlipRateBelowThreshold[sim], 1, MPI_C_REAL, MPI_MIN, 0, comm);
-    } else {
-      MPI_Reduce(&minTimeSinceSlipRateBelowThreshold[sim],
-                 &minTimeSinceSlipRateBelowThreshold[sim],
-                 1,
-                 MPI_C_REAL,
-                 MPI_MIN,
-                 0,
-                 comm);
-    }
-  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                minTimeSinceSlipRateBelowThreshold.data(),
+                static_cast<int>(minTimeSinceSlipRateBelowThreshold.size()),
+                MPI_C_REAL,
+                MPI_MIN,
+                comm);
 #endif
 }
 
@@ -625,6 +624,7 @@ void EnergyOutput::printEnergies() {
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     const std::string fusedPrefix =
         multisim::MultisimEnabled ? "[" + std::to_string(sim) + "]" : "";
+    const std::string approxPrefix = VolumeEnergyApproximation ? "[approximated]" : "";
     const auto totalAcousticEnergy =
         energiesStorage.acousticKineticEnergy(sim) + energiesStorage.acousticEnergy(sim);
     const auto totalElasticEnergy =
@@ -651,20 +651,24 @@ void EnergyOutput::printEnergies() {
     if (shouldComputeVolumeEnergies()) {
       if (shouldPrint(totalElasticEnergy)) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                  << approxPrefix.c_str()
                   << " Elastic energy (total, % kinematic, % potential): " << totalElasticEnergy
                   << " ," << ratioElasticKinematic << " ," << ratioElasticPotential;
       }
       if (shouldPrint(totalAcousticEnergy)) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                  << approxPrefix.c_str()
                   << " Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
                   << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
       }
       if (shouldPrint(energiesStorage.gravitationalEnergy(sim))) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                  << approxPrefix.c_str()
                   << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
       }
       if (shouldPrint(energiesStorage.plasticMoment(sim))) {
         logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
+                  << approxPrefix.c_str()
                   << " Plastic moment (value, equivalent Mw, % total moment):"
                   << energiesStorage.plasticMoment(sim) << " ,"
                   << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(sim)) - 6.07 << " ,"
@@ -706,8 +710,9 @@ void EnergyOutput::printEnergies() {
   }
 }
 
-void EnergyOutput::checkAbortCriterion(const real (&timeSinceThreshold)[multisim::NumSimulations],
-                                       const std::string& prefixMessage) {
+void EnergyOutput::checkAbortCriterion(
+    const std::array<real, multisim::NumSimulations>& timeSinceThreshold,
+    const std::string& prefixMessage) {
   const auto rank = MPI::mpi.rank();
   bool abort = true;
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
@@ -734,23 +739,25 @@ void EnergyOutput::checkAbortCriterion(const real (&timeSinceThreshold)[multisim
   }
 }
 
-void EnergyOutput::writeHeader() { out << "time,variable,measurement" << std::endl; }
+void EnergyOutput::writeHeader() {
+  out << "time,variable,simulation_index,measurement" << std::endl;
+}
 
 void EnergyOutput::writeEnergies(double time) {
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-    const std::string fusedSuffix = multisim::MultisimEnabled ? std::to_string(sim) : "";
+    const std::string fusedSuffix = std::to_string(sim);
     if (shouldComputeVolumeEnergies()) {
-      out << time << ",gravitational_energy" << fusedSuffix << ","
+      out << time << ",gravitational_energy," << fusedSuffix << ","
           << energiesStorage.gravitationalEnergy(sim) << "\n"
-          << time << ",acoustic_energy" << fusedSuffix << "," << energiesStorage.acousticEnergy(sim)
-          << "\n"
-          << time << ",acoustic_kinetic_energy" << fusedSuffix << ","
+          << time << ",acoustic_energy," << fusedSuffix << ","
+          << energiesStorage.acousticEnergy(sim) << "\n"
+          << time << ",acoustic_kinetic_energy," << fusedSuffix << ","
           << energiesStorage.acousticKineticEnergy(sim) << "\n"
-          << time << ",elastic_energy" << fusedSuffix << "," << energiesStorage.elasticEnergy(sim)
+          << time << ",elastic_energy," << fusedSuffix << "," << energiesStorage.elasticEnergy(sim)
           << "\n"
-          << time << ",elastic_kinetic_energy" << fusedSuffix << ","
+          << time << ",elastic_kinetic_energy," << fusedSuffix << ","
           << energiesStorage.elasticKineticEnergy(sim) << "\n"
-          << time << ",plastic_moment" << fusedSuffix << "," << energiesStorage.plasticMoment(sim)
+          << time << ",plastic_moment," << fusedSuffix << "," << energiesStorage.plasticMoment(sim)
           << "\n"
           << time << ",momentumX," << fusedSuffix << "," << energiesStorage.totalMomentumX(sim)
           << "\n"
@@ -759,14 +766,14 @@ void EnergyOutput::writeEnergies(double time) {
           << time << ",momentumZ," << fusedSuffix << "," << energiesStorage.totalMomentumZ(sim)
           << "\n";
     }
-    out << time << ",total_frictional_work" << fusedSuffix << ","
+    out << time << ",total_frictional_work," << fusedSuffix << ","
         << energiesStorage.totalFrictionalWork(sim) << "\n"
-        << time << ",static_frictional_work" << fusedSuffix << ","
+        << time << ",static_frictional_work," << fusedSuffix << ","
         << energiesStorage.staticFrictionalWork(sim) << "\n"
-        << time << ",seismic_moment" << fusedSuffix << "," << energiesStorage.seismicMoment(sim)
+        << time << ",seismic_moment," << fusedSuffix << "," << energiesStorage.seismicMoment(sim)
         << "\n"
-        << time << ",potency" << fusedSuffix << "," << energiesStorage.potency(sim) << "\n"
-        << time << ",plastic_moment" << fusedSuffix << "," << energiesStorage.plasticMoment(sim)
+        << time << ",potency," << fusedSuffix << "," << energiesStorage.potency(sim) << "\n"
+        << time << ",plastic_moment," << fusedSuffix << "," << energiesStorage.plasticMoment(sim)
         << std::endl;
   }
 }

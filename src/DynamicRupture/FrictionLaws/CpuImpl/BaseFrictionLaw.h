@@ -66,12 +66,14 @@ class BaseFrictionLaw : public FrictionSolver {
           TractionResults<Executor::Host> tractionResults = {};
 
           // loop over sub time steps (i.e. quadrature points in time)
-          for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
+          real updateTime = self.mFullUpdateTime;
+          for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
+            updateTime += self.deltaT[timeIndex];
             common::adjustInitialStress(self.initialStressInFaultCS[ltsFace],
                                         self.nucleationStressInFaultCS[ltsFace],
                                         self.initialPressure[ltsFace],
                                         self.nucleationPressure[ltsFace],
-                                        self.mFullUpdateTime,
+                                        updateTime,
                                         self.drParameters->t0,
                                         self.deltaT[timeIndex]);
 

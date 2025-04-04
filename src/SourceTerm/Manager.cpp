@@ -20,6 +20,7 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Common/Constants.h>
+#include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
 #include <Geometry/MeshTools.h>
 #include <Initializer/Parameters/SourceParameters.h>
@@ -33,6 +34,7 @@
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
 #include <Solver/Clustering/TimeManager.h>
+#include <Solver/MultipleSimulations.h>
 #include <SourceTerm/NRF.h>
 #include <SourceTerm/Typedefs.h>
 #include <algorithm>
@@ -342,18 +344,19 @@ auto loadSourcesFromFSRM(const char* fileName,
       sources.numberOfSources = numberOfSources;
       sources.mInvJInvPhisAtSources.resize(numberOfSources);
       sources.tensor.resize(numberOfSources);
-      sources.fusedOriginalIndex.resize(numberOfSources); // only used in case of fused simulations
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       sources.sampleOffsets[0].resize(numberOfSources + 1);
       sources.sampleOffsets[0][0] = 0;
       sources.sample[0].resize(fsrm.numberOfSamples * numberOfSources);
 
+      // only actively used in the case of fused simulations
+      sources.simulationIndex.resize(numberOfSources);
+
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned fsrmIndex = originalIndex[sourceIndex];
-        sources.fusedOriginalIndex[clusterSource] =
-            fsrmIndex; // only used in case of fused simulations
+        sources.simulationIndex[clusterSource] = fsrmIndex % multisim::NumSimulations;
         computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
                                      sources.mInvJInvPhisAtSources[clusterSource],
                                      meshIds[sourceIndex],
@@ -370,17 +373,18 @@ auto loadSourcesFromFSRM(const char* fileName,
         for (unsigned i = 0; i < PointSources::TensorSize; ++i) {
           sources.tensor[clusterSource][i] *= fsrm.areas[fsrmIndex];
         }
-#ifndef USE_POROELASTIC
-        const seissol::model::Material& material =
-            ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
-        for (unsigned i = 0; i < 3; ++i) {
-          sources.tensor[clusterSource][6 + i] /= material.rho;
+        if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
+          const seissol::model::Material& material =
+              ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
+          for (unsigned i = 0; i < 3; ++i) {
+            sources.tensor[clusterSource][6 + i] /= material.rho;
+          }
+        } else {
+          logWarning()
+              << "The poroelastic equation does not scale the force components with the "
+                 "density. For the definition of the sources in poroelastic media, we refer "
+                 "to the documentation of SeisSol.";
         }
-#else
-        logWarning() << "The poroelastic equation does not scale the force components with the "
-                        "density. For the definition of the sources in poroelastic media, we refer "
-                        "to the documentation of SeisSol.";
-#endif
 
         sources.onsetTime[clusterSource] = fsrm.onsets[fsrmIndex];
         sources.samplingInterval[clusterSource] = fsrm.timestep;
@@ -468,13 +472,15 @@ auto loadSourcesFromNRF(const char* fileName,
       sources.tensor.resize(numberOfSources);
       sources.A.resize(numberOfSources);
       sources.stiffnessTensor.resize(numberOfSources);
-      sources.fusedOriginalIndex.resize(numberOfSources); // only used in case of fused simulations
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       for (auto& so : sources.sampleOffsets) {
         so.resize(numberOfSources + 1);
         so[0] = 0;
       }
+
+      // only actively used in the case of fused simulations
+      sources.simulationIndex.resize(numberOfSources);
 
       for (std::size_t i = 0; i < Offsets().size(); ++i) {
         std::size_t sampleSize = 0;
@@ -489,7 +495,7 @@ auto loadSourcesFromNRF(const char* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned nrfIndex = originalIndex[sourceIndex];
-        sources.fusedOriginalIndex[clusterSource] = nrfIndex;
+        sources.simulationIndex[clusterSource] = nrfIndex % multisim::NumSimulations;
         transformNRFSourceToInternalSource(
             nrf.centres[nrfIndex],
             meshIds[sourceIndex],
