@@ -619,6 +619,9 @@ void TimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& nei
   if (neighborCluster.ct.maxTimeStepSize > ct.maxTimeStepSize) {
     lastSubTime = neighborCluster.ct.correctionTime;
   }
+  else {
+    // in GTS, lastSubTime does not need to be updated, since only integrated data is provided 
+  }
 }
 void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster&) {
   // Doesn't do anything

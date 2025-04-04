@@ -45,7 +45,6 @@ struct DamageMaterial : Material {
   double Cd; // damage evolution coefficient
   double lambdaE; // effective
   double muE; // effective
-  double gammaE; // effective
   // store the initial strain for predictor step
   double epsInit_xx;
   double epsInit_yy;
@@ -68,6 +67,8 @@ struct DamageMaterial : Material {
   DamageMaterial() = default;
   
   void assignTotalStrain() override {
+        this->muE = this->mu;
+        this->lambdaE = this->lambda;
         this->epsTot_xx = this->epsInit_xx;
         this->epsTot_yy = this->epsInit_yy;
         this->epsTot_zz = this->epsInit_zz;
@@ -89,6 +90,8 @@ struct DamageMaterial : Material {
         this->epsInit_xz = materialValues.at(10);
         // Initialize the total strain also as initial strain
         // This is not useful at the init phase, how to init these values later?
+        this->muE = materialValues.at(1);
+        this->lambdaE = materialValues.at(2);
         this->epsTot_xx = materialValues.at(5);
         this->epsTot_yy = materialValues.at(6);
         this->epsTot_zz = materialValues.at(7);
