@@ -95,6 +95,8 @@ option(SHARED "Build SeisSol as shared library" OFF)
 
 option(PROXY_PYBINDING "Enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
+option(ELEMENTWISE_MATRICES "Enable elementwise instead of globally constant matrices. Reduces performance, but allows more complex geometry." OFF)
+
 # FIXME: currently unused
 #set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
 #set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")

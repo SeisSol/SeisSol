@@ -54,9 +54,15 @@ def main():
         dest="enable_premultiply_flux",
         action="store_false",
     )
+    cmdLineParser.add_argument("--enable_globals", action="store_true")
+    cmdLineParser.add_argument(
+        "--disable_globals",
+        dest="enable_globals",
+        action="store_false",
+    )
     cmdLineParser.add_argument("--executable_libxsmm", default="")
     cmdLineParser.add_argument("--executable_pspamm", default="")
-    cmdLineParser.set_defaults(enable_premultiply_flux=False)
+    cmdLineParser.set_defaults(enable_premultiply_flux=False, enable_globals=True)
     cmdLineArgs = cmdLineParser.parse_args()
 
     # derive the compute platform

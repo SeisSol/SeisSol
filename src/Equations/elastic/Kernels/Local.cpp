@@ -41,8 +41,18 @@
 
 #include "utils/logger.h"
 
+#include "Config.h"
+
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
+
+GENERATE_HAS_MEMBER(kDivM)
+GENERATE_HAS_MEMBER(globalMkDivM)
+GENERATE_HAS_MEMBER(rDivM)
+GENERATE_HAS_MEMBER(globalMrDivM)
+GENERATE_HAS_MEMBER(project2nFaceTo3m)
+GENERATE_HAS_MEMBER(globalMproject2nFaceTo3m)
+
 namespace seissol::kernels {
 
 void LocalBase::checkGlobalData(const GlobalData* global, size_t alignment) {
@@ -61,11 +71,11 @@ void LocalBase::checkGlobalData(const GlobalData* global, size_t alignment) {
 
 void Local::setHostGlobalData(const GlobalData* global) {
   checkGlobalData(global, Alignment);
-  m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
-  m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
+  set_kDivM(m_volumeKernelPrototype, global->stiffnessMatrices);
+  set_rDivM(m_localFluxKernelPrototype, global->changeOfBasisMatrices);
   m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
 
-  m_nodalLfKrnlPrototype.project2nFaceTo3m = global->project2nFaceTo3m;
+  set_project2nFaceTo3m(m_nodalLfKrnlPrototype, global->project2nFaceTo3m);
 
   m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
@@ -79,14 +89,14 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   const auto deviceAlignment = device.api->getGlobMemAlignment();
   checkGlobalData(global.onDevice, deviceAlignment);
 
-  deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
+  // deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
   deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
 #else
-  deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
+  set_rDivM(deviceLocalFluxKernelPrototype, global.onDevice->changeOfBasisMatrices);
   deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
-  deviceNodalLfKrnlPrototype.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
+  set_project2nFaceTo3m(deviceNodalLfKrnlPrototype, global.onDevice->project2nFaceTo3m);
   deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->V3mTo2nFace;
 #endif
 }
@@ -138,6 +148,9 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     volKrnl.star(i) = data.localIntegration().starMatrices[i];
   }
+  if constexpr (Config::GlobalElementwise) {
+    setupContainer<tensor::globalMkDivM>(get_ref_globalMkDivM(volKrnl), data.globalMkDivM());
+  }
 
   // Optional source term
   set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration().specific));
@@ -147,6 +160,9 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   lfKrnl.I = timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
   lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
+  if constexpr (Config::GlobalElementwise) {
+    setupContainer<tensor::globalMrDivM>(get_ref_globalMrDivM(lfKrnl), data.globalMrDivM());
+  }
 
   volKrnl.execute();
 

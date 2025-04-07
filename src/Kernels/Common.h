@@ -18,6 +18,7 @@
 #include <cassert>
 #include <type_traits>
 #include <utility>
+#include <yateto.h>
 
 /**
  * Uses SFINAE to generate the following functions:
@@ -44,30 +45,48 @@
   };                                                                                               \
   template <class T>                                                                               \
   auto set_##NAME(T& kernel, decltype(T::NAME) ptr) ->                                             \
-      typename std::enable_if<has_##NAME<T>::value>::type {                                        \
+      typename std::enable_if_t<has_##NAME<T>::value> {                                            \
     kernel.NAME = ptr;                                                                             \
   }                                                                                                \
-  template <class T>                                                                               \
-  auto set_##NAME(T&, void*) -> typename std::enable_if<!has_##NAME<T>::value>::type {}            \
+  template <class T, class S>                                                                      \
+  auto set_##NAME(T&, const S&) -> typename std::enable_if_t<!has_##NAME<T>::value> {}             \
   template <class T>                                                                               \
   constexpr auto get_static_ptr_##NAME() ->                                                        \
-      typename std::enable_if<has_##NAME<T>::value, decltype(&T::NAME[0])>::type {                 \
+      typename std::enable_if_t<has_##NAME<T>::value, decltype(&T::NAME[0])> {                     \
     return &T::NAME[0];                                                                            \
   }                                                                                                \
   template <class T>                                                                               \
   constexpr auto get_static_ptr_##NAME() ->                                                        \
-      typename std::enable_if<!has_##NAME<T>::value, void*>::type {                                \
+      typename std::enable_if_t<!has_##NAME<T>::value, void*> {                                    \
     return nullptr;                                                                                \
   }                                                                                                \
   template <class T>                                                                               \
   constexpr auto get_ptr_##NAME(T& obj) ->                                                         \
-      typename std::enable_if<has_##NAME<T>::value, decltype(&obj.NAME[0])>::type {                \
+      typename std::enable_if_t<has_##NAME<T>::value, decltype(&obj.NAME[0])> {                    \
     return &obj.NAME[0];                                                                           \
   }                                                                                                \
   template <class T>                                                                               \
-  constexpr auto get_ptr_##NAME(T&) ->                                                             \
-      typename std::enable_if<!has_##NAME<T>::value, void*>::type {                                \
+  constexpr auto get_ptr_##NAME(T&) -> typename std::enable_if_t<!has_##NAME<T>::value, void*> {   \
     return nullptr;                                                                                \
+  }                                                                                                \
+  template <class T>                                                                               \
+  constexpr auto get_ref_##NAME(T& obj) ->                                                         \
+      typename std::enable_if_t<has_##NAME<T>::value, decltype(obj.NAME)&> {                       \
+    return obj.NAME;                                                                               \
+  }                                                                                                \
+  template <class T>                                                                               \
+  constexpr auto get_ref_##NAME(T& obj) -> typename std::enable_if_t<!has_##NAME<T>::value, T&> {  \
+    return obj;                                                                                    \
+  }                                                                                                \
+  template <class T>                                                                               \
+  constexpr auto get_cref_##NAME(const T& obj) ->                                                  \
+      typename std::enable_if_t<has_##NAME<T>::value, const decltype(obj.NAME)&> {                 \
+    return obj.NAME;                                                                               \
+  }                                                                                                \
+  template <class T>                                                                               \
+  constexpr auto get_cref_##NAME(const T& obj) ->                                                  \
+      typename std::enable_if_t<!has_##NAME<T>::value, const T&> {                                 \
+    return obj;                                                                                    \
   }                                                                                                \
   }
 
@@ -125,13 +144,21 @@ constexpr unsigned int
  * @param alignment alignment in bytes.
  * @return aligned number of basis functions.
  **/
+template <typename RealT = real>
 constexpr unsigned
     getNumberOfAlignedDerivativeBasisFunctions(unsigned int convergenceOrder = ConvergenceOrder,
                                                unsigned int alignment = Vectorsize) {
   return (convergenceOrder > 0)
-             ? getNumberOfAlignedBasisFunctions(convergenceOrder) +
-                   getNumberOfAlignedDerivativeBasisFunctions(convergenceOrder - 1)
+             ? getNumberOfAlignedBasisFunctions<RealT>(convergenceOrder) +
+                   getNumberOfAlignedDerivativeBasisFunctions<RealT>(convergenceOrder - 1)
              : 0;
+}
+
+template <typename FamilyT, typename ContainerT>
+void setupContainer(ContainerT& container, const real* data) {
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<FamilyT>(); ++i) {
+    container.data[i] = data + yateto::computeFamilySize<FamilyT>(1, i);
+  }
 }
 
 /**
@@ -140,7 +167,7 @@ constexpr unsigned
 template <typename T>
 struct HasSize {
   template <typename U>
-  static constexpr decltype(std::declval<U>().size(), bool()) test(int) {
+  static constexpr decltype(U::Size, bool()) test(int /*unused*/) {
     return true;
   }
   template <typename U>
@@ -154,12 +181,16 @@ struct HasSize {
  * returns T::size() if T has size function and 0 otherwise
  */
 template <class T>
-constexpr auto size() -> std::enable_if_t<HasSize<T>::Value, unsigned> {
-  return T::size();
-}
-template <class T>
-constexpr auto size() -> std::enable_if_t<!HasSize<T>::Value, unsigned> {
-  return 0;
+constexpr auto size() -> std::size_t {
+  if constexpr (HasSize<T>::Value) {
+    if constexpr (std::is_array_v<decltype(T::Size)>) {
+      return yateto::computeFamilySize<T>();
+    } else {
+      return T::size();
+    }
+  } else {
+    return 0;
+  }
 }
 } // namespace kernels
 

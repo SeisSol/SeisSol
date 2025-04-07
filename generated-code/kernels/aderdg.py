@@ -16,15 +16,15 @@ from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseJSONMatrixFile, parseXMLMatrixFile
 from yateto.memory import CSCMemoryLayout
-from yateto.util import (
-    tensor_collection_from_constant_expression,
-    tensor_from_constant_expression,
-)
+from yateto.util import (tensor_collection_from_constant_expression,
+                         tensor_from_constant_expression)
 
 
 class ADERDGBase(ABC):
-    def __init__(self, order, multipleSimulations, matricesDir):
+    def __init__(self, order, multipleSimulations, matricesDir, enable_globals):
         self.order = order
+
+        self.globals = enable_globals
 
         self.alignStride = lambda name: True
         if multipleSimulations > 1:
@@ -145,6 +145,19 @@ class ADERDGBase(ABC):
             self.selectTractionSpp,
             CSCMemoryLayout,
         )
+
+    def make_global(self, tensors):
+        if self.globals:
+            return tensors
+        else:
+            return {
+                idx: Tensor(
+                    f"globalM{tensors[idx].name()}",
+                    tensors[idx].shape(),
+                    alignStride=tensors[idx]._memoryLayout.alignedStride(),
+                )
+                for idx in tensors
+            }
 
     def name(self):
         return ""
@@ -279,6 +292,13 @@ class ADERDGBase(ABC):
         include_tensors.add(self.db.samplingDirections)
         include_tensors.add(self.db.M2inv)
 
+        for x in self.db.__dict__:
+            if isinstance(self.db.__dict__[x], dict):
+                for y in self.db.__dict__[x]:
+                    include_tensors.add(self.db.__dict__[x][y])
+            else:
+                include_tensors.add(self.db.__dict__[x])
+
 
 class LinearADERDG(ADERDGBase):
     def name(self):
@@ -327,14 +347,16 @@ class LinearADERDG(ADERDGBase):
         )
 
     def addLocal(self, generator, targets):
+        kDivM = self.make_global(self.db.kDivM)
+        project2nFaceTo3m = self.make_global(self.db.project2nFaceTo3m)
+        rDivM = self.make_global(self.db.rDivM)
+
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
             volumeSum = self.Q["kp"]
             for i in range(3):
                 volumeSum += (
-                    self.db.kDivM[i][self.t("kl")]
-                    * self.I["lq"]
-                    * self.starMatrix(i)["qp"]
+                    kDivM[i][self.t("kl")] * self.I["lq"] * self.starMatrix(i)["qp"]
                 )
             if self.sourceMatrix():
                 volumeSum += self.I["kq"] * self.sourceMatrix()["qp"]
@@ -344,9 +366,7 @@ class LinearADERDG(ADERDGBase):
             localFluxNodal = (
                 lambda i: self.Q["kp"]
                 <= self.Q["kp"]
-                + self.db.project2nFaceTo3m[i]["kn"]
-                * self.INodal["no"]
-                * self.AminusT["op"]
+                + project2nFaceTo3m[i]["kn"] * self.INodal["no"] * self.AminusT["op"]
             )
             localFluxNodalPrefetch = lambda i: (
                 self.I if i == 0 else (self.Q if i == 1 else None)
@@ -362,7 +382,7 @@ class LinearADERDG(ADERDGBase):
         localFlux = (
             lambda i: self.Q["kp"]
             <= self.Q["kp"]
-            + self.db.rDivM[i][self.t("km")]
+            + rDivM[i][self.t("km")]
             * self.db.fMrT[i][self.t("ml")]
             * self.I["lq"]
             * self.AplusT["qp"]
@@ -405,10 +425,12 @@ class LinearADERDG(ADERDGBase):
             )
 
     def addNeighbor(self, generator, targets):
+        rDivM = self.make_global(self.db.rDivM)
+
         neighborFlux = (
             lambda h, j, i: self.Q["kp"]
             <= self.Q["kp"]
-            + self.db.rDivM[i][self.t("km")]
+            + rDivM[i][self.t("km")]
             * self.db.fP[h][self.t("mn")]
             * self.db.rT[j][self.t("nl")]
             * self.I["lq"]
@@ -455,6 +477,9 @@ class LinearADERDG(ADERDGBase):
 
     def addTime(self, generator, targets):
         powers = [Scalar(f"power({i})") for i in range(self.order)]
+
+        kDivMT = self.make_global(self.db.kDivMT)
+
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
 
@@ -486,7 +511,7 @@ class LinearADERDG(ADERDGBase):
                     derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
                 for j in range(3):
                     derivativeSum += (
-                        self.db.kDivMT[j][self.t("kl")]
+                        kDivMT[j][self.t("kl")]
                         * derivatives[-1]["lq"]
                         * self.starMatrix(j)["qp"]
                     )

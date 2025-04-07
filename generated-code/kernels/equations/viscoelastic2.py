@@ -22,11 +22,12 @@ class Viscoelastic2ADERDG(ADERDGBase):
         order,
         multipleSimulations,
         matricesDir,
+        enable_globals,
         memLayout,
         numberOfMechanisms,
         **kwargs,
     ):
-        super().__init__(order, multipleSimulations, matricesDir)
+        super().__init__(order, multipleSimulations, matricesDir, enable_globals)
 
         self.numberOfMechanisms = numberOfMechanisms
 

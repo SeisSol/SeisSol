@@ -25,12 +25,13 @@ class PoroelasticADERDG(LinearADERDG):
         order,
         multipleSimulations,
         matricesDir,
+        enable_globals,
         memLayout,
         numberOfMechanisms,
         **kwargs
     ):
 
-        super().__init__(order, multipleSimulations, matricesDir)
+        super().__init__(order, multipleSimulations, matricesDir, enable_globals)
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }

@@ -30,9 +30,12 @@ LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
                                     dofs,
                                     faceDisplacements,
                                     boundaryMapping,
-                                    material)
+                                    material,
+                                    globalMkDivMT,
+                                    globalMkDivM,
+                                    globalMrDivM)
 LTSTREE_GENERATE_INTERFACE_GETTERED(
-    NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs)
+    NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, globalMrDivM)
 #else
 LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
                                     initializer::LTS,
@@ -45,9 +48,12 @@ LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
                                     plasticity,
                                     boundaryMapping,
                                     boundaryMappingDevice,
-                                    material)
+                                    material,
+                                    globalMkDivMT,
+                                    globalMkDivM,
+                                    globalMrDivM)
 LTSTREE_GENERATE_INTERFACE_GETTERED(
-    NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs)
+    NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, globalMrDivM)
 #endif
 } // namespace seissol::kernels
 

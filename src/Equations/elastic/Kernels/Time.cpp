@@ -35,8 +35,13 @@
 
 #include "utils/logger.h"
 
+#include "Config.h"
+
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
+
+GENERATE_HAS_MEMBER(kDivMT)
+GENERATE_HAS_MEMBER(globalMkDivMT)
 
 namespace seissol::kernels {
 
@@ -73,7 +78,7 @@ void Time::setHostGlobalData(const GlobalData* global) {
 #else // USE_STP
   checkGlobalData(global, Alignment);
 
-  m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
+  set_kDivMT(m_krnlPrototype, global->stiffnessMatricesTransposed);
 
   projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global->V3mTo2nFace;
 
@@ -87,7 +92,9 @@ void Time::setGlobalData(const CompoundGlobalData& global) {
   assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
   checkGlobalData(global.onDevice, deviceAlignment);
-  deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
+
+  set_kDivMT(deviceKrnlPrototype, global.onDevice->stiffnessMatricesTransposed);
+
   deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->V3mTo2nFace;
 
 #endif
@@ -157,6 +164,10 @@ void Time::computeAder(double timeStepWidth,
     // First derivative is not needed here but later
     // Hence stream it out
     streamstore(tensor::dQ::size(0), data.dofs(), derivativesBuffer);
+  }
+
+  if constexpr (Config::GlobalElementwise) {
+    setupContainer<tensor::globalMkDivMT>(get_ref_globalMkDivMT(krnl), data.globalMkDivMT());
   }
 
   krnl.execute();

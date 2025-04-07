@@ -18,12 +18,18 @@
 #include "generated_code/tensor.h"
 #include <Initializer/CellLocalInformation.h>
 
+#include "Config.h"
+
 #ifdef ACL_DEVICE
 #include "Parallel/Helper.h"
 #endif
 
 namespace seissol::tensor {
 class Qane;
+class globalMkDivMT;
+class globalMkDivM;
+class globalMrDivM;
+class globalMproject2nFaceTo3m;
 } // namespace seissol::tensor
 
 namespace seissol::initializer {
@@ -88,7 +94,7 @@ inline auto allocationModeWP(AllocationPreset preset,
 struct LTS {
   Variable<real[tensor::Q::size()]> dofs;
   // size is zero if Qane is not defined
-  Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
+  Variable<NZArray<real, kernels::size<tensor::Qane>()>> dofsAne;
   Variable<real*> buffers;
   Variable<real*> derivatives;
   Variable<CellLocalInformation> cellInformation;
@@ -104,6 +110,12 @@ struct LTS {
   Variable<real* [4]> faceDisplacements;
   Bucket buffersDerivatives;
   Bucket faceDisplacementsBuffer;
+
+  Variable<NZArray<real, kernels::size<tensor::globalMkDivMT>()>> globalMkDivMT;
+  Variable<NZArray<real, kernels::size<tensor::globalMkDivM>()>> globalMkDivM;
+  Variable<NZArray<real, kernels::size<tensor::globalMrDivM>()>> globalMrDivM;
+  Variable<NZArray<real, kernels::size<tensor::globalMproject2nFaceTo3m>()>>
+      globalMproject2nFaceTo3m;
 
   Variable<real*> buffersDevice;
   Variable<real*> derivativesDevice;
@@ -121,12 +133,8 @@ struct LTS {
 
   /// \todo Memkind
   void addTo(LTSTree& tree, bool usePlasticity) {
-    LayerMask plasticityMask;
-    if (usePlasticity) {
-      plasticityMask = LayerMask(Ghost);
-    } else {
-      plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
-    }
+    const LayerMask allMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+    const LayerMask plasticityMask = usePlasticity ? LayerMask(Ghost) : allMask;
 
     tree.addVar(dofs, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
     if (kernels::size<tensor::Qane>() > 0) {
@@ -171,6 +179,28 @@ struct LTS {
         buffersDerivatives, PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
     tree.addBucket(
         faceDisplacementsBuffer, PagesizeHeap, allocationModeWP(AllocationPreset::Timedofs));
+
+    const LayerMask elementwiseMask = Config::GlobalElementwise ? LayerMask(Ghost) : allMask;
+    tree.addVar(globalMkDivMT,
+                elementwiseMask,
+                PagesizeHeap,
+                allocationModeWP(AllocationPreset::ConstantShared),
+                true);
+    tree.addVar(globalMkDivM,
+                elementwiseMask,
+                PagesizeHeap,
+                allocationModeWP(AllocationPreset::ConstantShared),
+                true);
+    tree.addVar(globalMrDivM,
+                elementwiseMask,
+                PagesizeHeap,
+                allocationModeWP(AllocationPreset::ConstantShared),
+                true);
+    tree.addVar(globalMproject2nFaceTo3m,
+                elementwiseMask,
+                PagesizeHeap,
+                allocationModeWP(AllocationPreset::ConstantShared),
+                true);
 
     tree.addVar(buffersDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
     tree.addVar(derivativesDevice, LayerMask(), 1, AllocationMode::HostOnly, true);

@@ -13,8 +13,16 @@ from ..aderdg import LinearADERDG
 
 
 class AcousticADERDG(LinearADERDG):
-    def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
-        super().__init__(order, multipleSimulations, matricesDir)
+    def __init__(
+        self,
+        order,
+        multipleSimulations,
+        matricesDir,
+        enable_globals,
+        memLayout,
+        **kwargs
+    ):
+        super().__init__(order, multipleSimulations, matricesDir, enable_globals)
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }

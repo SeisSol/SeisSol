@@ -13,32 +13,32 @@
 
 namespace seissol {
 template <typename X>
-struct extract_type {
-  typedef X type;
+struct ExtractType {
+  using Type = X;
 };
 
 template <template <typename> class F, typename X>
-struct extract_type<F<X>> {
-  typedef X type;
+struct ExtractType<F<X>> {
+  using Type = X;
 };
 } // namespace seissol
 
 #define _LTSTREE_MEMBER_PTR(N, HANDLE_STRUCT, X)                                                   \
-  seissol::extract_type<decltype(HANDLE_STRUCT::X)>::type* X = nullptr;
+  seissol::ExtractType<decltype(HANDLE_STRUCT::X)>::Type* X = nullptr;
 #define _LTSTREE_MEMBER_REF(N, HANDLE_STRUCT, X)                                                   \
-  seissol::extract_type<decltype(HANDLE_STRUCT::X)>::type& X;
+  seissol::ExtractType<decltype(HANDLE_STRUCT::X)>::Type& X;
 #define _LTSTREE_MEMBER_REF_CS(HANDLE_STRUCT, X)                                                   \
-  seissol::extract_type<decltype(HANDLE_STRUCT::X)>::type& X
+  seissol::ExtractType<decltype(HANDLE_STRUCT::X)>::Type& X
 #define _LTSTREE_MEMBER_PTR_CS(HANDLE_STRUCT, X)                                                   \
-  seissol::extract_type<decltype(HANDLE_STRUCT::X)>::type* X
+  seissol::ExtractType<decltype(HANDLE_STRUCT::X)>::Type* X
 #define _LTSTREE_MEMBER_GETTER(N, HANDLE_STRUCT, X)                                                \
-  seissol::extract_type<decltype(HANDLE_STRUCT::X)>::type& X() noexcept { return *X##_ptr; }
+  seissol::ExtractType<decltype(HANDLE_STRUCT::X)>::Type& X() noexcept { return *X##_ptr; }
 #define _LTSTREE_MEMBER_CONST_GETTER(N, HANDLE_STRUCT, X)                                          \
-  const seissol::extract_type<decltype(HANDLE_STRUCT::X)>::type& X() const noexcept {              \
+  const seissol::ExtractType<decltype(HANDLE_STRUCT::X)>::Type& X() const noexcept {               \
     return *X##_ptr;                                                                               \
   }
 #define _LTSTREE_MEMBER_SUFFIXED_PTR(N, HANDLE_STRUCT, X)                                          \
-  seissol::extract_type<decltype(HANDLE_STRUCT::X)>::type* X##_ptr = nullptr;
+  seissol::ExtractType<decltype(HANDLE_STRUCT::X)>::Type* X##_ptr = nullptr;
 #define _LTSTREE_MEMBER_GETTERED_PTR(N, HANDLE_STRUCT, X)                                          \
   _LTSTREE_MEMBER_SUFFIXED_PTR(N, HANDLE_STRUCT, X)                                                \
   _LTSTREE_MEMBER_GETTER(N, HANDLE_STRUCT, X)                                                      \

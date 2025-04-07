@@ -18,6 +18,7 @@ class ViscoelasticADERDG(LinearADERDG):
         order,
         multipleSimulations,
         matricesDir,
+        enable_globals,
         memLayout,
         numberOfMechanisms,
         **kwargs
@@ -25,7 +26,7 @@ class ViscoelasticADERDG(LinearADERDG):
         self.numberOfMechanisms = numberOfMechanisms
         self.numberOfElasticQuantities = 9
 
-        super().__init__(order, multipleSimulations, matricesDir)
+        super().__init__(order, multipleSimulations, matricesDir, enable_globals)
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }

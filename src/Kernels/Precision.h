@@ -45,4 +45,26 @@ using real = double;
 #endif
 #endif
 
+namespace seissol {
+
+enum class Precision { F32, F64 };
+
+template <Precision P>
+struct PrecisionWrapper {};
+
+template <>
+struct PrecisionWrapper<Precision::F32> {
+  using Type = float;
+};
+
+template <>
+struct PrecisionWrapper<Precision::F64> {
+  using Type = double;
+};
+
+template <Precision P>
+using PrecisionT = typename PrecisionWrapper<P>::Type;
+
+} // namespace seissol
+
 #endif // SEISSOL_SRC_KERNELS_PRECISION_H_

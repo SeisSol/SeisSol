@@ -74,10 +74,7 @@ if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   append_coverage_compiler_flags()
 endif()
 
-set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
-                         "VECTORSIZE=${VECTORSIZE}"
-                         "REAL_SIZE=${REAL_SIZE_IN_BYTES}"
-                         "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
+set(HARDWARE_DEFINITIONS "REAL_SIZE=${REAL_SIZE_IN_BYTES}")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -119,6 +116,39 @@ configure_file("src/VersionTemplate.h"
 message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
 
+set(PARAMETER_ORDER ${ORDER})
+set(PARAMETER_MATERIAL_ORDER 1)
+if ("${EQUATIONS}" STREQUAL "elastic")
+  set(PARAMETER_MATERIAL Elastic)
+elseif ("${EQUATIONS}" STREQUAL "acoustic")
+  set(PARAMETER_MATERIAL Acoustic)
+elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
+  set(PARAMETER_MATERIAL Viscoelastic)
+elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
+  set(PARAMETER_MATERIAL Viscoelastic)
+elseif ("${EQUATIONS}" STREQUAL "anisotropic")
+  set(PARAMETER_MATERIAL Anisotropic)
+elseif ("${EQUATIONS}" STREQUAL "poroelastic")
+  set(PARAMETER_MATERIAL Poroelastic)
+endif()
+if ("${PRECISION}" STREQUAL "single")
+  set(PARAMETER_PRECISION F32)
+else()
+  set(PARAMETER_PRECISION F64)
+endif()
+if (ELEMENTWISE_MATRICES)
+  set(PARAMETER_ELEMENTWISE true)
+else()
+  set(PARAMETER_ELEMENTWISE false)
+endif()
+if ("${DR_QUAD_RULE}" STREQUAL "dunavant")
+  set(PARAMETER_DRQUADRULE "Dunavant")
+else()
+  set(PARAMETER_DRQUADRULE "Stroud")
+endif()
+configure_file("src/Config.h.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/Config.h")
+
 add_custom_target(build-time-make-directory ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
 
@@ -151,6 +181,12 @@ else()
   set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
 endif()
 
+if(ELEMENTWISE_MATRICES)
+  set(ELEMENTWISE_VALUE "--disable_globals")
+else()
+  set(ELEMENTWISE_VALUE "--enable_globals")
+endif()
+
 find_package(GemmTools REQUIRED)
 
 add_custom_command(
@@ -173,6 +209,7 @@ add_custom_command(
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
+     ${ELEMENTWISE_VALUE} # boolean flag
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated-code
      DEPENDS
         build-time-make-directory
@@ -425,7 +462,6 @@ target_include_directories(seissol-common-properties INTERFACE
 )
 
 target_compile_definitions(seissol-common-properties INTERFACE
-    CONVERGENCE_ORDER=${ORDER}
     NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
     ${DR_QUAD_RULE}
 )

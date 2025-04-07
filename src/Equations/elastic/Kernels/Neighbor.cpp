@@ -26,6 +26,9 @@
 
 #include "utils/logger.h"
 
+GENERATE_HAS_MEMBER(rDivM)
+GENERATE_HAS_MEMBER(globalMrDivM)
+
 namespace seissol::kernels {
 
 void NeighborBase::checkGlobalData(const GlobalData* global, size_t alignment) {
@@ -55,7 +58,7 @@ void NeighborBase::checkGlobalData(const GlobalData* global, size_t alignment) {
 
 void Neighbor::setHostGlobalData(const GlobalData* global) {
   checkGlobalData(global, Alignment);
-  m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
+  set_rDivM(m_nfKrnlPrototype, global->changeOfBasisMatrices);
   m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
   m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
@@ -72,6 +75,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 #ifdef USE_PREMULTIPLY_FLUX
   deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
 #else
+  set_rDivM(deviceNfKrnlPrototype, global.onDevice->changeOfBasisMatrices);
   deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
   deviceNfKrnlPrototype.rT = global.onDevice->neighbourChangeOfBasisMatricesTransposed;
   deviceNfKrnlPrototype.fP = global.onDevice->neighbourFluxMatrices;
@@ -97,6 +101,9 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       assert(data.cellInformation().faceRelations[face][0] < 4 &&
              data.cellInformation().faceRelations[face][1] < 3);
       kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
+      if constexpr (Config::GlobalElementwise) {
+        setupContainer<tensor::globalMrDivM>(get_ref_globalMrDivM(nfKrnl), data.globalMrDivM());
+      }
       nfKrnl.Q = data.dofs();
       nfKrnl.I = timeIntegrated[face];
       nfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
