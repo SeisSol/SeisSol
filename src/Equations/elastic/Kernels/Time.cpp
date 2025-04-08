@@ -19,10 +19,8 @@
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>
-#include <algorithm>
 #include <generated_code/kernel.h>
 #include <generated_code/tensor.h>
-#include <iterator>
 
 #include "Kernels/Common.h"
 #include "Kernels/DenseMatrixOps.h"
@@ -46,8 +44,9 @@ TimeBase::TimeBase() {
   for (std::size_t order = 0; order < ConvergenceOrder; ++order) {
     if (order > 0) {
       m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
+      #ifdef MULTIPLE_SIMULATIONS
       m_derivativesOffsets_DR[order] = tensor::dQ_DR::size(order-1) + m_derivativesOffsets_DR[order - 1];
-
+      #endif
     }
   }
 }

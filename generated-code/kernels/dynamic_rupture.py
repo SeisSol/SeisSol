@@ -99,40 +99,36 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
   qShape = (aderdg.numberOf3DBasisFunctions(), aderdg.numberOfQuantities())
   QuantitiesSingleSim = Tensor('singleSimQ', qShape, alignStride=alignStride)
   QAtPoint = Tensor('QAtPoint', (aderdg.numberOfQuantities(), ))
-  # QAtPoint = OptionalDimTensor('QAtPoint', aderdg.Q.optName(), aderdg.Q.optSize(), aderdg.Q.optPos(), (numberOfQuantities,))
-
-  # generator.add('evaluateFaceAlignedDOFSAtPoint',
-  #               QAtPoint['q'] <= aderdg.Tinv['qp'] * aderdg.Q['lp'] * basisFunctionsAtPoint['l'])
 
   generator.add('evaluateFaceAlignedDOFSAtPoint', QAtPoint['q'] <= aderdg.Tinv['qp']*QuantitiesSingleSim['lp']*basisFunctionsAtPoint['l'])
-  
-  dQ0_DR = Tensor('dQ_DR(0)', qShape, alignStride=False)
-  I_DR = Tensor('I_DR', qShape, alignStride=False)
-  powers_DR = [Scalar(f'power_DR({i})') for i in range(aderdg.order)]
-  power_DR = powers_DR[0]
-  derivatives_DR = [dQ0_DR]
-  derivativeExpr_DR = [I_DR['kp'] <= power_DR * dQ0_DR['kp']]
-  derivativeTaylorExpansion_DR = power_DR*dQ0_DR['kp']
 
-  for i in range(1, aderdg.order):
-    power_DR = powers_DR[i]
-    derivativeSum_DR = Add()
-    for j in range(3):
-      derivativeSum_DR += aderdg.db.kDivMT[j][aderdg.t('kl')] * derivatives_DR[-1]['lq'] * aderdg.starMatrix(j)['qp']
+  if aderdg.multipleSimulations > 1:  
+    dQ0_DR = Tensor('dQ_DR(0)', qShape, alignStride=False)
+    I_DR = Tensor('I_DR', qShape, alignStride=False)
+    powers_DR = [Scalar(f'power_DR({i})') for i in range(aderdg.order)]
+    power_DR = powers_DR[0]
+    derivatives_DR = [dQ0_DR]
+    derivativeTaylorExpansion_DR = power_DR*dQ0_DR['kp']
 
-    derivativeSum_DR = DeduceIndices(QuantitiesSingleSim['kp'].indices).visit(derivativeSum_DR)
-    derivativeSum_DR = EquivalentSparsityPattern().visit(derivativeSum_DR)
-    dQ_DR = Tensor('dQ_DR({})'.format(i), qShape, spp=derivativeSum_DR.eqspp(), alignStride=False)
-    derivativeTaylorExpansion_DR += power_DR * dQ_DR['kp']
+    for i in range(1, aderdg.order):
+      power_DR = powers_DR[i]
+      derivativeSum_DR = Add()
 
-    derivatives_DR.append(dQ_DR)
-  
+      for j in range(3):
+        derivativeSum_DR += aderdg.db.kDivMT[j][aderdg.t('kl')] * derivatives_DR[-1]['lq'] * aderdg.starMatrix(j)['qp']
 
-  
-  derivativeTaylorExpansion_DR = I_DR['kp'] <= derivativeTaylorExpansion_DR
-  for target in targets:
-    name_prefix = generate_kernel_name_prefix(target)
-    generator.add(f'{name_prefix}derivativeTaylorExpansion_DR', derivativeTaylorExpansion_DR, target=target)
+      derivativeSum_DR = DeduceIndices(QuantitiesSingleSim['kp'].indices).visit(derivativeSum_DR)
+      derivativeSum_DR = EquivalentSparsityPattern().visit(derivativeSum_DR)
+      dQ_DR = Tensor('dQ_DR({})'.format(i), qShape, spp=derivativeSum_DR.eqspp(), alignStride=False)
+      derivativeTaylorExpansion_DR += power_DR * dQ_DR['kp']
+
+      derivatives_DR.append(dQ_DR)
+    
+    
+    derivativeTaylorExpansion_DR = I_DR['kp'] <= derivativeTaylorExpansion_DR
+    for target in targets:
+      name_prefix = generate_kernel_name_prefix(target)
+      generator.add(f'{name_prefix}derivativeTaylorExpansion_DR', derivativeTaylorExpansion_DR, target=target)
   
   # TODO : (VK) Make this work with the original tensors 
   def interpolateQGenerator(i,h):

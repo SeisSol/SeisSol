@@ -93,14 +93,41 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
                        face);
       }
     } else if (data.cellInformation().faceTypes[face] == FaceType::DynamicRupture) {
-      assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Alignment == 0);
 
+      real fluxSolver_ijs[init::fluxSolverMultipleSim::size()]{};
+      real godunov_ijs[init::QInterpolatedMultipleSim::size()]{};
+
+      for (int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+        std::memcpy(&fluxSolver_ijs[sim * init::fluxSolver::size()],
+                    cellDrMapping[face].fluxSolver[sim],
+                    init::fluxSolver::size() * sizeof(real));
+        std::memcpy(&godunov_ijs[sim * init::QInterpolated::size()],
+                    cellDrMapping[face].godunov[sim],
+                    init::QInterpolated::size() * sizeof(real));
+      }
+
+      alignas(Alignment) real fluxSolver[init::fluxSolverMultipleSim::size()]{};
+      alignas(Alignment) real godunov[init::QInterpolatedMultipleSim::size()]{};
+
+      dynamicRupture::kernel::fluxSolverModifiedReversed fluxSolverKrnl;
+      fluxSolverKrnl.fluxSolverMultiple_ijs = fluxSolver_ijs;
+      fluxSolverKrnl.fluxSolverMultipleSim = fluxSolver;
+      fluxSolverKrnl.execute();
+
+      dynamicRupture::kernel::QInterpolatedModifiedReversed godunovKrnl;
+      godunovKrnl.QInterpolatedMultiple_ijs = godunov_ijs;
+      godunovKrnl.QInterpolatedMultipleSim = godunov;
+      godunovKrnl.execute();
+
+      assert(reinterpret_cast<uintptr_t>(godunov) % Alignment == 0);
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
-      drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
-      drKrnl.QInterpolated = cellDrMapping[face].godunov;
+      drKrnl.fluxSolverMultipleSim = fluxSolver;
+      drKrnl.QInterpolatedMultipleSim = godunov;
       drKrnl.Qext = Qext;
       drKrnl._prefetch.I = faceNeighbors_prefetch[face];
       drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
+
+
     }
   }
 

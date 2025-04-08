@@ -229,7 +229,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       kernel::evalAtQP krnl;
       krnl.evalAtQP = globalData->evalAtQPMatrix;
       krnl.dofsQP = numericalSolutionData;
-      krnl.QSingleSim = dummydofs + tensor::Q::Shape[1] * tensor::Q::Shape[2] * sim;
+      constexpr int index = seissol::multisim::MultisimEnabled ? 1 : 0;
+      krnl.QSingleSim = dummydofs + tensor::Q::Shape[index] * tensor::Q::Shape[index+1] * sim;
       krnl.execute();
       kernel::dofsModifiedReversed dofModifiedReversedKrnl;
       dofModifiedReversedKrnl.Q = dofs;

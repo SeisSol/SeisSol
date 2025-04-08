@@ -224,6 +224,10 @@ class ADERDGBase(ABC):
 
     computeChristoffel = christoffel['ik'] <= stiffnessTensor['ijkl'] * direction['j'] * direction['l']
     generator.add('computeChristoffel', computeChristoffel)
+    dofsModified = self.Q_ijs['ij'] <= self.Q['ij']
+    generator.add('dofsModified', dofsModified)
+    dofsModifiedReversed = self.Q['ij'] <= self.Q_ijs['ij']
+    generator.add('dofsModifiedReversed', dofsModifiedReversed)
 
   @abstractmethod
   def addLocal(self, generator, targets):
@@ -264,14 +268,7 @@ class LinearADERDG(ADERDGBase):
     dofsQP = Tensor('dofsQP', iniShape, alignStride=True)
 
     generator.add('projectIniCond', self.Q['kp'] <= self.db.projectQP[self.t('kl')] * iniCond['lp'])
-
-    generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.QsingleSim['lp'])
-    # dofsModified = self.Q_ijs['ijs'] <= self.Q['ij']
-    dofsModified = self.Q_ijs['ij'] <= self.Q['ij']
-    generator.add('dofsModified', dofsModified)
-    # dofsModifiedReversed = self.Q['ij'] <= self.Q_ijs['ijs']
-    dofsModifiedReversed = self.Q['ij'] <= self.Q_ijs['ij']
-    generator.add('dofsModifiedReversed', dofsModifiedReversed)
+    generator.add('evalAtQP', dofsQP['kp'] <= self.db.evalAtQP[self.t('kl')] * self.singleSimQTensor()['lp'])
 
   def addLocal(self, generator, targets):
     for target in targets:

@@ -194,12 +194,14 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
   std::array<real(*)[CONVERGENCE_ORDER][tensor::QInterpolated::size()], seissol::multisim::NumSimulations> qInterpolatedMinus;  
   int dQ_DR_Size = 0;
   int dQ_Size = 0;
+  #ifdef MULTIPLE_SIMULATIONS
   for (unsigned int i = 0; i < CONVERGENCE_ORDER; i++) {
     dQ_DR_Size += tensor::dQ_DR::size(i);
     dQ_Size += tensor::dQ::size(i);
   }
 
   int numSimulationsIfAligned = dQ_Size/dQ_DR_Size;
+  #endif
 
   m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
 
@@ -224,12 +226,14 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
   #pragma omp parallel for schedule(static)
 #endif
     for (unsigned face = 0; face < layerData[sim]->getNumberOfCells(); ++face) {
+      #ifdef MULTIPLE_SIMULATIONS
       std::vector<real> timeDerivativePlusDR(dQ_DR_Size, 0.0);
       std::vector<real> timeDerivativeMinusDR(dQ_DR_Size, 0.0);
       for(unsigned int j = 0; j < dQ_DR_Size; j++){
         timeDerivativePlusDR[j] = timeDerivativePlus[sim][face][j*numSimulationsIfAligned + sim];
         timeDerivativeMinusDR[j] = timeDerivativeMinus[sim][face][j*numSimulationsIfAligned + sim];
       }
+      #endif
       
       unsigned prefetchFace = (face < layerData[sim]->getNumberOfCells() - 1) ? face + 1 : face;
       m_dynamicRuptureKernel.spaceTimeInterpolation(
