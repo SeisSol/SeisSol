@@ -237,8 +237,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
           m_globalDataOnHost,
           &godunovData[sim][face],
           &drEnergyOutput[sim][face],
+          #ifdef MULTIPLE_SIMULATIONS
           timeDerivativePlusDR.data(),
           timeDerivativeMinusDR.data(),
+          #else
+          timeDerivativePlus[sim][face],
+          timeDerivativeMinus[sim][face],
+          #endif
           qInterpolatedPlus[sim][face], // DR part
           qInterpolatedMinus[sim][face],
           timeDerivativePlus[sim][prefetchFace],
