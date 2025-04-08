@@ -1,5 +1,12 @@
-.. SeisSol documentation master file, created by
-   sphinx-quickstart on Wed Nov  7 15:42:26 2018.
+..
+  SPDX-FileCopyrightText: 2018 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+.. Main SeisSol documentation file.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
@@ -19,44 +26,74 @@ Characteristics of the SeisSol simulation software are:
 - parallel geo-information input (ASAGI)
 - to produce reliable and sufficiently accurate synthetic seismograms or other seismological data sets
 
+-----
+
+We gratefully acknowledge the funding of the German Research Foundation (as part of project no. 391134334 - "CoCoReCS"), which massively contributed to creating all documentation, tutorials, example workflows and reproducible setups published on this website.
+
+-----
+
 .. toctree::
   :maxdepth: 2
   :caption: Introduction
 
   introduction
-  compilation
-  a-first-example
   acknowledge
+  reproducible-research
   related-publications
 
 .. toctree::
   :maxdepth: 2
-  :caption: Structural models
+  :caption: Installing SeisSol
 
-  cad-models
-  meshing-with-simmodeler
-  meshing-with-pumgen
-  gmsh
+  build-overview
+  build-dependencies
+  build-seissol
+  gpus
+  build-run
+  a-first-example
+  build-parameters
+  build-archs
+  build-problems
 
 .. toctree::
   :maxdepth: 2
   :caption: Invoking SeisSol
-  
+
   configuration
   parameter-file
   initial-condition
+  local-timestepping
+  left-lateral-right-lateral-normal-reverse.rst
   easi
   fault-tagging
   environment-variables
-  gpus
   memory-requirements
 
 .. toctree::
   :maxdepth: 2
   :caption: SeisSol on Supercomputers
 
+  behind_firewall
   supermuc
+  shaheen
+  frontera
+  frontier
   marconi
+  heisenbug
+  leonardo
+  lumi
+  supermuc-ng-phase2
+
+.. toctree::
+  :maxdepth: 2
+  :caption: Structural models and Meshing
+
+  cad-models
+  meshing-with-simmodeler
+  meshing-with-pumgen
+  gmsh
+  asagi
+  PUML-mesh-format
 
 .. toctree::
   :maxdepth: 2
@@ -70,39 +107,42 @@ Characteristics of the SeisSol simulation software are:
 .. toctree::
   :maxdepth: 2
   :caption: Output
-  
+
+  io
+  off-fault-receivers
   fault-output
   free-surface-output
-  off-fault-receivers
-  postprocessing-and-visualization
   wave-field-output
+  energy-output
   checkpointing
- 
+  postprocessing-and-visualization
+
 .. toctree::
   :maxdepth: 2
   :caption: Further documentation
 
-  PUML-mesh-format
-  asagi
+  sycl
   computing-time-vs-order-of-accuracy
   performance-measurement
   attenuation
-  physical-models 
+  physical-models
   scaling
   basic-code-structure
   known-issues
+  breaking-changes-backward-compatibility
 
 .. toctree::
   :maxdepth: 2
   :caption: Tutorials
-  
+
   simmodelerCAD-workflow
   generating-a-cad-model-using-gocad-basic-tutorial
   generating-a-megathrust-geometry
+  fully-coupled-mesh-tutorial
   remeshing-the-topography
   adapting-the-cad-model-resolution-using-gocad
   manually-fixing-an-intersection-in-gocad
-  
+
 .. toctree::
   :maxdepth: 2
   :caption: Cookbook
@@ -120,11 +160,3 @@ Characteristics of the SeisSol simulation software are:
   pointsource
   kinematic
   copyrights
-
-.. toctree::
-  :maxdepth: 2
-  :caption: Unsorted
-
-  building-seissol-on-stampede-knl-test-system
-  left-lateral-right-lateral-normal-reverse
-  optimization-for-non-intel-architectures

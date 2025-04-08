@@ -1,170 +1,78 @@
+..
+  SPDX-FileCopyrightText: 2019 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _compile_run_supermuc:
 
 
 SuperMUC-NG
 ===========
 
-Accessing github
-----------------
+Setting up GitHub on SuperMuc-NG
+--------------------------------
 
-SuperMUC restricts access to outside sources and thus does not allow connections to https servers. 
-Nevertheless, GitHub can be used if remote port forwarding is correctly set.
-Here, we described the procedure to set up such port forwarding.
-
-
-1. On your local machine, add to your ~/.ssh/config the following lines:
-
-::
-
-  Host supermucNG
-     Hostname skx.supermuc.lrz.de
-     User <Your Login>    
-     RemoteForward ddddd github.com:22
-
-where ddddd is an arbitrary 5-digital port number, smaller than 65535.
-  
-2. Use the following command to login onto SuperMUC-NG:
-
-::
-
-  ssh supermucNG 
-  
-Add the following lines to your ~/.ssh/config (on supermucNG):
-
-:: 
-
-  Host github.com
-     HostName localhost
-     User git
-     Port ddddd
-    
-With ddddd the same port number as before.
-
-3. Create SSH key by typing (use a non-empty passphrase, not too long as you will need to type it often)
-
-::
-
-  ssh-keygen -t rsa 
-
-4. Go to https://github.com/settings/ssh, add a new SSH key, and paste the public SSH key you just created (the content of ~/.ssh/id_rsa.pub on supermucNG). You should now be able to clone SeisSol including the submodules using:
-
-::
-
-  git clone git@github.com:SeisSol/SeisSol.git
-
-Pay attention to the change in the git address ('https://github.com/' is now replaced by 'git@github.com:'). 
-If it works, you will see several lines, for example: 
-
-::
-
-  Cloning into 'SeisSol'...
-  remote: Enumerating objects: 25806, done.
-  remote: Counting objects: 100% (4435/4435), done.
-  remote: Compressing objects: 100% (1820/1820), done.
-  remote: Total 25806 (delta 2972), reused 3710 (delta 2551), pack-reused 21371
-  Receiving objects: 100% (25806/25806), 110.50 MiB | 9.79 MiB/s, done.
-  Resolving deltas: 100% (19382/19382), done.
-
+see :ref:`pypi_behind_firewall`.
 
 Building SeisSol
 ----------------
 
-1. clone SeisSol including the submodules using 
-
-::
-
-  git clone git@github.com:SeisSol/SeisSol.git
-  cd SeisSol
-  git submodule update --init
- 
-
-2. Load module. Could add these lines to .bashrc (changing the order and adding additionnal modules may prevent a successful compilation):
+Load modules (including seissol-env). Add these lines to .bashrc:
 
 ::
 
   ##### module load for SeisSol
-  module load intel-mpi intel
-  module load gcc/9 cmake python/3.8.8-extended
-  module load libszip/2.1.1
-  module load parmetis/4.0.3-intel19-impi-i64-r64 metis/5.1.0-intel19-i64-r64
-  module load netcdf-hdf5-all/4.7_hdf5-1.10-intel19-impi
-  module load numactl
-  module load yaml-cpp/0.6.3-intel19
+  module load gcc
+  module load cmake/3.21.4
+  module load python/3.8.11-extended
+  module load numactl/2.0.14-intel21
+  #To use dependencies preinstalled with spack
+  module use /hppfs/work/pn49ha/ru76tuj2/modules/linux-sles15-skylake_avx512/
+  # you need to have access to project pn49ha
+  module load seissol-env/develop-intel21-impi-x2b
+  export CC=mpicc
+  export CXX=mpiCC
 
-  ####### for pspamm.py
-  export PATH=~/bin:$PATH
-  
-  ####  local setup for SeisSol. 
-  export PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/libxsmm/bin:$PATH
-  export PKG_CONFIG_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib/pkgconfig:$PKG_CONFIG_PATH
-  export LD_LIBRARY_PATH=/hppfs/work/pr63qo/di73yeq4/myLibs/ASAGI/build/lib:$LD_LIBRARY_PATH
+Install pspamm (see :ref:`pypi_behind_firewall` for the proxy):
 
+::
 
-3. Install libxsmm, PSpaMM, easi and ASAGI
+    pip3 install git+https://github.com/SeisSol/PSpaMM.git --no-build-isolation --user --proxy http://localhost:DDDDD
 
-See :ref:`installing_libxsmm`, :ref:`installing_pspamm`, `Installing easi <https://easyinit.readthedocs.io/en/latest/getting_started.html>`_ and :ref:`installing_ASAGI`. 
-Note that on project pr63qo, we already installed and shared libxsmm and ASAGI (but not pspamm).
-The compiled libs are in /hppfs/work/pr63qo/di73yeq4/myLibs/xxxx/build with xxxx=ASAGI or libxsmm.
-If you need to compile ASAGI, first clone ASAGI with:
+(``--no-build-isolation`` is used to circumvent the problem described in https://github.com/SeisSol/PSpaMM/issues/13)
+
+Clone SeisSol including the submodules using
 
 .. code-block:: bash
 
-  git clone git@github.com:TUM-I5/ASAGI
-  cd ASAGI
-  git submodule update --init
- 
-set compiler options, run cmake, and compile with:
+   git clone --recursive https://github.com/SeisSol/SeisSol.git
 
-::
+Install SeisSol with cmake, e.g. with (more options with ccmake)
 
-  export FC=mpif90
-  export CXX=mpiCC
-  export CC=mpicc
+.. code-block:: bash
 
-  mkdir build && cd build
-  CMAKE_PREFIX_PATH=$NETCDF_BASE
-  cmake ../ -DSHARED_LIB=no -DSTATIC_LIB=yes -DNONUMA=on -DCMAKE_INSTALL_PREFIX=$HOME/<folder-to-ASAGI>/build/ 
-  make -j 48
-  make install
-  (Know errors: 1.Numa could not found - turn off Numa by adding -DNONUMA=on . )
-
-
-4. Install SeisSol with cmake, e.g. with (more options with ccmake)
-
-::
-
+   cd SeisSol
    mkdir build-release && cd build-release
-   CC=mpicc CXX=mpiCC FC=mpif90  cmake -DCOMMTHREAD=ON -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=single -DORDER=4 -DCMAKE_INSTALL_PREFIX=$(pwd)/build-release -DGEMM_TOOLS_LIST=LIBXSMM,PSpaMM -DPSpaMM_PROGRAM=~/bin/pspamm.py ..
+   cmake -DNUMA_AWARE_PINNING=ON -DASAGI=ON -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=double -DORDER=4 ..
    make -j 48
 
-Note that to use sanitzer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc.
-For that modules and compiler need to be switched:
-
-::
-
-    module switch netcdf-hdf5-all netcdf-hdf5-all/4.7_hdf5-1.10-gcc8-impi
-    module unload intel-mpi intel
-    module load intel-mpi/2019-gcc
-    module switch yaml-cpp yaml-cpp/0.6.3
-    export CC=mpigcc
-    export CXX=mpigxx
-    export FC=mpifc
-
-Then cmake (without ``CC=mpicc CXX=mpiCC FC=mpif90``) on a new build folder.
-easi (and all its dependencies) also needs to be build with gcc compilers.
-To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list of cmake, and change the ``CMAKE_BUILD_TYPE`` to ``RelWithDebInfo`` or ``Debug``.
+.. _running_seissol_on_supermuc:
 
 Running SeisSol
 ---------------
 
-5. Submission file for SeisSol on NG:
+This is an example job submission script for SeisSol on SuperMUC-NG. For your applications, change ``#SBATCH --nodes=``
+to the number of nodes you want to run on. A rule of thumb for optimal performance is to distribute your jobs to 1 node per 100k elements. This rule of thumb does not account for potentially shorter queue times, for example when using the test queue or when asking for a large amount of nodes.
 
 ::
 
   #!/bin/bash
   # Job Name and Files (also --job-name)
-
   #SBATCH -J <job name>
+
   #Output and error (also --output, --error):
   #SBATCH -o ./%j.%x.out
   #SBATCH -e ./%j.%x.err
@@ -176,27 +84,30 @@ Running SeisSol
   #SBATCH --mail-type=END
   #SBATCH --mail-user=<your email address>
 
-  # Wall clock limit:
-  #SBATCH --time=03:00:00
-  #SBATCH --no-requeue
-
   #Setup of execution environment
+  # note that if you report an issue to LRZ, they will prefer --export=NONE
   #SBATCH --export=ALL
   #SBATCH --account=<project id>
-  #constraints are optional
-  #--constraint="scratch&work"
-  #SBATCH --partition=general
+  #SBATCH --no-requeue
 
   #Number of nodes and MPI tasks per node:
+  #SBATCH --partition=general
   #SBATCH --nodes=40
+  #SBATCH --time=03:00:00
+
   #SBATCH --ntasks-per-node=1
+  #EAR may impact code performance
+  #SBATCH --ear=off
+
   module load slurm_setup
-  
+
   #Run the program:
   export MP_SINGLE_THREAD=no
   unset KMP_AFFINITY
   export OMP_NUM_THREADS=94
   export OMP_PLACES="cores(47)"
+  #Prevents errors such as experience in Issue #691
+  export I_MPI_SHM_HEAP_VSIZE=32768
 
   export XDMFWRITER_ALIGNMENT=8388608
   export XDMFWRITER_BLOCK_SIZE=8388608
@@ -206,48 +117,181 @@ Running SeisSol
   export SEISSOL_CHECKPOINT_DIRECT=1
   export ASYNC_MODE=THREAD
   export ASYNC_BUFFER_ALIGNMENT=8388608
-  source /etc/profile.d/modules.sh
 
-  echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS 'cpus_per_task:' $SLURM_CPUS_PER_TASK
+  echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS
   ulimit -Ss 2097152
-  mpiexec -n $SLURM_NTASKS SeisSol_Release_sskx_4_elastic parameters.par
-
+  srun SeisSol_Release_sskx_4_elastic parameters.par
 
 Accessing PyPI
 --------------
 
 Many post-processing scripts of SeisSol require Python dependencies.
-We describe how to use pip on SuperMUC in the following.
+We describe how to use pip on SuperMUC at see :ref:`pypi_behind_firewall`.
 
 
-1. On your local machine in ~/.ssh/config add the following `RemoteForward` line:
+Using the Sanitizer
+-------------------
 
-::
+Note that to use the Sanitizer (https://en.wikipedia.org/wiki/AddressSanitizer), SeisSol needs to be compiled with gcc (or clang but the "static-libasan" argument does not work then).
+For that modules and compiler need to be switched:
 
-    Host supermucNG
-        ...
-        RemoteForward ddddd localhost:8899
+.. code-block:: bash
 
-where ddddd is an arbitrary port number with 5 digits.
-(This number should be different from port number used in other RemoteForward entries.)
+    module switch seissol-env seissol-env/develop-gcc11
 
-2. Install proxy.py on your local machine.
+    export CC=gcc
+    export CXX=gxx
 
-::
-
-    pip install --upgrade --user proxy.py
-
-3. Start proxy.py on your local machine. (And keep it running.)
+Then cmake on a new build folder.
+To enable sanitizer, add ``-DADDRESS_SANITIZER_DEBUG=ON`` to the argument list of cmake, and change the ``CMAKE_BUILD_TYPE`` to ``RelWithDebInfo`` or ``Debug``.
 
 
-::
+Compiling seissol-env spack package
+-----------------------------------
+For reference, to compile seissol-env on SuperMUC-NG, follow the procedure below:
 
-    ~/.local/bin/proxy --port 8899
+.. code-block:: bash
 
-4. Login to SuperMUC with `ssh supermucNG`. Pip can be used with
+    # load spack
+    module load user_spack
+    # clone seissol-spack-aid and add the repository
+    # we use a supermuc specific branch as supermuc spack is too old (0.17.1) for the main branch
+    git clone --branch supermuc_NG https://github.com/SeisSol/seissol-spack-aid.git
+    cd seissol-spack-aid
+    spack repo add ./spack
+    # locate externally build pkg-config
+    spack external find pkg-config
+    # install all dependencies of seissol.
+    # We specify the intel and intel-mpi version matching preinstalled version on supermuc-ng
+    # These can be found with:
+    # >spack find intel-mpi
+    # >spack compiler list
+    spack install seissol-env %intel ^intel-mpi
+    # or
+    spack install seissol-env %gcc ^intel-mpi
+    # now create a module:
+    spack module tcl refresh seissol-env@develop%intel
+    #to access the module at start up, add to your ~/.bashrc
+    module use $HOME/spack/modules/x86_avx512/linux-sles15-skylake_avx512/
+    # change this path to your_custom_path_2_modules if you update ~/.spack/modules.yaml
 
-::
+Custom install directory for packages and modules can be set by changing ``~/.spack/config.yaml``
 
-    pip install <package name> --user --proxy localhost:ddddd
+.. code-block:: yaml
 
-where ddddd is your arbitrary port number.
+    config:
+      install_tree: path_2_packages
+
+and ``~/.spack/modules.yaml``:
+
+.. code-block:: yaml
+
+    modules:
+      default:
+        roots:
+         tcl: your_custom_path_2_modules
+
+This can be useful to share packages with other users of a SuperMUC project.
+
+The seissol-env compilation can also be reduced by adding the python module to ``~/.spack/packages.yaml``:
+
+.. code-block:: yaml
+
+    packages:
+      python:
+        externals:
+        - spec: python@3.8.11
+          buildable: False
+          modules:
+           - python/3.8.11-extended
+
+
+Compiling the seissol spack package
+-----------------------------------
+
+The seissol package is similar to the seissol-env package (it gathers all dependencies of seissol), but also compiles a specific version of seissol itself.
+To compile the seissol spack package on SuperMUC-NG, follow the procedure below.
+
+.. code-block:: bash
+
+    # load spack
+    module purge
+    module load user_spack/23.1.0
+    module load intel intel-mkl intel-mpi python/3.10.10-extended
+
+    # install a few python modules (change DDDDD to the value used after RemoteForward in ~/.ssh/config)
+    python3.10 -m pip install --upgrade pip --user --proxy http://localhost:DDDDD
+    pip3.10 install --upgrade setuptools numpy wheel packaging --user --proxy http://localhost:DDDDD
+    pip3.10 install git+https://github.com/SeisSol/PSpaMM.git --no-build-isolation --user --proxy http://localhost:DDDDD
+
+    # clone seissol-spack-aid and add the repository
+    # we use a supermuc specific branch as supermuc spack is not fully up to date
+    git clone --branch NG https://github.com/SeisSol/seissol-spack-aid.git
+    cd seissol-spack-aid
+    spack repo add ./spack
+    # install a specific version of seissol, and enable python binding enabled for easi
+    spack install -j 40 seissol@master convergence_order=4 dr_quad_rule=dunavant equations=elastic precision=single %intel  ^easi +python
+
+    # now create a module:
+    spack module tcl refresh $(spack find -d --format "{name}{/hash:5}" seissol)
+
+    #to access the module at start up, add to your ~/.bashrc
+    module use $HOME/spack/modules/x86_avx512/linux-sles15-skylake_avx512/
+    # change this path to your_custom_path_2_modules if you update ~/.spack/modules.yaml
+
+Custom install directory for packages and modules can be set by changing ``~/.spack/config.yaml``:
+
+.. code-block:: yaml
+
+    config:
+      install_tree:
+        root: path_2_packages
+
+and ``~/.spack/modules.yaml``:
+
+.. code-block:: yaml
+
+    modules:
+      default:
+        roots:
+         tcl: your_custom_path_2_modules
+        tcl:
+          all:
+            suffixes:
+              domain_dimension=2: d2
+              domain_dimension=3: d3
+              polynomial_degree=1: p1
+              polynomial_degree=2: p2
+              polynomial_degree=3: p3
+              polynomial_degree=4: p4
+              polynomial_degree=5: p5
+              polynomial_degree=6: p6
+              convergence_order=3: o3
+              convergence_order=4: o4
+              convergence_order=5: o5
+              convergence_order=6: o6
+              equations=elastic: elas
+              equations=viscoelastic2: visco
+              dr_quad_rule=stroud: stroud
+              dr_quad_rule=dunavant: dunav
+              precision=single: single
+              precision=double: double
+              cuda: cuda
+              debug: debug
+        enable:
+        - tcl
+
+
+This can be useful to share packages with other users of a SuperMUC project.
+
+The number of dependencies to be compiled can be reduced by adding the python module to ``~/.spack/packages.yaml``:
+
+.. code-block:: yaml
+
+    packages:
+      python:
+        externals:
+        - spec: python@3.10.10
+          buildable: False
+          modules:
+           - python/3.10.10-extended

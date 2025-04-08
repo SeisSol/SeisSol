@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2023 SeisSol Group
+#
+# SPDX-License-Identifier: BSL-1.0
+# SPDX-LicenseComments: Full text under /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#
 # - Returns a version string from Git
 #
 # These functions force a re-configure on each git commit so that you can
@@ -132,6 +139,45 @@ function(git_describe _var)
 	endif()
 
 	set(${_var} "${out}" PARENT_SCOPE)
+endfunction()
+
+function(get_git_commit_info _varHash _varTimestamp)
+	if(NOT GIT_FOUND)
+		find_package(Git QUIET)
+	endif()
+	get_git_head_revision(refspec hash)
+	if(NOT GIT_FOUND)
+		set(${_varHash} "GIT-NOTFOUND" PARENT_SCOPE)
+		set(${_varTimestamp} "0000-00-00T00:00:00+00:00" PARENT_SCOPE)
+		return()
+	endif()
+	if(NOT hash)
+		set(${_varHash} "HEAD-HASH-NOTFOUND" PARENT_SCOPE)
+		set(${_varTimestamp} "0000-00-00T00:00:00+00:00" PARENT_SCOPE)
+		return()
+	endif()
+
+	execute_process(COMMAND
+		"${GIT_EXECUTABLE}" show -s --format=%H%cI
+		WORKING_DIRECTORY
+		"${CMAKE_CURRENT_SOURCE_DIR}"
+		RESULT_VARIABLE
+		res
+		OUTPUT_VARIABLE
+		out
+		ERROR_QUIET
+		OUTPUT_STRIP_TRAILING_WHITESPACE)
+	
+	if(NOT res EQUAL 0)
+		set(outHash "${out}-${res}-NOTFOUND")
+		set(outTimestamp "${out}-${res}-NOTFOUND")
+	else()
+	string(SUBSTRING "${out}" 0 40 outHash)
+		string(SUBSTRING "${out}" 40 25 outTimestamp)
+	endif()
+
+	set(${_varHash} "${outHash}" PARENT_SCOPE)
+	set(${_varTimestamp} "${outTimestamp}" PARENT_SCOPE)
 endfunction()
 
 function(git_get_exact_tag _var)

@@ -1,6 +1,7 @@
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @author Josep de la Puente Alvarez (josep.delapuente AT bsc.es, http://www.geophysik.uni-muenchen.de/Members/jdelapuente)
 %

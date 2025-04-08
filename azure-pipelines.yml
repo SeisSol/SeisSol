@@ -1,7 +1,0 @@
-jobs:
-    - template: azure-pipelines-doc-template.yml
-    - template: azure-pipelines-seissol-template.yml
-      parameters:
-          build_types: ['Release', 'Debug']
-          precisions: ['single', 'double']
-          equations: ['elastic', 'anisotropic', 'viscoelastic2', 'poroelastic']

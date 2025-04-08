@@ -1,21 +1,30 @@
-#Ensure that we have an set HIP_PATH
+# SPDX-FileCopyrightText: 2021 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# ensure that we have set HIP_PATH
 if(NOT DEFINED HIP_PATH)
     if(NOT DEFINED ENV{HIP_PATH})
-        set(HIP_PATH "/opt/rocm/hip" CACHE PATH "Path to which HIP has been installed")
+        if (NOT DEFINED ENV{ROCM_PATH})
+            # default location
+            set(HIP_PATH "/opt/rocm" CACHE PATH "Path to which HIP has been installed")
+        else()
+            set(HIP_PATH $ENV{ROCM_PATH} CACHE PATH "Path to which HIP has been installed")
+        endif()
     else()
         set(HIP_PATH $ENV{HIP_PATH} CACHE PATH "Path to which HIP has been installed")
     endif()
 endif()
 
-#set the CMAKE_MODULE_PATH for the helper cmake files from HIP
-set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" ${CMAKE_MODULE_PATH})
+# set the CMAKE_MODULE_PATH for the helper cmake files from HIP
+set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" "${HIP_PATH}/lib/cmake/hip" ${CMAKE_MODULE_PATH})
 
-set(HIP_COMPILER hcc)
 find_package(HIP REQUIRED)
 
-# Note: -std=c++14 because of cuda@10
-set(SEISSOL_HIPCC -DREAL_SIZE=${REAL_SIZE_IN_BYTES}; -std=c++14; -O3)
-set(SEISSOL_HCC)
+set(SEISSOL_HIPCC -DREAL_SIZE=${REAL_SIZE_IN_BYTES}; -std=c++17; -O3)
 
 set(IS_NVCC_PLATFORM OFF)
 if (DEFINED ENV{HIP_PLATFORM})
@@ -31,7 +40,7 @@ if (IS_NVCC_PLATFORM)
                     --compiler-options -fPIC;
                     -DCUDA_UNDERHOOD)
 else()
-    set(SEISSOL_HIPCC ${SEISSOL_HIPCC} --amdgpu-target=${DEVICE_ARCH})
+    set(SEISSOL_HIPCC ${SEISSOL_HIPCC} --offload-arch=${DEVICE_ARCH})
 endif()
 
 
@@ -47,25 +56,35 @@ ${HCC_PATH} \
 
 set(DEVICE_SRC ${DEVICE_SRC}
                ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
-               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/hip/PlasticityAux.cpp)
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/hip/PlasticityAux.cpp
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/hip/KernelsAux.cpp
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterCudaHip.cpp)
 
 
 set_source_files_properties(${DEVICE_SRC} PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
 
 hip_reset_flags()
-hip_add_library(SeisSol-device-lib SHARED ${DEVICE_SRC}
+hip_add_library(seissol-device-lib SHARED ${DEVICE_SRC}
         HIPCC_OPTIONS ${SEISSOL_HIPCC}
-        HCC_OPTIONS ${SEISSOL_HCC}
         NVCC_OPTIONS ${SEISSOL_NVCC})
 
-target_include_directories(SeisSol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
-set_property(TARGET SeisSol-device-lib PROPERTY HIP_ARCHITECTURES OFF)
-
+target_link_libraries(seissol-device-lib PRIVATE seissol-common-properties)
+target_include_directories(seissol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
+set_property(TARGET seissol-device-lib PROPERTY HIP_ARCHITECTURES OFF)
+target_compile_definitions(seissol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
+        CONVERGENCE_ORDER=${ORDER}
+        NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
+        NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
+        ${DR_QUAD_RULE})
+if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+endif()
 
 if (IS_NVCC_PLATFORM)
-    set_target_properties(SeisSol-device-lib PROPERTIES LINKER_LANGUAGE HIP)
-    target_link_options(SeisSol-device-lib PRIVATE -arch=${DEVICE_ARCH})
+    set_target_properties(seissol-device-lib PROPERTIES LINKER_LANGUAGE HIP)
+    target_link_options(seissol-device-lib PRIVATE -arch=${DEVICE_ARCH})
 else()
-    target_link_libraries(SeisSol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
+    target_link_libraries(seissol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
 endif()
 

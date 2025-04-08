@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2015 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 # Mac
 com.apple.timemachine.supported
 
@@ -16,8 +23,9 @@ com.apple.timemachine.supported
 generated_code/.idea
 .idea
 
-# VisualCode
+# VisualCode / VS Code
 .vcode
+.vscode
 
 # VIM
 *.swo
@@ -46,8 +54,7 @@ src/version.h
 *.mod
 
 # Build
-build/build_*
-build/SeisSol_*
+build*/
 Documentation/_build/*
 preprocessing/meshing/cube_c/build
 preprocessing/science/asagiconv/build
@@ -63,3 +70,10 @@ config.log
 /cmake-build-debug/
 /cmake-build-release/
 /cmake-build-relwithdebinfo/
+
+# Doxygen
+Documentation/doxygen/html
+Documentation/doxygen/latex
+
+# clang-tidy
+.cache/

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 # From: https://raw.githubusercontent.com/bilke/cmake-modules/master/CodeCoverage.cmake
 
 # Copyright (c) 2012 - 2017, Lars Bilke
@@ -199,7 +200,7 @@ mark_as_advanced(
 
 get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(NOT (CMAKE_BUILD_TYPE STREQUAL "Debug" OR GENERATOR_IS_MULTI_CONFIG))
-    message(WARNING "Code coverage results with an optimised (non-Debug) build may be misleading")
+    message(WARNING "Code coverage results with an optimized (non-Debug) build may be misleading")
 endif() # NOT (CMAKE_BUILD_TYPE STREQUAL "Debug" OR GENERATOR_IS_MULTI_CONFIG)
 
 if(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_Fortran_COMPILER_ID STREQUAL "GNU")
@@ -229,6 +230,11 @@ function(setup_target_for_coverage_lcov)
     set(oneValueArgs BASE_DIRECTORY NAME)
     set(multiValueArgs EXCLUDE EXECUTABLE EXECUTABLE_ARGS DEPENDENCIES LCOV_ARGS GENHTML_ARGS)
     cmake_parse_arguments(Coverage "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    get_property(crosscompiling_emulator
+            TARGET ${Coverage_EXECUTABLE}
+            PROPERTY CROSSCOMPILING_EMULATOR
+            )
 
     if(NOT LCOV_PATH)
         message(FATAL_ERROR "lcov not found! Aborting...")
@@ -273,7 +279,7 @@ function(setup_target_for_coverage_lcov)
             )
     # Run tests
     set(LCOV_EXEC_TESTS_CMD
-            ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS}
+            ${crosscompiling_emulator} ${Coverage_EXECUTABLE} ${Coverage_EXECUTABLE_ARGS}
             )
     # Capturing lcov counters and generating report
     set(LCOV_CAPTURE_CMD
@@ -348,19 +354,17 @@ function(setup_target_for_coverage_lcov)
             WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
             DEPENDS ${Coverage_DEPENDENCIES}
             VERBATIM # Protect arguments to commands
-            COMMENT "Resetting code coverage counters to zero.\nProcessing code coverage counters and generating report."
+            COMMENT "Resetting code coverage counters to zero. Processing code coverage counters and generating report."
             )
 
     # Show where to find the lcov info report
     add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
-            COMMAND ;
-            COMMENT "Lcov code coverage info report saved in ${Coverage_NAME}.info."
+            COMMAND ${CMAKE_COMMAND} -E echo "Lcov code coverage info report saved in ${Coverage_NAME}.info."
             )
 
     # Show info where to find the report
     add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
-            COMMAND ;
-            COMMENT "Open ./${Coverage_NAME}/index.html in your browser to view the coverage report."
+            COMMAND ${CMAKE_COMMAND} -E echo "Open ./${Coverage_NAME}/index.html in your browser to view the coverage report."
             )
 
 endfunction() # setup_target_for_coverage_lcov
@@ -452,8 +456,7 @@ function(setup_target_for_coverage_gcovr_xml)
 
     # Show info where to find the report
     add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
-            COMMAND ;
-            COMMENT "Cobertura code coverage report saved in ${Coverage_NAME}.xml."
+            COMMAND ${CMAKE_COMMAND} -E echo "Cobertura code coverage report saved in ${Coverage_NAME}.xml."
             )
 endfunction() # setup_target_for_coverage_gcovr_xml
 
@@ -554,8 +557,7 @@ function(setup_target_for_coverage_gcovr_html)
 
     # Show info where to find the report
     add_custom_command(TARGET ${Coverage_NAME} POST_BUILD
-            COMMAND ;
-            COMMENT "Open ./${Coverage_NAME}/index.html in your browser to view the coverage report."
+            COMMAND ${CMAKE_COMMAND} -E echo "Open ./${Coverage_NAME}/index.html in your browser to view the coverage report."
             )
 
 endfunction() # setup_target_for_coverage_gcovr_html

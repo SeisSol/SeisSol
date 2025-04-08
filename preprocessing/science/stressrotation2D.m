@@ -1,6 +1,7 @@
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @author Amaryllis Nerger (amaryllis.nerger AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/anerger)
 % @author Christian Pelties (pelties AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/pelties)

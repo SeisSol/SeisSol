@@ -1,1 +1,0 @@
-You need to install arydshln.sty for compiling the documentation.

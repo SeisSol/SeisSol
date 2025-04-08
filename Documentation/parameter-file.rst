@@ -1,7 +1,17 @@
-Parameter File
+..
+  SPDX-FileCopyrightText: 2018 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+.. _parameter-file:
+
+Parameter file
 ==============
 
-General Information
+General information
 -------------------
 
 The parameter file in SeisSol is based on the Fortran NAMELIST format.
@@ -34,8 +44,8 @@ Sections
 Additional, more detailed information on several sections are listed
 here.
 
-DynamicRupture
-~~~~~~~~~~~~~~
+Dynamic rupture
+~~~~~~~~~~~~~~~
 
 Reference point
 ^^^^^^^^^^^^^^^
@@ -66,7 +76,7 @@ following.
    | We define
    | :math:`\text{isPlus}:=\left<\mathbf{r}-\mathbf{x},\mathbf{n}\right>\cdot\left<\mathbf{y}-\mathbf{x},\mathbf{n}\right>>0`
    | isPlus is only true whenever **r**-**x** and **y**-**x** point in
-     the same direction (lie in the same half-space w.r.t. **n**). 
+     the same direction (lie in the same half-space w.r.t. **n**).
    | This method works, as long as the sign of the first dot product is the
      same for all faces tagged as being part of the fault.
    | *Example:* One has a planar fault with normal **N** and an
@@ -86,7 +96,7 @@ following.
 *Application Example:* Assume you have chosen a *enu* coordinate system
 (x=east, y=north, z=up). Your fault is in the x-z-plane with y=0
 (strike-slip fault) and you set the reference point to (0,10000,0) with
-``refPointMethod=0``. Then, the faces with normal (0,-1,0) make up the
+``refPointMethod=0``. Then, the faces with normal (0,+1,0) make up the
 "+"-side. In this case, all vertices of the "+"-tetrahedron lie in the
 half-space :math:`y\ge 0`.
 

@@ -1,59 +1,43 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2016-2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2016 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
 
+#include <Geometry/MeshDefinition.h>
+#include <Geometry/Refinement/RefinerUtils.h>
+#include <Geometry/Refinement/VariableSubSampler.h>
+#include <Initializer/Parameters/OutputParameters.h>
+#include <Kernels/Precision.h>
+#include <ResultWriter/WaveFieldWriterExecutor.h>
+#include <algorithm>
+#include <async/Module.h>
 #include <cassert>
+#include <cmath>
 #include <cstring>
+#include <map>
+#include <memory>
+#include <mpi.h>
+#include <optional>
+#include <ostream>
+#include <string>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
 
+#include "Geometry/MeshReader.h"
+#include "Geometry/Refinement/MeshRefiner.h"
+#include "Modules/Modules.h"
 #include "SeisSol.h"
 #include "WaveFieldWriter.h"
-#include "Geometry/MeshReader.h"
-#include "Geometry/refinement/MeshRefiner.h"
-#include "Monitoring/instrumentation.fpp"
-#include <Modules/Modules.h>
 
-void seissol::writer::WaveFieldWriter::setUp()
-{
+void seissol::writer::WaveFieldWriter::setUp() {
   setExecutor(m_executor);
   if (isAffinityNecessary()) {
-    const auto freeCpus = SeisSol::main.getPinning().getFreeCPUsMask();
-    logInfo(seissol::MPI::mpi.rank()) << "Wave field writer thread affinity:"
-      << parallel::Pinning::maskToString(freeCpus);
+    const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
+    logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
@@ -61,433 +45,464 @@ void seissol::writer::WaveFieldWriter::setUp()
   }
 }
 
-void seissol::writer::WaveFieldWriter::enable()
-{
-	m_enabled = true;
-	seissol::SeisSol::main.checkPointManager().header().add(m_timestepComp);
-}
+void seissol::writer::WaveFieldWriter::enable() { m_enabled = true; }
 
-seissol::refinement::TetrahedronRefiner<double>* seissol::writer::WaveFieldWriter::createRefiner(int refinement) {
-  int const rank = seissol::MPI::mpi.rank();
-  refinement::TetrahedronRefiner<double>* tetRefiner = 0L;
+seissol::refinement::TetrahedronRefiner<double>*
+    seissol::writer::WaveFieldWriter::createRefiner(int refinement) {
+  refinement::TetrahedronRefiner<double>* tetRefiner = nullptr;
   switch (refinement) {
-	case 0:
-		logInfo(rank) << "Refinement is turned off.";
-		tetRefiner = new refinement::IdentityRefiner<double>();
-		break;
-	case 1:
-		logInfo(rank) << "Refinement Strategy is \"Divide by 4\"";
-		tetRefiner = new refinement::DivideTetrahedronBy4<double>();
-		break;
-	case 2:
-		logInfo(rank) << "Refinement Strategy is \"Divide by 8\"";
-		tetRefiner = new refinement::DivideTetrahedronBy8<double>();
-		break;
-	case 3:
-		logInfo(rank) << "Refinement Strategy is \"Divide by 32\"";
-		tetRefiner = new refinement::DivideTetrahedronBy32<double>();
-		break;
-	default:
-		logError() << "Refinement Strategy is invalid!" << std::endl
-			<< "Current value : " << refinement << std::endl
-			<< "Valid options are :" << std::endl << "0 - No Refinement"
-			<< std::endl << "1 - Refinement by 4" << std::endl
-			<< "2 - Refinement by 8" << std::endl
-			<< "3 - Refinement by 32";
-	}
+  case 0:
+    logInfo() << "Refinement is turned off.";
+    tetRefiner = new refinement::IdentityRefiner<double>();
+    break;
+  case 1:
+    logInfo() << "Refinement Strategy is \"Divide by 4\"";
+    tetRefiner = new refinement::DivideTetrahedronBy4<double>();
+    break;
+  case 2:
+    logInfo() << "Refinement Strategy is \"Divide by 8\"";
+    tetRefiner = new refinement::DivideTetrahedronBy8<double>();
+    break;
+  case 3:
+    logInfo() << "Refinement Strategy is \"Divide by 32\"";
+    tetRefiner = new refinement::DivideTetrahedronBy32<double>();
+    break;
+  default:
+    logError() << "Refinement Strategy is invalid!" << std::endl
+               << "Current value : " << refinement << std::endl
+               << "Valid options are :" << std::endl
+               << "0 - No Refinement" << std::endl
+               << "1 - Refinement by 4" << std::endl
+               << "2 - Refinement by 8" << std::endl
+               << "3 - Refinement by 32";
+  }
   return tetRefiner;
 }
 
-unsigned const* seissol::writer::WaveFieldWriter::adjustOffsets(refinement::MeshRefiner<double>* meshRefiner) {
-  unsigned const* const_cells;
-// Cells are a bit complicated because the vertex filter will now longer work if we just use the buffer
-// We will add the offset later
+const unsigned*
+    seissol::writer::WaveFieldWriter::adjustOffsets(refinement::MeshRefiner<double>* meshRefiner) {
+  const unsigned* constCells = nullptr;
+// Cells are a bit complicated because the vertex filter will now longer work if we just use the
+// buffer We will add the offset later
 #ifdef USE_MPI
-	// Add the offset to the cells
-	MPI_Comm groupComm = seissol::SeisSol::main.asyncIO().groupComm();
-	unsigned int offset = meshRefiner->getNumVertices();
-	MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
-	offset -= meshRefiner->getNumVertices();
+  // Add the offset to the cells
+  MPI_Comm groupComm = seissolInstance.asyncIO().groupComm();
+  unsigned int offset = meshRefiner->getNumVertices();
+  MPI_Scan(MPI_IN_PLACE, &offset, 1, MPI_UNSIGNED, MPI_SUM, groupComm);
+  offset -= meshRefiner->getNumVertices();
 
-	// Add the offset to all cells
-	unsigned int* cells = new unsigned int[meshRefiner->getNumCells() * 4];
-	for (unsigned int i = 0; i < meshRefiner->getNumCells() * 4; i++) {
-		cells[i] = meshRefiner->getCellData()[i] + offset;
+  // Add the offset to all cells
+  auto* cells = new unsigned int[meshRefiner->getNumCells() * 4];
+  for (unsigned int i = 0; i < meshRefiner->getNumCells() * 4; i++) {
+    cells[i] = meshRefiner->getCellData()[i] + offset;
   }
-	const_cells = cells;
-#else // USE_MPI
-	const_cells = meshRefiner->getCellData();
+  constCells = cells;
+#else  // USE_MPI
+  const_cells = meshRefiner->getCellData();
 #endif // USE_MPI
-  return const_cells;
+  return constCells;
 }
-
 
 std::vector<unsigned int> seissol::writer::WaveFieldWriter::generateRefinedClusteringData(
-	refinement::MeshRefiner<double>* meshRefiner, const std::vector<unsigned> &LtsClusteringData, std::map<int, int> &newToOldCellMap) {
-	//subsampling preserves the order of the cells, so we just need to repeat the LtsClusteringData kSubCellsPerCell times.
-	//we also need to account for the extractRegion filter via the newToOldCellMap hash map
-	std::vector<unsigned int> refinedClusteringData(meshRefiner->getNumCells());
+    refinement::MeshRefiner<double>* meshRefiner,
+    const std::vector<unsigned>& ltsClusteringData,
+    std::map<int, int>& newToOldCellMap) const {
+  // subsampling preserves the order of the cells, so we just need to repeat the LtsClusteringData
+  // kSubCellsPerCell times. we also need to account for the extractRegion filter via the
+  // newToOldCellMap hash map
+  std::vector<unsigned int> refinedClusteringData(meshRefiner->getNumCells());
 
-	size_t kSubCellsPerCell = static_cast<size_t> (meshRefiner->getkSubCellsPerCell());
-	for (size_t j = 0; j < meshRefiner->getNumCells(); j++) {
-		if (m_extractRegion) {
-			refinedClusteringData[j] = LtsClusteringData.data()[newToOldCellMap[static_cast<size_t> (j/kSubCellsPerCell)]];
-		} else {
-			refinedClusteringData[j] = LtsClusteringData.data()[static_cast<size_t> (j/kSubCellsPerCell)];
-		}
-	}
-	return refinedClusteringData;
+  auto kSubCellsPerCell = static_cast<size_t>(meshRefiner->getkSubCellsPerCell());
+  for (size_t j = 0; j < meshRefiner->getNumCells(); j++) {
+    if (isExtractRegionEnabled) {
+      refinedClusteringData[j] = ltsClusteringData[newToOldCellMap[(j / kSubCellsPerCell)]];
+    } else {
+      refinedClusteringData[j] = ltsClusteringData[(j / kSubCellsPerCell)];
+    }
+  }
+  return refinedClusteringData;
 }
 
+void seissol::writer::WaveFieldWriter::init(
+    unsigned int numVars,
+    int order,
+    int numAlignedDOF,
+    const seissol::geometry::MeshReader& meshReader,
+    const std::vector<unsigned>& ltsClusteringData,
+    const real* dofs,
+    const real* pstrain,
+    const real* integrals,
+    const unsigned int* map,
+    const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
+    xdmfwriter::BackendType backend,
+    const std::string& backupTimeStamp) {
+  if (!m_enabled) {
+    return;
+  }
 
-void seissol::writer::WaveFieldWriter::init(unsigned int numVars,
-    int order, int numAlignedDOF,
-    const MeshReader &meshReader, const std::vector<unsigned> &LtsClusteringData,
-    const real* dofs,  const real* pstrain, const real* integrals,
-    unsigned int* map,
-    int refinement, int* outputMask, int* plasticityMask, double* outputRegionBounds,
-    xdmfwriter::BackendType backend)
-{
-	if (!m_enabled)
-		return;
+  // Initialize the asynchronous module
+  async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::init();
 
-	// Initialize the asynchronous module
-	async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::init();
+  Modules::registerHook(*this, ModuleHook::SimulationStart);
+  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 
-  Modules::registerHook(*this, SIMULATION_START);
-  Modules::registerHook(*this, SYNCHRONIZATION_POINT);
+  logInfo() << "Initializing XDMF wave field output.";
 
-	const int rank = seissol::MPI::mpi.rank();
+  /** All initialization parameters */
+  WaveFieldInitParam param{};
 
-	logInfo(rank) << "Initializing XDMF wave field output.";
+  param.timestep = 0;
 
-	/** All initialization parameters */
-	WaveFieldInitParam param;
-
-	param.timestep = seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp);
-
-	/** List of all buffer ids */
-	param.bufferIds[OUTPUT_PREFIX] = addSyncBuffer(m_outputPrefix.c_str(), m_outputPrefix.size()+1, true);
+  /** List of all buffer ids */
+  param.bufferIds[OutputPrefix] =
+      addSyncBuffer(m_outputPrefix.c_str(), m_outputPrefix.size() + 1, true);
 
   param.backend = backend;
+  param.backupTimeStamp = backupTimeStamp;
 
-	//
-	// High order I/O
-	//
-	m_numVariables = numVars + WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES;
-	m_outputFlags = new bool[m_numVariables];
-	for (size_t i = 0; i < numVars; i++)
-		m_outputFlags[i] = (outputMask[i] != 0);
-	for (size_t i = 0; i < WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES; i++) 
-		m_outputFlags[numVars + i] = (pstrain != 0L) && (plasticityMask[i] != 0L);
+  //
+  // High order I/O
+  //
+  m_numVariables = numVars + WaveFieldWriterExecutor::NumPlasticityVariables;
+  m_outputFlags = new bool[m_numVariables];
+  for (size_t i = 0; i < numVars; i++) {
+    m_outputFlags[i] = (parameters.outputMask[i]);
+  }
+  for (size_t i = 0; i < WaveFieldWriterExecutor::NumPlasticityVariables; i++) {
+    m_outputFlags[numVars + i] = (pstrain != nullptr) && (parameters.plasticityMask[i]);
+  }
 
-	// WARNING: The m_outputFlags memory might be directly used by the executor.
-	// Do not modify this array after the following line
-	param.bufferIds[OUTPUT_FLAGS] = addSyncBuffer(m_outputFlags, m_numVariables*sizeof(bool), true);
+  // WARNING: The m_outputFlags memory might be directly used by the executor.
+  // Do not modify this array after the following line
+  param.bufferIds[OutputFlags] = addSyncBuffer(m_outputFlags, m_numVariables * sizeof(bool), true);
 
-	// Setup the tetrahedron refinement strategy
-	refinement::TetrahedronRefiner<double>* tetRefiner = createRefiner(refinement);
+  // Setup the tetrahedron refinement strategy
+  refinement::TetrahedronRefiner<double>* tetRefiner =
+      createRefiner(static_cast<int>(parameters.refinement));
 
-	unsigned int numElems = meshReader.getElements().size();
-	unsigned int numVerts = meshReader.getVertices().size();
+  unsigned int numElems = meshReader.getElements().size();
+  unsigned int numVerts = meshReader.getVertices().size();
 
-	// These variables are only filled if a region is to be extracted
-	// Elements of the extracted region
-	std::vector<const Element*> subElements;
-	// The oldToNewVertexMap defines a map between old vertex index to
-	// new vertex index. This is used to assign the vertex subset as well as
-	// used in MeshRefiner since the elements would hold old index of vertices
-	std::map<int, int> oldToNewVertexMap;
-	std::map<int, int> newToOldCellMap;
-	// Vertices of the extracted region
-	std::vector<const Vertex*> subVertices;
-	// Mesh refiner
-	refinement::MeshRefiner<double>* meshRefiner = 0L;
+  // These variables are only filled if a region is to be extracted
+  // Elements of the extracted region
+  std::vector<const Element*> subElements;
+  // The oldToNewVertexMap defines a map between old vertex index to
+  // new vertex index. This is used to assign the vertex subset as well as
+  // used in MeshRefiner since the elements would hold old index of vertices
+  std::map<int, int> oldToNewVertexMap;
+  std::map<int, int> newToOldCellMap;
+  // Vertices of the extracted region
+  std::vector<const Vertex*> subVertices;
+  // Mesh refiner
+  refinement::MeshRefiner<double>* meshRefiner = nullptr;
 
-	// If at least one of the outputRegionBounds is non-zero then extract.
-	// Otherwise use the entire region.
-	// m_extractRegion = true  : Extract region
-	// m_extractRegion = false : Entire region
-	m_extractRegion = outputRegionBounds[0] != 0.0 ||
-		outputRegionBounds[1] != 0.0 || outputRegionBounds[2] != 0.0 ||
-		outputRegionBounds[3] != 0.0 || outputRegionBounds[4] != 0.0 ||
-		outputRegionBounds[5] != 0.0;
+  // If at least one of the bounds is non-zero then extract.
+  const bool isExtractBoxEnabled = parameters.bounds.enabled;
 
-	if (m_extractRegion) {
-		/** Extract the elements and vertices based on user given bounds */
-		// Reference to the vector containing all the elements
-		const std::vector<Element>& allElements = meshReader.getElements();
+  // If at least one group is explicitly enabled, extract
+  const bool isExtractGroupEnabled = !parameters.groups.empty();
 
-		// Reference to the vector containing all the vertices
-		const std::vector<Vertex>& allVertices = meshReader.getVertices();
+  isExtractRegionEnabled = isExtractBoxEnabled || isExtractGroupEnabled;
+  // isExtractRegionEnabled = true  : Extract region
+  // isExtractRegionEnabled = false : Entire region
 
-		// m_map will store a new map from new cell index to dof index
-		// the old map is contained in the "map" variable - which is a map from old
-		//    cell index to dof index
-		m_map = new unsigned int[numElems];
+  if (isExtractRegionEnabled) {
+    const std::vector<Element>& allElements = meshReader.getElements();
+    const std::vector<Vertex>& allVertices = meshReader.getVertices();
 
-		// Extract elements based on the region specified
-		for (size_t i = 0; i < numElems; i++) {
-			// Store the current number of elements to check if new was added
-			if (vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[0]].coords) ||
-				vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[1]].coords) ||
-				vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[2]].coords) ||
-				vertexInBox(outputRegionBounds, allVertices[allElements[i].vertices[3]].coords)) {
+    // m_map will store a new map from new cell index to dof index
+    // the old map is contained in the "map" variable - which is a map from old
+    //    cell index to dof index
+    m_map.resize(numElems);
 
-				// Assign the new map
-				size_t iNew = subElements.size();
-				m_map[iNew] = map[i];
+    // Extract elements based on the specified group or region
+    for (size_t i = 0; i < numElems; i++) {
+      const auto groupId = allElements[i].group;
+      // Store the current number of elements to check if new was added
+      const bool isInRegion =
+          !isExtractBoxEnabled ||
+          parameters.bounds.contains(allVertices[allElements[i].vertices[0]].coords[0],
+                                     allVertices[allElements[i].vertices[0]].coords[1],
+                                     allVertices[allElements[i].vertices[0]].coords[2]) ||
+          parameters.bounds.contains(allVertices[allElements[i].vertices[1]].coords[0],
+                                     allVertices[allElements[i].vertices[1]].coords[1],
+                                     allVertices[allElements[i].vertices[1]].coords[2]) ||
+          parameters.bounds.contains(allVertices[allElements[i].vertices[2]].coords[0],
+                                     allVertices[allElements[i].vertices[2]].coords[1],
+                                     allVertices[allElements[i].vertices[2]].coords[2]) ||
+          parameters.bounds.contains(allVertices[allElements[i].vertices[3]].coords[0],
+                                     allVertices[allElements[i].vertices[3]].coords[1],
+                                     allVertices[allElements[i].vertices[3]].coords[2]);
+      const bool isInGroup = !isExtractGroupEnabled || parameters.groups.count(groupId) > 0;
+      if (isInRegion && isInGroup) {
+        // Assign the new map
+        const size_t iNew = subElements.size();
+        m_map[iNew] = map[i];
 
-				// Push the address of the element into the vector
-				subElements.push_back(&(allElements[i]));
-				newToOldCellMap.insert(std::pair<size_t,size_t>(iNew, i));
+        // Push the address of the element into the vector
+        subElements.push_back(&(allElements[i]));
+        newToOldCellMap.insert(std::pair<size_t, size_t>(iNew, i));
 
-				// Push the vertices into the map which makes sure that the entries are unique
-				oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[0], oldToNewVertexMap.size()));
-				oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[1], oldToNewVertexMap.size()));
-				oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[2], oldToNewVertexMap.size()));
-				oldToNewVertexMap.insert(std::pair<int,int>(allElements[i].vertices[3], oldToNewVertexMap.size()));
-			}
-		}
+        // Push the vertices into the map which makes sure that the entries are unique
+        oldToNewVertexMap.insert(
+            std::pair<int, int>(allElements[i].vertices[0], oldToNewVertexMap.size()));
+        oldToNewVertexMap.insert(
+            std::pair<int, int>(allElements[i].vertices[1], oldToNewVertexMap.size()));
+        oldToNewVertexMap.insert(
+            std::pair<int, int>(allElements[i].vertices[2], oldToNewVertexMap.size()));
+        oldToNewVertexMap.insert(
+            std::pair<int, int>(allElements[i].vertices[3], oldToNewVertexMap.size()));
+      }
+    }
 
-		subVertices.resize(oldToNewVertexMap.size());
+    subVertices.resize(oldToNewVertexMap.size());
 
-		// Loop over the map and assign the vertices
-		for (std::map<int,int>::iterator it=oldToNewVertexMap.begin(); it!=oldToNewVertexMap.end(); ++it)
-			subVertices.at(it->second) = &allVertices[it->first];
+    for (auto& it : oldToNewVertexMap) {
+      subVertices.at(it.second) = &allVertices[it.first];
+    }
 
-		numElems = subElements.size();
-		numVerts = subVertices.size();
+    numElems = subElements.size();
+    numVerts = subVertices.size();
 
-		meshRefiner = new refinement::MeshRefiner<double>(subElements, subVertices,
-			oldToNewVertexMap, *tetRefiner);
-	} else {
-		meshRefiner = new refinement::MeshRefiner<double>(meshReader, *tetRefiner);
-		m_map = map;
-	}
+    meshRefiner = new refinement::MeshRefiner<double>(
+        subElements, subVertices, oldToNewVertexMap, *tetRefiner);
+  } else {
+    meshRefiner = new refinement::MeshRefiner<double>(meshReader, *tetRefiner);
+    m_map.resize(numElems);
+    std::copy_n(map, numElems, m_map.begin());
+  }
 
-	logInfo(rank) << "Refinement class initialized";
-	logDebug() << "Cells : "
-			<< numElems << "refined-to ->"
-			<< meshRefiner->getNumCells();
-	logDebug() << "Vertices : "
-			<< numVerts << "refined-to ->"
-			<< meshRefiner->getNumVertices();
-	// Initialize the variable subsampler
-	m_variableSubsampler = std::make_unique<refinement::VariableSubsampler<double>>(
-			numElems, *tetRefiner, order, numVars, numAlignedDOF);
-	m_variableSubsamplerPStrain = std::make_unique<refinement::VariableSubsampler<double>>(
-			numElems, *tetRefiner, order, static_cast<unsigned int>(WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES) , numAlignedDOF);
+  logInfo() << "Refinement class initialized";
+  logDebug() << "Cells : " << numElems << "refined-to ->" << meshRefiner->getNumCells();
+  logDebug() << "Vertices : " << numVerts << "refined-to ->" << meshRefiner->getNumVertices();
 
-	logInfo(rank) << "VariableSubsampler initialized";
+  m_variableSubsampler = std::make_unique<refinement::VariableSubsampler<double>>(
+      numElems, *tetRefiner, order, numVars, numAlignedDOF);
+  m_variableSubsamplerPStrain = std::make_unique<refinement::VariableSubsampler<double>>(
+      numElems,
+      *tetRefiner,
+      order,
+      static_cast<unsigned int>(WaveFieldWriterExecutor::NumPlasticityVariables),
+      numAlignedDOF);
 
-	// Delete the tetRefiner since it is no longer required
-	delete tetRefiner;
+  logInfo() << "VariableSubsampler initialized";
 
-	const unsigned int* const_cells = adjustOffsets(meshRefiner);
+  // Delete the tetRefiner since it is no longer required
+  delete tetRefiner;
 
-	// Create mesh buffers
-	param.bufferIds[CELLS] = addSyncBuffer(const_cells, meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
-	param.bufferIds[VERTICES] = addSyncBuffer(meshRefiner->getVertexData(), meshRefiner->getNumVertices() * 3 * sizeof(double));
-	std::vector<unsigned int> refinedClusteringData = generateRefinedClusteringData(meshRefiner, LtsClusteringData, newToOldCellMap);
-	param.bufferIds[CLUSTERING] = addSyncBuffer(refinedClusteringData.data(), meshRefiner->getNumCells() * sizeof(unsigned int));
+  const unsigned int* constCells = adjustOffsets(meshRefiner);
 
-	// Create data buffers
-	bool first = false;
-	for (unsigned int i = 0; i < m_numVariables; i++) {
-		if (m_outputFlags[i]) {
-			unsigned int id = addBuffer(0L, meshRefiner->getNumCells() * sizeof(real));
-			if (!first) {
-				param.bufferIds[VARIABLE0] = id;
-				first = true;
-			}
-		}
-	}
+  // Create mesh buffers
+  param.bufferIds[Cells] =
+      addSyncBuffer(constCells, meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
+  param.bufferIds[Vertices] = addSyncBuffer(meshRefiner->getVertexData(),
+                                            meshRefiner->getNumVertices() * 3 * sizeof(double));
+  std::vector<unsigned int> refinedClusteringData =
+      generateRefinedClusteringData(meshRefiner, ltsClusteringData, newToOldCellMap);
+  param.bufferIds[Clustering] = addSyncBuffer(refinedClusteringData.data(),
+                                              meshRefiner->getNumCells() * sizeof(unsigned int));
 
-	// Save number of cells
-	m_numCells = meshRefiner->getNumCells();
-	// Set up for low order output flags
-	m_lowOutputFlags = new bool[WaveFieldWriterExecutor::NUM_LOWVARIABLES];
-	m_numIntegratedVariables = seissol::SeisSol::main.postProcessor().getNumberOfVariables();
+  // Create data buffers
+  bool first = false;
+  for (unsigned int i = 0; i < m_numVariables; i++) {
+    if (m_outputFlags[i]) {
+      const unsigned int id = addBuffer(nullptr, meshRefiner->getNumCells() * sizeof(real));
+      if (!first) {
+        param.bufferIds[Variables0] = id;
+        first = true;
+      }
+    }
+  }
 
-	seissol::SeisSol::main.postProcessor().getIntegrationMask(&m_lowOutputFlags[0]);
-	param.bufferIds[LOW_OUTPUT_FLAGS] = addSyncBuffer(m_lowOutputFlags, WaveFieldWriterExecutor::NUM_LOWVARIABLES*sizeof(bool), true);
-	//
-	//  Low order I/O
-	//
-	refinement::MeshRefiner<double>* pLowMeshRefiner = 0L;
-	const unsigned int* const_lowCells = 0L;
-	if (integrals) {
-		logInfo(rank) << "Initialize low order output";
+  // Save number of cells
+  m_numCells = meshRefiner->getNumCells();
+  // Set up for low order output flags
+  m_lowOutputFlags = new bool[WaveFieldWriterExecutor::NumLowvariables];
+  m_numIntegratedVariables = seissolInstance.postProcessor().getNumberOfVariables();
 
-		// Refinement strategy (no refinement)
-		refinement::IdentityRefiner<double> lowTetRefiner;
+  seissolInstance.postProcessor().getIntegrationMask(&m_lowOutputFlags[0]);
+  param.bufferIds[LowOutputFlags] = addSyncBuffer(
+      m_lowOutputFlags, WaveFieldWriterExecutor::NumLowvariables * sizeof(bool), true);
+  //
+  //  Low order I/O
+  //
+  refinement::MeshRefiner<double>* pLowMeshRefiner = nullptr;
+  const unsigned int* constLowCells = nullptr;
+  if (integrals != nullptr) {
+    logInfo() << "Initialize low order output";
 
-		// Mesh refiner
-		if (m_extractRegion) {
-			pLowMeshRefiner = new refinement::MeshRefiner<double>(subElements, subVertices,
-				oldToNewVertexMap, lowTetRefiner);
-		} else {
-			pLowMeshRefiner = new refinement::MeshRefiner<double>(meshReader, lowTetRefiner);
-		}
+    // Refinement strategy (no refinement)
+    const refinement::IdentityRefiner<double> lowTetRefiner;
 
-		const_lowCells = adjustOffsets(pLowMeshRefiner);
+    // Mesh refiner
+    if (isExtractRegionEnabled) {
+      pLowMeshRefiner = new refinement::MeshRefiner<double>(
+          subElements, subVertices, oldToNewVertexMap, lowTetRefiner);
+    } else {
+      pLowMeshRefiner = new refinement::MeshRefiner<double>(meshReader, lowTetRefiner);
+    }
 
-		// Create mesh buffers
-		param.bufferIds[LOWCELLS] = addSyncBuffer(const_lowCells,
-			pLowMeshRefiner->getNumCells() * 4 * sizeof(unsigned int));
-		param.bufferIds[LOWVERTICES] = addSyncBuffer(pLowMeshRefiner->getVertexData(),
-			pLowMeshRefiner->getNumVertices() * 3 * sizeof(double));
+    constLowCells = adjustOffsets(pLowMeshRefiner);
 
-		// Create data buffers
-		param.bufferIds[LOWVARIABLE0] = addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(real));
+    // Create mesh buffers
+    param.bufferIds[LowCells] =
+        addSyncBuffer(constLowCells, pLowMeshRefiner->getNumCells() * 4 * sizeof(unsigned int));
+    param.bufferIds[LowVertices] = addSyncBuffer(
+        pLowMeshRefiner->getVertexData(), pLowMeshRefiner->getNumVertices() * 3 * sizeof(double));
 
-		int numLowVars = m_numIntegratedVariables;
+    // Create data buffers
+    param.bufferIds[LowVariables0] =
+        addBuffer(nullptr, pLowMeshRefiner->getNumCells() * sizeof(real));
 
-		for (int i = 1; i < numLowVars; i++)
-			addBuffer(0L, pLowMeshRefiner->getNumCells() * sizeof(real));
+    const int numLowVars = m_numIntegratedVariables;
 
-		// Save number of cells
-		m_numLowCells = pLowMeshRefiner->getNumCells();
-	} else {
-		// No low order output
-		param.bufferIds[LOWCELLS] = -1;
-		param.bufferIds[LOWVERTICES] = -1;
-		param.bufferIds[LOWVARIABLE0] = -1;
-	}
+    for (int i = 1; i < numLowVars; i++) {
+      addBuffer(nullptr, pLowMeshRefiner->getNumCells() * sizeof(real));
+    }
 
-	//
-	// Send all buffers for initialization
-	//
-	sendBuffer(param.bufferIds[OUTPUT_PREFIX], m_outputPrefix.size()+1);
+    // Save number of cells
+    m_numLowCells = pLowMeshRefiner->getNumCells();
+  } else {
+    // No low order output
+    param.bufferIds[LowCells] = -1;
+    param.bufferIds[LowVertices] = -1;
+    param.bufferIds[LowVariables0] = -1;
+  }
 
-	sendBuffer(param.bufferIds[OUTPUT_FLAGS], m_numVariables*sizeof(bool));
+  //
+  // Send all buffers for initialization
+  //
+  sendBuffer(param.bufferIds[OutputPrefix], m_outputPrefix.size() + 1);
 
-	sendBuffer(param.bufferIds[CELLS], meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
-	sendBuffer(param.bufferIds[VERTICES], meshRefiner->getNumVertices() * 3 * sizeof(double));
-	sendBuffer(param.bufferIds[CLUSTERING], meshRefiner->getNumCells() * sizeof(unsigned int));
+  sendBuffer(param.bufferIds[OutputFlags], m_numVariables * sizeof(bool));
 
-	if (integrals) {
-		sendBuffer(param.bufferIds[LOWCELLS], pLowMeshRefiner->getNumCells() * 4 * sizeof(unsigned int));
-		sendBuffer(param.bufferIds[LOWVERTICES], pLowMeshRefiner->getNumVertices() * 3 * sizeof(double));
-		sendBuffer(param.bufferIds[LOW_OUTPUT_FLAGS], WaveFieldWriterExecutor::NUM_LOWVARIABLES*sizeof(bool));
-	}
+  sendBuffer(param.bufferIds[Cells], meshRefiner->getNumCells() * 4 * sizeof(unsigned int));
+  sendBuffer(param.bufferIds[Vertices], meshRefiner->getNumVertices() * 3 * sizeof(double));
+  sendBuffer(param.bufferIds[Clustering], meshRefiner->getNumCells() * sizeof(unsigned int));
 
-	// Initialize the executor
-	callInit(param);
+  if (integrals != nullptr) {
+    sendBuffer(param.bufferIds[LowCells],
+               pLowMeshRefiner->getNumCells() * 4 * sizeof(unsigned int));
+    sendBuffer(param.bufferIds[LowVertices],
+               pLowMeshRefiner->getNumVertices() * 3 * sizeof(double));
+    sendBuffer(param.bufferIds[LowOutputFlags],
+               WaveFieldWriterExecutor::NumLowvariables * sizeof(bool));
+  }
 
-	// Remove buffers
-	removeBuffer(param.bufferIds[OUTPUT_PREFIX]);
-	removeBuffer(param.bufferIds[CELLS]);
-	removeBuffer(param.bufferIds[VERTICES]);
-	removeBuffer(param.bufferIds[CLUSTERING]);
-	if (integrals) {
-		removeBuffer(param.bufferIds[LOWCELLS]);
-		removeBuffer(param.bufferIds[LOWVERTICES]);
-	}
+  // Initialize the executor
+  callInit(param);
 
-	// Remove the low mesh refiner if it was setup
-	if (pLowMeshRefiner)
-		delete pLowMeshRefiner;
+  // Remove buffers
+  removeBuffer(param.bufferIds[OutputPrefix]);
+  removeBuffer(param.bufferIds[Cells]);
+  removeBuffer(param.bufferIds[Vertices]);
+  removeBuffer(param.bufferIds[Clustering]);
+  if (integrals != nullptr) {
+    removeBuffer(param.bufferIds[LowCells]);
+    removeBuffer(param.bufferIds[LowVertices]);
+  }
+
+  // Remove the low mesh refiner if it was setup
+  delete pLowMeshRefiner;
 
 #ifdef USE_MPI
-	delete [] const_cells;
-	delete [] const_lowCells;
+  delete[] constCells;
+  delete[] constLowCells;
 #endif // USE_MPI
 
-	// Save dof/map pointer
-	m_dofs = dofs;
-	m_pstrain = pstrain;
-	m_integrals = integrals;
+  // Save dof/map pointer
+  m_dofs = dofs;
+  m_pstrain = pstrain;
+  m_integrals = integrals;
 
-	m_variableBufferIds[0] = param.bufferIds[VARIABLE0];
-	m_variableBufferIds[1] = param.bufferIds[LOWVARIABLE0];
+  m_variableBufferIds[0] = param.bufferIds[Variables0];
+  m_variableBufferIds[1] = param.bufferIds[LowVariables0];
 
-	delete meshRefiner;
+  delete meshRefiner;
 }
 
-void seissol::writer::WaveFieldWriter::write(double time)
-{
-	SCOREP_USER_REGION("WaveFieldWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION);
+void seissol::writer::WaveFieldWriter::write(double time) {
+  SCOREP_USER_REGION("WaveFieldWriter_write", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-	if (!m_enabled)
-		return;
+  if (!m_enabled) {
+    return;
+  }
 
-	m_stopwatch.start();
+  m_stopwatch.start();
 
-	const int rank = seissol::MPI::mpi.rank();
+  SCOREP_USER_REGION_DEFINE(r_wait);
+  SCOREP_USER_REGION_BEGIN(r_wait, "wavfieldwriter_wait", SCOREP_USER_REGION_TYPE_COMMON);
+  logInfo() << "Waiting for last wave field.";
+  wait();
+  SCOREP_USER_REGION_END(r_wait);
 
-	SCOREP_USER_REGION_DEFINE(r_wait);
-	SCOREP_USER_REGION_BEGIN(r_wait, "wavfieldwriter_wait", SCOREP_USER_REGION_TYPE_COMMON);
-	logInfo(rank) << "Waiting for last wave field.";
-	wait();
-	SCOREP_USER_REGION_END(r_wait);
+  logInfo() << "Writing wave field at time" << utils::nospace << time << '.';
 
-	logInfo(rank) << "Writing wave field at time" << utils::nospace <<  time << '.';
+  unsigned int nextId = m_variableBufferIds[0];
+  for (unsigned int i = 0; i < m_numVariables; i++) {
+    if (!m_outputFlags[i]) {
+      continue;
+    }
 
-	unsigned int nextId = m_variableBufferIds[0];
-	for (unsigned int i = 0; i < m_numVariables; i++) {
-		if (!m_outputFlags[i])
-			continue;
+    real* managedBuffer =
+        async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::managedBuffer<
+            real*>(nextId);
+    if (i < m_numVariables - WaveFieldWriterExecutor::NumPlasticityVariables) {
+      m_variableSubsampler->get(m_dofs, m_map.data(), i, managedBuffer);
+    } else {
+      m_variableSubsamplerPStrain->get(
+          m_pstrain,
+          m_map.data(),
+          i - (m_numVariables - WaveFieldWriterExecutor::NumPlasticityVariables),
+          managedBuffer);
+    }
+    for (unsigned int j = 0; j < m_numCells; j++) {
+      if (!std::isfinite(managedBuffer[j])) {
+        logError() << "Detected Inf/NaN in volume output. Aborting.";
+      }
+    }
+    sendBuffer(nextId, m_numCells * sizeof(real));
 
-		real* managedBuffer = async::Module<WaveFieldWriterExecutor,
-				WaveFieldInitParam, WaveFieldParam>::managedBuffer<real*>(nextId);
-		if (i < m_numVariables - WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES) {
-			m_variableSubsampler->get(m_dofs, m_map, i, managedBuffer);
-		} else {
-			m_variableSubsamplerPStrain->get(m_pstrain, m_map, 
-			i - (m_numVariables - WaveFieldWriterExecutor::NUM_PLASTICITY_VARIABLES), managedBuffer);
-		}
-		for (unsigned int j = 0; j < m_numCells; j++) {
-			if (!std::isfinite(managedBuffer[j])) {
- 				logError() << "Detected Inf/NaN in volume output. Aborting.";
-			}
-		}
-		sendBuffer(nextId, m_numCells*sizeof(real));
+    nextId++;
+  }
 
-		nextId++;
-	}
+  // nextId is required in a manner similar to above for writing integrated variables
+  nextId = 0;
 
-	// nextId is required in a manner similar to above for writing integrated variables
-	nextId = 0;
-
-	if (m_integrals) {
-		for (unsigned int i = 0; i < WaveFieldWriterExecutor::NUM_INTEGRATED_VARIABLES; i++) {
-			if (!m_lowOutputFlags[i])
-				continue;
-			real* managedBuffer = async::Module<WaveFieldWriterExecutor,
-			WaveFieldInitParam, WaveFieldParam>::managedBuffer<real*>(m_variableBufferIds[1]+nextId);
+  if (m_integrals != nullptr) {
+    for (unsigned int i = 0; i < WaveFieldWriterExecutor::NumIntegratedVariables; i++) {
+      if (!m_lowOutputFlags[i]) {
+        continue;
+      }
+      real* managedBuffer =
+          async::Module<WaveFieldWriterExecutor, WaveFieldInitParam, WaveFieldParam>::managedBuffer<
+              real*>(m_variableBufferIds[1] + nextId);
 
 #ifdef _OPENMP
-			#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
 #endif // _OPENMP
-			for (unsigned int j = 0; j < m_numLowCells; j++)
-				managedBuffer[j] = m_integrals[m_map[j]
-						* m_numIntegratedVariables + nextId];
+      for (unsigned int j = 0; j < m_numLowCells; j++) {
+        managedBuffer[j] = m_integrals[m_map[j] * m_numIntegratedVariables + nextId];
+      }
 
-			sendBuffer(m_variableBufferIds[1]+nextId, m_numLowCells*sizeof(real));
-			nextId++;
-		}
-	}
+      sendBuffer(m_variableBufferIds[1] + nextId, m_numLowCells * sizeof(real));
+      nextId++;
+    }
+  }
 
-	WaveFieldParam param;
-	param.time = time;
-	call(param);
+  WaveFieldParam param;
+  param.time = time;
+  call(param);
 
-	// Update last time step
-	seissol::SeisSol::main.checkPointManager().header().value(m_timestepComp)++;
+  m_stopwatch.pause();
 
-	m_stopwatch.pause();
-
-	logInfo(rank) << "Writing wave field at time" << utils::nospace << time << ". Done.";
+  logInfo() << "Writing wave field at time" << utils::nospace << time << ". Done.";
 }
 
-void seissol::writer::WaveFieldWriter::simulationStart()
-{
-	syncPoint(0.0);
+void seissol::writer::WaveFieldWriter::simulationStart(std::optional<double> checkpointTime) {
+  if (checkpointTime.value_or(0) == 0) {
+    syncPoint(0.0);
+  }
 }
 
-void seissol::writer::WaveFieldWriter::syncPoint(double currentTime)
-{
-	write(currentTime);
-}
+void seissol::writer::WaveFieldWriter::syncPoint(double currentTime) { write(currentTime); }

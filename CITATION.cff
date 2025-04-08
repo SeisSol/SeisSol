@@ -1,0 +1,91 @@
+# SPDX-FileCopyrightText: 2022 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: SeisSol
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+ - given-names: Carsten 
+   family-names: Uphoff
+ - given-names: Lukas 
+   family-names: Krenz
+   orcid: 'https://orcid.org/0000-0001-6378-0778'
+ - given-names: Thomas 
+   family-names: Ulrich
+ - given-names: Sebastian 
+   family-names: Wolf
+ - given-names: David 
+   family-names: Schneller
+   orcid: 'https://orcid.org/0000-0002-2145-6133'
+ - given-names: Vikas
+   family-names: Kurapati
+   orcid: 'https://orcid.org/0009-0001-7682-508X'
+ - given-names: Adrian 
+   family-names: Knoll
+ - given-names: Duo 
+   family-names: Li
+ - given-names: Ravil 
+   family-names: Dorozhinskii
+ - given-names: Alexander 
+   family-names: Heinecke
+ - given-names: Stephanie 
+   family-names: Wollherr
+ - given-names: Marius 
+   family-names: Bohn
+ - given-names: Nico 
+   family-names: Schliwa
+ - given-names: Gilbert 
+   family-names: Brietzke
+ - given-names: Taufiq 
+   family-names: Taufiqurrahman
+ - given-names: Sebastian 
+   family-names: Anger
+ - given-names: Sebastian 
+   family-names: Rettenberger
+ - given-names: Frédéric 
+   family-names: Simonis
+ - given-names: Alice 
+   family-names: Gabriel
+ - given-names: Viktoria 
+   family-names: Pauw
+ - given-names: Alexander 
+   family-names: Breuer
+ - given-names: Fabian 
+   family-names: Kutschera
+ - given-names: Kadek 
+   family-names: Hendrawan Palgunadi
+ - given-names: Leonhard 
+   family-names: Rannabauer
+ - given-names: Lukas 
+   family-names: van de Wiel
+ - given-names: Bo 
+   family-names: Li
+ - given-names: Calum 
+   family-names: Chamberlain
+ - given-names: Jeena 
+   family-names: Yun
+ - given-names: John 
+   family-names: Rekoske
+ - given-names: Yonatan 
+   family-names: G
+ - given-names: Michael 
+   family-names: Bader
+
+repository-code: 'https://github.com/SeisSol/SeisSol'
+url: 'https://seissol.org'
+abstract: >-
+  SeisSol is a scientific software for the numerical
+  simulation of seismic wave phenomena and earthquake
+  dynamics. It is based on the discontinuous Galerkin method
+  combined with ADER time discretization.
+license: BSD-3-Clause

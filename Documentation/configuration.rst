@@ -1,3 +1,11 @@
+..
+  SPDX-FileCopyrightText: 2018 SeisSol Group
+
+  SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 .. _Configuration:
 
 Configuration
@@ -43,6 +51,5 @@ Necessary files
 Optional files depending on settings in the parameter file
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
--  receiver files in \*.dat format (if nRecordPoints >0 in the parameter
-   file)
+-  receiver files in \*.dat format
 -  fault receiver files in \*.dat format (in the parameter file)
