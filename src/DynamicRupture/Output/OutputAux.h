@@ -39,7 +39,7 @@ struct TriangleQuadratureData {
   #else
   static constexpr size_t index=0;
   #endif
-  static constexpr size_t Size{tensor::quadweights::Size};
+  static constexpr size_t Size{tensor::quadweights::Shape[index]};
   std::array<double, 2 * Size> points{};
   std::array<double, Size> weights{};
 };

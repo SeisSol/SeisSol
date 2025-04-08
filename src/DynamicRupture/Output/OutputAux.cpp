@@ -118,15 +118,9 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
 
   auto* reshapedPoints = unsafe_reshape<2>(&data.points[0]);
   for (size_t i = 0; i < data.Size; ++i) {
-    #ifdef MULTIPLE_SIMULATIONS
-    reshapedPoints[i][0] = pointsView(0, i);
-    reshapedPoints[i][1] = pointsView(1, i);
-    data.weights[i] = getWeights(i);
-    #else
-    reshapedPoints[i][0] = pointsView(i, 0);
-    reshapedPoints[i][1] = pointsView(i, 1);
-    data.weights[i] = weightsView(i);
-    #endif
+    reshapedPoints[i][0] = seissol::multisim::multisimTranspose(pointsView, i, 0);
+    reshapedPoints[i][1] = seissol::multisim::multisimTranspose(pointsView, i, 1);
+    data.weights[i] = seissol::multisim::multisimWrap(weightsView, 0, i);
   }
 
   return data;
