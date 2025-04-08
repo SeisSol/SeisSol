@@ -345,7 +345,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         }
 
         seissol::model::initializeSpecificLocalData(
-            material[cell].local, timeStepWidth, &localIntegration[cell].specific);
+            material[cell].local, timeStepWidth, meshReader, &localIntegration[cell].specific);
 
         seissol::model::initializeSpecificNeighborData(material[cell].local,
                                                        &neighboringIntegration[cell].specific);

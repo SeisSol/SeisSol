@@ -335,6 +335,7 @@ struct MaterialSetup<PoroElasticMaterial> {
 
   static void initializeSpecificLocalData(const PoroElasticMaterial& material,
                                           real timeStepWidth,
+                                          const seissol::geometry::MeshReader& meshReader,
                                           PoroelasticLocalData* localData) {
     auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
     sourceMatrix.setZero();

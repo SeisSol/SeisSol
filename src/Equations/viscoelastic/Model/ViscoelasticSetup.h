@@ -103,6 +103,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
 
   static void initializeSpecificLocalData(const MaterialT& material,
                                           real timeStepWidth,
+                                          const seissol::geometry::MeshReader& meshReader,
                                           ViscoElasticLocalData* localData) {
     auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
     getTransposedSourceCoefficientTensor(material, sourceMatrix);

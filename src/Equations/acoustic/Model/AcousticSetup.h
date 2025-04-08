@@ -103,6 +103,7 @@ struct MaterialSetup<AcousticMaterial> {
   }
   static void initializeSpecificLocalData(const AcousticMaterial& material,
                                           real timeStepWidth,
+                                          const seissol::geometry::MeshReader& meshReader,
                                           AcousticLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const AcousticMaterial& material,

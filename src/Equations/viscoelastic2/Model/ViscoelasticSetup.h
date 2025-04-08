@@ -153,6 +153,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
 
   static void initializeSpecificLocalData(const MaterialT& material,
                                           real timeStepWidth,
+                                          const seissol::geometry::MeshReader& meshReader,
                                           ViscoElasticLocalData* localData) {
     auto E = init::E::view::create(localData->E);
     E.setZero();

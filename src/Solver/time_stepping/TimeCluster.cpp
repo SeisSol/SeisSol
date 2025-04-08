@@ -897,7 +897,9 @@ template<bool usePlasticity>
 
       // Update the local materia modulus for next prediction
       // This function is only not dummy for Damage Mat.
+#ifdef USE_DAMAGE
       m_neighborKernel.updateMaterials(i_layerData);
+#endif
 
       const long long nonZeroFlopsPlasticity =
           i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)] +

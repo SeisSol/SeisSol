@@ -14,6 +14,8 @@
 #include <Equations/Datastructures.h>
 
 #include "Geometry/MeshTools.h"
+#include <Geometry/MeshDefinition.h>
+#include <Geometry/MeshReader.h>
 #include "Initializer/Typedefs.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
@@ -70,8 +72,9 @@ void getPlaneWaveOperator(const T& material,
 template <typename T>
 void initializeSpecificLocalData(const T& material,
                                  real timeStepWidth,
+                                 const seissol::geometry::MeshReader& meshReader,
                                  typename T::LocalSpecificData* localData) {
-  MaterialSetup<T>::initializeSpecificLocalData(material, timeStepWidth, localData);
+  MaterialSetup<T>::initializeSpecificLocalData(material, timeStepWidth, meshReader, localData);
 }
 
 template <typename T>

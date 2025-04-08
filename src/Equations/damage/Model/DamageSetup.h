@@ -250,6 +250,7 @@ struct MaterialSetup<DamageMaterial> {
 
   static void initializeSpecificLocalData(const DamageMaterial& material,
                                           real timeStepWidth,
+                                          const seissol::geometry::MeshReader& meshReader,
                                           DamageLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const DamageMaterial& material,

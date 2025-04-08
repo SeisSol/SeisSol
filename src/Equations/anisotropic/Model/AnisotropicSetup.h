@@ -323,6 +323,7 @@ struct MaterialSetup<AnisotropicMaterial> {
 
   static void initializeSpecificLocalData(const AnisotropicMaterial& material,
                                           real timeStepWidth,
+                                          const seissol::geometry::MeshReader& meshReader,
                                           AnisotropicLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const AnisotropicMaterial& material,
