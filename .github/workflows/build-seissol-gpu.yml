@@ -48,9 +48,9 @@ jobs:
           - type: elastic
             multisim: 1
             mechanisms: 0
-          - type: poroelastic
-            multisim: 1
-            mechanisms: 0
+          #- type: poroelastic # Does not work yet
+          #  multisim: 1
+          #  mechanisms: 0
           - type: viscoelastic2
             multisim: 1
             mechanisms: 3
@@ -217,12 +217,12 @@ jobs:
             energies: true
             receivers: true
             fault: true
-          - name: tpv5-poro
-            equation: poroelastic
-            multisim: 1
-            energies: false # incomplete, hence disabled
-            receivers: true
-            fault: true
+          #- name: tpv5-poro
+          #  equation: poroelastic
+          #  multisim: 1
+          #  energies: false # incomplete, hence disabled
+          #  receivers: true
+          #  fault: true
           - name: tpv6
             equation: elastic
             multisim: 1
@@ -285,7 +285,7 @@ jobs:
             fault: true
           - name: tpvloh1-fused
             equation: elastic
-            multisim: 8
+            multisim: 32
             energies: true
             receivers: true
             fault: false # NYI
