@@ -53,10 +53,6 @@ def addKernels(generator, aderdg, include_tensors, targets):
   numberOf2DBasisFunctions = aderdg.numberOf2DBasisFunctions()
   numberOfQuantities = aderdg.numberOfQuantities()
 
-  selectVelocitySpp = np.zeros((numberOfQuantities, 3))
-  selectVelocitySpp[6:9,0:3] = np.eye(3)
-  selectVelocity = Tensor('selectVelocity', selectVelocitySpp.shape, selectVelocitySpp, CSCMemoryLayout)
-
   faceDisplacement = OptionalDimTensor('faceDisplacement',
                                        aderdg.Q.optName(),
                                        aderdg.Q.optSize(),
