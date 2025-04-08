@@ -30,9 +30,9 @@
 #include "ResultWriter/FreeSurfaceWriter.h"
 #include "ResultWriter/PostProcessor.h"
 #include "ResultWriter/WaveFieldWriter.h"
+#include "Solver/Clustering/TimeManager.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Simulator.h"
-#include "Solver/time_stepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
 
 namespace seissol {
@@ -73,7 +73,7 @@ class SeisSol {
 
   initializer::MemoryManager& getMemoryManager() { return *m_memoryManager; }
 
-  time_stepping::TimeManager& timeManager() { return m_timeManager; }
+  solver::clustering::TimeManager& timeManager() { return m_timeManager; }
 
   Simulator& simulator() { return m_simulator; }
 
@@ -218,7 +218,7 @@ class SeisSol {
   std::unique_ptr<initializer::MemoryManager> m_memoryManager{nullptr};
 
   //! Time Manager
-  time_stepping::TimeManager m_timeManager;
+  solver::clustering::TimeManager m_timeManager;
 
   //! Simulator
   Simulator m_simulator;

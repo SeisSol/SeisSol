@@ -11,8 +11,14 @@
 
 #include "Geometry/MeshReader.h"
 #include "Memory/Tree/Lut.h"
-#include "Solver/time_stepping/TimeManager.h"
+#include "Solver/Clustering/TimeManager.h"
+#include <Initializer/Parameters/SourceParameters.h>
+#include <Memory/Descriptor/LTS.h>
 #include <cstdarg>
+
+namespace seissol::solver::clustering {
+class TimeManager;
+} // namespace seissol::solver::clustering
 
 namespace seissol::sourceterm {
 
@@ -27,7 +33,7 @@ class Manager {
                           seissol::initializer::LTSTree* ltsTree,
                           seissol::initializer::LTS* lts,
                           seissol::initializer::Lut* ltsLut,
-                          time_stepping::TimeManager& timeManager);
+                          seissol::solver::clustering::TimeManager& timeManager);
 };
 
 } // namespace seissol::sourceterm
