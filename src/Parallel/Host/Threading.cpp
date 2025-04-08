@@ -85,7 +85,8 @@ std::shared_ptr<Task> ThreadStackExecutor::add(int priority,
   auto returnEvent = std::make_shared<SimpleEvent>();
   returnEvent->init();
   task(priority,
-       SimpleTask{pollList, [=]() {
+       SimpleTask{pollList,
+                  [=]() {
                     for (const auto& event : pollList) {
                       if (!dynamic_cast<SimpleEvent*>(event.get())->poll()) {
                         return false;
@@ -94,7 +95,8 @@ std::shared_ptr<Task> ThreadStackExecutor::add(int priority,
                     return true;
                   },
                   function,
-                  [=]() { returnEvent->record(); }, returnEvent,
+                  [=]() { returnEvent->record(); },
+                  returnEvent,
                   size});
   return returnEvent;
 }
@@ -117,11 +119,13 @@ struct ExecuteStatus {
   std::vector<std::unique_ptr<std::atomic<int>>> taskDone;
   std::atomic<bool> allEmpty{true};
 
-  void fill(std::map<int, std::list<std::shared_ptr<SimpleTask>>>& tasksMap, std::mutex& tasksMutex, std::unordered_set<void*>& taskset) {
+  void fill(std::map<int, std::list<std::shared_ptr<SimpleTask>>>& tasksMap,
+            std::mutex& tasksMutex,
+            std::unordered_set<void*>& taskset) {
     /*while(this->workDone.load() != 0) {
       // spin wait
     }*/
-    
+
     std::lock_guard tasksLock(tasksMutex);
 
     this->nextTasks.resize(0);
@@ -139,7 +143,8 @@ struct ExecuteStatus {
       for (auto it = tasks.begin(); it != tasks.end(); ++it) {
         bool ready = true;
         for (const auto& event : it->get()->dependencies) {
-          if (!dynamic_cast<SimpleEvent*>(event.get())->poll() && taskset.find(event.get()) == taskset.end()) {
+          if (!dynamic_cast<SimpleEvent*>(event.get())->poll() &&
+              taskset.find(event.get()) == taskset.end()) {
             ready = false;
             break;
           }
@@ -151,7 +156,9 @@ struct ExecuteStatus {
           it = tasks.erase(it);
         }
         ++counter;
-        if (counter >= 30 && !nextTasks.empty()) { break; }
+        if (counter >= 30 && !nextTasks.empty()) {
+          break;
+        }
       }
     }
     taskset.insert(newtaskset.begin(), newtaskset.end());
@@ -165,7 +172,7 @@ void ThreadStackExecutor::run() {
 
 #pragma omp parallel shared(executes, tasks)
   {
-    #pragma omp single
+#pragma omp single
     {
       for (auto& execute : executes) {
         execute.fill(tasksMap, tasksMutex, tasks);
@@ -175,8 +182,8 @@ void ThreadStackExecutor::run() {
     while (running.load()) {
       index = (index + 1) % executes.size();
       if (index == 0) {
-        #pragma omp barrier
-        #pragma omp single
+#pragma omp barrier
+#pragma omp single
         {
           for (auto& execute : executes) {
             execute.fill(tasksMap, tasksMutex, tasks);
@@ -191,12 +198,12 @@ void ThreadStackExecutor::run() {
         auto& task = executes[index].nextTasks[j];
 
         /*const auto perthread = task.size / omp_get_num_threads();
-        const auto thisthread = (task.size % omp_get_num_threads() > (omp_get_thread_num() + rest) % omp_get_num_threads()) ? perthread + 1 : perthread;
-        const auto prestart = perthread * omp_get_thread_num();
-        const auto truestart = prestart + std::min(task.size % omp_get_num_threads(), (omp_get_thread_num() + rest) % omp_get_num_threads());
-        const auto trueend = truestart + thisthread;
-        if (task.size < trueend) {
-          logInfo() << omp_get_thread_num() << truestart << trueend << perthread << thisthread << task.size;
+        const auto thisthread = (task.size % omp_get_num_threads() > (omp_get_thread_num() + rest) %
+        omp_get_num_threads()) ? perthread + 1 : perthread; const auto prestart = perthread *
+        omp_get_thread_num(); const auto truestart = prestart + std::min(task.size %
+        omp_get_num_threads(), (omp_get_thread_num() + rest) % omp_get_num_threads()); const auto
+        trueend = truestart + thisthread; if (task.size < trueend) { logInfo() <<
+        omp_get_thread_num() << truestart << trueend << perthread << thisthread << task.size;
         }
         for (std::size_t i = truestart; i < trueend; ++i) {
           std::invoke(task.function, i);
@@ -204,8 +211,9 @@ void ThreadStackExecutor::run() {
         //rest = (rest + task.size) % omp_get_num_threads();
         */
 
-        while (!std::invoke(task.ready)) {}
-        
+        while (!std::invoke(task.ready)) {
+        }
+
 #pragma omp for nowait schedule(guided)
         for (std::size_t i = 0; i < task.size; ++i) {
           std::invoke(task.function, i);
@@ -215,8 +223,8 @@ void ThreadStackExecutor::run() {
           std::invoke(task.completion);
         }
       }
-      //#pragma omp barrier
-      //#pragma omp barrier
+      // #pragma omp barrier
+      // #pragma omp barrier
       /*auto prev = executes[index].workDone.fetch_sub(1);
       if (prev == 1) {
         executes[index].fill(tasksMap, tasksMutex, tasks);

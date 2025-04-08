@@ -58,7 +58,7 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
   loopStatistics.enableSampleOutput(
       seissolInstance.getSeisSolParameters().output.loopStatisticsNetcdfOutput);
 
-  cpuExecutor = std::make_shared<parallel::host::ThreadStackExecutor>();
+  cpuExecutor = std::make_shared<parallel::host::SyncExecutor>();
 }
 
 void TimeManager::addClusters(initializer::ClusterLayout& layout,
@@ -227,7 +227,7 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
   communication.insert(communication.end(), sendClusters.begin(), sendClusters.end());
   communication.insert(communication.end(), recvClusters.begin(), recvClusters.end());
 
-  if (seissol::useCommThread(MPI::mpi)) {
+  if (seissol::useCommThread(MPI::mpi, seissolInstance.env())) {
     communicationManager = std::make_shared<communication::ThreadedCommunicationManager>(
         communication, &seissolInstance.getPinning());
   } else {

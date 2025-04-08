@@ -82,15 +82,14 @@ inline void printMPIUSMInfo(utils::Env& env) {
 }
 #endif
 
-inline bool concurrentClusters() { return utils::Env::get<bool>("SEISSOL_CONCURRENT", true); }
+inline bool concurrentClusters() {utils::Env env("SEISSOL_"); return env.get<bool>("CONCURRENT", true); }
 
-template <typename T>
-void printConcurrentClusters(const T& mpiBasic) {
+inline void printConcurrentClusters() {
   if (concurrentClusters()) {
-    logInfo(mpiBasic.rank()) << "Running with concurrent clusters. If you run out of memory, "
+    logInfo() << "Running with concurrent clusters. If you run out of memory, "
                                 "consider disabling this option (`SEISSOL_CONCURRENT=0`).";
   } else {
-    logInfo(mpiBasic.rank()) << "Running with sequential clusters.";
+    logInfo() << "Running with sequential clusters.";
   }
 }
 
