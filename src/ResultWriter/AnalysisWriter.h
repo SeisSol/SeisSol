@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2019 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -13,7 +13,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "Initializer/Tree/Lut.h"
+#include "Memory/Tree/Lut.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"

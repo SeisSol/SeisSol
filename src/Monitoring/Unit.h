@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_MONITORING_UNIT_H_
 
 #include <cmath>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -20,9 +21,11 @@ struct SIUnit {
 
   [[nodiscard]] std::string formatTime(double value, bool exact = true, int digits = 4) const;
 
-  [[nodiscard]] std::string formatPrefix(double value, int digits = 4) const;
+  [[nodiscard]] std::string
+      formatPrefix(double value, std::optional<double> error = {}, int digits = 4) const;
 
-  [[nodiscard]] static std::string formatScientific(double value, int digits = 4);
+  [[nodiscard]] std::string
+      formatScientific(double value, std::optional<double> error = {}, int digits = 4) const;
 
   private:
   std::string unit;

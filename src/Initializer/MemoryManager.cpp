@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -8,21 +8,22 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
+#include <Solver/MultipleSimulations.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
-#include "MemoryAllocator.h"
+#include "Memory/MemoryAllocator.h"
 #include "SeisSol.h"
 #include "MemoryManager.h"
 #include "InternalState.h"
-#include "Tree/Layer.h"
+#include "Memory/Tree/Layer.h"
 #include <cstddef>
 #include <yateto.h>
 #include <unordered_set>
 #include <cmath>
 #include <type_traits>
-#include "GlobalData.h"
+#include "Memory/GlobalData.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/Common.h"
 #include "Kernels/Touch.h"
@@ -174,14 +175,6 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
 
 #ifdef USE_MPI
 void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
-  // reset mpi requests
-  for( unsigned int l_cluster = 0; l_cluster < m_ltsTree.numChildren(); l_cluster++ ) {
-    for( unsigned int l_region = 0; l_region < m_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
-      m_meshStructure[l_cluster].sendRequests[l_region] = MPI_REQUEST_NULL;
-      m_meshStructure[l_cluster].receiveRequests[l_region] = MPI_REQUEST_NULL;
-    }
-  }
-
 #ifdef ACL_DEVICE
   const auto allocationPlace = seissol::initializer::AllocationPlace::Device;
 #else
@@ -275,7 +268,8 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
   real** derivativesDevice = m_ltsTree.var(m_lts.derivativesDevice);  // faceNeighborIds are ltsIds and not layer-local
   real *(*faceNeighborsDevice)[4] = layer.var(m_lts.faceNeighborsDevice);
 #endif
-  CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
+  auto* cellInformation = layer.var(m_lts.cellInformation);
+  auto* secondaryInformation = layer.var(m_lts.secondaryInformation);
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     for (unsigned face = 0; face < 4; ++face) {
@@ -284,16 +278,16 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
 	  cellInformation[cell].faceTypes[face] == FaceType::DynamicRupture) {
         // neighboring cell provides derivatives
         if( (cellInformation[cell].ltsSetup >> face) % 2 ) {
-          faceNeighbors[cell][face] = derivatives[ cellInformation[cell].faceNeighborIds[face] ];
+          faceNeighbors[cell][face] = derivatives[ secondaryInformation[cell].faceNeighborIds[face] ];
 #ifdef ACL_DEVICE
-          faceNeighborsDevice[cell][face] = derivativesDevice[ cellInformation[cell].faceNeighborIds[face] ];
+          faceNeighborsDevice[cell][face] = derivativesDevice[ secondaryInformation[cell].faceNeighborIds[face] ];
 #endif
         }
         // neighboring cell provides a time buffer
         else {
-          faceNeighbors[cell][face] = buffers[ cellInformation[cell].faceNeighborIds[face] ];
+          faceNeighbors[cell][face] = buffers[ secondaryInformation[cell].faceNeighborIds[face] ];
 #ifdef ACL_DEVICE
-          faceNeighborsDevice[cell][face] = buffersDevice[ cellInformation[cell].faceNeighborIds[face] ];
+          faceNeighborsDevice[cell][face] = buffersDevice[ secondaryInformation[cell].faceNeighborIds[face] ];
 #endif
         }
         assert(faceNeighbors[cell][face] != nullptr);
@@ -463,6 +457,12 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
 
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
+
+  if constexpr (multisim::MultisimEnabled) {
+    if (m_dynRupTree.getNumberOfCells() > 0) {
+      logError() << "The dynamic rupture does not yet support fused simulations.";
+    }
+  }
 
 #ifdef ACL_DEVICE
   MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree, *m_dynRup.get());
@@ -813,31 +813,19 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
 
 bool seissol::initializer::isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
                                               unsigned int face) {
-#ifdef USE_ANISOTROPIC
-  return false;
-#else
   constexpr auto eps = std::numeric_limits<real>::epsilon();
   return material.neighbor[face].getMuBar() > eps && material.local.getMuBar() < eps;
-#endif
 }
 bool seissol::initializer::isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
                                              unsigned int face) {
-#ifdef USE_ANISOTROPIC
-  return false;
-#else
   constexpr auto eps = std::numeric_limits<real>::epsilon();
   return material.local.getMuBar() > eps && material.neighbor[face].getMuBar() < eps;
-#endif
 }
 
 bool seissol::initializer::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
-#ifndef USE_ANISOTROPIC
   return isAcousticSideOfElasticAcousticInterface(material, face) || isElasticSideOfElasticAcousticInterface(material, face);
-#else
-  return false;
-#endif
 }
 
 

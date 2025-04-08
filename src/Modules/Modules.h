@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2016 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -15,6 +15,7 @@
 #include <array>
 #include <limits>
 #include <map>
+#include <optional>
 
 namespace seissol {
 
@@ -99,6 +100,8 @@ class Modules {
 
   double _callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint);
 
+  void _callSimulationStartHook(std::optional<double> checkpointTime);
+
   /**
    * Set the simulation start time.
    *
@@ -139,11 +142,18 @@ class Modules {
    */
   static double callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint = false);
 
+  static void callSimulationStartHook(std::optional<double> checkpointTime);
+
   /**
    * Set the simulation start time
    */
   static void setSimulationStartTime(double time);
 };
+
+template <>
+inline void seissol::Modules::_callHook<ModuleHook::SimulationStart>() {
+  logError() << "Simulation start hooks have to be called with \"callSimulationStartHook\"";
+}
 
 template <>
 inline void seissol::Modules::_callHook<ModuleHook::SynchronizationPoint>() {

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_MODEL_COMMON_H_
 
 #include <Eigen/Dense>
+#include <Equations/Datastructures.h>
 
 #include "Geometry/MeshTools.h"
 #include "Initializer/Typedefs.h"
@@ -22,15 +23,21 @@
 #include "Model/CommonDatastructures.h"
 
 namespace seissol::model {
+
+template <typename MaterialT>
+struct MaterialSetup;
+
 bool testIfAcoustic(real mu);
 
 template <typename Tmaterial, typename Tmatrix>
 void getTransposedCoefficientMatrix(const Tmaterial& material, unsigned dim, Tmatrix& M) {
-  M.setZero();
+  MaterialSetup<Tmaterial>::getTransposedCoefficientMatrix(material, dim, M);
 }
 
 template <typename Tmaterial, typename T>
-void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& E) {}
+void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& E) {
+  MaterialSetup<Tmaterial>::getTransposedSourceCoefficientTensor(material, E);
+}
 
 template <typename Tmaterial>
 seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities>
@@ -41,8 +48,12 @@ void getTransposedGodunovState(const Tmaterial& local,
                                const Tmaterial& neighbor,
                                FaceType faceType,
                                Tloc& qGodLocal,
-                               Tneigh& qGodNeighbor);
+                               Tneigh& qGodNeighbor) {
+  MaterialSetup<Tmaterial>::getTransposedGodunovState(
+      local, neighbor, faceType, qGodLocal, qGodNeighbor);
+}
 
+// TODO: move to materials (currently not possible due to the acoustic-in-elastic "hack")
 template <typename T, typename Tmatrix>
 void getTransposedFreeSurfaceGodunovState(MaterialType materialtype,
                                           T& qGodLocal,
@@ -52,14 +63,22 @@ void getTransposedFreeSurfaceGodunovState(MaterialType materialtype,
 template <typename T>
 void getPlaneWaveOperator(const T& material,
                           const double n[3],
-                          std::complex<double> mdata[seissol::model::MaterialT::NumQuantities *
-                                                     seissol::model::MaterialT::NumQuantities]);
+                          std::complex<double> mdata[T::NumQuantities * T::NumQuantities]) {
+  MaterialSetup<T>::getPlaneWaveOperator(material, n, mdata);
+}
 
-template <typename T, typename S>
-void initializeSpecificLocalData(const T& /*unused*/, real timeStepWidth, S* localData) {}
+template <typename T>
+void initializeSpecificLocalData(const T& material,
+                                 real timeStepWidth,
+                                 typename T::LocalSpecificData* localData) {
+  MaterialSetup<T>::initializeSpecificLocalData(material, timeStepWidth, localData);
+}
 
-template <typename T, typename S>
-void initializeSpecificNeighborData(const T& /*unused*/, S* neighborData) {}
+template <typename T>
+void initializeSpecificNeighborData(const T& material,
+                                    typename T::NeighborSpecificData* neighborData) {
+  MaterialSetup<T>::initializeSpecificNeighborData(material, neighborData);
+}
 
 /*
  * Calculates the so called Bond matrix. Anisotropic materials are characterized by
@@ -74,44 +93,51 @@ void getBondMatrix(const VrtxCoords normal,
                    const VrtxCoords tangent2,
                    real* matN);
 
+template <typename MaterialT = seissol::model::MaterialT>
 void getFaceRotationMatrix(const Eigen::Vector3d& normal,
                            const Eigen::Vector3d& tangent1,
                            const Eigen::Vector3d& tangent2,
                            init::T::view::type& matT,
-                           init::Tinv::view::type& matTinv);
+                           init::Tinv::view::type& matTinv) {
+  const VrtxCoords n = {normal(0), normal(1), normal(2)};
+  const VrtxCoords s = {tangent1(0), tangent1(1), tangent1(2)};
+  const VrtxCoords t = {tangent2(0), tangent2(1), tangent2(2)};
+  getFaceRotationMatrix<MaterialT>(n, s, t, matT, matTinv);
+}
 
+template <typename MaterialT = seissol::model::MaterialT>
 void getFaceRotationMatrix(const VrtxCoords normal,
                            const VrtxCoords tangent1,
                            const VrtxCoords tangent2,
                            init::T::view::type& matT,
-                           init::Tinv::view::type& matTinv);
+                           init::Tinv::view::type& matTinv) {
+  MaterialSetup<MaterialT>::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
+}
 
 template <typename MaterialT>
 MaterialT getRotatedMaterialCoefficients(real rotationParameters[36], MaterialT& material) {
-  return material;
+  return MaterialSetup<MaterialT>::getRotatedMaterialCoefficients(rotationParameters, material);
 }
-} // namespace seissol::model
 
-template <typename T>
-void seissol::model::getPlaneWaveOperator(
-    const T& material,
+template <typename MaterialT>
+void getElasticPlaneWaveOperator(
+    const MaterialT& material,
     const double n[3],
-    std::complex<double> mdata[seissol::model::MaterialT::NumQuantities *
-                               seissol::model::MaterialT::NumQuantities]) {
+    std::complex<double> mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
   yateto::DenseTensorView<2, std::complex<double>> M(
-      mdata, {seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities});
+      mdata, {MaterialT::NumQuantities, MaterialT::NumQuantities});
   M.setZero();
 
-  double data[seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities];
-  yateto::DenseTensorView<2, double> coeff(
-      data, {seissol::model::MaterialT::NumQuantities, seissol::model::MaterialT::NumQuantities});
+  double data[MaterialT::NumQuantities * MaterialT::NumQuantities];
+  yateto::DenseTensorView<2, double> coeff(data,
+                                           {MaterialT::NumQuantities, MaterialT::NumQuantities});
 
   for (unsigned d = 0; d < 3; ++d) {
     coeff.setZero();
     getTransposedCoefficientMatrix(material, d, coeff);
 
-    for (unsigned i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
-      for (unsigned j = 0; j < seissol::model::MaterialT::NumQuantities; ++j) {
+    for (unsigned i = 0; i < MaterialT::NumQuantities; ++i) {
+      for (unsigned j = 0; j < MaterialT::NumQuantities; ++j) {
         M(i, j) += n[d] * coeff(j, i);
       }
     }
@@ -119,12 +145,14 @@ void seissol::model::getPlaneWaveOperator(
   coeff.setZero();
   getTransposedSourceCoefficientTensor(material, coeff);
 
-  for (unsigned i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
-    for (unsigned j = 0; j < seissol::model::MaterialT::NumQuantities; ++j) {
+  for (unsigned i = 0; i < MaterialT::NumQuantities; ++i) {
+    for (unsigned j = 0; j < MaterialT::NumQuantities; ++j) {
       M(i, j) -= std::complex<real>(0.0, coeff(j, i));
     }
   }
 }
+
+} // namespace seissol::model
 
 template <typename T, typename Tmatrix, typename Tarray1, typename Tarray2>
 void setBlocks(T qGodLocal, Tmatrix S, Tarray1 tractionIndices, Tarray2 velocityIndices) {
@@ -167,7 +195,8 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT:
   }
   seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities>
       eigenpair;
-  seissol::eigenvalues::computeEigenvaluesWithEigen3(A, eigenpair);
+
+  seissol::eigenvalues::computeEigenvalues(A, eigenpair);
 #ifndef NDEBUG
   using CMatrix = Eigen::Matrix<std::complex<double>,
                                 seissol::model::MaterialT::NumQuantities,
@@ -187,8 +216,9 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT:
       ++evPos;
     }
   }
-  assert(evNeg == 3);
-  assert(evPos == 3);
+  constexpr int ExpectedEv = Tmaterial::Type == MaterialType::Poroelastic ? 4 : 3;
+  assert(evNeg == ExpectedEv);
+  assert(evPos == ExpectedEv);
 
   // check whether eigensolver is good enough
   CMatrix coeff(A.data());
@@ -214,16 +244,8 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(MaterialType materialt
                                                           T& qGodLocal,
                                                           T& qGodNeighbor,
                                                           Tmatrix& R) {
-  if (materialtype == MaterialType::Poroelastic) {
-    logError() << "Poroelastic Free Surface has a template spezialization for the "
-                  "FreeSurfaceGodunovState. You should never end up here";
-  }
-
-  constexpr size_t RelevantQuantities =
-      seissol::model::MaterialT::NumQuantities -
-      seissol::model::MaterialT::NumberPerMechanism * seissol::model::MaterialT::Mechanisms;
-  for (size_t i = 0; i < RelevantQuantities; i++) {
-    for (size_t j = 0; j < RelevantQuantities; j++) {
+  for (size_t i = 0; i < seissol::model::MaterialT::NumElasticQuantities; i++) {
+    for (size_t j = 0; j < seissol::model::MaterialT::NumElasticQuantities; j++) {
       qGodNeighbor(i, j) = std::numeric_limits<double>::signaling_NaN();
     }
   }
@@ -235,6 +257,19 @@ void seissol::model::getTransposedFreeSurfaceGodunovState(MaterialType materialt
     // relevant to the Riemann problem
     qGodLocal(0, 6) = -1 * R(6, 0) * 1 / R(0, 0); // S
     qGodLocal(6, 6) = 1.0;
+    break;
+  }
+  case MaterialType::Poroelastic: {
+    using Matrix44 = Eigen::Matrix<double, 4, 4>;
+    using Matrix64 = Eigen::Matrix<double, 6, 4>;
+
+    std::array<int, 4> tractionIndices = {0, 3, 5, 9};
+    std::array<int, 6> velocityIndices = {6, 7, 8, 10, 11, 12};
+    std::array<int, 4> columnIndices = {0, 1, 2, 3};
+    Matrix44 R11 = R(tractionIndices, columnIndices);
+    Matrix64 R21 = R(velocityIndices, columnIndices);
+    Matrix64 S = (-(R21 * R11.inverse())).eval();
+    setBlocks(qGodLocal, S, tractionIndices, velocityIndices);
     break;
   }
   default: {

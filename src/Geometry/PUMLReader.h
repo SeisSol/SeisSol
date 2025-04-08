@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -42,11 +42,13 @@ class PUMLReader : public seissol::geometry::MeshReader {
   public:
   PUMLReader(const char* meshFile,
              const char* partitioningLib,
-             double maximumAllowedTimeStep,
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
              initializer::time_stepping::LtsWeights* ltsWeights = nullptr,
              double tpwgt = 1.0);
+
+  bool inlineTimestepCompute() const override;
+  bool inlineClusterCompute() const override;
 
   private:
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;

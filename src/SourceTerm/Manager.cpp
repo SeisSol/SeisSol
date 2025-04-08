@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -20,18 +20,20 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Common/Constants.h>
+#include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
 #include <Geometry/MeshTools.h>
-#include <Initializer/LTS.h>
-#include <Initializer/MemoryAllocator.h>
 #include <Initializer/Parameters/SourceParameters.h>
-#include <Initializer/Tree/LTSTree.h>
-#include <Initializer/Tree/Layer.h>
-#include <Initializer/Tree/Lut.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/MemoryAllocator.h>
+#include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Layer.h>
+#include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
+#include <Solver/MultipleSimulations.h>
 #include <Solver/time_stepping/TimeManager.h>
 #include <SourceTerm/NRF.h>
 #include <SourceTerm/Typedefs.h>
@@ -260,7 +262,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
       std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources>(sources));
 
-#if defined(ACL_DEVICE) && !defined(MULTIPLE_SIMULATIONS)
+#if defined(ACL_DEVICE)
   using GpuImpl = seissol::kernels::PointSourceClusterOnDevice;
 
   auto deviceData =
@@ -348,10 +350,13 @@ auto loadSourcesFromFSRM(const char* fileName,
       sources.sampleOffsets[0][0] = 0;
       sources.sample[0].resize(fsrm.numberOfSamples * numberOfSources);
 
+      // only actively used in the case of fused simulations
+      sources.simulationIndex.resize(numberOfSources);
+
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned fsrmIndex = originalIndex[sourceIndex];
-
+        sources.simulationIndex[clusterSource] = fsrmIndex % multisim::NumSimulations;
         computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
                                      sources.mInvJInvPhisAtSources[clusterSource],
                                      meshIds[sourceIndex],
@@ -368,17 +373,18 @@ auto loadSourcesFromFSRM(const char* fileName,
         for (unsigned i = 0; i < PointSources::TensorSize; ++i) {
           sources.tensor[clusterSource][i] *= fsrm.areas[fsrmIndex];
         }
-#ifndef USE_POROELASTIC
-        const seissol::model::Material& material =
-            ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
-        for (unsigned i = 0; i < 3; ++i) {
-          sources.tensor[clusterSource][6 + i] /= material.rho;
+        if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
+          const seissol::model::Material& material =
+              ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
+          for (unsigned i = 0; i < 3; ++i) {
+            sources.tensor[clusterSource][6 + i] /= material.rho;
+          }
+        } else {
+          logWarning()
+              << "The poroelastic equation does not scale the force components with the "
+                 "density. For the definition of the sources in poroelastic media, we refer "
+                 "to the documentation of SeisSol.";
         }
-#else
-        logWarning() << "The poroelastic equation does not scale the force components with the "
-                        "density. For the definition of the sources in poroelastic media, we refer "
-                        "to the documentation of SeisSol.";
-#endif
 
         sources.onsetTime[clusterSource] = fsrm.onsets[fsrmIndex];
         sources.samplingInterval[clusterSource] = fsrm.timestep;
@@ -473,6 +479,9 @@ auto loadSourcesFromNRF(const char* fileName,
         so[0] = 0;
       }
 
+      // only actively used in the case of fused simulations
+      sources.simulationIndex.resize(numberOfSources);
+
       for (std::size_t i = 0; i < Offsets().size(); ++i) {
         std::size_t sampleSize = 0;
         for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
@@ -486,6 +495,7 @@ auto loadSourcesFromNRF(const char* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned nrfIndex = originalIndex[sourceIndex];
+        sources.simulationIndex[clusterSource] = nrfIndex % multisim::NumSimulations;
         transformNRFSourceToInternalSource(
             nrf.centres[nrfIndex],
             meshIds[sourceIndex],

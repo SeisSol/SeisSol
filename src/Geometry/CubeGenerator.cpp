@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -82,12 +82,14 @@ std::pair<B, A> flip_pair(const std::pair<A, B>& p) {
 }
 } // anonymous namespace
 
-seissol::geometry::CubeGenerator::CubeGenerator(
+namespace seissol::geometry {
+
+CubeGenerator::CubeGenerator(
     int rank,
     int nProcs,
     const std::string& meshFile,
     const seissol::initializer::parameters::CubeGeneratorParameters& cubeParams)
-    : seissol::geometry::MeshReader(rank), // init base class
+    : MeshReader(rank), // init base class
       rank(rank), nProcs(nProcs) {
   // get cubeGenerator parameters
   const unsigned int cubeMinX = cubeParams.cubeMinX;
@@ -165,49 +167,48 @@ seissol::geometry::CubeGenerator::CubeGenerator(
   const std::string& fileName = meshFile;
 
   logInfo() << "Start generating a mesh using the CubeGenerator";
-  seissol::geometry::CubeGenerator::cubeGenerator(numCubes,
-                                                  numPartitions,
-                                                  cubeMinX,
-                                                  cubeMaxX,
-                                                  cubeMinY,
-                                                  cubeMaxY,
-                                                  cubeMinZ,
-                                                  cubeMaxZ,
-                                                  numCubesPerPart,
-                                                  numElemPerPart,
-                                                  numVrtxPerPart,
-                                                  numBndElements,
-                                                  cubeScale,
-                                                  cubeScaleX,
-                                                  cubeScaleY,
-                                                  cubeScaleZ,
-                                                  cubeTx,
-                                                  cubeTy,
-                                                  cubeTz,
-                                                  fileName);
+  CubeGenerator::cubeGenerator(numCubes,
+                               numPartitions,
+                               cubeMinX,
+                               cubeMaxX,
+                               cubeMinY,
+                               cubeMaxY,
+                               cubeMinZ,
+                               cubeMaxZ,
+                               numCubesPerPart,
+                               numElemPerPart,
+                               numVrtxPerPart,
+                               numBndElements,
+                               cubeScale,
+                               cubeScaleX,
+                               cubeScaleY,
+                               cubeScaleZ,
+                               cubeTx,
+                               cubeTy,
+                               cubeTz,
+                               fileName);
 }
 
-void seissol::geometry::CubeGenerator::cubeGenerator(
-    const std::array<unsigned int, 4> numCubes,
-    const std::array<unsigned int, 4> numPartitions,
-    unsigned int boundaryMinx,
-    unsigned int boundaryMaxx,
-    unsigned int boundaryMiny,
-    unsigned int boundaryMaxy,
-    unsigned int boundaryMinz,
-    unsigned int boundaryMaxz,
-    const std::array<unsigned int, 4> numCubesPerPart,
-    const std::array<unsigned long, 4> numElemPerPart,
-    const std::array<unsigned int, 4> numVrtxPerPart,
-    const std::array<unsigned int, 3> numBndElements,
-    double scale,
-    double scaleX,
-    double scaleY,
-    double scaleZ,
-    double tx,
-    double ty,
-    double tz,
-    const std::string& meshFile) {
+void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
+                                  const std::array<unsigned int, 4> numPartitions,
+                                  unsigned int boundaryMinx,
+                                  unsigned int boundaryMaxx,
+                                  unsigned int boundaryMiny,
+                                  unsigned int boundaryMaxy,
+                                  unsigned int boundaryMinz,
+                                  unsigned int boundaryMaxz,
+                                  const std::array<unsigned int, 4> numCubesPerPart,
+                                  const std::array<unsigned long, 4> numElemPerPart,
+                                  const std::array<unsigned int, 4> numVrtxPerPart,
+                                  const std::array<unsigned int, 3> numBndElements,
+                                  double scale,
+                                  double scaleX,
+                                  double scaleY,
+                                  double scaleZ,
+                                  double tx,
+                                  double ty,
+                                  double tz,
+                                  const std::string& meshFile) {
 
   logInfo() << "Total number of cubes:" << numCubes[0] << 'x' << numCubes[1] << 'x' << numCubes[2]
             << '=' << numCubes[3];
@@ -1580,7 +1581,7 @@ void seissol::geometry::CubeGenerator::cubeGenerator(
   logInfo() << "Finished";
 }
 
-void seissol::geometry::CubeGenerator::findElementsPerVertex() {
+void CubeGenerator::findElementsPerVertex() {
   for (auto i = m_elements.begin(); i != m_elements.end(); i++) {
     for (int j = 0; j < 4; j++) {
       assert(i->vertices[j] < static_cast<int>(m_vertices.size()));
@@ -1590,10 +1591,10 @@ void seissol::geometry::CubeGenerator::findElementsPerVertex() {
   }
 }
 
-void seissol::geometry::CubeGenerator::addMPINeighbor(int localID,
-                                                      int bndRank,
-                                                      int elemSize,
-                                                      const int* bndElemLocalIds) {
+void CubeGenerator::addMPINeighbor(int localID,
+                                   int bndRank,
+                                   int elemSize,
+                                   const int* bndElemLocalIds) {
 
   MPINeighbor neighbor;
   neighbor.localID = localID;
@@ -1606,3 +1607,9 @@ void seissol::geometry::CubeGenerator::addMPINeighbor(int localID,
 
   m_MPINeighbors[bndRank] = neighbor;
 }
+
+bool CubeGenerator::inlineTimestepCompute() const { return false; }
+
+bool CubeGenerator::inlineClusterCompute() const { return false; }
+
+} // namespace seissol::geometry

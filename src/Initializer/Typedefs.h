@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -11,18 +11,12 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 #define SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
 
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
-
+#include "CellLocalInformation.h"
 #include "BasicTypedefs.h"
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
-#include "Initializer/PreProcessorMacros.h"
-#include "Kernels/Common.h"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
 #include <complex>
@@ -30,6 +24,10 @@
 #include <vector>
 
 namespace seissol {
+
+namespace kernels {
+constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
+} // namespace kernels
 
 // cross-cluster time stepping information
 struct TimeStepping {
@@ -62,24 +60,6 @@ struct TimeStepping {
    * Ids of the local clusters with respect to global ordering.
    */
   unsigned int *clusterIds;
-};
-
-// cell local information
-struct CellLocalInformation {
-  // types of the faces
-  FaceType faceTypes[4];
-
-  // mapping of the neighboring elements to the references element in relation to this element
-  int faceRelations[4][2];
-
-  // ids of the face neighbors
-  unsigned int faceNeighborIds[4];
-
-  // LTS setup
-  unsigned short ltsSetup;
-
-  // unique global id of the time cluster
-  unsigned int clusterId;
 };
 
 struct MeshStructure {
@@ -163,19 +143,6 @@ struct MeshStructure {
    * Message identifiers for the receives.
    */
   int *receiveIdentifiers;
-
-#ifdef USE_MPI
-  /*
-   * MPI send requests.
-   */
-  MPI_Request *sendRequests;
-
-  /*
-   * MPI receive requests.
-   */
-  MPI_Request *receiveRequests;
-#endif
-
 };
 
 struct GlobalData {  
@@ -425,4 +392,3 @@ struct PressureInjectionParameters {
 
 
 #endif // SEISSOL_SRC_INITIALIZER_TYPEDEFS_H_
-

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -57,14 +57,14 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
                   meshStructure->neighboringClusters[region][0],
                   DataTagOffset + meshStructure->sendIdentifiers[region],
                   seissol::MPI::mpi.comm(),
-                  meshStructure->sendRequests + region);
+                  sendRequests.data() + region);
         MPI_Recv_init(duplicatedGhostRegions[region],
                   static_cast<int>(meshStructure->ghostRegionSizes[region]),
                   MPI_C_REAL,
                   meshStructure->neighboringClusters[region][0],
                   DataTagOffset + meshStructure->receiveIdentifiers[region],
                   seissol::MPI::mpi.comm(),
-                  meshStructure->receiveRequests + region);
+                  recvRequests.data() + region);
       }
     }
   }
@@ -87,8 +87,8 @@ void GhostTimeClusterWithCopy<CommType>::finalize() {
   if (persistent) {
     for (size_t region = 0; region < numberOfRegions; ++region) {
       if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
-        MPI_Request_free(meshStructure->sendRequests + region);
-        MPI_Request_free(meshStructure->receiveRequests + region);
+        MPI_Request_free(sendRequests.data() + region);
+        MPI_Request_free(recvRequests.data() + region);
       }
     }
   }
@@ -107,7 +107,7 @@ void GhostTimeClusterWithCopy<CommType>::sendCopyLayer() {
       auto* stream = prefetchCopyRegionsStreams[*region];
       if (device.api->isStreamWorkDone(stream)) {
         if (persistent) {
-          MPI_Start(meshStructure->sendRequests + (*region));
+          MPI_Start(sendRequests.data() + (*region));
         }
         else {
           MPI_Isend(duplicatedCopyRegions[*region],
@@ -116,7 +116,7 @@ void GhostTimeClusterWithCopy<CommType>::sendCopyLayer() {
                     meshStructure->neighboringClusters[*region][0],
                     DataTagOffset + meshStructure->sendIdentifiers[*region],
                     seissol::MPI::mpi.comm(),
-                    meshStructure->sendRequests + (*region));
+                    sendRequests.data() + (*region));
         }
         sendQueue.push_back(*region);
         region = prefetchedRegions.erase(region);
@@ -134,7 +134,7 @@ void GhostTimeClusterWithCopy<CommType>::receiveGhostLayer() {
   for (unsigned int region = 0; region < numberOfRegions; ++region) {
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
       if (persistent) {
-        MPI_Start(meshStructure->receiveRequests + region);
+        MPI_Start(recvRequests.data() + region);
       }
       else {
         MPI_Irecv(duplicatedGhostRegions[region],
@@ -143,7 +143,7 @@ void GhostTimeClusterWithCopy<CommType>::receiveGhostLayer() {
                   meshStructure->neighboringClusters[region][0],
                   DataTagOffset + meshStructure->receiveIdentifiers[region],
                   seissol::MPI::mpi.comm(),
-                  meshStructure->receiveRequests + region);
+                  recvRequests.data() + region);
       }
       receiveRegionsStates[region] = ReceiveState::RequiresMpiTesting;
       receiveQueue.push_back(region);
@@ -159,7 +159,7 @@ bool GhostTimeClusterWithCopy<CommType>::testReceiveQueue() {
     switch (state) {
     case ReceiveState::RequiresMpiTesting: {
       int testSuccess = 0;
-      MPI_Request* request = &(meshStructure->receiveRequests)[*region];
+      MPI_Request* request = &(recvRequests.data())[*region];
       MPI_Test(request, &testSuccess, MPI_STATUS_IGNORE);
       if (testSuccess) {
         prefetchGhostRegion(*region);

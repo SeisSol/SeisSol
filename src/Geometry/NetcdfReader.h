@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -15,9 +15,12 @@
 
 namespace seissol::geometry {
 
-class NetcdfReader : public seissol::geometry::MeshReader {
+class NetcdfReader : public MeshReader {
   public:
   NetcdfReader(int rank, int nProcs, const char* meshFile);
+
+  bool inlineTimestepCompute() const override;
+  bool inlineClusterCompute() const override;
 
   private:
   /**

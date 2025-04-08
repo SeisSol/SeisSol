@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2019 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -13,9 +13,9 @@
 #include <vector>
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/Lut.h"
 #include "Kernels/Receiver.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Lut.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
 #include <Eigen/Dense>
@@ -54,7 +54,7 @@ class ReceiverWriter : public seissol::Module {
   // Hooks
   //
   void syncPoint(double /*currentTime*/) override;
-  void simulationStart() override;
+  void simulationStart(std::optional<double> checkpointTime) override;
   void shutdown() override;
 
   private:

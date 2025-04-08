@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -9,15 +9,15 @@
 #include "Allocator.h"
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Initializer/GlobalData.h>
-#include <Initializer/LTS.h>
-#include <Initializer/MemoryAllocator.h>
-#include <Initializer/Tree/Layer.h>
-#include <Initializer/Tree/TimeCluster.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Kernels/Touch.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/GlobalData.h>
+#include <Memory/MemoryAllocator.h>
+#include <Memory/Tree/Layer.h>
+#include <Memory/Tree/TimeCluster.h>
 #include <Proxy/Constants.h>
 #include <cstddef>
 #include <stdlib.h>
@@ -33,9 +33,10 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
   real** buffers = layer.var(lts.buffers);
   real** derivatives = layer.var(lts.derivatives);
   real*(*faceNeighbors)[4] = layer.var(lts.faceNeighbors);
-  LocalIntegrationData* localIntegration = layer.var(lts.localIntegration);
-  NeighboringIntegrationData* neighboringIntegration = layer.var(lts.neighboringIntegration);
-  CellLocalInformation* cellInformation = layer.var(lts.cellInformation);
+  auto* localIntegration = layer.var(lts.localIntegration);
+  auto* neighboringIntegration = layer.var(lts.neighboringIntegration);
+  auto* cellInformation = layer.var(lts.cellInformation);
+  auto* secondaryInformation = layer.var(lts.secondaryInformation);
   real* bucket =
       static_cast<real*>(layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Host));
 
@@ -55,7 +56,7 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = ((unsigned int)lrand48() % 4);
       cellInformation[cell].faceRelations[f][1] = ((unsigned int)lrand48() % 3);
-      cellInformation[cell].faceNeighborIds[f] =
+      secondaryInformation[cell].faceNeighborIds[f] =
           ((unsigned int)lrand48() % layer.getNumberOfCells());
     }
     cellInformation[cell].ltsSetup = 0;
@@ -73,8 +74,8 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
         break;
       case FaceType::Periodic:
       case FaceType::Regular:
-        faceNeighbors[cell][f] = buffers[cellInformation[cell].faceNeighborIds[f]];
-        faceNeighborsDevice[cell][f] = buffersDevice[cellInformation[cell].faceNeighborIds[f]];
+        faceNeighbors[cell][f] = buffers[secondaryInformation[cell].faceNeighborIds[f]];
+        faceNeighborsDevice[cell][f] = buffersDevice[secondaryInformation[cell].faceNeighborIds[f]];
         break;
       default:
         faceNeighbors[cell][f] = nullptr;

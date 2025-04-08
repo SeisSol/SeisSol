@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,9 +7,9 @@
 
 #include "LinearSlipWeakening.h"
 #include "DynamicRupture/Misc.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Tree/Layer.h"
 #include <algorithm>
 #include <cmath>
 #include <init.h>

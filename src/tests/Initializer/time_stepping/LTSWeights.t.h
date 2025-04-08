@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2020 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -23,8 +23,7 @@ TEST_CASE("LTS Weights") {
 #ifdef USE_MPI
   std::cout.setstate(std::ios_base::failbit);
   using namespace seissol::initializer::time_stepping;
-  const LtsWeightsConfig config{
-      seissol::initializer::parameters::BoundaryFormat::I32, "Testing/material.yaml", 2, 1, 1, 1};
+  const LtsWeightsConfig config{seissol::initializer::parameters::BoundaryFormat::I32, 2, 1, 1, 1};
 
   const seissol::initializer::parameters::LtsParameters ltsParameters(
       2,
@@ -38,13 +37,16 @@ TEST_CASE("LTS Weights") {
       seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
   seissol::initializer::parameters::SeisSolParameters seissolParameters;
   seissolParameters.timeStepping.lts = ltsParameters;
-  seissol::SeisSol seissolInstance(seissolParameters);
+  seissolParameters.timeStepping.cfl = 1;
+  seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
+  seissolParameters.model.materialFileName = "Testing/material.yaml";
+  const utils::Env env("SEISSOL_");
+  seissol::SeisSol seissolInstance(seissolParameters, env);
 
   auto ltsWeights = std::make_unique<ExponentialWeights>(config, seissolInstance);
   const auto pumlReader =
       seissol::geometry::PUMLReader("Testing/mesh.h5",
                                     "Default",
-                                    5000.0,
                                     seissol::initializer::parameters::BoundaryFormat::I32,
                                     ltsWeights.get());
   std::cout.clear();

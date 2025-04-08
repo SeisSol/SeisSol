@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -24,10 +24,7 @@ struct SeisSolParameters;
 } // namespace parameters
 
 GlobalTimestep
-    computeTimesteps(double cfl,
-                     double maximumAllowedTimeStep,
-                     const std::string& velocityModel,
-                     const seissol::initializer::CellToVertexArray& cellToVertex,
+    computeTimesteps(const seissol::initializer::CellToVertexArray& cellToVertex,
                      const seissol::initializer::parameters::SeisSolParameters& seissolParams);
 } // namespace seissol::initializer
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -47,6 +47,8 @@ struct Element {
   /** Material of the element */
   ElemGroup group;
   ElemFaultTags faultTags; // member of struct Element
+  int clusterId;
+  double timestep;
 };
 
 struct Vertex {

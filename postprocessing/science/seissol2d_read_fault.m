@@ -2,6 +2,7 @@ function data = seissol2d_read_fault_parallel(name,nCPU,sp_sample)
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @author Christian Pelties (pelties AT geophysik.uni-muenchen.de, http://www.geophysik.uni-muenchen.de/Members/pelties)
 %

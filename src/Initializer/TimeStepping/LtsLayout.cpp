@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -13,35 +13,27 @@
 #include "utils/logger.h"
 
 #include "LtsLayout.h"
-#include "MultiRate.h"
 #include "GlobalTimestep.h"
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/CellLocalInformation.h>
+#include <Monitoring/Unit.h>
+#include <math.h>
+#include <math.h>
 #include <iterator>
 
 #include "Initializer/ParameterDB.h"
 
 #include <iomanip>
+#include <limits>
 
 seissol::initializer::time_stepping::LtsLayout::LtsLayout(const seissol::initializer::parameters::SeisSolParameters& parameters):
- m_cellClusterIds(           NULL ),
- m_globalTimeStepWidths(     NULL ),
- m_globalTimeStepRates(      NULL ),
  m_plainCopyRegions(         NULL ),
  m_numberOfPlainGhostCells(  NULL ),
- m_plainGhostCellClusterIds( NULL ),
  seissolParams(parameters) {}
 
 seissol::initializer::time_stepping::LtsLayout::~LtsLayout() {
   // free memory of member variables
-  delete[] m_cellClusterIds;
-  delete[] m_globalTimeStepWidths;
-  delete[] m_globalTimeStepRates;
   delete[] m_numberOfPlainGhostCells;
-  if (m_plainGhostCellClusterIds != nullptr) {
-    for( unsigned int l_rank = 0; l_rank < m_plainNeighboringRanks.size(); l_rank++ ) {
-      delete[] m_plainGhostCellClusterIds[l_rank];
-    }
-  }
-  delete[] m_plainGhostCellClusterIds;
   delete[] m_plainCopyRegions;
 }
 
@@ -50,25 +42,47 @@ void seissol::initializer::time_stepping::LtsLayout::setMesh( const seissol::geo
   m_cells = i_mesh.getElements();
   m_fault = i_mesh.getFault();
 
-  m_cellClusterIds     = new unsigned int[ m_cells.size() ];
+  m_mesh = &i_mesh;
 
-  // initialize with invalid values
-  for (unsigned int l_cell = 0; l_cell < m_cells.size(); ++l_cell) {
-    m_cellClusterIds[l_cell] = std::numeric_limits<unsigned int>::max();
+  m_cellClusterIds.resize(m_cells.size());
+  m_cellTimeStepWidths.resize(m_cells.size());
+
+  m_numberOfGlobalClusters = 0;
+  for (std::size_t i = 0; i < m_cells.size(); ++i) {
+    m_cellClusterIds[i] = m_cells[i].clusterId;
+    m_cellTimeStepWidths[i] = m_cells[i].timestep;
+
+    m_numberOfGlobalClusters = std::max(m_numberOfGlobalClusters, m_cellClusterIds[i] + 1);
   }
 
-  // compute timesteps
-  auto timesteps = seissol::initializer::computeTimesteps(
-      seissolParams.timeStepping.cfl,
-      seissolParams.timeStepping.maxTimestepWidth,
-      seissolParams.model.materialFileName,
-      seissol::initializer::CellToVertexArray::fromMeshReader(i_mesh),
-      seissolParams);
-  
-  m_cellTimeStepWidths = std::move(timesteps.cellTimeStepWidths);
+#ifdef USE_MPI
+  MPI_Allreduce( MPI_IN_PLACE, &m_numberOfGlobalClusters, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm() );
+#endif
+
+  m_globalTimeStepWidths.resize(m_numberOfGlobalClusters);
+  m_globalTimeStepWidths[0] = std::numeric_limits<double>::max();
+  for (std::size_t i = 0; i < m_cells.size(); ++i) {
+    m_globalTimeStepWidths[0] = std::min(m_globalTimeStepWidths[0], m_cellTimeStepWidths[i]);
+  }
+#ifdef USE_MPI
+  MPI_Allreduce( MPI_IN_PLACE, m_globalTimeStepWidths.data(), 1, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm() );
+#endif
+
+  const auto wiggle = seissolParams.timeStepping.lts.getWiggleFactor();
+  if (wiggle == 1) {
+    logInfo() << "Minimum timestep:" << seissol::UnitTime.formatPrefix(m_globalTimeStepWidths[0]).c_str();
+  }
+  else {
+    logInfo() << "Minimum timestep (pre-wiggle):" << seissol::UnitTime.formatPrefix(m_globalTimeStepWidths[0]).c_str();
+
+    // apply wiggle here
+    m_globalTimeStepWidths[0] *= wiggle;
+    logInfo() << "Minimum timestep (with wiggle" << wiggle << "):" << seissol::UnitTime.formatPrefix(m_globalTimeStepWidths[0]).c_str();
+  }
+  logInfo() << "Global cluster count:" << m_numberOfGlobalClusters;
 }
 
-FaceType seissol::initializer::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
+seissol::FaceType seissol::initializer::time_stepping::LtsLayout::getFaceType(int i_meshFaceType) {
   if (i_meshFaceType < 0 || i_meshFaceType > 7) {
     logError() << "face type" << i_meshFaceType << "not supported.";
   }
@@ -223,384 +237,29 @@ void seissol::initializer::time_stepping::LtsLayout::deriveDynamicRupturePlainCo
 }
 
 void seissol::initializer::time_stepping::LtsLayout::normalizeMpiIndices() {
-	const int rank = seissol::MPI::mpi.rank();
-
-  /*
-   * Derive local mappings
-   */
-  // mapping from local mpi-faces to cell ids
-  std::vector< std::vector< unsigned int > > l_faceToCellIdMappings;
-  l_faceToCellIdMappings.resize( m_plainNeighboringRanks.size() );
-
-  // iterate over mesh and derive mapping
-  for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-      if(  m_cells[l_cell].neighborRanks[l_face] != rank ) {
-        // asert this is a regular, dynamic rupture or periodic face
-        assert(getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::Regular ||
-               getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::DynamicRupture ||
-               getFaceType( m_cells[l_cell].boundaries[l_face] ) == FaceType::Periodic);
-
-        // derive id of the local region
-        int l_region = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
-
-        // get unique mpi face id
-        int l_mpiIndex = m_cells[l_cell].mpiIndices[l_face];
-
-        // resize mapping array to hold this index if required
-        if( l_faceToCellIdMappings[l_region].size() <= static_cast<unsigned int>(l_mpiIndex) ) {
-          l_faceToCellIdMappings[l_region].resize( l_mpiIndex+1 );
-        }
-
-        // add the face to the mapping of this region
-        l_faceToCellIdMappings[l_region][l_mpiIndex] = l_cell;
-      }
-    }
-  }
-
-  /*
-   * Exchange and check sizes (debugging only)
-   */
-  // sizes of the mappings for the local and the neighboring ranks
-  std::vector< unsigned int > l_localMappingSizes, l_remoteMappingSizes;
-  l_localMappingSizes.resize(  m_plainNeighboringRanks.size() );
-  l_remoteMappingSizes.resize( m_plainNeighboringRanks.size() );
-
-#ifdef USE_MPI
-  // TODO please check if this ifdef is correct
-
-  // exchange information about the size of the mappings (for debugging purposes only)
-  MPI_Request *l_requests = new MPI_Request[ m_plainNeighboringRanks.size() * 2 ];
-  for( unsigned int l_neighbor = 0; l_neighbor < m_plainNeighboringRanks.size(); l_neighbor++ ) {
-    l_localMappingSizes[l_neighbor] = l_faceToCellIdMappings[l_neighbor].size();
-
-    // send this ranks copy layer size
-    MPI_Isend( &l_localMappingSizes[l_neighbor],     // buffer
-                1,                                   // size
-                MPI_UNSIGNED,                        // data type
-                m_plainNeighboringRanks[l_neighbor], // destination
-                normalizeIndices,                    // message tag
-                seissol::MPI::mpi.comm(),            // communicator
-                l_requests + l_neighbor );           // mpi request
-
-    // receive neighboring ranks copy layer size
-    MPI_Irecv( &l_remoteMappingSizes[l_neighbor],                            // buffer
-                 1,                                                          // size
-                 MPI_UNSIGNED,                                               // data type
-                 m_plainNeighboringRanks[l_neighbor],                        // source
-                 normalizeIndices,                                           // message tag
-                 seissol::MPI::mpi.comm(),                                   // communicator
-                 l_requests + l_neighbor + m_plainNeighboringRanks.size() ); // mpi request
-  }
-
-  // wait for sends/receives
-  MPI_Waitall( m_plainNeighboringRanks.size()*2, // size
-               l_requests,                       // array of requests
-               MPI_STATUS_IGNORE );              // mpi status
-#endif
-
-  // make sure the sizes of the local mapping and neighboring mapping match
-  for( unsigned int l_region = 0; l_region < m_plainNeighboringRanks.size(); l_region++ ) {
-    if( l_faceToCellIdMappings[l_region].size() != l_remoteMappingSizes[l_region] ) {
-      logError() << "mapping sizes don't match" << l_faceToCellIdMappings[l_region].size() << l_remoteMappingSizes[l_region];
-    }
-  }
-
-  /*
-   * Exchange the mappings
-   */
-  // remote mappings
-  std::vector< std::vector< unsigned int > > l_remoteFaceToCellIdMappings;
-  l_remoteFaceToCellIdMappings.resize( m_plainNeighboringRanks.size() );
-  for( unsigned int l_region = 0; l_region < m_plainNeighboringRanks.size(); l_region++ ) {
-    l_remoteFaceToCellIdMappings[l_region].resize( l_faceToCellIdMappings[l_region].size() );
-  }
-
-#ifdef USE_MPI
-  // TODO please check if this ifdef is correct
-
-  // exchange the mappings
-  for( unsigned int l_neighbor = 0; l_neighbor < m_plainNeighboringRanks.size(); l_neighbor++ ) {
-    // send this ranks copy layer size
-    MPI_Isend( &l_faceToCellIdMappings[l_neighbor][0],     // buffer
-                l_faceToCellIdMappings[l_neighbor].size(), // size
-                MPI_UNSIGNED,                              // data type
-                m_plainNeighboringRanks[l_neighbor],       // destination
-                normalizeIndices,                          // message tag
-                seissol::MPI::mpi.comm(),                  // communicator
-                l_requests + l_neighbor );                 // mpi request
-
-    // receive neighboring ranks copy layer size
-    MPI_Irecv( &l_remoteFaceToCellIdMappings[l_neighbor][0],                // buffer
-                l_remoteFaceToCellIdMappings[l_neighbor].size(),            // size
-                MPI_UNSIGNED,                                               // data type
-                m_plainNeighboringRanks[l_neighbor],                        // source
-                normalizeIndices,                                           // message tag
-                seissol::MPI::mpi.comm(),                                   // communicator
-                l_requests + l_neighbor + m_plainNeighboringRanks.size() ); // mpi request
-  }
-
-  // wait for sends/receives
-  MPI_Waitall( m_plainNeighboringRanks.size()*2, // size
-               l_requests,                       // array of requests
-               MPI_STATUS_IGNORE );              // mpi status
-#endif // USE_MPI
-
-  /*
-   * Replace the useless mpi-indices by the neighboring cell id
-   */
-  for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-      if( m_cells[l_cell].neighborRanks[l_face] != rank ) {
-        // derive id of the local region
-        int l_region = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
-
-        // assert we have a corresponding mappiong
-        assert( m_cells[l_cell].mpiIndices[l_face] < static_cast<int>(l_remoteFaceToCellIdMappings[l_region].size()) );
-
-        // replace mpi index by the cell id
-        m_cells[l_cell].mpiIndices[l_face] = l_remoteFaceToCellIdMappings[l_region][ m_cells[l_cell].mpiIndices[l_face] ];
-      }
-    }
-  }
-
   /*
    * Convert the neighboring mappings to unique and sorted lists of the neighbors
    */
   for( unsigned int l_region = 0; l_region < m_plainNeighboringRanks.size(); l_region++ ) {
+    std::vector<unsigned int> l_remoteFaceToCellIdMappings(m_mesh->getGhostlayerMetadata().at(m_plainNeighboringRanks[l_region]).size());
+    for (std::size_t i = 0; i < l_remoteFaceToCellIdMappings.size(); ++i) {
+      l_remoteFaceToCellIdMappings[i] = m_mesh->getGhostlayerMetadata().at(m_plainNeighboringRanks[l_region])[i].localId;
+    }
     // sort
-    std::sort( l_remoteFaceToCellIdMappings[l_region].begin(), l_remoteFaceToCellIdMappings[l_region].end() );
+    std::sort( l_remoteFaceToCellIdMappings.begin(), l_remoteFaceToCellIdMappings.end() );
     // unique
-    std::vector< unsigned int >::iterator l_overhead = std::unique( l_remoteFaceToCellIdMappings[l_region].begin(), l_remoteFaceToCellIdMappings[l_region].end() );
-    l_remoteFaceToCellIdMappings[l_region].erase( l_overhead, l_remoteFaceToCellIdMappings[l_region].end() );
+    auto l_overhead = std::unique( l_remoteFaceToCellIdMappings.begin(), l_remoteFaceToCellIdMappings.end() );
+    l_remoteFaceToCellIdMappings.erase( l_overhead, l_remoteFaceToCellIdMappings.end() );
 
     // store the results
-    m_plainGhostCellIds.push_back( l_remoteFaceToCellIdMappings[l_region] );
+    m_plainGhostCellIds.push_back( l_remoteFaceToCellIdMappings );
   }
-
-  /*
-   * Replace neighboring cell id mpi indices by plain ghost region indices.
-   */
-  for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-      if( m_cells[l_cell].neighborRanks[l_face] != rank ) {
-        // derive id of the local region
-        int l_region = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
-
-        // get ghost index
-        std::vector<unsigned int>::iterator l_ghostIdIterator = std::find( m_plainGhostCellIds[l_region].begin(), m_plainGhostCellIds[l_region].end(), (unsigned int) m_cells[l_cell].mpiIndices[l_face] );
-        unsigned int l_ghostId = std::distance( m_plainGhostCellIds[l_region].begin(), l_ghostIdIterator );
-
-        // assert a match
-        assert( l_ghostId < m_plainGhostCellIds[l_region].size() );
-
-        // replace cell id with ghost index
-        m_cells[l_cell].mpiIndices[l_face] = l_ghostId;
-      }
-    }
-  }
-}
-
-void seissol::initializer::time_stepping::LtsLayout::synchronizePlainGhostData(unsigned* cellData, unsigned** plainGhostData) {
-  // buffer for copy cell cluster ids
-  std::vector< std::vector< unsigned int > > l_copyBuffer;
-
-  // fill copy buffer
-  l_copyBuffer.resize( m_plainNeighboringRanks.size() );
-  for( unsigned int l_region = 0; l_region < m_plainNeighboringRanks.size(); l_region++ ) {
-    for( unsigned int l_copyCell = 0; l_copyCell < m_plainCopyRegions[l_region].size(); l_copyCell++ ) {
-      l_copyBuffer[l_region].push_back( cellData[ m_plainCopyRegions[l_region][l_copyCell] ] );
-    }
-  }
-
-#ifdef USE_MPI
-  // TODO please check if this ifdef is correct
-
-  // mpi requests
-  MPI_Request *l_requests = new MPI_Request[ m_plainNeighboringRanks.size() * 2 ];
-
-  // exchange copy/ghost cluster ids
-  for( unsigned int l_region = 0; l_region < m_plainNeighboringRanks.size(); l_region++ ) {
-    // send this ranks copy layer size
-    MPI_Isend( &l_copyBuffer[l_region][0],         // buffer
-                l_copyBuffer[l_region].size(),     // size
-                MPI_UNSIGNED,                      // data type
-                m_plainNeighboringRanks[l_region], // destination
-                synchronizeClusters,               // message tag
-                seissol::MPI::mpi.comm(),          // communicator
-                l_requests + l_region );           // mpi request
-
-    // receive neighboring ranks copy layer size
-    MPI_Irecv( plainGhostData[l_region],                     // buffer
-               m_numberOfPlainGhostCells[l_region],                      // size
-               MPI_UNSIGNED,                                             // data type
-               m_plainNeighboringRanks[l_region],                        // source
-               synchronizeClusters,                                      // message tag
-               seissol::MPI::mpi.comm(),                                 // communicator
-               l_requests + l_region + m_plainNeighboringRanks.size() ); // mpi request
-  }
-
-  // wait for sends/receives
-  MPI_Waitall( m_plainNeighboringRanks.size()*2, // size
-               l_requests,                       // array of requests
-               MPI_STATUS_IGNORE );              // mpi status
-
-  delete[] l_requests;
-#endif // USE_MPI
-}
-
-void seissol::initializer::time_stepping::LtsLayout::synchronizePlainGhostClusterIds() {
-  synchronizePlainGhostData(m_cellClusterIds, m_plainGhostCellClusterIds);
-}
-
-unsigned seissol::initializer::time_stepping::LtsLayout::enforceDynamicRuptureGTS() {
-  const int rank = seissol::MPI::mpi.rank();
-  unsigned reductions = 0;
-  
-  for( std::vector<Fault>::const_iterator fault = m_fault.begin(); fault < m_fault.end(); ++fault ) {
-    int meshId, face;
-    if (fault->element >= 0) {
-      meshId = fault->element;
-      face = fault->side;
-    } else {
-      meshId = fault->neighborElement;
-      face = fault->neighborSide;
-    }
-    if (m_cells[meshId].neighborRanks[face] == rank ) {
-      unsigned neighborId = m_cells[meshId].neighbors[face];
-      if (m_cellClusterIds[meshId] != m_cellClusterIds[neighborId]) {
-        unsigned minCluster = std::min(m_cellClusterIds[meshId], m_cellClusterIds[neighborId]);
-        m_cellClusterIds[meshId]     = minCluster;
-        m_cellClusterIds[neighborId] = minCluster;
-        ++reductions;
-      }
-    } else {
-      unsigned region = getPlainRegion( m_cells[meshId].neighborRanks[face] );
-      unsigned localGhostCell = m_cells[meshId].mpiIndices[face];
-      assert( localGhostCell < m_numberOfPlainGhostCells[region] );
-      if (m_cellClusterIds[meshId] > m_plainGhostCellClusterIds[region][localGhostCell]) {
-        m_cellClusterIds[meshId] = m_plainGhostCellClusterIds[region][localGhostCell];
-        ++reductions;
-      }
-    }
-  }
-  
-  return reductions;
-}
-
-unsigned int seissol::initializer::time_stepping::LtsLayout::enforceMaximumDifference( unsigned int i_difference ) {
-	const int rank = seissol::MPI::mpi.rank();
-
-  // get up-to-date cluster ids of the ghost layer before starting
-  synchronizePlainGhostClusterIds();
-
-  // number of reductions per iteration
-  unsigned int l_numberOfReductions      = 1;
-
-  // total number of reductions
-  unsigned int l_totalNumberOfReductions = 0;
-
-  while( l_numberOfReductions != 0 ) {
-    l_numberOfReductions = 0;
-
-    // iterate over mesh
-    for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
-      unsigned int l_minimumNeighborId = std::numeric_limits<unsigned int>::max();
-
-      // get the ids
-      for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
-        FaceType l_faceType = getFaceType( m_cells[l_cell].boundaries[l_face] );
-        if (l_faceType == FaceType::Regular ||
-           l_faceType == FaceType::Periodic ||
-           l_faceType == FaceType::DynamicRupture) {
-          // neighbor cell is part of copy layer/interior
-          if( m_cells[l_cell].neighborRanks[l_face] == rank ) {
-            unsigned int l_neighborId = m_cells[l_cell].neighbors[l_face];
-            l_minimumNeighborId = std::min( l_minimumNeighborId, m_cellClusterIds[l_neighborId] );
-          }
-          // cell is part of the ghost layer
-          else {
-            // derive id of the ghost region
-            unsigned int l_region = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
-
-            // local id in the ghost region
-            unsigned int l_localGhostCell = m_cells[l_cell].mpiIndices[l_face];
-
-            assert( l_localGhostCell < m_numberOfPlainGhostCells[l_region] );
-
-            l_minimumNeighborId = std::min( l_minimumNeighborId, m_plainGhostCellClusterIds[l_region][l_localGhostCell] );
-          }
-        }
-      }
-
-      // assert we have a face neighbor
-      assert( l_minimumNeighborId != std::numeric_limits<unsigned int>::max() );
-
-      // lower id of the cell if required
-      if( m_cellClusterIds[l_cell] > l_minimumNeighborId + i_difference ) {
-        m_cellClusterIds[l_cell] = l_minimumNeighborId + i_difference;
-        l_numberOfReductions++;
-      }
-
-    }
-
-    l_totalNumberOfReductions += l_numberOfReductions;
-  }
-
-  return l_totalNumberOfReductions;
-}
-
-unsigned int seissol::initializer::time_stepping::LtsLayout::enforceSingleBuffer() {
-  // TODO: Implementation required
-  return 0;
 }
 
 void seissol::initializer::time_stepping::LtsLayout::normalizeClustering() {
   const int rank = seissol::MPI::mpi.rank();
-  // allocate memory for the cluster ids of the ghost layer
-  m_plainGhostCellClusterIds = new unsigned int*[ m_plainNeighboringRanks.size() ];
-  for( unsigned int l_neighbor = 0; l_neighbor < m_plainNeighboringRanks.size(); l_neighbor++ ) {
-    m_plainGhostCellClusterIds[l_neighbor] = new unsigned int[ m_numberOfPlainGhostCells[l_neighbor] ];
-  }
-
-  // enforce requirements until mesh is valid
-  unsigned int l_maximumDifference      = 0;
-  unsigned int l_dynamicRupture         = 0;
-  unsigned int l_singleBuffer           = 0;
-
-  int l_globalContinue = 1;
-
-  // continue until all ranks converged to a normalized mesh
-  while( l_globalContinue ) {
-    // get up-to-date cluster ids of the ghost layer before starting
-    synchronizePlainGhostClusterIds();
-
-    l_dynamicRupture = enforceDynamicRuptureGTS();
-
-    // enforce maximum difference of cluster ids
-    if( m_clusteringStrategy == TimeClustering::Single ) {
-      l_maximumDifference = enforceMaximumDifference( 0 );
-    }
-    else if( m_clusteringStrategy == TimeClustering::MultiRate ) {
-      l_maximumDifference = enforceMaximumDifference( 1 );
-    }
-    else logError() << "clustering stategy not supported";
-
-    // TODO: missing implementation (works only for max. difference 0 or 1)
-    l_singleBuffer = enforceSingleBuffer();
-
-    // check if this rank requires another iteration
-    int l_localContinue = l_maximumDifference + l_dynamicRupture + l_singleBuffer;
-
-#ifdef USE_MPI
-    // continue if any rank is required to continue
-    MPI_Allreduce( &l_localContinue, &l_globalContinue, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm() );
-#else
-    l_globalContinue = l_localContinue;
-#endif
-  }
   
-  int* localClusterHistogram = new int[m_numberOfGlobalClusters];
+  std::vector<int> localClusterHistogram(m_numberOfGlobalClusters);
   for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
     localClusterHistogram[cluster] = 0;
   }
@@ -608,12 +267,10 @@ void seissol::initializer::time_stepping::LtsLayout::normalizeClustering() {
     ++localClusterHistogram[ m_cellClusterIds[cell] ];
   }
 
-  int* globalClusterHistogram = NULL;
+  std::vector<int> globalClusterHistogram;
 #ifdef USE_MPI
-  if (rank == 0) {
-    globalClusterHistogram = new int[m_numberOfGlobalClusters];
-  }
-  MPI_Reduce(localClusterHistogram, globalClusterHistogram, m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, seissol::MPI::mpi.comm());
+  globalClusterHistogram.resize(m_numberOfGlobalClusters);
+  MPI_Reduce(localClusterHistogram.data(), globalClusterHistogram.data(), m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, seissol::MPI::mpi.comm());
 #else
   globalClusterHistogram = localClusterHistogram;
 #endif
@@ -622,11 +279,7 @@ void seissol::initializer::time_stepping::LtsLayout::normalizeClustering() {
     for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
       logInfo() << utils::nospace << cluster << ":" << utils::space << globalClusterHistogram[cluster];
     }
-#ifdef USE_MPI
-    delete[] globalClusterHistogram;
-#endif
   }
-  delete[] localClusterHistogram;
 }
 
 void seissol::initializer::time_stepping::LtsLayout::getTheoreticalSpeedup( double &o_perCellTimeStepWidths,
@@ -773,7 +426,7 @@ void seissol::initializer::time_stepping::LtsLayout::sortClusteredCopyGts( clust
       else if( m_cells[l_meshId].neighborRanks[l_face] != rank ) {
         unsigned int l_region = getPlainRegion( m_cells[l_meshId].neighborRanks[l_face] );
         unsigned int l_ghostId = m_cells[l_meshId].mpiIndices[l_face];
-        unsigned int l_ghostClusterId = m_plainGhostCellClusterIds[l_region][l_ghostId];
+        unsigned int l_ghostClusterId = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[l_ghostId].clusterId;
 
         if( l_ghostClusterId > io_copyRegion.first[1] ) {
           l_reorder = true;
@@ -807,25 +460,9 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior
   // unique set of local cluster
   std::set< unsigned int > l_localClusters;
 
-  // derive local clusters
-  for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
-    l_localClusters.insert( m_cellClusterIds[l_cell] );
-  }
-
-  // HACK: add ghost cell clusters as well
-  for( std::size_t i = 0; i < m_plainNeighboringRanks.size(); ++i ) {
-    for (unsigned int j = 0; j < m_numberOfPlainGhostCells[i]; ++j) {
-      l_localClusters.insert( m_plainGhostCellClusterIds[i][j] );
-    }
-  }
-
-  // HACK 2: make contiguous
-  if (!l_localClusters.empty()) {
-    const auto minLocal = *l_localClusters.begin();
-    const auto maxLocal = *l_localClusters.rbegin();
-    for (auto i = minLocal; i <= maxLocal; ++i) {
-      l_localClusters.insert(i);
-    }
+  // derive local clusters / HACK: no, always take all clusters
+  for( unsigned int i = 0; i < m_numberOfGlobalClusters; i++ ) {
+    l_localClusters.insert( i );
   }
 
   // convert set to vector
@@ -852,10 +489,10 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior
 
         // local id in the ghost region
         unsigned int l_localGhostCell = m_cells[l_cell].mpiIndices[l_face];
-        assert( l_localGhostCell < m_numberOfPlainGhostCells[l_plainRegion] );
+        assert( l_localGhostCell < m_mesh->getGhostlayerMetadata().at(m_cells[l_cell].neighborRanks[l_face]).size() );
 
         // neighboring cluster id
-        unsigned int l_neighboringClusterId = m_plainGhostCellClusterIds[l_plainRegion][l_localGhostCell];
+        unsigned int l_neighboringClusterId = m_mesh->getGhostlayerMetadata().at(m_cells[l_cell].neighborRanks[l_face])[l_localGhostCell].clusterId;
 
         // add the cell to the respective copy region
         addClusteredCopyCell( l_cell,
@@ -1132,30 +769,11 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
                                                                     unsigned int        i_clusterRate ) {
 	const int rank = seissol::MPI::mpi.rank();
 
-  m_clusteringStrategy = i_timeClustering;
-
-  // derive time stepping clusters and per-cell cluster ids (w/o normalizations)
-  if( m_clusteringStrategy == TimeClustering::Single ) {
-    MultiRate::deriveClusterIds( m_cells.size(),
-                                 std::numeric_limits<unsigned int>::max(),
-                                 seissolParams.timeStepping.lts.getWiggleFactor(),
-                                 seissolParams.timeStepping.lts.getMaxNumberOfClusters(),
-                                 m_cellTimeStepWidths.data(), // TODO(David): once we fully refactor LtsLayout etc, change this
-                                 m_cellClusterIds,
-                                 m_numberOfGlobalClusters,
-                                 m_globalTimeStepWidths,
-                                 m_globalTimeStepRates  );
-  }
-  else if ( m_clusteringStrategy == TimeClustering::MultiRate ) {
-    MultiRate::deriveClusterIds( m_cells.size(),
-                                 i_clusterRate,
-                                 seissolParams.timeStepping.lts.getWiggleFactor(),
-                                 seissolParams.timeStepping.lts.getMaxNumberOfClusters(),
-                                 m_cellTimeStepWidths.data(), // TODO(David): once we fully refactor LtsLayout etc, change this
-                                 m_cellClusterIds,
-                                 m_numberOfGlobalClusters,
-                                 m_globalTimeStepWidths,
-                                 m_globalTimeStepRates );
+  m_globalTimeStepRates.resize(1);
+  m_globalTimeStepRates[0] = i_clusterRate;
+  
+  for (std::size_t i = 1; i < m_numberOfGlobalClusters; ++i) {
+    m_globalTimeStepWidths[i] = m_globalTimeStepWidths[i - 1] * i_clusterRate;
   }
 
   // derive plain copy and the interior
@@ -1164,24 +782,24 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
   // derive plain ghost regions
   derivePlainGhost();
 
-  // normalize mpi indices
+  // normalize mpi indices (not anymore; just set up the ghost layers)
   normalizeMpiIndices();
 
-  // normalize clustering
+  // normalize clustering (not anymore, just prints some info; done in LtsWeights/somewhere else)
   normalizeClustering();
 
   // get maximum speedups compared to GTS
-  double l_perCellSpeedup, l_clusteringSpeedup;
-  getTheoreticalSpeedup( l_perCellSpeedup, l_clusteringSpeedup );
+  double perCellSpeedup = 0;
+  double clusteringSpeedup = 0;
+  getTheoreticalSpeedup( perCellSpeedup, clusteringSpeedup );
 
   // The speedups above are computed without considering the wiggle factor
   const auto wiggleFactor = seissolParams.timeStepping.lts.getWiggleFactor();
-  l_perCellSpeedup *= wiggleFactor;
-  l_clusteringSpeedup *= wiggleFactor;
+  perCellSpeedup *= wiggleFactor;
+  clusteringSpeedup *= wiggleFactor;
 
   // get maximum speedup
-  logInfo() << "maximum theoretical speedup (compared to GTS):"
-                  << l_perCellSpeedup << "per cell LTS," << l_clusteringSpeedup << "with the used clustering.";
+  logInfo() << "Theoretical speedup to GTS:" << perCellSpeedup << "elementwise LTS;" << clusteringSpeedup << "clustered LTS (current setup)";
 
   // derive clustered copy and interior layout
   deriveClusteredCopyInterior();
@@ -1197,12 +815,13 @@ void seissol::initializer::time_stepping::LtsLayout::getCrossClusterTimeStepping
   // set number of global clusters
   o_timeStepping.numberOfGlobalClusters = m_numberOfGlobalClusters;
 
-  o_timeStepping.globalTimeStepRates     = new unsigned int[ o_timeStepping.numberOfGlobalClusters ];
+  o_timeStepping.globalTimeStepRates     = new unsigned int[ 1 ];
   o_timeStepping.globalCflTimeStepWidths = new double[ o_timeStepping.numberOfGlobalClusters ];
+
+  o_timeStepping.globalTimeStepRates[0]     = m_globalTimeStepRates[0];
 
   // set global time step rates
   for( unsigned int l_cluster = 0; l_cluster < o_timeStepping.numberOfGlobalClusters; l_cluster++ ) {
-    o_timeStepping.globalTimeStepRates[l_cluster]     = m_globalTimeStepRates[l_cluster];
     o_timeStepping.globalCflTimeStepWidths[l_cluster] = m_globalTimeStepWidths[l_cluster];
   }
 
@@ -1220,6 +839,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCrossClusterTimeStepping
 }
 
 void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLocalInformation* io_cellLocalInformation,
+                                                                          SecondaryCellLocalInformation* secondaryInformation,
                                                                           unsigned int         *&o_ltsToMesh,
                                                                           unsigned int          &o_numberOfMeshCells ) {
 	const int rank = seissol::MPI::mpi.rank();
@@ -1280,6 +900,8 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
   o_numberOfMeshCells         = m_cells.size();
   unsigned numberOfLtsCells   = l_totalGhostLayerSize + l_totalCopyLayerSize + l_totalInteriorSize;
 
+  std::vector<int> duplicate(m_cells.size());
+
 
   // allocate memory
   // TODO: free sometime somewhere
@@ -1287,6 +909,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
 
   // current lts cell
   unsigned int l_ltsCell = 0;
+  unsigned int layerId = 0;
 
   // iterate over the setup an derive a linear layout
   for( unsigned int l_cluster = 0; l_cluster < m_clusteredInterior.size(); l_cluster++ ) {
@@ -1298,15 +921,24 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         // get values
         unsigned int l_clusterId = m_clusteredCopy[l_cluster][l_region].first[1];
 
-        // store values
-        io_cellLocalInformation[l_ltsCell].clusterId = l_clusterId;
-
         // set mapping invalid
         o_ltsToMesh[l_ltsCell] = std::numeric_limits<unsigned int>::max();
 
+        secondaryInformation[l_ltsCell].clusterId = l_clusterId;
+        secondaryInformation[l_ltsCell].meshId = l_ghostCell;
+        secondaryInformation[l_ltsCell].duplicate = 0;
+        secondaryInformation[l_ltsCell].halo = HaloType::Ghost;
+
+        secondaryInformation[l_ltsCell].globalId = m_mesh->getGhostlayerMetadata().at(m_clusteredCopy[l_cluster][l_region].first[0])[l_ghostCell].globalId; // TODO: check
+        secondaryInformation[l_ltsCell].rank = m_clusteredCopy[l_cluster][l_region].first[0];
+        secondaryInformation[l_ltsCell].layerId = layerId;
+        secondaryInformation[l_ltsCell].configId = 0;
+
         l_ltsCell++;
+        ++layerId;
       }
     }
+    layerId = 0;
 
     /*
      * iterate over copy layer
@@ -1318,10 +950,21 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         unsigned int l_meshId     = m_clusteredCopy[l_cluster][l_region].second[l_copyCell];
 
         // store face independent information
-        io_cellLocalInformation[l_ltsCell].clusterId = l_clusterId;
 
         // set mappings
         o_ltsToMesh[l_ltsCell]                   = l_meshId;
+
+        secondaryInformation[l_ltsCell].clusterId = l_clusterId;
+        secondaryInformation[l_ltsCell].meshId = l_meshId;
+        secondaryInformation[l_ltsCell].duplicate = duplicate[l_meshId];
+        ++duplicate[l_meshId];
+
+        secondaryInformation[l_ltsCell].halo = HaloType::Copy;
+        secondaryInformation[l_ltsCell].globalId = m_cells[l_meshId].globalId;
+        secondaryInformation[l_ltsCell].rank = rank;
+        secondaryInformation[l_ltsCell].layerId = layerId;
+        secondaryInformation[l_ltsCell].configId = 0;
+        std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
 
         // iterate over faces
         for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
@@ -1336,7 +979,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
 
             // global neighboring cluster id
             unsigned int l_plainRegion = getPlainRegion( m_cells[l_meshId].neighborRanks[l_face] );
-            unsigned int l_globalNeighboringCluster = m_plainGhostCellClusterIds[l_plainRegion][ m_cells[l_meshId].mpiIndices[l_face] ];
+            unsigned int l_globalNeighboringCluster = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[ m_cells[l_meshId].mpiIndices[l_face]].clusterId;
 
             // find local neighboring region
             unsigned int l_localNeighboringRegion;
@@ -1351,14 +994,14 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
             }
 
             // get mesh id in the neighboring domain
-            unsigned int l_neighboringMeshId = m_plainGhostCellIds[l_plainRegion][ m_cells[l_meshId].mpiIndices[l_face] ];
+            unsigned int l_neighboringMeshId = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[ m_cells[l_meshId].mpiIndices[l_face]].localId;
 
             unsigned int l_localGhostId = searchClusteredGhostCell( l_neighboringMeshId,
                                                                     l_cluster,
                                                                     l_localNeighboringRegion );
 
             // store value
-            io_cellLocalInformation[l_ltsCell].faceNeighborIds[l_face] = l_ghostOffsets[l_cluster][l_localNeighboringRegion] + l_localGhostId;
+            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_ghostOffsets[l_cluster][l_localNeighboringRegion] + l_localGhostId;
           }
           // else neighboring cell is part of the interior or copy layer
           else if (io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::Regular ||
@@ -1384,7 +1027,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                        l_neighboringCopyRegion,
                                        l_localNeighboringCellId );
 
-              io_cellLocalInformation[l_ltsCell].faceNeighborIds[l_face] = l_copyOffsets[l_localNeighboringClusterId][l_neighboringCopyRegion] + l_localNeighboringCellId;
+              secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_copyOffsets[l_localNeighboringClusterId][l_neighboringCopyRegion] + l_localNeighboringCellId;
             }
             // neighboring cell is part of the interior: search for the position of the neighboring cell in the interior of the cluster
             else {
@@ -1396,14 +1039,16 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                            l_localNeighboringCellId );
 
               // store values
-              io_cellLocalInformation[l_ltsCell].faceNeighborIds[l_face] = l_interiorOffsets[l_localNeighboringClusterId] + l_localNeighboringCellId;
+              secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_interiorOffsets[l_localNeighboringClusterId] + l_localNeighboringCellId;
             }
           }
         }
 
         l_ltsCell++;
+        ++layerId;
       }
     }
+    layerId = 0;
 
     /*
      * interate over interior
@@ -1414,7 +1059,15 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
       unsigned int l_meshId     = m_clusteredInterior[l_cluster][l_interiorCell];
 
       // store face independent information
-      io_cellLocalInformation[l_ltsCell].clusterId = l_clusterId;
+      secondaryInformation[l_ltsCell].clusterId = l_clusterId;
+      secondaryInformation[l_ltsCell].meshId = l_meshId;
+      secondaryInformation[l_ltsCell].duplicate = 0;
+      secondaryInformation[l_ltsCell].halo = HaloType::Interior;
+      secondaryInformation[l_ltsCell].globalId = m_cells[l_meshId].globalId;
+      secondaryInformation[l_ltsCell].rank = rank;
+      secondaryInformation[l_ltsCell].layerId = layerId;
+      secondaryInformation[l_ltsCell].configId = 0;
+      std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
 
       // set mappings
       o_ltsToMesh[l_ltsCell]                   = l_meshId;
@@ -1449,7 +1102,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                      l_neighboringCopyRegion,
                                      l_localNeighboringCellId );
 
-            io_cellLocalInformation[l_ltsCell].faceNeighborIds[l_face] = l_copyOffsets[l_localNeighboringClusterId][l_neighboringCopyRegion] + l_localNeighboringCellId;
+            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_copyOffsets[l_localNeighboringClusterId][l_neighboringCopyRegion] + l_localNeighboringCellId;
           }
           // neighboring cell is part of the interior: search for the position of the neighboring cell in the interior of the cluster
           else {
@@ -1461,13 +1114,15 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                          l_localNeighboringCellId );
 
             // store values
-            io_cellLocalInformation[l_ltsCell].faceNeighborIds[l_face] = l_interiorOffsets[l_localNeighboringClusterId] + l_localNeighboringCellId;
+            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_interiorOffsets[l_localNeighboringClusterId] + l_localNeighboringCellId;
           }
         }
       }
 
       l_ltsCell++;
+      ++layerId;
     }
+    layerId = 0;
   }
 }
 
@@ -1561,11 +1216,6 @@ void seissol::initializer::time_stepping::LtsLayout::getMeshStructure( MeshStruc
     }
 
     o_meshStructure[l_cluster].numberOfInteriorCells = m_clusteredInterior[l_cluster].size();
-
-#ifdef USE_MPI
-    o_meshStructure[l_cluster].sendRequests    = new MPI_Request[ m_clusteredCopy[l_cluster].size() ];
-    o_meshStructure[l_cluster].receiveRequests = new MPI_Request[ m_clusteredCopy[l_cluster].size() ];
-#endif
   }
 }
 

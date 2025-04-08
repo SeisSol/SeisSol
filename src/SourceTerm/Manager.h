@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -10,7 +10,7 @@
 #define SEISSOL_SRC_SOURCETERM_MANAGER_H_
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/Tree/Lut.h"
+#include "Memory/Tree/Lut.h"
 #include "Solver/time_stepping/TimeManager.h"
 #include <cstdarg>
 

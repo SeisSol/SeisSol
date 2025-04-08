@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -18,24 +18,19 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 
 #include <array>
-#include <limits>
 #include <cassert>
+#include <limits>
 
-namespace seissol {
-  namespace initializer {
-    namespace time_stepping {
-      class LtsLayout;
-    }
-  }
-}
 
-/**
- * Layout used by the LTS schemes for computation.
- **/
+  
+namespace seissol::initializer::time_stepping {
+  class LtsLayout;
+} // namespace seissol::initializer::time_stepping
+  
+
 class seissol::initializer::time_stepping::LtsLayout {
   //private:
-    //! used clustering strategy
-    enum TimeClustering m_clusteringStrategy;
+    const seissol::geometry::MeshReader* m_mesh;
 
     //! cells in the local domain
     std::vector<Element> m_cells;
@@ -47,16 +42,16 @@ class seissol::initializer::time_stepping::LtsLayout {
     std::vector<double>       m_cellTimeStepWidths;
 
     //! cluster ids of the cells
-    unsigned int *m_cellClusterIds;
+    std::vector<unsigned int> m_cellClusterIds;
 
     //! number of clusters in the global domain
     unsigned int  m_numberOfGlobalClusters;
 
     //! time step widths of all clusters
-    double       *m_globalTimeStepWidths;
+    std::vector<double> m_globalTimeStepWidths;
 
     //! time step rates of all clusters
-    unsigned int *m_globalTimeStepRates;
+    std::vector<unsigned int> m_globalTimeStepRates;
 
     //! mpi tags used for communication
     enum mpiTag {
@@ -215,46 +210,6 @@ class seissol::initializer::time_stepping::LtsLayout {
      *   vector containing the cell ids in the neighboring computational domain is derived.
      **/
     void normalizeMpiIndices();
-
-    /**
-     * Helper function for synchronization.
-     */
-    void synchronizePlainGhostData(unsigned* cellData, unsigned** plainGhostData);
-
-    /**
-     * Synchronizes the cluster ids of the cells in the plain ghost layer.
-     **/
-    void synchronizePlainGhostClusterIds();
-
-    /**
-     * Enforces the same time step for all cells with dynamic rupture faces.
-     */
-    unsigned enforceDynamicRuptureGTS();
-
-    /**
-     * Enforces a maximum cluster difference between all cells.
-     * 0: GTS (no difference of cluster ids allowed).
-     * 1: Only a single difference in the cluster id is allowed, for example 2 is allowed to neighbor 1,2,3 but not 0 or 4.
-     * [...]
-     *
-     * @param i_difference maximum allowed difference.
-     * @return number of performed per-cell adjustments.
-     **/
-    unsigned int enforceMaximumDifference( unsigned int i_difference );
-
-    /**
-     * Lowers the time step width of all cells, which would require neighboring
-     * cells to have more than one time buffer.
-     *  Example:
-     *   A cell has time step 2*dt with neighboring time steps dt, 2*dt, 4*dt and 8*dt.
-     *   The scheme only provides one derivative (-> 2*dt - neighbor) and one buffer (-> 4*dt neighbor).
-     *   Therefore we have to lower the time step of the 8*dt neighbor to 4*dt.
-     *
-     * TODO: This function is not implemented but required for maximum differences other than 0 or 1.
-     *
-     * @return number of performed normalizations.
-     **/
-    unsigned int enforceSingleBuffer();
 
     /**
      * Normalizes the clustering.
@@ -474,6 +429,7 @@ class seissol::initializer::time_stepping::LtsLayout {
      * @param o_numberOfMeshCells number of cells in the mesh.
      **/
     void getCellInformation( CellLocalInformation* io_cellLocalInformation,
+                             SecondaryCellLocalInformation* secondaryInformation,
                              unsigned int         *&o_ltsToMesh,
                              unsigned int          &o_numberOfMeshCells );
 
@@ -487,17 +443,7 @@ class seissol::initializer::time_stepping::LtsLayout {
      * @param mesh structure.
      **/
     void getMeshStructure( MeshStructure *&o_meshStructure );
-
-    /**
-    * Get the global cluster Id of a particular local mesh element.
-    *
-    * @param LocalMeshElementId local mesh Id of an element.
-    **/
-    unsigned getGlobalClusterId(int LocalMeshElementId) {
-      return m_cellClusterIds[LocalMeshElementId];;
-    }
 };
 
 
 #endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSLAYOUT_H_
-

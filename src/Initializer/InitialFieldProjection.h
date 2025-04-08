@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -13,10 +13,10 @@
 #include <vector>
 
 #include "Geometry/MeshReader.h"
-#include "Initializer/LTS.h"
 #include "Initializer/MemoryManager.h"
-#include "Initializer/Tree/Lut.h"
 #include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Lut.h"
 #include "Physics/InitialField.h"
 
 namespace seissol::initializer {

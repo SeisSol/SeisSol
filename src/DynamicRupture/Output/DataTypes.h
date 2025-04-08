@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -10,8 +10,8 @@
 
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include "Memory/Tree/Layer.h"
 #include "Parallel/DataCollector.h"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -37,6 +37,7 @@ void seissol::Simulator::setUsePlasticity( bool plasticity ) {
 void seissol::Simulator::setCurrentTime( double i_currentTime ) {
 	assert( i_currentTime >= 0 );
 	m_currentTime = i_currentTime;
+  checkpoint = true;
 }
 
 void seissol::Simulator::abort() {
@@ -64,8 +65,11 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
 
   // Write initial wave field snapshot
-  if (m_currentTime == 0.0) {
-    Modules::callHook<ModuleHook::SimulationStart>();
+  if (checkpoint) {
+    Modules::callSimulationStartHook(m_currentTime);
+  }
+  else {
+    Modules::callSimulationStartHook(std::optional<double>{});
   }
 
   // intialize wave field and checkpoint time
@@ -84,6 +88,9 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
   Stopwatch::print("Time spent for initial IO:", ioStopwatch.split(), seissol::MPI::mpi.comm());
 
+  // use an empty log message as visual separator
+  logInfo() << "";
+
   while( m_finalTime > m_currentTime + timeTolerance ) {
     if (upcomingTime < m_currentTime + timeTolerance) {
       logError() << "Simulator did not advance in time from" << m_currentTime << "to" << upcomingTime;
@@ -94,9 +101,11 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     }
 
     // update the DOFs
+    logInfo() << "Start simulation epoch.";
     computeStopwatch.start();
     seissolInstance.timeManager().advanceInTime( upcomingTime );
     computeStopwatch.pause();
+    logInfo() << "End simulation epoch. Sync point.";
 
     ioStopwatch.start();
 
@@ -117,6 +126,9 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     Stopwatch::print("Time spent this phase (blocking IO):", ioStopwatch.split(), seissol::MPI::mpi.comm());
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
+
+    // use an empty log message as visual separator
+    logInfo() << "";
   }
 
   // synchronize data (TODO(David): synchronize lazily)

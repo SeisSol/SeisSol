@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 ##
 # @file
 # This file is part of SeisSol.
@@ -77,7 +78,7 @@ class View(QWidget):
     self.navigations = []
     self.addNavigation(True)
     
-    self.filters = [ Filters.Lowpass(), Filters.Deconvolve(), Filters.Rotate(), Filters.Pick() ]
+    self.filters = [ Filters.Lowpass(), Filters.Deconvolve(), Filters.Rotate(), Filters.Pick(), Filters.MultipleSimulations()]
     filterLayout = QVBoxLayout()    
     for f in self.filters:
       filterLayout.addWidget(f)

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,10 +7,6 @@
 
 #ifndef SEISSOL_SRC_KERNELS_PRECISION_H_
 #define SEISSOL_SRC_KERNELS_PRECISION_H_
-
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
 
 #if REAL_SIZE == 8
 #define DOUBLE_PRECISION

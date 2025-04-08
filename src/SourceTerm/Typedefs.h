@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 // SPDX-FileCopyrightText: 2023 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -11,8 +11,8 @@
 #define SEISSOL_SRC_SOURCETERM_TYPEDEFS_H_
 
 #include "Common/Constants.h"
-#include "Initializer/MemoryAllocator.h"
 #include "Kernels/Precision.h"
+#include "Memory/MemoryAllocator.h"
 #include "generated_code/tensor.h"
 #include <array>
 #include <cstdlib>
@@ -41,6 +41,8 @@ struct PointSources {
       seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>>
       mInvJInvPhisAtSources;
 
+  seissol::memory::MemkindArray<unsigned> simulationIndex;
+
   /** NRF: Basis vectors of the fault.
    * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
    * 3-5: Tan2X-Z   = second fault tangent
@@ -62,7 +64,7 @@ struct PointSources {
   seissol::memory::MemkindArray<double> samplingInterval;
 
   /// offset into slip rate vector
-  std::array<seissol::memory::MemkindArray<std::size_t>, 3u> sampleOffsets;
+  std::array<seissol::memory::MemkindArray<std::size_t>, 3U> sampleOffsets;
 
   /** NRF: slip rate in
    * 0: Tan1 direction
@@ -70,14 +72,14 @@ struct PointSources {
    * 2: Normal direction
    *
    * FSRM: 0: slip rate (all directions) */
-  std::array<seissol::memory::MemkindArray<real>, 3u> sample;
+  std::array<seissol::memory::MemkindArray<real>, 3U> sample;
 
   /** Number of point sources in this struct. */
   unsigned numberOfSources = 0;
 
   PointSources(seissol::memory::Memkind memkind)
-      : mInvJInvPhisAtSources(memkind), tensor(memkind), A(memkind), stiffnessTensor(memkind),
-        onsetTime(memkind), samplingInterval(memkind),
+      : mInvJInvPhisAtSources(memkind), simulationIndex(memkind), tensor(memkind), A(memkind),
+        stiffnessTensor(memkind), onsetTime(memkind), samplingInterval(memkind),
         sampleOffsets{seissol::memory::MemkindArray<std::size_t>(memkind),
                       seissol::memory::MemkindArray<std::size_t>(memkind),
                       seissol::memory::MemkindArray<std::size_t>(memkind)},
@@ -86,9 +88,9 @@ struct PointSources {
                seissol::memory::MemkindArray<real>(memkind)} {}
   PointSources(const PointSources& source, seissol::memory::Memkind memkind)
       : mInvJInvPhisAtSources(source.mInvJInvPhisAtSources, memkind),
-        tensor(source.tensor, memkind), A(source.A, memkind),
-        stiffnessTensor(source.stiffnessTensor, memkind), onsetTime(source.onsetTime, memkind),
-        samplingInterval(source.samplingInterval, memkind),
+        simulationIndex(source.simulationIndex, memkind), tensor(source.tensor, memkind),
+        A(source.A, memkind), stiffnessTensor(source.stiffnessTensor, memkind),
+        onsetTime(source.onsetTime, memkind), samplingInterval(source.samplingInterval, memkind),
         sampleOffsets{seissol::memory::MemkindArray<std::size_t>(source.sampleOffsets[0], memkind),
                       seissol::memory::MemkindArray<std::size_t>(source.sampleOffsets[1], memkind),
                       seissol::memory::MemkindArray<std::size_t>(source.sampleOffsets[2], memkind)},

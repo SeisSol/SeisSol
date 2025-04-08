@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,12 +9,12 @@
 #include "Initializer/CellLocalMatrices.h"
 #include "Modules/Modules.h"
 #include "SeisSol.h"
-#include <Initializer/LTS.h>
 #include <Initializer/Parameters/ModelParameters.h>
-#include <Initializer/Tree/LTSTree.h>
-#include <Initializer/Tree/Layer.h>
-#include <Initializer/Tree/Lut.h>
 #include <Initializer/Typedefs.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Layer.h>
+#include <Memory/Tree/Lut.h>
 #include <Modules/Module.h>
 #include <cmath>
 #include <memory>

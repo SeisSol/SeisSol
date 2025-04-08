@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -10,7 +10,7 @@
 
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include <DynamicRupture/Output/RateAndState.h>
-#include <Initializer/DynamicRupture.h>
+#include <Memory/Descriptor/DynamicRupture.h>
 
 namespace seissol::dr::output {
 class RateAndStateThermalPressurization : public RateAndState {

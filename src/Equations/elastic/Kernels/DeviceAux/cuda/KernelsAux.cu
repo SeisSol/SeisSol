@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -450,14 +450,10 @@ __global__ void kernelUpdateRotatedFaceDisplacement(real** rotatedFaceDisplaceme
       const auto pressureInside = dofsFaceNodal[tid + pIdx * ldINodal];
 
       real* prevCoefficients = prevCoefficientsPtrs[elementId];
-#ifdef USE_ELASTIC
       const auto rho = rhos[elementId];
       const auto invImpedance = invImpedances[elementId];
 
       const double curCoeff = uInside - invImpedance * (rho * g * prevCoefficients[tid] + pressureInside);
-#else
-      const double curCoeff = uInside;
-#endif
       prevCoefficients[tid] = curCoeff;
 
       constexpr auto ldFaceDisplacement = yateto::leadDim<seissol::init::faceDisplacement>();

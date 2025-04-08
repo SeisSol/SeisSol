@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -54,6 +54,9 @@ class CubeGenerator : public seissol::geometry::MeshReader {
                      double ty,
                      double tz,
                      const std::string& meshFile);
+
+  bool inlineTimestepCompute() const override;
+  bool inlineClusterCompute() const override;
 
   private:
   void findElementsPerVertex();

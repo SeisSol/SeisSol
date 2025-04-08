@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2025 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -14,7 +14,7 @@
 #include <cstddef>
 #include <init.h>
 
-#include "Initializer/MemoryAllocator.h"
+#include "Memory/MemoryAllocator.h"
 
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 

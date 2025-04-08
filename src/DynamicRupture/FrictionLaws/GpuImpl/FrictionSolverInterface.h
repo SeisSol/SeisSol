@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -10,7 +10,7 @@
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/Layer.h>
 
 // A sycl-independent interface is required for interacting with the wp solver
 // which, in its turn, is not supposed to know anything about SYCL
@@ -23,10 +23,9 @@ struct FrictionLawData {
 
   const ImpedancesAndEta* __restrict impAndEta{};
   const ImpedanceMatrices* __restrict impedanceMatrices{};
-  real mFullUpdateTime{};
   // CS = coordinate system
-  real (*__restrict initialStressInFaultCS)[misc::NumPaddedPoints][6]{};
-  const real (*__restrict nucleationStressInFaultCS)[misc::NumPaddedPoints][6]{};
+  real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
+  const real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints]{};
   const real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
@@ -72,13 +71,10 @@ struct FrictionLawData {
   // TP
   real (*__restrict temperature)[misc::NumPaddedPoints]{};
   real (*__restrict pressure)[misc::NumPaddedPoints]{};
-  real (*__restrict theta)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*__restrict sigma)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*__restrict thetaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
-  real (*__restrict sigmaTmpBuffer)[misc::NumPaddedPoints][misc::NumTpGridPoints]{};
+  real (*__restrict theta)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
+  real (*__restrict sigma)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
   const real (*__restrict halfWidthShearZone)[misc::NumPaddedPoints]{};
   const real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints]{};
-  real (*__restrict faultStrength)[misc::NumPaddedPoints]{};
 
   // ISR
   const real (*__restrict imposedSlipDirection1)[misc::NumPaddedPoints];
@@ -129,7 +125,6 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
     data->imposedStateMinus = layerData.var(dynRup->imposedStateMinus, place);
     data->energyData = layerData.var(dynRup->drEnergyOutput, place);
     data->godunovData = layerData.var(dynRup->godunovData, place);
-    data->mFullUpdateTime = fullUpdateTime;
     data->dynStressTime = layerData.var(dynRup->dynStressTime, place);
     data->dynStressTimePending = layerData.var(dynRup->dynStressTimePending, place);
     data->qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus, place);

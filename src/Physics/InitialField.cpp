@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2019 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,6 +9,7 @@
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
 #include <Model/Common.h>
+#include <Model/CommonDatastructures.h>
 #include <array>
 #include <cassert>
 #include <cmath>
@@ -19,6 +20,7 @@
 #include <math.h>
 #include <tensor.h>
 
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Numerical/Eigenvalues.h"
 #include "Physics/InitialField.h"
@@ -48,31 +50,34 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          Eigen::Vector3d kVec)
     : m_phase(phase), m_kVec(std::move(kVec)) {
 
-#ifndef USE_POROELASTIC
-  bool isAcoustic = false;
-#ifndef USE_ANISOTROPIC
-  isAcoustic = materialData.local.getMuBar() <= 1e-15;
-#endif
-  if (isAcoustic) {
+  if constexpr (model::MaterialT::Type == model::MaterialType::Acoustic) {
     // Acoustic materials has the following wave modes:
-    // -P, N, N, N, N, N, N, N, P
+    // P, N, N, -P
     // Here we impose the P mode
-    m_varField = {8};
+    m_varField = {0};
     m_ampField = {1.0};
+  } else if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+    // Poroelastic materials have the following wave modes:
+    //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
+    // Here we impose -S1, -Ps and P
+    m_varField = {2, 3, 12};
+    m_ampField = {1.0, 1.0, 1.0};
   } else {
-    // Elastic materials have the following wave modes:
-    // -P, -S2, -S1, N, N, N, S1, S2, P
-    // Here we impose the -S2 and P mode
-    m_varField = {1, 8};
-    m_ampField = {1.0, 1.0};
+    const auto isAcoustic = materialData.local.getMuBar() <= 1e-15;
+    if (isAcoustic) {
+      // Acoustic materials has the following wave modes:
+      // -P, N, N, N, N, N, N, N, P
+      // Here we impose the P mode
+      m_varField = {8};
+      m_ampField = {1.0};
+    } else {
+      // Elastic materials have the following wave modes:
+      // -P, -S2, -S1, N, N, N, S1, S2, P
+      // Here we impose the -S2 and P mode
+      m_varField = {1, 8};
+      m_ampField = {1.0, 1.0};
+    }
   }
-#else
-  // Poroelastic materials have the following wave modes:
-  //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
-  // Here we impose -S1, -Ps and P
-  m_varField = {2, 3, 12};
-  m_ampField = {1.0, 1.0, 1.0};
-#endif
   init(materialData);
 }
 
@@ -85,11 +90,7 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
   seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator.data());
   seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities>
       eigendecomposition;
-#ifdef USE_POROELASTIC
-  computeEigenvaluesWithLapack(planeWaveOperator, eigendecomposition);
-#else
-  computeEigenvaluesWithEigen3(planeWaveOperator, eigendecomposition);
-#endif
+  computeEigenvalues(planeWaveOperator, eigendecomposition);
   m_lambdaA = eigendecomposition.values;
   m_eigenvectors = eigendecomposition.vectors;
 }
@@ -133,8 +134,12 @@ void seissol::physics::SuperimposedPlanarwave::evaluate(
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
-  real dofsPwData[tensor::dofsQP::size()];
-  yateto::DenseTensorView<2, real, unsigned> dofsPW = init::dofsQP::view::create(dofsPwData);
+  std::vector<real> dofsPwVector(dofsQP.size());
+  auto dofsPW = yateto::DenseTensorView<2, real, unsigned>(
+      dofsPwVector.data(),
+      {NumBasisFunctions, seissol::model::MaterialT::NumQuantities},
+      {0, 0},
+      {NumBasisFunctions, seissol::model::MaterialT::NumQuantities});
 
   for (int pw = 0; pw < 3; pw++) {
     // evaluate each planarwave
@@ -178,9 +183,6 @@ seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
       tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime), tITMPlus(tITMMinus + tau),
       tau(acousticTravellingWaveParametersItm.itmDuration),
       n(acousticTravellingWaveParametersItm.itmVelocityScalingFactor) {
-#ifdef USE_ANISOTROPIC
-  logError() << "This has not been yet implemented for anisotropic material";
-#else
   logInfo() << "Starting Test for Acoustic Travelling Wave with ITM";
 
   logInfo() << "rho0 = " << rho0;
@@ -190,23 +192,15 @@ seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
 
   logInfo() << "Setting up the Initial Conditions";
   init(materialData);
-#endif
 }
 
-void seissol::physics::AcousticTravellingWaveITM::init(const CellMaterialData& materialData) {
-#ifdef USE_ANISOTROPIC
-  logError() << "This has not been yet implemented for anisotropic material";
-#endif
-}
+void seissol::physics::AcousticTravellingWaveITM::init(const CellMaterialData& materialData) {}
 
 void seissol::physics::AcousticTravellingWaveITM::evaluate(
     double time,
     const std::vector<std::array<double, 3>>& points,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
-#ifdef USE_ANISOTROPIC
-  logError() << "This has not been yet implemented for anisotropic material";
-#else
   dofsQP.setZero();
   double pressure = 0.0;
   for (size_t i = 0; i < points.size(); ++i) {
@@ -267,7 +261,6 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
       dofsQP(i, 8) = 0.0;                                                                      // w
     }
   }
-#endif
 }
 
 void seissol::physics::TravellingWave::evaluate(
@@ -346,7 +339,6 @@ void seissol::physics::ScholteWave::evaluate(
     const std::vector<std::array<double, 3>>& points,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
-#ifndef USE_ANISOTROPIC
   const real omega = 2.0 * std::acos(-1);
 
   for (size_t i = 0; i < points.size(); ++i) {
@@ -413,9 +405,6 @@ void seissol::physics::ScholteWave::evaluate(
               std::cos(omega * t - 1.406466352506808 * omega * x1); // w
     }
   }
-#else
-  dofsQp.setZero();
-#endif
 }
 
 void seissol::physics::SnellsLaw::evaluate(
@@ -423,7 +412,6 @@ void seissol::physics::SnellsLaw::evaluate(
     const std::vector<std::array<double, 3>>& points,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
-#ifndef USE_ANISOTROPIC
   const double pi = std::acos(-1);
   const double omega = 2.0 * pi;
 
@@ -518,9 +506,6 @@ void seissol::physics::SnellsLaw::evaluate(
                                        (0.59600799238518454 * x1 + 0.8029785009656123 * x3)); // w
     }
   }
-#else
-  dofsQp.setZero();
-#endif
 }
 
 seissol::physics::Ocean::Ocean(int mode, double gravitationalAcceleration)
@@ -533,7 +518,6 @@ void seissol::physics::Ocean::evaluate(double time,
                                        const std::vector<std::array<double, 3>>& points,
                                        const CellMaterialData& materialData,
                                        yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
-#ifndef USE_ANISOTROPIC
   for (size_t i = 0; i < points.size(); ++i) {
     const auto x = points[i][0];
     const auto y = points[i][1];
@@ -602,7 +586,4 @@ void seissol::physics::Ocean::evaluate(double time,
                      std::cos(omega * t) * (std::cos(kStar * z) - b * std::sin(kStar * z));
     }
   }
-#else
-  dofsQp.setZero();
-#endif
 }

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2020-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2020 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -11,10 +11,10 @@
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Initializer/LTS.h>
-#include <Initializer/Tree/Layer.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Layer.h>
 #include <array>
 #include <cassert>
 #include <cstddef>

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -65,6 +65,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.displaceMesh(displacement);
   meshReader.scaleMesh(scalingMatrix);
 
+  meshReader.computeTimestepIfNecessary(seissolInstance);
+
   logInfo() << "Exchanging ghostlayer metadata.";
   meshReader.exchangeGhostlayerMetadata();
 
@@ -107,7 +109,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
 #if defined(USE_HDF) && defined(USE_MPI)
   double nodeWeight = 1.0;
 
-  if (utils::Env::get<bool>("SEISSOL_MINISEISSOL", true)) {
+  if (seissolInstance.env().get<bool>("MINISEISSOL", true)) {
     if (seissol::MPI::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
       auto elapsedTime = seissol::solver::miniSeisSol();
@@ -217,7 +219,6 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   using namespace seissol::initializer::time_stepping;
   const LtsWeightsConfig config{
       boundaryFormat,
-      seissolParams.model.materialFileName,
       seissolParams.timeStepping.lts.getRate(),
       seissolParams.timeStepping.vertexWeight.weightElement,
       seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
@@ -227,7 +228,6 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);
   auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
                                                        seissolParams.mesh.partitioningLib.c_str(),
-                                                       seissolParams.timeStepping.maxTimestepWidth,
                                                        boundaryFormat,
                                                        ltsWeights.get(),
                                                        nodeWeight);

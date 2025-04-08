@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
 // SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -11,7 +11,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 #define SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
 
-#include "Tree/Layer.h"
+#include "Memory/Tree/Layer.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #ifdef USE_MPI
 #include <mpi.h>
@@ -20,14 +20,14 @@
 #include <utils/logger.h>
 
 #include "Initializer/Typedefs.h"
-#include "MemoryAllocator.h"
+#include "Memory/MemoryAllocator.h"
 
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Lut.h"
-#include "Initializer/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Lut.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Initializer/InputAux.h"
-#include "Initializer/Boundary.h"
+#include "Memory/Descriptor/Boundary.h"
 #include "Initializer/ParameterDB.h"
 
 #include "Physics/InitialField.h"
@@ -369,4 +369,3 @@ class MemoryManager {
 
 
 #endif // SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
-

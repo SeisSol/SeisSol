@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -8,9 +8,9 @@
 #include "Factory.h"
 
 #include "FrictionLaws/FrictionLaws.h"
-#include "Initializer/DynamicRupture.h"
 #include "Initializer/Initializers.h"
 #include "Initializer/Parameters/DRParameters.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Output/Output.h"
 #include <memory>
 #include <utils/logger.h>

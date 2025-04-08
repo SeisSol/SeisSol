@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -83,7 +83,7 @@ void computeEigenvaluesWithEigen3(std::array<std::complex<T>, Dim * Dim>& m,
 }
 } // namespace seissol::eigenvalues
 
-#ifdef USE_POROELASTIC
+#ifdef USE_LAPACK
 #include "FC.h"
 #include <complex>
 
@@ -235,7 +235,21 @@ void computeEigenvaluesWithLapack(std::array<std::complex<T>, Dim * Dim>& m,
     }
   }
 }
+
+template <typename T, size_t Dim>
+void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
+                        Eigenpair<std::complex<T>, Dim>& output) {
+  computeEigenvaluesWithLapack(m, output);
+}
 } // namespace seissol::eigenvalues
-#endif // USE_POROELASTIC
+#else
+namespace seissol::eigenvalues {
+template <typename T, size_t Dim>
+void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
+                        Eigenpair<std::complex<T>, Dim>& output) {
+  computeEigenvaluesWithEigen3(m, output);
+}
+} // namespace seissol::eigenvalues
+#endif // USE_LAPACK
 
 #endif // SEISSOL_SRC_NUMERICAL_EIGENVALUES_H_

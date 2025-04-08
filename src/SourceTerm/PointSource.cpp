@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 // SPDX-FileCopyrightText: 2023 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -9,9 +9,8 @@
 // SPDX-FileContributor: Sebastian Wolf
 
 #include "PointSource.h"
-#include <Equations/Datastructures.h>
-#include <Initializer/MemoryAllocator.h>
 #include <Kernels/Precision.h>
+#include <Memory/MemoryAllocator.h>
 #include <SourceTerm/Typedefs.h>
 #include <algorithm>
 #include <cmath>
@@ -64,14 +63,11 @@ void seissol::sourceterm::transformMomentTensor(
     }
   }
 
-#ifndef USE_ACOUSTIC
-  static_assert(seissol::model::MaterialT::NumQuantities >= 6,
-                "You cannot use PointSource with less than 6 quantities.");
-#endif
-
   std::fill(forceComponents.data(), forceComponents.data() + forceComponents.size(), 0);
   // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u,
   // v, w, p, u_f, v_f, w_f)
+
+  // TODO: adjust for acoustic (adjust PointSources::TensorSize first etc.)
   forceComponents[0] = m[0][0];
   forceComponents[1] = m[1][1];
   forceComponents[2] = m[2][2];
@@ -81,10 +77,10 @@ void seissol::sourceterm::transformMomentTensor(
   forceComponents[6] = f[0];
   forceComponents[7] = f[1];
   forceComponents[8] = f[2];
-#ifdef USE_POROELASTIC
-  forceComponents[9] = localPressureComponent;
-  forceComponents[10] = f[3];
-  forceComponents[11] = f[4];
-  forceComponents[12] = f[5];
-#endif
+  if constexpr (PointSources::TensorSize >= 13) {
+    forceComponents[9] = localPressureComponent;
+    forceComponents[10] = f[3];
+    forceComponents[11] = f[4];
+    forceComponents[12] = f[5];
+  }
 }

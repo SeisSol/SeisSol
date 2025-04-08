@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,7 +7,7 @@
 
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
-#include "Initializer/MemoryAllocator.h"
+#include "Memory/MemoryAllocator.h"
 
 namespace seissol::unit_test {
 

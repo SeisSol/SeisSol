@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,7 +7,7 @@
 
 #include "Init.h"
 
-#include <Initializer/Tree/Layer.h>
+#include <Memory/Tree/Layer.h>
 #include <Monitoring/Stopwatch.h>
 #include <utils/logger.h>
 
@@ -82,7 +82,7 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   writer::ThreadsPinningWriter pinningWriter(seissolParams.output.prefix);
-  pinningWriter.write(seissolInstance.getPinning());
+  pinningWriter.write(seissolInstance.getPinning(), seissolInstance.env());
 }
 
 void closeSeisSol(seissol::SeisSol& seissolInstance) {

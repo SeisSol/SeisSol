@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2021 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -8,10 +8,10 @@
 #include "Recorders.h"
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/Tree/Layer.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Tree/Layer.h>
 #include <array>
 #include <cstddef>
 #include <tensor.h>

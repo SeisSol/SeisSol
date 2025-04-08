@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2014-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2014 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -100,4 +100,3 @@ class seissol::initializer::InternalState {
 
 
 #endif // SEISSOL_SRC_INITIALIZER_INTERNALSTATE_H_
-

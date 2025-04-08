@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2015 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -12,7 +12,11 @@
 
 #include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
+#include <Common/Iterator.h>
+#include <Initializer/ParameterDB.h>
 #include <Initializer/Parameters/DRParameters.h>
+#include <Initializer/TimeStepping/GlobalTimestep.h>
+#include <SeisSol.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -261,13 +265,20 @@ void MeshReader::exchangeGhostlayerMetadata() {
   MPI_Datatype ghostElementType = MPI_DATATYPE_NULL;
 
   // assume that all vertices are stored contiguously
-  const int datatypeCount = 3;
-  const std::vector<int> datatypeBlocklen{12, 1, 1};
+  const int datatypeCount = 6;
+  const std::vector<int> datatypeBlocklen{12, 1, 1, 1, 1, 1};
   const std::vector<MPI_Aint> datatypeDisplacement{offsetof(GhostElementMetadata, vertices),
                                                    offsetof(GhostElementMetadata, group),
-                                                   offsetof(GhostElementMetadata, globalId)};
-  const std::vector<MPI_Datatype> datatypeDatatype{
-      MPI_DOUBLE, MPI_INT, PUML::MPITypeInfer<GlobalElemId>::type()};
+                                                   offsetof(GhostElementMetadata, localId),
+                                                   offsetof(GhostElementMetadata, globalId),
+                                                   offsetof(GhostElementMetadata, clusterId),
+                                                   offsetof(GhostElementMetadata, timestep)};
+  const std::vector<MPI_Datatype> datatypeDatatype{MPI_DOUBLE,
+                                                   MPI_INT,
+                                                   PUML::MPITypeInfer<LocalElemId>::type(),
+                                                   PUML::MPITypeInfer<GlobalElemId>::type(),
+                                                   MPI_INT,
+                                                   MPI_DOUBLE};
 
   MPI_Type_create_struct(datatypeCount,
                          datatypeBlocklen.data(),
@@ -296,7 +307,10 @@ void MeshReader::exchangeGhostlayerMetadata() {
         ghost.vertices[v][2] = vertex.coords[2];
       }
       ghost.group = element.group;
+      ghost.localId = element.localId;
       ghost.globalId = element.globalId;
+      ghost.clusterId = element.clusterId;
+      ghost.timestep = element.timestep;
     }
 
     // TODO(David): evaluate, if MPI_Ssend (instead of just MPI_Send) makes sense here?
@@ -322,6 +336,20 @@ void MeshReader::exchangeGhostlayerMetadata() {
 
   MPI_Type_free(&ghostElementType);
 #endif
+}
+
+void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInstance) {
+  if (!inlineTimestepCompute()) {
+    const auto ctvarray = seissol::initializer::CellToVertexArray::fromMeshReader(*this);
+    const auto timesteps =
+        seissol::initializer::computeTimesteps(ctvarray, seissolInstance.getSeisSolParameters());
+    for (auto [cell, timestep] : seissol::common::zip(m_elements, timesteps.cellTimeStepWidths)) {
+      cell.timestep = timestep;
+
+      // enforce GTS in the case here
+      cell.clusterId = 0;
+    }
+  }
 }
 
 } // namespace seissol::geometry

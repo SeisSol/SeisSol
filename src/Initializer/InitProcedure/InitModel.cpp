@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2023-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2023 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -7,21 +7,21 @@
 
 #include "Equations/Datastructures.h"
 #include "Initializer/CellLocalMatrices.h"
-#include "Initializer/LTS.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/TimeStepping/Common.h"
-#include "Initializer/Tree/LTSSync.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Lut.h"
 #include "Initializer/Typedefs.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/LTSSync.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Lut.h"
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
-#include <Initializer/Tree/Layer.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
 #include <Modules/Modules.h>
@@ -143,11 +143,10 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
   logDebug() << "Setting cell materials in the LTS tree (for interior and copy layers).";
   const auto& elements = meshReader.getElements();
-  const unsigned* ltsToMesh =
-      memoryManager.getLtsLut()->getLtsToMeshLut(memoryManager.getLts()->material.mask);
 
   for (auto& layer : memoryManager.getLtsTree()->leaves(Ghost)) {
     auto* cellInformation = layer.var(memoryManager.getLts()->cellInformation);
+    auto* secondaryInformation = layer.var(memoryManager.getLts()->secondaryInformation);
     auto* materialArray = layer.var(memoryManager.getLts()->material);
     auto* plasticityArray =
         seissolParams.model.plasticity ? layer.var(memoryManager.getLts()->plasticity) : nullptr;
@@ -157,7 +156,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 #endif
     for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
       // set the materials for the cell volume and its faces
-      auto meshId = ltsToMesh[cell];
+      auto meshId = secondaryInformation[cell].meshId;
       auto& material = materialArray[cell];
       const auto& localMaterial = materialsDB[meshId];
       const auto& element = elements[meshId];
@@ -192,7 +191,6 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, &material.local));
       }
     }
-    ltsToMesh += layer.getNumberOfCells();
   }
 }
 
@@ -244,13 +242,6 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                                    memoryManager.getLtsLut());
 
 #ifdef ACL_DEVICE
-  initializer::copyCellMatricesToDevice(memoryManager.getLtsTree(),
-                                        memoryManager.getLts(),
-                                        memoryManager.getDynamicRuptureTree(),
-                                        memoryManager.getDynamicRupture(),
-                                        memoryManager.getBoundaryTree(),
-                                        memoryManager.getBoundary());
-
   memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
 #endif
 
@@ -281,7 +272,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
 void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
   if constexpr (isDeviceOn()) {
-    const auto hdswitch = utils::Env::get<std::string>("SEISSOL_DEVICE_HOST_SWITCH", "none");
+    const auto hdswitch = seissolInstance.env().get<std::string>("DEVICE_HOST_SWITCH", "none");
     bool hdenabled = false;
     if (hdswitch == "none") {
       hdenabled = false;
@@ -316,12 +307,8 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   assert(seissolParams.timeStepping.lts.getRate() > 0);
 
-  if (seissolParams.timeStepping.lts.getRate() == 1) {
-    seissolInstance.getLtsLayout().deriveLayout(TimeClustering::Single, 1);
-  } else {
-    seissolInstance.getLtsLayout().deriveLayout(TimeClustering::MultiRate,
-                                                seissolParams.timeStepping.lts.getRate());
-  }
+  seissolInstance.getLtsLayout().deriveLayout(TimeClustering::MultiRate,
+                                              seissolParams.timeStepping.lts.getRate());
 
   seissolInstance.getLtsLayout().getMeshStructure(ltsInfo.meshStructure);
   seissolInstance.getLtsLayout().getCrossClusterTimeStepping(ltsInfo.timeStepping);
@@ -351,8 +338,10 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   unsigned* ltsToMesh = nullptr;
   unsigned numberOfMeshCells = 0;
 
-  seissolInstance.getLtsLayout().getCellInformation(
-      ltsTree->var(lts->cellInformation), ltsToMesh, numberOfMeshCells);
+  seissolInstance.getLtsLayout().getCellInformation(ltsTree->var(lts->cellInformation),
+                                                    ltsTree->var(lts->secondaryInformation),
+                                                    ltsToMesh,
+                                                    numberOfMeshCells);
 
   // TODO(David): move all of this method to the MemoryManager
   seissolInstance.getMemoryManager().getLtsLutUnsafe().createLuts(
@@ -362,7 +351,8 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   seissol::initializer::time_stepping::deriveLtsSetups(ltsInfo.timeStepping.numberOfLocalClusters,
                                                        ltsInfo.meshStructure,
-                                                       ltsTree->var(lts->cellInformation));
+                                                       ltsTree->var(lts->cellInformation),
+                                                       ltsTree->var(lts->secondaryInformation));
 }
 
 void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {

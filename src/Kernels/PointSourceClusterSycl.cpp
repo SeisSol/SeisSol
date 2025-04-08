@@ -7,7 +7,7 @@
 
 #include "PointSourceCluster.h"
 
-#include <Initializer/MemoryAllocator.h>
+#include <Memory/MemoryAllocator.h>
 #include <cstddef>
 
 #include <sycl/sycl.hpp>
@@ -37,6 +37,8 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
     sample[1] = sources.sample[1].data();
     sample[2] = sources.sample[2].data();
 
+    const auto* __restrict simulationIndex = sources.simulationIndex.data();
+
     auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
 
     sycl::range rng{mapping.size()};
@@ -48,6 +50,7 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                                to,
                                mappingPtr,
                                mInvJInvPhisAtSources,
+                               simulationIndex,
                                tensor,
                                a,
                                stiffnessTensor,
@@ -65,6 +68,7 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                                 to,
                                 mappingPtr,
                                 mInvJInvPhisAtSources,
+                                simulationIndex,
                                 tensor,
                                 a,
                                 stiffnessTensor,

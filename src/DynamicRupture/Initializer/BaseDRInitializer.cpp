@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2022 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -9,15 +9,17 @@
 
 #include "DynamicRupture/Misc.h"
 #include "Geometry/MeshDefinition.h"
-#include "Initializer/DynamicRupture.h"
 #include "Initializer/ParameterDB.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
 #include <Eigen/Dense>
+#include <Equations/Datastructures.h>
+#include <Model/CommonDatastructures.h>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -71,19 +73,19 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
         parameterToStorageMap.insert({identifiers[4], getRawData(initialStress.yz)});
         parameterToStorageMap.insert({identifiers[5], getRawData(initialStress.xz)});
       }
-#ifdef USE_POROELASTIC
-      if (isFaultParameterizedByTraction) {
-        parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.p)});
+      if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+        if (isFaultParameterizedByTraction) {
+          parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.p)});
+        } else {
+          parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
+        }
       } else {
-        parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
-      }
-#else
-      for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
-        for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
-          initialStress.p[ltsFace][pointIndex] = 0.0;
+        for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+          for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
+            initialStress.p[ltsFace][pointIndex] = 0.0;
+          }
         }
       }
-#endif
 
       return isFaultParameterizedByTraction;
     };
@@ -115,8 +117,7 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
     if (nucleationStressParameterizedByTraction) {
       rotateTractionToCartesianStress(dynRup, layer, nucleationStress);
     }
-    real(*nucleationStressInFaultCS)[misc::NumPaddedPoints][6] =
-        layer.var(dynRup->nucleationStressInFaultCS);
+    auto* nucleationStressInFaultCS = layer.var(dynRup->nucleationStressInFaultCS);
     rotateStressToFaultCS(dynRup, layer, nucleationStressInFaultCS, nucleationStress);
 
     auto* initialPressure = layer.var(dynRup->initialPressure);
@@ -204,7 +205,7 @@ void BaseDRInitializer::rotateTractionToCartesianStress(
 void BaseDRInitializer::rotateStressToFaultCS(
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::Layer& layer,
-    real (*stressInFaultCS)[misc::NumPaddedPoints][6],
+    real (*stressInFaultCS)[6][misc::NumPaddedPoints],
     const StressTensor& stress) {
   // create rotation kernel
   real cartesianToFaultCSMatrixValues[init::stressRotationMatrix::size()];
@@ -235,7 +236,7 @@ void BaseDRInitializer::rotateStressToFaultCS(
       cartesianToFaultCSRotationKernel.rotatedStress = rotatedStress;
       cartesianToFaultCSRotationKernel.execute();
       for (unsigned int stressIndex = 0; stressIndex < NumStressComponents; ++stressIndex) {
-        stressInFaultCS[ltsFace][pointIndex][stressIndex] = rotatedStress[stressIndex];
+        stressInFaultCS[ltsFace][stressIndex][pointIndex] = rotatedStress[stressIndex];
       }
     }
   }
@@ -251,7 +252,7 @@ void BaseDRInitializer::addAdditionalParameters(
 void BaseDRInitializer::initializeOtherVariables(
     const seissol::initializer::DynamicRupture* const dynRup, seissol::initializer::Layer& layer) {
   // initialize rupture front flag
-  bool(*ruptureTimePending)[misc::NumPaddedPoints] = layer.var(dynRup->ruptureTimePending);
+  bool (*ruptureTimePending)[misc::NumPaddedPoints] = layer.var(dynRup->ruptureTimePending);
   for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
     for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       ruptureTimePending[ltsFace][pointIndex] = true;
@@ -301,15 +302,15 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     tractionNames = {"T_n", "T_s", "T_d"};
     cartesianNames = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
   }
-#ifdef USE_POROELASTIC
-  if (readNucleation) {
-    tractionNames.push_back("nuc_p");
-    cartesianNames.push_back("nuc_p");
-  } else {
-    tractionNames.push_back("p");
-    cartesianNames.push_back("p");
+  if (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+    if (readNucleation) {
+      tractionNames.emplace_back("nuc_p");
+      cartesianNames.emplace_back("nuc_p");
+    } else {
+      tractionNames.emplace_back("p");
+      cartesianNames.emplace_back("p");
+    }
   }
-#endif
 
   bool allTractionParametersSupplied = true;
   bool allCartesianParametersSupplied = true;

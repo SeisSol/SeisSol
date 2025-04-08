@@ -1,15 +1,19 @@
-# SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2021 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-
-# ensure that we have an set HIP_PATH
+# ensure that we have set HIP_PATH
 if(NOT DEFINED HIP_PATH)
     if(NOT DEFINED ENV{HIP_PATH})
-        set(HIP_PATH "/opt/rocm/hip" CACHE PATH "Path to which HIP has been installed")
+        if (NOT DEFINED ENV{ROCM_PATH})
+            # default location
+            set(HIP_PATH "/opt/rocm" CACHE PATH "Path to which HIP has been installed")
+        else()
+            set(HIP_PATH $ENV{ROCM_PATH} CACHE PATH "Path to which HIP has been installed")
+        endif()
     else()
         set(HIP_PATH $ENV{HIP_PATH} CACHE PATH "Path to which HIP has been installed")
     endif()
