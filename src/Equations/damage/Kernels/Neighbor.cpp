@@ -53,6 +53,10 @@ void NeighborBase::checkGlobalData(const GlobalData* global, size_t alignment) {
 #endif
 }
 
+void NeighborBase::updateMaterials(seissol::initializer::Layer& i_layerData) {
+  // Update local modulus
+}
+
 void Neighbor::setHostGlobalData(const GlobalData* global) {
   checkGlobalData(global, Alignment);
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
