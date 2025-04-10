@@ -132,6 +132,11 @@ struct LTS {
     if (kernels::size<tensor::Qane>() > 0) {
       tree.addVar(
           dofsAne, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+    } else {
+      tree.addVar(dofsAne,
+                  LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
+                  PagesizeHeap,
+                  allocationModeWP(AllocationPreset::Dofs));
     }
     tree.addVar(
         buffers, LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);

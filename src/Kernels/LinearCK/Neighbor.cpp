@@ -11,63 +11,30 @@
 
 #include "Kernels/Neighbor.h"
 
-#include <Common/Constants.h>
+#include "NeighborBase.h"
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
-#include <Kernels/NeighborBase.h>
 #include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
-#include <cstddef>
 #include <generated_code/tensor.h>
 #include <stdint.h>
 
 #include "utils/logger.h"
 
-namespace seissol::kernels {
-
-void NeighborBase::checkGlobalData(const GlobalData* global, size_t alignment) {
-#ifndef NDEBUG
-  for (int neighbor = 0; neighbor < 4; ++neighbor) {
-    assert((reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(neighbor))) % alignment == 0);
-    assert((reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(neighbor))) %
-               alignment ==
-           0);
-    assert(
-        (reinterpret_cast<uintptr_t>(global->neighbourChangeOfBasisMatricesTransposed(neighbor))) %
-            alignment ==
-        0);
-  }
-
-  for (int h = 0; h < 3; ++h) {
-    assert((reinterpret_cast<uintptr_t>(global->neighbourFluxMatrices(h))) % alignment == 0);
-  }
-
-  for (int i = 0; i < 4; ++i) {
-    for (int h = 0; h < 3; ++h) {
-      assert((reinterpret_cast<uintptr_t>(global->nodalFluxMatrices(i, h))) % alignment == 0);
-    }
-  }
-#endif
-}
-
-void Neighbor::setHostGlobalData(const GlobalData* global) {
-  checkGlobalData(global, Alignment);
-  m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
-  m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
-}
-
+namespace seissol::kernels::solver::linearck {
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
-  setHostGlobalData(global.onHost);
+
+  m_nfKrnlPrototype.rDivM = global.onHost->changeOfBasisMatrices;
+  m_nfKrnlPrototype.rT = global.onHost->neighbourChangeOfBasisMatricesTransposed;
+  m_nfKrnlPrototype.fP = global.onHost->neighbourFluxMatrices;
+  m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
-  checkGlobalData(global.onDevice, deviceAlignment);
 
 #ifdef USE_PREMULTIPLY_FLUX
   deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
@@ -259,4 +226,4 @@ unsigned Neighbor::bytesNeighborsIntegral() {
   return reals * sizeof(real);
 }
 
-} // namespace seissol::kernels
+} // namespace seissol::kernels::solver::linearck

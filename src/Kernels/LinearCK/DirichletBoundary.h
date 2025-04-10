@@ -197,7 +197,6 @@ class DirichletBoundary {
 
 void computeAverageDisplacement(double deltaT,
                                 const real* timeDerivatives,
-                                const unsigned int derivativesOffsets[ConvergenceOrder],
                                 real timeIntegrated[tensor::I::size()]);
 
 } // namespace seissol::kernels

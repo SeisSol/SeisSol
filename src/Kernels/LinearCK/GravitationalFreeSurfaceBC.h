@@ -126,10 +126,9 @@ class GravitationalFreeSurfaceBc {
     double factorEvaluated = 1;
     double factorInt = deltaTInt;
 
-    auto* derivativesOffsets = timeKernel.getDerivativesOffsets();
     projectKernel.INodal = dofsFaceNodal.data();
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-      projectKernel.dQ(i) = derivatives + derivativesOffsets[i];
+      projectKernel.dQ(i) = derivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
     }
 
     const double rho = materialData.local.rho;
@@ -306,10 +305,9 @@ class GravitationalFreeSurfaceBc {
         projectKernel.linearAllocator.initialize(auxTmpMem);
         projectKernel.streamPtr = deviceStream;
 
-        auto* derivativesOffsets = timeKernel.getDerivativesOffsets();
         for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
           projectKernel.dQ(i) = const_cast<const real**>(derivativesPtrs);
-          projectKernel.extraOffset_dQ(i) = derivativesOffsets[i];
+          projectKernel.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
         }
 
         projectKernel.execute(order - 1, faceIdx);

@@ -12,84 +12,53 @@
 #define SEISSOL_SRC_KERNELS_TIME_H_
 
 #include "Initializer/Typedefs.h"
-#include "Kernels/Common.h"
-#include "Kernels/Interface.h"
-#include "Kernels/TimeBase.h"
 #include "generated_code/tensor.h"
+#include <Kernels/Kernel.h>
+#include <Numerical/BasisFunction.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
-#include <limits>
-#ifdef USE_STP
-#include "Numerical/BasisFunction.h"
 #include <memory>
-#endif
 
 namespace seissol::kernels {
 
-class Time : public TimeBase {
+class TimeKernel : public Kernel {
   public:
-  void setHostGlobalData(const GlobalData* global);
-  void setGlobalData(const CompoundGlobalData& global);
+  ~TimeKernel() override = default;
 
-  void computeAder(double timeStepWidth,
-                   LocalData& data,
-                   LocalTmp& tmp,
-                   real timeIntegrated[tensor::I::size()],
-                   real* timeDerivatives = nullptr,
-                   bool updateDisplacement = false);
-
-#ifdef USE_STP
-  void executeSTP(double timeStepWidth,
-                  LocalData& data,
-                  real timeIntegrated[tensor::I::size()],
-                  real* stp);
-  void evaluateAtTime(
+  virtual void evaluateAtTime(
       std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
       const real* timeDerivatives,
-      real timeEvaluated[tensor::Q::size()]);
-  void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops);
+      real timeEvaluated[tensor::Q::size()]) = 0;
+  virtual void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) = 0;
 
-#endif
-  void computeBatchedAder(double timeStepWidth,
-                          LocalTmp& tmp,
-                          ConditionalPointersToRealsTable& dataTable,
-                          ConditionalMaterialTable& materialTable,
-                          bool updateDisplacement,
-                          seissol::parallel::runtime::StreamRuntime& runtime);
+  virtual void computeIntegral(double expansionPoint,
+                               double integrationStart,
+                               double integrationEnd,
+                               const real* timeDerivatives,
+                               real timeIntegrated[tensor::I::size()]) = 0;
 
-  void flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops);
+  virtual void computeBatchedIntegral(double expansionPoint,
+                                      double integrationStart,
+                                      double integrationEnd,
+                                      const real** timeDerivatives,
+                                      real** timeIntegratedDofs,
+                                      unsigned numElements,
+                                      seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  unsigned bytesAder();
+  virtual void computeTaylorExpansion(real time,
+                                      real expansionPoint,
+                                      const real* timeDerivatives,
+                                      real timeEvaluated[tensor::Q::size()]) = 0;
 
-  void computeIntegral(double expansionPoint,
-                       double integrationStart,
-                       double integrationEnd,
-                       const real* timeDerivatives,
-                       real timeIntegrated[tensor::I::size()]);
+  virtual void
+      computeBatchedTaylorExpansion(real time,
+                                    real expansionPoint,
+                                    real** timeDerivatives,
+                                    real** timeEvaluated,
+                                    size_t numElements,
+                                    seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  void computeBatchedIntegral(double expansionPoint,
-                              double integrationStart,
-                              double integrationEnd,
-                              const real** timeDerivatives,
-                              real** timeIntegratedDofs,
-                              unsigned numElements,
-                              seissol::parallel::runtime::StreamRuntime& runtime);
-
-  void computeTaylorExpansion(real time,
-                              real expansionPoint,
-                              const real* timeDerivatives,
-                              real timeEvaluated[tensor::Q::size()]);
-
-  void computeBatchedTaylorExpansion(real time,
-                                     real expansionPoint,
-                                     real** timeDerivatives,
-                                     real** timeEvaluated,
-                                     size_t numElements,
-                                     seissol::parallel::runtime::StreamRuntime& runtime);
-
-  void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
-
-  unsigned int* getDerivativesOffsets();
+  virtual void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) = 0;
 };
 
 } // namespace seissol::kernels

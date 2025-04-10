@@ -5,8 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Kernels/Time.h"
-#include "Kernels/TimeBase.h"
+#include "TimeBase.h"
 
 #ifndef NDEBUG
 extern long long libxsmm_num_total_flops;
@@ -28,18 +27,9 @@ extern long long libxsmm_num_total_flops;
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
-namespace seissol::kernels {
+namespace seissol::kernels::solver::stp {
 
-TimeBase::TimeBase() {
-  m_derivativesOffsets[0] = 0;
-  for (std::size_t order = 0; order < ConvergenceOrder; ++order) {
-    if (order > 0) {
-      m_derivativesOffsets[order] = tensor::dQ::size(order - 1) + m_derivativesOffsets[order - 1];
-    }
-  }
-}
-
-void Time::setHostGlobalData(const GlobalData* global) {
+void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
@@ -56,20 +46,16 @@ void Time::setHostGlobalData(const GlobalData* global) {
   }
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
-}
-
-void Time::setGlobalData(const CompoundGlobalData& global) {
-  setHostGlobalData(global.onHost);
 
 #ifdef ACL_DEVICE
   logError() << "Poroelasticity does not work on GPUs.";
 #endif
 }
 
-void Time::executeSTP(double timeStepWidth,
-                      LocalData& data,
-                      real timeIntegrated[tensor::I::size()],
-                      real* stp)
+void Spacetime::executeSTP(double timeStepWidth,
+                           LocalData& data,
+                           real timeIntegrated[tensor::I::size()],
+                           real* stp)
 
 {
   alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictorRhs::size()];
@@ -143,26 +129,6 @@ void Time::computeAder(double timeStepWidth,
   executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
 }
 
-void Time::evaluateAtTime(std::shared_ptr<seissol::basisFunction::SampledTimeBasisFunctions<real>>
-                              evaluatedTimeBasisFunctions,
-                          const real* timeDerivatives,
-                          real timeEvaluated[tensor::Q::size()]) {
-  kernel::evaluateDOFSAtTimeSTP krnl;
-  krnl.spaceTimePredictor = timeDerivatives;
-  krnl.QAtTimeSTP = timeEvaluated;
-  krnl.timeBasisFunctionsAtPoint = evaluatedTimeBasisFunctions->m_data.data();
-  krnl.execute();
-}
-
-void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) {
-  // reset flops
-  nonZeroFlops = 0;
-  hardwareFlops = 0;
-
-  nonZeroFlops += kernel::evaluateDOFSAtTimeSTP::NonZeroFlops;
-  hardwareFlops += kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
-}
-
 void Time::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
@@ -222,7 +188,7 @@ void Time::computeIntegral(double expansionPoint,
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = timeIntegrated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
+    intKrnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
   // iterate over time derivatives
@@ -257,7 +223,7 @@ void Time::computeTaylorExpansion(real time,
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = timeEvaluated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
+    intKrnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
   intKrnl.power(0) = 1.0;
 
@@ -274,4 +240,13 @@ void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlop
   hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }
 
-} // namespace seissol::kernels
+void Spacetime::computeBatchedAder(double timeStepWidth,
+                                   LocalTmp& tmp,
+                                   ConditionalPointersToRealsTable& dataTable,
+                                   ConditionalMaterialTable& materialTable,
+                                   bool updateDisplacement,
+                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+  logError() << "Implemented by #1284";
+}
+
+} // namespace seissol::kernels::solver::stp

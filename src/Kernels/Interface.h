@@ -14,9 +14,14 @@
 #include "Memory/Tree/InterfaceHelper.h"
 #include <Common/Constants.h>
 
+namespace seissol::tensor {
+class Iane;
+} // namespace seissol::tensor
+
 namespace seissol::kernels {
 struct LocalTmp {
-  alignas(Alignment) real timeIntegratedAne[zeroLengthArrayHandler(kernels::size<tensor::Iane>())]{};
+  alignas(Alignment) real
+      timeIntegratedAne[zeroLengthArrayHandler(kernels::size<tensor::Iane>())]{};
   alignas(Alignment)
       std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
   GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
@@ -35,7 +40,7 @@ LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
                                     boundaryMapping,
                                     material)
 LTSTREE_GENERATE_INTERFACE_GETTERED(
-    NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs)
+    NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
 #else
 LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
                                     initializer::LTS,
@@ -51,7 +56,7 @@ LTSTREE_GENERATE_INTERFACE_GETTERED(LocalData,
                                     boundaryMappingDevice,
                                     material)
 LTSTREE_GENERATE_INTERFACE_GETTERED(
-    NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs)
+    NeighborData, initializer::LTS, cellInformation, neighboringIntegration, dofs, dofsAne)
 #endif
 } // namespace seissol::kernels
 

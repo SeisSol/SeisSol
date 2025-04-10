@@ -48,7 +48,7 @@ void ProxyKernelHostAder::run(ProxyData& data,
 #endif
     for (unsigned int cell = 0; cell < nrOfCells; cell++) {
       auto local = loader.entry(cell);
-      data.timeKernel.computeAder(Timestep, local, tmp, buffers[cell], derivatives[cell]);
+      data.spacetimeKernel.computeAder(Timestep, local, tmp, buffers[cell], derivatives[cell]);
     }
 #ifdef _OPENMP
     LIKWID_MARKER_STOP("ader");
@@ -66,12 +66,12 @@ auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> Performa
     unsigned int nonZeroFlops = 0;
     unsigned int hardwareFlops = 0;
     // get flops
-    data.timeKernel.flopsAder(nonZeroFlops, hardwareFlops);
+    data.spacetimeKernel.flopsAder(nonZeroFlops, hardwareFlops);
     ret.nonzeroFlop += nonZeroFlops;
     ret.hardwareFlop += hardwareFlops;
   }
 
-  ret.bytes = data.timeKernel.bytesAder() * nrOfCells;
+  ret.bytes = data.spacetimeKernel.bytesAder() * nrOfCells;
 
   return ret;
 }
@@ -149,7 +149,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 #endif
     for (unsigned int cell = 0; cell < nrOfCells; cell++) {
       auto local = loader.entry(cell);
-      data.timeKernel.computeAder(Timestep, local, tmp, buffers[cell], derivatives[cell]);
+      data.spacetimeKernel.computeAder(Timestep, local, tmp, buffers[cell], derivatives[cell]);
       data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
     }
 #ifdef _OPENMP

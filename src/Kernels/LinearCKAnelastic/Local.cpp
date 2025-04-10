@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "Kernels/Local.h"
+#include "LocalBase.h"
 
 #include <cassert>
 #include <cstring>
@@ -15,29 +15,31 @@
 
 #include <yateto.h>
 
-namespace seissol::kernels {
+namespace seissol::kernels::solver::linearckanelastic {
 
-void Local::setHostGlobalData(const GlobalData* global) {
+void Local::setGlobalData(const CompoundGlobalData& global) {
+
 #ifndef NDEBUG
   for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    assert((reinterpret_cast<uintptr_t>(global->stiffnessMatrices(stiffness))) % Alignment == 0);
+    assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatrices(stiffness))) % Alignment ==
+           0);
   }
   for (unsigned flux = 0; flux < 4; ++flux) {
-    assert((reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(flux))) %
-               Alignment ==
+    assert(
+        (reinterpret_cast<uintptr_t>(global.onHost->localChangeOfBasisMatricesTransposed(flux))) %
+            Alignment ==
+        0);
+    assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(flux))) % Alignment ==
            0);
-    assert((reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(flux))) % Alignment == 0);
   }
 #endif
 
-  m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
-  m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
-  m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
+  m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
+  m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
+  m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
   m_localKernelPrototype.selectEla = init::selectEla::Values;
   m_localKernelPrototype.selectAne = init::selectAne::Values;
 }
-
-void Local::setGlobalData(const CompoundGlobalData& global) { setHostGlobalData(global.onHost); }
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
                             LocalData& data,
@@ -123,4 +125,25 @@ unsigned Local::bytesIntegral() {
   return reals * sizeof(real);
 }
 
-} // namespace seissol::kernels
+void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
+                                   ConditionalMaterialTable& materialTable,
+                                   ConditionalIndicesTable& indicesTable,
+                                   kernels::LocalData::Loader& loader,
+                                   LocalTmp& tmp,
+                                   double timeStepWidth,
+                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+  logError() << "Implemented by #1284";
+}
+
+void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
+                                           ConditionalIndicesTable& indicesTable,
+                                           kernels::LocalData::Loader& loader,
+                                           seissol::initializer::Layer& layer,
+                                           seissol::initializer::LTS& lts,
+                                           double time,
+                                           double timeStepWidth,
+                                           seissol::parallel::runtime::StreamRuntime& runtime) {
+  logError() << "Implemented by #1284";
+}
+
+} // namespace seissol::kernels::solver::linearckanelastic

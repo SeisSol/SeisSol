@@ -94,6 +94,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   // set timings to zero
   m_receiverTime                  = 0;
 
+  spacetimeKernel.setGlobalData(i_globalData);
   m_timeKernel.setGlobalData(i_globalData);
   m_localKernel.setGlobalData(i_globalData);
   m_localKernel.setInitConds(&seissolInstance.getMemoryManager().getInitialConditions());
@@ -331,7 +332,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       l_bufferPointer = l_integrationBuffer;
     }
 
-    m_timeKernel.computeAder(timeStepSize(),
+    spacetimeKernel.computeAder(timeStepSize(),
                              data,
                              tmp,
                              l_bufferPointer,
@@ -401,7 +402,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
   ComputeGraphType graphType = resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
   streamRuntime.runGraph(computeGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-    m_timeKernel.computeBatchedAder(timeStepWidth,
+    spacetimeKernel.computeBatchedAder(timeStepWidth,
                                     tmp,
                                     dataTable,
                                     materialTable,
@@ -538,7 +539,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::
   auto* cellInformation = layerData.var(m_lts->cellInformation);
   for (unsigned cell = 0; cell < layerData.getNumberOfCells(); ++cell) {
     unsigned cellNonZero, cellHardware;
-    m_timeKernel.flopsAder(cellNonZero, cellHardware);
+    spacetimeKernel.flopsAder(cellNonZero, cellHardware);
     flopsNonZero += cellNonZero;
     flopsHardware += cellHardware;
     m_localKernel.flopsIntegral(cellInformation[cell].faceTypes, cellNonZero, cellHardware);

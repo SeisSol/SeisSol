@@ -11,6 +11,7 @@
 
 #include "Common/Constants.h"
 #include "generated_code/kernel.h"
+#include <Kernels/Local.h>
 #include <memory>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -26,12 +27,43 @@ namespace seissol {
 struct GlobalData;
 } // namespace seissol
 
-namespace seissol::kernels {
+namespace seissol::kernels::solver::linearck {
 
-class LocalBase {
+class Local : public LocalKernel {
+  public:
+  void setGlobalData(const CompoundGlobalData& compound) override;
+  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                       LocalData& data,
+                       LocalTmp& tmp,
+                       const CellMaterialData* materialData,
+                       const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                       double time,
+                       double timeStepWidth) override;
+
+  void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
+                              ConditionalMaterialTable& materialTable,
+                              ConditionalIndicesTable& indicesTable,
+                              kernels::LocalData::Loader& loader,
+                              LocalTmp& tmp,
+                              double timeStepWidth,
+                              seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  void evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
+                                      ConditionalIndicesTable& indicesTable,
+                                      kernels::LocalData::Loader& loader,
+                                      seissol::initializer::Layer& layer,
+                                      seissol::initializer::LTS& lts,
+                                      double time,
+                                      double timeStepWidth,
+                                      seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  void flopsIntegral(const FaceType faceTypes[4],
+                     unsigned int& nonZeroFlops,
+                     unsigned int& hardwareFlops) override;
+
+  unsigned bytesIntegral() override;
+
   protected:
-  double gravitationalAcceleration;
-  static void checkGlobalData(const GlobalData* global, size_t alignment);
   kernel::volume m_volumeKernelPrototype;
   kernel::localFlux m_localFluxKernelPrototype;
   kernel::localFluxNodal m_nodalLfKrnlPrototype;
@@ -48,20 +80,8 @@ class LocalBase {
   kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
-
-  const std::vector<std::unique_ptr<physics::InitialField>>* initConds;
-
-  public:
-  virtual void setInitConds(decltype(initConds) initConds) { this->initConds = initConds; }
-
-  void setGravitationalAcceleration(double g) { gravitationalAcceleration = g; }
-
-  physics::InitialField* getInitCond(size_t index) {
-    const auto& condition = this->initConds->at(index);
-    return condition.get();
-  }
 };
 
-} // namespace seissol::kernels
+} // namespace seissol::kernels::solver::linearck
 
 #endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_LOCALBASE_H_

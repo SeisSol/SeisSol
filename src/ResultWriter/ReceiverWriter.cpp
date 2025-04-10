@@ -12,6 +12,7 @@
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Initializer/PointMapper.h>
+#include <Initializer/Typedefs.h>
 #include <Kernels/Receiver.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
@@ -179,7 +180,7 @@ void ReceiverWriter::init(
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                const seissol::initializer::Lut& ltsLut,
                                const seissol::initializer::LTS& lts,
-                               const GlobalData* global) {
+                               const CompoundGlobalData& global) {
   std::vector<Eigen::Vector3d> points;
   // Only parse if we have a receiver file
   if (!m_receiverFileName.empty()) {

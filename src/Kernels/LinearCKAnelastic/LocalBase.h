@@ -12,24 +12,51 @@
 
 #include "Physics/InitialField.h"
 #include "generated_code/kernel.h"
+#include <Kernels/Interface.h>
+#include <Kernels/Local.h>
 #include <memory>
 
-namespace seissol {
-namespace kernels {
-class LocalBase {
+namespace seissol::kernels::solver::linearckanelastic {
+class Local : public LocalKernel {
+  public:
+  void setGlobalData(const CompoundGlobalData& global) override;
+
+  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                       LocalData& data,
+                       LocalTmp& tmp,
+                       const CellMaterialData* materialData,
+                       const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                       double time,
+                       double timeStepWidth) override;
+
+  void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
+                              ConditionalMaterialTable& materialTable,
+                              ConditionalIndicesTable& indicesTable,
+                              kernels::LocalData::Loader& loader,
+                              LocalTmp& tmp,
+                              double timeStepWidth,
+                              seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  void evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
+                                      ConditionalIndicesTable& indicesTable,
+                                      kernels::LocalData::Loader& loader,
+                                      seissol::initializer::Layer& layer,
+                                      seissol::initializer::LTS& lts,
+                                      double time,
+                                      double timeStepWidth,
+                                      seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  void flopsIntegral(const FaceType faceTypes[4],
+                     unsigned int& nonZeroFlops,
+                     unsigned int& hardwareFlops) override;
+
+  unsigned bytesIntegral() override;
+
   protected:
-  double gravitationalAcceleration;
   kernel::volumeExt m_volumeKernelPrototype;
   kernel::localFluxExt m_localFluxKernelPrototype;
   kernel::local m_localKernelPrototype;
-  const std::vector<std::unique_ptr<physics::InitialField>>* initConds;
-
-  public:
-  virtual void setInitConds(decltype(initConds) initConds) { this->initConds = initConds; }
-
-  void setGravitationalAcceleration(double g) { gravitationalAcceleration = g; }
 };
-} // namespace kernels
-} // namespace seissol
+} // namespace seissol::kernels::solver::linearckanelastic
 
 #endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_LOCALBASE_H_

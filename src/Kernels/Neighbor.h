@@ -13,33 +13,33 @@
 
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
-#include "Kernels/NeighborBase.h"
 #include "Parallel/Runtime/Stream.h"
+#include <Kernels/Kernel.h>
 
 namespace seissol::kernels {
 
-class Neighbor : public NeighborBase {
+class NeighborKernel : public Kernel {
   public:
-  void setHostGlobalData(const GlobalData* global);
-  void setGlobalData(const CompoundGlobalData& global);
+  ~NeighborKernel() override = default;
 
-  void computeNeighborsIntegral(NeighborData& data,
-                                const CellDRMapping (&cellDrMapping)[4],
-                                real* timeIntegrated[4],
-                                real* faceNeighborsPrefetch[4]);
+  virtual void computeNeighborsIntegral(NeighborData& data,
+                                        const CellDRMapping (&cellDrMapping)[4],
+                                        real* timeIntegrated[4],
+                                        real* faceNeighborsPrefetch[4]) = 0;
 
-  void computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
-                                       seissol::parallel::runtime::StreamRuntime& runtime);
+  virtual void
+      computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
+                                      seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  void flopsNeighborsIntegral(const FaceType faceTypes[4],
-                              const int neighboringIndices[4][2],
-                              const CellDRMapping (&cellDrMapping)[4],
-                              unsigned int& nonZeroFlops,
-                              unsigned int& hardwareFlops,
-                              long long& drNonZeroFlops,
-                              long long& drHardwareFlops);
+  virtual void flopsNeighborsIntegral(const FaceType faceTypes[4],
+                                      const int neighboringIndices[4][2],
+                                      const CellDRMapping (&cellDrMapping)[4],
+                                      unsigned int& nonZeroFlops,
+                                      unsigned int& hardwareFlops,
+                                      long long& drNonZeroFlops,
+                                      long long& drHardwareFlops) = 0;
 
-  unsigned bytesNeighborsIntegral();
+  virtual unsigned bytesNeighborsIntegral() = 0;
 };
 
 } // namespace seissol::kernels

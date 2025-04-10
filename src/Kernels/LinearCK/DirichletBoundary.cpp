@@ -24,7 +24,6 @@ namespace seissol::kernels {
 
 void computeAverageDisplacement(double deltaT,
                                 const real* timeDerivatives,
-                                const unsigned int derivativesOffsets[ConvergenceOrder],
                                 real timeIntegrated[tensor::I::size()]) {
   // TODO(Lukas) Only compute integral for displacement, not for all vars.
   assert(reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
@@ -34,7 +33,7 @@ void computeAverageDisplacement(double deltaT,
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = timeIntegrated;
   for (size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + derivativesOffsets[i];
+    intKrnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
   real factorial = 2.0;

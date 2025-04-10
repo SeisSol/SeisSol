@@ -40,33 +40,14 @@
 
 namespace seissol::kernels {
 
-void DynamicRupture::checkGlobalData(const GlobalData* global, size_t alignment) {
-#ifndef NDEBUG
-  for (unsigned face = 0; face < 4; ++face) {
-    for (unsigned h = 0; h < 4; ++h) {
-      assert((reinterpret_cast<const uintptr_t>(global->faceToNodalMatrices(face, h))) %
-                 alignment ==
-             0);
-    }
-  }
-#endif
-}
-
-void DynamicRupture::setHostGlobalData(const GlobalData* global) {
-  checkGlobalData(global, Alignment);
-  m_krnlPrototype.V3mTo2n = global->faceToNodalMatrices;
-  m_timeKernel.setHostGlobalData(global);
-}
-
 void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
-  this->setHostGlobalData(global.onHost);
+  m_krnlPrototype.V3mTo2n = global.onHost->faceToNodalMatrices;
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  const auto deviceAlignment = device.api->getGlobMemAlignment();
-  checkGlobalData(global.onDevice, deviceAlignment);
   m_gpuKrnlPrototype.V3mTo2n = global.onDevice->faceToNodalMatrices;
-  m_timeKernel.setGlobalData(global);
 #endif
+
+  m_timeKernel.setGlobalData(global);
 }
 
 void DynamicRupture::setTimeStepWidth(double timestep) {

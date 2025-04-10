@@ -8,11 +8,11 @@ class Time;
 class Local;
 class Neighbor;
 
-class Solver {
-    using SpacetimeKernelT = Spacetime;
-    using TimeKernelT = Time;
-    using LocalKernelT = Local;
-    using NeighborKernelT = Neighbor;
+struct Solver {
+  using SpacetimeKernelT = Spacetime;
+  using TimeKernelT = Time;
+  using LocalKernelT = Local;
+  using NeighborKernelT = Neighbor;
 };
 
 } // namespace seissol::kernels::solver::linearck

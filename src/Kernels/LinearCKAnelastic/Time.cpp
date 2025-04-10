@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "Kernels/Time.h"
+#include "TimeBase.h"
 
 #ifndef NDEBUG
 extern long long libxsmm_num_total_flops;
@@ -22,26 +22,29 @@ extern long long libxsmm_num_total_flops;
 #include "Kernels/DenseMatrixOps.h"
 #include "generated_code/init.h"
 
-namespace seissol::kernels {
+namespace seissol::kernels::solver::linearckanelastic {
 
-void Time::setHostGlobalData(const GlobalData* global) {
-  assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(0))) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(1))) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(2))) % Alignment == 0);
+void Time::setGlobalData(const CompoundGlobalData& global) {}
 
-  m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
+void Spacetime::setGlobalData(const CompoundGlobalData& global) {
+  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(0))) % Alignment ==
+         0);
+  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(1))) % Alignment ==
+         0);
+  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(2))) % Alignment ==
+         0);
+
+  m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
   m_krnlPrototype.selectAne = init::selectAne::Values;
   m_krnlPrototype.selectEla = init::selectEla::Values;
 }
 
-void Time::setGlobalData(const CompoundGlobalData& global) { setHostGlobalData(global.onHost); }
-
-void Time::computeAder(double timeStepWidth,
-                       LocalData& data,
-                       LocalTmp& tmp,
-                       real timeIntegrated[tensor::I::size()],
-                       real* timeDerivatives,
-                       bool updateDisplacement) {
+void Spacetime::computeAder(double timeStepWidth,
+                            LocalData& data,
+                            LocalTmp& tmp,
+                            real timeIntegrated[tensor::I::size()],
+                            real* timeDerivatives,
+                            bool updateDisplacement) {
   /*
    * assert alignments.
    */
@@ -105,12 +108,12 @@ void Time::computeAder(double timeStepWidth,
   // Compute integrated displacement over time step if needed.
 }
 
-void Time::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
   nonZeroFlops = kernel::derivative::NonZeroFlops;
   hardwareFlops = kernel::derivative::HardwareFlops;
 }
 
-unsigned Time::bytesAder() {
+unsigned Spacetime::bytesAder() {
   unsigned reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -207,4 +210,36 @@ void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlop
   hardwareFlops = kernel::derivativeTaylorExpansionEla::HardwareFlops;
 }
 
-} // namespace seissol::kernels
+void Time::evaluateAtTime(
+    std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
+    const real* timeDerivatives,
+    real timeEvaluated[tensor::Q::size()]) {}
+void Time::flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) {}
+
+void Spacetime::computeBatchedAder(double timeStepWidth,
+                                   LocalTmp& tmp,
+                                   ConditionalPointersToRealsTable& dataTable,
+                                   ConditionalMaterialTable& materialTable,
+                                   bool updateDisplacement,
+                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+  logError() << "Implemented by #1284";
+}
+
+void Time::computeBatchedIntegral(double expansionPoint,
+                                  double integrationStart,
+                                  double integrationEnd,
+                                  const real** timeDerivatives,
+                                  real** timeIntegratedDofs,
+                                  unsigned numElements,
+                                  seissol::parallel::runtime::StreamRuntime& runtime) {
+  logError() << "Implemented by #1284";
+}
+void Time::computeBatchedTaylorExpansion(real time,
+                                         real expansionPoint,
+                                         real** timeDerivatives,
+                                         real** timeEvaluated,
+                                         size_t numElements,
+                                         seissol::parallel::runtime::StreamRuntime& runtime) {
+  logError() << "Implemented by #1284";
+}
+} // namespace seissol::kernels::solver::linearckanelastic

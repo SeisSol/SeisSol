@@ -10,14 +10,15 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include "Kernels/Time.h"
-#include "Kernels/GravitationalFreeSurfaceBC.h"
-#include "Kernels/TimeBase.h"
+#include "GravitationalFreeSurfaceBC.h"
+#include "TimeBase.h"
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
+#include <Numerical/BasisFunction.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <generated_code/kernel.h>
@@ -29,42 +30,22 @@
 
 #include <cassert>
 #include <cstring>
+#include <memory>
 #include <stdint.h>
 
 #include <yateto.h>
+#include <yateto/InitTools.h>
 
 #include "utils/logger.h"
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
-namespace seissol::kernels {
+namespace seissol::kernels::solver::linearck {
+void Spacetime::setGlobalData(const CompoundGlobalData& global) {
+  m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
 
-TimeBase::TimeBase() {
-  m_derivativesOffsets[0] = 0;
-  for (std::size_t order = 0; order < ConvergenceOrder; ++order) {
-    if (order > 0) {
-      m_derivativesOffsets[order] = tensor::dQ::size(order - 1) + m_derivativesOffsets[order - 1];
-    }
-  }
-}
-
-void TimeBase::checkGlobalData(const GlobalData* global, size_t alignment) {
-  assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(0))) % alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(1))) % alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(2))) % alignment == 0);
-}
-
-void Time::setHostGlobalData(const GlobalData* global) {
-  checkGlobalData(global, Alignment);
-
-  m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
-
-  projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global->V3mTo2nFace;
-}
-
-void Time::setGlobalData(const CompoundGlobalData& global) {
-  setHostGlobalData(global.onHost);
+  projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onHost->V3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -72,16 +53,15 @@ void Time::setGlobalData(const CompoundGlobalData& global) {
   checkGlobalData(global.onDevice, deviceAlignment);
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
   deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->V3mTo2nFace;
-
 #endif
 }
 
-void Time::computeAder(double timeStepWidth,
-                       LocalData& data,
-                       LocalTmp& tmp,
-                       real timeIntegrated[tensor::I::size()],
-                       real* timeDerivatives,
-                       bool updateDisplacement) {
+void Spacetime::computeAder(double timeStepWidth,
+                            LocalData& data,
+                            LocalTmp& tmp,
+                            real timeIntegrated[tensor::I::size()],
+                            real* timeDerivatives,
+                            bool updateDisplacement) {
 
   assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
@@ -107,7 +87,7 @@ void Time::computeAder(double timeStepWidth,
 
   krnl.dQ(0) = const_cast<real*>(data.dofs());
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
+    krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
   krnl.I = timeIntegrated;
@@ -150,12 +130,12 @@ void Time::computeAder(double timeStepWidth,
   }
 }
 
-void Time::computeBatchedAder(double timeStepWidth,
-                              LocalTmp& tmp,
-                              ConditionalPointersToRealsTable& dataTable,
-                              ConditionalMaterialTable& materialTable,
-                              bool updateDisplacement,
-                              seissol::parallel::runtime::StreamRuntime& runtime) {
+void Spacetime::computeBatchedAder(double timeStepWidth,
+                                   LocalTmp& tmp,
+                                   ConditionalPointersToRealsTable& dataTable,
+                                   ConditionalMaterialTable& materialTable,
+                                   bool updateDisplacement,
+                                   seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
 
@@ -175,12 +155,9 @@ void Time::computeBatchedAder(double timeStepWidth,
       starOffset += tensor::star::size(i);
     }
 
-    unsigned derivativesOffset = 0;
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
-      derivativesKrnl.extraOffset_dQ(i) = derivativesOffset;
-
-      derivativesOffset += tensor::dQ::size(i);
+      derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
     }
 
     // stream dofs to the zero derivative
@@ -222,12 +199,12 @@ void Time::computeBatchedAder(double timeStepWidth,
 #endif
 }
 
-void Time::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
   nonZeroFlops = kernel::derivative::NonZeroFlops;
   hardwareFlops = kernel::derivative::HardwareFlops;
 }
 
-unsigned Time::bytesAder() {
+unsigned Spacetime::bytesAder() {
   unsigned reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -270,7 +247,7 @@ void Time::computeIntegral(double expansionPoint,
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = timeIntegrated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
+    intKrnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
   // iterate over time derivatives
@@ -319,11 +296,9 @@ void Time::computeBatchedIntegral(double expansionPoint,
 
   intKrnl.I = timeIntegratedDofs;
 
-  unsigned derivativesOffset = 0;
   for (size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = timeDerivatives;
-    intKrnl.extraOffset_dQ(i) = derivativesOffset;
-    derivativesOffset += tensor::dQ::size(i);
+    intKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
   // iterate over time derivatives
@@ -373,7 +348,7 @@ void Time::computeTaylorExpansion(real time,
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = timeEvaluated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
+    intKrnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
   intKrnl.power(0) = 1.0;
 
@@ -406,7 +381,7 @@ void Time::computeBatchedTaylorExpansion(real time,
   intKrnl.I = timeEvaluated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = const_cast<const real**>(timeDerivatives);
-    intKrnl.extraOffset_dQ(i) = m_derivativesOffsets[i];
+    intKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
   // iterate over time derivatives
@@ -437,6 +412,30 @@ void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlop
   hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }
 
-unsigned int* Time::getDerivativesOffsets() { return m_derivativesOffsets; }
+void Time::evaluateAtTime(std::shared_ptr<seissol::basisFunction::SampledTimeBasisFunctions<real>>
+                              evaluatedTimeBasisFunctions,
+                          const real* timeDerivatives,
+                          real timeEvaluated[tensor::Q::size()]) {
+#ifdef USE_STP
+  kernel::evaluateDOFSAtTimeSTP krnl;
+  krnl.spaceTimePredictor = timeDerivatives;
+  krnl.QAtTimeSTP = timeEvaluated;
+  krnl.timeBasisFunctionsAtPoint = evaluatedTimeBasisFunctions->m_data.data();
+  krnl.execute();
+#endif
+}
 
-} // namespace seissol::kernels
+void Time::flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) {
+#ifdef USE_STP
+  // reset flops
+  nonZeroFlops = 0;
+  hardwareFlops = 0;
+
+  nonZeroFlops += kernel::evaluateDOFSAtTimeSTP::NonZeroFlops;
+  hardwareFlops += kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
+#endif
+}
+
+void Time::setGlobalData(const CompoundGlobalData& global) {}
+
+} // namespace seissol::kernels::solver::linearck

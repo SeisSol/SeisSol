@@ -13,6 +13,7 @@
 
 #include "Common/Constants.h"
 #include "generated_code/kernel.h"
+#include <Kernels/Neighbor.h>
 #ifdef ACL_DEVICE
 #include <device.h>
 #endif
@@ -21,11 +22,31 @@ namespace seissol {
 struct GlobalData;
 } // namespace seissol
 
-namespace seissol::kernels {
+namespace seissol::kernels::solver::linearck {
 
-class NeighborBase {
+class Neighbor : public NeighborKernel {
+  public:
+  void setGlobalData(const CompoundGlobalData& global) override;
+
+  void computeNeighborsIntegral(NeighborData& data,
+                                const CellDRMapping (&cellDrMapping)[4],
+                                real* timeIntegrated[4],
+                                real* faceNeighborsPrefetch[4]) override;
+
+  void computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
+                                       seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  void flopsNeighborsIntegral(const FaceType faceTypes[4],
+                              const int neighboringIndices[4][2],
+                              const CellDRMapping (&cellDrMapping)[4],
+                              unsigned int& nonZeroFlops,
+                              unsigned int& hardwareFlops,
+                              long long& drNonZeroFlops,
+                              long long& drHardwareFlops) override;
+
+  unsigned bytesNeighborsIntegral() override;
+
   protected:
-  static void checkGlobalData(const GlobalData* global, size_t alignment);
   kernel::neighboringFlux m_nfKrnlPrototype;
   dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
 
@@ -36,6 +57,6 @@ class NeighborBase {
 #endif
 };
 
-} // namespace seissol::kernels
+} // namespace seissol::kernels::solver::linearck
 
 #endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_NEIGHBORBASE_H_

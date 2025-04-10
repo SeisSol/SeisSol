@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "Kernels/Neighbor.h"
+#include "NeighborBase.h"
 
 #include <cassert>
 #include <cstddef>
@@ -16,40 +16,42 @@
 
 #include "generated_code/init.h"
 
-namespace seissol::kernels {
+namespace seissol::kernels::solver::linearckanelastic {
 
-void Neighbor::setHostGlobalData(const GlobalData* global) {
+void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 #ifndef NDEBUG
   for (int neighbor = 0; neighbor < 4; ++neighbor) {
-    assert((reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(neighbor))) % Alignment == 0);
-    assert((reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(neighbor))) %
+    assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(neighbor))) %
                Alignment ==
            0);
-    assert(
-        (reinterpret_cast<uintptr_t>(global->neighbourChangeOfBasisMatricesTransposed(neighbor))) %
-            Alignment ==
-        0);
+    assert((reinterpret_cast<uintptr_t>(
+               global.onHost->localChangeOfBasisMatricesTransposed(neighbor))) %
+               Alignment ==
+           0);
+    assert((reinterpret_cast<uintptr_t>(
+               global.onHost->neighbourChangeOfBasisMatricesTransposed(neighbor))) %
+               Alignment ==
+           0);
   }
 
   for (int h = 0; h < 3; ++h) {
-    assert((reinterpret_cast<uintptr_t>(global->neighbourFluxMatrices(h))) % Alignment == 0);
+    assert((reinterpret_cast<uintptr_t>(global.onHost->neighbourFluxMatrices(h))) % Alignment == 0);
   }
 
   for (int i = 0; i < 4; ++i) {
     for (int h = 0; h < 3; ++h) {
-      assert((reinterpret_cast<uintptr_t>(global->nodalFluxMatrices(i, h))) % Alignment == 0);
+      assert((reinterpret_cast<uintptr_t>(global.onHost->nodalFluxMatrices(i, h))) % Alignment ==
+             0);
     }
   }
 #endif
-  m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
-  m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
+  m_nfKrnlPrototype.rDivM = global.onHost->changeOfBasisMatrices;
+  m_nfKrnlPrototype.rT = global.onHost->neighbourChangeOfBasisMatricesTransposed;
+  m_nfKrnlPrototype.fP = global.onHost->neighbourFluxMatrices;
+  m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
   m_nKrnlPrototype.selectEla = init::selectEla::Values;
   m_nKrnlPrototype.selectAne = init::selectAne::Values;
 }
-
-void Neighbor::setGlobalData(const CompoundGlobalData& global) { setHostGlobalData(global.onHost); }
 
 void Neighbor::computeNeighborsIntegral(NeighborData& data,
                                         const CellDRMapping (&cellDrMapping)[4],
@@ -165,4 +167,9 @@ unsigned Neighbor::bytesNeighborsIntegral() {
   return reals * sizeof(real);
 }
 
-} // namespace seissol::kernels
+void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
+                                               seissol::parallel::runtime::StreamRuntime& runtime) {
+  logError() << "Implemented by #1284";
+}
+
+} // namespace seissol::kernels::solver::linearckanelastic

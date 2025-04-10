@@ -8,43 +8,55 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_TIMEBASE_H_
-#define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_TIMEBASE_H_
+#ifndef SEISSOL_SRC_EQUATIONS_STP_KERNELS_TIMEBASE_H_
+#define SEISSOL_SRC_EQUATIONS_STP_KERNELS_TIMEBASE_H_
 
 #include "Common/Constants.h"
 #include "generated_code/kernel.h"
+#include <Kernels/Spacetime.h>
+#include <Kernels/Time.h>
 
 #ifdef ACL_DEVICE
 #include <device.h>
 #endif // ACL_DEVICE
 
-namespace seissol {
-struct GlobalData;
-} // namespace seissol
+namespace seissol::kernels::solver::stp {
 
-namespace seissol::kernels {
+class Spacetime : public SpacetimeKernel {
+  public:
+  void setGlobalData(const CompoundGlobalData& global) override;
+  void computeAder(double timeStepWidth,
+                   LocalData& data,
+                   LocalTmp& tmp,
+                   real timeIntegrated[tensor::I::size()],
+                   real* timeDerivativesOrSTP = nullptr,
+                   bool updateDisplacement = false) override;
+  void computeBatchedAder(double timeStepWidth,
+                          LocalTmp& tmp,
+                          ConditionalPointersToRealsTable& dataTable,
+                          ConditionalMaterialTable& materialTable,
+                          bool updateDisplacement,
+                          seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-class TimeBase {
-  protected:
-  static void checkGlobalData(const GlobalData* global, size_t alignment);
+  void flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) override;
+
+  unsigned bytesAder() override;
+
+  private:
+  void executeSTP(double timeStepWidth,
+                  LocalData& data,
+                  real timeIntegrated[tensor::I::size()],
+                  real* stp);
+
   kernel::spaceTimePredictor m_krnlPrototype;
   kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
-
-  unsigned int m_derivativesOffsets[ConvergenceOrder];
 
 #ifdef ACL_DEVICE
   kernel::gpu_spaceTimePredictor deviceKrnlPrototype;
   kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
-
-  public:
-  /**
-   * Constructor, which initializes the time kernel.
-   **/
-  TimeBase();
 };
 
-} // namespace seissol::kernels
+} // namespace seissol::kernels::solver::stp
 
-#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_TIMEBASE_H_
+#endif // SEISSOL_SRC_EQUATIONS_STP_KERNELS_TIMEBASE_H_

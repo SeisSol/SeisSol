@@ -7,21 +7,20 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "Kernels/Local.h"
+#include "Kernels/LinearCK/LocalBase.h"
 
+#include "LocalBase.h"
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
-#include <Kernels/LocalBase.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
-#include <cstddef>
 #include <generated_code/init.h>
 #include <generated_code/kernel.h>
 #include <tensor.h>
@@ -43,41 +42,21 @@
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
-namespace seissol::kernels {
-
-void LocalBase::checkGlobalData(const GlobalData* global, size_t alignment) {
-#ifndef NDEBUG
-  for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    assert((reinterpret_cast<uintptr_t>(global->stiffnessMatrices(stiffness))) % alignment == 0);
-  }
-  for (unsigned flux = 0; flux < 4; ++flux) {
-    assert((reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(flux))) %
-               alignment ==
-           0);
-    assert((reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(flux))) % alignment == 0);
-  }
-#endif
-}
-
-void Local::setHostGlobalData(const GlobalData* global) {
-  checkGlobalData(global, Alignment);
-  m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
-  m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
-  m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
-
-  m_nodalLfKrnlPrototype.project2nFaceTo3m = global->project2nFaceTo3m;
-
-  m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
-  m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
-}
+namespace seissol::kernels::solver::linearck {
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
-  setHostGlobalData(global.onHost);
+  m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
+  m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
+  m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
+
+  m_nodalLfKrnlPrototype.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
+
+  m_projectKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
+  m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
-  checkGlobalData(global.onDevice, deviceAlignment);
 
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
@@ -484,4 +463,4 @@ unsigned Local::bytesIntegral() {
   return reals * sizeof(real);
 }
 
-} // namespace seissol::kernels
+} // namespace seissol::kernels::solver::linearck

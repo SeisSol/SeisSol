@@ -12,11 +12,11 @@ namespace seissol::kernels::solver::stp {
 
 class Spacetime;
 
-class Solver {
-    using SpacetimeKernelT = Spacetime;
-    using TimeKernelT = linearck::Time;
-    using LocalKernelT = linearck::Local;
-    using NeighborKernelT = linearck::Neighbor;
+struct Solver {
+  using SpacetimeKernelT = Spacetime;
+  using TimeKernelT = linearck::Time;
+  using LocalKernelT = linearck::Local;
+  using NeighborKernelT = linearck::Neighbor;
 };
 
 } // namespace seissol::kernels::solver::stp

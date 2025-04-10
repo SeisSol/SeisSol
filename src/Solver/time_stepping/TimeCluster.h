@@ -22,19 +22,17 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
 
-#include "Kernels/Time.h"
-#include "Kernels/Local.h"
-#include "Kernels/Neighbor.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "DynamicRupture/Output/OutputManager.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
+#include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
-#include "Solver/FreeSurfaceIntegrator.h"
-#include "Monitoring/LoopStatistics.h"
-#include "Monitoring/ActorStateStatistics.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "DynamicRupture/Output/OutputManager.h"
+#include "Monitoring/ActorStateStatistics.h"
+#include "Monitoring/LoopStatistics.h"
+#include "Solver/FreeSurfaceIntegrator.h"
 #include <Common/Executor.h>
 
 #include "AbstractTimeCluster.h"
@@ -76,6 +74,7 @@ private:
     /*
      * integrators
      */
+    kernels::Spacetime spacetimeKernel;
     //! time kernel
     kernels::Time m_timeKernel;
 
