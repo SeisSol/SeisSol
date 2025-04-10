@@ -61,7 +61,7 @@ class DirichletBoundary {
                 MappingKrnl&& projectKernelPrototype,
                 Func&& evaluateBoundaryCondition,
                 real* dofsFaceBoundaryNodal) const {
-    auto projectKrnl = projectKernelPrototype;
+    auto projectKrnl = std::forward<MappingKrnl>(projectKernelPrototype);
     addRotationToProjectKernel(projectKrnl, boundaryMapping);
     projectKrnl.I = dofsVolumeInteriorModal;
     projectKrnl.INodal = dofsFaceBoundaryNodal;
@@ -147,7 +147,7 @@ class DirichletBoundary {
   void evaluateTimeDependent(const real* dofsVolumeInteriorModal,
                              int faceIdx,
                              const CellBoundaryMapping& boundaryMapping,
-                             MappingKrnl&& projectKernelPrototype,
+                             const MappingKrnl& projectKernelPrototype,
                              Func&& evaluateBoundaryCondition,
                              real* dofsFaceBoundaryNodal,
                              double startTime,

@@ -96,8 +96,6 @@ class Time : public TimeKernel {
   void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) override;
 
   protected:
-  static void checkGlobalData(const GlobalData* global, size_t alignment);
-
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif

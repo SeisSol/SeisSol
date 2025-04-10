@@ -110,12 +110,12 @@ void Spacetime::executeSTP(double timeStepWidth,
   }
 }
 
-void Time::computeAder(double timeStepWidth,
-                       LocalData& data,
-                       LocalTmp& tmp,
-                       real timeIntegrated[tensor::I::size()],
-                       real* timeDerivatives,
-                       bool updateDisplacement) {
+void Spacetime::computeAder(double timeStepWidth,
+                            LocalData& data,
+                            LocalTmp& tmp,
+                            real timeIntegrated[tensor::I::size()],
+                            real* timeDerivatives,
+                            bool updateDisplacement) {
   /*
    * assert alignments.
    */
@@ -129,7 +129,7 @@ void Time::computeAder(double timeStepWidth,
   executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
 }
 
-void Time::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
   hardwareFlops = 0;
@@ -141,7 +141,7 @@ void Time::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
   hardwareFlops += 3 * init::star::size(0);
 }
 
-unsigned Time::bytesAder() {
+unsigned Spacetime::bytesAder() {
   unsigned reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -156,88 +156,6 @@ unsigned Time::bytesAder() {
   /// \todo incorporate derivatives
 
   return reals * sizeof(real);
-}
-
-void Time::computeIntegral(double expansionPoint,
-                           double integrationStart,
-                           double integrationEnd,
-                           const real* timeDerivatives,
-                           real timeIntegrated[tensor::I::size()]) {
-  /*
-   * assert alignments.
-   */
-  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
-
-  // assert that this is a forwared integration in time
-  assert(integrationStart + (real)1.E-10 > expansionPoint);
-  assert(integrationEnd > integrationStart);
-
-  /*
-   * compute time integral.
-   */
-  // compute lengths of integration intervals
-  real deltaTLower = integrationStart - expansionPoint;
-  real deltaTUpper = integrationEnd - expansionPoint;
-
-  // initialization of scalars in the taylor series expansion (0th term)
-  real firstTerm = (real)1;
-  real secondTerm = (real)1;
-  real factorial = (real)1;
-
-  kernel::derivativeTaylorExpansion intKrnl;
-  intKrnl.I = timeIntegrated;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
-  }
-
-  // iterate over time derivatives
-  for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
-    firstTerm *= deltaTUpper;
-    secondTerm *= deltaTLower;
-    factorial *= (real)(der + 1);
-
-    intKrnl.power(der) = firstTerm - secondTerm;
-    intKrnl.power(der) /= factorial;
-  }
-  intKrnl.execute();
-}
-
-void Time::computeTaylorExpansion(real time,
-                                  real expansionPoint,
-                                  const real* timeDerivatives,
-                                  real timeEvaluated[tensor::Q::size()]) {
-  /*
-   * assert alignments.
-   */
-  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
-
-  // assert that this is a forward evaluation in time
-  assert(time >= expansionPoint);
-
-  real deltaT = time - expansionPoint;
-
-  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
-
-  kernel::derivativeTaylorExpansion intKrnl;
-  intKrnl.I = timeEvaluated;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
-  }
-  intKrnl.power(0) = 1.0;
-
-  // iterate over time derivatives
-  for (std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
-    intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / real(derivative);
-  }
-
-  intKrnl.execute();
-}
-
-void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
-  nonZeroFlops = kernel::derivativeTaylorExpansion::NonZeroFlops;
-  hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }
 
 void Spacetime::computeBatchedAder(double timeStepWidth,

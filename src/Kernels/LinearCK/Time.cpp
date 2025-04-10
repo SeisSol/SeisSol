@@ -44,13 +44,11 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::linearck {
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
-
   projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onHost->V3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
-  checkGlobalData(global.onDevice, deviceAlignment);
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
   deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->V3mTo2nFace;
 #endif

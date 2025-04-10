@@ -24,6 +24,10 @@
 
 #include "utils/logger.h"
 
+#ifndef NDEBUG
+#include <Common/Constants.h>
+#endif
+
 namespace seissol::kernels::solver::linearck {
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
