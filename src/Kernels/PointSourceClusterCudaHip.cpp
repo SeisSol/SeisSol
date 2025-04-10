@@ -25,7 +25,7 @@ __launch_bounds__(Blocksize) __global__ void launchKernelNRF(
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
     const seissol::memory::
         AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
-    const unsigned* __restrict fusedOriginalIndex,
+    const unsigned* __restrict simulationIndex,
     const seissol::memory::AlignedArray<real,
                                         sourceterm::PointSources::TensorSize>* __restrict tensor,
     const real* __restrict a,
@@ -41,7 +41,7 @@ __launch_bounds__(Blocksize) __global__ void launchKernelNRF(
                          to,
                          mappingPtr,
                          mInvJInvPhisAtSources,
-                         fusedOriginalIndex,
+                         simulationIndex,
                          tensor,
                          a,
                          stiffnessTensor,
@@ -59,7 +59,7 @@ __launch_bounds__(Blocksize) __global__ void launchKernelFSRM(
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
     const seissol::memory::
         AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
-    const unsigned* __restrict fusedOriginalIndex,
+    const unsigned* __restrict simulationIndex,
     const seissol::memory::AlignedArray<real,
                                         sourceterm::PointSources::TensorSize>* __restrict tensor,
     const real* __restrict a,
@@ -75,7 +75,7 @@ __launch_bounds__(Blocksize) __global__ void launchKernelFSRM(
                           to,
                           mappingPtr,
                           mInvJInvPhisAtSources,
-                          fusedOriginalIndex,
+                          simulationIndex,
                           tensor,
                           a,
                           stiffnessTensor,
@@ -114,7 +114,7 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
     sample[1] = sources.sample[1].data();
     sample[2] = sources.sample[2].data();
 
-    const auto* __restrict fusedOriginalIndex = sources.fusedOriginalIndex.data();
+    const auto* __restrict simulationIndex = sources.simulationIndex.data();
 
 #ifdef __CUDACC__
     using StreamT = cudaStream_t;
@@ -138,7 +138,7 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                                                   to,
                                                   mappingPtr,
                                                   mInvJInvPhisAtSources,
-                                                  fusedOriginalIndex,
+                                                  simulationIndex,
                                                   tensor,
                                                   a,
                                                   stiffnessTensor,
@@ -152,7 +152,7 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                                                    to,
                                                    mappingPtr,
                                                    mInvJInvPhisAtSources,
-                                                   fusedOriginalIndex,
+                                                   simulationIndex,
                                                    tensor,
                                                    a,
                                                    stiffnessTensor,
