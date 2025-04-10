@@ -8,15 +8,17 @@
 #include "Equations/Datastructures.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
-#include <CL/sycl.hpp>
 #include <cstdio>
 #include <init.h>
+#include <sycl/sycl.hpp>
 #include <tensor.h>
 #include <yateto.h>
 
+#include <Solver/MultipleSimulations.h>
+
 #ifdef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
 namespace {
-constexpr std::size_t Blocksize = 64;
+constexpr std::size_t Blocksize = 128;
 
 template <typename SourceRealT>
 constexpr std::size_t RestFunctions(std::size_t SourceOrder, std::size_t ThisOrder) {
@@ -37,15 +39,15 @@ template <bool Integral,
           std::size_t TargetOrder,
           std::size_t Offset,
           std::size_t SharedOffset>
-static __forceinline__ void taylorSumInner(cl::sycl::nd_item<1>& item,
-                                           TargetRealT* const __restrict__ target,
-                                           const SourceRealT* const __restrict__ source,
-                                           TargetRealT start,
-                                           TargetRealT end,
-                                           TargetRealT startCoeff,
-                                           TargetRealT endCoeff,
-                                           SourceRealT* const __restrict__ shmem,
-                                           TargetRealT reg[Quantities]) {
+static void taylorSumInner(sycl::nd_item<1>& item,
+                           TargetRealT* const __restrict__ target,
+                           const SourceRealT* const __restrict__ source,
+                           TargetRealT start,
+                           TargetRealT end,
+                           TargetRealT startCoeff,
+                           TargetRealT endCoeff,
+                           SourceRealT* const __restrict__ shmem,
+                           TargetRealT reg[Quantities]) {
   constexpr std::size_t MemorySize =
       seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) * Quantities;
   constexpr std::size_t SourceStride =
@@ -67,10 +69,12 @@ static __forceinline__ void taylorSumInner(cl::sycl::nd_item<1>& item,
     item.barrier();
     constexpr std::size_t Rounds = LoadSize / Blocksize;
     constexpr std::size_t Rest = LoadSize % Blocksize;
+    if constexpr (Rounds > 0) {
 #pragma unroll
-    for (std::size_t j = 0; j < Rounds; ++j) {
-      shmem[j * Blocksize + item.get_local_id(0)] =
-          source[Offset + j * Blocksize + item.get_local_id(0)];
+      for (std::size_t j = 0; j < Rounds; ++j) {
+        shmem[j * Blocksize + item.get_local_id(0)] =
+            source[Offset + j * Blocksize + item.get_local_id(0)];
+      }
     }
     if constexpr (Rest > 0) {
       if (item.get_local_id(0) < Rest) {
@@ -116,7 +120,7 @@ template <bool Integral,
           typename TargetRealT,
           std::size_t SourceOrder,
           std::size_t TargetOrder>
-void static taylorSumInternal(std::size_t count,
+static void taylorSumInternal(std::size_t count,
                               TargetRealT** targetBatch,
                               const SourceRealT** sourceBatch,
                               TargetRealT start,
@@ -126,24 +130,18 @@ void static taylorSumInternal(std::size_t count,
   constexpr std::size_t TargetStride =
       seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
 
-  dim3 threads(Blocksize);
-  dim3 blocks(count);
+  sycl::nd_range rng{{count * Blocksize}, {Blocksize}};
 
-  cl::sycl::nd_range rng{{count * Blocksize}, {Blocksize}};
+  auto queue = reinterpret_cast<sycl::queue*>(stream);
 
-  auto queue = reinterpret_cast<cl::sycl::queue*>(stream);
-
-  using LocalMemoryType = cl::sycl::
-      accessor<real, 1, cl::sycl::access_mode::read_write, cl::sycl::access::target::local>;
-
-  queue->submit([&](cl::sycl::handler& cgh) {
-    LocalMemoryType shmem(
-        cl::sycl::range<1>(
+  queue->submit([&](sycl::handler& cgh) {
+    sycl::local_accessor<real> shmem(
+        sycl::range<1>(
             seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) *
             Quantities),
         cgh);
 
-    cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
+    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       int batchId = item.get_group().get_group_id(0);
 
       TargetRealT reg[Quantities] = {0};
@@ -207,6 +205,36 @@ void taylorSum(bool integral,
 } // namespace seissol::kernels::time::aux
 #endif
 
+namespace {
+using namespace seissol::multisim;
+
+template <typename Tensor>
+constexpr size_t leadDim() {
+  if constexpr (MultisimEnabled) {
+    return Tensor::Stop[1] - Tensor::Start[1];
+  } else {
+    return Tensor::Stop[0] - Tensor::Start[0];
+  }
+}
+
+template <typename Tensor>
+constexpr size_t linearDim() {
+  if constexpr (MultisimEnabled) {
+    return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
+  } else {
+    return Tensor::Stop[0] - Tensor::Start[0];
+  }
+}
+
+auto getrange(std::size_t size, std::size_t numElements) {
+  if constexpr (MultisimEnabled) {
+    return sycl::nd_range<1>({numElements * NumSimulations * size}, {NumSimulations * size});
+  } else {
+    return sycl::nd_range<1>({numElements * size}, {size});
+  }
+}
+} // namespace
+
 namespace seissol::kernels::local_flux::aux::details {
 
 void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
@@ -216,11 +244,11 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
                               size_t numElements,
                               void* deviceStream) {
 
-  auto queue = reinterpret_cast<cl::sycl::queue*>(deviceStream);
-  const size_t workGroupSize = yateto::leadDim<seissol::nodal::init::nodes2D>();
-  cl::sycl::nd_range rng{{numElements * workGroupSize}, {workGroupSize}};
+  auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
+  const size_t workGroupSize = leadDim<seissol::nodal::init::nodes2D>();
+  auto rng = getrange(workGroupSize, numElements);
 
-  queue->parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
+  queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
     const int tid = item.get_local_id(0);
     const int elementId = item.get_group().get_group_id(0);
     if (elementId < numElements) {
@@ -228,9 +256,9 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
       real* elementBoundaryDofs = dofsFaceBoundaryNodalPtrs[elementId];
       real* elementDisplacement = displacementDataPtrs[elementId];
 
-      constexpr auto numNodes = seissol::nodal::tensor::nodes2D::Shape[0];
+      constexpr auto numNodes = linearDim<seissol::nodal::init::nodes2D>();
       if (tid < numNodes) {
-        constexpr auto ldINodal = yateto::leadDim<seissol::init::INodal>();
+        constexpr auto ldINodal = linearDim<seissol::init::INodal>();
 
         const auto pressureAtBnd = static_cast<real>(-1.0) * rho * g * elementDisplacement[tid];
 
@@ -250,17 +278,19 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
                         size_t numElements,
                         void* deviceStream) {
 
-  auto queue = reinterpret_cast<cl::sycl::queue*>(deviceStream);
-  const size_t workGroupSize = yateto::leadDim<seissol::init::INodal>();
-  cl::sycl::nd_range rng{{numElements * workGroupSize}, {workGroupSize}};
+  auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
+  const size_t workGroupSize = leadDim<seissol::init::INodal>();
+  auto rng = getrange(workGroupSize, numElements);
 
-  constexpr auto ldINodalDim = yateto::leadDim<seissol::init::INodal>();
-  constexpr auto INodalDim0 = seissol::tensor::INodal::Shape[0];
-  constexpr auto INodalDim1 = seissol::tensor::INodal::Shape[1];
+  constexpr auto ldINodalDim = linearDim<seissol::init::INodal>();
+  constexpr auto INodalDim0 = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension + 0];
+  constexpr auto INodalDim1 = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension + 1];
 
-  constexpr auto ldConstantDim = yateto::leadDim<seissol::init::easiBoundaryConstant>();
-  constexpr auto ConstantDim0 = seissol::tensor::easiBoundaryConstant::Shape[0];
-  constexpr auto ConstantDim1 = seissol::tensor::easiBoundaryConstant::Shape[1];
+  constexpr auto ldConstantDim = linearDim<seissol::init::easiBoundaryConstant>();
+  constexpr auto ConstantDim0 =
+      seissol::tensor::easiBoundaryConstant::Shape[multisim::BasisFunctionDimension + 0];
+  constexpr auto ConstantDim1 =
+      seissol::tensor::easiBoundaryConstant::Shape[multisim::BasisFunctionDimension + 1];
 
   constexpr auto ldMapDim = yateto::leadDim<seissol::init::easiBoundaryMap>();
   constexpr auto MapDim0 = seissol::tensor::easiBoundaryMap::Shape[0];
@@ -270,17 +300,17 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
   static_assert(INodalDim1 == ConstantDim0, "supposed to be equal");
   static_assert(INodalDim1 == MapDim0, "supposed to be equal");
 
-  using LocalMemoryType = cl::sycl::
-      accessor<real, 2, cl::sycl::access_mode::read_write, cl::sycl::access::target::local>;
+  queue->submit([&](sycl::handler& cgh) {
+    sycl::local_accessor<real, 3> resultTerm(
+        sycl::range<3>(INodalDim1, INodalDim0, multisim::NumSimulations), cgh);
+    sycl::local_accessor<real, 3> rightTerm(
+        sycl::range<3>(ConstantDim1, ConstantDim0, multisim::NumSimulations), cgh);
+    sycl::local_accessor<real, 2> leftTerm(sycl::range<2>(MapDim0, MapDim2), cgh);
 
-  queue->submit([&](cl::sycl::handler& cgh) {
-    LocalMemoryType resultTerm(cl::sycl::range<2>(INodalDim1, INodalDim0), cgh);
-    LocalMemoryType rightTerm(cl::sycl::range<2>(INodalDim1, ldConstantDim), cgh);
-    LocalMemoryType leftTerm(cl::sycl::range<2>(MapDim0, MapDim2), cgh);
-
-    cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
+    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       const int tid = item.get_local_id(0);
       const int elementId = item.get_group().get_group_id(0);
+      const int sid = tid / multisim::NumSimulations;
 
       if (elementId < numElements) {
         real* dofsFaceBoundaryNodal = dofsFaceBoundaryNodalPtrs[elementId];
@@ -288,15 +318,18 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
         auto easiBoundaryConstant = easiBoundaryConstantPtrs[elementId];
 
         for (int i = tid; i < (ldConstantDim * ConstantDim1); i += item.get_local_range(0)) {
-          const auto b = i % ldConstantDim;
-          const auto l = i / ldConstantDim;
-          rightTerm[b][l] = easiBoundaryConstant[i];
+          const auto s = i % multisim::NumSimulations;
+          const auto si = i / multisim::NumSimulations;
+          const auto b = si % ldConstantDim;
+          const auto l = si / ldConstantDim;
+          rightTerm[b][l][s] = easiBoundaryConstant[i];
         }
         item.barrier();
 
         for (int i = 0; i < INodalDim1; ++i) {
-          if (tid < INodalDim0)
-            resultTerm[i][tid] = 0.0;
+          if (tid < INodalDim0) {
+            resultTerm[i][tid][sid] = 0.0;
+          }
         }
         item.barrier();
 
@@ -311,7 +344,7 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
           if (tid < MapDim2) {
             const real col = dofsFaceBoundaryNodal[tid + b * ldINodalDim];
             for (int a = 0; a < MapDim0; ++a) {
-              resultTerm[a][tid] += leftTerm[a][tid] * col;
+              resultTerm[a][tid][sid] += leftTerm[a][tid] * col;
             }
           }
           item.barrier();
@@ -319,7 +352,8 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
 
         if (tid < INodalDim0) {
           for (int a = 0; a < INodalDim1; ++a) {
-            dofsFaceBoundaryNodal[tid + a * ldINodalDim] = resultTerm[a][tid] + rightTerm[a][tid];
+            dofsFaceBoundaryNodal[tid + a * ldINodalDim] =
+                resultTerm[a][tid][sid] + rightTerm[a][tid][sid];
           }
         }
       }
@@ -335,12 +369,12 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
                              real** TinvPtrs,
                              size_t numElements,
                              void* deviceStream) {
-  auto queue = reinterpret_cast<cl::sycl::queue*>(deviceStream);
+  auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
 
   constexpr size_t workGroupSize = 9;
-  cl::sycl::nd_range<1> rng{{numElements * workGroupSize}, {workGroupSize}};
+  sycl::nd_range<1> rng{{numElements * workGroupSize}, {workGroupSize}};
 
-  queue->parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
+  queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
     const int elementId = item.get_group().get_group_id(0);
     if (elementId < numElements) {
       real* displacementToFaceNormal = displacementToFaceNormalPtrs[elementId];
@@ -368,22 +402,22 @@ void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
                                                     size_t numElements,
                                                     void* deviceStream) {
 
-  auto queue = reinterpret_cast<cl::sycl::queue*>(deviceStream);
-  const size_t workGroupSize = yateto::leadDim<seissol::nodal::init::nodes2D>();
-  cl::sycl::nd_range rng{{numElements * workGroupSize}, {workGroupSize}};
+  auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
+  const size_t workGroupSize = leadDim<seissol::nodal::init::nodes2D>();
+  auto rng = getrange(workGroupSize, numElements);
 
-  queue->parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
+  queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
     const int elementId = item.get_group().get_group_id(0);
     if (elementId < numElements) {
       auto* prevCoefficients = prevCoefficientsPtrs[elementId];
       auto* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
       const auto* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
 
-      assert(nodal::tensor::nodes2D::Shape[0] <=
-             yateto::leadDim<seissol::init::rotatedFaceDisplacement>());
+      assert(linearDim<seissol::nodal::init::nodes2D>() <=
+             linearDim<seissol::init::rotatedFaceDisplacement>());
 
       const int tid = item.get_local_id(0);
-      constexpr auto num2dNodes = seissol::nodal::tensor::nodes2D::Shape[0];
+      constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D>();
       if (tid < num2dNodes) {
         prevCoefficients[tid] = rotatedFaceDisplacement[tid];
         integratedDisplacementNodal[tid] = deltaTInt * rotatedFaceDisplacement[tid];
@@ -394,14 +428,13 @@ void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
 
 void computeInvAcousticImpedance(
     double* invImpedances, double* rhos, double* lambdas, size_t numElements, void* deviceStream) {
-  constexpr size_t blockSize{256};
-  auto queue = reinterpret_cast<cl::sycl::queue*>(deviceStream);
-  cl::sycl::nd_range rng{{numElements * blockSize}, {blockSize}};
+  auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
+  sycl::nd_range rng({numElements}, {1024});
 
-  queue->parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
+  queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
     size_t index = item.get_global_id(0);
     if (index < numElements) {
-      invImpedances[index] = 1.0 / cl::sycl::sqrt(lambdas[index] * rhos[index]);
+      invImpedances[index] = 1.0 / sycl::sqrt(lambdas[index] * rhos[index]);
     }
   });
 }
@@ -418,22 +451,22 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
                                    size_t numElements,
                                    void* deviceStream) {
 
-  auto queue = reinterpret_cast<cl::sycl::queue*>(deviceStream);
-  const size_t workGroupSize = yateto::leadDim<seissol::nodal::init::nodes2D>();
-  cl::sycl::nd_range rng{{numElements * workGroupSize}, {workGroupSize}};
+  auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
+  const size_t workGroupSize = leadDim<seissol::nodal::init::nodes2D>();
+  auto rng = getrange(workGroupSize, numElements);
 
-  queue->parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
+  queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
     const int elementId = item.get_group().get_group_id(0);
     if (elementId < numElements) {
       constexpr int pIdx = 0;
       constexpr int uIdx = 6;
-      constexpr auto num2dNodes = seissol::nodal::tensor::nodes2D::Shape[0];
+      constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D>();
 
       const int tid = item.get_local_id(0);
       if (tid < num2dNodes) {
 
         real* dofsFaceNodal = dofsFaceNodalPtrs[elementId];
-        constexpr auto ldINodal = yateto::leadDim<seissol::init::INodal>();
+        constexpr auto ldINodal = linearDim<seissol::init::INodal>();
 
         const auto uInside = dofsFaceNodal[tid + (uIdx + 0) * ldINodal];
         const auto vInside = dofsFaceNodal[tid + (uIdx + 1) * ldINodal];
@@ -448,7 +481,7 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
             uInside - invImpedance * (rho * g * prevCoefficients[tid] + pressureInside);
         prevCoefficients[tid] = curCoeff;
 
-        constexpr auto ldFaceDisplacement = yateto::leadDim<seissol::init::faceDisplacement>();
+        constexpr auto ldFaceDisplacement = linearDim<seissol::init::faceDisplacement>();
         static_assert(num2dNodes <= ldFaceDisplacement, "");
 
         real* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
@@ -457,7 +490,7 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
         rotatedFaceDisplacement[tid + 2 * ldFaceDisplacement] += factorEvaluated * wInside;
 
         constexpr auto ldIntegratedFaceDisplacement =
-            yateto::leadDim<seissol::init::averageNormalDisplacement>();
+            linearDim<seissol::init::averageNormalDisplacement>();
         static_assert(num2dNodes <= ldIntegratedFaceDisplacement, "");
 
         real* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];

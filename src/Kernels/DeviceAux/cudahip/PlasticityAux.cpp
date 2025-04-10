@@ -78,11 +78,11 @@ __global__ void kernel_adjustDeviatoricTensors(real** nodalStressTensors,
                                                const seissol::model::PlasticityData* plasticity,
                                                const double oneMinusIntegratingFactor) {
   real* elementTensors = nodalStressTensors[blockIdx.x];
-  real localStresses[NUM_STRESS_COMPONENTS];
+  real localStresses[NumStressComponents];
 
   constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal>();
 #pragma unroll
-  for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
+  for (int i = 0; i < NumStressComponents; ++i) {
     localStresses[i] = elementTensors[linearidx() + ElementTensorsColumn * i];
   }
 
@@ -110,7 +110,7 @@ __global__ void kernel_adjustDeviatoricTensors(real** nodalStressTensors,
   taulim = std::max(static_cast<real>(0.0), taulim);
 
   __shared__ unsigned isAdjusted;
-  if (validx() == 0 && simidx() == 0) {
+  if (linearidx() == 0) {
     isAdjusted = static_cast<unsigned>(false);
   }
   __syncthreads();
@@ -126,11 +126,11 @@ __global__ void kernel_adjustDeviatoricTensors(real** nodalStressTensors,
   __syncthreads();
   if (isAdjusted) {
 #pragma unroll
-    for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
+    for (int i = 0; i < NumStressComponents; ++i) {
       elementTensors[linearidx() + ElementTensorsColumn * i] = localStresses[i] * factor;
     }
   }
-  if (validx() == 0 && simidx() == 0) {
+  if (linearidx() == 0) {
     isAdjustableVector[blockIdx.x] = isAdjusted;
   }
 }
@@ -205,7 +205,7 @@ __global__ void kernel_computePstrains(real** pstrains,
     real* localDuDtPstrain = dUdTpstrain[blockIdx.x];
 
 #pragma unroll
-    for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
+    for (int i = 0; i < NumStressComponents; ++i) {
       const int q = linearidx() + i * leadDim<init::Q>();
       const real factor = localData->mufactor / (tV * oneMinusIntegratingFactor);
       const real nodeDuDtPstrain = factor * (localPrevDofs[q] - localDofs[q]);
@@ -252,8 +252,8 @@ __global__ void kernel_pstrainToQEtaModal(real** pstrains,
   if (isAdjustableVector[blockIdx.x]) {
     real* localQEtaModal = qEtaModalPtrs[blockIdx.x];
     real* localPstrain = pstrains[blockIdx.x];
-    for (int i = threadIdx.x; i < tensor::QEtaModal::Size; i += 1024) {
-      localQEtaModal[i] = localPstrain[NUM_STRESS_COMPONENTS * leadDim<init::QStressNodal>() + i];
+    for (std::size_t i = threadIdx.x; i < tensor::QEtaModal::Size; i += 1024) {
+      localQEtaModal[i] = localPstrain[NumStressComponents * leadDim<init::QStressNodal>() + i];
     }
   }
 }
@@ -279,8 +279,8 @@ __global__ void kernel_qEtaModalToPstrain(real** qEtaModalPtrs,
   if (isAdjustableVector[blockIdx.x]) {
     real* localQEtaModal = qEtaModalPtrs[blockIdx.x];
     real* localPstrain = pstrains[blockIdx.x];
-    for (int i = threadIdx.x; i < tensor::QEtaModal::Size; i += 1024) {
-      localPstrain[NUM_STRESS_COMPONENTS * leadDim<init::QStressNodal>() + i] = localQEtaModal[i];
+    for (std::size_t i = threadIdx.x; i < tensor::QEtaModal::Size; i += 1024) {
+      localPstrain[NumStressComponents * leadDim<init::QStressNodal>() + i] = localQEtaModal[i];
     }
   }
 }
@@ -310,7 +310,7 @@ __global__ void kernel_updateQEtaNodal(real** qEtaNodalPtrs,
 
     constexpr auto Ld = leadDim<init::QStressNodal>();
 #pragma unroll
-    for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
+    for (int i = 0; i < NumStressComponents; ++i) {
       factor += localQStressNodal[tid + i * Ld] * localQStressNodal[tid + i * Ld];
     }
 
