@@ -8,8 +8,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_TIMEBASE_H_
-#define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_TIMEBASE_H_
+#ifndef SEISSOL_SRC_KERNELS_LINEARCK_TIMEBASE_H_
+#define SEISSOL_SRC_KERNELS_LINEARCK_TIMEBASE_H_
 
 #include "Common/Constants.h"
 #include "generated_code/kernel.h"
@@ -105,4 +105,4 @@ class Time : public TimeKernel {
 
 } // namespace seissol::kernels::solver::linearck
 
-#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_TIMEBASE_H_
+#endif // SEISSOL_SRC_KERNELS_LINEARCK_TIMEBASE_H_

@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_NEIGHBORBASE_H_
-#define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_NEIGHBORBASE_H_
+#ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_NEIGHBORBASE_H_
+#define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_NEIGHBORBASE_H_
 
 #include "generated_code/kernel.h"
 #include <Kernels/Neighbor.h>
@@ -43,4 +43,4 @@ class Neighbor : public NeighborKernel {
 };
 } // namespace seissol::kernels::solver::linearckanelastic
 
-#endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_NEIGHBORBASE_H_
+#endif // SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_NEIGHBORBASE_H_

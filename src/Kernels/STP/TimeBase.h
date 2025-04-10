@@ -8,8 +8,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#ifndef SEISSOL_SRC_EQUATIONS_STP_KERNELS_TIMEBASE_H_
-#define SEISSOL_SRC_EQUATIONS_STP_KERNELS_TIMEBASE_H_
+#ifndef SEISSOL_SRC_KERNELS_STP_TIMEBASE_H_
+#define SEISSOL_SRC_KERNELS_STP_TIMEBASE_H_
 
 #include "Common/Constants.h"
 #include "generated_code/kernel.h"
@@ -59,4 +59,4 @@ class Spacetime : public SpacetimeKernel {
 
 } // namespace seissol::kernels::solver::stp
 
-#endif // SEISSOL_SRC_EQUATIONS_STP_KERNELS_TIMEBASE_H_
+#endif // SEISSOL_SRC_KERNELS_STP_TIMEBASE_H_

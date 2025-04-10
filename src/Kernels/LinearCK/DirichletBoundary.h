@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DIRICHLETBOUNDARY_H_
-#define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DIRICHLETBOUNDARY_H_
+#ifndef SEISSOL_SRC_KERNELS_LINEARCK_DIRICHLETBOUNDARY_H_
+#define SEISSOL_SRC_KERNELS_LINEARCK_DIRICHLETBOUNDARY_H_
 
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
@@ -201,4 +201,4 @@ void computeAverageDisplacement(double deltaT,
 
 } // namespace seissol::kernels
 
-#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DIRICHLETBOUNDARY_H_
+#endif // SEISSOL_SRC_KERNELS_LINEARCK_DIRICHLETBOUNDARY_H_

@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DEVICEAUX_KERNELSAUX_H_
-#define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DEVICEAUX_KERNELSAUX_H_
+#ifndef SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_
+#define SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_
 
 #include "Kernels/Precision.h"
 #include "generated_code/init.h"
@@ -107,4 +107,4 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
                                    void* deviceStream);
 } // namespace seissol::kernels::time::aux
 
-#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DEVICEAUX_KERNELSAUX_H_
+#endif // SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_

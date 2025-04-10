@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Alexander Breuer
 
-#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_LOCALBASE_H_
-#define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_LOCALBASE_H_
+#ifndef SEISSOL_SRC_KERNELS_LINEARCK_LOCALBASE_H_
+#define SEISSOL_SRC_KERNELS_LINEARCK_LOCALBASE_H_
 
 #include "Common/Constants.h"
 #include "generated_code/kernel.h"
@@ -84,4 +84,4 @@ class Local : public LocalKernel {
 
 } // namespace seissol::kernels::solver::linearck
 
-#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_LOCALBASE_H_
+#endif // SEISSOL_SRC_KERNELS_LINEARCK_LOCALBASE_H_

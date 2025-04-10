@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_TIMEBASE_H_
-#define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_TIMEBASE_H_
+#ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIMEBASE_H_
+#define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIMEBASE_H_
 
 #include "generated_code/kernel.h"
 #include <Kernels/Spacetime.h>
@@ -78,4 +78,4 @@ class Time : public TimeKernel {
 };
 } // namespace seissol::kernels::solver::linearckanelastic
 
-#endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_TIMEBASE_H_
+#endif // SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIMEBASE_H_

@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_LOCALBASE_H_
-#define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_LOCALBASE_H_
+#ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCALBASE_H_
+#define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCALBASE_H_
 
 #include "Physics/InitialField.h"
 #include "generated_code/kernel.h"
@@ -59,4 +59,4 @@ class Local : public LocalKernel {
 };
 } // namespace seissol::kernels::solver::linearckanelastic
 
-#endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_KERNELS_LOCALBASE_H_
+#endif // SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCALBASE_H_

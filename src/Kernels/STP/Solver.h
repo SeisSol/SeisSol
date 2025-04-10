@@ -1,4 +1,11 @@
-#pragma once
+// SPDX-FileCopyrightText: 2025 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#ifndef SEISSOL_SRC_KERNELS_STP_SOLVER_H_
+#define SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 
 #include <cstddef>
 
@@ -20,3 +27,4 @@ struct Solver {
 };
 
 } // namespace seissol::kernels::solver::stp
+#endif // SEISSOL_SRC_KERNELS_STP_SOLVER_H_
