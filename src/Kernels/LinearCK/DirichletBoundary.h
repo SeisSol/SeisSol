@@ -20,8 +20,8 @@
 #include "Solver/MultipleSimulations.h"
 
 #ifdef ACL_DEVICE
-#include "Equations/elastic/Kernels/DeviceAux/KernelsAux.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
 #include "device.h"
 #include "yateto.h"
 #endif

@@ -240,8 +240,8 @@ elseif ("${EQUATIONS}" STREQUAL "anisotropic")
 
 elseif ("${EQUATIONS}" STREQUAL "poroelastic")
   target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Poroelastic/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/Poroelastic/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/STP/Time.cpp
   )
   target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic)

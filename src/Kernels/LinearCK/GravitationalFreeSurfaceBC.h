@@ -21,8 +21,8 @@
 #include <utility>
 
 #ifdef ACL_DEVICE
-#include "Equations/elastic/Kernels/DeviceAux/KernelsAux.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
 #include "device.h"
 #include <tuple>
 #endif
