@@ -24,7 +24,6 @@
 #include <generated_code/tensor.h>
 #include <iterator>
 
-
 #include "Kernels/Common.h"
 #include "Kernels/DenseMatrixOps.h"
 

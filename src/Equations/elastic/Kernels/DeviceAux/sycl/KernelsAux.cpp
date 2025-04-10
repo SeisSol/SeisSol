@@ -37,15 +37,15 @@ template <bool Integral,
           std::size_t TargetOrder,
           std::size_t Offset,
           std::size_t SharedOffset>
-static __forceinline__ void taylorSumInner(cl::sycl::nd_item<1>& item,
-                                           TargetRealT* const __restrict__ target,
-                                           const SourceRealT* const __restrict__ source,
-                                           TargetRealT start,
-                                           TargetRealT end,
-                                           TargetRealT startCoeff,
-                                           TargetRealT endCoeff,
-                                           SourceRealT* const __restrict__ shmem,
-                                           TargetRealT reg[Quantities]) {
+static void taylorSumInner(cl::sycl::nd_item<1>& item,
+                           TargetRealT* const __restrict__ target,
+                           const SourceRealT* const __restrict__ source,
+                           TargetRealT start,
+                           TargetRealT end,
+                           TargetRealT startCoeff,
+                           TargetRealT endCoeff,
+                           SourceRealT* const __restrict__ shmem,
+                           TargetRealT reg[Quantities]) {
   constexpr std::size_t MemorySize =
       seissol::kernels::getNumberOfAlignedBasisFunctions<SourceRealT>(SourceOrder) * Quantities;
   constexpr std::size_t SourceStride =
@@ -116,7 +116,7 @@ template <bool Integral,
           typename TargetRealT,
           std::size_t SourceOrder,
           std::size_t TargetOrder>
-void static taylorSumInternal(std::size_t count,
+static void taylorSumInternal(std::size_t count,
                               TargetRealT** targetBatch,
                               const SourceRealT** sourceBatch,
                               TargetRealT start,
@@ -125,9 +125,6 @@ void static taylorSumInternal(std::size_t count,
   constexpr std::size_t Quantities = std::min(SourceQuantities, TargetQuantities);
   constexpr std::size_t TargetStride =
       seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
-
-  dim3 threads(Blocksize);
-  dim3 blocks(count);
 
   cl::sycl::nd_range rng{{count * Blocksize}, {Blocksize}};
 

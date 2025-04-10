@@ -28,7 +28,6 @@
 #include <vector>
 #include <yateto.h>
 
-
 #include <array>
 #include <cassert>
 #include <stdint.h>

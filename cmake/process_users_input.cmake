@@ -274,7 +274,7 @@ if (WITH_GPU)
     # experimental kernels should stay experimental; they've only be sort of tested on NV+AMD hardware for now
     option(DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS "Enable experimental explicitly-written kernels" ${IS_NVIDIA_OR_AMD})
 
-    if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS AND "tensorforge" NOT IN_LIST AUTO_DEVICE_CODEGEN)
+    if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS AND NOT("tensorforge" IN_LIST AUTO_DEVICE_CODEGEN))
         set(USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS ON)
     else()
         set(USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS OFF)
