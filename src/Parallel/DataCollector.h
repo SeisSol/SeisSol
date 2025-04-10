@@ -51,7 +51,7 @@ class DataCollector {
   ~DataCollector() {
     if (!hostAccessible && indexCount > 0) {
 #ifdef ACL_DEVICE
-      device::DeviceInstance::getInstance().api->freeMem(indexDataDevice);
+      device::DeviceInstance::getInstance().api->freeGlobMem(indexDataDevice);
       device::DeviceInstance::getInstance().api->freePinnedMem(copiedData);
 #endif
     }

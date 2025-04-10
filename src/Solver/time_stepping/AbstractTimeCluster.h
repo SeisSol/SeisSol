@@ -76,6 +76,8 @@ public:
   void setPredictionTime(double time);
   void setCorrectionTime(double time);
 
+  virtual void finishPhase();
+
   long getTimeStepRate();
 
   /**

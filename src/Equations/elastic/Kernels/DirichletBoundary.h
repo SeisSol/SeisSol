@@ -92,25 +92,20 @@ class DirichletBoundary {
 
     const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
 
-    size_t memCounter{0};
-    auto* dofsFaceBoundaryNodalData = reinterpret_cast<real*>(
-        device.api->getStackMemory(tensor::INodal::size() * numElements * sizeof(real)));
-    auto** dofsFaceBoundaryNodalPtrs =
-        reinterpret_cast<real**>(device.api->getStackMemory(numElements * sizeof(real*)));
-    memCounter += 2;
+    auto dofsFaceBoundaryNodalData =
+        runtime.memoryHandle<real>(tensor::INodal::size() * numElements);
+    auto dofsFaceBoundaryNodalPtrs = runtime.memoryHandle<real*>(numElements);
 
     auto* deviceStream = runtime.stream();
-    device.algorithms.incrementalAdd(dofsFaceBoundaryNodalPtrs,
-                                     dofsFaceBoundaryNodalData,
+    device.algorithms.incrementalAdd(dofsFaceBoundaryNodalPtrs.get(),
+                                     dofsFaceBoundaryNodalData.get(),
                                      tensor::INodal::size(),
                                      numElements,
                                      deviceStream);
 
     const auto auxTmpMemSize =
         yateto::getMaxTmpMemRequired(nodalLfKrnlPrototype, projectKernelPrototype);
-    auto* auxTmpMem =
-        reinterpret_cast<real*>(device.api->getStackMemory(auxTmpMemSize * numElements));
-    memCounter += 1;
+    auto auxTmpMem = runtime.memoryHandle<real>((auxTmpMemSize * numElements) / sizeof(real));
 
     auto** TinvData = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
     auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
@@ -119,12 +114,12 @@ class DirichletBoundary {
     projectKrnl.numElements = numElements;
     projectKrnl.Tinv = const_cast<const real**>(TinvData);
     projectKrnl.I = const_cast<const real**>(idofsPtrs);
-    projectKrnl.INodal = dofsFaceBoundaryNodalPtrs;
-    projectKrnl.linearAllocator.initialize(auxTmpMem);
+    projectKrnl.INodal = dofsFaceBoundaryNodalPtrs.get();
+    projectKrnl.linearAllocator.initialize(auxTmpMem.get());
     projectKrnl.streamPtr = deviceStream;
     projectKrnl.execute(faceIdx);
 
-    boundaryCondition.evaluate(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
+    boundaryCondition.evaluate(dofsFaceBoundaryNodalPtrs.get(), numElements, deviceStream);
 
     auto** dofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
     auto** nAmNm1 = dataTable[key].get(inner_keys::Wp::Id::AminusT)->getDeviceDataPtr();
@@ -132,14 +127,11 @@ class DirichletBoundary {
     auto nodalLfKrnl = nodalLfKrnlPrototype;
     nodalLfKrnl.numElements = numElements;
     nodalLfKrnl.Q = dofsPtrs;
-    nodalLfKrnl.INodal = const_cast<const real**>(dofsFaceBoundaryNodalPtrs);
+    nodalLfKrnl.INodal = const_cast<const real**>(dofsFaceBoundaryNodalPtrs.get());
     nodalLfKrnl.AminusT = const_cast<const real**>(nAmNm1);
-    nodalLfKrnl.linearAllocator.initialize(auxTmpMem);
+    nodalLfKrnl.linearAllocator.initialize(auxTmpMem.get());
     nodalLfKrnl.streamPtr = deviceStream;
     nodalLfKrnl.execute(faceIdx);
-
-    for (size_t i = 0; i < memCounter; ++i)
-      device.api->popStackMemory();
   }
 #endif
 

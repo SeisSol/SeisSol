@@ -51,7 +51,7 @@ class GenericTableEntry {
 
   virtual ~GenericTableEntry() {
     if (deviceDataPtr != nullptr) {
-      device.api->freeMem(deviceDataPtr);
+      device.api->freeGlobMem(deviceDataPtr);
       deviceDataPtr = nullptr;
     }
   }

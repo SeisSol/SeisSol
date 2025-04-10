@@ -143,6 +143,8 @@ private:
 
     kernels::ReceiverCluster* m_receiverCluster;
 
+    seissol::memory::MemkindArray<unsigned> yieldCells;
+
     /**
      * Writes the receiver output if applicable (receivers present, receivers have to be written).
      **/
@@ -322,6 +324,8 @@ public:
   std::vector<NeighborCluster>* getNeighborClusters();
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream);
+
+  void finishPhase();
 };
 
 

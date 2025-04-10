@@ -90,8 +90,10 @@ void free(void* pointer, enum Memkind memkind) {
 #endif
 
 #ifdef ACL_DEVICE
-  } else if ((memkind == DeviceGlobalMemory) || (memkind == DeviceUnifiedMemory)) {
-    device::DeviceInstance::getInstance().api->freeMem(pointer);
+  } else if (memkind == DeviceGlobalMemory) {
+    device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
+  } else if (memkind == DeviceUnifiedMemory) {
+    device::DeviceInstance::getInstance().api->freeUnifiedMem(pointer);
   } else if (memkind == PinnedMemory) {
     device::DeviceInstance::getInstance().api->freePinnedMem(pointer);
 #endif

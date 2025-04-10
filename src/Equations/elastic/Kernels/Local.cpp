@@ -275,15 +275,15 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 
   const auto maxTmpMem = yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl);
 
-  real* tmpMem = nullptr;
+  // volume kernel always contains more elements than any local one
+  const auto maxNumElements = dataTable.find(key) != dataTable.end()
+                                  ? (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getSize()
+                                  : 0;
+  auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * maxNumElements) / sizeof(real));
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
 
-    unsigned maxNumElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     volKrnl.numElements = maxNumElements;
-
-    // volume kernel always contains more elements than any local one
-    tmpMem = (real*)(device.api->getStackMemory(maxTmpMem * maxNumElements));
 
     volKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
     volKrnl.I =
@@ -296,7 +296,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
       volKrnl.extraOffset_star(i) = starOffset;
       starOffset += tensor::star::size(i);
     }
-    volKrnl.linearAllocator.initialize(tmpMem);
+    volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
   }
@@ -313,7 +313,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
       localFluxKrnl.AplusT =
           const_cast<const real**>(entry.get(inner_keys::Wp::Id::AplusT)->getDeviceDataPtr());
-      localFluxKrnl.linearAllocator.initialize(tmpMem);
+      localFluxKrnl.linearAllocator.initialize(tmpMem.get());
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
     }
@@ -359,9 +359,6 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
                                          device,
                                          runtime);
     }
-  }
-  if (tmpMem != nullptr) {
-    device.api->popStackMemory();
   }
 #else
   logError() << "No GPU implementation provided";

@@ -308,6 +308,9 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 #ifdef ACL_DEVICE
   device.api->popLastProfilingMark();
 #endif
+  for (auto& cluster : clusters) {
+    cluster->finishPhase();
+  }
 }
 
 void seissol::time_stepping::TimeManager::printComputationTime(

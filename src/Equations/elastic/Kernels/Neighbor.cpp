@@ -132,13 +132,6 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
   kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
 
-  real* tmpMem = nullptr;
-  auto resetDeviceCurrentState = [this](size_t counter) {
-    for (size_t i = 0; i < counter; ++i) {
-      this->device.api->popStackMemory();
-    }
-  };
-
   for (size_t face = 0; face < 4; face++) {
     size_t streamCounter{0};
 
@@ -165,13 +158,13 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
               neighFluxKrnl.AminusT = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
 
-              tmpMem = reinterpret_cast<real*>(
-                  device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
+              real* tmpMem = reinterpret_cast<real*>(device.api->allocMemAsync(
+                  neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements, stream));
               neighFluxKrnl.linearAllocator.initialize(tmpMem);
 
               neighFluxKrnl.streamPtr = stream;
               (neighFluxKrnl.*neighFluxKrnl.ExecutePtrs[faceRelation])();
-              ++streamCounter;
+              device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
             }
           } else {
             unsigned faceRelation = i - (*FaceRelations::Count);
@@ -191,18 +184,16 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
                   (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
               drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
-              tmpMem = reinterpret_cast<real*>(
-                  device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
+              real* tmpMem = reinterpret_cast<real*>(
+                  device.api->allocMemAsync(drKrnl.TmpMaxMemRequiredInBytes * numElements, stream));
               drKrnl.linearAllocator.initialize(tmpMem);
 
               drKrnl.streamPtr = stream;
               (drKrnl.*drKrnl.ExecutePtrs[faceRelation])();
-              ++streamCounter;
+              device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
             }
           }
         });
-
-    resetDeviceCurrentState(streamCounter);
   }
 #else
   logError() << "No GPU implementation provided";

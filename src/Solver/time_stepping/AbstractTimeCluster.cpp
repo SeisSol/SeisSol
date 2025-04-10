@@ -286,5 +286,8 @@ bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
   });
 }
 
+void AbstractTimeCluster::finishPhase() {
+}
+
 } // namespace seissol::time_stepping
 
