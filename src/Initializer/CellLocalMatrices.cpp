@@ -192,6 +192,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         real gradXi[3];
         real gradEta[3];
         real gradZeta[3];
+        std::vector<Vertex> localVertices(4);
 
         // Iterate over all 4 vertices of the tetrahedron
         for (unsigned vertex = 0; vertex < 4; ++vertex) {
@@ -199,6 +200,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           x[vertex] = coords[0];
           y[vertex] = coords[1];
           z[vertex] = coords[2];
+          localVertices[vertex] = vertices[elements[meshId].vertices[vertex]];
         }
 
         seissol::transformations::tetrahedronGlobalToReferenceJacobian(
@@ -345,7 +347,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         }
 
         seissol::model::initializeSpecificLocalData(
-            material[cell].local, timeStepWidth, meshReader, &localIntegration[cell].specific);
+            material[cell].local, timeStepWidth, localVertices, &localIntegration[cell].specific);
 
         seissol::model::initializeSpecificNeighborData(material[cell].local,
                                                        &neighboringIntegration[cell].specific);

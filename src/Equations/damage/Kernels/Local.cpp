@@ -121,6 +121,97 @@ struct ApplyAnalyticalSolution {
   LocalDataType& localData;
 };
 
+void LocalBase::updateMaterials(seissol::initializer::Layer& i_layerData) {
+  // Update local modulus
+  // CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
+  // kernels::LocalData::Loader loader;
+  // loader.load(*m_lts, i_layerData);
+
+  // CellMaterialData* materialData = i_layerData.var(m_lts->material);
+
+  // real ATData[tensor::star::size(0)];
+  // real ATtildeData[tensor::star::size(0)];
+  // real BTData[tensor::star::size(1)];
+  // real CTData[tensor::star::size(2)];
+  // auto AT = init::star::view<0>::create(ATData);
+  // // AT with elastic parameters in local coordinate system, used for flux kernel
+  // auto ATtilde = init::star::view<0>::create(ATtildeData);
+  // auto BT = init::star::view<0>::create(BTData);
+  // auto CT = init::star::view<0>::create(CTData);
+
+  // real TData[seissol::tensor::T::size()];
+  // real TinvData[seissol::tensor::Tinv::size()];
+  // auto T = init::T::view::create(TData);
+  // auto Tinv = init::Tinv::view::create(TinvData);
+
+  // real QgodLocalData[tensor::QgodLocal::size()];
+  // auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
+  
+  // kernel::cellAve m_cellAverageKernel;
+  // // real Q_aveData[NUMBER_OF_QUANTITIES];
+  // real Q_aveData[tensor::QAve::size()];
+  // auto Q_ave = init::QAve::view::create(Q_aveData);>
+
+  // data = loader.entry(l_cell);
+
+  // // TODO: compute cell-average of solutions and compute new material properties
+  // // real Q_ave[NUMBER_OF_QUANTITIES];
+  // m_cellAverageKernel.phiAve = init::phiAve::Values;
+  // m_cellAverageKernel.Q = data.dofs;
+  // m_cellAverageKernel.QAve = Q_aveData;
+  // m_cellAverageKernel.execute();
+
+  // unsigned int meshId = data.localIntegration.globalMeshId;
+  // materialData[l_cell].local.mu = 0.0;
+
+  // /// global coordinates of the vertices
+  // real x[4];
+  // real y[4];
+  // real z[4];
+  // real gradXi[3];
+  // real gradEta[3];
+  // real gradZeta[3];
+
+  // // Iterate over all 4 vertices of the tetrahedron
+  // for (unsigned vertex = 0; vertex < 4; ++vertex) {
+  //   VrtxCoords const& coords = vertices[ elements[meshId].vertices[vertex] ].coords;
+  //   x[vertex] = coords[0];
+  //   y[vertex] = coords[1];
+  //   z[vertex] = coords[2];
+  // }
+
+  // seissol::transformations::tetrahedronGlobalToReferenceJacobian( x, y, z, gradXi, gradEta, gradZeta );
+  // // seissol::model::getTransposedCoefficientMatrix( changed_materialLocal, 0, AT );
+  // // seissol::model::getTransposedCoefficientMatrix( changed_materialLocal, 1, BT );
+  // // seissol::model::getTransposedCoefficientMatrix( changed_materialLocal, 2, CT );
+  // seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, AT );
+  // seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 1, BT );
+  // seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 2, CT );
+  // setStarMatrix(ATData, BTData, CTData, gradXi, data.localIntegration.starMatrices[0]);
+  // setStarMatrix(ATData, BTData, CTData, gradEta, data.localIntegration.starMatrices[1]);
+  // setStarMatrix(ATData, BTData, CTData, gradZeta, data.localIntegration.starMatrices[2]);
+
+  // double volume = MeshTools::volume(elements[meshId], vertices);
+
+  // // Calculate transposed T instead
+  // seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
+
+  // // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
+  // // must be subtracted.
+  // real fluxScale = -2.0 * surface / (6.0 * volume);
+
+  // kernel::computeFluxSolverLocal localKrnl;
+  // localKrnl.fluxScale = fluxScale;
+  // localKrnl.AplusT = data.localIntegration.nApNm1[side];
+  // localKrnl.QgodLocal = QgodLocalData;
+  // localKrnl.T = TData;
+  // localKrnl.Tinv = TinvData;
+  // localKrnl.star(0) = ATtildeData;
+  // localKrnl.execute();
+
+
+}
+
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
                             LocalData& data,
                             LocalTmp& tmp,

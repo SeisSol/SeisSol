@@ -331,6 +331,12 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       l_bufferPointer = l_integrationBuffer;
     }
 
+    // Update the local materia modulus for next prediction
+    // This function is only not dummy for Damage Mat.
+#ifdef USE_DAMAGE
+    m_localKernel.updateMaterials(i_layerData);
+#endif
+
     m_timeKernel.computeAder(timeStepSize(),
                              data,
                              tmp,
@@ -894,12 +900,6 @@ template<bool usePlasticity>
                                                               dofs[l_cell] );
 #endif // INTEGRATE_QUANTITIES
       }
-
-      // Update the local materia modulus for next prediction
-      // This function is only not dummy for Damage Mat.
-#ifdef USE_DAMAGE
-      m_neighborKernel.updateMaterials(i_layerData);
-#endif
 
       const long long nonZeroFlopsPlasticity =
           i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)] +

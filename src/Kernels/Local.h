@@ -24,6 +24,8 @@ class Local : public LocalBase {
   void setHostGlobalData(const GlobalData* global);
   void setGlobalData(const CompoundGlobalData& global);
 
+  // void updateMaterials(seissol::initializer::Layer& i_layerData);
+
   void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
                        LocalData& data,
                        LocalTmp& tmp,

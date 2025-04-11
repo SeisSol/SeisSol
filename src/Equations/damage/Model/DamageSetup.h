@@ -16,6 +16,7 @@
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 #include "generated_code/init.h"
+#include <Geometry/MeshDefinition.h>
 #include <Equations/damage/Model/Datastructures.h>
 #include <Equations/damage/Model/IntegrationData.h>
 
@@ -250,8 +251,13 @@ struct MaterialSetup<DamageMaterial> {
 
   static void initializeSpecificLocalData(const DamageMaterial& material,
                                           real timeStepWidth,
-                                          const seissol::geometry::MeshReader& meshReader,
-                                          DamageLocalData* localData) {}
+                                          const std::vector<Vertex>& localVertices,
+                                          DamageLocalData* localData) {
+    // currently, it takes new memory. Later on can switch to pointers
+    for (int i_v; i_v = 0; i_v++){
+      localData->localVertices[i_v] = localVertices[i_v];
+    }
+  }
 
   static void initializeSpecificNeighborData(const DamageMaterial& material,
                                              DamageNeighborData* localData) {}

@@ -188,7 +188,7 @@ struct MaterialSetup<ElasticMaterial> {
 
   static void initializeSpecificLocalData(const ElasticMaterial& material,
                                           real timeStepWidth,
-                                          const seissol::geometry::MeshReader& meshReader,
+                                          const std::vector<Vertex>& localVertices,
                                           ElasticLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const ElasticMaterial& material,

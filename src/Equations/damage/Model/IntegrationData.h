@@ -16,7 +16,7 @@
 namespace seissol::model {
 
 struct DamageLocalData {
-    Vertex localVrtx;
+    Vertex localVertices[4];
 };
 struct DamageNeighborData {};
 

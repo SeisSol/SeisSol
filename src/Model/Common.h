@@ -72,9 +72,9 @@ void getPlaneWaveOperator(const T& material,
 template <typename T>
 void initializeSpecificLocalData(const T& material,
                                  real timeStepWidth,
-                                 const seissol::geometry::MeshReader& meshReader,
+                                 const std::vector<Vertex>& localVertices,
                                  typename T::LocalSpecificData* localData) {
-  MaterialSetup<T>::initializeSpecificLocalData(material, timeStepWidth, meshReader, localData);
+  MaterialSetup<T>::initializeSpecificLocalData(material, timeStepWidth, localVertices, localData);
 }
 
 template <typename T>

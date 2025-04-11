@@ -30,8 +30,6 @@ class Neighbor : public NeighborBase {
 
   void computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
                                        seissol::parallel::runtime::StreamRuntime& runtime);
-  
-  // void Neighbor::updateMaterials(seissol::initializer::Layer& i_layerData) override;
 
   void flopsNeighborsIntegral(const FaceType faceTypes[4],
                               const int neighboringIndices[4][2],
@@ -42,6 +40,7 @@ class Neighbor : public NeighborBase {
                               long long& drHardwareFlops);
 
   unsigned bytesNeighborsIntegral();
+  
 };
 
 } // namespace seissol::kernels

@@ -54,6 +54,8 @@ class LocalBase {
   public:
   virtual void setInitConds(decltype(initConds) initConds) { this->initConds = initConds; }
 
+  virtual void updateMaterials (seissol::initializer::Layer& i_layerData);
+
   void setGravitationalAcceleration(double g) { gravitationalAcceleration = g; }
 
   physics::InitialField* getInitCond(size_t index) {

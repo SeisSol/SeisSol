@@ -34,8 +34,6 @@ class NeighborBase {
   dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
-  public:
-  virtual void updateMaterials (seissol::initializer::Layer& i_layerData);
 };
 
 } // namespace seissol::kernels
