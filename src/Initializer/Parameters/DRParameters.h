@@ -83,7 +83,7 @@ struct DRParameters {
   double etaHack{1.0};
 };
 
-DRParameters readDRParameters(ParameterReader* baseReader);
+DRParameters readDRParameters(ParameterReader* baseReader, int i);
 
 } // namespace seissol::initializer::parameters
 

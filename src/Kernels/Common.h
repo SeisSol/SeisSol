@@ -177,5 +177,10 @@ constexpr std::size_t NumAlignedBasisFunctions =
     seissol::kernels::getNumberOfAlignedBasisFunctions();
 constexpr std::size_t NumAlignedDerivativeBasisFunctions =
     seissol::kernels::getNumberOfAlignedDerivativeBasisFunctions();
+#ifdef MULTIPLE_SIMULATIONS
+constexpr unsigned int NUMBER_OF_QUANTITIES = seissol::tensor::Q::Shape[2];
+#else
+constexpr unsigned int NUMBER_OF_QUANTITIES = seissol::tensor::Q::Shape[1];
+#endif
 
 #endif // SEISSOL_SRC_KERNELS_COMMON_H_

@@ -217,21 +217,26 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                                     ltsInfo.timeStepping,
                                                     seissolParams.model);
 
-  if (seissolParams.drParameters.etaHack != 1.0) {
-    logWarning()
+  if (seissolParams.drParameters[0]->etaHack !=
+      1.0) { // (TO DISCUSS: I guess this should be fine. Can etaHack be different for different
+             // simulations?)
+    logWarning(seissol::MPI::mpi.rank())
         << "The \"eta hack\" has been enabled to mitigate quasi-divergent solutions in the "
            "friction law. The results may not conform to the existing benchmarks.";
   }
 
-  seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
-                                                         memoryManager.getLtsTree(),
-                                                         memoryManager.getLts(),
-                                                         memoryManager.getLtsLut(),
-                                                         memoryManager.getDynamicRuptureTree(),
-                                                         memoryManager.getDynamicRupture(),
-                                                         ltsInfo.ltsMeshToFace,
-                                                         *memoryManager.getGlobalDataOnHost(),
-                                                         seissolParams.drParameters.etaHack);
+  seissol::initializer::initializeDynamicRuptureMatrices(
+      meshReader,
+      memoryManager.getLtsTree(),
+      memoryManager.getLts(),
+      memoryManager.getLtsLut(),
+      memoryManager.getDynamicRuptureTree(),
+      memoryManager.getDynamicRupture(),
+      ltsInfo.ltsMeshToFace,
+      *memoryManager.getGlobalDataOnHost(),
+      seissolParams.drParameters[0]
+          ->etaHack); // Checked for 2 cells in the first simulation, 3rd cell in the second
+                      // simulation does exactly the same as master
 
   memoryManager.initFrictionData();
 
@@ -357,7 +362,6 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
 void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
-
   seissolInstance.getMemoryManager().initializeMemoryLayout();
 
   seissolInstance.timeManager().addClusters(ltsInfo.timeStepping,

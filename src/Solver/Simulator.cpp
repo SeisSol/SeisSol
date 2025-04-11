@@ -8,15 +8,18 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include <limits>
+#include <utils/logger.h>
 
 #include "Simulator.h"
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/Unit.h"
+#include "MultipleSimulations.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 #include "time_stepping/TimeManager.h"
 
 seissol::Simulator::Simulator():
@@ -25,19 +28,18 @@ seissol::Simulator::Simulator():
   m_usePlasticity(  false ),
   m_abort( false ) {}
 
-void seissol::Simulator::setFinalTime( double i_finalTime ) {
-  assert( i_finalTime > 0 );
-  m_finalTime = i_finalTime;
+void seissol::Simulator::setFinalTime( double finalTime ) {
+  assert( finalTime > 0 );
+  m_finalTime = finalTime;
 }
 
 void seissol::Simulator::setUsePlasticity( bool plasticity ) {
   m_usePlasticity = plasticity;
 }
 
-void seissol::Simulator::setCurrentTime( double i_currentTime ) {
-	assert( i_currentTime >= 0 );
-	m_currentTime = i_currentTime;
-  checkpoint = true;
+void seissol::Simulator::setCurrentTime( double currentTime ) {
+	assert( currentTime >= 0 );
+	m_currentTime = currentTime;
 }
 
 void seissol::Simulator::abort() {
@@ -48,8 +50,12 @@ void seissol::Simulator::abort() {
 void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   SCOREP_USER_REGION( "simulate", SCOREP_USER_REGION_TYPE_FUNCTION )
 
-  auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
-  faultOutputManager->writePickpointOutput(0.0, 0.0);
+  // auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
+   auto faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
+
+   for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
+     faultOutputManager[i]->writePickpointOutput(0.0, 0.0);
+   }
 
   Stopwatch simulationStopwatch;
   simulationStopwatch.start();
@@ -101,6 +107,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     }
 
     // update the DOFs
+
     logInfo() << "Start simulation epoch.";
     computeStopwatch.start();
     seissolInstance.timeManager().advanceInTime( upcomingTime );

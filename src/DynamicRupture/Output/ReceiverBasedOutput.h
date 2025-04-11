@@ -16,7 +16,9 @@
 #include "Memory/Tree/Lut.h"
 
 #include <DynamicRupture/Misc.h>
+#include <DynamicRupture/Output/DataTypes.h>
 #include <memory>
+#include <tensor.h>
 #include <vector>
 
 namespace seissol::dr::output {
@@ -35,6 +37,7 @@ class ReceiverOutput {
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        std::shared_ptr<ReceiverOutputData> outputData,
+                       unsigned int nFused = 0.0,
                        double time = 0.0);
 
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
@@ -102,8 +105,18 @@ class ReceiverOutput {
     }
   }
 
-  void getDofs(real dofs[tensor::Q::size()], int meshId);
-  void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);
+#ifdef MULTIPLE_SIMULATIONS
+  void getDofs(real (&dofs)[tensor::Q::Shape[1] * tensor::Q::Shape[2]],
+               int meshId,
+               unsigned int nFused = 0);
+  void getNeighbourDofs(real (&dofs)[tensor::Q::Shape[1] * tensor::Q::Shape[2]],
+                        int meshId,
+                        int side,
+                        unsigned int nFused = 0);
+#else
+  void getDofs(real dofs[tensor::Q::size()], int meshId, unsigned int nFused = 0);
+  void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side, unsigned int nFused = 0);
+#endif
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }

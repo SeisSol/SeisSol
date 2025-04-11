@@ -54,8 +54,8 @@ class DynamicRupture {
       DREnergyOutput* drEnergyOutput,
       const real* timeDerivativePlus,
       const real* timeDerivativeMinus,
-      real qInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
-      real qInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+      real QInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+      real QInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
       const real* timeDerivativePlusPrefetch,
       const real* timeDerivativeMinusPrefetch);
 

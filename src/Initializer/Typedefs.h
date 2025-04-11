@@ -17,6 +17,7 @@
 #include "Equations/Datastructures.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
+#include "Solver/MultipleSimulations.h"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
 #include <complex>
@@ -343,8 +344,8 @@ struct DREnergyOutput {
 struct CellDRMapping {
   unsigned side;
   unsigned faceRelation;
-  real* godunov;
-  real* fluxSolver;
+  std::array<real*, seissol::multisim::NumSimulations> godunov;
+  std::array<real*, seissol::multisim::NumSimulations> fluxSolver;
 };
 
 struct CellBoundaryMapping {

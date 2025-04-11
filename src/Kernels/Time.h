@@ -79,17 +79,24 @@ class Time : public TimeBase {
                               real expansionPoint,
                               const real* timeDerivatives,
                               real timeEvaluated[tensor::Q::size()]);
+#ifdef MULTIPLE_SIMULATIONS
+    void computeTaylorExpansionDR(real time,
+                                  real expansionPoint,
+                                  const real* timeDerivatives,
+                                  real timeEvaluated[tensor::singleSimQ::size()]);
+#endif
 
-  void computeBatchedTaylorExpansion(real time,
-                                     real expansionPoint,
-                                     real** timeDerivatives,
-                                     real** timeEvaluated,
-                                     size_t numElements,
-                                     seissol::parallel::runtime::StreamRuntime& runtime);
+    void computeBatchedTaylorExpansion(real time,
+                                       real expansionPoint,
+                                       real** timeDerivatives,
+                                       real** timeEvaluated,
+                                       size_t numElements,
+                                       seissol::parallel::runtime::StreamRuntime& runtime);
 
-  void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
+    void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops);
 
-  unsigned int* getDerivativesOffsets();
+    unsigned int* getDerivativesOffsetsDR();
+    unsigned int* getDerivativesOffsets();
 };
 
 } // namespace seissol::kernels

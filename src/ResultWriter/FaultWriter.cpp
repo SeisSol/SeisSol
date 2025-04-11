@@ -47,8 +47,8 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
                                         double interval,
                                         xdmfwriter::BackendType backend,
                                         const std::string& backupTimeStamp) {
-  logInfo() << "Initializing XDMF fault output.";
 
+	logInfo() << "Initializing XDMF fault output for Simulation: " << nFused;
   // Initialize the asynchronous module
   async::Module<FaultWriterExecutor, FaultInitParam, FaultParam>::init();
 

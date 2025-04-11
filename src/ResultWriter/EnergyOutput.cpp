@@ -94,8 +94,9 @@ double& EnergiesStorage::totalMomentumZ(size_t sim) {
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    seissol::initializer::DynamicRupture* newDynRup,
-    seissol::initializer::LTSTree* newDynRuptTree,
+    std::array<std::shared_ptr<seissol::initializer::DynamicRupture>, seissol::multisim::NumSimulations>&
+        newDynRup,
+    std::array<seissol::initializer::LTSTree*, seissol::multisim::NumSimulations>& newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
     seissol::initializer::LTSTree* newLtsTree,
     seissol::initializer::LTS* newLts,
@@ -229,33 +230,39 @@ std::array<real, multisim::NumSimulations>
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
   krnl.V3mTo2n = global->faceToNodalMatrices;
 
-  alignas(PagesizeStack) real qInterpolatedPlus[tensor::QInterpolatedPlus::size()];
-  alignas(PagesizeStack) real qInterpolatedMinus[tensor::QInterpolatedMinus::size()];
+  alignas(PagesizeStack) real QInterpolatedPlus[tensor::QInterpolatedPlus::size()];
+  alignas(PagesizeStack) real QInterpolatedMinus[tensor::QInterpolatedMinus::size()];
   alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated::size()];
-  alignas(Alignment) real qPlus[tensor::Q::size()];
-  alignas(Alignment) real qMinus[tensor::Q::size()];
+
+  #ifdef MULTIPLE_SIMULATIONS
+  alignas(Alignment) real QPlus[tensor::singleSimQ::size()];
+  alignas(Alignment) real QMinus[tensor::singleSimQ::size()];
+  #else
+  alignas(Alignment) real QPlus[tensor::Q::size()];
+  alignas(Alignment) real QMinus[tensor::Q::size()];
+  #endif
 
   // needed to counter potential mis-alignment
-  std::memcpy(qPlus, degreesOfFreedomPlus, sizeof(qPlus));
-  std::memcpy(qMinus, degreesOfFreedomMinus, sizeof(qMinus));
+  std::memcpy(QPlus, degreesOfFreedomPlus, sizeof(QPlus));
+  std::memcpy(QMinus, degreesOfFreedomMinus, sizeof(QMinus));
 
-  krnl.QInterpolated = qInterpolatedPlus;
-  krnl.Q = qPlus;
+  krnl.QInterpolated = QInterpolatedPlus;
+  krnl.singleSimQ = QPlus;
   krnl.TinvT = godunovData.TinvT;
-  krnl._prefetch.QInterpolated = qInterpolatedPlus;
+  krnl._prefetch.QInterpolated = QInterpolatedPlus;
   krnl.execute(faceInfo.plusSide, 0);
 
-  krnl.QInterpolated = qInterpolatedMinus;
-  krnl.Q = qMinus;
+  krnl.QInterpolated = QInterpolatedMinus;
+  krnl.singleSimQ = QMinus;
   krnl.TinvT = godunovData.TinvT;
-  krnl._prefetch.QInterpolated = qInterpolatedMinus;
+  krnl._prefetch.QInterpolated = QInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
 
   dynamicRupture::kernel::computeTractionInterpolated trKrnl;
   trKrnl.tractionPlusMatrix = godunovData.tractionPlusMatrix;
   trKrnl.tractionMinusMatrix = godunovData.tractionMinusMatrix;
-  trKrnl.QInterpolatedPlus = qInterpolatedPlus;
-  trKrnl.QInterpolatedMinus = qInterpolatedMinus;
+  trKrnl.QInterpolatedPlus = QInterpolatedMinus;
+  trKrnl.QInterpolatedMinus = QInterpolatedMinus;
   trKrnl.tractionInterpolated = tractionInterpolated;
   trKrnl.execute();
 
@@ -287,7 +294,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #ifdef ACL_DEVICE
     void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 #endif
-    for (auto& layer : dynRupTree->leaves()) {
+    for (auto& layer : dynRupTree[sim]->leaves()) {
       /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
       /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
@@ -323,16 +330,16 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         return timeDerivativeMinusHost + QSize * i;
       };
 #else
-      real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
-      real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
+      real** timeDerivativePlus = layer.var(dynRup[sim]->timeDerivativePlus);
+      real** timeDerivativeMinus = layer.var(dynRup[sim]->timeDerivativeMinus);
       const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
       const auto timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
 #endif
-      DRGodunovData* godunovData = layer.var(dynRup->godunovData);
-      DRFaceInformation* faceInformation = layer.var(dynRup->faceInformation);
-      DREnergyOutput* drEnergyOutput = layer.var(dynRup->drEnergyOutput);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
+      DRGodunovData* godunovData = layer.var(dynRup[sim]->godunovData);
+      DRFaceInformation* faceInformation = layer.var(dynRup[sim]->faceInformation);
+      DREnergyOutput* drEnergyOutput = layer.var(dynRup[sim]->drEnergyOutput);
+      seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = layer.var(dynRup[sim]->waveSpeedsPlus);
+      seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = layer.var(dynRup[sim]->waveSpeedsMinus);
       const auto layerSize = layer.getNumberOfCells();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
@@ -377,20 +384,23 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       real localMin = std::numeric_limits<real>::max();
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
-    shared(layerSize, drEnergyOutput, faceInformation)
+    shared(drEnergyOutput, faceInformation), firstprivate(sim, layerSize)
 #endif
-      for (unsigned i = 0; i < layerSize; ++i) {
-        if (faceInformation[i].plusSideOnThisRank) {
-          for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
-            localMin = std::min(drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j], localMin);
+        for (unsigned i = 0; i < layerSize; ++i) {
+          if (faceInformation[i].plusSideOnThisRank) {
+            for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
+              if (drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j] < localMin) {
+                localMin = drEnergyOutput[i].timeSinceSlipRateBelowThreshold[j];
+              }
+            }
           }
+          minTimeSinceSlipRateBelowThreshold[sim] =
+              std::min(localMin, minTimeSinceSlipRateBelowThreshold[sim]);
         }
       }
-      minTimeSinceSlipRateBelowThreshold[sim] =
-          std::min(localMin, minTimeSinceSlipRateBelowThreshold[sim]);
     }
   }
-}
+
 
 void EnergyOutput::computeVolumeEnergies() {
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
@@ -420,9 +430,9 @@ void EnergyOutput::computeVolumeEnergies() {
                                                         totalAcousticKineticEnergyLocal,           \
                                                         totalElasticEnergyLocal,                   \
                                                         totalElasticKineticEnergyLocal,            \
-                                                        totalMomentumXLocal,                       \
-                                                        totalMomentumYLocal,                       \
-                                                        totalMomentumZLocal,                       \
+                                                        totalMomentumXLocal,                            \
+                                                        totalMomentumYLocal,                            \
+                                                        totalMomentumZLocal,                            \
                                                         totalPlasticMoment)                        \
     shared(elements, vertices, lts, ltsLut, global)
 #endif
@@ -452,14 +462,24 @@ void EnergyOutput::computeVolumeEnergies() {
       alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
       auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
       // Evaluate numerical solution at quad. nodes
+
+      auto dofs = ltsLut->lookup(lts->dofs, elementId);
+      real dummydofs[tensor::Q::size()] = {0.0};
+      kernel::dofsModified dofsModifiedKrnl;
+      dofsModifiedKrnl.Q = dofs;
+      dofsModifiedKrnl.Q_ijs = dummydofs;
+      dofsModifiedKrnl.execute();
       kernel::evalAtQP krnl;
       krnl.evalAtQP = global->evalAtQPMatrix;
       krnl.dofsQP = numericalSolutionData;
-      krnl.Q = ltsLut->lookup(lts->dofs, elementId);
+      krnl.QSingleSim = dummydofs + tensor::Q::Shape[1] * tensor::Q::Shape[2] * sim;
       krnl.execute();
-
-      auto numSub = multisim::simtensor(numericalSolution, sim);
-
+      kernel::dofsModifiedReversed dofModifiedReversedKrnl;
+      dofModifiedReversedKrnl.Q = dofs;
+      dofModifiedReversedKrnl.Q_ijs = dummydofs;
+      dofModifiedReversedKrnl.execute();
+      
+      auto numSub = numericalSolution;
       // TODO: move to the material class (maybe done by #1297 + MaterialT::NumTractionQuantities)
       constexpr int UIdx = model::MaterialT::Type == model::MaterialType::Acoustic ? 1 : 6;
 
@@ -555,12 +575,19 @@ void EnergyOutput::computeVolumeEnergies() {
         const auto surface = MeshTools::surface(elements[elementId], face, vertices);
         const auto rho = material.local.rho;
 
-        static_assert(NumQuadraturePointsTri == init::rotatedFaceDisplacementAtQuadratureNodes::
-                                                    Shape[multisim::BasisFunctionDimension]);
+#ifdef MULTIPLE_SIMULATIONS
+        static_assert(NumQuadraturePointsTri ==
+                      init::rotatedFaceDisplacementAtQuadratureNodes::Shape[1]);
         auto rotatedFaceDisplacementFused =
             init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
-        auto rotatedFaceDisplacement = multisim::simtensor(rotatedFaceDisplacementFused, sim);
-
+        auto rotatedFaceDisplacement =
+            rotatedFaceDisplacementFused.subtensor(sim, yateto::slice<>(), yateto::slice<>());
+#else
+        static_assert(NumQuadraturePointsTri ==
+                      init::rotatedFaceDisplacementAtQuadratureNodes::Shape[0]);
+        auto rotatedFaceDisplacement =
+            init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
+#endif
         for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
           // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
           // derivation.

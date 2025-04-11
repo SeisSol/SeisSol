@@ -17,6 +17,10 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
+#include "Solver/MultipleSimulations.h"
+
+#include <array>
+
 
 namespace seissol::initializer {
 class EasiBoundary;
@@ -36,15 +40,16 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 LTS* lts,
                                 Lut* ltsLut);
 
-void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
-                                      LTSTree* ltsTree,
-                                      LTS* lts,
-                                      Lut* ltsLut,
-                                      LTSTree* dynRupTree,
-                                      DynamicRupture* dynRup,
-                                      unsigned* ltsFaceToMeshFace,
-                                      const GlobalData& global,
-                                      double etaHack);
+void initializeDynamicRuptureMatrices(
+    const seissol::geometry::MeshReader& meshReader,
+    LTSTree* ltsTree,
+    LTS* lts,
+    Lut* ltsLut,
+    std::array<LTSTree*, seissol::multisim::NumSimulations> dynRupTree,
+    std::array<std::shared_ptr<DynamicRupture>, seissol::multisim::NumSimulations> dynRup,
+    unsigned* ltsFaceToMeshFace,
+    const GlobalData& global,
+    double etaHack);
 } // namespace seissol::initializer
 
 #endif // SEISSOL_SRC_INITIALIZER_CELLLOCALMATRICES_H_

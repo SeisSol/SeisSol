@@ -107,9 +107,17 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   // Generate triangle quadrature points and weights (Factory Method)
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+  // TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS
+  auto getWeights = [&weightsView](size_t index) {
+#ifdef MULTIPLE_SIMULATIONS
+    return weightsView(0, index);
+#else
+    return weightsView(index);
+#endif
+  };
 
-  auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
-  for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
+  auto* reshapedPoints = unsafe_reshape<2>(&data.points[0]);
+  for (size_t i = 0; i < data.Size; ++i) {
     reshapedPoints[i][0] = seissol::multisim::multisimTranspose(pointsView, i, 0);
     reshapedPoints[i][1] = seissol::multisim::multisimTranspose(pointsView, i, 1);
     data.weights[i] = seissol::multisim::multisimWrap(weightsView, 0, i);

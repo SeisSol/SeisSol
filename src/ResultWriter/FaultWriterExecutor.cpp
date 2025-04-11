@@ -41,8 +41,8 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
     MPI_Comm_rank(m_comm, &rank);
 #endif // USE_MPI
 
-    std::string outputName(static_cast<const char*>(info.buffer(OutputPrefix)));
-    outputName += "-fault";
+		std::string outputName(static_cast<const char*>(info.buffer(OutputPrefix)));
+		outputName += "_" + std::to_string(nFused) + "-fault";
 
     std::vector<const char*> variables;
     for (unsigned int i = 0; i < FaultInitParam::OutputMaskSize; i++) {
@@ -69,8 +69,8 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
                           param.timestep != 0);
     setFaultTagsData(static_cast<const unsigned int*>(info.buffer(FaultTags)));
 
-    logInfo() << "Initializing XDMF fault output. Done.";
-  }
+		logInfo(rank) << "Initializing XDMF fault output for Simulation: " << nFused << " Done.";
+	}
 }
 
 const char* const seissol::writer::FaultWriterExecutor::Labels[] = {

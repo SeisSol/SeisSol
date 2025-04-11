@@ -129,9 +129,9 @@ double ReceiverCluster::calcReceivers(
 #pragma omp parallel for schedule(static) if (recvCount >= threshold)
 #endif
     for (size_t i = 0; i < recvCount; ++i) {
-      alignas(Alignment) real timeEvaluated[tensor::Q::size()];
-      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
-      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+      alignas(Alignment) real timeEvaluated[tensor::Q::size()] = {0.0};
+      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()] = {0.0};
+      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()] = {0.0};
 #ifdef USE_STP
       alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()];
       kernel::evaluateDOFSAtPointSTP krnl;
@@ -141,7 +141,7 @@ double ReceiverCluster::calcReceivers(
       derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
       derivativeKrnl.spaceTimePredictor = stp;
 #else
-      alignas(Alignment) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
+      alignas(Alignment) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()] = {0.0};
       kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
       kernel::evaluateDOFSAtPoint krnl;
@@ -207,7 +207,7 @@ double ReceiverCluster::calcReceivers(
             if (!std::isfinite(seissol::multisim::multisimWrap(qAtPoint, sim, quantity))) {
               logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0] << ","
                          << receiver.position[1] << "," << receiver.position[2] << " in simulation"
-                         << sim << "."
+                         << sim << "at time " << time << "."
                          << "Aborting.";
             }
             receiver.output.push_back(seissol::multisim::multisimWrap(qAtPoint, sim, quantity));

@@ -39,18 +39,82 @@ class AbstractFactory {
   protected:
   std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters;
   seissol::SeisSol& seissolInstance;
+  const unsigned int numFused;
 
   public:
   AbstractFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
-                  seissol::SeisSol& seissolInstance)
-      : drParameters(std::move(drParameters)), seissolInstance(seissolInstance) {};
+                  seissol::SeisSol& seissolInstance,
+                  unsigned int numFused)
+      : drParameters(std::move(drParameters)), seissolInstance(seissolInstance),
+        numFused(numFused) {}; // (TODISCUSS: where are the derived classes' constructors called?)
   virtual ~AbstractFactory() = default;
   virtual DynamicRuptureTuple produce() = 0;
 };
 
+class NoFaultFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
+class ImposedSlipRatesYoffeFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
+class ImposedSlipRatesGaussianFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
+class LinearSlipWeakeningFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
+class LinearSlipWeakeningBimaterialFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
+class LinearSlipWeakeningTPApproxFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
+class RateAndStateAgingFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
+class RateAndStateSevereVelocityWeakeningFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
+class RateAndStateSlipFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
+class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
+  public:
+  using AbstractFactory::AbstractFactory;
+  DynamicRuptureTuple produce() override;
+};
+
 std::unique_ptr<seissol::dr::factory::AbstractFactory>
-    getFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-               seissol::SeisSol& seissolInstance);
+    getFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> dynRupParameter,
+               seissol::SeisSol& seissolInstance,
+               unsigned int numFused);
 
 } // namespace dr::factory
 } // namespace seissol

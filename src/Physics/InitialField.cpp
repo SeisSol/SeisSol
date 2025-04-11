@@ -132,14 +132,13 @@ void seissol::physics::SuperimposedPlanarwave::evaluate(
     const std::vector<std::array<double, 3>>& points,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
+#ifdef MULTIPLE_SIMULATIONS
+  logError() << "Analytical Writer is not yet implemented with fused simulations";
+#else
   dofsQP.setZero();
+  real dofsPwData[tensor::dofsQP::size()];
 
-  std::vector<real> dofsPwVector(dofsQP.size());
-  auto dofsPW = yateto::DenseTensorView<2, real, unsigned>(
-      dofsPwVector.data(),
-      {NumBasisFunctions, seissol::model::MaterialT::NumQuantities},
-      {0, 0},
-      {NumBasisFunctions, seissol::model::MaterialT::NumQuantities});
+  yateto::DenseTensorView<2, real, unsigned> dofsPW = init::dofsQP::view::create(dofsPwData);
 
   for (int pw = 0; pw < 3; pw++) {
     // evaluate each planarwave
@@ -151,6 +150,7 @@ void seissol::physics::SuperimposedPlanarwave::evaluate(
       }
     }
   }
+#endif
 }
 
 seissol::physics::TravellingWave::TravellingWave(

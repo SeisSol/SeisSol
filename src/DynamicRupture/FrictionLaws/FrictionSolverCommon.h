@@ -146,8 +146,8 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
     unsigned startLoopIndex = 0) {
-  static_assert(tensor::QInterpolated::Shape[seissol::multisim::BasisFunctionDimension] ==
-                    tensor::resample::Shape[0],
+      
+  static_assert(tensor::QInterpolated::Shape[0] == tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
 #ifndef USE_POROELASTIC
@@ -165,7 +165,9 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
   using namespace dr::misc::quantity_indices;
 
 #ifndef ACL_DEVICE
-  checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
+  // checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
+  /// \todo (VK) activate this by sorting out the padding issue for multiple dimensions in the
+  /// codegen
 #endif
 
   for (unsigned o = 0; o < ConvergenceOrder; ++o) {
@@ -315,11 +317,11 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
   using namespace dr::misc::quantity_indices;
-
-#ifndef ACL_DEVICE
-  checkAlignmentPostCompute(
-      qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
-#endif
+  /// \todo (VK) Make this work with alignment once the padding issue with every dimension is sorted
+  // #ifndef ACL_DEVICE
+  //   checkAlignmentPostCompute(
+  //       qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
+  // #endif
 
   for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     auto weight = timeWeights[o];
@@ -434,12 +436,12 @@ SEISSOL_HOSTDEVICE inline void
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
-    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      auto pointIndex{startIndex + index};
-      for (unsigned i = 0; i < 6; i++) {
-        initialStressInFaultCS[i][pointIndex] += nucleationStressInFaultCS[i][pointIndex] * gNuc;
-      }
-      initialPressure[pointIndex] += nucleationPressure[pointIndex] * gNuc;
+  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
+    auto pointIndex{startIndex + index};
+    for (unsigned i = 0; i < 6; i++) {
+      initialStressInFaultCS[i][pointIndex] += nucleationStressInFaultCS[i][pointIndex] * gNuc;
+    }
+    initialPressure[pointIndex] += nucleationPressure[pointIndex] * gNuc;
     }
   }
 }

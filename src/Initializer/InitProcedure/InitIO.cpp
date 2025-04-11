@@ -21,6 +21,7 @@
 #include <Memory/Tree/Layer.h>
 #include <Model/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cstring>
 #include <init.h>
@@ -34,9 +35,11 @@
 
 namespace {
 
-void setupCheckpointing(seissol::SeisSol& seissolInstance) {
+ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
+  #ifdef MULTIPLE_SIMULATIONS
+  logError() << "Checkpointing is not supported for multiple simulations.";
+  #endif
   auto& checkpoint = seissolInstance.getOutputManager().getCheckpointManager();
-
   {
     auto* tree = seissolInstance.getMemoryManager().getLtsTree();
     std::vector<std::size_t> globalIds(
@@ -52,10 +55,10 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     checkpoint.registerTree("lts", tree, globalIds);
     seissolInstance.getMemoryManager().getLts()->registerCheckpointVariables(checkpoint, tree);
   }
-
   {
-    auto* tree = seissolInstance.getMemoryManager().getDynamicRuptureTree();
-    auto* dynrup = seissolInstance.getMemoryManager().getDynamicRupture();
+    // FIXME: for now, we assume that there is only one dynamic rupture tree. This needs to be changed later when fused simulations need checkpointing
+    auto* tree = seissolInstance.getMemoryManager().getDynamicRuptureTree()[0]; 
+    auto* dynrup = seissolInstance.getMemoryManager().getDynamicRupture()[0].get();
     std::vector<std::size_t> faceIdentifiers(
         tree->getNumberOfCells(seissol::initializer::LayerMask(Ghost)));
     const auto* drFaceInformation = tree->var(dynrup->faceInformation);
@@ -93,8 +96,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   auto* lts = memoryManager.getLts();
   auto* ltsTree = memoryManager.getLtsTree();
   auto* ltsLut = memoryManager.getLtsLut();
-  auto* dynRup = memoryManager.getDynamicRupture();
-  auto* dynRupTree = memoryManager.getDynamicRuptureTree();
+  auto dynRup = memoryManager.getDynamicRupture();
+  auto dynRupTree = memoryManager.getDynamicRuptureTree();
   auto* globalData = memoryManager.getGlobalDataOnHost();
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
@@ -386,8 +389,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
   seissolInstance.getMemoryManager().initFaultOutputManager(backupTimeStamp);
-  auto* faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
+  auto faultOutputManager = seissolInstance.getMemoryManager().getFaultOutputManager();
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
+  for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
+    seissolInstance.getMemoryManager().getFaultOutputManager()[i]->initFaceToLtsMap();
+  }
 }
 
 void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
@@ -443,11 +449,13 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
   }
   seissol::MPI::barrier(MPI::mpi.comm());
 
+  // always enable checkpointing first
+  // enableCheckpointing(seissolInstance);
   enableWaveFieldOutput(seissolInstance);
   setIntegralMask(seissolInstance);
   enableFreeSurfaceOutput(seissolInstance);
   initFaultOutputManager(seissolInstance);
-  setupCheckpointing(seissolInstance);
+  // setupCheckpointing(seissolInstance);
   setupOutput(seissolInstance);
   logInfo() << "End init output.";
 }

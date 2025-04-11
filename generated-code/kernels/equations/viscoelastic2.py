@@ -238,7 +238,7 @@ class Viscoelastic2ADERDG(ADERDGBase):
         generator.add("projectIniCond", [projectIniCondEla, projectIniCondAne])
         generator.add(
             "evalAtQP",
-            dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.Q["lp"],
+            dofsQP["kp"] <= self.db.evalAtQP[self.t("kl")] * self.QsingleSim["lp"],
         )
 
     def addLocal(self, generator, targets):
