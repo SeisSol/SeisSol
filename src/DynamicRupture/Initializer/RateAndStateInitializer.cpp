@@ -39,10 +39,19 @@ void RateAndStateInitializer::initializeFault(
     real(*stateVariable)[misc::NumPaddedPoints] = layer.var(concreteLts->stateVariable);
     real(*rsSl0)[misc::NumPaddedPoints] = layer.var(concreteLts->rsSl0);
     real(*rsA)[misc::NumPaddedPoints] = layer.var(concreteLts->rsA);
+
+    auto* rsF0 = layer.var(concreteLts->rsF0);
+    auto* rsMuW = layer.var(concreteLts->rsMuW);
+    auto* rsB = layer.var(concreteLts->rsB);
+
     auto* initialStressInFaultCS = layer.var(concreteLts->initialStressInFaultCS);
 
     const real initialSlipRate =
         misc::magnitude(drParameters->rsInitialSlipRate1, drParameters->rsInitialSlipRate2);
+
+    const auto rsF0Param = !faultProvides("rs_f0");
+    const auto rsMuWParam = !faultProvides("rs_muw");
+    const auto rsBParam = !faultProvides("rs_b");
 
     using namespace dr::misc::quantity_indices;
     for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
@@ -63,6 +72,16 @@ void RateAndStateInitializer::initializeFault(
                                            initialSlipRate);
         stateVariable[ltsFace][pointIndex] = stateAndFriction.stateVariable;
         mu[ltsFace][pointIndex] = stateAndFriction.frictionCoefficient;
+
+        if (rsF0Param) {
+          rsF0[ltsFace][pointIndex] = drParameters->rsF0;
+        }
+        if (rsMuWParam) {
+          rsMuW[ltsFace][pointIndex] = drParameters->muW;
+        }
+        if (rsBParam) {
+          rsB[ltsFace][pointIndex] = drParameters->rsB;
+        }
       }
     }
   }
@@ -105,6 +124,15 @@ void RateAndStateInitializer::addAdditionalParameters(
   real(*rsA)[misc::NumPaddedPoints] = layer.var(concreteLts->rsA);
   parameterToStorageMap.insert({"rs_sl0", reinterpret_cast<real*>(rsSl0)});
   parameterToStorageMap.insert({"rs_a", reinterpret_cast<real*>(rsA)});
+
+  const auto insertIfPresent = [&](const auto& name, auto* var) {
+    if (faultProvides(name)) {
+      parameterToStorageMap.insert({name, reinterpret_cast<real*>(var)});
+    }
+  };
+  insertIfPresent("rs_f0", layer.var(concreteLts->rsF0));
+  insertIfPresent("rs_muw", layer.var(concreteLts->rsMuW));
+  insertIfPresent("rs_b", layer.var(concreteLts->rsB));
 }
 
 RateAndStateInitializer::StateAndFriction

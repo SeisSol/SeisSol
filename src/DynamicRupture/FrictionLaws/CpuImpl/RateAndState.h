@@ -91,6 +91,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     const auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
     a = layerData.var(concreteLts->rsA);
     sl0 = layerData.var(concreteLts->rsSl0);
+    f0 = layerData.var(concreteLts->rsF0);
+    muW = layerData.var(concreteLts->rsMuW);
+    b = layerData.var(concreteLts->rsB);
     stateVariable = layerData.var(concreteLts->stateVariable);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     tpMethod.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
@@ -273,8 +276,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
           this->ruptureTime[face][pointIndex] <= this->mFullUpdateTime &&
           this->dynStressTimePending[face][pointIndex] &&
           this->mu[face][pointIndex] <=
-              (this->drParameters->muW +
-               0.05 * (this->drParameters->rsF0 - this->drParameters->muW))) {
+              (this->muW[face][pointIndex] +
+               0.05 * (this->f0[face][pointIndex] - this->muW[face][pointIndex]))) {
         this->dynStressTime[face][pointIndex] = this->mFullUpdateTime;
         this->dynStressTimePending[face][pointIndex] = false;
       }
@@ -366,6 +369,10 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   real (*__restrict a)[misc::NumPaddedPoints]{};
   real (*__restrict sl0)[misc::NumPaddedPoints]{};
   real (*__restrict stateVariable)[misc::NumPaddedPoints]{};
+
+  real (*__restrict f0)[misc::NumPaddedPoints]{};
+  real (*__restrict muW)[misc::NumPaddedPoints]{};
+  real (*__restrict b)[misc::NumPaddedPoints]{};
 
   TPMethod tpMethod;
   rs::Settings settings{};

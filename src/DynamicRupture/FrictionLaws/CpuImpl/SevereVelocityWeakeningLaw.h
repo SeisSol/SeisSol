@@ -59,8 +59,9 @@ class SevereVelocityWeakeningLaw
                   double localStateVariable) {
     const double localA = this->a[ltsFace][pointIndex];
     const double localSl0 = this->sl0[ltsFace][pointIndex];
-    const double c = this->drParameters->rsB * localStateVariable / (localStateVariable + localSl0);
-    return this->drParameters->rsF0 +
+    const double c =
+        this->b[ltsFace][pointIndex] * localStateVariable / (localStateVariable + localSl0);
+    return this->f0[ltsFace][pointIndex] +
            localA * localSlipRateMagnitude / (localSlipRateMagnitude + this->drParameters->rsSr0) -
            c;
   }
