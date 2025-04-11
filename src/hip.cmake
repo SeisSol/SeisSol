@@ -57,7 +57,7 @@ ${HCC_PATH} \
 set(DEVICE_SRC ${DEVICE_SRC}
                ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
                ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/hip/PlasticityAux.cpp
-               ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/hip/KernelsAux.cpp
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DeviceAux/hip/KernelsAux.cpp
                ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
                ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterCudaHip.cpp)
 

@@ -11,7 +11,7 @@
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Kernels/Precision.h>
-#include <Kernels/Time.h>
+#include <Kernels/Solver.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
 #include <stdint.h>
