@@ -193,7 +193,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         real gradEta[3];
         real gradZeta[3];
         std::vector<Vertex> localVertices(4);
-
+        
         // Iterate over all 4 vertices of the tetrahedron
         for (unsigned vertex = 0; vertex < 4; ++vertex) {
           const VrtxCoords& coords = vertices[elements[meshId].vertices[vertex]].coords;

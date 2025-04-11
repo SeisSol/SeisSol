@@ -334,7 +334,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // Update the local materia modulus for next prediction
     // This function is only not dummy for Damage Mat.
 #ifdef USE_DAMAGE
-    m_localKernel.updateMaterials(i_layerData);
+    m_localKernel.updateMaterials(data);
 #endif
 
     m_timeKernel.computeAder(timeStepSize(),
