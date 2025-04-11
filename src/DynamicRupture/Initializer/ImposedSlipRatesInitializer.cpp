@@ -16,6 +16,7 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -31,8 +32,6 @@ void ImposedSlipRatesInitializer::initializeFault(
     seissol::initializer::LTSTree* const dynRupTree) {
   logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
             << " points.";
-  seissol::initializer::FaultParameterDB faultParameterDB;
-
   for (auto& layer : dynRupTree->leaves(Ghost)) {
 
     // parameters to be read from fault parameters yaml file
@@ -56,12 +55,15 @@ void ImposedSlipRatesInitializer::initializeFault(
     // get additional parameters (for derived friction laws)
     addAdditionalParameters(parameterToStorageMap, dynRup, layer);
 
-    // read parameters from yaml file
-    for (const auto& parameterStoragePair : parameterToStorageMap) {
-      faultParameterDB.addParameter(parameterStoragePair.first, parameterStoragePair.second);
+    for (std::size_t i = 0; i < multisim::NumSimulations; ++i) {
+      seissol::initializer::FaultParameterDB faultParameterDB(i);
+      // read parameters from yaml file
+      for (const auto& parameterStoragePair : parameterToStorageMap) {
+        faultParameterDB.addParameter(parameterStoragePair.first, parameterStoragePair.second);
+      }
+      const auto faceIDs = getFaceIDsInIterator(dynRup, layer);
+      queryModel(faultParameterDB, faceIDs, i);
     }
-    const auto faceIDs = getFaceIDsInIterator(dynRup, layer);
-    queryModel(faultParameterDB, faceIDs);
 
     rotateSlipToFaultCS(
         dynRup, layer, strikeSlip, dipSlip, imposedSlipDirection1, imposedSlipDirection2);

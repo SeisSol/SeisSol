@@ -19,6 +19,7 @@
 #include <Kernels/Precision.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Datastructures.h>
+#include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -205,7 +206,7 @@ easi::Query FaultGPGenerator::generate() const {
   const std::vector<Element>& elements = m_meshReader.getElements();
   auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
 
-  constexpr size_t NumPoints = dr::misc::NumPaddedPoints;
+  constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingle;
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   easi::Query query(NumPoints * m_faceIDs.size(), 3);
   unsigned q = 0;
@@ -510,7 +511,8 @@ void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGen
 
   easi::ArraysAdapter<real> adapter;
   for (auto& kv : m_parameters) {
-    adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
+    adapter.addBindingPoint(
+        kv.first, kv.second.first + simid, kv.second.second * multisim::NumSimulations);
   }
   model->evaluate(query, adapter);
 

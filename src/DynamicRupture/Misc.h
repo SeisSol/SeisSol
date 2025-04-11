@@ -18,6 +18,8 @@
 #include <tuple>
 #include <type_traits>
 
+#include <Solver/MultipleSimulations.h>
+
 #include "Common/Marker.h"
 
 namespace seissol::dr::misc {
@@ -35,8 +37,14 @@ constexpr size_t leadDim() noexcept {
 /**
  * Number of gauss points padded to match the vector register length.
  */
-static constexpr inline size_t NumPaddedPoints = leadDim<init::QInterpolated>();
-static constexpr inline size_t NumQuantities = misc::dimSize<init::QInterpolated, 1>();
+static constexpr inline size_t NumPaddedPoints =
+    multisim::MultisimEnabled
+        ? dimSize<init::QInterpolated, 0>() * dimSize<init::QInterpolated, 1>()
+        : leadDim<init::QInterpolated>();
+static constexpr inline size_t NumPaddedPointsSingle =
+    dimSize<init::QInterpolated, multisim::BasisFunctionDimension>();
+static constexpr inline size_t NumQuantities =
+    misc::dimSize<init::QInterpolated, multisim::BasisFunctionDimension + 1>();
 
 /**
  * Constants for Thermal Pressurization
@@ -48,7 +56,8 @@ static constexpr double TpMaxWaveNumber = 10.0;
 /**
  * Number of gauss points on an element surface.
  */
-static constexpr unsigned int NumBoundaryGaussPoints = init::QInterpolated::Shape[0];
+static constexpr unsigned int NumBoundaryGaussPoints =
+    init::QInterpolated::Shape[multisim::BasisFunctionDimension];
 
 template <class TupleT, class F, std::size_t... I>
 constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...> /*unused*/) {
