@@ -53,8 +53,9 @@ class SlowVelocityWeakeningLaw
     const double localSl0 = this->sl0[ltsFace][pointIndex];
     const double log1 = std::log(this->drParameters->rsSr0 * localStateVariable / localSl0);
     // x in asinh(x) for mu calculation
-    const double x = 0.5 * (localSlipRateMagnitude / this->drParameters->rsSr0) *
-                     std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
+    const double x =
+        0.5 * (localSlipRateMagnitude / this->drParameters->rsSr0) *
+        std::exp((this->f0[ltsFace][pointIndex] + this->b[ltsFace][pointIndex] * log1) / localA);
     return localA * std::asinh(x);
   }
 
@@ -75,8 +76,9 @@ class SlowVelocityWeakeningLaw
     const double localA = this->a[ltsFace][pointIndex];
     const double localSl0 = this->sl0[ltsFace][pointIndex];
     const double log1 = std::log(this->drParameters->rsSr0 * localStateVariable / localSl0);
-    const double c = (0.5 / this->drParameters->rsSr0) *
-                     std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
+    const double c =
+        (0.5 / this->drParameters->rsSr0) *
+        std::exp((this->f0[ltsFace][pointIndex] + this->b[ltsFace][pointIndex] * log1) / localA);
     return localA * c / std::sqrt(misc::power<2>(localSlipRateMagnitude * c) + 1);
   }
 

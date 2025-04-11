@@ -36,16 +36,17 @@ class FastVelocityWeakeningLaw
   }
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
-    const double muW{ctx.data->drParameters.muW};
-
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const double localSrW = ctx.data->srW[ctx.ltsFace][ctx.pointIndex];
     const double localSlipRate = ctx.initialVariables.localSlipRate;
 
+    const auto rsF0 = ctx.data->f0[ctx.ltsFace][ctx.pointIndex];
+    const auto rsB = ctx.data->b[ctx.ltsFace][ctx.pointIndex];
+    const auto muW = ctx.data->muW[ctx.ltsFace][ctx.pointIndex];
+
     const double lowVelocityFriction =
-        ctx.data->drParameters.rsF0 - (ctx.data->drParameters.rsB - localA) *
-                                          std::log(localSlipRate / ctx.data->drParameters.rsSr0);
+        rsF0 - (rsB - localA) * std::log(localSlipRate / ctx.data->drParameters.rsSr0);
 
     const double steadyStateFrictionCoefficient =
         muW + (lowVelocityFriction - muW) /
