@@ -70,7 +70,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   logInfo() << "Exchanging ghostlayer metadata.";
   meshReader.exchangeGhostlayerMetadata();
 
-  logInfo(seissol::MPI::mpi.rank()) << "Extracting fault information.";
+  logInfo() << "Extracting fault information.";
 
   auto drParameters = seissolInstance.getMemoryManager().getDRParameters();
 
