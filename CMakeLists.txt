@@ -111,7 +111,7 @@ endif()
 string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
 
 # write file and print info
-configure_file("src/VersionTemplate.h"
+configure_file("src/Version.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/src/Version.h")
 message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
