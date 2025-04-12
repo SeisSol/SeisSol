@@ -21,7 +21,8 @@ namespace seissol {
 
 enum class DRQuadRuleType {
     Stroud,
-    Dunavant
+    Dunavant,
+    WitherdenVincent
 };
 
 struct Config {
@@ -30,6 +31,7 @@ struct Config {
     static constexpr model::MaterialType MaterialType = model::MaterialType::@PARAMETER_MATERIAL@;
     static constexpr Precision Precision = Precision::@PARAMETER_PRECISION@;
     static constexpr bool GlobalElementwise = @PARAMETER_ELEMENTWISE@;
+    static constexpr std::size_t NumSimulations = @PARAMETER_SIMULATIONS@;
 };
 
 static constexpr std::size_t Alignment = @ALIGNMENT@;
