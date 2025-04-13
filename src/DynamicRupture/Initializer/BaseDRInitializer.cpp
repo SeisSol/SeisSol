@@ -170,14 +170,26 @@ void BaseDRInitializer::rotateTractionToCartesianStress(
 
     // if we read the traction in strike, dip and normal direction, we first transform it to stress
     // in cartesian coordinates
-    VrtxCoords strike{};
-    VrtxCoords dip{};
-    misc::computeStrikeAndDipVectors(fault.normal, strike, dip);
-    seissol::transformations::symmetricTensor2RotationMatrix(
-        fault.normal, strike, dip, faultTractionToCartesianMatrixView, 0, 0);
+    if constexpr (!Config::GlobalElementwise) {
+      VrtxCoords strike{};
+      VrtxCoords dip{};
+      misc::computeStrikeAndDipVectors(fault.normal, strike, dip);
+      seissol::transformations::symmetricTensor2RotationMatrix(
+          fault.normal, strike, dip, faultTractionToCartesianMatrixView, 0, 0);
+    }
 
     using namespace dr::misc::quantity_indices;
     for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      if constexpr (Config::GlobalElementwise) {
+        VrtxCoords normal{};
+        VrtxCoords strike{};
+        VrtxCoords dip{};
+        // TODO: get normal here
+        std::memcpy(normal, fault.normal, sizeof(VrtxCoords));
+        misc::computeStrikeAndDipVectors(normal, strike, dip);
+        seissol::transformations::symmetricTensor2RotationMatrix(
+            normal, strike, dip, faultTractionToCartesianMatrixView, 0, 0);
+      }
       const real initialTraction[init::initialStress::size()] = {stress.xx[ltsFace][pointIndex],
                                                                  stress.yy[ltsFace][pointIndex],
                                                                  stress.zz[ltsFace][pointIndex],

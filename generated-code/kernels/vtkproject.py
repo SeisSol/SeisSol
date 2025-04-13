@@ -12,7 +12,7 @@ from yateto.input import parseJSONMatrixFile
 
 def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
     for target in targets:
-        name_prefix = generate_kernel_name_prefix(targets)
+        name_prefix = generate_kernel_name_prefix(target)
 
         vtko = parseJSONMatrixFile(f"{matricesDir}/vtko{aderdg.order}.json")
 

@@ -23,6 +23,7 @@ import kernels.plasticity
 import kernels.point
 import kernels.surface_displacement
 import kernels.vtkproject
+import kernels.elementwise
 import yateto
 from yateto import (Generator, GlobalRoutineCache, NamespacedGenerator,
                     gemm_configuration, useArchitectureIdentifiedBy)
@@ -187,6 +188,9 @@ def main():
 
         kernels.vtkproject.addKernels(generator, adg, cmdLineArgs.matricesDir, targets)
         kernels.vtkproject.includeTensors(cmdLineArgs.matricesDir, include_tensors)
+
+        kernels.elementwise.addKernels(generator, adg, cmdLineArgs.matricesDir, targets)
+        kernels.elementwise.includeTensors(include_tensors, adg, cmdLineArgs.matricesDir)
 
         # Common kernels
         include_tensors.update(

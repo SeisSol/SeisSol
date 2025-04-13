@@ -24,6 +24,8 @@
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/CellTransform.h>
+#include <Initializer/MatrixBootstrap.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
@@ -207,12 +209,19 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         seissol::model::getTransposedCoefficientMatrix(material[cell].local, 0, matAT);
         seissol::model::getTransposedCoefficientMatrix(material[cell].local, 1, matBT);
         seissol::model::getTransposedCoefficientMatrix(material[cell].local, 2, matCT);
-        setStarMatrix(
-            matATData, matBTData, matCTData, gradXi, localIntegration[cell].starMatrices[0]);
-        setStarMatrix(
-            matATData, matBTData, matCTData, gradEta, localIntegration[cell].starMatrices[1]);
-        setStarMatrix(
-            matATData, matBTData, matCTData, gradZeta, localIntegration[cell].starMatrices[2]);
+
+        if constexpr (Config::GlobalElementwise) {
+          std::memcpy(localIntegration[cell].starMatrices[0], matATData, sizeof(matATData));
+          std::memcpy(localIntegration[cell].starMatrices[1], matBTData, sizeof(matBTData));
+          std::memcpy(localIntegration[cell].starMatrices[2], matCTData, sizeof(matCTData));
+        } else {
+          setStarMatrix(
+              matATData, matBTData, matCTData, gradXi, localIntegration[cell].starMatrices[0]);
+          setStarMatrix(
+              matATData, matBTData, matCTData, gradEta, localIntegration[cell].starMatrices[1]);
+          setStarMatrix(
+              matATData, matBTData, matCTData, gradZeta, localIntegration[cell].starMatrices[2]);
+        }
 
         const double volume = MeshTools::volume(elements[meshId], vertices);
 
@@ -226,6 +235,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           MeshTools::normalize(normal, normal);
           MeshTools::normalize(tangent1, tangent1);
           MeshTools::normalize(tangent2, tangent2);
+
+          // TODO: GlobalElementwise and anisotropy
 
           real nLocalData[6 * 6];
           seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
@@ -309,7 +320,6 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 
           kernel::computeFluxSolverLocal localKrnl;
-          localKrnl.fluxScale = fluxScale;
           localKrnl.AplusT = localIntegration[cell].nApNm1[side];
           if (flux == parameters::NumericalFlux::Rusanov) {
             localKrnl.QgodLocal = centralFluxData;
@@ -318,13 +328,19 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             localKrnl.QgodLocal = qGodLocalData;
             localKrnl.QcorrLocal = rusanovPlusNull;
           }
-          localKrnl.T = matTData;
-          localKrnl.Tinv = matTinvData;
+          if constexpr (Config::GlobalElementwise) {
+            localKrnl.T = init::identityT::Values;
+            localKrnl.Tinv = init::identityT::Values;
+            localKrnl.fluxScale = 1;
+          } else {
+            localKrnl.T = matTData;
+            localKrnl.Tinv = matTinvData;
+            localKrnl.fluxScale = fluxScale;
+          }
           localKrnl.star(0) = matATtildeData;
           localKrnl.execute();
 
           kernel::computeFluxSolverNeighbor neighKrnl;
-          neighKrnl.fluxScale = fluxScale;
           neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
           if (flux == parameters::NumericalFlux::Rusanov) {
             neighKrnl.QgodNeighbor = centralFluxData;
@@ -333,8 +349,15 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             neighKrnl.QgodNeighbor = qGodNeighborData;
             neighKrnl.QcorrNeighbor = rusanovMinusNull;
           }
-          neighKrnl.T = matTData;
-          neighKrnl.Tinv = matTinvData;
+          if constexpr (Config::GlobalElementwise) {
+            neighKrnl.T = init::identityT::Values;
+            neighKrnl.Tinv = init::identityT::Values;
+            neighKrnl.fluxScale = 1;
+          } else {
+            neighKrnl.T = matTData;
+            neighKrnl.Tinv = matTinvData;
+            neighKrnl.fluxScale = fluxScale;
+          }
           neighKrnl.star(0) = matATtildeData;
           if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet ||
               cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
@@ -349,6 +372,16 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
         seissol::model::initializeSpecificNeighborData(material[cell].local,
                                                        &neighboringIntegration[cell].specific);
+
+        if constexpr (Config::GlobalElementwise) {
+          GlobalMatrixPointers pointers{};
+          pointers.kDivMT = layer.var(lts->globalMkDivMT)[cell];
+          pointers.kDivM = layer.var(lts->globalMkDivM)[cell];
+          pointers.rDivM = layer.var(lts->globalMrDivM)[cell];
+
+          pointers.sampleBasis(AffineTransform(x, y, z));
+          pointers.bootstrapMatrices();
+        }
       }
 #ifdef _OPENMP
     }
