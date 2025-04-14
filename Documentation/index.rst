@@ -124,8 +124,8 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   sycl
   computing-time-vs-order-of-accuracy
   performance-measurement
-  attenuation
   physical-models
+  attenuation
   scaling
   basic-code-structure
   known-issues

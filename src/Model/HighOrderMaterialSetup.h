@@ -1,12 +1,17 @@
-#pragma once
+// SPDX-FileCopyrightText: 2025 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#ifndef SEISSOL_SRC_MODEL_HIGHORDERMATERIALSETUP_H_
+#define SEISSOL_SRC_MODEL_HIGHORDERMATERIALSETUP_H_
 
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/HighOrderMaterial.h"
 #include "generated_code/init.h"
 #include <Equations/Datastructures.h>
-#include <Equations/acoustic/Model/Datastructures.h>
-#include <Equations/acoustic/Model/IntegrationData.h>
 #include <generated_code/kernel.h>
 #include <generated_code/tensor.h>
 
@@ -109,3 +114,4 @@ struct MaterialSetup<HighOrderMaterial<BaseMaterialT, Order>> {
   }
 };
 } // namespace seissol::model
+#endif // SEISSOL_SRC_MODEL_HIGHORDERMATERIALSETUP_H_
