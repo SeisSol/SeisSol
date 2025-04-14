@@ -83,7 +83,7 @@ void computeEigenvaluesWithEigen3(std::array<std::complex<T>, Dim * Dim>& m,
 }
 } // namespace seissol::eigenvalues
 
-#ifdef USE_POROELASTIC
+#ifdef USE_LAPACK
 #include "FC.h"
 #include <complex>
 
@@ -250,6 +250,6 @@ void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
   computeEigenvaluesWithEigen3(m, output);
 }
 } // namespace seissol::eigenvalues
-#endif // USE_POROELASTIC
+#endif // USE_LAPACK
 
 #endif // SEISSOL_SRC_NUMERICAL_EIGENVALUES_H_

@@ -166,6 +166,7 @@ class MaterialParameterDB<seissol::model::HighOrderMaterial<BaseMaterialT, Order
 
 class FaultParameterDB : ParameterDB {
   public:
+  FaultParameterDB(std::size_t simulation) : simid(simulation) {}
   ~FaultParameterDB() override = default;
   void addParameter(const std::string& parameter, real* memory, unsigned stride = 1) {
     m_parameters[parameter] = std::make_pair(memory, stride);
@@ -174,6 +175,7 @@ class FaultParameterDB : ParameterDB {
   static std::set<std::string> faultProvides(const std::string& fileName);
 
   private:
+  std::size_t simid;
   std::unordered_map<std::string, std::pair<real*, unsigned>> m_parameters;
 };
 

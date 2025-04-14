@@ -54,10 +54,10 @@ set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
 set(HOST_ARCH "hsw" CACHE STRING "Type of host architecture")
-set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx naples rome milan bergamo turin thunderx2t99 power9 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2 apple-m3 apple-m4 rvv128 rvv256 rvv512 rvv1024 rvv2048 rvv4096)
+set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx naples rome milan bergamo turin thunderx2t99 power9 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2 apple-m3 apple-m4 rvv128 rvv256 rvv512 rvv1024 rvv2048 rvv4096 avx2-128 avx2-256 avx10-128 avx10-256 avx10-512)
 # size of a vector registers in bytes for a given architecture
-set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64     32   32    32      64    64    16     16     256     16     16     32     64     128     256      128      128      128      128     16     32     64     128     256     512)
-set(HOST_ARCH_VECTORSIZE  16  16  32  32  64  64  64     32   32    32      64    64    16     16      64     16     16     32     64     128     256       16       16       16       16     16     32     64     128     256     512)
+set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64     32   32    32      64    64    16     16     256     16     16     32     64     128     256      128      128      128      128     16     32     64     128     256     512    64       64       64        64        64)
+set(HOST_ARCH_VECTORSIZE  16  16  32  32  64  64  64     32   32    32      64    64    16     16      64     16     16     32     64     128     256       16       16       16       16     16     32     64     128     256     512    16       32       16        32        64)
 set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
@@ -150,9 +150,9 @@ string(REPLACE "," ";" GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
 if (GEMM_TOOLS_LIST STREQUAL "auto")
     message(STATUS "Inferring GEMM_TOOLS_LIST for ${HOST_ARCH}")
 
-    set(SUPPORT_PSPAMM hsw knl skx naples rome milan bergamo thunderx2t99 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1)
-    set(SUPPORT_LIBXSMM wsm snb hsw knc knl skx naples rome milan bergamo)
-    set(SUPPORT_LIBXSMM_JIT wsm snb hsw knc knl skx naples rome milan bergamo thunderx2t99 power9 a64fx neon sve128 sve256 sve512 apple-m1)
+    set(SUPPORT_PSPAMM hsw knl skx naples rome milan bergamo turin thunderx2t99 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2 apple-m3 apple-m4 rvv128 rvv256 rvv512 rvv1024 rvv2048 rvv4096 avx2-128 avx2-256 avx10-128 avx10-256 avx10-512)
+    set(SUPPORT_LIBXSMM wsm snb hsw knc knl skx naples rome milan bergamo turin avx2-256 avx10-512)
+    set(SUPPORT_LIBXSMM_JIT wsm snb hsw knc knl skx naples rome milan bergamo turin thunderx2t99 power9 a64fx neon sve128 sve256 sve512 apple-m1 apple-m2 apple-m3 apple-m4 rvv128 rvv256 rvv512 rvv1024 rvv2048 rvv4096 avx2-128 avx2-256 avx10-128 avx10-256 avx10-512)
 
     set(AUTO_GEMM_TOOLS_LIST)
 
@@ -222,6 +222,15 @@ if (NOT ${DEVICE_BACKEND} STREQUAL "none")
             endif()
         endif()
 
+        execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import tensorforge; tensorforge.print_cmake_path()"
+                        OUTPUT_VARIABLE TENSORFORGE_PATH)
+        set(CMAKE_PREFIX_PATH "${TENSORFORGE_PATH}" ${CMAKE_PREFIX_PATH})
+        find_package(TensorForge QUIET)
+        if (GemmForge_FOUND)
+            message(STATUS "GPUs are enabled, adding TensorForge")
+            list(APPEND AUTO_DEVICE_CODEGEN "tensorforge")
+        endif()
+
         # generic device GEMM tool
         execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import gemmforge; gemmforge.print_cmake_path()"
                         OUTPUT_VARIABLE GEMMFORGE_PATH)
@@ -269,7 +278,7 @@ if (WITH_GPU)
     # experimental kernels should stay experimental; they've only be sort of tested on NV+AMD hardware for now
     option(DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS "Enable experimental explicitly-written kernels" ${IS_NVIDIA_OR_AMD})
 
-    if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS AND NOT (${EQUATIONS} STREQUAL "viscoelastic2" OR ${EQUATIONS} STREQUAL "poroelastic"))
+    if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS AND NOT("tensorforge" IN_LIST AUTO_DEVICE_CODEGEN))
         set(USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS ON)
     else()
         set(USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS OFF)

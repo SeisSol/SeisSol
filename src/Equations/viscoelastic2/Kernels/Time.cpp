@@ -19,7 +19,9 @@ extern long long libxsmm_num_total_flops;
 
 #include <yateto.h>
 
+#ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#endif
 
 #include "Kernels/DenseMatrixOps.h"
 #include "generated_code/init.h"

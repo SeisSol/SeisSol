@@ -30,6 +30,7 @@
 #include "device.h"
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
+#include <Solver/MultipleSimulations.h>
 using namespace device;
 #endif
 
@@ -45,10 +46,10 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                                        const seissol::model::PlasticityData* plasticityData,
                                        real degreesOfFreedom[tensor::Q::size()],
                                        real* pstrain) {
-#ifdef MULTIPLE_SIMULATIONS
-  // Todo(SW) find a better solution here
-  logError() << "Plasticity does not work with multiple simulations";
-#else
+  if constexpr (multisim::MultisimEnabled) {
+    // TODO: really still the case?
+    logError() << "Plasticity does not work with multiple simulations";
+  }
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
@@ -208,17 +209,26 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     m2nEtaKrnl.execute();
 
     auto qStressNodalView = init::QStressNodal::view::create(qStressNodal);
-    const unsigned numNodes = qStressNodalView.shape(0);
-    for (unsigned i = 0; i < numNodes; ++i) {
-      // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
-      // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
-      qEtaNodal[i] = std::max((real)0.0, qEtaNodal[i]) +
-                     timeStepWidth * sqrt(0.5 * (qStressNodalView(i, 0) * qStressNodalView(i, 0) +
-                                                 qStressNodalView(i, 1) * qStressNodalView(i, 1) +
-                                                 qStressNodalView(i, 2) * qStressNodalView(i, 2) +
-                                                 qStressNodalView(i, 3) * qStressNodalView(i, 3) +
-                                                 qStressNodalView(i, 4) * qStressNodalView(i, 4) +
-                                                 qStressNodalView(i, 5) * qStressNodalView(i, 5)));
+    const unsigned numNodes = qStressNodalView.shape(multisim::BasisFunctionDimension);
+    for (int s = 0; s < multisim::NumSimulations; ++s) {
+      for (unsigned i = 0; i < numNodes; ++i) {
+        // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
+        // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
+        qEtaNodal[i * multisim::NumSimulations + s] =
+            std::max((real)0.0, qEtaNodal[i * multisim::NumSimulations + s]) +
+            timeStepWidth * sqrt(0.5 * (multisim::multisimWrap(qStressNodalView, s, i, 0) *
+                                            multisim::multisimWrap(qStressNodalView, s, i, 0) +
+                                        multisim::multisimWrap(qStressNodalView, s, i, 1) *
+                                            multisim::multisimWrap(qStressNodalView, s, i, 1) +
+                                        multisim::multisimWrap(qStressNodalView, s, i, 2) *
+                                            multisim::multisimWrap(qStressNodalView, s, i, 2) +
+                                        multisim::multisimWrap(qStressNodalView, s, i, 3) *
+                                            multisim::multisimWrap(qStressNodalView, s, i, 3) +
+                                        multisim::multisimWrap(qStressNodalView, s, i, 4) *
+                                            multisim::multisimWrap(qStressNodalView, s, i, 4) +
+                                        multisim::multisimWrap(qStressNodalView, s, i, 5) *
+                                            multisim::multisimWrap(qStressNodalView, s, i, 5)));
+      }
     }
 
     /* Convert nodal to modal */
@@ -232,7 +242,6 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     }
     return 1;
   }
-#endif
   return 0;
 }
 
@@ -247,7 +256,7 @@ unsigned Plasticity::computePlasticityBatched(
 #ifdef ACL_DEVICE
   static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
                 "modal and nodal dofs must have the same leading dimensions");
-  static_assert(tensor::Q::Shape[0] == tensor::v::Shape[0],
+  static_assert(tensor::Q::Shape[multisim::BasisFunctionDimension] == tensor::v::Shape[0],
                 "modal dofs and vandermonde matrix must hage the same leading dimensions");
 
   DeviceInstance& device = DeviceInstance::getInstance();

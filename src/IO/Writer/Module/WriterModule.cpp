@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "WriterModule.h"
+#include "utils/env.h"
 #include "utils/logger.h"
 #include <IO/Writer/Instructions/Data.h>
 #include <IO/Writer/Module/AsyncWriter.h>
@@ -17,6 +18,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -31,7 +33,9 @@ WriterModule::WriterModule(const std::string& prefix,
 void WriterModule::setUp() {
   logInfo() << "Output Writer" << settings.name << ": setup.";
   setExecutor(executor);
-  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi)) {
+  // TODO: adjust the CommThread call here
+  utils::Env env("SEISSOL_");
+  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
     const auto freeCpus = pinning.getFreeCPUsMask();
     logInfo() << "Output Writer" << settings.name
               << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);
@@ -61,7 +65,11 @@ void WriterModule::startup() {
   setSyncInterval(settings.interval);
 }
 
-void WriterModule::simulationStart() { syncPoint(0); }
+void WriterModule::simulationStart(std::optional<double> checkpointTime) {
+  if (checkpointTime.value_or(0) == 0) {
+    syncPoint(0);
+  }
+}
 
 void WriterModule::syncPoint(double time) {
   if (lastWrite >= 0) {

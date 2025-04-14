@@ -19,4 +19,4 @@ namespace seissol {
 
 } // namespace seissol
 
-#endif // SEISSOL_SRC_COMMON_CONSTANTS_H_
+#endif // SEISSOL_SRC_COMMON_OFFSET_H_

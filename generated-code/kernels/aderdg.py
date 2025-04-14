@@ -16,10 +16,8 @@ from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import parseJSONMatrixFile, parseXMLMatrixFile
 from yateto.memory import CSCMemoryLayout
-from yateto.util import (
-    tensor_collection_from_constant_expression,
-    tensor_from_constant_expression,
-)
+from yateto.util import (tensor_collection_from_constant_expression,
+                         tensor_from_constant_expression)
 
 
 class ADERDGBase(ABC):
@@ -28,6 +26,7 @@ class ADERDGBase(ABC):
         self.materialorder = materialorder
 
         self.alignStride = lambda name: True
+        self.multipleSimulations = multipleSimulations
         if multipleSimulations > 1:
             self.alignStride = lambda name: name.startswith("fP")
         transpose = multipleSimulations > 1

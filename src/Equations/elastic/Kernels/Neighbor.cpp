@@ -24,7 +24,9 @@
 #include <generated_code/tensor.h>
 #include <stdint.h>
 
+#ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#endif
 
 #include "utils/logger.h"
 

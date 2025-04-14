@@ -24,8 +24,6 @@
 #include <generated_code/tensor.h>
 #include <iterator>
 
-#include "Common/Offset.h"
-
 #include "Kernels/Common.h"
 #include "Kernels/DenseMatrixOps.h"
 
@@ -36,6 +34,10 @@
 #include <yateto.h>
 
 #include "utils/logger.h"
+
+#ifdef ACL_DEVICE
+#include "Common/Offset.h"
+#endif
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)

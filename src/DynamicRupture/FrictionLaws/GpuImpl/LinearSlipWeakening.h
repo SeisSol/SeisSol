@@ -184,16 +184,20 @@ class LinearSlipWeakeningLaw
 
   SEISSOL_DEVICE static void calcStateVariableHook(FrictionLawContext& ctx,
                                                    unsigned int timeIndex) {
-    const auto deltaT{ctx.data->deltaT[timeIndex]};
-    const real tn{ctx.fullUpdateTime + deltaT};
     const auto t0{ctx.data->drParameters.t0};
     const auto tpProxyExponent{ctx.data->drParameters.tpProxyExponent};
+
+    real tn = ctx.fullUpdateTime;
+    for (int i = 0; i <= timeIndex; ++i) {
+      tn += ctx.data->deltaT[i];
+    }
 
     const real resampledSlipRate =
         SpecializationT::resampleSlipRate(ctx, ctx.data->slipRateMagnitude[ctx.ltsFace]);
 
     // integrate slip rate to get slip = state variable
-    ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] += resampledSlipRate * deltaT;
+    ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
+        resampledSlipRate * ctx.data->deltaT[timeIndex];
 
     // Actually slip is already the stateVariable for this FL, but to simplify the next
     // equations we divide it here by the critical distance.
@@ -236,15 +240,23 @@ class NoSpecialization {
 
     constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(Dim0 == misc::NumPaddedPoints);
+    static_assert(Dim0 == misc::NumPaddedPointsSingleSim);
     static_assert(Dim0 >= Dim1);
 
     ctx.sharedMemory[ctx.pointIndex] = slipRateMagnitude[ctx.pointIndex];
     deviceBarrier(ctx);
 
+    const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
+    const auto simId = ctx.pointIndex % multisim::NumSimulations;
+
     real result{0.0};
     for (size_t i{0}; i < Dim1; ++i) {
-      result += ctx.resampleMatrix[ctx.pointIndex + i * Dim0] * ctx.sharedMemory[i];
+      if constexpr (multisim::MultisimEnabled) {
+        result += ctx.resampleMatrix[simPointIndex * Dim1 + i] *
+                  ctx.sharedMemory[i * multisim::NumSimulations + simId];
+      } else {
+        result += ctx.resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
+      }
     }
     return result;
   };

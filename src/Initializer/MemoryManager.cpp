@@ -458,12 +458,6 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
 
-  if constexpr (multisim::MultisimEnabled) {
-    if (m_dynRupTree.getNumberOfCells() > 0) {
-      logError() << "The dynamic rupture does not yet support fused simulations.";
-    }
-  }
-
 #ifdef ACL_DEVICE
   MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree, *m_dynRup.get());
   m_dynRupTree.allocateScratchPads();
@@ -823,31 +817,19 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
 
 bool seissol::initializer::isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
                                               unsigned int face) {
-#ifdef USE_ANISOTROPIC
-  return false;
-#else
   constexpr auto eps = std::numeric_limits<real>::epsilon();
   return material.neighbor[face].getMuBar() > eps && material.local.getMuBar() < eps;
-#endif
 }
 bool seissol::initializer::isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
                                              unsigned int face) {
-#ifdef USE_ANISOTROPIC
-  return false;
-#else
   constexpr auto eps = std::numeric_limits<real>::epsilon();
   return material.local.getMuBar() > eps && material.neighbor[face].getMuBar() < eps;
-#endif
 }
 
 bool seissol::initializer::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
-#ifndef USE_ANISOTROPIC
   return isAcousticSideOfElasticAcousticInterface(material, face) || isElasticSideOfElasticAcousticInterface(material, face);
-#else
-  return false;
-#endif
 }
 
 

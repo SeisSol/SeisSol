@@ -13,7 +13,9 @@
 #include <cstring>
 #include <stdint.h>
 
+#ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#endif
 
 #include <yateto.h>
 

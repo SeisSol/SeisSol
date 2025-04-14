@@ -11,6 +11,8 @@
 #include <Geometry/Refinement/VariableSubSampler.h>
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Kernels/Precision.h>
+#include <Parallel/Helper.h>
+#include <Parallel/MPI.h>
 #include <ResultWriter/WaveFieldWriterExecutor.h>
 #include <algorithm>
 #include <async/Module.h>
@@ -20,9 +22,11 @@
 #include <map>
 #include <memory>
 #include <mpi.h>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <utility>
+#include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -34,7 +38,8 @@
 
 void seissol::writer::WaveFieldWriter::setUp() {
   setExecutor(m_executor);
-  if (isAffinityNecessary()) {
+  utils::Env env("SEISSOL_");
+  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
     logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
@@ -498,6 +503,10 @@ void seissol::writer::WaveFieldWriter::write(double time) {
   logInfo() << "Writing wave field at time" << utils::nospace << time << ". Done.";
 }
 
-void seissol::writer::WaveFieldWriter::simulationStart() { syncPoint(0.0); }
+void seissol::writer::WaveFieldWriter::simulationStart(std::optional<double> checkpointTime) {
+  if (checkpointTime.value_or(0) == 0) {
+    syncPoint(0.0);
+  }
+}
 
 void seissol::writer::WaveFieldWriter::syncPoint(double currentTime) { write(currentTime); }

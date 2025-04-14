@@ -14,12 +14,16 @@
 #include <Geometry/Refinement/TriangleRefiner.h>
 #include <Kernels/Precision.h>
 #include <Monitoring/Instrumentation.h>
+#include <Parallel/Helper.h>
+#include <Parallel/MPI.h>
 #include <ResultWriter/FreeSurfaceWriterExecutor.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <async/Module.h>
 #include <cassert>
 #include <cstring>
+#include <optional>
 #include <string>
+#include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -90,7 +94,9 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
 
 void seissol::writer::FreeSurfaceWriter::setUp() {
   setExecutor(m_executor);
-  if (isAffinityNecessary()) {
+
+  utils::Env env("SEISSOL_");
+  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
     logInfo() << "Free surface writer thread affinity:"
               << parallel::Pinning::maskToString(freeCpus);
@@ -207,7 +213,11 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
   logInfo() << "Writing free surface at time" << utils::nospace << time << ". Done.";
 }
 
-void seissol::writer::FreeSurfaceWriter::simulationStart() { syncPoint(0.0); }
+void seissol::writer::FreeSurfaceWriter::simulationStart(std::optional<double> checkpointTime) {
+  if (checkpointTime.value_or(0) == 0) {
+    syncPoint(0.0);
+  }
+}
 
 void seissol::writer::FreeSurfaceWriter::syncPoint(double currentTime) {
   SCOREP_USER_REGION("freesurfaceoutput", SCOREP_USER_REGION_TYPE_FUNCTION)
