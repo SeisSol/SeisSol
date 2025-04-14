@@ -793,7 +793,7 @@ void seissol::initializer::MemoryManager::initializeEasiBoundaryReader(const cha
 void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticity) {
   recording::CompositeRecorder<seissol::initializer::LTS> recorder;
   recorder.addRecorder(new recording::LocalIntegrationRecorder);
-  recorder.addRecorder(new recording::NeighIntegrationRecorder);
+  recorder.addRecorder(new recording::NeighIntegrationRecorder(&m_globalDataOnDevice));
 
   if (usePlasticity) {
     recorder.addRecorder(new recording::PlasticityRecorder);
@@ -804,7 +804,7 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
   }
 
   recording::CompositeRecorder<seissol::initializer::DynamicRupture> drRecorder;
-  drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
+  drRecorder.addRecorder(new recording::DynamicRuptureRecorder(&m_globalDataOnDevice));
   for (auto& layer : m_dynRupTree.leaves(Ghost)) {
     drRecorder.record(*m_dynRup, layer);
   }

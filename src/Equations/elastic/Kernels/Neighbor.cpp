@@ -142,7 +142,7 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
   for (size_t face = 0; face < 4; face++) {
     size_t streamCounter{0};
 
-    runtime.envMany(
+    /*runtime.envMany(
         (*FaceRelations::Count) + (*DrFaceRelations::Count), [&](void* stream, size_t i) {
           if (i < (*FaceRelations::Count)) {
             // regular and periodic
@@ -200,7 +200,65 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
               ++streamCounter;
             }
           }
-        });
+        });*/
+    runtime.envMany(2, [&](void* stream, std::size_t index) {
+      if (index == 0) {
+        ConditionalKey key(
+            *KernelNames::NeighborFlux, (FaceKinds::Regular || FaceKinds::Periodic), face);
+
+        if (table.find(key) != table.end()) {
+          auto& entry = table[key];
+
+          kernel::gpu_neighboringFlux2 neighFluxKrnl;
+
+          const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+          neighFluxKrnl.numElements = numElements;
+
+          neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+          neighFluxKrnl.I =
+              const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+          neighFluxKrnl.AminusT = const_cast<const real**>(
+              (entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
+          neighFluxKrnl.dummyMinusFluxMatrix =
+              const_cast<const real**>(entry.get(inner_keys::Wp::Id::Global)->getDeviceDataPtr());
+
+          tmpMem = reinterpret_cast<real*>(
+              device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
+          neighFluxKrnl.linearAllocator.initialize(tmpMem);
+
+          neighFluxKrnl.streamPtr = stream;
+          neighFluxKrnl.execute();
+          ++streamCounter;
+        }
+      } else {
+        ConditionalKey key(*KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face);
+
+        if (table.find(key) != table.end()) {
+          auto& entry = table[key];
+
+          dynamicRupture::kernel::gpu_nodalFlux2 drKrnl;
+
+          const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+          drKrnl.numElements = numElements;
+
+          drKrnl.fluxSolver = const_cast<const real**>(
+              (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+          drKrnl.QInterpolated = const_cast<const real**>(
+              (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
+          drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+          drKrnl.dummyV3mTo2nTWDivM =
+              const_cast<const real**>(entry.get(inner_keys::Wp::Id::Global)->getDeviceDataPtr());
+
+          tmpMem = reinterpret_cast<real*>(
+              device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
+          drKrnl.linearAllocator.initialize(tmpMem);
+
+          drKrnl.streamPtr = stream;
+          drKrnl.execute();
+          ++streamCounter;
+        }
+      }
+    });
 
     resetDeviceCurrentState(streamCounter);
   }

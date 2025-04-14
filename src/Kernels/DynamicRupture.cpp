@@ -209,7 +209,29 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 
     // finish all previous work in the default stream
     size_t streamCounter{0};
-    runtime.envMany(20, [&](void* stream, size_t i) {
+    ConditionalKey plusSideKey(*KernelNames::DrSpaceMap);
+    if (table.find(plusSideKey) != table.end()) {
+      auto& entry = table[plusSideKey];
+      const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getSize();
+      dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints2 krnl;
+      real* tmpMem =
+          (real*)(device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
+      ++streamCounter;
+      krnl.linearAllocator.initialize(tmpMem);
+      krnl.streamPtr = runtime.stream();
+      krnl.numElements = numElements;
+      krnl.dummyV3mTo2n =
+          const_cast<const real**>((entry.get(inner_keys::Dr::Id::Global))->getDeviceDataPtr());
+
+      krnl.QInterpolated = (entry.get(inner_keys::Dr::Id::QInterpolatedPlus))->getDeviceDataPtr();
+      krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
+      krnl.Q =
+          const_cast<const real**>((entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr());
+      krnl.TinvT =
+          const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
+      krnl.execute();
+    }
+    /*runtime.envMany(20, [&](void* stream, size_t i) {
       unsigned side = i / 5;
       unsigned faceRelation = i % 5;
       if (faceRelation == 4) {
@@ -259,7 +281,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           krnl.execute(side, faceRelation);
         }
       }
-    });
+    });*/
     resetDeviceCurrentState(streamCounter);
   }
 #else
