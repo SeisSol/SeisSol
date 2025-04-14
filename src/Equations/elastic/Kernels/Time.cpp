@@ -19,10 +19,8 @@
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>
-#include <algorithm>
 #include <generated_code/kernel.h>
 #include <generated_code/tensor.h>
-#include <iterator>
 
 #include "Kernels/Common.h"
 #include "Kernels/DenseMatrixOps.h"
@@ -42,9 +40,13 @@ namespace seissol::kernels {
 
 TimeBase::TimeBase() {
   m_derivativesOffsets[0] = 0;
+  m_derivativesOffsets_DR[0] = 0;
   for (std::size_t order = 0; order < ConvergenceOrder; ++order) {
     if (order > 0) {
-      m_derivativesOffsets[order] = tensor::dQ::size(order - 1) + m_derivativesOffsets[order - 1];
+      m_derivativesOffsets[order] = tensor::dQ::size(order-1) + m_derivativesOffsets[order-1];
+      #ifdef MULTIPLE_SIMULATIONS
+      m_derivativesOffsets_DR[order] = tensor::dQ_DR::size(order-1) + m_derivativesOffsets_DR[order - 1];
+      #endif
     }
   }
 }
@@ -419,6 +421,35 @@ void Time::computeTaylorExpansion(real time,
   intKrnl.execute();
 }
 
+#ifdef MULTIPLE_SIMULATIONS
+void Time::computeTaylorExpansionDR(real time,
+                              real expansionPoint,
+                              const real* timeDerivatives,
+                              real timeEvaluated[tensor::singleSimQ::size()]) {
+
+  /// \todo (VK): activate this once the tensor implementation and yateto padding are sorted
+  // assert(((uintptr_t) timeDerivatives) % Alignment == 0);
+  // assert(((unintptr_t) timeEvaluated) % Alignment == 0);
+
+  // asert that this is a forward evaluation in time
+  assert( time >= expansionPoint);
+
+  real deltaT = time - expansionPoint;
+
+  seissol::dynamicRupture::kernel::derivativeTaylorExpansion_DR intKrnl;
+
+  intKrnl.I_DR = timeEvaluated;
+  for (unsigned i=0; i < yateto::numFamilyMembers<tensor::dQ_DR>(); ++ i){
+    intKrnl.dQ_DR(i) = timeDerivatives + m_derivativesOffsets_DR[i];
+  }
+  intKrnl.power_DR(0) = 1.0;
+  for (int derivative=1; derivative < ConvergenceOrder; ++derivative){
+    intKrnl.power_DR(derivative) = intKrnl.power_DR(derivative-1)*deltaT/real(derivative); 
+  }
+  intKrnl.execute();
+  }
+#endif
+
 void Time::computeBatchedTaylorExpansion(real time,
                                          real expansionPoint,
                                          real** timeDerivatives,
@@ -472,5 +503,9 @@ void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlop
 }
 
 unsigned int* Time::getDerivativesOffsets() { return m_derivativesOffsets; }
+
+unsigned int* Time::getDerivativesOffsetsDR(){
+  return m_derivativesOffsets_DR;
+}
 
 } // namespace seissol::kernels

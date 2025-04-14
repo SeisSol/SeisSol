@@ -177,10 +177,10 @@ void seissol::writer::FreeSurfaceWriter::init(
   removeBuffer(FreeSurfaceWriterExecutor::Vertices);
   removeBuffer(FreeSurfaceWriterExecutor::LocationFlags);
 
-  // Register for the synchronization point hook
-  Modules::registerHook(*this, ModuleHook::SimulationStart);
-  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
-  setSyncInterval(interval);
+	// Register for the synchronization point hook
+	Modules::registerHook(*this, ModuleHook::SimulationStart);
+  	Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
+	setSyncInterval(interval);
 
   delete[] cells;
   delete[] vertices;
@@ -208,9 +208,13 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
 
   call(param);
 
-  m_stopwatch.pause();
+	// Update the timestep in the checkpoint header
+	// seissolInstance.checkPointManager().header().value(m_timestepComp)++;
 
-  logInfo() << "Writing free surface at time" << utils::nospace << time << ". Done.";
+	m_stopwatch.pause();
+
+	logInfo() << "Writing free surface at time" << utils::nospace << time << ". Done.";
+
 }
 
 void seissol::writer::FreeSurfaceWriter::simulationStart(std::optional<double> checkpointTime) {

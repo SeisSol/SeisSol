@@ -70,6 +70,7 @@ class BaseDRInitializer {
    * @param drParameters reference to the DRParameters, which contain all information from the
    * DynamicRupture namelist in the parameters.par file
    */
+
   BaseDRInitializer(
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
       seissol::SeisSol& seissolInstance)

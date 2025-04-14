@@ -32,6 +32,7 @@
 #include <vector>
 
 namespace seissol::dr::initializer {
+
 void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
                                         seissol::initializer::LTSTree* const dynRupTree) {
   logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
@@ -110,9 +111,9 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
     if (initialStressParameterizedByTraction) {
       rotateTractionToCartesianStress(dynRup, layer, initialStress);
     }
-
     auto* initialStressInFaultCS = layer.var(dynRup->initialStressInFaultCS);
     rotateStressToFaultCS(dynRup, layer, initialStressInFaultCS, initialStress);
+
     // rotate nucleation stress to fault coordinate system
     if (nucleationStressParameterizedByTraction) {
       rotateTractionToCartesianStress(dynRup, layer, nucleationStress);

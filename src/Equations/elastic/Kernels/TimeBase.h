@@ -35,6 +35,7 @@ class TimeBase {
   kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 
   unsigned int m_derivativesOffsets[ConvergenceOrder];
+  unsigned int m_derivativesOffsets_DR[ConvergenceOrder];
 
 #ifdef ACL_DEVICE
   kernel::gpu_derivative deviceKrnlPrototype;

@@ -31,6 +31,7 @@
 #include <cstring>
 #include <init.h>
 #include <memory>
+#include <utils/logger.h>
 #include <vector>
 
 using namespace seissol::dr::misc::quantity_indices;
@@ -47,26 +48,75 @@ void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
   drTree = userDrTree;
   drDescr = userDrDescr;
 }
-
-void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
+#ifdef MULTIPLE_SIMULATIONS
+void ReceiverOutput::getDofs(real (&dofs)[tensor::Q::Shape[1] * tensor::Q::Shape[2]],
+                             int meshId,
+                             unsigned int nFused)
+#else
+void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId, unsigned int nFused)
+#endif
+{
   // get DOFs from 0th derivatives
   assert((wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup >> 9) % 2 == 1);
 
   real* derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
-  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
-}
+#ifdef ACL_DEVICE
+  device::DeviceInstance::getInstance().api->copyFrom(
+      &dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
+#else
+  #ifdef MULTIPLE_SIMULATIONS
+  real dummydofs[tensor::Q::size()] = {0.0};
+  kernel::dofsModified dofsModifiedKrnl;
+  dofsModifiedKrnl.Q = derivatives;
+  dofsModifiedKrnl.Q_ijs = dummydofs;
+  dofsModifiedKrnl.execute();
 
-void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side) {
+  std::copy(dummydofs + NumBasisFunctions * tensor::Q::Shape[2] * nFused,
+            dummydofs + NumBasisFunctions * tensor::Q::Shape[2] * (nFused + 1),
+            &dofs[0]);
+  #else
+  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+  #endif
+#endif
+}
+#ifdef MULTIPLE_SIMULATIONS
+void ReceiverOutput::getNeighbourDofs(real (&dofs)[tensor::Q::Shape[1] * tensor::Q::Shape[2]],
+                                      int meshId,
+                                      int side,
+                                      unsigned int nFused)
+#else
+void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side, unsigned int nFused)
+#endif
+{
   real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
   assert(derivatives != nullptr);
 
+#ifdef ACL_DEVICE
+  device::DeviceInstance::getInstance().api->copyFrom(
+      &dofs[0], &derivatives[0], sizeof(real) * tensor::dQ::Size[0]);
+#else
+  //(TODO Discuss: check and verify if this is right)
+  #ifdef MULTIPLE_SIMULATIONS
+  real dummydofs[tensor::Q::size()] = {0.0};
+  kernel::dofsModified dofsModifiedKrnl;
+  dofsModifiedKrnl.Q = derivatives;
+  dofsModifiedKrnl.Q_ijs = dummydofs;
+  dofsModifiedKrnl.execute();
+
+  std::copy(dummydofs + NumBasisFunctions * tensor::Q::Shape[2] * nFused,
+            dummydofs + NumBasisFunctions * tensor::Q::Shape[2] * (nFused + 1),
+            &dofs[0]);
+  #else
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+  #endif
+#endif
 }
 
 void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     std::shared_ptr<ReceiverOutputData> outputData,
+    unsigned int nFused,
     double time) {
 
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
@@ -87,16 +137,19 @@ void ReceiverOutput::calcFaultOutput(
 #pragma omp parallel for
 #endif
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
-    alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
-    alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
-
+#ifdef MULTIPLE_SIMULATIONS
+    alignas(Alignment) real dofsPlus[tensor::Q::Shape[1] * tensor::Q::Shape[2]]{};
+    alignas(Alignment) real dofsMinus[tensor::Q::Shape[1] * tensor::Q::Shape[2]]{};
+#else
+    alignas(ALIGNMENT) real dofsPlus[tensor::Q::size()]{};
+    alignas(ALIGNMENT) real dofsMinus[tensor::Q::size()]{};
+#endif
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");
 
     const auto faceIndex = outputData->receiverPoints[i].faultFaceIndex;
     assert(faceIndex != -1 && "receiver is not initialized");
     LocalInfo local{};
-
     auto [layer, ltsId] = (*faceToLtsMap)[faceIndex];
     local.layer = layer;
     local.ltsId = ltsId;
@@ -120,11 +173,13 @@ void ReceiverOutput::calcFaultOutput(
       std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
     }
 #else
-    getDofs(dofsPlus, faultInfo.element);
+
+    getDofs(dofsPlus, faultInfo.element, nFused);
+
     if (faultInfo.neighborElement >= 0) {
-      getDofs(dofsMinus, faultInfo.neighborElement);
+      getDofs(dofsMinus, faultInfo.neighborElement, nFused);
     } else {
-      getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
+      getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side, nFused);
     }
 #endif
 
@@ -150,12 +205,12 @@ void ReceiverOutput::calcFaultOutput(
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
     kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
 
-    kernel.Q = dofsPlus;
+    kernel.singleSimQ = dofsPlus;
     kernel.basisFunctionsAtPoint = phiPlusSide;
     kernel.QAtPoint = local.faceAlignedValuesPlus;
     kernel.execute();
 
-    kernel.Q = dofsMinus;
+    kernel.singleSimQ = dofsMinus;
     kernel.basisFunctionsAtPoint = phiMinusSide;
     kernel.QAtPoint = local.faceAlignedValuesMinus;
     kernel.execute();
@@ -429,16 +484,30 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     auto chiTau2dPoints =
         init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
     auto weights = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+    /// TODO: Understand why the dimension changes with MULTIPLE_SIMULATIONS
+    auto getWeights = [&weights](size_t index) {
+#ifdef MULTIPLE_SIMULATIONS
+      // return weights(index, 0);
+      return weights(0, index);
+#else
+      return weights(index);
+#endif
+    };
 
     auto* rt = getCellData(local, drDescr->ruptureTime);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
+      #ifdef MULTIPLE_SIMULATIONS
+      const real chi = chiTau2dPoints(0, jBndGP);
+      const real tau = chiTau2dPoints(1, jBndGP);
+      #else
       const real chi = chiTau2dPoints(jBndGP, 0);
       const real tau = chiTau2dPoints(jBndGP, 1);
+      #endif
+      
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
-
+      
       for (size_t d = 0; d < NumDegFr2d; ++d) {
-        projectedRT[d] +=
-            seissol::multisim::multisimWrap(weights, 0, jBndGP) * rt[jBndGP] * phiAtPoint[d];
+        projectedRT[d] += getWeights(jBndGP) * rt[jBndGP] * phiAtPoint[d];
       }
     }
 
@@ -447,9 +516,13 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     for (size_t d = 0; d < NumDegFr2d; ++d) {
       projectedRT[d] *= m2inv(d, d);
     }
-
+    #ifdef MULTIPLE_SIMULATIONS
+    const real chi = chiTau2dPoints(0, local.nearestInternalGpIndex);
+    const real tau = chiTau2dPoints(1, local.nearestInternalGpIndex);
+    #else
     const real chi = chiTau2dPoints(local.nearestInternalGpIndex, 0);
     const real tau = chiTau2dPoints(local.nearestInternalGpIndex, 1);
+    #endif
 
     basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
@@ -479,5 +552,4 @@ std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
           drDescr->slip1.index,
           drDescr->slip2.index};
 }
-
 } // namespace seissol::dr::output

@@ -8,13 +8,16 @@
 #include "DRParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>
 #include <Kernels/Precision.h>
+#include <Solver/MultipleSimulations.h>
 #include <cmath>
+#include <cstddef>
+#include <string>
 #include <limits>
 #include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
 
-DRParameters readDRParameters(ParameterReader* baseReader) {
+DRParameters readDRParameters(ParameterReader* baseReader, int i) {
   auto* reader = baseReader->readSubNode("dynamicrupture");
 
   const double xref = reader->readWithDefault("xref", 0.0);
@@ -102,7 +105,18 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto prakashLength =
       reader->readIfRequiredAlternatives<real>({"pc_prakashlength", "l"}, isBiMaterial);
 
-  const auto faultFileName = reader->readPath("modelfilename");
+  auto faultFileName = reader->readPath("modelfilename");
+
+  if (seissol::multisim::NumSimulations > 1) {
+    if (faultFileName) {
+      size_t pos = faultFileName->find(".yaml");
+      if (pos != std::string::npos) {
+        *faultFileName = faultFileName->substr(0, pos) + "_" + std::to_string(i) + ".yaml";
+      }
+    } else {
+      logError() << "fault file name has no entry";
+    }
+  }
 
   auto* outputReader = baseReader->readSubNode("output");
   const bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);

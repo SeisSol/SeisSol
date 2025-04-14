@@ -50,13 +50,18 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
   /** Frontend stopwatch */
   Stopwatch m_stopwatch;
 
-  dr::output::OutputManager* callbackObject{nullptr};
+
+	dr::output::OutputManager* callbackObject{nullptr};
+	int nFused = 0;
 
   public:
   FaultWriter(seissol::SeisSol& seissolInstance)
-      : seissolInstance(seissolInstance)
+      : seissolInstance(seissolInstance){};
 
-  {}
+      void setfusedNumber(int i_numFused){
+        nFused= i_numFused;
+        m_executor.nFused = i_numFused;
+      }
 
   /**
    * Called by ASYNC on all ranks
@@ -93,7 +98,7 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
     wait();
 
-    logInfo() << "Writing faultoutput at time" << utils::nospace << time << ".";
+		logInfo() << "Writing faultoutput at time" << utils::nospace << time << " for simulation number: " << nFused << ".";
 
     FaultParam param;
     param.time = time;
@@ -109,8 +114,9 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
 
     m_stopwatch.pause();
 
-    logInfo() << "Writing faultoutput at time" << utils::nospace << time << ". Done.";
-  }
+
+		logInfo() << "Writing faultoutput at time" << utils::nospace << time <<" for simulation number: " << nFused<< " . Done.";
+	}
 
   void close() {
     if (m_enabled) {
@@ -118,7 +124,6 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
     }
 
     finalize();
-
     if (!m_enabled) {
       return;
     }

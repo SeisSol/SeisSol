@@ -498,6 +498,9 @@ void seissol::writer::WaveFieldWriter::write(double time) {
   param.time = time;
   call(param);
 
+  // Update last time step
+  // seissolInstance.checkPointManager().header().value(m_timestepComp)++;
+
   m_stopwatch.pause();
 
   logInfo() << "Writing wave field at time" << utils::nospace << time << ". Done.";

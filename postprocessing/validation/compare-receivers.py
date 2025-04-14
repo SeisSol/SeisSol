@@ -191,7 +191,6 @@ def read_receiver(filename):
     variables = replace("u", "v1", variables, number_of_fused_sims)
     variables = replace("v", "v2", variables, number_of_fused_sims)
     variables = replace("w", "v3", variables, number_of_fused_sims)
-
     receiver.columns = variables
     return receiver
 

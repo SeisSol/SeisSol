@@ -162,16 +162,19 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       }
 
       const CellMaterialData& material = ltsLut.lookup(lts.material, meshId);
+#ifdef MULTIPLE_SIMULATIONS
       for (int s = 0; s < multisim::NumSimulations; ++s) {
         auto sub = multisim::simtensor(iniCond, s);
         iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, material, sub);
       }
-
+#else
+    iniFields[0]->evaluate(0.0, quadraturePointsXyz, material, iniCond);
+#endif
       krnl.Q = ltsLut.lookup(lts.dofs, meshId);
       if constexpr (kernels::HasSize<tensor::Qane>::Value) {
         kernels::set_Qane(krnl, &ltsLut.lookup(lts.dofsAne, meshId)[0]);
       }
-      krnl.execute();
+    krnl.execute();
     }
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
   }
@@ -281,12 +284,16 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
     kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
     kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
+    #ifdef MULTIPLE_SIMULATIONS
+    logError() << "Multiple simulations not supported for Easi initial conditions.";
+
+    #else
+    #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
 #endif
-    for (unsigned int meshId = 0; meshId < elements.size(); ++meshId) {
-      // TODO: multisim loop
 
+  for (unsigned int meshId = 0; meshId < elements.size(); ++meshId) {
+      // TODO: multisim loop
       for (std::size_t s = 0; s < seissol::multisim::NumSimulations; s++) {
         auto sub = multisim::simtensor(iniCond, s);
         for (std::size_t i = 0; i < NumQuadPoints; ++i) {
@@ -302,6 +309,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       }
       krnl.execute();
     }
+#endif
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
   }
 #endif

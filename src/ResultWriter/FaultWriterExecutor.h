@@ -36,9 +36,10 @@ struct FaultParam {
 class FaultWriterExecutor {
   public:
   enum BufferIds { OutputPrefix = 0, Cells = 1, Vertices = 2, FaultTags = 3, Variables0 = 4 };
+	int nFused = 0;
 
-  private:
-  xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter{nullptr};
+private:
+	xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter{nullptr};
 
 #ifdef USE_MPI
   /** The MPI communicator for the writer */

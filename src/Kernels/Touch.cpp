@@ -9,6 +9,7 @@
 #include "Touch.h"
 
 #include "generated_code/tensor.h"
+#include <utils/logger.h>
 #include <Kernels/Precision.h>
 #include <yateto.h>
 
@@ -23,11 +24,9 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
 #pragma omp parallel for schedule(static)
 #endif
   for (unsigned cell = 0; cell < numberOfCells; ++cell) {
-    // touch buffers
     real* buffer = buffers[cell];
     if (buffer != nullptr) {
       for (unsigned dof = 0; dof < tensor::Q::size(); ++dof) {
-        // zero time integration buffers
         buffer[dof] = (real)0;
       }
     }

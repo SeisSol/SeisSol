@@ -217,15 +217,30 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         }
       }
 
-      auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
+      auto numSub = numericalSolution;
 
       // Evaluate numerical solution at quad. nodes
+      auto dofs = ltsLut->lookup(lts->dofs, meshId);
+      real dummydofs[tensor::Q::size()] = {0.0};
+      kernel::dofsModified dofsModifiedKrnl;
+      dofsModifiedKrnl.Q = dofs;
+      dofsModifiedKrnl.Q_ijs = dummydofs;
+      dofsModifiedKrnl.execute();
       kernel::evalAtQP krnl;
       krnl.evalAtQP = globalData->evalAtQPMatrix;
       krnl.dofsQP = numericalSolutionData;
-      krnl.Q = ltsLut->lookup(lts->dofs, meshId);
+      constexpr int index = seissol::multisim::MultisimEnabled ? 1 : 0;
+      krnl.QSingleSim = dummydofs + tensor::Q::Shape[index] * tensor::Q::Shape[index+1] * sim;
       krnl.execute();
-
+      kernel::dofsModifiedReversed dofModifiedReversedKrnl;
+      dofModifiedReversedKrnl.Q = dofs;
+      dofModifiedReversedKrnl.Q_ijs = dummydofs;
+      dofModifiedReversedKrnl.execute();
+      // Evaluate analytical solution at quad. nodes
+      const CellMaterialData& material = ltsLut->lookup(lts->material, meshId);
+      iniFields[sim % iniFields.size()]->evaluate(
+          simulationTime, quadraturePointsXyz, material, analyticalSolution);
+          
       for (size_t i = 0; i < NumQuadPoints; ++i) {
         const auto curWeight = jacobiDet * quadratureWeights[i];
         for (size_t v = 0; v < NumQuantities; ++v) {

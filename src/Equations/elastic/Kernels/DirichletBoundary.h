@@ -18,7 +18,6 @@
 #include <Parallel/Runtime/Stream.h>
 
 #include "Solver/MultipleSimulations.h"
-
 #ifdef ACL_DEVICE
 #include "Equations/elastic/Kernels/DeviceAux/KernelsAux.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"

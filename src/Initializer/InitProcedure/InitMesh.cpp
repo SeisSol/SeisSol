@@ -71,11 +71,14 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.exchangeGhostlayerMetadata();
 
   logInfo() << "Extracting fault information.";
-  auto* drParameters = seissolInstance.getMemoryManager().getDRParameters();
-  const VrtxCoords center{drParameters->referencePoint[0],
-                          drParameters->referencePoint[1],
-                          drParameters->referencePoint[2]};
-  meshReader.extractFaultInformation(center, drParameters->refPointMethod);
+
+  auto drParameters = seissolInstance.getMemoryManager().getDRParameters();
+
+  VrtxCoords center{drParameters[0]->referencePoint[0],
+                    drParameters[0]->referencePoint[1],
+                    drParameters[0]->referencePoint[2]}; /// \todo (VK) find a cleaner better way to do this for fused simulations. Right now, we are assuming
+                    // that the user does not mess up and put different reference points in different simulation files
+  meshReader.extractFaultInformation(center, drParameters[0]->refPointMethod); /// \todo (VK): same as above
 
   seissolInstance.getLtsLayout().setMesh(meshReader);
 

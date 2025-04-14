@@ -18,6 +18,9 @@
 #include <stdint.h>
 #include <tensor.h>
 
+#include "Kernels/Common.h"
+#include "Numerical/BasisFunction.h"
+#include "Numerical/Quadrature.h"
 #include "utils/logger.h"
 
 #include "Numerical/Quadrature.h"
@@ -112,54 +115,67 @@ void DynamicRupture::spaceTimeInterpolation(
     DREnergyOutput* drEnergyOutput,
     const real* timeDerivativePlus,
     const real* timeDerivativeMinus,
-    real qInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
-    real qInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+    real QInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+    real QInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch) {
   // assert alignments
 #ifndef NDEBUG
-  assert(timeDerivativePlus != nullptr);
-  assert(timeDerivativeMinus != nullptr);
-  assert((reinterpret_cast<uintptr_t>(timeDerivativePlus)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Alignment == 0);
-  static_assert(tensor::Q::size() == tensor::I::size(),
-                "The tensors Q and I need to match in size");
+  assert( timeDerivativePlus != nullptr );
+  assert( timeDerivativeMinus != nullptr );
+  #ifndef MULTIPLE_SIMULATIONS
+  assert( ((uintptr_t)timeDerivativePlus) % Alignment == 0 ); // All these are required to be on once we figure out how to get the padding on for other dimensions
+  assert( ((uintptr_t)timeDerivativeMinus) % Alignment == 0 );
+  assert( ((uintptr_t)&QInterpolatedPlus[0]) % Alignment == 0 );
+  assert( ((uintptr_t)&QInterpolatedMinus[0]) % Alignment == 0 );
+  #endif
+
+  static_assert( tensor::Q::size() == tensor::I::size() , "The tensors Q and I need to match in size");
 #endif
 
-  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
-  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
+#ifdef MULTIPLE_SIMULATIONS
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::singleSimQ::size()] = {0.0}; // Important to have PagesizeStack here. Otherwise, stack smashing with Alignment
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::singleSimQ::size()] = {0.0};
+#else
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()] = {0.0}; 
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()] = {0.0}; 
+#endif 
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
   for (std::size_t timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
 #ifdef USE_STP
-    m_timeKernel.evaluateAtTime(
+  #ifdef MULTIPLE_SIMULATIONS
+  logError() << "STP is not yet ready with fused simulations";
+  #else
+  m_timeKernel.evaluateAtTime(
         timeBasisFunctions[timeInterval], timeDerivativePlus, degreesOfFreedomPlus);
-    m_timeKernel.evaluateAtTime(
+  m_timeKernel.evaluateAtTime(
         timeBasisFunctions[timeInterval], timeDerivativeMinus, degreesOfFreedomMinus);
+  #endif
 #else
-    m_timeKernel.computeTaylorExpansion(
-        timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
-    m_timeKernel.computeTaylorExpansion(
-        timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
+    /// \todo (VK): revert this to the original one once the other yateto and other things are fixed
+    #ifdef MULTIPLE_SIMULATIONS
+    m_timeKernel.computeTaylorExpansionDR(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus); // Need to check what is going into timeDerivativePlus here mainly given that the data is probably for the entire fused simulation and interleaved
+    m_timeKernel.computeTaylorExpansionDR(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus); // Need to check what is going into timeDerivativeMinus here mainly given that the data is probably for the entire fused simulation and interleaved
+    // This function does correct things if correct things go inside it
+    #else
+    m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
+    m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
+    #endif
 #endif
 
-    const real* plusPrefetch = (timeInterval < ConvergenceOrder - 1)
-                                   ? &qInterpolatedPlus[timeInterval + 1][0]
-                                   : timeDerivativePlusPrefetch;
-    const real* minusPrefetch = (timeInterval < ConvergenceOrder - 1)
-                                    ? &qInterpolatedMinus[timeInterval + 1][0]
-                                    : timeDerivativeMinusPrefetch;
-
-    krnl.QInterpolated = &qInterpolatedPlus[timeInterval][0];
-    krnl.Q = degreesOfFreedomPlus;
+    // \todo (VK): fix the prefetch values to correct ones
+    real const* plusPrefetch = (timeInterval < ConvergenceOrder-1) ? &QInterpolatedPlus[timeInterval+1][0] : timeDerivativePlusPrefetch;
+    real const* minusPrefetch = (timeInterval < ConvergenceOrder-1) ? &QInterpolatedMinus[timeInterval+1][0] : timeDerivativeMinusPrefetch;
+    
+    krnl.QInterpolated = &QInterpolatedPlus[timeInterval][0]; // Only Q interpolate changes
+    krnl.singleSimQ = degreesOfFreedomPlus;
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = plusPrefetch;
     krnl.execute(faceInfo.plusSide, 0);
-
-    krnl.QInterpolated = &qInterpolatedMinus[timeInterval][0];
-    krnl.Q = degreesOfFreedomMinus;
+    
+    krnl.QInterpolated = &QInterpolatedMinus[timeInterval][0]; // Only Q interpolate changes
+    krnl.singleSimQ = degreesOfFreedomMinus;
     krnl.TinvT = godunovData->TinvT;
     krnl._prefetch.QInterpolated = minusPrefetch;
     krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);

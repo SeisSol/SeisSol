@@ -6,6 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "SeisSolParameters.h"
+#include <Initializer/Parameters/DRParameters.h>
+#include <vector>
 #include <Initializer/Parameters/CubeGeneratorParameters.h>
 #include <Initializer/Parameters/DRParameters.h>
 #include <Initializer/Parameters/InitializationParameters.h>
@@ -15,6 +17,7 @@
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Initializer/Parameters/ParameterReader.h>
 #include <Initializer/Parameters/SourceParameters.h>
+#include <Solver/MultipleSimulations.h>
 #include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
@@ -24,7 +27,10 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
 
   const CubeGeneratorParameters cubeGeneratorParameters =
       readCubeGeneratorParameters(parameterReader);
-  const DRParameters drParameters = readDRParameters(parameterReader);
+  std::array<std::shared_ptr<DRParameters>, seissol::multisim::NumSimulations> drParameters;
+  for (int i = 0; i < seissol::multisim::NumSimulations; i++) {
+    drParameters[i] = std::make_shared<DRParameters>(readDRParameters(parameterReader, i));
+  }
   const InitializationParameters initializationParameters =
       readInitializationParameters(parameterReader);
   const MeshParameters meshParameters = readMeshParameters(parameterReader);

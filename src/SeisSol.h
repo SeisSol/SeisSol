@@ -13,6 +13,7 @@
 #include <IO/Manager.h>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "utils/env.h"
 #include "utils/logger.h"
@@ -31,6 +32,7 @@
 #include "ResultWriter/PostProcessor.h"
 #include "ResultWriter/WaveFieldWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
+#include "Solver/MultipleSimulations.h"
 #include "Solver/Simulator.h"
 #include "Solver/time_stepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
@@ -99,7 +101,9 @@ class SeisSol {
   /**
    * Get the fault writer module
    */
-  writer::FaultWriter& faultWriter() { return m_faultWriter; }
+  std::array<std::unique_ptr<writer::FaultWriter>, seissol::multisim::NumSimulations>& faultWriter() {
+    return m_faultWriter;
+  }
 
   /**
    * Get the receiver writer module
@@ -242,7 +246,7 @@ class SeisSol {
   writer::WaveFieldWriter m_waveFieldWriter;
 
   //! Fault output module
-  writer::FaultWriter m_faultWriter;
+  std::array<std::unique_ptr<writer::FaultWriter>, seissol::multisim::NumSimulations> m_faultWriter = {nullptr};
 
   //! Receiver writer module
   writer::ReceiverWriter m_receiverWriter;
@@ -265,15 +269,20 @@ class SeisSol {
 
   std::optional<std::size_t> executionPlaceCutoff;
 
-  utils::Env m_env;
+  utils::Env m_env{"SEISSOL_"};
 
   public:
   SeisSol(initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
       : outputManager(*this), m_seissolParameters(parameters), m_ltsLayout(parameters),
         m_memoryManager(std::make_unique<initializer::MemoryManager>(*this)), m_timeManager(*this),
         m_freeSurfaceWriter(*this), m_analysisWriter(*this), m_waveFieldWriter(*this),
-        m_faultWriter(*this), m_receiverWriter(*this), m_energyOutput(*this),
-        timeMirrorManagers(*this, *this), m_env(env) {}
+        m_receiverWriter(*this), m_energyOutput(*this),
+        timeMirrorManagers(*this, *this) {
+          for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
+            m_faultWriter[i] = std::make_unique<writer::FaultWriter>(*this);
+            m_faultWriter[i]->setfusedNumber(i);
+          }
+        }
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

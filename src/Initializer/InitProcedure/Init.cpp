@@ -19,6 +19,7 @@
 #include "Parallel/MPI.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 
 #ifdef ACL_DEVICE
 #include "Monitoring/Unit.h"
@@ -89,7 +90,9 @@ void closeSeisSol(seissol::SeisSol& seissolInstance) {
   logInfo() << "Closing IO.";
   // cleanup IO
   seissolInstance.waveFieldWriter().close();
-  seissolInstance.faultWriter().close();
+  for (unsigned int i = 0; i < seissol::multisim::NumSimulations; i++) {
+    seissolInstance.faultWriter()[i]->close();
+  }
   seissolInstance.freeSurfaceWriter().close();
 
   // deallocate memory manager

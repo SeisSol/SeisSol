@@ -11,17 +11,23 @@
 
 #include "Kernels/Neighbor.h"
 
+#include <DynamicRupture/Misc.h>
+#include <Kernels/Common.h>
+#include <Kernels/Precision.h>
+#include <Model/CommonDatastructures.h>
+#include <cassert>
+#include <kernel.h>
+
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
-#include <Kernels/NeighborBase.h>
-#include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>
-#include <cassert>
+#include <Solver/MultipleSimulations.h>
 #include <cstddef>
 #include <generated_code/tensor.h>
+
 #include <stdint.h>
 
 #include "utils/logger.h"
@@ -105,17 +111,41 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
                      data.cellInformation().faceRelations[face][0],
                      face);
       break;
-    }
-    case FaceType::DynamicRupture: {
-      // No neighboring cell contribution, interior bc.
-      assert(reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov) % Alignment == 0);
-
-      dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
-      drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
-      drKrnl.QInterpolated = cellDrMapping[face].godunov;
-      drKrnl.Q = data.dofs();
-      drKrnl._prefetch.I = faceNeighborsPrefetch[face];
-      drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
+      }
+    case FaceType::DynamicRupture:
+      {
+        real fluxSolver_ijs[init::fluxSolverMultipleSim::size()]{};
+        real godunov_ijs[init::QInterpolatedMultipleSim::size()]{};
+  
+        for (int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+          std::memcpy(&fluxSolver_ijs[sim * init::fluxSolver::size()],
+                      cellDrMapping[face].fluxSolver[sim],
+                      init::fluxSolver::size() * sizeof(real));
+          std::memcpy(&godunov_ijs[sim * init::QInterpolated::size()],
+                      cellDrMapping[face].godunov[sim],
+                      init::QInterpolated::size() * sizeof(real));
+        }
+  
+        alignas(Alignment) real fluxSolver[init::fluxSolverMultipleSim::size()]{};
+        alignas(Alignment) real godunov[init::QInterpolatedMultipleSim::size()]{};
+  
+        dynamicRupture::kernel::fluxSolverModifiedReversed fluxSolverKrnl;
+        fluxSolverKrnl.fluxSolverMultiple_ijs = fluxSolver_ijs;
+        fluxSolverKrnl.fluxSolverMultipleSim = fluxSolver;
+        fluxSolverKrnl.execute();
+  
+        dynamicRupture::kernel::QInterpolatedModifiedReversed godunovKrnl;
+        godunovKrnl.QInterpolatedMultiple_ijs = godunov_ijs;
+        godunovKrnl.QInterpolatedMultipleSim = godunov;
+        godunovKrnl.execute();
+  
+        assert(reinterpret_cast<uintptr_t>(godunov) % Alignment == 0);
+        dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
+        drKrnl.fluxSolverMultipleSim = fluxSolver;
+        drKrnl.QInterpolatedMultipleSim = godunov;
+        drKrnl.Q = data.dofs();
+        drKrnl._prefetch.I = faceNeighborsPrefetch[face];
+        drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       break;
     }
     default:

@@ -358,7 +358,6 @@ if(${EQUATIONS} STREQUAL "poroelastic")
   endif()
 endif()
 
-
 if (INTEGRATE_QUANTITIES)
   target_compile_definitions(seissol-common-properties INTERFACE INTEGRATE_QUANTITIES)
 endif()
