@@ -16,6 +16,7 @@
 #include "Memory/Tree/Lut.h"
 
 #include <DynamicRupture/Misc.h>
+#include <Equations/Datastructures.h>
 #include <memory>
 #include <vector>
 
@@ -84,8 +85,8 @@ class ReceiverOutput {
     real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
     real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
 
-    model::IsotropicWaveSpeeds* waveSpeedsPlus{};
-    model::IsotropicWaveSpeeds* waveSpeedsMinus{};
+    IsotropicWaveSpeeds<model::MaterialT::VaryingWavespeeds>* waveSpeedsPlus{};
+    IsotropicWaveSpeeds<model::MaterialT::VaryingWavespeeds>* waveSpeedsMinus{};
 
     ReceiverOutputData* state{};
   };

@@ -40,6 +40,7 @@ struct PlasticityData {
 
   static constexpr std::size_t NumQuantities = 7;
   static constexpr std::size_t NumberPerMechanism = 0;
+  static constexpr std::size_t Parameters = 9;
   static const inline std::string Text = "plasticity";
   static inline const std::array<std::string, NumQuantities> Quantities = {
       "ep_xx", "ep_yy", "ep_zz", "ep_xy", "ep_yz", "ep_xz", "eta"};

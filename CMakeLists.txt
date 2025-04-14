@@ -164,6 +164,7 @@ add_custom_command(
      "--device_arch" ${DEVICE_ARCH_STR}
      "--device_backend" ${DEVICE_BACKEND}
      "--order" ${ORDER}
+     "--materialorder" ${MATERIAL_ORDER}
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
      "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
@@ -425,6 +426,7 @@ target_include_directories(seissol-common-properties INTERFACE
 )
 
 target_compile_definitions(seissol-common-properties INTERFACE
+    MATERIAL_ORDER=${MATERIAL_ORDER}
     CONVERGENCE_ORDER=${ORDER}
     NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
     ${DR_QUAD_RULE}
@@ -439,6 +441,9 @@ if ("${DEVICE_ARCH_STR}" STREQUAL "none")
   set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
 else()
   set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
+endif()
+if (MATERIAL_ORDER GREATER 1)
+  set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_h${MATERIAL_ORDER}")
 endif()
 
 if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)

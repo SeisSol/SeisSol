@@ -10,6 +10,7 @@
 #include "LtsWeights.h"
 
 #include "Geometry/PUMLReader.h"
+#include <Equations/Datastructures.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/ParameterDB.h>
 #include <Initializer/Parameters/LtsParameters.h>
@@ -124,6 +125,17 @@ LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissol
       boundaryFormat(config.boundaryFormat) {}
 
 void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
+  bool continueComputation = true;
+  if (!model::MaterialT::SupportsLTS) {
+    logInfo() << "The material" << model::MaterialT::Text
+              << "does not support LTS. Switching to GTS.";
+    continueComputation = false;
+  }
+  if (m_rate == 1) {
+    logInfo() << "GTS has been selected.";
+    continueComputation = false;
+  }
+
   logInfo() << "Computing LTS weights.";
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
@@ -134,9 +146,15 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
   auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
   auto maxClusterIdToEnforce = ltsParameters.getMaxNumberOfClusters() - 1;
 
+  if (!continueComputation) {
+    // enforce GTS
+    maxClusterIdToEnforce = 0;
+  }
+
   prepareDifferenceEnforcement();
 
-  if (ltsParameters.isWiggleFactorUsed() || ltsParameters.isAutoMergeUsed()) {
+  if ((ltsParameters.isWiggleFactorUsed() || ltsParameters.isAutoMergeUsed()) &&
+      continueComputation) {
     auto autoMergeBaseline = ltsParameters.getAutoMergeCostBaseline();
     if (!(ltsParameters.isWiggleFactorUsed() && ltsParameters.isAutoMergeUsed())) {
       // Cost models only change things if both wiggle factor and auto merge are on.

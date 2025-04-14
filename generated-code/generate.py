@@ -17,6 +17,7 @@ import sys
 
 import kernels.dynamic_rupture
 import kernels.general
+import kernels.material
 import kernels.memlayout
 import kernels.nodalbc
 import kernels.plasticity
@@ -41,6 +42,7 @@ def main():
     cmdLineParser.add_argument("--device_backend", default=None)
     cmdLineParser.add_argument("--device_arch", default=None)
     cmdLineParser.add_argument("--order", type=int)
+    cmdLineParser.add_argument("--materialorder", type=int)
     cmdLineParser.add_argument("--numberOfMechanisms", type=int)
     cmdLineParser.add_argument("--memLayout")
     cmdLineParser.add_argument("--multipleSimulations", type=int)
@@ -167,6 +169,9 @@ def main():
         cmdArgsDict = vars(cmdLineArgs)
         cmdArgsDict["memLayout"] = mem_layout
 
+        if cmdArgsDict["materialorder"] == 1:
+            cmdArgsDict["materialorder"] = None
+
         adg = equation(**cmdArgsDict)
 
         include_tensors = set()
@@ -212,6 +217,16 @@ def main():
             generator, adg, include_tensors, targets
         )
         kernels.point.addKernels(generator, adg)
+        kernels.material.addKernels(
+            generator,
+            adg,
+            cmdLineArgs.matricesDir,
+            cmdLineArgs.PlasticityMethod,
+            cmdLineArgs.materialorder,
+            cmdLineArgs.order,
+            cmdLineArgs.drQuadRule,
+            include_tensors,
+        )
 
         outputDirName = f"equation-{adg.name()}-{order}-{precision}"
         trueOutputDir = os.path.join(cmdLineArgs.outputDir, outputDirName)

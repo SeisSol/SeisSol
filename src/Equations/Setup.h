@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_EQUATIONS_SETUP_H_
 #define SEISSOL_SRC_EQUATIONS_SETUP_H_
 
+#include <Model/HighOrderMaterialSetup.h>
+
 // IWYU pragma: begin_exports
 
 // Gather all Setup Headers here

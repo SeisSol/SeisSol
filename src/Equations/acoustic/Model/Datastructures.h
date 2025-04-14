@@ -28,6 +28,7 @@ struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
   static constexpr std::size_t NumElasticQuantities = 4;
   static constexpr std::size_t NumberPerMechanism = 0;
+  static constexpr std::size_t TractionQuantities = 1;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Acoustic;
   static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
@@ -35,11 +36,17 @@ struct AcousticMaterial : public Material {
   // The stress-velocity formulation of the elastic model is reused.
   // By definition, the normal stress and pressure are negatives of each other.
   static inline const std::array<std::string, NumQuantities> Quantities = {"-p", "v1", "v2", "v3"};
+  static constexpr std::size_t Parameters = 1 + Material::Parameters;
+
+  static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsLTS = true;
 
   using LocalSpecificData = AcousticLocalData;
   using NeighborSpecificData = AcousticNeighborData;
 
   double lambda;
+
+  void setMuLambda(double mu, double lambda) override { this->lambda = lambda; }
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 

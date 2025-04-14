@@ -19,21 +19,24 @@ class ViscoelasticADERDG(LinearADERDG):
         multipleSimulations,
         matricesDir,
         memLayout,
+        materialorder,
         numberOfMechanisms,
-        **kwargs
+        **kwargs,
     ):
         self.numberOfMechanisms = numberOfMechanisms
         self.numberOfElasticQuantities = 9
+        self.numberOfAnelasticQuantities = 6
 
-        super().__init__(order, multipleSimulations, matricesDir)
+        super().__init__(order, multipleSimulations, matricesDir, materialorder)
         clones = {
             "star": ["star(0)", "star(1)", "star(2)"],
         }
         self.db.update(
-            parseXMLMatrixFile(
-                "{}/matrices_viscoelastic.xml".format(matricesDir), clones
-            )
+            parseXMLMatrixFile(f"{matricesDir}/matrices_viscoelastic.xml", clones)
         )
+
+        for i in range(3):
+            self.db.star[i] = self.matdup(self.db.star[i])
 
         star_spp = self.db.star[0].spp().as_ndarray()
         star_rows, star_cols = star_spp.shape
@@ -75,7 +78,10 @@ class ViscoelasticADERDG(LinearADERDG):
         self.kwargs = kwargs
 
     def numberOfQuantities(self):
-        return 9 + 6 * self.numberOfMechanisms
+        return (
+            self.numberOfElasticQuantities
+            + self.numberOfAnelasticQuantities * self.numberOfMechanisms
+        )
 
     def starMatrix(self, dim):
         return self.db.star[dim]
@@ -84,14 +90,14 @@ class ViscoelasticADERDG(LinearADERDG):
         return self.db.ET
 
     def name(self):
-        return "viscoelastic2"
+        return "viscoelastic"
 
     def godunov_spp(self):
         spp = np.zeros(
             (self.numberOfQuantities(), self.numberOfQuantities()), dtype=bool
         )
         spp[0 : self.numberOfElasticQuantities, :] = True
-        return spp
+        return self.matdup(spp)
 
     def flux_solver_spp(self):
         return self.godunov_spp()
@@ -103,8 +109,14 @@ class ViscoelasticADERDG(LinearADERDG):
         spp[0:6, 0:6] = 1
         spp[6:9, 6:9] = 1
         for mechs in range(self.numberOfMechanisms):
-            offset = 9 + mechs * 6
-            spp[offset : (offset + 6), offset : (offset + 6)] = 1
+            offset = (
+                self.numberOfElnumberOfElasticQuantitiesasticQuantities
+                + mechs * self.numberOfAnelasticQuantities
+            )
+            spp[
+                offset : (offset + self.numberOfAnelasticQuantities),
+                offset : (offset + self.numberOfAnelasticQuantities),
+            ] = 1
         return spp
 
     def transformation_inv_spp(self):

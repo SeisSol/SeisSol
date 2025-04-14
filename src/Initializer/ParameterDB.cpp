@@ -19,6 +19,7 @@
 #include <Kernels/Precision.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Datastructures.h>
+#include <Model/HighOrderMaterial.h>
 #include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cassert>
@@ -131,6 +132,33 @@ easi::Query ElementBarycenterGenerator::generate() const {
     query.x(elem, 1) = barycenter(1);
     query.x(elem, 2) = barycenter(2);
     query.group(elem) = m_cellToVertex.elementGroups(elem);
+  }
+  return query;
+}
+
+easi::Query ElementInterpolationGenerator::generate() const {
+  easi::Query query(m_cellToVertex.size * seissol::init::hompoints::Shape[0], 3);
+
+  auto pointview =
+      seissol::init::hompoints::view::create(const_cast<real*>(seissol::init::hompoints::Values));
+
+#pragma omp parallel for schedule(static)
+  for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
+    const auto vertices = m_cellToVertex.elementCoordinates(elem);
+    const auto group = m_cellToVertex.elementGroups(elem);
+    for (std::size_t i = 0; i < seissol::init::hompoints::Shape[0]; ++i) {
+      const std::size_t entry = elem * seissol::init::hompoints::Shape[0] + i;
+      std::array<double, 3> refpoint;
+      refpoint[0] = pointview(i, 0);
+      refpoint[1] = pointview(i, 1);
+      refpoint[2] = pointview(i, 2);
+      const Eigen::Vector3d point = seissol::transformations::tetrahedronReferenceToGlobal(
+          vertices[0], vertices[1], vertices[2], vertices[3], refpoint.data());
+      query.x(entry, 0) = point(0);
+      query.x(entry, 1) = point(1);
+      query.x(entry, 2) = point(2);
+      query.group(entry) = group;
+    }
   }
   return query;
 }
@@ -359,6 +387,27 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     // Usual behavior without homogenization
     for (unsigned i = 0; i < numPoints; ++i) {
       m_materials->at(i) = T(materialsFromQuery[i]);
+    }
+  }
+  delete model;
+}
+
+template <typename BaseMaterialT, std::size_t Order>
+void MaterialParameterDB<seissol::model::HighOrderMaterial<BaseMaterialT, Order>>::evaluateModel(
+    const std::string& fileName, const QueryGenerator& queryGen) {
+  easi::Component* model = loadEasiModel(fileName);
+  easi::Query query = queryGen.generate();
+  const unsigned numPoints = query.numPoints();
+
+  std::vector<BaseMaterialT> materialsFromQuery(numPoints);
+  easi::ArrayOfStructsAdapter<BaseMaterialT> adapter(materialsFromQuery.data());
+  MaterialParameterDB<BaseMaterialT>().addBindingPoints(adapter);
+  model->evaluate(query, adapter);
+
+  for (unsigned i = 0; i < numPoints / seissol::init::hompoints::Shape[0]; ++i) {
+    for (int j = 0; j < seissol::init::hompoints::Shape[0]; ++j) {
+      m_materials->at(i).materials[j] =
+          BaseMaterialT(materialsFromQuery[i * seissol::init::hompoints::Shape[0] + j]);
     }
   }
   delete model;
@@ -628,25 +677,34 @@ easi::Component* loadEasiModel(const std::string& fileName) {
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
                                                       bool useCellHomogenizedMaterial,
                                                       const CellToVertexArray& cellToVertex) {
-  std::shared_ptr<QueryGenerator> queryGen;
-  if (!useCellHomogenizedMaterial) {
-    queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
+  if constexpr (MATERIAL_ORDER > 1) {
+    if (!useCellHomogenizedMaterial) {
+      logWarning() << "Material Averaging is not implemented for high-order materials yet. Falling "
+                      "back to interpolation.";
+    }
+    return std::make_shared<ElementInterpolationGenerator>(cellToVertex);
   } else {
-    if (MaterialT::Type != MaterialType::Viscoelastic && MaterialT::Type != MaterialType::Elastic) {
-      logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
-                   << " materials. Falling back to "
-                      "material properties sampled from the element barycenters instead.";
-      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
-    } else if (plasticity) {
-      logWarning()
-          << "Material Averaging is not implemented for plastic materials. Falling back to "
-             "material properties sampled from the element barycenters instead.";
+    std::shared_ptr<QueryGenerator> queryGen;
+    if (!useCellHomogenizedMaterial) {
       queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
     } else {
-      queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex);
+      if (MaterialT::Type != MaterialType::Viscoelastic &&
+          MaterialT::Type != MaterialType::Elastic) {
+        logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
+                     << " materials. Falling back to "
+                        "material properties sampled from the element barycenters instead.";
+        queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
+      } else if (plasticity) {
+        logWarning()
+            << "Material Averaging is not implemented for plastic materials. Falling back to "
+               "material properties sampled from the element barycenters instead.";
+        queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
+      } else {
+        queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex);
+      }
     }
+    return queryGen;
   }
-  return queryGen;
 }
 
 template class MaterialParameterDB<seissol::model::AnisotropicMaterial>;
@@ -655,5 +713,8 @@ template class MaterialParameterDB<seissol::model::AcousticMaterial>;
 template class MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
 template class MaterialParameterDB<seissol::model::PoroElasticMaterial>;
 template class MaterialParameterDB<seissol::model::Plasticity>;
+
+template class MaterialParameterDB<
+    seissol::model::HighOrderMaterial<ElasticMaterial, MATERIAL_ORDER>>;
 
 } // namespace seissol::initializer

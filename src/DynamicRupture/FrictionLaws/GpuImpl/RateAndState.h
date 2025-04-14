@@ -121,15 +121,16 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       auto& exportMu = devMu[ctx.ltsFace][ctx.pointIndex];
 
       real slipRateTest{};
-      bool hasConvergedLocal = RateAndStateBase::invertSlipRateIterative(ctx,
-                                                                         slipRateTest,
-                                                                         localStateVariable,
-                                                                         normalStress,
-                                                                         absoluteShearStress,
-                                                                         localSlipRateMagnitude,
-                                                                         localImpAndEta.invEtaS,
-                                                                         exportMu,
-                                                                         settings);
+      bool hasConvergedLocal =
+          RateAndStateBase::invertSlipRateIterative(ctx,
+                                                    slipRateTest,
+                                                    localStateVariable,
+                                                    normalStress,
+                                                    absoluteShearStress,
+                                                    localSlipRateMagnitude,
+                                                    localImpAndEta.invEtaS(ctx.pointIndex),
+                                                    exportMu,
+                                                    settings);
       deviceBarrier(ctx);
 
       devLocalSlipRate = 0.5 * (localSlipRateMagnitude + std::fabs(slipRateTest));
@@ -172,7 +173,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
         slipRateMagnitude * deltaTime;
 
     // Update slip rate
-    const auto etaS = ctx.data->impAndEta[ctx.ltsFace].etaS;
+    const auto etaS = ctx.data->impAndEta[ctx.ltsFace].etaS(ctx.pointIndex);
     const auto divisor = strength + etaS * slipRateMagnitude;
     auto slipRate1 = slipRateMagnitude * totalTraction1 / divisor;
     auto slipRate2 = slipRateMagnitude * totalTraction2 / divisor;

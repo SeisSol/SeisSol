@@ -188,7 +188,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
               for (unsigned int i = 0;
                    i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
                    ++i) {
-                const double rho = materialData->local.rho;
+                const double rho = materialData->local.getRhoBar();
                 assert(localG > 0);
                 const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);
 

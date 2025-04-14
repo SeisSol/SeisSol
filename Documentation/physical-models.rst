@@ -9,19 +9,15 @@
 Physical Models
 ===============
 
-Overview
---------
-
 SeisSol includes various physical models to simulate realistic earthquake scenarios.
-SeisSol assumes constant material values per element.
-By default, the elastic and viscoelastic materials are sampled by averaging over the whole element (c.f. https://mediatum.ub.tum.de/node?id=1664043).
-You can turn this feature off, by setting :code:`UseCellHomogenizedMaterial = 0` in the :ref:`parameter-file` to fall back to sampling at the element barycenter.
-Anisotropic and poroelastic materials are never averaged and always sampled at the element barycenter.
+
+Implemented Material Types
+--------------------------
 
 Elastic
 ^^^^^^^
 
-This is the standard model in SeisSol and it implements isotropic elastic materials.
+The isotropic elastic wave equation.
 The constitutive behaviour is :math:`\sigma_{ij} =  \lambda \delta_{ij} \epsilon_{kk} + 2\mu \epsilon_{ij}` with stress :math:`\sigma` and strain :math:`\epsilon`.
 Elastic materials can be extended to elastoplastic materials (see :ref:`tpv-13`).
 
@@ -30,16 +26,16 @@ Elastic materials can be extended to elastoplastic materials (see :ref:`tpv-13`)
 Anisotropic
 ^^^^^^^^^^^
 
-This is an extension of the elastic material, where direction-dependent effects also play a role.
+An extension of the elastic material, where direction-dependent effects also play a role.
 The stress strain relation is given by the :math:`\sigma_{ij} = c_{ijkl} \epsilon_{kl}`.
 Whereas isotropic materials are described by two material parameters, the tensor :math:`c` has :math:`81` entries.
 Due to symmetry considerations there are only :math:`21` independent parameters, which have to be specified in the material file:
 :code:`c11`, :code:`c12`, :code:`c13`, :code:`c14`, :code:`c15`, :code:`c16`, :code:`c22`, :code:`c23`, :code:`c24`, :code:`c25`, :code:`c26`, :code:`c33`, :code:`c34`, :code:`c35`, :code:`c36`, :code:`c44`, :code:`c45`, :code:`c46`, :code:`c55`, :code:`c56`, :code:`c66`.
 For more details about the anisotropic stiffness tensor, see: https://en.wikipedia.org/wiki/Hooke%27s_law#Anisotropic_materials.
 All parameters have to be set, even if they are zero.
-If only the two Lamé parameters are provided, SeisSol assumes isotropic behaviour.
+If only the two Lamé parameters are provided, SeisSol assumes isotropic behavior.
 
-Example of an material file for a homogeneous anisotropic fullspace. The material describes the tilted transversally isotropic medium from chapter 5.4 in
+Example of a material file for a homogeneous anisotropic fullspace. The material describes the tilted transversally isotropic medium from chapter 5.4 in
 https://link.springer.com/chapter/10.1007/978-3-030-50420-5_3.
 
 .. code:: yaml
@@ -113,3 +109,19 @@ Viscoelastic
 
 Viscoelasticity is used to model the dissipation of wave energy over time.
 A full documentation can be found in :ref:`attenuation`.
+
+High-order Material (beta)
+--------------------------
+
+By default, SeisSol assumes constant material values per element.
+
+However, since recently, SeisSol also supports a polynomial flux matrix expansion over the cell.
+To enable the feature, set ``MATERIAL_ORDER=2`` or ``MATERIAL_ORDER=3`` in CMake.
+
+Material Sampling
+-----------------
+
+By default, the elastic and viscoelastic materials are sampled by averaging over the whole element (c.f. https://mediatum.ub.tum.de/node?id=1664043).
+You can turn this feature off, by setting :code:`UseCellHomogenizedMaterial = 0` in the :ref:`parameter-file` to fall back to sampling at the element barycenter.
+Anisotropic elastic and poroelastic materials are never averaged and always sampled at the element barycenter.
+

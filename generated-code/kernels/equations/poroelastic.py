@@ -210,7 +210,7 @@ class PoroelasticADERDG(LinearADERDG):
         def kSub(d, n):
             Bn_1, Bn = modeRange(n)
             stiffnessSpp = np.zeros(fullShape)
-            stiffnessSpp[:, Bn_1:Bn] = -stiffnessValues[d][:, Bn_1:Bn]
+            stiffnessSpp[..., Bn_1:Bn] = -stiffnessValues[d][..., Bn_1:Bn]
             return Tensor("kDivMTSub({},{})".format(d, n), fullShape, spp=stiffnessSpp)
 
         QAtTimeSTP = OptionalDimTensor(
@@ -266,13 +266,15 @@ class PoroelasticADERDG(LinearADERDG):
                 if n > 0:
                     derivativeSum = spaceTimePredictorRhs["kpt"]
                     star = (
-                        (lambda d: self.starMatrix(d)["qp"] * timestep)
+                        (lambda d: self.starMatrix(d)[self.m("qp")] * timestep)
                         if target == "gpu"
-                        else lambda d: self.starMatrix(d)["qp"]
+                        else lambda d: self.starMatrix(d)[self.m("qp")]
                     )
                     for d in range(3):
                         derivativeSum += (
-                            kSub(d, n)["kl"] * spaceTimePredictor["lqt"] * star(d)
+                            kSub(d, n)[self.mt("kl")]
+                            * spaceTimePredictor["lqt"]
+                            * star(d)
                         )
                 kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
             kernels.append(

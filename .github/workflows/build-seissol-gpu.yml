@@ -21,13 +21,14 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('{0}_{1}{2}_{3}_{4}_{5}{6}',
+          format('{0}_{1}{2}_{3}_{4}_{5}{6}{7}',
             matrix.build_type,
             matrix.precision == 'single' && 's' || 'd',
             matrix.setup.arch,
             matrix.setup.backend,
             matrix.equation.order,
             matrix.equation.type,
+            matrix.equation.materialorder != 1 && format('_h{0}', matrix.equation.materialorder) || '',
             matrix.equation.multisim != 1 && format('_f{0}', matrix.equation.multisim) || ''
           )
         }}
@@ -43,27 +44,38 @@ jobs:
           - type: acoustic
             multisim: 1
             mechanisms: 0
+            materialorder: 1
             order: 6
           - type: elastic
             multisim: 1
             mechanisms: 0
+            materialorder: 1
             order: 6
-          #- type: poroelastic # Does not work yet
-          #  multisim: 1
-          #  mechanisms: 0
-          #  order: 6
+          - type: poroelastic
+            multisim: 1
+            mechanisms: 0
+            materialorder: 1
+            order: 6
           - type: viscoelastic2
             multisim: 1
             mechanisms: 3
+            materialorder: 1
             order: 6
           - type: anisotropic
             multisim: 1
             mechanisms: 0
+            materialorder: 1
             order: 6
           - type: elastic
             multisim: 32
             mechanisms: 0
+            materialorder: 1
             order: 3
+          - type: elastic
+            multisim: 1
+            mechanisms: 0
+            materialorder: 2
+            order: 6
         precision:
           - single
           - double
@@ -126,7 +138,7 @@ jobs:
       - id: build
         name: build-seissol
         run: |
-          if [ "${{ matrix.equation.type }}" = viscoelastic2 ] || [ "${{ matrix.equation.type }}" = poroelastic ] || [ "${{ matrix.equation.multisim }}" != 1 ]; then
+          if [ "${{ matrix.equation.type }}" = viscoelastic2 ] || [ "${{ matrix.equation.type }}" = poroelastic ] || [ "${{ matrix.equation.multisim }}" != 1 || [ "${{ matrix.equation.materialorder }}" != 1  ]; then
               if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
                   # the Intel image still works with an older Python version. Hence, use the following hack.
                   pip3 install pyyaml
@@ -154,14 +166,14 @@ jobs:
           export CXX=${{matrix.setup.cxx}}
           export FC=${{matrix.setup.fc}}
 
-          cmake .. -GNinja -DDEVICE_CODEGEN=${DEVICE_CODEGEN} -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.equation.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
+          cmake .. -GNinja -DDEVICE_CODEGEN=${DEVICE_CODEGEN} -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.equation.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DMATERIAL_ORDER=${{ matrix.equation.materialorder }} -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
           ninja install
 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.equation.order}}-${{matrix.equation.type}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.equation.order}}-${{matrix.equation.type}}-${{matrix.equation.materialorder}}-${{matrix.equation.multisim}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
   seissol-cache-precomputed:
@@ -197,13 +209,14 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('{0}_{1}{2}_{3}_{4}_{5}{6}',
+          format('{0}_{1}{2}_{3}_{4}_{5}{6}{7}',
             matrix.build_type,
             matrix.precision == 'single' && 's' || 'd',
             matrix.setup.arch,
             matrix.setup.backend,
             matrix.case.order,
             matrix.case.equation,
+            matrix.equation.materialorder != 1 && format('_h{0}', matrix.equation.materialorder) || '',
             matrix.case.multisim != 1 && format('_f{0}', matrix.case.multisim) || ''
           )
         }}
@@ -377,7 +390,7 @@ jobs:
       - name: get-seissol
         uses: actions/download-artifact@v4
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.case.order}}-${{matrix.case.equation}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.case.order}}-${{matrix.equation.materialorder}}-${{matrix.case.equation}}-${{matrix.setup.cc}}
           path: install
       - name: run-seissol
         id: run

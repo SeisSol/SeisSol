@@ -45,6 +45,9 @@ set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
 
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 
+set(MATERIAL_ORDER 1 CACHE STRING "Material order (possible: 1,2,3)")
+set(MATERIAL_ORDER_OPTIONS 1 2 3)
+
 set(EQUATIONS "elastic" CACHE STRING "Equation set used")
 set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
@@ -81,7 +84,7 @@ set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
 
 
 set(DR_QUAD_RULE "stroud" CACHE STRING "Dynamic Rupture quadrature rule")
-set(DR_QUAD_RULE_OPTIONS stroud dunavant)
+set(DR_QUAD_RULE_OPTIONS stroud dunavant witherden_vincent)
 set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
 
 
@@ -139,6 +142,7 @@ check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
+check_parameter("MATERIAL_ORDER" ${MATERIAL_ORDER} "${MATERIAL_ORDER_OPTIONS}")
 
 string(REPLACE "," ";" GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
 

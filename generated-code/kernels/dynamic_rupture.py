@@ -17,8 +17,14 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
     clones = dict()
 
     # Load matrices
+    matrixFile = f"{matricesDir}/dr-{drQuadRule}-{aderdg.order}.json"
+    if aderdg.materialorder is not None:
+        matrixFile = (
+            f"{matricesDir}/dr-{drQuadRule}-{aderdg.order}-h{aderdg.materialorder}.json"
+        )
+
     db = parseJSONMatrixFile(
-        f"{matricesDir}/dr_{drQuadRule}_matrices_{aderdg.order}.json",
+        matrixFile,
         clones,
         alignStride=aderdg.alignStride,
         transpose=aderdg.transpose,
@@ -70,7 +76,8 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
     fluxScale = Scalar("fluxScaleDR")
     generator.add(
         "rotateFluxMatrix",
-        fluxSolver["qp"] <= fluxScale * aderdg.starMatrix(0)["qk"] * aderdg.T["pk"],
+        fluxSolver[aderdg.m("qp")]
+        <= fluxScale * aderdg.starMatrix(0)[aderdg.m("qk")] * aderdg.T["pk"],
     )
 
     numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
@@ -110,9 +117,9 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
     nodalFluxGenerator = (
         lambda i, h: aderdg.extendedQTensor()["kp"]
         <= aderdg.extendedQTensor()["kp"]
-        + db.V3mTo2nTWDivM[i, h][aderdg.t("kl")]
+        + db.V3mTo2nTWDivM[i, h][aderdg.mt("kl")]
         * QInterpolated["lq"]
-        * fluxSolver["qp"]
+        * fluxSolver[aderdg.m("qp")]
     )
     nodalFluxPrefetch = lambda i, h: aderdg.I
 
