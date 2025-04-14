@@ -1260,6 +1260,14 @@ struct SolutionData<model::AcousticMaterial> : public ElasticSolutionData {
   // TODO: add solutions here
 };
 
+template <>
+struct SolutionData<model::DamageMaterial> : public ElasticSolutionData {
+  const inline static std::vector<double> MaterialVal1{2700, 3.23980992e10, 3.24038016e10};
+  const inline static std::vector<double> MaterialVal2{2600, 1.04e10, 2.08e10};
+
+  // TODO: add solutions here
+};
+
 } // namespace seissol::unit_test
 
 #endif // SEISSOL_SRC_TESTS_MODEL_VALUES_H_
