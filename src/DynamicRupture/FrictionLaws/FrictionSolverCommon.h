@@ -605,7 +605,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
       const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
       const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
 
-      const auto spaceWeight = spaceWeights[i];
+      const auto spaceWeight = spaceWeights[i / multisim::NumSimulations];
 
       const auto weight = -timeWeight * spaceWeight * doubledSurfaceArea;
       frictionalEnergy[i] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +

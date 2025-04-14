@@ -35,6 +35,10 @@
 
 #include "utils/logger.h"
 
+#ifdef ACL_DEVICE
+#include "Common/Offset.h"
+#endif
+
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
@@ -201,12 +205,11 @@ void Time::computeBatchedAder(double timeStepWidth,
     derivativesKrnl.numElements = numElements;
     derivativesKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
 
-    unsigned starOffset = 0;
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      derivativesKrnl.star(i) =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
-      derivativesKrnl.extraOffset_star(i) = starOffset;
-      starOffset += tensor::star::size(i);
+      derivativesKrnl.star(i) = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      derivativesKrnl.extraOffset_star(i) =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
 
     unsigned derivativesOffset = 0;
