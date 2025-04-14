@@ -11,6 +11,8 @@
 #include <Geometry/Refinement/VariableSubSampler.h>
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Kernels/Precision.h>
+#include <Parallel/Helper.h>
+#include <Parallel/MPI.h>
 #include <ResultWriter/WaveFieldWriterExecutor.h>
 #include <algorithm>
 #include <async/Module.h>
@@ -24,6 +26,7 @@
 #include <ostream>
 #include <string>
 #include <utility>
+#include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -35,7 +38,8 @@
 
 void seissol::writer::WaveFieldWriter::setUp() {
   setExecutor(m_executor);
-  if (isAffinityNecessary()) {
+  utils::Env env("SEISSOL_");
+  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
     logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {

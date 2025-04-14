@@ -327,8 +327,8 @@ void OutputManager::initPickpointOutput() {
           const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
           const auto* initialStress = initialStressVar[face];
           std::array<real, 6> unrotatedInitialStress{};
-          for (std::size_t i = 0; i < unrotatedInitialStress.size(); ++i) {
-            unrotatedInitialStress[i] = initialStress[i][receiver.nearestGpIndex];
+          for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size(); ++stressVar) {
+            unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.nearestGpIndex];
           }
 
           seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
