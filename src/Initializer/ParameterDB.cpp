@@ -206,7 +206,7 @@ easi::Query FaultGPGenerator::generate() const {
   const std::vector<Element>& elements = m_meshReader.getElements();
   auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
 
-  constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingle;
+  constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim;
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   easi::Query query(NumPoints * m_faceIDs.size(), 3);
   unsigned q = 0;

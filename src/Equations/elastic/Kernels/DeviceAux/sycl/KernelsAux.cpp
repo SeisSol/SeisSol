@@ -304,7 +304,7 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
     sycl::local_accessor<real, 3> resultTerm(
         sycl::range<3>(INodalDim1, INodalDim0, multisim::NumSimulations), cgh);
     sycl::local_accessor<real, 3> rightTerm(
-        sycl::range<3>(ConstantDim1, ConstantDim0, multisim::NumSimulations), cgh);
+        sycl::range<3>(ConstantDim0, ConstantDim1, multisim::NumSimulations), cgh);
     sycl::local_accessor<real, 2> leftTerm(sycl::range<2>(MapDim0, MapDim2), cgh);
 
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -318,11 +318,11 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
         auto easiBoundaryConstant = easiBoundaryConstantPtrs[elementId];
 
         for (int i = tid; i < (ldConstantDim * ConstantDim1); i += item.get_local_range(0)) {
-          const auto s = i % multisim::NumSimulations;
-          const auto si = i / multisim::NumSimulations;
-          const auto b = si % ldConstantDim;
-          const auto l = si / ldConstantDim;
-          rightTerm[b][l][s] = easiBoundaryConstant[i];
+          const auto sim = i % multisim::NumSimulations;
+          const auto subsim = i / multisim::NumSimulations;
+          const auto quantity = subsim % ConstantDim0;
+          const auto quadpoint = subsim / ConstantDim0;
+          rightTerm[quantity][quadpoint][sim] = easiBoundaryConstant[i];
         }
         item.barrier();
 
@@ -333,27 +333,28 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
         }
         item.barrier();
 
-        for (int b = 0; b < MapDim1; ++b) {
-          for (int l = 0; l < MapDim2; ++l) {
+        for (int quantity = 0; quantity < MapDim1; ++quantity) {
+          for (int quadpoint = 0; quadpoint < MapDim2; ++quadpoint) {
             if (tid < MapDim0) {
-              leftTerm[tid][l] = easiBoundaryMap[tid + ldMapDim * (b + l * MapDim1)];
+              leftTerm[tid][quadpoint] =
+                  easiBoundaryMap[tid + ldMapDim * (quantity + quadpoint * MapDim1)];
             }
           }
           item.barrier();
 
           if (tid < MapDim2) {
-            const real col = dofsFaceBoundaryNodal[tid + b * ldINodalDim];
-            for (int a = 0; a < MapDim0; ++a) {
-              resultTerm[a][tid][sid] += leftTerm[a][tid] * col;
+            const real col = dofsFaceBoundaryNodal[tid + quantity * ldINodalDim];
+            for (int quantity2 = 0; quantity2 < MapDim0; ++quantity2) {
+              resultTerm[quantity2][tid][sid] += leftTerm[quantity2][tid] * col;
             }
           }
           item.barrier();
         }
 
         if (tid < INodalDim0) {
-          for (int a = 0; a < INodalDim1; ++a) {
-            dofsFaceBoundaryNodal[tid + a * ldINodalDim] =
-                resultTerm[a][tid][sid] + rightTerm[a][tid][sid];
+          for (int quantity2 = 0; quantity2 < INodalDim1; ++quantity2) {
+            dofsFaceBoundaryNodal[tid + quantity2 * ldINodalDim] =
+                resultTerm[quantity2][tid][sid] + rightTerm[quantity2][tid][sid];
           }
         }
       }

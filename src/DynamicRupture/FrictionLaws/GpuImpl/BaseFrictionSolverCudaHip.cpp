@@ -89,7 +89,7 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   using StreamT = hipStream_t;
 #endif
   auto stream = reinterpret_cast<StreamT>(runtime.stream());
-  dim3 block(multisim::NumSimulations, misc::NumPaddedPointsSingle, PaddedMultiple);
+  dim3 block(multisim::NumSimulations, misc::NumPaddedPointsSingleSim, PaddedMultiple);
   dim3 grid((this->currLayerSize + PaddedMultiple - 1) / PaddedMultiple);
   flkernelwrapper<T><<<grid, block, 0, stream>>>(this->currLayerSize,
                                                  data,

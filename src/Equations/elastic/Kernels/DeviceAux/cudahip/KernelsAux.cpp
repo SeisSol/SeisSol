@@ -335,7 +335,7 @@ __global__ void kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
       seissol::tensor::easiBoundaryConstant::Shape[multisim::BasisFunctionDimension + 0];
   constexpr auto constantDim1 =
       seissol::tensor::easiBoundaryConstant::Shape[multisim::BasisFunctionDimension + 1];
-  __shared__ __align__(8) real rightTerm[constantDim1][constantDim0][multisim::NumSimulations];
+  __shared__ __align__(8) real rightTerm[constantDim0][constantDim1][multisim::NumSimulations];
 
   constexpr auto ldMapDim = leadDim<seissol::init::easiBoundaryMap>();
   constexpr auto mapDim0 = seissol::tensor::easiBoundaryMap::Shape[0];
@@ -352,41 +352,43 @@ __global__ void kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
     auto easiBoundaryConstant = easiBoundaryConstantPtrs[elementId];
 
     for (int i = linearidx(); i < (ldConstantDim * constantDim1); i += linearsize()) {
-      const auto s = i % multisim::NumSimulations;
-      const auto si = i / multisim::NumSimulations;
-      const auto b = si % ldConstantDim;
-      const auto l = si / ldConstantDim;
-      rightTerm[b][l][s] = easiBoundaryConstant[i];
+      const auto sim = i % multisim::NumSimulations;
+      const auto subsim = i / multisim::NumSimulations;
+      const auto quantity = subsim % constantDim0;
+      const auto quadpoint = subsim / constantDim0;
+      rightTerm[quantity][quadpoint][sim] = easiBoundaryConstant[i];
     }
     __syncthreads();
 
     for (int i = 0; i < iNodalDim1; ++i) {
-      if (tid < iNodalDim0)
+      if (tid < iNodalDim0) {
         resultTerm[i][tid][simidx()] = 0.0;
+      }
     }
     __syncthreads();
 
-    for (int b = 0; b < mapDim1; ++b) {
-      for (int l = 0; l < mapDim2; ++l) {
+    for (int quantity = 0; quantity < mapDim1; ++quantity) {
+      for (int quadpoint = 0; quadpoint < mapDim2; ++quadpoint) {
         if (tid < mapDim0) {
-          leftTerm[tid][l] = easiBoundaryMap[tid + ldMapDim * (b + l * mapDim1)];
+          leftTerm[tid][quadpoint] =
+              easiBoundaryMap[tid + ldMapDim * (quantity + quadpoint * mapDim1)];
         }
       }
       __syncthreads();
 
       if (tid < mapDim2) {
-        const real col = dofsFaceBoundaryNodal[linearidx() + b * ldINodalDim];
-        for (int a = 0; a < mapDim0; ++a) {
-          resultTerm[a][tid][simidx()] += leftTerm[a][tid] * col;
+        const real col = dofsFaceBoundaryNodal[linearidx() + quantity * ldINodalDim];
+        for (int quantity2 = 0; quantity2 < mapDim0; ++quantity2) {
+          resultTerm[quantity2][tid][simidx()] += leftTerm[quantity2][tid] * col;
         }
       }
       __syncthreads();
     }
 
     if (tid < iNodalDim0) {
-      for (int a = 0; a < iNodalDim1; ++a) {
-        dofsFaceBoundaryNodal[linearidx() + a * ldINodalDim] =
-            resultTerm[a][tid][simidx()] + rightTerm[a][tid][simidx()];
+      for (int quantity2 = 0; quantity2 < iNodalDim1; ++quantity2) {
+        dofsFaceBoundaryNodal[linearidx() + quantity2 * ldINodalDim] =
+            resultTerm[quantity2][tid][simidx()] + rightTerm[quantity2][tid][simidx()];
       }
     }
   }

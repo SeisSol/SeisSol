@@ -41,7 +41,7 @@ static constexpr inline size_t NumPaddedPoints =
     multisim::MultisimEnabled
         ? dimSize<init::QInterpolated, 0>() * dimSize<init::QInterpolated, 1>()
         : leadDim<init::QInterpolated>();
-static constexpr inline size_t NumPaddedPointsSingle =
+static constexpr inline size_t NumPaddedPointsSingleSim =
     dimSize<init::QInterpolated, multisim::BasisFunctionDimension>();
 static constexpr inline size_t NumQuantities =
     misc::dimSize<init::QInterpolated, multisim::BasisFunctionDimension + 1>();
