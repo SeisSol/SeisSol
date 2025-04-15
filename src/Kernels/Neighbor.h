@@ -40,7 +40,6 @@ class Neighbor : public NeighborBase {
                               long long& drHardwareFlops);
 
   unsigned bytesNeighborsIntegral();
-  
 };
 
 } // namespace seissol::kernels

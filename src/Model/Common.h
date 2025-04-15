@@ -14,13 +14,13 @@
 #include <Equations/Datastructures.h>
 
 #include "Geometry/MeshTools.h"
-#include <Geometry/MeshDefinition.h>
-#include <Geometry/MeshReader.h>
 #include "Initializer/Typedefs.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 #include "generated_code/init.h"
 #include "utils/logger.h"
+#include <Geometry/MeshDefinition.h>
+#include <Geometry/MeshReader.h>
 
 #include "Model/CommonDatastructures.h"
 
@@ -75,13 +75,19 @@ void initializeSpecificLocalData(const T& material,
                                  Vertex localVertices[4],
                                  real& localVolume,
                                  real localSurfaces[4],
-                                 std::array<std::array<double, 3>,4>& localNormal,
-                                 std::array<std::array<double, 3>,4>& localTangent1,
-                                 std::array<std::array<double, 3>,4>& localTangent2,
+                                 std::array<std::array<double, 3>, 4>& localNormal,
+                                 std::array<std::array<double, 3>, 4>& localTangent1,
+                                 std::array<std::array<double, 3>, 4>& localTangent2,
                                  typename T::LocalSpecificData* localData) {
-  MaterialSetup<T>::initializeSpecificLocalData(material, timeStepWidth, 
-    localVertices, localVolume, localSurfaces, localNormal, localTangent1, localTangent2,
-    localData);
+  MaterialSetup<T>::initializeSpecificLocalData(material,
+                                                timeStepWidth,
+                                                localVertices,
+                                                localVolume,
+                                                localSurfaces,
+                                                localNormal,
+                                                localTangent1,
+                                                localTangent2,
+                                                localData);
 }
 
 template <typename T>

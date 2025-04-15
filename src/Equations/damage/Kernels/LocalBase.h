@@ -54,7 +54,7 @@ class LocalBase {
   public:
   virtual void setInitConds(decltype(initConds) initConds) { this->initConds = initConds; }
 
-  virtual void updateMaterials (LocalData& data);
+  virtual void updateMaterials(LocalData& data);
 
   void setGravitationalAcceleration(double g) { gravitationalAcceleration = g; }
 

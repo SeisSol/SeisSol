@@ -16,9 +16,9 @@
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 #include "generated_code/init.h"
-#include <Geometry/MeshDefinition.h>
 #include <Equations/damage/Model/Datastructures.h>
 #include <Equations/damage/Model/IntegrationData.h>
+#include <Geometry/MeshDefinition.h>
 
 namespace seissol::model {
 using Matrix1010 = Eigen::Matrix<double, 10, 10>;
@@ -238,7 +238,7 @@ struct MaterialSetup<DamageMaterial> {
         normal, tangent1, tangent2, matTinv, 0, 0);
     seissol::transformations::inverseTensor1RotationMatrix(
         normal, tangent1, tangent2, matTinv, 6, 6);
-    
+
     // damage
     matT(9, 9) = 1;
     matTinv(9, 9) = 1;
@@ -254,15 +254,15 @@ struct MaterialSetup<DamageMaterial> {
                                           Vertex localVertices[4],
                                           real& localVolume,
                                           real localSurfaces[4],
-                                          std::array<std::array<double, 3>,4>& localNormal,
-                                          std::array<std::array<double, 3>,4>& localTangent1,
-                                          std::array<std::array<double, 3>,4>& localTangent2,
+                                          std::array<std::array<double, 3>, 4>& localNormal,
+                                          std::array<std::array<double, 3>, 4>& localTangent1,
+                                          std::array<std::array<double, 3>, 4>& localTangent2,
                                           DamageLocalData* localData) {
     // currently, it takes new memory. Later on can switch to pointers
-    for (int i_v = 0; i_v < 4; i_v++){
+    for (int i_v = 0; i_v < 4; i_v++) {
       localData->localVertices[i_v] = localVertices[i_v];
       localData->localSurfaces[i_v] = localSurfaces[i_v];
-      for (int i_c = 0; i_c < 3; i_c++){
+      for (int i_c = 0; i_c < 3; i_c++) {
         localData->localNormal[i_v][i_c] = localNormal[i_v][i_c];
         localData->localTangent1[i_v][i_c] = localTangent1[i_v][i_c];
         localData->localTangent2[i_v][i_c] = localTangent2[i_v][i_c];

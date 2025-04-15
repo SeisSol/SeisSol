@@ -42,9 +42,9 @@ struct DamageMaterial : Material {
   double lambda;
   double mu;
   double gammaR;
-  double Cd; // damage evolution coefficient
+  double Cd;      // damage evolution coefficient
   double lambdaE; // effective
-  double muE; // effective
+  double muE;     // effective
   // store the initial strain for predictor step
   double epsInit_xx;
   double epsInit_yy;
@@ -65,40 +65,40 @@ struct DamageMaterial : Material {
   [[nodiscard]] double getMuBar() const override { return mu; }
 
   DamageMaterial() = default;
-  
+
   void assignTotalStrain() override {
-        this->muE = this->mu;
-        this->lambdaE = this->lambda;
-        this->epsTot_xx = this->epsInit_xx;
-        this->epsTot_yy = this->epsInit_yy;
-        this->epsTot_zz = this->epsInit_zz;
-        this->epsTot_xy = this->epsInit_xy;
-        this->epsTot_yz = this->epsInit_yz;
-        this->epsTot_xz = this->epsInit_xz;
-      }
+    this->muE = this->mu;
+    this->lambdaE = this->lambda;
+    this->epsTot_xx = this->epsInit_xx;
+    this->epsTot_yy = this->epsInit_yy;
+    this->epsTot_zz = this->epsInit_zz;
+    this->epsTot_xy = this->epsInit_xy;
+    this->epsTot_yz = this->epsInit_yz;
+    this->epsTot_xz = this->epsInit_xz;
+  }
 
   // This initialization is not used for material initialization with easi
   DamageMaterial(const std::vector<double>& materialValues)
       : Material(materialValues), lambda(materialValues.at(2)), mu(materialValues.at(1)) {
-        this->gammaR = materialValues.at(3);
-        this->Cd = materialValues.at(4);
-        this->epsInit_xx = materialValues.at(5);
-        this->epsInit_yy = materialValues.at(6);
-        this->epsInit_zz = materialValues.at(7);
-        this->epsInit_xy = materialValues.at(8);
-        this->epsInit_yz = materialValues.at(9);
-        this->epsInit_xz = materialValues.at(10);
-        // Initialize the total strain also as initial strain
-        // This is not useful at the init phase, how to init these values later?
-        this->muE = materialValues.at(1);
-        this->lambdaE = materialValues.at(2);
-        this->epsTot_xx = materialValues.at(5);
-        this->epsTot_yy = materialValues.at(6);
-        this->epsTot_zz = materialValues.at(7);
-        this->epsTot_xy = materialValues.at(8);
-        this->epsTot_yz = materialValues.at(9);
-        this->epsTot_xz = materialValues.at(10);
-      }
+    this->gammaR = materialValues.at(3);
+    this->Cd = materialValues.at(4);
+    this->epsInit_xx = materialValues.at(5);
+    this->epsInit_yy = materialValues.at(6);
+    this->epsInit_zz = materialValues.at(7);
+    this->epsInit_xy = materialValues.at(8);
+    this->epsInit_yz = materialValues.at(9);
+    this->epsInit_xz = materialValues.at(10);
+    // Initialize the total strain also as initial strain
+    // This is not useful at the init phase, how to init these values later?
+    this->muE = materialValues.at(1);
+    this->lambdaE = materialValues.at(2);
+    this->epsTot_xx = materialValues.at(5);
+    this->epsTot_yy = materialValues.at(6);
+    this->epsTot_zz = materialValues.at(7);
+    this->epsTot_xy = materialValues.at(8);
+    this->epsTot_yz = materialValues.at(9);
+    this->epsTot_xz = materialValues.at(10);
+  }
 
   ~DamageMaterial() override = default;
 

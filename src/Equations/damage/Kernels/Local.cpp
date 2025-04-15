@@ -48,18 +48,18 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels {
 
 void setStarMatrix(
-  const real* matAT, const real* matBT, const real* matCT, const real grad[3], real* starMatrix) {
-for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
-  starMatrix[idx] = grad[0] * matAT[idx];
-}
+    const real* matAT, const real* matBT, const real* matCT, const real grad[3], real* starMatrix) {
+  for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
+    starMatrix[idx] = grad[0] * matAT[idx];
+  }
 
-for (unsigned idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
-  starMatrix[idx] += grad[1] * matBT[idx];
-}
+  for (unsigned idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
+    starMatrix[idx] += grad[1] * matBT[idx];
+  }
 
-for (unsigned idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
-  starMatrix[idx] += grad[2] * matCT[idx];
-}
+  for (unsigned idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
+    starMatrix[idx] += grad[2] * matCT[idx];
+  }
 }
 
 void LocalBase::checkGlobalData(const GlobalData* global, size_t alignment) {
@@ -140,8 +140,8 @@ struct ApplyAnalyticalSolution {
 
 void LocalBase::updateMaterials(LocalData& data) {
   // Summary of the requried input:
-  // LocalData: material.local, material.neighbor, cellInformation, dofs, 
-  // LocalData.specific: localVertices, localElements, meshId, 
+  // LocalData: material.local, material.neighbor, cellInformation, dofs,
+  // LocalData.specific: localVertices, localElements, meshId,
   // Update local modulus
   // logWarning() << data.cellInformation().faceTypes[0] << "\n";
   // kernels::LocalData::Loader loader;
@@ -171,7 +171,7 @@ void LocalBase::updateMaterials(LocalData& data) {
 
   real rusanovPlusNull[tensor::QcorrLocal::size()]{};
   real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
-  
+
   // kernel::cellAve m_cellAverageKernel;
   // // real Q_aveData[NUMBER_OF_QUANTITIES];
   // real Q_aveData[tensor::QAve::size()];
@@ -189,7 +189,7 @@ void LocalBase::updateMaterials(LocalData& data) {
   // Change to updated material properties
   data.material().local.mu = data.material().local.muE * 0.9;
   data.material().local.lambda = data.material().local.lambdaE * 0.9;
-  for (unsigned i_s = 0; i_s < 4; i_s++){
+  for (unsigned i_s = 0; i_s < 4; i_s++) {
     data.material().neighbor[i_s].mu = data.material().neighbor[i_s].muE * 0.9;
     data.material().neighbor[i_s].lambda = data.material().neighbor[i_s].lambdaE * 0.9;
   }
@@ -204,27 +204,28 @@ void LocalBase::updateMaterials(LocalData& data) {
 
   // Iterate over all 4 vertices of the tetrahedron
   for (unsigned vertex = 0; vertex < 4; ++vertex) {
-    VrtxCoords const& coords = data.localIntegration().specific.localVertices[ vertex ].coords;
+    const VrtxCoords& coords = data.localIntegration().specific.localVertices[vertex].coords;
     x[vertex] = coords[0];
     y[vertex] = coords[1];
     z[vertex] = coords[2];
   }
 
-  seissol::transformations::tetrahedronGlobalToReferenceJacobian( x, y, z, gradXi, gradEta, gradZeta );
-  seissol::model::getTransposedCoefficientMatrix( data.material().local, 0, AT );
-  seissol::model::getTransposedCoefficientMatrix( data.material().local, 1, BT );
-  seissol::model::getTransposedCoefficientMatrix( data.material().local, 2, CT );
+  seissol::transformations::tetrahedronGlobalToReferenceJacobian(
+      x, y, z, gradXi, gradEta, gradZeta);
+  seissol::model::getTransposedCoefficientMatrix(data.material().local, 0, AT);
+  seissol::model::getTransposedCoefficientMatrix(data.material().local, 1, BT);
+  seissol::model::getTransposedCoefficientMatrix(data.material().local, 2, CT);
   setStarMatrix(ATData, BTData, CTData, gradXi, data.localIntegration().starMatrices[0]);
   setStarMatrix(ATData, BTData, CTData, gradEta, data.localIntegration().starMatrices[1]);
   setStarMatrix(ATData, BTData, CTData, gradZeta, data.localIntegration().starMatrices[2]);
 
   real volume = data.localIntegration().specific.localVolume;
 
-  for (unsigned side = 0; side < 4; ++side){
+  for (unsigned side = 0; side < 4; ++side) {
     VrtxCoords normal;
     VrtxCoords tangent1;
-    VrtxCoords tangent2; 
-    for (unsigned coord = 0; coord < 3; ++coord){
+    VrtxCoords tangent2;
+    for (unsigned coord = 0; coord < 3; ++coord) {
       normal[coord] = data.localIntegration().specific.localNormal[side][coord];
       tangent1[coord] = data.localIntegration().specific.localTangent1[side][coord];
       tangent2[coord] = data.localIntegration().specific.localTangent2[side][coord];
@@ -233,20 +234,27 @@ void LocalBase::updateMaterials(LocalData& data) {
 
     // real NLocalData[6*6];
     // seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
-    // if (materialData[l_cell].local.getMaterialType() == seissol::model::MaterialType::anisotropic) {
-    //   seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].local)),
-    //                                               seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].neighbor[side])),
+    // if (materialData[l_cell].local.getMaterialType() ==
+    // seissol::model::MaterialType::anisotropic) {
+    //   seissol::model::getTransposedGodunovState(
+    //   seissol::model::getRotatedMaterialCoefficients(NLocalData,
+    //   *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].local)),
+    //                                               seissol::model::getRotatedMaterialCoefficients(NLocalData,
+    //                                               *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].neighbor[side])),
     //                                               cellInformation[l_cell].faceTypes[side],
     //                                               QgodLocal,
     //                                               QgodNeighbor );
-    //   seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].local)), 0, ATtilde );
+    //   seissol::model::getTransposedCoefficientMatrix(
+    //   seissol::model::getRotatedMaterialCoefficients(NLocalData,
+    //   *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].local)), 0,
+    //   ATtilde );
     // } else {
-      seissol::model::getTransposedGodunovState(  data.material().local,
-                                                  data.material().neighbor[side],
-                                                  data.cellInformation().faceTypes[side],
-                                                  QgodLocal,
-                                                  QgodNeighbor );
-      seissol::model::getTransposedCoefficientMatrix( data.material().local, 0, ATtilde );
+    seissol::model::getTransposedGodunovState(data.material().local,
+                                              data.material().neighbor[side],
+                                              data.cellInformation().faceTypes[side],
+                                              QgodLocal,
+                                              QgodNeighbor);
+    seissol::model::getTransposedCoefficientMatrix(data.material().local, 0, ATtilde);
     // }
 
     // Calculate transposed T instead

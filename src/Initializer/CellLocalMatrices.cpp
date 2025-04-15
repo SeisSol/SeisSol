@@ -197,10 +197,10 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         Vertex localVertices[4];
         real localVolume;
         real localSurfaces[4];
-        std::array<std::array<double, 3>,4> localNormal;
-        std::array<std::array<double, 3>,4> localTangent1;
-        std::array<std::array<double, 3>,4> localTangent2;
-        
+        std::array<std::array<double, 3>, 4> localNormal;
+        std::array<std::array<double, 3>, 4> localTangent1;
+        std::array<std::array<double, 3>, 4> localTangent2;
+
         // Iterate over all 4 vertices of the tetrahedron
         for (unsigned vertex = 0; vertex < 4; ++vertex) {
           const VrtxCoords& coords = vertices[elements[meshId].vertices[vertex]].coords;
@@ -238,7 +238,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           MeshTools::normalize(tangent2, tangent2);
 
           localSurfaces[side] = surface;
-          for (unsigned coord = 0; coord < 3; ++coord){
+          for (unsigned coord = 0; coord < 3; ++coord) {
             localNormal[side][coord] = normal[coord];
             localTangent1[side][coord] = tangent1[coord];
             localTangent2[side][coord] = tangent2[coord];
@@ -362,11 +362,15 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         }
 
         // logWarning() << "initializing specific data...";
-        seissol::model::initializeSpecificLocalData(
-            material[cell].local, timeStepWidth, 
-              localVertices, localVolume, localSurfaces, 
-              localNormal, localTangent1, localTangent2,
-              &localIntegration[cell].specific);
+        seissol::model::initializeSpecificLocalData(material[cell].local,
+                                                    timeStepWidth,
+                                                    localVertices,
+                                                    localVolume,
+                                                    localSurfaces,
+                                                    localNormal,
+                                                    localTangent1,
+                                                    localTangent2,
+                                                    &localIntegration[cell].specific);
 
         seissol::model::initializeSpecificNeighborData(material[cell].local,
                                                        &neighboringIntegration[cell].specific);
