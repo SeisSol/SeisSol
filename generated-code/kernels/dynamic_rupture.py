@@ -60,8 +60,22 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
         * initialStress["j"],
     )
 
-    originalQ = Tensor("originalQ", (numberOfPoints,))
-    resampledQ = Tensor("resampledQ", (numberOfPoints,))
+    originalQ = OptionalDimTensor(
+        "originalQ",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOfPoints,),
+        alignStride=True,
+    )
+    resampledQ = OptionalDimTensor(
+        "resampledQ",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOfPoints,),
+        alignStride=True,
+    )
     resampleKernel = resampledQ["i"] <= db.resample[aderdg.t("ij")] * originalQ["j"]
     generator.add("resampleParameter", resampleKernel)
 
