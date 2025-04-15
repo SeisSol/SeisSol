@@ -54,6 +54,8 @@ src/Equations/anisotropic/Model/Datastructures.cpp
 src/Equations/poroelastic/Model/Datastructures.cpp
 src/Equations/elastic/Kernels/GravitationalFreeSurfaceBC.cpp
 
+src/Geometry/MeshTools.cpp
+
 src/Initializer/InitialFieldProjection.cpp
 src/Initializer/PointMapper.cpp
 src/Modules/Module.cpp
@@ -118,7 +120,6 @@ src/DynamicRupture/Output/OutputManager.cpp
 src/DynamicRupture/Output/ReceiverBasedOutput.cpp
 
 src/Geometry/MeshReader.cpp
-src/Geometry/MeshTools.cpp
 
 src/Initializer/InitProcedure/Init.cpp
 src/Initializer/InitProcedure/InitIO.cpp

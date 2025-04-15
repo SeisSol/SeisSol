@@ -72,9 +72,16 @@ void getPlaneWaveOperator(const T& material,
 template <typename T>
 void initializeSpecificLocalData(const T& material,
                                  real timeStepWidth,
-                                 const std::vector<Vertex>& localVertices,
+                                 Vertex localVertices[4],
+                                 real& localVolume,
+                                 real localSurfaces[4],
+                                 std::array<std::array<double, 3>,4>& localNormal,
+                                 std::array<std::array<double, 3>,4>& localTangent1,
+                                 std::array<std::array<double, 3>,4>& localTangent2,
                                  typename T::LocalSpecificData* localData) {
-  MaterialSetup<T>::initializeSpecificLocalData(material, timeStepWidth, localVertices, localData);
+  MaterialSetup<T>::initializeSpecificLocalData(material, timeStepWidth, 
+    localVertices, localVolume, localSurfaces, localNormal, localTangent1, localTangent2,
+    localData);
 }
 
 template <typename T>

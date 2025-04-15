@@ -13,16 +13,19 @@
 #include "generated_code/tensor.h"
 #include <Geometry/MeshDefinition.h>
 
+#include<array>
+
 namespace seissol::model {
 
 struct DamageLocalData {
+    // std::vector<VrtxCoords>* globalVertPtr;
     Vertex localVertices[4];
     real localVolume;
     real localSurfaces[4];
-    VrtxCoords localNormal;
-    VrtxCoords localTangent1;
-    VrtxCoords localTangent2;
-    unsigned int globalMeshId;
+    std::array<std::array<double, 3>,4> localNormal;
+    std::array<std::array<double, 3>,4> localTangent1;
+    std::array<std::array<double, 3>,4> localTangent2;
+    // unsigned int globalMeshId;
 };
 struct DamageNeighborData {};
 

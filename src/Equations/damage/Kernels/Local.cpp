@@ -165,7 +165,12 @@ void LocalBase::updateMaterials(LocalData& data) {
   auto Tinv = init::Tinv::view::create(TinvData);
 
   real QgodLocalData[tensor::QgodLocal::size()];
+  real QgodNeighborData[tensor::QgodNeighbor::size()];
   auto QgodLocal = init::QgodLocal::view::create(QgodLocalData);
+  auto QgodNeighbor = init::QgodNeighbor::view::create(QgodNeighborData);
+
+  real rusanovPlusNull[tensor::QcorrLocal::size()]{};
+  real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
   
   // kernel::cellAve m_cellAverageKernel;
   // // real Q_aveData[NUMBER_OF_QUANTITIES];
@@ -181,10 +186,13 @@ void LocalBase::updateMaterials(LocalData& data) {
   // m_cellAverageKernel.QAve = Q_aveData;
   // m_cellAverageKernel.execute();
 
-  // unsigned int meshId = data.localIntegration.globalMeshId;
-
   // Change to updated material properties
-  // materialData[l_cell].local.mu = 0.0;
+  data.material().local.mu = data.material().local.muE * 0.9;
+  data.material().local.lambda = data.material().local.lambdaE * 0.9;
+  for (unsigned i_s = 0; i_s < 4; i_s++){
+    data.material().neighbor[i_s].mu = data.material().neighbor[i_s].muE * 0.9;
+    data.material().neighbor[i_s].lambda = data.material().neighbor[i_s].lambdaE * 0.9;
+  }
 
   /// global coordinates of the vertices
   real x[4];
@@ -210,67 +218,69 @@ void LocalBase::updateMaterials(LocalData& data) {
   setStarMatrix(ATData, BTData, CTData, gradEta, data.localIntegration().starMatrices[1]);
   setStarMatrix(ATData, BTData, CTData, gradZeta, data.localIntegration().starMatrices[2]);
 
-  // double volume = MeshTools::volume(elements[meshId], vertices);
+  real volume = data.localIntegration().specific.localVolume;
 
-  // auto ATtildeBC = init::star::view<0>::create(data.localIntegration.ATtildeBC);
-  // seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, ATtildeBC );
+  for (unsigned side = 0; side < 4; ++side){
+    VrtxCoords normal;
+    VrtxCoords tangent1;
+    VrtxCoords tangent2; 
+    for (unsigned coord = 0; coord < 3; ++coord){
+      normal[coord] = data.localIntegration().specific.localNormal[side][coord];
+      tangent1[coord] = data.localIntegration().specific.localTangent1[side][coord];
+      tangent2[coord] = data.localIntegration().specific.localTangent2[side][coord];
+    }
+    double surface = data.localIntegration().specific.localSurfaces[side];
 
-  // VrtxCoords normal;
-  // VrtxCoords tangent1;
-  // VrtxCoords tangent2;
-  // MeshTools::normalAndTangents(elements[meshId], side, vertices, normal, tangent1, tangent2);
-  // double surface = MeshTools::surface(normal);
-  // MeshTools::normalize(normal, normal);
-  // MeshTools::normalize(tangent1, tangent1);
-  // MeshTools::normalize(tangent2, tangent2);
+    // real NLocalData[6*6];
+    // seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
+    // if (materialData[l_cell].local.getMaterialType() == seissol::model::MaterialType::anisotropic) {
+    //   seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].local)),
+    //                                               seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].neighbor[side])),
+    //                                               cellInformation[l_cell].faceTypes[side],
+    //                                               QgodLocal,
+    //                                               QgodNeighbor );
+    //   seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].local)), 0, ATtilde );
+    // } else {
+      seissol::model::getTransposedGodunovState(  data.material().local,
+                                                  data.material().neighbor[side],
+                                                  data.cellInformation().faceTypes[side],
+                                                  QgodLocal,
+                                                  QgodNeighbor );
+      seissol::model::getTransposedCoefficientMatrix( data.material().local, 0, ATtilde );
+    // }
 
-  // real NLocalData[6*6];
-  // seissol::model::getBondMatrix(normal, tangent1, tangent2, NLocalData);
-  // if (materialData[l_cell].local.getMaterialType() == seissol::model::MaterialType::anisotropic) {
-  //   seissol::model::getTransposedGodunovState(  seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].local)),
-  //                                               seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].neighbor[side])),
-  //                                               cellInformation[l_cell].faceTypes[side],
-  //                                               QgodLocal,
-  //                                               QgodNeighbor );
-  //   seissol::model::getTransposedCoefficientMatrix( seissol::model::getRotatedMaterialCoefficients(NLocalData, *dynamic_cast<seissol::model::AnisotropicMaterial*>(&materialData[l_cell].local)), 0, ATtilde );
-  // } else {
-  //   seissol::model::getTransposedGodunovState(  materialData[l_cell].local,
-  //                                               materialData[l_cell].neighbor[side],
-  //                                               cellInformation[l_cell].faceTypes[side],
-  //                                               QgodLocal,
-  //                                               QgodNeighbor );
-  //   seissol::model::getTransposedCoefficientMatrix( materialData[l_cell].local, 0, ATtilde );
-  // }
+    // Calculate transposed T instead
+    seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
 
-  // // Calculate transposed T instead
-  // seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, T, Tinv);
+    // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
+    // must be subtracted.
+    real fluxScale = -2.0 * surface / (6.0 * volume);
 
-  // // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
-  // // must be subtracted.
-  // real fluxScale = -2.0 * surface / (6.0 * volume);
+    kernel::computeFluxSolverLocal localKrnl;
+    localKrnl.fluxScale = fluxScale;
+    localKrnl.AplusT = data.localIntegration().nApNm1[side];
+    localKrnl.QgodLocal = QgodLocalData;
+    localKrnl.QcorrLocal = rusanovPlusNull;
+    localKrnl.T = TData;
+    localKrnl.Tinv = TinvData;
+    localKrnl.star(0) = ATtildeData;
+    localKrnl.execute();
 
-  // kernel::computeFluxSolverLocal localKrnl;
-  // localKrnl.fluxScale = fluxScale;
-  // localKrnl.AplusT = data.localIntegration.nApNm1[side];
-  // localKrnl.QgodLocal = QgodLocalData;
-  // localKrnl.T = TData;
-  // localKrnl.Tinv = TinvData;
-  // localKrnl.star(0) = ATtildeData;
-  // localKrnl.execute();
-
-  // kernel::computeFluxSolverNeighbor neighKrnl;
-  // neighKrnl.fluxScale = fluxScale;
-  // neighKrnl.AminusT = data.neighboringIntegration.nAmNm1[side];
-  // neighKrnl.QgodNeighbor = QgodNeighborData;
-  // neighKrnl.T = TData;
-  // neighKrnl.Tinv = TinvData;
-  // neighKrnl.star(0) = ATtildeData;
-  // if (cellInformation[l_cell].faceTypes[side] == FaceType::dirichlet ||
-  //     cellInformation[l_cell].faceTypes[side] == FaceType::freeSurfaceGravity) {
-  //   // Already rotated!
-  //   neighKrnl.Tinv = init::identityT::Values;
-  // }
-  // neighKrnl.execute();
+    kernel::computeFluxSolverNeighbor neighKrnl;
+    neighKrnl.fluxScale = fluxScale;
+    neighKrnl.AminusT = data.neighboringIntegration().nAmNm1[side];
+    neighKrnl.QgodNeighbor = QgodNeighborData;
+    neighKrnl.QcorrNeighbor = rusanovMinusNull;
+    neighKrnl.T = TData;
+    neighKrnl.Tinv = TinvData;
+    neighKrnl.star(0) = ATtildeData;
+    if (data.cellInformation().faceTypes[side] == FaceType::Dirichlet ||
+        data.cellInformation().faceTypes[side] == FaceType::FreeSurfaceGravity) {
+      // Already rotated!
+      neighKrnl.Tinv = init::identityT::Values;
+    }
+    neighKrnl.execute();
+  }
 }
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],

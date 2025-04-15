@@ -251,14 +251,24 @@ struct MaterialSetup<DamageMaterial> {
 
   static void initializeSpecificLocalData(const DamageMaterial& material,
                                           real timeStepWidth,
-                                          const std::vector<Vertex>& localVertices,
-                                          // const Element& localElement,
-                                          // const unsigned int& meshId,
+                                          Vertex localVertices[4],
+                                          real& localVolume,
+                                          real localSurfaces[4],
+                                          std::array<std::array<double, 3>,4>& localNormal,
+                                          std::array<std::array<double, 3>,4>& localTangent1,
+                                          std::array<std::array<double, 3>,4>& localTangent2,
                                           DamageLocalData* localData) {
     // currently, it takes new memory. Later on can switch to pointers
-    for (int i_v; i_v = 0; i_v++){
+    for (int i_v = 0; i_v < 4; i_v++){
       localData->localVertices[i_v] = localVertices[i_v];
+      localData->localSurfaces[i_v] = localSurfaces[i_v];
+      for (int i_c = 0; i_c < 3; i_c++){
+        localData->localNormal[i_v][i_c] = localNormal[i_v][i_c];
+        localData->localTangent1[i_v][i_c] = localTangent1[i_v][i_c];
+        localData->localTangent2[i_v][i_c] = localTangent2[i_v][i_c];
+      }
     }
+    localData->localVolume = localVolume;
     // localData->globalMeshId = meshId;
   }
 
