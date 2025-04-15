@@ -83,7 +83,7 @@ def guessMemoryLayout(env):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     path = os.path.join(script_dir, "..", "config")
 
-    if "gpu" in env["targets"]:
+    if "gpu" in env["targets"]:  # and int(env["multipleSimulations"])==1:
         print(
             "INFO: Found gpu as a target. "
             + "Memory layout will fall back to all dense"

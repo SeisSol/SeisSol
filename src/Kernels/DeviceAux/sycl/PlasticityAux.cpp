@@ -6,9 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
-#include <CL/sycl.hpp>
+#include <Solver/MultipleSimulations.h>
 #include <cmath>
 #include <init.h>
+#include <sycl/sycl.hpp>
 
 namespace seissol::kernels::device::aux::plasticity {
 
@@ -19,7 +20,20 @@ typename std::enable_if<std::is_floating_point<T>::value, T>::type squareRoot(T 
 
 template <typename Tensor>
 constexpr size_t leadDim() {
-  return Tensor::Stop[0] - Tensor::Start[0];
+  if constexpr (multisim::MultisimEnabled) {
+    return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
+  } else {
+    return Tensor::Stop[0] - Tensor::Start[0];
+  }
+}
+
+auto getrange(std::size_t size, std::size_t numElements) {
+  if constexpr (multisim::MultisimEnabled) {
+    return sycl::nd_range<1>({numElements * multisim::NumSimulations * size},
+                             {multisim::NumSimulations * size});
+  } else {
+    return sycl::nd_range<1>({numElements * size}, {size});
+  }
 }
 
 void adjustDeviatoricTensors(real** nodalStressTensors,
@@ -28,24 +42,23 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
                              const double oneMinusIntegratingFactor,
                              const size_t numElements,
                              void* queuePtr) {
-  constexpr unsigned numNodes = tensor::QStressNodal::Shape[0];
-  auto queue = reinterpret_cast<cl::sycl::queue*>(queuePtr);
-  cl::sycl::nd_range rng{{numNodes * numElements}, {numNodes}};
+  constexpr unsigned NumNodes = tensor::QStressNodal::Shape[multisim::BasisFunctionDimension];
+  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
+  auto rng = getrange(NumNodes, numElements);
 
-  queue->submit([&](cl::sycl::handler& cgh) {
-    cl::sycl::accessor<int, 1, cl::sycl::access::mode::read_write, cl::sycl::access::target::local>
-        isAdjusted(1, cgh);
+  queue->submit([&](sycl::handler& cgh) {
+    sycl::local_accessor<int> isAdjusted(1, cgh);
 
-    cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
+    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       auto wid = item.get_group().get_group_id(0);
       auto tid = item.get_local_id(0);
 
       real* elementTensors = nodalStressTensors[wid];
-      real localStresses[NUM_STRESS_COMPONENTS];
+      real localStresses[NumStressComponents];
 
       constexpr auto elementTensorsColumn = leadDim<init::QStressNodal>();
 #pragma unroll
-      for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
+      for (int i = 0; i < NumStressComponents; ++i) {
         localStresses[i] = elementTensors[tid + elementTensorsColumn * i];
       }
 
@@ -63,13 +76,13 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
                         localStresses[2] * localStresses[2]);
       tau += (localStresses[3] * localStresses[3] + localStresses[4] * localStresses[4] +
               localStresses[5] * localStresses[5]);
-      tau = squareRoot(tau);
+      tau = std::sqrt(tau);
 
       // 4. Compute the plasticity criteria
       const real cohesionTimesCosAngularFriction = plasticity[wid].cohesionTimesCosAngularFriction;
       const real sinAngularFriction = plasticity[wid].sinAngularFriction;
       real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
-      taulim = cl::sycl::fmax(static_cast<real>(0.0), taulim);
+      taulim = std::max(static_cast<real>(0.0), taulim);
 
       if (tid == 0) {
         isAdjusted[0] = static_cast<unsigned>(false);
@@ -87,7 +100,7 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
       item.barrier();
       if (isAdjusted[0]) {
 #pragma unroll
-        for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
+        for (int i = 0; i < NumStressComponents; ++i) {
           elementTensors[tid + elementTensorsColumn * i] = localStresses[i] * factor;
         }
       }
@@ -106,11 +119,11 @@ void adjustPointers(real* QEtaNodal,
                     real** dUdTpstrainPtrs,
                     size_t numElements,
                     void* queuePtr) {
-  auto queue = reinterpret_cast<cl::sycl::queue*>(queuePtr);
-  cl::sycl::range rng{numElements};
+  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
+  sycl::range rng{numElements};
 
-  queue->submit([&](cl::sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](cl::sycl::item<1> item) {
+  queue->submit([&](sycl::handler& cgh) {
+    cgh.parallel_for(rng, [=](sycl::item<1> item) {
       auto tid = item.get_id(0);
       if (tid < numElements) {
         QEtaNodalPtrs[tid] = &QEtaNodal[tensor::QEtaNodal::Size * tid];
@@ -132,12 +145,12 @@ void computePstrains(real** pstrains,
                      unsigned* isAdjustableVector,
                      size_t numElements,
                      void* queuePtr) {
-  constexpr unsigned numNodes = tensor::Q::Shape[0];
-  auto queue = reinterpret_cast<cl::sycl::queue*>(queuePtr);
-  cl::sycl::nd_range rng{{numNodes * numElements}, {numNodes}};
+  constexpr unsigned numNodes = tensor::Q::Shape[multisim::BasisFunctionDimension];
+  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
+  auto rng = getrange(numNodes, numElements);
 
-  queue->submit([&](cl::sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
+  queue->submit([&](sycl::handler& cgh) {
+    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       auto wid = item.get_group().get_group_id(0);
       auto lid = item.get_local_id(0);
 
@@ -149,7 +162,7 @@ void computePstrains(real** pstrains,
         real* localDuDtPstrain = dUdTpstrain[wid];
 
 #pragma unroll
-        for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
+        for (int i = 0; i < NumStressComponents; ++i) {
           int q = lid + i * leadDim<init::Q>();
           real factor = localData->mufactor / (T_v * oneMinusIntegratingFactor);
           real nodeDuDtPstrain = factor * (localPrevDofs[q] - localDofs[q]);
@@ -168,11 +181,11 @@ void pstrainToQEtaModal(real** pstrains,
                         unsigned* isAdjustableVector,
                         size_t numElements,
                         void* queuePtr) {
-  auto queue = reinterpret_cast<cl::sycl::queue*>(queuePtr);
-  cl::sycl::nd_range rng{{tensor::QEtaModal::Size * numElements}, {tensor::QEtaModal::Size}};
+  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
+  sycl::nd_range rng{{1024 * numElements}, {1024}};
 
-  queue->submit([&](cl::sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
+  queue->submit([&](sycl::handler& cgh) {
+    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
 
       auto wid = item.get_group().get_group_id(0);
@@ -180,8 +193,9 @@ void pstrainToQEtaModal(real** pstrains,
       if (isAdjustableVector[wid]) {
         real* localQEtaModal = QEtaModalPtrs[wid];
         real* localPstrain = pstrains[wid];
-        localQEtaModal[lid] =
-            localPstrain[NUM_STRESS_COMPONENTS * leadDim<init::QStressNodal>() + lid];
+        for (std::size_t i = lid; i < tensor::QEtaModal::Size; i += 1024) {
+          localQEtaModal[i] = localPstrain[NumStressComponents * leadDim<init::QStressNodal>() + i];
+        }
       }
     });
   });
@@ -192,11 +206,11 @@ void qEtaModalToPstrain(real** QEtaModalPtrs,
                         unsigned* isAdjustableVector,
                         size_t numElements,
                         void* queuePtr) {
-  auto queue = reinterpret_cast<cl::sycl::queue*>(queuePtr);
-  cl::sycl::nd_range rng{{tensor::QEtaModal::Size * numElements}, {tensor::QEtaModal::Size}};
+  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
+  sycl::nd_range rng{{1024 * numElements}, {1024}};
 
-  queue->submit([&](cl::sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
+  queue->submit([&](sycl::handler& cgh) {
+    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
 
       auto wid = item.get_group().get_group_id(0);
@@ -204,8 +218,9 @@ void qEtaModalToPstrain(real** QEtaModalPtrs,
       if (isAdjustableVector[wid]) {
         real* localQEtaModal = QEtaModalPtrs[wid];
         real* localPstrain = pstrains[wid];
-        localPstrain[NUM_STRESS_COMPONENTS * leadDim<init::QStressNodal>() + lid] =
-            localQEtaModal[lid];
+        for (std::size_t i = lid; i < tensor::QEtaModal::Size; i += 1024) {
+          localPstrain[NumStressComponents * leadDim<init::QStressNodal>() + i] = localQEtaModal[i];
+        }
       }
     });
   });
@@ -217,12 +232,11 @@ void updateQEtaNodal(real** QEtaNodalPtrs,
                      unsigned* isAdjustableVector,
                      size_t numElements,
                      void* queuePtr) {
-  auto queue = reinterpret_cast<cl::sycl::queue*>(queuePtr);
-  cl::sycl::nd_range rng{{tensor::QStressNodal::Shape[0] * numElements},
-                         {tensor::QStressNodal::Shape[0]}};
+  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
+  auto rng = getrange(tensor::QStressNodal::Shape[multisim::BasisFunctionDimension], numElements);
 
-  queue->submit([&](cl::sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](cl::sycl::nd_item<1> item) {
+  queue->submit([&](sycl::handler& cgh) {
+    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       auto wid = item.get_group().get_group_id(0);
       auto lid = item.get_local_id(0);
 
@@ -233,12 +247,12 @@ void updateQEtaNodal(real** QEtaNodalPtrs,
 
         constexpr auto ld = leadDim<init::QStressNodal>();
 #pragma unroll
-        for (int i = 0; i < NUM_STRESS_COMPONENTS; ++i) {
+        for (int i = 0; i < NumStressComponents; ++i) {
           factor += localQStressNodal[lid + i * ld] * localQStressNodal[lid + i * ld];
         }
 
-        localQEtaNodal[lid] = cl::sycl::fmax(static_cast<real>(0.0), localQEtaNodal[lid]) +
-                              timeStepWidth * squareRoot(static_cast<real>(0.5) * factor);
+        localQEtaNodal[lid] = std::max(static_cast<real>(0.0), localQEtaNodal[lid]) +
+                              timeStepWidth * std::sqrt(static_cast<real>(0.5) * factor);
       }
     });
   });
