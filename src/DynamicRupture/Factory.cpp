@@ -51,6 +51,8 @@ std::unique_ptr<AbstractFactory>
   case seissol::initializer::parameters::FrictionLawType::RateAndStateSevereVelocityWeakening:
     return std::make_unique<RateAndStateSevereVelocityWeakeningFactory>(drParameters,
                                                                         seissolInstance, numFused);
+  case seissol::initializer::parameters::FrictionLawType::RateAndStateFastVelocityWeakening:
+    return std::make_unique<RateAndStateFastVelocityWeakeningFactory>(drParameters, seissolInstance, numFused);
   default:
     logError() << "unknown friction law";
     return nullptr;
