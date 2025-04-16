@@ -335,7 +335,12 @@ struct MaterialSetup<PoroElasticMaterial> {
 
   static void initializeSpecificLocalData(const PoroElasticMaterial& material,
                                           real timeStepWidth,
-                                          const std::vector<Vertex>& localVertices,
+                                          Vertex localVertices[4],
+                                          real& localVolume,
+                                          real localSurfaces[4],
+                                          std::array<std::array<double, 3>, 4>& localNormal,
+                                          std::array<std::array<double, 3>, 4>& localTangent1,
+                                          std::array<std::array<double, 3>, 4>& localTangent2,
                                           PoroelasticLocalData* localData) {
     auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
     sourceMatrix.setZero();
