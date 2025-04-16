@@ -101,7 +101,7 @@ struct MaterialSetup<AcousticMaterial> {
                                                          AcousticMaterial& material) {
     return material;
   }
-  static void initializeSpecificLocalData(const DamageMaterial& material,
+  static void initializeSpecificLocalData(const AcousticMaterial& material,
                                           real timeStepWidth,
                                           Vertex localVertices[4],
                                           real& localVolume,
@@ -109,7 +109,7 @@ struct MaterialSetup<AcousticMaterial> {
                                           std::array<std::array<double, 3>, 4>& localNormal,
                                           std::array<std::array<double, 3>, 4>& localTangent1,
                                           std::array<std::array<double, 3>, 4>& localTangent2,
-                                          DamageLocalData* localData) {}
+                                          AcousticLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const AcousticMaterial& material,
                                              AcousticNeighborData* localData) {}

@@ -321,7 +321,7 @@ struct MaterialSetup<AnisotropicMaterial> {
     return rotatedMaterial;
   }
 
-  static void initializeSpecificLocalData(const DamageMaterial& material,
+  static void initializeSpecificLocalData(const AnisotropicMaterial& material,
                                           real timeStepWidth,
                                           Vertex localVertices[4],
                                           real& localVolume,
@@ -329,7 +329,7 @@ struct MaterialSetup<AnisotropicMaterial> {
                                           std::array<std::array<double, 3>, 4>& localNormal,
                                           std::array<std::array<double, 3>, 4>& localTangent1,
                                           std::array<std::array<double, 3>, 4>& localTangent2,
-                                          DamageLocalData* localData) {}
+                                          AnisotropicLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const AnisotropicMaterial& material,
                                              AnisotropicNeighborData* localData) {}
