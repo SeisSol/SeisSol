@@ -68,8 +68,8 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
                           static_cast<const double*>(info.buffer(Vertices)),
                           param.timestep != 0);
     setFaultTagsData(static_cast<const unsigned int*>(info.buffer(FaultTags)));
-
-		logInfo(rank) << "Initializing XDMF fault output for Simulation: " << nFused << " Done.";
+    logInfo() << "Initializing XDMF fault output for Simulation: " << nFused << " Done.";
+    
 	}
 }
 
