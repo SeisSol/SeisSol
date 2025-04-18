@@ -35,6 +35,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     data->sl0 = layerData.var(concreteLts->rsSl0, seissol::initializer::AllocationPlace::Device);
     data->stateVariable =
         layerData.var(concreteLts->stateVariable, seissol::initializer::AllocationPlace::Device);
+    data->f0 = layerData.var(concreteLts->rsF0, seissol::initializer::AllocationPlace::Device);
+    data->muW = layerData.var(concreteLts->rsMuW, seissol::initializer::AllocationPlace::Device);
+    data->b = layerData.var(concreteLts->rsB, seissol::initializer::AllocationPlace::Device);
     Derived::copySpecificLtsDataTreeToLocal(data, layerData, dynRup, fullUpdateTime);
     TPMethod::copyLtsTreeToLocal(data, layerData, dynRup, fullUpdateTime);
   }
@@ -199,13 +202,13 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   }
 
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx) {
-    auto muW{ctx.data->drParameters.muW};
-    auto rsF0{ctx.data->drParameters.rsF0};
-
     const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
     if (localRuptureTime > 0.0 && localRuptureTime <= ctx.fullUpdateTime &&
         ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
-        ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <= (muW + 0.05 * (rsF0 - muW))) {
+        ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <=
+            (ctx.data->muW[ctx.ltsFace][ctx.pointIndex] +
+             0.05 * (ctx.data->f0[ctx.ltsFace][ctx.pointIndex] -
+                     ctx.data->muW[ctx.ltsFace][ctx.pointIndex]))) {
       ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = ctx.fullUpdateTime;
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
