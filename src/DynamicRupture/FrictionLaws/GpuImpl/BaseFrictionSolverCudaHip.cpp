@@ -65,11 +65,11 @@ __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints) __global__
   ctx.HeatSource = HeatSource;
 
   __shared__ real shm[PaddedMultiple * seissol::dr::misc::NumPaddedPoints];
-  ctx.sharedMemory = &shm[threadIdx.y * seissol::dr::misc::NumPaddedPoints];
+  ctx.sharedMemory = &shm[threadIdx.z * seissol::dr::misc::NumPaddedPoints];
   // ctx.item = nullptr;
 
-  ctx.ltsFace = blockIdx.x * blockDim.y + threadIdx.y;
-  ctx.pointIndex = threadIdx.x;
+  ctx.ltsFace = blockIdx.x * PaddedMultiple + threadIdx.z;
+  ctx.pointIndex = threadIdx.x + threadIdx.y * multisim::NumSimulations;
 
   if (ctx.ltsFace < elements) {
     seissol::dr::friction_law::gpu::BaseFrictionSolver<T>::evaluatePoint(ctx);
@@ -89,7 +89,7 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   using StreamT = hipStream_t;
 #endif
   auto stream = reinterpret_cast<StreamT>(runtime.stream());
-  dim3 block(misc::NumPaddedPoints, PaddedMultiple);
+  dim3 block(multisim::NumSimulations, misc::NumPaddedPointsSingleSim, PaddedMultiple);
   dim3 grid((this->currLayerSize + PaddedMultiple - 1) / PaddedMultiple);
   flkernelwrapper<T><<<grid, block, 0, stream>>>(this->currLayerSize,
                                                  data,

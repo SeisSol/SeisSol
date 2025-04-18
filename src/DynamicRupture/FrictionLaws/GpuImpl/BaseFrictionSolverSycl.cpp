@@ -43,8 +43,7 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
   queue->submit([&](sycl::handler& cgh) {
     // NOLINTNEXTLINE
-    sycl::accessor<real, 1, sycl::access::mode::read_write, sycl::access::target::local>
-        sharedMemory(misc::NumPaddedPoints, cgh);
+    sycl::local_accessor<real> sharedMemory(misc::NumPaddedPoints, cgh);
 
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       FrictionLawContext ctx{};

@@ -128,7 +128,7 @@ SEISSOL_HOSTDEVICE constexpr auto&
 SEISSOL_HOSTDEVICE inline void
     addTimeIntegratedPointSourceNRF(const memory::AlignedArray<real, 3>& __restrict slip,
                                     const real* __restrict mInvJInvPhisAtSources,
-                                    unsigned fusedOriginalIndex,
+                                    unsigned simulationIndex,
                                     const real* __restrict tensor,
                                     real a,
                                     const real* __restrict stiffnessTensor,
@@ -155,7 +155,7 @@ SEISSOL_HOSTDEVICE inline void
   const real moment[6] = {mom(0, 0), mom(1, 1), mom(2, 2), mom(0, 1), mom(1, 2), mom(0, 2)};
   for (unsigned t = 0; t < 6; ++t) {
     for (unsigned k = 0; k < MInvJInvPhisAtSourcesSpan; ++k) {
-      dofsAccessor(dofs, k, t, fusedOriginalIndex) += mInvJInvPhisAtSources[k] * moment[t];
+      dofsAccessor(dofs, k, t, simulationIndex) += mInvJInvPhisAtSources[k] * moment[t];
     }
   }
 }
@@ -167,7 +167,7 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelNRF(
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
     const seissol::memory::
         AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
-    const unsigned* __restrict fusedOriginalIndex,
+    const unsigned* __restrict simulationIndex,
     const seissol::memory::AlignedArray<real,
                                         sourceterm::PointSources::TensorSize>* __restrict tensor,
     const real* __restrict a,
@@ -190,7 +190,7 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelNRF(
 
     addTimeIntegratedPointSourceNRF(slip,
                                     mInvJInvPhisAtSources[source].data(),
-                                    fusedOriginalIndex[source],
+                                    simulationIndex[source],
                                     tensor[source].data(),
                                     a[source],
                                     stiffnessTensor[source].data(),
@@ -203,14 +203,14 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelNRF(
 SEISSOL_HOSTDEVICE inline void
     addTimeIntegratedPointSourceFSRM(real slip,
                                      const real* __restrict mInvJInvPhisAtSources,
-                                     unsigned fusedOriginalIndex,
+                                     unsigned simulationIndex,
                                      const real* __restrict tensor,
                                      double from,
                                      double to,
                                      real* __restrict dofs) {
   for (unsigned p = 0; p < MomentFsrmSpan; ++p) {
     for (unsigned k = 0; k < MInvJInvPhisAtSourcesSpan; ++k) {
-      dofsAccessor(dofs, k, p, fusedOriginalIndex) += slip * mInvJInvPhisAtSources[k] * tensor[p];
+      dofsAccessor(dofs, k, p, simulationIndex) += slip * mInvJInvPhisAtSources[k] * tensor[p];
     }
   }
 }
@@ -222,7 +222,7 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelFSRM(
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
     const seissol::memory::
         AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
-    const unsigned* __restrict fusedOriginalIndex,
+    const unsigned* __restrict simulationIndex,
     const seissol::memory::AlignedArray<real,
                                         sourceterm::PointSources::TensorSize>* __restrict tensor,
     const real* __restrict a,
@@ -241,7 +241,7 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelFSRM(
         from, to, onsetTime[source], samplingInterval[source], sample[0] + o0, o1 - o0);
     addTimeIntegratedPointSourceFSRM(slip,
                                      mInvJInvPhisAtSources[source].data(),
-                                     fusedOriginalIndex[source],
+                                     simulationIndex[source],
                                      tensor[source].data(),
                                      from,
                                      to,

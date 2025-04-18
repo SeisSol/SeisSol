@@ -23,7 +23,7 @@ jobs:
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
-    - uses: wangchucheng/git-repo-sync@master
+    - uses: cniethammer/git-repo-sync@cb1067d118c0c209bcded585b5c78e581bb0dfec
       with:
         target-url: 'https://codehub.hlrs.de/coes/cheese-2p/SeisSol/SeisSol.git'
         target-username: ${{ secrets.ACCESS_TOKEN_NAME }}

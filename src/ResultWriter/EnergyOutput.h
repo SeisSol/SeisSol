@@ -73,7 +73,7 @@ class EnergyOutput : public Module {
 
   void syncPoint(double time) override;
 
-  void simulationStart() override;
+  void simulationStart(std::optional<double> checkpointTime) override;
 
   EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
