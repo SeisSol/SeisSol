@@ -1,42 +1,10 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- * http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2017, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- */
+// SPDX-FileCopyrightText: 2017 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "LoopStatistics.h"
 #include "Unit.h"
@@ -203,12 +171,11 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
 #endif
 
   const auto summary = seissol::statistics::parallelSummary(totalTimePerRank);
-  logInfo(rank) << "Time spent in compute kernels: mean =" << summary.mean
-                << " std =" << summary.std << " min =" << summary.min
-                << " median =" << summary.median << " max =" << summary.max;
+  logInfo() << "Time spent in compute kernels: mean =" << summary.mean << " std =" << summary.std
+            << " min =" << summary.min << " median =" << summary.median << " max =" << summary.max;
 
   const auto loadImbalance = 1.0 - summary.mean / summary.max;
-  logInfo(rank) << "Load imbalance:" << 100.0 * loadImbalance << "%";
+  logInfo() << "Load imbalance:" << 100.0 * loadImbalance << "%";
 
 #ifdef USE_MPI
   MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, comm);
@@ -246,7 +213,7 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
 
   if (rank == 0) {
     double totalTime = 0.0;
-    logInfo(rank) << "Regression analysis of compute kernels:";
+    logInfo() << "Regression analysis of compute kernels:";
     for (unsigned region = 0; region < nRegions; ++region) {
       if (!regions[region].includeInSummary) {
         continue;
@@ -263,18 +230,18 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
       const double se = std::sqrt((stderror[region] / (n - 2)) / xv);
 
       const char* names[] = {"constant", "per element"};
-      logInfo(rank) << regions[region].name << "(total time):" << y
-                    << "s ( =" << UnitTime.formatTime(y).c_str() << ")";
+      logInfo() << regions[region].name << "(total time):" << y
+                << "s ( =" << UnitTime.formatTime(y).c_str() << ")";
       for (unsigned c = 0; c < 2; ++c) {
-        logInfo(rank) << regions[region].name << "(" << names[c]
-                      << "):" << regressionCoeffs[2 * region + c] << "(sample size:" << n
-                      << ", standard error:" << se << ")";
+        logInfo() << regions[region].name << "(" << names[c]
+                  << "):" << regressionCoeffs[2 * region + c] << "(sample size:" << n
+                  << ", standard error:" << se << ")";
       }
       totalTime += y;
     }
 
-    logInfo(rank) << "Total time spent in compute kernels:" << totalTime
-                  << "s ( =" << UnitTime.formatTime(totalTime).c_str() << ")";
+    logInfo() << "Total time spent in compute kernels:" << totalTime
+              << "s ( =" << UnitTime.formatTime(totalTime).c_str() << ")";
   }
 }
 
@@ -284,7 +251,7 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
     const auto loopStatFile = outputPrefix + "-loopStat-";
     const auto rank = MPI::mpi.rank();
 #if defined(USE_NETCDF) && defined(USE_MPI)
-    logInfo(rank) << "Starting to write loop statistics samples to disk.";
+    logInfo() << "Starting to write loop statistics samples to disk.";
     const unsigned nRegions = regions.size();
     for (unsigned region = 0; region < nRegions; ++region) {
       const std::ofstream file;
@@ -388,9 +355,9 @@ void LoopStatistics::writeSamples(const std::string& outputPrefix,
       stat = nc_close(ncid);
       check_err(stat, __LINE__, __FILE__);
     }
-    logInfo(rank) << "Finished writing loop statistics samples.";
+    logInfo() << "Finished writing loop statistics samples.";
 #else
-    logWarning(rank) << "Writing loop statistics requires NetCDF and MPI.";
+    logWarning() << "Writing loop statistics requires NetCDF and MPI.";
 #endif
   }
 }

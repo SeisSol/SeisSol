@@ -1,11 +1,18 @@
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "LinearSlipWeakeningInitializer.h"
 
 #include "DynamicRupture/Initializer/BaseDRInitializer.h"
 #include "DynamicRupture/Misc.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
 #include <algorithm>
 #include <limits>
 #include <unordered_map>
@@ -20,7 +27,7 @@ void LinearSlipWeakeningInitializer::initializeFault(
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening*>(dynRup);
   for (auto& layer : dynRupTree->leaves(Ghost)) {
-    bool(*dynStressTimePending)[misc::NumPaddedPoints] =
+    bool (*dynStressTimePending)[misc::NumPaddedPoints] =
         layer.var(concreteLts->dynStressTimePending);
     real(*slipRate1)[misc::NumPaddedPoints] = layer.var(concreteLts->slipRate1);
     real(*slipRate2)[misc::NumPaddedPoints] = layer.var(concreteLts->slipRate2);
@@ -73,18 +80,17 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(
       dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup);
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
-    real(*regularisedStrength)[misc::NumPaddedPoints] = layer.var(concreteLts->regularisedStrength);
+    real(*regularizedStrength)[misc::NumPaddedPoints] = layer.var(concreteLts->regularizedStrength);
     real(*mu)[misc::NumPaddedPoints] = layer.var(concreteLts->mu);
     real(*cohesion)[misc::NumPaddedPoints] = layer.var(concreteLts->cohesion);
-    real(*initialStressInFaultCS)[misc::NumPaddedPoints][6] =
-        layer.var(concreteLts->initialStressInFaultCS);
+    auto* initialStressInFaultCS = layer.var(concreteLts->initialStressInFaultCS);
 
     for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-        regularisedStrength[ltsFace][pointIndex] =
+        regularizedStrength[ltsFace][pointIndex] =
             -cohesion[ltsFace][pointIndex] -
             mu[ltsFace][pointIndex] *
-                std::min(static_cast<real>(0.0), initialStressInFaultCS[ltsFace][pointIndex][0]);
+                std::min(static_cast<real>(0.0), initialStressInFaultCS[ltsFace][0][pointIndex]);
       }
     }
   }

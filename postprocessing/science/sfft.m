@@ -2,6 +2,7 @@ function [am,f,ph] = sfft(y,dt,whole)
 %%
 % @file
 % This file is part of SeisSol.
+% SPDX-License-Identifier: BSD-3-Clause
 %
 % @author Martin Mai (Martin.Mai AT kaust.edu.sa, http://www.kaust.edu.sa/faculty/mai.html)
 %

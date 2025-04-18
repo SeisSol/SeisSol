@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: 2019-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2019 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
-
-# @file
-# This file is part of SeisSol.
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de)
-# @author Sebastian Wolf (wolf.sebastian AT tum.de)
-#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+# SPDX-FileContributor: Carsten Uphoff
+# SPDX-FileContributor: Sebastian Wolf
 
 import argparse
 import importlib.util
 import os
+import re
 import sys
 
 import kernels.dynamic_rupture
@@ -25,11 +23,12 @@ import kernels.plasticity
 import kernels.point
 import kernels.surface_displacement
 import kernels.vtkproject
-from yateto import (Generator, NamespacedGenerator, gemm_configuration,
-                    useArchitectureIdentifiedBy)
+import yateto
+from yateto import (Generator, GlobalRoutineCache, NamespacedGenerator,
+                    gemm_configuration, useArchitectureIdentifiedBy)
 from yateto.ast.cost import (BoundingBoxCostEstimator,
                              FusedGemmsBoundingBoxCostEstimator)
-from yateto.gemm_configuration import Eigen, GeneratorCollection
+from yateto.gemm_configuration import GeneratorCollection
 
 
 def main():
@@ -47,6 +46,7 @@ def main():
     cmdLineParser.add_argument("--multipleSimulations", type=int)
     cmdLineParser.add_argument("--PlasticityMethod")
     cmdLineParser.add_argument("--gemm_tools")
+    cmdLineParser.add_argument("--device_codegen")
     cmdLineParser.add_argument("--drQuadRule")
     cmdLineParser.add_argument("--enable_premultiply_flux", action="store_true")
     cmdLineParser.add_argument(
@@ -73,7 +73,7 @@ def main():
         )
 
     # pick up the gemm tools defined by the user
-    gemm_tool_list = cmdLineArgs.gemm_tools.replace(" ", "").split(",")
+    gemm_tool_list = re.split(r"[,;]", cmdLineArgs.gemm_tools.replace(" ", ""))
     gemm_generators = []
 
     for tool in gemm_tool_list:
@@ -96,21 +96,33 @@ def main():
                 )
             else:
                 gemm_generators.append(specific_gemm_class(arch))
+        elif tool.strip().lower() == "tensorforge":
+            pass  # TODO: remove (hence differently placed than "none")
         elif tool.strip().lower() != "none":
-            print(
-                'YATETO::ERROR: unknown "{}" GEMM tool. '
-                "Please, refer to the documentation".format(tool)
-            )
+            print(f'Unknown GEMM tool "{tool}". Please refer to the documentation.')
             sys.exit("failure")
 
     cost_estimators = BoundingBoxCostEstimator
+    custom_routine_generators = {}
     if "gpu" in targets:
-        chainforge_spec = importlib.util.find_spec("chainforge")
-        if chainforge_spec is not None:
-            chainforge_spec.loader.load_module()
-            cost_estimators = FusedGemmsBoundingBoxCostEstimator
-        else:
-            print("WARNING: ChainForge was not found. Falling back to GemmForge.")
+        device_codegen = re.split(r"[,;]", cmdLineArgs.device_codegen.replace(" ", ""))
+
+        if "gemmforge-chainforge" in device_codegen and cmdLineArgs.device_backend in [
+            "cuda",
+            "hip",
+        ]:
+            chainforge_spec = importlib.util.find_spec("chainforge")
+            if chainforge_spec is not None:
+                chainforge_spec.loader.load_module()
+                cost_estimators = FusedGemmsBoundingBoxCostEstimator
+            else:
+                raise ModuleNotFoundError(
+                    "Could not find chainforge. You can install it from github.com/seissol/chainforge ."
+                )
+        if "tensorforge" in device_codegen:
+            import tensorforge
+
+            custom_routine_generators["gpu"] = tensorforge.get_routine_generator(yateto)
 
     subfolders = []
 
@@ -122,6 +134,10 @@ def main():
     equations = equationsSpec.loader.load_module()
 
     equation_class = equations.EQUATION_CLASS
+
+    routine_cache = GlobalRoutineCache()
+
+    gemmTools = GeneratorCollection(gemm_generators)
 
     def generate_equation(subfolders, equation, order):
         precision = "double" if cmdLineArgs.host_arch[0] == "d" else "single"
@@ -135,9 +151,17 @@ def main():
                 "device_arch": cmdLineArgs.device_arch,
                 "multipleSimulations": cmdLineArgs.multipleSimulations,
                 "targets": targets,
+                "gemmgen": gemm_tool_list,
             }
             mem_layout = kernels.memlayout.guessMemoryLayout(env)
+        elif not os.path.isabs(cmdLineArgs.memLayout):
+            print(
+                f"Using the pre-defined memory layout config file {cmdLineArgs.memLayout}"
+            )
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            mem_layout = os.path.join(script_dir, "config", cmdLineArgs.memLayout)
         else:
+            print(f"Using the memory layout config file {cmdLineArgs.memLayout}")
             mem_layout = cmdLineArgs.memLayout
 
         cmdArgsDict = vars(cmdLineArgs)
@@ -197,13 +221,13 @@ def main():
         subfolders += [outputDirName]
 
         # Generate code
-        gemmTools = GeneratorCollection(gemm_generators)
         generator.generate(
             outputDir=trueOutputDir,
             namespace="seissol",
             gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=include_tensors,
+            routine_cache=routine_cache,
         )
 
     def generate_general(subfolders):
@@ -224,9 +248,10 @@ def main():
         generator.generate(
             outputDir=outputDir,
             namespace="seissol_general",
-            gemm_cfg=GeneratorCollection([Eigen(arch)]),
+            gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=kernels.general.includeMatrices(cmdLineArgs.matricesDir),
+            routine_cache=routine_cache,
         )
 
     def forward_files(filename):
@@ -243,16 +268,15 @@ def main():
     generate_equation(subfolders, equation_class, cmdLineArgs.order)
     generate_general(subfolders)
 
+    routine_cache.generate(cmdLineArgs.outputDir, "seissol")
+
     forward_files("init.h")
     forward_files("kernel.h")
-    forward_files("subroutine.h")
     forward_files("tensor.h")
     forward_files("init.cpp")
     forward_files("kernel.cpp")
-    forward_files("subroutine.cpp")
     forward_files("tensor.cpp")
     forward_files("test-kernel.cpp")
-    forward_files("gpulike_subroutine.cpp")
 
 
 if __name__ == "__main__":

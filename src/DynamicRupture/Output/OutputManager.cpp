@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Common/Filesystem.h"
 #include "DynamicRupture/Misc.h"
@@ -9,16 +16,16 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/LTS.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Layer.h"
-#include "Initializer/Tree/Lut.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
+#include "Memory/Tree/Lut.h"
 #include "SeisSol.h"
 #include <algorithm>
 #include <array>
@@ -122,21 +129,20 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   const bool elementwiseEnabled = seissolParameters.drParameters.outputPointType ==
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
-  const int rank = seissol::MPI::mpi.rank();
   if (pointEnabled) {
-    logInfo(rank) << "Enabling on-fault receiver output";
+    logInfo() << "Enabling on-fault receiver output";
     ppOutputBuilder = std::make_unique<PickPointBuilder>();
     ppOutputBuilder->setMeshReader(&userMesher);
     ppOutputBuilder->setParams(seissolParameters.output.pickpointParameters);
   }
   if (elementwiseEnabled) {
-    logInfo(rank) << "Enabling 2D fault output";
+    logInfo() << "Enabling 2D fault output";
     ewOutputBuilder = std::make_unique<ElementWiseBuilder>();
     ewOutputBuilder->setMeshReader(&userMesher);
     ewOutputBuilder->setParams(seissolParameters.output.elementwiseParameters);
   }
   if (!elementwiseEnabled && !pointEnabled) {
-    logInfo(rank) << "No dynamic rupture output enabled";
+    logInfo() << "No dynamic rupture output enabled";
   }
 }
 
@@ -278,7 +284,11 @@ void OutputManager::initPickpointOutput() {
           auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
           const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
-          const auto* initialStress = reinterpret_cast<const real*>(initialStressVar[face]);
+          const auto* initialStress = initialStressVar[face];
+          std::array<real, 6> unrotatedInitialStress{};
+          for (std::size_t i = 0; i < unrotatedInitialStress.size(); ++i) {
+            unrotatedInitialStress[i] = initialStress[i][receiver.nearestGpIndex];
+          }
 
           seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
           alignAlongDipAndStrikeKernel.stressRotationMatrix =
@@ -286,7 +296,7 @@ void OutputManager::initPickpointOutput() {
           alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
               outputData->stressFaceAlignedToGlb[i].data();
 
-          alignAlongDipAndStrikeKernel.initialStress = initialStress;
+          alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
           alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
           alignAlongDipAndStrikeKernel.execute();
         }

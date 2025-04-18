@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include <numeric>
 
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
@@ -12,8 +19,8 @@ using namespace seissol;
 using namespace seissol::dr;
 
 TEST_CASE("Friction Solver Common") {
-  FaultStresses faultStresses{};
-  TractionResults tractionResults{};
+  FaultStresses<Executor::Host> faultStresses{};
+  TractionResults<Executor::Host> tractionResults{};
   ImpedancesAndEta impAndEta;
   alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()] = {{}};
   alignas(Alignment)

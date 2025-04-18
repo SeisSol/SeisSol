@@ -1,5 +1,12 @@
-#ifndef SEISSOL_BASEDRINITIALIZER_H
-#define SEISSOL_BASEDRINITIALIZER_H
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_
 
 #include <yaml-cpp/yaml.h>
 
@@ -157,13 +164,13 @@ class BaseDRInitializer {
    * Rotates the stress tensor to a fault aligned coordinate system and stores it in stressInFaultCS
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
-   * @param stressInFaultCS pointer to array of size [numCells][numPaddedPoints][6], stores rotated
+   * @param stressInFaultCS pointer to array of size [numCells][6][numPaddedPoints], stores rotated
    * stress
    * @param stress reference to a StressTensor, stores the stress in cartesian coordinates
    */
   void rotateStressToFaultCS(const seissol::initializer::DynamicRupture* dynRup,
                              seissol::initializer::Layer& layer,
-                             real (*stressInFaultCS)[misc::NumPaddedPoints][6],
+                             real (*stressInFaultCS)[6][misc::NumPaddedPoints],
                              const StressTensor& stress);
 
   /**
@@ -181,4 +188,5 @@ class BaseDRInitializer {
 
 } // namespace dr::initializer
 } // namespace seissol
-#endif // SEISSOL_BASEDRINITIALIZER_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_

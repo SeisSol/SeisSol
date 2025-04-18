@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include <Equations/Datastructures.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
@@ -12,6 +19,7 @@
 #include <math.h>
 #include <tensor.h>
 
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Numerical/Eigenvalues.h"
 #include "Physics/InitialField.h"
@@ -78,11 +86,7 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
   seissol::model::getPlaneWaveOperator(materialData.local, m_kVec.data(), planeWaveOperator.data());
   seissol::eigenvalues::Eigenpair<std::complex<double>, seissol::model::MaterialT::NumQuantities>
       eigendecomposition;
-#ifdef USE_POROELASTIC
-  computeEigenvaluesWithLapack(planeWaveOperator, eigendecomposition);
-#else
-  computeEigenvaluesWithEigen3(planeWaveOperator, eigendecomposition);
-#endif
+  computeEigenvalues(planeWaveOperator, eigendecomposition);
   m_lambdaA = eigendecomposition.values;
   m_eigenvectors = eigendecomposition.vectors;
 }
@@ -126,8 +130,12 @@ void seissol::physics::SuperimposedPlanarwave::evaluate(
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
 
-  real dofsPwData[tensor::dofsQP::size()];
-  yateto::DenseTensorView<2, real, unsigned> dofsPW = init::dofsQP::view::create(dofsPwData);
+  std::vector<real> dofsPwVector(dofsQP.size());
+  auto dofsPW = yateto::DenseTensorView<2, real, unsigned>(
+      dofsPwVector.data(),
+      {NumBasisFunctions, seissol::model::MaterialT::NumQuantities},
+      {0, 0},
+      {NumBasisFunctions, seissol::model::MaterialT::NumQuantities});
 
   for (int pw = 0; pw < 3; pw++) {
     // evaluate each planarwave
@@ -297,8 +305,8 @@ seissol::physics::PressureInjection::PressureInjection(
   const auto o3 = m_parameters.origin[2];
   const auto magnitude = m_parameters.magnitude;
   const auto width = m_parameters.width;
-  logInfo(0) << "Prepare gaussian pressure perturbation with center at (" << o1 << ", " << o2
-             << ", " << o3 << "), magnitude = " << magnitude << ", width = " << width << ".";
+  logInfo() << "Prepare gaussian pressure perturbation with center at (" << o1 << ", " << o2 << ", "
+            << o3 << "), magnitude = " << magnitude << ", width = " << width << ".";
 }
 
 void seissol::physics::PressureInjection::evaluate(

@@ -1,8 +1,19 @@
+# SPDX-FileCopyrightText: 2021 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-# ensure that we have an set HIP_PATH
+# ensure that we have set HIP_PATH
 if(NOT DEFINED HIP_PATH)
     if(NOT DEFINED ENV{HIP_PATH})
-        set(HIP_PATH "/opt/rocm/hip" CACHE PATH "Path to which HIP has been installed")
+        if (NOT DEFINED ENV{ROCM_PATH})
+            # default location
+            set(HIP_PATH "/opt/rocm" CACHE PATH "Path to which HIP has been installed")
+        else()
+            set(HIP_PATH $ENV{ROCM_PATH} CACHE PATH "Path to which HIP has been installed")
+        endif()
     else()
         set(HIP_PATH $ENV{HIP_PATH} CACHE PATH "Path to which HIP has been installed")
     endif()
@@ -46,7 +57,9 @@ ${HCC_PATH} \
 set(DEVICE_SRC ${DEVICE_SRC}
                ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
                ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/hip/PlasticityAux.cpp
-               ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/hip/KernelsAux.cpp)
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/hip/KernelsAux.cpp
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterCudaHip.cpp)
 
 
 set_source_files_properties(${DEVICE_SRC} PROPERTIES HIP_SOURCE_PROPERTY_FORMAT 1)
@@ -56,6 +69,7 @@ hip_add_library(seissol-device-lib SHARED ${DEVICE_SRC}
         HIPCC_OPTIONS ${SEISSOL_HIPCC}
         NVCC_OPTIONS ${SEISSOL_NVCC})
 
+target_link_libraries(seissol-device-lib PRIVATE seissol-common-properties)
 target_include_directories(seissol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
 set_property(TARGET seissol-device-lib PROPERTY HIP_ARCHITECTURES OFF)
 target_compile_definitions(seissol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
@@ -73,3 +87,4 @@ if (IS_NVCC_PLATFORM)
 else()
     target_link_libraries(seissol-device-lib PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
 endif()
+

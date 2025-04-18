@@ -1,59 +1,26 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alexander Breuer (breuer AT mytum.de,
- *http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2013-2014, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Local kernel of SeisSol.
- **/
+// SPDX-FileCopyrightText: 2013 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "Kernels/Local.h"
 
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Initializer/LTS.h>
-#include <Initializer/Tree/Layer.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/LocalBase.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Physics/InitialField.h>
+#include <Solver/MultipleSimulations.h>
 #include <cstddef>
 #include <generated_code/init.h>
 #include <generated_code/kernel.h>
@@ -133,16 +100,20 @@ struct ApplyAnalyticalSolution {
 
     auto nodesVec = std::vector<std::array<double, 3>>{};
     int offset = 0;
-    for (unsigned int i = 0; i < seissol::tensor::INodal::Shape[0]; ++i) {
-      auto curNode = std::array<double, 3>{};
-      curNode[0] = nodes[offset++];
-      curNode[1] = nodes[offset++];
-      curNode[2] = nodes[offset++];
-      nodesVec.push_back(curNode);
-    }
+    for (unsigned int s = 0; s < multisim::NumSimulations; ++s) {
+      auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
 
-    assert(initCondition != nullptr);
-    initCondition->evaluate(time, nodesVec, localData.material(), boundaryDofs);
+      for (unsigned int i = 0; i < seissol::tensor::INodal::Shape[0]; ++i) {
+        auto curNode = std::array<double, 3>{};
+        curNode[0] = nodes[offset++];
+        curNode[1] = nodes[offset++];
+        curNode[2] = nodes[offset++];
+        nodesVec.push_back(curNode);
+      }
+
+      assert(initCondition != nullptr);
+      initCondition->evaluate(time, nodesVec, localData.material(), slicedBoundaryDofs);
+    }
   }
 
   private:
@@ -206,14 +177,21 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       auto applyFreeSurfaceBc =
           [&displacement, &materialData, &localG](const real*, // nodes are unused
                                                   init::INodal::view::type& boundaryDofs) {
-            for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-              const double rho = materialData->local.rho;
-              assert(localG > 0);
-              const double pressureAtBnd = -1 * rho * localG * displacement(i);
+            for (unsigned int s = 0; s < multisim::NumSimulations; ++s) {
+              auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
+              auto slicedDisplacement = multisim::simtensor(displacement, s);
 
-              boundaryDofs(i, 0) = 2 * pressureAtBnd - boundaryDofs(i, 0);
-              boundaryDofs(i, 1) = 2 * pressureAtBnd - boundaryDofs(i, 1);
-              boundaryDofs(i, 2) = 2 * pressureAtBnd - boundaryDofs(i, 2);
+              for (unsigned int i = 0;
+                   i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
+                   ++i) {
+                const double rho = materialData->local.rho;
+                assert(localG > 0);
+                const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);
+
+                slicedBoundaryDofs(i, 0) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 0);
+                slicedBoundaryDofs(i, 1) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 1);
+                slicedBoundaryDofs(i, 2) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 2);
+              }
             }
           };
 

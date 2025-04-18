@@ -1,7 +1,11 @@
-/**
- * @author Lukas Krenz (lukas.krenz AT tum.de)
- * @author Carsten Uphoff (c.uphoff AT tum.de)
- **/
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Lukas Krenz
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "Statistics.h"
 
@@ -28,18 +32,20 @@ seissol::statistics::Summary::Summary(const std::vector<double>& values) : media
   min = sortedValues[0];
   max = sortedValues[n - 1];
 
-  mean = 0.0;
-  auto meanOfSquares = 0.0;
+  sum = 0.0;
   for (const auto num : sortedValues) {
-    mean += num;
-    meanOfSquares += num * num;
+    sum += num;
+  }
+  mean = sum / n;
+
+  auto variance = 0.0;
+  for (const auto num : sortedValues) {
+    const auto diff = mean - num;
+    variance += diff * diff;
   }
 
-  mean /= n;
-  meanOfSquares /= n;
+  variance /= n;
 
-  // Note that this computation is numerically unstable!
-  const auto variance = meanOfSquares - mean * mean;
   std = std::sqrt(variance);
 }
 

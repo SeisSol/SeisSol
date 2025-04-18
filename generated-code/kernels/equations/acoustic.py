@@ -1,13 +1,10 @@
 # SPDX-FileCopyrightText: 2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
-# @file
-# This file is part of SeisSol.
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de)
-# @author Jinwen Pan (jinwen.pan AT tum.de)
-#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+# SPDX-FileContributor: Jinwen Pan
 
 import numpy as np
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
@@ -50,6 +47,9 @@ class AcousticADERDG(LinearADERDG):
         extractTractionsSPP = np.zeros((3, self.numberOfQuantities()))
         extractTractionsSPP[0, 0] = 1
         return extractTractionsSPP
+
+    def name(self):
+        return "acoustic"
 
 
 EQUATION_CLASS = AcousticADERDG

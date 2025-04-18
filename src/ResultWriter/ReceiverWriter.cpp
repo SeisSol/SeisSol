@@ -1,53 +1,22 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2019, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- **/
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "ReceiverWriter.h"
 
 #include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
-#include <Initializer/LTS.h>
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Initializer/PointMapper.h>
-#include <Initializer/Tree/Layer.h>
-#include <Initializer/Tree/Lut.h>
 #include <Kernels/Receiver.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Layer.h>
+#include <Memory/Tree/Lut.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -135,17 +104,16 @@ void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point)
     file << "TITLE = \"Temporal Signal for receiver number " << std::setfill('0') << std::setw(5)
          << (pointId + 1) << "\"" << std::endl;
     file << "VARIABLES = \"Time\"";
-#ifdef MULTIPLE_SIMULATIONS
-    for (unsigned sim = init::QAtPoint::Start[0]; sim < init::QAtPoint::Stop[0]; ++sim) {
+
+    for (unsigned sim = seissol::multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
       for (const auto& name : names) {
-        file << ",\"" << name << sim << "\"";
+        if constexpr (seissol::multisim::MultisimEnabled) {
+          file << ",\"" << name << sim << "\"";
+        } else {
+          file << ",\"" << name << "\"";
+        }
       }
     }
-#else
-    for (auto const& name : names) {
-      file << ",\"" << name << "\"";
-    }
-#endif
     file << std::endl;
     for (int d = 0; d < 3; ++d) {
       file << "# x" << (d + 1) << "       " << std::scientific << std::setprecision(12) << point[d]
@@ -185,8 +153,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   }
 
   auto time = m_stopwatch.stop();
-  const int rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "Wrote receivers in" << time << "seconds.";
+  logInfo() << "Wrote receivers in" << time << "seconds.";
 }
 void ReceiverWriter::init(
     const std::string& fileNamePrefix,
@@ -214,14 +181,13 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                const seissol::initializer::LTS& lts,
                                const GlobalData* global) {
   std::vector<Eigen::Vector3d> points;
-  const auto rank = seissol::MPI::mpi.rank();
   // Only parse if we have a receiver file
   if (!m_receiverFileName.empty()) {
     points = parseReceiverFile(m_receiverFileName);
-    logInfo(rank) << "Record points read from" << m_receiverFileName;
-    logInfo(rank) << "Number of record points =" << points.size();
+    logInfo() << "Record points read from" << m_receiverFileName;
+    logInfo() << "Number of record points =" << points.size();
   } else {
-    logInfo(rank) << "No record points read.";
+    logInfo() << "No record points read.";
   }
 
   const unsigned numberOfPoints = points.size();
@@ -232,12 +198,12 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   std::vector<unsigned> quantities(seissol::model::MaterialT::Quantities.size());
   std::iota(quantities.begin(), quantities.end(), 0);
 
-  logInfo(rank) << "Finding meshIds for receivers...";
+  logInfo() << "Finding meshIds for receivers...";
   initializer::findMeshIds(
       points.data(), mesh, numberOfPoints, contained.data(), meshIds.data(), 1e-3);
   std::vector<short> globalContained(contained.begin(), contained.end());
 #ifdef USE_MPI
-  logInfo(rank) << "Cleaning possible double occurring receivers for MPI...";
+  logInfo() << "Cleaning possible double occurring receivers for MPI...";
   initializer::cleanDoubles(contained.data(), numberOfPoints);
   MPI_Allreduce(MPI_IN_PLACE,
                 globalContained.data(),
@@ -250,9 +216,8 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   bool receiversMissing = false;
   for (int i = 0; i < numberOfPoints; ++i) {
     if (globalContained[i] == 0) {
-      logWarning(rank) << "Receiver point" << i
-                       << "could not be found. Coordinates:" << points[i](0) << points[i](1)
-                       << points[i](2);
+      logWarning() << "Receiver point" << i << "could not be found. Coordinates:" << points[i](0)
+                   << points[i](1) << points[i](2);
       receiversMissing = true;
     }
   }
@@ -260,7 +225,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
     logError() << "Some receivers could not be found. Aborting simulation.";
   }
 
-  logInfo(rank) << "Mapping receivers to LTS cells...";
+  logInfo() << "Mapping receivers to LTS cells...";
   m_receiverClusters[Interior].clear();
   m_receiverClusters[Copy].clear();
   for (unsigned point = 0; point < numberOfPoints; ++point) {

@@ -1,16 +1,23 @@
-#ifndef SEISSOL_DR_RECEIVER_BASED_OUTPUT_BUILDER_HPP
-#define SEISSOL_DR_RECEIVER_BASED_OUTPUT_BUILDER_HPP
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_RECEIVERBASEDOUTPUTBUILDER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_RECEIVERBASEDOUTPUTBUILDER_H_
 
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/MeshReader.h"
-#include "Initializer/DynamicRupture.h"
 #include "Initializer/InputAux.h"
-#include "Initializer/LTS.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Lut.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Lut.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
@@ -57,4 +64,4 @@ class ReceiverBasedOutputBuilder {
 };
 } // namespace seissol::dr::output
 
-#endif // SEISSOL_DR_RECEIVER_BASED_OUTPUT_BUILDER_HPP
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_RECEIVERBASEDOUTPUTBUILDER_H_

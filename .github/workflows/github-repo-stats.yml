@@ -1,13 +1,18 @@
-# source https://github.com/jgehrcke/github-repo-stats/wiki/Tutorial
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# source (given as example) https://github.com/jgehrcke/github-repo-stats/wiki/Tutorial
 
 name: github-repo-stats
 
 on:
   schedule:
-    # Run this once per day, towards the end of the day for keeping the most
-    # recent data point most meaningful (hours are interpreted in UTC).
     - cron: "0 23 * * *"
-  workflow_dispatch: # Allow for running this manually.
+  workflow_dispatch:
 
 jobs:
   update-stats:

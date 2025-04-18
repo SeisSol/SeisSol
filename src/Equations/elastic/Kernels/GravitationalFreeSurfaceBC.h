@@ -1,5 +1,12 @@
-#ifndef SEISSOL_GRAVIATIONALFREESURFACEBC_H
-#define SEISSOL_GRAVIATIONALFREESURFACEBC_H
+// SPDX-FileCopyrightText: 2020 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_GRAVITATIONALFREESURFACEBC_H_
+#define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_GRAVITATIONALFREESURFACEBC_H_
 
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
@@ -54,6 +61,9 @@ class GravitationalFreeSurfaceBc {
     // and substituting the previous coefficient eta_t
     // This implementation sums up the Taylor series directly without storing
     // all coefficients.
+#ifdef MULTIPLE_SIMULATIONS
+    logError() << "The Free Surface Gravity BC kernel does not work with multiple simulations";
+#else
 
     // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
     assert(boundaryMapping.nodes != nullptr);
@@ -169,6 +179,7 @@ class GravitationalFreeSurfaceBc {
     rotateFaceDisplacementKrnl.displacementRotationMatrix = rotateDisplacementToGlobalData;
     rotateFaceDisplacementKrnl.rotatedFaceDisplacement = displacementNodalData;
     rotateFaceDisplacementKrnl.execute();
+#endif
   }
 
 #ifdef ACL_DEVICE
@@ -336,4 +347,4 @@ class GravitationalFreeSurfaceBc {
 
 } // namespace seissol
 
-#endif // SEISSOL_GRAVIATIONALFREESURFACEBC_H
+#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_GRAVITATIONALFREESURFACEBC_H_

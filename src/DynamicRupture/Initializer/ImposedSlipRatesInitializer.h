@@ -1,5 +1,12 @@
-#ifndef SEISSOL_IMPOSEDSLIPINITIALIZER_H
-#define SEISSOL_IMPOSEDSLIPINITIALIZER_H
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_IMPOSEDSLIPRATESINITIALIZER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_IMPOSEDSLIPRATESINITIALIZER_H_
 
 #include "BaseDRInitializer.h"
 
@@ -84,4 +91,4 @@ class ImposedSlipRatesDeltaInitializer : public ImposedSlipRatesInitializer {
 
 } // namespace seissol::dr::initializer
 
-#endif // SEISSOL_IMPOSEDSLIPINITIALIZER_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_IMPOSEDSLIPRATESINITIALIZER_H_

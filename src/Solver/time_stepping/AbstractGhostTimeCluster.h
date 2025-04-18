@@ -1,8 +1,18 @@
-#pragma once
+// SPDX-FileCopyrightText: 2020 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTGHOSTTIMECLUSTER_H_
+#define SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTGHOSTTIMECLUSTER_H_
 
 #include <list>
 #include "Initializer/Typedefs.h"
 #include "AbstractTimeCluster.h"
+
+#include "Parallel/MPI.h"
 
 namespace seissol::time_stepping {
 class AbstractGhostTimeCluster : public AbstractTimeCluster {
@@ -10,6 +20,8 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
   const int globalClusterId;
   const int otherGlobalClusterId;
   const MeshStructure* meshStructure;
+  std::vector<MPI_Request> sendRequests;
+  std::vector<MPI_Request> recvRequests;
   std::list<unsigned int> sendQueue;
   std::list<unsigned int> receiveQueue;
 
@@ -43,3 +55,5 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
   ActResult act() override;
 };
 } // namespace seissol::time_stepping
+
+#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTGHOSTTIMECLUSTER_H_

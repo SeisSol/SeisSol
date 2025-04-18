@@ -1,12 +1,19 @@
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "BaseDRInitializer.h"
 
 #include "DynamicRupture/Misc.h"
 #include "Geometry/MeshDefinition.h"
-#include "Initializer/DynamicRupture.h"
 #include "Initializer/ParameterDB.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
@@ -25,9 +32,8 @@
 namespace seissol::dr::initializer {
 void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
                                         seissol::initializer::LTSTree* const dynRupTree) {
-  const int rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "Initializing Fault, using a quadrature rule with "
-                << misc::NumBoundaryGaussPoints << " points.";
+  logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
+            << " points.";
   seissol::initializer::FaultParameterDB faultParameterDB;
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     // parameters to be read from fault parameters yaml file
@@ -109,8 +115,7 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
     if (nucleationStressParameterizedByTraction) {
       rotateTractionToCartesianStress(dynRup, layer, nucleationStress);
     }
-    real(*nucleationStressInFaultCS)[misc::NumPaddedPoints][6] =
-        layer.var(dynRup->nucleationStressInFaultCS);
+    auto* nucleationStressInFaultCS = layer.var(dynRup->nucleationStressInFaultCS);
     rotateStressToFaultCS(dynRup, layer, nucleationStressInFaultCS, nucleationStress);
 
     auto* initialPressure = layer.var(dynRup->initialPressure);
@@ -140,8 +145,8 @@ std::vector<unsigned> BaseDRInitializer::getFaceIDsInIterator(
 void BaseDRInitializer::queryModel(seissol::initializer::FaultParameterDB& faultParameterDB,
                                    const std::vector<unsigned>& faceIDs) {
   // create a query and evaluate the model
-  seissol::initializer::FaultGPGenerator queryGen(seissolInstance.meshReader(), faceIDs);
-  faultParameterDB.evaluateModel(drParameters->faultFileName, &queryGen);
+  const seissol::initializer::FaultGPGenerator queryGen(seissolInstance.meshReader(), faceIDs);
+  faultParameterDB.evaluateModel(drParameters->faultFileName, queryGen);
 }
 
 void BaseDRInitializer::rotateTractionToCartesianStress(
@@ -198,7 +203,7 @@ void BaseDRInitializer::rotateTractionToCartesianStress(
 void BaseDRInitializer::rotateStressToFaultCS(
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::Layer& layer,
-    real (*stressInFaultCS)[misc::NumPaddedPoints][6],
+    real (*stressInFaultCS)[6][misc::NumPaddedPoints],
     const StressTensor& stress) {
   // create rotation kernel
   real cartesianToFaultCSMatrixValues[init::stressRotationMatrix::size()];
@@ -229,7 +234,7 @@ void BaseDRInitializer::rotateStressToFaultCS(
       cartesianToFaultCSRotationKernel.rotatedStress = rotatedStress;
       cartesianToFaultCSRotationKernel.execute();
       for (unsigned int stressIndex = 0; stressIndex < NumStressComponents; ++stressIndex) {
-        stressInFaultCS[ltsFace][pointIndex][stressIndex] = rotatedStress[stressIndex];
+        stressInFaultCS[ltsFace][stressIndex][pointIndex] = rotatedStress[stressIndex];
       }
     }
   }
@@ -245,7 +250,7 @@ void BaseDRInitializer::addAdditionalParameters(
 void BaseDRInitializer::initializeOtherVariables(
     const seissol::initializer::DynamicRupture* const dynRup, seissol::initializer::Layer& layer) {
   // initialize rupture front flag
-  bool(*ruptureTimePending)[misc::NumPaddedPoints] = layer.var(dynRup->ruptureTimePending);
+  bool (*ruptureTimePending)[misc::NumPaddedPoints] = layer.var(dynRup->ruptureTimePending);
   for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
     for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       ruptureTimePending[ltsFace][pointIndex] = true;

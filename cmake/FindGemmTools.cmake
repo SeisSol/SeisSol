@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2020 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #  GemmTools - BLAS-like Library Instantiation Software Framework
 #  email: ravil.dorozhinskii@tum.de 
 #
@@ -49,10 +56,10 @@ foreach(component ${_GEMM_TOOLS_LIST})
         find_package(PSpaMM REQUIRED)
 
     elseif ("${component}" STREQUAL "MKL")
-        find_package(MKL REQUIRED)
-        set(GemmTools_INCLUDE_DIRS ${GemmTools_INCLUDE_DIRS} ${MKL_INCLUDE_DIRS})
-        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} ${MKL_LIBRARIES})
-        set(GemmTools_COMPILER_DEFINITIONS ${GemmTools_COMPILER_DEFINITIONS} ${MKL_COMPILER_DEFINITIONS})
+        # cf. https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-linux/2025-0/cmake-config-for-onemkl.html
+        find_package(MKL CONFIG REQUIRED PATHS $ENV{MKLROOT})
+
+        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} MKL::MKL)
 
     elseif ("${component}" STREQUAL "OpenBLAS")
         find_package(OpenBLAS REQUIRED)
@@ -73,12 +80,25 @@ foreach(component ${_GEMM_TOOLS_LIST})
         # no includes necessary
 
     elseif ("${component}" STREQUAL "GemmForge")
-        execute_process(COMMAND python3 -c "import gemmforge; gemmforge.print_cmake_path()"
+        execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import gemmforge; gemmforge.print_cmake_path()"
                         OUTPUT_VARIABLE GEMMFORGE_PATH)
-        set(CMAKE_PREFIX_PATH "${GEMMFORGE_PATH}" ${CMAKE_MODULE_PATH})
+        set(CMAKE_PREFIX_PATH "${GEMMFORGE_PATH}" ${CMAKE_PREFIX_PATH})
         find_package(GemmForge 0.0.207 REQUIRED)
         set(DEVICE_SRC ${DEVICE_SRC} ${GemmForge_SOURCES})
         set(DEVICE_INCLUDE_DIRS ${DEVICE_INCLUDE_DIRS} ${GemmForge_INCLUDE_DIRS})
+
+    elseif ("${component}" STREQUAL "tinytc")
+        find_package(tinytc 0.3.1 REQUIRED shared)
+        find_package(tinytc_sycl 0.3.1 REQUIRED shared)
+        set(GemmTools_LIBRARIES ${GemmTools_LIBRARIES} tinytc::tinytc tinytc::tinytc_sycl)
+
+    elseif ("${component}" STREQUAL "TensorForge")
+        execute_process(COMMAND "${Python3_EXECUTABLE}" -c "import tensorforge; tensorforge.print_cmake_path()"
+                        OUTPUT_VARIABLE TENSORFORGE_PATH)
+        set(CMAKE_PREFIX_PATH "${TENSORFORGE_PATH}" ${CMAKE_PREFIX_PATH})
+        find_package(TensorForge REQUIRED)
+        set(DEVICE_SRC ${DEVICE_SRC} ${TensorForge_SOURCES})
+        set(DEVICE_INCLUDE_DIRS ${DEVICE_INCLUDE_DIRS} ${TensorForge_INCLUDE_DIRS})
 
     else()
         message(FATAL_ERROR "Gemm Tools do not have a requested component, i.e. ${component}. \

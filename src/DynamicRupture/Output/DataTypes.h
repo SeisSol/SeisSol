@@ -1,10 +1,17 @@
-#ifndef SEISSOL_DR_OUTPUT_DATA_TYPES_HPP
-#define SEISSOL_DR_OUTPUT_DATA_TYPES_HPP
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include "Memory/Tree/Layer.h"
 #include "Parallel/DataCollector.h"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
@@ -160,4 +167,4 @@ struct ReceiverOutputData {
 };
 } // namespace seissol::dr
 
-#endif // SEISSOL_DR_OUTPUT_DATA_TYPES_HPP
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_

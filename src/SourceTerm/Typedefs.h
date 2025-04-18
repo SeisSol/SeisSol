@@ -1,51 +1,18 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2015, SeisSol Group
- * Copyright (c) 2023, Intel corporation
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Point source computation.
- **/
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+// SPDX-FileCopyrightText: 2023 Intel Corporation
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SOURCETERM_TYPEDEFS_HPP_
-#define SOURCETERM_TYPEDEFS_HPP_
+#ifndef SEISSOL_SRC_SOURCETERM_TYPEDEFS_H_
+#define SEISSOL_SRC_SOURCETERM_TYPEDEFS_H_
 
 #include "Common/Constants.h"
-#include "Initializer/MemoryAllocator.h"
 #include "Kernels/Precision.h"
+#include "Memory/MemoryAllocator.h"
 #include "generated_code/tensor.h"
 #include <array>
 #include <cstdlib>
@@ -74,6 +41,8 @@ struct PointSources {
       seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>>
       mInvJInvPhisAtSources;
 
+  seissol::memory::MemkindArray<unsigned> fusedOriginalIndex;
+
   /** NRF: Basis vectors of the fault.
    * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
    * 3-5: Tan2X-Z   = second fault tangent
@@ -86,7 +55,7 @@ struct PointSources {
   seissol::memory::MemkindArray<real> A;
 
   /// elasticity tensor
-  seissol::memory::MemkindArray<std::array<real, 81>> stiffnessTensor;
+  seissol::memory::MemkindArray<seissol::memory::AlignedArray<real, 81>> stiffnessTensor;
 
   /// onset time
   seissol::memory::MemkindArray<double> onsetTime;
@@ -95,7 +64,7 @@ struct PointSources {
   seissol::memory::MemkindArray<double> samplingInterval;
 
   /// offset into slip rate vector
-  std::array<seissol::memory::MemkindArray<std::size_t>, 3u> sampleOffsets;
+  std::array<seissol::memory::MemkindArray<std::size_t>, 3U> sampleOffsets;
 
   /** NRF: slip rate in
    * 0: Tan1 direction
@@ -103,14 +72,14 @@ struct PointSources {
    * 2: Normal direction
    *
    * FSRM: 0: slip rate (all directions) */
-  std::array<seissol::memory::MemkindArray<real>, 3u> sample;
+  std::array<seissol::memory::MemkindArray<real>, 3U> sample;
 
   /** Number of point sources in this struct. */
   unsigned numberOfSources = 0;
 
   PointSources(seissol::memory::Memkind memkind)
-      : mInvJInvPhisAtSources(memkind), tensor(memkind), A(memkind), stiffnessTensor(memkind),
-        onsetTime(memkind), samplingInterval(memkind),
+      : mInvJInvPhisAtSources(memkind), fusedOriginalIndex(memkind), tensor(memkind), A(memkind),
+        stiffnessTensor(memkind), onsetTime(memkind), samplingInterval(memkind),
         sampleOffsets{seissol::memory::MemkindArray<std::size_t>(memkind),
                       seissol::memory::MemkindArray<std::size_t>(memkind),
                       seissol::memory::MemkindArray<std::size_t>(memkind)},
@@ -119,9 +88,9 @@ struct PointSources {
                seissol::memory::MemkindArray<real>(memkind)} {}
   PointSources(const PointSources& source, seissol::memory::Memkind memkind)
       : mInvJInvPhisAtSources(source.mInvJInvPhisAtSources, memkind),
-        tensor(source.tensor, memkind), A(source.A, memkind),
-        stiffnessTensor(source.stiffnessTensor, memkind), onsetTime(source.onsetTime, memkind),
-        samplingInterval(source.samplingInterval, memkind),
+        fusedOriginalIndex(source.fusedOriginalIndex, memkind), tensor(source.tensor, memkind),
+        A(source.A, memkind), stiffnessTensor(source.stiffnessTensor, memkind),
+        onsetTime(source.onsetTime, memkind), samplingInterval(source.samplingInterval, memkind),
         sampleOffsets{seissol::memory::MemkindArray<std::size_t>(source.sampleOffsets[0], memkind),
                       seissol::memory::MemkindArray<std::size_t>(source.sampleOffsets[1], memkind),
                       seissol::memory::MemkindArray<std::size_t>(source.sampleOffsets[2], memkind)},
@@ -156,4 +125,4 @@ struct ClusterMapping {
 };
 } // namespace seissol::sourceterm
 
-#endif
+#endif // SEISSOL_SRC_SOURCETERM_TYPEDEFS_H_

@@ -1,5 +1,12 @@
-#ifndef SEISSOL_CONDITIONALKEY_HPP
-#define SEISSOL_CONDITIONALKEY_HPP
+// SPDX-FileCopyrightText: 2020 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITIONALKEY_H_
+#define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITIONALKEY_H_
 
 #include <functional>
 #include <limits>
@@ -46,4 +53,4 @@ struct ConditionalHash<ConditionalKey> {
 };
 } // namespace seissol::initializer::recording
 
-#endif // SEISSOL_CONDITIONALKEY_HPP
+#endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITIONALKEY_H_

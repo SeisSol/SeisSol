@@ -1,5 +1,12 @@
-#ifndef SEISSOL_DR_OUTPUT_NO_FAULT_HPP
-#define SEISSOL_DR_OUTPUT_NO_FAULT_HPP
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_NOFAULT_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_NOFAULT_H_
 
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 
@@ -10,4 +17,4 @@ class NoFault : public ReceiverOutput {
 };
 } // namespace seissol::dr::output
 
-#endif // SEISSOL_DR_OUTPUT_NO_FAULT_HPP
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_NOFAULT_H_

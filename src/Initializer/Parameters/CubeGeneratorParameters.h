@@ -1,5 +1,12 @@
-#ifndef SEISSOL_CUBEGENERATOR_PARAMETERS_H
-#define SEISSOL_CUBEGENERATOR_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_CUBEGENERATORPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_CUBEGENERATORPARAMETERS_H_
 
 #include "ParameterReader.h"
 
@@ -31,4 +38,4 @@ CubeGeneratorParameters readCubeGeneratorParameters(ParameterReader* baseReader)
 void discardCubeGeneratorParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_CUBEGENERATORPARAMETERS_H_

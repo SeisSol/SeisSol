@@ -1,4 +1,5 @@
 #! /usr/bin/python
+# SPDX-License-Identifier: BSD-3-Clause
 ##
 # @file
 # This file is part of SeisSol.
@@ -175,7 +176,7 @@ elif env['compileMode'] == 'release':
 
 # add pathname to the list of directories which are search for include
 env.Append(CPPPATH=['#/src'])
-env.Append(CPPPATH=['#/submodules'])
+env.Append(CPPPATH=['#/../../../submodules'])
 
 # Add prefix path
 env.Tool('PrefixPathTool')

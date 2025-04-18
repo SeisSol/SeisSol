@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "SeisSol.h"
 
 #include "InitSideConditions.h"
@@ -5,14 +12,16 @@
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 
-#include "Parallel/MPI.h"
 #include <Equations/Datastructures.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
 #include <Physics/InitialField.h>
+#include <Solver/MultipleSimulations.h>
 #include <SourceTerm/Manager.h>
+#include <cmath>
 #include <cstddef>
 #include <cstdlib>
+#include <math.h>
 #include <memory>
 #include <string>
 #include <utility>
@@ -64,27 +73,19 @@ std::vector<std::unique_ptr<physics::InitialField>>
     initialConditionDescription = "Planar wave";
     auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0);
 
-#ifdef MULTIPLE_SIMULATIONS
-    for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      const double phase = (2.0 * M_PI * s) / MULTIPLE_SIMULATIONS;
+    for (int s = 0; s < seissol::multisim::NumSimulations; ++s) {
+      const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
       initConditions.emplace_back(new physics::Planarwave(materialData, phase));
     }
-#else
-    initConditions.emplace_back(new physics::Planarwave(materialData));
-#endif
   } else if (initConditionParams.type ==
              seissol::initializer::parameters::InitializationType::SuperimposedPlanarwave) {
     initialConditionDescription = "Super-imposed planar wave";
-#ifdef MULTIPLE_SIMULATIONS
-    for (int s = 0; s < MULTIPLE_SIMULATIONS; ++s) {
-      initConditions.emplace_back(new physics::SuperimposedPlanarwave(
-          memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
-          (2.0 * M_PI * s) / MULTIPLE_SIMULATIONS));
+
+    auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0);
+    for (int s = 0; s < seissol::multisim::NumSimulations; ++s) {
+      const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
+      initConditions.emplace_back(new physics::SuperimposedPlanarwave(materialData, phase));
     }
-#else
-    initConditions.emplace_back(new physics::SuperimposedPlanarwave(
-        memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0)));
-#endif
   } else if (initConditionParams.type ==
              seissol::initializer::parameters::InitializationType::Zero) {
     initialConditionDescription = "Zero";
@@ -146,8 +147,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
     logError() << "Non-implemented initial condition type:"
                << static_cast<int>(initConditionParams.type);
   }
-  logInfo(seissol::MPI::mpi.rank())
-      << "Using initial condition" << initialConditionDescription << ".";
+  logInfo() << "Using initial condition" << initialConditionDescription << ".";
   return initConditions;
 }
 
@@ -156,8 +156,7 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
   auto& memoryManager = seissolInstance.getMemoryManager();
 
   if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Easi) {
-    logInfo(seissol::MPI::mpi.rank())
-        << "Loading the initial condition from the easi file" << initConditionParams.filename;
+    logInfo() << "Loading the initial condition from the easi file" << initConditionParams.filename;
     seissol::initializer::projectEasiInitialField({initConditionParams.filename},
                                                   *memoryManager.getGlobalDataOnHost(),
                                                   seissolInstance.meshReader(),
@@ -202,10 +201,10 @@ void initBoundary(seissol::SeisSol& seissolInstance) {
 } // namespace
 
 void seissol::initializer::initprocedure::initSideConditions(seissol::SeisSol& seissolInstance) {
-  logInfo(seissol::MPI::mpi.rank()) << "Setting initial conditions.";
+  logInfo() << "Setting initial conditions.";
   initInitialCondition(seissolInstance);
-  logInfo(seissol::MPI::mpi.rank()) << "Reading source.";
+  logInfo() << "Reading source.";
   initSource(seissolInstance);
-  logInfo(seissol::MPI::mpi.rank()) << "Setting up boundary conditions.";
+  logInfo() << "Setting up boundary conditions.";
   initBoundary(seissolInstance);
 }

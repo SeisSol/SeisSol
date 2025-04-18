@@ -1,13 +1,10 @@
-# SPDX-FileCopyrightText: 2017-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2017 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
-
-# @file
-# This file is part of SeisSol.
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de)
-#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+# SPDX-FileContributor: Carsten Uphoff
 
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
@@ -114,7 +111,9 @@ def addKernels(generator, aderdg, include_tensors, targets):
     addVelocity = (
         lambda f: faceDisplacement["kp"]
         <= faceDisplacement["kp"]
-        + aderdg.db.V3mTo2nFace[f]["kl"] * aderdg.I["lq"] * aderdg.selectVelocity["qp"]
+        + aderdg.db.V3mTo2nFace[f][aderdg.t("kl")]
+        * aderdg.I["lq"]
+        * aderdg.selectVelocity["qp"]
     )
     generator.addFamily("addVelocity", simpleParameterSpace(4), addVelocity)
 

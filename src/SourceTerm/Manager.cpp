@@ -1,81 +1,19 @@
-/******************************************************************************
-** Copyright (c) 2015, Intel Corporation                                     **
-** All rights reserved.                                                      **
-**                                                                           **
-** Redistribution and use in source and binary forms, with or without        **
-** modification, are permitted provided that the following conditions        **
-** are met:                                                                  **
-** 1. Redistributions of source code must retain the above copyright         **
-**    notice, this list of conditions and the following disclaimer.          **
-** 2. Redistributions in binary form must reproduce the above copyright      **
-**    notice, this list of conditions and the following disclaimer in the    **
-**    documentation and/or other materials provided with the distribution.   **
-** 3. Neither the name of the copyright holder nor the names of its          **
-**    contributors may be used to endorse or promote products derived        **
-**    from this software without specific prior written permission.          **
-**                                                                           **
-** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
-** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
-** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
-** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
-** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
-** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
-** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
-** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
-** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
-** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
-** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
-******************************************************************************/
-/* Alexander Heinecke (Intel Corp.)
-******************************************************************************/
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- **/
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+// SPDX-FileCopyrightText: 2015 Intel Corporation
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#include "Parallel/MPI.h"
+#include "Manager.h"
 
 #include "FSRMReader.h"
 #include "Initializer/PointMapper.h"
 #include "Kernels/PointSourceClusterOnHost.h"
-#include "Manager.h"
 #include "Numerical/Transformation.h"
 #include "PointSource.h"
 #include "generated_code/init.h"
@@ -84,14 +22,14 @@
 #include <Common/Constants.h>
 #include <Geometry/MeshReader.h>
 #include <Geometry/MeshTools.h>
-#include <Initializer/LTS.h>
-#include <Initializer/MemoryAllocator.h>
 #include <Initializer/Parameters/SourceParameters.h>
-#include <Initializer/Tree/LTSTree.h>
-#include <Initializer/Tree/Layer.h>
-#include <Initializer/Tree/Lut.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/MemoryAllocator.h>
+#include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Layer.h>
+#include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
 #include <Solver/time_stepping/TimeManager.h>
@@ -113,6 +51,7 @@
 
 #ifdef USE_NETCDF
 #include "NRFReader.h"
+#include "Parallel/MPI.h"
 #include <mpi.h>
 #endif
 
@@ -321,7 +260,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
       std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources>(sources));
 
-#if defined(ACL_DEVICE) && !defined(MULTIPLE_SIMULATIONS)
+#if defined(ACL_DEVICE)
   using GpuImpl = seissol::kernels::PointSourceClusterOnDevice;
 
   auto deviceData =
@@ -362,12 +301,10 @@ auto loadSourcesFromFSRM(const char* fileName,
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
   // until further rewrite, we'll leave most of the raw pointers/arrays in here.
 
-  const int rank = seissol::MPI::mpi.rank();
-
   seissol::sourceterm::FSRMSource fsrm;
   fsrm.read(std::string(fileName));
 
-  logInfo(rank) << "Finding meshIds for point sources...";
+  logInfo() << "Finding meshIds for point sources...";
 
   auto contained = std::vector<short>(fsrm.numberOfSources);
   auto meshIds = std::vector<unsigned>(fsrm.numberOfSources);
@@ -376,7 +313,7 @@ auto loadSourcesFromFSRM(const char* fileName,
       fsrm.centers.data(), mesh, fsrm.numberOfSources, contained.data(), meshIds.data());
 
 #ifdef USE_MPI
-  logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
+  logInfo() << "Cleaning possible double occurring point sources for MPI...";
   initializer::cleanDoubles(contained.data(), fsrm.numberOfSources);
 #endif
 
@@ -388,7 +325,7 @@ auto loadSourcesFromFSRM(const char* fileName,
     numSources += contained[source];
   }
 
-  logInfo(rank) << "Mapping point sources to LTS cells...";
+  logInfo() << "Mapping point sources to LTS cells...";
   auto layeredClusterMapping =
       mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, lts, ltsLut, memkind);
   std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
@@ -405,6 +342,7 @@ auto loadSourcesFromFSRM(const char* fileName,
       sources.numberOfSources = numberOfSources;
       sources.mInvJInvPhisAtSources.resize(numberOfSources);
       sources.tensor.resize(numberOfSources);
+      sources.fusedOriginalIndex.resize(numberOfSources); // only used in case of fused simulations
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       sources.sampleOffsets[0].resize(numberOfSources + 1);
@@ -414,7 +352,8 @@ auto loadSourcesFromFSRM(const char* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned fsrmIndex = originalIndex[sourceIndex];
-
+        sources.fusedOriginalIndex[clusterSource] =
+            fsrmIndex; // only used in case of fused simulations
         computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
                                      sources.mInvJInvPhisAtSources[clusterSource],
                                      meshIds[sourceIndex],
@@ -457,7 +396,7 @@ auto loadSourcesFromFSRM(const char* fileName,
     }
   }
 
-  logInfo(rank) << ".. finished point source initialization.";
+  logInfo() << ".. finished point source initialization.";
 
   return layeredSourceClusters;
 }
@@ -473,18 +412,18 @@ auto loadSourcesFromNRF(const char* fileName,
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
   const int rank = seissol::MPI::mpi.rank();
 
-  logInfo(rank) << "Reading" << fileName;
+  logInfo() << "Reading" << fileName;
   NRF nrf;
   readNRF(fileName, nrf);
 
   auto contained = std::vector<short>(nrf.size());
   auto meshIds = std::vector<unsigned>(nrf.size());
 
-  logInfo(rank) << "Finding meshIds for point sources...";
+  logInfo() << "Finding meshIds for point sources...";
   initializer::findMeshIds(nrf.centres.data(), mesh, nrf.size(), contained.data(), meshIds.data());
 
 #ifdef USE_MPI
-  logInfo(rank) << "Cleaning possible double occurring point sources for MPI...";
+  logInfo() << "Cleaning possible double occurring point sources for MPI...";
   initializer::cleanDoubles(contained.data(), nrf.size());
 #endif
 
@@ -509,7 +448,7 @@ auto loadSourcesFromNRF(const char* fileName,
     }
   }
 
-  logInfo(rank) << "Mapping point sources to LTS cells...";
+  logInfo() << "Mapping point sources to LTS cells...";
 
   auto layeredClusterMapping =
       mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, lts, ltsLut, memkind);
@@ -529,6 +468,7 @@ auto loadSourcesFromNRF(const char* fileName,
       sources.tensor.resize(numberOfSources);
       sources.A.resize(numberOfSources);
       sources.stiffnessTensor.resize(numberOfSources);
+      sources.fusedOriginalIndex.resize(numberOfSources); // only used in case of fused simulations
       sources.onsetTime.resize(numberOfSources);
       sources.samplingInterval.resize(numberOfSources);
       for (auto& so : sources.sampleOffsets) {
@@ -549,6 +489,7 @@ auto loadSourcesFromNRF(const char* fileName,
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned nrfIndex = originalIndex[sourceIndex];
+        sources.fusedOriginalIndex[clusterSource] = nrfIndex;
         transformNRFSourceToInternalSource(
             nrf.centres[nrfIndex],
             meshIds[sourceIndex],
@@ -567,7 +508,7 @@ auto loadSourcesFromNRF(const char* fileName,
     }
   }
 
-  logInfo(rank) << ".. finished point source initialization.";
+  logInfo() << ".. finished point source initialization.";
 
   return layeredSourceClusters;
 }
@@ -592,7 +533,7 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
   auto sourceClusters =
       std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>{};
   if (sourceType == seissol::initializer::parameters::PointSourceType::NrfSource) {
-    logInfo(seissol::MPI::mpi.rank()) << "Reading an NRF source (type 42).";
+    logInfo() << "Reading an NRF source (type 42).";
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
     sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsTree, lts, ltsLut, memkind);
 #else
@@ -600,10 +541,10 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
                   "library. However, this is not the case for this build.";
 #endif
   } else if (sourceType == seissol::initializer::parameters::PointSourceType::FsrmSource) {
-    logInfo(seissol::MPI::mpi.rank()) << "Reading an FSRM source (type 50).";
+    logInfo() << "Reading an FSRM source (type 50).";
     sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsTree, lts, ltsLut, memkind);
   } else if (sourceType == seissol::initializer::parameters::PointSourceType::None) {
-    logInfo(seissol::MPI::mpi.rank()) << "No source term specified.";
+    logInfo() << "No source term specified.";
   } else {
     logError() << "The source type" << static_cast<int>(sourceType)
                << "has been defined, but not yet been implemented in SeisSol.";

@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "NetcdfReader.h"
 #include <Geometry/MeshDefinition.h>
 #include <algorithm>
@@ -34,7 +41,8 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
   int masterRank = 0;
   unsigned int groupSize = 1;
 #ifdef USE_MPI
-  groupSize = utils::Env::get<unsigned int>("SEISSOL_NETCDF_GROUP_SIZE", 1);
+  // TODO: use SeisSolInstance
+  groupSize = utils::Env("SEISSOL_").get<unsigned int>("NETCDF_GROUP_SIZE", 1);
   if (nProcs % groupSize != 0) {
     logError() << "#Processes must be a multiple of the group size" << groupSize;
   }
@@ -169,7 +177,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     checkNcError(nc_inq_varid(ncFile, "boundary_element_localids", &ncVarBndElemLocalIds));
     collectiveAccess(ncFile, ncVarBndElemLocalIds);
 
-    logInfo(rank) << "Start reading mesh from netCDF file";
+    logInfo() << "Start reading mesh from netCDF file";
 
     // Elements
     sizes = new int[groupSize];
@@ -558,7 +566,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
 
   delete[] sizes;
 
-  logInfo(rank) << "Finished reading mesh";
+  logInfo() << "Finished reading mesh";
 
   // Close netcdf file
   if (masterRank >= 0) {
@@ -616,6 +624,10 @@ void NetcdfReader::checkNcError(int error) {
   }
 #endif // NETCDF_PASSIVE
 }
+
+bool NetcdfReader::inlineTimestepCompute() const { return false; }
+
+bool NetcdfReader::inlineClusterCompute() const { return false; }
 
 } // namespace seissol::geometry
 

@@ -1,5 +1,12 @@
-#ifndef SEISSOL_OUTPUT_PARAMETERS_H
-#define SEISSOL_OUTPUT_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_
 
 #include <list>
 #include <string>
@@ -154,4 +161,5 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader);
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader);
 OutputParameters readOutputParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
-#endif
+
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_

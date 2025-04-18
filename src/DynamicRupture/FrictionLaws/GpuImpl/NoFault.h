@@ -1,57 +1,49 @@
-#ifndef SEISSOL_GPU_NOFAULT_H
-#define SEISSOL_GPU_NOFAULT_H
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_NOFAULT_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_NOFAULT_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
+#include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
 
 namespace seissol::dr::friction_law::gpu {
 
 class NoFault : public BaseFrictionSolver<NoFault> {
   public:
   NoFault(seissol::initializer::parameters::DRParameters* drParameters)
-      : BaseFrictionSolver<NoFault>(drParameters) {};
+      : BaseFrictionSolver<NoFault>(drParameters) {}
 
-  void copySpecificLtsDataTreeToLocal(seissol::initializer::Layer& layerData,
-                                      const seissol::initializer::DynamicRupture* const dynRup,
-                                      real fullUpdateTime) override {}
+  static void
+      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+                                     seissol::initializer::Layer& layerData,
+                                     const seissol::initializer::DynamicRupture* const dynRup,
+                                     real fullUpdateTime) {}
 
-  void updateFrictionAndSlip(unsigned timeIndex) {
-    auto* devTraction1{this->traction1};
-    auto* devTraction2{this->traction2};
-    auto* devFaultStresses{this->faultStresses};
-    auto* devTractionResults{this->tractionResults};
-
-    sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
-
-        auto& faultStresses = devFaultStresses[ltsFace];
-        auto& tractionResults = devTractionResults[ltsFace];
-
-        // calculate traction
-        tractionResults.traction1[timeIndex][pointIndex] =
-            faultStresses.traction1[timeIndex][pointIndex];
-        tractionResults.traction2[timeIndex][pointIndex] =
-            faultStresses.traction2[timeIndex][pointIndex];
-        devTraction1[ltsFace][pointIndex] = tractionResults.traction1[timeIndex][pointIndex];
-        devTraction2[ltsFace][pointIndex] = tractionResults.traction2[timeIndex][pointIndex];
-      });
-    });
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, unsigned timeIndex) {
+    // calculate traction
+    ctx.tractionResults.traction1[timeIndex] = ctx.faultStresses.traction1[timeIndex];
+    ctx.tractionResults.traction2[timeIndex] = ctx.faultStresses.traction2[timeIndex];
+    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction1[timeIndex];
+    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = ctx.tractionResults.traction2[timeIndex];
   }
 
   /*
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    * currently only for linear slip weakening
    */
-  void saveDynamicStressOutput() {}
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx) {}
 
-  void preHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {}
-  void postHook(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {}
+  SEISSOL_DEVICE static void preHook(FrictionLawContext& ctx) {}
+  SEISSOL_DEVICE static void postHook(FrictionLawContext& ctx) {}
 
   protected:
 };
 
 } // namespace seissol::dr::friction_law::gpu
 
-#endif
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_NOFAULT_H_

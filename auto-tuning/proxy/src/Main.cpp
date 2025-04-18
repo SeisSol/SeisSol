@@ -1,40 +1,27 @@
-// SPDX-FileCopyrightText: 2013-2024 SeisSol Group
+// SPDX-FileCopyrightText: 2013 SeisSol Group
+// SPDX-FileCopyrightText: 2015 Intel Corporation
 //
 // SPDX-License-Identifier: BSD-3-Clause
-
-/*
-Copyright (c) 2015, Intel Corporation
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-    * Redistributions of source code must retain the above copyright notice,
-      this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above copyright
-      notice, this list of conditions and the following disclaimer in the
-      documentation and/or other materials provided with the distribution.
-    * Neither the name of Intel Corporation nor the names of its contributors
-      may be used to endorse or promote products derived from this software
-      without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Proxy/Common.h"
+#include "Proxy/LikwidWrapper.h"
 #include "Proxy/Runner.h"
+#include "Proxy/Tools.h"
+#include <Common/Executor.h>
+#include <Kernels/Common.h>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <utils/args.h>
+#include <vector>
+
+#ifdef ACL_DEVICE
+#include "device.h"
+#endif
 
 using namespace seissol::proxy;
 
@@ -54,7 +41,7 @@ auto main(int argc, char* argv[]) -> int {
     }
   }
 
-  const char* formatValues[] = {"plain", "json"};
+  const std::vector<std::string> formatValues = {"plain", "json"};
 
   utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol "
                    "earthquake simulation software.");
@@ -82,7 +69,28 @@ auto main(int argc, char* argv[]) -> int {
     return -1;
   }
 
+  config.executor = seissol::isDeviceOn() ? seissol::Executor::Device : seissol::Executor::Host;
+
+  LIKWID_MARKER_INIT;
+
+  registerMarkers();
+
+#ifdef ACL_DEVICE
+  using DeviceType = ::device::DeviceInstance;
+  auto& device = DeviceType::getInstance();
+  device.api->setDevice(0);
+  device.api->initialize();
+  device.api->allocateStackMem();
+#endif
+  print_hostname();
+
   auto output = runProxy(config);
+
+#ifdef ACL_DEVICE
+  device.finalize();
+#endif
+  LIKWID_MARKER_CLOSE;
+
   Aux::writeOutput(std::cout, output, kernelStr, format);
   std::cout.flush();
 

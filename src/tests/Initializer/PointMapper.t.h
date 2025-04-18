@@ -1,7 +1,13 @@
-#include <Eigen/Dense>
+// SPDX-FileCopyrightText: 2020 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Initializer/PointMapper.h"
 #include "tests/Geometry/MockReader.h"
+#include <Eigen/Dense>
 
 namespace seissol::unit_test {
 

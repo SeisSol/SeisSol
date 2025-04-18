@@ -1,5 +1,12 @@
-#ifndef SEISSOL_DR_OUTPUT_REFINERS_HPP
-#define SEISSOL_DR_OUTPUT_REFINERS_HPP
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_FAULTREFINER_FAULTREFINERS_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_FAULTREFINER_FAULTREFINERS_H_
 
 #include "DynamicRupture/Output/DataTypes.h"
 #include "Initializer/Parameters/OutputParameters.h"
@@ -55,4 +62,5 @@ class FaultFaceQuadRefiner : public FaultRefiner {
 
 std::unique_ptr<FaultRefiner> get(seissol::initializer::parameters::FaultRefinement strategy);
 } // namespace seissol::dr::output::refiner
-#endif // SEISSOL_DR_OUTPUT_REFINERS_HPP
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_FAULTREFINER_FAULTREFINERS_H_

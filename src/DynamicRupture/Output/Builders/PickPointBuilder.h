@@ -1,5 +1,12 @@
-#ifndef SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP
-#define SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_
 
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
@@ -31,7 +38,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   protected:
   void readCoordsFromFile() {
     using namespace seissol::initializer;
-    StringsType content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName);
+    StringsType content = FileProcessor::getFileAsStrings(pickpointParams.pickpointFileName,
+                                                          "pickpoint/on-fault receiver file");
     FileProcessor::removeEmptyLines(content);
 
     // iterate line by line and initialize DrRecordPoints
@@ -236,14 +244,14 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       for (size_t idx{0}; idx < size; ++idx) {
         const auto isFound = globalContainVector[idx];
         if (!isFound) {
-          logWarning(localRank) << "On-fault receiver " << idx
-                                << " is not inside any element along the rupture surface";
+          logWarning() << "On-fault receiver " << idx
+                       << " is not inside any element along the rupture surface";
           allReceiversFound = false;
           ++missing;
         }
       }
       if (allReceiversFound) {
-        logInfo(localRank) << "All point receivers found along the fault";
+        logInfo() << "All point receivers found along the fault";
       } else {
         logError() << missing << "on-fault receivers have not been found.";
       }
@@ -255,4 +263,5 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   std::vector<ReceiverPoint> potentialReceivers{};
 };
 } // namespace seissol::dr::output
-#endif // SEISSOL_DR_OUTPUT_PICKPOINT_BUILDER_HPP
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_

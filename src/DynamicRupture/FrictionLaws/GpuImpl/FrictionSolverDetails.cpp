@@ -1,88 +1,96 @@
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "Common/Constants.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Typedefs.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
-#include "Parallel/AcceleratorDevice.h"
 #include <cstddef>
 #include <init.h>
+
+#include "Memory/MemoryAllocator.h"
+
+#include "DynamicRupture/FrictionLaws/TPCommon.h"
 
 namespace seissol::dr::friction_law::gpu {
 FrictionSolverDetails::FrictionSolverDetails(
     seissol::initializer::parameters::DRParameters* drParameters)
     : FrictionSolverInterface(drParameters) {}
 
-FrictionSolverDetails::~FrictionSolverDetails() {
-  if (maxClusterSize == 0)
-    return;
-
-  free(faultStresses, queue);
-  free(tractionResults, queue);
-  free(stateVariableBuffer, queue);
-  free(strengthBuffer, queue);
-  free(devTimeWeights, queue);
-  free(devSpaceWeights, queue);
-  free(resampleMatrix, queue);
-  queue.wait_and_throw();
-}
-
-void FrictionSolverDetails::initSyclQueue() {
-  auto& instance = seissol::AcceleratorDevice::getInstance();
-  queue = instance.getSyclDefaultQueue();
-}
+FrictionSolverDetails::~FrictionSolverDetails() = default;
 
 void FrictionSolverDetails::allocateAuxiliaryMemory() {
-  if (maxClusterSize == 0)
-    return;
-
-  faultStresses = static_cast<FaultStresses*>(
-      sycl::malloc_device(maxClusterSize * sizeof(FaultStresses), queue));
-
-  tractionResults = static_cast<TractionResults*>(
-      sycl::malloc_device(maxClusterSize * sizeof(TractionResults), queue));
 
   {
-    const size_t requiredNumBytes = misc::NumPaddedPoints * maxClusterSize * sizeof(real);
-    using StateVariableType = decltype(stateVariableBuffer);
-    stateVariableBuffer =
-        reinterpret_cast<StateVariableType>(sycl::malloc_device(requiredNumBytes, queue));
-
-    using StrengthBufferType = decltype(stateVariableBuffer);
-    strengthBuffer =
-        reinterpret_cast<StrengthBufferType>(sycl::malloc_device(requiredNumBytes, queue));
+    devTimeWeights =
+        seissol::memory::allocTyped<double>(ConvergenceOrder, 1, memory::DeviceGlobalMemory);
   }
 
   {
-    const size_t requiredNumBytes = ConvergenceOrder * sizeof(double);
-    devTimeWeights = static_cast<double*>(sycl::malloc_device(requiredNumBytes, queue));
+    data = seissol::memory::allocTyped<FrictionLawData>(1, 1, memory::DeviceGlobalMemory);
   }
-
-  {
-    const size_t requiredNumBytes = misc::NumPaddedPoints * sizeof(real);
-    devSpaceWeights = static_cast<real*>(sycl::malloc_device(requiredNumBytes, queue));
-  }
-}
-
-void FrictionSolverDetails::copyStaticDataToDevice() {
-  if (maxClusterSize == 0)
-    return;
 
   {
     constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
     const size_t requiredNumBytes = Dim0 * Dim1 * sizeof(real);
 
-    resampleMatrix = static_cast<real*>(sycl::malloc_device(requiredNumBytes, queue));
-    queue.memcpy(resampleMatrix, &init::resample::Values[0], requiredNumBytes);
+    resampleMatrix = seissol::memory::allocTyped<real>(Dim0 * Dim1, 1, memory::DeviceGlobalMemory);
+    seissol::memory::memcopyTyped<real>(resampleMatrix,
+                                        init::resample::Values,
+                                        Dim0 * Dim1,
+                                        memory::DeviceGlobalMemory,
+                                        memory::Standard);
   }
 
   {
-    const size_t requiredNumBytes = misc::NumPaddedPoints * sizeof(real);
-    queue.memcpy(devSpaceWeights, &spaceWeights[0], requiredNumBytes);
+    devSpaceWeights =
+        seissol::memory::allocTyped<real>(misc::NumPaddedPoints, 1, memory::DeviceGlobalMemory);
+    seissol::memory::memcopyTyped<real>(devSpaceWeights,
+                                        spaceWeights,
+                                        misc::NumPaddedPoints,
+                                        memory::DeviceGlobalMemory,
+                                        memory::Standard);
   }
 
-  queue.wait_and_throw();
+  {
+    const auto data =
+        seissol::dr::friction_law::tp::InverseFourierCoefficients<misc::NumTpGridPoints>();
+    devTpInverseFourierCoefficients =
+        seissol::memory::allocTyped<real>(misc::NumTpGridPoints, 1, memory::DeviceGlobalMemory);
+    seissol::memory::memcopyTyped<real>(devTpInverseFourierCoefficients,
+                                        data.data().data(),
+                                        misc::NumTpGridPoints,
+                                        memory::DeviceGlobalMemory,
+                                        memory::Standard);
+  }
+
+  {
+    const auto data = seissol::dr::friction_law::tp::GridPoints<misc::NumTpGridPoints>();
+    devTpGridPoints =
+        seissol::memory::allocTyped<real>(misc::NumTpGridPoints, 1, memory::DeviceGlobalMemory);
+    seissol::memory::memcopyTyped<real>(devTpGridPoints,
+                                        data.data().data(),
+                                        misc::NumTpGridPoints,
+                                        memory::DeviceGlobalMemory,
+                                        memory::Standard);
+  }
+
+  {
+    const auto data = seissol::dr::friction_law::tp::GaussianHeatSource<misc::NumTpGridPoints>();
+    devHeatSource =
+        seissol::memory::allocTyped<real>(misc::NumTpGridPoints, 1, memory::DeviceGlobalMemory);
+    seissol::memory::memcopyTyped<real>(devHeatSource,
+                                        data.data().data(),
+                                        misc::NumTpGridPoints,
+                                        memory::DeviceGlobalMemory,
+                                        memory::Standard);
+  }
 }
 } // namespace seissol::dr::friction_law::gpu

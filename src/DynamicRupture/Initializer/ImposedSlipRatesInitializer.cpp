@@ -1,13 +1,20 @@
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "ImposedSlipRatesInitializer.h"
 
 #include "DynamicRupture/Misc.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
-#include "Initializer/DynamicRupture.h"
 #include "Initializer/ParameterDB.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Layer.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
 #include <algorithm>
 #include <array>
@@ -22,9 +29,8 @@ namespace seissol::dr::initializer {
 void ImposedSlipRatesInitializer::initializeFault(
     const seissol::initializer::DynamicRupture* const dynRup,
     seissol::initializer::LTSTree* const dynRupTree) {
-  const int rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "Initializing Fault, using a quadrature rule with "
-                << misc::NumBoundaryGaussPoints << " points.";
+  logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
+            << " points.";
   seissol::initializer::FaultParameterDB faultParameterDB;
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
@@ -60,17 +66,15 @@ void ImposedSlipRatesInitializer::initializeFault(
     rotateSlipToFaultCS(
         dynRup, layer, strikeSlip, dipSlip, imposedSlipDirection1, imposedSlipDirection2);
 
-    real(*nucleationStressInFaultCS)[misc::NumPaddedPoints][6] =
-        layer.var(dynRup->nucleationStressInFaultCS);
-    real(*initialStressInFaultCS)[misc::NumPaddedPoints][6] =
-        layer.var(dynRup->initialStressInFaultCS);
+    auto* nucleationStressInFaultCS = layer.var(dynRup->nucleationStressInFaultCS);
+    auto* initialStressInFaultCS = layer.var(dynRup->initialStressInFaultCS);
 
     // Set initial and nucleation stress to zero, these are not needed for this FL
     for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
-      for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-        for (unsigned int dim = 0; dim < 6; ++dim) {
-          initialStressInFaultCS[ltsFace][pointIndex][dim] = 0;
-          nucleationStressInFaultCS[ltsFace][pointIndex][dim] = 0;
+      for (unsigned int dim = 0; dim < 6; ++dim) {
+        for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+          initialStressInFaultCS[ltsFace][dim][pointIndex] = 0;
+          nucleationStressInFaultCS[ltsFace][dim][pointIndex] = 0;
         }
       }
     }

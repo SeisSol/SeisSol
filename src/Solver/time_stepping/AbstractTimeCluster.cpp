@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2020 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include <algorithm>
 #include <iostream>
 #include <cassert>
@@ -94,7 +101,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
       break;
     case ActorAction::Sync:
       assert(state == ActorState::Corrected);
-      logDebug(MPI::mpi.rank()) << "synced at" << syncTime
+      logDebug() << "synced at" << syncTime
                                 << ", corrTime =" << ct.correctionTime
                                 << "stepsSinceLastSync" << ct.stepsSinceLastSync
                                 << "stepsUntilLastSync" << ct.stepsUntilSync
@@ -280,3 +287,4 @@ bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
 }
 
 } // namespace seissol::time_stepping
+

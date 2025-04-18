@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Hdf5Writer.h"
 
@@ -29,6 +32,7 @@ namespace {
 
 hid_t _ehh(hid_t data, const char* file, int line) {
   if (data < 0) {
+    H5Eprint(H5Eget_current_stack(), stdout);
     logError() << "HDF5 error:" << data << "at" << file << ":" << line;
   }
   return data;

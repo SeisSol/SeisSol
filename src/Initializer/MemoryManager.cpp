@@ -1,91 +1,34 @@
-/******************************************************************************
-** Copyright (c) 2015, Intel Corporation                                     **
-** All rights reserved.                                                      **
-**                                                                           **
-** Redistribution and use in source and binary forms, with or without        **
-** modification, are permitted provided that the following conditions        **
-** are met:                                                                  **
-** 1. Redistributions of source code must retain the above copyright         **
-**    notice, this list of conditions and the following disclaimer.          **
-** 2. Redistributions in binary form must reproduce the above copyright      **
-**    notice, this list of conditions and the following disclaimer in the    **
-**    documentation and/or other materials provided with the distribution.   **
-** 3. Neither the name of the copyright holder nor the names of its          **
-**    contributors may be used to endorse or promote products derived        **
-**    from this software without specific prior written permission.          **
-**                                                                           **
-** THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS       **
-** "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT         **
-** LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR     **
-** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT      **
-** HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,    **
-** SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED  **
-** TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR    **
-** PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF    **
-** LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING      **
-** NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS        **
-** SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.              **
-******************************************************************************/
-/* Alexander Heinecke (Intel Corp.)
-******************************************************************************/
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alex Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- *
- * @section LICENSE
- * Copyright (c) 2013-2015, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Memory management of SeisSol.
- **/
+// SPDX-FileCopyrightText: 2013 SeisSol Group
+// SPDX-FileCopyrightText: 2015 Intel Corporation
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
+#include <Solver/MultipleSimulations.h>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
-#include "MemoryAllocator.h"
+#include "Memory/MemoryAllocator.h"
 #include "SeisSol.h"
 #include "MemoryManager.h"
 #include "InternalState.h"
-#include "Tree/Layer.h"
+#include "Memory/Tree/Layer.h"
 #include <cstddef>
 #include <yateto.h>
 #include <unordered_set>
 #include <cmath>
 #include <type_traits>
-#include "GlobalData.h"
+#include "Memory/GlobalData.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Kernels/Common.h"
 #include "Kernels/Touch.h"
+
+#include <DynamicRupture/Misc.h>
 
 #include "Common/Iterator.h"
 
@@ -102,29 +45,7 @@ void seissol::initializer::MemoryManager::initialize()
   // initialize global matrices
   GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, memory::Standard);
   if constexpr (seissol::isDeviceOn()) {
-    // the serial order for initialization is needed for some (older) driver versions on some GPUs
-    bool serialize = false;
-    const char* envvalue = std::getenv("SEISSOL_SERIAL_NODE_DEVICE_INIT");
-    if (envvalue != nullptr) {
-      if (strcmp(envvalue, "1") == 0) {
-        serialize = true;
-      }
-      else if (strcmp(envvalue, "0") == 0) {
-        serialize = false;
-      }
-      else {
-        logError() << "Invalid value for \"SEISSOL_SERIAL_NODE_DEVICE_INIT\"";
-      }
-    }
-    if (serialize) {
-      logInfo(MPI::mpi.rank()) << "Initializing device global data on a node in serial order.";
-      MPI::mpi.serialOrderExecute([&]() {
-        GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
-      }, MPI::mpi.sharedMemComm());
-    }
-    else {
-      GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
-    }
+    GlobalDataInitializerOnDevice::init(m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
   }
 }
 
@@ -254,14 +175,6 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
 
 #ifdef USE_MPI
 void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
-  // reset mpi requests
-  for( unsigned int l_cluster = 0; l_cluster < m_ltsTree.numChildren(); l_cluster++ ) {
-    for( unsigned int l_region = 0; l_region < m_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
-      m_meshStructure[l_cluster].sendRequests[l_region] = MPI_REQUEST_NULL;
-      m_meshStructure[l_cluster].receiveRequests[l_region] = MPI_REQUEST_NULL;
-    }
-  }
-
 #ifdef ACL_DEVICE
   const auto allocationPlace = seissol::initializer::AllocationPlace::Device;
 #else
@@ -355,7 +268,8 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
   real** derivativesDevice = m_ltsTree.var(m_lts.derivativesDevice);  // faceNeighborIds are ltsIds and not layer-local
   real *(*faceNeighborsDevice)[4] = layer.var(m_lts.faceNeighborsDevice);
 #endif
-  CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
+  auto* cellInformation = layer.var(m_lts.cellInformation);
+  auto* secondaryInformation = layer.var(m_lts.secondaryInformation);
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
     for (unsigned face = 0; face < 4; ++face) {
@@ -364,16 +278,16 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
 	  cellInformation[cell].faceTypes[face] == FaceType::DynamicRupture) {
         // neighboring cell provides derivatives
         if( (cellInformation[cell].ltsSetup >> face) % 2 ) {
-          faceNeighbors[cell][face] = derivatives[ cellInformation[cell].faceNeighborIds[face] ];
+          faceNeighbors[cell][face] = derivatives[ secondaryInformation[cell].faceNeighborIds[face] ];
 #ifdef ACL_DEVICE
-          faceNeighborsDevice[cell][face] = derivativesDevice[ cellInformation[cell].faceNeighborIds[face] ];
+          faceNeighborsDevice[cell][face] = derivativesDevice[ secondaryInformation[cell].faceNeighborIds[face] ];
 #endif
         }
         // neighboring cell provides a time buffer
         else {
-          faceNeighbors[cell][face] = buffers[ cellInformation[cell].faceNeighborIds[face] ];
+          faceNeighbors[cell][face] = buffers[ secondaryInformation[cell].faceNeighborIds[face] ];
 #ifdef ACL_DEVICE
-          faceNeighborsDevice[cell][face] = buffersDevice[ cellInformation[cell].faceNeighborIds[face] ];
+          faceNeighborsDevice[cell][face] = buffersDevice[ secondaryInformation[cell].faceNeighborIds[face] ];
 #endif
         }
         assert(faceNeighbors[cell][face] != nullptr);
@@ -543,6 +457,12 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
 
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
+
+  if constexpr (multisim::MultisimEnabled) {
+    if (m_dynRupTree.getNumberOfCells() > 0) {
+      logError() << "The dynamic rupture does not yet support fused simulations.";
+    }
+  }
 
 #ifdef ACL_DEVICE
   MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree, *m_dynRup.get());
@@ -937,10 +857,13 @@ bool seissol::initializer::requiresNodalFlux(FaceType f) {
 }
 
 void seissol::initializer::MemoryManager::initializeFrictionLaw() {
-  const int rank = seissol::MPI::mpi.rank();
-  logInfo(rank) << "Initialize Friction Model";
+  const auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters);
+  logInfo() << "Initialize Friction Model";
 
-  auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters);
+  logInfo() << "Friction law:" << dr::misc::frictionLawName(drParameters->frictionLawType).c_str()
+    << "(" << static_cast<int>(drParameters->frictionLawType) << ")";
+  logInfo() << "Thermal pressurization:" << (drParameters->isThermalPressureOn ? "on" : "off");
+
   const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance);
   auto product = factory->produce();
   m_dynRup = std::move(product.ltsTree);
@@ -973,14 +896,10 @@ void seissol::initializer::MemoryManager::initFrictionData() {
 
 #ifdef ACL_DEVICE
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
-      impl->initSyclQueue();
 
-      LayerMask mask = seissol::initializer::LayerMask(Ghost);
-      auto maxSize = m_dynRupTree.getMaxClusterSize(mask);
-      impl->setMaxClusterSize(maxSize);
+      const auto mask = seissol::initializer::LayerMask(Ghost);
 
       impl->allocateAuxiliaryMemory();
-      impl->copyStaticDataToDevice();
     }
 #endif // ACL_DEVICE
   }
@@ -989,10 +908,10 @@ void seissol::initializer::MemoryManager::initFrictionData() {
 void seissol::initializer::MemoryManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
 #ifdef ACL_DEVICE
   if (place == seissol::initializer::AllocationPlace::Device) {
-    logInfo(MPI::mpi.rank()) << "Synchronizing data... (host->device)";
+    logInfo() << "Synchronizing data... (host->device)";
   }
   else {
-    logInfo(MPI::mpi.rank()) << "Synchronizing data... (device->host)";
+    logInfo() << "Synchronizing data... (device->host)";
   }
   const auto& defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
   m_ltsTree.synchronizeTo(place, defaultStream);
@@ -1001,3 +920,4 @@ void seissol::initializer::MemoryManager::synchronizeTo(seissol::initializer::Al
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 }
+

@@ -1,20 +1,28 @@
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "ReceiverBasedOutput.h"
 #include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
-#include "Initializer/DynamicRupture.h"
-#include "Initializer/LTS.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/PreProcessorMacros.h"
-#include "Initializer/Tree/LTSTree.h"
-#include "Initializer/Tree/Layer.h"
-#include "Initializer/Tree/Lut.h"
 #include "Kernels/Precision.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
+#include "Memory/Tree/Lut.h"
 #include "Numerical/BasisFunction.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -121,14 +129,13 @@ void ReceiverOutput::calcFaultOutput(
 #endif
 
     const auto* initStresses = getCellData(local, drDescr->initialStressInFaultCS);
-    const auto* initStress = initStresses[local.nearestGpIndex];
 
     local.frictionCoefficient = getCellData(local, drDescr->mu)[local.nearestGpIndex];
     local.stateVariable = this->computeStateVariable(local);
 
-    local.iniTraction1 = initStress[QuantityIndices::XY];
-    local.iniTraction2 = initStress[QuantityIndices::XZ];
-    local.iniNormalTraction = initStress[QuantityIndices::XX];
+    local.iniTraction1 = initStresses[QuantityIndices::XY][local.nearestGpIndex];
+    local.iniTraction2 = initStresses[QuantityIndices::XZ][local.nearestGpIndex];
+    local.iniNormalTraction = initStresses[QuantityIndices::XX][local.nearestGpIndex];
     local.fluidPressure = this->computeFluidPressure(local);
 
     const auto& normal = outputData->faultDirections[i].faceNormal;
@@ -241,8 +248,12 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& totalTractions = std::get<VariableID::TotalTractions>(outputData->vars);
     if (totalTractions.isActive) {
+      std::array<real, tensor::initialStress::size()> unrotatedInitStress{};
       std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
-      alignAlongDipAndStrikeKernel.initialStress = initStress;
+      for (std::size_t i = 0; i < unrotatedInitStress.size(); ++i) {
+        unrotatedInitStress[i] = initStresses[i][local.nearestGpIndex];
+      }
+      alignAlongDipAndStrikeKernel.initialStress = unrotatedInitStress.data();
       alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitStress.data();
       alignAlongDipAndStrikeKernel.execute();
 
@@ -426,7 +437,8 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
       for (size_t d = 0; d < NumDegFr2d; ++d) {
-        projectedRT[d] += weights(jBndGP) * rt[jBndGP] * phiAtPoint[d];
+        projectedRT[d] +=
+            seissol::multisim::multisimWrap(weights, 0, jBndGP) * rt[jBndGP] * phiAtPoint[d];
       }
     }
 

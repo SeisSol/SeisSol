@@ -1,10 +1,16 @@
 # SPDX-FileCopyrightText: 2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 name: build-seissol-cpu
 on:
   - push
+
+env:
+  precomputed-hash: 0fe0a82d19d2452c213789a51bc1d65edcf3c1ee
 
 jobs:
   seissol-build-test:
@@ -12,6 +18,18 @@ jobs:
     runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
+    env:
+      EXENAME: |
+        ${{
+          format('{0}_{1}{2}_{3}_{4}{5}',
+            matrix.build_type,
+            matrix.precision == 'single' && 's' || 'd',
+            matrix.arch,
+            matrix.order,
+            matrix.equation.type,
+            matrix.equation.multisim != 1 && format('_f{0}', matrix.equation.multisim) || ''
+          )
+        }}
     strategy:
       fail-fast: false
       matrix:
@@ -23,11 +41,24 @@ jobs:
           - Release
           #- Debug
         equation:
-          - acoustic
-          - elastic
-          - poroelastic
-          - viscoelastic2
-          - anisotropic
+          - type: acoustic
+            multisim: 1
+            mechanisms: 0
+          - type: elastic
+            multisim: 1
+            mechanisms: 0
+          - type: poroelastic
+            multisim: 1
+            mechanisms: 0
+          - type: viscoelastic2
+            multisim: 1
+            mechanisms: 3
+          - type: anisotropic
+            multisim: 1
+            mechanisms: 0
+          - type: elastic
+            multisim: 8
+            mechanisms: 0
         precision:
           - single
           - double
@@ -59,11 +90,6 @@ jobs:
         name: build-seissol
         run: |
           mkdir build && cd build
-          if [ "${{ matrix.equation }}" = viscoelastic2 ]; then
-              mechanisms=3
-          else
-              mechanisms=0
-          fi
 
           # TODO: change to `-Wall -Werror` at some point
           EXTRA_FLAGS="-Wall"
@@ -84,7 +110,7 @@ jobs:
             TESTING_COMMAND="";
           fi;
 
-          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms
+          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DASAGI=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
           ninja install
 
       - name: test-seissol
@@ -96,11 +122,6 @@ jobs:
       - name: run-seissol-no-input
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
-          if [ "${{ matrix.precision }}" = single ]; then
-              precision=s
-          else
-              precision=d
-          fi
           if [ ${{matrix.setup.cc}} = nvc ]; then
             TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
           else
@@ -109,13 +130,13 @@ jobs:
 
           cd build
           set +e
-          ${TESTING_COMMAND} ./SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}}
+          ${TESTING_COMMAND} ./SeisSol_${EXENAME}
           RETVAL_EXE=$?
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}}
+          ./SeisSol_proxy_${EXENAME}
           RETVAL_PROXY=$?
           set -e
 
-          if [ $RETVAL_EXE -ne 134 ]; then
+          if [ $RETVAL_EXE -ne 133 ]; then
             echo "Unexpected exit code for SeisSol: ${RETVAL_EXE}"
             exit 1
           fi
@@ -129,113 +150,143 @@ jobs:
       - name: run-proxy
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
-          if [ "${{ matrix.precision }}" = single ]; then
-              precision=s
-          else
-              precision=d
-          fi
           cd build
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 ader
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 localwoader
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 local
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 neigh
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 neigh_dr
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 godunov_dr
-          ./SeisSol_proxy_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.equation}} 100 1 all
-  
+
+          ./SeisSol_proxy_${EXENAME} 100 1 ader
+          ./SeisSol_proxy_${EXENAME} 100 1 localwoader
+          ./SeisSol_proxy_${EXENAME} 100 1 local
+          ./SeisSol_proxy_${EXENAME} 100 1 neigh
+          ./SeisSol_proxy_${EXENAME} 100 1 all
+          ./SeisSol_proxy_${EXENAME} 100 1 neigh_dr
+          ./SeisSol_proxy_${EXENAME} 100 1 godunov_dr
+          ./SeisSol_proxy_${EXENAME} 100 1 all_dr
+ 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation.type}}-${{matrix.equation.multisim}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
   seissol-run-test:
     name: seissol-run-test
-    runs-on: sccs-ci-zen2
+    runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
-    if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
+    if: ${{ github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
+    env:
+      EXENAME: |
+        ${{
+          format('{0}_{1}{2}_{3}_{4}{5}',
+            matrix.build_type,
+            matrix.precision == 'single' && 's' || 'd',
+            matrix.arch,
+            matrix.order,
+            matrix.case.equation,
+            matrix.case.multisim != 1 && format('_f{0}', matrix.case.multisim) || ''
+          )
+        }}
     strategy:
       fail-fast: false
       matrix:
         case:
           - name: tpv5
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv5-nuc
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv5-visco
             equation: viscoelastic2
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv5-poro
             equation: poroelastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv6
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv13
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv16
             equation: elastic
+            multisim: 1
             energies: true
             receivers: false # FIXME: do not work right now; disabled in the Gitlab CI
             fault: true
           #- name: tpv33
           #  equation: elastic
+          #  multisim: 1
           #  energies: true
           #  receivers: true
           #  fault: true
           - name: tpv101
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv101-slip
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv104
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv105
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpvahsp
             equation: anisotropic
+            multisim: 1
             energies: false
             receivers: true
             fault: false
           - name: tpvgaussian
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpvyoffe
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
+          - name: tpvloh1-fused
+            equation: elastic
+            multisim: 8
+            energies: true
+            receivers: true
+            fault: false # NYI
         precision:
           - single
           - double
@@ -293,22 +344,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: seissol/precomputed-seissol
-          ref: be764d550211b997819c85bb898f6eb6007d3418
+          ref: ${{env.precomputed-hash}}
           path: precomputed
       - name: get-seissol
         uses: actions/download-artifact@v4
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.case.multisim}}-${{matrix.setup.cc}}
           path: install
       - name: run-seissol
         id: run
         run: |
-          if [ "${{ matrix.precision }}" = single ]; then
-              precision=s
-          else
-              precision=d
-          fi
-
           if [ ${{matrix.setup.mpi}} = openmpi ]; then
             MPI_OPTIONS="--oversubscribe --allow-run-as-root -bind-to none";
           elif [ ${{matrix.setup.mpi}} = intel ]; then
@@ -326,7 +371,7 @@ jobs:
 
           cd precomputed/${{matrix.case.name}}
           
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} SeisSol_${{matrix.build_type}}_${precision}${{matrix.arch}}_${{matrix.order}}_${{matrix.case.equation}}
+          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} SeisSol_${EXENAME}
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts

@@ -4,9 +4,7 @@ about: Create a report to help us improve
 title: ''
 labels: 'bug'
 assignees: ''
-
 ---
-
 <!-- markdownlint-disable MD041 -->
 
 ### Describe the bug

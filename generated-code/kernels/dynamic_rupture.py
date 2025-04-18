@@ -1,13 +1,10 @@
-# SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2016 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
-
-# @file
-# This file is part of SeisSol.
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de)
-#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+# SPDX-FileContributor: Carsten Uphoff
 
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
@@ -148,13 +145,33 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
         gShape,
         alignStride=True,
     )
-    slipInterpolated = Tensor("slipInterpolated", (numberOfPoints, 3), alignStride=True)
-    tractionInterpolated = Tensor(
-        "tractionInterpolated", (numberOfPoints, 3), alignStride=True
+    slipInterpolated = OptionalDimTensor(
+        "slipInterpolated",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOfPoints, 3),
+        alignStride=True,
     )
-    staticFrictionalWork = Tensor("staticFrictionalWork", ())
+
+    tractionInterpolated = OptionalDimTensor(
+        "tractionInterpolated",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOfPoints, 3),
+        alignStride=True,
+    )
+    staticFrictionalWork = OptionalDimTensor(
+        "staticFrictionalWork",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (1,),
+        alignStride=True,
+    )
     minusSurfaceArea = Scalar("minusSurfaceArea")
-    spaceWeights = Tensor("spaceWeights", (numberOfPoints,), alignStride=True)
+    spaceWeights = Tensor("spaceWeights", (numberOfPoints, 1), alignStride=True)
 
     computeTractionInterpolated = (
         tractionInterpolated["kp"]
@@ -164,12 +181,12 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
     generator.add("computeTractionInterpolated", computeTractionInterpolated)
 
     accumulateStaticFrictionalWork = (
-        staticFrictionalWork[""]
-        <= staticFrictionalWork[""]
+        staticFrictionalWork["l"]
+        <= staticFrictionalWork["l"]
         + minusSurfaceArea
         * tractionInterpolated["kp"]
         * slipInterpolated["kp"]
-        * spaceWeights["k"]
+        * spaceWeights["kl"]
     )
     generator.add("accumulateStaticFrictionalWork", accumulateStaticFrictionalWork)
 
@@ -210,7 +227,7 @@ def addKernels(generator, aderdg, matricesDir, drQuadRule, targets):
         "theta",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
-        aderdg.Q.optPos,
+        aderdg.Q.optPos(),
         (numberOfPoints, N),
         alignStride=True,
     )

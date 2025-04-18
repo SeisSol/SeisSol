@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "Common/Filesystem.h"
 #include "Parallel/Helper.h"
@@ -8,6 +15,7 @@
 #include <sched.h>
 #include <sstream>
 #include <string>
+#include <utils/env.h>
 
 #ifndef __APPLE__
 #include <sys/sysinfo.h>
@@ -62,12 +70,13 @@ PinningInfo getPinningInfo(const cpu_set_t& set) {
 } // namespace
 #endif // __APPLE__
 
-void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning) {
+void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning,
+                                                  utils::Env& env) {
 #ifndef __APPLE__
   auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
   PinningInfo commThreadInfo;
-  if (seissol::useCommThread(seissol::MPI::mpi)) {
+  if (seissol::useCommThread(seissol::MPI::mpi, env)) {
     auto freeCpus = pinning.getFreeCPUsMask();
     commThreadInfo = getPinningInfo(freeCpus.set);
   } else {
@@ -104,6 +113,6 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
     fileStream.close();
   }
 #else
-  logWarning(MPI::mpi.rank()) << "ThreadsPinningWriter is not supported on MacOS.";
+  logWarning() << "ThreadsPinningWriter is not supported on MacOS.";
 #endif // __APPLE__
 }

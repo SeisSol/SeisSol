@@ -1,5 +1,12 @@
-#ifndef SEISSOL_CONDITION_HPP
-#define SEISSOL_CONDITION_HPP
+// SPDX-FileCopyrightText: 2020 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITION_H_
+#define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITION_H_
 
 #include "EncodedConstants.h"
 #include <assert.h>
@@ -85,4 +92,4 @@ typename std::enable_if<isEncodedConstant<T>(), size_t>::type operator!(const T&
   return highBitsMask & (~static_cast<size_t>(condition));
 }
 
-#endif // SEISSOL_CONDITION_HPP
+#endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITION_H_

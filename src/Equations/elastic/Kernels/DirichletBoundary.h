@@ -1,5 +1,12 @@
-#ifndef EQUATION_DIRICHLET_BOUNDARY_H_
-#define EQUATION_DIRICHLET_BOUNDARY_H_
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DIRICHLETBOUNDARY_H_
+#define SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DIRICHLETBOUNDARY_H_
 
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
@@ -9,6 +16,8 @@
 
 #include "Numerical/Quadrature.h"
 #include <Parallel/Runtime/Stream.h>
+
+#include "Solver/MultipleSimulations.h"
 
 #ifdef ACL_DEVICE
 #include "Equations/elastic/Kernels/DeviceAux/KernelsAux.h"
@@ -60,7 +69,8 @@ class DirichletBoundary {
 
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
 
-    static_assert(nodal::tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
+    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
+                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
                   "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
@@ -145,7 +155,8 @@ class DirichletBoundary {
     // TODO(Lukas) Implement functions which depend on the interior values...
     auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
 
-    static_assert(nodal::tensor::nodes2D::Shape[0] == tensor::INodal::Shape[0],
+    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
+                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
                   "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
@@ -191,4 +202,4 @@ void computeAverageDisplacement(double deltaT,
 
 } // namespace seissol::kernels
 
-#endif
+#endif // SEISSOL_SRC_EQUATIONS_ELASTIC_KERNELS_DIRICHLETBOUNDARY_H_

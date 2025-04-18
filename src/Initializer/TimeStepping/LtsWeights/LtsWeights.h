@@ -1,48 +1,14 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- * @author Sebastian Wolf (wolf.sebastian AT tum.de,
- *https://www5.in.tum.de/wiki/index.php/Sebastian_Wolf,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2017 - 2020, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Class for calculating weights for load balancing
- **/
+// SPDX-FileCopyrightText: 2017 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Sebastian Wolf
 
-#ifndef INITIALIZER_TIMESTEPPING_LTSWEIGHTS_H_
-#define INITIALIZER_TIMESTEPPING_LTSWEIGHTS_H_
+#ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_LTSWEIGHTS_H_
+#define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_LTSWEIGHTS_H_
 
 #include "Geometry/PUMLReader.h"
 #include <limits>
@@ -64,7 +30,6 @@ class SeisSol;
 namespace initializer::time_stepping {
 struct LtsWeightsConfig {
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
-  std::string velocityModel;
   unsigned rate{};
   int vertexWeightElement{};
   int vertexWeightDynamicRupture{};
@@ -98,10 +63,12 @@ class LtsWeights {
   LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance);
 
   virtual ~LtsWeights() = default;
-  void computeWeights(PUML::TETPUML const& mesh, double maximumAllowedTimeStep);
+  void computeWeights(PUML::TETPUML const& mesh);
 
   [[nodiscard]] const int* vertexWeights() const;
   [[nodiscard]] const double* imbalances() const;
+  [[nodiscard]] const std::vector<int>& clusterIds() const;
+  [[nodiscard]] const std::vector<double>& timesteps() const;
   [[nodiscard]] int nWeightsPerVertex() const;
 
   private:
@@ -110,10 +77,7 @@ class LtsWeights {
   protected:
   seissol::initializer::GlobalTimestep m_details;
 
-  seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails(double maximumAllowedTimeStep);
-  void computeMaxTimesteps(const std::vector<double>& pWaveVel,
-                           std::vector<double>& timeSteps,
-                           double maximumAllowedTimeStep);
+  seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails();
   int getCluster(double timestep, double globalMinTimestep, double wiggleFactor, unsigned rate);
   FaceType getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face);
   std::vector<int> computeClusterIds(double curWiggleFactor);
@@ -129,7 +93,6 @@ class LtsWeights {
   virtual void setAllowedImbalances() = 0;
   virtual int evaluateNumberOfConstraints() = 0;
 
-  std::string m_velocityModel;
   unsigned m_rate{};
   std::vector<int> m_vertexWeights;
   std::vector<double> m_imbalances;
@@ -152,12 +115,13 @@ class LtsWeights {
   ComputeWiggleFactorResult computeBestWiggleFactor(std::optional<double> baselineCost,
                                                     bool isAutoMergeUsed);
   void prepareDifferenceEnforcement();
-#ifdef USE_MPI
-  std::vector<std::pair<int, std::vector<int>>> rankToSharedFaces;
-  std::unordered_map<int, int> localFaceIdToLocalCellId;
-#endif // USE_MPI
+
+  std::vector<std::pair<int, std::vector<std::size_t>>> rankToSharedFaces;
+  std::unordered_map<std::size_t, std::size_t> localFaceIdToLocalCellId;
+  std::unordered_map<std::size_t, std::pair<std::size_t, std::size_t>> sharedFaceToExchangeId;
+  std::vector<std::size_t> boundaryCells;
 };
 } // namespace initializer::time_stepping
 } // namespace seissol
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_LTSWEIGHTS_H_

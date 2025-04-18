@@ -1,11 +1,13 @@
 // SPDX-FileCopyrightText: 2024 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #ifndef SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 #define SEISSOL_SRC_IO_WRITER_INSTRUCTIONS_DATA_H_
 
-#include "async/ExecInfo.h"
 #include <IO/Datatype/Datatype.h>
 #include <IO/Datatype/Inference.h>
 #include <cstring>
@@ -13,6 +15,10 @@
 #include <memory>
 #include <utility>
 #include <yaml-cpp/yaml.h>
+
+namespace async {
+class ExecInfo;
+} // namespace async
 
 namespace seissol::io::writer {
 

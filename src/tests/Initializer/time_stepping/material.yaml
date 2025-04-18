@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2020 SeisSol Group
+# 
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 !Switch
 [rho_fluid,bulk_fluid,bulk_solid,porosity,tortuosity,permeability,viscosity,Qp,Qs]: !ConstantMap
   map:
@@ -39,5 +46,3 @@
   tortuosity:      6
   permeability:    6.0e-13
   viscosity:       0.0
-
-

@@ -1,7 +1,16 @@
-#ifndef SEISSOL_GPU_SLOWVELOCITYWEAKENINGLAW_H
-#define SEISSOL_GPU_SLOWVELOCITYWEAKENINGLAW_H
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
+#include <DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h>
+#include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
 
 namespace seissol::dr::friction_law::gpu {
 template <class Derived, class TPMethod>
@@ -10,80 +19,56 @@ class SlowVelocityWeakeningLaw
   public:
   using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {}
+  static void
+      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+                                     seissol::initializer::Layer& layerData,
+                                     const seissol::initializer::DynamicRupture* const dynRup,
+                                     real fullUpdateTime) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
-  void updateStateVariable(double timeIncrement) {
-    static_cast<Derived*>(this)->updateStateVariable(timeIncrement);
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
+    Derived::updateStateVariable(ctx, timeIncrement);
   }
 
-  struct Details {
-    decltype(SlowVelocityWeakeningLaw::a) a;
-    decltype(SlowVelocityWeakeningLaw::sl0) sl0;
-    decltype(seissol::initializer::parameters::DRParameters::rsSr0) rsSr0;
-    decltype(seissol::initializer::parameters::DRParameters::rsF0) rsF0;
-    decltype(seissol::initializer::parameters::DRParameters::rsB) rsB;
+  struct MuDetails {
+    double a{};
+    double c{};
+    double ac{};
   };
 
-  Details getCurrentLtsLayerDetails() {
-    Details details{};
-    details.a = this->a;
-    details.sl0 = this->sl0;
-    details.rsSr0 = this->drParameters->rsSr0;
-    details.rsF0 = this->drParameters->rsF0;
-    details.rsB = this->drParameters->rsB;
-    return details;
-  }
-
-  static double updateMu(double localSlipRateMagnitude,
-                         double localStateVariable,
-                         Details details,
-                         size_t ltsFace,
-                         size_t pointIndex) {
-    const double localA = details.a[ltsFace][pointIndex];
-    const double localSl0 = details.sl0[ltsFace][pointIndex];
-    const double log1 = sycl::log(details.rsSr0 * localStateVariable / localSl0);
-    const double x = 0.5 * (localSlipRateMagnitude / details.rsSr0) *
-                     sycl::exp((details.rsF0 + details.rsB * log1) / localA);
-    return localA * sycl::asinh(x);
-  }
-
-  static double updateMuDerivative(double localSlipRateMagnitude,
-                                   double localStateVariable,
-                                   Details details,
-                                   size_t ltsFace,
-                                   size_t pointIndex) {
-    const double localA = details.a[ltsFace][pointIndex];
-    const double localSl0 = details.sl0[ltsFace][pointIndex];
-    const double log1 = sycl::log(details.rsSr0 * localStateVariable / localSl0);
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
+    const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
+    const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
+    const double log1 = std::log(ctx.data->drParameters.rsSr0 * localStateVariable / localSl0);
     const double c =
-        (0.5 / details.rsSr0) * sycl::exp((details.rsF0 + details.rsB * log1) / localA);
-    return localA * c / sycl::sqrt(sycl::pown(localSlipRateMagnitude * c, 2) + 1.0);
+        0.5 / ctx.data->drParameters.rsSr0 *
+        std::exp((ctx.data->drParameters.rsF0 + ctx.data->drParameters.rsB * log1) / localA);
+    return MuDetails{localA, c, localA * c};
+  }
+
+  SEISSOL_DEVICE static double
+      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, MuDetails& details) {
+    const double x = localSlipRateMagnitude * details.c;
+    return details.a * std::asinh(x);
+  }
+
+  SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext& ctx,
+                                                  double localSlipRateMagnitude,
+                                                  MuDetails& details) {
+    const double x = localSlipRateMagnitude * details.c;
+    return details.ac / std::sqrt(std::pow(x, 2) + 1.0);
   }
 
   /**
    * Resample the state variable. For Slow Velocity Weakening Laws,
    * we just copy the buffer into the member variable.
    */
-  void resampleStateVar(real (*stateVariableBuffer)[misc::NumPaddedPoints]) {
-    const auto layerSize{this->currLayerSize};
-    auto* stateVariable{this->stateVariable};
-
-    sycl::nd_range rng{{layerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
-    this->queue.submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-        const auto ltsFace = item.get_group().get_group_id(0);
-        const auto pointIndex = item.get_local_id(0);
-
-        stateVariable[ltsFace][pointIndex] = stateVariableBuffer[ltsFace][pointIndex];
-      });
-    });
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
+    ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
   }
 
-  void executeIfNotConverged() {}
+  SEISSOL_DEVICE static void executeIfNotConverged() {}
 };
 } // namespace seissol::dr::friction_law::gpu
 
-#endif // SEISSOL_GPU_SLOWVELOCITYWEAKENINGLAW_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_

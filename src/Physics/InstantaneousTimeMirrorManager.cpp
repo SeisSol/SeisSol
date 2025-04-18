@@ -1,13 +1,20 @@
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "InstantaneousTimeMirrorManager.h"
 #include "Initializer/CellLocalMatrices.h"
 #include "Modules/Modules.h"
 #include "SeisSol.h"
-#include <Initializer/LTS.h>
 #include <Initializer/Parameters/ModelParameters.h>
-#include <Initializer/Tree/LTSTree.h>
-#include <Initializer/Tree/Layer.h>
-#include <Initializer/Tree/Lut.h>
 #include <Initializer/Typedefs.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Layer.h>
+#include <Memory/Tree/Lut.h>
 #include <Modules/Module.h>
 #include <cmath>
 #include <memory>
@@ -40,20 +47,19 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
 void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   Module::syncPoint(currentTime);
 
-  const auto rank = MPI::mpi.rank();
-  logInfo(rank) << "InstantaneousTimeMirrorManager: Factor " << velocityScalingFactor;
+  logInfo() << "InstantaneousTimeMirrorManager: Factor " << velocityScalingFactor;
   if (!isEnabled) {
-    logInfo(rank) << "InstantaneousTimeMirrorManager: Skipping syncing at " << currentTime
-                  << "as it is disabled";
+    logInfo() << "InstantaneousTimeMirrorManager: Skipping syncing at " << currentTime
+              << "as it is disabled";
     return;
   }
 
-  logInfo(rank) << "InstantaneousTimeMirrorManager Syncing at " << currentTime;
+  logInfo() << "InstantaneousTimeMirrorManager Syncing at " << currentTime;
 
-  logInfo(rank) << "Scaling velocitites by factor of " << velocityScalingFactor;
+  logInfo() << "Scaling velocitites by factor of " << velocityScalingFactor;
   updateVelocities();
 
-  logInfo(rank) << "Updating CellLocalMatrices";
+  logInfo() << "Updating CellLocalMatrices";
   initializer::initializeCellLocalMatrices(*meshReader,
                                            ltsTree,
                                            lts,
@@ -62,10 +68,10 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
                                            seissolInstance.getSeisSolParameters().model);
   // An empty timestepping is added. Need to discuss what exactly is to be sent here
 
-  logInfo(rank) << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor;
+  logInfo() << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor;
   updateTimeSteps();
 
-  logInfo(rank) << "Finished flipping.";
+  logInfo() << "Finished flipping.";
   isEnabled = false;
 }
 

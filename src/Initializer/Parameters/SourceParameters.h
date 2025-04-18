@@ -1,5 +1,12 @@
-#ifndef SEISSOL_SOURCE_PARAMETERS_H
-#define SEISSOL_SOURCE_PARAMETERS_H
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_SOURCEPARAMETERS_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_SOURCEPARAMETERS_H_
 
 #include <string>
 
@@ -17,4 +24,4 @@ struct SourceParameters {
 SourceParameters readSourceParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_SOURCEPARAMETERS_H_

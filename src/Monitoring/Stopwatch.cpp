@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2016 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Stopwatch.h"
 
 #include "Parallel/MPI.h"
@@ -94,10 +101,10 @@ void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
   }
 #endif // USE_MPI
 
-  logInfo(rank) << text << UnitTime.formatTime(avg).c_str()
+  logInfo() << text << UnitTime.formatTime(avg).c_str()
 #ifdef USE_MPI
-                << "(min:" << utils::nospace << UnitTime.formatTime(min).c_str()
-                << ", max: " << UnitTime.formatTime(max).c_str() << ')'
+            << "(min:" << utils::nospace << UnitTime.formatTime(min).c_str()
+            << ", max: " << UnitTime.formatTime(max).c_str() << ')'
 #endif // USE_MPI
       ;
 }

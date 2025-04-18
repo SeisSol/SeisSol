@@ -1,6 +1,12 @@
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "Module.h"
 
-#include "Parallel/MPI.h"
 #include "utils/logger.h"
 #include <cassert>
 #include <cmath>
@@ -13,9 +19,8 @@ Module::~Module() = default;
 
 double Module::potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint) {
   if (std::abs(currentTime - lastSyncPoint) < timeTolerance) {
-    const int rank = seissol::MPI::mpi.rank();
-    logInfo(rank) << "Ignoring duplicate synchronization point at time" << currentTime
-                  << "; the last sync point was at " << lastSyncPoint;
+    logInfo() << "Ignoring duplicate synchronization point at time" << currentTime
+              << "; the last sync point was at " << lastSyncPoint;
   } else if (forceSyncPoint || std::abs(currentTime - nextSyncPoint) < timeTolerance) {
     syncPoint(currentTime);
     lastSyncPoint = currentTime;

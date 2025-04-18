@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/MeshReader.h"
@@ -135,7 +142,7 @@ TEST_CASE("DR Geometry") {
         2.4874032376060777E-002};
 
     auto data = generateTriangleQuadrature(7);
-    double(*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
+    double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
 
     constexpr double Epsilon = 1e-6;
     for (unsigned i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {

@@ -1,13 +1,16 @@
 # SPDX-FileCopyrightText: 2024 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 name: build-seissol-gpu
 on:
   - push
 
 env:
-  precomputed-hash: be764d550211b997819c85bb898f6eb6007d3418
+  precomputed-hash: 0fe0a82d19d2452c213789a51bc1d65edcf3c1ee
 
 jobs:
   seissol-build-test:
@@ -15,6 +18,19 @@ jobs:
     runs-on: ${{ matrix.setup.runner }}
     container: ${{ matrix.setup.container }}
     continue-on-error: true
+    env:
+      EXENAME: |
+        ${{
+          format('{0}_{1}{2}_{3}_{4}_{5}{6}',
+            matrix.build_type,
+            matrix.precision == 'single' && 's' || 'd',
+            matrix.setup.arch,
+            matrix.setup.backend,
+            matrix.order,
+            matrix.equation.type,
+            matrix.equation.multisim != 1 && format('_f{0}', matrix.equation.multisim) || ''
+          )
+        }}
     strategy:
       fail-fast: false
       matrix:
@@ -26,16 +42,30 @@ jobs:
           - Release
           - Debug
         equation:
-          - acoustic
-          - elastic
-          - anisotropic
+          - type: acoustic
+            multisim: 1
+            mechanisms: 0
+          - type: elastic
+            multisim: 1
+            mechanisms: 0
+          #- type: poroelastic
+          #  multisim: 1
+          #  mechanisms: 0
+          #- type: viscoelastic2
+          #  multisim: 1
+          #  mechanisms: 3
+          - type: anisotropic
+            multisim: 1
+            mechanisms: 0
+          #- type: elastic
+          #  multisim: 8
+          #  mechanisms: 0
         precision:
           - single
           - double
         setup:
           - arch: sm_60
             backend: cuda
-            syclcc: acpp
             cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
@@ -43,7 +73,6 @@ jobs:
             runner: ubuntu-24.04
           - arch: sm_60
             backend: cuda
-            syclcc: acpp
             cc: clang-18
             cxx: clang++-18
             fc: gfortran-13 # TODO?
@@ -52,7 +81,6 @@ jobs:
           # TODO: needs a working GPU runner
           #- arch: sm_60
           #  backend: cuda
-          #  syclcc: acpp
           #  cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
@@ -60,7 +88,6 @@ jobs:
           #  runner: sccs-ci-nv-sm60
           - arch: gfx906
             backend: hip
-            syclcc: acpp
             cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
@@ -68,7 +95,6 @@ jobs:
             runner: ubuntu-24.04
           - arch: gfx906
             backend: hip
-            syclcc: acpp
             cc: clang-18
             cxx: clang++-18
             fc: gfortran-13 # TODO?
@@ -76,7 +102,6 @@ jobs:
             runner: ubuntu-24.04
           - arch: skl
             backend: oneapi
-            syclcc: dpcpp
             cc: icx
             cxx: icpx
             fc: ifx
@@ -92,17 +117,9 @@ jobs:
         name: build-seissol
         run: |
           mkdir build && cd build
-          if [ "${{ matrix.equation }}" = viscoelastic2 ]; then
-              mechanisms=3
-          else
-              mechanisms=0
-          fi
 
           # TODO: change to `-Wall -Werror` at some point
           EXTRA_FLAGS="-Wall"
-
-          # FIXME: hotfix. Needs to be fixed in SeisSol itself
-          export HIP_PATH=/opt/rocm
 
           export CFLAGS="${EXTRA_FLAGS} ${CFLAGS}"
           export CXXFLAGS="${EXTRA_FLAGS} ${CXXFLAGS}"
@@ -112,14 +129,14 @@ jobs:
           export CXX=${{matrix.setup.cxx}}
           export FC=${{matrix.setup.fc}}
 
-          cmake .. -GNinja -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DSYCL_CC=${{matrix.setup.syclcc}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=$mechanisms -DCMAKE_INSTALL_PREFIX=/opt/seissol
+          cmake .. -GNinja -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
           ninja install
 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.order}}-${{matrix.equation}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.order}}-${{matrix.equation.type}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
   seissol-cache-precomputed:
@@ -152,6 +169,19 @@ jobs:
     continue-on-error: true
     needs: [seissol-build-test, seissol-cache-precomputed]
     if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
+    env:
+      EXENAME: |
+        ${{
+          format('{0}_{1}{2}_{3}_{4}_{5}{6}',
+            matrix.build_type,
+            matrix.precision == 'single' && 's' || 'd',
+            matrix.setup.arch,
+            matrix.setup.backend,
+            matrix.order,
+            matrix.case.equation,
+            matrix.case.multisim != 1 && format('_f{0}', matrix.case.multisim) || ''
+          )
+        }}
     strategy:
       fail-fast: false
       matrix:
@@ -159,74 +189,94 @@ jobs:
           # NOTE: the commented tests do not yet work on the GPU on this branch
           - name: tpv5
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv5-nuc
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           #- name: tpv5-visco
           #  equation: viscoelastic2
+          #  multisim: 1
           #  energies: true
           #  receivers: true
           #  fault: true
           #- name: tpv5-poro
           #  equation: poroelastic
+          #  multisim: 1
           #  energies: true
           #  receivers: true
           #  fault: true
           - name: tpv6
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv13
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv16
             equation: elastic
+            multisim: 1
             energies: true
             receivers: false # FIXME: does not work right now; disabled in the Gitlab CI
             fault: false
           - name: tpv101
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv101-slip
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpv104
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
-          #- name: tpv105
-          #  equation: elastic
-          #  energies: true
-          #  receivers: true
-          #  fault: true
+          - name: tpv105
+            equation: elastic
+            multisim: 1
+            energies: true
+            receivers: true
+            fault: true
           - name: tpvahsp
             equation: anisotropic
+            multisim: 1
             energies: false
             receivers: true
             fault: false
           - name: tpvgaussian
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
           - name: tpvyoffe
             equation: elastic
+            multisim: 1
             energies: true
             receivers: true
             fault: true
+          #- name: tpvloh1-fused
+          #  equation: elastic
+          #  multisim: 8
+          #  energies: true
+          #  receivers: true
+          #  fault: false # NYI
         precision:
           - single
         order:
@@ -238,7 +288,6 @@ jobs:
         setup:
           - arch: sm_60
             backend: cuda
-            syclcc: acpp
             cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
@@ -247,7 +296,6 @@ jobs:
             mpi: openmpi
           - arch: sm_60
             backend: cuda
-            syclcc: acpp
             cc: clang-18
             cxx: clang++-18
             fc: gfortran-13 # TODO?
@@ -257,7 +305,6 @@ jobs:
           # TODO: needs a working GPU runner
           #- arch: sm_60
           #  backend: cuda
-          #  syclcc: acpp
           #  cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
@@ -297,12 +344,6 @@ jobs:
       - name: run-seissol
         id: run
         run: |
-          if [ "${{ matrix.precision }}" = single ]; then
-              precision=s
-          else
-              precision=d
-          fi
-
           if [ ${{matrix.setup.mpi}} = openmpi ]; then
             MPI_OPTIONS="--oversubscribe --allow-run-as-root";
           elif [ ${{matrix.setup.mpi}} = intel ]; then
@@ -326,7 +367,7 @@ jobs:
 
           cd precomputed/${{matrix.case.name}}
           
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} SeisSol_${{matrix.build_type}}_${precision}${{matrix.setup.arch}}_${{matrix.setup.backend}}_${{matrix.order}}_${{matrix.case.equation}}
+          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} SeisSol_${EXENAME}
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts

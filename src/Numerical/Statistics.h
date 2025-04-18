@@ -1,10 +1,13 @@
-/**
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- **/
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
-#ifndef NUMERICAL_AUX_STATISTICS_H_
-#define NUMERICAL_AUX_STATISTICS_H_
+#ifndef SEISSOL_SRC_NUMERICAL_STATISTICS_H_
+#define SEISSOL_SRC_NUMERICAL_STATISTICS_H_
 
 #include <vector>
 
@@ -18,9 +21,10 @@ struct Summary {
   double min;
   double median;
   double max;
+  double sum;
 };
 
 auto parallelSummary(double value) -> Summary;
 } // namespace seissol::statistics
 
-#endif
+#endif // SEISSOL_SRC_NUMERICAL_STATISTICS_H_

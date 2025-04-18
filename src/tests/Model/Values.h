@@ -1,5 +1,12 @@
-#ifndef UNIT_TEST_GODUNOVSTATE_VALUES
-#define UNIT_TEST_GODUNOVSTATE_VALUES
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_TESTS_MODEL_VALUES_H_
+#define SEISSOL_SRC_TESTS_MODEL_VALUES_H_
 
 #include "Kernels/Precision.h"
 #include <Equations/Datastructures.h>
@@ -1255,4 +1262,4 @@ struct SolutionData<model::AcousticMaterial> : public ElasticSolutionData {
 
 } // namespace seissol::unit_test
 
-#endif
+#endif // SEISSOL_SRC_TESTS_MODEL_VALUES_H_

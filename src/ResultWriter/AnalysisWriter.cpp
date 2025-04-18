@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "AnalysisWriter.h"
 
 #include <Common/Constants.h>
@@ -32,6 +39,7 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Physics/InitialField.h"
 #include "SeisSol.h"
+#include "Solver/MultipleSimulations.h"
 
 namespace seissol::writer {
 
@@ -76,8 +84,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     return;
   }
 
-  logInfo(mpi.rank()) << "Print analysis for initial conditions"
-                      << static_cast<int>(initialConditionType) << " at time " << simulationTime;
+  logInfo() << "Print analysis for initial conditions" << static_cast<int>(initialConditionType)
+            << " at time " << simulationTime;
 
   const auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
@@ -110,15 +118,9 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   double quadratureWeights[NumQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 
-#ifdef MULTIPLE_SIMULATIONS
-  constexpr unsigned multipleSimulations = MULTIPLE_SIMULATIONS;
-#else
-  constexpr unsigned MultipleSimulations = 1;
-#endif
-
-  for (unsigned sim = 0; sim < MultipleSimulations; ++sim) {
-    logInfo(mpi.rank()) << "Analysis for simulation" << sim << ": absolute, relative";
-    logInfo(mpi.rank()) << "--------------------------";
+  for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
+    logInfo() << "Analysis for simulation" << sim << ": absolute, relative";
+    logInfo() << "--------------------------";
 
     using ErrorArrayT = std::array<double, NumQuantities>;
     using MeshIdArrayT = std::array<unsigned int, NumQuantities>;
@@ -215,11 +217,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         }
       }
 
-#ifdef MULTIPLE_SIMULATIONS
-      auto numSub = numericalSolution.subtensor(sim, yateto::slice<>(), yateto::slice<>());
-#else
-      auto numSub = numericalSolution;
-#endif
+      auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
 
       // Evaluate numerical solution at quad. nodes
       kernel::evalAtQP krnl;
@@ -346,11 +344,11 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         const auto errL1Rel = errL1 / analyticalL1MPI[i];
         const auto errL2Rel = std::sqrt(errL2MPI[i] / analyticalL2MPI[i]);
         const auto errLInfRel = errLInf / analyticalLInfMPI[i];
-        logInfo(mpi.rank()) << "L1  , var[" << i << "] =\t" << errL1 << "\t" << errL1Rel;
-        logInfo(mpi.rank()) << "L2  , var[" << i << "] =\t" << errL2 << "\t" << errL2Rel;
-        logInfo(mpi.rank()) << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel
-                            << "at rank " << errLInfRecv[i].rank << "\tat [" << centerRecv[0]
-                            << ",\t" << centerRecv[1] << ",\t" << centerRecv[2] << "\t]";
+        logInfo() << "L1  , var[" << i << "] =\t" << errL1 << "\t" << errL1Rel;
+        logInfo() << "L2  , var[" << i << "] =\t" << errL2 << "\t" << errL2Rel;
+        logInfo() << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel << "at rank "
+                  << errLInfRecv[i].rank << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1]
+                  << ",\t" << centerRecv[2] << "\t]";
         csvWriter.addObservation(std::to_string(i), "L1", errL1);
         csvWriter.addObservation(std::to_string(i), "L2", errL2);
         csvWriter.addObservation(std::to_string(i), "LInf", errLInf);

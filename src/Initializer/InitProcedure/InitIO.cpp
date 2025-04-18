@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "InitIO.h"
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
@@ -8,9 +15,10 @@
 #include "SeisSol.h"
 #include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
-#include <Initializer/DynamicRupture.h>
-#include <Initializer/Tree/Layer.h>
+#include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Tree/Layer.h>
 #include <Model/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <algorithm>
@@ -361,13 +369,13 @@ void setIntegralMask(seissol::SeisSol& seissolInstance) {
 
 void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
   const auto rank = MPI::mpi.rank();
-  logInfo(rank) << "Begin init output.";
+  logInfo() << "Begin init output.";
 
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const filesystem::path outputPath(seissolParams.output.prefix);
   const auto outputDir = filesystem::directory_entry(outputPath.parent_path());
   if (!filesystem::exists(outputDir)) {
-    logWarning(rank) << "Output directory does not exist yet. We therefore create it now.";
+    logWarning() << "Output directory does not exist yet. We therefore create it now.";
     if (rank == 0) {
       filesystem::create_directory(outputDir);
     }
@@ -379,5 +387,5 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
   initFaultOutputManager(seissolInstance);
   setupCheckpointing(seissolInstance);
   setupOutput(seissolInstance);
-  logInfo(rank) << "End init output.";
+  logInfo() << "End init output.";
 }

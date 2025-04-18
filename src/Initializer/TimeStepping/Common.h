@@ -1,48 +1,18 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Common functions for the setups of all lts strategies.
- **/
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef COMMON_HPP
-#define COMMON_HPP
+#ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_COMMON_H_
+#define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_COMMON_H_
 
+#include <Initializer/CellLocalInformation.h>
 #include <cassert>
+#include <mpi.h>
 #include <set>
 
 #include "Parallel/MPI.h"
@@ -251,6 +221,23 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
   unsigned short **l_sendBuffer    = new unsigned short*[ i_numberOfClusters ];
   unsigned short **l_receiveBuffer = new unsigned short*[ i_numberOfClusters ];
 
+  std::vector<MPI_Request> sendRequestsRaw;
+  std::vector<MPI_Request> recvRequestsRaw;
+  std::vector<MPI_Request*> sendRequests;
+  std::vector<MPI_Request*> receiveRequests;
+  for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
+    for( unsigned int l_region = 0; l_region < io_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
+      sendRequestsRaw.push_back(MPI_REQUEST_NULL);
+      recvRequestsRaw.push_back(MPI_REQUEST_NULL);
+    }
+  }
+  std::size_t point = 0;
+  for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
+    sendRequests.push_back(sendRequestsRaw.data() + point);
+    receiveRequests.push_back(recvRequestsRaw.data() + point);
+    point += io_meshStructure[l_cluster].numberOfRegions;
+  }
+
   unsigned l_cell = 0;
 
   for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
@@ -277,7 +264,7 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
                  io_meshStructure[l_cluster].neighboringClusters[l_region][0],  // destination
                  io_meshStructure[l_cluster].sendIdentifiers[l_region],         // message tag
                  seissol::MPI::mpi.comm(),                                      // communicator
-                 io_meshStructure[l_cluster].sendRequests+l_region );           // mpi request
+                 sendRequests[l_cluster]+l_region );           // mpi request
 
       l_copyRegionOffset += io_meshStructure[l_cluster].numberOfCopyRegionCells[l_region];
 
@@ -287,7 +274,7 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
                  io_meshStructure[l_cluster].neighboringClusters[l_region][0],   // source
                  io_meshStructure[l_cluster].receiveIdentifiers[l_region],       // message tag
                  seissol::MPI::mpi.comm(),                                       // communicator
-                 io_meshStructure[l_cluster].receiveRequests+l_region );         // mpi request
+                 receiveRequests[l_cluster]+l_region );         // mpi request
 
       l_ghostRegionOffset += io_meshStructure[l_cluster].numberOfGhostRegionCells[l_region];
     }
@@ -299,10 +286,10 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
   // wait for communication
   for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
     MPI_Waitall( io_meshStructure[l_cluster].numberOfRegions, // size
-                 io_meshStructure[l_cluster].receiveRequests, // array of requests
+                 sendRequests[l_cluster], // array of requests
                  MPI_STATUS_IGNORE );                         // mpi status
     MPI_Waitall( io_meshStructure[l_cluster].numberOfRegions, // size
-                 io_meshStructure[l_cluster].sendRequests,    // array of requests
+                 receiveRequests[l_cluster],    // array of requests
                  MPI_STATUS_IGNORE );                         // mpi status
   }
 
@@ -345,7 +332,8 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
  **/
 inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
                              struct MeshStructure        *io_meshStructure,
-                             struct CellLocalInformation *io_cellLocalInformation ) {
+                             struct CellLocalInformation *io_cellLocalInformation,
+                             struct SecondaryCellLocalInformation *secondaryInformation  ) {
   unsigned int l_cell = 0;
 
   // iterate over time clusters
@@ -367,18 +355,18 @@ inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
            io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::Periodic ||
            io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::DynamicRupture) {
 	  // get neighboring cell id
-	  unsigned int l_neighbor = io_cellLocalInformation[l_cell].faceNeighborIds[l_face];
+	  unsigned int l_neighbor = secondaryInformation[l_cell].faceNeighborIds[l_face];
 
           // set the cluster id
-          l_neighboringClusterIds[l_face] = io_cellLocalInformation[l_neighbor].clusterId;
+          l_neighboringClusterIds[l_face] = secondaryInformation[l_neighbor].clusterId;
         }
       }
 
       // set the lts setup for this cell
-      io_cellLocalInformation[l_cell].ltsSetup = getLtsSetup( io_cellLocalInformation[l_cell].clusterId,
+      io_cellLocalInformation[l_cell].ltsSetup = getLtsSetup( secondaryInformation[l_cell].clusterId,
                                                               l_neighboringClusterIds,
                                                               io_cellLocalInformation[l_cell].faceTypes,
-                                                              io_cellLocalInformation[l_cell].faceNeighborIds,
+                                                              secondaryInformation[l_cell].faceNeighborIds,
                                                               (l_clusterCell < io_meshStructure[l_cluster].numberOfCopyCells) );
       // assert that the cell operates at least on buffers or derivatives
       assert( ( ( io_cellLocalInformation[l_cell].ltsSetup >> 8 ) % 2 ||
@@ -418,7 +406,7 @@ inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
             io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::Periodic ||
             io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::DynamicRupture ) {
           // get neighboring cell id
-          unsigned int l_neighbor = io_cellLocalInformation[l_cell].faceNeighborIds[l_face];
+          unsigned int l_neighbor = secondaryInformation[l_cell].faceNeighborIds[l_face];
 
           // get neighboring setup
           l_neighboringSetups[l_face] = io_cellLocalInformation[l_neighbor].ltsSetup;
@@ -447,4 +435,5 @@ inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
 
 }}}
 
-#endif
+
+#endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_COMMON_H_

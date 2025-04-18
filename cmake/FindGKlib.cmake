@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2024 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
+# Adapted from FindMETIS.cmake which in turn seems to be adapted from FindParMETIS.cmake
+# Hence, BSD-2-Clause (not BSD-3-Clause)
+
 # - Try to find GKLIB
 # Once done this will define
 #

@@ -1,5 +1,12 @@
-#ifndef SEISSOL_RATEANDSTATEINITIALIZER_H
-#define SEISSOL_RATEANDSTATEINITIALIZER_H
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_RATEANDSTATEINITIALIZER_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_RATEANDSTATEINITIALIZER_H_
 
 #include "BaseDRInitializer.h"
 
@@ -108,9 +115,65 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
  * Derived initializer class for FastVelocityWeakening friction law with additional thermal
  * pressurization
  */
-class RateAndStateThermalPressurizationInitializer : public RateAndStateFastVelocityInitializer {
+class ThermalPressurizationInitializer {
   public:
-  using RateAndStateFastVelocityInitializer::RateAndStateFastVelocityInitializer;
+  explicit ThermalPressurizationInitializer(
+      const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters);
+  /**
+   * Intializes temperature and pressure and sets compute grid to 0
+   */
+  void initializeFault(const seissol::initializer::DynamicRupture* dynRup,
+                       seissol::initializer::LTSTree* dynRupTree);
+
+  protected:
+  /**
+   * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
+   */
+  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+                               const seissol::initializer::DynamicRupture* dynRup,
+                               seissol::initializer::Layer& layer);
+
+  private:
+  std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters;
+};
+
+/**
+ * Derived initializer class for RateAndState (slow, severe) friction law with additional thermal
+ * pressurization
+ */
+class RateAndStateThermalPressurizationInitializer : public RateAndStateInitializer,
+                                                     public ThermalPressurizationInitializer {
+  public:
+  RateAndStateThermalPressurizationInitializer(
+      const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
+      SeisSol& instance);
+
+  /**
+   * Intializes temperature and pressure and sets compute grid to 0
+   */
+  void initializeFault(const seissol::initializer::DynamicRupture* dynRup,
+                       seissol::initializer::LTSTree* dynRupTree) override;
+
+  protected:
+  /**
+   * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
+   */
+  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+                               const seissol::initializer::DynamicRupture* dynRup,
+                               seissol::initializer::Layer& layer) override;
+};
+
+/**
+ * Derived initializer class for FastVelocityWeakening friction law with additional thermal
+ * pressurization
+ */
+class RateAndStateFastVelocityThermalPressurizationInitializer
+    : public RateAndStateFastVelocityInitializer,
+      public ThermalPressurizationInitializer {
+  public:
+  RateAndStateFastVelocityThermalPressurizationInitializer(
+      const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
+      SeisSol& instance);
 
   /**
    * Intializes temperature and pressure and sets compute grid to 0
@@ -128,4 +191,5 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateFastVelo
 };
 
 } // namespace seissol::dr::initializer
-#endif // SEISSOL_RATEANDSTATEINITIALIZER_H
+
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_RATEANDSTATEINITIALIZER_H_

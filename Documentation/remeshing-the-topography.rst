@@ -1,7 +1,10 @@
 ..
-  SPDX-FileCopyrightText: 2018-2024 SeisSol Group
+  SPDX-FileCopyrightText: 2018 SeisSol Group
 
   SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 .. _Remeshing the topography:
 

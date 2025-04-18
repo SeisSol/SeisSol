@@ -1,13 +1,11 @@
-# SPDX-FileCopyrightText: 2016-2024 SeisSol Group
+# SPDX-FileCopyrightText: 2016 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
-# @file
-# This file is part of SeisSol.
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 #
-# @author Carsten Uphoff (c.uphoff AT tum.de)
-# @author Sebastian Wolf (wolf.sebastian AT tum.de)
-#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+# SPDX-FileContributor: Carsten Uphoff
+# SPDX-FileContributor: Sebastian Wolf
 
 from kernels.equations.elastic import ElasticADERDG as ADERDGBase
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile

@@ -1,5 +1,12 @@
-#ifndef SEISSOL_ACTORSTATESTATISTICS_H
-#define SEISSOL_ACTORSTATESTATISTICS_H
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_MONITORING_ACTORSTATESTATISTICS_H_
+#define SEISSOL_SRC_MONITORING_ACTORSTATESTATISTICS_H_
 
 #include "LoopStatistics.h"
 #include "Solver/time_stepping/ActorState.h"
@@ -46,4 +53,4 @@ class ActorStateStatisticsManager {
 };
 } // namespace seissol
 
-#endif // SEISSOL_ACTORSTATESTATISTICS_H
+#endif // SEISSOL_SRC_MONITORING_ACTORSTATESTATISTICS_H_

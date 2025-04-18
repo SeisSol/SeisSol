@@ -1,7 +1,18 @@
-#ifndef SEISSOL_BASICTYPEDEFS_HPP
-#define SEISSOL_BASICTYPEDEFS_HPP
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
+#define SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_
+
+namespace seissol {
 
 constexpr int DataTagOffset = 2;
+
+enum class HaloType { Ghost, Copy, Interior };
 
 enum class TimeClustering {
   // global time stepping
@@ -56,12 +67,13 @@ constexpr bool isExternalBoundaryFaceType(FaceType faceType) {
 }
 
 enum class ComputeGraphType {
-  LocalIntegral = 0,
-  AccumulatedVelocities,
+  AccumulatedVelocities = 0,
   StreamedVelocities,
   NeighborIntegral,
   DynamicRuptureInterface,
   Count
 };
 
-#endif // SEISSOL_BASICTYPEDEFS_HPP
+} // namespace seissol
+
+#endif // SEISSOL_SRC_INITIALIZER_BASICTYPEDEFS_H_

@@ -1,14 +1,20 @@
-#ifndef SEISSOL_PARAMETER_READER_H
-#define SEISSOL_PARAMETER_READER_H
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_PARAMETERREADER_H_
+#define SEISSOL_SRC_INITIALIZER_PARAMETERS_PARAMETERREADER_H_
+
+#include <optional>
 #include <string>
 #include <unordered_set>
 
 #include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <yaml-cpp/yaml.h>
-
-#include "Parallel/MPI.h"
 
 namespace seissol::initializer::parameters {
 
@@ -41,8 +47,7 @@ class ParameterReader {
     if (value.has_value()) {
       return value.value();
     } else {
-      logDebug(seissol::MPI::mpi.rank())
-          << "The field" << field << "was not specified, using fallback.";
+      logDebug() << "The field" << field << "was not specified, using fallback.";
       return defaultValue;
     }
   }
@@ -76,11 +81,44 @@ class ParameterReader {
   template <typename T>
   T readIfRequired(const std::string& field, bool required) {
     if (required) {
-      const std::string failMessage =
-          "The field " + field + " is required, but not found in the parameters file.";
+      const std::string failMessage = "The field " + field + " is required.";
       return readOrFail<T>(field, failMessage);
     } else {
       markUnused({field});
+      return T{};
+    }
+  }
+
+  template <typename T>
+  T readIfRequiredAlternatives(const std::vector<std::string>& fields, bool required) {
+    if (required) {
+      bool found = false;
+      T value = T{};
+      for (std::size_t i = 0; i < fields.size(); ++i) {
+        if (found) {
+          if (i > 0) {
+            warnDeprecatedSingle(fields[i]);
+          } else {
+            markUnused({fields[0]});
+          }
+        } else {
+          const auto tryRead = read<T>(fields[i]);
+          if (tryRead.has_value()) {
+            found = true;
+            value = tryRead.value();
+            if (i > 0) {
+              logWarning() << "The field name" << fields[i]
+                           << "is deprecated; consider changing its name to" << fields[0];
+            }
+          }
+        }
+      }
+      if (!found) {
+        logError() << "The field" << fields[0] << "was not found, but it is required";
+      }
+      return value;
+    } else {
+      markUnused(fields);
       return T{};
     }
   }
@@ -110,7 +148,7 @@ class ParameterReader {
   template <typename T>
   T readUnsafe(const std::string& field) {
     visited.emplace(field);
-    logDebug(seissol::MPI::mpi.rank()) << "The field" << field << "was read.";
+    logDebug() << "The field" << field << "was read.";
     try {
       // booleans are stored as integers
       if constexpr (std::is_same_v<T, bool>) {
@@ -132,4 +170,4 @@ class ParameterReader {
 };
 } // namespace seissol::initializer::parameters
 
-#endif
+#endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_PARAMETERREADER_H_

@@ -1,14 +1,24 @@
-#ifndef SEISSOL_DR_MISC_H
-#define SEISSOL_DR_MISC_H
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
+#define SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
 
 #include "Geometry/MeshDefinition.h"
 #include "Kernels/Precision.h"
 
 #include "generated_code/init.h"
+#include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
-#include <stdexcept>
+#include <string>
 #include <tuple>
 #include <type_traits>
+
+#include "Common/Marker.h"
 
 namespace seissol::dr::misc {
 // TODO: this can be moved to yateto headers
@@ -32,8 +42,8 @@ static constexpr inline size_t NumQuantities = misc::dimSize<init::QInterpolated
  * Constants for Thermal Pressurization
  */
 static constexpr size_t NumTpGridPoints = 60;
-static constexpr real TpLogDz = 0.3;
-static constexpr real TpMaxWaveNumber = 10.0;
+static constexpr double TpLogDz = 0.3;
+static constexpr double TpMaxWaveNumber = 10.0;
 
 /**
  * Number of gauss points on an element surface.
@@ -60,8 +70,9 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
  * @param base
  * @return
  */
+#pragma omp declare simd
 template <size_t Exp, typename T>
-inline auto power(T base) -> T {
+SEISSOL_HOSTDEVICE inline auto power(T base) -> T {
   T result = static_cast<T>(1.0);
   for (size_t i = 0; i < Exp; ++i) {
     result *= base;
@@ -69,8 +80,9 @@ inline auto power(T base) -> T {
   return result;
 }
 
+#pragma omp declare simd
 template <typename T>
-inline std::enable_if_t<std::is_floating_point_v<T>, T> square(T t) {
+SEISSOL_HOSTDEVICE inline std::enable_if_t<std::is_floating_point_v<T>, T> square(T t) {
   return t * t;
 }
 
@@ -78,8 +90,9 @@ inline std::enable_if_t<std::is_floating_point_v<T>, T> square(T t) {
  * Computes a squared sum of an N-dimensional vector
  * @return magnitude of the vector
  */
+#pragma omp declare simd
 template <typename T, typename... Tn>
-inline T square(T t1, Tn... tn) {
+SEISSOL_HOSTDEVICE inline T square(T t1, Tn... tn) {
   return square(t1) + square(tn...);
 }
 
@@ -87,18 +100,25 @@ inline T square(T t1, Tn... tn) {
  * Computes the magnitude of an N-dimensional vector
  * @return magnitude of the vector
  */
+#pragma omp declare simd
 template <typename T, typename... Tn>
-inline T magnitude(T t1, Tn... tn) {
+SEISSOL_HOSTDEVICE inline T magnitude(T t1, Tn... tn) {
+  static_assert((std::is_same_v<T, Tn> && ...), "All types need to be equal.");
+  if constexpr (sizeof...(Tn) == 1) {
+    return std::hypot(t1, tn...);
+  }
   return std::sqrt(square(t1) + square(tn...));
 }
 
-/**
- * Computes the arcus sinus hyperbolicus of x.
- * Note: precision has to be double, otherwise we would loose too much precision.
- * @param x
- * @return asinh(x)
- */
-inline double asinh(double x) { return std::log(x + std::sqrt(x * x + 1.0)); }
+#pragma omp declare simd
+template <typename T>
+SEISSOL_HOSTDEVICE inline T clamp(T value, T minval, T maxval) {
+#ifdef __HIP__
+  return std::max(minval, std::min(maxval, value));
+#else
+  return std::clamp(value, minval, maxval);
+#endif
+}
 
 /**
  * Create strike and dip unit vectors give a fault normal vector
@@ -108,6 +128,8 @@ inline double asinh(double x) { return std::log(x + std::sqrt(x * x + 1.0)); }
  * @param dip
  */
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip);
+
+std::string frictionLawName(seissol::initializer::parameters::FrictionLawType type);
 
 namespace quantity_indices {
 /**
@@ -139,4 +161,4 @@ enum QuantityIndices : size_t {
 } // namespace quantity_indices
 } // namespace seissol::dr::misc
 
-#endif // SEISSOL_DR_MISC_H
+#endif // SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_

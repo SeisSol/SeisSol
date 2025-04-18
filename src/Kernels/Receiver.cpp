@@ -1,42 +1,10 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Carsten Uphoff (c.uphoff AT tum.de,
- *http://www5.in.tum.de/wiki/index.php/Carsten_Uphoff,_M.Sc.)
- *
- * @section LICENSE
- * Copyright (c) 2019, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- **/
+// SPDX-FileCopyrightText: 2019 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
 
 #include "Receiver.h"
 #include "Monitoring/FlopCounter.h"
@@ -45,13 +13,14 @@
 #include "generated_code/kernel.h"
 #include <Common/Constants.h>
 #include <Common/Executor.h>
-#include <Initializer/LTS.h>
-#include <Initializer/Tree/Layer.h>
-#include <Initializer/Tree/Lut.h>
 #include <Kernels/Common.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Layer.h>
+#include <Memory/Tree/Lut.h>
 #include <Numerical/Transformation.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -70,24 +39,6 @@
 #include <Parallel/Helper.h>
 #include <unordered_map>
 #endif
-
-namespace {
-#ifdef MULTIPLE_SIMULATIONS
-template <typename T, typename F, typename... Args>
-T multisimWrap(F&& function, size_t sim, Args&&... args) {
-  return std::invoke(std::forward<F>(function), sim, std::forward<Args>(args)...);
-}
-constexpr size_t MultisimStart = init::QAtPoint::Start[0];
-constexpr size_t MultisimEnd = init::QAtPoint::Stop[0];
-#else
-template <typename F, typename... Args>
-auto multisimWrap(F&& function, size_t sim, Args&&... args) {
-  return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
-}
-constexpr size_t MultisimStart = 0;
-constexpr size_t MultisimEnd = 1;
-#endif
-} // namespace
 
 namespace seissol::kernels {
 
@@ -250,15 +201,16 @@ double ReceiverCluster::calcReceivers(
 
         // note: necessary receiver space is reserved in advance
         receiver.output.push_back(receiverTime);
-        for (unsigned sim = MultisimStart; sim < MultisimEnd; ++sim) {
+        for (unsigned sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
+             ++sim) {
           for (auto quantity : m_quantities) {
-            if (!std::isfinite(multisimWrap(qAtPoint, sim, quantity))) {
+            if (!std::isfinite(seissol::multisim::multisimWrap(qAtPoint, sim, quantity))) {
               logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0] << ","
                          << receiver.position[1] << "," << receiver.position[2] << " in simulation"
                          << sim << "."
                          << "Aborting.";
             }
-            receiver.output.push_back(multisimWrap(qAtPoint, sim, quantity));
+            receiver.output.push_back(seissol::multisim::multisimWrap(qAtPoint, sim, quantity));
           }
           for (const auto& derived : derivedQuantities) {
             derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
@@ -303,7 +255,7 @@ size_t ReceiverCluster::ncols() const {
   for (const auto& derived : derivedQuantities) {
     ncols += derived->quantities().size();
   }
-  ncols *= MultisimEnd - MultisimStart;
+  ncols *= seissol::multisim::MultisimEnd - seissol::multisim::MultisimStart;
   return 1 + ncols;
 }
 
@@ -312,12 +264,12 @@ void ReceiverRotation::compute(size_t sim,
                                std::vector<real>& output,
                                seissol::init::QAtPoint::view::type& qAtPoint,
                                seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
-  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
-                   multisimWrap(qDerivativeAtPoint, sim, 7, 2));
-  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6, 2) -
-                   multisimWrap(qDerivativeAtPoint, sim, 8, 0));
-  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 7, 0) -
-                   multisimWrap(qDerivativeAtPoint, sim, 6, 1));
+  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
+                   seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 2));
+  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 2) -
+                   seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 0));
+  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 0) -
+                   seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 1));
 }
 
 std::vector<std::string> ReceiverStrain::quantities() const {
@@ -329,18 +281,18 @@ void ReceiverStrain::compute(size_t sim,
                              seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
   // actually 9 quantities; 3 removed due to symmetry
 
-  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 6, 0));
-  output.push_back(
-      (multisimWrap(qDerivativeAtPoint, sim, 6, 1) + multisimWrap(qDerivativeAtPoint, sim, 7, 0)) /
-      2);
-  output.push_back(
-      (multisimWrap(qDerivativeAtPoint, sim, 6, 2) + multisimWrap(qDerivativeAtPoint, sim, 8, 0)) /
-      2);
-  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 7, 1));
-  output.push_back(
-      (multisimWrap(qDerivativeAtPoint, sim, 7, 2) + multisimWrap(qDerivativeAtPoint, sim, 8, 1)) /
-      2);
-  output.push_back(multisimWrap(qDerivativeAtPoint, sim, 8, 2));
+  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 0));
+  output.push_back((seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 1) +
+                    seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 0)) /
+                   2);
+  output.push_back((seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 2) +
+                    seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 0)) /
+                   2);
+  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 1));
+  output.push_back((seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 2) +
+                    seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 1)) /
+                   2);
+  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 2));
 }
 
 } // namespace seissol::kernels

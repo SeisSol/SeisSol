@@ -1,46 +1,14 @@
-/**
- * @file
- * This file is part of SeisSol.
- *
- * @author Alexander Breuer (breuer AT mytum.de, http://www5.in.tum.de/wiki/index.php/Dipl.-Math._Alexander_Breuer)
- * @author Sebastian Rettenberger (sebastian.rettenberger AT tum.de, http://www5.in.tum.de/wiki/index.php/Sebastian_Rettenberger)
- *
- * @section LICENSE
- * Copyright (c) 2015-2016, SeisSol Group
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * 3. Neither the name of the copyright holder nor the names of its
- *    contributors may be used to endorse or promote products derived from this
- *    software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
- *
- * @section DESCRIPTION
- * Layout the LTS schemes compute on.
- **/
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef LTSLAYOUT_H_
-#define LTSLAYOUT_H_
+#ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSLAYOUT_H_
+#define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSLAYOUT_H_
 
 #include "Initializer/Typedefs.h"
 
@@ -50,24 +18,19 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 
 #include <array>
-#include <limits>
 #include <cassert>
+#include <limits>
 
-namespace seissol {
-  namespace initializer {
-    namespace time_stepping {
-      class LtsLayout;
-    }
-  }
-}
 
-/**
- * Layout used by the LTS schemes for computation.
- **/
+  
+namespace seissol::initializer::time_stepping {
+  class LtsLayout;
+} // namespace seissol::initializer::time_stepping
+  
+
 class seissol::initializer::time_stepping::LtsLayout {
   //private:
-    //! used clustering strategy
-    enum TimeClustering m_clusteringStrategy;
+    const seissol::geometry::MeshReader* m_mesh;
 
     //! cells in the local domain
     std::vector<Element> m_cells;
@@ -79,16 +42,16 @@ class seissol::initializer::time_stepping::LtsLayout {
     std::vector<double>       m_cellTimeStepWidths;
 
     //! cluster ids of the cells
-    unsigned int *m_cellClusterIds;
+    std::vector<unsigned int> m_cellClusterIds;
 
     //! number of clusters in the global domain
     unsigned int  m_numberOfGlobalClusters;
 
     //! time step widths of all clusters
-    double       *m_globalTimeStepWidths;
+    std::vector<double> m_globalTimeStepWidths;
 
     //! time step rates of all clusters
-    unsigned int *m_globalTimeStepRates;
+    std::vector<unsigned int> m_globalTimeStepRates;
 
     //! mpi tags used for communication
     enum mpiTag {
@@ -247,46 +210,6 @@ class seissol::initializer::time_stepping::LtsLayout {
      *   vector containing the cell ids in the neighboring computational domain is derived.
      **/
     void normalizeMpiIndices();
-
-    /**
-     * Helper function for synchronization.
-     */
-    void synchronizePlainGhostData(unsigned* cellData, unsigned** plainGhostData);
-
-    /**
-     * Synchronizes the cluster ids of the cells in the plain ghost layer.
-     **/
-    void synchronizePlainGhostClusterIds();
-
-    /**
-     * Enforces the same time step for all cells with dynamic rupture faces.
-     */
-    unsigned enforceDynamicRuptureGTS();
-
-    /**
-     * Enforces a maximum cluster difference between all cells.
-     * 0: GTS (no difference of cluster ids allowed).
-     * 1: Only a single difference in the cluster id is allowed, for example 2 is allowed to neighbor 1,2,3 but not 0 or 4.
-     * [...]
-     *
-     * @param i_difference maximum allowed difference.
-     * @return number of performed per-cell adjustments.
-     **/
-    unsigned int enforceMaximumDifference( unsigned int i_difference );
-
-    /**
-     * Lowers the time step width of all cells, which would require neighboring
-     * cells to have more than one time buffer.
-     *  Example:
-     *   A cell has time step 2*dt with neighboring time steps dt, 2*dt, 4*dt and 8*dt.
-     *   The scheme only provides one derivative (-> 2*dt - neighbor) and one buffer (-> 4*dt neighbor).
-     *   Therefore we have to lower the time step of the 8*dt neighbor to 4*dt.
-     *
-     * TODO: This function is not implemented but required for maximum differences other than 0 or 1.
-     *
-     * @return number of performed normalizations.
-     **/
-    unsigned int enforceSingleBuffer();
 
     /**
      * Normalizes the clustering.
@@ -506,6 +429,7 @@ class seissol::initializer::time_stepping::LtsLayout {
      * @param o_numberOfMeshCells number of cells in the mesh.
      **/
     void getCellInformation( CellLocalInformation* io_cellLocalInformation,
+                             SecondaryCellLocalInformation* secondaryInformation,
                              unsigned int         *&o_ltsToMesh,
                              unsigned int          &o_numberOfMeshCells );
 
@@ -519,15 +443,7 @@ class seissol::initializer::time_stepping::LtsLayout {
      * @param mesh structure.
      **/
     void getMeshStructure( MeshStructure *&o_meshStructure );
-
-    /**
-    * Get the global cluster Id of a particular local mesh element.
-    *
-    * @param LocalMeshElementId local mesh Id of an element.
-    **/
-    unsigned getGlobalClusterId(int LocalMeshElementId) {
-      return m_cellClusterIds[LocalMeshElementId];;
-    }
 };
 
-#endif
+
+#endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSLAYOUT_H_

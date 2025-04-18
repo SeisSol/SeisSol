@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "OutputAux.h"
 #include "Common/Constants.h"
 #include "DynamicRupture/Output/DataTypes.h"
@@ -8,6 +15,7 @@
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include <Eigen/Dense>
+#include <Solver/MultipleSimulations.h>
 #include <cstddef>
 #include <init.h>
 #include <limits>
@@ -99,11 +107,12 @@ TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree) {
   // Generate triangle quadrature points and weights (Factory Method)
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   auto weightsView = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
-  auto* reshapedPoints = unsafe_reshape<2>(data.points.data());
+
+  auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
-    reshapedPoints[i][0] = pointsView(i, 0);
-    reshapedPoints[i][1] = pointsView(i, 1);
-    data.weights[i] = weightsView(i);
+    reshapedPoints[i][0] = seissol::multisim::multisimTranspose(pointsView, i, 0);
+    reshapedPoints[i][1] = seissol::multisim::multisimTranspose(pointsView, i, 1);
+    data.weights[i] = seissol::multisim::multisimWrap(weightsView, 0, i);
   }
 
   return data;
@@ -130,7 +139,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
   auto quadratureData = generateTriangleQuadrature(ConvergenceOrder + 1);
-  double(*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
+  double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
 
   for (auto& geoPoint : geoPoints) {
 

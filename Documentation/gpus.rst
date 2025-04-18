@@ -1,7 +1,10 @@
 ..
-  SPDX-FileCopyrightText: 2021-2024 SeisSol Group
+  SPDX-FileCopyrightText: 2021 SeisSol Group
 
   SPDX-License-Identifier: BSD-3-Clause
+  SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+
+  SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 SeisSol with GPUs
 =======================================
@@ -68,9 +71,9 @@ locations for the *i*-th local MPI process.
 Supported SeisSol features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- elastic (isotropic, anisotropic) wave propagation model
+- acoustic and elastic (isotropic, anisotropic) wave propagation models
 - kinematic point sources
-- dynamic rupture: linear slip weakening, slow and fast velocity weakening friction laws
+- dynamic rupture (all friction laws)
 - off-fault plasticity model
 
 Experimental branches include support for visco-elastic wave propagation as well.
@@ -100,6 +103,7 @@ The following two CMake options can be useful to improve performance:
 
 * ``USE_GRAPH_CAPTURING``: enables CUDA/HIP graphs. These are used to speed up the kernel execution for wave propagation equations.
 * ``PREMULTIPLY_FLUX``: enables the pre-multiplying of flux matrices (it was disabled for CPUs to free up cache space). This usually results in a speedup for AMD and Nvidia GPUs. By default, it is switched on when compiling for an AMD or Nvidia GPU and switched off in all other cases.
+* ``DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS``: enables a hand-written kernel to speed up some internal, heavily memory-bound computations. Enabled for AMD and NVIDIA GPUs by default; but it works on all others as well.
 
 Execution
 ~~~~~~~~~
@@ -122,10 +126,9 @@ the following will force SeisSol to allocate 1.5GB of stack GPU memory for tempo
     export DEVICE_STACK_MEM_SIZE=1.5
     mpirun -n <M x N> ./SeisSol_dsm70_cuda_* ./parameters.par
 
-The following device-specific environment variables are supported right now:
+The following device-specific environment variable is supported right now:
 
 * ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``
-* ``SEISSOL_SERIAL_NODE_DEVICE_INIT``
 
 Currently, SeisSol allocates MPI buffers using the global memory type.
 Some MPI implementations are not GPU-aware and do not support direct point-to-point
@@ -139,8 +142,3 @@ The default value is ``direct`` which copies the data out of the GPU buffers dir
    :alt: Data Flow Diagram
    :width: 10.0cm
    :align: center
-
-The environment variable ``SEISSOL_SERIAL_NODE_DEVICE_INIT`` exists to mitigate some possible execution bugs
-with regard to AMD GPU drivers. It is disabled by default and scheduled for removal long-term.
-To enable it, set ``SEISSOL_SERIAL_NODE_DEVICE_INIT=1``. To explicitly disable it,
-write ``SEISSOL_SERIAL_NODE_DEVICE_INIT=0``.

@@ -1,3 +1,10 @@
+# SPDX-FileCopyrightText: 2019 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 # Source code
 add_library(seissol-kernel-lib
 
@@ -14,14 +21,13 @@ ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
 add_library(seissol-common-lib
 
 src/Initializer/CellLocalMatrices.cpp
-src/Initializer/GlobalData.cpp
+src/Memory/GlobalData.cpp
 src/Solver/time_stepping/AbstractGhostTimeCluster.cpp
 src/Solver/time_stepping/AbstractTimeCluster.cpp
 src/Solver/time_stepping/ActorState.cpp
 src/Solver/time_stepping/CommunicationManager.cpp
 src/Solver/time_stepping/DirectGhostTimeCluster.cpp
 src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
-src/Solver/time_stepping/MiniSeisSol.cpp
 src/Solver/time_stepping/TimeCluster.cpp
 src/Solver/time_stepping/TimeManager.cpp
 
@@ -34,10 +40,10 @@ src/Kernels/PointSourceClusterOnHost.cpp
 src/Common/Filesystem.cpp
 src/Common/IntegerMaskParser.cpp
 src/DynamicRupture/FrictionLaws/FrictionSolver.cpp
-src/DynamicRupture/FrictionLaws/LinearSlipWeakening.cpp
-src/DynamicRupture/FrictionLaws/NoFault.cpp
-src/DynamicRupture/FrictionLaws/SourceTimeFunction.cpp
-src/DynamicRupture/FrictionLaws/ThermalPressurization/ThermalPressurization.cpp
+src/DynamicRupture/FrictionLaws/CpuImpl/LinearSlipWeakening.cpp
+src/DynamicRupture/FrictionLaws/CpuImpl/NoFault.cpp
+src/DynamicRupture/FrictionLaws/CpuImpl/SourceTimeFunction.cpp
+src/DynamicRupture/FrictionLaws/CpuImpl/ThermalPressurization/ThermalPressurization.cpp
 src/DynamicRupture/Initializer/BaseDRInitializer.cpp
 src/DynamicRupture/Initializer/ImposedSlipRatesInitializer.cpp
 src/DynamicRupture/Initializer/LinearSlipWeakeningInitializer.cpp
@@ -74,6 +80,9 @@ src/SourceTerm/Manager.cpp
 
 src/Solver/Simulator.cpp
 src/ResultWriter/AnalysisWriter.cpp
+
+${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
+${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
 )
 
 # target_link_options(seissol-common-lib PUBLIC seissol-kernel-lib)
@@ -87,6 +96,9 @@ add_library(seissol-lib STATIC)
 endif()
 
 target_sources(seissol-lib PRIVATE
+
+src/Solver/Estimator.cpp
+
 src/ResultWriter/EnergyOutput.cpp
 src/ResultWriter/MiniSeisSolWriter.cpp
 src/ResultWriter/PostProcessor.cpp
@@ -109,7 +121,7 @@ src/Initializer/InitProcedure/InitModel.cpp
 src/Initializer/InitProcedure/InitIO.cpp
 src/Initializer/InitProcedure/InitSideConditions.cpp
 src/Initializer/InternalState.cpp
-src/Initializer/MemoryAllocator.cpp
+src/Memory/MemoryAllocator.cpp
 src/Initializer/MemoryManager.cpp
 src/Initializer/ParameterDB.cpp
 
@@ -127,7 +139,7 @@ src/Initializer/Parameters/SourceParameters.cpp
 src/Initializer/TimeStepping/GlobalTimestep.cpp
 src/Initializer/TimeStepping/LtsLayout.cpp
 
-src/Initializer/Tree/Lut.cpp
+src/Memory/Tree/Lut.cpp
 
 src/Numerical/ODEInt.cpp
 src/Numerical/ODEVector.cpp
@@ -145,13 +157,7 @@ src/Reader/AsagiReader.cpp
 src/Parallel/Runtime/StreamOMP.cpp
 )
 
-set(SYCL_DEPENDENT_SRC_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
-)
-
 set(SYCL_ONLY_SRC_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/Runtime/StreamSycl.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/AcceleratorDevice.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnDevice.cpp)
@@ -290,3 +296,5 @@ endif()
 
 add_subdirectory(src/IO)
 target_link_libraries(seissol-lib PUBLIC seissol-io)
+
+add_subdirectory(src/Proxy)

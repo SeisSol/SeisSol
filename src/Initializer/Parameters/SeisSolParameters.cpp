@@ -1,3 +1,10 @@
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 #include "SeisSolParameters.h"
 #include <Initializer/Parameters/CubeGeneratorParameters.h>
 #include <Initializer/Parameters/DRParameters.h>
@@ -13,7 +20,7 @@
 namespace seissol::initializer::parameters {
 
 SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
-  logInfo(seissol::MPI::mpi.rank()) << "Reading SeisSol parameter file...";
+  logInfo() << "Reading SeisSol parameter file...";
 
   const CubeGeneratorParameters cubeGeneratorParameters =
       readCubeGeneratorParameters(parameterReader);
@@ -42,17 +49,7 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
                                    "analysisfields",
                                    "debugging"});
 
-  logInfo(seissol::MPI::mpi.rank()) << "SeisSol parameter file read successfully.";
-
-  auto printYesNo = [](bool yesno) { return yesno ? "yes" : "no"; };
-
-  logInfo(seissol::MPI::mpi.rank()) << "Model information:";
-  logInfo(seissol::MPI::mpi.rank()) << "Elastic model:" << printYesNo(isModelElastic());
-  logInfo(seissol::MPI::mpi.rank()) << "Viscoelastic model:" << printYesNo(isModelViscoelastic());
-  logInfo(seissol::MPI::mpi.rank()) << "Anelastic model:" << printYesNo(isModelAnelastic());
-  logInfo(seissol::MPI::mpi.rank()) << "Poroelastic model:" << printYesNo(isModelPoroelastic());
-  logInfo(seissol::MPI::mpi.rank()) << "Anisotropic model:" << printYesNo(isModelAnisotropic());
-  logInfo(seissol::MPI::mpi.rank()) << "Plasticity:" << printYesNo(modelParameters.plasticity);
+  logInfo() << "SeisSol parameter file read successfully.";
 
   return SeisSolParameters{cubeGeneratorParameters,
                            drParameters,

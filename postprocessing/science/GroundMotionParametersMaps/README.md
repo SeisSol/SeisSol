@@ -33,7 +33,7 @@ Here is a proposed workflow for installing openquake:
 
 <!-- markdownlint-disable MD013 -->
 ```bash
-pip install -r https://raw.githubusercontent.com/gem/oq-engine/master/requirements-py38-linux64.txt openquake.engine
+pip install -r https://github.com/gem/oq-engine/raw/master/requirements-py311-linux64.txt openquake.engine
 pip install openquake.engine
 ```
 <!-- markdownlint-enable MD013 -->
