@@ -33,7 +33,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
                Alignment ==
            0);
     assert((reinterpret_cast<uintptr_t>(
-               global.onHost->neighbourChangeOfBasisMatricesTransposed(neighbor))) %
+               global.onHost->neighborChangeOfBasisMatricesTransposed(neighbor))) %
                Alignment ==
            0);
   }

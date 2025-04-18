@@ -199,7 +199,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveDynamicRupturePlainCo
     // Local dynamic rupture face
     if (m_fault[face].element >= 0 && m_fault[face].neighborElement >= 0) {
       m_dynamicRupturePlainInterior[localCluster].push_back(face);
-    // Dynamic rupture face with one neighbour in the ghost layer
+    // Dynamic rupture face with one neighbor in the ghost layer
     } else {
       m_dynamicRupturePlainCopy[localCluster].push_back(face);
     }

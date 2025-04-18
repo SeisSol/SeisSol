@@ -522,7 +522,7 @@ void LtsWeights::prepareDifferenceEnforcement() {
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
-        // We treat MPI neighbours later
+        // We treat MPI neighbors later
         const auto& face = faces.at(faceids[f]);
         if (face.isShared()) {
           rankToSharedFacesPre[face.shared()[0]].push_back(faceids[f]);
@@ -576,7 +576,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
-        // We treat MPI neighbours later
+        // We treat MPI neighbors later
         const auto& face = faces.at(faceids[f]);
         if (!face.isShared()) {
           int cellIds[2];
@@ -646,7 +646,7 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
-        // We treat MPI neighbours later
+        // We treat MPI neighbors later
         const auto& face = faces.at(faceids[f]);
         if (face.isShared()) {
           const auto pos = sharedFaceToExchangeId.at(faceids[f]);
