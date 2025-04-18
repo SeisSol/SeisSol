@@ -250,8 +250,8 @@ void ReceiverOutput::calcFaultOutput(
     if (totalTractions.isActive) {
       std::array<real, tensor::initialStress::size()> unrotatedInitStress{};
       std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
-      for (std::size_t i = 0; i < unrotatedInitStress.size(); ++i) {
-        unrotatedInitStress[i] = initStresses[i][local.nearestGpIndex];
+      for (std::size_t stressVar = 0; stressVar < unrotatedInitStress.size(); ++stressVar) {
+        unrotatedInitStress[stressVar] = initStresses[stressVar][local.nearestGpIndex];
       }
       alignAlongDipAndStrikeKernel.initialStress = unrotatedInitStress.data();
       alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitStress.data();

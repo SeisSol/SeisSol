@@ -230,7 +230,7 @@ Friction law :code:`3` implements the aging law, friction law :code:`4` implemen
 More details about these friction laws can be found in the `SCEC benchmarks descriptions <https://strike.scec.org/cvws/benchmark_descriptions.html>`_ (TPV101 to 105) or in Pelties et al. (2013, `GMD <https://gmd.copernicus.org/articles/7/847/2014/>`_).
 
 Some parameters are considered homogeneous across the fault and defined in the main parameter file.
-Others can spatially vary (:code:`rs_a`, :code:`RS_sl0` for FL=3,4 and 103 and :code:`rs_srW` for FL=103) and are defined in the fault yaml file.
+Others can spatially vary (:code:`rs_a`, :code:`rs_sl0` for FL=3,4 and 103 and :code:`rs_srW` for FL=103) and are defined in the fault yaml file.
 Examples of input files for the `aging law <https://github.com/SeisSol/Examples/tree/master/tpv101>`_
 and for the `rate and state friction with strong velocity weakening <https://github.com/SeisSol/Examples/tree/master/tpv104>`_
 are available at the given links.
@@ -262,6 +262,10 @@ Friction parameters:
 | :math:`V_0`      | reference slip velocity                | :code:`rs_sr0`                |
 +------------------+----------------------------------------+-------------------------------+
 | :math:`f_0`      | reference friction coefficient         | :code:`rs_f0`                 |
++------------------+----------------------------------------+-------------------------------+
+| :math:`V_ini1`   | initial along-strike slip velocity     | :code:`rs_inisliprate1`       |
++------------------+----------------------------------------+-------------------------------+
+| :math:`V_ini2`   | initial along-dip slip veloctiy        | :code:`rs_inisliprate2`       |
 +------------------+----------------------------------------+-------------------------------+
 
 .. math::

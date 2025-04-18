@@ -40,6 +40,12 @@ class Neighbor : public NeighborKernel {
   kernel::neighbourFluxExt m_nfKrnlPrototype;
   kernel::neighbour m_nKrnlPrototype;
   dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
+
+#ifdef ACL_DEVICE
+  kernel::gpu_neighborFluxExt deviceNfKrnlPrototype;
+  kernel::gpu_neighbor deviceNKrnlPrototype;
+  dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype;
+#endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic
 

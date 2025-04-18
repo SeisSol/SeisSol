@@ -51,7 +51,7 @@ auto reverseCall(F&& function, Pack&&... values) {
 constexpr unsigned int NumSimulations = MULTIPLE_SIMULATIONS;
 constexpr unsigned int BasisFunctionDimension = 1;
 template <typename F, typename... Args>
-auto multisimWrap(F&& function, size_t sim, Args&&... args) {
+auto& multisimWrap(F&& function, size_t sim, Args&&... args) {
   return std::invoke(std::forward<F>(function), sim, std::forward<Args>(args)...);
 }
 template <typename T, typename F, typename... Args>
@@ -78,7 +78,7 @@ constexpr bool MultisimEnabled = true;
 constexpr unsigned int NumSimulations = 1;
 constexpr unsigned int BasisFunctionDimension = 0;
 template <typename F, typename... Args>
-auto multisimWrap(F&& function, size_t sim, Args&&... args) {
+auto& multisimWrap(F&& function, size_t sim, Args&&... args) {
   return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
 }
 template <typename T, typename F, typename... Args>

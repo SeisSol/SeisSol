@@ -9,8 +9,8 @@ enable_language(CUDA)
 
 set(DEVICE_SRC ${DEVICE_SRC}
         ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cuda/PlasticityAux.cu
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DeviceAux/cuda/KernelsAux.cu
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cudahip/PlasticityAux.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterCudaHip.cpp)
 
@@ -31,7 +31,7 @@ target_compile_definitions(seissol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
         NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
         ${DR_QUAD_RULE})
 
-if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 endif()
 

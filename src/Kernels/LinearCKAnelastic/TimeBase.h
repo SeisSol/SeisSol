@@ -37,6 +37,10 @@ class Spacetime : public SpacetimeKernel {
 
   protected:
   kernel::derivative m_krnlPrototype;
+
+#ifdef ACL_DEVICE
+  kernel::gpu_derivative deviceKrnlPrototype;
+#endif
 };
 
 class Time : public TimeKernel {
