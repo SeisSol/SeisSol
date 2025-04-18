@@ -27,7 +27,7 @@ different from the rest of the fault surface.
 
    Diagram of TPV5. The central square patch is the nucleation zone,
    while pink and green patches with higher and lower initial stress
-   than neighbour region, respectively.
+   than neighbor region, respectively.
 
 Geometry
 --------

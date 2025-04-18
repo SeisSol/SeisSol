@@ -133,6 +133,7 @@ void ProxyData::initGlobalData() {
         globalDataOnDevice, allocator, seissol::memory::DeviceGlobalMemory);
     globalData.onDevice = &globalDataOnDevice;
   }
+  spacetimeKernel.setGlobalData(globalData);
   timeKernel.setGlobalData(globalData);
   localKernel.setGlobalData(globalData);
   neighborKernel.setGlobalData(globalData);

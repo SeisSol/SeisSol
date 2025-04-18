@@ -599,7 +599,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
       for (unsigned face = 0; face < 4; ++face) {
         real *neighborBuffer = faceNeighbors[cell][face];
 
-        // check whether a neighbour element idofs has not been counted twice
+        // check whether a neighbor element idofs has not been counted twice
         if ((registry.find(neighborBuffer) == registry.end())) {
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it

@@ -103,7 +103,7 @@ class ReceiverOutput {
   }
 
   void getDofs(real dofs[tensor::Q::size()], int meshId);
-  void getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side);
+  void getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }

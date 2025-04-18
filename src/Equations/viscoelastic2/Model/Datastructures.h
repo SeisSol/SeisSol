@@ -15,6 +15,8 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Model/CommonDatastructures.h"
 #include "generated_code/tensor.h"
+#include <Kernels/LinearCK/Solver.h>
+#include <Kernels/LinearCKAnelastic/Solver.h>
 #include <array>
 #include <cstddef>
 #include <string>
@@ -31,13 +33,18 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
       NumElasticQuantities + MechanismsP * NumberPerMechanism;
   static constexpr std::size_t Mechanisms = MechanismsP;
   static constexpr MaterialType Type = MaterialType::Viscoelastic;
-  static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
   static inline const std::array<std::string, NumElasticQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
 
   using LocalSpecificData = ViscoElasticLocalData;
   using NeighborSpecificData = ViscoElasticNeighborData;
+
+#ifdef USE_VISCOELASTIC2
+  using Solver = kernels::solver::linearckanelastic::Solver;
+#else
+  using Solver = kernels::solver::linearck::Solver;
+#endif
 
   //! Relaxation frequencies
   double omega[zeroLengthArrayHandler(Mechanisms)];

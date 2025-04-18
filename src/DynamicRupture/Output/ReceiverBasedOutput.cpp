@@ -56,7 +56,7 @@ void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 }
 
-void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side) {
+void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side) {
   real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
   assert(derivatives != nullptr);
 
@@ -124,7 +124,7 @@ void ReceiverOutput::calcFaultOutput(
     if (faultInfo.neighborElement >= 0) {
       getDofs(dofsMinus, faultInfo.neighborElement);
     } else {
-      getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
+      getNeighborDofs(dofsMinus, faultInfo.element, faultInfo.side);
     }
 #endif
 
