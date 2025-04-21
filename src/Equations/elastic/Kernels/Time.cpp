@@ -219,7 +219,7 @@ void Time::computeBatchedAder(double timeStepWidth,
 
     // stream dofs to the zero derivative
     device.algorithms.streamBatchedData(
-        (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(),
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
         (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
         tensor::Q::Size,
         derivativesKrnl.numElements,

@@ -296,10 +296,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       auto& table = layer.getConditionalTable<inner_keys::Dr>();
       if (table.find(timeIntegrationKey) != table.end()) {
         auto& entry = table[timeIntegrationKey];
-        real** timeDerivativePlusDevice =
-            (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
-        real** timeDerivativeMinusDevice =
-            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
+        const real** timeDerivativePlusDevice = const_cast<const real**>(
+            (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr());
+        const real** timeDerivativeMinusDevice = const_cast<const real**>(
+            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
         device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
             timeDerivativePlusDevice,
             timeDerivativePlusHostMapped,

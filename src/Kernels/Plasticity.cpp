@@ -265,8 +265,12 @@ void Plasticity::computePlasticityBatched(
     auto prevDofs = runtime.memoryHandle<real>(prevDofsSize);
 
     real** dofsPtrs = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    device.algorithms.copyScatterToUniform(
-        dofsPtrs, prevDofs.get(), DofsSize, DofsSize, numElements, defaultStream);
+    device.algorithms.copyScatterToUniform(const_cast<const real**>(dofsPtrs),
+                                           prevDofs.get(),
+                                           DofsSize,
+                                           DofsSize,
+                                           numElements,
+                                           defaultStream);
 
     // Convert modal to nodal
     real** modalStressTensors = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();

@@ -453,14 +453,14 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
 
       if (resetBuffers) {
         device.algorithms.streamBatchedData(
-            (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+            const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
             (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
             tensor::I::Size,
             (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
             streamRuntime.stream());
       } else {
         device.algorithms.accumulateBatchedData(
-            (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+            const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
             (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
             tensor::I::Size,
             (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),

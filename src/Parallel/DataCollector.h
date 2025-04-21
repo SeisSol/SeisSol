@@ -62,7 +62,12 @@ class DataCollector {
     if (!hostAccessible && indexCount > 0) {
 #ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
-          indexDataDevice, copiedDataDevice, elemSize, elemSize, indexCount, stream);
+          const_cast<const real**>(indexDataDevice),
+          copiedDataDevice,
+          elemSize,
+          elemSize,
+          indexCount,
+          stream);
 #endif
     }
   }
@@ -72,7 +77,12 @@ class DataCollector {
     if (!hostAccessible && indexCount > 0) {
 #ifdef ACL_DEVICE
       device::DeviceInstance::getInstance().algorithms.copyUniformToScatter(
-          copiedDataDevice, indexDataDevice, elemSize, elemSize, indexCount, stream);
+          const_cast<const real*>(copiedDataDevice),
+          indexDataDevice,
+          elemSize,
+          elemSize,
+          indexCount,
+          stream);
 #endif
     }
   }
