@@ -266,9 +266,6 @@ struct GlobalData {
   // A vector of ones. Note: It is only relevant for GPU computing.
   // It allows us to allocate this vector only once in the GPU memory
   real* replicateStresses{nullptr};
-
-  real* selectAne{nullptr};
-  real* selectEla{nullptr};
 };
 
 struct CompoundGlobalData {

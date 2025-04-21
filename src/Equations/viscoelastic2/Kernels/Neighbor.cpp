@@ -49,8 +49,6 @@ void Neighbor::setHostGlobalData(const GlobalData* global) {
   m_nfKrnlPrototype.rT = global->neighborChangeOfBasisMatricesTransposed;
   m_nfKrnlPrototype.fP = global->neighborFluxMatrices;
   m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
-  m_nKrnlPrototype.selectEla = init::selectEla::Values;
-  m_nKrnlPrototype.selectAne = init::selectAne::Values;
 }
 
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
@@ -65,8 +63,6 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
 #endif
   deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
-  deviceNKrnlPrototype.selectEla = global.onDevice->selectEla;
-  deviceNKrnlPrototype.selectAne = global.onDevice->selectAne;
 #endif
 }
 

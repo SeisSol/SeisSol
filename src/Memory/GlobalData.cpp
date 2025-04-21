@@ -152,13 +152,6 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   globalMatrixMemSize +=
       yateto::alignedUpper(tensor::projectQP::size(), yateto::alignedReals<real>(prop.alignment));
 
-#ifdef USE_VISCOELASTIC2
-  globalMatrixMemSize +=
-      yateto::alignedUpper(tensor::selectAne::size(), yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize +=
-      yateto::alignedUpper(tensor::selectEla::size(), yateto::alignedReals<real>(prop.alignment));
-#endif
-
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
   globalMatrixMemSize +=
       yateto::computeFamilySize<init::plusFluxMatrices>(yateto::alignedReals<real>(prop.alignment));
@@ -192,13 +185,6 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
       globalMatrixMemPtr, globalData.evalAtQPMatrix, prop.alignment);
   copyManager.template copyTensorToMemAndSetPtr<init::projectQP>(
       globalMatrixMemPtr, globalData.projectQPMatrix, prop.alignment);
-
-#ifdef USE_VISCOELASTIC2
-  copyManager.template copyTensorToMemAndSetPtr<init::selectAne>(
-      globalMatrixMemPtr, globalData.selectAne, prop.alignment);
-  copyManager.template copyTensorToMemAndSetPtr<init::selectEla>(
-      globalMatrixMemPtr, globalData.selectEla, prop.alignment);
-#endif
 
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
   copyManager.template copyFamilyToMemAndSetPtr<init::plusFluxMatrices>(
