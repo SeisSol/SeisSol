@@ -243,15 +243,23 @@ class NoSpecialization {
 
     constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
     constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(Dim0 == misc::NumPaddedPoints);
+    static_assert(Dim0 == misc::NumPaddedPointsSingleSim);
     static_assert(Dim0 >= Dim1);
 
     ctx.sharedMemory[ctx.pointIndex] = slipRateMagnitude[ctx.pointIndex];
     deviceBarrier(ctx);
 
+    const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
+    const auto simId = ctx.pointIndex % multisim::NumSimulations;
+
     real result{0.0};
     for (size_t i{0}; i < Dim1; ++i) {
-      result += ctx.resampleMatrix[ctx.pointIndex + i * Dim0] * ctx.sharedMemory[i];
+      if constexpr (multisim::MultisimEnabled) {
+        result += ctx.resampleMatrix[simPointIndex * Dim1 + i] *
+                  ctx.sharedMemory[i * multisim::NumSimulations + simId];
+      } else {
+        result += ctx.resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
+      }
     }
     return result;
   };
