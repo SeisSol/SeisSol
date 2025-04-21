@@ -135,14 +135,6 @@ class SpaceTimePredictorTestFixture {
               seissol::init::kDivMTSub::Values[seissol::tensor::kDivMTSub::index(d, n)];
         }
       }
-      krnlPrototype.selectModes(n) =
-          seissol::init::selectModes::Values[seissol::tensor::selectModes::index(n)];
-    }
-    for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-      krnlPrototype.selectQuantity(k) =
-          seissol::init::selectQuantity::Values[seissol::tensor::selectQuantity::index(k)];
-      krnlPrototype.selectQuantityG(k) =
-          init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
     }
     krnlPrototype.timeInt = seissol::init::timeInt::Values;
     krnlPrototype.wHat = seissol::init::wHat::Values;

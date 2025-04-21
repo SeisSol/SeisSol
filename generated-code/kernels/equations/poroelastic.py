@@ -154,46 +154,6 @@ class PoroelasticADERDG(LinearADERDG):
             Bn_upper = choose(n + 3, 3)
             return (Bn_lower, Bn_upper)
 
-        # Compute a matrix, which filters out all basis function of degree n
-        #
-        # Compute a matrix M, such that for any DOF vector Q, M*Q only contains
-        # the parts of Q, which correspond to basis functions of degree n
-        #
-        # @param n The desired polynomial degree
-        def selectModes(n):
-            Bn_1, Bn = modeRange(n)
-            selectModesSpp = np.zeros(fullShape)
-            selectModesSpp[Bn_1:Bn, Bn_1:Bn] = np.eye(Bn - Bn_1)
-            return Tensor("selectModes({})".format(n), fullShape, spp=selectModesSpp)
-
-        # Compute a matrix, which slices out one quantity
-        #
-        # @param quantityNumber The number of the quantity, which is sliced out
-        def selectQuantity(quantityNumber):
-            selectSpp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()))
-            selectSpp[quantityNumber, quantityNumber] = 1
-            return Tensor(
-                "selectQuantity({})".format(quantityNumber),
-                selectSpp.shape,
-                spp=selectSpp,
-            )
-
-        # Compute a matrix, which slides out one quantity from the upper triangular
-        #  part of the source matrix
-        #
-        # Note: G = E - diag(E)
-        #
-        # @param quantityNumber The number of the quantity, which is sliced out
-        def selectQuantityG(quantityNumber):
-            selectSpp = np.zeros((self.numberOfQuantities(), self.numberOfQuantities()))
-            # The source matrix G only contains values at (o-4, o)
-            selectSpp[quantityNumber - 4, quantityNumber] = 1
-            return Tensor(
-                "selectQuantityG({})".format(quantityNumber),
-                selectSpp.shape,
-                spp=selectSpp,
-            )
-
         # Zinv(o) = $(Z - E^*_{oo} * I)^{-1}$
         #
         # @param o Index as described above
@@ -211,7 +171,7 @@ class PoroelasticADERDG(LinearADERDG):
             Bn_1, Bn = modeRange(n)
             stiffnessSpp = np.zeros(fullShape)
             stiffnessSpp[:, Bn_1:Bn] = -stiffnessValues[d][:, Bn_1:Bn]
-            return Tensor("kDivMTSub({},{})".format(d, n), fullShape, spp=stiffnessSpp)
+            return Tensor("kDivMTSub({},{})".format(d, n), fullShape, spp=stiffnessSpp, alignStride=True)
 
         QAtTimeSTP = OptionalDimTensor(
             "QAtTimeSTP",
@@ -243,25 +203,21 @@ class PoroelasticADERDG(LinearADERDG):
             for n in range(self.order - 1, -1, -1):
                 for o in range(self.numberOfQuantities() - 1, -1, -1):
                     kernels.append(
-                        spaceTimePredictor["kpt"]
-                        <= spaceTimePredictor["kpt"]
-                        + selectModes(n)["kl"]
-                        * selectQuantity(o)["pq"]
-                        * spaceTimePredictorRhs["lqu"]
+                        spaceTimePredictor["kpt"].subslice('k', *modeRange(n)).subslice('p', o, o+1)
+                        <= spaceTimePredictor["kpt"].subslice('k', *modeRange(n)).subslice('p', o, o+1)
+                        + spaceTimePredictorRhs["kpu"].subslice('k', *modeRange(n)).subslice('p', o, o+1)
                         * Zinv(o)["ut"]
                     )
                     # G only has one relevant non-zero entry in each iteration, so we make it a scalar
                     # G[o] = E[o-4, o] * timestep
                     # In addition E only has non-zero entries, if o > 10
                     if o >= 10:
+                        o2 = o-4
                         kernels.append(
-                            spaceTimePredictorRhs["kpt"]
-                            <= spaceTimePredictorRhs["kpt"]
+                            spaceTimePredictorRhs["kpt"].subslice('k', *modeRange(n)).subslice('p', o2, o2+1)
+                            <= spaceTimePredictorRhs["kpt"].subslice('k', *modeRange(n)).subslice('p', o2, o2+1)
                             + G[o]
-                            * selectQuantityG(o)["pv"]
-                            * selectQuantity(o)["vq"]
-                            * selectModes(n)["kl"]
-                            * spaceTimePredictor["lqt"]
+                            * spaceTimePredictor["kpt"].subslice('k', *modeRange(n)).subslice('p', o, o+1)
                         )
                 if n > 0:
                     derivativeSum = spaceTimePredictorRhs["kpt"]

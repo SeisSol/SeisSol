@@ -50,13 +50,6 @@ void Time::setHostGlobalData(const GlobalData* global) {
         m_krnlPrototype.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
       }
     }
-    m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
-  }
-  for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-    m_krnlPrototype.selectQuantity(k) =
-        init::selectQuantity::Values[tensor::selectQuantity::index(k)];
-    m_krnlPrototype.selectQuantityG(k) =
-        init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
   }
   m_krnlPrototype.timeInt = init::timeInt::Values;
   m_krnlPrototype.wHat = init::wHat::Values;
@@ -74,13 +67,6 @@ void Time::setGlobalData(const CompoundGlobalData& global) {
             init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
       }
     }
-    deviceKrnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
-  }
-  for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
-    deviceKrnlPrototype.selectQuantity(k) =
-        init::selectQuantity::Values[tensor::selectQuantity::index(k)];
-    deviceKrnlPrototype.selectQuantityG(k) =
-        init::selectQuantityG::Values[tensor::selectQuantityG::index(k)];
   }
   deviceKrnlPrototype.timeInt = init::timeInt::Values;
   deviceKrnlPrototype.wHat = init::wHat::Values;
