@@ -29,6 +29,8 @@ class TimeBase {
   static void checkGlobalData(const GlobalData* global, size_t alignment);
 #ifdef USE_STP
   kernel::spaceTimePredictor m_krnlPrototype;
+#elif defined(USE_DAMAGE)
+  kernel::derivativeDamage m_krnlPrototype;
 #else
   kernel::derivative m_krnlPrototype;
 #endif

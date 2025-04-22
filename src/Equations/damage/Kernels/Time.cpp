@@ -111,7 +111,7 @@ void Time::computeAder(double timeStepWidth,
                   std::end(data.cellInformation().faceTypes),
                   [](const FaceType f) { return f == FaceType::FreeSurfaceGravity; });
 
-#ifdef USE_STP
+#if defined(USE_STP)
   // Note: We could use the space time predictor for elasticity.
   // This is not tested and experimental
   alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictor::size()];
@@ -126,7 +126,45 @@ void Time::computeAder(double timeStepWidth,
   krnl.spaceTimePredictor = stp;
   krnl.spaceTimePredictorRhs = stpRhs;
   krnl.execute();
-#else  // USE_STP
+#elif defined(USE_DAMAGE)
+// In this computeAder() function, 'I' and 'derivatives in linear case is computed;
+// In nonlinear case, 'derivatives' and 'F' will be computed here.
+// Step 1: Compute each order of derivatives
+  alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
+  auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
+
+  // Step 1.1: Convert the Modal solution data.dofs(), Q, to Nodal space
+  kernel::damageConvertToNodal d_converToKrnl;
+  alignas(PagesizeStack) real solNData[tensor::QNodal::size()];
+  d_converToKrnl.v = init::v::Values;
+  d_converToKrnl.QNodal = solNData;
+  d_converToKrnl.Q = data.dofs();
+  d_converToKrnl.execute();
+
+  // Step 1.2: Compute rhs of damage evolution
+  // alignas(PagesizeStack) real fNodalData[tensor::FNodal::size()] = {0};
+  real* exxNodal = ( solNData + 0*seissol::init::Q::size() );
+  // real* eyyNodal = (solNData + 1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  // real* ezzNodal = (solNData + 2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  // real* exyNodal = (solNData + 3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  // real* eyzNodal = (solNData + 4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  // real* ezxNodal = (solNData + 5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  // real* alphaNodal = (solNData + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  // real* breakNodal = (solNData + 10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+
+
+// Step 2: Convert from Modal to Nodal for each temporal quadrature point;
+// Meanwhile, compute the nonlinear nodal Rusanov fluxes 
+// (TimeCluster.h, in previous version)
+// For neighbor cell: 0.5(Fpd * nd - C * up)
+// NOTE: need to include face relation in the final integration, but maybe 
+// not necessarily here - can be integrated in Neighbor.cpp
+
+// Step 3: Do time integration for the Rusanov flux
+
+// Step 4: Convert the integrated Rusanov flux from Nodal to Modal space
+
+#else  // USE_STP, USE_DAMAGE
   alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
@@ -181,7 +219,7 @@ void Time::computeAder(double timeStepWidth,
       }
     }
   }
-#endif // USE_STP
+#endif // USE_STP, USE_DAMAGE
 }
 
 void Time::computeBatchedAder(double timeStepWidth,

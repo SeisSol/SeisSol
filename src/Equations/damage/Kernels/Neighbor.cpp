@@ -104,6 +104,11 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       nfKrnl.execute(data.cellInformation().faceRelations[face][1],
                      data.cellInformation().faceRelations[face][0],
                      face);
+#ifdef USE_DAMAGE
+      // Define the neighbor integration for nonlinear case
+      // Part of previous TimeCluster.h
+      // NOTE: need to account for the face relation in spatial integration
+#endif
       break;
     }
     case FaceType::DynamicRupture: {

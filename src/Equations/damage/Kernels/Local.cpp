@@ -428,6 +428,13 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       break;
     }
   }
+#ifdef USE_DAMAGE
+  assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
+  // Do volumetric flux integration (volKrnl) + local face flux integration (lfKrnl)
+  // One additional: nonlinear source term
+  // Previous TimeCluster.cpp
+#endif
 }
 
 void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
