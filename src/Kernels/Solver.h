@@ -7,6 +7,8 @@
 #ifndef SEISSOL_SRC_KERNELS_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_SOLVER_H_
 
+#include <Equations/Datastructures.h>
+
 #include <Kernels/LinearCK/Solver.h>
 #include <Kernels/LinearCKAnelastic/Solver.h>
 #include <Kernels/STP/Solver.h>
@@ -32,13 +34,9 @@
 
 namespace seissol::kernels {
 
-#ifdef USE_VISCOELASTIC2
-using Solver = solver::linearckanelastic::Solver;
-#elif defined(USE_STP)
-using Solver = solver::stp::Solver;
-#else
-using Solver = solver::linearck::Solver;
-#endif
+// some typename shortcuts
+
+using Solver = typename model::MaterialT::Solver;
 
 using Time = typename Solver::TimeKernelT;
 using Spacetime = typename Solver::SpacetimeKernelT;

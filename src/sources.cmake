@@ -191,7 +191,6 @@ endif()
 # Eqations have to be set at compile time currently.
 if ("${EQUATIONS}" STREQUAL "elastic")
   target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DirichletBoundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
@@ -201,7 +200,6 @@ if ("${EQUATIONS}" STREQUAL "elastic")
 
 elseif ("${EQUATIONS}" STREQUAL "acoustic")
   target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DirichletBoundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
@@ -211,7 +209,6 @@ elseif ("${EQUATIONS}" STREQUAL "acoustic")
 
 elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
   target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DirichletBoundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp
@@ -230,7 +227,6 @@ elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
 
 elseif ("${EQUATIONS}" STREQUAL "anisotropic")
   target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DirichletBoundary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Neighbor.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Local.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/Time.cpp

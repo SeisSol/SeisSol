@@ -199,10 +199,6 @@ class DirichletBoundary {
   double quadWeights[ConvergenceOrder];
 };
 
-void computeAverageDisplacement(double deltaT,
-                                const real* timeDerivatives,
-                                real timeIntegrated[tensor::I::size()]);
-
 } // namespace seissol::kernels
 
 #endif // SEISSOL_SRC_KERNELS_LINEARCK_DIRICHLETBOUNDARY_H_
