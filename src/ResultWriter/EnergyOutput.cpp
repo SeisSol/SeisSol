@@ -11,6 +11,7 @@
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
 #include <Geometry/MeshDefinition.h>

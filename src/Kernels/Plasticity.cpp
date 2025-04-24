@@ -11,7 +11,7 @@
 
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
-#include <Common/Constants.h>
+#include <Alignment.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>

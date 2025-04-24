@@ -11,6 +11,7 @@
 #include "Numerical/BasisFunction.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <Common/Executor.h>
 #include <Kernels/Common.h>

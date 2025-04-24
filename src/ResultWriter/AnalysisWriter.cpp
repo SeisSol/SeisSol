@@ -7,6 +7,7 @@
 
 #include "AnalysisWriter.h"
 
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>

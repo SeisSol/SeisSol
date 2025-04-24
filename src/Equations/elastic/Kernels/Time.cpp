@@ -12,6 +12,7 @@
 #include "Kernels/Time.h"
 #include "Kernels/GravitationalFreeSurfaceBC.h"
 #include "Kernels/TimeBase.h"
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>

@@ -11,7 +11,7 @@
 
 #include "Kernels/Neighbor.h"
 
-#include <Common/Constants.h>
+#include <Alignment.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>

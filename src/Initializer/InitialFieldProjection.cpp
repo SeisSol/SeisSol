@@ -18,6 +18,7 @@
 #include "generated_code/tensor.h"
 
 #include "Initializer/PreProcessorMacros.h"
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
