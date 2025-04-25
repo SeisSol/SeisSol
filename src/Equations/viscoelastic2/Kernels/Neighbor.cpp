@@ -202,15 +202,7 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
     }
   }
 
-  real* tmpMem = nullptr;
-  auto resetDeviceCurrentState = [this](size_t counter) {
-    for (size_t i = 0; i < counter; ++i) {
-      this->device.api->popStackMemory();
-    }
-  };
-
   for (size_t face = 0; face < 4; face++) {
-    std::size_t streamCounter = 0;
     runtime.envMany(
         (*FaceRelations::Count) + (*DrFaceRelations::Count), [&](void* stream, size_t i) {
           // regular and periodic
@@ -237,13 +229,8 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
               neighFluxKrnl.extraOffset_AminusT =
                   SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
-              tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(
-                  seissol::kernel::gpu_neighborFluxExt::TmpMaxMemRequiredInBytes * numElements));
-              neighFluxKrnl.linearAllocator.initialize(tmpMem);
-
               neighFluxKrnl.streamPtr = stream;
               (neighFluxKrnl.*seissol::kernel::gpu_neighborFluxExt::ExecutePtrs[faceRelation])();
-              ++streamCounter;
             }
           } else {
             // Dynamic Rupture
@@ -264,18 +251,11 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
                   (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
               drKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
-              tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(
-                  seissol::dynamicRupture::kernel::gpu_nodalFlux::TmpMaxMemRequiredInBytes *
-                  numElements));
-              drKrnl.linearAllocator.initialize(tmpMem);
-
               drKrnl.streamPtr = stream;
               (drKrnl.*seissol::dynamicRupture::kernel::gpu_nodalFlux::ExecutePtrs[faceRelation])();
-              ++streamCounter;
             }
           }
         });
-    resetDeviceCurrentState(streamCounter);
   }
 
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);

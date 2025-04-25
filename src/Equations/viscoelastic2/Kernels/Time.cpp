@@ -246,8 +246,6 @@ void Time::computeBatchedIntegral(double expansionPoint,
 
   kernel::gpu_derivativeTaylorExpansionEla intKrnl;
   intKrnl.numElements = numElements;
-  real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(
-      seissol::kernel::gpu_derivativeTaylorExpansionEla::TmpMaxMemRequiredInBytes * numElements));
 
   intKrnl.I = timeIntegratedDofs;
 
@@ -267,10 +265,8 @@ void Time::computeBatchedIntegral(double expansionPoint,
     intKrnl.power(der) = firstTerm - secondTerm;
     intKrnl.power(der) /= factorial;
   }
-  intKrnl.linearAllocator.initialize(tmpMem);
   intKrnl.streamPtr = runtime.stream();
   intKrnl.execute();
-  device.api->popStackMemory();
 #else
   assert(false && "no implementation provided");
 #endif

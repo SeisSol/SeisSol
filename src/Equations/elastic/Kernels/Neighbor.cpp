@@ -137,8 +137,6 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
 
   for (size_t face = 0; face < 4; face++) {
-    size_t streamCounter{0};
-
     runtime.envMany(
         (*FaceRelations::Count) + (*DrFaceRelations::Count), [&](void* stream, size_t i) {
           if (i < (*FaceRelations::Count)) {

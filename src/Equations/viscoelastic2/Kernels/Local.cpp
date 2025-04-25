@@ -155,17 +155,10 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
   kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
   kernel::gpu_local localKrnl = deviceLocalKernelPrototype;
 
-  const auto maxTmpMem = yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl);
-
-  real* tmpMem = nullptr;
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
 
-    unsigned maxNumElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
-    volKrnl.numElements = maxNumElements;
-
-    // volume kernel always contains more elements than any local one
-    tmpMem = (real*)(device.api->getStackMemory(maxTmpMem * maxNumElements));
+    volKrnl.numElements = (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getSize();
 
     volKrnl.I =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
@@ -176,7 +169,6 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
-    volKrnl.linearAllocator.initialize(tmpMem);
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
   }
@@ -194,7 +186,6 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
       localFluxKrnl.AplusT = const_cast<const real**>(
           entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
       localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
-      localFluxKrnl.linearAllocator.initialize(tmpMem);
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
     }
@@ -220,12 +211,8 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
     localKrnl.E = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     localKrnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
-    localKrnl.linearAllocator.initialize(tmpMem);
     localKrnl.streamPtr = runtime.stream();
     localKrnl.execute();
-  }
-  if (tmpMem != nullptr) {
-    device.api->popStackMemory();
   }
 #else
   assert(false && "no implementation provided");
