@@ -62,21 +62,21 @@ class SpaceTimePredictorTestFixture {
     std::srand(0);
     std::mt19937 generator(20210109); // Standard mersenne_twister_engine seeded with today's date
     std::uniform_real_distribution<real> distribution(0, 1);
-    real x[] = {distribution(generator),
-                distribution(generator),
-                distribution(generator),
-                distribution(generator)};
-    real y[] = {distribution(generator),
-                distribution(generator),
-                distribution(generator),
-                distribution(generator)};
-    real z[] = {distribution(generator),
-                distribution(generator),
-                distribution(generator),
-                distribution(generator)};
-    real gradXi[3];
-    real gradEta[3];
-    real gradZeta[3];
+    double x[] = {distribution(generator),
+                  distribution(generator),
+                  distribution(generator),
+                  distribution(generator)};
+    double y[] = {distribution(generator),
+                  distribution(generator),
+                  distribution(generator),
+                  distribution(generator)};
+    double z[] = {distribution(generator),
+                  distribution(generator),
+                  distribution(generator),
+                  distribution(generator)};
+    double gradXi[3];
+    double gradEta[3];
+    double gradZeta[3];
 
     transformations::tetrahedronGlobalToReferenceJacobian(x, y, z, gradXi, gradEta, gradZeta);
 
