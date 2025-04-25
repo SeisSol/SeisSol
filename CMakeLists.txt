@@ -459,7 +459,7 @@ if (WITH_GPU)
   if (DEVICE_BACKEND STREQUAL "hip")
     target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_HIP)
   endif()
-  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "oneapi")
+  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "acpp" OR DEVICE_BACKEND STREQUAL "oneapi")
     target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_SYCL)
   endif()
 
@@ -475,7 +475,7 @@ if (WITH_GPU)
   target_link_libraries(seissol-common-properties INTERFACE seissol-device-lib)
 
   set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
-  set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}")
+  set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_BACKEND}")
 
   # set up GPU install targets
   install(TARGETS seissol-device-lib LIBRARY)

@@ -73,9 +73,9 @@ Building for GPUs
 
 When building for GPUs, you will need to install SYCL and gemmforge, chainforge as well.
 Also, you will need to supply the device backend and the device architecture.
-The backend can be ``cuda``, ``hip``, or one of the SYCL implementations, ``hipsycl`` or ``oneapi``.
+The backend can be ``cuda``, ``hip``, or one of the SYCL implementations, ``acpp`` or ``oneapi``.
 
-Generally, we recommend compiling for simgle precision on GPUs.
+Generally, we recommend compiling for single precision on GPUs.
 
 To give some examples: for an NVIDIA GH200 Superchip, you would therefore need to set (note that the ``HOST_ARCH`` field here needs to be changed to something ARM-based)
 
