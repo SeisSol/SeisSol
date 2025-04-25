@@ -9,7 +9,6 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-
 #include "Kernels/LinearCK/NeighborBase.h"
 
 #include <Alignment.h>
