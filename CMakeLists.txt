@@ -74,8 +74,6 @@ if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   append_coverage_compiler_flags()
 endif()
 
-set(HARDWARE_DEFINITIONS "REAL_SIZE=${REAL_SIZE_IN_BYTES}")
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -260,7 +258,6 @@ include(cmake/cpu_arch_flags.cmake)
 get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 
 # set hardware/compiler specific definitions and flags
-target_compile_definitions(seissol-common-properties INTERFACE ${HARDWARE_DEFINITIONS})
 target_compile_options(seissol-common-properties INTERFACE ${CPU_ARCH_FLAGS})
 
 target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LEVEL})
@@ -270,13 +267,6 @@ target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_L
 if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
   target_compile_definitions(seissol-common-properties INTERFACE MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
 endif()
-
-if (PLASTICITY_METHOD STREQUAL "ip")
-  target_compile_definitions(seissol-common-properties INTERFACE USE_PLASTICITY_IP)
-elseif (PLASTICITY_METHOD STREQUAL "nb")
-  target_compile_definitions(seissol-common-properties INTERFACE USE_PLASTICITY_NB)
-endif()
-
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
