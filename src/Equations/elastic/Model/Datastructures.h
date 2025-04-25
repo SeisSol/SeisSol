@@ -13,6 +13,7 @@
 #include "Model/CommonDatastructures.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
+#include <Kernels/LinearCK/Solver.h>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -29,13 +30,13 @@ struct ElasticMaterial : Material {
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Elastic;
-  static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "elastic";
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
 
   using LocalSpecificData = ElasticLocalData;
   using NeighborSpecificData = ElasticNeighborData;
+  using Solver = kernels::solver::linearck::Solver;
 
   double lambda;
   double mu;
