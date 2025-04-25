@@ -110,7 +110,8 @@ int main(int argc, char* argv[]) {
   logInfo() << "Copyright (c) 2012 -" << BuildInfo::CommitYear.c_str() << " SeisSol Group";
   logInfo() << "Version:" << BuildInfo::VersionString.c_str();
   logInfo() << "Built on:" << __DATE__ << __TIME__;
-  logInfo() << "Last commit:" << BuildInfo::CommitHash.c_str() << "at" << BuildInfo::CommitTimestamp.c_str();
+  logInfo() << "Last commit:" << BuildInfo::CommitHash.c_str() << "at"
+            << BuildInfo::CommitTimestamp.c_str();
   logInfo() << "Compiled with HOST_ARCH =" << BuildInfo::SeisSolHostArch.c_str();
 #ifdef ACL_DEVICE
   logInfo() << "Compiled with DEVICE_BACKEND =" << BuildInfo::SeisSolDeviceBackend.c_str();
