@@ -28,6 +28,7 @@ struct Config {
     static constexpr RealType Precision = RealType::@PARAMETER_REALTYPE@;
     static constexpr ViscoMode ViscoMode = ViscoMode::@PARAMETER_VISCOMODE@;
     static constexpr DRQuadRuleType DRQuadRule = DRQuadRuleType::@PARAMETER_DRQUADRULE@;
+    static constexpr std::size_t NumSimulations = @NUMBER_OF_FUSED_SIMULATIONS@;
 };
 
 } // namespace seissol
