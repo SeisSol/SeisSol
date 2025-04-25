@@ -274,6 +274,18 @@ if (NUMA_AWARE_PINNING)
   target_link_libraries(seissol-common-properties INTERFACE NUMA::NUMA)
 endif()
 
+if (ASAGI)
+  find_package (asagi)
+  if (NOT asagi_FOUND)
+      find_package (PkgConfig REQUIRED)
+      pkg_check_modules (ASAGI REQUIRED IMPORTED_TARGET asagi)
+      add_library(asagi::asagi ALIAS PkgConfig::ASAGI)
+  endif()
+
+  target_link_libraries(seissol-common-properties INTERFACE asagi::asagi)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_ASAGI)
+endif()
+
 #set(HDF5_PREFER_PARALLEL True)
 if (NETCDF)
   find_package(NetCDF REQUIRED)
@@ -323,16 +335,6 @@ if ("ptscotch" IN_LIST GRAPH_PARTITIONING_LIBS)
 endif()
 if (NOT GRAPH_PARTITIONING_LIBS)
   message(WARNING "Compiling without graph partitioning library; expect poor performance in multi-rank runs.")
-endif()
-
-find_package(PkgConfig REQUIRED) 
-if (ASAGI)
-  # todo warn if netcdf is off
-  pkg_check_modules(ASAGI REQUIRED IMPORTED_TARGET asagi) # asagi_nompi?
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ASAGI)
-  target_link_libraries(seissol-common-properties INTERFACE ${ASAGI_LDFLAGS})
-  target_include_directories(seissol-common-properties INTERFACE ${ASAGI_INCLUDE_DIRS})
-  target_compile_options(seissol-common-properties INTERFACE ${ASAGI_CFLAGS} ${ASAGI_CFLAGS_OTHER})
 endif()
 
 if (MEMKIND)
