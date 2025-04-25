@@ -227,7 +227,7 @@ To compile the seissol spack package on SuperMUC-NG, follow the procedure below.
 
     # clone seissol-spack-aid and add the repository
     # we use a supermuc specific branch as supermuc spack is not fully up to date
-    git clone --branch NG https://github.com/SeisSol/seissol-spack-aid.git
+    git clone --branch spack_0.22 https://github.com/SeisSol/seissol-spack-aid.git
     cd seissol-spack-aid
     spack repo add ./spack
     # install a specific version of seissol, and enable python binding enabled for easi
