@@ -217,6 +217,7 @@ To compile the seissol spack package on SuperMUC-NG, follow the procedure below.
     # load spack
     module purge
     module load user_spack/23.1.0
+    module load spack/23.1.0
     module load intel intel-mkl intel-mpi python/3.10.10-extended
 
     # install a few python modules (change DDDDD to the value used after RemoteForward in ~/.ssh/config)
