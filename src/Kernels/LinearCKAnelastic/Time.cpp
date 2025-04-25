@@ -377,7 +377,7 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
     }
 
     device.algorithms.streamBatchedData(
-        (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(),
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
         (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
         tensor::Q::Size,
         krnl.numElements,
