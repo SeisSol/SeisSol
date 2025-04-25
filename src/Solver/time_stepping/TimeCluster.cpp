@@ -508,16 +508,17 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice( s
   });
 
   if (usePlasticity) {
-    updateRelaxTime();
+    auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
     auto* plasticity = i_layerData.var(m_lts->plasticity, seissol::initializer::AllocationPlace::Device);
-    seissol::kernels::Plasticity::computePlasticityBatched(m_oneMinusIntegratingFactor,
-                                                                                      timeStepWidth,
-                                                                                      m_tv,
-                                                                                      m_globalDataOnDevice,
-                                                                                      table,
-                                                                                      plasticity,
-                                                                                      yieldCells.data(),
-                                                                                      streamRuntime);
+    streamRuntime.runGraph(plasticityGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
+      seissol::kernels::Plasticity::computePlasticityBatched(timeStepWidth,
+                                                              m_tv,
+                                                              m_globalDataOnDevice,
+                                                              table,
+                                                              plasticity,
+                                                              yieldCells.data(),
+                                                              streamRuntime);
+    });
 
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
         i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
@@ -834,8 +835,10 @@ template<bool usePlasticity>
       real *l_timeIntegrated[4];
       real *l_faceNeighbors_prefetch[4];
 
+      const auto oneMinusIntegratingFactor = seissol::kernels::Plasticity::computeRelaxTime(m_tv, timeStepSize());
+
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(cellInformation, loader, faceNeighbors, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
+#pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(oneMinusIntegratingFactor, cellInformation, loader, faceNeighbors, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
 #endif
       for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
         auto data = loader.entry(l_cell);
@@ -877,8 +880,7 @@ template<bool usePlasticity>
         );
 
         if constexpr (usePlasticity) {
-          updateRelaxTime();
-          numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_oneMinusIntegratingFactor,
+          numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( oneMinusIntegratingFactor,
                                                                                              timeStepSize(),
                                                                                              m_tv,
                                                                                              m_globalDataOnHost,

@@ -246,7 +246,6 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 }
 
 void Plasticity::computePlasticityBatched(
-    double oneMinusIntegratingFactor,
     double timeStepWidth,
     double tV,
     const GlobalData* global,
@@ -265,6 +264,8 @@ void Plasticity::computePlasticityBatched(
   auto defaultStream = runtime.stream();
 
   if (table.find(key) != table.end()) {
+    const auto oneMinusIntegratingFactor = computeRelaxTime(tV, timeStepWidth);
+
     auto& entry = table[key];
     const size_t numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
 

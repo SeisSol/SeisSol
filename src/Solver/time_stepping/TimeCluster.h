@@ -130,9 +130,6 @@ private:
     //! Tv parameter for plasticity
     double m_tv;
     
-    //! Relax time for plasticity
-    double m_oneMinusIntegratingFactor;
-    
     //! Stopwatch of TimeManager
     LoopStatistics* m_loopStatistics;
     ActorStateStatistics* actorStateStatistics;
@@ -220,11 +217,6 @@ private:
                                     long long& hardwareFlops);
                                           
     void computeFlops();
-    
-    //! Update relax time for plasticity
-    void updateRelaxTime() {
-      m_oneMinusIntegratingFactor = (m_tv > 0.0) ? 1.0 - exp(-timeStepSize() / m_tv) : 1.0;
-    }
 
   const LayerType layerType;
   //! time of the next receiver output
@@ -304,7 +296,6 @@ public:
    */
   void setTv(double tv) {
     m_tv = tv;
-    updateRelaxTime();
   }
 
   void setLastSubTime(double lastSubTime) {

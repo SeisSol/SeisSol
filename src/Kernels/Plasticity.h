@@ -15,12 +15,17 @@
 #include "Model/Plasticity.h"
 #include "Parallel/Runtime/Stream.h"
 #include "generated_code/tensor.h"
+#include <cmath>
 #include <limits>
 
 namespace seissol::kernels {
 
 class Plasticity {
   public:
+  static constexpr double computeRelaxTime(double tV, double timestep) {
+    return (tV > 0.0) ? -std::expm1(-timestep / tV) : 1.0;
+  }
+
   /** Returns 1 if there was plastic yielding otherwise 0.
    */
   static unsigned computePlasticity(double oneMinusIntegratingFactor,
@@ -32,8 +37,7 @@ class Plasticity {
                                     real* pstrain);
 
   static void
-      computePlasticityBatched(double oneMinusIntegratingFactor,
-                               double timeStepWidth,
+      computePlasticityBatched(double timeStepWidth,
                                double tV,
                                const GlobalData* global,
                                initializer::recording::ConditionalPointersToRealsTable& table,
