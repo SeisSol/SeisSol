@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
 
+#include <Model/CommonDatastructures.h>
+
 // IWYU pragma: begin_exports
 
 // Gather all datastructure Headers here
@@ -32,20 +34,39 @@
 
 // IWYU pragma: end_exports
 
+#include <Config.h>
+
 namespace seissol::model {
-#if defined(USE_ANISOTROPIC)
-using MaterialT = AnisotropicMaterial;
-#elif defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
-using MaterialT = ViscoElasticMaterial;
-#elif defined(USE_ELASTIC)
-using MaterialT = ElasticMaterial;
-#elif defined(USE_ACOUSTIC)
-using MaterialT = AcousticMaterial;
-#elif defined(USE_POROELASTIC)
-using MaterialT = PoroElasticMaterial;
-#else
-#error "Material class unknown."
-#endif
+template <MaterialType Type>
+struct MaterialTypeSelector;
+
+template <>
+struct MaterialTypeSelector<MaterialType::Elastic> {
+  using Type = ElasticMaterial;
+};
+
+template <>
+struct MaterialTypeSelector<MaterialType::Anisotropic> {
+  using Type = AnisotropicMaterial;
+};
+
+template <>
+struct MaterialTypeSelector<MaterialType::Viscoelastic> {
+  using Type = ViscoElasticMaterial;
+};
+
+template <>
+struct MaterialTypeSelector<MaterialType::Acoustic> {
+  using Type = AcousticMaterial;
+};
+
+template <>
+struct MaterialTypeSelector<MaterialType::Poroelastic> {
+  using Type = PoroElasticMaterial;
+};
+
+using MaterialT = typename MaterialTypeSelector<Config::MaterialType>::Type;
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_
