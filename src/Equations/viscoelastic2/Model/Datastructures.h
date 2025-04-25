@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_DATASTRUCTURES_H_
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Model/CommonDatastructures.h"
@@ -71,7 +72,7 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 };
 
-using ViscoElasticMaterial = ViscoElasticMaterialParametrized<NUMBER_OF_RELAXATION_MECHANISMS>;
+using ViscoElasticMaterial = ViscoElasticMaterialParametrized<Config::RelaxationMechanisms>;
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_DATASTRUCTURES_H_

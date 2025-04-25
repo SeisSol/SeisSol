@@ -34,7 +34,7 @@ if ("${DEVICE_BACKEND}" STREQUAL "hipsycl")
     set(HIPSYCL_TARGETS "${DEVICE_BACKEND}:${DEVICE_ARCH}")
   endif()
 
-  target_compile_definitions(seissol-device-lib PRIVATE DEVICE_HIPSYCL_LANG REAL_SIZE=${REAL_SIZE_IN_BYTES})
+  target_compile_definitions(seissol-device-lib PRIVATE DEVICE_HIPSYCL_LANG)
   target_link_libraries(seissol-device-lib PUBLIC ${Boost_LIBRARIES})
 
   find_package(OpenMP REQUIRED)
@@ -46,16 +46,10 @@ if ("${DEVICE_BACKEND}" STREQUAL "hipsycl")
 elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
   find_package(DpcppFlags REQUIRED)
   target_compile_options(seissol-device-lib PRIVATE ${EXTRA_CXX_FLAGS} "-O3")
-  target_compile_definitions(seissol-device-lib PRIVATE DEVICE_ONEAPI_LANG REAL_SIZE=${REAL_SIZE_IN_BYTES} __DPCPP_COMPILER)
+  target_compile_definitions(seissol-device-lib PRIVATE DEVICE_ONEAPI_LANG __DPCPP_COMPILER)
   target_link_libraries(seissol-device-lib PRIVATE dpcpp::device_flags ${GemmTools_LIBRARIES})
   target_link_libraries(seissol-common-properties INTERFACE dpcpp::interface)
 endif()
-
-target_compile_definitions(seissol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
-        CONVERGENCE_ORDER=${ORDER}
-        NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
-        NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-        ${DR_QUAD_RULE})
 
 if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)

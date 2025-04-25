@@ -615,7 +615,7 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
   MPI_Allreduce(MPI_IN_PLACE,
                 minTimeSinceSlipRateBelowThreshold.data(),
                 static_cast<int>(minTimeSinceSlipRateBelowThreshold.size()),
-                MPI_C_REAL,
+                MPI::castToMpiType<real>(),
                 MPI_MIN,
                 comm);
 #endif

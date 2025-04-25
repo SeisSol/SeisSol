@@ -65,7 +65,7 @@ class MPI : public MPIBasic {
   void setComm(MPI_Comm comm);
 
   template <typename T>
-  [[nodiscard]] MPI_Datatype castToMpiType() const {
+  [[nodiscard]] static MPI_Datatype castToMpiType() {
     if constexpr (std::is_same_v<T, double>) {
       return MPI_DOUBLE;
     } else if constexpr (std::is_same_v<T, float>) {

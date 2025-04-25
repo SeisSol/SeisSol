@@ -11,18 +11,10 @@
 
 #include <immintrin.h>
 
-#if defined(DOUBLE_PRECISION)
+#define DMO_INCREMENT64 2
+#define DMO_STREAM64(IN, OUT) _mm_stream_pd(OUT, _mm_load_pd(IN));
 
-#define DMO_INCREMENT 2
-#define DMO_STREAM(IN, OUT) _mm_stream_pd(OUT, _mm_load_pd(IN));
-
-#elif defined(SINGLE_PRECISION)
-
-#define DMO_INCREMENT 4
-#define DMO_STREAM(IN, OUT) _mm_stream_ps(OUT, _mm_load_ps(IN));
-
-#else
-#error no precision was defined
-#endif
+#define DMO_INCREMENT32 4
+#define DMO_STREAM32(IN, OUT) _mm_stream_ps(OUT, _mm_load_ps(IN));
 
 #endif // SEISSOL_SRC_KERNELS_DENSEMATRIXOPSSSE3_H_

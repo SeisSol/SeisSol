@@ -99,6 +99,42 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
 configure_file("src/Alignment.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
 
+function(capitalize INARG OUTARG)
+  string(REPLACE "_" ";" PARTS ${INARG})
+  set(PREOUTARG "")
+  foreach(PART IN LISTS PARTS)
+    string(SUBSTRING ${PART} 0 1 FIRST)
+    string(TOUPPER ${FIRST} FIRSTU)
+    string(LENGTH ${PART} LEN)
+    string(SUBSTRING ${PART} 1 ${LEN} NEXT)
+    string(PREPEND NEXT ${FIRSTU})
+    string(APPEND PREOUTARG ${NEXT})
+  endforeach()
+  set(${OUTARG} ${PREOUTARG} PARENT_SCOPE)
+endfunction()
+
+if (EQUATIONS STREQUAL "viscoelastic")
+  set(PARAMETER_MATERIAL "Viscoelastic")
+  set(PARAMETER_VISCOMODE "QuantityExtension")
+elseif (EQUATIONS STREQUAL "viscoelastic2")
+  set(PARAMETER_MATERIAL "Viscoelastic")
+  set(PARAMETER_VISCOMODE "AnelasticTensor")
+else()
+  capitalize(${EQUATIONS} PARAMETER_MATERIAL)
+  set(PARAMETER_VISCOMODE "None")
+endif()
+
+capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
+
+if (PRECISION STREQUAL "single")
+  set(PARAMETER_REALTYPE "F32")
+else()
+  set(PARAMETER_REALTYPE "F64")
+endif()
+
+configure_file("src/Config.h.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/Config.h")
+
 # Generate version.h
 include(GetGitRevisionDescription)
 
@@ -422,12 +458,6 @@ target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
-)
-
-target_compile_definitions(seissol-common-properties INTERFACE
-    CONVERGENCE_ORDER=${ORDER}
-    NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-    ${DR_QUAD_RULE}
 )
 
 if (PREMULTIPLY_FLUX)

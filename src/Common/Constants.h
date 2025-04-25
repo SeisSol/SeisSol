@@ -9,11 +9,12 @@
 #define SEISSOL_SRC_COMMON_CONSTANTS_H_
 
 #include "Alignment.h"
+#include "Config.h"
 #include <cstddef>
 
 namespace seissol {
 // TODO: remove these, once properly templated
-constexpr std::size_t ConvergenceOrder = CONVERGENCE_ORDER;
+constexpr std::size_t ConvergenceOrder = Config::ConvergenceOrder;
 
 constexpr auto zeroLengthArrayHandler(std::size_t x) -> std::size_t { return x == 0 ? 1 : x; }
 } // namespace seissol
