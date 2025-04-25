@@ -18,6 +18,9 @@
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
 #include <Eigen/Dense>
+#include <Equations/Datastructures.h>
+#include <Model/CommonDatastructures.h>
+#include <Solver/MultipleSimulations.h>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -34,59 +37,58 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
                                         seissol::initializer::LTSTree* const dynRupTree) {
   logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
             << " points.";
-  seissol::initializer::FaultParameterDB faultParameterDB;
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     // parameters to be read from fault parameters yaml file
     std::unordered_map<std::string, real*> parameterToStorageMap;
 
     // read initial stress and nucleation stress
-    auto addStressesToStorageMap = [&parameterToStorageMap, &layer, this](
-                                       StressTensor& initialStress, bool readNucleation) {
-      // return pointer to first element
-      auto getRawData = [](StressTensor::VectorOfArraysT& vectorOfArrays) {
-        return vectorOfArrays.data()->data();
-      };
-      // fault can be either initialized by traction or by cartesian stress
-      // this method reads either the nucleation stress or the initial stress
-      auto [identifiers, parametrization] = this->stressIdentifiers(readNucleation);
-      const bool isFaultParameterizedByTraction = parametrization == Parametrization::Traction;
-      if (isFaultParameterizedByTraction) {
-        // only read traction in normal, strike and dip direction
-        parameterToStorageMap.insert({identifiers[0], getRawData(initialStress.xx)});
-        parameterToStorageMap.insert({identifiers[1], getRawData(initialStress.xy)});
-        parameterToStorageMap.insert({identifiers[2], getRawData(initialStress.xz)});
-        // set the rest to zero
-        for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
-          for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
-            initialStress.yy[ltsFace][pointIndex] = 0.0;
-            initialStress.zz[ltsFace][pointIndex] = 0.0;
-            initialStress.yz[ltsFace][pointIndex] = 0.0;
+    auto addStressesToStorageMap =
+        [&parameterToStorageMap, &layer, this](StressTensor& initialStress, bool readNucleation) {
+          // return pointer to first element
+          auto getRawData = [](StressTensor::VectorOfArraysT& vectorOfArrays) {
+            return vectorOfArrays.data()->data();
+          };
+          // fault can be either initialized by traction or by cartesian stress
+          // this method reads either the nucleation stress or the initial stress
+          auto [identifiers, parametrization] = this->stressIdentifiers(readNucleation);
+          const bool isFaultParameterizedByTraction = parametrization == Parametrization::Traction;
+          if (isFaultParameterizedByTraction) {
+            // only read traction in normal, strike and dip direction
+            parameterToStorageMap.insert({identifiers[0], getRawData(initialStress.xx)});
+            parameterToStorageMap.insert({identifiers[1], getRawData(initialStress.xy)});
+            parameterToStorageMap.insert({identifiers[2], getRawData(initialStress.xz)});
+            // set the rest to zero
+            for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+              for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+                initialStress.yy[ltsFace][pointIndex] = 0.0;
+                initialStress.zz[ltsFace][pointIndex] = 0.0;
+                initialStress.yz[ltsFace][pointIndex] = 0.0;
+              }
+            }
+          } else { // read all stress components from the parameter file
+            parameterToStorageMap.insert({identifiers[0], getRawData(initialStress.xx)});
+            parameterToStorageMap.insert({identifiers[1], getRawData(initialStress.yy)});
+            parameterToStorageMap.insert({identifiers[2], getRawData(initialStress.zz)});
+            parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.xy)});
+            parameterToStorageMap.insert({identifiers[4], getRawData(initialStress.yz)});
+            parameterToStorageMap.insert({identifiers[5], getRawData(initialStress.xz)});
           }
-        }
-      } else { // read all stress components from the parameter file
-        parameterToStorageMap.insert({identifiers[0], getRawData(initialStress.xx)});
-        parameterToStorageMap.insert({identifiers[1], getRawData(initialStress.yy)});
-        parameterToStorageMap.insert({identifiers[2], getRawData(initialStress.zz)});
-        parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.xy)});
-        parameterToStorageMap.insert({identifiers[4], getRawData(initialStress.yz)});
-        parameterToStorageMap.insert({identifiers[5], getRawData(initialStress.xz)});
-      }
-#ifdef USE_POROELASTIC
-      if (isFaultParameterizedByTraction) {
-        parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.p)});
-      } else {
-        parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
-      }
-#else
-      for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
-        for (unsigned pointIndex = 0; pointIndex < init::QInterpolated::Stop[0]; ++pointIndex) {
-          initialStress.p[ltsFace][pointIndex] = 0.0;
-        }
-      }
-#endif
+          if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+            if (isFaultParameterizedByTraction) {
+              parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.p)});
+            } else {
+              parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
+            }
+          } else {
+            for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+              for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+                initialStress.p[ltsFace][pointIndex] = 0.0;
+              }
+            }
+          }
 
-      return isFaultParameterizedByTraction;
-    };
+          return isFaultParameterizedByTraction;
+        };
 
     StressTensor initialStress(layer.getNumberOfCells());
     const bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStress, false);
@@ -97,12 +99,15 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
     // get additional parameters (for derived friction laws)
     addAdditionalParameters(parameterToStorageMap, dynRup, layer);
 
-    // read parameters from yaml file
-    for (const auto& parameterStoragePair : parameterToStorageMap) {
-      faultParameterDB.addParameter(parameterStoragePair.first, parameterStoragePair.second);
+    for (std::size_t i = 0; i < multisim::NumSimulations; ++i) {
+      seissol::initializer::FaultParameterDB faultParameterDB(i);
+      // read parameters from yaml file
+      for (const auto& parameterStoragePair : parameterToStorageMap) {
+        faultParameterDB.addParameter(parameterStoragePair.first, parameterStoragePair.second);
+      }
+      const auto faceIDs = getFaceIDsInIterator(dynRup, layer);
+      queryModel(faultParameterDB, faceIDs, i);
     }
-    const auto faceIDs = getFaceIDsInIterator(dynRup, layer);
-    queryModel(faultParameterDB, faceIDs);
 
     // rotate initial stress to fault coordinate system
     if (initialStressParameterizedByTraction) {
@@ -143,10 +148,16 @@ std::vector<unsigned> BaseDRInitializer::getFaceIDsInIterator(
 }
 
 void BaseDRInitializer::queryModel(seissol::initializer::FaultParameterDB& faultParameterDB,
-                                   const std::vector<unsigned>& faceIDs) {
+                                   const std::vector<unsigned>& faceIDs,
+                                   std::size_t simid) {
   // create a query and evaluate the model
-  const seissol::initializer::FaultGPGenerator queryGen(seissolInstance.meshReader(), faceIDs);
-  faultParameterDB.evaluateModel(drParameters->faultFileName, queryGen);
+  if (!drParameters->faultFileNames[simid].has_value()) {
+    simid = 0;
+  }
+  {
+    const seissol::initializer::FaultGPGenerator queryGen(seissolInstance.meshReader(), faceIDs);
+    faultParameterDB.evaluateModel(drParameters->faultFileNames[simid].value(), queryGen);
+  }
 }
 
 void BaseDRInitializer::rotateTractionToCartesianStress(
@@ -300,15 +311,15 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     tractionNames = {"T_n", "T_s", "T_d"};
     cartesianNames = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
   }
-#ifdef USE_POROELASTIC
-  if (readNucleation) {
-    tractionNames.push_back("nuc_p");
-    cartesianNames.push_back("nuc_p");
-  } else {
-    tractionNames.push_back("p");
-    cartesianNames.push_back("p");
+  if (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+    if (readNucleation) {
+      tractionNames.emplace_back("nuc_p");
+      cartesianNames.emplace_back("nuc_p");
+    } else {
+      tractionNames.emplace_back("p");
+      cartesianNames.emplace_back("p");
+    }
   }
-#endif
 
   bool allTractionParametersSupplied = true;
   bool allCartesianParametersSupplied = true;

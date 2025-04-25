@@ -41,6 +41,10 @@
 
 #include "utils/logger.h"
 
+#ifdef ACL_DEVICE
+#include "Common/Offset.h"
+#endif
+
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels {
@@ -289,12 +293,10 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
     volKrnl.I =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
-    unsigned starOffset = 0;
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
-      volKrnl.extraOffset_star(i) = starOffset;
-      starOffset += tensor::star::size(i);
+      volKrnl.star(i) = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
@@ -311,8 +313,9 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
       localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
       localFluxKrnl.I =
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      localFluxKrnl.AplusT =
-          const_cast<const real**>(entry.get(inner_keys::Wp::Id::AplusT)->getDeviceDataPtr());
+      localFluxKrnl.AplusT = const_cast<const real**>(
+          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+      localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
       localFluxKrnl.linearAllocator.initialize(tmpMem.get());
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
@@ -410,8 +413,12 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
       auto nodalLfKrnl = deviceNodalLfKrnlPrototype;
       nodalLfKrnl.INodal = const_cast<const real**>(
           dataTable[analyticalKey].get(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
-      nodalLfKrnl.AminusT = const_cast<const real**>(
-          dataTable[analyticalKey].get(inner_keys::Wp::Id::AminusT)->getDeviceDataPtr());
+      nodalLfKrnl.AminusT =
+          const_cast<const real**>(dataTable[analyticalKey]
+                                       .get(inner_keys::Wp::Id::NeighborIntegrationData)
+                                       ->getDeviceDataPtr());
+      nodalLfKrnl.extraOffset_AminusT =
+          SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
       nodalLfKrnl.Q = dataTable[analyticalKey].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
       nodalLfKrnl.streamPtr = runtime.stream();
       nodalLfKrnl.numElements = numElements;

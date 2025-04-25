@@ -24,6 +24,10 @@
 #include <generated_code/tensor.h>
 #include <stdint.h>
 
+#ifdef ACL_DEVICE
+#include "Common/Offset.h"
+#endif
+
 #include "utils/logger.h"
 
 namespace seissol::kernels {
@@ -36,13 +40,13 @@ void NeighborBase::checkGlobalData(const GlobalData* global, size_t alignment) {
                alignment ==
            0);
     assert(
-        (reinterpret_cast<uintptr_t>(global->neighbourChangeOfBasisMatricesTransposed(neighbor))) %
+        (reinterpret_cast<uintptr_t>(global->neighborChangeOfBasisMatricesTransposed(neighbor))) %
             alignment ==
         0);
   }
 
   for (int h = 0; h < 3; ++h) {
-    assert((reinterpret_cast<uintptr_t>(global->neighbourFluxMatrices(h))) % alignment == 0);
+    assert((reinterpret_cast<uintptr_t>(global->neighborFluxMatrices(h))) % alignment == 0);
   }
 
   for (int i = 0; i < 4; ++i) {
@@ -56,8 +60,8 @@ void NeighborBase::checkGlobalData(const GlobalData* global, size_t alignment) {
 void Neighbor::setHostGlobalData(const GlobalData* global) {
   checkGlobalData(global, Alignment);
   m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global->neighbourChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global->neighbourFluxMatrices;
+  m_nfKrnlPrototype.rT = global->neighborChangeOfBasisMatricesTransposed;
+  m_nfKrnlPrototype.fP = global->neighborFluxMatrices;
   m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
 }
 
@@ -73,8 +77,8 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
 #else
   deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype.rT = global.onDevice->neighbourChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype.fP = global.onDevice->neighbourFluxMatrices;
+  deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
 #endif
   deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
 #endif
@@ -156,7 +160,9 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
               neighFluxKrnl.I = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
+                  entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+              neighFluxKrnl.extraOffset_AminusT =
+                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
               real* tmpMem = reinterpret_cast<real*>(device.api->allocMemAsync(
                   neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements, stream));

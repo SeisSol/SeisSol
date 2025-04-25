@@ -15,6 +15,8 @@
 #include "Kernels/Precision.h"
 #include "ParameterReader.h"
 
+#include <Solver/MultipleSimulations.h>
+
 namespace seissol::initializer::parameters {
 
 /**
@@ -78,6 +80,7 @@ struct DRParameters {
   real vStar{0.0}; // Prakash-Clifton regularization parameter
   real prakashLength{0.0};
   std::string faultFileName;
+  std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
   double etaHack{1.0};
