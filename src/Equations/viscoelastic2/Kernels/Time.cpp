@@ -34,8 +34,6 @@ void Time::setHostGlobalData(const GlobalData* global) {
   assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(2))) % Alignment == 0);
 
   m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
-  m_krnlPrototype.selectAne = init::selectAne::Values;
-  m_krnlPrototype.selectEla = init::selectEla::Values;
 }
 
 void Time::setGlobalData(const CompoundGlobalData& global) {
@@ -43,9 +41,6 @@ void Time::setGlobalData(const CompoundGlobalData& global) {
 
 #ifdef ACL_DEVICE
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  // the selectAne/selectEla are inlined
-  deviceKrnlPrototype.selectAne = global.onDevice->selectAne;
-  deviceKrnlPrototype.selectEla = global.onDevice->selectEla;
 #endif
 }
 
