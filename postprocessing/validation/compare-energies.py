@@ -34,7 +34,7 @@ def get_number_of_fused_sims(df):
 def get_sub_simulation(df, fused_index):
     if "simulation_index" not in df.columns:
         # if there's no simulation_index, we're not fused
-        return 0
+        return df.loc[:, :].reset_index()
     else:
         is_subsim = df["simulation_index"] == fused_index
         return df.loc[is_subsim, :].reset_index()

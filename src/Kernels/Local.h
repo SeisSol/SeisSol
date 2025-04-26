@@ -12,48 +12,60 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
-#include "Kernels/LocalBase.h"
 #include "Parallel/Runtime/Stream.h"
 #include "generated_code/tensor.h"
+#include <Kernels/Kernel.h>
+#include <Physics/InitialField.h>
 #include <cassert>
 
 namespace seissol::kernels {
 
-class Local : public LocalBase {
+class LocalKernel : public Kernel {
+  protected:
+  double gravitationalAcceleration{9.81};
+  const std::vector<std::unique_ptr<physics::InitialField>>* initConds;
+
   public:
-  void setHostGlobalData(const GlobalData* global);
-  void setGlobalData(const CompoundGlobalData& global);
+  ~LocalKernel() override = default;
+  void setGravitationalAcceleration(double g) { gravitationalAcceleration = g; }
+  void setInitConds(decltype(initConds) initConds) { this->initConds = initConds; }
 
-  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                       LocalData& data,
-                       LocalTmp& tmp,
-                       const CellMaterialData* materialData,
-                       const CellBoundaryMapping (*cellBoundaryMapping)[4],
-                       double time,
-                       double timeStepWidth);
+  physics::InitialField* getInitCond(size_t index) {
+    const auto& condition = this->initConds->at(index);
+    return condition.get();
+  }
 
-  void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
-                              ConditionalMaterialTable& materialTable,
-                              ConditionalIndicesTable& indicesTable,
-                              kernels::LocalData::Loader& loader,
-                              LocalTmp& tmp,
-                              double timeStepWidth,
-                              seissol::parallel::runtime::StreamRuntime& runtime);
+  virtual void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                               LocalData& data,
+                               LocalTmp& tmp,
+                               const CellMaterialData* materialData,
+                               const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                               double time,
+                               double timeStepWidth) = 0;
 
-  void evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
+  virtual void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
+                                      ConditionalMaterialTable& materialTable,
                                       ConditionalIndicesTable& indicesTable,
                                       kernels::LocalData::Loader& loader,
-                                      seissol::initializer::Layer& layer,
-                                      seissol::initializer::LTS& lts,
-                                      double time,
+                                      LocalTmp& tmp,
                                       double timeStepWidth,
-                                      seissol::parallel::runtime::StreamRuntime& runtime);
+                                      seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  void flopsIntegral(const FaceType faceTypes[4],
-                     unsigned int& nonZeroFlops,
-                     unsigned int& hardwareFlops);
+  virtual void
+      evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
+                                     ConditionalIndicesTable& indicesTable,
+                                     kernels::LocalData::Loader& loader,
+                                     seissol::initializer::Layer& layer,
+                                     seissol::initializer::LTS& lts,
+                                     double time,
+                                     double timeStepWidth,
+                                     seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  unsigned bytesIntegral();
+  virtual void flopsIntegral(const FaceType faceTypes[4],
+                             unsigned int& nonZeroFlops,
+                             unsigned int& hardwareFlops) = 0;
+
+  virtual unsigned bytesIntegral() = 0;
 };
 
 } // namespace seissol::kernels
