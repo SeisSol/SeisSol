@@ -13,7 +13,9 @@
 
 // (real should be lower-case)
 
+namespace seissol {
 // NOLINTNEXTLINE
-using real = seissol::RealT<seissol::Config::Precision>;
+using real = RealT<Config::Precision>;
+} // namespace seissol
 
 #endif // SEISSOL_SRC_KERNELS_PRECISION_H_
