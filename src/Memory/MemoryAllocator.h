@@ -151,10 +151,12 @@ class MemkindArray {
   MemkindArray(const MemkindArray<T>& source) : MemkindArray(source, source.memkind) {}
 
   auto operator=(const MemkindArray<T>& source) -> MemkindArray& {
-    if (capacity != source.capacity) {
-      resize(source.capacity);
+    if (&source != this) {
+      if (capacity != source.capacity) {
+        resize(source.capacity);
+      }
+      copyFrom(source);
     }
-    copyFrom(source);
     return *this;
   }
   auto operator=(MemkindArray<T>&& source) noexcept -> MemkindArray& = default;

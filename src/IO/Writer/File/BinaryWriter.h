@@ -28,8 +28,8 @@ class BinaryFile {
   void closeFile();
 
   private:
-  MPI_Comm comm;
-  MPI_File file;
+  MPI_Comm comm{MPI_COMM_NULL};
+  MPI_File file{MPI_FILE_NULL};
 };
 
 class BinaryWriter {
@@ -42,7 +42,7 @@ class BinaryWriter {
 
   private:
   std::unordered_map<std::string, std::unique_ptr<BinaryFile>> openFiles;
-  MPI_Comm comm;
+  MPI_Comm comm{MPI_COMM_NULL};
 };
 } // namespace seissol::io::writer::file
 

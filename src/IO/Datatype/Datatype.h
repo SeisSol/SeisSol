@@ -32,7 +32,7 @@ class Datatype : public std::enable_shared_from_this<Datatype> {
   virtual ~Datatype();
   virtual std::size_t size() const = 0;
   virtual YAML::Node serialize() const = 0;
-  virtual Array unwrap(std::size_t maxDimensions = 256);
+  virtual Array unwrap(std::size_t maxDimensions);
   virtual std::string toStringRaw(const void* data) const = 0;
   virtual std::optional<std::vector<char>> fromStringRaw(const std::string& str) const = 0;
 
@@ -146,7 +146,7 @@ class ArrayDatatype : public Datatype {
 
   std::size_t size() const override;
 
-  Array unwrap(std::size_t maxDimensions = 256) override;
+  Array unwrap(std::size_t maxDimensions) override;
 
   const std::vector<std::size_t>& dimensions() const;
 

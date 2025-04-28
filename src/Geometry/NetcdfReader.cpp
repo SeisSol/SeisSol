@@ -183,7 +183,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     sizes = new int[groupSize];
 
     for (int i = groupSize - 1; i >= 0; i--) {
-      const auto start = static_cast<size_t>(i + rank);
+      const auto start = static_cast<size_t>(i) + rank;
 
       int size = 0;
       checkNcError(nc_get_var1_int(ncFile, ncVarElemSize, &start, &size));
@@ -242,7 +242,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     size_t count[3] = {1, 0, 4};
 
     for (int i = groupSize - 1; i >= 0; i--) {
-      start[0] = static_cast<size_t>(i + rank);
+      start[0] = static_cast<size_t>(i) + rank;
       count[1] = static_cast<size_t>(sizes[i]);
 
       checkNcError(nc_get_vara_int(
@@ -382,7 +382,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     assert(false);
 #else // NETCDF_PASSIVE
     for (int i = groupSize - 1; i >= 0; i--) {
-      const auto start = static_cast<size_t>(i + rank);
+      const auto start = static_cast<size_t>(i) + rank;
 
       int size = 0;
       checkNcError(nc_get_var1_int(ncFile, ncVarVrtxSize, &start, &size));
@@ -423,7 +423,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     size_t count[3] = {1, 0, 3};
 
     for (int i = groupSize - 1; i >= 0; i--) {
-      start[0] = static_cast<size_t>(i + rank);
+      start[0] = static_cast<size_t>(i) + rank;
       count[1] = static_cast<size_t>(sizes[i]);
 
       checkNcError(nc_get_vara_double(
@@ -466,7 +466,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
     assert(false);
 #else // NETCDF_PASSIVE
     for (int i = groupSize - 1; i >= 0; i--) {
-      const auto start = static_cast<size_t>(i + rank);
+      const auto start = static_cast<size_t>(i) + rank;
 
       int size = 0;
       checkNcError(nc_get_var1_int(ncFile, ncVarBndSize, &start, &size));
@@ -507,7 +507,7 @@ NetcdfReader::NetcdfReader(int rank, int nProcs, const char* meshFile)
       assert(false);
 #else // NETCDF_PASSIVE
       for (int j = groupSize - 1; j >= 0; j--) {
-        bndStart[0] = static_cast<size_t>(j + rank);
+        bndStart[0] = static_cast<size_t>(j) + rank;
 
         // Get neighbor rank from netcdf
         int bndRank = 0;

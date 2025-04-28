@@ -77,8 +77,6 @@ void Hdf5File::openGroup(const std::string& name) {
   handles.push(handle);
 }
 void Hdf5File::openDataset(const std::string& name) {
-  // cf. https://stackoverflow.com/a/18468735
-  auto existenceTest = _eh(H5Lexists(handles.top(), name.c_str(), H5P_DEFAULT));
   const hid_t handle = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
   handles.push(handle);
 }
@@ -295,7 +293,7 @@ void Hdf5Writer::writeAttribute(const async::ExecInfo& info,
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (auto _ : write.location.groups()) {
+  for (const auto& _ : write.location.groups()) {
     file.closeGroup();
   }
 }
@@ -317,7 +315,7 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (auto _ : write.location.groups()) {
+  for (const auto& _ : write.location.groups()) {
     file.closeGroup();
   }
 }
