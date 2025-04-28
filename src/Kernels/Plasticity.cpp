@@ -117,7 +117,7 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
   // Compute tau_c for every node
   for (unsigned ip = 0; ip < tensor::meanStress::size(); ++ip) {
-    taulim[ip] = std::max((real)0.0,
+    taulim[ip] = std::max(static_cast<real>(0.0),
                           plasticityData->cohesionTimesCosAngularFriction -
                               meanStress[ip] * plasticityData->sinAngularFriction);
   }
@@ -212,7 +212,7 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     for (unsigned i = 0; i < numNodes; ++i) {
       // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
       // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
-      qEtaNodal[i] = std::max((real)0.0, qEtaNodal[i]) +
+      qEtaNodal[i] = std::max(static_cast<real>(0.0), qEtaNodal[i]) +
                      timeStepWidth * sqrt(0.5 * (qStressNodalView(i, 0) * qStressNodalView(i, 0) +
                                                  qStressNodalView(i, 1) * qStressNodalView(i, 1) +
                                                  qStressNodalView(i, 2) * qStressNodalView(i, 2) +

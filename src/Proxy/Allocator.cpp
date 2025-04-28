@@ -54,10 +54,10 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
 
     for (unsigned f = 0; f < 4; ++f) {
       cellInformation[cell].faceTypes[f] = faceTp;
-      cellInformation[cell].faceRelations[f][0] = ((unsigned int)lrand48() % 4);
-      cellInformation[cell].faceRelations[f][1] = ((unsigned int)lrand48() % 3);
+      cellInformation[cell].faceRelations[f][0] = (static_cast<unsigned int>(lrand48()) % 4);
+      cellInformation[cell].faceRelations[f][1] = (static_cast<unsigned int>(lrand48()) % 3);
       secondaryInformation[cell].faceNeighborIds[f] =
-          ((unsigned int)lrand48() % layer.getNumberOfCells());
+          (static_cast<unsigned int>(lrand48()) % layer.getNumberOfCells());
     }
     cellInformation[cell].ltsSetup = 0;
   }
@@ -184,7 +184,8 @@ void ProxyData::initDataStructures(bool enableDR) {
 #endif
     for (unsigned cell = 0; cell < cellCount; ++cell) {
       for (unsigned i = 0; i < yateto::computeFamilySize<tensor::dQ>(); i++) {
-        fakeDerivativesHost[cell * yateto::computeFamilySize<tensor::dQ>() + i] = (real)drand48();
+        fakeDerivativesHost[cell * yateto::computeFamilySize<tensor::dQ>() + i] =
+            static_cast<real>(drand48());
       }
     }
 
@@ -231,9 +232,9 @@ void ProxyData::initDataStructures(bool enableDR) {
     for (unsigned cell = 0; cell < cellCount; ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
         CellDRMapping& drm = drMapping[cell][face];
-        const unsigned side = (unsigned int)lrand48() % 4;
-        const unsigned orientation = (unsigned int)lrand48() % 3;
-        const unsigned drFace = (unsigned int)lrand48() % interior.getNumberOfCells();
+        const unsigned side = static_cast<unsigned int>(lrand48()) % 4;
+        const unsigned orientation = static_cast<unsigned int>(lrand48()) % 3;
+        const unsigned drFace = static_cast<unsigned int>(lrand48()) % interior.getNumberOfCells();
         drm.side = side;
         drm.faceRelation = orientation;
         drm.godunov = imposedStatePlus[drFace];
@@ -243,8 +244,8 @@ void ProxyData::initDataStructures(bool enableDR) {
 
     /* init dr godunov state */
     for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
-      const unsigned plusCell = (unsigned int)lrand48() % cellCount;
-      const unsigned minusCell = (unsigned int)lrand48() % cellCount;
+      const unsigned plusCell = static_cast<unsigned int>(lrand48()) % cellCount;
+      const unsigned minusCell = static_cast<unsigned int>(lrand48()) % cellCount;
       timeDerivativeHostPlus[face] =
           &fakeDerivativesHost[plusCell * yateto::computeFamilySize<tensor::dQ>()];
       timeDerivativeHostMinus[face] =
@@ -254,9 +255,9 @@ void ProxyData::initDataStructures(bool enableDR) {
       timeDerivativeMinus[face] =
           &fakeDerivatives[minusCell * yateto::computeFamilySize<tensor::dQ>()];
 
-      faceInformation[face].plusSide = (unsigned int)lrand48() % 4;
-      faceInformation[face].minusSide = (unsigned int)lrand48() % 4;
-      faceInformation[face].faceRelation = (unsigned int)lrand48() % 3;
+      faceInformation[face].plusSide = static_cast<unsigned int>(lrand48()) % 4;
+      faceInformation[face].minusSide = static_cast<unsigned int>(lrand48()) % 4;
+      faceInformation[face].faceRelation = static_cast<unsigned int>(lrand48()) % 3;
     }
   }
 }

@@ -55,7 +55,7 @@ struct PoroElasticMaterial : public ElasticMaterial {
 
   PoroElasticMaterial() = default;
 
-  PoroElasticMaterial(const std::vector<double>& materialValues)
+  explicit PoroElasticMaterial(const std::vector<double>& materialValues)
       : bulkSolid(materialValues.at(0)), porosity(materialValues.at(4)),
         permeability(materialValues.at(5)), tortuosity(materialValues.at(6)),
         bulkFluid(materialValues.at(7)), rhoFluid(materialValues.at(8)),

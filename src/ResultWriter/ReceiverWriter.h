@@ -38,7 +38,7 @@ class ReceiverWriter : public seissol::Module {
   seissol::SeisSol& seissolInstance;
 
   public:
-  ReceiverWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit ReceiverWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   void init(const std::string& fileNamePrefix,
             double endTime,

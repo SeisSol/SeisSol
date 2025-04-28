@@ -19,7 +19,7 @@
 namespace seissol::io::reader::file {
 class Hdf5Reader {
   public:
-  Hdf5Reader(MPI_Comm comm);
+  explicit Hdf5Reader(MPI_Comm comm);
   void openFile(const std::string& name);
   void openGroup(const std::string& name);
   template <typename T>

@@ -39,7 +39,7 @@ class InstantaneousTimeMirrorManager : Module {
       ghostTimeClusters{};
 
   public:
-  InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
+  explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
       : seissolInstance(seissolInstance) {};
 
   void init(double velocityScalingFactor,

@@ -28,7 +28,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
     if (buffer != nullptr) {
       for (unsigned dof = 0; dof < tensor::Q::size(); ++dof) {
         // zero time integration buffers
-        buffer[dof] = (real)0;
+        buffer[dof] = static_cast<real>(0);
       }
     }
 
@@ -36,7 +36,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
     real* derivative = derivatives[cell];
     if (derivative != nullptr) {
       for (unsigned dof = 0; dof < yateto::computeFamilySize<tensor::dQ>(); ++dof) {
-        derivative[dof] = (real)0;
+        derivative[dof] = static_cast<real>(0);
       }
     }
   }

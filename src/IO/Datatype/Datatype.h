@@ -56,7 +56,7 @@ class Datatype : public std::enable_shared_from_this<Datatype> {
 
 class OpaqueDatatype : public Datatype {
   public:
-  OpaqueDatatype(std::size_t size);
+  explicit OpaqueDatatype(std::size_t size);
 
   explicit OpaqueDatatype(YAML::Node node);
 
@@ -73,7 +73,7 @@ class OpaqueDatatype : public Datatype {
 
 class StringDatatype : public Datatype {
   public:
-  StringDatatype(std::size_t size);
+  explicit StringDatatype(std::size_t size);
 
   explicit StringDatatype(YAML::Node node);
 
@@ -170,7 +170,7 @@ class StructDatatype : public Datatype {
     std::shared_ptr<Datatype> datatype;
   };
 
-  StructDatatype(const std::vector<MemberInfo>& members);
+  explicit StructDatatype(const std::vector<MemberInfo>& members);
 
   StructDatatype(const std::vector<MemberInfo>& members, std::size_t size);
 

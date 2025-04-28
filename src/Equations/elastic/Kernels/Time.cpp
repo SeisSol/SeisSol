@@ -147,7 +147,7 @@ void Time::computeAder(double timeStepWidth,
   // powers in the taylor-series expansion
   krnl.power(0) = timeStepWidth;
   for (std::size_t der = 1; der < ConvergenceOrder; ++der) {
-    krnl.power(der) = krnl.power(der - 1) * timeStepWidth / real(der + 1);
+    krnl.power(der) = krnl.power(der - 1) * timeStepWidth / static_cast<real>(der + 1);
   }
 
   if (updateDisplacement) {
@@ -297,9 +297,9 @@ void Time::computeIntegral(double expansionPoint,
   const real deltaTUpper = integrationEnd - expansionPoint;
 
   // initialization of scalars in the taylor series expansion (0th term)
-  real firstTerm = (real)1;
-  real secondTerm = (real)1;
-  real factorial = (real)1;
+  real firstTerm = static_cast<real>(1);
+  real secondTerm = static_cast<real>(1);
+  real factorial = static_cast<real>(1);
 
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = timeIntegrated;
@@ -311,7 +311,7 @@ void Time::computeIntegral(double expansionPoint,
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
     firstTerm *= deltaTUpper;
     secondTerm *= deltaTLower;
-    factorial *= (real)(der + 1);
+    factorial *= static_cast<real>(der + 1);
 
     intKrnl.power(der) = firstTerm - secondTerm;
     intKrnl.power(der) /= factorial;
@@ -413,7 +413,8 @@ void Time::computeTaylorExpansion(real time,
 
   // iterate over time derivatives
   for (std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
-    intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / real(derivative);
+    intKrnl.power(derivative) =
+        intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);
   }
 
   intKrnl.execute();

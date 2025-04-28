@@ -21,7 +21,7 @@ namespace seissol::io::writer::file {
 
 class BinaryFile {
   public:
-  BinaryFile(MPI_Comm comm);
+  explicit BinaryFile(MPI_Comm comm);
   void openFile(const std::string& name);
   void writeGlobal(const void* data, std::size_t size);
   void writeDistributed(const void* data, std::size_t size);
@@ -34,7 +34,7 @@ class BinaryFile {
 
 class BinaryWriter {
   public:
-  BinaryWriter(MPI_Comm comm);
+  explicit BinaryWriter(MPI_Comm comm);
 
   void write(const async::ExecInfo& info, const instructions::BinaryWrite& write);
 

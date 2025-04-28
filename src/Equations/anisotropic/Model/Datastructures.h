@@ -66,7 +66,7 @@ struct AnisotropicMaterial : public Material {
 
   explicit AnisotropicMaterial(const ElasticMaterial& m);
 
-  AnisotropicMaterial(const std::vector<double>& materialValues);
+  explicit AnisotropicMaterial(const std::vector<double>& materialValues);
 
   ~AnisotropicMaterial() override;
 

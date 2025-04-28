@@ -74,7 +74,7 @@ struct ReceiverStrain : public DerivedReceiverQuantity {
 
 class ReceiverCluster {
   public:
-  ReceiverCluster(seissol::SeisSol& seissolInstance);
+  explicit ReceiverCluster(seissol::SeisSol& seissolInstance);
 
   ReceiverCluster(const GlobalData* global,
                   const std::vector<unsigned>& quantities,

@@ -168,7 +168,7 @@ class MemkindArray {
     copyFrom(source);
   }
   MemkindArray(std::size_t capacity, Memkind memkind) : MemkindArray(memkind) { resize(capacity); }
-  MemkindArray(Memkind memkind) : memkind(memkind) {}
+  explicit MemkindArray(Memkind memkind) : memkind(memkind) {}
 
   void resize(std::size_t capacity) {
     this->capacity = capacity;

@@ -58,7 +58,7 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
   std::size_t threadOffset = 0;
 #endif
     for (std::size_t dof = 0; dof < (4 * tensor::I::size()); ++dof) {
-      integrationBufferLTS[dof + threadOffset] = (real)0.0;
+      integrationBufferLTS[dof + threadOffset] = static_cast<real>(0.0);
     }
 #ifdef _OPENMP
   }
