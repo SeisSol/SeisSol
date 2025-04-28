@@ -26,7 +26,7 @@ jobs:
             matrix.precision == 'single' && 's' || 'd',
             matrix.setup.arch,
             matrix.setup.backend,
-            matrix.order,
+            matrix.equation.order,
             matrix.equation.type,
             matrix.equation.multisim != 1 && format('_f{0}', matrix.equation.multisim) || ''
           )
@@ -34,32 +34,36 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        order:
-          - 6
         arch:
           - snb # <-- needed for the self-hosted CI node for now :/
         build_type:
           - Release
-          - Debug
+          #- Debug
         equation:
           - type: acoustic
             multisim: 1
             mechanisms: 0
+            order: 6
           - type: elastic
             multisim: 1
             mechanisms: 0
-          #- type: poroelastic
+            order: 6
+          #- type: poroelastic # Does not work yet
           #  multisim: 1
           #  mechanisms: 0
-          #- type: viscoelastic2
-          #  multisim: 1
-          #  mechanisms: 3
+          #  order: 6
+          - type: viscoelastic2
+            multisim: 1
+            mechanisms: 3
+            order: 6
           - type: anisotropic
             multisim: 1
             mechanisms: 0
-          #- type: elastic
-          #  multisim: 8
-          #  mechanisms: 0
+            order: 6
+          - type: elastic
+            multisim: 32
+            mechanisms: 0
+            order: 3
         precision:
           - single
           - double
@@ -71,6 +75,7 @@ jobs:
             fc: gfortran-13
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             runner: ubuntu-24.04
+            pythonbreak: true
           - arch: sm_60
             backend: cuda
             cc: clang-18
@@ -78,6 +83,7 @@ jobs:
             fc: gfortran-13 # TODO?
             container: seissol/gha-gpu-nv:davschneller-gpu-image
             runner: ubuntu-24.04
+            pythonbreak: true
           # TODO: needs a working GPU runner
           #- arch: sm_60
           #  backend: cuda
@@ -86,6 +92,7 @@ jobs:
           #  fc: nvfortran
           #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
           #  runner: sccs-ci-nv-sm60
+          #  pythonbreak: true
           - arch: gfx906
             backend: hip
             cc: gcc-13
@@ -93,6 +100,7 @@ jobs:
             fc: gfortran-13
             container: seissol/gha-gpu-amd:davschneller-gpu-image
             runner: ubuntu-24.04
+            pythonbreak: true
           - arch: gfx906
             backend: hip
             cc: clang-18
@@ -100,6 +108,7 @@ jobs:
             fc: gfortran-13 # TODO?
             container: seissol/gha-gpu-amd:davschneller-gpu-image
             runner: ubuntu-24.04
+            pythonbreak: true
           - arch: skl
             backend: oneapi
             cc: icx
@@ -107,6 +116,7 @@ jobs:
             fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             runner: ubuntu-24.04
+            pythonbreak: false
     steps:
       - name: checkout-seissol
         uses: actions/checkout@v4
@@ -116,6 +126,21 @@ jobs:
       - id: build
         name: build-seissol
         run: |
+          if [ "${{ matrix.equation.type }}" = viscoelastic2 ] || [ "${{ matrix.equation.type }}" = poroelastic ] || [ "${{ matrix.equation.multisim }}" != 1 ]; then
+              if [ "${{ matrix.setup.pythonbreak }}" = false ]; then
+                  # the Intel image still works with an older Python version. Hence, use the following hack.
+                  pip3 install pyyaml
+                  git clone --branch develop https://github.com/seissol/tensorforge.git
+                  export PYTHONPATH=$(pwd)/tensorforge:$PYTHONPATH
+                  export CMAKE_PREFIX_PATH=$(python3 -c 'import tensorforge; tensorforge.print_cmake_path()'):$CMAKE_PREFIX_PATH
+              else
+                  pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git@develop
+              fi
+              DEVICE_CODEGEN=tensorforge
+          else
+              DEVICE_CODEGEN=auto
+          fi
+
           mkdir build && cd build
 
           # TODO: change to `-Wall -Werror` at some point
@@ -129,14 +154,14 @@ jobs:
           export CXX=${{matrix.setup.cxx}}
           export FC=${{matrix.setup.fc}}
 
-          cmake .. -GNinja -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
+          cmake .. -GNinja -DDEVICE_CODEGEN=${DEVICE_CODEGEN} -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.equation.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
           ninja install
 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.order}}-${{matrix.equation.type}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.equation.order}}-${{matrix.equation.type}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
   seissol-cache-precomputed:
@@ -177,7 +202,7 @@ jobs:
             matrix.precision == 'single' && 's' || 'd',
             matrix.setup.arch,
             matrix.setup.backend,
-            matrix.order,
+            matrix.case.order,
             matrix.case.equation,
             matrix.case.multisim != 1 && format('_f{0}', matrix.case.multisim) || ''
           )
@@ -193,94 +218,107 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            order: 6
           - name: tpv5-nuc
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
-          #- name: tpv5-visco
-          #  equation: viscoelastic2
-          #  multisim: 1
-          #  energies: true
-          #  receivers: true
-          #  fault: true
+            order: 6
+          - name: tpv5-visco
+            equation: viscoelastic2
+            multisim: 1
+            energies: true
+            receivers: true
+            fault: true
+            order: 6
           #- name: tpv5-poro
           #  equation: poroelastic
           #  multisim: 1
           #  energies: false # incomplete, hence disabled
           #  receivers: true
           #  fault: true
+          #  order: 6
           - name: tpv6
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            order: 6
           - name: tpv13
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            order: 6
           - name: tpv16
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            order: 6
           - name: tpv101
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            order: 6
           - name: tpv101-slip
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            order: 6
           - name: tpv104
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            order: 6
           - name: tpv105
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            order: 6
           - name: tpvahsp
             equation: anisotropic
             multisim: 1
             energies: false
             receivers: true
             fault: false
+            order: 6
           - name: tpvgaussian
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            order: 6
           - name: tpvyoffe
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
-          #- name: tpvloh1-fused
-          #  equation: elastic
-          #  multisim: 8
-          #  energies: true
-          #  receivers: true
-          #  fault: false # NYI
+            order: 6
+          - name: tpvloh1-fused
+            equation: elastic
+            multisim: 32
+            energies: true
+            receivers: true
+            fault: false # NYI
+            order: 3
         precision:
           - single
-        order:
-          - 6
         arch:
           - hsw
         build_type:
@@ -339,7 +377,7 @@ jobs:
       - name: get-seissol
         uses: actions/download-artifact@v4
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.case.order}}-${{matrix.case.equation}}-${{matrix.setup.cc}}
           path: install
       - name: run-seissol
         id: run

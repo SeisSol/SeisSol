@@ -14,6 +14,7 @@
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <Kernels/LinearCK/Solver.h>
 #include <array>
 #include <cstddef>
 #include <string>
@@ -28,13 +29,13 @@ struct AnisotropicMaterial : public Material {
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Anisotropic;
-  static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "anisotropic";
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
 
   using LocalSpecificData = AnisotropicLocalData;
   using NeighborSpecificData = AnisotropicNeighborData;
+  using Solver = kernels::solver::linearck::Solver;
 
   double c11;
   double c12;

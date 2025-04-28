@@ -8,7 +8,7 @@
 set(DEVICE_SRC ${DEVICE_SRC}
           ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/sycl/PlasticityAux.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/sycl/KernelsAux.cpp
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp
           ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterSycl.cpp)
 
@@ -57,6 +57,6 @@ target_compile_definitions(seissol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
         NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
         ${DR_QUAD_RULE})
 
-if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 endif()

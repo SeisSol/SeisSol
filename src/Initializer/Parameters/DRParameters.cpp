@@ -8,8 +8,13 @@
 #include "DRParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>
 #include <Kernels/Precision.h>
+#include <Solver/MultipleSimulations.h>
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
+#include <optional>
+#include <string>
 #include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
@@ -104,6 +109,23 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
 
   const auto faultFileName = reader->readPath("modelfilename");
 
+  std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
+
+  bool isDynamicRuptureEnabled = false;
+
+  if (!faultFileName.value_or("").empty()) {
+    faultFileNames[0] = faultFileName.value();
+    isDynamicRuptureEnabled = true;
+  }
+
+  for (std::size_t i = 0; i < faultFileNames.size(); ++i) {
+    const auto fieldname = "modelfilename" + std::to_string(i);
+    if (reader->hasField(fieldname)) {
+      faultFileNames[i] = reader->read<std::string>(fieldname);
+      isDynamicRuptureEnabled = true;
+    }
+  }
+
   auto* outputReader = baseReader->readSubNode("output");
   const bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
   const bool energiesFromAcrossFaultVelocities =
@@ -115,9 +137,6 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
       "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
-
-  // if there is no fileName given for the fault, assume that we do not use dynamic rupture
-  const bool isDynamicRuptureEnabled = !faultFileName.value_or("").empty();
 
   const double etaHack = [&]() {
     const auto hackRead1 = reader->read<double>("etahack");
@@ -163,6 +182,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       vStar,
                       prakashLength,
                       faultFileName.value_or(""),
+                      faultFileNames,
                       referencePoint,
                       terminatorSlipRateThreshold,
                       etaHack};

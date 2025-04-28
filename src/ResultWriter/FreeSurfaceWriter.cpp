@@ -14,6 +14,8 @@
 #include <Geometry/Refinement/TriangleRefiner.h>
 #include <Kernels/Precision.h>
 #include <Monitoring/Instrumentation.h>
+#include <Parallel/Helper.h>
+#include <Parallel/MPI.h>
 #include <ResultWriter/FreeSurfaceWriterExecutor.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <async/Module.h>
@@ -21,6 +23,7 @@
 #include <cstring>
 #include <optional>
 #include <string>
+#include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -91,7 +94,9 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
 
 void seissol::writer::FreeSurfaceWriter::setUp() {
   setExecutor(m_executor);
-  if (isAffinityNecessary()) {
+
+  utils::Env env("SEISSOL_");
+  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
     logInfo() << "Free surface writer thread affinity:"
               << parallel::Pinning::maskToString(freeCpus);
