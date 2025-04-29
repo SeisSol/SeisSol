@@ -42,6 +42,16 @@ Hdf5Location::Hdf5Location(YAML::Node node)
 std::string Hdf5Location::file() const { return fileP; }
 std::vector<std::string> Hdf5Location::groups() const { return groupsP; }
 std::optional<std::string> Hdf5Location::dataset() const { return datasetP; }
+std::string Hdf5Location::infilePath() const {
+  std::string path;
+  for (const auto& group : groupsP) {
+    path += "/" + group;
+  }
+  if (datasetP.has_value()) {
+    path += "/" + datasetP.value();
+  }
+  return path;
+}
 
 std::optional<Hdf5Location> Hdf5Location::commonLocation(const Hdf5Location& other) const {
   if (other.file() == file()) {
@@ -119,4 +129,26 @@ Hdf5DataWrite::Hdf5DataWrite(YAML::Node node)
       compress(node["compress"].as<int>()) {}
 
 std::vector<std::shared_ptr<DataSource>> Hdf5DataWrite::dataSources() { return {dataSource}; }
+
+YAML::Node Hdf5LinkExternalWrite::serialize() {
+  YAML::Node node;
+  node["name"] = name;
+  node["location"] = location.serialize();
+  node["remote"] = remote.serialize();
+  node["writer"] = "hdf5";
+  node["type"] = "link-external";
+  return node;
+}
+
+Hdf5LinkExternalWrite::Hdf5LinkExternalWrite(const Hdf5Location& location,
+                                             const std::string& name,
+                                             const Hdf5Location& remote)
+    : location(location), name(name), remote(remote) {}
+
+Hdf5LinkExternalWrite::Hdf5LinkExternalWrite(YAML::Node node)
+    : name(node["name"].as<std::string>()), location(Hdf5Location(node["location"])),
+      remote(Hdf5Location(node["remote"])) {}
+
+std::vector<std::shared_ptr<DataSource>> Hdf5LinkExternalWrite::dataSources() { return {}; }
+
 } // namespace seissol::io::writer::instructions
