@@ -11,7 +11,7 @@
 #define SEISSOL_SRC_KERNELS_TIMECOMMON_H_
 
 #include "Initializer/Typedefs.h"
-#include "Kernels/Time.h"
+#include "Kernels/Solver.h"
 #include "generated_code/tensor.h"
 
 namespace seissol::kernels {

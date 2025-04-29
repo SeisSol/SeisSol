@@ -12,7 +12,7 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/PointMapper.h"
 #include "Kernels/Interface.h"
-#include "Kernels/Time.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Lut.h"
 #include "Numerical/BasisFunction.h"
@@ -21,6 +21,7 @@
 #include "generated_code/init.h"
 #include <Common/Executor.h>
 #include <Eigen/Dense>
+#include <Initializer/Typedefs.h>
 #include <optional>
 #include <vector>
 
@@ -76,7 +77,7 @@ class ReceiverCluster {
   public:
   ReceiverCluster(seissol::SeisSol& seissolInstance);
 
-  ReceiverCluster(const GlobalData* global,
+  ReceiverCluster(const CompoundGlobalData& global,
                   const std::vector<unsigned>& quantities,
                   double samplingInterval,
                   double syncPointInterval,
@@ -107,7 +108,8 @@ class ReceiverCluster {
   std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
   std::vector<size_t> deviceIndices;
   std::vector<Receiver> m_receivers;
-  seissol::kernels::Time m_timeKernel;
+  seissol::kernels::Spacetime spacetimeKernel;
+  seissol::kernels::Time timeKernel;
   std::vector<unsigned> m_quantities;
   unsigned m_nonZeroFlops{};
   unsigned m_hardwareFlops{};
