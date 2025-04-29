@@ -142,16 +142,60 @@ void Time::computeAder(double timeStepWidth,
   d_converToKrnl.execute();
 
   // Step 1.2: Compute rhs of damage evolution
-  // alignas(PagesizeStack) real fNodalData[tensor::FNodal::size()] = {0};
-  real* exxNodal = ( solNData + 0*seissol::init::Q::size() );
-  // real* eyyNodal = (solNData + 1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  // real* ezzNodal = (solNData + 2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  // real* exyNodal = (solNData + 3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  // real* eyzNodal = (solNData + 4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  // real* ezxNodal = (solNData + 5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  // real* alphaNodal = (solNData + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  // real* breakNodal = (solNData + 10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  alignas(PagesizeStack) real fNodalData[tensor::FNodal::size()] = {0};
+  real* exxNodal = ( solNData + 0*tensor::Q::Shape[0] );
+  real* eyyNodal = (solNData + 1*tensor::Q::Shape[0]);
+  real* ezzNodal = (solNData + 2*tensor::Q::Shape[0]);
+  real* exyNodal = (solNData + 3*tensor::Q::Shape[0]);
+  real* eyzNodal = (solNData + 4*tensor::Q::Shape[0]);
+  real* ezxNodal = (solNData + 5*tensor::Q::Shape[0]);
+  real* alphaNodal = (solNData + 9*tensor::Q::Shape[0]);
+  // real* breakNodal = (solNData + 10*tensor::Q::Shape[0]);
 
+  real alpha_ave = 0.0;
+  // real break_ave = 0.0;
+  real w_ave = 1.0/tensor::Q::Shape[0];
+  for (unsigned int q = 0; q<tensor::Q::Shape[0]; ++q){
+    // break_ave += breakNodal[q] * w_ave;
+    alpha_ave += alphaNodal[q] * w_ave;
+  }
+
+  real const damage_para1 = data.material().local.Cd; // 1.2e-4*2;
+  real const damage_para2 = data.material().local.gammaR;
+
+  for (unsigned int q = 0; q<tensor::Q::Shape[0]; ++q){
+    real EspI = (exxNodal[q]+data.material().local.epsInit_xx) + 
+      (eyyNodal[q]+data.material().local.epsInit_yy) + (ezzNodal[q]+data.material().local.epsInit_zz);
+    real EspII = 
+      (exxNodal[q]+data.material().local.epsInit_xx)*(exxNodal[q]+data.material().local.epsInit_xx)
+    + (eyyNodal[q]+data.material().local.epsInit_yy)*(eyyNodal[q]+data.material().local.epsInit_yy)
+    + (ezzNodal[q]+data.material().local.epsInit_zz)*(ezzNodal[q]+data.material().local.epsInit_zz)
+    + 2*(exyNodal[q]+data.material().local.epsInit_xy)*(exyNodal[q]+data.material().local.epsInit_xy)
+    + 2*(eyzNodal[q]+data.material().local.epsInit_yz)*(eyzNodal[q]+data.material().local.epsInit_yz)
+    + 2*(ezxNodal[q]+data.material().local.epsInit_xz)*(ezxNodal[q]+data.material().local.epsInit_xz);
+
+    real W_energy = 0.0*0.5*data.material().local.lambdaE*EspI*EspI
+        + data.material().local.muE*EspII;
+
+    if (W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)) > 0) {
+      if (alpha_ave < 0.8){
+        fNodalData[9*tensor::Q::Shape[0] + q] =
+          1.0/(damage_para1*damage_para2)
+                *(W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)));
+      }
+      else{
+        fNodalData[9*tensor::Q::Shape[0] + q] = 0.0;
+      }
+    } else if (alpha_ave > 8e-1) {
+      fNodalData[9*tensor::Q::Shape[0] + q] =
+        1.0/(damage_para1*damage_para2)
+                *(W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)));
+    }
+    else {
+      fNodalData[9*tensor::Q::Shape[0] + q] = 0;
+    }
+
+  }
 
 // Step 2: Convert from Modal to Nodal for each temporal quadrature point;
 // Meanwhile, compute the nonlinear nodal Rusanov fluxes 

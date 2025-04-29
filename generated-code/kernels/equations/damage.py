@@ -56,6 +56,8 @@ class DamageADERDG(ADERDGBase):
         ## Kernel 1
         generator.add('damageConvertToNodal', self.QNodal['kp'] <= self.db.v[self.t('kl')] * self.Q['lp'] )
         ## Kernel 2
+        generator.add('damageAssignFToDQ', self.dQModal['kp'] <= self.db.vInv[self.t('kl')] * self.FNodal['lp'])
+        ## Kernel 3
         powers = [Scalar(f"nlPower({i})") for i in range(self.order)]
         for target in targets:
             name_prefix = generate_kernel_name_prefix(target)
