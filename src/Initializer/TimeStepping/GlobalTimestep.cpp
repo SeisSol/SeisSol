@@ -14,6 +14,7 @@
 #include <array>
 #include <cmath>
 #include <mpi.h>
+#include <utils/logger.h>
 #include <vector>
 
 #include "Equations/Datastructures.h"
@@ -70,6 +71,13 @@ GlobalTimestep
   for (unsigned cell = 0; cell < cellToVertex.size; ++cell) {
     const double pWaveVel = materials[cell].getMaxWaveSpeed();
     const std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
+    std::array<double, 12> data{};
+    for (int i = 0; i < 4; ++i) {
+      data[i*3 + 0] = vertices[i](0);
+      data[i*3 + 1] = vertices[i](1);
+      data[i*3 + 2] = vertices[i](2);
+    }
+    logWarning() << cell << pWaveVel << data;
     timestep.cellTimeStepWidths[cell] =
         computeCellTimestep(vertices,
                             pWaveVel,
@@ -77,6 +85,7 @@ GlobalTimestep
                             seissolParams.timeStepping.maxTimestepWidth,
                             seissolParams);
   }
+  logWarning() << timestep.cellTimeStepWidths;
 
   const auto minmaxCellPosition =
       std::minmax_element(timestep.cellTimeStepWidths.begin(), timestep.cellTimeStepWidths.end());
