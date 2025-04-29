@@ -131,6 +131,8 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
   m_details = collectGlobalTimeStepDetails();
   m_cellCosts = computeCostsPerTimestep();
 
+  logWarning() << m_details.cellTimeStepWidths;
+
   auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
   auto maxClusterIdToEnforce = ltsParameters.getMaxNumberOfClusters() - 1;
 
@@ -195,6 +197,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
   // calling virtual functions
   setVertexWeights();
   setAllowedImbalances();
+  logWarning() << m_clusterIds;
 
   logInfo() << "Computing LTS weights. Done. " << utils::nospace << '(' << finalNumberOfReductions
             << " reductions.)";
