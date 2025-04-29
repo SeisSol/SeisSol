@@ -423,6 +423,8 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& iTi
   // store mesh structure and the number of time clusters
   m_meshStructure = iMeshStructure;
 
+  m_ltsTree.setName("cluster");
+
   // Setup tree variables
   m_lts.addTo(m_ltsTree, usePlasticity);
   seissolInstance.postProcessor().allocateMemory(&m_ltsTree);
@@ -445,6 +447,7 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& iTi
   /// Dynamic rupture trees
   for (int i = 0; i < seissol::multisim::NumSimulations ; i++) {
     m_dynRupTree[i] = new LTSTree();
+    m_dynRupTree[i]->setName("dr");
     m_dynRup[i]->addTo(*m_dynRupTree[i]);
     m_dynRupTree[i]->setNumberOfTimeClusters(iTimeStepping.numberOfGlobalClusters);
     m_dynRupTree[i]->fixate();
@@ -472,6 +475,7 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& iTi
 void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
   seissol::initializer::LayerMask ghostMask(Ghost);
 
+  m_boundaryTree.setName("boundary");
   // Boundary face tree
   m_boundary.addTo(m_boundaryTree);
   m_boundaryTree.setNumberOfTimeClusters(m_ltsTree.numChildren());
