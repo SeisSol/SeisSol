@@ -8,7 +8,7 @@
 #include "InitIO.h"
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
-#include "IO/Instance/Mesh/VtkHdf.h"
+#include "IO/Instance/Geometry/Geometry.h"
 #include "IO/Writer/Writer.h"
 #include "Init.h"
 #include "Numerical/Transformation.h"
@@ -152,7 +152,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     io::writer::ScheduledWriter schedWriter;
     schedWriter.name = "wavefield";
     schedWriter.interval = seissolParams.output.waveFieldParameters.interval;
-    auto writer = io::instance::mesh::VtkHdfWriter("wavefield", celllist.size(), 3, order);
+    auto writer = io::instance::geometry::GeometryWriter("wavefield", celllist.size(), 3, order);
 
     writer.addPointProjector([=](double* target, std::size_t index) {
       const auto& element = meshReader.getElements()[cellIndices[index]];
@@ -184,7 +184,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     for (std::size_t quantity = 0; quantity < seissol::model::MaterialT::Quantities.size();
          ++quantity) {
       if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
-        writer.addPointData<real>(
+        writer.addGeometryOutput<real>(
             seissol::model::MaterialT::Quantities[quantity],
             {},
             [=](real* target, std::size_t index) {
@@ -203,7 +203,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       for (std::size_t quantity = 0; quantity < seissol::model::PlasticityData::Quantities.size();
            ++quantity) {
         if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
-          writer.addPointData<real>(
+          writer.addGeometryOutput<real>(
               seissol::model::PlasticityData::Quantities[quantity],
               {},
               [=](real* target, std::size_t index) {
@@ -234,7 +234,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.meshId);
     auto* surfaceMeshSides =
         freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.side);
-    auto writer = io::instance::mesh::VtkHdfWriter(
+    auto writer = io::instance::geometry::GeometryWriter(
         "free-surface", freeSurfaceIntegrator.surfaceLtsTree.getNumberOfCells(), 2, order);
     writer.addPointProjector([=](double* target, std::size_t index) {
       auto meshId = surfaceMeshIds[index];
@@ -268,22 +268,24 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     });
     std::vector<std::string> quantityLabels = {"v1", "v2", "v3", "u1", "u2", "u3"};
     for (std::size_t quantity = 0; quantity < FREESURFACE_NUMBER_OF_COMPONENTS; ++quantity) {
-      writer.addPointData<real>(quantityLabels[quantity], {}, [=](real* target, std::size_t index) {
-        auto meshId = surfaceMeshIds[index];
-        auto side = surfaceMeshSides[index];
-        const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, meshId);
-        const auto* dofsSingleQuantity =
-            dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
-        kernel::projectBasisToVtkFaceFromVolume vtkproj;
-        vtkproj.qb = dofsSingleQuantity;
-        vtkproj.xf(order) = target;
-        vtkproj.collvf(ConvergenceOrder, order, side) =
-            init::collvf::Values[ConvergenceOrder + (ConvergenceOrder + 1) * (order + 9 * side)];
-        vtkproj.execute(order, side);
-      });
+      writer.addGeometryOutput<real>(
+          quantityLabels[quantity], {}, [=](real* target, std::size_t index) {
+            auto meshId = surfaceMeshIds[index];
+            auto side = surfaceMeshSides[index];
+            const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, meshId);
+            const auto* dofsSingleQuantity =
+                dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
+            kernel::projectBasisToVtkFaceFromVolume vtkproj;
+            vtkproj.qb = dofsSingleQuantity;
+            vtkproj.xf(order) = target;
+            vtkproj.collvf(ConvergenceOrder, order, side) =
+                init::collvf::Values[ConvergenceOrder +
+                                     (ConvergenceOrder + 1) * (order + 9 * side)];
+            vtkproj.execute(order, side);
+          });
     }
     for (std::size_t quantity = 0; quantity < FREESURFACE_NUMBER_OF_COMPONENTS; ++quantity) {
-      writer.addPointData<real>(
+      writer.addGeometryOutput<real>(
           quantityLabels[quantity + FREESURFACE_NUMBER_OF_COMPONENTS],
           {},
           [=](real* target, std::size_t index) {

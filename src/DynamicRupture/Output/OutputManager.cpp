@@ -14,7 +14,7 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
-#include "IO/Instance/Mesh/VtkHdf.h"
+#include "IO/Instance/Geometry/Geometry.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
@@ -195,7 +195,7 @@ void OutputManager::initElementwiseOutput() {
 
   auto order = seissolParameters.output.elementwiseParameters.vtkorder;
 
-  io::instance::mesh::VtkHdfWriter writer(
+  io::instance::geometry::GeometryWriter writer(
       "fault-elementwise", receiverPoints.size() / seissol::init::vtk2d::Shape[order][1], 2, order);
 
   writer.addPointProjector([=](double* target, std::size_t index) {
@@ -211,7 +211,7 @@ void OutputManager::initElementwiseOutput() {
     if (var.isActive) {
       for (int d = 0; d < var.dim(); ++d) {
         auto* data = var.data[d];
-        writer.addPointData<real>(
+        writer.addGeometryOutput<real>(
             VariableLabels[i][d], std::vector<std::size_t>(), [=](real* target, std::size_t index) {
               std::memcpy(target,
                           data + seissol::init::vtk2d::Shape[order][1] * index,
