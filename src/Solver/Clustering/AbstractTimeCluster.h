@@ -109,6 +109,8 @@ class AbstractTimeCluster {
 
   void setTime(double time);
 
+  virtual void finishPhase();
+
   long getTimeStepRate();
 
   std::string identifier() const { return description() + "-" + std::to_string(ct.timeStepRate); }

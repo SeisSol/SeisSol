@@ -308,6 +308,8 @@ bool AbstractTimeCluster::isDefaultPhase() {
   return phaseSteps > 0 && (lastStepSize.has_value() && lastStepSize.value() == ct.maxTimeStepSize);
 }
 
+void AbstractTimeCluster::finishPhase() {}
+
 CellCluster::CellCluster(double maxTimeStepSize,
                          long timeStepRate,
                          Executor executor,

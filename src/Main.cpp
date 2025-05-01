@@ -65,7 +65,6 @@ int main(int argc, char* argv[]) {
 #endif // USE_MPI
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->initialize();
-  device.api->allocateStackMem();
 #endif // ACL_DEVICE
 
   utils::Env env("SEISSOL_");

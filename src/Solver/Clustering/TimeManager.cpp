@@ -303,6 +303,9 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   device.api->syncDevice();
   device.api->popLastProfilingMark();
 #endif
+  for (auto& cluster : clusters) {
+    cluster->finishPhase();
+  }
 
   seissol::MPI::barrier(seissol::MPI::mpi.comm());
 }

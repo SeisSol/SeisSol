@@ -24,7 +24,7 @@ class HostEvent {
   public:
   HostEvent() : managed(true), value(nullptr) {
     value = reinterpret_cast<uint32_t*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
-        sizeof(uint32_t), device::Destination::CurrentDevice));
+        sizeof(uint32_t), false, device::Destination::CurrentDevice));
 #pragma omp atomic write
     *value = 0;
   }

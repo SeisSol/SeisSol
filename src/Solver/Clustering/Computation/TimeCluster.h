@@ -118,6 +118,8 @@ class TimeCluster : public CellCluster {
   //! Tv parameter for plasticity
   double tv;
 
+  seissol::memory::MemkindArray<unsigned> yieldCells;
+
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics;
   ActorStateStatistics* actorStateStatistics;
@@ -190,9 +192,6 @@ class TimeCluster : public CellCluster {
   void computeNeighborIntegrationFlops();
 
   void computeFlops();
-
-  //! Update relax time for plasticity
-  double getRelaxTime() { return (tv > 0.0) ? 1.0 - exp(-timeStepSize() / tv) : 1.0; }
 
   //! time of the next receiver output
   double receiverTime;
@@ -270,6 +269,8 @@ class TimeCluster : public CellCluster {
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 
   std::string description() const override { return "interior-cell"; }
+
+  void finishPhase() override;
 };
 
 } // namespace solver::clustering::computation

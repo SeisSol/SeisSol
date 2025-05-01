@@ -29,6 +29,9 @@ using EventT = void*;
 using EventT = std::vector<std::shared_ptr<host::Task>>;
 #endif
 
+template <typename T>
+class StreamMemoryHandle;
+
 class StreamRuntime {
   private:
   std::shared_ptr<seissol::parallel::host::CpuExecutor> cpu;
@@ -181,6 +184,21 @@ class StreamRuntime {
 
   void waitEvent(void* eventPtr) { device().api->syncStreamWithEvent(stream(), eventPtr); }
 
+  template <typename T>
+  T* allocMemory(std::size_t count) {
+    return reinterpret_cast<T*>(device().api->allocMemAsync(count * sizeof(T), streamPtr));
+  }
+
+  template <typename T>
+  void freeMemory(T* ptr) {
+    device().api->freeMemAsync(ptr, streamPtr);
+  }
+
+  template <typename T>
+  StreamMemoryHandle<T> memoryHandle(std::size_t count) {
+    return StreamMemoryHandle<T>(count, *this);
+  }
+
   private:
   bool disposed{};
   double priority;
@@ -198,6 +216,14 @@ class StreamRuntime {
     for (auto& task : waitTasks) {
       task->wait();
     }
+  }
+  template <typename T>
+  T* allocMemory(std::size_t count) {
+    return new T[count];
+  }
+  template <typename T>
+  void freeMemory(T* ptr) {
+    delete[] ptr;
   }
   void dispose() {}
 
@@ -234,6 +260,29 @@ class StreamRuntime {
   private:
   std::vector<std::shared_ptr<host::Task>> waitTasks;
 #endif
+};
+
+template <typename T>
+class StreamMemoryHandle {
+  public:
+  StreamMemoryHandle(std::size_t count, StreamRuntime& runtime)
+      : data(runtime.allocMemory<T>(count)), runtime(runtime) {}
+
+  StreamMemoryHandle(const StreamMemoryHandle&) = delete;
+  auto operator=(const StreamMemoryHandle& stream) = delete;
+
+  StreamMemoryHandle(StreamMemoryHandle&&) = default;
+  auto operator=(StreamMemoryHandle&& stream) -> StreamMemoryHandle& = default;
+
+  T* get() { return data; }
+
+  const T* get() const { return data; }
+
+  ~StreamMemoryHandle() { runtime.freeMemory(data); }
+
+  private:
+  T* data;
+  StreamRuntime& runtime;
 };
 
 } // namespace seissol::parallel::runtime
