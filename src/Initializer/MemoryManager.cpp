@@ -419,6 +419,8 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
 
+  m_ltsTree.setName("cluster");
+
   // Setup tree variables
   m_lts.addTo(m_ltsTree, usePlasticity);
   seissolInstance.postProcessor().allocateMemory(&m_ltsTree);
@@ -437,6 +439,8 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
 
   m_ltsTree.allocateVariables();
   m_ltsTree.touchVariables();
+
+  m_dynRupTree.setName("dr");
 
   /// Dynamic rupture tree
   m_dynRup->addTo(m_dynRupTree);
@@ -462,6 +466,8 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
 
 void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
   seissol::initializer::LayerMask ghostMask(Ghost);
+
+  m_boundaryTree.setName("boundary");
 
   // Boundary face tree
   m_boundary.addTo(m_boundaryTree);
@@ -595,7 +601,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
       for (unsigned face = 0; face < 4; ++face) {
         real *neighborBuffer = faceNeighbors[cell][face];
 
-        // check whether a neighbour element idofs has not been counted twice
+        // check whether a neighbor element idofs has not been counted twice
         if ((registry.find(neighborBuffer) == registry.end())) {
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it

@@ -23,11 +23,9 @@
 #include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 
-#include "Kernels/Local.h"
-#include "Kernels/Neighbor.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
-#include "Kernels/Time.h"
+#include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Monitoring/ActorStateStatistics.h"
@@ -75,6 +73,7 @@ class TimeCluster : public CellCluster {
   /*
    * integrators
    */
+  kernels::Spacetime spacetimeKernel;
   //! time kernel
   kernels::Time timeKernel;
 

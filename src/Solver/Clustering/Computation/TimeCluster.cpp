@@ -16,7 +16,7 @@
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
-#include <Kernels/GravitationalFreeSurfaceBC.h>
+#include <Kernels/LinearCK/GravitationalFreeSurfaceBC.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Plasticity.h>
 #include <Kernels/PointSourceCluster.h>
@@ -94,6 +94,7 @@ TimeCluster::TimeCluster(unsigned int clusterId,
   // set timings to zero
   receiverTime = 0;
 
+  spacetimeKernel.setGlobalData(globalData);
   timeKernel.setGlobalData(globalData);
   localKernel.setGlobalData(globalData);
   localKernel.setInitConds(&seissolInstance.getMemoryManager().getInitialConditions());
@@ -192,7 +193,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
         buffersProvided &&
         ((data.cellInformation().ltsSetup >> 10) % 2 == 0 || resetBuffers); // they should be reset
 
-    real* bufferPointer;
+    real* bufferPointer = nullptr;
     if (resetMyBuffers) {
       // assert presence of the buffer
       assert(buffers[cell] != nullptr);
@@ -203,7 +204,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
       bufferPointer = integrationBuffer;
     }
 
-    timeKernel.computeAder(timeStepSize(), data, tmp, bufferPointer, derivatives[cell], true);
+    spacetimeKernel.computeAder(timeStepSize(), data, tmp, bufferPointer, derivatives[cell], true);
 
     // Compute local integrals (including some boundary conditions)
     CellBoundaryMapping(*boundaryMapping)[4] = layer->var(lts->boundaryMapping);
@@ -268,7 +269,7 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
   streamRuntime.runGraph(
       computeGraphKey, *layer, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-        timeKernel.computeBatchedAder(
+        spacetimeKernel.computeBatchedAder(
             timeStepWidth, tmp, dataTable, materialTable, true, streamRuntime);
 
         localKernel.computeBatchedIntegral(
@@ -394,7 +395,7 @@ void TimeCluster::computeLocalIntegrationFlops() {
   auto* cellInformation = layer->var(lts->cellInformation);
   for (unsigned cell = 0; cell < layer->getNumberOfCells(); ++cell) {
     unsigned cellNonZero, cellHardware;
-    timeKernel.flopsAder(cellNonZero, cellHardware);
+    spacetimeKernel.flopsAder(cellNonZero, cellHardware);
     flopsNonZero += cellNonZero;
     flopsHardware += cellHardware;
     localKernel.flopsIntegral(cellInformation[cell].faceTypes, cellNonZero, cellHardware);
