@@ -133,13 +133,11 @@ class StreamRuntime {
   template <typename F>
   void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle, F&& handler) {
     if (!computeGraphHandle.isInitialized()) {
-      device().api->streamBeginCapture(allStreams);
+      computeGraphHandle = device().api->streamBeginCapture(allStreams);
 
       std::invoke(std::forward<F>(handler), *this);
 
-      device().api->streamEndCapture();
-
-      computeGraphHandle = device().api->getLastGraphHandle();
+      device().api->streamEndCapture(computeGraphHandle);
     }
 
     if (computeGraphHandle.isInitialized()) {
