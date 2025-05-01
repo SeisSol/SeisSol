@@ -12,7 +12,7 @@
 #include "memory"
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/Communication/CCLNeighborCluster.h>
-#include <Solver/Clustering/Communication/DirectMPINeighborCluster.h>
+#include <Solver/Clustering/Communication/DirectMPINeighborClusterGPU.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 
 namespace seissol::solver::clustering::communication {

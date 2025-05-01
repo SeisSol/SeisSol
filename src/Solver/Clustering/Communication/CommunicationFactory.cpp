@@ -8,11 +8,10 @@
 #include "CommunicationFactory.h"
 
 #include "Parallel/MPI.h"
-#include "memory"
 #include <Parallel/Host/CpuExecutor.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/Communication/CCLNeighborCluster.h>
-#include <Solver/Clustering/Communication/DirectMPINeighborCluster.h>
+#include <Solver/Clustering/Communication/DirectMPINeighborClusterGPU.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 #include <memory>
 
@@ -54,7 +53,7 @@ std::shared_ptr<SendNeighborCluster> CommunicationClusterFactory::getSend(
 #endif
 #endif // ACL_DEVICE
   case CommunicationMode::DirectMPI: {
-    return std::make_shared<DirectMPISendNeighborCluster>(remoteClusters, cpuExecutor, priority);
+    return std::make_shared<DirectMPISendNeighborClusterGPU>(remoteClusters, cpuExecutor, priority);
   }
   default: {
     return nullptr;
@@ -81,7 +80,7 @@ std::shared_ptr<RecvNeighborCluster> CommunicationClusterFactory::getRecv(
 #endif
 #endif // ACL_DEVICE
   case CommunicationMode::DirectMPI: {
-    return std::make_shared<DirectMPIRecvNeighborCluster>(remoteClusters, cpuExecutor, priority);
+    return std::make_shared<DirectMPIRecvNeighborClusterGPU>(remoteClusters, cpuExecutor, priority);
   }
   default: {
     return nullptr;
@@ -107,7 +106,7 @@ std::vector<std::shared_ptr<SendNeighborCluster>> CommunicationClusterFactory::g
     double priority) {
   std::vector<std::shared_ptr<SendNeighborCluster>> clusters;
   clusters.reserve(comm.copy.size());
-  for (std::size_t i = 0; i < comm.ghost.size(); ++i) {
+  for (std::size_t i = 0; i < comm.copy.size(); ++i) {
     clusters.emplace_back(getSend(i, comm.copy.at(i), cpuExecutor, priority));
   }
   return clusters;
