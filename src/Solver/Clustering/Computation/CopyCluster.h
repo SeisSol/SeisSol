@@ -77,6 +77,11 @@ class CopyCluster : public TimeCluster {
     }
   }
 
+  void finalize() override {
+    TimeCluster::finalize();
+    neighbor->dispose();
+  }
+
   std::string description() const override { return "copy-cell"; }
 
   private:

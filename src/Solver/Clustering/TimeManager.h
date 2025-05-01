@@ -138,6 +138,10 @@ class TimeManager {
   void freeDynamicResources();
 
   void synchronizeTo(seissol::initializer::AllocationPlace place);
+
+
+  void pollCommunicationTask();
+  void pollClusterTask(AbstractTimeCluster* cluster);
 };
 
 } // namespace seissol::solver::clustering

@@ -51,6 +51,13 @@ class NeighborCluster {
   void stopTo(parallel::runtime::StreamRuntime& runtime);
   bool checkDone();
 
+  virtual void dispose() {
+    myRuntime.dispose();
+  }
+
+  // virtual bool startSync() = 0;
+  // virtual bool stopSync() = 0;
+
   private:
   parallel::runtime::StreamRuntime myRuntime;
 };

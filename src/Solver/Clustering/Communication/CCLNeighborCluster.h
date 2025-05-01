@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_SOLVER_CLUSTERING_COMMUNICATION_CCLNEIGHBORCLUSTER_H_
 
 #include "NeighborCluster.h"
+#include <DataTypes.h>
 #include <Parallel/Runtime/Stream.h>
 #include <atomic>
 #include <mpi.h>
@@ -32,6 +33,7 @@ class CCLSendNeighborCluster : public SendNeighborCluster {
   std::vector<RemoteCluster> remote;
   std::vector<void*> memoryHandles;
   void* comm;
+  device::DeviceGraphHandle handle;
 };
 
 class CCLRecvNeighborCluster : public RecvNeighborCluster {
@@ -50,6 +52,7 @@ class CCLRecvNeighborCluster : public RecvNeighborCluster {
   std::vector<RemoteCluster> remote;
   std::vector<void*> memoryHandles;
   void* comm;
+  device::DeviceGraphHandle handle;
 };
 
 } // namespace seissol::solver::clustering::communication

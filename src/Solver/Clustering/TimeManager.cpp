@@ -270,7 +270,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
 
-  const auto epochExecute = [&]() {
+  /*const auto epochExecute = [&]() {
     // Move all clusters from RestartAfterSync to Corrected
     // Does not involve any computations
     for (auto& cluster : clusters) {
@@ -297,7 +297,61 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     }
   };
 
-  cpuExecutor->start([&](const auto&) { epochExecute(); }, &seissolInstance.getPinning());
+  cpuExecutor->start([&](const auto&) { epochExecute(); }, &seissolInstance.getPinning());*/
+/*
+#pragma omp parallel
+  {
+#ifdef ACL_DEVICE
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+    device.api->setDevice(0);
+#endif // ACL_DEVICE
+#pragma omp single
+    {
+      // Move all clusters from RestartAfterSync to Corrected
+      // Does not involve any computations
+      for (auto& cluster : clusters) {
+        cluster->act();
+      }
+
+      pollCommunicationTask();
+      for (const auto& cluster : clusters) {
+        #pragma omp task
+        pollClusterTask(cluster.get());
+      }
+    }
+  }
+    */
+  
+  for (auto& cluster : clusters) {
+    cluster->act();
+  }
+
+#pragma omp parallel
+  {
+#ifdef ACL_DEVICE
+    device::DeviceInstance& device = device::DeviceInstance::getInstance();
+    device.api->setDevice(0);
+#endif // ACL_DEVICE
+    while (true) {
+      #pragma omp single nowait
+      communicationManager->progression();
+
+      #pragma omp for nowait schedule(static)
+      for (size_t i = 0; i < clusters.size(); ++i) {
+        if (!clusters[i]->synchronized()) {
+          clusters[i]->act();
+        }
+      }
+      #pragma omp barrier
+
+      bool finished =
+          std::all_of(clusters.begin(), clusters.end(), [](auto& c) { return c->synchronized(); });
+      finished &= communicationManager->checkIfFinished();
+      if (finished) {
+        break;
+      }
+    }
+  }
 
 #ifdef ACL_DEVICE
   device.api->syncDevice();
@@ -308,6 +362,21 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   }
 
   seissol::MPI::barrier(seissol::MPI::mpi.comm());
+}
+
+void TimeManager::pollCommunicationTask() {
+  if (!communicationManager->checkIfFinished()) {
+    communicationManager->progression();
+    #pragma omp task priority(3)
+    pollCommunicationTask();
+  }
+}
+void TimeManager::pollClusterTask(AbstractTimeCluster* cluster) {
+  if (!cluster->synchronized()) {
+    cluster->act();
+    #pragma omp task
+    pollClusterTask(cluster);
+  }
 }
 
 void TimeManager::printComputationTime(const std::string& outputPrefix,

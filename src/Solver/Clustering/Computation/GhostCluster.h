@@ -40,8 +40,15 @@ class GhostCluster : public AbstractTimeCluster {
   void start() override {}
 
   void runCompute(ComputeStep step) override {
-    neighbor->startFrom(streamRuntime);
-    neighbor->stopTo(streamRuntime);
+    if (step == ComputeStep::Predict) {
+      neighbor->startFrom(streamRuntime);
+      neighbor->stopTo(streamRuntime);
+    }
+  }
+
+  void finalize() override {
+    AbstractTimeCluster::finalize();
+    neighbor->dispose();
   }
 
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override {

@@ -243,7 +243,8 @@ void AbstractTimeCluster::reset() {
   assert(state.type == StateType::Synchronized);
 
   // There can be pending messages from before the sync point
-  processMessages();
+  while (processMessages()) {
+  }
   for (auto& neighbor : neighbors) {
     assert(!neighbor.inbox->hasMessages());
   }

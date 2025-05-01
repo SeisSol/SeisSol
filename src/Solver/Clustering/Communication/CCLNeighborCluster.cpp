@@ -20,15 +20,13 @@ using StreamT = hipStream_t;
 #include <device.h>
 
 namespace {
-template<typename T>
+template <typename T>
 constexpr ncclDataType_t cclDatatype() {
   if constexpr (std::is_same_v<T, float>) {
     return ncclDataType_t::ncclFloat32;
-  }
-  else if constexpr (std::is_same_v<T, double>) {
+  } else if constexpr (std::is_same_v<T, double>) {
     return ncclDataType_t::ncclFloat64;
-  }
-  else {
+  } else {
     static_assert(sizeof(T) == 0, "CCL datatype not covered.");
     return ncclDataType_t::ncclChar;
   }
@@ -47,17 +45,19 @@ bool CCLSendNeighborCluster::poll() { return true; }
 void CCLSendNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
   if (remote.size() > 0) {
 #ifdef USE_CCL
-    ncclGroupStart();
-    for (std::size_t i = 0; i < remote.size(); ++i) {
-      const auto& cluster = remote.at(i);
-      ncclSend(cluster.data,
-               cluster.size,
-               cclDatatype<real>(), // TODO(David): use cluster.datatype here instead
-               cluster.rank,
-               static_cast<ncclComm_t>(comm),
-               static_cast<StreamT>(runtime.stream()));
-    }
-    ncclGroupEnd();
+    runtime.runGraphGeneric(handle, [&](parallel::runtime::StreamRuntime& runtime) {
+      ncclGroupStart();
+      for (std::size_t i = 0; i < remote.size(); ++i) {
+        const auto& cluster = remote.at(i);
+        ncclSend(cluster.data,
+                cluster.size,
+                cclDatatype<real>(), // TODO(David): use cluster.datatype here instead
+                cluster.rank,
+                static_cast<ncclComm_t>(comm),
+                static_cast<StreamT>(runtime.stream()));
+      }
+      ncclGroupEnd();
+    });
 #endif
   }
 }
@@ -92,17 +92,19 @@ bool CCLRecvNeighborCluster::poll() { return true; }
 void CCLRecvNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
   if (remote.size() > 0) {
 #ifdef USE_CCL
-    ncclGroupStart();
-    for (std::size_t i = 0; i < remote.size(); ++i) {
-      const auto& cluster = remote.at(i);
-      ncclRecv(cluster.data,
-               cluster.size,
-               cclDatatype<real>(), // TODO(David): use cluster.datatype here instead
-               cluster.rank,
-               static_cast<ncclComm_t>(comm),
-               static_cast<StreamT>(runtime.stream()));
-    }
-    ncclGroupEnd();
+    runtime.runGraphGeneric(handle, [&](parallel::runtime::StreamRuntime& runtime) {
+      ncclGroupStart();
+      for (std::size_t i = 0; i < remote.size(); ++i) {
+        const auto& cluster = remote.at(i);
+        ncclRecv(cluster.data,
+                cluster.size,
+                cclDatatype<real>(), // TODO(David): use cluster.datatype here instead
+                cluster.rank,
+                static_cast<ncclComm_t>(comm),
+                static_cast<StreamT>(runtime.stream()));
+      }
+      ncclGroupEnd();
+    });
 #endif
   }
 }
