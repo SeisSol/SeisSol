@@ -34,7 +34,7 @@ std::vector<void*> createComms(std::size_t count) {
       cclIds.data(), sizeof(ncclUniqueId) * cclIds.size(), MPI_BYTE, 0, seissol::MPI::mpi.comm());
   MPI_Barrier(seissol::MPI::mpi.comm());
   for (std::size_t i = 0; i < count; ++i) {
-    ncclComm_t preComm;
+    ncclComm_t preComm = NCCL_COMM_NULL;
     ncclCommInitRank(&preComm, seissol::MPI::mpi.size(), cclIds[i], seissol::MPI::mpi.rank());
     comms[i] = static_cast<void*>(preComm);
   }

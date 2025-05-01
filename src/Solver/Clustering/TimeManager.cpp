@@ -73,7 +73,7 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
   auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
 
   communication::CommunicationClusterFactory communicationFactory(
-      communication::CommunicationMode::DirectMPI, layout.globalClusterCount);
+      communication::CommunicationMode::DirectCCL, layout.globalClusterCount);
   communicationFactory.prepare();
 
   const auto sendClusters = communicationFactory.getAllSends(halo, cpuExecutor, PriorityHighest);
@@ -264,7 +264,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   communicationManager->reset();
 
-  seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
+  seissol::MPI::barrier(seissol::MPI::mpi.comm());
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
@@ -283,12 +283,10 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
       communicationManager->progression();
 
       // Update all high priority clusters
-      for (int i = 0; i < 5; ++i) {
-        std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
-          communicationManager->progression();
-          cluster->act();
-        });
-      }
+      std::for_each(highPrioClusters.begin(), highPrioClusters.end(), [&](auto& cluster) {
+        communicationManager->progression();
+        cluster->act();
+      });
       std::for_each(lowPrioClusters.begin(), lowPrioClusters.end(), [&](auto& cluster) {
         communicationManager->progression();
         cluster->act();
@@ -306,7 +304,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   device.api->popLastProfilingMark();
 #endif
 
-  seissol::MPI::mpi.barrier(seissol::MPI::mpi.comm());
+  seissol::MPI::barrier(seissol::MPI::mpi.comm());
 }
 
 void TimeManager::printComputationTime(const std::string& outputPrefix,

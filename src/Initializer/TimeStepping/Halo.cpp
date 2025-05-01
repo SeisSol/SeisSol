@@ -29,7 +29,7 @@ void haloCommunication(const HaloStructure& comm,
     auto* data = reinterpret_cast<char*>(layer.varUntyped(varIndex));
     if (layer.getLayerType() == Ghost) {
       for (const auto& remote : comm.ghost.at(cluster)) {
-        MPI_Request request;
+        MPI_Request request = MPI_REQUEST_NULL;
         MPI_Irecv(data,
                   remote.count,
                   datatype,
@@ -42,7 +42,7 @@ void haloCommunication(const HaloStructure& comm,
       }
     } else if (layer.getLayerType() == Copy) {
       for (const auto& remote : comm.copy.at(cluster)) {
-        MPI_Request request;
+        MPI_Request request = MPI_REQUEST_NULL;
         MPI_Isend(data,
                   remote.count,
                   datatype,

@@ -19,11 +19,21 @@ using StreamT = hipStream_t;
 #endif
 #include <device.h>
 
-#if REAL_SIZE == 8
-constexpr ncclDataType_t CclReal = ncclDataType_t::ncclFloat64;
-#elif REAL_SIZE == 4
-constexpr ncclDataType_t CclReal = ncclDataType_t::ncclFloat32;
-#endif
+namespace {
+template<typename T>
+constexpr ncclDataType_t cclDatatype() {
+  if constexpr (std::is_same_v<T, float>) {
+    return ncclDataType_t::ncclFloat32;
+  }
+  else if constexpr (std::is_same_v<T, double>) {
+    return ncclDataType_t::ncclFloat64;
+  }
+  else {
+    static_assert(sizeof(T) == 0, "CCL datatype not covered.");
+    return ncclDataType_t::ncclChar;
+  }
+}
+} // namespace
 
 #if defined(CCL_NCCL) || (defined(CCL_RCCL) && NCCL_VERSION_CODE >= 22005)
 #define USE_CCL_REGISTER
@@ -42,7 +52,7 @@ void CCLSendNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
       const auto& cluster = remote.at(i);
       ncclSend(cluster.data,
                cluster.size,
-               CclReal, // TODO(David): use cluster.datatype here instead
+               cclDatatype<real>(), // TODO(David): use cluster.datatype here instead
                cluster.rank,
                static_cast<ncclComm_t>(comm),
                static_cast<StreamT>(runtime.stream()));
@@ -87,7 +97,7 @@ void CCLRecvNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
       const auto& cluster = remote.at(i);
       ncclRecv(cluster.data,
                cluster.size,
-               CclReal, // TODO(David): use cluster.datatype here instead
+               cclDatatype<real>(), // TODO(David): use cluster.datatype here instead
                cluster.rank,
                static_cast<ncclComm_t>(comm),
                static_cast<StreamT>(runtime.stream()));

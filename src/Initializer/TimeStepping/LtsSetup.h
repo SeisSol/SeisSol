@@ -21,7 +21,7 @@ public:
         return set(face, buffers);
     }
 
-    auto neighborHasBuffers(int face) const -> bool {
+    [[nodiscard]] auto neighborHasBuffers(int face) const -> bool {
         return test(face);
     }
 
@@ -29,7 +29,7 @@ public:
         return set(face + 4, gts);
     }
 
-    auto neighborGTS(int face) const -> bool {
+    [[nodiscard]] auto neighborGTS(int face) const -> bool {
         return test(face + 4);
     }
 
@@ -37,7 +37,7 @@ public:
         return set(8, val);
     }
 
-    auto hasBuffers() const -> bool {
+    [[nodiscard]] auto hasBuffers() const -> bool {
         return test(8);
     }
 
@@ -45,7 +45,7 @@ public:
         return set(9, val);
     }
 
-    auto hasDerivatives() const -> bool {
+    [[nodiscard]] auto hasDerivatives() const -> bool {
         return test(9);
     }
 
@@ -53,11 +53,11 @@ public:
         return set(10, val);
     }
 
-    auto cacheBuffers() const -> bool {
+    [[nodiscard]] auto cacheBuffers() const -> bool {
         return test(10);
     }
 
-    auto test(int index) const -> bool {
+    [[nodiscard]] auto test(int index) const -> bool {
         return (data & (1 << index)) != 0;
     }
 
@@ -71,7 +71,7 @@ public:
         return *this;
     }
 
-    auto unwrap() const -> uint16_t {
+    [[nodiscard]] auto unwrap() const -> uint16_t {
         return data;
     }
 private:
