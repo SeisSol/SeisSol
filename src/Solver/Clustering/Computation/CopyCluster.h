@@ -69,6 +69,14 @@ class CopyCluster : public TimeCluster {
     }
   }
 
+  bool pollCompute(ComputeStep step) override {
+    // we'll be less fancy here and demand that the data is sent right at the same place
+    if (neighbor->blocking() && step == ComputeStep::Predict) {
+      return neighbor->poll();
+    }
+    return true;
+  }
+
   void reset() override {
     TimeCluster::reset();
     if (dataSent) {

@@ -11,7 +11,7 @@
 #include <Parallel/Host/CpuExecutor.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/Communication/CCLNeighborCluster.h>
-#include <Solver/Clustering/Communication/DirectMPINeighborClusterGPU.h>
+#include <Solver/Clustering/Communication/DirectMPINeighborClusterBlocking.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 #include <memory>
 
@@ -53,7 +53,7 @@ std::shared_ptr<SendNeighborCluster> CommunicationClusterFactory::getSend(
 #endif
 #endif // ACL_DEVICE
   case CommunicationMode::DirectMPI: {
-    return std::make_shared<DirectMPISendNeighborClusterGPU>(remoteClusters, cpuExecutor, priority);
+    return std::make_shared<DirectMPISendNeighborClusterBlocking>(remoteClusters, cpuExecutor, priority);
   }
   default: {
     return nullptr;
@@ -80,7 +80,7 @@ std::shared_ptr<RecvNeighborCluster> CommunicationClusterFactory::getRecv(
 #endif
 #endif // ACL_DEVICE
   case CommunicationMode::DirectMPI: {
-    return std::make_shared<DirectMPIRecvNeighborClusterGPU>(remoteClusters, cpuExecutor, priority);
+    return std::make_shared<DirectMPIRecvNeighborClusterBlocking>(remoteClusters, cpuExecutor, priority);
   }
   default: {
     return nullptr;

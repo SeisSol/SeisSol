@@ -5,9 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#if 0
-#ifndef SEISSOL_SRC_SOLVER_CLUSTERING_COMMUNICATION_DIRECTMPINEIGHBORCLUSTER_H_
-#define SEISSOL_SRC_SOLVER_CLUSTERING_COMMUNICATION_DIRECTMPINEIGHBORCLUSTER_H_
+#ifndef SEISSOL_SRC_SOLVER_CLUSTERING_COMMUNICATION_DIRECTMPINEIGHBORCLUSTERBLOCKING_H_
+#define SEISSOL_SRC_SOLVER_CLUSTERING_COMMUNICATION_DIRECTMPINEIGHBORCLUSTERBLOCKING_H_
 
 #include "NeighborCluster.h"
 #include <Parallel/Host/CpuExecutor.h>
@@ -17,40 +16,47 @@
 
 namespace seissol::solver::clustering::communication {
 
-class DirectMPISendNeighborCluster : public SendNeighborCluster {
+class DirectMPINeighborClusterBlocking {
   public:
-  bool poll() override;
-  void start(parallel::runtime::StreamRuntime& runtime) override;
-  void stop(parallel::runtime::StreamRuntime& runtime) override;
+  bool poll();
+  void start(parallel::runtime::StreamRuntime& runtime);
 
-  DirectMPISendNeighborCluster(const std::vector<RemoteCluster>& remote,
-                               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-                               double priority);
-  ~DirectMPISendNeighborCluster() override;
+  DirectMPINeighborClusterBlocking() = default;
+  ~DirectMPINeighborClusterBlocking();
 
-  private:
+  protected:
+  std::size_t enqueueCounter{0};
+  std::size_t enqueueCounterTrue{0};
+  std::size_t enqueueCounterPoll{0};
+  std::size_t dequeueCounterPoll{0};
   std::vector<MPI_Request> requests;
-  std::vector<int> status;
   std::mutex requestMutex;
-  std::shared_ptr<parallel::host::SimpleEvent> event;
 };
 
-class DirectMPIRecvNeighborCluster : public RecvNeighborCluster {
+class DirectMPISendNeighborClusterBlocking : public SendNeighborCluster, DirectMPINeighborClusterBlocking {
   public:
+  DirectMPISendNeighborClusterBlocking(const std::vector<RemoteCluster>& remote,
+                               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                               double priority);
+  ~DirectMPISendNeighborClusterBlocking() override = default;
+  bool blocking() override {return true;}
+
   bool poll() override;
   void start(parallel::runtime::StreamRuntime& runtime) override;
   void stop(parallel::runtime::StreamRuntime& runtime) override;
+};
 
-  DirectMPIRecvNeighborCluster(const std::vector<RemoteCluster>& remote,
+class DirectMPIRecvNeighborClusterBlocking : public RecvNeighborCluster, DirectMPINeighborClusterBlocking {
+  public:
+  DirectMPIRecvNeighborClusterBlocking(const std::vector<RemoteCluster>& remote,
                                const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
                                double priority);
-  ~DirectMPIRecvNeighborCluster() override;
+  ~DirectMPIRecvNeighborClusterBlocking() override = default;
+  bool blocking() override {return true;}
 
-  private:
-  std::vector<MPI_Request> requests;
-  std::vector<int> status;
-  std::mutex requestMutex;
-  std::shared_ptr<parallel::host::SimpleEvent> event;
+  bool poll() override;
+  void start(parallel::runtime::StreamRuntime& runtime) override;
+  void stop(parallel::runtime::StreamRuntime& runtime) override;
 };
 
 /*
@@ -82,5 +88,4 @@ private:
 */
 
 } // namespace seissol::solver::clustering::communication
-#endif // SEISSOL_SRC_SOLVER_CLUSTERING_COMMUNICATION_DIRECTMPINEIGHBORCLUSTER_H_
-#endif
+#endif // SEISSOL_SRC_SOLVER_CLUSTERING_COMMUNICATION_DIRECTMPINEIGHBORCLUSTERBLOCKING_H_

@@ -5,8 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#if 0
-#include "DirectMPINeighborCluster.h"
+#include "DirectMPINeighborClusterBlocking.h"
 #include <Memory/MemoryAllocator.h>
 #include <Parallel/Host/CpuExecutor.h>
 #include <Parallel/MPI.h>
@@ -18,46 +17,48 @@
 #include <device.h>
 #endif
 
+#include "utils/logger.h"
+
 namespace seissol::solver::clustering::communication {
 
-bool DirectMPISendNeighborCluster::poll() {
+bool DirectMPINeighborClusterBlocking::poll() {
   if (requests.size() > 0) {
     std::lock_guard guard(requestMutex);
-    int result = 0;
-    MPI_Testall(requests.size(), requests.data(), &result, MPI_STATUSES_IGNORE);
-    const auto done = result != 0;
-    if (done) {
-      event->record();
+    if (enqueueCounterTrue != enqueueCounterPoll) {
+      MPI_Startall(requests.size(), requests.data());
+      ++enqueueCounterPoll;
     }
-    return done;
+    if (enqueueCounterPoll != dequeueCounterPoll) {
+      int result = 0;
+      MPI_Testall(requests.size(), requests.data(), &result, MPI_STATUSES_IGNORE);
+      const auto done = result != 0;
+      if (done) {
+        ++dequeueCounterPoll;
+      }
+    }
+    return dequeueCounterPoll == enqueueCounter;
   } else {
     return true;
   }
 }
 
-void DirectMPISendNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
+void DirectMPINeighborClusterBlocking::start(parallel::runtime::StreamRuntime& runtime) {
   if (requests.size() > 0) {
+    std::lock_guard guard(requestMutex);
+    assert(dequeueCounterPoll == enqueueCounter);
     runtime.enqueueHost([&] {
       std::lock_guard guard(requestMutex);
-      MPI_Startall(requests.size(), requests.data());
+      ++enqueueCounterTrue;
     });
-    event = std::make_shared<parallel::host::SimpleEvent>();
+    ++enqueueCounter;
   }
 }
-
-void DirectMPISendNeighborCluster::stop(parallel::runtime::StreamRuntime& runtime) {
-  if (requests.size() > 0) {
-    runtime.waitEvent({event});
-  }
-}
-
-DirectMPISendNeighborCluster::DirectMPISendNeighborCluster(
+DirectMPISendNeighborClusterBlocking::DirectMPISendNeighborClusterBlocking(
     const std::vector<RemoteCluster>& remote,
     const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
     double priority)
     : SendNeighborCluster(cpuExecutor, priority) {
   requests.resize(remote.size());
-  status.resize(remote.size());
   for (std::size_t i = 0; i < remote.size(); ++i) {
     MPI_Send_init(remote[i].data,
                   remote[i].size,
@@ -67,71 +68,51 @@ DirectMPISendNeighborCluster::DirectMPISendNeighborCluster(
                   MPI::mpi.comm(),
                   &requests[i]);
   }
-  event = std::make_shared<parallel::host::SimpleEvent>();
-  event->record();
 }
 
-DirectMPISendNeighborCluster::~DirectMPISendNeighborCluster() {
+DirectMPINeighborClusterBlocking::~DirectMPINeighborClusterBlocking() {
   for (auto& request : requests) {
     MPI_Request_free(&request);
   }
 }
 
-bool DirectMPIRecvNeighborCluster::poll() {
-  if (requests.size() > 0) {
-    std::lock_guard guard(requestMutex);
-    int result = 0;
-    MPI_Testall(requests.size(), requests.data(), &result, MPI_STATUSES_IGNORE);
-    const auto done = result != 0;
-    if (done) {
-      event->record();
-    }
-    return done;
-  } else {
-    return true;
-  }
+DirectMPIRecvNeighborClusterBlocking::DirectMPIRecvNeighborClusterBlocking(
+  const std::vector<RemoteCluster>& remote,
+  const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+  double priority)
+  : RecvNeighborCluster(cpuExecutor, priority) {
+requests.resize(remote.size());
+for (std::size_t i = 0; i < remote.size(); ++i) {
+  MPI_Recv_init(remote[i].data,
+                remote[i].size,
+                remote[i].datatype,
+                remote[i].rank,
+                remote[i].tag,
+                MPI::mpi.comm(),
+                &requests[i]);
+}
 }
 
-void DirectMPIRecvNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
-  if (requests.size() > 0) {
-    runtime.enqueueHost([&] {
-      std::lock_guard guard(requestMutex);
-      MPI_Startall(requests.size(), requests.data());
-    });
-    event = std::make_shared<parallel::host::SimpleEvent>();
-  }
+bool DirectMPISendNeighborClusterBlocking::poll() {
+  return DirectMPINeighborClusterBlocking::poll();
 }
 
-void DirectMPIRecvNeighborCluster::stop(parallel::runtime::StreamRuntime& runtime) {
-  if (requests.size() > 0) {
-    runtime.waitEvent({event});
-  }
+bool DirectMPIRecvNeighborClusterBlocking::poll() {
+  return DirectMPINeighborClusterBlocking::poll();
 }
 
-DirectMPIRecvNeighborCluster::DirectMPIRecvNeighborCluster(
-    const std::vector<RemoteCluster>& remote,
-    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-    double priority)
-    : RecvNeighborCluster(cpuExecutor, priority) {
-  requests.resize(remote.size());
-  status.resize(remote.size());
-  for (std::size_t i = 0; i < remote.size(); ++i) {
-    MPI_Recv_init(remote[i].data,
-                  remote[i].size,
-                  remote[i].datatype,
-                  remote[i].rank,
-                  remote[i].tag,
-                  MPI::mpi.comm(),
-                  &requests[i]);
-  }
-  event = std::make_shared<parallel::host::SimpleEvent>();
-  event->record();
+void DirectMPISendNeighborClusterBlocking::start(parallel::runtime::StreamRuntime& runtime) {
+  DirectMPINeighborClusterBlocking::start(runtime);
 }
 
-DirectMPIRecvNeighborCluster::~DirectMPIRecvNeighborCluster() {
-  for (auto& request : requests) {
-    MPI_Request_free(&request);
-  }
+void DirectMPIRecvNeighborClusterBlocking::start(parallel::runtime::StreamRuntime& runtime) {
+  DirectMPINeighborClusterBlocking::start(runtime);
+}
+
+void DirectMPISendNeighborClusterBlocking::stop(parallel::runtime::StreamRuntime& runtime) {
+}
+
+void DirectMPIRecvNeighborClusterBlocking::stop(parallel::runtime::StreamRuntime& runtime) {
 }
 
 /*
@@ -198,4 +179,3 @@ reunite
 */
 
 } // namespace seissol::solver::clustering::communication
-#endif

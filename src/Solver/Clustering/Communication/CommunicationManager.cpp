@@ -36,7 +36,7 @@ SerialCommunicationManager::SerialCommunicationManager(
     : AbstractCommunicationManager(std::move(ghostClusters)) {}
 
 bool SerialCommunicationManager::checkIfFinished() const {
-  for (auto& ghostCluster : ghostClusters) {
+  for (const auto& ghostCluster : ghostClusters) {
     if (!ghostCluster->poll()) {
       return false;
     }

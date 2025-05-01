@@ -73,7 +73,7 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
   auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
 
   communication::CommunicationClusterFactory communicationFactory(
-      communication::CommunicationMode::DirectCCL, layout.globalClusterCount);
+      communication::CommunicationMode::DirectMPI, layout.globalClusterCount);
   communicationFactory.prepare();
 
   const auto sendClusters = communicationFactory.getAllSends(halo, cpuExecutor, PriorityHighest);

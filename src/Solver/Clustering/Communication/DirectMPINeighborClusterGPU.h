@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#if 0
 #ifndef SEISSOL_SRC_SOLVER_CLUSTERING_COMMUNICATION_DIRECTMPINEIGHBORCLUSTER_H_
 #define SEISSOL_SRC_SOLVER_CLUSTERING_COMMUNICATION_DIRECTMPINEIGHBORCLUSTER_H_
 
@@ -29,10 +30,12 @@ class DirectMPISendNeighborClusterGPU : public SendNeighborCluster {
   private:
   std::vector<MPI_Request> requests;
   std::vector<int> status;
+  std::vector<RemoteCluster> remote;
   std::mutex requestMutex;
   uint32_t progressRestart{0};
   uint32_t* progressEnd;
   uint32_t progressStart{0};
+  uint32_t progressPrestart{0};
 };
 
 class DirectMPIRecvNeighborClusterGPU : public RecvNeighborCluster {
@@ -49,10 +52,12 @@ class DirectMPIRecvNeighborClusterGPU : public RecvNeighborCluster {
   private:
   std::vector<MPI_Request> requests;
   std::vector<int> status;
+  std::vector<RemoteCluster> remote;
   std::mutex requestMutex;
   uint32_t progressRestart{0};
   uint32_t* progressEnd;
   uint32_t progressStart{0};
+  uint32_t progressPrestart{0};
 };
 
 /*
@@ -85,3 +90,4 @@ private:
 
 } // namespace seissol::solver::clustering::communication
 #endif // SEISSOL_SRC_SOLVER_CLUSTERING_COMMUNICATION_DIRECTMPINEIGHBORCLUSTER_H_
+#endif

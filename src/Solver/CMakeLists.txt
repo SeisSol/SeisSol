@@ -20,7 +20,7 @@ add_library(seissol-solver OBJECT
     Clustering/Communication/NeighborCluster.cpp
     Clustering/Communication/CommunicationFactory.cpp
     Clustering/Communication/CommunicationManager.cpp
-    Clustering/Communication/DirectMPINeighborClusterGPU.cpp
+    Clustering/Communication/DirectMPINeighborClusterBlocking.cpp
 )
 
 add_dependencies(seissol-solver seissol-codegen)

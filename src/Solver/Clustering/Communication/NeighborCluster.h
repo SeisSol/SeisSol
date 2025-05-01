@@ -49,7 +49,7 @@ class NeighborCluster {
 
   void startFrom(parallel::runtime::StreamRuntime& runtime);
   void stopTo(parallel::runtime::StreamRuntime& runtime);
-  bool checkDone();
+  virtual bool blocking() = 0;
 
   virtual void dispose() {
     myRuntime.dispose();

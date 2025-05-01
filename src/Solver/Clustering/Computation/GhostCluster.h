@@ -46,6 +46,13 @@ class GhostCluster : public AbstractTimeCluster {
     }
   }
 
+  bool pollCompute(ComputeStep step) override {
+    if (neighbor->blocking() && step == ComputeStep::Predict) {
+      return neighbor->poll();
+    }
+    return true;
+  }
+
   void finalize() override {
     AbstractTimeCluster::finalize();
     neighbor->dispose();

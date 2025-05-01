@@ -8,24 +8,36 @@
 #include "DirectMPINeighborClusterGPU.h"
 #include <Memory/MemoryAllocator.h>
 #include <Parallel/MPI.h>
-#include <Solver/Clustering/Communication/NeighborClusterGPU.h>
+#include <Solver/Clustering/Communication/NeighborCluster.h>
 #include <mpi.h>
 
 #ifdef ACL_DEVICE
 #include <device.h>
 #endif
 
+#include "utils/logger.h"
+#if 0
 namespace seissol::solver::clustering::communication {
 
 bool DirectMPISendNeighborClusterGPU::poll() {
   if (requests.size() > 0) {
     std::lock_guard guard(requestMutex);
+    if (progressStart > progressRestart) {
+      ++progressRestart;
+      logInfo(true) << "send" << "prestart" << this << progressPrestart << progressStart
+                    << progressRestart << *progressEnd;
+      MPI_Startall(requests.size(), requests.data());
+      logInfo(true) << "send" << "start" << this << progressPrestart << progressStart
+                    << progressRestart << *progressEnd;
+    }
     int result = 0;
     MPI_Testall(requests.size(), requests.data(), &result, MPI_STATUSES_IGNORE);
     const auto done = result != 0;
     if (done && *progressEnd < progressRestart) {
 #pragma omp atomic write
       *progressEnd = progressRestart;
+      logInfo(true) << "send" << "done" << this << progressPrestart << progressStart
+                    << progressRestart << *progressEnd;
     }
     return done;
   } else {
@@ -35,19 +47,24 @@ bool DirectMPISendNeighborClusterGPU::poll() {
 
 void DirectMPISendNeighborClusterGPU::start(parallel::runtime::StreamRuntime& runtime) {
   if (requests.size() > 0) {
-    runtime.enqueueHost([&] {
+    /*runtime.enqueueHost([&] {
       std::lock_guard guard(requestMutex);
       ++progressRestart;
       MPI_Startall(requests.size(), requests.data());
+      logInfo(true) << "send" << "start" << this << *progressEnd;
+    });*/
+    runtime.enqueueHost([&] {
+      std::lock_guard guard(requestMutex);
+      ++progressStart;
     });
-    ++progressStart;
+    ++progressPrestart;
   }
 }
 
 void DirectMPISendNeighborClusterGPU::stop(parallel::runtime::StreamRuntime& runtime) {
   if (requests.size() > 0) {
     device::DeviceInstance::getInstance().api->streamWaitMemory(
-        runtime.stream(), progressEnd, progressStart);
+        runtime.stream(), progressEnd, progressPrestart);
   }
 }
 
@@ -55,7 +72,7 @@ DirectMPISendNeighborClusterGPU::DirectMPISendNeighborClusterGPU(
     const std::vector<RemoteCluster>& remote,
     const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
     double priority)
-    : SendNeighborCluster(cpuExecutor, priority) {
+    : SendNeighborCluster(cpuExecutor, priority), remote(remote) {
   requests.resize(remote.size());
   status.resize(remote.size());
   for (std::size_t i = 0; i < remote.size(); ++i) {
@@ -66,10 +83,11 @@ DirectMPISendNeighborClusterGPU::DirectMPISendNeighborClusterGPU(
                   remote[i].tag,
                   MPI::mpi.comm(),
                   &requests[i]);
+    logInfo(true) << "sendinit" << remote[i].data << remote[i].size;
   }
   progressEnd =
       reinterpret_cast<uint32_t*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
-          sizeof(uint32_t), device::Destination::CurrentDevice));
+          sizeof(uint32_t), false, device::Destination::CurrentDevice));
   *progressEnd = 0;
 }
 
@@ -83,12 +101,22 @@ DirectMPISendNeighborClusterGPU::~DirectMPISendNeighborClusterGPU() {
 bool DirectMPIRecvNeighborClusterGPU::poll() {
   if (requests.size() > 0) {
     std::lock_guard guard(requestMutex);
+    if (progressStart > progressRestart) {
+      ++progressRestart;
+      logInfo(true) << "recv" << "prestart" << this << progressPrestart << progressStart
+                    << progressRestart << *progressEnd;
+      MPI_Startall(requests.size(), requests.data());
+      logInfo(true) << "recv" << "start" << this << progressPrestart << progressStart
+                    << progressRestart << *progressEnd;
+    }
     int result = 0;
     MPI_Testall(requests.size(), requests.data(), &result, MPI_STATUSES_IGNORE);
     const auto done = result != 0;
     if (done && *progressEnd < progressRestart) {
 #pragma omp atomic write
       *progressEnd = progressRestart;
+      logInfo(true) << "recv" << "done" << this << progressPrestart << progressStart
+                    << progressRestart << *progressEnd;
     }
     return done;
   } else {
@@ -98,19 +126,29 @@ bool DirectMPIRecvNeighborClusterGPU::poll() {
 
 void DirectMPIRecvNeighborClusterGPU::start(parallel::runtime::StreamRuntime& runtime) {
   if (requests.size() > 0) {
-    runtime.enqueueHost([&] {
+    /*runtime.enqueueHost([&] {
       std::lock_guard guard(requestMutex);
       ++progressRestart;
       MPI_Startall(requests.size(), requests.data());
+      std::vector<void*> sizes;
+      for (int i = 0; i < remote.size(); ++i) {
+        sizes.emplace_back(remote[i].data);
+      }
+      logInfo(true) << "recv" << "start" << this << sizes << *progressEnd;
     });
-    ++progressStart;
+    ++progressStart;*/
+    runtime.enqueueHost([&] {
+      std::lock_guard guard(requestMutex);
+      ++progressStart;
+    });
+    ++progressPrestart;
   }
 }
 
 void DirectMPIRecvNeighborClusterGPU::stop(parallel::runtime::StreamRuntime& runtime) {
   if (requests.size() > 0) {
     device::DeviceInstance::getInstance().api->streamWaitMemory(
-        runtime.stream(), progressEnd, progressStart);
+        runtime.stream(), progressEnd, progressPrestart);
   }
 }
 
@@ -118,7 +156,7 @@ DirectMPIRecvNeighborClusterGPU::DirectMPIRecvNeighborClusterGPU(
     const std::vector<RemoteCluster>& remote,
     const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
     double priority)
-    : RecvNeighborCluster(cpuExecutor, priority) {
+    : RecvNeighborCluster(cpuExecutor, priority), remote(remote) {
   requests.resize(remote.size());
   status.resize(remote.size());
   for (std::size_t i = 0; i < remote.size(); ++i) {
@@ -129,10 +167,11 @@ DirectMPIRecvNeighborClusterGPU::DirectMPIRecvNeighborClusterGPU(
                   remote[i].tag,
                   MPI::mpi.comm(),
                   &requests[i]);
+    logInfo(true) << "recvinit" << remote[i].data << remote[i].size;
   }
   progressEnd =
       reinterpret_cast<uint32_t*>(device::DeviceInstance::getInstance().api->allocPinnedMem(
-          sizeof(uint32_t), device::Destination::CurrentDevice));
+          sizeof(uint32_t), false, device::Destination::CurrentDevice));
   *progressEnd = 0;
 }
 
@@ -207,3 +246,4 @@ reunite
 */
 
 } // namespace seissol::solver::clustering::communication
+#endif
