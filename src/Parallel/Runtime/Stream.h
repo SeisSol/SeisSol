@@ -112,24 +112,32 @@ class StreamRuntime {
   void* stream() { return streamPtr; }
 
   template <typename F>
+  void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle, F&& handler) {
+    if (!computeGraphHandle.isInitialized()) {
+      computeGraphHandle = device().api->streamBeginCapture(allStreams);
+
+      std::invoke(std::forward<F>(handler), *this);
+
+      device().api->streamEndCapture(computeGraphHandle);
+    }
+
+    if (computeGraphHandle.isInitialized()) {
+      device().api->launchGraph(computeGraphHandle, streamPtr);
+    }
+  }
+
+  template <typename F>
   void runGraph(seissol::initializer::GraphKey computeGraphKey,
                 seissol::initializer::Layer& layer,
                 F&& handler) {
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
-    if (!computeGraphHandle) {
-      device().api->streamBeginCapture(allStreams);
+    bool needsUpdate = !computeGraphHandle.isInitialized();
 
-      std::invoke(std::forward<F>(handler), *this);
+    runGraphGeneric(computeGraphHandle, std::forward<F>(handler));
 
-      device().api->streamEndCapture();
-
-      computeGraphHandle = device().api->getLastGraphHandle();
+    if (needsUpdate && computeGraphHandle.isInitialized()) {
       layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
-    }
-
-    if (computeGraphHandle.isInitialized()) {
-      device().api->launchGraph(computeGraphHandle, streamPtr);
     }
   }
 
