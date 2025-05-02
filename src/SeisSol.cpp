@@ -131,8 +131,6 @@ void SeisSol::finalize() {
 
   m_timeManager.freeDynamicResources();
 
-  seissol::MPI::finalize();
-
   logInfo() << "SeisSol done. Goodbye.";
 }
 

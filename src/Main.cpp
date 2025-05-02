@@ -162,33 +162,38 @@ int main(int argc, char* argv[]) {
   auto parameters = seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
   parameterReader.warnUnknown();
 
-  // Initialize SeisSol
-  seissol::SeisSol seissolInstance(parameters, env);
+  {
 
-  if (args.isSet("checkpoint")) {
-    const auto* checkpointFile = args.getArgument<const char*>("checkpoint");
-    seissolInstance.loadCheckpoint(checkpointFile);
-  }
+    // Initialize SeisSol
+    seissol::SeisSol seissolInstance(parameters, env);
 
-  // run SeisSol
-  const bool runSeisSol = seissolInstance.init(argc, argv);
+    if (args.isSet("checkpoint")) {
+      const auto* checkpointFile = args.getArgument<const char*>("checkpoint");
+      seissolInstance.loadCheckpoint(checkpointFile);
+    }
 
-  const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
-  seissolInstance.setBackupTimeStamp(stamp);
+    // run SeisSol
+    const bool runSeisSol = seissolInstance.init(argc, argv);
 
-  // Run SeisSol
-  if (runSeisSol) {
-    seissol::initializer::initprocedure::seissolMain(seissolInstance);
-  }
+    const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
+    seissolInstance.setBackupTimeStamp(stamp);
+
+    // Run SeisSol
+    if (runSeisSol) {
+      seissol::initializer::initprocedure::seissolMain(seissolInstance);
+    }
 
 #pragma omp parallel
-  {
-    LIKWID_MARKER_STOP("SeisSol");
+    {
+      LIKWID_MARKER_STOP("SeisSol");
+    }
+
+    LIKWID_MARKER_CLOSE;
+    // Finalize SeisSol
+    seissolInstance.finalize();
   }
 
-  LIKWID_MARKER_CLOSE;
-  // Finalize SeisSol
-  seissolInstance.finalize();
+  seissol::MPI::finalize();
 
 #ifdef ACL_DEVICE
   device.api->finalize();
