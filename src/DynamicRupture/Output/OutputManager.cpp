@@ -14,7 +14,7 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
-#include "IO/Instance/Mesh/VtkHdf.h"
+#include "IO/Instance/Geometry/Geometry.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
@@ -26,7 +26,6 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Memory/Tree/Lut.h"
-#include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
 #include <algorithm>
 #include <array>
@@ -194,79 +193,43 @@ void OutputManager::initElementwiseOutput() {
   const double printTime = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
   const auto backendType = seissolParameters.output.xdmfWriterBackend;
 
-  if (seissolParameters.output.elementwiseParameters.vtkorder < 0) {
-    std::vector<real*> dataPointers;
-    auto recordPointers = [&dataPointers](auto& var, int) {
-      if (var.isActive) {
-        for (int dim = 0; dim < var.dim(); ++dim) {
-          dataPointers.push_back(var.data[dim]);
-        }
+  auto order = seissolParameters.output.elementwiseParameters.vtkorder;
+
+  io::instance::geometry::GeometryWriter writer(
+      "fault-elementwise", receiverPoints.size() / seissol::init::vtk2d::Shape[order][1], 2, order);
+
+  writer.addPointProjector([=](double* target, std::size_t index) {
+    for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        target[i * 3 + j] =
+            receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[j];
       }
-    };
-    misc::forEach(ewOutputData->vars, recordPointers);
-
-    seissolInstance.faultWriter().init(cellConnectivity.data(),
-                                       vertices.data(),
-                                       faultTags.data(),
-                                       static_cast<unsigned int>(receiverPoints.size()),
-                                       static_cast<unsigned int>(3 * receiverPoints.size()),
-                                       &intMask[0],
-                                       const_cast<const real**>(dataPointers.data()),
-                                       seissolParameters.output.prefix.data(),
-                                       printTime,
-                                       backendType,
-                                       backupTimeStamp);
-
-    seissolInstance.faultWriter().setupCallbackObject(this);
-  } else {
-    // Code to be refactored.
-
-    auto order = seissolParameters.output.elementwiseParameters.vtkorder;
-    if (order == 0) {
-      logError() << "VTK order 0 is currently not supported for the elementwise fault output.";
     }
+  });
 
-    io::instance::mesh::VtkHdfWriter writer("fault-elementwise",
-                                            receiverPoints.size() /
-                                                seissol::init::vtk2d::Shape[order][1],
-                                            2,
-                                            order);
-
-    writer.addPointProjector([=](double* target, std::size_t index) {
-      for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
-        for (int j = 0; j < 3; ++j) {
-          target[i * 3 + j] =
-              receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[j];
-        }
+  misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
+    if (var.isActive) {
+      for (int d = 0; d < var.dim(); ++d) {
+        auto* data = var.data[d];
+        writer.addGeometryOutput<real>(
+            VariableLabels[i][d], std::vector<std::size_t>(), [=](real* target, std::size_t index) {
+              std::memcpy(target,
+                          data + seissol::init::vtk2d::Shape[order][1] * index,
+                          sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
+            });
       }
-    });
+    }
+  });
 
-    misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
-      if (var.isActive) {
-        for (int d = 0; d < var.dim(); ++d) {
-          auto* data = var.data[d];
-          writer.addPointData<real>(VariableLabels[i][d],
-                                    std::vector<std::size_t>(),
-                                    [=](real* target, std::size_t index) {
-                                      std::memcpy(
-                                          target,
-                                          data + seissol::init::vtk2d::Shape[order][1] * index,
-                                          sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
-                                    });
-        }
-      }
-    });
+  auto& self = *this;
+  writer.addHook([&](std::size_t, double) { self.updateElementwiseOutput(); });
 
-    auto& self = *this;
-    writer.addHook([&](std::size_t, double) { self.updateElementwiseOutput(); });
+  io::writer::ScheduledWriter schedWriter;
+  schedWriter.interval = printTime;
+  schedWriter.name = "fault-elementwise";
+  schedWriter.planWrite = writer.makeWriter();
 
-    io::writer::ScheduledWriter schedWriter;
-    schedWriter.interval = printTime;
-    schedWriter.name = "fault-elementwise";
-    schedWriter.planWrite = writer.makeWriter();
-
-    seissolInstance.getOutputManager().addOutput(schedWriter);
-  }
+  seissolInstance.getOutputManager().addOutput(schedWriter);
 }
 
 void OutputManager::initPickpointOutput() {
@@ -279,15 +242,11 @@ void OutputManager::initPickpointOutput() {
 
   std::stringstream baseHeader;
   baseHeader << "VARIABLES = \"Time\"";
-  size_t labelCounter = 0;
-  auto collectVariableNames = [&baseHeader, &labelCounter](auto& var, int) {
+  auto collectVariableNames = [&baseHeader](auto& var, int index) {
     if (var.isActive) {
       for (int dim = 0; dim < var.dim(); ++dim) {
-        baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter) << '\"';
-        ++labelCounter;
+        baseHeader << " ,\"" << VariableLabels[index][dim] << '\"';
       }
-    } else {
-      labelCounter += var.dim();
     }
   };
   misc::forEach(ppOutputData->vars, collectVariableNames);
