@@ -33,26 +33,30 @@ class DirectMPINeighborClusterBlocking {
   std::mutex requestMutex;
 };
 
-class DirectMPISendNeighborClusterBlocking : public SendNeighborCluster, DirectMPINeighborClusterBlocking {
+class DirectMPISendNeighborClusterBlocking : public SendNeighborCluster,
+                                             DirectMPINeighborClusterBlocking {
   public:
-  DirectMPISendNeighborClusterBlocking(const std::vector<RemoteCluster>& remote,
-                               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-                               double priority);
+  DirectMPISendNeighborClusterBlocking(
+      const std::vector<RemoteCluster>& remote,
+      const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+      double priority);
   ~DirectMPISendNeighborClusterBlocking() override = default;
-  bool blocking() override {return true;}
+  bool blocking() override { return true; }
 
   bool poll() override;
   void start(parallel::runtime::StreamRuntime& runtime) override;
   void stop(parallel::runtime::StreamRuntime& runtime) override;
 };
 
-class DirectMPIRecvNeighborClusterBlocking : public RecvNeighborCluster, DirectMPINeighborClusterBlocking {
+class DirectMPIRecvNeighborClusterBlocking : public RecvNeighborCluster,
+                                             DirectMPINeighborClusterBlocking {
   public:
-  DirectMPIRecvNeighborClusterBlocking(const std::vector<RemoteCluster>& remote,
-                               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-                               double priority);
+  DirectMPIRecvNeighborClusterBlocking(
+      const std::vector<RemoteCluster>& remote,
+      const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+      double priority);
   ~DirectMPIRecvNeighborClusterBlocking() override = default;
-  bool blocking() override {return true;}
+  bool blocking() override { return true; }
 
   bool poll() override;
   void start(parallel::runtime::StreamRuntime& runtime) override;

@@ -22,7 +22,7 @@ class CCLSendNeighborCluster : public SendNeighborCluster {
   bool poll() override;
   void start(parallel::runtime::StreamRuntime& runtime) override;
   void stop(parallel::runtime::StreamRuntime& runtime) override;
-  bool blocking() override {return false;}
+  bool blocking() override { return false; }
 
   CCLSendNeighborCluster(const std::vector<RemoteCluster>& remote,
                          void* comm,
@@ -42,7 +42,7 @@ class CCLRecvNeighborCluster : public RecvNeighborCluster {
   bool poll() override;
   void start(parallel::runtime::StreamRuntime& runtime) override;
   void stop(parallel::runtime::StreamRuntime& runtime) override;
-  bool blocking() override {return false;}
+  bool blocking() override { return false; }
 
   CCLRecvNeighborCluster(const std::vector<RemoteCluster>& remote,
                          void* comm,

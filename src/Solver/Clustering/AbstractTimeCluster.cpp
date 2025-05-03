@@ -32,12 +32,10 @@ AbstractTimeCluster::AbstractTimeCluster(
     const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
     double priority)
     : timeOfLastStageChange(std::chrono::steady_clock::now()), timeStepRate(timeStepRate),
-      numberOfTimeSteps(0), executor(executor), streamRuntime(cpuExecutor, priority),
-      priority(priority) {
+      numberOfTimeSteps(0), concurrent(concurrentClusters()), executor(executor),
+      streamRuntime(cpuExecutor, priority), priority(priority) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
-
-  concurrent = concurrentClusters();
 }
 
 bool AbstractTimeCluster::advanceState() {

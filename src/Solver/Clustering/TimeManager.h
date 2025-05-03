@@ -139,7 +139,6 @@ class TimeManager {
 
   void synchronizeTo(seissol::initializer::AllocationPlace place);
 
-
   void pollCommunicationTask();
   void pollClusterTask(AbstractTimeCluster* cluster);
 };

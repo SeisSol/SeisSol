@@ -50,11 +50,11 @@ void CCLSendNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
       for (std::size_t i = 0; i < remote.size(); ++i) {
         const auto& cluster = remote.at(i);
         ncclSend(cluster.data,
-                cluster.size,
-                cclDatatype<real>(), // TODO(David): use cluster.datatype here instead
-                cluster.rank,
-                static_cast<ncclComm_t>(comm),
-                static_cast<StreamT>(runtime.stream()));
+                 cluster.size,
+                 cclDatatype<real>(), // TODO(David): use cluster.datatype here instead
+                 cluster.rank,
+                 static_cast<ncclComm_t>(comm),
+                 static_cast<StreamT>(runtime.stream()));
       }
       ncclGroupEnd();
     });
@@ -97,11 +97,11 @@ void CCLRecvNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
       for (std::size_t i = 0; i < remote.size(); ++i) {
         const auto& cluster = remote.at(i);
         ncclRecv(cluster.data,
-                cluster.size,
-                cclDatatype<real>(), // TODO(David): use cluster.datatype here instead
-                cluster.rank,
-                static_cast<ncclComm_t>(comm),
-                static_cast<StreamT>(runtime.stream()));
+                 cluster.size,
+                 cclDatatype<real>(), // TODO(David): use cluster.datatype here instead
+                 cluster.rank,
+                 static_cast<ncclComm_t>(comm),
+                 static_cast<StreamT>(runtime.stream()));
       }
       ncclGroupEnd();
     });

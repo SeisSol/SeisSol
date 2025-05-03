@@ -51,9 +51,7 @@ class NeighborCluster {
   void stopTo(parallel::runtime::StreamRuntime& runtime);
   virtual bool blocking() = 0;
 
-  virtual void dispose() {
-    myRuntime.dispose();
-  }
+  virtual void dispose() { myRuntime.dispose(); }
 
   // virtual bool startSync() = 0;
   // virtual bool stopSync() = 0;

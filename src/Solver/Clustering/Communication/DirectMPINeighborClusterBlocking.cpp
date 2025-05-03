@@ -44,13 +44,15 @@ bool DirectMPINeighborClusterBlocking::poll() {
 
 void DirectMPINeighborClusterBlocking::start(parallel::runtime::StreamRuntime& runtime) {
   if (requests.size() > 0) {
-    std::lock_guard guard(requestMutex);
-    assert(dequeueCounterPoll == enqueueCounter);
+    {
+      std::lock_guard guard(requestMutex);
+      assert(dequeueCounterPoll == enqueueCounter);
+      ++enqueueCounter;
+    }
     runtime.enqueueHost([&] {
       std::lock_guard guard(requestMutex);
       ++enqueueCounterTrue;
     });
-    ++enqueueCounter;
   }
 }
 DirectMPISendNeighborClusterBlocking::DirectMPISendNeighborClusterBlocking(
@@ -77,20 +79,20 @@ DirectMPINeighborClusterBlocking::~DirectMPINeighborClusterBlocking() {
 }
 
 DirectMPIRecvNeighborClusterBlocking::DirectMPIRecvNeighborClusterBlocking(
-  const std::vector<RemoteCluster>& remote,
-  const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-  double priority)
-  : RecvNeighborCluster(cpuExecutor, priority) {
-requests.resize(remote.size());
-for (std::size_t i = 0; i < remote.size(); ++i) {
-  MPI_Recv_init(remote[i].data,
-                remote[i].size,
-                remote[i].datatype,
-                remote[i].rank,
-                remote[i].tag,
-                MPI::mpi.comm(),
-                &requests[i]);
-}
+    const std::vector<RemoteCluster>& remote,
+    const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+    double priority)
+    : RecvNeighborCluster(cpuExecutor, priority) {
+  requests.resize(remote.size());
+  for (std::size_t i = 0; i < remote.size(); ++i) {
+    MPI_Recv_init(remote[i].data,
+                  remote[i].size,
+                  remote[i].datatype,
+                  remote[i].rank,
+                  remote[i].tag,
+                  MPI::mpi.comm(),
+                  &requests[i]);
+  }
 }
 
 bool DirectMPISendNeighborClusterBlocking::poll() {
@@ -109,11 +111,9 @@ void DirectMPIRecvNeighborClusterBlocking::start(parallel::runtime::StreamRuntim
   DirectMPINeighborClusterBlocking::start(runtime);
 }
 
-void DirectMPISendNeighborClusterBlocking::stop(parallel::runtime::StreamRuntime& runtime) {
-}
+void DirectMPISendNeighborClusterBlocking::stop(parallel::runtime::StreamRuntime& runtime) {}
 
-void DirectMPIRecvNeighborClusterBlocking::stop(parallel::runtime::StreamRuntime& runtime) {
-}
+void DirectMPIRecvNeighborClusterBlocking::stop(parallel::runtime::StreamRuntime& runtime) {}
 
 /*
 bool CopyMPISendNeighborCluster::poll() {
