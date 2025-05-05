@@ -426,7 +426,7 @@ SEISSOL_HOSTDEVICE inline void
                         real s0,
                         real dt,
                         unsigned startIndex = 0) {
-  if (fullUpdateTime <= t0 && fullUpdateTime >= s0) {
+  if (fullUpdateTime <= t0 + s0 && fullUpdateTime >= s0) {
     const real gNuc =
         gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime - s0, dt, t0);
 

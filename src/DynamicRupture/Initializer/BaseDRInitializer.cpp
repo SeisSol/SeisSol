@@ -92,11 +92,14 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
 
     StressTensor initialStress(layer.getNumberOfCells());
     const bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStress, 0);
-    StressTensor nucleationStress(layer.getNumberOfCells());
 
     std::vector<bool> nucleationStressParameterizedByTraction(drParameters->nucleationCount);
+    std::vector<StressTensor> nucleationStresses;
+    nucleationStresses.reserve(drParameters->nucleationCount);
     for (int i = 0; i < drParameters->nucleationCount; ++i) {
-      nucleationStressParameterizedByTraction[i] = addStressesToStorageMap(nucleationStress, i + 1);
+      nucleationStresses.emplace_back(layer.getNumberOfCells());
+      nucleationStressParameterizedByTraction[i] =
+          addStressesToStorageMap(nucleationStresses[i], i + 1);
     }
 
     // get additional parameters (for derived friction laws)
@@ -122,10 +125,10 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
     // rotate nucleation stress to fault coordinate system
     for (int i = 0; i < drParameters->nucleationCount; ++i) {
       if (nucleationStressParameterizedByTraction[i]) {
-        rotateTractionToCartesianStress(dynRup, layer, nucleationStress);
+        rotateTractionToCartesianStress(dynRup, layer, nucleationStresses[i]);
       }
       auto* nucleationStressInFaultCS = layer.var(dynRup->nucleationStressInFaultCS[i]);
-      rotateStressToFaultCS(dynRup, layer, nucleationStressInFaultCS, nucleationStress);
+      rotateStressToFaultCS(dynRup, layer, nucleationStressInFaultCS, nucleationStresses[i]);
     }
 
     auto* initialPressure = layer.var(dynRup->initialPressure);
@@ -134,7 +137,7 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
         initialPressure[ltsFace][pointIndex] = initialStress.p[ltsFace][pointIndex];
         for (int i = 0; i < drParameters->nucleationCount; ++i) {
           auto* nucleationPressure = layer.var(dynRup->nucleationPressure[i]);
-          nucleationPressure[ltsFace][pointIndex] = nucleationStress.p[ltsFace][pointIndex];
+          nucleationPressure[ltsFace][pointIndex] = nucleationStresses[i].p[ltsFace][pointIndex];
         }
       }
     }
