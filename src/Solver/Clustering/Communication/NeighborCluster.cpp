@@ -21,19 +21,20 @@ HaloCommunication getHaloCommunication(const initializer::ClusterLayout& layout,
     const std::size_t localClusterIndex = layout.localClusterIds[i];
     for (std::size_t j = 0; j < clusterStructure.numberOfRegions; ++j) {
       const std::size_t remoteClusterIndex = clusterStructure.neighboringClusters[j][1];
+      const auto trueIndex = std::max(localClusterIndex, remoteClusterIndex);
       // TODO: neighboring global-only clusters
-      communication.copy.at(localClusterIndex)
-          .emplace_back(RemoteCluster{clusterStructure.copyRegions[j],
-                                      clusterStructure.copyRegionSizes[j],
-                                      MPI_C_REAL,
-                                      clusterStructure.neighboringClusters[j][0],
-                                      DataTagOffset + clusterStructure.sendIdentifiers[j]});
-      communication.ghost.at(remoteClusterIndex)
-          .emplace_back(RemoteCluster{clusterStructure.ghostRegions[j],
-                                      clusterStructure.ghostRegionSizes[j],
-                                      MPI_C_REAL,
-                                      clusterStructure.neighboringClusters[j][0],
-                                      DataTagOffset + clusterStructure.receiveIdentifiers[j]});
+      communication.copy.at(trueIndex).emplace_back(
+          RemoteCluster{clusterStructure.copyRegions[j],
+                        clusterStructure.copyRegionSizes[j],
+                        MPI_C_REAL,
+                        clusterStructure.neighboringClusters[j][0],
+                        DataTagOffset + clusterStructure.sendIdentifiers[j]});
+      communication.ghost.at(trueIndex).emplace_back(
+          RemoteCluster{clusterStructure.ghostRegions[j],
+                        clusterStructure.ghostRegionSizes[j],
+                        MPI_C_REAL,
+                        clusterStructure.neighboringClusters[j][0],
+                        DataTagOffset + clusterStructure.receiveIdentifiers[j]});
     }
   }
   return communication;

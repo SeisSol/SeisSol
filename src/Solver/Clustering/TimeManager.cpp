@@ -72,8 +72,23 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
 
   auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
 
-  communication::CommunicationClusterFactory communicationFactory(
-      communication::CommunicationMode::DirectMPI, layout.globalClusterCount);
+  std::string result = seissolInstance.env().get<std::string>("COMMUNICATION_MODE", "mpi");
+  utils::StringUtils::toLower(result);
+  communication::CommunicationMode commMode = communication::CommunicationMode::DirectMPI;
+  if (result == "ccl") {
+    commMode = communication::CommunicationMode::DirectCCL;
+  }
+
+  if (MPI::mpi.size() > 1) {
+    if (commMode == communication::CommunicationMode::DirectMPI) {
+      logInfo() << "Communication: using MPI with polling outside the state graph.";
+    } else {
+      logInfo() << "Communication: using NCCL/RCCL.";
+    }
+  }
+
+  communication::CommunicationClusterFactory communicationFactory(commMode,
+                                                                  layout.globalClusterCount);
   communicationFactory.prepare();
 
   const auto [sendClusters, recvClusters] =
@@ -86,7 +101,7 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
 
   for (auto& layer : memoryManager.getLtsTree()->leaves()) {
     if (layer.getNumberOfCells() == 0) {
-      continue;
+      // continue;
     }
 
     const auto globalClusterId = layer.getClusterId();
@@ -156,7 +171,7 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
   }
   for (auto& layer : memoryManager.getDynamicRuptureTree()->leaves(Ghost)) {
     if (layer.getNumberOfCells() == 0) {
-      continue;
+      // continue;
     }
 
     const auto globalClusterId = layer.getClusterId();
@@ -193,7 +208,7 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
         std::dynamic_pointer_cast<computation::DynamicRuptureCluster>(clusters.back()));
 
     clusteringWriter.addCluster(
-        profilingId, localClusterId, layer.getLayerType(), layer.getNumberOfCells(), 0);
+        profilingId, localClusterId, layer.getLayerType(), 0, layer.getNumberOfCells());
   }
 
   const auto connectIfBothExist = [](auto& a, auto& b) {

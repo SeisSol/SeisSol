@@ -94,7 +94,8 @@ long ClusterTimes::computeStepsUntilSyncTime(double oldSyncTime, double newSyncT
 
 NeighborCluster::NeighborCluster(double maxTimeStepSize,
                                  int timeStepRate,
-                                 Executor neighborExecutor) : executor(neighborExecutor) {
+                                 Executor neighborExecutor)
+    : executor(neighborExecutor) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
 }
