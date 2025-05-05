@@ -80,9 +80,9 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   std::array<real, MaxNucleactions> t0;
   std::array<real, MaxNucleactions> s0;
   for (std::size_t i = 0; i < nucleationCount; ++i) {
-    const std::string t0name = i == 0 ? "t_0" : "t_0" + std::to_string(i);
+    const std::string t0name = i == 0 ? "t_0" : "t_0" + std::to_string(i + 1);
     t0[i] = static_cast<real>(reader->readWithDefault(t0name, 0.0));
-    const std::string s0name = i == 0 ? "s_0" : "s_0" + std::to_string(i);
+    const std::string s0name = i == 0 ? "s_0" : "s_0" + std::to_string(i + 1);
     s0[i] = static_cast<real>(reader->readWithDefault(s0name, 0.0));
   }
   const auto tpProxyExponent =

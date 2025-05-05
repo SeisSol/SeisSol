@@ -312,25 +312,29 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     BaseDRInitializer::stressIdentifiers(int readNucleation) {
   std::vector<std::string> tractionNames;
   std::vector<std::string> cartesianNames;
+
+  const std::string index = readNucleation > 1 ? std::to_string(readNucleation) : "";
+
+  const auto insertIndex = [&](const std::string& name, const std::string& subscript) {
+    return name + index + "_" + subscript;
+  };
+
   if (readNucleation > 0) {
-    tractionNames = {"Tnuc_n", "Tnuc_s", "Tnuc_d"};
-    cartesianNames = {"nuc_xx", "nuc_yy", "nuc_zz", "nuc_xy", "nuc_yz", "nuc_xz"};
-    if (readNucleation > 1) {
-      for (auto& name : tractionNames) {
-        name += std::to_string(readNucleation);
-      }
-      for (auto& name : cartesianNames) {
-        name += std::to_string(readNucleation);
-      }
-    }
+    tractionNames = {insertIndex("Tnuc", "n"), insertIndex("Tnuc", "s"), insertIndex("Tnuc", "d")};
+    cartesianNames = {insertIndex("nuc", "xx"),
+                      insertIndex("nuc", "yy"),
+                      insertIndex("nuc", "zz"),
+                      insertIndex("nuc", "xy"),
+                      insertIndex("nuc", "yz"),
+                      insertIndex("nuc", "xz")};
   } else {
     tractionNames = {"T_n", "T_s", "T_d"};
     cartesianNames = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
   }
   if (model::MaterialT::Type == model::MaterialType::Poroelastic) {
-    if (readNucleation) {
-      tractionNames.emplace_back("nuc_p");
-      cartesianNames.emplace_back("nuc_p");
+    if (readNucleation > 0) {
+      tractionNames.emplace_back(insertIndex("nuc", "p"));
+      cartesianNames.emplace_back(insertIndex("nuc", "p"));
     } else {
       tractionNames.emplace_back("p");
       cartesianNames.emplace_back("p");
@@ -341,12 +345,12 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
   bool allCartesianParametersSupplied = true;
   bool anyTractionParametersSupplied = false;
   bool anyCartesianParametersSupplied = false;
-  for (size_t i = 0; i < 3; i++) {
+  for (size_t i = 0; i < 3; ++i) {
     const auto b = faultProvides(tractionNames[i]);
     allTractionParametersSupplied &= b;
     anyTractionParametersSupplied |= b;
   }
-  for (size_t i = 0; i < 6; i++) {
+  for (size_t i = 0; i < 6; ++i) {
     const auto b = faultProvides(cartesianNames[i]);
     allCartesianParametersSupplied &= b;
     anyCartesianParametersSupplied |= b;
@@ -358,14 +362,12 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     return {tractionNames, Parametrization::Traction};
   } else {
     logError() << "Please specify a correct parametrization of the "
-               << (readNucleation > 0 ? "nucleation stress." : "initial stress.")
+               << (readNucleation > 0
+                       ? "nucleation stress " + std::to_string(readNucleation + 1) + "."
+                       : "initial stress.")
                << "You have either not specified all parameters or an uncommom mixture of "
                   "parameters. Give either all of "
-               << (readNucleation > 0
-                       ? "(nuc_xx, nuc_yy, nuc_zz, nuc_xy, nuc_yz, nuc_xz) or all of (Tnuc_n, "
-                         "Tnuc_s, Tnuc_d)"
-                       : "(s_xx, s_yy, s_zz, s_xy, s_yz, s_xz) or all of (T_n, T_s, T_d)")
-               << ", but not a mixture";
+               << cartesianNames << "or all of" << tractionNames << ", but not a mixture of them.";
     return {};
   }
 }
