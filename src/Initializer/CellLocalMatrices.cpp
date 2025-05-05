@@ -33,7 +33,6 @@
 #include <Model/CommonDatastructures.h>
 #include <Numerical/Eigenvalues.h>
 #include <algorithm>
-#include <array>
 #include <cassert>
 #include <complex>
 #include <cstddef>
@@ -100,19 +99,24 @@ constexpr int N = tensor::Zminus::Shape[0];
 Eigen::Matrix<real, N, N>
     extractMatrix(eigenvalues::Eigenpair<std::complex<double>,
                                          seissol::model::MaterialT::NumQuantities> eigenpair) {
-#ifdef USE_POROELASTIC
-  constexpr std::array<int, 4> TractionIndices = {0, 3, 5, 9};
-  constexpr std::array<int, 4> VelocityIndices = {6, 7, 8, 10};
-  constexpr std::array<int, 4> ColumnIndices = {0, 1, 2, 3};
-#else
-  constexpr std::array<int, 3> TractionIndices = {0, 3, 5};
-  constexpr std::array<int, 3> VelocityIndices = {6, 7, 8};
-  constexpr std::array<int, 3> ColumnIndices = {0, 1, 2};
-#endif
+  std::vector<int> tractionIndices;
+  std::vector<int> velocityIndices;
+  std::vector<int> columnIndices;
+
+  if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+    tractionIndices = {0, 3, 5, 9};
+    velocityIndices = {6, 7, 8, 10};
+    columnIndices = {0, 1, 2, 3};
+  } else {
+    tractionIndices = {0, 3, 5};
+    velocityIndices = {6, 7, 8};
+    columnIndices = {0, 1, 2};
+  }
+
   auto matrix = eigenpair.getVectorsAsMatrix();
-  const Eigen::Matrix<double, N, N> matRT = matrix(TractionIndices, ColumnIndices).real();
+  const Eigen::Matrix<double, N, N> matRT = matrix(tractionIndices, columnIndices).real();
   const Eigen::Matrix<double, N, N> matRTInv = matRT.inverse();
-  const Eigen::Matrix<double, N, N> matRU = matrix(VelocityIndices, ColumnIndices).real();
+  const Eigen::Matrix<double, N, N> matRU = matrix(velocityIndices, columnIndices).real();
   const Eigen::Matrix<double, N, N> matM = matRU * matRTInv;
   return matM.cast<real>();
 };

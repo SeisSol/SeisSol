@@ -6,29 +6,34 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Datastructures.h"
+#include <Equations/Datastructures.h>
+#include <Equations/Setup.h> // IWYU pragma: keep
+#include <Model/Common.h>
+#include <Model/CommonDatastructures.h>
+#include <array>
 #include <cmath>
+#include <complex>
+#include <limits>
 
 // Also if we don't use poroelastic materials, the material has to be properly defined
 // such that e.g. seissol::Interoperability::initializeModel work without ifdefs
-#ifdef USE_POROELASTIC
 #include "Numerical/Eigenvalues.h"
-#include "PoroelasticSetup.h"
 double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
-  eigenvalues::Eigenpair<std::complex<double>, 13> eigendecomposition;
-  std::array<std::complex<double>, 169> AT_values{};
-  auto AT = yateto::DenseTensorView<2, std::complex<double>>(AT_values.data(), {13, 13});
-  seissol::model::getTransposedCoefficientMatrix(*this, 0, AT);
-  seissol::eigenvalues::computeEigenvalues(AT_values, eigendecomposition);
+  eigenvalues::Eigenpair<std::complex<double>, NumQuantities> eigendecomposition;
+  std::array<std::complex<double>, NumQuantities * NumQuantities> atValues{};
+  auto at = yateto::DenseTensorView<2, std::complex<double>>(atValues.data(),
+                                                             {NumQuantities, NumQuantities});
+
+  // TODO: remove this if constexpr guard (needs multi-equation build support)
+  if constexpr (seissol::model::MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
+    seissol::model::getTransposedCoefficientMatrix(*this, 0, at);
+  }
+
+  seissol::eigenvalues::computeEigenvalues(atValues, eigendecomposition);
   double maxEv = std::numeric_limits<double>::lowest();
-  for (int i = 0; i < 13; i++) {
+  for (int i = 0; i < NumQuantities; i++) {
     maxEv = eigendecomposition.values.at(i).real() > maxEv ? eigendecomposition.values.at(i).real()
                                                            : maxEv;
   }
   return maxEv;
 }
-#else
-// Return an estimate which neglects fluid effects
-double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
-  return std::sqrt(lambda + 2 * mu) / rho;
-}
-#endif

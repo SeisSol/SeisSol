@@ -418,6 +418,8 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   // store mesh structure and the number of time clusters
   m_meshStructure = i_meshStructure;
 
+  m_ltsTree.setName("cluster");
+
   // Setup tree variables
   m_lts.addTo(m_ltsTree, usePlasticity);
   seissolInstance.postProcessor().allocateMemory(&m_ltsTree);
@@ -436,6 +438,8 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
 
   m_ltsTree.allocateVariables();
   m_ltsTree.touchVariables();
+
+  m_dynRupTree.setName("dr");
 
   /// Dynamic rupture tree
   m_dynRup->addTo(m_dynRupTree);
@@ -458,12 +462,6 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
 
-  if constexpr (multisim::MultisimEnabled) {
-    if (m_dynRupTree.getNumberOfCells() > 0) {
-      logError() << "The dynamic rupture does not yet support fused simulations.";
-    }
-  }
-
 #ifdef ACL_DEVICE
   MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree, *m_dynRup.get());
   m_dynRupTree.allocateScratchPads();
@@ -472,6 +470,8 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
 
 void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
   seissol::initializer::LayerMask ghostMask(Ghost);
+
+  m_boundaryTree.setName("boundary");
 
   // Boundary face tree
   m_boundary.addTo(m_boundaryTree);
@@ -605,7 +605,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
       for (unsigned face = 0; face < 4; ++face) {
         real *neighborBuffer = faceNeighbors[cell][face];
 
-        // check whether a neighbour element idofs has not been counted twice
+        // check whether a neighbor element idofs has not been counted twice
         if ((registry.find(neighborBuffer) == registry.end())) {
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
@@ -637,6 +637,16 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
                              derivativesCounter * totalDerivativesSize * sizeof(real));
     layer.setScratchpadSize(lts.nodalAvgDisplacements,
                              nodalDisplacementsCounter * nodalDisplacementsSize * sizeof(real));
+#ifdef USE_VISCOELASTIC2
+    layer.setScratchpadSize(lts.idofsAneScratch,
+                             layer.getNumberOfCells() * tensor::Iane::size() * sizeof(real));
+    layer.setScratchpadSize(lts.derivativesExtScratch,
+                              layer.getNumberOfCells() * (tensor::dQext::size(1) + tensor::dQext::size(2)) * sizeof(real));
+    layer.setScratchpadSize(lts.derivativesAneScratch,
+                             layer.getNumberOfCells() * (tensor::dQane::size(1) + tensor::dQane::size(2)) * sizeof(real));
+    layer.setScratchpadSize(lts.dofsExtScratch,
+                             layer.getNumberOfCells() * tensor::Qext::size() * sizeof(real));
+#endif
     layer.setScratchpadSize(lts.analyticScratch,
                              analyticCounter * tensor::INodal::size() * sizeof(real));
   }
@@ -813,31 +823,19 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
 
 bool seissol::initializer::isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
                                               unsigned int face) {
-#ifdef USE_ANISOTROPIC
-  return false;
-#else
   constexpr auto eps = std::numeric_limits<real>::epsilon();
   return material.neighbor[face].getMuBar() > eps && material.local.getMuBar() < eps;
-#endif
 }
 bool seissol::initializer::isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
                                              unsigned int face) {
-#ifdef USE_ANISOTROPIC
-  return false;
-#else
   constexpr auto eps = std::numeric_limits<real>::epsilon();
   return material.local.getMuBar() > eps && material.neighbor[face].getMuBar() < eps;
-#endif
 }
 
 bool seissol::initializer::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
-#ifndef USE_ANISOTROPIC
   return isAcousticSideOfElasticAcousticInterface(material, face) || isElasticSideOfElasticAcousticInterface(material, face);
-#else
-  return false;
-#endif
 }
 
 

@@ -37,7 +37,7 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
     sample[1] = sources.sample[1].data();
     sample[2] = sources.sample[2].data();
 
-    const auto* __restrict fusedOriginalIndex = sources.fusedOriginalIndex.data();
+    const auto* __restrict simulationIndex = sources.simulationIndex.data();
 
     auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
 
@@ -50,7 +50,7 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                                to,
                                mappingPtr,
                                mInvJInvPhisAtSources,
-                               fusedOriginalIndex,
+                               simulationIndex,
                                tensor,
                                a,
                                stiffnessTensor,
@@ -68,7 +68,7 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                                 to,
                                 mappingPtr,
                                 mInvJInvPhisAtSources,
-                                fusedOriginalIndex,
+                                simulationIndex,
                                 tensor,
                                 a,
                                 stiffnessTensor,

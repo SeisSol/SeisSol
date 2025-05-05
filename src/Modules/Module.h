@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_MODULES_MODULE_H_
 #define SEISSOL_SRC_MODULES_MODULE_H_
 
+#include <optional>
 namespace seissol {
 
 /**
@@ -96,7 +97,7 @@ class Module {
    *
    * Only called when the simulation is not started from a checkpoint
    */
-  virtual void simulationStart() {}
+  virtual void simulationStart(std::optional<double> checkpointTime) {}
 
   virtual void simulationEnd() {}
 

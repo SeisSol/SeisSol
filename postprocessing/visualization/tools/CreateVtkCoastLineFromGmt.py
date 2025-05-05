@@ -11,6 +11,7 @@ parser.add_argument("--resolution", nargs=1, metavar=("resolution"), default=("i
 parser.add_argument("--recenter", nargs=2, metavar=("x", "y"), default=([0, 0]), help="translate coordinate array (e.g. x_new = x_old - x)", type=float)
 parser.add_argument("--z", nargs=1, metavar=("elevation"), default=([0]), help="z coordinate of coastline", type=float)
 parser.add_argument("--filter_by_area", nargs=1, metavar=("min_area"), help="remove closed feature of area smaller than min_area (-A option of pscoast)", type=float)
+parser.add_argument("--box_filter", nargs=1, metavar=("xmin xmax ymin ymax"), help="remove all segments outside the specified range")
 args = parser.parse_args()
 
 command = f"gmt pscoast -R{args.lon[0]}/{args.lon[1]}/{args.lat[0]}/{args.lat[1]} -D{args.resolution[0]} -M -W"
@@ -58,6 +59,27 @@ else:
 
 xyz[:, 0] -= args.recenter[0]
 xyz[:, 1] -= args.recenter[1]
+
+
+if args.box_filter:
+    xmin, xmax, ymin, ymax = [float(v) for v in args.box_filter[0].split()]
+    # Filter points inside the bounding box
+    inside_mask = (xyz[:, 0] >= xmin) & (xyz[:, 0] <= xmax) & (xyz[:, 1] >= ymin) & (xyz[:, 1] <= ymax)
+    filtered_xyz = xyz[inside_mask]
+    print(xyz.shape, filtered_xyz.shape)
+
+    # Create a mapping from old indices to new indices
+    old_to_new = {old_idx: new_idx for new_idx, old_idx in enumerate(np.where(inside_mask)[0])}
+
+    # Filter segments where both points are inside
+    filtered_segments = np.array(
+        [s for s in segments if s[0] in old_to_new and s[1] in old_to_new]
+    )
+
+    # Renumber segment indices
+    filtered_segments = np.vectorize(old_to_new.get)(filtered_segments)
+    xyz, segments = filtered_xyz, filtered_segments+1
+
 
 nvert = xyz.shape[0]
 nseg = segments.shape[0]

@@ -12,6 +12,7 @@
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Initializer/PointMapper.h>
+#include <Initializer/Typedefs.h>
 #include <Kernels/Receiver.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
@@ -27,6 +28,7 @@
 #include <memory>
 #include <mpi.h>
 #include <numeric>
+#include <optional>
 #include <ostream>
 #include <regex>
 #include <sstream>
@@ -179,7 +181,7 @@ void ReceiverWriter::init(
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                const seissol::initializer::Lut& ltsLut,
                                const seissol::initializer::LTS& lts,
-                               const GlobalData* global) {
+                               const CompoundGlobalData& global) {
   std::vector<Eigen::Vector3d> points;
   // Only parse if we have a receiver file
   if (!m_receiverFileName.empty()) {
@@ -252,7 +254,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   }
 }
 
-void ReceiverWriter::simulationStart() {
+void ReceiverWriter::simulationStart(std::optional<double> checkpointTime) {
   for (auto& [layer, clusters] : m_receiverClusters) {
     for (auto& cluster : clusters) {
       cluster.allocateData();

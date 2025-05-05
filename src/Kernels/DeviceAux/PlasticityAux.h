@@ -12,14 +12,9 @@
 #include "Model/Plasticity.h"
 #include <stddef.h>
 
-#define NUM_STRESS_COMPONENTS 6
+namespace seissol::kernels::device::aux::plasticity {
+constexpr static int NumStressComponents = 6;
 
-// NOTE: using c++14 because of cuda@10
-namespace seissol {
-namespace kernels {
-namespace device {
-namespace aux {
-namespace plasticity {
 void adjustDeviatoricTensors(real** nodalStressTensors,
                              unsigned* isAdjustableVector,
                              const seissol::model::PlasticityData* plasticity,
@@ -67,10 +62,6 @@ void updateQEtaNodal(real** qEtaNodalPtrs,
                      size_t numElements,
                      void* streamPtr);
 
-} // namespace plasticity
-} // namespace aux
-} // namespace device
-} // namespace kernels
-} // namespace seissol
+} // namespace seissol::kernels::device::aux::plasticity
 
 #endif // SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_

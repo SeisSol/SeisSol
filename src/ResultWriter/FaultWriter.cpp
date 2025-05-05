@@ -8,12 +8,16 @@
 
 #include <Kernels/Precision.h>
 #include <Monitoring/Instrumentation.h> // IWYU pragma: keep
+#include <Parallel/Helper.h>
+#include <Parallel/MPI.h>
 #include <ResultWriter/FaultWriterExecutor.h>
 #include <algorithm>
 #include <async/Module.h>
 #include <cassert>
 #include <cstring>
+#include <optional>
 #include <string>
+#include <utils/env.h>
 #include <utils/logger.h>
 
 #include "AsyncCellIDs.h"
@@ -25,7 +29,8 @@
 void seissol::writer::FaultWriter::setUp() {
   setExecutor(m_executor);
 
-  if (isAffinityNecessary()) {
+  utils::Env env("SEISSOL_");
+  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
     logInfo() << "Fault writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
@@ -150,7 +155,11 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   setSyncInterval(interval);
 }
 
-void seissol::writer::FaultWriter::simulationStart() { syncPoint(0.0); }
+void seissol::writer::FaultWriter::simulationStart(std::optional<double> checkpointTime) {
+  if (checkpointTime.value_or(0) == 0) {
+    syncPoint(0.0);
+  }
+}
 
 void seissol::writer::FaultWriter::syncPoint(double currentTime) {
   SCOREP_USER_REGION("faultoutput_elementwise", SCOREP_USER_REGION_TYPE_FUNCTION)

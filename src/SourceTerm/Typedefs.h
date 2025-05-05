@@ -41,7 +41,7 @@ struct PointSources {
       seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>>
       mInvJInvPhisAtSources;
 
-  seissol::memory::MemkindArray<unsigned> fusedOriginalIndex;
+  seissol::memory::MemkindArray<unsigned> simulationIndex;
 
   /** NRF: Basis vectors of the fault.
    * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
@@ -78,7 +78,7 @@ struct PointSources {
   unsigned numberOfSources = 0;
 
   PointSources(seissol::memory::Memkind memkind)
-      : mInvJInvPhisAtSources(memkind), fusedOriginalIndex(memkind), tensor(memkind), A(memkind),
+      : mInvJInvPhisAtSources(memkind), simulationIndex(memkind), tensor(memkind), A(memkind),
         stiffnessTensor(memkind), onsetTime(memkind), samplingInterval(memkind),
         sampleOffsets{seissol::memory::MemkindArray<std::size_t>(memkind),
                       seissol::memory::MemkindArray<std::size_t>(memkind),
@@ -88,7 +88,7 @@ struct PointSources {
                seissol::memory::MemkindArray<real>(memkind)} {}
   PointSources(const PointSources& source, seissol::memory::Memkind memkind)
       : mInvJInvPhisAtSources(source.mInvJInvPhisAtSources, memkind),
-        fusedOriginalIndex(source.fusedOriginalIndex, memkind), tensor(source.tensor, memkind),
+        simulationIndex(source.simulationIndex, memkind), tensor(source.tensor, memkind),
         A(source.A, memkind), stiffnessTensor(source.stiffnessTensor, memkind),
         onsetTime(source.onsetTime, memkind), samplingInterval(source.samplingInterval, memkind),
         sampleOffsets{seissol::memory::MemkindArray<std::size_t>(source.sampleOffsets[0], memkind),

@@ -138,7 +138,8 @@ class BaseDRInitializer {
    * @param faceIDs faceIDs of the cells which are to be read
    */
   void queryModel(seissol::initializer::FaultParameterDB& faultParameterDB,
-                  const std::vector<unsigned>& faceIDs);
+                  const std::vector<unsigned>& faceIDs,
+                  std::size_t simid);
 
   /**
    * Evaluates, whether the FaultParameterDB provides a certain parameter.

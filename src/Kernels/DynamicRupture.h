@@ -10,9 +10,10 @@
 #define SEISSOL_SRC_KERNELS_DYNAMICRUPTURE_H_
 
 #include "Initializer/Typedefs.h"
-#include "Kernels/Time.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <Kernels/Kernel.h>
+#include <Kernels/Solver.h>
 #ifdef USE_STP
 #include "Numerical/BasisFunction.h"
 #include <array>
@@ -21,7 +22,7 @@
 
 namespace seissol::kernels {
 
-class DynamicRupture {
+class DynamicRupture : public Kernel {
   private:
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints m_krnlPrototype;
   kernels::Time m_timeKernel;
@@ -41,9 +42,7 @@ class DynamicRupture {
 
   DynamicRupture() = default;
 
-  static void checkGlobalData(const GlobalData* global, size_t alignment);
-  void setHostGlobalData(const GlobalData* global);
-  void setGlobalData(const CompoundGlobalData& global);
+  void setGlobalData(const CompoundGlobalData& global) override;
 
   void setTimeStepWidth(double timestep);
 

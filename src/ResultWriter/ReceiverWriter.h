@@ -47,14 +47,14 @@ class ReceiverWriter : public seissol::Module {
   void addPoints(const seissol::geometry::MeshReader& mesh,
                  const seissol::initializer::Lut& ltsLut,
                  const seissol::initializer::LTS& lts,
-                 const GlobalData* global);
+                 const CompoundGlobalData& global);
 
   kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer);
   //
   // Hooks
   //
   void syncPoint(double /*currentTime*/) override;
-  void simulationStart() override;
+  void simulationStart(std::optional<double> checkpointTime) override;
   void shutdown() override;
 
   private:

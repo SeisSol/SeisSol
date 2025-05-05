@@ -122,7 +122,7 @@ class NeighIntegrationRecorder : public AbstractRecorder<seissol::initializer::L
     AbstractRecorder::setUpContext(handler, layer);
   }
   void recordDofsTimeEvaluation();
-  void recordNeighbourFluxIntegrals();
+  void recordNeighborFluxIntegrals();
   kernels::NeighborData::Loader* currentLoader{nullptr};
   kernels::NeighborData::Loader* currentLoaderHost{nullptr};
   std::unordered_map<real*, real*> idofsAddressRegistry{};
