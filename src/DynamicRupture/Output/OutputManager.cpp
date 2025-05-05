@@ -319,20 +319,23 @@ void OutputManager::initPickpointOutput() {
         file << "# x3\t" << makeFormatted(point[2]) << '\n';
 
         // stress info
-        std::array<seissol::multisim::NumSimulations, std::array<real, 6>> rotatedInitialStress{};
+        // std::array<seissol::multisim::NumSimulations, std::array<real, 6>> rotatedInitialStress{};
+        std::array<real, 6> rotatedInitialStress{};
 
         {
           auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
           const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
           const auto* initialStress = initialStressVar[face];
-          std::array<seissol::multisim::NumSimulations, std::array<real, 6>> unrotatedInitialStress{};
+          // std::array<seissol::multisim::NumSimulations, std::array<real, 6>> unrotatedInitialStress{};
+          std::array<real, 6> unrotatedInitialStress{};
 
-          for(sim=0; sim < seissol::multisim::NumSimulations; ++sim) {
+          // for(size_t sim=0; sim < seissol::multisim::NumSimulations; ++sim) {
             for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size(); ++stressVar) {
-
-            }
+            // unrotatedInitialStress[sim][stressVar] = initialStress[stressVar][receiver.nearestGpIndex];
+            unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.nearestGpIndex];
           }
+          // }
 
           seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
           alignAlongDipAndStrikeKernel.stressRotationMatrix =
