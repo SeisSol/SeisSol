@@ -1,4 +1,7 @@
 # File taken from PyTorch (licensed under BSD 3-clause).
+# SPDX-FileCopyrightText: 2016 The PyTorch developers
+#
+# SPDX-License-Identifier: BSD-3-Clause
 #
 # Find the nccl libraries
 #
