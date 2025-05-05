@@ -217,6 +217,7 @@ To compile the seissol spack package on SuperMUC-NG, follow the procedure below.
     # load spack
     module purge
     module load user_spack/23.1.0
+    module load spack/23.1.0
     module load intel intel-mkl intel-mpi python/3.10.10-extended
 
     # install a few python modules (change DDDDD to the value used after RemoteForward in ~/.ssh/config)
@@ -226,7 +227,7 @@ To compile the seissol spack package on SuperMUC-NG, follow the procedure below.
 
     # clone seissol-spack-aid and add the repository
     # we use a supermuc specific branch as supermuc spack is not fully up to date
-    git clone --branch NG https://github.com/SeisSol/seissol-spack-aid.git
+    git clone --branch spack_0.22 https://github.com/SeisSol/seissol-spack-aid.git
     cd seissol-spack-aid
     spack repo add ./spack
     # install a specific version of seissol, and enable python binding enabled for easi
