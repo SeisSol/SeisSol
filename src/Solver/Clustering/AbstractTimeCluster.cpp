@@ -108,11 +108,8 @@ void AbstractTimeCluster::postCompute(ComputeStep step) {
     const bool usefulUpdate = (ct.computeSinceLastSync.at(step) >= neighbor.ct.nextSteps() &&
                                step == ComputeStep::Predict) ||
                               (ct.computeSinceLastSync.at(step) >=
-                                   neighbor.ct.computeSinceLastSync.at(ComputeStep::Predict) &&
-                               step == ComputeStep::Interact) ||
-                              (ct.computeSinceLastSync.at(step) >=
-                                   neighbor.ct.computeSinceLastSync.at(ComputeStep::Interact) &&
-                               step == ComputeStep::Correct);
+                                   neighbor.ct.computeSinceLastSync.at(previousStep(step)) &&
+                               step != ComputeStep::Predict);
 
     const bool sendMessage = justBeforeSync || usefulUpdate;
     if (sendMessage) {
@@ -247,18 +244,14 @@ void AbstractTimeCluster::reset() {
     assert(!neighbor.inbox->hasMessages());
   }
   ct.computeSinceLastSync.clear();
-  ct.computeSinceLastSync[ComputeStep::Predict] = 0;
-  ct.computeSinceLastSync[ComputeStep::Interact] = 0;
-  ct.computeSinceLastSync[ComputeStep::Correct] = 0;
+  forAllSteps([&](ComputeStep step) { ct.computeSinceLastSync[step] = 0; });
   ct.stepsUntilSync = ct.computeStepsUntilSyncTime(ct.time[lastStep()], syncTime);
 
   for (auto& neighbor : neighbors) {
     neighbor.ct.stepsUntilSync =
         neighbor.ct.computeStepsUntilSyncTime(ct.time[lastStep()], syncTime);
     neighbor.ct.computeSinceLastSync.clear();
-    neighbor.ct.computeSinceLastSync[ComputeStep::Predict] = 0;
-    neighbor.ct.computeSinceLastSync[ComputeStep::Interact] = 0;
-    neighbor.ct.computeSinceLastSync[ComputeStep::Correct] = 0;
+    forAllSteps([&](ComputeStep step) { neighbor.ct.computeSinceLastSync[step] = 0; });
     neighbor.events.clear();
   }
 
@@ -273,12 +266,10 @@ double AbstractTimeCluster::getPriority() const { return priority; }
 ActorState AbstractTimeCluster::getState() const { return state; }
 
 void AbstractTimeCluster::setTime(double time) {
-  ct.time[ComputeStep::Predict] = time;
-  ct.time[ComputeStep::Interact] = time;
-  ct.time[ComputeStep::Correct] = time;
+  forAllSteps([&](ComputeStep step) { ct.time[step] = time; });
 }
 
-long AbstractTimeCluster::getTimeStepRate() { return timeStepRate; }
+long AbstractTimeCluster::getTimeStepRate() const { return timeStepRate; }
 
 void AbstractTimeCluster::finalize() { streamRuntime.dispose(); }
 

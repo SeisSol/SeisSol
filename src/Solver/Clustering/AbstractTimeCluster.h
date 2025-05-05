@@ -56,7 +56,7 @@ class AbstractTimeCluster {
   bool advanceState();
   void postCompute(ComputeStep step);
   virtual ComputeStep lastStep() const { return ComputeStep::Correct; }
-  ComputeStep nextStep(ComputeStep step) const {
+  static ComputeStep nextStep(ComputeStep step) {
     switch (step) {
     case ComputeStep::Predict:
       return ComputeStep::Interact;
@@ -66,6 +66,23 @@ class AbstractTimeCluster {
       return ComputeStep::Predict;
     }
     throw;
+  }
+  static ComputeStep previousStep(ComputeStep step) {
+    switch (step) {
+    case ComputeStep::Predict:
+      return ComputeStep::Correct;
+    case ComputeStep::Interact:
+      return ComputeStep::Predict;
+    case ComputeStep::Correct:
+      return ComputeStep::Interact;
+    }
+    throw;
+  }
+  template <typename F>
+  void forAllSteps(const F& caller) {
+    caller(ComputeStep::Predict);
+    caller(ComputeStep::Interact);
+    caller(ComputeStep::Correct);
   }
   // needed, so that we can re-use events from empty steps
   virtual bool emptyStep(ComputeStep step) const { return true; }
@@ -111,7 +128,7 @@ class AbstractTimeCluster {
 
   virtual void finishPhase();
 
-  long getTimeStepRate();
+  long getTimeStepRate() const;
 
   std::string identifier() const { return description() + "-" + std::to_string(ct.timeStepRate); }
 
