@@ -84,6 +84,7 @@ struct DRParameters {
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
   double etaHack{1.0};
+  double etaStop{0.0};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);

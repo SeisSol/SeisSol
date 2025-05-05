@@ -676,7 +676,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       impAndEta[ltsFace].invZsNeig = 1 / impAndEta[ltsFace].zsNeig;
 
       impAndEta[ltsFace].etaP =
-          etaHack / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
+          1.0 / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS =
           1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
