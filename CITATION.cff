@@ -2,87 +2,116 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-# This CITATION.cff file was generated with cffinit.
-# Visit https://bit.ly/cffinit to generate yours today!
-
+---
 cff-version: 1.2.0
 title: SeisSol
-message: >-
-  If you use this software, please cite it using the
-  metadata from this file.
 type: software
-authors:
- - given-names: Carsten 
-   family-names: Uphoff
- - given-names: Lukas 
-   family-names: Krenz
-   orcid: 'https://orcid.org/0000-0001-6378-0778'
- - given-names: Thomas 
-   family-names: Ulrich
- - given-names: Sebastian 
-   family-names: Wolf
- - given-names: David 
-   family-names: Schneller
-   orcid: 'https://orcid.org/0000-0002-2145-6133'
- - given-names: Vikas
-   family-names: Kurapati
-   orcid: 'https://orcid.org/0009-0001-7682-508X'
- - given-names: Adrian 
-   family-names: Knoll
- - given-names: Duo 
-   family-names: Li
- - given-names: Ravil 
-   family-names: Dorozhinskii
- - given-names: Alexander 
-   family-names: Heinecke
- - given-names: Stephanie 
-   family-names: Wollherr
- - given-names: Marius 
-   family-names: Bohn
- - given-names: Nico 
-   family-names: Schliwa
- - given-names: Gilbert 
-   family-names: Brietzke
- - given-names: Taufiq 
-   family-names: Taufiqurrahman
- - given-names: Sebastian 
-   family-names: Anger
- - given-names: Sebastian 
-   family-names: Rettenberger
- - given-names: Frédéric 
-   family-names: Simonis
- - given-names: Alice 
-   family-names: Gabriel
- - given-names: Viktoria 
-   family-names: Pauw
- - given-names: Alexander 
-   family-names: Breuer
- - given-names: Fabian 
-   family-names: Kutschera
- - given-names: Kadek 
-   family-names: Hendrawan Palgunadi
- - given-names: Leonhard 
-   family-names: Rannabauer
- - given-names: Lukas 
-   family-names: van de Wiel
- - given-names: Bo 
-   family-names: Li
- - given-names: Calum 
-   family-names: Chamberlain
- - given-names: Jeena 
-   family-names: Yun
- - given-names: John 
-   family-names: Rekoske
- - given-names: Yonatan 
-   family-names: G
- - given-names: Michael 
-   family-names: Bader
-
 repository-code: 'https://github.com/SeisSol/SeisSol'
 url: 'https://seissol.org'
 abstract: >-
-  SeisSol is a scientific software for the numerical
-  simulation of seismic wave phenomena and earthquake
-  dynamics. It is based on the discontinuous Galerkin method
-  combined with ADER time discretization.
+  SeisSol is an open-source software for the simulation
+  of seismic wave phenomena and earthquake dynamics.
+  Seismic wave propagation is implemented for elastic,
+  viscoelastic and poroelastic media, based on high-order
+  discontinuous Galerkin discretization and ADER time
+  stepping on unstructured adaptive tetrahedral meshes.
+  SeisSol is optimized for large supercomputing platforms,
+  using MPI+OpenMP for parallelization and MPI+CUDA/HIP/SYCL
+  for GPU architectures.
 license: BSD-3-Clause
+keywords:
+  - earthquake simulation
+  - high performance computing
+  - discontinuous Galerkin
+
+contact:
+  - affiliation: "University of California, San Diego"
+    email: algabriel@ucsd.edu
+    family-names: Gabriel
+    given-names: Alice-Agnes
+    orcid: 'https://orcid.org/0000-0003-0112-8412'
+  - affiliation: "Technical University of Munich"
+    email: bader@cit.tum.de
+    family-names: Bader
+    given-names: Michael
+    orcid: 'https://orcid.org/0009-0000-4334-1938'
+
+# use as surrogate for "acknowledgements"; as the
+# citation format doesn't seem to provide a field for it yet
+message: >-
+  We especially acknowledge the work of Martin Käser
+  and Michael Dumbser, the originators and developers
+  of the first generation of SeisSol, as well as early
+  SeisSol authors Cristobal Castro, Verena Hermann
+  and Josep de la Puente.
+  In addition, we express our sincere gratitude to all
+  contributors to SeisSol documentation, benchmarks,
+  postprocessing, workflows, testing and bug fixes:
+  Gilbert Brietzke, Duo Li, Fabian Kutschera,
+  Kadek Hendrawan Palgunadi,Victoria Pauw, John Rekoske,
+  Taufiqurrahman (and probably many more).
+
+
+# author list, by generation
+authors:
+  # PI
+  - given-names: Alice-Agnes
+    family-names: Gabriel
+    orcid: 'https://orcid.org/0000-0003-0112-8412'
+
+  # TODO (future)
+  # add generation 5 developers here, once they exist
+  # also, move still-active gen 4 developers here as well
+
+  # generation 4 developers (active), listed alphabetically
+  - given-names: Vikas
+    family-names: Kurapati
+    orcid: 'https://orcid.org/0009-0001-7682-508X'
+  - given-names: Zihua
+    family-names: Niu
+    orcid: 'https://orcid.org/0000-0003-4213-3322'
+  - given-names: Nico
+    family-names: Schliwa
+    orcid: 'https://orcid.org/0009-0004-7825-9458'
+  - given-names: David
+    family-names: Schneller
+    orcid: 'https://orcid.org/0000-0002-2145-6133'
+  - given-names: Thomas
+    family-names: Ulrich
+    orcid: 'https://orcid.org/0000-0002-4164-8933'
+
+  # generation 3 developers, listed alphabetically
+  - given-names: Ravil
+    family-names: Dorozhinskii
+    orcid: 'https://orcid.org/0000-0003-0397-2166'
+  - given-names: Lukas
+    family-names: Krenz
+    orcid: 'https://orcid.org/0000-0001-6378-0778'
+  - given-names: Carsten
+    family-names: Uphoff
+    orcid: 'https://orcid.org/0000-0002-9169-7485'
+  - given-names: Sebastian
+    family-names: Wolf
+    orcid: 'https://orcid.org/0000-0001-5637-4261'
+
+  # generation 2 developers, listed alphabetically
+  - given-names: Alexander
+    family-names: Breuer
+    orcid: 'https://orcid.org/0000-0001-8145-3877'
+  - given-names: Alexander
+    family-names: Heinecke
+    orcid: 'https://orcid.org/0009-0007-0947-5394'
+  - given-names: Christian
+    family-names: Pelties
+    # orcid unknown
+  - given-names: Sebastian
+    family-names: Rettenberger
+    orcid: 'https://orcid.org/0000-0003-2352-589X'
+  - given-names: Stephanie
+    family-names: Wollherr
+    orcid: 'https://orcid.org/0000-0003-2200-3256'
+
+  # PI
+  - given-names: Michael
+    family-names: Bader
+    orcid: 'https://orcid.org/0009-0000-4334-1938'
