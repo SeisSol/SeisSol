@@ -30,7 +30,8 @@ CommunicationClusterFactory::CommunicationClusterFactory(CommunicationMode mode,
 void CommunicationClusterFactory::prepare() {
 #if defined(ACL_DEVICE) && defined(USE_CCL)
   if (mode == CommunicationMode::DirectCCL) {
-    comms = seissol::solver::clustering::communication::createComms(globalClusterCount);
+    comms = seissol::solver::clustering::communication::createComms(
+        (globalClusterCount * (globalClusterCount + 1)) / 2);
   }
 #endif
 }
@@ -67,20 +68,33 @@ std::pair<std::shared_ptr<SendNeighborCluster>, std::shared_ptr<RecvNeighborClus
   }
 }
 
-std::pair<std::vector<std::shared_ptr<SendNeighborCluster>>,
-          std::vector<std::shared_ptr<RecvNeighborCluster>>>
+std::pair<std::vector<std::vector<std::shared_ptr<SendNeighborCluster>>>,
+          std::vector<std::vector<std::shared_ptr<RecvNeighborCluster>>>>
     CommunicationClusterFactory::get(
         const HaloCommunication& comm,
         const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
         double priority) {
-  std::vector<std::shared_ptr<RecvNeighborCluster>> clustersRecv;
-  std::vector<std::shared_ptr<SendNeighborCluster>> clustersSend;
-  clustersSend.reserve(comm.copy.size());
-  clustersRecv.reserve(comm.ghost.size());
+  std::vector<std::vector<std::shared_ptr<RecvNeighborCluster>>> clustersRecv;
+  std::vector<std::vector<std::shared_ptr<SendNeighborCluster>>> clustersSend;
+  clustersSend.resize(comm.copy.size());
+  clustersRecv.resize(comm.ghost.size());
+
+  for (std::size_t i = 0; i < comm.copy.size(); ++i) {
+    clustersSend[i].resize(comm.copy[i].size());
+  }
   for (std::size_t i = 0; i < comm.ghost.size(); ++i) {
-    const auto sendrecv = getPair(i, comm.copy.at(i), comm.ghost.at(i), cpuExecutor, priority);
-    clustersSend.emplace_back(sendrecv.first);
-    clustersRecv.emplace_back(sendrecv.second);
+    clustersRecv[i].resize(i + 1);
+  }
+
+  std::size_t commCluster = 0;
+  for (std::size_t i = 0; i < comm.ghost.size(); ++i) {
+    for (std::size_t j = 0; j < comm.ghost[i].size(); ++j) {
+      const auto sendrecv =
+          getPair(commCluster, comm.copy[i][j], comm.ghost[i][j], cpuExecutor, priority);
+      clustersSend[i][j] = sendrecv.first;
+      clustersRecv[j + i][i] = sendrecv.second;
+      ++commCluster;
+    }
   }
   return {clustersSend, clustersRecv};
 }

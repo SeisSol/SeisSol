@@ -40,8 +40,8 @@ class CommunicationClusterFactory {
               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
               double priority);
 
-  std::pair<std::vector<std::shared_ptr<SendNeighborCluster>>,
-            std::vector<std::shared_ptr<RecvNeighborCluster>>>
+  std::pair<std::vector<std::vector<std::shared_ptr<SendNeighborCluster>>>,
+            std::vector<std::vector<std::shared_ptr<RecvNeighborCluster>>>>
       get(const HaloCommunication& comm,
           const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
           double priority);

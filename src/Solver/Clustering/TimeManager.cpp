@@ -239,8 +239,12 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
 
   std::vector<std::shared_ptr<clustering::communication::NeighborCluster>> communication;
 
-  communication.insert(communication.end(), sendClusters.begin(), sendClusters.end());
-  communication.insert(communication.end(), recvClusters.begin(), recvClusters.end());
+  for (const auto& clusterArray : sendClusters) {
+    communication.insert(communication.end(), clusterArray.begin(), clusterArray.end());
+  }
+  for (const auto& clusterArray : recvClusters) {
+    communication.insert(communication.end(), clusterArray.begin(), clusterArray.end());
+  }
 
   if (seissol::useCommThread(MPI::mpi, seissolInstance.env())) {
     communicationManager = std::make_shared<communication::ThreadedCommunicationManager>(

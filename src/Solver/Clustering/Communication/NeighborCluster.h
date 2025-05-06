@@ -27,8 +27,8 @@ struct RemoteCluster {
 };
 
 struct HaloCommunication {
-  std::vector<std::vector<RemoteCluster>> ghost;
-  std::vector<std::vector<RemoteCluster>> copy;
+  std::vector<std::vector<std::vector<RemoteCluster>>> ghost;
+  std::vector<std::vector<std::vector<RemoteCluster>>> copy;
 };
 
 HaloCommunication getHaloCommunication(const initializer::ClusterLayout& layout,

@@ -10,6 +10,7 @@
 
 #include <Solver/Clustering/ActorState.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
+#include <Solver/Clustering/Communication/NeighborClusterArray.h>
 #include <Solver/Clustering/Computation/TimeCluster.h>
 
 #include <utility>
@@ -29,7 +30,7 @@ class CopyCluster : public TimeCluster {
               seissol::SeisSol& seissolInstance,
               LoopStatistics* loopStatistics,
               ActorStateStatistics* actorStateStatistics,
-              std::shared_ptr<communication::SendNeighborCluster> neighbor,
+              std::vector<std::shared_ptr<communication::SendNeighborCluster>> neighbor,
               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
               double priority)
       : TimeCluster(clusterId,
@@ -47,7 +48,7 @@ class CopyCluster : public TimeCluster {
                     actorStateStatistics,
                     cpuExecutor,
                     priority),
-        neighbor(std::move(neighbor)) {}
+        neighbor(std::move(neighbor), 2) {}
   LayerType getLayerType() const override { return Copy; }
 
   protected:
@@ -58,21 +59,21 @@ class CopyCluster : public TimeCluster {
 
   void runCompute(ComputeStep step) override {
     if (step == ComputeStep::Predict && dataSent) {
-      neighbor->stopTo(streamRuntime);
+      neighbor.stopTo(streamRuntime, false);
     }
 
     TimeCluster::runCompute(step);
 
     if (step == ComputeStep::Predict) {
-      neighbor->startFrom(streamRuntime);
+      neighbor.startFrom(streamRuntime);
       dataSent = true;
     }
   }
 
   bool pollCompute(ComputeStep step) override {
     // we'll be less fancy here and demand that the data is sent right at the same place
-    if (neighbor->blocking() && step == ComputeStep::Predict) {
-      return neighbor->poll();
+    if (neighbor.blocking() && step == ComputeStep::Predict) {
+      return neighbor.poll();
     }
     return true;
   }
@@ -80,20 +81,20 @@ class CopyCluster : public TimeCluster {
   void reset() override {
     TimeCluster::reset();
     if (dataSent) {
-      neighbor->stopTo(streamRuntime);
+      neighbor.stopTo(streamRuntime, true);
       dataSent = false;
     }
   }
 
   void finalize() override {
     TimeCluster::finalize();
-    neighbor->dispose();
+    neighbor.dispose();
   }
 
   std::string description() const override { return "copy-cell"; }
 
   private:
-  std::shared_ptr<communication::SendNeighborCluster> neighbor;
+  communication::NeighborClusterArray<communication::SendNeighborCluster> neighbor;
   bool dataSent{false};
 };
 

@@ -13,6 +13,7 @@
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/ActorState.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
+#include <Solver/Clustering/Communication/NeighborClusterArray.h>
 #include <memory>
 #include <utility>
 
@@ -22,7 +23,7 @@ class GhostCluster : public AbstractTimeCluster {
   public:
   GhostCluster(double maxTimeStepSize,
                long timeStepRate,
-               std::shared_ptr<communication::RecvNeighborCluster> neighbor,
+               std::vector<std::shared_ptr<communication::RecvNeighborCluster>> neighbor,
                const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
                double priority)
       : AbstractTimeCluster(maxTimeStepSize,
@@ -30,7 +31,7 @@ class GhostCluster : public AbstractTimeCluster {
                             isDeviceOn() ? Executor::Device : Executor::Host,
                             cpuExecutor,
                             priority),
-        neighbor(std::move(neighbor)) {}
+        neighbor(std::move(neighbor), 1) {}
 
   LayerType getLayerType() const override { return Ghost; }
 
@@ -41,21 +42,26 @@ class GhostCluster : public AbstractTimeCluster {
 
   void runCompute(ComputeStep step) override {
     if (step == ComputeStep::Predict) {
-      neighbor->startFrom(streamRuntime);
-      neighbor->stopTo(streamRuntime);
+      neighbor.startFrom(streamRuntime);
+      neighbor.stopTo(streamRuntime, false);
     }
   }
 
   bool pollCompute(ComputeStep step) override {
-    if (neighbor->blocking() && step == ComputeStep::Predict) {
-      return neighbor->poll();
+    if (neighbor.blocking() && step == ComputeStep::Predict) {
+      return neighbor.poll();
     }
     return true;
   }
 
+  void reset() override {
+    AbstractTimeCluster::reset();
+    neighbor.stopTo(streamRuntime, true);
+  }
+
   void finalize() override {
     AbstractTimeCluster::finalize();
-    neighbor->dispose();
+    neighbor.dispose();
   }
 
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override {
@@ -84,7 +90,7 @@ class GhostCluster : public AbstractTimeCluster {
   std::string description() const override { return "ghost-cell"; }
 
   private:
-  std::shared_ptr<communication::RecvNeighborCluster> neighbor;
+  communication::NeighborClusterArray<communication::RecvNeighborCluster> neighbor;
 };
 
 } // namespace seissol::solver::clustering::computation

@@ -479,8 +479,9 @@ void TimeCluster::handleAdvancedComputeTimeMessage(ComputeStep step,
   }
 }
 void TimeCluster::predict() {
-  if (layer->getNumberOfCells() == 0)
+  if (layer->getNumberOfCells() == 0) {
     return;
+  }
 
   bool resetBuffers = true;
   for (auto& neighbor : neighbors) {
