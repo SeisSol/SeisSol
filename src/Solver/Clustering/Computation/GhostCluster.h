@@ -13,12 +13,12 @@
 #include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/ActorState.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
-#include <Solver/Clustering/Communication/NeighborClusterArray.h>
 #include <memory>
 #include <utility>
 
 namespace seissol::solver::clustering::computation {
 
+/*
 class GhostCluster : public AbstractTimeCluster {
   public:
   GhostCluster(double maxTimeStepSize,
@@ -45,6 +45,12 @@ class GhostCluster : public AbstractTimeCluster {
       neighbor.startFrom(streamRuntime);
       neighbor.stopTo(streamRuntime, false);
     }
+    // TODO:
+    // Predict -> launch recvs
+    // Communicate -> launch sends
+    // poll at the end of Communicate for both
+
+    // NCCL: all in Communicate
   }
 
   bool pollCompute(ComputeStep step) override {
@@ -92,6 +98,7 @@ class GhostCluster : public AbstractTimeCluster {
   private:
   communication::NeighborClusterArray<communication::RecvNeighborCluster> neighbor;
 };
+*/
 
 } // namespace seissol::solver::clustering::computation
 #endif // SEISSOL_SRC_SOLVER_CLUSTERING_COMPUTATION_GHOSTCLUSTER_H_

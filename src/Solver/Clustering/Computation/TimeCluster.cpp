@@ -61,6 +61,7 @@ TimeCluster::TimeCluster(unsigned int clusterId,
                          double maxTimeStepSize,
                          long timeStepRate,
                          bool printProgress,
+                         LayerType layerType,
                          CompoundGlobalData globalData,
                          seissol::initializer::Layer* clusterData,
                          seissol::initializer::LTS* lts,
@@ -84,7 +85,8 @@ TimeCluster::TimeCluster(unsigned int clusterId,
       loopStatistics(loopStatistics), actorStateStatistics(actorStateStatistics),
       receiverCluster(nullptr), printProgress(printProgress), clusterId(clusterId),
       globalClusterId(globalClusterId), profilingId(profilingId),
-      yieldCells(1, isDeviceOn() ? seissol::memory::PinnedMemory : seissol::memory::Standard) {
+      yieldCells(1, isDeviceOn() ? seissol::memory::PinnedMemory : seissol::memory::Standard),
+      layerType(layerType) {
   // assert all pointers are valid
   assert(layer != nullptr);
   assert(globalDataOnHost != nullptr);
@@ -129,8 +131,6 @@ void TimeCluster::writeReceivers() {
         receiverTime, ct.time.at(ComputeStep::Correct), timeStepSize(), executor, streamRuntime);
   }
 }
-
-std::vector<NeighborCluster>* TimeCluster::getNeighborClusters() { return &neighbors; }
 
 void TimeCluster::computeSources() {
 #ifdef ACL_DEVICE

@@ -166,7 +166,9 @@ bool AbstractTimeCluster::processMessages() {
       neighbor.ct.time[message.step] = message.time;
       neighbor.ct.computeSinceLastSync[message.step] = message.stepsSinceSync;
       neighbor.events[message.step] = message.completionEvent;
-      handleAdvancedComputeTimeMessage(message.step, neighbor);
+      if (neighbor.dependent) {
+        handleAdvancedComputeTimeMessage(message.step, neighbor);
+      }
     }
   }
   return processed;
@@ -175,21 +177,24 @@ bool AbstractTimeCluster::processMessages() {
 bool AbstractTimeCluster::allComputed(ComputeStep step) {
   // special case for the last step: we need to look into the future
   if (step == lastStep()) {
-    const auto minNeighborSteps = std::min_element(
-        neighbors.begin(), neighbors.end(), [](const NeighborCluster& a, const NeighborCluster& b) {
-          return a.ct.nextSteps() < b.ct.nextSteps();
-        });
-    const bool stepBasedPredict =
-        minNeighborSteps == neighbors.end() ||
-        ct.computeSinceLastSync.at(step) < minNeighborSteps->ct.nextSteps();
+    bool stepBasedPredict = true;
+    for (auto& neighbor : neighbors) {
+      if (neighbor.dependent) {
+        stepBasedPredict =
+            stepBasedPredict && ct.computeSinceLastSync.at(step) < neighbor.ct.nextSteps();
+      }
+    }
     return stepBasedPredict;
   } else {
     bool stepBasedCorrect = true;
     for (auto& neighbor : neighbors) {
-      const bool isSynced = neighbor.ct.stepsUntilSync <= neighbor.ct.computeSinceLastSync.at(step);
-      const bool isAdvanced =
-          ct.computeSinceLastSync.at(step) <= neighbor.ct.computeSinceLastSync.at(step);
-      stepBasedCorrect = stepBasedCorrect && (isSynced || isAdvanced);
+      if (neighbor.dependent) {
+        const bool isSynced =
+            neighbor.ct.stepsUntilSync <= neighbor.ct.computeSinceLastSync.at(step);
+        const bool isAdvanced =
+            ct.computeSinceLastSync.at(step) <= neighbor.ct.computeSinceLastSync.at(step);
+        stepBasedCorrect = stepBasedCorrect && (isSynced || isAdvanced);
+      }
     }
     return stepBasedCorrect;
   }
@@ -198,13 +203,15 @@ bool AbstractTimeCluster::allComputed(ComputeStep step) {
 void AbstractTimeCluster::preCompute(ComputeStep step) {
   if (concurrent) {
     for (auto& neighbor : neighbors) {
-      // (only) wait upon all events that we haven't waited upon yet
-      auto eventfind = neighbor.events.find(step);
-      if (eventfind != neighbor.events.end() && eventfind->second.has_value()) {
-        streamRuntime.waitEvent(eventfind->second.value());
+      if (neighbor.dependent) {
+        // (only) wait upon all events that we haven't waited upon yet
+        auto eventfind = neighbor.events.find(step);
+        if (eventfind != neighbor.events.end() && eventfind->second.has_value()) {
+          streamRuntime.waitEvent(eventfind->second.value());
 
-        // forget about events that have been waited upon already
-        eventfind->second = std::optional<parallel::runtime::EventT>();
+          // forget about events that have been waited upon already
+          eventfind->second = std::optional<parallel::runtime::EventT>();
+        }
       }
     }
   }
@@ -216,7 +223,7 @@ bool AbstractTimeCluster::maySynchronize() {
   return ct.computeSinceLastSync.at(lastStep()) >= ct.stepsUntilSync;
 }
 
-void AbstractTimeCluster::connect(AbstractTimeCluster& other) {
+void AbstractTimeCluster::connect(AbstractTimeCluster& other, bool bidirectional) {
   neighbors.emplace_back(other.ct.maxTimeStepSize, other.ct.timeStepRate, other.executor);
   other.neighbors.emplace_back(ct.maxTimeStepSize, ct.timeStepRate, executor);
   neighbors.back().inbox = std::make_shared<MessageQueue>();
@@ -225,6 +232,8 @@ void AbstractTimeCluster::connect(AbstractTimeCluster& other) {
   other.neighbors.back().outbox = neighbors.back().inbox;
   neighbors.back().identifier = other.identifier();
   other.neighbors.back().identifier = identifier();
+
+  neighbors.back().dependent = bidirectional;
 }
 
 void AbstractTimeCluster::setSyncTime(double newSyncTime) {
@@ -237,9 +246,8 @@ bool AbstractTimeCluster::synchronized() const { return state.type == StateType:
 void AbstractTimeCluster::reset() {
   assert(state.type == StateType::Synchronized);
 
-  // There can be pending messages from before the sync point
-  while (processMessages()) {
-  }
+  // There can be pending messages from before the sync point (but only one)
+  processMessages();
   for (auto& neighbor : neighbors) {
     assert(!neighbor.inbox->hasMessages());
   }

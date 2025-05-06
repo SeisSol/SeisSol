@@ -15,14 +15,16 @@
 
 namespace seissol::writer {
 
+enum class ClusterType : int { Cell, Face };
+
 class ClusteringWriter {
   public:
   ClusteringWriter(const std::string& outputPrefix);
   void addCluster(unsigned profilingId,
                   unsigned localClusterId,
+                  ClusterType clusterType,
                   LayerType layerType,
-                  unsigned size,
-                  unsigned dynRupSize);
+                  unsigned size);
   void write() const;
 
   // SoA that contains info about clusters
@@ -32,8 +34,8 @@ class ClusteringWriter {
     std::vector<int> profilingIds;
     std::vector<int> localClusterIds;
     std::vector<std::underlying_type_t<LayerType>> layerTypes;
+    std::vector<std::underlying_type_t<ClusterType>> clusterTypes;
     std::vector<unsigned> sizes;
-    std::vector<unsigned> dynamicRuptureSizes;
   };
 
   private:

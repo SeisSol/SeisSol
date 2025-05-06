@@ -10,12 +10,12 @@
 
 #include <Solver/Clustering/ActorState.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
-#include <Solver/Clustering/Communication/NeighborClusterArray.h>
 #include <Solver/Clustering/Computation/TimeCluster.h>
 
 #include <utility>
 namespace seissol::solver::clustering::computation {
 
+/*
 class CopyCluster : public TimeCluster {
   public:
   CopyCluster(unsigned int clusterId,
@@ -97,6 +97,7 @@ class CopyCluster : public TimeCluster {
   communication::NeighborClusterArray<communication::SendNeighborCluster> neighbor;
   bool dataSent{false};
 };
+*/
 
 } // namespace seissol::solver::clustering::computation
 #endif // SEISSOL_SRC_SOLVER_CLUSTERING_COMPUTATION_COPYCLUSTER_H_

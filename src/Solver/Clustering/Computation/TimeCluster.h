@@ -120,6 +120,8 @@ class TimeCluster : public CellCluster {
 
   seissol::memory::MemkindArray<unsigned> yieldCells;
 
+  LayerType layerType;
+
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics;
   ActorStateStatistics* actorStateStatistics;
@@ -226,6 +228,7 @@ class TimeCluster : public CellCluster {
               double maxTimeStepSize,
               long timeStepRate,
               bool printProgress,
+              LayerType layerType,
               CompoundGlobalData globalData,
               seissol::initializer::Layer* clusterData,
               seissol::initializer::LTS* lts,
@@ -261,14 +264,18 @@ class TimeCluster : public CellCluster {
 
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
-  LayerType getLayerType() const override { return Interior; }
+  LayerType getLayerType() const override { return layerType; }
   void setReceiverTime(double receiverTime);
-
-  std::vector<NeighborCluster>* getNeighborClusters();
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 
-  std::string description() const override { return "interior-cell"; }
+  std::string description() const override {
+    if (getLayerType() == Interior) {
+      return "interior-cell";
+    } else {
+      return "copy-cell";
+    }
+  }
 
   void finishPhase() override;
 };

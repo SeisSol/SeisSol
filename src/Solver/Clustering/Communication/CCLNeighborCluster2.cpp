@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "CCLNeighborCluster2.h"
+#include <Solver/Clustering/ActorState.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 
 #ifdef USE_CCL
@@ -41,11 +42,10 @@ constexpr ncclDataType_t cclDatatype() {
 
 namespace seissol::solver::clustering::communication {
 
-bool CCLNeighborCluster::poll() { return true; }
-void CCLNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
+void CCLNeighborCluster::runCompute(ComputeStep step) {
   if (remote.size() > 0) {
 #ifdef USE_CCL
-    runtime.runGraphGeneric(handle, [&](parallel::runtime::StreamRuntime& runtime) {
+    streamRuntime.runGraphGeneric(handle, [&](parallel::runtime::StreamRuntime& runtime) {
       ncclGroupStart();
       for (std::size_t i = 0; i < remote.size(); ++i) {
         const auto& cluster = remote[i];
@@ -70,28 +70,29 @@ void CCLNeighborCluster::start(parallel::runtime::StreamRuntime& runtime) {
 #endif
   }
 }
-void CCLNeighborCluster::stop(parallel::runtime::StreamRuntime& runtime) {}
 
 CCLNeighborCluster::CCLNeighborCluster(
-    const std::vector<RemoteCluster>& remoteSend,
-    const std::vector<RemoteCluster>& remoteRecv,
+    double maxTimeStepSize,
+    long timeStepRate,
+    const std::vector<RemoteCluster>& sends,
+    const std::vector<RemoteCluster>& receives,
     void* comm,
     const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
     double priority)
-    : comm(comm), SendNeighborCluster(cpuExecutor, priority) {
-  remote.resize(remoteRecv.size() + remoteSend.size());
+    : comm(comm),
+      NeighborCluster(maxTimeStepSize, timeStepRate, sends, receives, cpuExecutor, priority) {
+  remote.resize(receives.size() + sends.size());
   isSend.resize(remote.size());
   std::size_t recvC = 0;
   std::size_t sendC = 0;
   for (std::size_t i = 0; i < remote.size(); ++i) {
-    const bool useSend =
-        remoteRecv.size() == recvC || remoteRecv[recvC].tag > remoteSend[sendC].tag;
+    const bool useSend = receives.size() == recvC || receives[recvC].tag > sends[sendC].tag;
     isSend[i] = useSend;
     if (useSend) {
-      remote[i] = remoteSend[sendC];
+      remote[i] = sends[sendC];
       ++sendC;
     } else {
-      remote[i] = remoteRecv[recvC];
+      remote[i] = receives[recvC];
       ++recvC;
     }
   }

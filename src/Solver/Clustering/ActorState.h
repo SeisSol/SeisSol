@@ -24,7 +24,7 @@ constexpr double PriorityHighest = 1.0;
 constexpr double PriorityNormal = 0.5;
 constexpr double PriorityLowest = 0.0;
 
-enum class ComputeStep { Predict, Interact, Correct };
+enum class ComputeStep { Predict, Communicate, Interact, Correct };
 
 struct Message {
   ComputeStep step;
@@ -95,6 +95,7 @@ struct NeighborCluster {
   std::shared_ptr<MessageQueue> inbox = nullptr;
   std::shared_ptr<MessageQueue> outbox = nullptr;
   std::unordered_map<ComputeStep, std::optional<parallel::runtime::EventT>> events;
+  bool dependent = true;
 
   NeighborCluster(double maxTimeStepSize, int timeStepRate, Executor executor);
 };

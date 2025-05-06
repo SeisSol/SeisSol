@@ -10,9 +10,8 @@
 
 #include "Parallel/MPI.h"
 #include "memory"
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
-#include <Solver/Clustering/Communication/CCLNeighborCluster.h>
-#include <Solver/Clustering/Communication/DirectMPINeighborClusterGPU.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 
 namespace seissol::solver::clustering::communication {
@@ -33,16 +32,18 @@ class CommunicationClusterFactory {
 
   void prepare();
 
-  std::pair<std::shared_ptr<SendNeighborCluster>, std::shared_ptr<RecvNeighborCluster>>
+  std::shared_ptr<NeighborCluster>
       getPair(std::size_t cluster,
+              double stepWidth,
+              std::size_t stepRate,
               const std::vector<RemoteCluster>& remoteSend,
               const std::vector<RemoteCluster>& remoteRecv,
               const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
               double priority);
 
-  std::pair<std::vector<std::vector<std::shared_ptr<SendNeighborCluster>>>,
-            std::vector<std::vector<std::shared_ptr<RecvNeighborCluster>>>>
+  std::vector<std::shared_ptr<NeighborCluster>>
       get(const HaloCommunication& comm,
+          const initializer::ClusterLayout& layout,
           const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
           double priority);
 };

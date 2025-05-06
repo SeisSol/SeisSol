@@ -27,6 +27,9 @@ std::string actorStateToString(ActorState state) {
     if (state.step == ComputeStep::Interact) {
       return "Interact";
     }
+    if (state.step == ComputeStep::Communicate) {
+      return "Communicate";
+    }
     if (state.step == ComputeStep::Predict) {
       return "Predict";
     }

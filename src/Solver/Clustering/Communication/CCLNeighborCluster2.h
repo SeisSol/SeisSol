@@ -17,19 +17,21 @@
 
 namespace seissol::solver::clustering::communication {
 
-class CCLNeighborCluster : public SendNeighborCluster {
+class CCLNeighborCluster : public NeighborCluster {
   public:
-  bool poll() override;
-  void start(parallel::runtime::StreamRuntime& runtime) override;
-  void stop(parallel::runtime::StreamRuntime& runtime) override;
-  bool blocking() override { return false; }
-
-  CCLNeighborCluster(const std::vector<RemoteCluster>& remoteSend,
-                     const std::vector<RemoteCluster>& remoteRecv,
+  CCLNeighborCluster(double maxTimeStepSize,
+                     long timeStepRate,
+                     const std::vector<RemoteCluster>& sends,
+                     const std::vector<RemoteCluster>& receives,
                      void* comm,
                      const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
                      double priority);
+
   ~CCLNeighborCluster() override;
+
+  bool emptyStep(ComputeStep step) const override { return step != ComputeStep::Communicate; }
+
+  void runCompute(ComputeStep step) override;
 
   private:
   std::vector<RemoteCluster> remote;
@@ -37,19 +39,6 @@ class CCLNeighborCluster : public SendNeighborCluster {
   std::vector<void*> memoryHandles;
   void* comm;
   device::DeviceGraphHandle handle;
-};
-
-class CCLNeighborDummyCluster : public RecvNeighborCluster {
-  public:
-  bool poll() override { return true; }
-  void start(parallel::runtime::StreamRuntime& runtime) override {}
-  void stop(parallel::runtime::StreamRuntime& runtime) override {}
-  bool blocking() override { return false; }
-
-  CCLNeighborDummyCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-                          double priority)
-      : RecvNeighborCluster(cpuExecutor, priority) {}
-  ~CCLNeighborDummyCluster() override = default;
 };
 
 } // namespace seissol::solver::clustering::communication

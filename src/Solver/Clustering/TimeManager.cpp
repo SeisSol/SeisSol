@@ -91,24 +91,26 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
                                                                   layout.globalClusterCount);
   communicationFactory.prepare();
 
-  const auto [sendClusters, recvClusters] =
-      communicationFactory.get(halo, cpuExecutor, PriorityHighest);
+  const auto communication = communicationFactory.get(halo, layout, cpuExecutor, PriorityHighest);
 
   std::vector<std::unordered_map<LayerType, std::shared_ptr<AbstractTimeCluster>>>
       cellClusterBackmap(layout.localClusterIds.size());
   std::vector<std::unordered_map<LayerType, std::shared_ptr<AbstractTimeCluster>>>
       faceClusterBackmap(layout.localClusterIds.size());
 
-  for (auto& layer : memoryManager.getLtsTree()->leaves()) {
-    if (layer.getNumberOfCells() == 0) {
-      // continue;
-    }
+  // fake Ghost layer clusters via communication
+  for (std::size_t i = 0; i < communication.size(); ++i) {
+    cellClusterBackmap[i][Ghost] = communication[i];
+    highPrioClusters.push_back(communication[i]);
+    clusters.push_back(communication[i]);
+  }
 
+  for (auto& layer : memoryManager.getLtsTree()->leaves()) {
     const auto globalClusterId = layer.getClusterId();
     const auto localClusterId = layout.localClusterFromGlobal(globalClusterId).value();
     const auto timeStepRate = layout.clusterRate(localClusterId);
     const auto timeStepSize = layout.timestepRate(localClusterId);
-    if (layer.getLayerType() == Interior) {
+    if (layer.getLayerType() == Interior || layer.getLayerType() == Copy) {
       const bool printProgress = localClusterId == *std::max_element(layout.localClusterIds.begin(),
                                                                      layout.localClusterIds.end());
       // add interior cluster
@@ -120,6 +122,7 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
           timeStepSize,
           timeStepRate,
           printProgress,
+          layer.getLayerType(),
           globalData,
           &layer,
           memoryManager.getLts(),
@@ -127,53 +130,26 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
           &loopStatistics,
           &actorStateStatisticsManager.addCluster(profilingId),
           cpuExecutor,
-          PriorityLowest));
+          layer.getLayerType() == Interior ? PriorityLowest : PriorityNormal));
       ++profilingId;
-      lowPrioClusters.push_back(clusters.back());
-    }
-    if (layer.getLayerType() == Copy) {
-      clusters.push_back(std::make_shared<computation::CopyCluster>(
-          localClusterId,
-          globalClusterId,
-          profilingId,
-          usePlasticity,
-          timeStepSize,
-          timeStepRate,
-          globalData,
-          &layer,
-          memoryManager.getLts(),
-          seissolInstance,
-          &loopStatistics,
-          &actorStateStatisticsManager.addCluster(profilingId),
-          sendClusters.at(globalClusterId),
-          cpuExecutor,
-          PriorityNormal));
-      ++profilingId;
-      highPrioClusters.push_back(clusters.back());
-    }
-    if (layer.getLayerType() == Ghost) {
-      clusters.push_back(
-          std::make_shared<computation::GhostCluster>(timeStepSize,
-                                                      timeStepRate,
-                                                      recvClusters.at(globalClusterId),
-                                                      cpuExecutor,
-                                                      PriorityNormal));
-      highPrioClusters.push_back(clusters.back());
-    }
+      if (layer.getLayerType() == Interior) {
+        lowPrioClusters.push_back(clusters.back());
+      } else {
+        highPrioClusters.push_back(clusters.back());
+      }
 
-    cellClusterBackmap[localClusterId][layer.getLayerType()] = clusters.back();
-    if (layer.getLayerType() != Ghost) {
+      cellClusterBackmap[localClusterId][layer.getLayerType()] = clusters.back();
+
       cellClusters.push_back(std::dynamic_pointer_cast<computation::TimeCluster>(clusters.back()));
 
-      clusteringWriter.addCluster(
-          profilingId, localClusterId, layer.getLayerType(), layer.getNumberOfCells(), 0);
+      clusteringWriter.addCluster(profilingId,
+                                  localClusterId,
+                                  writer::ClusterType::Cell,
+                                  layer.getLayerType(),
+                                  layer.getNumberOfCells());
     }
   }
   for (auto& layer : memoryManager.getDynamicRuptureTree()->leaves(Ghost)) {
-    if (layer.getNumberOfCells() == 0) {
-      // continue;
-    }
-
     const auto globalClusterId = layer.getClusterId();
     const auto localClusterId = layout.localClusterFromGlobal(globalClusterId).value();
     const auto timeStepRate = layout.clusterRate(localClusterId);
@@ -207,43 +183,46 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
     faceClusters.push_back(
         std::dynamic_pointer_cast<computation::DynamicRuptureCluster>(clusters.back()));
 
-    clusteringWriter.addCluster(
-        profilingId, localClusterId, layer.getLayerType(), 0, layer.getNumberOfCells());
+    clusteringWriter.addCluster(profilingId,
+                                localClusterId,
+                                writer::ClusterType::Face,
+                                layer.getLayerType(),
+                                layer.getNumberOfCells());
   }
 
-  const auto connectIfBothExist = [](auto& a, auto& b) {
+  const auto connectIfBothExist1D = [](auto& a, auto& b) {
     if (a && b) {
-      a->connect(*b);
+      a->connect(*b, false);
+    }
+  };
+
+  const auto connectIfBothExist2D = [](auto& a, auto& b) {
+    if (a && b) {
+      a->connect(*b, true);
     }
   };
 
   for (std::size_t i = 0; i < layout.localClusterIds.size(); ++i) {
-    connectIfBothExist(cellClusterBackmap[i][Copy], cellClusterBackmap[i][Interior]);
-    connectIfBothExist(cellClusterBackmap[i][Copy], cellClusterBackmap[i][Ghost]);
+    connectIfBothExist2D(cellClusterBackmap[i][Copy], cellClusterBackmap[i][Interior]);
+    connectIfBothExist2D(cellClusterBackmap[i][Copy], cellClusterBackmap[i][Ghost]);
+    for (std::size_t j = i + 1; j < layout.localClusterIds.size(); ++j) {
+      connectIfBothExist1D(cellClusterBackmap[i][Copy], cellClusterBackmap[j][Ghost]);
+    }
 
-    connectIfBothExist(faceClusterBackmap[i][Interior], cellClusterBackmap[i][Interior]);
-    connectIfBothExist(faceClusterBackmap[i][Interior], cellClusterBackmap[i][Copy]);
+    connectIfBothExist2D(faceClusterBackmap[i][Interior], cellClusterBackmap[i][Interior]);
+    connectIfBothExist2D(faceClusterBackmap[i][Interior], cellClusterBackmap[i][Copy]);
 
-    connectIfBothExist(faceClusterBackmap[i][Copy], cellClusterBackmap[i][Copy]);
-    connectIfBothExist(faceClusterBackmap[i][Copy], cellClusterBackmap[i][Ghost]);
+    connectIfBothExist2D(faceClusterBackmap[i][Copy], cellClusterBackmap[i][Copy]);
+    connectIfBothExist2D(faceClusterBackmap[i][Copy], cellClusterBackmap[i][Ghost]);
   }
 
   for (std::size_t i = 1; i < layout.localClusterIds.size(); ++i) {
     if (layout.localClusterIds[i - 1] + 1 == layout.localClusterIds[i]) {
-      connectIfBothExist(cellClusterBackmap[i][Interior], cellClusterBackmap[i - 1][Interior]);
-      connectIfBothExist(cellClusterBackmap[i][Interior], cellClusterBackmap[i - 1][Copy]);
-      connectIfBothExist(cellClusterBackmap[i][Copy], cellClusterBackmap[i - 1][Interior]);
-      connectIfBothExist(cellClusterBackmap[i][Copy], cellClusterBackmap[i - 1][Copy]);
+      connectIfBothExist2D(cellClusterBackmap[i][Interior], cellClusterBackmap[i - 1][Interior]);
+      connectIfBothExist2D(cellClusterBackmap[i][Interior], cellClusterBackmap[i - 1][Copy]);
+      connectIfBothExist2D(cellClusterBackmap[i][Copy], cellClusterBackmap[i - 1][Interior]);
+      connectIfBothExist2D(cellClusterBackmap[i][Copy], cellClusterBackmap[i - 1][Copy]);
     }
-  }
-
-  std::vector<std::shared_ptr<clustering::communication::NeighborCluster>> communication;
-
-  for (const auto& clusterArray : sendClusters) {
-    communication.insert(communication.end(), clusterArray.begin(), clusterArray.end());
-  }
-  for (const auto& clusterArray : recvClusters) {
-    communication.insert(communication.end(), clusterArray.begin(), clusterArray.end());
   }
 
   if (seissol::useCommThread(MPI::mpi, seissolInstance.env())) {

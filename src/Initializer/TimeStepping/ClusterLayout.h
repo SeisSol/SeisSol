@@ -37,11 +37,11 @@ std::optional<std::size_t> localClusterFromGlobal(int id) {
     }
 }
 
-double timestepRate(std::size_t id) {
+double timestepRate(std::size_t id) const {
     return clusterRate(id) * minimumTimestep;
 }
 
-long clusterRate(std::size_t id) {
+long clusterRate(std::size_t id) const {
     long value = 1;
     const int cluster = localClusterIds.at(id);
     for (int i = 0; i < cluster; ++i) {

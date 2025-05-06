@@ -11,18 +11,22 @@
 #include "NeighborCluster.h"
 #include <Parallel/Host/CpuExecutor.h>
 #include <Parallel/Runtime/Stream.h>
+#include <Solver/Clustering/ActorState.h>
 #include <mpi.h>
 #include <vector>
 
+#include "utils/logger.h"
+
 namespace seissol::solver::clustering::communication {
 
-class DirectMPINeighborClusterBlocking {
+class DirectMPINeighborClusterUnidirectional {
   public:
   bool poll();
   void start(parallel::runtime::StreamRuntime& runtime);
 
-  DirectMPINeighborClusterBlocking() = default;
-  ~DirectMPINeighborClusterBlocking();
+  DirectMPINeighborClusterUnidirectional(const std::vector<MPI_Request>& requests)
+      : requests(requests) {}
+  ~DirectMPINeighborClusterUnidirectional();
 
   protected:
   std::size_t enqueueCounter{0};
@@ -33,63 +37,80 @@ class DirectMPINeighborClusterBlocking {
   std::mutex requestMutex;
 };
 
-class DirectMPISendNeighborClusterBlocking : public SendNeighborCluster,
-                                             DirectMPINeighborClusterBlocking {
+class DirectMPINeighborCluster : public NeighborCluster {
+  private:
+  static std::vector<MPI_Request> initSends(const std::vector<RemoteCluster>& sends) {
+    std::vector<MPI_Request> sendRequests(sends.size());
+    for (std::size_t i = 0; i < sends.size(); ++i) {
+      MPI_Send_init(sends[i].data,
+                    sends[i].size,
+                    sends[i].datatype,
+                    sends[i].rank,
+                    sends[i].tag,
+                    MPI::mpi.comm(),
+                    &sendRequests[i]);
+    }
+    return sendRequests;
+  }
+
+  static std::vector<MPI_Request> initReceives(const std::vector<RemoteCluster>& receives) {
+    std::vector<MPI_Request> recvRequests(receives.size());
+    for (std::size_t i = 0; i < receives.size(); ++i) {
+      MPI_Recv_init(receives[i].data,
+                    receives[i].size,
+                    receives[i].datatype,
+                    receives[i].rank,
+                    receives[i].tag,
+                    MPI::mpi.comm(),
+                    &recvRequests[i]);
+    }
+    return recvRequests;
+  }
+
   public:
-  DirectMPISendNeighborClusterBlocking(
-      const std::vector<RemoteCluster>& remote,
-      const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-      double priority);
-  ~DirectMPISendNeighborClusterBlocking() override = default;
-  bool blocking() override { return true; }
+  DirectMPINeighborCluster(double maxTimeStepSize,
+                           long timeStepRate,
+                           const std::vector<RemoteCluster>& sends,
+                           const std::vector<RemoteCluster>& receives,
+                           const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                           double priority)
+      : NeighborCluster(maxTimeStepSize, timeStepRate, sends, receives, cpuExecutor, priority),
+        send(initSends(sends)), recv(initReceives(receives)) {}
 
-  bool poll() override;
-  void start(parallel::runtime::StreamRuntime& runtime) override;
-  void stop(parallel::runtime::StreamRuntime& runtime) override;
+  ~DirectMPINeighborCluster() override = default;
+
+  bool emptyStep(ComputeStep step) const override { return step == ComputeStep::Interact; }
+
+  void runCompute(ComputeStep step) override {
+    if (step == ComputeStep::Predict) {
+      recv.start(streamRuntime);
+    }
+    if (step == ComputeStep::Communicate) {
+      send.start(streamRuntime);
+    }
+  }
+
+  bool pollCompute(ComputeStep step) override {
+    const auto sendPollResult = send.poll();
+    const auto recvPollResult = recv.poll();
+    if (step == ComputeStep::Communicate) {
+      return recvPollResult;
+    }
+    if (step == ComputeStep::Correct) {
+      return sendPollResult;
+    }
+    return true;
+  }
+
+  bool poll() override {
+    const auto sendPollResult = send.poll();
+    const auto recvPollResult = recv.poll();
+    return recvPollResult && sendPollResult;
+  }
+
+  DirectMPINeighborClusterUnidirectional send;
+  DirectMPINeighborClusterUnidirectional recv;
 };
-
-class DirectMPIRecvNeighborClusterBlocking : public RecvNeighborCluster,
-                                             DirectMPINeighborClusterBlocking {
-  public:
-  DirectMPIRecvNeighborClusterBlocking(
-      const std::vector<RemoteCluster>& remote,
-      const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-      double priority);
-  ~DirectMPIRecvNeighborClusterBlocking() override = default;
-  bool blocking() override { return true; }
-
-  bool poll() override;
-  void start(parallel::runtime::StreamRuntime& runtime) override;
-  void stop(parallel::runtime::StreamRuntime& runtime) override;
-};
-
-/*
-class CopyMPISendNeighborCluster : public SendNeighborCluster {
-public:
-    CopyMPISendNeighborCluster(const std::vector<RemoteCluster>& remote);
-    ~CopyMPISendNeighborCluster() override;
-
-    bool poll() override;
-    void start(parallel::runtime::StreamRuntime& runtime) override;
-private:
-    std::vector<MPI_Request> requests;
-    std::vector<void*> copyStreams;
-    std::mutex requestMutex;
-};
-
-class CopyMPIRecvNeighborCluster : public RecvNeighborCluster {
-public:
-    CopyMPIRecvNeighborCluster(const std::vector<RemoteCluster>& remote);
-    ~CopyMPIRecvNeighborCluster() override;
-
-    bool poll() override;
-    void start(parallel::runtime::StreamRuntime& runtime) override;
-private:
-    std::vector<MPI_Request> requests;
-    std::vector<void*> copyStreams;
-    std::mutex requestMutex;
-};
-*/
 
 } // namespace seissol::solver::clustering::communication
 #endif // SEISSOL_SRC_SOLVER_CLUSTERING_COMMUNICATION_DIRECTMPINEIGHBORCLUSTERBLOCKING_H_

@@ -10,8 +10,10 @@
 
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Typedefs.h>
+#include <Kernels/Common.h>
 #include <Parallel/Host/CpuExecutor.h>
 #include <Parallel/Runtime/Stream.h>
+#include <Solver/Clustering/AbstractTimeCluster.h>
 #include <Solver/Clustering/ActorState.h>
 
 #include "Parallel/MPI.h"
@@ -27,53 +29,62 @@ struct RemoteCluster {
 };
 
 struct HaloCommunication {
-  std::vector<std::vector<std::vector<RemoteCluster>>> ghost;
-  std::vector<std::vector<std::vector<RemoteCluster>>> copy;
+  std::vector<std::vector<RemoteCluster>> ghost;
+  std::vector<std::vector<RemoteCluster>> copy;
 };
 
 HaloCommunication getHaloCommunication(const initializer::ClusterLayout& layout,
                                        const MeshStructure* structure);
 
-struct CommunicationSetup {
-  ComputeStep start;
-  ComputeStep step;
-};
-
-class NeighborCluster {
+class NeighborCluster : public AbstractTimeCluster {
   public:
-  NeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>&, double priority);
-  virtual bool poll() = 0;
-  virtual void start(parallel::runtime::StreamRuntime& runtime) = 0;
-  virtual void stop(parallel::runtime::StreamRuntime& runtime) = 0;
-  virtual ~NeighborCluster() = default;
+  NeighborCluster(double maxTimeStepSize,
+                  long timeStepRate,
+                  const std::vector<RemoteCluster>& sends,
+                  const std::vector<RemoteCluster>& receives,
+                  const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
+                  double priority)
+      : AbstractTimeCluster(maxTimeStepSize,
+                            timeStepRate,
+                            isDeviceOn() ? Executor::Device : Executor::Host,
+                            cpuExecutor,
+                            priority) {}
 
-  void startFrom(parallel::runtime::StreamRuntime& runtime);
-  void stopTo(parallel::runtime::StreamRuntime& runtime);
-  virtual bool blocking() = 0;
+  void start() override {}
+  bool emptyStep(ComputeStep step) const override { return step != ComputeStep::Communicate; }
 
-  virtual void dispose() { myRuntime.dispose(); }
+  virtual bool poll() { return true; }
 
-  // virtual bool startSync() = 0;
-  // virtual bool stopSync() = 0;
+  ~NeighborCluster() override = default;
 
-  private:
-  parallel::runtime::StreamRuntime myRuntime;
-};
+  void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override {
+    logWarning(true) << "No update since " << timeSinceLastUpdate.count()
+                     << "[s] for global cluster at rate " << timeStepRate << " at state "
+                     << actorStateToString(state)
+                     << " predTime = " << ct.time.at(ComputeStep::Predict)
+                     << " predictionsSinceSync = "
+                     << ct.computeSinceLastSync.at(ComputeStep::Predict)
+                     << " corrTime = " << ct.time.at(ComputeStep::Correct)
+                     << " correctionsSinceSync = "
+                     << ct.computeSinceLastSync.at(ComputeStep::Correct)
+                     << " stepsTillSync = " << ct.stepsUntilSync
+                     << " maySync = " << maySynchronize();
+    for (auto& neighbor : neighbors) {
+      logWarning(true) << "Neighbor with rate = " << neighbor.ct.timeStepRate
+                       << "PredTime = " << neighbor.ct.time.at(ComputeStep::Predict)
+                       << "CorrTime = " << neighbor.ct.time.at(ComputeStep::Correct)
+                       << "predictionsSinceSync = "
+                       << neighbor.ct.computeSinceLastSync.at(ComputeStep::Predict)
+                       << "correctionsSinceSync = "
+                       << neighbor.ct.computeSinceLastSync.at(ComputeStep::Correct);
+    }
+  }
 
-class SendNeighborCluster : public NeighborCluster {
-  public:
-  SendNeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-                      double priority)
-      : NeighborCluster(cpuExecutor, priority) {}
-  ~SendNeighborCluster() override = default;
-};
+  std::string description() const override { return "communication"; }
 
-class RecvNeighborCluster : public NeighborCluster {
-  public:
-  RecvNeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-                      double priority)
-      : NeighborCluster(cpuExecutor, priority) {}
-  ~RecvNeighborCluster() override = default;
+  protected:
+  std::vector<RemoteCluster> sends;
+  std::vector<RemoteCluster> receives;
 };
 
 } // namespace seissol::solver::clustering::communication

@@ -16,51 +16,28 @@ HaloCommunication getHaloCommunication(const initializer::ClusterLayout& layout,
   HaloCommunication communication;
   communication.copy.resize(layout.globalClusterCount);
   communication.ghost.resize(layout.globalClusterCount);
-  for (std::size_t i = 0; i < layout.globalClusterCount; ++i) {
-    communication.copy[i].resize(layout.globalClusterCount - i);
-    communication.ghost[i].resize(layout.globalClusterCount - i);
-  }
   for (std::size_t i = 0; i < layout.localClusterIds.size(); ++i) {
     const auto& clusterStructure = structure[i];
     const std::size_t localClusterIndex = layout.localClusterIds[i];
     for (std::size_t j = 0; j < clusterStructure.numberOfRegions; ++j) {
       const std::size_t remoteClusterIndex = clusterStructure.neighboringClusters[j][1];
       const auto trueIndex = std::max(localClusterIndex, remoteClusterIndex);
-      const auto indexOffset = trueIndex - localClusterIndex;
 
-      communication.copy.at(localClusterIndex)
-          .at(indexOffset)
-          .emplace_back(RemoteCluster{clusterStructure.copyRegions[j],
-                                      clusterStructure.copyRegionSizes[j],
-                                      MPI_C_REAL,
-                                      clusterStructure.neighboringClusters[j][0],
-                                      DataTagOffset + clusterStructure.sendIdentifiers[j]});
-      communication.ghost.at(localClusterIndex)
-          .at(indexOffset)
-          .emplace_back(RemoteCluster{clusterStructure.ghostRegions[j],
-                                      clusterStructure.ghostRegionSizes[j],
-                                      MPI_C_REAL,
-                                      clusterStructure.neighboringClusters[j][0],
-                                      DataTagOffset + clusterStructure.receiveIdentifiers[j]});
+      communication.copy.at(trueIndex).emplace_back(
+          RemoteCluster{clusterStructure.copyRegions[j],
+                        clusterStructure.copyRegionSizes[j],
+                        MPI_C_REAL,
+                        clusterStructure.neighboringClusters[j][0],
+                        DataTagOffset + clusterStructure.sendIdentifiers[j]});
+      communication.ghost.at(trueIndex).emplace_back(
+          RemoteCluster{clusterStructure.ghostRegions[j],
+                        clusterStructure.ghostRegionSizes[j],
+                        MPI_C_REAL,
+                        clusterStructure.neighboringClusters[j][0],
+                        DataTagOffset + clusterStructure.receiveIdentifiers[j]});
     }
   }
   return communication;
-}
-
-NeighborCluster::NeighborCluster(const std::shared_ptr<parallel::host::CpuExecutor>& cpuExecutor,
-                                 double priority)
-    : myRuntime(parallel::runtime::StreamRuntime(cpuExecutor, priority)) {}
-
-void NeighborCluster::startFrom(parallel::runtime::StreamRuntime& runtime) {
-  // parallel::runtime::EventT event = runtime.recordEvent();
-  // this->myRuntime.waitEvent(event);
-  start(runtime);
-}
-
-void NeighborCluster::stopTo(parallel::runtime::StreamRuntime& runtime) {
-  stop(runtime);
-  // parallel::runtime::EventT event = this->myRuntime.recordEvent();
-  // runtime.waitEvent(event);
 }
 
 } // namespace seissol::solver::clustering::communication

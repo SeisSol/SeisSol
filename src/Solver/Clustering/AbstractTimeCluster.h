@@ -56,31 +56,34 @@ class AbstractTimeCluster {
   bool advanceState();
   void postCompute(ComputeStep step);
   virtual ComputeStep lastStep() const { return ComputeStep::Correct; }
-  static ComputeStep nextStep(ComputeStep step) {
+  static constexpr ComputeStep nextStep(ComputeStep step) {
     switch (step) {
     case ComputeStep::Predict:
+      return ComputeStep::Communicate;
+    case ComputeStep::Communicate:
       return ComputeStep::Interact;
     case ComputeStep::Interact:
       return ComputeStep::Correct;
     case ComputeStep::Correct:
       return ComputeStep::Predict;
     }
-    throw;
   }
-  static ComputeStep previousStep(ComputeStep step) {
+  static constexpr ComputeStep previousStep(ComputeStep step) {
     switch (step) {
     case ComputeStep::Predict:
       return ComputeStep::Correct;
+    case ComputeStep::Communicate:
+      return ComputeStep::Interact;
     case ComputeStep::Interact:
-      return ComputeStep::Predict;
+      return ComputeStep::Communicate;
     case ComputeStep::Correct:
       return ComputeStep::Interact;
     }
-    throw;
   }
   template <typename F>
   void forAllSteps(const F& caller) {
     caller(ComputeStep::Predict);
+    caller(ComputeStep::Communicate);
     caller(ComputeStep::Interact);
     caller(ComputeStep::Correct);
   }
@@ -117,7 +120,7 @@ class AbstractTimeCluster {
   ///* Can be used e.g. to always update copy clusters before interior ones.
   [[nodiscard]] virtual double getPriority() const;
 
-  void connect(AbstractTimeCluster& other);
+  void connect(AbstractTimeCluster& other, bool bidirectional);
   void setSyncTime(double newSyncTime);
 
   [[nodiscard]] ActorState getState() const;
@@ -160,7 +163,9 @@ class AbstractTimeCluster {
 
 class CellCluster : public AbstractTimeCluster {
   protected:
-  bool emptyStep(ComputeStep step) const override { return step == ComputeStep::Interact; }
+  bool emptyStep(ComputeStep step) const override {
+    return step == ComputeStep::Interact || step == ComputeStep::Communicate;
+  }
   CellCluster(double maxTimeStepSize,
               long timeStepRate,
               Executor executor,
