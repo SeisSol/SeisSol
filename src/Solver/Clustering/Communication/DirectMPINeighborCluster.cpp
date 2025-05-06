@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "DirectMPINeighborClusterBlocking.h"
+#include "DirectMPINeighborCluster.h"
 #include <Memory/MemoryAllocator.h>
 #include <Parallel/Host/CpuExecutor.h>
 #include <Parallel/MPI.h>

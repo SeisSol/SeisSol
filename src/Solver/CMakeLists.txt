@@ -15,12 +15,12 @@ add_library(seissol-solver OBJECT
     Clustering/Computation/DynamicRuptureCluster.cpp
     Clustering/Computation/GhostCluster.cpp
     Clustering/Computation/CopyCluster.cpp
-    Clustering/Communication/CCLNeighborCluster2.cpp
+    Clustering/Communication/CCLNeighborCluster.cpp
     Clustering/Communication/CCLSetup.cpp
     Clustering/Communication/NeighborCluster.cpp
     Clustering/Communication/CommunicationFactory.cpp
     Clustering/Communication/CommunicationManager.cpp
-    Clustering/Communication/DirectMPINeighborClusterBlocking.cpp
+    Clustering/Communication/DirectMPINeighborCluster.cpp
 )
 
 add_dependencies(seissol-solver seissol-codegen)

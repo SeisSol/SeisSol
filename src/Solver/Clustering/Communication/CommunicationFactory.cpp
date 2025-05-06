@@ -10,13 +10,13 @@
 #include "Parallel/MPI.h"
 #include <Parallel/Host/CpuExecutor.h>
 #include <Solver/Clustering/AbstractTimeCluster.h>
-#include <Solver/Clustering/Communication/CCLNeighborCluster2.h>
-#include <Solver/Clustering/Communication/DirectMPINeighborClusterBlocking.h>
+#include <Solver/Clustering/Communication/CCLNeighborCluster.h>
+#include <Solver/Clustering/Communication/DirectMPINeighborCluster.h>
 #include <Solver/Clustering/Communication/NeighborCluster.h>
 #include <memory>
 
 #if defined(ACL_DEVICE) && defined(USE_CCL)
-#include "CCLNeighborCluster2.h"
+#include "CCLNeighborCluster.h"
 #include "CCLSetup.h"
 #endif
 
