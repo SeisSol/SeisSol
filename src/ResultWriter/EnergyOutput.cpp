@@ -719,7 +719,7 @@ void EnergyOutput::checkAbortCriterion(
     const std::array<real, multisim::NumSimulations>& timeSinceThreshold,
     const std::string& prefixMessage) {
   const auto rank = MPI::mpi.rank();
-  bool abort = true;
+  size_t abortCount = 0;
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     if ((timeSinceThreshold[sim] > 0) and
         (timeSinceThreshold[sim] < std::numeric_limits<real>::max())) {
@@ -727,14 +727,16 @@ void EnergyOutput::checkAbortCriterion(
         logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
                   << "in simulation: " << sim
                   << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
-        abort = false;
       } else {
         logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
                   << "in simulation: " << sim
                   << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
+        ++abortCount;
       }
     }
   }
+
+  bool abort = abortCount == multisim::NumSimulations;
 #ifdef USE_MPI
   const auto& comm = MPI::mpi.comm();
   MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);

@@ -16,6 +16,7 @@
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
+#include <Kernels/Solver.h>
 #include <Parallel/Runtime/Stream.h>
 #include <unordered_set>
 #include <yateto.h>
@@ -41,6 +42,7 @@ struct ProxyData {
   real* fakeDerivatives = nullptr;
   real* fakeDerivativesHost = nullptr;
 
+  kernels::Spacetime spacetimeKernel;
   kernels::Time timeKernel;
   kernels::Local localKernel;
   kernels::Neighbor neighborKernel;
