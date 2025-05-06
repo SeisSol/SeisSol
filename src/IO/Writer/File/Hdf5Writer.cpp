@@ -77,8 +77,6 @@ void Hdf5File::openGroup(const std::string& name) {
   handles.push(handle);
 }
 void Hdf5File::openDataset(const std::string& name) {
-  // cf. https://stackoverflow.com/a/18468735
-  auto existenceTest = _eh(H5Lexists(handles.top(), name.c_str(), H5P_DEFAULT));
   const hid_t handle = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
   handles.push(handle);
 }
@@ -126,7 +124,8 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   const auto& dimensions = source->shape();
   // TODO: adjust chunksize according to dimensions and datatype size
   const std::size_t chunksize =
-      std::max(std::size_t(1), std::size_t(2'000'000'000) / (source->datatype()->size() * dimprod));
+      std::max(static_cast<std::size_t>(1),
+               static_cast<std::size_t>(2'000'000'000) / (source->datatype()->size() * dimprod));
 
   const std::size_t actualDimensions =
       source->distributed() ? dimensions.size() + 1 : dimensions.size();
@@ -294,7 +293,7 @@ void Hdf5Writer::writeAttribute(const async::ExecInfo& info,
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (auto _ : write.location.groups()) {
+  for (const auto& _ : write.location.groups()) {
     file.closeGroup();
   }
 }
@@ -316,7 +315,7 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (auto _ : write.location.groups()) {
+  for (const auto& _ : write.location.groups()) {
     file.closeGroup();
   }
 }

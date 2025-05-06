@@ -21,20 +21,20 @@ namespace seissol::io::writer::file {
 
 class BinaryFile {
   public:
-  BinaryFile(MPI_Comm comm);
+  explicit BinaryFile(MPI_Comm comm);
   void openFile(const std::string& name);
   void writeGlobal(const void* data, std::size_t size);
   void writeDistributed(const void* data, std::size_t size);
   void closeFile();
 
   private:
-  MPI_Comm comm;
-  MPI_File file;
+  MPI_Comm comm{MPI_COMM_NULL};
+  MPI_File file{MPI_FILE_NULL};
 };
 
 class BinaryWriter {
   public:
-  BinaryWriter(MPI_Comm comm);
+  explicit BinaryWriter(MPI_Comm comm);
 
   void write(const async::ExecInfo& info, const instructions::BinaryWrite& write);
 
@@ -42,7 +42,7 @@ class BinaryWriter {
 
   private:
   std::unordered_map<std::string, std::unique_ptr<BinaryFile>> openFiles;
-  MPI_Comm comm;
+  MPI_Comm comm{MPI_COMM_NULL};
 };
 } // namespace seissol::io::writer::file
 

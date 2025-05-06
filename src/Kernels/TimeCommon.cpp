@@ -56,7 +56,7 @@ void TimeCommon::computeIntegrals(Time& time,
   /*
    * set/compute time integrated DOFs.
    */
-  for (int dofneighbor = 0; dofneighbor < 4; ++dofneighbor) {
+  for (unsigned dofneighbor = 0; dofneighbor < 4; ++dofneighbor) {
     // collect information only in the case that neighboring element contributions are required
     if (faceTypes[dofneighbor] != FaceType::Outflow &&
         faceTypes[dofneighbor] != FaceType::DynamicRupture) {

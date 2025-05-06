@@ -61,7 +61,6 @@ std::string SIUnit::formatTime(double value, bool exact, int digits) const {
       stream << " ";
     }
     stream << formatPrefix(seconds, {}, digits);
-    done = true;
   }
   return stream.str();
 }

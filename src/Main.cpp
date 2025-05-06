@@ -143,8 +143,7 @@ int main(int argc, char* argv[]) {
   }
   case utils::Args::Error: {
     seissol::MPI::finalize();
-    exit(1);
-    break;
+    return 1;
   }
   case utils::Args::Success: {
     break;

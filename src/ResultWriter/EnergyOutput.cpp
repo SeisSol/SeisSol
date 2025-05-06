@@ -596,7 +596,6 @@ void EnergyOutput::computeEnergies() {
 
 void EnergyOutput::reduceEnergies() {
 #ifdef USE_MPI
-  const auto rank = MPI::mpi.rank();
   const auto& comm = MPI::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 energiesStorage.energies.data(),
@@ -609,7 +608,6 @@ void EnergyOutput::reduceEnergies() {
 
 void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 #ifdef USE_MPI
-  const auto rank = MPI::mpi.rank();
   const auto& comm = MPI::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 minTimeSinceSlipRateBelowThreshold.data(),
@@ -621,7 +619,6 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 }
 
 void EnergyOutput::printEnergies() {
-  const auto rank = MPI::mpi.rank();
   const auto outputPrecision =
       seissolInstance.getSeisSolParameters().output.energyParameters.terminalPrecision;
 
@@ -718,7 +715,6 @@ void EnergyOutput::printEnergies() {
 void EnergyOutput::checkAbortCriterion(
     const std::array<real, multisim::NumSimulations>& timeSinceThreshold,
     const std::string& prefixMessage) {
-  const auto rank = MPI::mpi.rank();
   size_t abortCount = 0;
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     if ((timeSinceThreshold[sim] > 0) and
