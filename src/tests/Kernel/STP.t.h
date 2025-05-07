@@ -38,7 +38,7 @@ class SpaceTimePredictorTestFixture {
   real zMatrix[seissol::model::MaterialT::NumQuantities][tensor::Zinv::size(0)];
 
   void setStarMatrix(
-      const real* at, const real* bt, const real* ct, const real grad[3], real* starMatrix) {
+      const real* at, const real* bt, const real* ct, const double grad[3], real* starMatrix) {
     for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
       starMatrix[idx] = grad[0] * at[idx];
     }
@@ -168,7 +168,7 @@ class SpaceTimePredictorTestFixture {
     std::srand(1234);
     for (std::size_t qi = 0; qi < seissol::model::MaterialT::NumQuantities; ++qi) {
       for (std::size_t bf = 0; bf < NumBasisFunctions; ++bf) {
-        q(bf, qi) = (real)std::rand() / RAND_MAX * factor.at(qi);
+        q(bf, qi) = static_cast<real>(std::rand()) / RAND_MAX * factor.at(qi);
       }
     }
   }

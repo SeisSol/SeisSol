@@ -28,7 +28,7 @@
 #include "utils/logger.h"
 
 #ifndef NDEBUG
-#include <Common/Constants.h>
+#include "Alignment.h"
 #endif
 
 namespace seissol::kernels::solver::linearck {

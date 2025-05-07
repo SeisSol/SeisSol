@@ -14,6 +14,10 @@
 #include <utils/logger.h>
 #include <yateto.h>
 
+#ifndef NDEBUG
+#include <cmath>
+#endif
+
 void seissol::transformations::tetrahedronReferenceToGlobal(const double v0[3],
                                                             const double v1[3],
                                                             const double v2[3],

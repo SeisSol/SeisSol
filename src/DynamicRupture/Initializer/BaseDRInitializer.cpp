@@ -31,6 +31,10 @@
 #include <utils/logger.h>
 #include <vector>
 
+#ifndef NDEBUG
+#include <cmath>
+#endif
+
 namespace seissol::dr::initializer {
 void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRupture* const dynRup,
                                         seissol::initializer::LTSTree* const dynRupTree) {
