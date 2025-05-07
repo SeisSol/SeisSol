@@ -64,6 +64,9 @@ struct FrictionLawData {
   const real (*__restrict a)[misc::NumPaddedPoints];
   const real (*__restrict sl0)[misc::NumPaddedPoints];
   real (*__restrict stateVariable)[misc::NumPaddedPoints];
+  const real (*__restrict f0)[misc::NumPaddedPoints];
+  const real (*__restrict muW)[misc::NumPaddedPoints];
+  const real (*__restrict b)[misc::NumPaddedPoints];
 
   // R+S FVW
   const real (*__restrict srW)[misc::NumPaddedPoints];

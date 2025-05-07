@@ -50,15 +50,15 @@ class FastVelocityWeakeningLaw
                                          real stateVarReference,
                                          real timeIncrement,
                                          real localSlipRate) const {
-    const double muW = this->drParameters->muW;
+    const double muW = this->muW[face][pointIndex];
     const double localSrW = this->srW[face][pointIndex];
     const double localA = this->a[face][pointIndex];
     const double localSl0 = this->sl0[face][pointIndex];
 
     // low-velocity steady state friction coefficient
     const real lowVelocityFriction =
-        this->drParameters->rsF0 -
-        (this->drParameters->rsB - localA) * log(localSlipRate / this->drParameters->rsSr0);
+        this->f0[face][pointIndex] -
+        (this->b[face][pointIndex] - localA) * log(localSlipRate / this->drParameters->rsSr0);
     const real steadyStateFrictionCoefficient =
         muW + (lowVelocityFriction - muW) /
                   std::pow(1.0 + misc::power<8, double>(localSlipRate / localSrW), 1.0 / 8.0);
