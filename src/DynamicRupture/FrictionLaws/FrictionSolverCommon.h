@@ -426,8 +426,8 @@ SEISSOL_HOSTDEVICE inline void
                         real dt,
                         unsigned startIndex = 0) {
   if (fullUpdateTime <= t0) {
-    const real gNuc =
-        gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime, dt, t0);
+    const real gNuc = gaussianNucleationFunction::smoothStepIncrement<real, MathFunctions>(
+        fullUpdateTime, dt, t0);
 
     using Range = typename NumPoints<Type>::Range;
 

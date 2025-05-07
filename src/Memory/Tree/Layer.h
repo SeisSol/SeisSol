@@ -20,7 +20,7 @@
 #include <type_traits>
 #include <vector>
 
-enum LayerType { Ghost = (1 << 0), Copy = (1 << 1), Interior = (1 << 2), NumLayers = 3 };
+enum LayerType { Ghost = (1U << 0U), Copy = (1U << 1U), Interior = (1U << 2U), NumLayers = 3U };
 
 namespace seissol::initializer {
 using LayerMask = std::bitset<NumLayers>;

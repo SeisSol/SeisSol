@@ -71,18 +71,16 @@ You can also run ``ccmake ..`` to see all available options and toggle them.
 Building for GPUs
 ~~~~~~~~~~~~~~~~~
 
-When building for GPUs, you will need to install SYCL and gemmforge, chainforge as well.
+When building for GPUs, you will need to install SYCL and gemmforge, chainforge, or TensorForge as well.
 Also, you will need to supply the device backend and the device architecture.
 The backend can be ``cuda``, ``hip``, or one of the SYCL implementations, ``acpp`` or ``oneapi``.
-
-Generally, we recommend compiling for single precision on GPUs.
 
 To give some examples: for an NVIDIA GH200 Superchip, you would therefore need to set (note that the ``HOST_ARCH`` field here needs to be changed to something ARM-based)
 
 .. code-block:: bash
 
    mkdir build && cd build
-   cmake -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=sve128 -DPRECISION=single -DORDER=4 -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 ..
+   cmake -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=sve128 -DORDER=4 -DDEVICE_BACKEND=cuda -DDEVICE_ARCH=sm_90 ..
    make -j 4
 
 For an AMD Instinct MI250X GPU with Zen 3 CPU, you could do
@@ -90,7 +88,7 @@ For an AMD Instinct MI250X GPU with Zen 3 CPU, you could do
 .. code-block:: bash
 
    mkdir build && cd build
-   cmake -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=milan -DPRECISION=single -DORDER=4 -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a ..
+   cmake -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=milan -DORDER=4 -DDEVICE_BACKEND=hip -DDEVICE_ARCH=gfx90a ..
    make -j 4
 
 On an Intel Data Center Max GPU 1550, you could set
@@ -98,7 +96,7 @@ On an Intel Data Center Max GPU 1550, you could set
 .. code-block:: bash
 
    mkdir build && cd build
-   cmake -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DPRECISION=single -DORDER=4 -DDEVICE_BACKEND=oneapi -DSYCL_CC=dpcpp -DDEVICE_ARCH=pvc ..
+   cmake -DCMAKE_BUILD_TYPE=Release -DHOST_ARCH=skx -DORDER=4 -DDEVICE_BACKEND=oneapi -DSYCL_CC=dpcpp -DDEVICE_ARCH=pvc ..
    make -j 4
 
 Cray compiler environments and GPUs

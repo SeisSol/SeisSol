@@ -61,7 +61,7 @@ public:
     using reference = Node&;
 
     Iterator() : m_node(nullptr) {}
-    Iterator(Node* node) : m_node(node) {}
+    explicit Iterator(Node* node) : m_node(node) {}
 
     Iterator& operator++() {
       m_node = m_node->m_next;
@@ -94,7 +94,7 @@ public:
     using reference = const Node&;
 
     ConstIterator() : m_node(nullptr) {}
-    ConstIterator(const Node* node) : m_node(node) {}
+    explicit ConstIterator(const Node* node) : m_node(node) {}
 
     ConstIterator& operator++() {
       m_node = m_node->m_next;
@@ -119,13 +119,13 @@ protected:
       start = start->m_children[0].get();
     }
     assert(start == this || start->m_next != nullptr);
-    return {start};
+    return Iterator(start);
   }
 
   Iterator end() {
     // The current node is the last one in a post-order traversal.
     // Hence, end() points to the node after the last one.
-    return {this->m_next};
+    return Iterator(this->m_next);
   }
 
   [[nodiscard]] ConstIterator begin() const {
@@ -134,13 +134,13 @@ protected:
       start = start->m_children[0].get();
     }
     assert(start == this || start->m_next != nullptr);
-    return {start};
+    return ConstIterator(start);
   }
 
   [[nodiscard]] ConstIterator end() const {
     // The current node is the last one in a post-order traversal.
     // Hence, end() points to the node after the last one.
-    return {this->m_next};
+    return ConstIterator(this->m_next);
   }
 };
 

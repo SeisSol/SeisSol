@@ -12,7 +12,7 @@
 namespace seissol::initializer {
 template <unsigned N>
 struct Log2 {
-  static const unsigned Result = 1 + Log2<(N >> 1)>::Result;
+  static const unsigned Result = 1 + Log2<(N >> 1U)>::Result;
 };
 
 template <>

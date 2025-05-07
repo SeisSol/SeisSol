@@ -58,7 +58,7 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
   parallel::runtime::StreamRuntime runtime;
 
   public:
-  FaultWriter(seissol::SeisSol& seissolInstance)
+  explicit FaultWriter(seissol::SeisSol& seissolInstance)
       : seissolInstance(seissolInstance)
 
   {}

@@ -30,7 +30,7 @@ struct MaterialSetup<AnisotropicMaterial> {
       getTransposedCoefficientMatrix(const AnisotropicMaterial& material, unsigned dim, T& M) {
     M.setZero();
 
-    real rhoInv = 1.0 / material.rho;
+    const auto rhoInv = 1.0 / material.rho;
 
     switch (dim) {
     case 0:
@@ -251,12 +251,12 @@ struct MaterialSetup<AnisotropicMaterial> {
     }
   }
 
-  static AnisotropicMaterial getRotatedMaterialCoefficients(real rotationParameters[36],
+  static AnisotropicMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
                                                             AnisotropicMaterial& material) {
     AnisotropicMaterial rotatedMaterial;
     rotatedMaterial.rho = material.rho;
-    using Matrix66 = Eigen::Matrix<real, 6, 6>;
-    Matrix66 N = Matrix66(rotationParameters);
+    using Matrix66 = Eigen::Matrix<double, 6, 6>;
+    Matrix66 N(rotationParameters);
     Matrix66 C = Matrix66();
     C(0, 0) = material.c11;
     C(0, 1) = material.c12;
@@ -322,7 +322,7 @@ struct MaterialSetup<AnisotropicMaterial> {
   }
 
   static void initializeSpecificLocalData(const AnisotropicMaterial& material,
-                                          real timeStepWidth,
+                                          double timeStepWidth,
                                           AnisotropicLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const AnisotropicMaterial& material,

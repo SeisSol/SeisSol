@@ -26,7 +26,7 @@ template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   public:
   explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
-      : FrictionSolver(drParameters) {};
+      : FrictionSolver(drParameters) {}
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));

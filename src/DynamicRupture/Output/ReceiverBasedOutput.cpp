@@ -22,6 +22,7 @@
 #include "Numerical/BasisFunction.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <Alignment.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>

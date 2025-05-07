@@ -16,12 +16,13 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
 #include <Common/Constants.h>
+#include <Common/Real.h>
+#include <Config.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Kernels/Common.h>
-#include <Kernels/Precision.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
@@ -45,8 +46,6 @@
 #include "SeisSol.h"
 
 #include "Parallel/MPI.h"
-
-#include <cmath>
 
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
 #include "Physics/Attenuation.h"
@@ -403,7 +402,8 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   logInfo() << "Model info:";
   logInfo() << "Material:" << MaterialT::Text.c_str();
   logInfo() << "Order:" << ConvergenceOrder;
-  logInfo() << "Precision:" << (sizeof(real) == 4 ? "single (f32)" : "double (f64)");
+  logInfo() << "Precision:"
+            << (Config::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
   logInfo() << "Plasticity:"
             << (seissolInstance.getSeisSolParameters().model.plasticity ? "on" : "off");
   logInfo() << "Flux:"

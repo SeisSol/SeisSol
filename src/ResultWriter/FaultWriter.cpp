@@ -73,11 +73,14 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   // Create mesh buffers
   bufferId = addSyncBuffer(cellIds.cells(), nCells * 3 * sizeof(int));
   assert(bufferId == FaultWriterExecutor::Cells);
+  NDBG_UNUSED(bufferId);
   bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
   assert(bufferId == FaultWriterExecutor::Vertices);
+  NDBG_UNUSED(bufferId);
 
   bufferId = addSyncBuffer(faultTags, nCells * sizeof(unsigned int));
   assert(bufferId == FaultWriterExecutor::FaultTags);
+  NDBG_UNUSED(bufferId);
 
   // Create data buffers
   std::fill_n(param.outputMask, FaultInitParam::OutputMaskSize, false);

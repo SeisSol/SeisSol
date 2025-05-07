@@ -118,7 +118,7 @@ class WaveFieldWriter
                                     std::map<int, int>& newToOldCellMap) const;
 
   public:
-  WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   /**
    * Activate the wave field output

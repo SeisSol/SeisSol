@@ -11,7 +11,7 @@
 
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
-#include <Common/Constants.h>
+#include <Alignment.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
@@ -20,7 +20,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <cstring>
+#include <cstddef>
 #include <tensor.h>
 
 #include "utils/logger.h"
@@ -118,7 +118,7 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
   // Compute tau_c for every node
   for (unsigned ip = 0; ip < tensor::meanStress::size(); ++ip) {
-    taulim[ip] = std::max((real)0.0,
+    taulim[ip] = std::max(static_cast<real>(0.0),
                           plasticityData->cohesionTimesCosAngularFriction -
                               meanStress[ip] * plasticityData->sinAngularFriction);
   }
@@ -210,12 +210,12 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
     auto qStressNodalView = init::QStressNodal::view::create(qStressNodal);
     const unsigned numNodes = qStressNodalView.shape(multisim::BasisFunctionDimension);
-    for (int s = 0; s < multisim::NumSimulations; ++s) {
+    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       for (unsigned i = 0; i < numNodes; ++i) {
         // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
         // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
         qEtaNodal[i * multisim::NumSimulations + s] =
-            std::max((real)0.0, qEtaNodal[i * multisim::NumSimulations + s]) +
+            std::max(static_cast<real>(0.0), qEtaNodal[i * multisim::NumSimulations + s]) +
             timeStepWidth * sqrt(0.5 * (multisim::multisimWrap(qStressNodalView, s, i, 0) *
                                             multisim::multisimWrap(qStressNodalView, s, i, 0) +
                                         multisim::multisimWrap(qStressNodalView, s, i, 1) *

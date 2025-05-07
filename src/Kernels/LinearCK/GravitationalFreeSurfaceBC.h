@@ -34,7 +34,7 @@ class GravitationalFreeSurfaceBc {
   const double gravitationalAcceleration;
 
   public:
-  GravitationalFreeSurfaceBc(double gravitationalAcceleration)
+  explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
       : gravitationalAcceleration(gravitationalAcceleration) {};
 
   static std::pair<long long, long long>

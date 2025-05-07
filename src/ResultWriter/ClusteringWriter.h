@@ -19,7 +19,7 @@ enum class ClusterType : int { Cell, Face };
 
 class ClusteringWriter {
   public:
-  ClusteringWriter(const std::string& outputPrefix);
+  explicit ClusteringWriter(const std::string& outputPrefix);
   void addCluster(unsigned profilingId,
                   unsigned localClusterId,
                   ClusterType clusterType,

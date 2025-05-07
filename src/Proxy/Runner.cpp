@@ -111,7 +111,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   total = sec(startTime, endTime);
 #ifdef __USE_RDTSC
   std::cout << "Cycles via __rdtsc()" << std::endl;
-  totalCycles = (double)(cyclesEnd - cyclesStart);
+  totalCycles = static_cast<double>(cyclesEnd - cyclesStart);
 #else
   totalCycles = derive_cycles_from_time(total);
 #endif

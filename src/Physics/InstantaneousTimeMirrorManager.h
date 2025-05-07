@@ -36,7 +36,7 @@ class InstantaneousTimeMirrorManager : Module {
   std::vector<std::shared_ptr<seissol::solver::clustering::AbstractTimeCluster>> timeClusters;
 
   public:
-  InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
+  explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
       : seissolInstance(seissolInstance) {};
 
   void init(double velocityScalingFactor,
