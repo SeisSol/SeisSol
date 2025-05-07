@@ -44,8 +44,6 @@
 
 #include "Parallel/MPI.h"
 
-#include <cmath>
-
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
 #include "Physics/Attenuation.h"
 #endif

@@ -22,7 +22,6 @@
 #include <Model/CommonDatastructures.h>
 #include <Solver/MultipleSimulations.h>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <init.h>
 #include <string>

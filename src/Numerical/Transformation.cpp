@@ -11,7 +11,6 @@
 #include <Geometry/MeshDefinition.h>
 #include <Kernels/Precision.h>
 #include <cassert>
-#include <cmath>
 #include <utils/logger.h>
 #include <yateto.h>
 

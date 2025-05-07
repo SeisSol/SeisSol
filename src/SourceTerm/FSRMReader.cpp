@@ -6,7 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "FSRMReader.h"
-#include <Kernels/Precision.h>
 #include <cstddef>
 #include <utils/logger.h>
 

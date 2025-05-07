@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <cstring>
 #include <tensor.h>
 
 #include "utils/logger.h"

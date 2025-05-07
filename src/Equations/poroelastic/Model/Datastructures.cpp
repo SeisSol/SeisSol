@@ -11,7 +11,6 @@
 #include <Model/Common.h>
 #include <Model/CommonDatastructures.h>
 #include <array>
-#include <cmath>
 #include <complex>
 #include <limits>
 

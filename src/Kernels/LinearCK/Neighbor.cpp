@@ -11,7 +11,6 @@
 
 #include "Kernels/LinearCK/NeighborBase.h"
 
-#include <Alignment.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>

@@ -9,8 +9,6 @@
 
 #include "Model/Common.h"
 #include <Geometry/MeshDefinition.h>
-#include <Kernels/Precision.h>
-#include <cmath>
 #include <generated_code/init.h>
 
 namespace seissol::model {
