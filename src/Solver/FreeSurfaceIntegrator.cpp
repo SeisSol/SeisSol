@@ -85,7 +85,7 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(unsigned maxRefinementDe
 
   mEnabled = true;
 
-	logInfo() << "Initializing free surface integrator.";
+  logInfo() << "Initializing free surface integrator.";
   initializeProjectionMatrices(maxRefinementDepth);
   initializeSurfaceLTSTree(lts, ltsTree, ltsLut);
   logInfo() << "Initializing free surface integrator. Done.";
