@@ -297,10 +297,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       auto& table = layer.getConditionalTable<inner_keys::Dr>();
       if (table.find(timeIntegrationKey) != table.end()) {
         auto& entry = table[timeIntegrationKey];
-        real** timeDerivativePlusDevice =
-            (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
-        real** timeDerivativeMinusDevice =
-            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
+        const real** timeDerivativePlusDevice = const_cast<const real**>(
+            (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr());
+        const real** timeDerivativeMinusDevice = const_cast<const real**>(
+            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
         device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
             timeDerivativePlusDevice,
             timeDerivativePlusHostMapped,
@@ -597,7 +597,6 @@ void EnergyOutput::computeEnergies() {
 
 void EnergyOutput::reduceEnergies() {
 #ifdef USE_MPI
-  const auto rank = MPI::mpi.rank();
   const auto& comm = MPI::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 energiesStorage.energies.data(),
@@ -610,7 +609,6 @@ void EnergyOutput::reduceEnergies() {
 
 void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 #ifdef USE_MPI
-  const auto rank = MPI::mpi.rank();
   const auto& comm = MPI::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 minTimeSinceSlipRateBelowThreshold.data(),
@@ -622,7 +620,6 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 }
 
 void EnergyOutput::printEnergies() {
-  const auto rank = MPI::mpi.rank();
   const auto outputPrecision =
       seissolInstance.getSeisSolParameters().output.energyParameters.terminalPrecision;
 
@@ -719,8 +716,7 @@ void EnergyOutput::printEnergies() {
 void EnergyOutput::checkAbortCriterion(
     const std::array<real, multisim::NumSimulations>& timeSinceThreshold,
     const std::string& prefixMessage) {
-  const auto rank = MPI::mpi.rank();
-  bool abort = true;
+  size_t abortCount = 0;
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     if ((timeSinceThreshold[sim] > 0) and
         (timeSinceThreshold[sim] < std::numeric_limits<real>::max())) {
@@ -728,14 +724,16 @@ void EnergyOutput::checkAbortCriterion(
         logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
                   << "in simulation: " << sim
                   << "s (lower than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
-        abort = false;
       } else {
         logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
                   << "in simulation: " << sim
                   << "s (greater than the abort criteria: " << terminatorMaxTimePostRupture << "s)";
+        ++abortCount;
       }
     }
   }
+
+  bool abort = abortCount == multisim::NumSimulations;
 #ifdef USE_MPI
   const auto& comm = MPI::mpi.comm();
   MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);

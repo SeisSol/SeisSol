@@ -445,8 +445,8 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
       PUML::Upward::cells(puml, faces[info.second[i]], cellIds);
       assert(cellIds[1] < 0);
 
-      const int side = copySide[k][i];
-      const int gSide = ghostSide[k][i];
+      const auto side = copySide[k][i];
+      const auto gSide = ghostSide[k][i];
       m_elements[cellIds[0]].neighborSides[PumlFaceToSeisSol[side]] = PumlFaceToSeisSol[gSide];
 
       // Set side sideOrientation

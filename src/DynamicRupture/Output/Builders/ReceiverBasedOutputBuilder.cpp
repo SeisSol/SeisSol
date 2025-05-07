@@ -84,7 +84,7 @@ struct HashPair {
     const std::hash<T1> hasher1;
     const std::hash<T2> hasher2;
     std::size_t seed = hasher1(data.first);
-    seed ^= hasher2(data.second) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    seed ^= hasher2(data.second) + 0x9e3779b9 + (seed << 6U) + (seed >> 2U);
     return seed;
   }
 };

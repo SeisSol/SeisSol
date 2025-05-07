@@ -15,6 +15,9 @@
 
 #include "Memory/MemoryAllocator.h"
 
+#include "Monitoring/Unit.h"
+#include "utils/logger.h"
+
 namespace seissol::initializer {
 
 class LTSTree : public LTSInternalNode {
@@ -26,6 +29,7 @@ class LTSTree : public LTSInternalNode {
   seissol::memory::ManagedAllocator m_allocator;
   std::vector<size_t> variableSizes; /*!< sizes of variables within the entire tree in bytes */
   std::vector<size_t> bucketSizes;   /*!< sizes of buckets within the entire tree in bytes */
+  std::string name;
 
 #ifdef ACL_DEVICE
   std::vector<MemoryInfo> scratchpadMemInfo{};
@@ -39,6 +43,8 @@ class LTSTree : public LTSInternalNode {
   LTSTree() = default;
 
   ~LTSTree() override = default;
+
+  void setName(const std::string& name) { this->name = name; }
 
   void synchronizeTo(AllocationPlace place, void* stream) {
     for (auto& variable : m_vars) {
@@ -141,6 +147,12 @@ class LTSTree : public LTSInternalNode {
       leaf.addVariableSizes(varInfo, variableSizes);
     }
 
+    std::size_t totalSize = 0;
+    for (unsigned var = 0; var < variableSizes.size(); ++var) {
+      totalSize += variableSizes[var];
+    }
+    logInfo() << "Storage" << name << "; variables:" << UnitByte.formatPrefix(totalSize).c_str();
+
     for (unsigned var = 0; var < varInfo.size(); ++var) {
       m_vars[var].allocate(
           m_allocator, variableSizes[var], varInfo[var].alignment, varInfo[var].allocMode);
@@ -161,6 +173,12 @@ class LTSTree : public LTSInternalNode {
     for (auto& leaf : leaves()) {
       leaf.addBucketSizes(bucketSizes);
     }
+
+    std::size_t totalSize = 0;
+    for (unsigned var = 0; var < bucketSizes.size(); ++var) {
+      totalSize += bucketSizes[var];
+    }
+    logInfo() << "Storage" << name << "; buckets:" << UnitByte.formatPrefix(totalSize).c_str();
 
     for (unsigned bucket = 0; bucket < bucketInfo.size(); ++bucket) {
       m_buckets[bucket].allocate(m_allocator,
@@ -190,6 +208,12 @@ class LTSTree : public LTSInternalNode {
     for (auto& leaf : leaves()) {
       leaf.findMaxScratchpadSizes(scratchpadMemSizes);
     }
+
+    std::size_t totalSize = 0;
+    for (unsigned var = 0; var < scratchpadMemSizes.size(); ++var) {
+      totalSize += scratchpadMemSizes[var];
+    }
+    logInfo() << "Storage" << name << "; scratchpads:" << UnitByte.formatPrefix(totalSize).c_str();
 
     for (size_t id = 0; id < scratchpadMemSizes.size(); ++id) {
       // TODO {ravil}: check whether the assert makes sense

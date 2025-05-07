@@ -150,7 +150,8 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       auto format = [&]() {
         if (_eh(H5Tis_variable_str(boundaryAttributeType))) {
           char* formatRaw = nullptr;
-          _eh(H5Aread(boundaryAttribute, boundaryAttributeType, &formatRaw));
+          _eh(H5Aread(
+              boundaryAttribute, boundaryAttributeType, reinterpret_cast<void*>(&formatRaw)));
           auto format = std::string(formatRaw);
           _eh(H5free_memory(formatRaw));
           return format;

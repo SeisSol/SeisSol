@@ -54,7 +54,7 @@ Receiver::Receiver(unsigned pointId,
   output.reserve(reserved);
 
   auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(
-      elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], position);
+      elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], this->position);
   basisFunctions = basisFunction::SampledBasisFunctions<real>(
       ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(

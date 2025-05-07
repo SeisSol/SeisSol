@@ -561,8 +561,6 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
   const auto& faces = m_mesh->faces();
   const void* boundaryCond = m_mesh->cellData(1);
 
-  const auto cellCount = cells.size();
-
 #ifdef _OPENMP
 #pragma omp parallel for reduction(+ : numberOfReductions)
 #endif

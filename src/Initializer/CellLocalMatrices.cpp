@@ -522,7 +522,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       /// Look for time derivative mapping in all duplicates
       int derivativesMeshId = 0;
-      int derivativesSide = 0;
+      unsigned derivativesSide = 0;
       if (fault[meshFace].element >= 0) {
         derivativesMeshId = fault[meshFace].element;
         derivativesSide = faceInformation[ltsFace].plusSide;
@@ -537,7 +537,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
         const unsigned ltsId =
             ltsLut->ltsId(lts->cellInformation.mask, derivativesMeshId, duplicate);
-        if (timeDerivative1 == nullptr && (cellInformation[ltsId].ltsSetup >> 9) % 2 == 1) {
+        if (timeDerivative1 == nullptr && (cellInformation[ltsId].ltsSetup >> 9U) % 2 == 1) {
           timeDerivative1 =
               derivatives[ltsLut->ltsId(lts->derivatives.mask, derivativesMeshId, duplicate)];
           timeDerivative1Device =
@@ -686,9 +686,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
       switch (plusMaterial->getMaterialType()) {
-      case seissol::model::MaterialType::Elastic: {
-        break;
-      }
+      case seissol::model::MaterialType::Elastic:
+        [[fallthrough]];
       case seissol::model::MaterialType::Viscoelastic: {
         break;
       }

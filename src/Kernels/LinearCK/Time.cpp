@@ -97,7 +97,7 @@ void Spacetime::computeAder(double timeStepWidth,
   // powers in the taylor-series expansion
   krnl.power(0) = timeStepWidth;
   for (std::size_t der = 1; der < ConvergenceOrder; ++der) {
-    krnl.power(der) = krnl.power(der - 1) * timeStepWidth / real(der + 1);
+    krnl.power(der) = krnl.power(der - 1) * timeStepWidth / static_cast<real>(der + 1);
   }
 
   if (updateDisplacement) {
@@ -164,23 +164,22 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
 
     // stream dofs to the zero derivative
     device.algorithms.streamBatchedData(
-        (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(),
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
         (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
         tensor::Q::Size,
         derivativesKrnl.numElements,
         runtime.stream());
 
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
-    real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(maxTmpMem * numElements));
+    auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
 
     derivativesKrnl.power(0) = timeStepWidth;
     for (std::size_t Der = 1; Der < ConvergenceOrder; ++Der) {
       derivativesKrnl.power(Der) = derivativesKrnl.power(Der - 1) * timeStepWidth / real(Der + 1);
     }
-    derivativesKrnl.linearAllocator.initialize(tmpMem);
+    derivativesKrnl.linearAllocator.initialize(tmpMem.get());
     derivativesKrnl.streamPtr = runtime.stream();
     derivativesKrnl.execute();
-    device.api->popStackMemory();
   }
 
   if (updateDisplacement) {
@@ -242,9 +241,9 @@ void Time::computeIntegral(double expansionPoint,
   const real deltaTUpper = integrationEnd - expansionPoint;
 
   // initialization of scalars in the taylor series expansion (0th term)
-  real firstTerm = (real)1;
-  real secondTerm = (real)1;
-  real factorial = (real)1;
+  real firstTerm = static_cast<real>(1);
+  real secondTerm = static_cast<real>(1);
+  real factorial = static_cast<real>(1);
 
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = timeIntegrated;
@@ -256,7 +255,7 @@ void Time::computeIntegral(double expansionPoint,
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
     firstTerm *= deltaTUpper;
     secondTerm *= deltaTLower;
-    factorial *= (real)(der + 1);
+    factorial *= static_cast<real>(der + 1);
 
     intKrnl.power(der) = firstTerm - secondTerm;
     intKrnl.power(der) /= factorial;
@@ -293,8 +292,8 @@ void Time::computeBatchedIntegral(double expansionPoint,
 
   kernel::gpu_derivativeTaylorExpansion intKrnl;
   intKrnl.numElements = numElements;
-  real* tmpMem = reinterpret_cast<real*>(
-      device.api->getStackMemory(intKrnl.TmpMaxMemRequiredInBytes * numElements));
+  auto tmpMem =
+      runtime.memoryHandle<real>((intKrnl.TmpMaxMemRequiredInBytes * numElements) / sizeof(real));
 
   intKrnl.I = timeIntegratedDofs;
 
@@ -312,10 +311,9 @@ void Time::computeBatchedIntegral(double expansionPoint,
     intKrnl.power(der) = firstTerm - secondTerm;
     intKrnl.power(der) /= factorial;
   }
-  intKrnl.linearAllocator.initialize(tmpMem);
+  intKrnl.linearAllocator.initialize(tmpMem.get());
   intKrnl.streamPtr = runtime.stream();
   intKrnl.execute();
-  device.api->popStackMemory();
 #else
   seissol::kernels::time::aux::taylorSum(true,
                                          numElements,
@@ -356,7 +354,8 @@ void Time::computeTaylorExpansion(real time,
 
   // iterate over time derivatives
   for (std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
-    intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / real(derivative);
+    intKrnl.power(derivative) =
+        intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);
   }
 
   intKrnl.execute();

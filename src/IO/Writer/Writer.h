@@ -24,7 +24,7 @@ namespace seissol::io::writer {
 
 class WriteInstance {
   public:
-  WriteInstance(MPI_Comm comm);
+  explicit WriteInstance(MPI_Comm comm);
 
   void write(const async::ExecInfo& info,
              const std::shared_ptr<instructions::WriteInstruction>& instruction);

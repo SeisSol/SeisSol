@@ -21,6 +21,9 @@ namespace seissol::parallel::runtime {
 
 enum class Runtime { Native, Sycl, OpenMP };
 
+template <typename T>
+class StreamMemoryHandle;
+
 class StreamRuntime {
 #ifdef ACL_DEVICE
   private:
@@ -109,24 +112,32 @@ class StreamRuntime {
   void* stream() { return streamPtr; }
 
   template <typename F>
+  void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle, F&& handler) {
+    if (!computeGraphHandle.isInitialized()) {
+      computeGraphHandle = device().api->streamBeginCapture(allStreams);
+
+      std::invoke(std::forward<F>(handler), *this);
+
+      device().api->streamEndCapture(computeGraphHandle);
+    }
+
+    if (computeGraphHandle.isInitialized()) {
+      device().api->launchGraph(computeGraphHandle, streamPtr);
+    }
+  }
+
+  template <typename F>
   void runGraph(seissol::initializer::GraphKey computeGraphKey,
                 seissol::initializer::Layer& layer,
                 F&& handler) {
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
-    if (!computeGraphHandle) {
-      device().api->streamBeginCapture(allStreams);
+    bool needsUpdate = !computeGraphHandle.isInitialized();
 
-      std::invoke(std::forward<F>(handler), *this);
+    runGraphGeneric(computeGraphHandle, std::forward<F>(handler));
 
-      device().api->streamEndCapture();
-
-      computeGraphHandle = device().api->getLastGraphHandle();
+    if (needsUpdate && computeGraphHandle.isInitialized()) {
       layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
-    }
-
-    if (computeGraphHandle.isInitialized()) {
-      device().api->launchGraph(computeGraphHandle, streamPtr);
     }
   }
 
@@ -153,6 +164,21 @@ class StreamRuntime {
     void syncFromOMP(omp_depend_t& depobj);
   */
 
+  template <typename T>
+  T* allocMemory(std::size_t count) {
+    return reinterpret_cast<T*>(device().api->allocMemAsync(count * sizeof(T), streamPtr));
+  }
+
+  template <typename T>
+  void freeMemory(T* ptr) {
+    device().api->freeMemAsync(reinterpret_cast<T*>(ptr), streamPtr);
+  }
+
+  template <typename T>
+  StreamMemoryHandle<T> memoryHandle(std::size_t count) {
+    return StreamMemoryHandle<T>(count, *this);
+  }
+
   private:
   bool disposed;
   void* streamPtr;
@@ -164,9 +190,40 @@ class StreamRuntime {
   void* joinEventSycl;
 #else
   public:
+  template <typename T>
+  T* allocMemory(std::size_t count) {
+    return new T[count];
+  }
+  template <typename T>
+  void freeMemory(T* ptr) {
+    delete[] ptr;
+  }
   void wait() {}
   void dispose() {}
 #endif
+};
+
+template <typename T>
+class StreamMemoryHandle {
+  public:
+  StreamMemoryHandle(std::size_t count, StreamRuntime& runtime)
+      : data(runtime.allocMemory<T>(count)), runtime(runtime) {}
+
+  StreamMemoryHandle(const StreamMemoryHandle&) = delete;
+  auto operator=(const StreamMemoryHandle& stream) = delete;
+
+  StreamMemoryHandle(StreamMemoryHandle&&) = default;
+  auto operator=(StreamMemoryHandle&& stream) -> StreamMemoryHandle& = default;
+
+  T* get() { return data; }
+
+  const T* get() const { return data; }
+
+  ~StreamMemoryHandle() { runtime.freeMemory(data); }
+
+  private:
+  T* data;
+  StreamRuntime& runtime;
 };
 
 } // namespace seissol::parallel::runtime
