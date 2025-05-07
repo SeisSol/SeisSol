@@ -85,13 +85,6 @@ class EnergyOutput : public Module {
   EnergyOutput(EnergyOutput&&) = delete;
 
   private:
-  std::array<real, multisim::NumSimulations>
-      computeStaticWork(const real* degreesOfFreedomPlus,
-                        const real* degreesOfFreedomMinus,
-                        const DRFaceInformation& faceInfo,
-                        const DRGodunovData& godunovData,
-                        const real slip[seissol::tensor::slipInterpolated::size()]);
-
   void computeDynamicRuptureEnergies();
 
   void computeVolumeEnergies();
@@ -104,7 +97,7 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion(const std::array<real, multisim::NumSimulations>& timeSinceThreshold,
+  void checkAbortCriterion(const std::array<double, multisim::NumSimulations>& timeSinceThreshold,
                            const std::string& prefixMessage);
 
   void writeHeader();
@@ -143,8 +136,8 @@ class EnergyOutput : public Module {
   seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
-  std::array<real, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold;
-  std::array<real, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold;
+  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold;
+  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold;
   double terminatorMaxTimePostRupture{};
   double energyOutputInterval{};
   double terminatorMomentRateThreshold{};
