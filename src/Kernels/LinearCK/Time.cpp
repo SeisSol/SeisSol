@@ -163,23 +163,22 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
 
     // stream dofs to the zero derivative
     device.algorithms.streamBatchedData(
-        (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(),
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
         (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
         tensor::Q::Size,
         derivativesKrnl.numElements,
         runtime.stream());
 
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
-    real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(maxTmpMem * numElements));
+    auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
 
     derivativesKrnl.power(0) = timeStepWidth;
     for (std::size_t Der = 1; Der < ConvergenceOrder; ++Der) {
       derivativesKrnl.power(Der) = derivativesKrnl.power(Der - 1) * timeStepWidth / real(Der + 1);
     }
-    derivativesKrnl.linearAllocator.initialize(tmpMem);
+    derivativesKrnl.linearAllocator.initialize(tmpMem.get());
     derivativesKrnl.streamPtr = runtime.stream();
     derivativesKrnl.execute();
-    device.api->popStackMemory();
   }
 
   if (updateDisplacement) {
@@ -292,8 +291,8 @@ void Time::computeBatchedIntegral(double expansionPoint,
 
   kernel::gpu_derivativeTaylorExpansion intKrnl;
   intKrnl.numElements = numElements;
-  real* tmpMem = reinterpret_cast<real*>(
-      device.api->getStackMemory(intKrnl.TmpMaxMemRequiredInBytes * numElements));
+  auto tmpMem =
+      runtime.memoryHandle<real>((intKrnl.TmpMaxMemRequiredInBytes * numElements) / sizeof(real));
 
   intKrnl.I = timeIntegratedDofs;
 
@@ -311,10 +310,9 @@ void Time::computeBatchedIntegral(double expansionPoint,
     intKrnl.power(der) = firstTerm - secondTerm;
     intKrnl.power(der) /= factorial;
   }
-  intKrnl.linearAllocator.initialize(tmpMem);
+  intKrnl.linearAllocator.initialize(tmpMem.get());
   intKrnl.streamPtr = runtime.stream();
   intKrnl.execute();
-  device.api->popStackMemory();
 #else
   seissol::kernels::time::aux::taylorSum(true,
                                          numElements,
