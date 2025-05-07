@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <tensor.h>
 
 #include "utils/logger.h"
@@ -209,7 +210,7 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
     auto qStressNodalView = init::QStressNodal::view::create(qStressNodal);
     const unsigned numNodes = qStressNodalView.shape(multisim::BasisFunctionDimension);
-    for (int s = 0; s < multisim::NumSimulations; ++s) {
+    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       for (unsigned i = 0; i < numNodes; ++i) {
         // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
         // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)

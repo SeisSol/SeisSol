@@ -21,6 +21,7 @@
 #include <Parallel/Runtime/Stream.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
+#include <cstddef>
 #include <generated_code/init.h>
 #include <generated_code/kernel.h>
 #include <tensor.h>
@@ -83,7 +84,7 @@ struct ApplyAnalyticalSolution {
 
     auto nodesVec = std::vector<std::array<double, 3>>{};
     int offset = 0;
-    for (unsigned int s = 0; s < multisim::NumSimulations; ++s) {
+    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
 
       for (unsigned int i = 0; i < seissol::tensor::INodal::Shape[0]; ++i) {
@@ -160,7 +161,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       auto applyFreeSurfaceBc =
           [&displacement, &materialData, &localG](const real*, // nodes are unused
                                                   init::INodal::view::type& boundaryDofs) {
-            for (unsigned int s = 0; s < multisim::NumSimulations; ++s) {
+            for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
               auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
               auto slicedDisplacement = multisim::simtensor(displacement, s);
 

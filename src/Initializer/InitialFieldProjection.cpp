@@ -163,7 +163,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       }
 
       const CellMaterialData& material = ltsLut.lookup(lts.material, meshId);
-      for (int s = 0; s < multisim::NumSimulations; ++s) {
+      for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
         auto sub = multisim::simtensor(iniCond, s);
         iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, material, sub);
       }
@@ -255,7 +255,6 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              LTS const& lts,
                              const Lut& ltsLut,
                              bool needsTime) {
-  const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;

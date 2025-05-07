@@ -424,7 +424,6 @@ void seissol::initializer::time_stepping::LtsLayout::sortClusteredCopyGts( clust
       // TODO: Strictly speaking this reordering is not required as the cell could operate
       //       on the buffer for GTS; However the additional overhead is minimal
       else if( m_cells[l_meshId].neighborRanks[l_face] != rank ) {
-        unsigned int l_region = getPlainRegion( m_cells[l_meshId].neighborRanks[l_face] );
         unsigned int l_ghostId = m_cells[l_meshId].mpiIndices[l_face];
         unsigned int l_ghostClusterId = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[l_ghostId].clusterId;
 
@@ -483,9 +482,6 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior
       // copy cell
       if( m_cells[l_cell].neighborRanks[l_face] != rank ) {
         l_copyCell = true;
-
-        // plain region of the ghost cell
-        unsigned int l_plainRegion = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
 
         // local id in the ghost region
         unsigned int l_localGhostCell = m_cells[l_cell].mpiIndices[l_face];
@@ -767,8 +763,6 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredGhost() {
 
 void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClustering i_timeClustering,
                                                                     unsigned int        i_clusterRate ) {
-	const int rank = seissol::MPI::mpi.rank();
-
   m_globalTimeStepRates.resize(1);
   m_globalTimeStepRates[0] = i_clusterRate;
   
@@ -978,7 +972,6 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
             // remark: it is not sufficient to just search in the corresponding ghost region as copy cells can have more than one mpi-neighbor
 
             // global neighboring cluster id
-            unsigned int l_plainRegion = getPlainRegion( m_cells[l_meshId].neighborRanks[l_face] );
             unsigned int l_globalNeighboringCluster = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[ m_cells[l_meshId].mpiIndices[l_face]].clusterId;
 
             // find local neighboring region

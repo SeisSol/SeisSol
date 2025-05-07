@@ -12,6 +12,7 @@
 #include <Model/CommonDatastructures.h>
 #include <array>
 #include <complex>
+#include <cstddef>
 #include <limits>
 
 // Also if we don't use poroelastic materials, the material has to be properly defined
@@ -30,7 +31,7 @@ double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
 
   seissol::eigenvalues::computeEigenvalues(atValues, eigendecomposition);
   double maxEv = std::numeric_limits<double>::lowest();
-  for (int i = 0; i < NumQuantities; i++) {
+  for (std::size_t i = 0; i < NumQuantities; i++) {
     maxEv = eigendecomposition.values.at(i).real() > maxEv ? eigendecomposition.values.at(i).real()
                                                            : maxEv;
   }
