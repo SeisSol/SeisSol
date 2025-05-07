@@ -18,17 +18,19 @@ using StreamT = cudaStream_t;
 #include <rccl/rccl.h>
 using StreamT = hipStream_t;
 #endif
+
+#include "utils/logger.h"
 #include <device.h>
 
 namespace {
-template <typename T>
-constexpr ncclDataType_t cclDatatype() {
-  if constexpr (std::is_same_v<T, float>) {
+constexpr ncclDataType_t cclDatatype(RealType type) {
+  switch (type) {
+  case RealType::F32:
     return ncclDataType_t::ncclFloat32;
-  } else if constexpr (std::is_same_v<T, double>) {
+  case RealType::F64:
     return ncclDataType_t::ncclFloat64;
-  } else {
-    static_assert(sizeof(T) == 0, "CCL datatype not covered.");
+  default:
+    logError() << "Unsupported CCL datatype";
     return ncclDataType_t::ncclChar;
   }
 }
@@ -52,14 +54,14 @@ void CCLNeighborCluster::runCompute(ComputeStep step) {
         if (isSend[i]) {
           ncclSend(cluster.data,
                    cluster.size,
-                   cclDatatype<real>(), // TODO(David): use cluster.datatype here instead
+                   cclDatatype(cluster.datatype),
                    cluster.rank,
                    static_cast<ncclComm_t>(comm),
                    static_cast<StreamT>(runtime.stream()));
         } else {
           ncclRecv(cluster.data,
                    cluster.size,
-                   cclDatatype<real>(), // TODO(David): use cluster.datatype here instead
+                   cclDatatype(cluster.datatype),
                    cluster.rank,
                    static_cast<ncclComm_t>(comm),
                    static_cast<StreamT>(runtime.stream()));

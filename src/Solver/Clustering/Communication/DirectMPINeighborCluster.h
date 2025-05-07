@@ -44,7 +44,7 @@ class DirectMPINeighborCluster : public NeighborCluster {
     for (std::size_t i = 0; i < sends.size(); ++i) {
       MPI_Send_init(sends[i].data,
                     sends[i].size,
-                    sends[i].datatype,
+                    MPI::precisionToMpiType(sends[i].datatype),
                     sends[i].rank,
                     sends[i].tag,
                     MPI::mpi.comm(),
@@ -58,7 +58,7 @@ class DirectMPINeighborCluster : public NeighborCluster {
     for (std::size_t i = 0; i < receives.size(); ++i) {
       MPI_Recv_init(receives[i].data,
                     receives[i].size,
-                    receives[i].datatype,
+                    MPI::precisionToMpiType(receives[i].datatype),
                     receives[i].rank,
                     receives[i].tag,
                     MPI::mpi.comm(),

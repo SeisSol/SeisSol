@@ -23,7 +23,7 @@ namespace seissol::solver::clustering::communication {
 struct RemoteCluster {
   void* data;
   std::size_t size;
-  MPI_Datatype datatype;
+  RealType datatype;
   int rank;
   int tag;
 };
