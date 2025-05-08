@@ -688,13 +688,6 @@ void EnergyOutput::printEnergies() {
       logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
                 << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
     }
-    if (shouldPrint(energiesStorage.plasticMoment(sim))) {
-      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                << " Plastic moment (value, equivalent Mw, % total moment):"
-                << energiesStorage.plasticMoment(sim) << " ,"
-                << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(sim)) - 6.07 << " ,"
-                << ratioPlasticMoment;
-    }
     logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
               << " Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY << " ,"
               << totalMomentumZ;
