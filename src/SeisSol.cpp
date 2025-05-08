@@ -10,7 +10,6 @@
 
 #include <Common/Executor.h>
 #include <Kernels/Common.h>
-#include <climits>
 #include <cstddef>
 #include <memory>
 #include <optional>

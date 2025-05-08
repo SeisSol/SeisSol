@@ -217,18 +217,18 @@ class SampledBasisFunctionDerivatives {
    * physical tetrahedron.
    */
   void transformToGlobalCoordinates(const double* coords[4]) {
-    real xCoords[4];
-    real yCoords[4];
-    real zCoords[4];
+    double xCoords[4];
+    double yCoords[4];
+    double zCoords[4];
     for (size_t i = 0; i < 4; ++i) {
       xCoords[i] = coords[i][0];
       yCoords[i] = coords[i][1];
       zCoords[i] = coords[i][2];
     }
 
-    real gradXi[3];
-    real gradEta[3];
-    real gradZeta[3];
+    double gradXi[3];
+    double gradEta[3];
+    double gradZeta[3];
 
     seissol::transformations::tetrahedronGlobalToReferenceJacobian(
         xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);

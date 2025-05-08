@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_MULTIPLESIMULATIONS_H_
 #define SEISSOL_SRC_SOLVER_MULTIPLESIMULATIONS_H_
 
+#include <Config.h>
 #include <cstddef>
 #include <functional>
 #include <init.h>
@@ -47,59 +48,84 @@ auto reverseCall(F&& function, Pack&&... values) {
       std::forward<F>(function), std::forward_as_tuple(std::forward<Pack>(values)...), emptytuple);
 }
 
-#ifdef MULTIPLE_SIMULATIONS
-constexpr unsigned int NumSimulations = MULTIPLE_SIMULATIONS;
-constexpr unsigned int BasisFunctionDimension = 1;
+template <unsigned int NumSimulationsT>
+struct MultisimHelperWrapper {
+  // the (non-?)default case: NumSimulations > 1
+  constexpr static unsigned int NumSimulations = NumSimulationsT;
+  constexpr static unsigned int BasisFunctionDimension = 1;
+  template <typename F, typename... Args>
+  static auto& multisimWrap(F&& function, size_t sim, Args&&... args) {
+    return std::invoke(std::forward<F>(function), sim, std::forward<Args>(args)...);
+  }
+  template <typename T, typename F, typename... Args>
+  static auto multisimObjectWrap(F&& func, T& obj, int sim, Args&&... args) {
+    return std::invoke(std::forward<F>(func), obj, sim, std::forward<Args>(args)...);
+  }
+  template <typename F, typename... Args>
+  static auto multisimTranspose(F&& function, Args&&... args) {
+    return reverseCall(std::forward<F>(function), std::forward<Args>(args)...);
+  }
+  template <unsigned Rank, typename RealT, typename IdxT>
+  static auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
+    static_assert(Rank > 0, "Tensor rank needs to be non-scalar (rank > 0)");
+    return packed<Rank - 1>([&](auto... args) { return tensor.subtensor(sim, args...); },
+                            ::yateto::slice<>());
+  }
+  constexpr static size_t MultisimStart = init::QAtPoint::Start[0];
+  constexpr static size_t MultisimEnd = init::QAtPoint::Stop[0];
+  constexpr static bool MultisimEnabled = true;
+};
+
+template <>
+struct MultisimHelperWrapper<1> {
+  constexpr static unsigned int NumSimulations = 1;
+  constexpr static unsigned int BasisFunctionDimension = 0;
+  template <typename F, typename... Args>
+  static auto& multisimWrap(F&& function, size_t sim, Args&&... args) {
+    return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
+  }
+  template <typename T, typename F, typename... Args>
+  static auto multisimObjectWrap(F&& func, T& obj, int sim, Args&&... args) {
+    return std::invoke(std::forward<F>(func), obj, std::forward<Args>(args)...);
+  }
+  template <typename F, typename... Args>
+  static auto multisimTranspose(F&& function, Args&&... args) {
+    return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
+  }
+  template <unsigned Rank, typename RealT, typename IdxT>
+  static auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
+    return tensor;
+  }
+  constexpr static size_t MultisimStart = 0;
+  constexpr static size_t MultisimEnd = 1;
+  constexpr static bool MultisimEnabled = false;
+};
+
+// short-hand definitions
+using MultisimHelper = MultisimHelperWrapper<Config::NumSimulations>;
+
+constexpr unsigned int NumSimulations = MultisimHelper::NumSimulations;
+constexpr unsigned int BasisFunctionDimension = MultisimHelper::BasisFunctionDimension;
 template <typename F, typename... Args>
 auto& multisimWrap(F&& function, size_t sim, Args&&... args) {
-  return std::invoke(std::forward<F>(function), sim, std::forward<Args>(args)...);
+  return MultisimHelper::multisimWrap(std::forward<F>(function), sim, std::forward<Args>(args)...);
 }
 template <typename T, typename F, typename... Args>
 auto multisimObjectWrap(F&& func, T& obj, int sim, Args&&... args) {
-  return std::invoke(std::forward<F>(func), obj, sim, std::forward<Args>(args)...);
+  return MultisimHelper::multisimObjectWrap(
+      std::forward<F>(func), obj, sim, std::forward<Args>(args)...);
 }
 template <typename F, typename... Args>
 auto multisimTranspose(F&& function, Args&&... args) {
-  return reverseCall(std::forward<F>(function), std::forward<Args>(args)...);
+  return MultisimHelper::multisimTranspose(std::forward<F>(function), std::forward<Args>(args)...);
 }
 template <unsigned Rank, typename RealT, typename IdxT>
 auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
-  static_assert(Rank > 0, "Tensor rank needs to be non-scalar (rank > 0)");
-  return packed<Rank - 1>([&](auto... args) { return tensor.subtensor(sim, args...); },
-                          ::yateto::slice<>());
+  return MultisimHelper::simtensor(tensor, sim);
 }
-constexpr size_t MultisimStart = init::QAtPoint::Start[0];
-constexpr size_t MultisimEnd = init::QAtPoint::Stop[0];
-constexpr bool MultisimEnabled = true;
-
-// last resort
-#define SEISSOL_MULTISIM_WRAP(wrap, sim, ...) wrap(sim, __VA_ARGS__)
-#else
-constexpr unsigned int NumSimulations = 1;
-constexpr unsigned int BasisFunctionDimension = 0;
-template <typename F, typename... Args>
-auto& multisimWrap(F&& function, size_t sim, Args&&... args) {
-  return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
-}
-template <typename T, typename F, typename... Args>
-auto multisimObjectWrap(F&& func, T& obj, int sim, Args&&... args) {
-  return std::invoke(std::forward<F>(func), obj, std::forward<Args>(args)...);
-}
-template <typename F, typename... Args>
-auto multisimTranspose(F&& function, Args&&... args) {
-  return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
-}
-template <unsigned Rank, typename RealT, typename IdxT>
-auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
-  return tensor;
-}
-constexpr size_t MultisimStart = 0;
-constexpr size_t MultisimEnd = 1;
-constexpr bool MultisimEnabled = false;
-
-// last resort
-#define SEISSOL_MULTISIM_WRAP(wrap, sim, ...) wrap(__VA_ARGS__)
-#endif
+constexpr size_t MultisimStart = MultisimHelper::MultisimStart;
+constexpr size_t MultisimEnd = MultisimHelper::MultisimEnd;
+constexpr bool MultisimEnabled = MultisimHelper::MultisimEnabled;
 
 } // namespace seissol::multisim
 

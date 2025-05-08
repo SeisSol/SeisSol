@@ -315,7 +315,7 @@ public:
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream);
 
-  void finishPhase();
+  void finishPhase() override;
 };
 
 

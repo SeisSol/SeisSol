@@ -46,8 +46,11 @@
 
 namespace {
 
-void setStarMatrix(
-    const real* matAT, const real* matBT, const real* matCT, const real grad[3], real* starMatrix) {
+void setStarMatrix(const real* matAT,
+                   const real* matBT,
+                   const real* matCT,
+                   const double grad[3],
+                   real* starMatrix) {
   for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
   }
@@ -81,22 +84,23 @@ void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
 /**
  * Copies an eigen3 matrix to a 2D yateto tensor
  */
-template <typename T, int Dim1, int Dim2>
+template <typename T, typename S, int Dim1, int Dim2>
 void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
-                       yateto::DenseTensorView<2, T>& tensorView) {
+                       yateto::DenseTensorView<2, S>& tensorView) {
   assert(tensorView.shape(0) == Dim1);
   assert(tensorView.shape(1) == Dim2);
 
   tensorView.setZero();
   for (size_t row = 0; row < Dim1; ++row) {
     for (size_t col = 0; col < Dim2; ++col) {
-      tensorView(row, col) = matrix(row, col);
+      tensorView(row, col) = static_cast<S>(matrix(row, col));
     }
   }
 }
 
 constexpr int N = tensor::Zminus::Shape[0];
-Eigen::Matrix<real, N, N>
+template <typename T>
+Eigen::Matrix<T, N, N>
     extractMatrix(eigenvalues::Eigenpair<std::complex<double>,
                                          seissol::model::MaterialT::NumQuantities> eigenpair) {
   std::vector<int> tractionIndices;
@@ -118,7 +122,7 @@ Eigen::Matrix<real, N, N>
   const Eigen::Matrix<double, N, N> matRTInv = matRT.inverse();
   const Eigen::Matrix<double, N, N> matRU = matrix(velocityIndices, columnIndices).real();
   const Eigen::Matrix<double, N, N> matM = matRU * matRTInv;
-  return matM.cast<real>();
+  return matM.cast<T>();
 };
 
 } // namespace
@@ -186,12 +190,12 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         const auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
         const auto meshId = secondaryInformation[cell].meshId;
 
-        real x[4];
-        real y[4];
-        real z[4];
-        real gradXi[3];
-        real gradEta[3];
-        real gradZeta[3];
+        double x[4];
+        double y[4];
+        double z[4];
+        double gradXi[3];
+        double gradEta[3];
+        double gradZeta[3];
 
         // Iterate over all 4 vertices of the tetrahedron
         for (unsigned vertex = 0; vertex < 4; ++vertex) {
@@ -227,7 +231,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           MeshTools::normalize(tangent1, tangent1);
           MeshTools::normalize(tangent2, tangent2);
 
-          real nLocalData[6 * 6];
+          double nLocalData[6 * 6];
           seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
           seissol::model::getTransposedGodunovState(
               seissol::model::getRotatedMaterialCoefficients(nLocalData, material[cell].local),
@@ -246,7 +250,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
           // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
           // must be subtracted.
-          const real fluxScale = -2.0 * surface / (6.0 * volume);
+          const double fluxScale = -2.0 * surface / (6.0 * volume);
 
           const auto isSpecialBC =
               [&secondaryInformation, &cellInformation, &cellInformationAll, cell](int side) {
@@ -696,9 +700,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         // The impedance matrices are diagonal in the (visco)elastic case, so we only store
         // the values Zp, Zs. In the poroelastic case, the fluid pressure and normal component
         // of the traction depend on each other, so we need a more complicated matrix structure.
-        const Eigen::Matrix<real, N, N> impedanceMatrix = extractMatrix(plusEigenpair);
-        const Eigen::Matrix<real, N, N> impedanceNeigMatrix = extractMatrix(minusEigenpair);
-        const Eigen::Matrix<real, N, N> etaMatrix =
+        const Eigen::Matrix<double, N, N> impedanceMatrix = extractMatrix<double>(plusEigenpair);
+        const Eigen::Matrix<double, N, N> impedanceNeigMatrix =
+            extractMatrix<double>(minusEigenpair);
+        const Eigen::Matrix<double, N, N> etaMatrix =
             (impedanceMatrix + impedanceNeigMatrix).inverse();
 
         auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);

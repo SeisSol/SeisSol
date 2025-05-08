@@ -47,12 +47,12 @@ Eigen::Vector3d tetrahedronGlobalToReference(const double v0[3],
  * xi(x, y, z), eta(x, y, z), zeta(x, y, z)
  * from a global tetrahedron to the reference tetrahedron.
  **/
-void tetrahedronGlobalToReferenceJacobian(const real iX[4],
-                                          const real iY[4],
-                                          const real iZ[4],
-                                          real oGradXi[3],
-                                          real oGradEta[3],
-                                          real oGradZeta[3]);
+void tetrahedronGlobalToReferenceJacobian(const double iX[4],
+                                          const double iY[4],
+                                          const double iZ[4],
+                                          double oGradXi[3],
+                                          double oGradEta[3],
+                                          double oGradZeta[3]);
 
 /**
  * Inverse of Tensor1RotationMatrix().
@@ -87,15 +87,15 @@ void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
                                            Tmatrix& oTinv,
                                            unsigned row = 0,
                                            unsigned col = 0) {
-  const real nx = iNormal[0];
-  const real ny = iNormal[1];
-  const real nz = iNormal[2];
-  const real sx = iTangent1[0];
-  const real sy = iTangent1[1];
-  const real sz = iTangent1[2];
-  const real tx = iTangent2[0];
-  const real ty = iTangent2[1];
-  const real tz = iTangent2[2];
+  const auto nx = iNormal[0];
+  const auto ny = iNormal[1];
+  const auto nz = iNormal[2];
+  const auto sx = iTangent1[0];
+  const auto sy = iTangent1[1];
+  const auto sz = iTangent1[2];
+  const auto tx = iTangent2[0];
+  const auto ty = iTangent2[1];
+  const auto tz = iTangent2[2];
 
   oTinv(row + 0, col + 0) = nx * nx;
   oTinv(row + 1, col + 0) = sx * sx;

@@ -74,11 +74,6 @@ if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   append_coverage_compiler_flags()
 endif()
 
-set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
-                         "VECTORSIZE=${VECTORSIZE}"
-                         "REAL_SIZE=${REAL_SIZE_IN_BYTES}"
-                         "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -99,6 +94,45 @@ endif()
 # LTO
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
+configure_file("src/Alignment.h.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
+
+function(capitalize INARG OUTARG)
+  string(REPLACE "_" ";" PARTS ${INARG})
+  set(PREOUTARG "")
+  foreach(PART IN LISTS PARTS)
+    string(SUBSTRING ${PART} 0 1 FIRST)
+    string(TOUPPER ${FIRST} FIRSTU)
+    string(LENGTH ${PART} LEN)
+    string(SUBSTRING ${PART} 1 ${LEN} NEXT)
+    string(PREPEND NEXT ${FIRSTU})
+    string(APPEND PREOUTARG ${NEXT})
+  endforeach()
+  set(${OUTARG} ${PREOUTARG} PARENT_SCOPE)
+endfunction()
+
+if (EQUATIONS STREQUAL "viscoelastic")
+  set(PARAMETER_MATERIAL "Viscoelastic")
+  set(PARAMETER_VISCOMODE "QuantityExtension")
+elseif (EQUATIONS STREQUAL "viscoelastic2")
+  set(PARAMETER_MATERIAL "Viscoelastic")
+  set(PARAMETER_VISCOMODE "AnelasticTensor")
+else()
+  capitalize(${EQUATIONS} PARAMETER_MATERIAL)
+  set(PARAMETER_VISCOMODE "None")
+endif()
+
+capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
+
+if (PRECISION STREQUAL "single")
+  set(PARAMETER_REALTYPE "F32")
+else()
+  set(PARAMETER_REALTYPE "F64")
+endif()
+
+configure_file("src/Config.h.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/Config.h")
+
 # Generate version.h
 include(GetGitRevisionDescription)
 
@@ -114,7 +148,7 @@ endif()
 string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
 
 # write file and print info
-configure_file("src/VersionTemplate.h"
+configure_file("src/Version.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/src/Version.h")
 message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
@@ -224,7 +258,6 @@ include(cmake/cpu_arch_flags.cmake)
 get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 
 # set hardware/compiler specific definitions and flags
-target_compile_definitions(seissol-common-properties INTERFACE ${HARDWARE_DEFINITIONS})
 target_compile_options(seissol-common-properties INTERFACE ${CPU_ARCH_FLAGS})
 
 target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LEVEL})
@@ -234,13 +267,6 @@ target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_L
 if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
   target_compile_definitions(seissol-common-properties INTERFACE MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
 endif()
-
-if (PLASTICITY_METHOD STREQUAL "ip")
-  target_compile_definitions(seissol-common-properties INTERFACE USE_PLASTICITY_IP)
-elseif (PLASTICITY_METHOD STREQUAL "nb")
-  target_compile_definitions(seissol-common-properties INTERFACE USE_PLASTICITY_NB)
-endif()
-
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
@@ -424,12 +450,6 @@ target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
-)
-
-target_compile_definitions(seissol-common-properties INTERFACE
-    CONVERGENCE_ORDER=${ORDER}
-    NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-    ${DR_QUAD_RULE}
 )
 
 if (PREMULTIPLY_FLUX)

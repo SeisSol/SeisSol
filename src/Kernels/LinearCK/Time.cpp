@@ -9,9 +9,10 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#include "Kernels/Time.h"
+#include "Kernels/LinearCK/TimeBase.h"
+
 #include "GravitationalFreeSurfaceBC.h"
-#include "TimeBase.h"
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>

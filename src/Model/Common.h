@@ -22,12 +22,18 @@
 
 #include "Model/CommonDatastructures.h"
 
+#include <cmath>
+#include <limits>
+
 namespace seissol::model {
 
 template <typename MaterialT>
 struct MaterialSetup;
 
-bool testIfAcoustic(real mu);
+template <typename T>
+constexpr bool testIfAcoustic(T mu) {
+  return std::abs(mu) <= std::numeric_limits<T>::epsilon();
+}
 
 template <typename Tmaterial, typename Tmatrix>
 void getTransposedCoefficientMatrix(const Tmaterial& material, unsigned dim, Tmatrix& M) {
@@ -69,7 +75,7 @@ void getPlaneWaveOperator(const T& material,
 
 template <typename T>
 void initializeSpecificLocalData(const T& material,
-                                 real timeStepWidth,
+                                 double timeStepWidth,
                                  typename T::LocalSpecificData* localData) {
   MaterialSetup<T>::initializeSpecificLocalData(material, timeStepWidth, localData);
 }
@@ -91,7 +97,7 @@ void initializeSpecificNeighborData(const T& material,
 void getBondMatrix(const VrtxCoords normal,
                    const VrtxCoords tangent1,
                    const VrtxCoords tangent2,
-                   real* matN);
+                   double* matN);
 
 template <typename MaterialT = seissol::model::MaterialT>
 void getFaceRotationMatrix(const Eigen::Vector3d& normal,
@@ -115,7 +121,7 @@ void getFaceRotationMatrix(const VrtxCoords normal,
 }
 
 template <typename MaterialT>
-MaterialT getRotatedMaterialCoefficients(real rotationParameters[36], MaterialT& material) {
+MaterialT getRotatedMaterialCoefficients(double rotationParameters[36], MaterialT& material) {
   return MaterialSetup<MaterialT>::getRotatedMaterialCoefficients(rotationParameters, material);
 }
 
@@ -147,7 +153,7 @@ void getElasticPlaneWaveOperator(
 
   for (unsigned i = 0; i < MaterialT::NumQuantities; ++i) {
     for (unsigned j = 0; j < MaterialT::NumQuantities; ++j) {
-      M(i, j) -= std::complex<real>(0.0, coeff(j, i));
+      M(i, j) -= std::complex<double>(0.0, coeff(j, i));
     }
   }
 }

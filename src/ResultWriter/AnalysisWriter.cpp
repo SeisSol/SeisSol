@@ -7,6 +7,7 @@
 
 #include "AnalysisWriter.h"
 
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
@@ -261,7 +262,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       }
     }
 
-    for (unsigned int i = 0; i < NumQuantities; ++i) {
+    for (std::size_t i = 0; i < NumQuantities; ++i) {
       // Find position of element with lowest LInf error.
       VrtxCoords center;
       MeshTools::center(elements[elemLInfLocal[i]], vertices, center);
@@ -322,7 +323,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       csvWriter.writeHeader();
     }
 
-    for (unsigned int i = 0; i < NumQuantities; ++i) {
+    for (std::size_t i = 0; i < NumQuantities; ++i) {
       VrtxCoords centerSend{};
       MeshTools::center(elements[elemLInfLocal[i]], vertices, centerSend);
 

@@ -42,11 +42,24 @@ namespace seissol::kernels {
  * @param X
  * @param Y
  */
-inline void streamstore(std::size_t numberOfReals, const real* x, real* y) {
-  assert(numberOfReals % DMO_INCREMENT == 0);
+template <typename T>
+inline void streamstore(std::size_t numberOfReals, const T* x, T* y);
 
-  for (std::size_t i = 0; i < numberOfReals; i += DMO_INCREMENT) {
-    DMO_STREAM(&x[i], &y[i])
+template <>
+inline void streamstore<float>(std::size_t numberOfReals, const float* x, float* y) {
+  assert(numberOfReals % DMO_INCREMENT32 == 0);
+
+  for (std::size_t i = 0; i < numberOfReals; i += DMO_INCREMENT32) {
+    DMO_STREAM32(&x[i], &y[i])
+  }
+}
+
+template <>
+inline void streamstore<double>(std::size_t numberOfReals, const double* x, double* y) {
+  assert(numberOfReals % DMO_INCREMENT64 == 0);
+
+  for (std::size_t i = 0; i < numberOfReals; i += DMO_INCREMENT64) {
+    DMO_STREAM64(&x[i], &y[i])
   }
 }
 } // namespace seissol::kernels

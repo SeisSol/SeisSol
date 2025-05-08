@@ -9,19 +9,14 @@
 
 #include "Model/Common.h"
 #include <Geometry/MeshDefinition.h>
-#include <Kernels/Precision.h>
-#include <cmath>
 #include <generated_code/init.h>
-#include <limits>
 
-bool seissol::model::testIfAcoustic(real mu) {
-  return std::abs(mu) <= std::numeric_limits<real>::epsilon();
-}
+namespace seissol::model {
 
-void seissol::model::getBondMatrix(const VrtxCoords normal,
-                                   const VrtxCoords tangent1,
-                                   const VrtxCoords tangent2,
-                                   real* matN) {
+void getBondMatrix(const VrtxCoords normal,
+                   const VrtxCoords tangent1,
+                   const VrtxCoords tangent2,
+                   double* matN) {
   matN[0 * 6 + 0] = normal[0] * normal[0];
   matN[0 * 6 + 1] = normal[1] * normal[1];
   matN[0 * 6 + 2] = normal[2] * normal[2];
@@ -60,3 +55,5 @@ void seissol::model::getBondMatrix(const VrtxCoords normal,
   matN[5 * 6 + 4] = normal[0] * tangent1[2] + normal[2] * tangent1[0];
   matN[5 * 6 + 5] = normal[1] * tangent1[0] + normal[0] * tangent1[1];
 }
+
+} // namespace seissol::model

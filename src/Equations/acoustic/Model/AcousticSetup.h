@@ -28,7 +28,7 @@ struct MaterialSetup<AcousticMaterial> {
   static void getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& M) {
     M.setZero();
 
-    real rhoInv = 1.0 / material.rho;
+    const double rhoInv = 1.0 / material.rho;
 
     switch (dim) {
     case 0:
@@ -97,12 +97,12 @@ struct MaterialSetup<AcousticMaterial> {
     }
   }
 
-  static AcousticMaterial getRotatedMaterialCoefficients(real rotationParameters[36],
+  static AcousticMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
                                                          AcousticMaterial& material) {
     return material;
   }
   static void initializeSpecificLocalData(const AcousticMaterial& material,
-                                          real timeStepWidth,
+                                          double timeStepWidth,
                                           AcousticLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const AcousticMaterial& material,

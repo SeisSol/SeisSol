@@ -7,7 +7,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Tools.h"
-#include <ctime>
 
 auto derive_cycles_from_time(double time) -> double {
   // first try to read proxy env variable with freq
