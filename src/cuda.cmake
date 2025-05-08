@@ -8,11 +8,11 @@
 enable_language(CUDA)
 
 set(DEVICE_SRC ${DEVICE_SRC}
-        ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cudahip/PlasticityAux.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterCudaHip.cpp)
+        ${CMAKE_BINARY_DIR}/generated-code/generated_code/gpulike_subroutine.cpp
+        Kernels/DeviceAux/cudahip/PlasticityAux.cpp
+        Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
+        DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
+        Kernels/PointSourceClusterCudaHip.cpp)
 
 add_library(seissol-device-lib SHARED ${DEVICE_SRC})
 

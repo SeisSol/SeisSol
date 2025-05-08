@@ -6,11 +6,11 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 set(DEVICE_SRC ${DEVICE_SRC}
-          ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/sycl/PlasticityAux.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp
-          ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterSycl.cpp)
+          ${CMAKE_BINARY_DIR}/generated-code/generated_code/gpulike_subroutine.cpp
+          Kernels/DeviceAux/sycl/PlasticityAux.cpp
+          Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
+          DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp
+          Kernels/PointSourceClusterSycl.cpp)
 
 add_library(seissol-device-lib SHARED ${DEVICE_SRC})
 

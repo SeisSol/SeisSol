@@ -84,13 +84,6 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 
-if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
-  # Note: hip 4.x has a bug during setting rpath while compiling
-  #       device code for nvidia gpus. This scenario is used in
-  #       SeisSol's GPU CI pipeline.
-  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
-endif()
-
 # LTO
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
@@ -154,24 +147,24 @@ message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
 
 add_custom_target(build-time-make-directory ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/generated-code/generated_code")
 
-set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
-                                src/generated_code/tensor.cpp
-                                src/generated_code/subroutine.cpp
-                                src/generated_code/gpulike_subroutine.cpp
-                                src/generated_code/tensor.h
-                                src/generated_code/init.cpp
-                                src/generated_code/init.h
-                                src/generated_code/kernel.h
-                                src/generated_code/kernel.cpp)
+set(GENERATED_FILES_FOR_SEISSOL ${CMAKE_BINARY_DIR}/generated-code/generated_code/subroutine.h
+                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/tensor.cpp
+                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/subroutine.cpp
+                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/gpulike_subroutine.cpp
+                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/tensor.h
+                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/init.cpp
+                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/init.h
+                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/kernel.h
+                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/kernel.cpp)
 
 if (TESTING AND TESTING_GENERATED)
   set(GENERATED_FILES_FOR_SEISSOL ${GENERATED_FILES_FOR_SEISSOL}
-                                src/generated_code/test-kernel.cpp)
+                                generated-code/generated_code/test-kernel.cpp)
 endif()
 
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated-code/generated_code/)
 
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -192,7 +185,7 @@ add_custom_command(
   "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated-code/generate.py"
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
-     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
+     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/generated-code/generated_code
      "--host_arch" ${HOST_ARCH_STR}
      "--device_codegen" ${DEVICE_CODEGEN}
      "--device_arch" ${DEVICE_ARCH_STR}
@@ -222,7 +215,20 @@ add_custom_command(
 add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
 add_library(seissol-common-properties INTERFACE IMPORTED)
 
-include(src/sources.cmake)
+# Source code
+add_library(seissol-kernel-lib
+
+# do YATeTo first, since kernel.cpp usually takes really long
+
+# kernel.cpp usually takes the longest
+# (for CPUs, at least; for GPUs, we have a different library alltogether)
+${CMAKE_BINARY_DIR}/generated-code/generated_code/kernel.cpp
+${CMAKE_BINARY_DIR}/generated-code/generated_code/tensor.cpp
+${CMAKE_BINARY_DIR}/generated-code/generated_code/subroutine.cpp
+${CMAKE_BINARY_DIR}/generated-code/generated_code/init.cpp
+)
+
+add_subdirectory(src)
 
 target_compile_options(seissol-common-properties INTERFACE -fPIC)
 
@@ -449,7 +455,9 @@ target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-    ${CMAKE_CURRENT_BINARY_DIR}/src/
+    ${CMAKE_CURRENT_BINARY_DIR}/src
+    ${CMAKE_CURRENT_BINARY_DIR}/generated-code
+    ${CMAKE_CURRENT_BINARY_DIR}/generated-code/generated_code
 )
 
 if (PREMULTIPLY_FLUX)
@@ -539,7 +547,7 @@ target_link_libraries(seissol-common-properties INTERFACE std::filesystem)
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
   set_source_files_properties(
-      ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
+      ${CMAKE_BINARY_DIR}/generated-code/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
   )
 endif()
 
@@ -574,8 +582,8 @@ if (TESTING)
 
   if (TESTING_GENERATED)
     # FIXME: fix by removing the `using namespace` in the test files
-    # and replace by ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
-    file(GLOB_RECURSE KERNEL_TESTFILES ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/**/test-kernel.cpp)
+    # and replace by ${CMAKE_CURRENT_BINARY_DIR}/generated-code/generated_code/test-kernel.cpp
+    file(GLOB_RECURSE KERNEL_TESTFILES ${CMAKE_CURRENT_BINARY_DIR}/generated-code/generated_code/**/test-kernel.cpp)
     set(seissol_test_sources
             ${seissol_test_sources}
             ${KERNEL_TESTFILES}
@@ -640,7 +648,7 @@ if (TESTING)
                     "submodules/*"
                     "*/tests/*"
                     "external/*"
-                    "*/src/generated_code/*"
+                    "*/generated-code/generated_code/*"
                     "/opt/*"
             LCOV_ARGS --ignore-errors inconsistent
                       --ignore-errors unused
