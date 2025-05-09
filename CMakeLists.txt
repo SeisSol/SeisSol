@@ -182,17 +182,11 @@ get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 # set hardware/compiler specific definitions and flags
 target_compile_options(seissol-common-properties INTERFACE ${CPU_ARCH_FLAGS})
 
-target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LEVEL})
-target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER}
-                                                     LOGLEVEL0=${LOG_LEVEL_MASTER})
+target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER})
 
 if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
   target_compile_definitions(seissol-common-properties INTERFACE MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
 endif()
-
-# enable interproc. opts for small cores
-#if cpu in ['knc', 'knl', 'skx']:
-#    flags.extend(['-ip'])
 
 # Libs
 include(ExternalProject)

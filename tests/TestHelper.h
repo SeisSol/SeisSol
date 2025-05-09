@@ -58,7 +58,7 @@ class AbsApprox {
 };
 
 AbsApprox::AbsApprox(double value)
-    : m_epsilon(static_cast<double>(std::numeric_limits<double>::epsilon())), m_value(value) {}
+    : m_epsilon(std::numeric_limits<double>::epsilon()), m_value(value) {}
 
 AbsApprox AbsApprox::operator()(double newValue) const {
   AbsApprox approx(newValue);

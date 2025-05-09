@@ -22,13 +22,15 @@ set(seissol_test_sources
 
 if (TESTING_GENERATED)
     # FIXME: fix by removing the `using namespace` in the test files
-    # and replace by ${CMAKE_CURRENT_BINARY_DIR}/generated-code/GeneratedCode/test-kernel.cpp
+    # and replace by ${CMAKE_BINARY_DIR}/generated-code/GeneratedCode/test-kernel.cpp
     file(GLOB_RECURSE KERNEL_TESTFILES ${CMAKE_BINARY_DIR}/generated-code/GeneratedCode/**/test-kernel.cpp)
     set(seissol_test_sources
         ${seissol_test_sources}
         ${KERNEL_TESTFILES}
         )
 endif()
+
+# TODO: place files relatively
 
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/time_stepping/mesh.h5

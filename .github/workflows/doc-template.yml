@@ -26,4 +26,4 @@ jobs:
 
       - name: build-documentation
         run: |
-          cd Documentation && make html && cd ..
+          cd documentation && make html && cd ..
