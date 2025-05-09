@@ -9,7 +9,6 @@
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
-#include <cstdlib>
 #include <ctime>
 #include <exception>
 #include <fty/fty.hpp>
@@ -106,16 +105,15 @@ int main(int argc, char* argv[]) {
 
   // Print welcome message
   logInfo() << "Welcome to SeisSol";
-  logInfo() << "Copyright (c) 2012 -" << COMMIT_YEAR << " SeisSol Group";
-  logInfo() << "Version:" << VERSION_STRING;
+  logInfo() << "Copyright (c) 2012 -" << BuildInfo::CommitYear.c_str() << " SeisSol Group";
+  logInfo() << "Version:" << BuildInfo::VersionString.c_str();
   logInfo() << "Built on:" << __DATE__ << __TIME__;
-#ifdef COMMIT_HASH
-  logInfo() << "Last commit:" << COMMIT_HASH << "at" << COMMIT_TIMESTAMP;
-#endif
-  logInfo() << "Compiled with HOST_ARCH =" << SEISSOL_HOST_ARCH;
+  logInfo() << "Last commit:" << BuildInfo::CommitHash.c_str() << "at"
+            << BuildInfo::CommitTimestamp.c_str();
+  logInfo() << "Compiled with HOST_ARCH =" << BuildInfo::SeisSolHostArch.c_str();
 #ifdef ACL_DEVICE
-  logInfo() << "Compiled with DEVICE_BACKEND =" << SEISSOL_DEVICE_BACKEND;
-  logInfo() << "Compiled with DEVICE_ARCH =" << SEISSOL_DEVICE_ARCH;
+  logInfo() << "Compiled with DEVICE_BACKEND =" << BuildInfo::SeisSolDeviceBackend.c_str();
+  logInfo() << "Compiled with DEVICE_ARCH =" << BuildInfo::SeisSolDeviceArch.c_str();
 #endif
 
   if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
@@ -128,6 +126,10 @@ int main(int argc, char* argv[]) {
                  "platform.";
 #endif
   }
+
+#ifdef ACL_DEVICE
+  device.api->setupPrinting(rank);
+#endif
 
   // TODO Read parameters here
   // Parse command line arguments
@@ -157,33 +159,38 @@ int main(int argc, char* argv[]) {
   auto parameters = seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
   parameterReader.warnUnknown();
 
-  // Initialize SeisSol
-  seissol::SeisSol seissolInstance(parameters, env);
+  {
 
-  if (args.isSet("checkpoint")) {
-    const auto* checkpointFile = args.getArgument<const char*>("checkpoint");
-    seissolInstance.loadCheckpoint(checkpointFile);
-  }
+    // Initialize SeisSol
+    seissol::SeisSol seissolInstance(parameters, env);
 
-  // run SeisSol
-  const bool runSeisSol = seissolInstance.init(argc, argv);
+    if (args.isSet("checkpoint")) {
+      const auto* checkpointFile = args.getArgument<const char*>("checkpoint");
+      seissolInstance.loadCheckpoint(checkpointFile);
+    }
 
-  const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
-  seissolInstance.setBackupTimeStamp(stamp);
+    // run SeisSol
+    const bool runSeisSol = seissolInstance.init(argc, argv);
 
-  // Run SeisSol
-  if (runSeisSol) {
-    seissol::initializer::initprocedure::seissolMain(seissolInstance);
-  }
+    const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
+    seissolInstance.setBackupTimeStamp(stamp);
+
+    // Run SeisSol
+    if (runSeisSol) {
+      seissol::initializer::initprocedure::seissolMain(seissolInstance);
+    }
 
 #pragma omp parallel
-  {
-    LIKWID_MARKER_STOP("SeisSol");
+    {
+      LIKWID_MARKER_STOP("SeisSol");
+    }
+
+    LIKWID_MARKER_CLOSE;
+    // Finalize SeisSol
+    seissolInstance.finalize();
   }
 
-  LIKWID_MARKER_CLOSE;
-  // Finalize SeisSol
-  seissolInstance.finalize();
+  seissol::MPI::finalize();
 
 #ifdef ACL_DEVICE
   device.api->finalize();

@@ -12,6 +12,7 @@
 #include "Constants.h"
 #include "Kernel.h"
 
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>

@@ -10,7 +10,6 @@
 #include "utils/stringutils.h"
 #include <algorithm>
 #include <cctype>
-#include <cstdlib>
 #include <mpi.h>
 #include <string>
 #include <unistd.h>
@@ -87,6 +86,8 @@ void seissol::MPI::setDataTransferModeFromEnv() {
       preferredDataTransferMode = DataTransferMode::Direct;
     } else if (option == "host") {
       preferredDataTransferMode = DataTransferMode::CopyInCopyOutHost;
+    } else if (option == "directccl") {
+      preferredDataTransferMode = DataTransferMode::DirectCCL;
     } else {
       logWarning() << "Ignoring `SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`."
                    << "Expected values: direct, host.";

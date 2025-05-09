@@ -13,19 +13,11 @@
 #ifdef __ARM_FEATURE_SVE
 #include <arm_sve.h>
 
-#if defined(DOUBLE_PRECISION)
+#define DMO_INCREMENT64 svcntd()
+#define DMO_STREAM64(IN, OUT) svstnt1_f64(svptrue_b64(), OUT, svld1_f64(svptrue_b64(), IN));
 
-#define DMO_INCREMENT svcntd()
-#define DMO_STREAM(IN, OUT) svstnt1_f64(svptrue_b64(), OUT, svld1_f64(svptrue_b64(), IN));
-
-#elif defined(SINGLE_PRECISION)
-
-#define DMO_INCREMENT svcntw()
-#define DMO_STREAM(IN, OUT) svstnt1_f32(svptrue_b32(), OUT, svld1_f32(svptrue_b32(), IN));
-
-#else
-#error no precision was defined
-#endif
+#define DMO_INCREMENT32 svcntw()
+#define DMO_STREAM32(IN, OUT) svstnt1_f32(svptrue_b32(), OUT, svld1_f32(svptrue_b32(), IN));
 
 #endif
 

@@ -33,8 +33,8 @@ class PointSourceCluster {
 };
 
 struct PointSourceClusterPair {
-  std::unique_ptr<kernels::PointSourceCluster> host{nullptr};
-  std::unique_ptr<kernels::PointSourceCluster> device{nullptr};
+  std::shared_ptr<kernels::PointSourceCluster> host{nullptr};
+  std::shared_ptr<kernels::PointSourceCluster> device{nullptr};
 };
 
 /**
@@ -113,17 +113,14 @@ constexpr std::size_t QMultiSpan = init::Q::Stop[0] - init::Q::Start[0];
 constexpr std::size_t MomentFsrmSpan = tensor::momentFSRM::Shape[0];
 constexpr std::size_t MInvJInvPhisAtSourcesSpan = tensor::mInvJInvPhisAtSources::Shape[0];
 
-#ifdef MULTIPLE_SIMULATIONS
 SEISSOL_HOSTDEVICE constexpr auto&
     dofsAccessor(real* __restrict dofs, unsigned k, unsigned t, unsigned f) {
-  return dofs[(k + t * QSpan) * QMultiSpan + f];
+  if constexpr (seissol::multisim::MultisimEnabled) {
+    return dofs[(k + t * QSpan) * QMultiSpan + f];
+  } else {
+    return dofs[k + t * QSpan];
+  }
 }
-#else
-SEISSOL_HOSTDEVICE constexpr auto&
-    dofsAccessor(real* __restrict dofs, unsigned k, unsigned t, unsigned f) {
-  return dofs[k + t * QSpan];
-}
-#endif
 
 SEISSOL_HOSTDEVICE inline void
     addTimeIntegratedPointSourceNRF(const memory::AlignedArray<real, 3>& __restrict slip,

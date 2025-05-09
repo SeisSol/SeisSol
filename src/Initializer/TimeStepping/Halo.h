@@ -1,0 +1,41 @@
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_HALO_H_
+#define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_HALO_H_
+
+#include <Memory/Tree/LTSTree.h>
+#include <cstddef>
+#include <mpi.h>
+#include <vector>
+namespace seissol::initializer {
+    
+struct RemoteCellRegion {
+  std::size_t count;
+  int rank;
+};
+
+struct HaloStructure {
+  std::vector<std::vector<RemoteCellRegion>> ghost;
+  std::vector<std::vector<RemoteCellRegion>> copy;
+};
+
+template <typename T>
+void haloCommunication(const HaloStructure& comm,
+                       seissol::initializer::Variable<T>& var,
+                       seissol::initializer::LTSTree& tree,
+                       MPI_Datatype datatype) {
+  haloCommunication(comm, var.handle, tree, datatype);
+}
+
+void haloCommunication(const HaloStructure& comm,
+                       unsigned varIndex,
+                       seissol::initializer::LTSTree& tree,
+                       MPI_Datatype datatype);
+
+} // namespace seissol::initializer
+#endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_HALO_H_

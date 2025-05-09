@@ -25,7 +25,7 @@
 #endif
 
 #ifndef NDEBUG
-#include "Common/Constants.h"
+#include "Alignment.h"
 #include <cstdint>
 #endif
 

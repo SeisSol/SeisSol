@@ -19,9 +19,12 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
+#include "Memory/Tree/Layer.h"
 #include "Memory/Tree/Lut.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+#include <Common/Typedefs.h>
+#include <Config.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -360,11 +363,12 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
 
   for (auto& geoPoint : geoPoints) {
     assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
-#ifdef stroud
-    geoPoint.nearestInternalGpIndex = getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
-#else
-    geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
-#endif
+    if constexpr (Config::DRQuadRule == DRQuadRuleType::Stroud) {
+      geoPoint.nearestInternalGpIndex =
+          getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
+    } else {
+      geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
+    }
   }
 }
 

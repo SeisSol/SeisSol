@@ -10,7 +10,6 @@
 
 #include <Common/Executor.h>
 #include <Kernels/Common.h>
-#include <climits>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -78,6 +77,7 @@ bool SeisSol::init(int argc, char* argv[]) {
     }
   }
 #endif // _OPENMP
+  printConcurrentClusters();
 
   // Check if the ulimit for the stacksize is reasonable.
   // A low limit can lead to segmentation faults.
@@ -129,8 +129,6 @@ void SeisSol::finalize() {
   Modules::callHook<ModuleHook::Shutdown>();
 
   m_timeManager.freeDynamicResources();
-
-  seissol::MPI::finalize();
 
   logInfo() << "SeisSol done. Goodbye.";
 }

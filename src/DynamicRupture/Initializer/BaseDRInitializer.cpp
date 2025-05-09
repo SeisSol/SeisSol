@@ -22,7 +22,6 @@
 #include <Model/CommonDatastructures.h>
 #include <Solver/MultipleSimulations.h>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <init.h>
 #include <string>
@@ -31,6 +30,10 @@
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
+
+#ifndef NDEBUG
+#include <cmath>
+#endif
 
 namespace seissol::dr::initializer {
 void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRupture* const dynRup,

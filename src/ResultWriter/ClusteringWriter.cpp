@@ -22,14 +22,14 @@ ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPref
 
 void ClusteringWriter::addCluster(unsigned profilingId,
                                   unsigned localClusterId,
+                                  ClusterType clusterType,
                                   LayerType layerType,
-                                  unsigned size,
-                                  unsigned dynRupSize) {
+                                  unsigned size) {
   clusteringInformation.profilingIds.push_back(profilingId);
   clusteringInformation.localClusterIds.push_back(localClusterId);
+  clusteringInformation.clusterTypes.push_back(static_cast<int>(clusterType));
   clusteringInformation.layerTypes.push_back(layerType);
   clusteringInformation.sizes.push_back(size);
-  clusteringInformation.dynamicRuptureSizes.push_back(dynRupSize);
 }
 
 void ClusteringWriter::write() const {
@@ -39,9 +39,9 @@ void ClusteringWriter::write() const {
   const auto localRanks = mpi.collect(mpi.sharedMemMpiRank());
   const auto profilingIds = mpi.collectContainer(clusteringInformation.profilingIds);
   const auto localClusterIds = mpi.collectContainer(clusteringInformation.localClusterIds);
+  const auto clusterTypes = mpi.collectContainer(clusteringInformation.clusterTypes);
   const auto layerTypes = mpi.collectContainer(clusteringInformation.layerTypes);
   const auto sizes = mpi.collectContainer(clusteringInformation.sizes);
-  const auto dynamicRuptureSizes = mpi.collectContainer(clusteringInformation.dynamicRuptureSizes);
 
   if (mpi.rank() == 0) {
 
@@ -50,25 +50,27 @@ void ClusteringWriter::write() const {
 
     auto fileStream = std::ofstream(filepath, std::ios::out);
 
-    fileStream << "profilingId,localId,layerType,size,dynamicRuptureSize,rank,localRank\n";
+    fileStream << "profilingId,localId,clusterType,layerType,size,rank,localRank\n";
 
     for (int rank = 0; rank < mpi.size(); ++rank) {
       const auto localRank = localRanks[rank];
       const auto& curProfilingIds = profilingIds[rank];
       const auto& curLocalClusterIds = localClusterIds[rank];
+      const auto& curClusterTypes = clusterTypes[rank];
       const auto& curLayerTypes = layerTypes[rank];
       const auto& curSizes = sizes[rank];
-      const auto& curDynamicRuptureSizes = dynamicRuptureSizes[rank];
 
       for (std::size_t i = 0; i < curProfilingIds.size(); ++i) {
         const auto layerType = static_cast<LayerType>(curLayerTypes[i]);
+        const auto clusterType = static_cast<ClusterType>(curClusterTypes[i]);
         if (layerType != LayerType::Interior && layerType != LayerType::Copy) {
           logError() << "Encountered illegal layer type in ClusteringWriter.";
         }
         const auto* layerTypeStr = layerType == Interior ? "Interior" : "Copy";
+        const auto* clusterTypeStr = clusterType == ClusterType::Cell ? "Cell" : "Face";
         fileStream << curProfilingIds[i] << "," << curLocalClusterIds[i] << "," << layerTypeStr
-                   << "," << curSizes[i] << "," << curDynamicRuptureSizes[i] << "," << rank << ","
-                   << localRank << "\n";
+                   << "," << clusterTypeStr << "," << curSizes[i] << "," << rank << "," << localRank
+                   << "\n";
       }
     }
 

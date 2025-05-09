@@ -18,7 +18,6 @@
 #include <Initializer/TimeStepping/GlobalTimestep.h>
 #include <SeisSol.h>
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <map>
 #include <unordered_map>

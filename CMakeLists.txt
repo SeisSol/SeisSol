@@ -74,11 +74,6 @@ if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   append_coverage_compiler_flags()
 endif()
 
-set(HARDWARE_DEFINITIONS "ALIGNMENT=${ALIGNMENT}"
-                         "VECTORSIZE=${VECTORSIZE}"
-                         "REAL_SIZE=${REAL_SIZE_IN_BYTES}"
-                         "ALIGNED_REAL_SIZE=${REAL_SIZE_IN_BYTES}")
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -99,6 +94,45 @@ endif()
 # LTO
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
+configure_file("src/Alignment.h.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
+
+function(capitalize INARG OUTARG)
+  string(REPLACE "_" ";" PARTS ${INARG})
+  set(PREOUTARG "")
+  foreach(PART IN LISTS PARTS)
+    string(SUBSTRING ${PART} 0 1 FIRST)
+    string(TOUPPER ${FIRST} FIRSTU)
+    string(LENGTH ${PART} LEN)
+    string(SUBSTRING ${PART} 1 ${LEN} NEXT)
+    string(PREPEND NEXT ${FIRSTU})
+    string(APPEND PREOUTARG ${NEXT})
+  endforeach()
+  set(${OUTARG} ${PREOUTARG} PARENT_SCOPE)
+endfunction()
+
+if (EQUATIONS STREQUAL "viscoelastic")
+  set(PARAMETER_MATERIAL "Viscoelastic")
+  set(PARAMETER_VISCOMODE "QuantityExtension")
+elseif (EQUATIONS STREQUAL "viscoelastic2")
+  set(PARAMETER_MATERIAL "Viscoelastic")
+  set(PARAMETER_VISCOMODE "AnelasticTensor")
+else()
+  capitalize(${EQUATIONS} PARAMETER_MATERIAL)
+  set(PARAMETER_VISCOMODE "None")
+endif()
+
+capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
+
+if (PRECISION STREQUAL "single")
+  set(PARAMETER_REALTYPE "F32")
+else()
+  set(PARAMETER_REALTYPE "F64")
+endif()
+
+configure_file("src/Config.h.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/Config.h")
+
 # Generate version.h
 include(GetGitRevisionDescription)
 
@@ -114,7 +148,7 @@ endif()
 string(SUBSTRING ${PACKAGE_GIT_TIMESTAMP} 0 4 PACKAGE_GIT_YEAR)
 
 # write file and print info
-configure_file("src/VersionTemplate.h"
+configure_file("src/Version.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/src/Version.h")
 message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
@@ -224,7 +258,6 @@ include(cmake/cpu_arch_flags.cmake)
 get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 
 # set hardware/compiler specific definitions and flags
-target_compile_definitions(seissol-common-properties INTERFACE ${HARDWARE_DEFINITIONS})
 target_compile_options(seissol-common-properties INTERFACE ${CPU_ARCH_FLAGS})
 
 target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LEVEL})
@@ -234,13 +267,6 @@ target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_L
 if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
   target_compile_definitions(seissol-common-properties INTERFACE MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
 endif()
-
-if (PLASTICITY_METHOD STREQUAL "ip")
-  target_compile_definitions(seissol-common-properties INTERFACE USE_PLASTICITY_IP)
-elseif (PLASTICITY_METHOD STREQUAL "nb")
-  target_compile_definitions(seissol-common-properties INTERFACE USE_PLASTICITY_NB)
-endif()
-
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
@@ -426,12 +452,6 @@ target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_BINARY_DIR}/src/
 )
 
-target_compile_definitions(seissol-common-properties INTERFACE
-    CONVERGENCE_ORDER=${ORDER}
-    NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-    ${DR_QUAD_RULE}
-)
-
 if (PREMULTIPLY_FLUX)
   target_compile_definitions(seissol-common-properties INTERFACE USE_PREMULTIPLY_FLUX)
 endif()
@@ -480,6 +500,38 @@ if (WITH_GPU)
   # set up GPU install targets
   install(TARGETS seissol-device-lib LIBRARY)
   install(TARGETS device LIBRARY)
+
+  # TODO: add oneCCL support, once the C API is published
+  # see https://github.com/uxlfoundation/oneCCL/blob/cd05d52e6ba8b324a8e498c2228f279cdb7fc3dd/README.md#notice-of-deprecation
+  # and https://github.com/uxlfoundation/oneCCL/blob/rfcs/rfcs/20240806-c-api/README.md
+  option(CCL "Enable NCCL/RCCL support" OFF)
+
+  if (CCL)
+    if (DEVICE_BACKEND STREQUAL "cuda")
+      find_package(NCCL REQUIRED)
+      target_include_directories(seissol-common-properties INTERFACE ${NCCL_INCLUDE_DIRS})
+      target_link_libraries(seissol-common-properties INTERFACE ${NCCL_LIBRARIES})
+      target_compile_definitions(seissol-common-properties INTERFACE CCL_NCCL)
+      target_compile_definitions(seissol-common-properties INTERFACE USE_CCL)
+    elseif (DEVICE_BACKEND STREQUAL "hip")
+      find_package(RCCL REQUIRED)
+      target_include_directories(seissol-common-properties INTERFACE ${RCCL_INCLUDE_DIRS})
+      target_link_libraries(seissol-common-properties INTERFACE ${RCCL_LIBRARIES})
+      target_compile_definitions(seissol-common-properties INTERFACE CCL_RCCL)
+      target_compile_definitions(seissol-common-properties INTERFACE USE_CCL)
+    elseif (DEVICE_BACKEND STREQUAL "oneapi")
+      find_package(oneCCL REQUIRED)
+      target_link_libraries(seissol-common-properties INTERFACE oneCCL)
+      target_compile_definitions(seissol-common-properties INTERFACE CCL_ONECCL)
+      message(WARNING "The implementation of a oneCCL is postponed until the release of the C interface"
+        "(cf. https://github.com/uxlfoundation/oneCCL/blob/cd05d52e6ba8b324a8e498c2228f279cdb7fc3dd/README.md#notice-of-deprecation )")
+      # TODO: enable, once the C API is published
+      # target_compile_definitions(seissol-common-properties INTERFACE USE_CCL)
+    else()
+      message(WARNING "No CCL library included, even though it has been requested")
+    endif()
+  endif()
+  
   target_sources(seissol-common-lib PRIVATE ${SYCL_ONLY_SRC_FILES})
 endif()
 
@@ -544,7 +596,6 @@ if (TESTING)
           src/tests/Geometry/TestGeometry.cpp
           src/tests/Kernel/TestKernel.cpp
           src/tests/SourceTerm/TestSourceTerm.cpp
-          src/tests/Parallel/TestParallel.cpp
           src/tests/ResultWriter/TestResultWriter.cpp
           src/tests/Solver/time_stepping/TestSolverTimeStepping.cpp
           src/tests/DynamicRupture/TestDynamicRupture.cpp

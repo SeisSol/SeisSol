@@ -16,19 +16,19 @@ TEST_CASE("Transform moment tensor") {
   constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
 
   // strike = dip = rake = pi / 3
-  real strike = M_PI / 3.0;
-  real dip = M_PI / 3.0;
-  real rake = M_PI / 3.0;
+  double strike = M_PI / 3.0;
+  double dip = M_PI / 3.0;
+  double rake = M_PI / 3.0;
 
   // M_xy = M_yx = 1, others are zero
-  real localMomentTensorXY[3][3] = {
+  const double localMomentTensorXY[3][3] = {
       {0.0, 1.0, 0.0},
       {1.0, 0.0, 0.0},
       {0.0, 0.0, 0.0},
   };
-  real localSolidVelocityComponent[3] = {0.0, 0.0, 0.0};
-  const real localPressureComponent = 0.0;
-  real localFluidVelocityComponent[3] = {0.0, 0.0, 0.0};
+  const double localSolidVelocityComponent[3] = {0.0, 0.0, 0.0};
+  const double localPressureComponent = 0.0;
+  const double localFluidVelocityComponent[3] = {0.0, 0.0, 0.0};
 
   auto momentTensor = seissol::memory::AlignedArray<real, sourceterm::PointSources::TensorSize>{};
 
@@ -58,7 +58,7 @@ TEST_CASE("Transform moment tensor") {
   rake = 0.725404224946106;
 
   // Random M
-  real localMomentTensorXZ[3][3] = {
+  const double localMomentTensorXZ[3][3] = {
       {1.833885014595086, -0.970040810572334, 0.602398893453385},
       {-0.970040810572334, -1.307688296305273, 1.572402458710038},
       {0.602398893453385, 1.572402458710038, 2.769437029884877},

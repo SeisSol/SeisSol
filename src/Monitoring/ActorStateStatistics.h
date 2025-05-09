@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_MONITORING_ACTORSTATESTATISTICS_H_
 
 #include "LoopStatistics.h"
-#include "Solver/time_stepping/ActorState.h"
+#include "Solver/Clustering/ActorState.h"
 #include <list>
 #include <optional>
 #include <unordered_map>
@@ -19,14 +19,14 @@ class ActorStateStatistics {
   public:
   ActorStateStatistics(unsigned globalClusterId, LoopStatistics& loopStatistics);
 
-  void enter(time_stepping::ActorState actorState);
+  void enter(seissol::solver::clustering::ComputeStep actorState);
   void exit();
 
   private:
   struct Sample {
-    explicit Sample(seissol::time_stepping::ActorState state);
+    explicit Sample(seissol::solver::clustering::ComputeStep state);
     void finish();
-    seissol::time_stepping::ActorState state;
+    seissol::solver::clustering::ComputeStep state;
     timespec begin{};
     std::optional<timespec> end;
     int numEnteredRegion;

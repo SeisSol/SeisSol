@@ -16,48 +16,48 @@
 #include <cmath>
 
 void seissol::sourceterm::transformMomentTensor(
-    const real localMomentTensor[3][3],
-    const real localSolidVelocityComponent[3],
-    real localPressureComponent,
-    const real localFluidVelocityComponent[3],
-    real strike,
-    real dip,
-    real rake,
+    const double localMomentTensor[3][3],
+    const double localSolidVelocityComponent[3],
+    double localPressureComponent,
+    const double localFluidVelocityComponent[3],
+    double strike,
+    double dip,
+    double rake,
     seissol::memory::AlignedArray<real, PointSources::TensorSize>& forceComponents) {
-  const real cstrike = cos(strike);
-  const real sstrike = sin(strike);
-  real cdip = cos(dip);
-  const real sdip = sin(dip);
-  const real crake = cos(rake);
-  const real srake = sin(rake);
+  const double cstrike = std::cos(strike);
+  const double sstrike = std::sin(strike);
+  const double cdip = std::cos(dip);
+  const double sdip = std::sin(dip);
+  const double crake = std::cos(rake);
+  const double srake = std::sin(rake);
 
   // Note, that R[j][i] = R_{ij} here.
-  const real r[3][3] = {{crake * cstrike + cdip * srake * sstrike,
-                         cdip * crake * sstrike - cstrike * srake,
-                         sdip * sstrike},
-                        {cdip * cstrike * srake - crake * sstrike,
-                         srake * sstrike + cdip * crake * cstrike,
-                         cstrike * sdip},
-                        {-sdip * srake, -crake * sdip, cdip}};
+  const double r[3][3] = {{crake * cstrike + cdip * srake * sstrike,
+                           cdip * crake * sstrike - cstrike * srake,
+                           sdip * sstrike},
+                          {cdip * cstrike * srake - crake * sstrike,
+                           srake * sstrike + cdip * crake * cstrike,
+                           cstrike * sdip},
+                          {-sdip * srake, -crake * sdip, cdip}};
 
-  real m[3][3] = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
+  double m[3][3] = {{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}};
 
   // Calculate M_{ij} = R_{ki} * LM_{kl} * R_{lj}.
   // Note, again, that X[j][i] = X_{ij} here.
   // As M is symmetric, it is sufficient to calculate
   // (i,j) = (0,0), (1,0), (2,0), (1,1), (2,1), (2,2)
-  for (unsigned j = 0; j < 3; ++j) {
-    for (unsigned i = j; i < 3; ++i) {
-      for (unsigned k = 0; k < 3; ++k) {
-        for (unsigned l = 0; l < 3; ++l) {
+  for (int j = 0; j < 3; ++j) {
+    for (int i = j; i < 3; ++i) {
+      for (int k = 0; k < 3; ++k) {
+        for (int l = 0; l < 3; ++l) {
           m[j][i] += r[i][k] * localMomentTensor[l][k] * r[j][l];
         }
       }
     }
   }
-  real f[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-  for (unsigned j = 0; j < 3; ++j) {
-    for (unsigned k = 0; k < 3; ++k) {
+  double f[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  for (int j = 0; j < 3; ++j) {
+    for (int k = 0; k < 3; ++k) {
       f[k] += r[k][j] * localSolidVelocityComponent[j];
       f[k + 3] += r[k][j] * localFluidVelocityComponent[j];
     }
