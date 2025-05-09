@@ -70,7 +70,7 @@ add_executable(seissol-serial-test
         ${seissol_test_sources}
         TestMain.cpp)
 target_link_libraries(seissol-serial-test PRIVATE seissol-lib)
-target_include_directories(seissol-serial-test PUBLIC ${CMAKE_SOURCE_DIR}/external/)
+target_include_directories(seissol-serial-test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/external/)
 
 separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
 set_property(TARGET seissol-serial-test PROPERTY CROSSCOMPILING_EMULATOR ${TESTING_COMMAND_LIST})

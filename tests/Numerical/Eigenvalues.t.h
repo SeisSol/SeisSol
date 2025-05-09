@@ -7,7 +7,7 @@
 
 #include "Kernels/Precision.h"
 #include "Numerical/Eigenvalues.h"
-#include "tests/TestHelper.h"
+#include "TestHelper.h"
 
 namespace seissol::unit_test {
 

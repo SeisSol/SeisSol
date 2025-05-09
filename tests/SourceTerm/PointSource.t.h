@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "SourceTerm/PointSource.h"
-#include "tests/TestHelper.h"
+#include "TestHelper.h"
 
 #include <memory>
 

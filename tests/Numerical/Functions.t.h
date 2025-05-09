@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Numerical/Functions.h"
+#include "TestHelper.h"
 #include "doctest.h"
-#include "tests/TestHelper.h"
 #include <Kernels/Precision.h>
 
 namespace seissol::unit_test {

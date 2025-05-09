@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "tests/TestHelper.h"
+#include "TestHelper.h"
 #include <array>
 #include <iomanip>
 #include <iostream>

@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Initializer/Parameters/LtsParameters.h"
-#include "tests/TestHelper.h"
+#include "TestHelper.h"
 #include <memory>
 #include <numeric>
 

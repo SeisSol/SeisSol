@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Solver/time_stepping/AbstractTimeCluster.h"
-#include "tests/TestHelper.h"
+#include "TestHelper.h"
 #include <iostream>
 namespace seissol::unit_test {
 using namespace time_stepping;

@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Geometry/MockReader.h"
 #include "Initializer/PointMapper.h"
-#include "tests/Geometry/MockReader.h"
 #include <Eigen/Dense>
 
 namespace seissol::unit_test {

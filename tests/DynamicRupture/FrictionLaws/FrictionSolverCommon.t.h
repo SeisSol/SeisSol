@@ -9,7 +9,7 @@
 
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
-#include "tests/TestHelper.h"
+#include "TestHelper.h"
 
 #ifndef USE_ACOUSTIC
 
