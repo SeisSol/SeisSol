@@ -89,10 +89,9 @@ GPU-specific parameters
 
     * ``cuda``: Nvidia CUDA
     * ``hip``: AMD HIP, using ROCm (or CUDA).
-    * ``hipsycl``: SYCL, more specifically AdaptiveCpp, formerly known as Open SYCL and hipSYCL. Provides support for Intel, AMD, and Nvidia GPUs. Repository: https://github.com/AdaptiveCpp/AdaptiveCpp
+    * ``acpp``: SYCL, more specifically AdaptiveCpp, formerly known as Open SYCL and hipSYCL. Provides support for Intel, AMD, and Nvidia GPUs. Repository: https://github.com/AdaptiveCpp/AdaptiveCpp
     * ``oneapi``: SYCL, more specifically Intel Data Parallel C++ (DPC++). Provides support for Intel, AMD, and Nvidia GPUs. The open source variant is located under https://github.com/intel/llvm
 - ``DEVICE_ARCH``: the parameter to tune and compile the kernels for. See build-archs for an overview.
-- ``SYCLCC``: chooses the SYCL compiler used for the dynamic rupture and point source parts. Can be either AdaptiveCpp (``hipsycl``) or DPC++ (``dpcpp``); the description is the same as for the ``DEVICE_BACKEND``.
 - ``SYCL_USE_NVHPC``: if AdaptiveCpp is compiled with NVHPC support, and we use NVHPC
 - ``USE_GRAPH_CAPTURING``: if a compute graph feature is available, then use it. This is currently the case for CUDA (since 11.0) and HIP (requires ROCm 6.1 or higher). Compute graph support for SYCL is still experimental, although DPC++/oneAPI implements an extension for it
 - ``ENABLE_PROFILING_MARKERS``: Currently available for CUDA and HIP

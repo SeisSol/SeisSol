@@ -74,9 +74,9 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     dynrup->registerCheckpointVariables(checkpoint, tree);
   }
 
-  if (seissolInstance.getCheckpointLoadFile().has_value()) {
-    const double time = seissolInstance.getOutputManager().loadCheckpoint(
-        seissolInstance.getCheckpointLoadFile().value());
+  const auto& checkpointFile = seissolInstance.getCheckpointLoadFile();
+  if (checkpointFile.has_value()) {
+    const double time = seissolInstance.getOutputManager().loadCheckpoint(checkpointFile.value());
     seissolInstance.simulator().setCurrentTime(time);
   }
 

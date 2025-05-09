@@ -135,7 +135,7 @@ SEISSOL_HOSTDEVICE inline void
                                     double from,
                                     double to,
                                     real dofs[tensor::Q::size()]) {
-  real rotatedSlip[3] = {real(0.0)};
+  real rotatedSlip[3] = {static_cast<real>(0.0)};
   for (unsigned i = 0; i < 3; ++i) {
     for (unsigned j = 0; j < 3; ++j) {
       rotatedSlip[j] += tensor[j + i * 3] * slip[i];

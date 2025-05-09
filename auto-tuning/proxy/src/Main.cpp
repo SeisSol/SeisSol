@@ -80,7 +80,6 @@ auto main(int argc, char* argv[]) -> int {
   auto& device = DeviceType::getInstance();
   device.api->setDevice(0);
   device.api->initialize();
-  device.api->allocateStackMem();
 #endif
   print_hostname();
 

@@ -20,7 +20,7 @@ struct ExtVrtxCoords {
   ~ExtVrtxCoords() = default;
 
   template <typename T>
-  ExtVrtxCoords(const T& other) {
+  explicit ExtVrtxCoords(const T& other) {
     for (int i = 0; i < 3; ++i) {
       coords[i] = other[i];
     }

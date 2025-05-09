@@ -231,7 +231,6 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
   size_t bndElemSize = -1;
 
   int* sizes = nullptr;
-  int maxSize = 0;
 
   // Get important dimensions
   const size_t partitions = numPartitions[3];
@@ -247,7 +246,6 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
   sizes = new int[1];
   const int size = numElemPerPart[3];
   sizes[0] = size;
-  maxSize = std::max(maxSize, size);
   m_elements.resize(sizes[0]);
 
   std::vector<CubeVertex> vertices;
@@ -446,26 +444,14 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
             }
           }
         } else if (zz == numCubesPerPart[2] - 1) { // last cube in a partition in z dimension
-          if (odd != 0) {
-            if (boundaryMaxz == 6 && numPartitions[2] == 1) {
-              elemNeighbors[c + 11] -=
-                  numCubesPerPart[0] * numCubesPerPart[1] * numCubesPerPart[2] * 5;
-              elemNeighbors[c + 15] -=
-                  numCubesPerPart[0] * numCubesPerPart[1] * numCubesPerPart[2] * 5;
-            } else {
-              elemNeighbors[c + 11] = numElemPerPart[3];
-              elemNeighbors[c + 15] = numElemPerPart[3];
-            }
+          if (boundaryMaxz == 6 && numPartitions[2] == 1) {
+            elemNeighbors[c + 11] -=
+                numCubesPerPart[0] * numCubesPerPart[1] * numCubesPerPart[2] * 5;
+            elemNeighbors[c + 15] -=
+                numCubesPerPart[0] * numCubesPerPart[1] * numCubesPerPart[2] * 5;
           } else {
-            if (boundaryMaxz == 6 && numPartitions[2] == 1) {
-              elemNeighbors[c + 11] -=
-                  numCubesPerPart[0] * numCubesPerPart[1] * numCubesPerPart[2] * 5;
-              elemNeighbors[c + 15] -=
-                  numCubesPerPart[0] * numCubesPerPart[1] * numCubesPerPart[2] * 5;
-            } else {
-              elemNeighbors[c + 11] = numElemPerPart[3];
-              elemNeighbors[c + 15] = numElemPerPart[3];
-            }
+            elemNeighbors[c + 11] = numElemPerPart[3];
+            elemNeighbors[c + 15] = numElemPerPart[3];
           }
         }
       }

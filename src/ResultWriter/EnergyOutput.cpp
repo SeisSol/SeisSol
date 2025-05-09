@@ -296,10 +296,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       auto& table = layer.getConditionalTable<inner_keys::Dr>();
       if (table.find(timeIntegrationKey) != table.end()) {
         auto& entry = table[timeIntegrationKey];
-        real** timeDerivativePlusDevice =
-            (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
-        real** timeDerivativeMinusDevice =
-            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
+        const real** timeDerivativePlusDevice = const_cast<const real**>(
+            (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr());
+        const real** timeDerivativeMinusDevice = const_cast<const real**>(
+            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
         device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
             timeDerivativePlusDevice,
             timeDerivativePlusHostMapped,
@@ -596,7 +596,6 @@ void EnergyOutput::computeEnergies() {
 
 void EnergyOutput::reduceEnergies() {
 #ifdef USE_MPI
-  const auto rank = MPI::mpi.rank();
   const auto& comm = MPI::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 energiesStorage.energies.data(),
@@ -609,7 +608,6 @@ void EnergyOutput::reduceEnergies() {
 
 void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 #ifdef USE_MPI
-  const auto rank = MPI::mpi.rank();
   const auto& comm = MPI::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 minTimeSinceSlipRateBelowThreshold.data(),
@@ -621,7 +619,6 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 }
 
 void EnergyOutput::printEnergies() {
-  const auto rank = MPI::mpi.rank();
   const auto outputPrecision =
       seissolInstance.getSeisSolParameters().output.energyParameters.terminalPrecision;
 
@@ -691,13 +688,6 @@ void EnergyOutput::printEnergies() {
       logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
                 << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
     }
-    if (shouldPrint(energiesStorage.plasticMoment(sim))) {
-      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                << " Plastic moment (value, equivalent Mw, % total moment):"
-                << energiesStorage.plasticMoment(sim) << " ,"
-                << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(sim)) - 6.07 << " ,"
-                << ratioPlasticMoment;
-    }
     logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
               << " Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY << " ,"
               << totalMomentumZ;
@@ -718,7 +708,6 @@ void EnergyOutput::printEnergies() {
 void EnergyOutput::checkAbortCriterion(
     const std::array<real, multisim::NumSimulations>& timeSinceThreshold,
     const std::string& prefixMessage) {
-  const auto rank = MPI::mpi.rank();
   size_t abortCount = 0;
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     if ((timeSinceThreshold[sim] > 0) and

@@ -41,6 +41,7 @@ enum class ModulePriority : int {
  * @warning The order of the hooks has to be the same they are called in SeisSol.
  */
 enum class ModuleHook : int {
+  NullHook = -1,
   PreMPI = 0,
   PostMPIInit = 1,
   PreMesh = 2,

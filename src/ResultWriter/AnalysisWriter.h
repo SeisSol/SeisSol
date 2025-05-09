@@ -29,7 +29,7 @@ class SeisSol;
 namespace seissol::writer {
 class CsvAnalysisWriter {
   public:
-  CsvAnalysisWriter(std::string fileName);
+  explicit CsvAnalysisWriter(std::string fileName);
 
   void writeHeader();
 
@@ -66,7 +66,7 @@ class AnalysisWriter {
   std::string fileName;
 
   public:
-  AnalysisWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit AnalysisWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   void init(const seissol::geometry::MeshReader* meshReader, std::string_view fileNamePrefix) {
     isEnabled = true;

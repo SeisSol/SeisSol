@@ -48,7 +48,7 @@ class CompoundKernel : public ProxyKernel {
 
 class ChainKernel : public ProxyKernel {
   public:
-  ChainKernel(const std::vector<std::shared_ptr<ProxyKernel>>& kernels);
+  explicit ChainKernel(const std::vector<std::shared_ptr<ProxyKernel>>& kernels);
 
   void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
 
