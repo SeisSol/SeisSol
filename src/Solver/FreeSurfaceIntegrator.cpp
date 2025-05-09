@@ -16,7 +16,7 @@
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
-#include "generated_code/kernel.h"
+#include "GeneratedCode/kernel.h"
 #include <Common/Iterator.h>
 #include <utils/logger.h>
 

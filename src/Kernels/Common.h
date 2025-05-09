@@ -11,9 +11,9 @@
 #define SEISSOL_SRC_KERNELS_COMMON_H_
 
 #include "Common/Constants.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include "Kernels/Precision.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
 #include <algorithm>
 #include <cassert>
 #include <type_traits>

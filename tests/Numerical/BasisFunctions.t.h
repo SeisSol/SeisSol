@@ -5,11 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "GeneratedCode/init.h"
 #include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
 #include "TestHelper.h"
 #include "doctest.h"
-#include "generated_code/init.h"
 
 namespace seissol::unit_test {
 TEST_CASE("Sampled Basis Functions") {

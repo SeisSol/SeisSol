@@ -7,10 +7,10 @@
 
 #include "GravitationalFreeSurfaceBC.h"
 #include <Common/Constants.h>
+#include <GeneratedCode/kernel.h>
+#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <cstddef>
-#include <generated_code/kernel.h>
-#include <generated_code/tensor.h>
 #include <utility>
 
 namespace seissol {

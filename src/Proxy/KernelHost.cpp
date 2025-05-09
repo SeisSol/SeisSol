@@ -14,6 +14,7 @@
 
 #include <Alignment.h>
 #include <Common/Constants.h>
+#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>
 #include <Initializer/Typedefs.h>
@@ -25,7 +26,6 @@
 #include <Parallel/Runtime/Stream.h>
 #include <memory>
 #include <omp.h>
-#include <tensor.h>
 
 namespace seissol::proxy {
 void ProxyKernelHostAder::run(ProxyData& data,

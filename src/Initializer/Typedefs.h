@@ -17,7 +17,7 @@
 #include "Equations/Datastructures.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
-#include "generated_code/tensor.h"
+#include "GeneratedCode/tensor.h"
 #include <Eigen/Dense>
 #include <complex>
 #include <cstddef>

@@ -6,7 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 set(DEVICE_SRC ${DEVICE_SRC}
-          ${CMAKE_BINARY_DIR}/generated-code/generated_code/gpulike_subroutine.cpp
+          ${CMAKE_BINARY_DIR}/generated-code/GeneratedCode/gpulike_subroutine.cpp
           Kernels/DeviceAux/sycl/PlasticityAux.cpp
           Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
           DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp

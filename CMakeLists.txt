@@ -373,7 +373,6 @@ target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
     ${CMAKE_CURRENT_BINARY_DIR}/src
     ${CMAKE_CURRENT_BINARY_DIR}/generated-code
-    ${CMAKE_CURRENT_BINARY_DIR}/generated-code/generated_code
 )
 
 if (PREMULTIPLY_FLUX)
@@ -485,7 +484,7 @@ if (TESTING)
                     "submodules/*"
                     "*/tests/*"
                     "external/*"
-                    "*/generated-code/generated_code/*"
+                    "*/generated-code/GeneratedCode/*"
                     "/opt/*"
             LCOV_ARGS --ignore-errors inconsistent
                       --ignore-errors unused

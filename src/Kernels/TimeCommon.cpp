@@ -9,13 +9,13 @@
 
 #include "TimeCommon.h"
 #include <DataTypes/ConditionalTable.h>
+#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Kernels/Precision.h>
 #include <Kernels/Solver.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
 #include <stdint.h>
-#include <tensor.h>
 
 #include "utils/logger.h"
 

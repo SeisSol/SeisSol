@@ -8,7 +8,7 @@
 enable_language(CUDA)
 
 set(DEVICE_SRC ${DEVICE_SRC}
-        ${CMAKE_BINARY_DIR}/generated-code/generated_code/gpulike_subroutine.cpp
+        ${CMAKE_BINARY_DIR}/generated-code/GeneratedCode/gpulike_subroutine.cpp
         Kernels/DeviceAux/cudahip/PlasticityAux.cpp
         Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
         DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp

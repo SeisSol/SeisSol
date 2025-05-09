@@ -31,7 +31,7 @@
 #include <cassert>
 #include <cstring>
 
-#include "generated_code/kernel.h"
+#include "GeneratedCode/kernel.h"
 
 seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId,
                                                  unsigned int profilingId,

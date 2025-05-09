@@ -12,13 +12,13 @@
 #include "Kernels/LinearCK/NeighborBase.h"
 
 #include <DataTypes/ConditionalTable.h>
+#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
-#include <generated_code/tensor.h>
 #include <stdint.h>
 
 #ifdef ACL_DEVICE

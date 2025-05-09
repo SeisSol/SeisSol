@@ -6,9 +6,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
+#include <GeneratedCode/init.h>
 #include <Solver/MultipleSimulations.h>
 #include <cmath>
-#include <init.h>
 #include <sycl/sycl.hpp>
 
 namespace seissol::kernels::device::aux::plasticity {

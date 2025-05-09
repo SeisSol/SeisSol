@@ -23,8 +23,8 @@ extern long long libxsmm_num_total_flops;
 #include "Common/Offset.h"
 #endif
 
+#include "GeneratedCode/init.h"
 #include "Kernels/DenseMatrixOps.h"
-#include "generated_code/init.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
 

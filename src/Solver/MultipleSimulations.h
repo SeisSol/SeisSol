@@ -9,9 +9,9 @@
 #define SEISSOL_SRC_SOLVER_MULTIPLESIMULATIONS_H_
 
 #include <Config.h>
+#include <GeneratedCode/init.h>
 #include <cstddef>
 #include <functional>
-#include <init.h>
 #include <tuple>
 #include <utility>
 #include <yateto.h>

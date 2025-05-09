@@ -15,9 +15,9 @@
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include <Eigen/Dense>
+#include <GeneratedCode/init.h>
 #include <Solver/MultipleSimulations.h>
 #include <cstddef>
-#include <init.h>
 #include <limits>
 #include <tuple>
 #include <utility>

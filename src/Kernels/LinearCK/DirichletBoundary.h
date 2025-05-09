@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_DIRICHLETBOUNDARY_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_DIRICHLETBOUNDARY_H_
 
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 
 #include "Initializer/Typedefs.h"
 

@@ -9,9 +9,9 @@
 #include "Kernels/Precision.h"
 #include "Model/Plasticity.h"
 #include "tensor.h"
+#include <GeneratedCode/init.h>
 #include <cmath>
 #include <cstddef>
-#include <init.h>
 #include <type_traits>
 
 #include <Solver/MultipleSimulations.h>

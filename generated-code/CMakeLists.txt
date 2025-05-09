@@ -5,7 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-set(GENERATED_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated_code/")
+set(GENERATED_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/")
 
 add_custom_target(build-time-make-directory ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory "${GENERATED_OUTPUT_DIR}")
