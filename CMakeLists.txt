@@ -584,18 +584,7 @@ if (TESTING)
   endif()
 endif()
 
-# build seissol-bin
-add_executable(seissol-bin src/Main.cpp)
-set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
-
-target_link_libraries(seissol-bin PUBLIC seissol-lib)
-
-install(TARGETS seissol-bin RUNTIME)
-# end build seissol-bin
-
-# build seissol-proxy
-add_subdirectory(auto-tuning/proxy/src)
-# end build seissol-proxy
+add_subdirectory(app)
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
@@ -607,7 +596,3 @@ if (WITH_GPU)
   install(FILES ${PROJECT_BINARY_DIR}/seissol-launch DESTINATION ${CMAKE_INSTALL_PREFIX}/share
           PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 endif()
-
-# https://blog.kitware.com/static-checks-with-cmake-cdash-iwyu-clang-tidy-lwyu-cpplint-and-cppcheck/
-# https://ortogonal.github.io/cmake-clang-tidy/
-
