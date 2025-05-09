@@ -146,88 +146,15 @@ configure_file("src/Version.h.in"
 message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
 
-add_custom_target(build-time-make-directory ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/generated-code/generated_code")
-
-set(GENERATED_FILES_FOR_SEISSOL ${CMAKE_BINARY_DIR}/generated-code/generated_code/subroutine.h
-                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/tensor.cpp
-                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/subroutine.cpp
-                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/gpulike_subroutine.cpp
-                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/tensor.h
-                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/init.cpp
-                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/init.h
-                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/kernel.h
-                                ${CMAKE_BINARY_DIR}/generated-code/generated_code/kernel.cpp)
-
-if (TESTING AND TESTING_GENERATED)
-  set(GENERATED_FILES_FOR_SEISSOL ${GENERATED_FILES_FOR_SEISSOL}
-                                generated-code/generated_code/test-kernel.cpp)
-endif()
-
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated-code/generated_code/)
-
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 else()
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 endif()
 
-if(PREMULTIPLY_FLUX)
-  set(PREMULTIPLY_FLUX_VALUE "--enable_premultiply_flux")
-else()
-  set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
-endif()
-
-find_package(GemmTools REQUIRED)
-
-add_custom_command(
-  COMMAND
-  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated-code/generate.py"
-     "--equations" ${EQUATIONS}
-     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
-     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/generated-code/generated_code
-     "--host_arch" ${HOST_ARCH_STR}
-     "--device_codegen" ${DEVICE_CODEGEN}
-     "--device_arch" ${DEVICE_ARCH_STR}
-     "--device_backend" ${DEVICE_BACKEND}
-     "--order" ${ORDER}
-     "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
-     "--memLayout" ${MEMORY_LAYOUT}
-     "--multipleSimulations" ${NUMBER_OF_FUSED_SIMULATIONS}
-     "--PlasticityMethod" ${PLASTICITY_METHOD}
-     "--gemm_tools" ${GEMM_TOOLS_LIST}
-     "--drQuadRule" ${DR_QUAD_RULE}
-     "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
-     "--executable_pspamm=${PSpaMM_PROGRAM}"
-     ${PREMULTIPLY_FLUX_VALUE} # boolean flag
-     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated-code
-     DEPENDS
-        build-time-make-directory
-        generated-code/generate.py
-        generated-code/kernels
-        generated-code/matrices
-        generated-code/config
-    OUTPUT
-        ${GENERATED_FILES_FOR_SEISSOL}
-    COMMENT "Code generation for tensor operations..."
-       )
-
-add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
 add_library(seissol-common-properties INTERFACE IMPORTED)
 
-# Source code
-add_library(seissol-kernel-lib
-
-# do YATeTo first, since kernel.cpp usually takes really long
-
-# kernel.cpp usually takes the longest
-# (for CPUs, at least; for GPUs, we have a different library alltogether)
-${CMAKE_BINARY_DIR}/generated-code/generated_code/kernel.cpp
-${CMAKE_BINARY_DIR}/generated-code/generated_code/tensor.cpp
-${CMAKE_BINARY_DIR}/generated-code/generated_code/subroutine.cpp
-${CMAKE_BINARY_DIR}/generated-code/generated_code/init.cpp
-)
-
+add_subdirectory(generated-code)
 add_subdirectory(src)
 
 target_compile_options(seissol-common-properties INTERFACE -fPIC)
@@ -236,7 +163,6 @@ target_compile_options(seissol-common-properties INTERFACE -fPIC)
 add_dependencies(seissol-common-properties seissol-codegen)
 
 target_link_libraries(seissol-lib PUBLIC seissol-common-properties)
-target_link_libraries(seissol-kernel-lib PUBLIC seissol-common-properties)
 target_link_libraries(seissol-common-lib PUBLIC seissol-common-properties)
 
 target_link_libraries(seissol-common-lib PRIVATE seissol-kernel-lib)
@@ -245,16 +171,6 @@ target_link_libraries(seissol-lib PRIVATE seissol-common-lib)
 
 if (WITH_GPU)
   add_dependencies(seissol-device-lib seissol-codegen)
-endif()
-
-if(GemmTools_INCLUDE_DIRS)
-  target_include_directories(seissol-common-properties INTERFACE ${GemmTools_INCLUDE_DIRS})
-endif()
-if(GemmTools_LIBRARIES)
-  target_link_libraries(seissol-common-properties INTERFACE ${GemmTools_LIBRARIES})
-endif()
-if(GemmTools_COMPILER_DEFINITIONS)
-  target_compile_definitions(seissol-common-properties INTERFACE ${GemmTools_COMPILER_DEFINITIONS})
 endif()
 
 # Find appropriate compiler flags based on the target computer architecture
@@ -543,13 +459,6 @@ endif()
 
 find_package(FILESYSTEM REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE std::filesystem)
-
-# Generated code does only work without red-zone.
-if (HAS_REDZONE)
-  set_source_files_properties(
-      ${CMAKE_BINARY_DIR}/generated-code/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
-  )
-endif()
 
 # put every executable in the root build directory at the end
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
