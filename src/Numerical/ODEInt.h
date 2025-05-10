@@ -14,6 +14,8 @@
 #include "ODEVector.h"
 #include <cassert>
 
+#include "utils/logger.h"
+
 namespace seissol::ode {
 
 struct TimeSpan {
@@ -80,7 +82,7 @@ class RungeKuttaODESolver {
   void solve(Func f, ODEVector& curValue, TimeSpan timeSpan) {
     assert(timeSpan.begin <= timeSpan.end);
     double curTime = timeSpan.begin;
-    const double dt = config.initialDt;
+    const double dt = config.initialDt;int test = 0;
     while (curTime < timeSpan.end) {
       const double adjustedDt = std::min(dt, timeSpan.end - curTime);
 
@@ -103,6 +105,11 @@ class RungeKuttaODESolver {
         curValue.weightedAddInplace(curWeight, stages[i]);
       }
       curTime += adjustedDt;
+      ++test;
+
+      if (test == 1000000) {
+        logError() << curTime << adjustedDt << timeSpan.begin << timeSpan.end;
+      }
     }
   }
 };
