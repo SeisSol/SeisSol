@@ -8,6 +8,7 @@
 
 #include "DynamicRupture.h"
 
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/Typedefs.h>

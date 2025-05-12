@@ -62,14 +62,6 @@ elseif("${DEVICE_BACKEND}" STREQUAL "oneapi")
   target_link_libraries(seissol-common-properties INTERFACE dpcpp::interface)
 endif()
 
-target_compile_definitions(seissol-device-lib PRIVATE REAL_SIZE=${REAL_SIZE_IN_BYTES})
-
-target_compile_definitions(seissol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
-        CONVERGENCE_ORDER=${ORDER}
-        NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
-        NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-        ${DR_QUAD_RULE})
-
 if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 endif()
