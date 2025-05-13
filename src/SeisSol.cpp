@@ -65,7 +65,7 @@ bool SeisSol::init(int argc, char* argv[]) {
             << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask());
 
   seissol::printCommThreadInfo(seissol::MPI::mpi, m_env);
-  if (seissol::useCommThread(seissol::MPI::mpi, m_env)) {
+  if (seissol::useCommThread(seissol::MPI::mpi, m_env) == CommThreadType::Pinned) {
     auto freeCpus = pinning.getFreeCPUsMask();
     logInfo() << "Communication thread affinity        :"
               << parallel::Pinning::maskToString(freeCpus);

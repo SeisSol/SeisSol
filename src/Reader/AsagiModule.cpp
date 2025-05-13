@@ -64,7 +64,7 @@ int AsagiModule::getTotalThreads(utils::Env& env) {
 
 #ifdef _OPENMP
   totalThreads = omp_get_max_threads();
-  if (seissol::useCommThread(seissol::MPI::mpi, env)) {
+  if (seissol::useCommThread(seissol::MPI::mpi, env) == CommThreadType::Pinned) {
     totalThreads++;
   }
 #endif // _OPENMP

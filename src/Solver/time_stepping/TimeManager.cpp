@@ -202,9 +202,10 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
 
   std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
 
-  if (seissol::useCommThread(MPI::mpi, seissolInstance.env())) {
+  if (seissol::useCommThread(MPI::mpi, seissolInstance.env()) != CommThreadType::Disabled) {
     communicationManager = std::make_unique<ThreadedCommunicationManager>(std::move(ghostClusters),
-                                                                          &seissolInstance.getPinning()
+                                                                          &seissolInstance.getPinning(),
+                                                                          seissol::useCommThread(MPI::mpi, seissolInstance.env())
                                                                           );
   } else {
     communicationManager = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));

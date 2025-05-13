@@ -16,13 +16,15 @@
 #endif
 
 namespace seissol {
+enum class CommThreadType { Disabled = 0, Pinned = 1, Floating = 2 };
+
 template <typename T>
 void printCommThreadInfo(const T& mpiBasic, utils::Env& env) {
-  bool useThread = env.get<bool>("COMMTHREAD", true);
+  const int useThread = env.get<int>("COMMTHREAD", 2);
   if (mpiBasic.isSingleProcess()) {
     logInfo() << "Using polling for advancing MPI communication, due to having only "
                  "one MPI rank running.";
-  } else if (useThread) {
+  } else if (useThread > 0) {
     logInfo() << "Using a communication thread for advancing MPI communication.";
   } else {
     logInfo() << "Using polling for advancing MPI communication.";
@@ -30,9 +32,12 @@ void printCommThreadInfo(const T& mpiBasic, utils::Env& env) {
 }
 
 template <typename T>
-bool useCommThread(const T& mpiBasic, utils::Env& env) {
-  bool useThread = env.get<bool>("COMMTHREAD", true);
-  return useThread && !mpiBasic.isSingleProcess();
+CommThreadType useCommThread(const T& mpiBasic, utils::Env& env) {
+  const int useThread = env.get<int>("COMMTHREAD", 2);
+  if (mpiBasic.isSingleProcess()) {
+    return CommThreadType::Disabled;
+  }
+  return static_cast<CommThreadType>(useThread);
 }
 
 inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }

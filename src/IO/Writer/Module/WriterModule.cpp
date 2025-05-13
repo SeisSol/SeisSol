@@ -35,7 +35,7 @@ void WriterModule::setUp() {
   setExecutor(executor);
   // TODO: adjust the CommThread call here
   utils::Env env("SEISSOL_");
-  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
+  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env) == CommThreadType::Pinned) {
     const auto freeCpus = pinning.getFreeCPUsMask();
     logInfo() << "Output Writer" << settings.name
               << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus);
