@@ -82,7 +82,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     m_clusterId(i_clusterId),
     m_globalClusterId(i_globalClusterId),
     m_profilingId(profilingId),
-    dynamicRuptureScheduler(dynamicRuptureScheduler)
+    dynamicRuptureScheduler(dynamicRuptureScheduler),
+    yieldCells(1, isDeviceOn() ? seissol::memory::PinnedMemory : seissol::memory::Standard)
 {
     // assert all pointers are valid
     assert( m_clusterData                              != nullptr );
@@ -108,6 +109,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
   m_regionComputeNeighboringIntegration = m_loopStatistics->getRegion("computeNeighboringIntegration");
   m_regionComputeDynamicRupture = m_loopStatistics->getRegion("computeDynamicRupture");
   m_regionComputePointSources = m_loopStatistics->getRegion("computePointSources");
+
+  yieldCells[0] = 0;
 }
 
 seissol::time_stepping::TimeCluster::~TimeCluster() {
@@ -451,14 +454,14 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
 
       if (resetBuffers) {
         device.algorithms.streamBatchedData(
-            (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+            const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
             (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
             tensor::I::Size,
             (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
             streamRuntime.stream());
       } else {
         device.algorithms.accumulateBatchedData(
-            (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+            const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
             (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
             tensor::I::Size,
             (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
@@ -506,22 +509,22 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice( s
   });
 
   if (usePlasticity) {
-    updateRelaxTime();
+    auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
     auto* plasticity = i_layerData.var(m_lts->plasticity, seissol::initializer::AllocationPlace::Device);
-    unsigned numAdjustedDofs = seissol::kernels::Plasticity::computePlasticityBatched(m_oneMinusIntegratingFactor,
-                                                                                      timeStepWidth,
-                                                                                      m_tv,
-                                                                                      m_globalDataOnDevice,
-                                                                                      table,
-                                                                                      plasticity,
-                                                                                      streamRuntime);
+    streamRuntime.runGraph(plasticityGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
+      seissol::kernels::Plasticity::computePlasticityBatched(timeStepWidth,
+                                                              m_tv,
+                                                              m_globalDataOnDevice,
+                                                              table,
+                                                              plasticity,
+                                                              yieldCells.data(),
+                                                              streamRuntime);
+    });
 
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
-        i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]
-        + numAdjustedDofs * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityYield)]);
+        i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
-        i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)]
-        + numAdjustedDofs * m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)]);
+        i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)]);
   }
 
   device.api->popLastProfilingMark();
@@ -833,8 +836,10 @@ template<bool usePlasticity>
       real *l_timeIntegrated[4];
       real *l_faceNeighbors_prefetch[4];
 
+      const auto oneMinusIntegratingFactor = seissol::kernels::Plasticity::computeRelaxTime(m_tv, timeStepSize());
+
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(cellInformation, loader, faceNeighbors, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
+#pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(oneMinusIntegratingFactor, cellInformation, loader, faceNeighbors, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
 #endif
       for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
         auto data = loader.entry(l_cell);
@@ -876,8 +881,7 @@ template<bool usePlasticity>
         );
 
         if constexpr (usePlasticity) {
-          updateRelaxTime();
-          numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( m_oneMinusIntegratingFactor,
+          numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( oneMinusIntegratingFactor,
                                                                                              timeStepSize(),
                                                                                              m_tv,
                                                                                              m_globalDataOnHost,
@@ -893,16 +897,15 @@ template<bool usePlasticity>
 #endif // INTEGRATE_QUANTITIES
       }
 
-      const long long nonZeroFlopsPlasticity =
-          i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)] +
-          numberOTetsWithPlasticYielding * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityYield)];
-      const long long hardwareFlopsPlasticity =
-          i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)] +
-          numberOTetsWithPlasticYielding * m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)];
+      yieldCells[0] += numberOTetsWithPlasticYielding;
+      seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
+        i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
+      seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
+          i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)]);
 
       m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_profilingId);
 
-      return {nonZeroFlopsPlasticity, hardwareFlopsPlasticity};
+      return {0, 0};
     }
 
 void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {
@@ -919,5 +922,11 @@ void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, voi
 #endif
 }
 
-} // namespace seissol::time_stepping
+void TimeCluster::finishPhase() {
+  const auto cells = yieldCells[0];
+  seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(cells * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityYield)]);
+  seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(cells * m_flops_hardware[static_cast<int>(ComputePart::PlasticityYield)]);
+  yieldCells[0] = 0;
+}
 
+} // namespace seissol::time_stepping

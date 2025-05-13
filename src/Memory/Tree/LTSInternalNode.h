@@ -49,7 +49,7 @@ private:
     }
 
 public:
-    LeafIterator(const Iterator& end) : Iterator(end) {}
+    explicit LeafIterator(const Iterator& end) : Iterator(end) {}
     LeafIterator(const Iterator& begin, const Iterator& end, LayerMask layerMask)
         : Iterator(begin), m_end(end), m_layerMask(layerMask) {}
 
@@ -97,7 +97,7 @@ private:
     }
 
 public:
-    ConstLeafIterator(const ConstIterator& end) : ConstIterator(end) {}
+    explicit ConstLeafIterator(const ConstIterator& end) : ConstIterator(end) {}
     ConstLeafIterator(const ConstIterator& begin, const ConstIterator& end, LayerMask layerMask)
         : ConstIterator(begin), m_end(end), m_layerMask(layerMask) {}
 

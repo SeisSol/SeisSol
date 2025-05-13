@@ -142,11 +142,14 @@ void seissol::writer::FreeSurfaceWriter::init(
   // Create mesh buffers
   bufferId = addSyncBuffer(cellIds.cells(), nCells * 3 * sizeof(unsigned));
   assert(bufferId == FreeSurfaceWriterExecutor::Cells);
+  NDBG_UNUSED(bufferId);
   bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
   assert(bufferId == FreeSurfaceWriterExecutor::Vertices);
+  NDBG_UNUSED(bufferId);
   bufferId =
       addSyncBuffer(m_freeSurfaceIntegrator->locationFlags.data(), nCells * sizeof(unsigned));
   assert(bufferId == FreeSurfaceWriterExecutor::LocationFlags);
+  NDBG_UNUSED(bufferId);
 
   for (auto& velocity : m_freeSurfaceIntegrator->velocities) {
     addBuffer(velocity, nCells * sizeof(real));

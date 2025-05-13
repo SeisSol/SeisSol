@@ -10,6 +10,7 @@
 #include "Pin.h"
 
 #include "Parallel/MPI.h"
+#include "utils/env.h"
 #include "utils/logger.h"
 #include <Common/IntegerMaskParser.h>
 #include <async/as/Pin.h>
@@ -113,8 +114,9 @@ Pinning::Pinning() {
 
 void Pinning::checkEnvVariables() {
 #ifndef __APPLE__
-  if (const char* envVariable = std::getenv("SEISSOL_FREE_CPUS_MASK")) {
-    auto parsedResult = seissol::IntegerMaskParser::parse(std::string(envVariable));
+  const auto envVariable = utils::Env("SEISSOL_").getOptional<std::string>("FREE_CPUS_MASK");
+  if (envVariable.has_value()) {
+    auto parsedResult = seissol::IntegerMaskParser::parse(envVariable.value());
     if (parsedResult) {
       parsedFreeCPUsMask = parsedResult.value();
 

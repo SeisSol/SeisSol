@@ -270,7 +270,7 @@ if (WITH_GPU)
     include(${CMAKE_SOURCE_DIR}/src/cuda.cmake)
   elseif ("${DEVICE_BACKEND}" STREQUAL "hip")
     include(${CMAKE_SOURCE_DIR}/src/hip.cmake)
-  elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
+  elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "acpp" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
     include(${CMAKE_SOURCE_DIR}/src/sycl.cmake)
   endif()
 

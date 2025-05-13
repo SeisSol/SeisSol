@@ -46,7 +46,7 @@ class BaseDRInitializer {
    * Stores the initialStresses.
    */
   struct StressTensor {
-    StressTensor(size_t size) {
+    explicit StressTensor(size_t size) {
       xx.reserve(size);
       yy.reserve(size);
       zz.reserve(size);

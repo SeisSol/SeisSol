@@ -84,12 +84,12 @@ unsigned LoopStatistics::getRegion(const std::string& name) const {
 }
 
 void LoopStatistics::begin(unsigned region) {
-  clock_gettime(CLOCK_MONOTONIC, &regions[region].begin);
+  (void)clock_gettime(CLOCK_MONOTONIC, &regions[region].begin);
 }
 
 void LoopStatistics::end(unsigned region, unsigned numIterations, unsigned subRegion) {
   timespec endTime{};
-  clock_gettime(CLOCK_MONOTONIC, &endTime);
+  (void)clock_gettime(CLOCK_MONOTONIC, &endTime);
   addSample(region, numIterations, subRegion, regions[region].begin, endTime);
 }
 

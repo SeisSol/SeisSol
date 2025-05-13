@@ -84,9 +84,6 @@ class seissol::initializer::time_stepping::LtsLayout {
     //! number of ghost cells per rank
     unsigned int *m_numberOfPlainGhostCells;
 
-    //! cluster ids of the cells in the ghost layer
-    unsigned int **m_plainGhostCellClusterIds;
-
     //! face ids of interior dr faces
     std::vector< std::vector<int> > m_dynamicRupturePlainInterior;
 

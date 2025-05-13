@@ -50,7 +50,8 @@ class FreeSurfaceWriter
                             unsigned& nVertices);
 
   public:
-  FreeSurfaceWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit FreeSurfaceWriter(seissol::SeisSol& seissolInstance)
+      : seissolInstance(seissolInstance) {}
 
   /**
    * Called by ASYNC on all ranks

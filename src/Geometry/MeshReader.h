@@ -64,7 +64,7 @@ class MeshReader {
   /** Has a plus fault side */
   bool m_hasPlusFault{false};
 
-  MeshReader(int rank);
+  explicit MeshReader(int rank);
 
   public:
   virtual ~MeshReader();

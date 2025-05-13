@@ -8,7 +8,6 @@
 #include "Functions.h"
 
 #include <array>
-#include <cmath>
 #include <cstdint>
 
 namespace seissol::functions {

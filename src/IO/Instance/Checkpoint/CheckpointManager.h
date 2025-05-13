@@ -13,8 +13,8 @@
 #include <IO/Writer/Instructions/Data.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
+#include <map>
 #include <string>
-#include <unordered_map>
 
 #include "utils/logger.h"
 
@@ -118,7 +118,7 @@ class CheckpointManager {
   double loadCheckpoint(const std::string& file);
 
   private:
-  std::unordered_map<initializer::LTSTree*, CheckpointTree> dataRegistry;
+  std::map<initializer::LTSTree*, CheckpointTree> dataRegistry;
 };
 
 } // namespace seissol::io::instance::checkpoint
