@@ -11,7 +11,7 @@ namespace seissol {
 
 enum class DRQuadRuleType { Stroud, Dunavant, WitherdenVincent };
 
-enum class ViscoMode { None, QuantityExtension, AnelasticTensor };
+enum class ViscoImplementation { None, QuantityExtension, AnelasticTensor };
 
 } // namespace seissol
 #endif // SEISSOL_SRC_COMMON_TYPEDEFS_H_

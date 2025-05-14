@@ -26,7 +26,7 @@ struct Config {
     static constexpr std::size_t RelaxationMechanisms = @NUMBER_OF_MECHANISMS@;
     static constexpr model::MaterialType MaterialType = model::MaterialType::@PARAMETER_MATERIAL@;
     static constexpr RealType Precision = RealType::@PARAMETER_REALTYPE@;
-    static constexpr ViscoMode ViscoMode = ViscoMode::@PARAMETER_VISCOMODE@;
+    static constexpr ViscoImplementation ViscoMode = ViscoImplementation::@PARAMETER_VISCOMODE@;
     static constexpr DRQuadRuleType DRQuadRule = DRQuadRuleType::@PARAMETER_DRQUADRULE@;
     static constexpr std::size_t NumSimulations = @NUMBER_OF_FUSED_SIMULATIONS@;
 };
