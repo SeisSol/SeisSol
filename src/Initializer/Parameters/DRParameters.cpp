@@ -72,7 +72,19 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
   const auto healingThreshold =
       static_cast<real>(reader->readWithDefault("lsw_healingthreshold", -1.0));
-  const auto t0 = static_cast<real>(reader->readWithDefault("t_0", 0.0));
+  const auto nucleationCount = reader->readWithDefault("nucleationcount", 1);
+  if (nucleationCount > MaxNucleactions) {
+    logError() << "You requested more nucleations than supported by this build of SeisSol. Either "
+                  "adjust that yourself, or complain to the developers. :)";
+  }
+  std::array<real, MaxNucleactions> t0;
+  std::array<real, MaxNucleactions> s0;
+  for (std::size_t i = 0; i < nucleationCount; ++i) {
+    const std::string t0name = i == 0 ? "t_0" : ("t" + std::to_string(i + 1) + "_0");
+    t0[i] = static_cast<real>(reader->readWithDefault(t0name, 0.0));
+    const std::string s0name = i == 0 ? "s_0" : ("s" + std::to_string(i + 1) + "_0");
+    s0[i] = static_cast<real>(reader->readWithDefault(s0name, 0.0));
+  }
   const auto tpProxyExponent =
       static_cast<real>(reader->readWithDefault("tpproxyexponent", 1. / 3.));
 
@@ -170,6 +182,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       frictionLawType,
                       healingThreshold,
                       t0,
+                      s0,
                       tpProxyExponent,
                       rsF0,
                       rsB,
@@ -189,6 +202,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       referencePoint,
                       terminatorSlipRateThreshold,
                       etaHack,
-                      hackStop};
+                      hackStop,
+                      nucleationCount};
 }
 } // namespace seissol::initializer::parameters

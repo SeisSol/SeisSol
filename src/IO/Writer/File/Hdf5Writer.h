@@ -21,7 +21,7 @@ namespace seissol::io::writer::file {
 
 class Hdf5File {
   public:
-  Hdf5File(MPI_Comm comm);
+  explicit Hdf5File(MPI_Comm comm);
   void openFile(const std::string& name);
   void openGroup(const std::string& name);
   void openDataset(const std::string& name);
@@ -38,14 +38,14 @@ class Hdf5File {
   void closeFile();
 
   private:
-  hid_t file;
+  hid_t file{-1};
   std::stack<hid_t> handles; // TODO: have something more sophisticated than a single stack
-  MPI_Comm comm;
+  MPI_Comm comm{MPI_COMM_NULL};
 };
 
 class Hdf5Writer {
   public:
-  Hdf5Writer(MPI_Comm comm);
+  explicit Hdf5Writer(MPI_Comm comm);
 
   void writeAttribute(const async::ExecInfo& info, const instructions::Hdf5AttributeWrite& write);
 
@@ -55,7 +55,7 @@ class Hdf5Writer {
 
   private:
   std::unordered_map<std::string, Hdf5File> openFiles;
-  MPI_Comm comm;
+  MPI_Comm comm{MPI_COMM_NULL};
 };
 } // namespace seissol::io::writer::file
 

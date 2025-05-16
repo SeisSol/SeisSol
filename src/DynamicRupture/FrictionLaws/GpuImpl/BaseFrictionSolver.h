@@ -73,7 +73,6 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   ~BaseFrictionSolver<Derived>() override = default;
 
   SEISSOL_DEVICE static void evaluatePoint(FrictionLawContext& ctx) {
-    using StdMath = functions::HostStdFunctions;
     constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
 
     common::precomputeStressFromQInterpolated<gpuRangeType>(
@@ -88,20 +87,22 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
     real updateTime = ctx.fullUpdateTime;
     for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
-      const real t0{ctx.data->drParameters.t0};
       const real dt = ctx.data->deltaT[timeIndex];
 
       updateTime += dt;
 
-      common::adjustInitialStress<gpuRangeType, StdMath>(
-          ctx.data->initialStressInFaultCS[ctx.ltsFace],
-          ctx.data->nucleationStressInFaultCS[ctx.ltsFace],
-          ctx.data->initialPressure[ctx.ltsFace],
-          ctx.data->nucleationPressure[ctx.ltsFace],
-          updateTime,
-          t0,
-          dt,
-          ctx.pointIndex);
+      for (int i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
+        common::adjustInitialStress<gpuRangeType>(
+            ctx.data->initialStressInFaultCS[ctx.ltsFace],
+            ctx.data->nucleationStressInFaultCS[i][ctx.ltsFace],
+            ctx.data->initialPressure[ctx.ltsFace],
+            ctx.data->nucleationPressure[i][ctx.ltsFace],
+            updateTime,
+            ctx.data->drParameters.t0[i],
+            ctx.data->drParameters.s0[i],
+            dt,
+            ctx.pointIndex);
+      }
 
       Derived::updateFrictionAndSlip(ctx, timeIndex);
     }

@@ -9,7 +9,7 @@
 
 #include "Kernels/LinearCK/LocalBase.h"
 
-#include "LocalBase.h"
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
@@ -21,6 +21,7 @@
 #include <Parallel/Runtime/Stream.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
+#include <cstddef>
 #include <generated_code/init.h>
 #include <generated_code/kernel.h>
 #include <tensor.h>
@@ -83,7 +84,7 @@ struct ApplyAnalyticalSolution {
 
     auto nodesVec = std::vector<std::array<double, 3>>{};
     int offset = 0;
-    for (unsigned int s = 0; s < multisim::NumSimulations; ++s) {
+    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
 
       for (unsigned int i = 0; i < seissol::tensor::INodal::Shape[0]; ++i) {
@@ -160,7 +161,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       auto applyFreeSurfaceBc =
           [&displacement, &materialData, &localG](const real*, // nodes are unused
                                                   init::INodal::view::type& boundaryDofs) {
-            for (unsigned int s = 0; s < multisim::NumSimulations; ++s) {
+            for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
               auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
               auto slicedDisplacement = multisim::simtensor(displacement, s);
 
@@ -258,15 +259,15 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 
   const auto maxTmpMem = yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl);
 
-  real* tmpMem = nullptr;
+  // volume kernel always contains more elements than any local one
+  const auto maxNumElements = dataTable.find(key) != dataTable.end()
+                                  ? (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getSize()
+                                  : 0;
+  auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * maxNumElements) / sizeof(real));
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
 
-    unsigned maxNumElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     volKrnl.numElements = maxNumElements;
-
-    // volume kernel always contains more elements than any local one
-    tmpMem = (real*)(device.api->getStackMemory(maxTmpMem * maxNumElements));
 
     volKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
     volKrnl.I =
@@ -277,7 +278,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
-    volKrnl.linearAllocator.initialize(tmpMem);
+    volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
   }
@@ -295,7 +296,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
       localFluxKrnl.AplusT = const_cast<const real**>(
           entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
       localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
-      localFluxKrnl.linearAllocator.initialize(tmpMem);
+      localFluxKrnl.linearAllocator.initialize(tmpMem.get());
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
     }
@@ -341,9 +342,6 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
                                          device,
                                          runtime);
     }
-  }
-  if (tmpMem != nullptr) {
-    device.api->popStackMemory();
   }
 #else
   logError() << "No GPU implementation provided";

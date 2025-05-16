@@ -12,8 +12,8 @@
 
 namespace seissol::deltaPulse {
 
-SEISSOL_HOSTDEVICE inline real deltaPulse(real time, real timeStep) {
-
+template <typename T>
+SEISSOL_HOSTDEVICE inline T deltaPulse(T time, T timeStep) {
   if (time > 0 && time <= timeStep) {
     return (1 / timeStep);
   } else {

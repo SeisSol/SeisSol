@@ -19,6 +19,8 @@
 
 namespace seissol::initializer::parameters {
 
+constexpr std::size_t MaxNucleactions = 16;
+
 /**
  * Stores the different types of friction laws
  * The values resemble the identifiers used in the old fortran implementation
@@ -64,7 +66,8 @@ struct DRParameters {
   SlipRateOutputType slipRateOutputType{1};
   FrictionLawType frictionLawType{0};
   real healingThreshold{-1.0};
-  real t0{0.0};
+  std::array<real, MaxNucleactions> t0{};
+  std::array<real, MaxNucleactions> s0{};
   real tpProxyExponent{0.0};
   real rsF0{0.0};
   real rsB{0.0};
@@ -85,6 +88,7 @@ struct DRParameters {
   real terminatorSlipRateThreshold{0.0};
   double etaHack{1.0};
   double etaStop{0.0};
+  int nucleationCount{0};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);

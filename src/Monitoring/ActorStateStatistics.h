@@ -41,7 +41,7 @@ class ActorStateStatistics {
 
 class ActorStateStatisticsManager {
   public:
-  ActorStateStatisticsManager(LoopStatistics& loopStatistics);
+  explicit ActorStateStatisticsManager(LoopStatistics& loopStatistics);
   ActorStateStatistics& addCluster(unsigned globalClusterId);
 
   void finish();
