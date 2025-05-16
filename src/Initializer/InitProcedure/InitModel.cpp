@@ -217,9 +217,10 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                                     seissolParams.model);
 
   if (seissolParams.drParameters.etaHack != 1.0) {
-    logWarning()
-        << "The \"eta hack\" has been enabled to mitigate quasi-divergent solutions in the "
-           "friction law. The results may not conform to the existing benchmarks.";
+    logWarning() << "The \"eta hack\" has been enabled in the timeframe [0,"
+                 << seissolParams.drParameters.etaStop
+                 << ") to mitigate quasi-divergent solutions in the "
+                    "friction law. The results may not conform to the existing benchmarks.";
   }
 
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,

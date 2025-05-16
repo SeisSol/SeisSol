@@ -52,13 +52,14 @@ class BaseFrictionLaw : public FrictionSolver {
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
-      auto modIE = impAndEta[ltsFace];
-      modIE.etaP *= drParameters->etaStop > this->mFullUpdateTime ? drParameters->etaHack : 1.0;
+      const auto etaPDamp =
+          drParameters->etaStop > this->mFullUpdateTime ? drParameters->etaHack : 1.0;
       common::precomputeStressFromQInterpolated(faultStresses,
-                                                modIE,
+                                                impAndEta[ltsFace],
                                                 impedanceMatrices[ltsFace],
                                                 qInterpolatedPlus[ltsFace],
-                                                qInterpolatedMinus[ltsFace]);
+                                                qInterpolatedMinus[ltsFace],
+                                                etaPDamp);
       LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");
       SCOREP_USER_REGION_END(myRegionHandle)
 
