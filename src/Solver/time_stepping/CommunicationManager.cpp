@@ -7,7 +7,9 @@
 
 #include "CommunicationManager.h"
 
+#include "Parallel/Helper.h"
 #include "Parallel/Pin.h"
+#include <thread>
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -57,7 +59,8 @@ void seissol::time_stepping::SerialCommunicationManager::progression() {
 
 seissol::time_stepping::ThreadedCommunicationManager::ThreadedCommunicationManager(
     seissol::time_stepping::AbstractCommunicationManager::ghostClusters_t ghostClusters,
-    const seissol::parallel::Pinning* pinning)
+    const seissol::parallel::Pinning* pinning,
+    CommThreadType commthreadType)
     : AbstractCommunicationManager(std::move(ghostClusters)),
       thread(),
       shouldReset(false),
@@ -95,9 +98,14 @@ void seissol::time_stepping::ThreadedCommunicationManager::reset(double newSyncT
     // Pin this thread to the last core
     // We compute the mask outside the thread because otherwise
     // it confuses profilers and debuggers!
-    pinning->pinToFreeCPUs();
+    if (commthreadType == CommThreadType::Pinned) {
+      pinning->pinToFreeCPUs();
+    }
     while(!shouldReset.load() && !isFinished.load()) {
       isFinished.store(this->poll());
+      if (commthreadType == CommThreadType::Floating) {
+        std::this_thread::yield();
+      }
     }
   });
 }
