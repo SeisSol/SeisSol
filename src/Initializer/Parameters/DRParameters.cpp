@@ -166,6 +166,9 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
     }
   }();
 
+  const auto hackStop =
+      reader->read<double>("etastop").value_or(std::numeric_limits<double>::infinity());
+
   reader->warnDeprecated({"rf_output_on", "backgroundtype"});
 
   return DRParameters{isDynamicRuptureEnabled,
@@ -199,6 +202,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       referencePoint,
                       terminatorSlipRateThreshold,
                       etaHack,
+                      hackStop,
                       nucleationCount};
 }
 } // namespace seissol::initializer::parameters

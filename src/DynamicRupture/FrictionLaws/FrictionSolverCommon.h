@@ -145,13 +145,14 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     const ImpedanceMatrices& impedanceMatrices,
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
+    real etaPDamp,
     unsigned startLoopIndex = 0) {
   static_assert(tensor::QInterpolated::Shape[seissol::multisim::BasisFunctionDimension] ==
                     tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
 #ifndef USE_POROELASTIC
-  const auto etaP = impAndEta.etaP;
+  const auto etaP = impAndEta.etaP * etaPDamp;
   const auto etaS = impAndEta.etaS;
   const auto invZp = impAndEta.invZp;
   const auto invZs = impAndEta.invZs;

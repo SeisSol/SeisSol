@@ -17,6 +17,8 @@
 
 #include <Solver/MultipleSimulations.h>
 
+#include <numeric>
+
 namespace seissol::initializer::parameters {
 
 constexpr std::size_t MaxNucleactions = 16;
@@ -87,6 +89,7 @@ struct DRParameters {
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
   double etaHack{1.0};
+  double etaStop{std::numeric_limits<double>::infinity()};
   int nucleationCount{0};
 };
 

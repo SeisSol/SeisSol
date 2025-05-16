@@ -75,12 +75,15 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   SEISSOL_DEVICE static void evaluatePoint(FrictionLawContext& ctx) {
     constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
 
+    const auto etaPDamp =
+        ctx.data->drParameters.etaStop > ctx.fullUpdateTime ? ctx.data->drParameters.etaHack : 1.0;
     common::precomputeStressFromQInterpolated<gpuRangeType>(
         ctx.faultStresses,
         ctx.data->impAndEta[ctx.ltsFace],
         ctx.data->impedanceMatrices[ctx.ltsFace],
         ctx.data->qInterpolatedPlus[ctx.ltsFace],
         ctx.data->qInterpolatedMinus[ctx.ltsFace],
+        etaPDamp,
         ctx.pointIndex);
 
     Derived::preHook(ctx);
