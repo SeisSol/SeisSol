@@ -34,30 +34,6 @@ struct TimeCommon {
    *
    * @param ltsSetup bitmask for the LTS setup.
    * @param faceTypes face types of the neighboring cells.
-   * @param currentTime current time of the cell [0] and it's four neighbors [1], [2], [3] and [4].
-   * @param timeStepWidth time step width of the cell.
-   * @param timeDofs pointers to time integrated buffers or time derivatives of the four neighboring
-   cells.
-   * @param integrationBuffer memory where the time integration goes if derived from derivatives.
-   Ensure thread safety!
-   * @param timeIntegrated pointers to the time integrated DOFs of the four neighboring cells
-   (either local integration buffer or integration buffer of input).
-   **/
-  static void computeIntegrals(Time& time,
-                               unsigned short ltsSetup,
-                               const FaceType faceTypes[4],
-                               const double currentTime[5],
-                               double timeStepWidth,
-                               real* const timeDofs[4],
-                               real integrationBuffer[4][tensor::I::size()],
-                               real* timeIntegrated[4]);
-
-  /**
-   * Special case of the computeIntegrals function, which assumes a common "current time" for all
-   *face neighbors which provide derivatives.
-   *
-   * @param ltsSetup bitmask for the LTS setup.
-   * @param faceTypes face types of the neighboring cells.
    * @param timeStepStart start time of the current cell with respect to the common point zero: Time
    *of the larger time step width prediction of the face neighbors.
    * @param timeStepWidth time step width of the cell.
@@ -71,15 +47,15 @@ struct TimeCommon {
   static void computeIntegrals(Time& time,
                                unsigned short ltsSetup,
                                const FaceType faceTypes[4],
-                               double timeStepStart,
-                               double timeStepWidth,
+                               const real* timeCoeffs,
+                               const real* subtimeCoeffs,
                                real* const timeDofs[4],
                                real integrationBuffer[4][tensor::I::size()],
                                real* timeIntegrated[4]);
 
   static void computeBatchedIntegrals(Time& time,
-                                      double timeStepStart,
-                                      double timeStepWidth,
+                                      const real* timeCoeffs,
+                                      const real* subtimeCoeffs,
                                       ConditionalPointersToRealsTable& table,
                                       seissol::parallel::runtime::StreamRuntime& runtime);
 

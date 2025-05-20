@@ -249,4 +249,21 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
 #endif
 }
 
+void Time::evaluate(const real* coeffs,
+                    const real* timeDerivatives,
+                    real timeEvaluated[tensor::I::size()]) {
+  kernel::evaluateDOFSAtTimeSTP krnl;
+  krnl.spaceTimePredictor = timeDerivatives;
+  krnl.QAtTimeSTP = timeEvaluated;
+  krnl.timeBasisFunctionsAtPoint = coeffs;
+  krnl.execute();
+}
+
+void Time::flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) {
+  nonZeroFlops = kernel::evaluateDOFSAtTimeSTP::NonZeroFlops;
+  hardwareFlops = kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
+}
+
+void Time::setGlobalData(const CompoundGlobalData& global) {}
+
 } // namespace seissol::kernels::solver::stp

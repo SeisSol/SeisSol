@@ -57,6 +57,20 @@ class Spacetime : public SpacetimeKernel {
 #endif
 };
 
+class Time : public TimeKernel {
+  public:
+  void setGlobalData(const CompoundGlobalData& global) override;
+  void evaluate(const real* coeffs,
+                const real* timeDerivatives,
+                real timeEvaluated[tensor::I::size()]) override;
+  void evaluateBatched(const real* coeffs,
+                       const real** timeDerivatives,
+                       real** timeIntegratedDofs,
+                       unsigned numElements,
+                       seissol::parallel::runtime::StreamRuntime& runtime) override;
+  void flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) override;
+};
+
 } // namespace seissol::kernels::solver::stp
 
 #endif // SEISSOL_SRC_KERNELS_STP_TIMEBASE_H_

@@ -9,8 +9,12 @@
 
 #include <cstddef>
 
+namespace seissol::numerical {
+template <typename>
+class LegendreBasis;
+} // namespace seissol::numerical
+
 namespace seissol::kernels::solver::linearck {
-class Time;
 class Local;
 class Neighbor;
 } // namespace seissol::kernels::solver::linearck
@@ -18,12 +22,16 @@ class Neighbor;
 namespace seissol::kernels::solver::stp {
 
 class Spacetime;
+class Time;
 
 struct Solver {
   using SpacetimeKernelT = Spacetime;
-  using TimeKernelT = linearck::Time;
+  using TimeKernelT = Time;
   using LocalKernelT = linearck::Local;
   using NeighborKernelT = linearck::Neighbor;
+
+  template <typename RealT>
+  using TimeBasis = seissol::numerical::LegendreBasis<RealT>;
 };
 
 } // namespace seissol::kernels::solver::stp

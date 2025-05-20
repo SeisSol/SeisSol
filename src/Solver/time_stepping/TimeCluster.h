@@ -59,6 +59,7 @@ class seissol::time_stepping::TimeCluster : public seissol::time_stepping::Abstr
 private:
     // Last correction time of the neighboring cluster with higher dt
     double lastSubTime;
+    double neighborTimestep;
 
     void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
     void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;

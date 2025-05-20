@@ -218,189 +218,53 @@ unsigned Spacetime::bytesAder() {
   return reals * sizeof(real);
 }
 
-void Time::computeIntegral(double expansionPoint,
-                           double integrationStart,
-                           double integrationEnd,
-                           const real* timeDerivatives,
-                           real timeIntegrated[tensor::I::size()]) {
-  /*
-   * assert alignments.
-   */
-  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
-
-  // assert that this is a forwared integration in time
-  assert(integrationStart + (real)1.E-10 > expansionPoint);
-  assert(integrationEnd > integrationStart);
-
-  /*
-   * compute time integral.
-   */
-  // compute lengths of integration intervals
-  const real deltaTLower = integrationStart - expansionPoint;
-  const real deltaTUpper = integrationEnd - expansionPoint;
-
-  // initialization of scalars in the taylor series expansion (0th term)
-  real firstTerm = static_cast<real>(1);
-  real secondTerm = static_cast<real>(1);
-  real factorial = static_cast<real>(1);
-
-  kernel::derivativeTaylorExpansion intKrnl;
-  intKrnl.I = timeIntegrated;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
-  }
-
-  // iterate over time derivatives
-  for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
-    firstTerm *= deltaTUpper;
-    secondTerm *= deltaTLower;
-    factorial *= static_cast<real>(der + 1);
-
-    intKrnl.power(der) = firstTerm - secondTerm;
-    intKrnl.power(der) /= factorial;
-  }
-  intKrnl.execute();
-}
-
-void Time::computeBatchedIntegral(double expansionPoint,
-                                  double integrationStart,
-                                  double integrationEnd,
-                                  const real** timeDerivatives,
-                                  real** timeIntegratedDofs,
-                                  unsigned numElements,
-                                  seissol::parallel::runtime::StreamRuntime& runtime) {
-#ifdef ACL_DEVICE
-  // assert that this is a forwared integration in time
-  assert(integrationStart + (real)1.E-10 > expansionPoint);
-  assert(integrationEnd > integrationStart);
-
-  /*
-   * compute time integral.
-   */
-  // compute lengths of integration intervals
-  const real deltaTLower = integrationStart - expansionPoint;
-  const real deltaTUpper = integrationEnd - expansionPoint;
-
-#ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
-  // compute lengths of integration intervals
-
-  // initialization of scalars in the taylor series expansion (0th term)
-  real firstTerm = static_cast<real>(1.0);
-  real secondTerm = static_cast<real>(1.0);
-  real factorial = static_cast<real>(1.0);
-
-  kernel::gpu_derivativeTaylorExpansion intKrnl;
-  intKrnl.numElements = numElements;
-  auto tmpMem =
-      runtime.memoryHandle<real>((intKrnl.TmpMaxMemRequiredInBytes * numElements) / sizeof(real));
-
-  intKrnl.I = timeIntegratedDofs;
-
-  for (size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives;
-    intKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
-  }
-
-  // iterate over time derivatives
-  for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
-    firstTerm *= deltaTUpper;
-    secondTerm *= deltaTLower;
-    factorial *= static_cast<real>(der + 1);
-
-    intKrnl.power(der) = firstTerm - secondTerm;
-    intKrnl.power(der) /= factorial;
-  }
-  intKrnl.linearAllocator.initialize(tmpMem.get());
-  intKrnl.streamPtr = runtime.stream();
-  intKrnl.execute();
-#else
-  seissol::kernels::time::aux::taylorSum(true,
-                                         numElements,
-                                         timeIntegratedDofs,
-                                         timeDerivatives,
-                                         deltaTLower,
-                                         deltaTUpper,
-                                         runtime.stream());
-#endif
-#else
-  logError() << "No GPU implementation provided";
-#endif
-}
-
-void Time::computeTaylorExpansion(real time,
-                                  real expansionPoint,
-                                  const real* timeDerivatives,
-                                  real timeEvaluated[tensor::Q::size()]) {
+void Time::evaluate(const real* coeffs,
+                    const real* timeDerivatives,
+                    real timeEvaluated[tensor::Q::size()]) {
   /*
    * assert alignments.
    */
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
 
-  // assert that this is a forward evaluation in time
-  assert(time >= expansionPoint);
-
-  const real deltaT = time - expansionPoint;
-
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
 
-  kernel::derivativeTaylorExpansion intKrnl;
-  intKrnl.I = timeEvaluated;
+  kernel::derivativeTaylorExpansion krnl;
+  krnl.I = timeEvaluated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
+    krnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
+    krnl.power(i) = coeffs[i];
   }
-  intKrnl.power(0) = 1.0;
-
-  // iterate over time derivatives
-  for (std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
-    intKrnl.power(derivative) =
-        intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);
-  }
-
-  intKrnl.execute();
+  krnl.execute();
 }
 
-void Time::computeBatchedTaylorExpansion(real time,
-                                         real expansionPoint,
-                                         real** timeDerivatives,
-                                         real** timeEvaluated,
-                                         size_t numElements,
-                                         seissol::parallel::runtime::StreamRuntime& runtime) {
+void Time::evaluateBatched(const real* coeffs,
+                           const real** timeDerivatives,
+                           real** timeIntegratedDofs,
+                           unsigned numElements,
+                           seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   assert(timeDerivatives != nullptr);
-  assert(timeEvaluated != nullptr);
-  assert(time >= expansionPoint);
+  assert(timeIntegratedDofs != nullptr);
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
   static_assert(kernel::gpu_derivativeTaylorExpansion::TmpMaxMemRequiredInBytes == 0);
 
-  const real deltaT = time - expansionPoint;
-
 #ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
-  kernel::gpu_derivativeTaylorExpansion intKrnl;
-  intKrnl.numElements = numElements;
-  intKrnl.I = timeEvaluated;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = const_cast<const real**>(timeDerivatives);
-    intKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+  kernel::gpu_derivativeTaylorExpansion krnl;
+  krnl.numElements = numElements;
+  krnl.I = timeIntegratedDofs;
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    krnl.dQ(i) = const_cast<const real**>(timeDerivatives);
+    krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+    krnl.power(i) = coeffs[i];
   }
-
-  // iterate over time derivatives
-  intKrnl.power(0) = 1.0;
-  for (std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
-    intKrnl.power(derivative) =
-        intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);
-  }
-
-  intKrnl.streamPtr = runtime.stream();
-  intKrnl.execute();
+  krnl.streamPtr = runtime.stream();
+  krnl.execute();
 #else
-  seissol::kernels::time::aux::taylorSum(false,
-                                         numElements,
-                                         timeEvaluated,
+  seissol::kernels::time::aux::taylorSum(numElements,
+                                         timeIntegratedDofs,
                                          const_cast<const real**>(timeDerivatives),
-                                         0,
-                                         deltaT,
+                                         coeffs,
                                          runtime.stream());
 #endif
 #else
@@ -408,33 +272,9 @@ void Time::computeBatchedTaylorExpansion(real time,
 #endif
 }
 
-void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) {
   nonZeroFlops = kernel::derivativeTaylorExpansion::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
-}
-
-void Time::evaluateAtTime(std::shared_ptr<seissol::basisFunction::SampledTimeBasisFunctions<real>>
-                              evaluatedTimeBasisFunctions,
-                          const real* timeDerivatives,
-                          real timeEvaluated[tensor::Q::size()]) {
-#ifdef USE_STP
-  kernel::evaluateDOFSAtTimeSTP krnl;
-  krnl.spaceTimePredictor = timeDerivatives;
-  krnl.QAtTimeSTP = timeEvaluated;
-  krnl.timeBasisFunctionsAtPoint = evaluatedTimeBasisFunctions->m_data.data();
-  krnl.execute();
-#endif
-}
-
-void Time::flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) {
-#ifdef USE_STP
-  // reset flops
-  nonZeroFlops = 0;
-  hardwareFlops = 0;
-
-  nonZeroFlops += kernel::evaluateDOFSAtTimeSTP::NonZeroFlops;
-  hardwareFlops += kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
-#endif
 }
 
 void Time::setGlobalData(const CompoundGlobalData& global) {}

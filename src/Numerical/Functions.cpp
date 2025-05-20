@@ -167,6 +167,39 @@ std::array<double, 3> gradTetraDubinerP(const std::array<unsigned, 3>& i,
           ddalpha(1.0, -1.0, 1.0, -1.0, 2.0)};
 }
 
+double shiftedLegendre(int n, double x, int d) {
+  // cf. https://en.wikipedia.org/wiki/Legendre_polynomials#Shifted_Legendre_polynomials
+  double xp = 1;
+  double yP = 0;
+  double yM = 0;
+  double coeff = 1;
+  for (int i = 0; i < -d; ++i) {
+    xp *= x;
+  }
+  for (int k = 0; k < n; ++k) {
+    if (k >= d) {
+      double dcoeff = 1;
+      for (int i = 0; i < -d; ++i) {
+        dcoeff /= (k + i + 1);
+      }
+      for (int i = 0; i < d; ++i) {
+        dcoeff *= (k - i);
+      }
+      if ((n + k) % 2 == 0) {
+        yP += xp * coeff * dcoeff;
+      } else {
+        yM += xp * coeff * dcoeff;
+      }
+
+      xp *= x;
+    }
+
+    coeff *= (n - k) * (n + k);
+    coeff /= k * k;
+  }
+  return yP - yM;
+}
+
 template <>
 double DubinerP<1U>(const std::array<unsigned, 1U>& i, const std::array<double, 1U>& xi) {
   return JacobiP(i[0], 0, 0, 2.0 * xi[0] - 1.0);
@@ -194,6 +227,12 @@ template <>
 std::array<double, 3U> gradDubinerP<3U>(const std::array<unsigned, 3U>& i,
                                         const std::array<double, 3U>& xi) {
   return gradTetraDubinerP(i, xi);
+}
+
+template <>
+std::array<double, 1U> antigradDubinerP<1U>(const std::array<unsigned, 1U>& i,
+                                            const std::array<double, 1U>& xi) {
+  return {shiftedLegendre(i[0], xi[0], -1)};
 }
 
 } // namespace seissol::functions

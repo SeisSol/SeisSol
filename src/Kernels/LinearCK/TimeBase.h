@@ -61,44 +61,15 @@ class Spacetime : public SpacetimeKernel {
 class Time : public TimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void evaluateAtTime(
-      std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
-      const real* timeDerivatives,
-      real timeEvaluated[tensor::Q::size()]) override;
-  void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) override;
-
-  void computeIntegral(double expansionPoint,
-                       double integrationStart,
-                       double integrationEnd,
-                       const real* timeDerivatives,
-                       real timeIntegrated[tensor::I::size()]) override;
-
-  void computeBatchedIntegral(double expansionPoint,
-                              double integrationStart,
-                              double integrationEnd,
-                              const real** timeDerivatives,
-                              real** timeIntegratedDofs,
-                              unsigned numElements,
-                              seissol::parallel::runtime::StreamRuntime& runtime) override;
-
-  void computeTaylorExpansion(real time,
-                              real expansionPoint,
-                              const real* timeDerivatives,
-                              real timeEvaluated[tensor::Q::size()]) override;
-
-  void computeBatchedTaylorExpansion(real time,
-                                     real expansionPoint,
-                                     real** timeDerivatives,
-                                     real** timeEvaluated,
-                                     size_t numElements,
-                                     seissol::parallel::runtime::StreamRuntime& runtime) override;
-
-  void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) override;
-
-  protected:
-#ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-#endif
+  void evaluate(const real* coeffs,
+                const real* timeDerivatives,
+                real timeEvaluated[tensor::I::size()]) override;
+  void evaluateBatched(const real* coeffs,
+                       const real** timeDerivatives,
+                       real** timeIntegratedDofs,
+                       unsigned numElements,
+                       seissol::parallel::runtime::StreamRuntime& runtime) override;
+  void flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) override;
 };
 
 } // namespace seissol::kernels::solver::linearck

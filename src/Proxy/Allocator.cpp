@@ -147,8 +147,6 @@ void ProxyData::initGlobalData() {
   localKernel.setGlobalData(globalData);
   neighborKernel.setGlobalData(globalData);
   dynRupKernel.setGlobalData(globalData);
-
-  dynRupKernel.setTimeStepWidth(Timestep);
 }
 
 void ProxyData::initDataStructures(bool enableDR) {
