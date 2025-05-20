@@ -458,9 +458,9 @@ endif()
 
 # adjust prefix name of executables
 if ("${DEVICE_ARCH_STR}" STREQUAL "none")
-  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
+  set(EXE_NAME_PREFIX "${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
 else()
-  set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
+  set(EXE_NAME_PREFIX "${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
 endif()
 
 if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
@@ -495,7 +495,7 @@ if (WITH_GPU)
   target_link_libraries(seissol-common-properties INTERFACE seissol-device-lib)
 
   set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
-  set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_BACKEND}")
+  set_target_properties(device PROPERTIES OUTPUT_NAME "device_${DEVICE_BACKEND}")
 
   # set up GPU install targets
   install(TARGETS seissol-device-lib LIBRARY)
