@@ -21,8 +21,7 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('{0}_{1}{2}_{3}_{4}{5}',
-            matrix.build_type,
+          format('{0}{1}_{2}_{3}{4}',
             matrix.precision == 'single' && 's' || 'd',
             matrix.arch,
             matrix.order,
@@ -178,8 +177,7 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('{0}_{1}{2}_{3}_{4}{5}',
-            matrix.build_type,
+          format('{0}{1}_{2}_{3}{4}',
             matrix.precision == 'single' && 's' || 'd',
             matrix.arch,
             matrix.order,
