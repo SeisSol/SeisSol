@@ -245,7 +245,7 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
     krnl.execute();
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 
@@ -257,6 +257,14 @@ void Time::evaluate(const real* coeffs,
   krnl.QAtTimeSTP = timeEvaluated;
   krnl.timeBasisFunctionsAtPoint = coeffs;
   krnl.execute();
+}
+
+void evaluateBatched(const real* coeffs,
+                     const real** timeDerivatives,
+                     real** timeIntegratedDofs,
+                     unsigned numElements,
+                     seissol::parallel::runtime::StreamRuntime& runtime) override {
+  logError() << "No GPU implementation provided";
 }
 
 void Time::flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) {

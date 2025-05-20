@@ -215,7 +215,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
     localKrnl.execute();
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 

@@ -192,7 +192,7 @@ void Time::evaluateBatched(const real* coeffs,
   intKrnl.streamPtr = runtime.stream();
   intKrnl.execute();
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 
@@ -266,7 +266,7 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
     krnl.execute();
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 
