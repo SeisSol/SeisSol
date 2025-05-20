@@ -81,7 +81,7 @@ TEST_CASE("Friction Solver Common") {
 
   SUBCASE("Precompute Stress") {
     friction_law::common::precomputeStressFromQInterpolated(
-        faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus);
+        faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus, 1.0);
 
     // Assure that qInterpolatedPlus and qInterpolatedMinus are const.
     for (size_t o = 0; o < ConvergenceOrder; o++) {
