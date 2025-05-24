@@ -51,6 +51,8 @@ ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
 
 filename = ''  ! file name for the easi initial condition file
 hastime = 1    ! indicates the required support of a time dimension in the easi file. Requires easi 1.5.0 or higher.
+
+avoidic = 0    ! 1 iff use the IC only for analytical boundary conditions
 /
 
 &DynamicRupture
