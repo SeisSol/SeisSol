@@ -17,7 +17,11 @@
 #include <cstring>
 #include <limits>
 #include <type_traits>
+#include <typeindex>
+#include <variant>
 #include <vector>
+
+#include <utils/logger.h>
 
 enum LayerType { Ghost = (1U << 0U), Copy = (1U << 1U), Interior = (1U << 2U), NumLayers = 3U };
 
@@ -151,31 +155,37 @@ struct Bucket {
   Bucket() : index(std::numeric_limits<unsigned>::max()) {}
 };
 
-#ifdef ACL_DEVICE
 struct ScratchpadMemory : public Bucket {};
-#endif
+
+enum class MemoryType { Variable, Bucket, Scratchpad };
 
 struct MemoryInfo {
   size_t bytes{};
   size_t alignment{};
-  size_t elemsize{};
+  size_t size{};
   LayerMask mask;
-  // seissol::memory::Memkind memkind;
   AllocationMode allocMode;
+  MemoryType type;
   bool constant{false};
+  bool filtered{false};
+};
+
+struct LayerIdentifier {
+  enum LayerType halo;
+  int lts;
+  std::variant<Config> config;
 };
 
 class Layer : public Node {
   private:
-  enum LayerType m_layerType;
-  unsigned m_numberOfCells{0};
-  std::vector<DualMemoryContainer> m_vars;
-  std::vector<DualMemoryContainer> m_buckets;
-  std::vector<size_t> m_bucketSizes;
+  LayerIdentifier identifier;
+  unsigned numCells{0};
+  std::vector<DualMemoryContainer> memoryContainer;
+  std::vector<MemoryInfo> memoryInfo;
+
+  std::unordered_map<std::type_index, std::size_t> typemap;
 
 #ifdef ACL_DEVICE
-  std::vector<DualMemoryContainer> m_scratchpads{};
-  std::vector<size_t> m_scratchpadSizes{};
   std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> m_computeGraphHandles{};
   ConditionalPointersToRealsTable m_conditionalPointersToRealsTable{};
   DrConditionalPointersToRealsTable m_drConditionalPointersToRealsTable{};
@@ -187,164 +197,232 @@ class Layer : public Node {
   Layer() = default;
   ~Layer() override = default;
 
+  class CellRef {
+public:
+    CellRef(std::size_t id, Layer& layer, AllocationPlace place = AllocationPlace::Host)
+        : layer(layer), id(id), pointers(layer.memoryInfo.size()) {
+      for (std::size_t i = 0; i < layer.memoryInfo.size(); ++i) {
+        if (layer.memoryInfo[i].type == MemoryType::Variable) {
+          pointers[i] =
+              reinterpret_cast<void*>(reinterpret_cast<char*>(layer.memoryContainer[i].get(place)) +
+                                      layer.memoryInfo[i].bytes * id);
+        }
+      }
+    }
+
+    template <typename T>
+    T& get(const Variable<T>& handle) {
+      return reinterpret_cast<T*>(pointers[handle.index]);
+    }
+
+    template <typename T>
+    const T& get(const Variable<T>& handle) const {
+      return *reinterpret_cast<const T*>(pointers[handle.index]);
+    }
+
+    template <typename StorageT>
+    typename StorageT::Type& get() {
+      return *reinterpret_cast<typename StorageT::Type*>(
+          pointers[layer.typemap.at(std::type_index(typeid(StorageT)))]);
+    }
+
+    template <typename StorageT>
+    const typename StorageT::Type& get() const {
+      return *reinterpret_cast<const typename StorageT::Type*>(
+          pointers[layer.typemap.at(std::type_index(typeid(StorageT)))]);
+    }
+
+    template <typename T>
+    void setPointer(const Variable<T>& handle, T* value) {
+      pointers[handle.index] = reinterpret_cast<void*>(value);
+    }
+
+    template <typename T>
+    T* getPointer(const Variable<T>& handle) {
+      return reinterpret_cast<T*>(pointers[handle.index]);
+    }
+
+    template <typename StorageT>
+    void setPointer(typename StorageT::Type* value) {
+      pointers[layer.typemap.at(std::type_index(typeid(StorageT)))] =
+          reinterpret_cast<void*>(value);
+    }
+
+    template <typename StorageT>
+    typename StorageT::Type* getPointer() {
+      return reinterpret_cast<typename StorageT::Type*>(
+          pointers[layer.typemap.at(std::type_index(typeid(StorageT)))]);
+    }
+
+private:
+    Layer& layer;
+    std::size_t id;
+    std::vector<void*> pointers;
+  };
+
+  CellRef cellRef(std::size_t id, AllocationPlace place = AllocationPlace::Host) {
+    return CellRef(id, *this, place);
+  }
+
   void synchronizeTo(AllocationPlace place, void* stream) {
-    for (auto& variable : m_vars) {
-      variable.synchronizeTo(place, stream);
+    for (auto& container : memoryContainer) {
+      container.synchronizeTo(place, stream);
     }
-    for (auto& bucket : m_buckets) {
-      bucket.synchronizeTo(place, stream);
-    }
-#ifdef ACL_DEVICE
-    for (auto& scratchpad : m_scratchpads) {
-      scratchpad.synchronizeTo(place, stream);
-    }
-#endif
+  }
+
+  template <typename StorageT>
+  typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
+    const auto index = typemap.at(std::type_index(typeid(StorageT)));
+    assert(memoryContainer.size() > index);
+    return static_cast<typename StorageT::Type*>(memoryContainer[index].get(place));
+  }
+
+  template <typename StorageT>
+  void varSynchronizeTo(AllocationPlace place, void* stream) {
+    const auto index = typemap.at(std::type_index(typeid(StorageT)));
+    assert(memoryContainer.size() > index);
+    memoryContainer[index].synchronizeTo(place, stream);
   }
 
   template <typename T>
   T* var(const Variable<T>& handle, AllocationPlace place = AllocationPlace::Host) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_vars.size() > handle.index);
-    return static_cast<T*>(m_vars[handle.index].get(place));
+    assert(memoryContainer.size() > handle.index);
+    return static_cast<T*>(memoryContainer[handle.index].get(place));
   }
 
   template <typename T>
   void varSynchronizeTo(const Variable<T>& handle, AllocationPlace place, void* stream) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_vars.size() > handle.index);
-    m_vars[handle.index].synchronizeTo(place, stream);
+    assert(memoryContainer.size() > handle.index);
+    memoryContainer[handle.index].synchronizeTo(place, stream);
   }
 
   void* bucket(const Bucket& handle, AllocationPlace place = AllocationPlace::Host) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_buckets.size() > handle.index);
-    return m_buckets[handle.index].get(place);
+    assert(memoryContainer.size() > handle.index);
+    return memoryContainer[handle.index].get(place);
   }
 
   void bucketSynchronizeTo(const Bucket& handle, AllocationPlace place, void* stream) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_buckets.size() > handle.index);
-    m_buckets[handle.index].synchronizeTo(place, stream);
+    assert(memoryContainer.size() > handle.index);
+    memoryContainer[handle.index].synchronizeTo(place, stream);
   }
 
-#ifdef ACL_DEVICE
   void* getScratchpadMemory(const ScratchpadMemory& handle,
                             AllocationPlace place = AllocationPlace::Host) {
     assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(m_scratchpads.size() > handle.index);
-    return (m_scratchpads[handle.index].get(place));
+    assert(memoryContainer.size() > handle.index);
+    return (memoryContainer[handle.index].get(place));
   }
-#endif
 
   /// i-th bit of layerMask shall be set if data is masked on the i-th layer
   [[nodiscard]] bool isMasked(LayerMask layerMask) const {
-    return (LayerMask(m_layerType) & layerMask).any();
+    return (LayerMask(identifier.halo) & layerMask).any();
   }
 
-  void setLayerType(enum LayerType layerType) { m_layerType = layerType; }
+  void setLayerType(enum LayerType layerType) { identifier.halo = layerType; }
 
-  [[nodiscard]] enum LayerType getLayerType() const { return m_layerType; }
+  [[nodiscard]] enum LayerType getLayerType() const { return identifier.halo; }
 
-  [[nodiscard]] unsigned getNumberOfCells() const { return m_numberOfCells; }
+  [[nodiscard]] unsigned getNumberOfCells() const { return numCells; }
 
-  void setNumberOfCells(unsigned numberOfCells) { m_numberOfCells = numberOfCells; }
+  void setNumberOfCells(unsigned numberOfCells) { numCells = numberOfCells; }
 
-  void allocatePointerArrays(unsigned numVars, unsigned numBuckets) {
-    assert(m_vars.empty() && m_buckets.empty() && m_bucketSizes.empty());
-    m_vars.resize(numVars);
-    m_buckets.resize(numBuckets);
-    m_bucketSizes.resize(numBuckets, 0);
+  void fixPointers(const std::vector<MemoryInfo>& info,
+                   const std::unordered_map<std::type_index, std::size_t>& typemap) {
+    const auto count = info.size();
+    memoryContainer.resize(count);
+    memoryInfo.resize(count);
+    for (std::size_t i = 0; i < count; ++i) {
+      memoryInfo[i] = info[i];
+      memoryInfo[i].filtered = isMasked(info[i].mask) && memoryInfo[i].type == MemoryType::Variable;
+    }
+    this->typemap = typemap;
   }
-
-#ifdef ACL_DEVICE
-  inline void allocateScratchpadArrays(unsigned numScratchPads) {
-    assert(m_scratchpads.empty() && m_scratchpadSizes.empty());
-
-    m_scratchpads.resize(numScratchPads);
-    m_scratchpadSizes.resize(numScratchPads, 0);
-  }
-#endif
 
   void setBucketSize(const Bucket& handle, size_t size) {
     assert(m_bucketSizes.size() > handle.index);
-    m_bucketSizes[handle.index] = size;
+    memoryInfo[handle.index].size = size;
   }
 
-#ifdef ACL_DEVICE
-  inline void setScratchpadSize(const ScratchpadMemory& handle, size_t size) {
+  void setScratchpadSize(const ScratchpadMemory& handle, size_t size) {
     assert(m_scratchpadSizes.size() > handle.index);
-    m_scratchpadSizes[handle.index] = size;
+    memoryInfo[handle.index].size = size;
   }
-#endif
 
   size_t getBucketSize(const Bucket& handle) {
     assert(m_bucketSizes.size() > handle.index);
-    return m_bucketSizes[handle.index];
+    return memoryInfo[handle.index].size;
   }
 
-  void addVariableSizes(const std::vector<MemoryInfo>& vars, std::vector<size_t>& bytes) const {
-    for (unsigned var = 0; var < vars.size(); ++var) {
-      if (!isMasked(vars[var].mask)) {
-        bytes[var] += m_numberOfCells * vars[var].bytes;
+  void addVariableSizes(std::vector<MemoryInfo>& info, std::vector<std::size_t>& sizes) {
+    for (unsigned var = 0; var < info.size(); ++var) {
+      if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable) {
+        sizes[var] += numCells * memoryInfo[var].bytes;
       }
     }
   }
 
-  void addBucketSizes(std::vector<size_t>& bytes) {
-    for (unsigned bucket = 0; bucket < bytes.size(); ++bucket) {
-      bytes[bucket] += m_bucketSizes[bucket];
+  void addBucketSizes(std::vector<MemoryInfo>& info, std::vector<std::size_t>& sizes) {
+    for (unsigned var = 0; var < info.size(); ++var) {
+      if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Bucket) {
+        sizes[var] += memoryInfo[var].size;
+      }
     }
   }
 
-#ifdef ACL_DEVICE
-  // Overrides array's elements; if the corresponding local
-  // scratchpad mem. size is bigger then the one inside of the array
-  void findMaxScratchpadSizes(std::vector<size_t>& bytes) {
-    for (size_t id = 0; id < bytes.size(); ++id) {
-      bytes[id] = std::max(bytes[id], m_scratchpadSizes[id]);
+  void findMaxScratchpadSizes(std::vector<MemoryInfo>& info, std::vector<std::size_t>& sizes) {
+    for (unsigned var = 0; var < info.size(); ++var) {
+      if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Scratchpad) {
+        sizes[var] = std::max(sizes[var], memoryInfo[var].size);
+      }
     }
   }
-#endif
 
   void setMemoryRegionsForVariables(const std::vector<MemoryInfo>& vars,
                                     const std::vector<DualMemoryContainer>& memory,
                                     const std::vector<size_t>& offsets) {
-    assert(m_vars.size() >= vars.size());
     for (unsigned var = 0; var < vars.size(); ++var) {
-      if (!isMasked(vars[var].mask)) {
-        m_vars[var].offsetFrom(memory[var], offsets[var], m_numberOfCells * vars[var].bytes);
+      if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable) {
+        memoryContainer[var].offsetFrom(memory[var], offsets[var], numCells * vars[var].bytes);
       }
     }
   }
 
   void setMemoryRegionsForBuckets(const std::vector<DualMemoryContainer>& memory,
                                   const std::vector<size_t>& offsets) {
-    assert(m_buckets.size() >= offsets.size());
-    for (unsigned bucket = 0; bucket < offsets.size(); ++bucket) {
-      m_buckets[bucket].offsetFrom(memory[bucket], offsets[bucket], m_bucketSizes[bucket]);
+    for (unsigned bucket = 0; bucket < memory.size(); ++bucket) {
+      if (!memoryInfo[bucket].filtered && memoryInfo[bucket].type == MemoryType::Bucket) {
+        memoryContainer[bucket].offsetFrom(
+            memory[bucket], offsets[bucket], memoryInfo[bucket].size);
+      }
     }
   }
 
-#ifdef ACL_DEVICE
   void setMemoryRegionsForScratchpads(const std::vector<DualMemoryContainer>& memory) {
-    assert(m_scratchpads.size() == memory.size());
-    for (size_t id = 0; id < m_scratchpads.size(); ++id) {
-      m_scratchpads[id] = memory[id];
+    for (size_t id = 0; id < memory.size(); ++id) {
+      if (!memoryInfo[id].filtered && memoryInfo[id].type == MemoryType::Scratchpad) {
+        memoryContainer[id] = memory[id];
+      }
     }
   }
-#endif
 
   void touchVariables(const std::vector<MemoryInfo>& vars) {
     for (unsigned var = 0; var < vars.size(); ++var) {
 
       // NOTE: we don't touch device global memory because it is in a different address space
       // we will do deep-copy from the host to a device later on
-      if (!isMasked(vars[var].mask) && (m_vars[var].host != nullptr)) {
+      if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable &&
+          (memoryContainer[var].host != nullptr)) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (unsigned cell = 0; cell < m_numberOfCells; ++cell) {
-          memset(static_cast<char*>(m_vars[var].host) + cell * vars[var].bytes, 0, vars[var].bytes);
+        for (unsigned cell = 0; cell < numCells; ++cell) {
+          memset(static_cast<char*>(memoryContainer[var].host) + cell * vars[var].bytes,
+                 0,
+                 vars[var].bytes);
         }
       }
     }
