@@ -59,8 +59,7 @@ seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator()
 void seissol::solver::FreeSurfaceIntegrator::initialize(  unsigned maxRefinementDepth,
                                                           GlobalData* globalData,
                                                           seissol::initializer::LTS* lts,
-                                                          seissol::initializer::LTSTree* ltsTree,
-                                                          seissol::initializer::Lut* ltsLut  )
+                                                          seissol::initializer::LTSTree* ltsTree  )
 {
   if (maxRefinementDepth > FREESURFACE_MAX_REFINEMENT) {
     logError() << "Free surface integrator: Currently more than 3 levels of refinements are unsupported." << std::endl;
@@ -70,7 +69,7 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(  unsigned maxRefinement
 
 	logInfo() << "Initializing free surface integrator.";
   initializeProjectionMatrices(maxRefinementDepth);
-  initializeSurfaceLTSTree(lts, ltsTree, ltsLut);
+  initializeSurfaceLTSTree(lts, ltsTree);
 	logInfo() << "Initializing free surface integrator. Done.";
 }
 
@@ -251,8 +250,7 @@ seissol::solver::FreeSurfaceIntegrator::LocationFlag seissol::solver::FreeSurfac
 }
 
 void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol::initializer::LTS* lts,
-                                                                        seissol::initializer::LTSTree* ltsTree,
-                                                                        seissol::initializer::Lut* ltsLut )
+                                                                        seissol::initializer::LTSTree* ltsTree )
 {
   seissol::initializer::LayerMask ghostMask(Ghost);
 

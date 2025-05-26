@@ -373,7 +373,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                       &seissolInstance.meshReader(),
                       ltsTree,
                       lts,
-                      ltsLut,
                       seissolParams.model.plasticity,
                       seissolParams.output.prefix,
                       seissolParams.output.energyParameters);
@@ -416,8 +415,7 @@ void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
     seissolInstance.freeSurfaceIntegrator().initialize(refinement,
                                                        memoryManager.getGlobalDataOnHost(),
                                                        memoryManager.getLts(),
-                                                       memoryManager.getLtsTree(),
-                                                       memoryManager.getLtsLut());
+                                                       memoryManager.getLtsTree());
   }
 }
 
