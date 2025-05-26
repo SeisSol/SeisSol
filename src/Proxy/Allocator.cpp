@@ -43,13 +43,13 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
   auto* cellInformation = layer.var(lts.cellInformation);
   auto* secondaryInformation = layer.var(lts.secondaryInformation);
   real* bucket =
-      static_cast<real*>(layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Host));
+      static_cast<real*>(layer.var(lts.buffersDerivatives, initializer::AllocationPlace::Host));
 
   real** buffersDevice = layer.var(lts.buffersDevice);
   real** derivativesDevice = layer.var(lts.derivativesDevice);
   real*(*faceNeighborsDevice)[4] = layer.var(lts.faceNeighborsDevice);
-  real* bucketDevice = static_cast<real*>(
-      layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Device));
+  real* bucketDevice =
+      static_cast<real*>(layer.var(lts.buffersDerivatives, initializer::AllocationPlace::Device));
 
   std::mt19937 rng(layer.getNumberOfCells());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
@@ -163,8 +163,8 @@ void ProxyData::initDataStructures(bool enableDR) {
   cluster.child<Interior>().setNumberOfCells(cellCount);
 
   seissol::initializer::Layer& layer = cluster.child<Interior>();
-  layer.setBucketSize(lts.buffersDerivatives,
-                      sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
+  layer.setSize(lts.buffersDerivatives,
+                sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
 
   ltsTree.allocateVariables();
   ltsTree.touchVariables();

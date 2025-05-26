@@ -29,6 +29,36 @@ class LTSTree : public LTSInternalNode {
   std::string name;
 
   std::unordered_map<std::type_index, std::size_t> typemap;
+  std::unordered_map<int*, std::size_t> handlemap;
+
+  template <typename TraitT>
+  void addInternal(LayerMask mask,
+                   size_t alignment,
+                   AllocationMode allocMode,
+                   bool constant,
+                   std::size_t count) {
+    MemoryInfo m;
+    m.bytes = sizeof(typename TraitT::Type);
+    m.alignment = alignment;
+    m.mask = mask;
+    m.allocMode = allocMode;
+    m.constant = constant;
+    m.type = TraitT::Storage;
+    m.index = memoryInfo.size();
+
+    m.filterLayer = [mask](const LayerIdentifier& identifier) {
+      return (mask.to_ulong() & identifier.halo) != 0;
+    };
+    /*
+    m.bytesLayer = [](const LayerIdentifier& identifier) {
+      return std::visit([&](auto type) {
+        return sizeof(StorageT::template TypeVariant<decltype(type)>);
+      }, identifier.config);
+    };
+    */
+    m.bytesLayer = [](const LayerIdentifier& identifier) { return sizeof(typename TraitT::Type); };
+    memoryInfo.push_back(m);
+  }
 
   public:
   LTSTree() = default;
@@ -51,7 +81,7 @@ class LTSTree : public LTSInternalNode {
     memoryContainer.resize(memoryInfo.size());
     setPostOrderPointers();
     for (auto& leaf : leaves()) {
-      leaf.fixPointers(memoryInfo, typemap);
+      leaf.fixPointers(memoryInfo, typemap, handlemap);
     }
   }
 
@@ -69,9 +99,10 @@ class LTSTree : public LTSInternalNode {
     return memoryContainer[index].get(place);
   }
 
-  template <typename T>
-  T* var(const Variable<T>& handle, AllocationPlace place = AllocationPlace::Host) {
-    return static_cast<T*>(varUntyped(handle.index, place));
+  template <typename HandleT>
+  typename HandleT::Type* var(const HandleT& handle,
+                              AllocationPlace place = AllocationPlace::Host) {
+    return static_cast<typename HandleT::Type*>(varUntyped(handlemap.at(handle.pointer()), place));
   }
 
   template <typename StorageT>
@@ -88,63 +119,46 @@ class LTSTree : public LTSInternalNode {
     memoryContainer[index].synchronizeTo(place, stream);
   }
 
-  [[nodiscard]] const MemoryInfo& info(unsigned index) const { return memoryInfo[index]; }
+  template <typename StorageT>
+  [[nodiscard]] const MemoryInfo& info() const {
+    const auto index = typemap.at(std::type_index(typeid(StorageT)));
+    assert(memoryInfo.size() > index);
+    return memoryInfo[index];
+  }
+
+  template <typename HandleT>
+  [[nodiscard]] const MemoryInfo& info(const HandleT& handle) const {
+    const auto index = handlemap.at(handle.pointer());
+    assert(memoryInfo.size() > index);
+    return memoryInfo[index];
+  }
+
+  [[nodiscard]] const MemoryInfo& info(unsigned index) const {
+    assert(memoryInfo.size() > index);
+    return memoryInfo[index];
+  }
 
   [[nodiscard]] unsigned getNumberOfVariables() const { return memoryInfo.size(); }
 
   template <typename StorageT>
-  void add(LayerMask mask, size_t alignment, AllocationMode allocMode, bool constant = false) {
+  void add(LayerMask mask,
+           size_t alignment,
+           AllocationMode allocMode,
+           bool constant = false,
+           std::size_t count = 1) {
     typemap[std::type_index(typeid(StorageT))] = memoryInfo.size();
-    MemoryInfo m;
-    m.bytes = sizeof(typename StorageT::Type);
-    m.alignment = alignment;
-    m.mask = mask;
-    m.allocMode = allocMode;
-    m.constant = constant;
-    m.type = StorageT::Storage;
-    memoryInfo.push_back(m);
+    addInternal<StorageT>(mask, alignment, allocMode, constant, count);
   }
 
-  template <typename T>
-  void addVar(Variable<T>& handle,
-              LayerMask mask,
-              size_t alignment,
-              AllocationMode allocMode,
-              bool constant = false) {
-    handle.index = memoryInfo.size();
-    handle.mask = mask;
-    MemoryInfo m;
-    m.bytes = sizeof(T) * handle.count;
-    m.alignment = alignment;
-    m.mask = mask;
-    m.allocMode = allocMode;
-    m.constant = constant;
-    m.type = MemoryType::Variable;
-    memoryInfo.push_back(m);
-  }
-
-  void
-      addBucket(Bucket& handle, size_t alignment, AllocationMode allocMode, bool constant = false) {
-    handle.index = memoryInfo.size();
-    MemoryInfo m;
-    m.alignment = alignment;
-    m.allocMode = allocMode;
-    m.constant = constant;
-    m.type = MemoryType::Bucket;
-    memoryInfo.push_back(m);
-  }
-
-  void addScratchpadMemory(ScratchpadMemory& handle,
-                           size_t alignment,
-                           AllocationMode allocMode,
-                           bool constant = false) {
-    handle.index = this->memoryInfo.size();
-    MemoryInfo memoryInfo;
-    memoryInfo.alignment = alignment;
-    memoryInfo.allocMode = allocMode;
-    memoryInfo.constant = constant;
-    memoryInfo.type = MemoryType::Scratchpad;
-    this->memoryInfo.push_back(memoryInfo);
+  template <typename HandleT>
+  void add(HandleT& handle,
+           LayerMask mask,
+           size_t alignment,
+           AllocationMode allocMode,
+           bool constant = false,
+           std::size_t count = 1) {
+    handlemap[handle.pointer()] = memoryInfo.size();
+    addInternal<HandleT>(mask, alignment, allocMode, constant, count);
   }
 
   void allocateVariables() {
@@ -160,7 +174,9 @@ class LTSTree : public LTSInternalNode {
         totalSize += sizes[var];
       }
     }
-    logInfo() << "Storage" << name << "; variables:" << UnitByte.formatPrefix(totalSize).c_str();
+    if (!name.empty()) {
+      logInfo() << "Storage" << name << "; variables:" << UnitByte.formatPrefix(totalSize).c_str();
+    }
 
     for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
       if (memoryInfo[var].type == MemoryType::Variable) {
@@ -190,7 +206,9 @@ class LTSTree : public LTSInternalNode {
         totalSize += sizes[var];
       }
     }
-    logInfo() << "Storage" << name << "; buckets:" << UnitByte.formatPrefix(totalSize).c_str();
+    if (!name.empty()) {
+      logInfo() << "Storage" << name << "; buckets:" << UnitByte.formatPrefix(totalSize).c_str();
+    }
 
     for (std::size_t bucket = 0; bucket < memoryInfo.size(); ++bucket) {
       if (memoryInfo[bucket].type == MemoryType::Bucket) {
@@ -227,7 +245,10 @@ class LTSTree : public LTSInternalNode {
         totalSize += sizes[var];
       }
     }
-    logInfo() << "Storage" << name << "; scratchpads:" << UnitByte.formatPrefix(totalSize).c_str();
+    if (!name.empty()) {
+      logInfo() << "Storage" << name
+                << "; scratchpads:" << UnitByte.formatPrefix(totalSize).c_str();
+    }
 
     for (size_t id = 0; id < memoryInfo.size(); ++id) {
       memoryContainer[id].allocate(

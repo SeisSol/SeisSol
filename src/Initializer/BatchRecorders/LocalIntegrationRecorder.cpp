@@ -379,8 +379,8 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS& handler, Layer& layer) {
     std::array<std::vector<unsigned>, 4> cellIndices{};
     std::array<std::vector<real*>, 4> analytical{};
 
-    real* analyticScratch = reinterpret_cast<real*>(
-        layer.getScratchpadMemory(handler.analyticScratch, AllocationPlace::Device));
+    real* analyticScratch =
+        reinterpret_cast<real*>(layer.var(handler.analyticScratch, AllocationPlace::Device));
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto dataHost = currentLoaderHost->entry(cell);

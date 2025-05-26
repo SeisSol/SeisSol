@@ -660,7 +660,7 @@ void TimeCluster::predict() {
 #ifdef ACL_DEVICE
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host : seissol::initializer::AllocationPlace::Device;
-    m_clusterData->bucketSynchronizeTo(m_lts->buffersDerivatives, other, streamRuntime.stream());
+    m_clusterData->varSynchronizeTo(m_lts->buffersDerivatives, other, streamRuntime.stream());
     streamRuntime.wait();
   }
 #endif

@@ -88,11 +88,11 @@ class seissol::initializer::Lut {
 
   [[nodiscard]] const auto& getMeshToClusterLut() const { return m_meshToClusters; }
 
-  template <typename T>
-  T& lookup(const Variable<T>& handle,
-            unsigned meshId,
-            AllocationPlace place = AllocationPlace::Host) const {
-    return m_ltsTree->var(handle, place)[ltsId(handle.mask, meshId) * handle.count];
+  template <typename HandleT>
+  typename HandleT::Type& lookup(const HandleT& handle,
+                                 unsigned meshId,
+                                 AllocationPlace place = AllocationPlace::Host) const {
+    return m_ltsTree->var(handle, place)[ltsId(m_ltsTree->info(handle).mask, meshId)];
   }
 };
 

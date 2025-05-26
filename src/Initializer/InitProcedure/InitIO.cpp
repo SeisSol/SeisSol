@@ -122,7 +122,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         reinterpret_cast<const real*>(ltsTree->var(lts->dofs)),
         reinterpret_cast<const real*>(ltsTree->var(lts->pstrain)),
         seissolInstance.postProcessor().getIntegrals(ltsTree),
-        ltsLut->getMeshToLtsLut(lts->dofs.mask)[0].data(),
+        ltsLut->getMeshToLtsLut(ltsTree->info(lts->dofs).mask)[0].data(),
         seissolParams.output.waveFieldParameters,
         seissolParams.output.xdmfWriterBackend,
         backupTimeStamp);

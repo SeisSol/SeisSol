@@ -141,25 +141,60 @@ struct DualMemoryContainer {
   }
 };
 
-template <typename T>
-struct Variable {
-  unsigned index;
-  LayerMask mask;
-  unsigned count{1};
-  Variable() : index(std::numeric_limits<unsigned>::max()) {}
-};
-
-struct Bucket {
-  unsigned index;
-
-  Bucket() : index(std::numeric_limits<unsigned>::max()) {}
-};
-
-struct ScratchpadMemory : public Bucket {};
-
 enum class MemoryType { Variable, Bucket, Scratchpad };
 
+struct MemoryHandle {
+  std::shared_ptr<int> handle;
+
+  [[nodiscard]] int* pointer() const { return handle.get(); }
+
+  MemoryHandle() : handle(std::make_shared<int>()) {}
+};
+
+struct VariableDescriptor : public MemoryHandle {
+  static constexpr MemoryType Storage = MemoryType::Variable;
+};
+
+struct BucketDescriptor : public MemoryHandle {
+  static constexpr MemoryType Storage = MemoryType::Bucket;
+};
+
+struct ScratchpadDescriptor : public MemoryHandle {
+  static constexpr MemoryType Storage = MemoryType::Scratchpad;
+};
+
+template <typename T>
+struct Variable : public VariableDescriptor {
+  using Type = T;
+};
+
+template <template <typename> typename TT>
+struct VariantVariable : public VariableDescriptor {
+  template <typename T>
+  using VariantType = TT<T>;
+};
+
+template <typename T>
+struct Bucket : public BucketDescriptor {
+  using Type = T;
+};
+
+template <typename T>
+struct Scratchpad : public ScratchpadDescriptor {
+  using Type = T;
+};
+
+struct LayerIdentifier {
+  enum LayerType halo;
+  int lts;
+  std::variant<Config> config;
+};
+
+using FilterFunction = std::function<bool(const LayerIdentifier&)>;
+using SizeFunction = std::function<std::size_t(const LayerIdentifier&)>;
+
 struct MemoryInfo {
+  size_t index{};
   size_t bytes{};
   size_t alignment{};
   size_t size{};
@@ -168,13 +203,15 @@ struct MemoryInfo {
   MemoryType type;
   bool constant{false};
   bool filtered{false};
+
+  SizeFunction bytesLayer;
+  FilterFunction filterLayer;
 };
 
-struct LayerIdentifier {
-  enum LayerType halo;
-  int lts;
-  std::variant<Config> config;
-};
+template <LayerType... FilteredTypes>
+bool layerFilter(const LayerIdentifier& filter) {
+  return ((filter.halo == FilteredTypes) || ...);
+}
 
 class Layer : public Node {
   private:
@@ -184,6 +221,7 @@ class Layer : public Node {
   std::vector<MemoryInfo> memoryInfo;
 
   std::unordered_map<std::type_index, std::size_t> typemap;
+  std::unordered_map<int*, std::size_t> handlemap;
 
 #ifdef ACL_DEVICE
   std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> m_computeGraphHandles{};
@@ -210,14 +248,16 @@ public:
       }
     }
 
-    template <typename T>
-    T& get(const Variable<T>& handle) {
-      return reinterpret_cast<T*>(pointers[handle.index]);
+    template <typename HandleT>
+    typename HandleT::Type& get(const HandleT& handle) {
+      return reinterpret_cast<typename HandleT::Type*>(
+          pointers[layer.handlemap.at(handle.pointer())]);
     }
 
-    template <typename T>
-    const T& get(const Variable<T>& handle) const {
-      return *reinterpret_cast<const T*>(pointers[handle.index]);
+    template <typename HandleT>
+    const typename HandleT::Type& get(const HandleT& handle) const {
+      return *reinterpret_cast<const typename HandleT::Type*>(
+          pointers[layer.handlemap.at(handle.pointer())]);
     }
 
     template <typename StorageT>
@@ -232,14 +272,14 @@ public:
           pointers[layer.typemap.at(std::type_index(typeid(StorageT)))]);
     }
 
-    template <typename T>
-    void setPointer(const Variable<T>& handle, T* value) {
+    template <typename HandleT>
+    void setPointer(const HandleT& handle, typename HandleT::Type* value) {
       pointers[handle.index] = reinterpret_cast<void*>(value);
     }
 
-    template <typename T>
-    T* getPointer(const Variable<T>& handle) {
-      return reinterpret_cast<T*>(pointers[handle.index]);
+    template <typename HandleT>
+    typename HandleT::Type* getPointer(const HandleT& handle) {
+      return reinterpret_cast<typename HandleT::Type*>(pointers[handle.index]);
     }
 
     template <typename StorageT>
@@ -284,37 +324,19 @@ private:
     memoryContainer[index].synchronizeTo(place, stream);
   }
 
-  template <typename T>
-  T* var(const Variable<T>& handle, AllocationPlace place = AllocationPlace::Host) {
-    assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(memoryContainer.size() > handle.index);
-    return static_cast<T*>(memoryContainer[handle.index].get(place));
+  template <typename HandleT>
+  typename HandleT::Type* var(const HandleT& handle,
+                              AllocationPlace place = AllocationPlace::Host) {
+    const auto index = handlemap.at(handle.pointer());
+    assert(memoryContainer.size() > index);
+    return static_cast<typename HandleT::Type*>(memoryContainer[index].get(place));
   }
 
-  template <typename T>
-  void varSynchronizeTo(const Variable<T>& handle, AllocationPlace place, void* stream) {
-    assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(memoryContainer.size() > handle.index);
-    memoryContainer[handle.index].synchronizeTo(place, stream);
-  }
-
-  void* bucket(const Bucket& handle, AllocationPlace place = AllocationPlace::Host) {
-    assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(memoryContainer.size() > handle.index);
-    return memoryContainer[handle.index].get(place);
-  }
-
-  void bucketSynchronizeTo(const Bucket& handle, AllocationPlace place, void* stream) {
-    assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(memoryContainer.size() > handle.index);
-    memoryContainer[handle.index].synchronizeTo(place, stream);
-  }
-
-  void* getScratchpadMemory(const ScratchpadMemory& handle,
-                            AllocationPlace place = AllocationPlace::Host) {
-    assert(handle.index != std::numeric_limits<unsigned>::max());
-    assert(memoryContainer.size() > handle.index);
-    return (memoryContainer[handle.index].get(place));
+  template <typename HandleT>
+  void varSynchronizeTo(const HandleT& handle, AllocationPlace place, void* stream) {
+    const auto index = handlemap.at(handle.pointer());
+    assert(memoryContainer.size() > index);
+    memoryContainer[index].synchronizeTo(place, stream);
   }
 
   /// i-th bit of layerMask shall be set if data is masked on the i-th layer
@@ -331,30 +353,34 @@ private:
   void setNumberOfCells(unsigned numberOfCells) { numCells = numberOfCells; }
 
   void fixPointers(const std::vector<MemoryInfo>& info,
-                   const std::unordered_map<std::type_index, std::size_t>& typemap) {
+                   const std::unordered_map<std::type_index, std::size_t>& typemap,
+                   const std::unordered_map<int*, std::size_t>& handlemap) {
     const auto count = info.size();
     memoryContainer.resize(count);
     memoryInfo.resize(count);
     for (std::size_t i = 0; i < count; ++i) {
       memoryInfo[i] = info[i];
-      memoryInfo[i].filtered = isMasked(info[i].mask) && memoryInfo[i].type == MemoryType::Variable;
+      memoryInfo[i].filtered = info[i].filterLayer(identifier);
+      memoryInfo[i].bytes = info[i].bytesLayer(identifier);
     }
     this->typemap = typemap;
+    this->handlemap = handlemap;
   }
 
-  void setBucketSize(const Bucket& handle, size_t size) {
-    assert(m_bucketSizes.size() > handle.index);
-    memoryInfo[handle.index].size = size;
+  template <typename HandleT>
+  void setSize(const HandleT& handle, size_t size) {
+    const auto index = handlemap.at(handle.pointer());
+    assert(memoryInfo.size() > index);
+    static_assert(HandleT::Storage == MemoryType::Bucket ||
+                  HandleT::Storage == MemoryType::Scratchpad);
+    memoryInfo[index].size = size;
   }
 
-  void setScratchpadSize(const ScratchpadMemory& handle, size_t size) {
-    assert(m_scratchpadSizes.size() > handle.index);
-    memoryInfo[handle.index].size = size;
-  }
-
-  size_t getBucketSize(const Bucket& handle) {
-    assert(m_bucketSizes.size() > handle.index);
-    return memoryInfo[handle.index].size;
+  template <typename HandleT>
+  size_t getSize(const HandleT& handle) {
+    const auto index = handlemap.at(handle.pointer());
+    assert(memoryInfo.size() > handle.index);
+    return memoryInfo[index].size;
   }
 
   void addVariableSizes(std::vector<MemoryInfo>& info, std::vector<std::size_t>& sizes) {

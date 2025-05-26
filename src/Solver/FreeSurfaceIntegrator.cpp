@@ -23,11 +23,11 @@
 void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializer::LTSTree& surfaceLtsTree)
 {
   seissol::initializer::LayerMask ghostMask(Ghost);
-  surfaceLtsTree.addVar(             dofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
-  surfaceLtsTree.addVar( displacementDofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
-  surfaceLtsTree.addVar(             side, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
-  surfaceLtsTree.addVar(           meshId, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
-  surfaceLtsTree.addVar(  boundaryMapping, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add(             dofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add( displacementDofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add(             side, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add(           meshId, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add(  boundaryMapping, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
 }
 
 seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator()

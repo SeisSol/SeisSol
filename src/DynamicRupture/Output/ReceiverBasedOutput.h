@@ -93,7 +93,7 @@ class ReceiverOutput {
   template <typename T>
   std::remove_extent_t<T>* getCellData(const LocalInfo& local,
                                        const seissol::initializer::Variable<T>& variable) {
-    auto devVar = local.state->deviceVariables.find(variable.index);
+    auto devVar = local.state->deviceVariables.find(drTree->info(variable).index);
     if (devVar != local.state->deviceVariables.end()) {
       return reinterpret_cast<std::remove_extent_t<T>*>(
           devVar->second->get(local.state->deviceIndices[local.index]));

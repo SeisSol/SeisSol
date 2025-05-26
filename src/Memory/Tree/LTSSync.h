@@ -59,10 +59,11 @@ void initAssign(T& target, const T& value) {
 template <typename T>
 void synchronizeLTSTreeDuplicates(const seissol::initializer::Variable<T>& handle,
                                   seissol::initializer::MemoryManager& memoryManager) {
-  const auto& meshToLts = memoryManager.getLtsLut()->getMeshToLtsLut(handle.mask);
-  const unsigned* duplicatedMeshIds = memoryManager.getLtsLut()->getDuplicatedMeshIds(handle.mask);
+  const auto mask = memoryManager.getLtsTree()->info(handle).mask;
+  const auto& meshToLts = memoryManager.getLtsLut()->getMeshToLtsLut(mask);
+  const unsigned* duplicatedMeshIds = memoryManager.getLtsLut()->getDuplicatedMeshIds(mask);
   const unsigned numberOfDuplicatedMeshIds =
-      memoryManager.getLtsLut()->getNumberOfDuplicatedMeshIds(handle.mask);
+      memoryManager.getLtsLut()->getNumberOfDuplicatedMeshIds(mask);
   T* var = memoryManager.getLtsTree()->var(handle);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)

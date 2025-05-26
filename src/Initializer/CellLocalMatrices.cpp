@@ -143,9 +143,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
   static_assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1],
                 "Shape mismatch for flux matrices");
 
-  assert(LayerMask(Ghost) == lts->material.mask);
-  assert(LayerMask(Ghost) == lts->localIntegration.mask);
-  assert(LayerMask(Ghost) == lts->neighboringIntegration.mask);
+  assert(LayerMask(Ghost) == ltsTree->info(lts->material).mask);
+  assert(LayerMask(Ghost) == ltsTree->info(lts->localIntegration).mask);
+  assert(LayerMask(Ghost) == ltsTree->info(lts->neighboringIntegration).mask);
 
   const auto* cellInformationAll = ltsTree->var(lts->cellInformation);
   for (auto& layer : ltsTree->leaves(Ghost)) {
@@ -536,20 +536,21 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       real* timeDerivative2Device = nullptr;
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
         const unsigned ltsId =
-            ltsLut->ltsId(lts->cellInformation.mask, derivativesMeshId, duplicate);
+            ltsLut->ltsId(ltsTree->info(lts->cellInformation).mask, derivativesMeshId, duplicate);
         if (timeDerivative1 == nullptr && (cellInformation[ltsId].ltsSetup >> 9U) % 2 == 1) {
-          timeDerivative1 =
-              derivatives[ltsLut->ltsId(lts->derivatives.mask, derivativesMeshId, duplicate)];
-          timeDerivative1Device =
-              derivativesDevice[ltsLut->ltsId(lts->derivatives.mask, derivativesMeshId, duplicate)];
+          timeDerivative1 = derivatives[ltsLut->ltsId(
+              ltsTree->info(lts->derivatives).mask, derivativesMeshId, duplicate)];
+          timeDerivative1Device = derivativesDevice[ltsLut->ltsId(
+              ltsTree->info(lts->derivatives).mask, derivativesMeshId, duplicate)];
         }
         if (timeDerivative2 == nullptr &&
             (cellInformation[ltsId].ltsSetup >> derivativesSide) % 2 == 1) {
-          timeDerivative2 =
-              faceNeighbors[ltsLut->ltsId(lts->faceNeighbors.mask, derivativesMeshId, duplicate)]
-                           [derivativesSide];
+          timeDerivative2 = faceNeighbors[ltsLut->ltsId(ltsTree->info(lts->faceNeighbors).mask,
+                                                        derivativesMeshId,
+                                                        duplicate)][derivativesSide];
           timeDerivative2Device = faceNeighborsDevice[ltsLut->ltsId(
-              lts->faceNeighbors.mask, derivativesMeshId, duplicate)][derivativesSide];
+              ltsTree->info(lts->faceNeighbors).mask, derivativesMeshId, duplicate)]
+                                                     [derivativesSide];
         }
       }
 
@@ -571,14 +572,16 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       /// DR mapping for elements
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
-        const unsigned plusLtsId =
-            (fault[meshFace].element >= 0)
-                ? ltsLut->ltsId(lts->drMapping.mask, fault[meshFace].element, duplicate)
-                : std::numeric_limits<unsigned>::max();
-        const unsigned minusLtsId =
-            (fault[meshFace].neighborElement >= 0)
-                ? ltsLut->ltsId(lts->drMapping.mask, fault[meshFace].neighborElement, duplicate)
-                : std::numeric_limits<unsigned>::max();
+        const unsigned plusLtsId = (fault[meshFace].element >= 0)
+                                       ? ltsLut->ltsId(ltsTree->info(lts->drMapping).mask,
+                                                       fault[meshFace].element,
+                                                       duplicate)
+                                       : std::numeric_limits<unsigned>::max();
+        const unsigned minusLtsId = (fault[meshFace].neighborElement >= 0)
+                                        ? ltsLut->ltsId(ltsTree->info(lts->drMapping).mask,
+                                                        fault[meshFace].neighborElement,
+                                                        duplicate)
+                                        : std::numeric_limits<unsigned>::max();
 
         assert(duplicate != 0 || plusLtsId != std::numeric_limits<unsigned>::max() ||
                minusLtsId != std::numeric_limits<unsigned>::max());
@@ -633,12 +636,13 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       /// Materials
       seissol::model::Material* plusMaterial = nullptr;
       seissol::model::Material* minusMaterial = nullptr;
-      const unsigned plusLtsId = (fault[meshFace].element >= 0)
-                                     ? ltsLut->ltsId(lts->material.mask, fault[meshFace].element)
-                                     : std::numeric_limits<unsigned>::max();
+      const unsigned plusLtsId =
+          (fault[meshFace].element >= 0)
+              ? ltsLut->ltsId(ltsTree->info(lts->material).mask, fault[meshFace].element)
+              : std::numeric_limits<unsigned>::max();
       const unsigned minusLtsId =
           (fault[meshFace].neighborElement >= 0)
-              ? ltsLut->ltsId(lts->material.mask, fault[meshFace].neighborElement)
+              ? ltsLut->ltsId(ltsTree->info(lts->material).mask, fault[meshFace].neighborElement)
               : std::numeric_limits<unsigned>::max();
 
       assert(plusLtsId != std::numeric_limits<unsigned>::max() ||
