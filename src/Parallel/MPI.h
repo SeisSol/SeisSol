@@ -29,7 +29,7 @@
 namespace seissol {
 
 #ifndef USE_MPI
-typedef MPIDummy MPI;
+using MPI = MPIDummy;
 #else // USE_MPI
 
 /**
