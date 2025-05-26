@@ -170,6 +170,8 @@ struct Variable : public VariableDescriptor {
 
 template <template <typename> typename TT>
 struct VariantVariable : public VariableDescriptor {
+  using Type = void;
+
   template <typename T>
   using VariantType = TT<T>;
 };
@@ -318,6 +320,15 @@ private:
     return static_cast<typename StorageT::Type*>(memoryContainer[index].get(place));
   }
 
+  template <typename StorageT, typename ConfigT>
+  typename StorageT::template VariantType<ConfigT>*
+      var(const ConfigT& /*...*/, AllocationPlace place = AllocationPlace::Host) {
+    const auto index = typemap.at(std::type_index(typeid(StorageT)));
+    assert(memoryContainer.size() > index);
+    return static_cast<typename StorageT::template VariantType<ConfigT>*>(
+        memoryContainer[index].get(place));
+  }
+
   template <typename StorageT>
   void varSynchronizeTo(AllocationPlace place, void* stream) {
     const auto index = typemap.at(std::type_index(typeid(StorageT)));
@@ -331,6 +342,17 @@ private:
     const auto index = handlemap.at(handle.pointer());
     assert(memoryContainer.size() > index);
     return static_cast<typename HandleT::Type*>(memoryContainer[index].get(place));
+  }
+
+  template <typename HandleT, typename ConfigT>
+  typename HandleT::template VariantType<ConfigT>*
+      var(const HandleT& handle,
+          const ConfigT& /*...*/,
+          AllocationPlace place = AllocationPlace::Host) {
+    const auto index = handlemap.at(handle.pointer());
+    assert(memoryContainer.size() > index);
+    return static_cast<typename HandleT::template VariantType<ConfigT>*>(
+        memoryContainer[index].get(place));
   }
 
   template <typename HandleT>
@@ -347,7 +369,7 @@ private:
 
   void setLayerType(enum LayerType layerType) { identifier.halo = layerType; }
 
-  [[nodiscard]] enum LayerType getLayerType() const { return identifier.halo; }
+  [[nodiscard]] const LayerIdentifier& getIdentifier() const { return identifier; }
 
   [[nodiscard]] std::size_t size() const { return numCells; }
 
@@ -380,6 +402,22 @@ private:
   template <typename HandleT>
   size_t getEntrySize(const HandleT& handle) {
     const auto index = handlemap.at(handle.pointer());
+    assert(memoryInfo.size() > index);
+    return memoryInfo[index].size;
+  }
+
+  template <typename StorageT>
+  void setEntrySize(size_t size) {
+    const auto index = typemap.at(std::type_index(typeid(StorageT)));
+    assert(memoryInfo.size() > index);
+    static_assert(StorageT::Storage == MemoryType::Bucket ||
+                  StorageT::Storage == MemoryType::Scratchpad);
+    memoryInfo[index].size = size;
+  }
+
+  template <typename StorageT>
+  size_t getEntrySize() {
+    const auto index = typemap.at(std::type_index(typeid(StorageT)));
     assert(memoryInfo.size() > index);
     return memoryInfo[index].size;
   }
@@ -447,12 +485,17 @@ private:
 #pragma omp parallel for schedule(static)
 #endif
         for (std::size_t cell = 0; cell < numCells; ++cell) {
-          memset(static_cast<char*>(memoryContainer[var].host) + cell * vars[var].bytes,
-                 0,
-                 vars[var].bytes);
+          auto* cellPointer =
+              static_cast<char*>(memoryContainer[var].host) + cell * vars[var].bytes;
+          memset(cellPointer, 0, vars[var].bytes);
         }
       }
     }
+  }
+
+  template <typename F>
+  void wrap(F&& function) {
+    std::visit(std::forward<F>(function), identifier.config);
   }
 
 #ifdef ACL_DEVICE

@@ -12,7 +12,6 @@
 #include "Initializer/TimeStepping/Common.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSSync.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
 #include <Common/Constants.h>

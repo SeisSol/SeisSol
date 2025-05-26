@@ -17,8 +17,45 @@
 
 #include "Monitoring/Unit.h"
 #include "utils/logger.h"
+#include <type_traits>
 
 namespace seissol::initializer {
+
+/*
+Assigns the given value to the target object, initializing the memory in the process.
+
+NOTE: std::copy (or the likes) do not work here, since they do not initialize the _vptr for virtual
+function calls (rather, they leave it undefined), since they do merely assign `value` to `target`.
+*/
+
+template <typename T>
+void initAssign(T& target, const T& value) {
+  if constexpr (std::is_trivially_copyable_v<T>) {
+    // if the object is trivially copyable, we may just memcpy it (it's safe to do that in this
+    // case).
+    std::memcpy(&target, &value, sizeof(T));
+  } else {
+    // otherwise, call the class/struct initializer.
+    // problem: we may have an array here... So we unwrap it.
+    if constexpr (std::is_array_v<T>) {
+      // unwrap array, dimension by dimension...
+      // example: T[N][M] yields SubT=T[M]
+      using SubT = std::remove_extent_t<T>;
+      auto subExtent = std::extent_v<T>;
+
+      // for now, init element-wise... (TODO(David): we could look for something faster here, in
+      // case it should ever matter)
+      for (size_t i = 0; i < subExtent; ++i) {
+        initAssign<SubT>(target[i], value[i]);
+      }
+    } else {
+      // now call new here.
+      new (&target) T(value);
+    }
+  }
+  // (these two methods cannot be combined, unless we have some way for C-style arrays, i.e. S[N]
+  // for <typename S, size_t N>, to use a copy constructor as well)
+}
 
 class LTSTree : public LTSInternalNode {
   private:
@@ -38,7 +75,6 @@ class LTSTree : public LTSInternalNode {
                    bool constant,
                    std::size_t count) {
     MemoryInfo m;
-    m.bytes = sizeof(typename TraitT::Type);
     m.alignment = alignment;
     m.mask = mask;
     m.allocMode = allocMode;
@@ -46,17 +82,31 @@ class LTSTree : public LTSInternalNode {
     m.type = TraitT::Storage;
     m.index = memoryInfo.size();
 
-    m.filterLayer = [mask](const LayerIdentifier& identifier) {
-      return (mask.to_ulong() & identifier.halo) != 0;
+    if constexpr (std::is_same_v<typename TraitT::Type, void>) {
+      m.bytes = 0;
+      m.bytesLayer = [](const LayerIdentifier& identifier) {
+        return std::visit(
+            [&](auto type) {
+              using SelfT = typename TraitT::template VariantType<decltype(type)>;
+              if constexpr (!std::is_same_v<void, SelfT>) {
+                return sizeof(typename TraitT::template VariantType<decltype(type)>);
+              }
+              return static_cast<std::size_t>(0);
+            },
+            identifier.config);
+      };
+    } else {
+      using SelfT = typename TraitT::Type;
+      m.bytes = sizeof(SelfT);
+      m.bytesLayer = [](const LayerIdentifier& identifier) { return sizeof(SelfT); };
+    }
+
+    const auto bytesLayer = m.bytesLayer;
+
+    m.filterLayer = [mask, bytesLayer](const LayerIdentifier& identifier) {
+      return (mask.to_ulong() & identifier.halo) != 0 && bytesLayer(identifier) > 0;
     };
-    /*
-    m.bytesLayer = [](const LayerIdentifier& identifier) {
-      return std::visit([&](auto type) {
-        return sizeof(StorageT::template TypeVariant<decltype(type)>);
-      }, identifier.config);
-    };
-    */
-    m.bytesLayer = [](const LayerIdentifier& identifier) { return sizeof(typename TraitT::Type); };
+
     memoryInfo.push_back(m);
   }
 

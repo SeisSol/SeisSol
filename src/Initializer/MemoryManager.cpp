@@ -253,9 +253,9 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
                                                                     Layer&      layer )
 {
 #ifdef USE_MPI
-  assert(layer.getLayerType() == Copy || layer.getLayerType() == Interior);
+  assert(layer.getIdentifier().halo == Copy || layer.getIdentifier().halo == Interior);
 #else
-  assert(layer.getLayerType() == Interior);
+  assert(layer.getIdentifier().halo == Interior);
 #endif
 
   // iterate over clusters
