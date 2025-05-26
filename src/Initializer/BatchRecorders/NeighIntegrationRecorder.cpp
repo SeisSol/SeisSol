@@ -39,8 +39,8 @@ void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
   real*(*faceNeighborsDevice)[4] = currentLayer->var(currentHandler->faceNeighborsDevice);
-  real* integratedDofsScratch = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->integratedDofsScratch, AllocationPlace::Device));
+  real* integratedDofsScratch = static_cast<real*>(
+      currentLayer->var(currentHandler->integratedDofsScratch, AllocationPlace::Device));
 
   const auto size = currentLayer->size();
   if (size > 0) {
@@ -125,8 +125,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   CellDRMapping(*drMappingDevice)[4] = currentLayer->var(currentHandler->drMappingDevice);
 
 #ifdef USE_VISCOELASTIC2
-  auto* dofsExt =
-      currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch, AllocationPlace::Device);
+  auto* dofsExt = currentLayer->var(currentHandler->dofsExtScratch, AllocationPlace::Device);
 #endif
 
   const auto size = currentLayer->size();

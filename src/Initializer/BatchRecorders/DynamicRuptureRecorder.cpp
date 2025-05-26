@@ -31,10 +31,10 @@ void DynamicRuptureRecorder::record(DynamicRupture& handler, Layer& layer) {
 void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
   real** timeDerivativePlus = currentLayer->var(currentHandler->timeDerivativePlusDevice);
   real** timeDerivativeMinus = currentLayer->var(currentHandler->timeDerivativeMinusDevice);
-  real* idofsPlus = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->idofsPlusOnDevice, AllocationPlace::Device));
-  real* idofsMinus = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->idofsMinusOnDevice, AllocationPlace::Device));
+  real* idofsPlus = static_cast<real*>(
+      currentLayer->var(currentHandler->idofsPlusOnDevice, AllocationPlace::Device));
+  real* idofsMinus = static_cast<real*>(
+      currentLayer->var(currentHandler->idofsMinusOnDevice, AllocationPlace::Device));
 
   const auto size = currentLayer->size();
   if (size > 0) {
@@ -67,10 +67,10 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
   auto* qInterpolatedMinus =
       currentLayer->var(currentHandler->qInterpolatedMinus, AllocationPlace::Device);
 
-  real* idofsPlus = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->idofsPlusOnDevice, AllocationPlace::Device));
-  real* idofsMinus = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->idofsMinusOnDevice, AllocationPlace::Device));
+  real* idofsPlus = static_cast<real*>(
+      currentLayer->var(currentHandler->idofsPlusOnDevice, AllocationPlace::Device));
+  real* idofsMinus = static_cast<real*>(
+      currentLayer->var(currentHandler->idofsMinusOnDevice, AllocationPlace::Device));
 
   DRGodunovData* godunovData =
       currentLayer->var(currentHandler->godunovData, AllocationPlace::Device);

@@ -631,23 +631,23 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
         }
       }
     }
-    layer.setScratchpadSize(lts.integratedDofsScratch,
+    layer.setEntrySize(lts.integratedDofsScratch,
                              integratedDofsCounter * tensor::I::size() * sizeof(real));
-    layer.setScratchpadSize(lts.derivativesScratch,
+    layer.setEntrySize(lts.derivativesScratch,
                              derivativesCounter * totalDerivativesSize * sizeof(real));
-    layer.setScratchpadSize(lts.nodalAvgDisplacements,
+    layer.setEntrySize(lts.nodalAvgDisplacements,
                              nodalDisplacementsCounter * nodalDisplacementsSize * sizeof(real));
 #ifdef USE_VISCOELASTIC2
-    layer.setScratchpadSize(lts.idofsAneScratch,
+    layer.setEntrySize(lts.idofsAneScratch,
                              layer.size() * tensor::Iane::size() * sizeof(real));
-    layer.setScratchpadSize(lts.derivativesExtScratch,
+    layer.setEntrySize(lts.derivativesExtScratch,
                               layer.size() * (tensor::dQext::size(1) + tensor::dQext::size(2)) * sizeof(real));
-    layer.setScratchpadSize(lts.derivativesAneScratch,
+    layer.setEntrySize(lts.derivativesAneScratch,
                              layer.size() * (tensor::dQane::size(1) + tensor::dQane::size(2)) * sizeof(real));
-    layer.setScratchpadSize(lts.dofsExtScratch,
+    layer.setEntrySize(lts.dofsExtScratch,
                              layer.size() * tensor::Qext::size() * sizeof(real));
 #endif
-    layer.setScratchpadSize(lts.analyticScratch,
+    layer.setEntrySize(lts.analyticScratch,
                              analyticCounter * tensor::INodal::size() * sizeof(real));
   }
 }
@@ -658,8 +658,8 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(
   constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
   for (auto& layer : ltsTree.leaves()) {
     const auto layerSize = layer.size();
-    layer.setScratchpadSize(dynRup.idofsPlusOnDevice, idofsSize * layerSize);
-    layer.setScratchpadSize(dynRup.idofsMinusOnDevice, idofsSize * layerSize);
+    layer.setEntrySize(dynRup.idofsPlusOnDevice, idofsSize * layerSize);
+    layer.setEntrySize(dynRup.idofsMinusOnDevice, idofsSize * layerSize);
   }
 }
 #endif
@@ -894,9 +894,6 @@ void seissol::initializer::MemoryManager::initFrictionData() {
 
 #ifdef ACL_DEVICE
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
-
-      const auto mask = seissol::initializer::LayerMask(Ghost);
-
       impl->allocateAuxiliaryMemory();
     }
 #endif // ACL_DEVICE
