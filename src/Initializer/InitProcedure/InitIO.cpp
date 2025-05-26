@@ -39,8 +39,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 
   {
     auto* tree = seissolInstance.getMemoryManager().getLtsTree();
-    std::vector<std::size_t> globalIds(
-        tree->getNumberOfCells(seissol::initializer::LayerMask(Ghost)));
+    std::vector<std::size_t> globalIds(tree->size(seissol::initializer::LayerMask(Ghost)));
     const auto* ltsToMesh = seissolInstance.getMemoryManager().getLtsLut()->getLtsToMeshLut(
         seissol::initializer::LayerMask(Ghost));
 #ifdef _OPENMP
@@ -56,8 +55,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   {
     auto* tree = seissolInstance.getMemoryManager().getDynamicRuptureTree();
     auto* dynrup = seissolInstance.getMemoryManager().getDynamicRupture();
-    std::vector<std::size_t> faceIdentifiers(
-        tree->getNumberOfCells(seissol::initializer::LayerMask(Ghost)));
+    std::vector<std::size_t> faceIdentifiers(tree->size(seissol::initializer::LayerMask(Ghost)));
     const auto* drFaceInformation = tree->var(dynrup->faceInformation);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -283,7 +281,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     auto* surfaceMeshSides =
         freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.side);
     auto writer = io::instance::mesh::VtkHdfWriter(
-        "free-surface", freeSurfaceIntegrator.surfaceLtsTree.getNumberOfCells(), 2, order);
+        "free-surface", freeSurfaceIntegrator.surfaceLtsTree.size(), 2, order);
     writer.addPointProjector([=](double* target, std::size_t index) {
       auto meshId = surfaceMeshIds[index];
       auto side = surfaceMeshSides[index];

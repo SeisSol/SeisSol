@@ -153,7 +153,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       // set the materials for the cell volume and its faces
       auto meshId = secondaryInformation[cell].meshId;
       auto& material = materialArray[cell];
@@ -335,8 +335,8 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   const auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
   const auto& lts = seissolInstance.getMemoryManager().getLts();
 
-  unsigned* ltsToMesh = nullptr;
-  unsigned numberOfMeshCells = 0;
+  std::size_t* ltsToMesh = nullptr;
+  std::size_t numberOfMeshCells = 0;
 
   seissolInstance.getLtsLayout().getCellInformation(ltsTree->var(lts->cellInformation),
                                                     ltsTree->var(lts->secondaryInformation),

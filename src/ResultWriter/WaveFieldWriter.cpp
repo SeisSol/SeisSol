@@ -136,7 +136,7 @@ void seissol::writer::WaveFieldWriter::init(
     const real* dofs,
     const real* pstrain,
     const real* integrals,
-    const unsigned int* map,
+    const std::size_t* map,
     const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
     xdmfwriter::BackendType backend,
     const std::string& backupTimeStamp) {

@@ -216,7 +216,7 @@ bool layerFilter(const LayerIdentifier& filter) {
 class Layer : public Node {
   private:
   LayerIdentifier identifier;
-  unsigned numCells{0};
+  std::size_t numCells{0};
   std::vector<DualMemoryContainer> memoryContainer;
   std::vector<MemoryInfo> memoryInfo;
 
@@ -274,12 +274,13 @@ public:
 
     template <typename HandleT>
     void setPointer(const HandleT& handle, typename HandleT::Type* value) {
-      pointers[handle.index] = reinterpret_cast<void*>(value);
+      pointers[layer.handlemap.at(handle.pointer())] = reinterpret_cast<void*>(value);
     }
 
     template <typename HandleT>
     typename HandleT::Type* getPointer(const HandleT& handle) {
-      return reinterpret_cast<typename HandleT::Type*>(pointers[handle.index]);
+      return reinterpret_cast<typename HandleT::Type*>(
+          pointers[layer.handlemap.at(handle.pointer())]);
     }
 
     template <typename StorageT>
@@ -348,9 +349,9 @@ private:
 
   [[nodiscard]] enum LayerType getLayerType() const { return identifier.halo; }
 
-  [[nodiscard]] unsigned getNumberOfCells() const { return numCells; }
+  [[nodiscard]] std::size_t size() const { return numCells; }
 
-  void setNumberOfCells(unsigned numberOfCells) { numCells = numberOfCells; }
+  void setNumberOfCells(std::size_t numberOfCells) { numCells = numberOfCells; }
 
   void fixPointers(const std::vector<MemoryInfo>& info,
                    const std::unordered_map<std::type_index, std::size_t>& typemap,
@@ -368,7 +369,7 @@ private:
   }
 
   template <typename HandleT>
-  void setSize(const HandleT& handle, size_t size) {
+  void setEntrySize(const HandleT& handle, size_t size) {
     const auto index = handlemap.at(handle.pointer());
     assert(memoryInfo.size() > index);
     static_assert(HandleT::Storage == MemoryType::Bucket ||
@@ -377,14 +378,14 @@ private:
   }
 
   template <typename HandleT>
-  size_t getSize(const HandleT& handle) {
+  size_t getEntrySize(const HandleT& handle) {
     const auto index = handlemap.at(handle.pointer());
-    assert(memoryInfo.size() > handle.index);
+    assert(memoryInfo.size() > index);
     return memoryInfo[index].size;
   }
 
   void addVariableSizes(std::vector<MemoryInfo>& info, std::vector<std::size_t>& sizes) {
-    for (unsigned var = 0; var < info.size(); ++var) {
+    for (std::size_t var = 0; var < info.size(); ++var) {
       if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable) {
         sizes[var] += numCells * memoryInfo[var].bytes;
       }
@@ -392,7 +393,7 @@ private:
   }
 
   void addBucketSizes(std::vector<MemoryInfo>& info, std::vector<std::size_t>& sizes) {
-    for (unsigned var = 0; var < info.size(); ++var) {
+    for (std::size_t var = 0; var < info.size(); ++var) {
       if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Bucket) {
         sizes[var] += memoryInfo[var].size;
       }
@@ -400,7 +401,7 @@ private:
   }
 
   void findMaxScratchpadSizes(std::vector<MemoryInfo>& info, std::vector<std::size_t>& sizes) {
-    for (unsigned var = 0; var < info.size(); ++var) {
+    for (std::size_t var = 0; var < info.size(); ++var) {
       if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Scratchpad) {
         sizes[var] = std::max(sizes[var], memoryInfo[var].size);
       }
@@ -410,7 +411,7 @@ private:
   void setMemoryRegionsForVariables(const std::vector<MemoryInfo>& vars,
                                     const std::vector<DualMemoryContainer>& memory,
                                     const std::vector<size_t>& offsets) {
-    for (unsigned var = 0; var < vars.size(); ++var) {
+    for (std::size_t var = 0; var < vars.size(); ++var) {
       if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable) {
         memoryContainer[var].offsetFrom(memory[var], offsets[var], numCells * vars[var].bytes);
       }
@@ -419,7 +420,7 @@ private:
 
   void setMemoryRegionsForBuckets(const std::vector<DualMemoryContainer>& memory,
                                   const std::vector<size_t>& offsets) {
-    for (unsigned bucket = 0; bucket < memory.size(); ++bucket) {
+    for (std::size_t bucket = 0; bucket < memory.size(); ++bucket) {
       if (!memoryInfo[bucket].filtered && memoryInfo[bucket].type == MemoryType::Bucket) {
         memoryContainer[bucket].offsetFrom(
             memory[bucket], offsets[bucket], memoryInfo[bucket].size);
@@ -436,7 +437,7 @@ private:
   }
 
   void touchVariables(const std::vector<MemoryInfo>& vars) {
-    for (unsigned var = 0; var < vars.size(); ++var) {
+    for (std::size_t var = 0; var < vars.size(); ++var) {
 
       // NOTE: we don't touch device global memory because it is in a different address space
       // we will do deep-copy from the host to a device later on
@@ -445,7 +446,7 @@ private:
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-        for (unsigned cell = 0; cell < numCells; ++cell) {
+        for (std::size_t cell = 0; cell < numCells; ++cell) {
           memset(static_cast<char*>(memoryContainer[var].host) + cell * vars[var].bytes,
                  0,
                  vars[var].bytes);

@@ -42,7 +42,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
   real* integratedDofsScratch = static_cast<real*>(currentLayer->getScratchpadMemory(
       currentHandler->integratedDofsScratch, AllocationPlace::Device));
 
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   if (size > 0) {
     std::vector<real*> ltsIDofsPtrs{};
     std::vector<real*> ltsDerivativesPtrs{};
@@ -129,7 +129,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
       currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch, AllocationPlace::Device);
 #endif
 
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   for (unsigned cell = 0; cell < size; ++cell) {
     auto data = currentLoader->entry(cell);
     auto dataHost = currentLoaderHost->entry(cell);

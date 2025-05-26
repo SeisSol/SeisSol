@@ -307,14 +307,14 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             timeDerivativePlusHostMapped,
             QSize,
             QSize,
-            layer.getNumberOfCells(),
+            layer.size(),
             stream);
         device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
             timeDerivativeMinusDevice,
             timeDerivativeMinusHostMapped,
             QSize,
             QSize,
-            layer.getNumberOfCells(),
+            layer.size(),
             stream);
         device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
       }
@@ -335,7 +335,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       DREnergyOutput* drEnergyOutput = layer.var(dynRup->drEnergyOutput);
       seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
       seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
-      const auto layerSize = layer.getNumberOfCells();
+      const auto layerSize = layer.size();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(                                                                \
@@ -442,7 +442,7 @@ void EnergyOutput::computeVolumeEnergies() {
                                                         totalPlasticMoment)                        \
     shared(elements, vertices, lts, global)
 #endif
-      for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         if (secondaryInformation[cell].duplicate > 0) {
           // skip duplicate cells
           continue;

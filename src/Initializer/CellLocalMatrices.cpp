@@ -185,7 +185,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
-      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (unsigned cell = 0; cell < layer.size(); ++cell) {
         const auto clusterId = secondaryInformation[cell].clusterId;
         const auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
         const auto meshId = secondaryInformation[cell].meshId;
@@ -376,7 +376,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
-    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layer.size(); ++cell) {
       const auto& element = elements[secondaryInformation[cell].meshId];
       const double* coords[4];
       for (unsigned v = 0; v < 4; ++v) {
@@ -499,7 +499,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
     schedule(static)
 #endif
-    for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+    for (unsigned ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       const unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
 
@@ -809,7 +809,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       krnl.execute();
     }
 
-    layerLtsFaceToMeshFace += layer.getNumberOfCells();
+    layerLtsFaceToMeshFace += layer.size();
   }
 }
 

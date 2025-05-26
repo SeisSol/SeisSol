@@ -73,7 +73,7 @@ class LTSTree : public LTSInternalNode {
     }
   }
 
-  void setNumberOfTimeClusters(unsigned numberOfTimeCluster) {
+  void setNumberOfTimeClusters(std::size_t numberOfTimeCluster) {
     setChildren<TimeCluster>(numberOfTimeCluster);
   }
 
@@ -85,16 +85,16 @@ class LTSTree : public LTSInternalNode {
     }
   }
 
-  TimeCluster& child(unsigned index) {
+  TimeCluster& child(std::size_t index) {
     return *dynamic_cast<TimeCluster*>(m_children[index].get());
   }
 
-  [[nodiscard]] const TimeCluster& child(unsigned index) const {
+  [[nodiscard]] const TimeCluster& child(std::size_t index) const {
     return *dynamic_cast<TimeCluster*>(m_children[index].get());
   }
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
-    assert(index != std::numeric_limits<unsigned>::max());
+    assert(index != std::numeric_limits<std::size_t>::max());
     assert(memoryContainer.size() > index);
     return memoryContainer[index].get(place);
   }
@@ -133,12 +133,12 @@ class LTSTree : public LTSInternalNode {
     return memoryInfo[index];
   }
 
-  [[nodiscard]] const MemoryInfo& info(unsigned index) const {
+  [[nodiscard]] const MemoryInfo& info(std::size_t index) const {
     assert(memoryInfo.size() > index);
     return memoryInfo[index];
   }
 
-  [[nodiscard]] unsigned getNumberOfVariables() const { return memoryInfo.size(); }
+  [[nodiscard]] std::size_t getNumberOfVariables() const { return memoryInfo.size(); }
 
   template <typename StorageT>
   void add(LayerMask mask,
@@ -239,7 +239,7 @@ class LTSTree : public LTSInternalNode {
     }
 
     std::size_t totalSize = 0;
-    for (unsigned var = 0; var < memoryInfo.size(); ++var) {
+    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
       if (memoryInfo[var].type == MemoryType::Scratchpad) {
         memoryInfo[var].size = sizes[var];
         totalSize += sizes[var];
@@ -269,7 +269,7 @@ class LTSTree : public LTSInternalNode {
   [[nodiscard]] size_t getMaxClusterSize(LayerMask mask = LayerMask()) const {
     size_t maxClusterSize{0};
     for (const auto& leaf : leaves(mask)) {
-      const auto currClusterSize = static_cast<size_t>(leaf.getNumberOfCells());
+      const auto currClusterSize = static_cast<size_t>(leaf.size());
       maxClusterSize = std::max(currClusterSize, maxClusterSize);
     }
     return maxClusterSize;

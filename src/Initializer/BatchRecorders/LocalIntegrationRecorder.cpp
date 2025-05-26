@@ -49,7 +49,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
   real* derivativesScratch = static_cast<real*>(currentLayer->getScratchpadMemory(
       currentHandler->derivativesScratch, AllocationPlace::Device));
 
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);
     std::vector<real*> dofsAnePtrs(size, nullptr);
@@ -165,7 +165,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 }
 
 void LocalIntegrationRecorder::recordLocalFluxIntegral() {
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   for (unsigned face = 0; face < 4; ++face) {
     std::vector<real*> idofsPtrs{};
     std::vector<real*> dofsPtrs{};
@@ -213,7 +213,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
   std::array<std::vector<real*>, 4> iVelocitiesPtrs{{}};
   std::array<std::vector<real*>, 4> displacementsPtrs{};
 
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   for (unsigned cell = 0; cell < size; ++cell) {
     auto dataHost = currentLoaderHost->entry(cell);
 
@@ -244,7 +244,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
 }
 
 void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   constexpr size_t NodalAvgDisplacementsSize = tensor::averageNormalDisplacement::size();
 
   real* nodalAvgDisplacements = static_cast<real*>(currentLayer->getScratchpadMemory(
@@ -322,7 +322,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 }
 
 void LocalIntegrationRecorder::recordDirichletBc() {
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   if (size > 0) {
     std::array<std::vector<real*>, 4> dofsPtrs{};
     std::array<std::vector<real*>, 4> idofsPtrs{};
@@ -372,7 +372,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
 }
 
 void LocalIntegrationRecorder::recordAnalyticalBc(LTS& handler, Layer& layer) {
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   if (size > 0) {
     std::array<std::vector<real*>, 4> dofsPtrs{};
     std::array<std::vector<real*>, 4> neighPtrs{};

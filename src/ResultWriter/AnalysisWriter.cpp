@@ -180,7 +180,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                                     analyticalsLInfLocal)                                          \
     firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
 #endif
-      for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         if (secondaryInformation[cell].duplicate > 0) {
           // skip duplicate cells
           continue;

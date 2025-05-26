@@ -85,7 +85,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
     #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, displacementDofs, side)
 #endif // _OPENMP
-    for (unsigned face = 0; face < surfaceLayer.getNumberOfCells(); ++face) {
+    for (unsigned face = 0; face < surfaceLayer.size(); ++face) {
       alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)];
 
       kernel::subTriangleVelocity vkrnl;
@@ -121,7 +121,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
 
       addOutput(displacements);
     }
-    offset += surfaceLayer.getNumberOfCells() * numberOfSubTriangles;
+    offset += surfaceLayer.size() * numberOfSubTriangles;
   }
 }
 
@@ -264,7 +264,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     auto* cellMaterialData = layer.var(lts->material);
 
     unsigned numberOfFreeSurfaces = 0;
-    const auto layerSize = layer.getNumberOfCells();
+    const auto layerSize = layer.size();
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static) reduction(+ : numberOfFreeSurfaces)
 #endif // _OPENMP
@@ -309,7 +309,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     unsigned* side = surfaceLayer.var(surfaceLts.side);
     unsigned* meshId = surfaceLayer.var(surfaceLts.meshId);
     unsigned surfaceCell = 0;
-    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layer.size(); ++cell) {
       if (secondaryInformation[cell].duplicate == 0) {
         for (unsigned face = 0; face < 4; ++face) {
           if (initializer::requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {

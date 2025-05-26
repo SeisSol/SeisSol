@@ -153,7 +153,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
 #endif
-      for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto meshId = secondaryInformation[cell].meshId;
         const double* elementCoords[4];
         for (size_t v = 0; v < 4; ++v) {
@@ -292,7 +292,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
 #endif
-      for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto meshId = secondaryInformation[cell].meshId;
         // TODO: multisim loop
 
