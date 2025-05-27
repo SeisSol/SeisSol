@@ -18,9 +18,7 @@ namespace seissol::io {
 bool AsyncIO::init() {
   async::Dispatcher::init();
 
-#ifdef USE_MPI
   seissol::MPI::mpi.setComm(commWorld());
-#endif // USE_MPI
 
   return dispatch();
 }
@@ -29,10 +27,8 @@ void AsyncIO::finalize() {
   // Call parent class
   async::Dispatcher::finalize();
 
-#ifdef USE_MPI
   // Reset the MPI communicator
   seissol::MPI::mpi.setComm(MPI_COMM_WORLD);
-#endif // USE_MPI
 }
 
 } // namespace seissol::io

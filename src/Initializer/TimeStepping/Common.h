@@ -211,7 +211,6 @@ static void normalizeLtsSetup( unsigned short  i_neighboringLtsSetups[4],
  * @param io_cellLocalInformation cell local information which lts setup will be written using present face and cluster.
  domain.
  */
-#ifdef USE_MPI
 static void synchronizeLtsSetups( unsigned int                 i_numberOfClusters,
                                   struct MeshStructure        *io_meshStructure,
                                   struct CellLocalInformation *io_cellLocalInformation ) {
@@ -319,7 +318,6 @@ static void synchronizeLtsSetups( unsigned int                 i_numberOfCluster
   delete[] l_sendBuffer;
   delete[] l_receiveBuffer;
 }
-#endif
 
 /**
  * Derives the lts setups of all given cells.
@@ -378,11 +376,9 @@ inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
   }
 
 // exchange ltsSetup of the ghost layer for the normalization step
-#ifdef USE_MPI
   synchronizeLtsSetups( i_numberOfClusters,
                         io_meshStructure,
                         io_cellLocalInformation );
-#endif
 
   // iterate over cells and normalize the setups
   l_cell = 0;
@@ -426,11 +422,9 @@ inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
   }
 
 // get final setup in the ghost layer (after normalization)
-#ifdef USE_MPI
   synchronizeLtsSetups( i_numberOfClusters,
                         io_meshStructure,
                         io_cellLocalInformation );
-#endif
 }
 
 }}}

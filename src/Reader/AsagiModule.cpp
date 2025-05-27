@@ -41,6 +41,7 @@ AsagiModule::AsagiModule(utils::Env& env)
 }
 
 AsagiMPIMode AsagiModule::getMPIMode(utils::Env& env) {
+  // USE_MPI kept on purpose
 #ifdef USE_MPI
   const std::string mpiModeName = env.get(EnvMpiMode, "WINDOWS");
   if (mpiModeName == "WINDOWS") {
@@ -95,17 +96,13 @@ void AsagiModule::postMPIInit() {
 }
 
 void AsagiModule::preModel() {
-#ifdef USE_MPI
   // TODO check if ASAGI is required for model setup
   ::asagi::Grid::startCommThread();
-#endif // USE_MPI
 }
 
 void AsagiModule::postModel() {
-#ifdef USE_MPI
   // TODO check if ASAGI is required for model setup
   ::asagi::Grid::stopCommThread();
-#endif // USE_MPI
 }
 
 void AsagiModule::initInstance(utils::Env& env) {

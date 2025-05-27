@@ -9,9 +9,7 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_FAULTWRITEREXECUTOR_H_
 #define SEISSOL_SRC_RESULTWRITER_FAULTWRITEREXECUTOR_H_
 
-#ifdef USE_MPI
 #include <mpi.h>
-#endif // USE_MPI
 
 #include "Kernels/Precision.h"
 #include "Monitoring/Stopwatch.h"
@@ -40,10 +38,8 @@ class FaultWriterExecutor {
   private:
   xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter{nullptr};
 
-#ifdef USE_MPI
   /** The MPI communicator for the writer */
   MPI_Comm m_comm;
-#endif // USE_MPI
 
   /** The number of variables that should be written */
   unsigned int m_numVariables{0};
@@ -53,13 +49,9 @@ class FaultWriterExecutor {
 
   public:
   FaultWriterExecutor()
-      :
-#ifdef USE_MPI
-        m_comm(MPI_COMM_NULL)
-#endif // USE_MPI
+      : m_comm(MPI_COMM_NULL)
 
-  {
-  }
+  {}
 
   /**
    * Initialize the XDMF writer
@@ -90,20 +82,13 @@ class FaultWriterExecutor {
 
   void finalize() {
     if (m_xdmfWriter != nullptr) {
-      m_stopwatch.printTime("Time fault writer backend:"
-#ifdef USE_MPI
-                            ,
-                            m_comm
-#endif // USE_MPI
-      );
+      m_stopwatch.printTime("Time fault writer backend:", m_comm);
     }
 
-#ifdef USE_MPI
     if (m_comm != MPI_COMM_NULL) {
       MPI_Comm_free(&m_comm);
       m_comm = MPI_COMM_NULL;
     }
-#endif // USE_MPI
 
     delete m_xdmfWriter;
     m_xdmfWriter = nullptr;

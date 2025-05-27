@@ -106,7 +106,6 @@ void findMeshIds(const Eigen::Vector3d* points,
   }
 }
 
-#ifdef USE_MPI
 void cleanDoubles(short* contained, std::size_t numPoints) {
   const auto myrank = seissol::MPI::mpi.rank();
   const auto size = seissol::MPI::mpi.size();
@@ -137,6 +136,5 @@ void cleanDoubles(short* contained, std::size_t numPoints) {
     logInfo() << "Cleaned " << cleaned << " double occurring points on rank " << myrank << ".";
   }
 }
-#endif
 
 } // namespace seissol::initializer

@@ -222,10 +222,8 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
   logInfo() << "Using" << omp_get_max_threads() << "threads";
 
   // Setup MPI Communicator
-#ifdef USE_MPI
   MPI_Comm commMaster = MPI_COMM_NULL;
   MPI_Comm_split(seissol::MPI::mpi.comm(), rank % 1 == 0 ? 1 : MPI_UNDEFINED, rank, &commMaster);
-#endif // USE_MPI
 
   size_t bndSize = -1;
   size_t bndElemSize = -1;
@@ -1557,9 +1555,7 @@ void CubeGenerator::cubeGenerator(const std::array<unsigned int, 4> numCubes,
   delete[] elemMPIIndicesPtr;
 
   // Close MPI communicator
-#ifdef USE_MPI
   MPI_Comm_free(&commMaster);
-#endif // USE_MPI
 
   // Recompute additional information
   findElementsPerVertex();

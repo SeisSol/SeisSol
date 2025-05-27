@@ -25,9 +25,7 @@
 #include <utils/logger.h>
 #include <vector>
 
-#ifdef USE_MPI
 #include <mpi.h>
-#endif
 
 #include "PUML/Downward.h"
 #include "PUML/PUML.h"
@@ -67,9 +65,7 @@ double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
                                      MPI_Comm comm) {
   double cost =
       computeLocalCostOfClustering(clusterIds, cellCosts, rate, wiggleFactor, minimalTimestep);
-#ifdef USE_MPI
   MPI_Allreduce(MPI_IN_PLACE, &cost, 1, MPI_DOUBLE, MPI_SUM, comm);
-#endif // USE_MPI
 
   return cost;
 }
@@ -92,9 +88,7 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
                                       double wiggleFactor,
                                       double minimalTimestep) {
   int maxClusterId = *std::max_element(clusterIds.begin(), clusterIds.end());
-#ifdef USE_MPI
   MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, MPI::mpi.comm());
-#endif
 
   // We only have one cluster for rate = 1 and thus cannot merge.
   if (rate == 1) {
@@ -182,9 +176,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
   m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
 
   int maxNumberOfClusters = *std::max_element(m_clusterIds.begin(), m_clusterIds.end()) + 1;
-#ifdef USE_MPI
   MPI_Allreduce(MPI_IN_PLACE, &maxNumberOfClusters, 1, MPI_INT, MPI_MAX, MPI::mpi.comm());
-#endif
   ltsParameters.setMaxNumberOfClusters(maxNumberOfClusters);
 
   if (!m_vertexWeights.empty()) {
@@ -264,9 +256,7 @@ LtsWeights::ComputeWiggleFactorResult
 
     m_clusterIds = enforceMaxClusterId(m_clusterIds, maxClusterIdToEnforce);
     auto maxClusterId = *std::max_element(m_clusterIds.begin(), m_clusterIds.end());
-#ifdef USE_MPI
     MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, MPI::mpi.comm());
-#endif
 
     m_ncon = evaluateNumberOfConstraints();
 
@@ -435,9 +425,7 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
     }
     const auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
     if (ltsParameters.getWiggleFactorEnforceMaximumDifference()) {
-#ifdef USE_MPI
       MPI_Allreduce(MPI_IN_PLACE, &cellchanges, 1, MPI_INT, MPI_SUM, seissol::MPI::mpi.comm());
-#endif
       if (cellchanges > 0) {
         numberOfReductions = enforceMaximumDifference();
       }
@@ -492,23 +480,18 @@ int LtsWeights::enforceMaximumDifference() {
   do {
     int localNumberOfReductions = enforceMaximumDifferenceLocal();
 
-#ifdef USE_MPI
     MPI_Allreduce(&localNumberOfReductions,
                   &globalNumberOfReductions,
                   1,
                   MPI_INT,
                   MPI_SUM,
                   seissol::MPI::mpi.comm());
-#else
-    globalNumberOfReductions = localNumberOfReductions;
-#endif // USE_MPI
     totalNumberOfReductions += globalNumberOfReductions;
   } while (globalNumberOfReductions > 0);
   return totalNumberOfReductions;
 }
 
 void LtsWeights::prepareDifferenceEnforcement() {
-#ifdef USE_MPI
   const auto& cells = m_mesh->cells();
   const auto& faces = m_mesh->faces();
   const void* boundaryCond = m_mesh->cellData(1);
@@ -551,7 +534,6 @@ void LtsWeights::prepareDifferenceEnforcement() {
       sharedFaceToExchangeId[exchange.second[i]] = {ex, i};
     }
   }
-#endif // USE_MPI
 }
 
 int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
@@ -597,7 +579,6 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
     m_clusterIds[cell] = timeCluster;
   }
 
-#ifdef USE_MPI
   const auto numExchanges = rankToSharedFaces.size();
   std::vector<MPI_Request> requests(2 * numExchanges);
   std::vector<std::vector<int>> ghost(numExchanges);
@@ -662,7 +643,6 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
       }
     }
   }
-#endif // USE_MPI
 
   return numberOfReductions;
 }

@@ -314,10 +314,8 @@ auto loadSourcesFromFSRM(const char* fileName,
   initializer::findMeshIds(
       fsrm.centers.data(), mesh, fsrm.numberOfSources, contained.data(), meshIds.data());
 
-#ifdef USE_MPI
-  logInfo() << "Cleaning possible double occurring point sources for MPI...";
+  logInfo() << "Cleaning possible double occurring point sources in multi-rank setups...";
   initializer::cleanDoubles(contained.data(), fsrm.numberOfSources);
-#endif
 
   auto originalIndex = std::vector<unsigned>(fsrm.numberOfSources);
   unsigned numSources = 0;
@@ -426,10 +424,8 @@ auto loadSourcesFromNRF(const char* fileName,
   logInfo() << "Finding meshIds for point sources...";
   initializer::findMeshIds(nrf.centres.data(), mesh, nrf.size(), contained.data(), meshIds.data());
 
-#ifdef USE_MPI
-  logInfo() << "Cleaning possible double occurring point sources for MPI...";
+  logInfo() << "Cleaning possible double occurring point sources for multi-rank setups...";
   initializer::cleanDoubles(contained.data(), nrf.size());
-#endif
 
   auto originalIndex = std::vector<unsigned>(nrf.size());
   unsigned numSources = 0;
@@ -441,9 +437,7 @@ auto loadSourcesFromNRF(const char* fileName,
 
   // Checking that all sources are within the domain
   unsigned globalnumSources = numSources;
-#ifdef USE_MPI
   MPI_Reduce(&numSources, &globalnumSources, 1, MPI_UNSIGNED, MPI_SUM, 0, seissol::MPI::mpi.comm());
-#endif
 
   if (rank == 0) {
     const int numSourceOutside = nrf.size() - globalnumSources;

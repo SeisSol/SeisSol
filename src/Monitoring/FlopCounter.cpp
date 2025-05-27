@@ -131,12 +131,8 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
   flops[PLNonZeroFlops] = nonZeroFlopsPlasticity;
   flops[PLHardwareFlops] = hardwareFlopsPlasticity;
 
-#ifdef USE_MPI
   double totalFlops[NumCounters];
   MPI_Reduce(&flops, &totalFlops, NumCounters, MPI_DOUBLE, MPI_SUM, 0, seissol::MPI::mpi.comm());
-#else
-  double* totalFlops = &flops[0];
-#endif
 
 #ifndef NDEBUG
   logInfo() << "Total    libxsmm HW-FLOP: " << UnitFlop.formatPrefix(totalFlops[Libxsmm]).c_str();

@@ -55,18 +55,15 @@ void seissol::initializer::time_stepping::LtsLayout::setMesh( const seissol::geo
     m_numberOfGlobalClusters = std::max(m_numberOfGlobalClusters, m_cellClusterIds[i] + 1);
   }
 
-#ifdef USE_MPI
   MPI_Allreduce( MPI_IN_PLACE, &m_numberOfGlobalClusters, 1, MPI_INT, MPI_MAX, seissol::MPI::mpi.comm() );
-#endif
 
   m_globalTimeStepWidths.resize(m_numberOfGlobalClusters);
   m_globalTimeStepWidths[0] = std::numeric_limits<double>::max();
   for (std::size_t i = 0; i < m_cells.size(); ++i) {
     m_globalTimeStepWidths[0] = std::min(m_globalTimeStepWidths[0], m_cellTimeStepWidths[i]);
   }
-#ifdef USE_MPI
+
   MPI_Allreduce( MPI_IN_PLACE, m_globalTimeStepWidths.data(), 1, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm() );
-#endif
 
   const auto wiggle = seissolParams.timeStepping.lts.getWiggleFactor();
   if (wiggle == 1) {
@@ -146,7 +143,6 @@ void seissol::initializer::time_stepping::LtsLayout::derivePlainGhost() {
   // number of ghost cells
   m_numberOfPlainGhostCells = new unsigned int[ m_plainNeighboringRanks.size() ];
 
-#ifdef USE_MPI
   // TODO please check if this ifdef is correct
 
   MPI_Request *l_requests = new MPI_Request[ m_plainNeighboringRanks.size() * 2 ];
@@ -180,7 +176,6 @@ void seissol::initializer::time_stepping::LtsLayout::derivePlainGhost() {
                MPI_STATUS_IGNORE );              // mpi status
 
   delete[] l_requests;
-#endif // USE_MPI
 
   // free memory
   delete[] l_numberOfCopyCells;
@@ -216,22 +211,16 @@ void seissol::initializer::time_stepping::LtsLayout::deriveDynamicRupturePlainCo
 
   const int rank = seissol::MPI::mpi.rank();
   int* globalClusterHistogram = NULL;
-#ifdef USE_MPI
   if (rank == 0) {
     globalClusterHistogram = new int[m_numberOfGlobalClusters];
   }
   MPI_Reduce(localClusterHistogram, globalClusterHistogram, m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, seissol::MPI::mpi.comm());
-#else
-  globalClusterHistogram = localClusterHistogram;
-#endif
   if (rank == 0) {
     logInfo() << "Number of elements in dynamic rupture time clusters:";
     for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
       logInfo() << utils::nospace << cluster << " (dr):" << utils::space << globalClusterHistogram[cluster];
     }
-#ifdef USE_MPI
     delete[] globalClusterHistogram;
-#endif
   }
   delete[] localClusterHistogram;
 }
@@ -268,12 +257,8 @@ void seissol::initializer::time_stepping::LtsLayout::normalizeClustering() {
   }
 
   std::vector<int> globalClusterHistogram;
-#ifdef USE_MPI
   globalClusterHistogram.resize(m_numberOfGlobalClusters);
   MPI_Reduce(localClusterHistogram.data(), globalClusterHistogram.data(), m_numberOfGlobalClusters, MPI_INT, MPI_SUM, 0, seissol::MPI::mpi.comm());
-#else
-  globalClusterHistogram = localClusterHistogram;
-#endif
   if (rank == 0) {
     logInfo() << "Number of elements in time clusters:";
     for (unsigned cluster = 0; cluster < m_numberOfGlobalClusters; ++cluster) {
@@ -310,24 +295,11 @@ void seissol::initializer::time_stepping::LtsLayout::getTheoreticalSpeedup( doub
   unsigned int l_globalNumberOfCells = 0;
 
   // derive global number of cells
-#ifdef USE_MPI
-  // TODO please check if this ifdef is correct
-
   MPI_Allreduce( &l_localNumberOfCells, &l_globalNumberOfCells, 1, MPI_UNSIGNED, MPI_SUM, seissol::MPI::mpi.comm() );
-#else // USE_MPI
-  l_globalNumberOfCells = l_localNumberOfCells;
-#endif // USE_MPI
 
   // derive global "speedup"
-#ifdef USE_MPI
-  // TODO please check if this ifdef is correct
-
   MPI_Allreduce( l_localPerCellSpeedup,    &o_perCellTimeStepWidths, 1, MPI_DOUBLE, MPI_SUM, seissol::MPI::mpi.comm() );
   MPI_Allreduce( l_localClusteringSpeedup, &o_clustering,            1, MPI_DOUBLE, MPI_SUM, seissol::MPI::mpi.comm() );
-#else // USE_MPI
-  o_perCellTimeStepWidths = l_localPerCellSpeedup[0];
-  o_clustering = l_localClusteringSpeedup[0];
-#endif // USE_MPI
 
   o_perCellTimeStepWidths = (l_globalNumberOfCells * ( m_globalTimeStepWidths[m_numberOfGlobalClusters-1] / m_globalTimeStepWidths[0] ) ) / o_perCellTimeStepWidths;
   o_clustering            = (l_globalNumberOfCells * ( m_globalTimeStepWidths[m_numberOfGlobalClusters-1] / m_globalTimeStepWidths[0] ) ) / o_clustering;
@@ -594,9 +566,6 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredGhost() {
     l_numberOfMpiRequests += m_clusteredCopy[l_localCluster].size();
   }
 
-#ifdef USE_MPI
-  // TODO please check if this ifdef is correct
-
   // mpi requests spawned
   MPI_Request *l_requests = new MPI_Request[ l_numberOfMpiRequests*2 ];
 
@@ -645,7 +614,6 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredGhost() {
   MPI_Waitall( l_numberOfMpiRequests*2, // size
                l_requests,              // array of requests
                MPI_STATUS_IGNORE );     // mpi status
-#endif // USE_MPI
 
   /*
    * Get cell ids of the ghost regions.
@@ -660,9 +628,6 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredGhost() {
       m_clusteredGhost[l_cluster][l_region].second.resize( l_clusteredGhostSizes[l_cluster][l_region] );
     }
   }
-
-#ifdef USE_MPI
-  // TODO please check if this ifdef is correct
 
   // reset number of requests
   l_request = 0;
@@ -758,7 +723,6 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredGhost() {
 
   // free memory
   delete[] l_requests;
-#endif // USE_MPI
 }
 
 void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClustering i_timeClustering,

@@ -116,9 +116,7 @@ void Hdf5Reader::readDataRaw(void* data,
   checkExistence(name, "dataset");
   const hid_t h5alist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5alist);
-#ifdef USE_MPI
   _eh(H5Pset_dxpl_mpio(h5alist, H5FD_MPIO_COLLECTIVE));
-#endif // USE_MPI
 
   const hid_t dataset = _eh(H5Dopen(handles.top(), name.c_str(), H5P_DEFAULT));
   const hid_t dataspace = _eh(H5Dget_space(dataset));

@@ -27,10 +27,10 @@
 #include "Geometry/CubeGenerator.h"
 #include "Geometry/NetcdfReader.h"
 #endif // USE_NETCDF
-#if defined(USE_HDF) && defined(USE_MPI)
+#if defined(USE_HDF)
 #include "Geometry/PUMLReader.h"
 #include <hdf5.h>
-#endif // defined(USE_HDF) && defined(USE_MPI)
+#endif // defined(USE_HDF)
 #include "Initializer/TimeStepping/LtsWeights/WeightsFactory.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Stopwatch.h"
@@ -94,10 +94,8 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
     }
   }
 
-#ifdef USE_MPI
   MPI_Allreduce(MPI_IN_PLACE, maxPointValue, 3, MPI_DOUBLE, MPI_MAX, seissol::MPI::mpi.comm());
   MPI_Allreduce(MPI_IN_PLACE, minPointValue, 3, MPI_DOUBLE, MPI_MIN, seissol::MPI::mpi.comm());
-#endif
 
   logInfo() << "Smallest bounding box around the mesh: <" << minPointValue[0] << minPointValue[1]
             << minPointValue[2] << "> to <" << maxPointValue[0] << maxPointValue[1]
@@ -106,7 +104,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
 void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
                   seissol::SeisSol& seissolInstance) {
-#if defined(USE_HDF) && defined(USE_MPI)
+#if defined(USE_HDF)
   double nodeWeight = 1.0;
 
   if (seissolInstance.env().get<bool>("MINISEISSOL", true)) {
@@ -237,15 +235,9 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   watch.pause();
   watch.printTime("PUML mesh read in:");
 
-#else // defined(USE_HDF) && defined(USE_MPI)
-#ifndef USE_MPI
-  logError() << "Tried to load a PUML mesh. However, PUML is currently only supported with MPI "
-                "(and this build of SeisSol does not use MPI).";
-#endif
-#ifndef USE_HDF
+#else  // defined(USE_HDF)
   logError() << "Tried to load a PUML mesh. However, PUML needs SeisSol to be linked against HDF5.";
-#endif
-#endif // defined(USE_HDF) && defined(USE_MPI)
+#endif // defined(USE_HDF)
 }
 
 size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {

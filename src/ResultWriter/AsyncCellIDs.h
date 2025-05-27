@@ -9,9 +9,7 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ASYNCCELLIDS_H_
 #define SEISSOL_SRC_RESULTWRITER_ASYNCCELLIDS_H_
 
-#ifdef USE_MPI
 #include <mpi.h>
-#endif // USE_MPI
 
 #include "SeisSol.h"
 
@@ -38,7 +36,6 @@ class AsyncCellIDs {
                unsigned int nVertices,
                const unsigned int* cells,
                seissol::SeisSol& seissolInstance) {
-#ifdef USE_MPI
     // Add the offset to the cells
     MPI_Comm groupComm = seissolInstance.asyncIO().groupComm();
     unsigned int offset = nVertices;
@@ -51,9 +48,6 @@ class AsyncCellIDs {
       localCells[i] = cells[i] + offset;
     }
     constCells = localCells.data();
-#else  // USE_MPI
-    constCells = cells;
-#endif // USE_MPI
   }
 
   [[nodiscard]] const unsigned int* cells() const { return constCells; }

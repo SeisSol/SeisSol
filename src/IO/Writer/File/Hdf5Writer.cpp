@@ -174,9 +174,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   const hid_t h5dxlist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5dxlist);
-#ifdef USE_MPI
   _eh(H5Pset_dxpl_mpio(h5dxlist, H5FD_MPIO_COLLECTIVE));
-#endif
 
   const hid_t h5memtype = datatype::convertToHdf5(source->datatype());
 

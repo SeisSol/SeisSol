@@ -31,15 +31,11 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
   const unsigned int nCells = info.bufferSize(Cells) / (3 * sizeof(int));
   const unsigned int nVertices = info.bufferSize(Vertices) / (3 * sizeof(double));
 
-#ifdef USE_MPI
   MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
-#endif // USE_MPI
 
   if (nCells > 0) {
     int rank = 0;
-#ifdef USE_MPI
     MPI_Comm_rank(m_comm, &rank);
-#endif // USE_MPI
 
     std::string outputName(static_cast<const char*>(info.buffer(OutputPrefix)));
     outputName += "-fault";
@@ -56,9 +52,7 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
     m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>(
         param.backend, outputName.c_str(), param.timestep);
 
-#ifdef USE_MPI
     m_xdmfWriter->setComm(m_comm);
-#endif // USE_MPI
     m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
     const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
     m_xdmfWriter->init(variables, std::vector<const char*>(), "fault-tag", vertexFilter, true);
