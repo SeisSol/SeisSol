@@ -16,6 +16,7 @@
 #include "SeisSol.h"
 #include "ResultWriter/ClusteringWriter.h"
 #include "Parallel/Helper.h"
+#include <Memory/Tree/Layer.h>
 
 #ifdef ACL_DEVICE
 #include <device.h>
@@ -63,11 +64,15 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
          static_cast<long>(l_globalClusterId));
 
     // Dynamic rupture
-    auto& dynRupTree = memoryManager.getDynamicRuptureTree()->child(localClusterId);
+    const auto interiorId = initializer::LayerIdentifier(Interior, Config(), l_globalClusterId);
+    const auto copyId = initializer::LayerIdentifier(Copy, Config(), l_globalClusterId);
+    const auto ghostId = initializer::LayerIdentifier(Ghost, Config(), l_globalClusterId);
+
     // Note: We need to include the Ghost part, as we need to compute its DR part as well.
-    const long numberOfDynRupCells = dynRupTree.child(Interior).size() +
-        dynRupTree.child(Copy).size() +
-        dynRupTree.child(Ghost).size();
+    const long numberOfDynRupCells
+      = memoryManager.getDynamicRuptureTree()->layer(interiorId).size() +
+        memoryManager.getDynamicRuptureTree()->layer(copyId).size() +
+        memoryManager.getDynamicRuptureTree()->layer(ghostId).size();
 
     bool isFirstDynamicRuptureCluster = false;
     if (!foundDynamicRuptureCluster && numberOfDynRupCells > 0) {
@@ -83,9 +88,9 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
       // This does not mean that it is the largest cluster globally!
       const bool printProgress = (localClusterId == m_timeStepping.numberOfLocalClusters - 1) && (type == Interior);
       const auto profilingId = l_globalClusterId + offsetMonitoring;
-      auto* layerData = &memoryManager.getLtsTree()->child(localClusterId).child(type);
-      auto* dynRupInteriorData = &dynRupTree.child(Interior);
-      auto* dynRupCopyData = &dynRupTree.child(Copy);
+      auto* layerData = &memoryManager.getLtsTree()->layer(type == Copy ? copyId : interiorId);
+      auto* dynRupInteriorData = &memoryManager.getDynamicRuptureTree()->layer(interiorId);
+      auto* dynRupCopyData = &memoryManager.getDynamicRuptureTree()->layer(copyId);
       clusters.push_back(std::make_unique<TimeCluster>(
           localClusterId,
           l_globalClusterId,

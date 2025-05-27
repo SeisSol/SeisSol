@@ -254,7 +254,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
 {
   seissol::initializer::LayerMask ghostMask(Ghost);
 
-  surfaceLtsTree.setNumberOfTimeClusters(ltsTree->numChildren());
+  surfaceLtsTree.setLayerCount(ltsTree->numTimeClusters(), ltsTree->getConfigs());
   surfaceLtsTree.fixate();
 
   totalNumberOfFreeSurfaces = 0;

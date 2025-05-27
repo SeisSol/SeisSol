@@ -11,7 +11,6 @@
 
 #include "LTSInternalNode.h"
 #include "Layer.h"
-#include "TimeCluster.h"
 
 #include "Memory/MemoryAllocator.h"
 
@@ -110,6 +109,9 @@ class LTSTree : public LTSInternalNode {
     memoryInfo.push_back(m);
   }
 
+  std::size_t timeClusters;
+  std::vector<ConfigVariant> configs;
+
   public:
   LTSTree() = default;
 
@@ -123,9 +125,26 @@ class LTSTree : public LTSInternalNode {
     }
   }
 
-  void setNumberOfTimeClusters(std::size_t numberOfTimeCluster) {
-    setChildren<TimeCluster>(numberOfTimeCluster);
+  void setLayerCount(std::size_t timeClusters, const std::vector<ConfigVariant>& configs) {
+    const auto layerCount = 3 * timeClusters * configs.size();
+    setChildren<Layer>(layerCount);
+    std::vector<LayerType> haloType{Ghost, Copy, Interior};
+    std::size_t counter = 0;
+    for (int halo = 0; halo < 3; ++halo) {
+      for (const auto& config : configs) {
+        for (std::size_t lts = 0; lts < timeClusters; ++lts) {
+          layer(counter).setIdentifier(LayerIdentifier(haloType[halo], config, lts));
+          ++counter;
+        }
+      }
+    }
+    this->timeClusters = timeClusters;
+    this->configs = configs;
   }
+
+  std::size_t numTimeClusters() const { return timeClusters; }
+
+  std::vector<ConfigVariant> getConfigs() const { return configs; }
 
   void fixate() {
     memoryContainer.resize(memoryInfo.size());
@@ -135,12 +154,46 @@ class LTSTree : public LTSInternalNode {
     }
   }
 
-  TimeCluster& child(std::size_t index) {
-    return *dynamic_cast<TimeCluster*>(m_children[index].get());
+  Layer& layer(std::size_t index) { return *dynamic_cast<Layer*>(m_children[index].get()); }
+
+  [[nodiscard]] const Layer& layer(std::size_t index) const {
+    return *dynamic_cast<Layer*>(m_children[index].get());
   }
 
-  [[nodiscard]] const TimeCluster& child(std::size_t index) const {
-    return *dynamic_cast<TimeCluster*>(m_children[index].get());
+  Layer& layer(const LayerIdentifier& id) {
+    std::size_t configId = 0;
+    for (std::size_t i = 0; i < configs.size(); ++i) {
+      if (configs[i].index() == id.config.index()) {
+        configId = i;
+        break;
+      }
+    }
+    std::size_t haloId = 0;
+    if (id.halo == Copy) {
+      haloId = 1;
+    }
+    if (id.halo == Interior) {
+      haloId = 2;
+    }
+    return layer(id.lts + numTimeClusters() * (configId + configs.size() * haloId));
+  }
+
+  [[nodiscard]] const Layer& layer(const LayerIdentifier& id) const {
+    std::size_t configId = 0;
+    for (std::size_t i = 0; i < configs.size(); ++i) {
+      if (configs[i].index() == id.config.index()) {
+        configId = i;
+        break;
+      }
+    }
+    std::size_t haloId = 0;
+    if (id.halo == Copy) {
+      haloId = 1;
+    }
+    if (id.halo == Interior) {
+      haloId = 2;
+    }
+    return layer(id.lts + numTimeClusters() * (configId + configs.size() * haloId));
   }
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {

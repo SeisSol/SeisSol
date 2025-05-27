@@ -91,20 +91,21 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
     std::size_t offsetInterior;
   };
 
-  std::vector<std::size_t> clusters(m_ltsTree->numChildren() + 1);
+  std::vector<std::size_t> clusters(m_ltsTree->numTimeClusters() + 1);
   // Store number of cells in layers for each timecluster.
   // Note that the index 0 is the first cluster, unlike as in clusters.
-  auto clustersLayerOffset = std::vector<LayerOffset>(m_ltsTree->numChildren());
+  auto clustersLayerOffset = std::vector<LayerOffset>(m_ltsTree->numTimeClusters());
   clusters[0] = 0;
-  for (std::size_t tc = 0; tc < m_ltsTree->numChildren(); ++tc) {
-    auto& cluster = m_ltsTree->child(tc);
-    clusters[tc + 1] = clusters[tc] + cluster.size();
+  for (std::size_t tc = 0; tc < m_ltsTree->numTimeClusters(); ++tc) {
     // For each cluster, we first store the Ghost cells, then the Copy cells and finally the
     // Interior cells.
-    auto offsetGhost = 0U;
-    auto offsetCopy = cluster.child<Ghost>().size();
-    auto offsetInterior = offsetCopy + cluster.child<Copy>().size();
+    const auto offsetGhost = static_cast<std::size_t>(0);
+    const auto offsetCopy = m_ltsTree->layer(LayerIdentifier(Ghost, Config(), tc)).size();
+    const auto offsetInterior =
+        offsetCopy + m_ltsTree->layer(LayerIdentifier(Copy, Config(), tc)).size();
     clustersLayerOffset[tc] = LayerOffset{offsetGhost, offsetCopy, offsetInterior};
+    clusters[tc + 1] = clusters[tc] + offsetInterior +
+                       m_ltsTree->layer(LayerIdentifier(Interior, Config(), tc)).size();
   }
 
   m_meshToClusters.resize(numberOfMeshIds);
@@ -115,7 +116,7 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
     if (cell >= clusters[cluster + 1]) {
       curClusterElements = 0;
       ++cluster;
-      assert(cluster <= ltsTree->numChildren());
+      assert(cluster <= ltsTree->numTimeClusters());
     } else {
       ++curClusterElements;
     }

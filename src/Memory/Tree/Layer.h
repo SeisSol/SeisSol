@@ -186,10 +186,17 @@ struct Scratchpad : public ScratchpadDescriptor {
   using Type = T;
 };
 
+using ConfigVariant = std::variant<Config>;
+
 struct LayerIdentifier {
   enum LayerType halo;
-  int lts;
-  std::variant<Config> config;
+  ConfigVariant config;
+  std::size_t lts;
+
+  LayerIdentifier() = default;
+
+  LayerIdentifier(enum LayerType halo, ConfigVariant config, std::size_t lts)
+      : halo(halo), config(config), lts(lts) {}
 };
 
 using FilterFunction = std::function<bool(const LayerIdentifier&)>;
@@ -370,6 +377,8 @@ private:
   void setLayerType(enum LayerType layerType) { identifier.halo = layerType; }
 
   [[nodiscard]] const LayerIdentifier& getIdentifier() const { return identifier; }
+
+  void setIdentifier(const LayerIdentifier& identifier) { this->identifier = identifier; }
 
   [[nodiscard]] std::size_t size() const { return numCells; }
 

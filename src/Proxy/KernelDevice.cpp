@@ -22,7 +22,7 @@ namespace seissol::proxy {
 #ifdef ACL_DEVICE
 void ProxyKernelDeviceAder::run(ProxyData& data,
                                 seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+  auto& layer = data.ltsTree.layer(data.layerId);
 
   kernels::LocalData::Loader loader;
   loader.load(data.lts, layer);
@@ -43,7 +43,7 @@ void ProxyKernelDeviceAder::run(ProxyData& data,
 
 void ProxyKernelDeviceLocalWOAder::run(ProxyData& data,
                                        seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+  auto& layer = data.ltsTree.layer(data.layerId);
   kernels::LocalData::Loader loader;
   loader.load(data.lts, layer);
   kernels::LocalTmp tmp(9.81);
@@ -64,7 +64,7 @@ void ProxyKernelDeviceLocalWOAder::run(ProxyData& data,
 
 void ProxyKernelDeviceLocal::run(ProxyData& data,
                                  seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+  auto& layer = data.ltsTree.layer(data.layerId);
 
   kernels::LocalData::Loader loader;
   loader.load(data.lts, layer);
@@ -87,7 +87,7 @@ void ProxyKernelDeviceLocal::run(ProxyData& data,
 
 void ProxyKernelDeviceNeighbor::run(ProxyData& data,
                                     seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+  auto& layer = data.ltsTree.layer(data.layerId);
 
   kernels::NeighborData::Loader loader;
   loader.load(data.lts, layer);
@@ -107,7 +107,7 @@ void ProxyKernelDeviceNeighbor::run(ProxyData& data,
 
 void ProxyKernelDeviceGodunovDR::run(ProxyData& data,
                                      seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.dynRupTree.child(0).child<Interior>();
+  auto& layer = data.dynRupTree.layer(data.layerId);
 
   auto& dataTable = layer.getConditionalTable<inner_keys::Dr>();
 

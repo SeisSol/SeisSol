@@ -30,7 +30,7 @@
 namespace seissol::proxy {
 void ProxyKernelHostAder::run(ProxyData& data,
                               seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+  auto& layer = data.ltsTree.layer(data.layerId);
   const unsigned nrOfCells = layer.size();
   real** buffers = layer.var(data.lts.buffers);
   real** derivatives = layer.var(data.lts.derivatives);
@@ -62,7 +62,7 @@ auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> Performa
   ret.hardwareFlop = 0;
 
   // iterate over cells
-  const unsigned nrOfCells = data.ltsTree.child(0).child<Interior>().size();
+  const unsigned nrOfCells = data.ltsTree.layer(data.layerId).size();
   for (unsigned int cell = 0; cell < nrOfCells; ++cell) {
     unsigned int nonZeroFlops = 0;
     unsigned int hardwareFlops = 0;
@@ -80,7 +80,7 @@ auto ProxyKernelHostAder::needsDR() const -> bool { return false; }
 
 void ProxyKernelHostLocalWOAder::run(ProxyData& data,
                                      seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+  auto& layer = data.ltsTree.layer(data.layerId);
   const unsigned nrOfCells = layer.size();
   real** buffers = layer.var(data.lts.buffers);
 
@@ -110,7 +110,7 @@ auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> P
   ret.nonzeroFlop = 0.0;
   ret.hardwareFlop = 0.0;
 
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+  auto& layer = data.ltsTree.layer(data.layerId);
   const unsigned nrOfCells = layer.size();
   CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
   for (unsigned cell = 0; cell < nrOfCells; ++cell) {
@@ -131,7 +131,7 @@ auto ProxyKernelHostLocalWOAder::needsDR() const -> bool { return false; }
 
 void ProxyKernelHostLocal::run(ProxyData& data,
                                seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+  auto& layer = data.ltsTree.layer(data.layerId);
   const unsigned nrOfCells = layer.size();
   real** buffers = layer.var(data.lts.buffers);
   real** derivatives = layer.var(data.lts.derivatives);
@@ -161,7 +161,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 
 void ProxyKernelHostNeighbor::run(ProxyData& data,
                                   seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+  auto& layer = data.ltsTree.layer(data.layerId);
   const unsigned nrOfCells = layer.size();
   real*(*faceNeighbors)[4] = layer.var(data.lts.faceNeighbors);
   CellDRMapping(*drMapping)[4] = layer.var(data.lts.drMapping);
@@ -233,7 +233,7 @@ auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> Perf
   ret.hardwareFlop = 0.0;
 
   // iterate over cells
-  auto& layer = data.ltsTree.child(0).child<Interior>();
+  auto& layer = data.ltsTree.layer(data.layerId);
   const unsigned nrOfCells = layer.size();
   CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
   CellDRMapping(*drMapping)[4] = layer.var(data.lts.drMapping);
@@ -264,7 +264,7 @@ auto ProxyKernelHostNeighborDR::needsDR() const -> bool { return true; }
 
 void ProxyKernelHostGodunovDR::run(ProxyData& data,
                                    seissol::parallel::runtime::StreamRuntime& runtime) const {
-  seissol::initializer::Layer& layerData = data.dynRupTree.child(0).child<Interior>();
+  seissol::initializer::Layer& layerData = data.dynRupTree.layer(data.layerId);
   DRFaceInformation* faceInformation = layerData.var(data.dynRup.faceInformation);
   DRGodunovData* godunovData = layerData.var(data.dynRup.godunovData);
   DREnergyOutput* drEnergyOutput = layerData.var(data.dynRup.drEnergyOutput);
@@ -296,7 +296,7 @@ auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> Per
   ret.hardwareFlop = 0.0;
 
   // iterate over cells
-  seissol::initializer::Layer& interior = data.dynRupTree.child(0).child<Interior>();
+  seissol::initializer::Layer& interior = data.dynRupTree.layer(data.layerId);
   DRFaceInformation* faceInformation = interior.var(data.dynRup.faceInformation);
   for (unsigned face = 0; face < interior.size(); ++face) {
     long long drNonZeroFlops = 0;
