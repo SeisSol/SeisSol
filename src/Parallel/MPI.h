@@ -12,9 +12,6 @@
 #include <Common/Real.h>
 #include <Kernels/Precision.h>
 #include <functional>
-#ifndef USE_MPI
-#include "MPIDummy.h"
-#else // USE_MPI
 
 #include "MPIBasic.h"
 #include "utils/logger.h"
@@ -24,13 +21,7 @@
 #include <optional>
 #include <string>
 
-#endif // USE_MPI
-
 namespace seissol {
-
-#ifndef USE_MPI
-using MPI = MPIDummy;
-#else // USE_MPI
 
 /**
  * MPI handling.
@@ -257,8 +248,6 @@ class MPI : public MPIBasic {
   DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
   std::vector<std::string> hostNames;
 };
-
-#endif // USE_MPI
 
 } // namespace seissol
 
