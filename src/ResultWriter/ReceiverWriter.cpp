@@ -80,7 +80,6 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
 std::string ReceiverWriter::fileName(unsigned pointId) const {
   std::stringstream fns;
   fns << std::setfill('0') << m_fileNamePrefix << "-receiver-" << std::setw(5) << (pointId + 1);
-  fns << "-" << std::setw(5) << seissol::MPI::mpi.rank();
   fns << ".dat";
   return fns.str();
 }
