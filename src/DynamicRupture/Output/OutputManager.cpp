@@ -28,11 +28,13 @@
 #include "Memory/Tree/Lut.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstring>
 #include <ctime>
+#include <equation-elastic-3-double/tensor.h>
 #include <fstream>
 #include <init.h>
 #include <iomanip>
@@ -319,23 +321,14 @@ void OutputManager::initPickpointOutput() {
         file << "# x3\t" << makeFormatted(point[2]) << '\n';
 
         // stress info
-        // std::array<seissol::multisim::NumSimulations, std::array<real, 6>> rotatedInitialStress{};
-        std::array<real, 6> rotatedInitialStress{};
+        std::array< std::array<real, 6>, seissol::multisim::NumSimulations> rotatedInitialStress{};
 
         {
           auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
           const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
           const auto* initialStress = initialStressVar[face];
-          // std::array<seissol::multisim::NumSimulations, std::array<real, 6>> unrotatedInitialStress{};
-          std::array<real, 6> unrotatedInitialStress{};
-
-          // for(size_t sim=0; sim < seissol::multisim::NumSimulations; ++sim) {
-            for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size(); ++stressVar) {
-            // unrotatedInitialStress[sim][stressVar] = initialStress[stressVar][receiver.nearestGpIndex];
-            unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.nearestGpIndex];
-          }
-          // }
+          std::array<std::array<real, 6>, seissol::multisim::NumSimulations> unrotatedInitialStress{};
 
           seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
           alignAlongDipAndStrikeKernel.stressRotationMatrix =
@@ -343,15 +336,28 @@ void OutputManager::initPickpointOutput() {
           alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
               outputData->stressFaceAlignedToGlb[i].data();
 
-          alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
-          alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
+          for(size_t sim=0; sim < seissol::multisim::NumSimulations; ++sim) {
+            for (std::size_t stressVar = 0; stressVar < 6; ++stressVar) {
+            unrotatedInitialStress[sim][stressVar] = initialStress[stressVar][receiver.nearestGpIndex];
+            unrotatedInitialStress[sim][stressVar] = initialStress[stressVar][receiver.nearestGpIndex*seissol::multisim::NumSimulations + sim];
+          }
+          alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress[sim].data();
+          alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress[sim].data();
           alignAlongDipAndStrikeKernel.execute();
+
+          }
         }
 
-        file << "# P_0\t" << makeFormatted(rotatedInitialStress[0]) << '\n';
-        file << "# T_s\t" << makeFormatted(rotatedInitialStress[3]) << '\n';
-        file << "# T_d\t" << makeFormatted(rotatedInitialStress[5]) << '\n';
+        std::string suffix = "";
 
+        for(size_t sim=0; sim < seissol::multisim::NumSimulations; ++sim) {
+          if (seissol::multisim::NumSimulations > 1) {
+            suffix = std::to_string(sim);
+          }
+          file << "# P_0"<<suffix<<"\t" << makeFormatted(rotatedInitialStress[sim][0]) << '\n';
+          file << "# T_s"<<suffix<<"\t" << makeFormatted(rotatedInitialStress[sim][3]) << '\n';
+          file << "# T_d"<<suffix<<"\t" << makeFormatted(rotatedInitialStress[sim][5]) << '\n';
+        }
       } else {
         logError() << "cannot open " << fileName;
       }
