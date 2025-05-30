@@ -19,6 +19,8 @@
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Layer.h>
 #include <Numerical/BasisFunction.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
@@ -60,21 +62,22 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Spacetime::computeAder(double timeStepWidth,
-                            LocalData& data,
+                            seissol::initializer::Layer::CellRef& data,
+                            seissol::initializer::LTS& lts,
                             LocalTmp& tmp,
                             real timeIntegrated[tensor::I::size()],
                             real* timeDerivatives,
                             bool updateDisplacement) {
 
-  assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.get(lts.dofs)) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
   assert(timeDerivatives == nullptr ||
          reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
   updateDisplacement &=
-      std::any_of(std::begin(data.cellInformation().faceTypes),
-                  std::end(data.cellInformation().faceTypes),
+      std::any_of(std::begin(data.get(lts.cellInformation).faceTypes),
+                  std::end(data.get(lts.cellInformation).faceTypes),
                   [](const FaceType f) { return f == FaceType::FreeSurfaceGravity; });
 
   alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
@@ -82,13 +85,13 @@ void Spacetime::computeAder(double timeStepWidth,
 
   kernel::derivative krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration().starMatrices[i];
+    krnl.star(i) = data.get(lts.localIntegration).starMatrices[i];
   }
 
   // Optional source term
-  set_ET(krnl, get_ptr_sourceMatrix(data.localIntegration().specific));
+  set_ET(krnl, get_ptr_sourceMatrix(data.get(lts.localIntegration).specific));
 
-  krnl.dQ(0) = const_cast<real*>(data.dofs());
+  krnl.dQ(0) = const_cast<real*>(data.get(lts.dofs));
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
@@ -102,11 +105,11 @@ void Spacetime::computeAder(double timeStepWidth,
 
   if (updateDisplacement) {
     // First derivative if needed later in kernel
-    std::copy_n(data.dofs(), tensor::dQ::size(0), derivativesBuffer);
+    std::copy_n(data.get(lts.dofs), tensor::dQ::size(0), derivativesBuffer);
   } else if (timeDerivatives != nullptr) {
     // First derivative is not needed here but later
     // Hence stream it out
-    streamstore(tensor::dQ::size(0), data.dofs(), derivativesBuffer);
+    streamstore(tensor::dQ::size(0), data.get(lts.dofs), derivativesBuffer);
   }
 
   krnl.execute();
@@ -116,18 +119,18 @@ void Spacetime::computeAder(double timeStepWidth,
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (unsigned face = 0; face < 4; ++face) {
-      if (data.faceDisplacements()[face] != nullptr &&
-          data.cellInformation().faceTypes[face] == FaceType::FreeSurfaceGravity) {
+      if (data.get(lts.faceDisplacements)[face] != nullptr &&
+          data.get(lts.cellInformation).faceTypes[face] == FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
                     projectDerivativeToNodalBoundaryRotated,
-                    data.boundaryMapping()[face],
-                    data.faceDisplacements()[face],
+                    data.get(lts.boundaryMapping)[face],
+                    data.get(lts.faceDisplacements)[face],
                     tmp.nodalAvgDisplacements[face].data(),
                     *this,
                     derivativesBuffer,
                     timeStepWidth,
-                    data.material(),
-                    data.cellInformation().faceTypes[face]);
+                    data.get(lts.material),
+                    data.get(lts.cellInformation).faceTypes[face]);
       }
     }
   }

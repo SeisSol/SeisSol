@@ -28,7 +28,8 @@ class SpacetimeKernel : public Kernel {
   public:
   ~SpacetimeKernel() override = default;
   virtual void computeAder(double timeStepWidth,
-                           LocalData& data,
+                           seissol::initializer::Layer::CellRef& data,
+                           seissol::initializer::LTS& lts,
                            LocalTmp& tmp,
                            real timeIntegrated[tensor::I::size()],
                            real* timeDerivativesOrSTP = nullptr,

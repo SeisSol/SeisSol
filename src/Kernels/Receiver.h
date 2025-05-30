@@ -34,15 +34,15 @@ struct Receiver {
   Receiver(unsigned pointId,
            Eigen::Vector3d position,
            const double* elementCoords[4],
-           kernels::LocalData dataHost,
-           kernels::LocalData dataDevice,
+           seissol::initializer::Layer::CellRef dataHost,
+           seissol::initializer::Layer::CellRef dataDevice,
            size_t reserved);
   unsigned pointId;
   Eigen::Vector3d position;
   basisFunction::SampledBasisFunctions<real> basisFunctions;
   basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
-  kernels::LocalData dataHost;
-  kernels::LocalData dataDevice;
+  seissol::initializer::Layer::CellRef dataHost;
+  seissol::initializer::Layer::CellRef dataDevice;
   std::vector<real> output;
 };
 
@@ -88,8 +88,7 @@ class ReceiverCluster {
                    unsigned pointId,
                    const Eigen::Vector3d& point,
                    const seissol::geometry::MeshReader& mesh,
-                   const seissol::initializer::Lut& ltsLut,
-                   seissol::initializer::LTS const& lts);
+                   const seissol::initializer::Lut& ltsLut);
 
   //! Returns new receiver time
   double calcReceivers(
@@ -117,6 +116,7 @@ class ReceiverCluster {
   double m_syncPointInterval;
   std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities;
   seissol::SeisSol& seissolInstance;
+  initializer::LTS& lts;
 };
 } // namespace kernels
 } // namespace seissol

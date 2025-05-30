@@ -70,15 +70,16 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Neighbor::computeNeighborsIntegral(NeighborData& data,
+void Neighbor::computeNeighborsIntegral(seissol::initializer::Layer::CellRef& data,
+                                        seissol::initializer::LTS& lts,
                                         const CellDRMapping (&cellDrMapping)[4],
                                         real* timeIntegrated[4],
                                         real* faceNeighbors_prefetch[4]) {
 #ifndef NDEBUG
   for (int neighbor = 0; neighbor < 4; ++neighbor) {
     // alignment of the time integrated dofs
-    if (data.cellInformation().faceTypes[neighbor] != FaceType::Outflow &&
-        data.cellInformation().faceTypes[neighbor] !=
+    if (data.get(lts.cellInformation).faceTypes[neighbor] != FaceType::Outflow &&
+        data.get(lts.cellInformation).faceTypes[neighbor] !=
             FaceType::DynamicRupture) { // no alignment for outflow and DR boundaries required
       assert((reinterpret_cast<uintptr_t>(timeIntegrated[neighbor])) % Alignment == 0);
     }
@@ -86,7 +87,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
 #endif
 
   // alignment of the degrees of freedom
-  assert((reinterpret_cast<uintptr_t>(data.dofs())) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.get(lts.dofs))) % Alignment == 0);
 
   alignas(PagesizeStack) real Qext[tensor::Qext::size()] = {};
 
@@ -97,21 +98,21 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
   for (unsigned int face = 0; face < 4; face++) {
     // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary
     // conditions
-    if (data.cellInformation().faceTypes[face] != FaceType::Outflow &&
-        data.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
+    if (data.get(lts.cellInformation).faceTypes[face] != FaceType::Outflow &&
+        data.get(lts.cellInformation).faceTypes[face] != FaceType::DynamicRupture) {
       // compute the neighboring elements flux matrix id.
-      if (data.cellInformation().faceTypes[face] != FaceType::FreeSurface) {
-        assert(data.cellInformation().faceRelations[face][0] < 4 &&
-               data.cellInformation().faceRelations[face][1] < 3);
+      if (data.get(lts.cellInformation).faceTypes[face] != FaceType::FreeSurface) {
+        assert(data.get(lts.cellInformation).faceRelations[face][0] < 4 &&
+               data.get(lts.cellInformation).faceRelations[face][1] < 3);
 
         nfKrnl.I = timeIntegrated[face];
-        nfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
+        nfKrnl.AminusT = data.get(lts.neighboringIntegration).nAmNm1[face];
         nfKrnl._prefetch.I = faceNeighbors_prefetch[face];
-        nfKrnl.execute(data.cellInformation().faceRelations[face][1],
-                       data.cellInformation().faceRelations[face][0],
+        nfKrnl.execute(data.get(lts.cellInformation).faceRelations[face][1],
+                       data.get(lts.cellInformation).faceRelations[face][0],
                        face);
       }
-    } else if (data.cellInformation().faceTypes[face] == FaceType::DynamicRupture) {
+    } else if (data.get(lts.cellInformation).faceTypes[face] == FaceType::DynamicRupture) {
       assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Alignment == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
@@ -125,9 +126,9 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
 
   kernel::neighbor nKrnl = m_nKrnlPrototype;
   nKrnl.Qext = Qext;
-  nKrnl.Q = data.dofs();
-  nKrnl.Qane = data.dofsAne();
-  nKrnl.w = data.neighboringIntegration().specific.w;
+  nKrnl.Q = data.get(lts.dofs);
+  nKrnl.Qane = data.get(lts.dofsAne);
+  nKrnl.w = data.get(lts.neighboringIntegration).specific.w;
 
   nKrnl.execute();
 }

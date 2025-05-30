@@ -53,8 +53,9 @@ template <typename LtsT>
 class CompositeRecorder : public AbstractRecorder<LtsT> {
   public:
   ~CompositeRecorder() override {
-    for (auto recorder : concreteRecorders)
+    for (auto recorder : concreteRecorders) {
       delete recorder;
+    }
   }
 
   void record(LtsT& handler, Layer& layer) override {
@@ -80,19 +81,12 @@ class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializer::L
   void record(LTS& handler, Layer& layer) override;
 
   private:
-  void setUpContext(LTS& handler,
-                    Layer& layer,
-                    kernels::LocalData::Loader& loader,
-                    kernels::LocalData::Loader& loaderHost) {
-    currentLoader = &loader;
-    currentLoaderHost = &loaderHost;
+  void setUpContext(LTS& handler, Layer& layer) {
     integratedDofsAddressCounter = 0;
     derivativesAddressCounter = 0;
     AbstractRecorder::setUpContext(handler, layer);
   }
 
-  kernels::LocalData::Loader* currentLoader{nullptr};
-  kernels::LocalData::Loader* currentLoaderHost{nullptr};
   void recordTimeAndVolumeIntegrals();
   void recordFreeSurfaceGravityBc();
   void recordDirichletBc();
@@ -100,8 +94,8 @@ class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializer::L
   void recordLocalFluxIntegral();
   void recordDisplacements();
 
-  std::unordered_map<size_t, real*> idofsAddressRegistry{};
-  std::vector<real*> dQPtrs{};
+  std::unordered_map<size_t, real*> idofsAddressRegistry;
+  std::vector<real*> dQPtrs;
 
   size_t integratedDofsAddressCounter{0};
   size_t derivativesAddressCounter{0};
@@ -112,37 +106,21 @@ class NeighIntegrationRecorder : public AbstractRecorder<seissol::initializer::L
   void record(LTS& handler, Layer& layer) override;
 
   private:
-  void setUpContext(LTS& handler,
-                    Layer& layer,
-                    kernels::NeighborData::Loader& loader,
-                    kernels::NeighborData::Loader& loaderHost) {
-    currentLoader = &loader;
-    currentLoaderHost = &loaderHost;
+  void setUpContext(LTS& handler, Layer& layer) {
     integratedDofsAddressCounter = 0;
     AbstractRecorder::setUpContext(handler, layer);
   }
   void recordDofsTimeEvaluation();
   void recordNeighborFluxIntegrals();
-  kernels::NeighborData::Loader* currentLoader{nullptr};
-  kernels::NeighborData::Loader* currentLoaderHost{nullptr};
-  std::unordered_map<real*, real*> idofsAddressRegistry{};
+  std::unordered_map<real*, real*> idofsAddressRegistry;
   size_t integratedDofsAddressCounter{0};
 };
 
 class PlasticityRecorder : public AbstractRecorder<seissol::initializer::LTS> {
   public:
-  void setUpContext(LTS& handler,
-                    Layer& layer,
-                    kernels::LocalData::Loader& loader,
-                    kernels::LocalData::Loader& loaderHost) {
-    currentLoader = &loader;
-    currentLoaderHost = &loaderHost;
-    AbstractRecorder::setUpContext(handler, layer);
-  }
+  void setUpContext(LTS& handler, Layer& layer) { AbstractRecorder::setUpContext(handler, layer); }
 
   void record(LTS& handler, Layer& layer) override;
-  kernels::LocalData::Loader* currentLoader{nullptr};
-  kernels::LocalData::Loader* currentLoaderHost{nullptr};
 };
 
 class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializer::DynamicRupture> {
@@ -155,7 +133,7 @@ class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializer::Dyn
   }
   void recordDofsTimeEvaluation();
   void recordSpaceInterpolation();
-  std::unordered_map<real*, real*> idofsAddressRegistry{};
+  std::unordered_map<real*, real*> idofsAddressRegistry;
 };
 
 } // namespace seissol::initializer::recording

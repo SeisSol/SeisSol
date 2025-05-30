@@ -47,10 +47,11 @@ namespace seissol::kernels {
 Receiver::Receiver(unsigned pointId,
                    Eigen::Vector3d position,
                    const double* elementCoords[4],
-                   kernels::LocalData dataHost,
-                   kernels::LocalData dataDevice,
+                   seissol::initializer::Layer::CellRef dataHost,
+                   seissol::initializer::Layer::CellRef dataDevice,
                    size_t reserved)
-    : pointId(pointId), position(std::move(position)), dataHost(dataHost), dataDevice(dataDevice) {
+    : pointId(pointId), position(std::move(position)), dataHost(std::move(dataHost)),
+      dataDevice(std::move(dataDevice)) {
   output.reserve(reserved);
 
   auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(
@@ -63,7 +64,8 @@ Receiver::Receiver(unsigned pointId,
 }
 
 ReceiverCluster::ReceiverCluster(seissol::SeisSol& seissolInstance)
-    : m_samplingInterval(1.0e99), m_syncPointInterval(0.0), seissolInstance(seissolInstance) {}
+    : m_samplingInterval(1.0e99), m_syncPointInterval(0.0), seissolInstance(seissolInstance),
+      lts(*seissolInstance.getMemoryManager().getLts()) {}
 
 ReceiverCluster::ReceiverCluster(
     const CompoundGlobalData& global,
@@ -74,7 +76,7 @@ ReceiverCluster::ReceiverCluster(
     seissol::SeisSol& seissolInstance)
     : m_quantities(quantities), m_samplingInterval(samplingInterval),
       m_syncPointInterval(syncPointInterval), derivedQuantities(derivedQuantities),
-      seissolInstance(seissolInstance) {
+      seissolInstance(seissolInstance), lts(*seissolInstance.getMemoryManager().getLts()) {
   timeKernel.setGlobalData(global);
   spacetimeKernel.setGlobalData(global);
   spacetimeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
@@ -84,8 +86,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
                                   unsigned pointId,
                                   const Eigen::Vector3d& point,
                                   const seissol::geometry::MeshReader& mesh,
-                                  const seissol::initializer::Lut& ltsLut,
-                                  seissol::initializer::LTS const& lts) {
+                                  const seissol::initializer::Lut& ltsLut) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
@@ -96,17 +97,18 @@ void ReceiverCluster::addReceiver(unsigned meshId,
 
   // (time + number of quantities) * number of samples until sync point
   const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
-  m_receivers.emplace_back(
-      pointId,
-      point,
-      coords,
-      kernels::LocalData::lookup(lts, ltsLut, meshId, initializer::AllocationPlace::Host),
-      kernels::LocalData::lookup(lts,
-                                 ltsLut,
-                                 meshId,
-                                 isDeviceOn() ? initializer::AllocationPlace::Device
-                                              : initializer::AllocationPlace::Host),
-      reserved);
+  const auto& cellInfo = ltsLut.lookup(lts.secondaryInformation, meshId);
+  const initializer::LayerIdentifier identifier(ltsLut.layer(meshId), Config(), cellInfo.clusterId);
+  auto& ltsTree = *seissolInstance.getMemoryManager().getLtsTree();
+  m_receivers.emplace_back(pointId,
+                           point,
+                           coords,
+                           ltsTree.layer(identifier).cellRef(cellInfo.layerId),
+                           ltsTree.layer(identifier)
+                               .cellRef(cellInfo.layerId,
+                                        isDeviceOn() ? initializer::AllocationPlace::Device
+                                                     : initializer::AllocationPlace::Host),
+                           reserved);
 }
 
 double ReceiverCluster::calcReceivers(
@@ -166,16 +168,18 @@ double ReceiverCluster::calcReceivers(
           receiver.basisFunctionDerivatives.m_data.data();
 
       // Copy DOFs from device to host.
-      LocalData tmpReceiverData{receiver.dataHost};
+      auto tmpReceiverData{receiver.dataHost};
 #ifdef ACL_DEVICE
       if (executor == Executor::Device) {
-        tmpReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(
-            deviceCollector->get(deviceIndices[i]));
+        tmpReceiverData.setPointer(lts.dofs,
+                                   reinterpret_cast<decltype(tmpReceiverData.getPointer(lts.dofs))>(
+                                       deviceCollector->get(deviceIndices[i])));
       }
 #endif
 
       spacetimeKernel.computeAder(timeStepWidth,
                                   tmpReceiverData,
+                                  lts,
                                   tmp,
                                   timeEvaluated, // useless but the interface requires it
                                   timeDerivatives);
@@ -233,7 +237,7 @@ void ReceiverCluster::allocateData() {
   std::vector<real*> dofs;
   std::unordered_map<real*, size_t> indexMap;
   for (size_t i = 0; i < m_receivers.size(); ++i) {
-    real* currentDofs = m_receivers[i].dataDevice.dofs();
+    real* currentDofs = m_receivers[i].dataDevice.get(lts.dofs);
     if (indexMap.find(currentDofs) == indexMap.end()) {
       // point to the current array end
       indexMap[currentDofs] = dofs.size();

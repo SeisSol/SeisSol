@@ -22,10 +22,7 @@ using namespace seissol::initializer;
 using namespace seissol::initializer::recording;
 
 void PlasticityRecorder::record(LTS& handler, Layer& layer) {
-  kernels::LocalData::Loader loader, loaderHost;
-  loader.load(handler, layer, AllocationPlace::Device);
-  loaderHost.load(handler, layer, AllocationPlace::Host);
-  setUpContext(handler, layer, loader, loaderHost);
+  setUpContext(handler, layer);
 
   auto* pstrains = currentLayer->var(currentHandler->pstrain, AllocationPlace::Device);
   size_t nodalStressTensorCounter = 0;
@@ -39,12 +36,13 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
     std::vector<real*> initialLoadPtrs(size, nullptr);
 
     for (unsigned cell = 0; cell < size; ++cell) {
-      auto data = currentLoader->entry(cell);
-      dofsPtrs[cell] = static_cast<real*>(data.dofs());
+      auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
+      dofsPtrs[cell] = static_cast<real*>(data.get(currentHandler->dofs));
       qstressNodalPtrs[cell] = &scratchMem[nodalStressTensorCounter];
       nodalStressTensorCounter += tensor::QStressNodal::size();
       pstransPtrs[cell] = static_cast<real*>(pstrains[cell]);
-      initialLoadPtrs[cell] = static_cast<real*>(data.plasticity().initialLoading);
+      initialLoadPtrs[cell] =
+          static_cast<real*>(data.get(currentHandler->plasticity).initialLoading);
     }
 
     const ConditionalKey key(*KernelNames::Plasticity);

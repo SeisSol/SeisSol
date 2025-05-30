@@ -35,9 +35,6 @@ void ProxyKernelHostAder::run(ProxyData& data,
   real** buffers = layer.var(data.lts.buffers);
   real** derivatives = layer.var(data.lts.derivatives);
 
-  kernels::LocalData::Loader loader;
-  loader.load(data.lts, layer);
-
 #ifdef _OPENMP
 #pragma omp parallel
   {
@@ -48,8 +45,9 @@ void ProxyKernelHostAder::run(ProxyData& data,
 #pragma omp for schedule(static)
 #endif
     for (unsigned int cell = 0; cell < nrOfCells; cell++) {
-      auto local = loader.entry(cell);
-      data.spacetimeKernel.computeAder(Timestep, local, tmp, buffers[cell], derivatives[cell]);
+      auto local = layer.cellRef(cell);
+      data.spacetimeKernel.computeAder(
+          Timestep, local, data.lts, tmp, buffers[cell], derivatives[cell]);
     }
 #ifdef _OPENMP
     LIKWID_MARKER_STOP("ader");
@@ -84,9 +82,6 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
   const unsigned nrOfCells = layer.size();
   real** buffers = layer.var(data.lts.buffers);
 
-  kernels::LocalData::Loader loader;
-  loader.load(data.lts, layer);
-
 #ifdef _OPENMP
 #pragma omp parallel
   {
@@ -97,8 +92,8 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
 #pragma omp for schedule(static)
 #endif
     for (unsigned int cell = 0; cell < nrOfCells; cell++) {
-      auto local = loader.entry(cell);
-      data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
+      auto local = layer.cellRef(cell);
+      data.localKernel.computeIntegral(buffers[cell], local, data.lts, tmp, nullptr, nullptr, 0, 0);
     }
 #ifdef _OPENMP
     LIKWID_MARKER_STOP("localwoader");
@@ -136,9 +131,6 @@ void ProxyKernelHostLocal::run(ProxyData& data,
   real** buffers = layer.var(data.lts.buffers);
   real** derivatives = layer.var(data.lts.derivatives);
 
-  kernels::LocalData::Loader loader;
-  loader.load(data.lts, layer);
-
 #ifdef _OPENMP
 #pragma omp parallel
   {
@@ -149,9 +141,10 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 #pragma omp for schedule(static)
 #endif
     for (unsigned int cell = 0; cell < nrOfCells; cell++) {
-      auto local = loader.entry(cell);
-      data.spacetimeKernel.computeAder(Timestep, local, tmp, buffers[cell], derivatives[cell]);
-      data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
+      auto local = layer.cellRef(cell);
+      data.spacetimeKernel.computeAder(
+          Timestep, local, data.lts, tmp, buffers[cell], derivatives[cell]);
+      data.localKernel.computeIntegral(buffers[cell], local, data.lts, tmp, nullptr, nullptr, 0, 0);
     }
 #ifdef _OPENMP
     LIKWID_MARKER_STOP("local");
@@ -167,9 +160,6 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
   CellDRMapping(*drMapping)[4] = layer.var(data.lts.drMapping);
   CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
 
-  kernels::NeighborData::Loader loader;
-  loader.load(data.lts, layer);
-
   real* timeIntegrated[4];
   real* faceNeighborsPrefetch[4];
 
@@ -180,7 +170,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
 #pragma omp for schedule(static)
 #endif
     for (unsigned cell = 0; cell < nrOfCells; cell++) {
-      auto local = loader.entry(cell);
+      auto local = layer.cellRef(cell);
       seissol::kernels::TimeCommon::computeIntegrals(
           data.timeKernel,
           cellInformation[cell].ltsSetup,
@@ -219,7 +209,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
       }
 
       data.neighborKernel.computeNeighborsIntegral(
-          local, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
+          local, data.lts, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
     }
 
 #ifdef _OPENMP

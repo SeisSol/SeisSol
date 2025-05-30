@@ -248,8 +248,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
       }
 
       writeHeader(point, points[point]);
-      m_receiverClusters[layer][cluster].addReceiver(
-          meshId, point, points[point], mesh, ltsLut, lts);
+      m_receiverClusters[layer][cluster].addReceiver(meshId, point, points[point], mesh, ltsLut);
     }
   }
 }
