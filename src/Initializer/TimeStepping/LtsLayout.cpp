@@ -834,8 +834,8 @@ void seissol::initializer::time_stepping::LtsLayout::getCrossClusterTimeStepping
 
 void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLocalInformation* io_cellLocalInformation,
                                                                           SecondaryCellLocalInformation* secondaryInformation,
-                                                                          unsigned int         *&o_ltsToMesh,
-                                                                          unsigned int          &o_numberOfMeshCells ) {
+                                                                          std::size_t         *&o_ltsToMesh,
+                                                                          std::size_t          &o_numberOfMeshCells ) {
 	const int rank = seissol::MPI::mpi.rank();
 
   // total sizes of the communication layers covering all clusters
@@ -899,7 +899,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
 
   // allocate memory
   // TODO: free sometime somewhere
-  o_ltsToMesh            = new unsigned int[ numberOfLtsCells ];
+  o_ltsToMesh            = new std::size_t[ numberOfLtsCells ];
 
   // current lts cell
   unsigned int l_ltsCell = 0;

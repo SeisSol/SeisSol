@@ -13,23 +13,24 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
+#include <Kernels/Common.h>
 
 namespace seissol::initializer {
 
 inline auto allocationModeBoundary() {
-#ifndef ACL_DEVICE
-  return AllocationMode::HostOnly;
-#else
-  return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
-#endif
+  if constexpr (!isDeviceOn()) {
+    return AllocationMode::HostOnly;
+  } else {
+    return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
+  }
 }
 
 struct Boundary {
   Variable<BoundaryFaceInformation> faceInformation;
 
   void addTo(LTSTree& tree) {
-    LayerMask mask = LayerMask(Ghost);
-    tree.addVar(faceInformation, mask, 1, allocationModeBoundary());
+    const auto mask = LayerMask(Ghost);
+    tree.add(faceInformation, mask, 1, allocationModeBoundary());
   }
 };
 

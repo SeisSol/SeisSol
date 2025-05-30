@@ -170,9 +170,10 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
       ++next;
     }
 
-    for (unsigned ltsId = 0, dup = 0; dup < seissol::initializer::Lut::MaxDuplicates &&
-                                      (ltsId = ltsLut->ltsId(lts->dofs.mask, meshId, dup)) !=
-                                          std::numeric_limits<unsigned>::max();
+    for (unsigned ltsId = 0, dup = 0;
+         dup < seissol::initializer::Lut::MaxDuplicates &&
+         (ltsId = ltsLut->ltsId(ltsTree->info(lts->dofs).mask, meshId, dup)) !=
+             std::numeric_limits<unsigned>::max();
          ++dup) {
       clusterMapping.cellToSources[mapping].dofs = &ltsTree->var(lts->dofs, place)[ltsId];
       clusterMapping.cellToSources[mapping].pointSourcesOffset = clusterSource;
@@ -222,9 +223,9 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
       unsigned numberOfMappings = 0;
       for (auto it = clusterToMeshIds[cluster].begin(); it != last; ++it) {
         const unsigned meshId = *it;
-        for (unsigned dup = 0;
-             dup < seissol::initializer::Lut::MaxDuplicates &&
-             ltsLut->ltsId(lts->dofs.mask, meshId, dup) != std::numeric_limits<unsigned>::max();
+        for (unsigned dup = 0; dup < seissol::initializer::Lut::MaxDuplicates &&
+                               ltsLut->ltsId(ltsTree->info(lts->dofs).mask, meshId, dup) !=
+                                   std::numeric_limits<unsigned>::max();
              ++dup) {
           ++numberOfMappings;
         }

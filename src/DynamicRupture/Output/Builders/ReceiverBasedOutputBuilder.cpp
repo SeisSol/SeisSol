@@ -186,7 +186,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
   for (const auto& variable : variables) {
     auto* var = drTree->varUntyped(variable, initializer::AllocationPlace::Device);
-    const std::size_t elementSize = drTree->info(variable).elemsize;
+    const std::size_t elementSize = drTree->info(variable).bytes;
 
     assert(elementSize % sizeof(real) == 0);
 

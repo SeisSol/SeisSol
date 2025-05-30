@@ -35,7 +35,7 @@ void LinearSlipWeakeningInitializer::initializeFault(
     real(*muS)[misc::NumPaddedPoints] = layer.var(concreteLts->muS);
     real(*forcedRuptureTime)[misc::NumPaddedPoints] = layer.var(concreteLts->forcedRuptureTime);
     const bool providesForcedRuptureTime = this->faultProvides("forced_rupture_time");
-    for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+    for (unsigned ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       // initialize padded elements for vectorization
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         dynStressTimePending[ltsFace][pointIndex] = true;
@@ -85,7 +85,7 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(
     real(*cohesion)[misc::NumPaddedPoints] = layer.var(concreteLts->cohesion);
     auto* initialStressInFaultCS = layer.var(concreteLts->initialStressInFaultCS);
 
-    for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+    for (unsigned ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         regularizedStrength[ltsFace][pointIndex] =
             -cohesion[ltsFace][pointIndex] -
