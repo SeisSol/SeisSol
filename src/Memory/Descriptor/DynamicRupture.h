@@ -23,7 +23,7 @@
 namespace seissol::initializer {
 
 inline auto allocationModeDR() {
-  if constexpr (isDeviceOn()) {
+  if constexpr (!isDeviceOn()) {
     return AllocationMode::HostOnly;
   } else {
     return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
