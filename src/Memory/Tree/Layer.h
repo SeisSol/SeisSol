@@ -240,9 +240,9 @@ class Layer : public Node {
   class CellRef {
 public:
     CellRef(std::size_t id, Layer& layer, AllocationPlace place = AllocationPlace::Host)
-        : layer(layer), id(id), pointers(layer.memoryInfo.size()) {
+        : layer(layer), pointers(layer.memoryInfo.size()) {
       for (std::size_t i = 0; i < layer.memoryInfo.size(); ++i) {
-        if (layer.memoryInfo[i].type == MemoryType::Variable) {
+        if (layer.memoryInfo[i].type == MemoryType::Variable && !layer.memoryInfo[i].filtered) {
           pointers[i] =
               reinterpret_cast<void*>(reinterpret_cast<char*>(layer.memoryContainer[i].get(place)) +
                                       layer.memoryInfo[i].bytes * id);
@@ -252,7 +252,7 @@ public:
 
     template <typename HandleT>
     typename HandleT::Type& get(const HandleT& handle) {
-      return reinterpret_cast<typename HandleT::Type*>(
+      return *reinterpret_cast<typename HandleT::Type*>(
           pointers[layer.handlemap.at(handle.pointer())]);
     }
 
@@ -299,7 +299,6 @@ public:
 
 private:
     Layer& layer;
-    std::size_t id;
     std::vector<void*> pointers;
   };
 
@@ -480,9 +479,9 @@ private:
       // NOTE: we don't touch device global memory because it is in a different address space
       // we will do deep-copy from the host to a device later on
       if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable &&
-          (memoryContainer[var].host != nullptr)) {
+          (memoryContainer[var].host != nullptr) && numCells > 0) {
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static)
+#pragma omp for schedule(static) nowait
 #endif
         for (std::size_t cell = 0; cell < numCells; ++cell) {
           auto* cellPointer =

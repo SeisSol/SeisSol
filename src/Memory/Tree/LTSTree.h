@@ -311,8 +311,13 @@ class LTSTree : public LTSInternalNode {
   }
 
   void touchVariables() {
-    for (auto& leaf : leaves()) {
-      leaf.touchVariables(memoryInfo);
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    {
+      for (auto& leaf : leaves()) {
+        leaf.touchVariables(memoryInfo);
+      }
     }
   }
 
