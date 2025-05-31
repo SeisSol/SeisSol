@@ -149,6 +149,8 @@ struct MemoryHandle {
   [[nodiscard]] int* pointer() const { return handle.get(); }
 
   MemoryHandle() : handle(std::make_shared<int>()) {}
+
+  static constexpr bool IsVariant = false;
 };
 
 struct VariableDescriptor : public MemoryHandle {
@@ -163,6 +165,19 @@ struct ScratchpadDescriptor : public MemoryHandle {
   static constexpr MemoryType Storage = MemoryType::Scratchpad;
 };
 
+template <typename T, std::size_t N>
+struct ArrayWrapper {
+  using Type = T[N];
+};
+
+template <typename T>
+struct ArrayWrapper<T, 0> {
+  using Type = T[1]; // TODO: make void;
+};
+
+template <typename T, std::size_t N>
+using NZArray = typename ArrayWrapper<T, N>::Type;
+
 template <typename T>
 struct Variable : public VariableDescriptor {
   using Type = T;
@@ -174,6 +189,8 @@ struct VariantVariable : public VariableDescriptor {
 
   template <typename T>
   using VariantType = TT<T>;
+
+  static constexpr bool IsVariant = true;
 };
 
 template <typename T>
@@ -185,8 +202,6 @@ template <typename T>
 struct Scratchpad : public ScratchpadDescriptor {
   using Type = T;
 };
-
-using ConfigVariant = std::variant<Config>;
 
 struct LayerIdentifier {
   enum LayerType halo;

@@ -56,6 +56,11 @@ void initAssign(T& target, const T& value) {
   // for <typename S, size_t N>, to use a copy constructor as well)
 }
 
+struct LayerDefinition {
+  LayerIdentifier identifier;
+  std::size_t size;
+};
+
 class LTSTree : public LTSInternalNode {
   private:
   std::vector<DualMemoryContainer> memoryContainer;
@@ -81,14 +86,14 @@ class LTSTree : public LTSInternalNode {
     m.type = TraitT::Storage;
     m.index = memoryInfo.size();
 
-    if constexpr (std::is_same_v<typename TraitT::Type, void>) {
+    if constexpr (TraitT::IsVariant) {
       m.bytes = 0;
       m.bytesLayer = [](const LayerIdentifier& identifier) {
         return std::visit(
             [&](auto type) {
               using SelfT = typename TraitT::template VariantType<decltype(type)>;
               if constexpr (!std::is_same_v<void, SelfT>) {
-                return sizeof(typename TraitT::template VariantType<decltype(type)>);
+                return sizeof(SelfT);
               }
               return static_cast<std::size_t>(0);
             },
@@ -97,7 +102,12 @@ class LTSTree : public LTSInternalNode {
     } else {
       using SelfT = typename TraitT::Type;
       m.bytes = sizeof(SelfT);
-      m.bytesLayer = [](const LayerIdentifier& identifier) { return sizeof(SelfT); };
+      m.bytesLayer = [](const LayerIdentifier& identifier) {
+        if constexpr (!std::is_same_v<void, SelfT>) {
+          return sizeof(SelfT);
+        }
+        return static_cast<std::size_t>(0);
+      };
     }
 
     const auto bytesLayer = m.bytesLayer;

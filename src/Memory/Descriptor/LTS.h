@@ -88,7 +88,7 @@ struct LTS {
   }
   Variable<real[tensor::Q::size()]> dofs;
   // size is zero if Qane is not defined
-  Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
+  Variable<NZArray<real, kernels::size<tensor::Qane>()>> dofsAne;
   Variable<real*> buffers;
   Variable<real*> derivatives;
   Variable<CellLocalInformation> cellInformation;
