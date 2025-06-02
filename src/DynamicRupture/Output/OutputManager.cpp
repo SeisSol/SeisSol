@@ -281,6 +281,22 @@ void OutputManager::initPickpointOutput() {
 
   std::stringstream baseHeader;
   baseHeader << "VARIABLES = \"Time\"";
+if constexpr (seissol::multisim::MultisimEnabled) {
+  for (int simIdx = 0; simIdx < seissol::multisim::NumSimulations; ++simIdx) {
+    size_t labelCounter = 0;
+    auto collectVariableNames = [&baseHeader, &labelCounter, simIdx](auto& var, int) {
+      if (var.isActive) {
+        for (int dim = 0; dim < var.dim(); ++dim) {
+          baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter) << simIdx << '\"';
+          ++labelCounter;
+        }
+      } else {
+        labelCounter += var.dim();
+      }
+    };
+    misc::forEach(ppOutputData->vars, collectVariableNames);
+  }
+} else {
   size_t labelCounter = 0;
   auto collectVariableNames = [&baseHeader, &labelCounter](auto& var, int) {
     if (var.isActive) {
@@ -293,6 +309,7 @@ void OutputManager::initPickpointOutput() {
     }
   };
   misc::forEach(ppOutputData->vars, collectVariableNames);
+}
 
   auto& outputData = ppOutputData;
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
