@@ -379,4 +379,15 @@ void ReceiverBasedOutputBuilder::assignFaultTags() {
   }
 }
 
+void ReceiverBasedOutputBuilder::assignFusedIndices() {
+  // potential TODO: split properly between the nearestGpIndex and the fused nearestGpIndex
+  auto& geoPoints = outputData->receiverPoints;
+  for (auto& geoPoint : geoPoints) {
+    geoPoint.nearestGpIndex =
+        multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
+    geoPoint.nearestInternalGpIndex =
+        multisim::NumSimulations * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
+  }
+}
+
 } // namespace seissol::dr::output

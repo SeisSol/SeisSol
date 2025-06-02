@@ -126,11 +126,12 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   const auto pickpointFileName = reader->readWithDefault("ppfilename", std::string(""));
 
   const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
+  const auto aggregate = reader->readWithDefault("aggregateperrank", false);
 
   reader->warnDeprecated({"noutpoints"});
 
   return PickpointParameters{
-      printTimeInterval, maxPickStore, outputMask, pickpointFileName, collectiveio};
+      printTimeInterval, maxPickStore, outputMask, pickpointFileName, aggregate, collectiveio};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
