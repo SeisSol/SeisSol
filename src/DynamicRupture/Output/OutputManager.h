@@ -12,6 +12,7 @@
 #include "DynamicRupture/Output/Builders/PickPointBuilder.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include <DynamicRupture/Output/DataTypes.h>
 #include <memory>
 
 namespace seissol {
@@ -51,6 +52,15 @@ class OutputManager {
 
   std::shared_ptr<ReceiverOutputData> ewOutputData{nullptr};
   std::shared_ptr<ReceiverOutputData> ppOutputData{nullptr};
+
+  struct PickpointFile {
+    std::string fileName;
+
+    // all receivers to be printed into this file
+    std::vector<std::size_t> indices;
+  };
+
+  std::vector<PickpointFile> ppFiles;
 
   seissol::initializer::LTS* wpDescr{nullptr};
   seissol::initializer::LTSTree* wpTree{nullptr};
