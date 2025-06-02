@@ -355,7 +355,6 @@ if constexpr (seissol::multisim::MultisimEnabled) {
 
           for(size_t sim=0; sim < seissol::multisim::NumSimulations; ++sim) {
             for (std::size_t stressVar = 0; stressVar < 6; ++stressVar) {
-            unrotatedInitialStress[sim][stressVar] = initialStress[stressVar][receiver.nearestGpIndex];
             unrotatedInitialStress[sim][stressVar] = initialStress[stressVar][receiver.nearestGpIndex*seissol::multisim::NumSimulations + sim];
           }
           alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress[sim].data();

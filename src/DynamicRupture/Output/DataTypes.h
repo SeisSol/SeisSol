@@ -41,12 +41,14 @@ struct VarT {
     return data[dim];
   }
 
-  real& operator()(int dim, size_t level, size_t index) {
+  real& operator()(int dim, size_t level, size_t index, size_t simIdx=0) {
     assert(dim < DIM && "access is out of DIM. bounds");
     assert(level < maxCacheLevel && "access is out of cache bounds");
     assert(index < size && "access is out of size bounds");
     assert(data[dim] != nullptr && "data has not been initialized yet");
-    return data[dim][index + level * size];
+    assert(simIdx < seissol::multisim::NumSimulations && "access is out of simulation bounds");
+
+    return data[dim][index + level * size + simIdx * size * maxCacheLevel];
   }
 
   real& operator()(size_t level, size_t index) {
@@ -62,8 +64,8 @@ struct VarT {
     if (isActive) {
       for (int dim = 0; dim < DIM; ++dim) {
         assert(data[dim] == nullptr && "double allocation is not allowed");
-        data[dim] = new real[size * maxCacheLevel];
-        std::memset(static_cast<void*>(data[dim]), 0, size * maxCacheLevel * sizeof(real));
+        data[dim] = new real[size * maxCacheLevel*seissol::multisim::NumSimulations];
+        std::memset(static_cast<void*>(data[dim]), 0, size * maxCacheLevel*seissol::multisim::NumSimulations * sizeof(real));
       }
     } else {
       for (int dim = 0; dim < DIM; ++dim) {

@@ -13,16 +13,17 @@
 namespace seissol::dr::output {
 class ImposedSlipRates : public ReceiverOutput {
   protected:
-  real computeLocalStrength(LocalInfo& local) override { return 0.0; }
+  std::array<real, seissol::multisim::NumSimulations> computeLocalStrength(LocalInfo& local) override { return std::array<real, seissol::multisim::NumSimulations>{0.0};}
 
-  void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                  const std::array<real, 6>& rotatedStress) override {
+  void adjustRotatedUpdatedStress(std::array<std::array<real, 6>, seissol::multisim::NumSimulations>& rotatedUpdatedStress,
+                                  const std::array<std::array<real, 6>, seissol::multisim::NumSimulations>& rotatedStress) override {
     // we plot the Stress from Godunov state, because we want
     // to see the traction change from the imposed slip distribution
     using namespace misc::quantity_indices;
-
-    rotatedUpdatedStress[QuantityIndices::XY] = rotatedStress[QuantityIndices::XY];
-    rotatedUpdatedStress[QuantityIndices::XZ] = rotatedStress[QuantityIndices::XZ];
+    for(unsigned int sim=0; sim < seissol::multisim::NumSimulations; ++sim) {
+    rotatedUpdatedStress[sim][QuantityIndices::XY] = rotatedStress[sim][QuantityIndices::XY];
+    rotatedUpdatedStress[sim][QuantityIndices::XZ] = rotatedStress[sim][QuantityIndices::XZ];
+    }
   };
 };
 } // namespace seissol::dr::output

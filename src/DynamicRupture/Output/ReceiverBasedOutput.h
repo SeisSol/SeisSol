@@ -57,29 +57,29 @@ class ReceiverOutput {
 
     std::size_t index{};
 
-    real iniTraction1{};
-    real iniTraction2{};
+    real iniTraction1[seissol::multisim::NumSimulations]{};
+    real iniTraction2[seissol::multisim::NumSimulations]{};
 
-    real transientNormalTraction{};
-    real iniNormalTraction{};
-    real fluidPressure{};
+    real transientNormalTraction[seissol::multisim::NumSimulations]{};
+    real iniNormalTraction[seissol::multisim::NumSimulations]{};
+    real fluidPressure[seissol::multisim::NumSimulations]{};
 
-    real frictionCoefficient{};
-    real stateVariable{};
+    real frictionCoefficient[seissol::multisim::NumSimulations]{};
+    real stateVariable[seissol::multisim::NumSimulations]{};
 
-    real faultNormalVelocity{};
+    real faultNormalVelocity[seissol::multisim::NumSimulations]{};
 
-    real faceAlignedStress22{};
-    real faceAlignedStress33{};
-    real faceAlignedStress12{};
-    real faceAlignedStress13{};
-    real faceAlignedStress23{};
+    real faceAlignedStress22[seissol::multisim::NumSimulations]{};
+    real faceAlignedStress33[seissol::multisim::NumSimulations]{};
+    real faceAlignedStress12[seissol::multisim::NumSimulations]{};
+    real faceAlignedStress13[seissol::multisim::NumSimulations]{};
+    real faceAlignedStress23[seissol::multisim::NumSimulations]{};
 
-    real updatedTraction1{};
-    real updatedTraction2{};
+    real updatedTraction1[seissol::multisim::NumSimulations]{};
+    real updatedTraction2[seissol::multisim::NumSimulations]{};
 
-    real slipRateStrike{};
-    real slipRateDip{};
+    real slipRateStrike[seissol::multisim::NumSimulations]{};
+    real slipRateDip[seissol::multisim::NumSimulations]{};
 
     real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
     real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
@@ -105,14 +105,14 @@ class ReceiverOutput {
   void getDofs(real dofs[tensor::Q::size()], int meshId);
   void getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side);
   void computeLocalStresses(LocalInfo& local);
-  virtual real computeLocalStrength(LocalInfo& local) = 0;
-  virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }
-  virtual real computeStateVariable(LocalInfo& local) { return 0.0; }
-  static void updateLocalTractions(LocalInfo& local, real strength);
+  virtual std::array<real, seissol::multisim::NumSimulations> computeLocalStrength(LocalInfo& local) = 0;
+  virtual real computeFluidPressure(LocalInfo& local, unsigned int index) { return 0.0; }
+  virtual real computeStateVariable(LocalInfo& local, unsigned int index) { return 0.0; }
+  static void updateLocalTractions(LocalInfo& local, const std::array<real, seissol::multisim::NumSimulations>& strength);
   real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
   virtual void computeSlipRate(LocalInfo& local,
-                               const std::array<real, 6>& /*rotatedUpdatedStress*/,
-                               const std::array<real, 6>& /*rotatedStress*/);
+                               const std::array<std::array<real, 6>, seissol::multisim::NumSimulations>& /*rotatedUpdatedStress*/,
+                               const std::array<std::array<real, 6>, seissol::multisim::NumSimulations>& /*rotatedStress*/);
   static void computeSlipRate(LocalInfo& local,
                               const std::array<double, 3>& tangent1,
                               const std::array<double, 3>& tangent2,
@@ -122,8 +122,8 @@ class ReceiverOutput {
                                const LocalInfo& local,
                                size_t outputSpecifics,
                                size_t receiverIdx) {}
-  virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                          const std::array<real, 6>& rotatedStress) {};
+  virtual void adjustRotatedUpdatedStress(std::array<std::array<real, 6>, seissol::multisim::NumSimulations>& rotatedUpdatedStress,
+                                          const std::array<std::array<real, 6>, seissol::multisim::NumSimulations>& rotatedStress) {};
 };
 } // namespace seissol::dr::output
 

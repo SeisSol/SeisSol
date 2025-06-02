@@ -13,17 +13,21 @@
 namespace seissol::dr::output {
 class RateAndState : public ReceiverOutput {
   protected:
-  real computeLocalStrength(LocalInfo& local) override {
-    const auto effectiveNormalStress =
-        local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
-    return -1.0 * local.frictionCoefficient *
-           std::min(effectiveNormalStress, static_cast<real>(0.0));
+  std::array<real, seissol::multisim::NumSimulations> computeLocalStrength(LocalInfo& local) override {
+    std::array<real, seissol::multisim::NumSimulations> strength{};
+    for (unsigned int i = 0; i < seissol::multisim::NumSimulations; ++i) {
+      const auto effectiveNormalStress =
+        local.transientNormalTraction[i] + local.iniNormalTraction[i] - local.fluidPressure[i];
+      strength[i] = -1.0 * local.frictionCoefficient[i] *
+                     std::min(effectiveNormalStress, static_cast<real>(0.0));
+      }
+      return strength;
   }
 
-  real computeStateVariable(LocalInfo& local) override {
+  real computeStateVariable(LocalInfo& local, unsigned int index) override {
     const auto* descr = reinterpret_cast<seissol::initializer::LTSRateAndState*>(drDescr);
     assert((descr != nullptr) && "dr descr. must be a subtype of LTS_RateAndState");
-    return getCellData(local, descr->stateVariable)[local.nearestGpIndex];
+    return getCellData(local, descr->stateVariable)[index];
   }
 
   std::vector<std::size_t> getOutputVariables() const override {

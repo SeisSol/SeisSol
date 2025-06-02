@@ -83,9 +83,9 @@ void ReceiverOutput::calcFaultOutput(
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
-#pragma omp parallel for
-#endif
+// #if defined(_OPENMP) && !NVHPC_AVOID_OMP
+// #pragma omp parallel for
+// #endif
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
@@ -129,14 +129,15 @@ void ReceiverOutput::calcFaultOutput(
 #endif
 
     const auto* initStresses = getCellData(local, drDescr->initialStressInFaultCS);
+    for( unsigned int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+      local.frictionCoefficient[sim] = getCellData(local, drDescr->mu)[local.nearestGpIndex*seissol::multisim::NumSimulations + sim];
+      local.stateVariable[sim] = this->computeStateVariable(local, local.nearestGpIndex*seissol::multisim::NumSimulations + sim);
 
-    local.frictionCoefficient = getCellData(local, drDescr->mu)[local.nearestGpIndex];
-    local.stateVariable = this->computeStateVariable(local);
-
-    local.iniTraction1 = initStresses[QuantityIndices::XY][local.nearestGpIndex];
-    local.iniTraction2 = initStresses[QuantityIndices::XZ][local.nearestGpIndex];
-    local.iniNormalTraction = initStresses[QuantityIndices::XX][local.nearestGpIndex];
-    local.fluidPressure = this->computeFluidPressure(local);
+      local.iniTraction1[sim] = initStresses[QuantityIndices::XY][local.nearestGpIndex*seissol::multisim::NumSimulations + sim];
+      local.iniTraction2[sim] = initStresses[QuantityIndices::XZ][local.nearestGpIndex*seissol::multisim::NumSimulations + sim];
+      local.iniNormalTraction[sim] = initStresses[QuantityIndices::XX][local.nearestGpIndex*seissol::multisim::NumSimulations + sim];
+      local.fluidPressure[sim] = this->computeFluidPressure(local, local.nearestGpIndex*seissol::multisim::NumSimulations + sim);
+    }
 
     const auto& normal = outputData->faultDirections[i].faceNormal;
     const auto& tangent1 = outputData->faultDirections[i].tangent1;
@@ -161,7 +162,7 @@ void ReceiverOutput::calcFaultOutput(
     kernel.execute();
 
     this->computeLocalStresses(local);
-    const real strength = this->computeLocalStrength(local);
+    const auto strength = this->computeLocalStrength(local);
     seissol::dr::output::ReceiverOutput::updateLocalTractions(local, strength);
 
     seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
@@ -170,31 +171,36 @@ void ReceiverOutput::calcFaultOutput(
     alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
         outputData->stressFaceAlignedToGlb[i].data();
 
-    std::array<real, 6> updatedStress{};
-    updatedStress[QuantityIndices::XX] = local.transientNormalTraction;
-    updatedStress[QuantityIndices::YY] = local.faceAlignedStress22;
-    updatedStress[QuantityIndices::ZZ] = local.faceAlignedStress33;
-    updatedStress[QuantityIndices::XY] = local.updatedTraction1;
-    updatedStress[QuantityIndices::YZ] = local.faceAlignedStress23;
-    updatedStress[QuantityIndices::XZ] = local.updatedTraction2;
+  std::array<std::array<real, 6>, seissol::multisim::NumSimulations> updatedStress{};
+  std::array<std::array<real, 6>, seissol::multisim::NumSimulations> rotatedUpdatedStress{};
+  std::array<std::array<real, 6>, seissol::multisim::NumSimulations> stress{};
+  std::array<std::array<real, 6>, seissol::multisim::NumSimulations> rotatedStress{};
 
-    alignAlongDipAndStrikeKernel.initialStress = updatedStress.data();
-    std::array<real, 6> rotatedUpdatedStress{};
-    alignAlongDipAndStrikeKernel.rotatedStress = rotatedUpdatedStress.data();
+
+  for (int simIdx = 0; simIdx < seissol::multisim::NumSimulations; ++simIdx) {
+    updatedStress[simIdx][QuantityIndices::XX] = local.transientNormalTraction[simIdx];
+    updatedStress[simIdx][QuantityIndices::YY] = local.faceAlignedStress22[simIdx];
+    updatedStress[simIdx][QuantityIndices::ZZ] = local.faceAlignedStress33[simIdx];
+    updatedStress[simIdx][QuantityIndices::XY] = local.updatedTraction1[simIdx];
+    updatedStress[simIdx][QuantityIndices::YZ] = local.faceAlignedStress23[simIdx];
+    updatedStress[simIdx][QuantityIndices::XZ] = local.updatedTraction2[simIdx];
+
+    alignAlongDipAndStrikeKernel.initialStress = updatedStress[simIdx].data();
+    alignAlongDipAndStrikeKernel.rotatedStress = rotatedUpdatedStress[simIdx].data();
     alignAlongDipAndStrikeKernel.execute();
 
-    std::array<real, 6> stress{};
-    stress[QuantityIndices::XX] = local.transientNormalTraction;
-    stress[QuantityIndices::YY] = local.faceAlignedStress22;
-    stress[QuantityIndices::ZZ] = local.faceAlignedStress33;
-    stress[QuantityIndices::XY] = local.faceAlignedStress12;
-    stress[QuantityIndices::YZ] = local.faceAlignedStress23;
-    stress[QuantityIndices::XZ] = local.faceAlignedStress13;
+    stress[simIdx][QuantityIndices::XX] = local.transientNormalTraction[simIdx];
+    stress[simIdx][QuantityIndices::YY] = local.faceAlignedStress22[simIdx];
+    stress[simIdx][QuantityIndices::ZZ] = local.faceAlignedStress33[simIdx];
+    stress[simIdx][QuantityIndices::XY] = local.faceAlignedStress12[simIdx];
+    stress[simIdx][QuantityIndices::YZ] = local.faceAlignedStress23[simIdx];
+    stress[simIdx][QuantityIndices::XZ] = local.faceAlignedStress13[simIdx];
 
-    alignAlongDipAndStrikeKernel.initialStress = stress.data();
-    std::array<real, 6> rotatedStress{};
-    alignAlongDipAndStrikeKernel.rotatedStress = rotatedStress.data();
+    alignAlongDipAndStrikeKernel.initialStress = stress[simIdx].data();
+    alignAlongDipAndStrikeKernel.rotatedStress = rotatedStress[simIdx].data();
     alignAlongDipAndStrikeKernel.execute();
+
+  }
 
     switch (slipRateOutputType) {
     case seissol::initializer::parameters::SlipRateOutputType::TractionsAndFailure: {
@@ -211,60 +217,92 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& slipRate = std::get<VariableID::SlipRate>(outputData->vars);
     if (slipRate.isActive) {
-      slipRate(DirectionID::Strike, level, i) = local.slipRateStrike;
-      slipRate(DirectionID::Dip, level, i) = local.slipRateDip;
+      for( unsigned int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+      slipRate(DirectionID::Strike, level, i, sim) = local.slipRateStrike[sim];
+      slipRate(DirectionID::Dip, level, i, sim) = local.slipRateDip[sim];       
+      }
     }
 
     auto& transientTractions = std::get<VariableID::TransientTractions>(outputData->vars);
     if (transientTractions.isActive) {
-      transientTractions(DirectionID::Strike, level, i) = rotatedUpdatedStress[QuantityIndices::XY];
-      transientTractions(DirectionID::Dip, level, i) = rotatedUpdatedStress[QuantityIndices::XZ];
-      transientTractions(DirectionID::Normal, level, i) =
-          local.transientNormalTraction - local.fluidPressure;
+      for( unsigned int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+      transientTractions(DirectionID::Strike, level, i, sim) = rotatedUpdatedStress[sim][QuantityIndices::XY];
+      transientTractions(DirectionID::Dip, level, i, sim) = rotatedUpdatedStress[sim][QuantityIndices::XZ];
+      transientTractions(DirectionID::Normal, level, i, sim) =
+          local.transientNormalTraction[sim] - local.fluidPressure[sim];
     }
+  }
 
     auto& frictionAndState = std::get<VariableID::FrictionAndState>(outputData->vars);
     if (frictionAndState.isActive) {
-      frictionAndState(ParamID::FrictionCoefficient, level, i) = local.frictionCoefficient;
-      frictionAndState(ParamID::State, level, i) = local.stateVariable;
+      for( unsigned int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+      frictionAndState(ParamID::FrictionCoefficient, level, i, sim) = local.frictionCoefficient[sim];
+      frictionAndState(ParamID::State, level, i, sim) = local.stateVariable[sim];
     }
+  }
 
     auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData->vars);
     if (ruptureTime.isActive) {
       auto* rt = getCellData(local, drDescr->ruptureTime);
-      ruptureTime(level, i) = rt[local.nearestGpIndex];
+      if constexpr (seissol::multisim::MultisimEnabled)
+      {
+      for( unsigned int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+      ruptureTime(0, level, i, sim) = rt[local.nearestGpIndex*seissol::multisim::NumSimulations + sim];
+        }
+      }
+      else {
+        ruptureTime(level, i) = rt[local.nearestGpIndex]; // Only one simulation, need to understand why 0 indexing is needed
+      }
     }
 
     auto& normalVelocity = std::get<VariableID::NormalVelocity>(outputData->vars);
     if (normalVelocity.isActive) {
-      normalVelocity(level, i) = local.faultNormalVelocity;
+      if constexpr (seissol::multisim::MultisimEnabled) {
+        for (unsigned int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+          size_t effectiveIndex = i * seissol::multisim::NumSimulations + sim;
+          normalVelocity(0, level, i, sim) = local.faultNormalVelocity[sim];
+        }
+      } else {
+        normalVelocity(level, i) = local.faultNormalVelocity[0]; // Only one simulation, need to understand why 0 indexing is needed
+      }
     }
 
     auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData->vars);
     if (accumulatedSlip.isActive) {
       auto* slip = getCellData(local, drDescr->accumulatedSlipMagnitude);
-      accumulatedSlip(level, i) = slip[local.nearestGpIndex];
+      if constexpr (seissol::multisim::MultisimEnabled) {
+        for (unsigned int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+          accumulatedSlip(0, level, i, sim) =
+              slip[local.nearestGpIndex * seissol::multisim::NumSimulations + sim];
+        }
+      } else {
+        accumulatedSlip(level, i) =
+            slip[local.nearestGpIndex]; // Only one simulation, need to understand why 0 indexing is
+                                        // needed
+      }
     }
 
     auto& totalTractions = std::get<VariableID::TotalTractions>(outputData->vars);
     if (totalTractions.isActive) {
+      for(unsigned int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
       std::array<real, tensor::initialStress::size()> unrotatedInitStress{};
       std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
       for (std::size_t stressVar = 0; stressVar < unrotatedInitStress.size(); ++stressVar) {
-        unrotatedInitStress[stressVar] = initStresses[stressVar][local.nearestGpIndex];
+        unrotatedInitStress[stressVar] = initStresses[stressVar][local.nearestGpIndex*seissol::multisim::NumSimulations + sim];
       }
       alignAlongDipAndStrikeKernel.initialStress = unrotatedInitStress.data();
       alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitStress.data();
       alignAlongDipAndStrikeKernel.execute();
 
-      totalTractions(DirectionID::Strike, level, i) =
-          rotatedUpdatedStress[QuantityIndices::XY] + rotatedInitStress[QuantityIndices::XY];
-      totalTractions(DirectionID::Dip, level, i) =
-          rotatedUpdatedStress[QuantityIndices::XZ] + rotatedInitStress[QuantityIndices::XZ];
-      totalTractions(DirectionID::Normal, level, i) = local.transientNormalTraction -
-                                                      local.fluidPressure +
+      totalTractions(DirectionID::Strike, level, i, sim) =
+          rotatedUpdatedStress[sim][QuantityIndices::XY] + rotatedInitStress[QuantityIndices::XY];
+      totalTractions(DirectionID::Dip, level, i, sim) =
+          rotatedUpdatedStress[sim][QuantityIndices::XZ] + rotatedInitStress[QuantityIndices::XZ];
+      totalTractions(DirectionID::Normal, level, i, sim) = local.transientNormalTraction[sim] -
+                                                      local.fluidPressure[sim] +
                                                       rotatedInitStress[QuantityIndices::XX];
     }
+  }
 
     auto& ruptureVelocity = std::get<VariableID::RuptureVelocity>(outputData->vars);
     if (ruptureVelocity.isActive) {
@@ -319,70 +357,81 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
   const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
   const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
-  auto diff = [&local](int i) {
-    return local.faceAlignedValuesMinus[i] - local.faceAlignedValuesPlus[i];
+  auto diff = [&local](int i, size_t sim = 0) {
+    return local.faceAlignedValuesMinus[i*seissol::multisim::NumSimulations + sim] - local.faceAlignedValuesPlus[i*seissol::multisim::NumSimulations + sim];
   };
 
-  local.faceAlignedStress12 =
-      local.faceAlignedValuesPlus[QuantityIndices::XY] +
-      ((diff(QuantityIndices::XY) + impAndEta.zsNeig * diff(QuantityIndices::V)) * impAndEta.zs) *
-          shearDivisor;
+  real missingSigmaValues[seissol::multisim::NumSimulations]{};
 
-  local.faceAlignedStress13 =
-      local.faceAlignedValuesPlus[QuantityIndices::XZ] +
-      ((diff(QuantityIndices::XZ) + impAndEta.zsNeig * diff(QuantityIndices::W)) * impAndEta.zs) *
-          shearDivisor;
+  for (unsigned int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+    local.faceAlignedStress12[sim] =
+        local.faceAlignedValuesPlus[QuantityIndices::XY * seissol::multisim::NumSimulations + sim] +
+        ((diff(QuantityIndices::XY, sim) + impAndEta.zsNeig * diff(QuantityIndices::V, sim)) *
+         impAndEta.zs) *
+            shearDivisor;
 
-  local.transientNormalTraction =
-      local.faceAlignedValuesPlus[QuantityIndices::XX] +
-      ((diff(QuantityIndices::XX) + impAndEta.zpNeig * diff(QuantityIndices::U)) * impAndEta.zp) *
-          normalDivisor;
+    local.faceAlignedStress13[sim] =
+        local.faceAlignedValuesPlus[QuantityIndices::XZ * seissol::multisim::NumSimulations + sim] +
+        ((diff(QuantityIndices::XZ, sim) + impAndEta.zsNeig * diff(QuantityIndices::W, sim)) *
+         impAndEta.zs) *
+            shearDivisor;
 
-  local.faultNormalVelocity =
-      local.faceAlignedValuesPlus[QuantityIndices::U] +
-      (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]) *
-          impAndEta.invZp;
-
-  real missingSigmaValues =
-      (local.transientNormalTraction - local.faceAlignedValuesPlus[QuantityIndices::XX]);
-  missingSigmaValues *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
+    local.transientNormalTraction[sim] =
+        local.faceAlignedValuesPlus[QuantityIndices::XX * seissol::multisim::NumSimulations + sim] +
+        ((diff(QuantityIndices::XX, sim) + impAndEta.zpNeig * diff(QuantityIndices::U, sim)) *
+         impAndEta.zp) *
+            normalDivisor;
+    local.faultNormalVelocity[sim] =
+        local.faceAlignedValuesPlus[QuantityIndices::U * seissol::multisim::NumSimulations + sim] +
+        (local.transientNormalTraction[sim] -
+         local.faceAlignedValuesPlus[QuantityIndices::XX * seissol::multisim::NumSimulations +
+                                     sim]) *
+            impAndEta.invZp;
+    missingSigmaValues[sim] =
+      (local.transientNormalTraction[sim] - local.faceAlignedValuesPlus[QuantityIndices::XX*seissol::multisim::NumSimulations+ sim]);
+    missingSigmaValues[sim] *= (1.0 - 2.0 * std::pow(local.waveSpeedsPlus->sWaveVelocity /
                                                   local.waveSpeedsPlus->pWaveVelocity,
                                               2));
 
-  local.faceAlignedStress22 = local.faceAlignedValuesPlus[QuantityIndices::YY] + missingSigmaValues;
-  local.faceAlignedStress33 = local.faceAlignedValuesPlus[QuantityIndices::ZZ] + missingSigmaValues;
-  local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ];
+  local.faceAlignedStress22[sim] = local.faceAlignedValuesPlus[QuantityIndices::YY*seissol::multisim::NumSimulations + sim] + missingSigmaValues[sim];
+  local.faceAlignedStress33[sim] = local.faceAlignedValuesPlus[QuantityIndices::ZZ*seissol::multisim::NumSimulations + sim] + missingSigmaValues[sim];
+  local.faceAlignedStress23[sim] = local.faceAlignedValuesPlus[QuantityIndices::YZ*seissol::multisim::NumSimulations + sim];
+  }
 }
 
-void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength) {
-  const auto component1 = local.iniTraction1 + local.faceAlignedStress12;
-  const auto component2 = local.iniTraction2 + local.faceAlignedStress13;
-  const auto tracEla = misc::magnitude(component1, component2);
+void ReceiverOutput::updateLocalTractions(
+    LocalInfo& local, const std::array<real, seissol::multisim::NumSimulations>& strength) {
+  for (unsigned int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+    const auto component1 = local.iniTraction1[sim] + local.faceAlignedStress12[sim];
+    const auto component2 = local.iniTraction2[sim] + local.faceAlignedStress13[sim];
+    const auto tracEla = misc::magnitude(component1, component2);
+    if (tracEla > std::abs(strength[sim])) {
+      local.updatedTraction1[sim] =
+          ((local.iniTraction1[sim] + local.faceAlignedStress12[sim]) / tracEla) * strength[sim];
+      local.updatedTraction2[sim] =
+          ((local.iniTraction2[sim] + local.faceAlignedStress13[sim]) / tracEla) * strength[sim];
 
-  if (tracEla > std::abs(strength)) {
-    local.updatedTraction1 =
-        ((local.iniTraction1 + local.faceAlignedStress12) / tracEla) * strength;
-    local.updatedTraction2 =
-        ((local.iniTraction2 + local.faceAlignedStress13) / tracEla) * strength;
-
-    // update stress change
-    local.updatedTraction1 -= local.iniTraction1;
-    local.updatedTraction2 -= local.iniTraction2;
-  } else {
-    local.updatedTraction1 = local.faceAlignedStress12;
-    local.updatedTraction2 = local.faceAlignedStress13;
+      // update stress change
+      local.updatedTraction1[sim] -= local.iniTraction1[sim];
+      local.updatedTraction2[sim] -= local.iniTraction2[sim];
+    } else {
+      local.updatedTraction1[sim] = local.faceAlignedStress12[sim];
+      local.updatedTraction2[sim] = local.faceAlignedStress13[sim];
+    }
   }
 }
 
 void ReceiverOutput::computeSlipRate(LocalInfo& local,
-                                     const std::array<real, 6>& rotatedUpdatedStress,
-                                     const std::array<real, 6>& rotatedStress) {
+                                     const std::array<std::array<real, 6>, seissol::multisim::NumSimulations>& rotatedUpdatedStress,
+                                     const std::array<std::array<real, 6>, seissol::multisim::NumSimulations>& rotatedStress) {
 
   const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
-  local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
-                                               rotatedStress[QuantityIndices::XY]);
-  local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
-                                            rotatedStress[QuantityIndices::XZ]);
+  for(unsigned int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+  local.slipRateStrike[sim] = -impAndEta.invEtaS * (rotatedUpdatedStress[sim][QuantityIndices::XY] -
+                                               rotatedStress[sim][QuantityIndices::XY]);
+  local.slipRateDip[sim] = -impAndEta.invEtaS * (rotatedUpdatedStress[sim][QuantityIndices::XZ] -
+                                            rotatedStress[sim][QuantityIndices::XZ]);
+  }
 }
 
 void ReceiverOutput::computeSlipRate(LocalInfo& local,
@@ -390,18 +439,20 @@ void ReceiverOutput::computeSlipRate(LocalInfo& local,
                                      const std::array<double, 3>& tangent2,
                                      const std::array<double, 3>& strike,
                                      const std::array<double, 3>& dip) {
-  local.slipRateStrike = static_cast<real>(0.0);
-  local.slipRateDip = static_cast<real>(0.0);
 
+  for(unsigned int sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+    local.slipRateStrike[sim] = static_cast<real>(0.0);
+    local.slipRateDip[sim] = static_cast<real>(0.0);
   for (size_t i = 0; i < 3; ++i) {
-    const real factorMinus = (local.faceAlignedValuesMinus[QuantityIndices::V] * tangent1[i] +
-                              local.faceAlignedValuesMinus[QuantityIndices::W] * tangent2[i]);
+    const real factorMinus = (local.faceAlignedValuesMinus[QuantityIndices::V*seissol::multisim::NumSimulations + sim] * tangent1[i] +
+                              local.faceAlignedValuesMinus[QuantityIndices::W*seissol::multisim::NumSimulations + sim] * tangent2[i]); 
 
-    const real factorPlus = (local.faceAlignedValuesPlus[QuantityIndices::V] * tangent1[i] +
-                             local.faceAlignedValuesPlus[QuantityIndices::W] * tangent2[i]);
+    const real factorPlus = (local.faceAlignedValuesPlus[QuantityIndices::V*seissol::multisim::NumSimulations + sim] * tangent1[i] +
+                             local.faceAlignedValuesPlus[QuantityIndices::W*seissol::multisim::NumSimulations + sim] * tangent2[i]);
 
-    local.slipRateStrike += (factorMinus - factorPlus) * strike[i];
-    local.slipRateDip += (factorMinus - factorPlus) * dip[i];
+    local.slipRateStrike[sim] += (factorMinus - factorPlus) * strike[i];
+    local.slipRateDip[sim] += (factorMinus - factorPlus) * dip[i];
+    }
   }
 }
 

@@ -12,11 +12,15 @@
 
 namespace seissol::dr::output {
 class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
-  real computeLocalStrength(LocalInfo& local) override {
+  std::array<real, seissol::multisim::NumSimulations> computeLocalStrength(LocalInfo& local) override {
     using DrLtsDescrType = seissol::initializer::LTSLinearSlipWeakeningBimaterial;
     const auto* const regularizedStrengths =
         getCellData(local, static_cast<DrLtsDescrType*>(drDescr)->regularizedStrength);
-    return regularizedStrengths[local.nearestGpIndex];
+    std::array<real, seissol::multisim::NumSimulations> regularizedStrengthsArray{};
+    for (unsigned int i = 0; i < seissol::multisim::NumSimulations; ++i) {
+      regularizedStrengthsArray[i] = regularizedStrengths[local.nearestGpIndex*seissol::multisim::NumSimulations + i];
+    }
+    return regularizedStrengthsArray;
   }
 
   std::vector<std::size_t> getOutputVariables() const override {

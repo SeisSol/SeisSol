@@ -18,11 +18,11 @@ class RateAndStateThermalPressurization : public RateAndState {
   using RateAndState::RateAndState;
 
   protected:
-  real computeFluidPressure(LocalInfo& local) override {
+  real computeFluidPressure(LocalInfo& local, unsigned int index) override {
     using DrLtsDescrType = seissol::initializer::ThermalPressurization;
     const auto* const pressure =
         getCellData(local, dynamic_cast<DrLtsDescrType*>(drDescr)->pressure);
-    return pressure[local.nearestGpIndex];
+    return pressure[index];
   }
   void outputSpecifics(std::shared_ptr<ReceiverOutputData>& outputData,
                        const LocalInfo& local,
