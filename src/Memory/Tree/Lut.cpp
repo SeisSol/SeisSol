@@ -26,13 +26,13 @@ void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
   std::size_t globalLtsId = 0;
   std::size_t offset = 0;
   for (const auto& layer : ltsTree->leaves()) {
-    if (!layer.isMasked(mask)) {
-      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-        const std::size_t meshId = globalLtsToMesh[globalLtsId + cell];
-        ltsToMesh[offset + cell] = meshId;
-      }
-      offset += layer.size();
+    // if (!layer.isMasked(mask)) {
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      const std::size_t meshId = globalLtsToMesh[globalLtsId + cell];
+      ltsToMesh[offset + cell] = meshId;
     }
+    offset += layer.size();
+    //}
     globalLtsId += layer.size();
   }
 
@@ -100,12 +100,12 @@ void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
     // For each cluster, we first store the Ghost cells, then the Copy cells and finally the
     // Interior cells.
     const auto offsetGhost = static_cast<std::size_t>(0);
-    const auto offsetCopy = m_ltsTree->layer(LayerIdentifier(Ghost, Config(), tc)).size();
+    const auto offsetCopy = m_ltsTree->layer(LayerIdentifier(HaloType::Ghost, Config(), tc)).size();
     const auto offsetInterior =
-        offsetCopy + m_ltsTree->layer(LayerIdentifier(Copy, Config(), tc)).size();
+        offsetCopy + m_ltsTree->layer(LayerIdentifier(HaloType::Copy, Config(), tc)).size();
     clustersLayerOffset[tc] = LayerOffset{offsetGhost, offsetCopy, offsetInterior};
     clusters[tc + 1] = clusters[tc] + offsetInterior +
-                       m_ltsTree->layer(LayerIdentifier(Interior, Config(), tc)).size();
+                       m_ltsTree->layer(LayerIdentifier(HaloType::Interior, Config(), tc)).size();
   }
 
   m_meshToClusters.resize(numberOfMeshIds);

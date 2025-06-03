@@ -19,6 +19,7 @@
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
+#include <Memory/MemoryContainer.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
 #include <Numerical/Transformation.h>
@@ -84,8 +85,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
                                   unsigned pointId,
                                   const Eigen::Vector3d& point,
                                   const seissol::geometry::MeshReader& mesh,
-                                  const seissol::initializer::Lut& ltsLut,
-                                  seissol::initializer::LTS const& lts) {
+                                  const seissol::memory::MemoryContainer& container) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
@@ -96,6 +96,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
 
   // (time + number of quantities) * number of samples until sync point
   const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
+  const auto position = container.clusterBackmap.storagePositionLookup(meshId);
   m_receivers.emplace_back(
       pointId,
       point,

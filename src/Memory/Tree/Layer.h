@@ -13,6 +13,7 @@
 #include "Initializer/DeviceGraph.h"
 #include "Memory/MemoryAllocator.h"
 #include "Node.h"
+#include <Memory/Tree/Colormap.h>
 #include <bitset>
 #include <cstring>
 #include <limits>
@@ -203,17 +204,6 @@ struct Scratchpad : public ScratchpadDescriptor {
   using Type = T;
 };
 
-struct LayerIdentifier {
-  enum LayerType halo;
-  ConfigVariant config;
-  std::size_t lts;
-
-  LayerIdentifier() = default;
-
-  LayerIdentifier(enum LayerType halo, ConfigVariant config, std::size_t lts)
-      : halo(halo), config(config), lts(lts) {}
-};
-
 using FilterFunction = std::function<bool(const LayerIdentifier&)>;
 using SizeFunction = std::function<std::size_t(const LayerIdentifier&)>;
 
@@ -232,7 +222,7 @@ struct MemoryInfo {
   FilterFunction filterLayer;
 };
 
-template <LayerType... FilteredTypes>
+template <HaloType... FilteredTypes>
 bool layerFilter(const LayerIdentifier& filter) {
   return ((filter.halo == FilteredTypes) || ...);
 }
@@ -247,6 +237,8 @@ class Layer : public Node {
   std::unordered_map<std::type_index, std::size_t> typemap;
   std::unordered_map<int*, std::size_t> handlemap;
 
+  std::size_t posId{0};
+
 #ifdef ACL_DEVICE
   std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> m_computeGraphHandles{};
   ConditionalPointersToRealsTable m_conditionalPointersToRealsTable{};
@@ -258,6 +250,10 @@ class Layer : public Node {
   public:
   Layer() = default;
   ~Layer() override = default;
+
+  std::size_t id() const { return posId; }
+
+  void setId(std::size_t posId) { this->posId = posId; }
 
   class CellRef {
 public:
@@ -382,13 +378,6 @@ private:
     assert(memoryContainer.size() > index);
     memoryContainer[index].synchronizeTo(place, stream);
   }
-
-  /// i-th bit of layerMask shall be set if data is masked on the i-th layer
-  [[nodiscard]] bool isMasked(LayerMask layerMask) const {
-    return (LayerMask(identifier.halo) & layerMask).any();
-  }
-
-  void setLayerType(enum LayerType layerType) { identifier.halo = layerType; }
 
   [[nodiscard]] const LayerIdentifier& getIdentifier() const { return identifier; }
 

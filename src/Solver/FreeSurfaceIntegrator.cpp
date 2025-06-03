@@ -18,6 +18,7 @@
 #include "Parallel/MPI.h"
 #include "generated_code/kernel.h"
 #include <Common/Iterator.h>
+#include <Memory/Tree/LTSTree.h>
 #include <utils/logger.h>
 
 void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializer::LTSTree& surfaceLtsTree)
@@ -254,11 +255,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
 {
   seissol::initializer::LayerMask ghostMask(Ghost);
 
-  surfaceLtsTree.setLayerCount(ltsTree->numTimeClusters(), ltsTree->getConfigs());
-  surfaceLtsTree.fixate();
-
   totalNumberOfFreeSurfaces = 0;
-  for (auto [layer, surfaceLayer] : seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree.leaves(ghostMask))) {
+  std::vector<initializer::LayerDefinition> definitions;
+  for (auto& layer : ltsTree->leaves(ghostMask)) {
     auto* cellInformation = layer.var(lts->cellInformation);
     auto* secondaryInformation = layer.var(lts->secondaryInformation);
     auto* cellMaterialData = layer.var(lts->material);
@@ -279,11 +278,15 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
         }
       }
     }
-    surfaceLayer.setNumberOfCells(numberOfFreeSurfaces);
+    definitions.push_back(initializer::LayerDefinition{
+      layer.getIdentifier(),
+      numberOfFreeSurfaces
+    });
     totalNumberOfFreeSurfaces += numberOfFreeSurfaces;
   }
   totalNumberOfTriangles = totalNumberOfFreeSurfaces * numberOfSubTriangles;
 
+  surfaceLtsTree.initialize(ltsTree->getColorMap(), definitions);
   surfaceLtsTree.allocateVariables();
   surfaceLtsTree.touchVariables();
 

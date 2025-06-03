@@ -299,8 +299,8 @@ struct NeighboringIntegrationData {
 
 // material constants per cell
 struct CellMaterialData {
-  seissol::model::MaterialT local;
-  seissol::model::MaterialT neighbor[4];
+  seissol::model::MaterialT* local;
+  seissol::model::MaterialT* neighbor[4];
 };
 
 struct DRFaceInformation {
