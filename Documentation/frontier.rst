@@ -44,6 +44,8 @@ Run ``pwd`` and copy the path there. Run the following script there.
 Next, we load the necessary modules for our SeisSol build.
 We set the compilers to the cray compiler wrappers (which in our case use ``amdclang`` internally).
 
+**NOTE: the module versions used here are outdated.**
+
 .. code-block:: bash
 
     module load Core/24.07
@@ -85,31 +87,6 @@ Next, we also start up our Python installation. The virtual environment sets add
     pip install git+https://github.com/SeisSol/PSpaMM.git
     pip install git+https://github.com/SeisSol/gemmforge.git
     pip install git+https://github.com/SeisSol/chainforge.git
-
-Then, we can start installing the modules. For AdaptiveCpp, we need a suitable Boost installation. That can be accomplished as follows:
-
-.. code-block:: bash
-
-    wget https://boostorg.jfrog.io/artifactory/main/release/1.80.0/source/boost_1_80_0.tar.gz
-    tar -xf boost_1_80_0.tar.gz
-    cd boost_1_80_0
-
-    ./bootstrap.sh --prefix=$SEISSOL_PREFIX --with-toolset=gcc --with-libraries=fiber,context,atomic,filesystem --show-libraries
-
-    ./b2 install toolset=gcc threading=multi variant=release link=shared visibility=hidden --with-fiber --with-context --with-atomic --with-filesystem --prefix=$SEISSOL_PREFIX
-
-    cd ..
-
-Next, we build AdaptiveCpp. Note that we need to switch off everything but ROCm for the installation to work smoothly.
-
-.. code-block:: bash
-
-    git clone --branch v23.10.0 --depth 1 https://github.com/AdaptiveCpp/AdaptiveCpp.git
-    mkdir -p AdaptiveCpp/build
-    cd AdaptiveCpp/build
-    cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DWITH_OPENCL_BACKEND=OFF -DWITH_ROCM_BACKEND=ON -DWITH_SSCP_COMPILER=OFF -DWITH_STDPAR_COMPILER=OFF -DWITH_ACCELERATED_CPU=OFF -DWITH_CUDA_BACKEND=OFF -DWITH_LEVEL_ZERO_BACKEND=OFF -DDEFAULT_TARGETS=hip:gfx90a
-    ninja install
-    cd ../..
 
 The rest of the packages can be installed as usual.
 

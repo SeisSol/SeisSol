@@ -11,12 +11,10 @@ SYCL
 
 .. _installing_SYCL:
 
-SeisSol utilizes both native GPU and SYCL programming models. The former one is mainly used in performance critical
-parts of the application which typically contain some generated code. The latter one is used in places where we need to
-achieve GPU source code portability (e.g., Dynamic Rupture).
+SeisSol may also use SYCL in place of CUDA and HIP.
 
 SYCL is a standard for cross-platform programming of heterogeneous processors. Below are the instructions for
-installing the *hipSYCL* implementation of the SYCL standard. If you want to use *DPC++* then refer to
+installing the *AdaptiveCpp* implementation of the SYCL standard. If you want to use *DPC++* then refer to
 `the followig instructions <https://intel.github.io/llvm-docs/GetStartedGuide.html#create-dpc-workspace>`_.
 You can find the latest successfully tested *DPC++*
 version `here <https://github.com/intel/llvm/releases/tag/2023-WW13>`_. Additionally to *DPC++*,
@@ -24,13 +22,14 @@ you will need to compile *OpenMP* from the same repository for the host-side
 of the application. You can find the corresponding information
 `there <https://github.com/intel/llvm/tree/sycl/openmp>`_.
 
+**NOTE: the following instructions may be outdated as of 2025**
 
 Installing LLVM
 ---------------
 
 First download and prepare LLVM for building.
-Please, refer to the hipSYCL documentation regarding a specific version of LLVM.
-Here, we provide an example how to install hipSYCL using LLVM14.
+Please, refer to the AdaptiveCpp documentation regarding a specific version of LLVM.
+Here, we provide an example how to install AdaptiveCpp using LLVM14.
 Note that unpacking the tar archive takes a long time.
 
 .. code-block:: bash
@@ -52,8 +51,9 @@ installing LLVM with X86 and NVPTX backends for CPUs and GPUs, respectively.
   -DCUDA_TOOLKIT_ROOT_DIR="${CUDA_ROOT}" \
   -DCMAKE_INSTALL_PREFIX="${HOME}" \
   -DLLVM_TARGETS_TO_BUILD="X86;NVPTX"
-  make -j $(nproc)
-  make install
+
+  ninja
+  ninja install
   cd ../..
 
 Follow the instructions listed below if you need to configure LLVM with AMD GPU backend.
@@ -68,8 +68,8 @@ Follow the instructions listed below if you need to configure LLVM with AMD GPU 
   -DCMAKE_INSTALL_PREFIX="${HOME}" \
   -DLLVM_TARGETS_TO_BUILD="X86;AMDGPU"
 
-  make -j $(nproc)
-  make install
+  ninja
+  ninja install
 
   cd ../..
 
@@ -77,7 +77,7 @@ Follow the instructions listed below if you need to configure LLVM with AMD GPU 
 Installing Boost
 ----------------
 
-hipSYCL depends on 1.69.0 version of the Boost library.
+AdaptiveCpp depends on 1.69.0 version of the Boost library.
 
 .. code-block:: bash
 
@@ -108,8 +108,8 @@ compatibility to hold in future versions.
 
 .. code-block:: bash
 
-  git clone --depth 1 --branch v24.06 https://github.com/illuhad/hipSYCL.git
-  cd hipSYCL
+  git clone --depth 1 --branch v24.06 https://github.com/adaptivecpp/adaptivecpp.git
+  cd adaptivecpp
   mkdir build && cd build
 
 Given that you have installed clang as specified above, the following instructions will install AdaptiveCpp for NVIDIA GPUs, as required by SeisSol.
@@ -137,14 +137,14 @@ Make sure that the clang from the correct LLVM installation is used and check th
   -DBOOST_ROOT:PATHNAME="${HOME}" \
   -DBoost_LIBRARY_DIRS:FILEPATH="${HOME}/lib"
 
-  make -j $(nproc)
-  make install
+  ninja
+  ninja install
 
   cd ../..
 
 
 Given that you have installed clang as specified above, the following instructions will install AdaptiveCpp for NVIDIA GPUs, as required by SeisSol.
-The following steps describe the steps to configure and install hipSYCL for AMD GPUs. Note ``HIP_PATH`` is typically
+The following steps describe the steps to configure and install AdaptiveCpp for AMD GPUs. Note ``HIP_PATH`` is typically
 set by system administrators. Please, makes sure that this environment variable is not empty.
 
 .. code-block:: bash
@@ -167,8 +167,8 @@ set by system administrators. Please, makes sure that this environment variable 
   -DBOOST_ROOT:PATHNAME="${HOME}" \
   -DBoost_LIBRARY_DIRS:FILEPATH="${HOME}"/lib
 
-  make -j $(nproc)
-  make install
+  ninja
+  ninja install
 
   cd ../..
 

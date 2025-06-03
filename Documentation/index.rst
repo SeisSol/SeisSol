@@ -78,7 +78,6 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   shaheen
   frontera
   frontier
-  marconi
   heisenbug
   leonardo
   lumi
