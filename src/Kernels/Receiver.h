@@ -22,6 +22,7 @@
 #include <Common/Executor.h>
 #include <Eigen/Dense>
 #include <Initializer/Typedefs.h>
+#include <Memory/MemoryContainer.h>
 #include <optional>
 #include <vector>
 
@@ -88,8 +89,7 @@ class ReceiverCluster {
                    unsigned pointId,
                    const Eigen::Vector3d& point,
                    const seissol::geometry::MeshReader& mesh,
-                   const seissol::initializer::Lut& ltsLut,
-                   seissol::initializer::LTS const& lts);
+                   seissol::memory::MemoryContainer& container);
 
   //! Returns new receiver time
   double calcReceivers(

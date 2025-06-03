@@ -16,8 +16,10 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "generated_code/tensor.h"
+#include <Equations/Datastructures.h>
 #include <Initializer/CellLocalInformation.h>
 #include <Parallel/Helper.h>
+#include <yateto/InitTools.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/Helper.h"
@@ -86,6 +88,11 @@ struct LTS {
       }
     }
   }
+
+  using BufferT = real[tensor::I::size()];
+  using DerivativeT = real[yateto::computeFamilySize<tensor::dQ>()];
+  using FaceDisplacementT = real[tensor::faceDisplacement::size()];
+
   Variable<real[tensor::Q::size()]> dofs;
   // size is zero if Qane is not defined
   Variable<NZArray<real, kernels::size<tensor::Qane>()>> dofsAne;
@@ -97,6 +104,7 @@ struct LTS {
   Variable<LocalIntegrationData> localIntegration;
   Variable<NeighboringIntegrationData> neighboringIntegration;
   Variable<CellMaterialData> material;
+  Variable<seissol::model::MaterialT> materialData;
   Variable<seissol::model::PlasticityData> plasticity;
   Variable<CellDRMapping[4]> drMapping;
   Variable<CellBoundaryMapping[4]> boundaryMapping;

@@ -39,6 +39,8 @@ struct SecondaryCellLocalInformation {
   // ids of the face neighbors (in their respective Config LTS tree)
   unsigned int faceNeighborIds[4];
 
+  std::size_t faceNeighborGlobalIds[4];
+
   // ID in layer
   unsigned int layerId;
 
@@ -59,6 +61,9 @@ struct SecondaryCellLocalInformation {
 
   // duplicate id of own cell
   char duplicate;
+
+  // linear ID among all cells in the storage system
+  std::size_t linearId;
 };
 
 } // namespace seissol

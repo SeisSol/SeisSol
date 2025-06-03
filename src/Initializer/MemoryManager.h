@@ -13,6 +13,9 @@
 
 #include "Memory/Tree/Layer.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include <Config.h>
+#include <Memory/MemoryContainer.h>
+#include <Memory/Tree/Backmap.h>
 #ifdef USE_MPI
 #include <mpi.h>
 #endif
@@ -48,6 +51,8 @@ namespace seissol {
 class MemoryManager {
   private: // explicit private for unit tests
     seissol::SeisSol& seissolInstance;
+
+    std::optional<memory::MemoryContainer> container;
 
     //! memory allocator
     seissol::memory::ManagedAllocator m_memoryAllocator;
@@ -182,12 +187,22 @@ class MemoryManager {
     /**
      * Destructor, memory is freed by managed allocator
      **/
-    ~MemoryManager() {}
+    ~MemoryManager() = default;
     
     /**
      * Initialization function, which allocates memory for the global matrices and initializes them.
      **/
     void initialize();
+
+    void setupMemoryContainer(std::size_t maxCluster, const std::vector<ConfigVariant>& configs) {
+      container.emplace(maxCluster, configs);
+      container.value().globalDataStorage.onHost = &m_globalDataOnHost;
+      container.value().globalDataStorage.onDevice = &m_globalDataOnDevice;
+    }
+
+    memory::MemoryContainer& memoryContainer() {
+      return container.value();
+    }
     
     /**
      * Sets the number of cells in each leaf of the lts tree, fixates the variables, and allocates memory.
@@ -246,37 +261,40 @@ class MemoryManager {
     std::pair<MeshStructure*, CompoundGlobalData>
     getMemoryLayout(unsigned int i_cluster);
                           
-    inline LTSTree* getLtsTree() {
-      return &m_ltsTree;
+    LTSTree* getLtsTree() {
+      return &container.value().volume;
     }
                           
-    inline LTS* getLts() {
-      return &m_lts;
+    LTS* getLts() {
+      return &container.value().wpdesc;
     }
 
-    inline Lut* getLtsLut() {
+    Lut* getLtsLut() {
       return &m_ltsLut;
     }
 
-    // TODO(David): remove again (this method is merely a temporary construction to transition from C++ to FORTRAN and should be removed in the next refactoring step)
-    inline Lut& getLtsLutUnsafe() {
-      return m_ltsLut;
-    }
-
-    inline LTSTree* getDynamicRuptureTree() {
-      return &m_dynRupTree;
+    LTSTree* getDynamicRuptureTree() {
+      return &container.value().dynrup;
     }
                           
-    inline DynamicRupture* getDynamicRupture() {
-      return m_dynRup.get();
+    DynamicRupture* getDynamicRupture() {
+      return container.value().drdesc.get();
     }
 
-    inline LTSTree* getBoundaryTree() {
-      return &m_boundaryTree;
+    LTSTree* getBoundaryTree() {
+      return &container.value().boundary;
     }
 
-    inline Boundary* getBoundary() {
-      return &m_boundary;
+    Boundary* getBoundary() {
+      return &container.value().bnddesc;
+    }
+
+    StorageBackmap<4, LTSTree>* wpBackmap() {
+      return &container.value().clusterBackmap;
+    }
+
+    StorageBackmap<1, LTSTree>* drBackmap() {
+      return &container.value().dynrupBackmap;
     }
 
     inline void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
@@ -354,14 +372,14 @@ class MemoryManager {
 };
 
 
-    bool isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
+    bool isAcousticSideOfElasticAcousticInterface(const CellMaterialData &material,
                                                   unsigned int face);
-    bool isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
+    bool isElasticSideOfElasticAcousticInterface(const CellMaterialData &material,
                                                  unsigned int face);
-    bool isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face);
+    bool isAtElasticAcousticInterface(const CellMaterialData &material, unsigned int face);
 
     bool requiresDisplacement(CellLocalInformation cellLocalInformation,
-                              CellMaterialData &material,
+                              const CellMaterialData &material,
                               unsigned int face);
     bool requiresNodalFlux(FaceType f);
     }

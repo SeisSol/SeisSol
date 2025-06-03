@@ -16,6 +16,7 @@
 
 #include "Monitoring/Unit.h"
 #include "utils/logger.h"
+#include <Memory/Tree/Colormap.h>
 #include <type_traits>
 
 namespace seissol::initializer {
@@ -113,7 +114,7 @@ class LTSTree : public LTSInternalNode {
     const auto bytesLayer = m.bytesLayer;
 
     m.filterLayer = [mask, bytesLayer](const LayerIdentifier& identifier) {
-      return (mask.to_ulong() & identifier.halo) != 0 && bytesLayer(identifier) > 0;
+      return mask.test(static_cast<int>(identifier.halo)) || bytesLayer(identifier) == 0;
     };
 
     memoryInfo.push_back(m);
@@ -122,10 +123,14 @@ class LTSTree : public LTSInternalNode {
   std::size_t timeClusters;
   std::vector<ConfigVariant> configs;
 
+  std::optional<LTSColorMap> map;
+
   public:
   LTSTree() = default;
 
   ~LTSTree() override = default;
+
+  const LTSColorMap& getColorMap() const { return map.value(); }
 
   void setName(const std::string& name) { this->name = name; }
 
@@ -135,34 +140,23 @@ class LTSTree : public LTSInternalNode {
     }
   }
 
-  void setLayerCount(std::size_t timeClusters, const std::vector<ConfigVariant>& configs) {
-    const auto layerCount = 3 * timeClusters * configs.size();
-    setChildren<Layer>(layerCount);
-    std::vector<LayerType> haloType{Ghost, Copy, Interior};
-    std::size_t counter = 0;
-    for (int halo = 0; halo < 3; ++halo) {
-      for (const auto& config : configs) {
-        for (std::size_t lts = 0; lts < timeClusters; ++lts) {
-          layer(counter).setIdentifier(LayerIdentifier(haloType[halo], config, lts));
-          ++counter;
-        }
-      }
+  void initialize(const LTSColorMap& map, const std::vector<std::size_t>& sizes) {
+    this->map = map;
+    memoryContainer.resize(memoryInfo.size());
+    setChildren<Layer>(map.size());
+    setPostOrderPointers();
+    assert(map.size() == sizes.size());
+    for (std::size_t i = 0; i < sizes.size(); ++i) {
+      layer(i).fixPointers(memoryInfo, typemap, handlemap);
+      layer(i).setIdentifier(map.argument(i));
+      layer(i).setNumberOfCells(sizes[i]);
+      layer(i).setId(i);
     }
-    this->timeClusters = timeClusters;
-    this->configs = configs;
   }
 
   std::size_t numTimeClusters() const { return timeClusters; }
 
   std::vector<ConfigVariant> getConfigs() const { return configs; }
-
-  void fixate() {
-    memoryContainer.resize(memoryInfo.size());
-    setPostOrderPointers();
-    for (auto& leaf : leaves()) {
-      leaf.fixPointers(memoryInfo, typemap, handlemap);
-    }
-  }
 
   Layer& layer(std::size_t index) { return *dynamic_cast<Layer*>(m_children[index].get()); }
 
@@ -170,40 +164,10 @@ class LTSTree : public LTSInternalNode {
     return *dynamic_cast<Layer*>(m_children[index].get());
   }
 
-  Layer& layer(const LayerIdentifier& id) {
-    std::size_t configId = 0;
-    for (std::size_t i = 0; i < configs.size(); ++i) {
-      if (configs[i].index() == id.config.index()) {
-        configId = i;
-        break;
-      }
-    }
-    std::size_t haloId = 0;
-    if (id.halo == Copy) {
-      haloId = 1;
-    }
-    if (id.halo == Interior) {
-      haloId = 2;
-    }
-    return layer(id.lts + numTimeClusters() * (configId + configs.size() * haloId));
-  }
+  Layer& layer(const LayerIdentifier& id) { return layer(map.value().colorId(id)); }
 
   [[nodiscard]] const Layer& layer(const LayerIdentifier& id) const {
-    std::size_t configId = 0;
-    for (std::size_t i = 0; i < configs.size(); ++i) {
-      if (configs[i].index() == id.config.index()) {
-        configId = i;
-        break;
-      }
-    }
-    std::size_t haloId = 0;
-    if (id.halo == Copy) {
-      haloId = 1;
-    }
-    if (id.halo == Interior) {
-      haloId = 2;
-    }
-    return layer(id.lts + numTimeClusters() * (configId + configs.size() * haloId));
+    return layer(map.value().colorId(id));
   }
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {

@@ -11,6 +11,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
 #define SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
 
+#include <Memory/Tree/Colormap.h>
 #ifdef USE_MPI
 #include <mpi.h>
 #include <list>
@@ -217,7 +218,7 @@ private:
                                           
     void computeFlops();
 
-  const LayerType layerType;
+  const HaloType layerType;
   //! time of the next receiver output
   double m_receiverTime;
 
@@ -236,6 +237,8 @@ private:
 
   void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
+  initializer::LayerIdentifier layerIdentifier;
+
 public:
   ActResult act() override;
 
@@ -250,7 +253,7 @@ public:
       unsigned int i_globalClusterId,
       unsigned int profilingId,
       bool usePlasticity,
-      LayerType layerType,
+      const initializer::LayerIdentifier& layerIdentifier,
       double maxTimeStepSize,
       long timeStepRate,
       bool printProgress,
@@ -308,7 +311,7 @@ public:
 
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
-  [[nodiscard]] LayerType getLayerType() const;
+  [[nodiscard]] initializer::LayerIdentifier getIdentifier() const;
   void setReceiverTime(double receiverTime);
 
   std::vector<NeighborCluster>* getNeighborClusters();

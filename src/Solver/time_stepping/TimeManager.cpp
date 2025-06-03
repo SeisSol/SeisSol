@@ -64,9 +64,9 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
          static_cast<long>(l_globalClusterId));
 
     // Dynamic rupture
-    const auto interiorId = initializer::LayerIdentifier(Interior, Config(), l_globalClusterId);
-    const auto copyId = initializer::LayerIdentifier(Copy, Config(), l_globalClusterId);
-    const auto ghostId = initializer::LayerIdentifier(Ghost, Config(), l_globalClusterId);
+    const auto interiorId = initializer::LayerIdentifier(HaloType::Interior, Config(), l_globalClusterId);
+    const auto copyId = initializer::LayerIdentifier(HaloType::Copy, Config(), l_globalClusterId);
+    const auto ghostId = initializer::LayerIdentifier(HaloType::Ghost, Config(), l_globalClusterId);
 
     // Note: We need to include the Ghost part, as we need to compute its DR part as well.
     const long numberOfDynRupCells
@@ -82,13 +82,13 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
     auto& drScheduler = dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(numberOfDynRupCells,
                                                                                                         isFirstDynamicRuptureCluster));
 
-    for (auto type : {Copy, Interior}) {
-      const auto offsetMonitoring = type == Interior ? 0 : m_timeStepping.numberOfGlobalClusters;
+    for (auto type : {HaloType::Copy, HaloType::Interior}) {
+      const auto offsetMonitoring = type == HaloType::Interior ? 0 : m_timeStepping.numberOfGlobalClusters;
       // We print progress only if it is the cluster with the largest time step on each rank.
       // This does not mean that it is the largest cluster globally!
-      const bool printProgress = (localClusterId == m_timeStepping.numberOfLocalClusters - 1) && (type == Interior);
+      const bool printProgress = (localClusterId == m_timeStepping.numberOfLocalClusters - 1) && (type == HaloType::Interior);
       const auto profilingId = l_globalClusterId + offsetMonitoring;
-      auto* layerData = &memoryManager.getLtsTree()->layer(type == Copy ? copyId : interiorId);
+      auto* layerData = &memoryManager.getLtsTree()->layer(type == HaloType::Copy ? copyId : interiorId);
       auto* dynRupInteriorData = &memoryManager.getDynamicRuptureTree()->layer(interiorId);
       auto* dynRupCopyData = &memoryManager.getDynamicRuptureTree()->layer(copyId);
       clusters.push_back(std::make_unique<TimeCluster>(
@@ -96,7 +96,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
           l_globalClusterId,
           profilingId,
           usePlasticity,
-          type,
+          layerData->getIdentifier(),
           timeStepSize,
           timeStepRate,
           printProgress,
@@ -116,7 +116,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
       );
 
       const auto clusterSize = layerData->size();
-      const auto dynRupSize = type == Copy ? dynRupCopyData->size()
+      const auto dynRupSize = type == HaloType::Copy ? dynRupCopyData->size()
                                            : dynRupInteriorData->size();
       // Add writer to output
       clusteringWriter.addCluster(profilingId, localClusterId, type, clusterSize, dynRupSize);
@@ -330,20 +330,17 @@ double seissol::time_stepping::TimeManager::getTimeTolerance() {
 }
 
 void seissol::time_stepping::TimeManager::setPointSourcesForClusters(
-    std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> sourceClusters) {
+    std::vector<seissol::kernels::PointSourceClusterPair> sourceClusters) {
+  const auto& map = seissolInstance.getMemoryManager().memoryContainer().colorMap;
   for (auto& cluster : clusters) {
-    auto layerClusters = sourceClusters.find(cluster->getLayerType());
-    if (layerClusters != sourceClusters.end() && cluster->getClusterId() < layerClusters->second.size()) {
-      cluster->setPointSources(std::move(layerClusters->second[cluster->getClusterId()]));
-    }
+    cluster->setPointSources(std::move(sourceClusters[map.colorId(cluster->getIdentifier())]));
   }
 }
 
 void seissol::time_stepping::TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter)
 {
   for (auto& cluster : clusters) {
-    cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->getClusterId(),
-                                                               cluster->getLayerType()));
+    cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->getIdentifier()));
   }
 }
 

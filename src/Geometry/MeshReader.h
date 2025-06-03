@@ -29,11 +29,31 @@ namespace seissol::geometry {
 struct GhostElementMetadata {
   double vertices[4][3];
   int group;
-  LocalElemId localId;
-  GlobalElemId globalId;
-  int clusterId;
+  std::size_t localId;
+  std::size_t globalId;
+  std::size_t clusterId;
   double timestep;
+  int rank;
+  std::size_t linearId;
+
+  /** Local number of the local element */
+  std::size_t localElement;
+  /** Side of the local element */
+  int localSide;
+  /** Global number neighbor element */
+  std::size_t neighborElement;
+  /** Side of the neighbor element */
+  int neighborSide;
 };
+
+constexpr bool isCopy(const Element& element, int rank) {
+  for (int i = 0; i < 4; ++i) {
+    if (element.neighborRanks[i] != rank) {
+      return true;
+    }
+  }
+  return false;
+}
 
 class MeshReader {
   protected:
@@ -60,6 +80,7 @@ class MeshReader {
 
   /** Vertices of MPI Neighbors*/
   std::unordered_map<int, std::vector<GhostElementMetadata>> m_ghostlayerMetadata;
+  std::vector<GhostElementMetadata> m_boundaryElements;
 
   /** Has a plus fault side */
   bool m_hasPlusFault{false};
@@ -74,6 +95,7 @@ class MeshReader {
   const std::map<int, MPINeighbor>& getMPINeighbors() const;
   const std::map<int, std::vector<MPINeighborElement>>& getMPIFaultNeighbors() const;
   const std::unordered_map<int, std::vector<GhostElementMetadata>>& getGhostlayerMetadata() const;
+  const std::vector<GhostElementMetadata>& getBoundaryElements() const;
   const std::vector<Fault>& getFault() const;
   bool hasFault() const;
   bool hasPlusFault() const;

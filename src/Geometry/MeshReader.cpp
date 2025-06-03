@@ -48,6 +48,10 @@ const std::unordered_map<int, std::vector<GhostElementMetadata>>&
   return m_ghostlayerMetadata;
 }
 
+const std::vector<GhostElementMetadata>& MeshReader::getBoundaryElements() const {
+  return m_boundaryElements;
+}
+
 const std::vector<Fault>& MeshReader::getFault() const { return m_fault; }
 
 bool MeshReader::hasFault() const { return !m_fault.empty(); }
@@ -310,6 +314,13 @@ void MeshReader::exchangeGhostlayerMetadata() {
       ghost.globalId = element.globalId;
       ghost.clusterId = element.clusterId;
       ghost.timestep = element.timestep;
+
+      auto& copy = recvData[targetRank][j];
+      copy.rank = targetRank;
+      copy.localElement = it->second.elements[j].localElement;
+      copy.neighborElement = it->second.elements[j].neighborElement;
+      copy.localSide = it->second.elements[j].localSide;
+      copy.neighborSide = it->second.elements[j].neighborSide;
     }
 
     // TODO(David): evaluate, if MPI_Ssend (instead of just MPI_Send) makes sense here?
@@ -334,6 +345,15 @@ void MeshReader::exchangeGhostlayerMetadata() {
   m_ghostlayerMetadata = std::move(recvData);
 
   MPI_Type_free(&ghostElementType);
+
+  for (auto& [_, rankdata] : m_ghostlayerMetadata) {
+    std::size_t prevEnd = m_boundaryElements.size();
+    m_boundaryElements.insert(m_boundaryElements.end(), rankdata.begin(), rankdata.end());
+    for (std::size_t i = 0; i < rankdata.size(); ++i) {
+      rankdata[i].linearId = prevEnd + i;
+      m_boundaryElements[i + prevEnd].linearId = i + prevEnd;
+    }
+  }
 #endif
 }
 

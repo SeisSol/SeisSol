@@ -12,7 +12,7 @@ namespace seissol {
 
 constexpr int DataTagOffset = 2;
 
-enum class HaloType { Ghost, Copy, Interior };
+enum class HaloType : char { Ghost = 0, Copy = 1, Interior = 2 };
 
 enum class TimeClustering {
   // global time stepping

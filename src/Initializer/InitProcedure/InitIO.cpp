@@ -357,8 +357,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     receiverWriter.init(seissolParams.output.prefix,
                         seissolParams.timeStepping.endTime,
                         seissolParams.output.receiverParameters);
-    receiverWriter.addPoints(
-        seissolInstance.meshReader(), *ltsLut, *lts, memoryManager.getGlobalData());
+    receiverWriter.addPoints(seissolInstance.meshReader(), memoryManager.memoryContainer());
     seissolInstance.timeManager().setReceiverClusters(receiverWriter);
   }
 

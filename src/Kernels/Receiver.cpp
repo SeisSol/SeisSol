@@ -19,6 +19,7 @@
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
+#include <Memory/MemoryContainer.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
 #include <Numerical/Transformation.h>
@@ -26,6 +27,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <init.h>
 #include <memory>
 #include <omp.h>
@@ -84,8 +86,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
                                   unsigned pointId,
                                   const Eigen::Vector3d& point,
                                   const seissol::geometry::MeshReader& mesh,
-                                  const seissol::initializer::Lut& ltsLut,
-                                  seissol::initializer::LTS const& lts) {
+                                  seissol::memory::MemoryContainer& container) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
@@ -96,17 +97,21 @@ void ReceiverCluster::addReceiver(unsigned meshId,
 
   // (time + number of quantities) * number of samples until sync point
   const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
-  m_receivers.emplace_back(
-      pointId,
-      point,
-      coords,
-      kernels::LocalData::lookup(lts, ltsLut, meshId, initializer::AllocationPlace::Host),
-      kernels::LocalData::lookup(lts,
-                                 ltsLut,
-                                 meshId,
-                                 isDeviceOn() ? initializer::AllocationPlace::Device
-                                              : initializer::AllocationPlace::Host),
-      reserved);
+  const auto position = container.clusterBackmap.storagePositionLookup(meshId);
+  kernels::LocalData::Loader loader;
+  loader.load(container.wpdesc, container.volume.layer(position.color));
+  kernels::LocalData::Loader loaderDevice;
+  loader.load(container.wpdesc,
+              container.volume.layer(position.color),
+              isDeviceOn() ? initializer::AllocationPlace::Device
+                           : initializer::AllocationPlace::Host);
+
+  m_receivers.emplace_back(pointId,
+                           point,
+                           coords,
+                           loader.entry(position.cell),
+                           loaderDevice.entry(position.cell),
+                           reserved);
 }
 
 double ReceiverCluster::calcReceivers(

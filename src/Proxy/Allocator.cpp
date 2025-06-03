@@ -17,6 +17,8 @@
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/GlobalData.h>
 #include <Memory/MemoryAllocator.h>
+#include <Memory/Tree/Colormap.h>
+#include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Proxy/Constants.h>
 #include <cstddef>
@@ -150,26 +152,25 @@ void ProxyData::initGlobalData() {
 }
 
 void ProxyData::initDataStructures(bool enableDR) {
+  // TODO: other color map
+  initializer::LTSColorMap map(initializer::TraitLayer<ConfigVariant>({Config()}),
+                               initializer::EnumLayer<std::size_t>({0}),
+                               initializer::EnumLayer<HaloType>({HaloType::Interior}));
+
   // init RNG
   lts.addTo(ltsTree, false); // proxy does not use plasticity
-  ltsTree.setLayerCount(1, {Config()});
-  ltsTree.fixate();
-
-  ltsTree.layer(layerId).setNumberOfCells(cellCount);
-
-  seissol::initializer::Layer& layer = ltsTree.layer(layerId);
-  layer.setEntrySize(lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.size());
+  ltsTree.initialize(map, {cellCount});
 
   ltsTree.allocateVariables();
   ltsTree.touchVariables();
+
+  seissol::initializer::Layer& layer = ltsTree.layer(0);
+  layer.setEntrySize(lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.size());
   ltsTree.allocateBuckets();
 
   if (enableDR) {
     dynRup.addTo(dynRupTree);
-    dynRupTree.setLayerCount(1, {Config()});
-    dynRupTree.fixate();
-
-    dynRupTree.layer(layerId).setNumberOfCells(4 * cellCount);
+    dynRupTree.initialize(map, {4 * cellCount});
 
     dynRupTree.allocateVariables();
     dynRupTree.touchVariables();
@@ -223,7 +224,7 @@ void ProxyData::initDataStructures(bool enableDR) {
         isDeviceOn() ? initializer::AllocationPlace::Device : initializer::AllocationPlace::Host;
 
     // From dynamic rupture tree
-    seissol::initializer::Layer& interior = dynRupTree.layer(layerId);
+    seissol::initializer::Layer& interior = dynRupTree.layer(0);
     real(*imposedStatePlus)[seissol::tensor::QInterpolated::size()] =
         interior.var(dynRup.imposedStatePlus, Place);
     real(*fluxSolverPlus)[seissol::tensor::fluxSolver::size()] =
@@ -283,7 +284,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
                         device.api->getDefaultStream());
   device.api->syncDefaultStreamWithHost();
 
-  seissol::initializer::Layer& layer = ltsTree.layer(layerId);
+  seissol::initializer::Layer& layer = ltsTree.layer(0);
 
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
   ltsTree.allocateScratchPads();
@@ -304,7 +305,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
     CompositeRecorder<seissol::initializer::DynamicRupture> drRecorder;
     drRecorder.addRecorder(new DynamicRuptureRecorder);
 
-    auto& drLayer = dynRupTree.layer(layerId);
+    auto& drLayer = dynRupTree.layer(0);
     drRecorder.record(dynRup, drLayer);
   }
 #endif // ACL_DEVICE

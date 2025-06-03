@@ -13,6 +13,7 @@
 #include <fstream>
 #include <ios>
 #include <string>
+#include <type_traits>
 #include <utils/logger.h>
 
 #include "Parallel/MPI.h"
@@ -22,12 +23,13 @@ ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPref
 
 void ClusteringWriter::addCluster(unsigned profilingId,
                                   unsigned localClusterId,
-                                  LayerType layerType,
+                                  HaloType layerType,
                                   unsigned size,
                                   unsigned dynRupSize) {
   clusteringInformation.profilingIds.push_back(profilingId);
   clusteringInformation.localClusterIds.push_back(localClusterId);
-  clusteringInformation.layerTypes.push_back(layerType);
+  clusteringInformation.layerTypes.push_back(
+      static_cast<std::underlying_type_t<HaloType>>(layerType));
   clusteringInformation.sizes.push_back(size);
   clusteringInformation.dynamicRuptureSizes.push_back(dynRupSize);
 }
@@ -61,11 +63,11 @@ void ClusteringWriter::write() const {
       const auto& curDynamicRuptureSizes = dynamicRuptureSizes[rank];
 
       for (std::size_t i = 0; i < curProfilingIds.size(); ++i) {
-        const auto layerType = static_cast<LayerType>(curLayerTypes[i]);
-        if (layerType != LayerType::Interior && layerType != LayerType::Copy) {
+        const auto layerType = static_cast<HaloType>(curLayerTypes[i]);
+        if (layerType != HaloType::Interior && layerType != HaloType::Copy) {
           logError() << "Encountered illegal layer type in ClusteringWriter.";
         }
-        const auto* layerTypeStr = layerType == Interior ? "Interior" : "Copy";
+        const auto* layerTypeStr = layerType == HaloType::Interior ? "Interior" : "Copy";
         fileStream << curProfilingIds[i] << "," << curLocalClusterIds[i] << "," << layerTypeStr
                    << "," << curSizes[i] << "," << curDynamicRuptureSizes[i] << "," << rank << ","
                    << localRank << "\n";

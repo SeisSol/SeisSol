@@ -16,6 +16,7 @@
 #include "Modules/Module.h"
 #include "Solver/time_stepping/AbstractGhostTimeCluster.h"
 #include "Solver/time_stepping/TimeCluster.h"
+#include <Memory/MemoryContainer.h>
 
 namespace seissol {
 class SeisSol;
@@ -29,9 +30,7 @@ class InstantaneousTimeMirrorManager : Module {
   double triggerTime{};
 
   seissol::geometry::MeshReader* meshReader{};
-  initializer::LTSTree* ltsTree{};
-  initializer::LTS* lts{};
-  initializer::Lut* ltsLut{};
+  memory::MemoryContainer* container{};
   const TimeStepping* timestepping{};
 
   std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters{};
@@ -45,9 +44,7 @@ class InstantaneousTimeMirrorManager : Module {
   void init(double velocityScalingFactor,
             double triggerTime,
             seissol::geometry::MeshReader* meshReader,
-            initializer::LTSTree* ltsTree,
-            initializer::LTS* lts,
-            initializer::Lut* ltsLut,
+            memory::MemoryContainer* container,
             const TimeStepping* timestepping); // An empty timestepping is added. Need to discuss
                                                // what exactly is to be sent here
 
@@ -68,9 +65,7 @@ void initializeTimeMirrorManagers(
     double scalingFactor,
     double triggerTime,
     seissol::geometry::MeshReader* meshReader,
-    initializer::LTSTree* ltsTree,
-    initializer::LTS* lts,
-    initializer::Lut* ltsLut,
+    memory::MemoryContainer* container,
     InstantaneousTimeMirrorManager& increaseManager,
     InstantaneousTimeMirrorManager& decreaseManager,
     seissol::SeisSol& seissolInstance,

@@ -36,7 +36,7 @@
 seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsigned int i_globalClusterId,
                                                  unsigned int profilingId,
                                                  bool usePlasticity,
-                                                 LayerType layerType, double maxTimeStepSize,
+                                                 const initializer::LayerIdentifier& layerIdentifier, double maxTimeStepSize,
                                                  long timeStepRate, bool printProgress,
                                                  DynamicRuptureScheduler *dynamicRuptureScheduler,
                                                  CompoundGlobalData i_globalData,
@@ -77,13 +77,14 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     m_loopStatistics(i_loopStatistics),
     actorStateStatistics(actorStateStatistics),
     m_receiverCluster(nullptr),
-    layerType(layerType),
+    layerType(layerIdentifier.halo),
     printProgress(printProgress),
     m_clusterId(i_clusterId),
     m_globalClusterId(i_globalClusterId),
     m_profilingId(profilingId),
     dynamicRuptureScheduler(dynamicRuptureScheduler),
-    yieldCells(1, isDeviceOn() ? seissol::memory::PinnedMemory : seissol::memory::Standard)
+    yieldCells(1, isDeviceOn() ? seissol::memory::PinnedMemory : seissol::memory::Standard),
+    layerIdentifier(layerIdentifier)
 {
     // assert all pointers are valid
     assert( m_clusterData                              != nullptr );
@@ -304,8 +305,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   // pointer for the call of the ADER-function
   real* l_bufferPointer;
 
-  real** buffers = i_layerData.var(m_lts->buffers);
-  real** derivatives = i_layerData.var(m_lts->derivatives);
+  auto* buffers = i_layerData.var(m_lts->buffers);
+  auto* derivatives = i_layerData.var(m_lts->derivatives);
   CellMaterialData* materialData = i_layerData.var(m_lts->material);
 
   kernels::LocalData::Loader loader;
@@ -722,7 +723,7 @@ void TimeCluster::correct() {
       seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
       dynamicRuptureScheduler->setLastCorrectionStepsInterior(ct.stepsSinceStart);
     }
-    if (layerType == Copy) {
+    if (layerType == HaloType::Copy) {
       handleDynamicRupture(*dynRupCopyData);
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(m_flops_nonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
       seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(m_flops_hardware[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
@@ -804,8 +805,8 @@ unsigned int TimeCluster::getGlobalClusterId() const {
   return m_globalClusterId;
 }
 
-LayerType TimeCluster::getLayerType() const {
-  return layerType;
+initializer::LayerIdentifier TimeCluster::getIdentifier() const {
+  return layerIdentifier;
 }
 void TimeCluster::setReceiverTime(double receiverTime) {
   m_receiverTime = receiverTime;
@@ -912,10 +913,10 @@ void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, voi
 #ifdef ACL_DEVICE
   if ((place == initializer::AllocationPlace::Host && executor == Executor::Device) || (place == initializer::AllocationPlace::Device && executor == Executor::Host)) {
     m_clusterData->synchronizeTo(place, stream);
-    if (layerType == Interior) {
+    if (layerType == HaloType::Interior) {
       dynRupInteriorData->synchronizeTo(place, stream);
     }
-    if (layerType == Copy) {
+    if (layerType == HaloType::Copy) {
       dynRupCopyData->synchronizeTo(place, stream);
     }
   }

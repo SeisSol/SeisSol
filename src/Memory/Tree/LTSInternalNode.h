@@ -43,7 +43,8 @@ private:
 
     // m_node must point to a leaf or NULL
     void skipMaskedLayer() {
-      while (*this != m_end && operator*().isMasked(m_layerMask)) {
+      while (*this != m_end &&
+             m_layerMask.test(static_cast<int>(operator*().getIdentifier().halo))) {
         nextLeaf();
       }
     }
@@ -91,7 +92,8 @@ private:
 
     // m_node must point to a leaf or NULL
     void skipMaskedLayer() {
-      while (*this != m_end && operator*().isMasked(m_layerMask)) {
+      while (*this != m_end &&
+             m_layerMask.test(static_cast<int>(operator*().getIdentifier().halo))) {
         nextLeaf();
       }
     }
