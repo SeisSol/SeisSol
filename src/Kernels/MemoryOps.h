@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SEISSOL_SRC_KERNELS_DENSEMATRIXOPS_H_
-#define SEISSOL_SRC_KERNELS_DENSEMATRIXOPS_H_
+#ifndef SEISSOL_SRC_KERNELS_MEMORYOPS_H_
+#define SEISSOL_SRC_KERNELS_MEMORYOPS_H_
 
 #include <Kernels/Precision.h>
 
@@ -120,4 +120,4 @@ inline void streamstore<double>(std::size_t numberOfReals, const double* x, doub
 }
 } // namespace seissol::kernels
 
-#endif // SEISSOL_SRC_KERNELS_DENSEMATRIXOPS_H_
+#endif // SEISSOL_SRC_KERNELS_MEMORYOPS_H_
