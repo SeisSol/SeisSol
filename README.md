@@ -51,6 +51,6 @@ To learn more about contributing to SeisSol, please read our [**Contribution pag
 
 The source code of SeisSol is licensed under the BSD-3-Clause license.
 Some files in the `cmake` and `external` folders may have different licenses
-(BSL-1.0, MIT).
+(BSL-1.0, MIT, BSD-2-Clause).
 
 See the [LICENSE](LICENSE) file for more details.
