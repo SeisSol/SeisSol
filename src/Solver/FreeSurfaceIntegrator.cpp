@@ -11,7 +11,7 @@
 #include "Memory/MemoryAllocator.h"
 #include "Initializer/MemoryManager.h"
 #include "Kernels/Common.h"
-#include "Kernels/DenseMatrixOps.h"
+#include "Kernels/MemoryOps.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"

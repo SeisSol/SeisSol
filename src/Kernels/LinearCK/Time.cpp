@@ -27,7 +27,7 @@
 #include <iterator>
 
 #include "Kernels/Common.h"
-#include "Kernels/DenseMatrixOps.h"
+#include "Kernels/MemoryOps.h"
 
 #include <cassert>
 #include <cstring>
