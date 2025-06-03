@@ -19,8 +19,6 @@
 #include "DenseMatrixOpsAVX512.h"
 #elif defined(__MIC__)
 #include "DenseMatrixOpsMIC.h"
-#elif defined(__AVX2__)
-#include "DenseMatrixOpsAVX2.h"
 #elif defined(__AVX__)
 #include "DenseMatrixOpsAVX.h"
 #elif defined(__SSE3__)
