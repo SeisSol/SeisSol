@@ -11,24 +11,82 @@
 
 #include <Kernels/Precision.h>
 
-#if defined(__SSE3__) || defined(__MIC__)
-#include <immintrin.h>
-#endif
-
 #if defined(__AVX512F__)
-#include "DenseMatrixOpsAVX512.h"
+
+#include <immintrin.h>
+
+#define DMO_INCREMENT64 8
+#define DMO_STREAM64(IN, OUT) _mm512_stream_pd(OUT, _mm512_load_pd(IN));
+
+#define DMO_INCREMENT32 16
+#define DMO_STREAM32(IN, OUT) _mm512_stream_ps(OUT, _mm512_load_ps(IN));
+
 #elif defined(__MIC__)
-#include "DenseMatrixOpsMIC.h"
+
+#include <immintrin.h>
+
+#define DMO_INCREMENT64 8
+#define DMO_STREAM64(IN, OUT) _mm512_storenrngo_pd(OUT, _mm512_load_pd(IN));
+
+#define DMO_INCREMENT32 16
+#define DMO_STREAM32(IN, OUT) _mm512_storenrngo_ps(OUT, _mm512_load_ps(IN));
+
 #elif defined(__AVX__)
-#include "DenseMatrixOpsAVX.h"
+
+#include <immintrin.h>
+
+#define DMO_INCREMENT64 4
+#define DMO_STREAM64(IN, OUT) _mm256_stream_pd(OUT, _mm256_load_pd(IN));
+
+#define DMO_INCREMENT32 8
+#define DMO_STREAM32(IN, OUT) _mm256_stream_ps(OUT, _mm256_load_ps(IN));
+
 #elif defined(__SSE3__)
-#include "DenseMatrixOpsSSE3.h"
+
+#include <immintrin.h>
+
+#define DMO_INCREMENT64 2
+#define DMO_STREAM64(IN, OUT) _mm_stream_pd(OUT, _mm_load_pd(IN));
+
+#define DMO_INCREMENT32 4
+#define DMO_STREAM32(IN, OUT) _mm_stream_ps(OUT, _mm_load_ps(IN));
+
 #elif defined(__ARM_FEATURE_SVE)
-#include "DenseMatrixOpsSVE.h"
+
+#include <arm_sve.h>
+
+#define DMO_INCREMENT64 svcntd()
+#define DMO_STREAM64(IN, OUT) svstnt1_f64(svptrue_b64(), OUT, svld1_f64(svptrue_b64(), IN));
+
+#define DMO_INCREMENT32 svcntw()
+#define DMO_STREAM32(IN, OUT) svstnt1_f32(svptrue_b32(), OUT, svld1_f32(svptrue_b32(), IN));
+
 #elif defined(__aarch64__)
-#include "DenseMatrixOpsAARCH64.h"
+// cf. https://stackoverflow.com/a/61248308
+
+#define DMO_INCREMENT64 2
+#define DMO_STREAM64(IN, OUT)                                                                      \
+  uint64_t v1 = *(reinterpret_cast<const uint64_t*>(IN));                                          \
+  uint64_t v2 = *(reinterpret_cast<const uint64_t*>(IN) + 1);                                      \
+  asm volatile(                                                                                    \
+      "stnp %[IN1],%[IN2],[%[OUTaddr]]" ::[IN1] "r"(v1), [IN2] "r"(v2), [OUTaddr] "r"(OUT)         \
+      :);
+
+#define DMO_INCREMENT32 4
+#define DMO_STREAM32(IN, OUT)                                                                      \
+  uint64_t v1 = *(reinterpret_cast<const uint64_t*>(IN));                                          \
+  uint64_t v2 = *(reinterpret_cast<const uint64_t*>(IN) + 1);                                      \
+  asm volatile(                                                                                    \
+      "stnp %[IN1],%[IN2],[%[OUTaddr]]" ::[IN1] "r"(v1), [IN2] "r"(v2), [OUTaddr] "r"(OUT)         \
+      :);
+
 #else
-#include "DenseMatrixOpsNoarch.h"
+
+#define DMO_INCREMENT64 1
+#define DMO_STREAM64(IN, OUT) *(OUT) = *(IN);
+#define DMO_INCREMENT32 1
+#define DMO_STREAM32(IN, OUT) *(OUT) = *(IN);
+
 #endif
 
 #include <cassert>
