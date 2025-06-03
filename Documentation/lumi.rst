@@ -18,11 +18,11 @@ Here, we concern ourselves with running SeisSol on the **LUMI-G** partition; tha
 The nodes then consist of:
 
 - 1× AMD Epyc 7A53 (Zen 3) CPU, configured with 4 NUMA domains
-- 4× AMD Instinct MI250x GPUs, thus 8 GCDs in total
+- 4× AMD Instinct MI250X GPUs, thus 8 GCDs in total
 
 Due to the 8 GCDs, we will launch SeisSol with 8 processes per node. The architecture settings we will need for SeisSol are
 ``milan`` for the CPU architecture (optimizing for Zen 3), and ``gfx90a`` for the GPU architecture (targeting the MI250X).
-As device backend, we use HIP, and for the SYCL implementation, we use AdaptiveCpp.
+As device backend, we use HIP.
 
 Installing Modules (without Spack)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -41,12 +41,16 @@ Run ``pwd`` and copy the path there. Run the following script there.
 Next, we load the necessary modules for our SeisSol build.
 We set the compilers to the cray compiler wrappers (which in our case use ``amdclang`` internally).
 
+**NOTE: these modules are outdated.**
+
 .. code-block:: bash
 
     module load LUMI/23.09 partition/G
     module load cpeAMD/23.09
     module load rocm/5.6.1
     module load amd/5.6.1
+
+    module load buildtools/23.09
 
     module load Boost/1.82.0-cpeAMD-23.09
     module load Eigen/3.4.0
@@ -77,30 +81,9 @@ Next, we also start up our Python installation. The virtual environment sets add
     pip install git+https://github.com/SeisSol/gemmforge.git
     pip install git+https://github.com/SeisSol/chainforge.git
 
-Then, we can start installing the modules. For convenience, we also add Ninja as a build tool here first.
-(TODO: remove and replace by module load buildtools/23.09)
-
-.. code-block:: bash
-
-    git clone --branch v1.12.0 --depth 1 https://github.com/ninja-build/ninja.git
-    mkdir -p ninja/build
-    cd ninja/build
-    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX
-    make -j 10 install
-    cd ../..
-
-Next, we choose AdaptiveCpp. Note that we need to switch off everything but ROCm for the installation to work smoothly.
-
-.. code-block:: bash
-
-    git clone --branch v23.10.0 --depth 1 https://github.com/AdaptiveCpp/AdaptiveCpp.git
-    mkdir -p AdaptiveCpp/build
-    cd AdaptiveCpp/build
-    cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$SEISSOL_PREFIX -DWITH_OPENCL_BACKEND=OFF -DWITH_ROCM_BACKEND=ON -DWITH_SSCP_COMPILER=OFF -DWITH_STDPAR_COMPILER=OFF -DWITH_ACCELERATED_CPU=OFF -DWITH_CUDA_BACKEND=OFF -DWITH_LEVEL_ZERO_BACKEND=OFF -DDEFAULT_TARGETS=hip:gfx90a
-    ninja install
-    cd ../..
-
-The rest of the packages can be installed as usual.
+Then, we can start installing the modules.
+The required packages can be installed as described in the dependency installing guide itself.
+For convenience, we use Ninja as build tool (provided via the ``buildtools`` module).
 
 METIS/ParMETIS:
 
