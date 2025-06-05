@@ -433,8 +433,13 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
 
     auto* rt = getCellData(local, drDescr->ruptureTime);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
+      #ifdef MULTIPLE_SIMULATIONS
+      const real chi = chiTau2dPoints(0, jBndGP);
+      const real tau = chiTau2dPoints(1, jBndGP);
+      #else
       const real chi = chiTau2dPoints(jBndGP, 0);
       const real tau = chiTau2dPoints(jBndGP, 1);
+      #endif
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
       for (size_t d = 0; d < NumDegFr2d; ++d) {
@@ -448,10 +453,13 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     for (size_t d = 0; d < NumDegFr2d; ++d) {
       projectedRT[d] *= m2inv(d, d);
     }
-
+    #ifdef MULTIPLE_SIMULATIONS
+    const real chi = chiTau2dPoints(0, local.nearestInternalGpIndex);
+    const real tau = chiTau2dPoints(1, local.nearestInternalGpIndex);
+    #else
     const real chi = chiTau2dPoints(local.nearestInternalGpIndex, 0);
     const real tau = chiTau2dPoints(local.nearestInternalGpIndex, 1);
-
+    #endif
     basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
     real dTdChi{0.0};
