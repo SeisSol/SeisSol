@@ -82,19 +82,23 @@ def low_pass_filter(waveform, fs, cutoff_freq):
     b,a = signal.butter(order, cutoff_freq, 'low', fs=fs)
     return signal.filtfilt(b, a, waveform)
 
-def compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile):
+def compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile, no_gmrotdpp=True):
     """ compute the cumulative velocity using gmrot """
     from smtk.intensity_measures import get_cav, rotate_horizontal
-    cav_theta = np.zeros(len(angles), dtype=float)
-    for iloc, theta in enumerate(angles):
-        if iloc == 0:
-            cav_theta[iloc] = np.sqrt(get_cav(acceleration_x, time_step_x) * 
+    if no_gmrotdpp:
+      return np.sqrt(get_cav(acceleration_x, time_step_x) * 
                     get_cav(acceleration_y, time_step_y))
-        else:
-            rot_x, rot_y = rotate_horizontal(acceleration_x, acceleration_y, theta)
-            cav_theta[iloc] = np.sqrt(get_cav(rot_x, time_step_x) * 
-                    get_cav(rot_y, time_step_y))
-    return np.percentile(cav_theta, percentile)
+    else:
+      cav_theta = np.zeros(len(angles), dtype=float)
+      for iloc, theta in enumerate(angles):
+          if iloc == 0:
+              cav_theta[iloc] = np.sqrt(get_cav(acceleration_x, time_step_x) * 
+                      get_cav(acceleration_y, time_step_y))
+          else:
+              rot_x, rot_y = rotate_horizontal(acceleration_x, acceleration_y, theta)
+              cav_theta[iloc] = np.sqrt(get_cav(rot_x, time_step_x) * 
+                      get_cav(rot_y, time_step_y))
+      return np.percentile(cav_theta, percentile)
 
 def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, periods,
         percentile, damping=0.05, units="cm/s/s", method="Nigam-Jennings"):
@@ -148,7 +152,7 @@ def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, pe
             "Acceleration": gmrotd[3:]}
 
     if args.CAV:
-        cav = compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile)
+        cav = compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile, no_gmrotdpp=True)
         res['CAV']=cav
 
     return res
@@ -297,5 +301,10 @@ if irank==0:
     if nranks > 1:
         myres = np.concatenate(myres, axis=0)
     geom = sx.ReadGeometry()
-    sxw.write_seissol_output(f"{prefixGME}{prefixType}", geom, connect, dataName,
-                             [myres[:,i] for i in range(myres.shape[1])], 0, [0])
+    sxw.write(
+        f"{prefixGME}{prefixType}",
+        geom,
+        connect,
+        {name: myres[:,i] for i, name in enumerate(dataName)},
+        dictTime=None,
+    )
