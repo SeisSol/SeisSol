@@ -24,6 +24,7 @@
 #include "Numerical/Transformation.h"
 #include <Common/Typedefs.h>
 #include <Config.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cassert>

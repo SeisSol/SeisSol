@@ -39,11 +39,13 @@
 #include <ios>
 #include <kernel.h>
 #include <memory>
+#include <numeric>
 #include <ostream>
 #include <sstream>
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
 #include <utils/timeutils.h>
