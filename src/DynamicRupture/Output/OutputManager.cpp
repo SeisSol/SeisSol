@@ -281,7 +281,7 @@ void OutputManager::initPickpointOutput() {
   }
 
   std::stringstream baseHeader;
-  
+
   if constexpr (seissol::multisim::MultisimEnabled) {
   for (int simIdx = 0; simIdx < seissol::multisim::NumSimulations; ++simIdx) {
     size_t labelCounter = 0;
@@ -375,20 +375,18 @@ void OutputManager::initPickpointOutput() {
         for (const auto& gIdx : ppfile.indices) {
           const auto& receiver = outputData->receiverPoints[gIdx];
           const size_t globalIndex = receiver.globalReceiverIndex + 1;
-          const size_t simIndex = receiver.simIndex + 1;
+          const size_t simIndex = receiver.simIndex;
           const auto& point = const_cast<ExtVrtxCoords&>(receiver.global);
 
           // output coordinates
-          file << "# " << globalIndex << "," << simIndex << " x1\t" << makeFormatted(point[0])
-               << '\n';
-          file << "# " << globalIndex << "," << simIndex << " x2\t" << makeFormatted(point[1])
-               << '\n';
-          file << "# " << globalIndex << "," << simIndex << " x3\t" << makeFormatted(point[2])
-               << '\n';
+          if (simIndex == 0) {
+            file << " x1\t" << makeFormatted(point[0]) << '\n';
+            file << " x2\t" << makeFormatted(point[1]) << '\n';
+            file << " x3\t" << makeFormatted(point[2]) << '\n';
+          }
 
           // stress info
           std::array<real, 6> rotatedInitialStress{};
-
           {
             auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
@@ -397,7 +395,7 @@ void OutputManager::initPickpointOutput() {
             std::array<real, 6> unrotatedInitialStress{};
             for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
                  ++stressVar) {
-              unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.nearestGpIndex];
+              unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.gpIndexFused];
             }
 
             seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
@@ -411,11 +409,11 @@ void OutputManager::initPickpointOutput() {
             alignAlongDipAndStrikeKernel.execute();
           }
 
-          file << "# " << globalIndex << "," << simIndex << " P_0\t"
+          file << " P_0" << simIndex << "\t"
                << makeFormatted(rotatedInitialStress[0]) << '\n';
-          file << "# " << globalIndex << "," << simIndex << " T_s\t"
+          file << " T_s" << simIndex << "\t"
                << makeFormatted(rotatedInitialStress[3]) << '\n';
-          file << "# " << globalIndex << "," << simIndex << " T_d\t"
+          file << " T_d" << simIndex << "\t"
                << makeFormatted(rotatedInitialStress[5]) << '\n';
         }
       } else {
