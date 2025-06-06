@@ -380,6 +380,7 @@ void OutputManager::initPickpointOutput() {
 
           // output coordinates
           if (simIndex == 0) {
+            file << "# Receiver number " << globalIndex << '\n';
             file << " x1\t" << makeFormatted(point[0]) << '\n';
             file << " x2\t" << makeFormatted(point[1]) << '\n';
             file << " x3\t" << makeFormatted(point[2]) << '\n';
