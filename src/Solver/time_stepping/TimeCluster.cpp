@@ -43,7 +43,7 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  seissol::initializer::Layer *i_clusterData,
                                                  seissol::initializer::Layer *dynRupInteriorData,
                                                  seissol::initializer::Layer *dynRupCopyData,
-                                                 seissol::initializer::LTS *i_lts,
+                                                 seissol::LTS *i_lts,
                                                  seissol::initializer::DynamicRupture* i_dynRup,
                                                  seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
                                                  seissol::dr::friction_law::FrictionSolver* i_FrictionSolverDevice,
@@ -304,9 +304,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   // pointer for the call of the ADER-function
   real* l_bufferPointer;
 
-  real** buffers = i_layerData.var(m_lts->buffers);
-  real** derivatives = i_layerData.var(m_lts->derivatives);
-  CellMaterialData* materialData = i_layerData.var(m_lts->material);
+  real** buffers = i_layerData.var<LTS::Buffers>();
+  real** derivatives = i_layerData.var<LTS::Derivatives>();
+  CellMaterialData* materialData = i_layerData.var<LTS::Material>();
 
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
@@ -320,8 +320,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // needed by some other time cluster.
     // If we cannot overwrite the buffer, we compute everything in a temporary
     // local buffer and accumulate the results later in the shared buffer.
-    const bool buffersProvided = (data.get(m_lts->cellInformation).ltsSetup >> 8) % 2 == 1; // buffers are provided
-    const bool resetMyBuffers = buffersProvided && ( (data.get(m_lts->cellInformation).ltsSetup >> 10) %2 == 0 || resetBuffers ); // they should be reset
+    const bool buffersProvided = (data.get<LTS::CellInformation>().ltsSetup >> 8) % 2 == 1; // buffers are provided
+    const bool resetMyBuffers = buffersProvided && ( (data.get<LTS::CellInformation>().ltsSetup >> 10) %2 == 0 || resetBuffers ); // they should be reset
 
     if (resetMyBuffers) {
       // assert presence of the buffer
@@ -341,7 +341,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
                              true);
 
     // Compute local integrals (including some boundary conditions)
-    CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
+    CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var<LTS::BoundaryMapping>();
     m_localKernel.computeIntegral(l_bufferPointer,
                                   data, *m_lts,
                                   tmp,
@@ -352,15 +352,15 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     );
 
     for (unsigned face = 0; face < 4; ++face) {
-      auto& curFaceDisplacements = data.get(m_lts->faceDisplacements)[face];
+      auto& curFaceDisplacements = data.get<LTS::FaceDisplacements>()[face];
       // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
       if (curFaceDisplacements != nullptr
-          && data.get(m_lts->cellInformation).faceTypes[face] != FaceType::FreeSurfaceGravity) {
+          && data.get<LTS::CellInformation>().faceTypes[face] != FaceType::FreeSurfaceGravity) {
         kernel::addVelocity addVelocityKrnl;
 
         addVelocityKrnl.V3mTo2nFace = m_globalDataOnHost->V3mTo2nFace;
         addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
-        addVelocityKrnl.faceDisplacement = data.get(m_lts->faceDisplacements)[face];
+        addVelocityKrnl.faceDisplacement = data.get<LTS::FaceDisplacements>()[face];
         addVelocityKrnl.I = l_bufferPointer;
         addVelocityKrnl.execute(face);
       }
@@ -503,7 +503,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice( s
 
   if (usePlasticity) {
     auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
-    auto* plasticity = i_layerData.var(m_lts->plasticity, seissol::initializer::AllocationPlace::Device);
+    auto* plasticity = i_layerData.var<LTS::Plasticity>(seissol::initializer::AllocationPlace::Device);
     streamRuntime.runGraph(plasticityGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
       seissol::kernels::Plasticity::computePlasticityBatched(timeStepWidth,
                                                               m_tv,
@@ -532,7 +532,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops(seissol::
   flopsNonZero = 0;
   flopsHardware = 0;
 
-  auto* cellInformation = layerData.var(m_lts->cellInformation);
+  auto* cellInformation = layerData.var<LTS::CellInformation>();
   for (unsigned cell = 0; cell < layerData.size(); ++cell) {
     unsigned cellNonZero, cellHardware;
     spacetimeKernel.flopsAder(cellNonZero, cellHardware);
@@ -565,8 +565,8 @@ void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops(
   drFlopsNonZero = 0;
   drFlopsHardware = 0;
 
-  auto* cellInformation = layerData.var(m_lts->cellInformation);
-  auto* drMapping = layerData.var(m_lts->drMapping);
+  auto* cellInformation = layerData.var<LTS::CellInformation>();
+  auto* drMapping = layerData.var<LTS::DRMapping>();
   for (unsigned cell = 0; cell < layerData.size(); ++cell) {
     unsigned cellNonZero, cellHardware;
     long long cellDRNonZero, cellDRHardware;
@@ -653,7 +653,7 @@ void TimeCluster::predict() {
 #ifdef ACL_DEVICE
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host : seissol::initializer::AllocationPlace::Device;
-    m_clusterData->varSynchronizeTo(m_lts->buffersDerivatives, other, streamRuntime.stream());
+    m_clusterData->varSynchronizeTo<LTS::BuffersDerivatives>(other, streamRuntime.stream());
     streamRuntime.wait();
   }
 #endif
@@ -816,11 +816,11 @@ template<bool usePlasticity>
 
       m_loopStatistics->begin(m_regionComputeNeighboringIntegration);
 
-      real* (*faceNeighbors)[4] = i_layerData.var(m_lts->faceNeighbors);
-      CellDRMapping (*drMapping)[4] = i_layerData.var(m_lts->drMapping);
-      CellLocalInformation* cellInformation = i_layerData.var(m_lts->cellInformation);
-      auto* plasticity = i_layerData.var(m_lts->plasticity);
-      auto* pstrain = i_layerData.var(m_lts->pstrain);
+      real* (*faceNeighbors)[4] = i_layerData.var<LTS::FaceNeighbors>();
+      CellDRMapping (*drMapping)[4] = i_layerData.var<LTS::DRMapping>();
+      CellLocalInformation* cellInformation = i_layerData.var<LTS::CellInformation>();
+      auto* plasticity = i_layerData.var<LTS::Plasticity>();
+      auto* pstrain = i_layerData.var<LTS::PStrain>();
       unsigned numberOTetsWithPlasticYielding = 0;
 
       real *l_timeIntegrated[4];
@@ -834,8 +834,8 @@ template<bool usePlasticity>
       for( unsigned int l_cell = 0; l_cell < i_layerData.size(); l_cell++ ) {
         auto data = i_layerData.cellRef(l_cell);
         seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
-                                                       data.get(m_lts->cellInformation).ltsSetup,
-                                                       data.get(m_lts->cellInformation).faceTypes,
+                                                       data.get<LTS::CellInformation>().ltsSetup,
+                                                       data.get<LTS::CellInformation>().faceTypes,
                                                        subTimeStart,
                                                        timeStepSize(),
                                                        faceNeighbors[l_cell],
@@ -876,7 +876,7 @@ template<bool usePlasticity>
                                                                                              m_tv,
                                                                                              m_globalDataOnHost,
                                                                                              &plasticity[l_cell],
-                                                                                             data.get(m_lts->dofs),
+                                                                                             data.get<LTS::Dofs>(),
                                                                                              pstrain[l_cell] );
         }
 #ifdef INTEGRATE_QUANTITIES

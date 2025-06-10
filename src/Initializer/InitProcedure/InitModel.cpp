@@ -143,11 +143,10 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   const auto& elements = meshReader.getElements();
 
   for (auto& layer : memoryManager.getLtsTree()->leaves(Ghost)) {
-    auto* cellInformation = layer.var(memoryManager.getLts()->cellInformation);
-    auto* secondaryInformation = layer.var(memoryManager.getLts()->secondaryInformation);
-    auto* materialArray = layer.var(memoryManager.getLts()->material);
-    auto* plasticityArray =
-        seissolParams.model.plasticity ? layer.var(memoryManager.getLts()->plasticity) : nullptr;
+    auto* cellInformation = layer.var<LTS::CellInformation>();
+    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    auto* materialArray = layer.var<LTS::Material>();
+    auto* plasticityArray = seissolParams.model.plasticity ? layer.var<LTS::Plasticity>() : nullptr;
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -337,8 +336,8 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   std::size_t* ltsToMesh = nullptr;
   std::size_t numberOfMeshCells = 0;
 
-  seissolInstance.getLtsLayout().getCellInformation(ltsTree->var(lts->cellInformation),
-                                                    ltsTree->var(lts->secondaryInformation),
+  seissolInstance.getLtsLayout().getCellInformation(ltsTree->var<LTS::CellInformation>(),
+                                                    ltsTree->var<LTS::SecondaryInformation>(),
                                                     ltsToMesh,
                                                     numberOfMeshCells);
 
@@ -350,8 +349,8 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   seissol::initializer::time_stepping::deriveLtsSetups(ltsInfo.timeStepping.numberOfLocalClusters,
                                                        ltsInfo.meshStructure,
-                                                       ltsTree->var(lts->cellInformation),
-                                                       ltsTree->var(lts->secondaryInformation));
+                                                       ltsTree->var<LTS::CellInformation>(),
+                                                       ltsTree->var<LTS::SecondaryInformation>());
 }
 
 void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {

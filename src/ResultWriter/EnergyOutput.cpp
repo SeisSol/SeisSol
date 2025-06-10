@@ -162,7 +162,7 @@ void EnergyOutput::init(
     seissol::initializer::LTSTree* newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
     seissol::initializer::LTSTree* newLtsTree,
-    seissol::initializer::LTS* newLts,
+    seissol::LTS* newLts,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
@@ -423,13 +423,13 @@ void EnergyOutput::computeVolumeEnergies() {
     // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
     // it
     for (auto& layer : ltsTree->leaves(Ghost)) {
-      const auto* secondaryInformation = layer.var(lts->secondaryInformation);
-      const auto* cellInformationData = layer.var(lts->cellInformation);
-      const auto* faceDisplacementsData = layer.var(lts->faceDisplacements);
-      const auto* materialData = layer.var(lts->material);
-      const auto* boundaryMappingData = layer.var(lts->boundaryMapping);
-      const auto* pstrainData = layer.var(lts->pstrain);
-      const auto* dofsData = layer.var(lts->dofs);
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* cellInformationData = layer.var<LTS::CellInformation>();
+      const auto* faceDisplacementsData = layer.var<LTS::FaceDisplacements>();
+      const auto* materialData = layer.var<LTS::Material>();
+      const auto* boundaryMappingData = layer.var<LTS::BoundaryMapping>();
+      const auto* pstrainData = layer.var<LTS::PStrain>();
+      const auto* dofsData = layer.var<LTS::Dofs>();
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal,             \
                                                         totalAcousticEnergyLocal,                  \

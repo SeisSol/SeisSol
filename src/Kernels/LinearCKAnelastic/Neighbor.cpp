@@ -71,15 +71,15 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Neighbor::computeNeighborsIntegral(seissol::initializer::Layer::CellRef& data,
-                                        seissol::initializer::LTS& lts,
+                                        seissol::LTS& lts,
                                         const CellDRMapping (&cellDrMapping)[4],
                                         real* timeIntegrated[4],
                                         real* faceNeighbors_prefetch[4]) {
 #ifndef NDEBUG
   for (int neighbor = 0; neighbor < 4; ++neighbor) {
     // alignment of the time integrated dofs
-    if (data.get(lts.cellInformation).faceTypes[neighbor] != FaceType::Outflow &&
-        data.get(lts.cellInformation).faceTypes[neighbor] !=
+    if (data.get<LTS::CellInformation>().faceTypes[neighbor] != FaceType::Outflow &&
+        data.get<LTS::CellInformation>().faceTypes[neighbor] !=
             FaceType::DynamicRupture) { // no alignment for outflow and DR boundaries required
       assert((reinterpret_cast<uintptr_t>(timeIntegrated[neighbor])) % Alignment == 0);
     }
@@ -87,7 +87,7 @@ void Neighbor::computeNeighborsIntegral(seissol::initializer::Layer::CellRef& da
 #endif
 
   // alignment of the degrees of freedom
-  assert((reinterpret_cast<uintptr_t>(data.get(lts.dofs))) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
 
   alignas(PagesizeStack) real Qext[tensor::Qext::size()] = {};
 
@@ -98,21 +98,21 @@ void Neighbor::computeNeighborsIntegral(seissol::initializer::Layer::CellRef& da
   for (unsigned int face = 0; face < 4; face++) {
     // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary
     // conditions
-    if (data.get(lts.cellInformation).faceTypes[face] != FaceType::Outflow &&
-        data.get(lts.cellInformation).faceTypes[face] != FaceType::DynamicRupture) {
+    if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::Outflow &&
+        data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
       // compute the neighboring elements flux matrix id.
-      if (data.get(lts.cellInformation).faceTypes[face] != FaceType::FreeSurface) {
-        assert(data.get(lts.cellInformation).faceRelations[face][0] < 4 &&
-               data.get(lts.cellInformation).faceRelations[face][1] < 3);
+      if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::FreeSurface) {
+        assert(data.get<LTS::CellInformation>().faceRelations[face][0] < 4 &&
+               data.get<LTS::CellInformation>().faceRelations[face][1] < 3);
 
         nfKrnl.I = timeIntegrated[face];
-        nfKrnl.AminusT = data.get(lts.neighboringIntegration).nAmNm1[face];
+        nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
         nfKrnl._prefetch.I = faceNeighbors_prefetch[face];
-        nfKrnl.execute(data.get(lts.cellInformation).faceRelations[face][1],
-                       data.get(lts.cellInformation).faceRelations[face][0],
+        nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][1],
+                       data.get<LTS::CellInformation>().faceRelations[face][0],
                        face);
       }
-    } else if (data.get(lts.cellInformation).faceTypes[face] == FaceType::DynamicRupture) {
+    } else if (data.get<LTS::CellInformation>().faceTypes[face] == FaceType::DynamicRupture) {
       assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Alignment == 0);
 
       dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
@@ -126,9 +126,9 @@ void Neighbor::computeNeighborsIntegral(seissol::initializer::Layer::CellRef& da
 
   kernel::neighbor nKrnl = m_nKrnlPrototype;
   nKrnl.Qext = Qext;
-  nKrnl.Q = data.get(lts.dofs);
-  nKrnl.Qane = data.get(lts.dofsAne);
-  nKrnl.w = data.get(lts.neighboringIntegration).specific.w;
+  nKrnl.Q = data.get<LTS::Dofs>();
+  nKrnl.Qane = data.get<LTS::DofsAne>();
+  nKrnl.w = data.get<LTS::NeighboringIntegration>().specific.w;
 
   nKrnl.execute();
 }

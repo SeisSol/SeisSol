@@ -75,7 +75,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 
 void Spacetime::executeSTP(double timeStepWidth,
                            seissol::initializer::Layer::CellRef& data,
-                           seissol::initializer::LTS& lts,
+                           seissol::LTS& lts,
                            real timeIntegrated[tensor::I::size()],
                            real* stp)
 
@@ -92,19 +92,19 @@ void Spacetime::executeSTP(double timeStepWidth,
   real B_values[init::star::size(1)];
   real C_values[init::star::size(2)];
   for (std::size_t i = 0; i < init::star::size(0); i++) {
-    A_values[i] = timeStepWidth * data.get(lts.localIntegration).starMatrices[0][i];
-    B_values[i] = timeStepWidth * data.get(lts.localIntegration).starMatrices[1][i];
-    C_values[i] = timeStepWidth * data.get(lts.localIntegration).starMatrices[2][i];
+    A_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[0][i];
+    B_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[1][i];
+    C_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[2][i];
   }
   krnl.star(0) = A_values;
   krnl.star(1) = B_values;
   krnl.star(2) = C_values;
 
-  krnl.Gk = data.get(lts.localIntegration).specific.G[10] * timeStepWidth;
-  krnl.Gl = data.get(lts.localIntegration).specific.G[11] * timeStepWidth;
-  krnl.Gm = data.get(lts.localIntegration).specific.G[12] * timeStepWidth;
+  krnl.Gk = data.get<LTS::LocalIntegration>().specific.G[10] * timeStepWidth;
+  krnl.Gl = data.get<LTS::LocalIntegration>().specific.G[11] * timeStepWidth;
+  krnl.Gm = data.get<LTS::LocalIntegration>().specific.G[12] * timeStepWidth;
 
-  krnl.Q = const_cast<real*>(data.get(lts.dofs));
+  krnl.Q = const_cast<real*>(data.get<LTS::Dofs>());
   krnl.I = timeIntegrated;
   krnl.timestep = timeStepWidth;
   krnl.spaceTimePredictor = stp;
@@ -113,9 +113,9 @@ void Spacetime::executeSTP(double timeStepWidth,
   // The matrix Zinv depends on the timestep
   // If the timestep is not as expected e.g. when approaching a sync point
   // we have to recalculate it
-  if (timeStepWidth != data.get(lts.localIntegration).specific.typicalTimeStepWidth) {
+  if (timeStepWidth != data.get<LTS::LocalIntegration>().specific.typicalTimeStepWidth) {
     auto sourceMatrix =
-        init::ET::view::create(data.get(lts.localIntegration).specific.sourceMatrix);
+        init::ET::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
     real ZinvData[seissol::model::MaterialT::NumQuantities][ConvergenceOrder * ConvergenceOrder];
     model::zInvInitializerForLoop<0,
                                   seissol::model::MaterialT::NumQuantities,
@@ -127,7 +127,7 @@ void Spacetime::executeSTP(double timeStepWidth,
     krnl.execute();
   } else {
     for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
-      krnl.Zinv(i) = data.get(lts.localIntegration).specific.Zinv[i];
+      krnl.Zinv(i) = data.get<LTS::LocalIntegration>().specific.Zinv[i];
     }
     krnl.execute();
   }
@@ -135,7 +135,7 @@ void Spacetime::executeSTP(double timeStepWidth,
 
 void Spacetime::computeAder(double timeStepWidth,
                             seissol::initializer::Layer::CellRef& data,
-                            seissol::initializer::LTS& lts,
+                            seissol::LTS& lts,
                             LocalTmp& tmp,
                             real timeIntegrated[tensor::I::size()],
                             real* timeDerivatives,
@@ -143,7 +143,7 @@ void Spacetime::computeAder(double timeStepWidth,
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(data.get(lts.dofs))) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0 ||
          timeDerivatives == NULL);

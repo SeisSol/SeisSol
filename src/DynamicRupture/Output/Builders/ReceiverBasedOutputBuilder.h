@@ -31,7 +31,7 @@ class ReceiverBasedOutputBuilder {
 
   void setMeshReader(const seissol::geometry::MeshReader* reader);
   void setLtsData(seissol::initializer::LTSTree* userWpTree,
-                  seissol::initializer::LTS* userWpDescr,
+                  seissol::LTS* userWpDescr,
                   seissol::initializer::Lut* userWpLut,
                   seissol::initializer::LTSTree* userDrTree,
                   seissol::initializer::DynamicRupture* userDrDescr);
@@ -53,7 +53,7 @@ class ReceiverBasedOutputBuilder {
   protected:
   const seissol::geometry::MeshReader* meshReader{};
   seissol::initializer::LTSTree* wpTree;
-  seissol::initializer::LTS* wpDescr;
+  seissol::LTS* wpDescr;
   seissol::initializer::Lut* wpLut;
   seissol::initializer::LTSTree* drTree;
   seissol::initializer::DynamicRupture* drDescr;

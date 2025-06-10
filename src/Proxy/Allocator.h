@@ -33,7 +33,7 @@ struct ProxyData {
   std::size_t cellCount;
 
   seissol::initializer::LTSTree ltsTree;
-  seissol::initializer::LTS lts;
+  seissol::LTS lts;
   seissol::initializer::LTSTree dynRupTree;
   seissol::initializer::DynamicRupture dynRup;
 

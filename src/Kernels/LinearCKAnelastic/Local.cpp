@@ -59,7 +59,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
                             seissol::initializer::Layer::CellRef& data,
-                            seissol::initializer::LTS& lts,
+                            seissol::LTS& lts,
                             LocalTmp& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                             const CellMaterialData* materialData,
@@ -70,7 +70,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 #ifndef NDEBUG
   assert((reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(data.get(lts.dofs))) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
 #endif
 
   alignas(Alignment) real Qext[tensor::Qext::size()];
@@ -79,33 +79,33 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   volKrnl.Qext = Qext;
   volKrnl.I = timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = data.get(lts.localIntegration).starMatrices[i];
+    volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Qext = Qext;
   lfKrnl.I = timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
-  lfKrnl._prefetch.Q = data.get(lts.dofs) + tensor::Q::size();
+  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
 
   volKrnl.execute();
 
   for (unsigned int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.get(lts.cellInformation).faceTypes[face] != FaceType::DynamicRupture) {
-      lfKrnl.AplusT = data.get(lts.localIntegration).nApNm1[face];
+    if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
+      lfKrnl.AplusT = data.get<LTS::LocalIntegration>().nApNm1[face];
       lfKrnl.execute(face);
     }
   }
 
   kernel::local lKrnl = m_localKernelPrototype;
-  lKrnl.E = data.get(lts.localIntegration).specific.E;
+  lKrnl.E = data.get<LTS::LocalIntegration>().specific.E;
   lKrnl.Iane = tmp.timeIntegratedAne;
-  lKrnl.Q = data.get(lts.dofs);
-  lKrnl.Qane = data.get(lts.dofsAne);
+  lKrnl.Q = data.get<LTS::Dofs>();
+  lKrnl.Qane = data.get<LTS::DofsAne>();
   lKrnl.Qext = Qext;
-  lKrnl.W = data.get(lts.localIntegration).specific.W;
-  lKrnl.w = data.get(lts.localIntegration).specific.w;
+  lKrnl.W = data.get<LTS::LocalIntegration>().specific.W;
+  lKrnl.w = data.get<LTS::LocalIntegration>().specific.w;
 
   lKrnl.execute();
 }
@@ -221,7 +221,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
                                            ConditionalIndicesTable& indicesTable,
                                            seissol::initializer::Layer& layer,
-                                           seissol::initializer::LTS& lts,
+                                           seissol::LTS& lts,
                                            double time,
                                            double timeStepWidth,
                                            seissol::parallel::runtime::StreamRuntime& runtime) {}

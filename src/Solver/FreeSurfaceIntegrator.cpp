@@ -58,7 +58,7 @@ seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator()
 
 void seissol::solver::FreeSurfaceIntegrator::initialize(  unsigned maxRefinementDepth,
                                                           GlobalData* globalData,
-                                                          seissol::initializer::LTS* lts,
+                                                          seissol::LTS* lts,
                                                           seissol::initializer::LTSTree* ltsTree  )
 {
   if (maxRefinementDepth > FREESURFACE_MAX_REFINEMENT) {
@@ -249,7 +249,7 @@ seissol::solver::FreeSurfaceIntegrator::LocationFlag seissol::solver::FreeSurfac
   }
 }
 
-void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol::initializer::LTS* lts,
+void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol::LTS* lts,
                                                                         seissol::initializer::LTSTree* ltsTree )
 {
   seissol::initializer::LayerMask ghostMask(Ghost);
@@ -259,9 +259,9 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
 
   totalNumberOfFreeSurfaces = 0;
   for (auto [layer, surfaceLayer] : seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree.leaves(ghostMask))) {
-    auto* cellInformation = layer.var(lts->cellInformation);
-    auto* secondaryInformation = layer.var(lts->secondaryInformation);
-    auto* cellMaterialData = layer.var(lts->material);
+    auto* cellInformation = layer.var<LTS::CellInformation>();
+    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    auto* cellMaterialData = layer.var<LTS::Material>();
 
     unsigned numberOfFreeSurfaces = 0;
     const auto layerSize = layer.size();
@@ -296,15 +296,15 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
   /// @ yateto_todo
   unsigned surfaceCellOffset = 0; // Counts all surface cells of all layers
   for (auto [layer, surfaceLayer] : seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree.leaves(ghostMask))) {
-    auto* cellInformation = layer.var(lts->cellInformation);
-    real (*dofs)[tensor::Q::size()] = layer.var(lts->dofs);
-    real* (*faceDisplacements)[4] = layer.var(lts->faceDisplacements);
+    auto* cellInformation = layer.var<LTS::CellInformation>();
+    real (*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
+    real* (*faceDisplacements)[4] = layer.var<LTS::FaceDisplacements>();
     real** surfaceDofs = surfaceLayer.var(surfaceLts.dofs);
     real** displacementDofs = surfaceLayer.var(surfaceLts.displacementDofs);
-    auto* cellMaterialData = layer.var(lts->material);
+    auto* cellMaterialData = layer.var<LTS::Material>();
     auto* surfaceBoundaryMapping = surfaceLayer.var(surfaceLts.boundaryMapping);
-    auto* boundaryMapping = layer.var(lts->boundaryMapping);
-    auto* secondaryInformation = layer.var(lts->secondaryInformation);
+    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
+    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
     unsigned* side = surfaceLayer.var(surfaceLts.side);
     unsigned* meshId = surfaceLayer.var(surfaceLts.meshId);

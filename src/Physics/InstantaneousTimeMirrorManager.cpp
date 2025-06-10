@@ -27,7 +27,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           double triggerTime,
                                           seissol::geometry::MeshReader* meshReader,
                                           initializer::LTSTree* ltsTree,
-                                          initializer::LTS* lts,
+                                          LTS* lts,
                                           initializer::Lut* ltsLut,
                                           const TimeStepping* timestepping) {
   isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
@@ -82,7 +82,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
   auto reflectionType = itmParameters.itmReflectionType;
   for (auto& layer : ltsTree->leaves(Ghost)) {
-    CellMaterialData* materials = layer.var(lts->material);
+    CellMaterialData* materials = layer.var<LTS::Material>();
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves) {
       for (unsigned cell = 0; cell < layer.size(); ++cell) {
@@ -247,7 +247,7 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   double triggerTime,
                                   seissol::geometry::MeshReader* meshReader,
                                   initializer::LTSTree* ltsTree,
-                                  initializer::LTS* lts,
+                                  LTS* lts,
                                   initializer::Lut* ltsLut,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,

@@ -59,7 +59,7 @@ private:
   void computeSubTriangleAveragesFromFaces(real* projectionMatrixFromFaceRow,
                                            const std::array<std::array<double, 2>,numQuadraturePoints>& bfPoints,
                                            double const* weights) const;
-  void initializeSurfaceLTSTree(  seissol::initializer::LTS* lts,
+  void initializeSurfaceLTSTree(  seissol::LTS* lts,
                                   seissol::initializer::LTSTree* ltsTree );
 
   static LocationFlag getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
@@ -80,7 +80,7 @@ public:
   
   void initialize(  unsigned maxRefinementDepth,
                     GlobalData* globalData,
-                    seissol::initializer::LTS* lts,
+                    seissol::LTS* lts,
                     seissol::initializer::LTSTree* ltsTree );
 
   void calculateOutput();

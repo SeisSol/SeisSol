@@ -97,7 +97,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
 
   // (time + number of quantities) * number of samples until sync point
   const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
-  const auto& cellInfo = ltsLut.lookup(lts.secondaryInformation, meshId);
+  const auto& cellInfo = ltsLut.lookup<LTS::SecondaryInformation>(meshId);
   const initializer::LayerIdentifier identifier(ltsLut.layer(meshId), Config(), cellInfo.clusterId);
   auto& ltsTree = *seissolInstance.getMemoryManager().getLtsTree();
   m_receivers.emplace_back(pointId,
@@ -171,9 +171,9 @@ double ReceiverCluster::calcReceivers(
       auto tmpReceiverData{receiver.dataHost};
 #ifdef ACL_DEVICE
       if (executor == Executor::Device) {
-        tmpReceiverData.setPointer(lts.dofs,
-                                   reinterpret_cast<decltype(tmpReceiverData.getPointer(lts.dofs))>(
-                                       deviceCollector->get(deviceIndices[i])));
+        tmpReceiverData.setPointer<LTS::Dofs>(
+            reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
+                deviceCollector->get(deviceIndices[i])));
       }
 #endif
 
@@ -237,7 +237,7 @@ void ReceiverCluster::allocateData() {
   std::vector<real*> dofs;
   std::unordered_map<real*, size_t> indexMap;
   for (size_t i = 0; i < m_receivers.size(); ++i) {
-    real* currentDofs = m_receivers[i].dataDevice.get(lts.dofs);
+    real* currentDofs = m_receivers[i].dataDevice.get<LTS::Dofs>();
     if (indexMap.find(currentDofs) == indexMap.end()) {
       // point to the current array end
       indexMap[currentDofs] = dofs.size();

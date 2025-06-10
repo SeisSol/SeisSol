@@ -76,7 +76,7 @@ class CompositeRecorder : public AbstractRecorder<LtsT> {
   std::vector<AbstractRecorder<LtsT>*> concreteRecorders{};
 };
 
-class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializer::LTS> {
+class LocalIntegrationRecorder : public AbstractRecorder<seissol::LTS> {
   public:
   void record(LTS& handler, Layer& layer) override;
 
@@ -101,7 +101,7 @@ class LocalIntegrationRecorder : public AbstractRecorder<seissol::initializer::L
   size_t derivativesAddressCounter{0};
 };
 
-class NeighIntegrationRecorder : public AbstractRecorder<seissol::initializer::LTS> {
+class NeighIntegrationRecorder : public AbstractRecorder<seissol::LTS> {
   public:
   void record(LTS& handler, Layer& layer) override;
 
@@ -116,7 +116,7 @@ class NeighIntegrationRecorder : public AbstractRecorder<seissol::initializer::L
   size_t integratedDofsAddressCounter{0};
 };
 
-class PlasticityRecorder : public AbstractRecorder<seissol::initializer::LTS> {
+class PlasticityRecorder : public AbstractRecorder<seissol::LTS> {
   public:
   void setUpContext(LTS& handler, Layer& layer) { AbstractRecorder::setUpContext(handler, layer); }
 

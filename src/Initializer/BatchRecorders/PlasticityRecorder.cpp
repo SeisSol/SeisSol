@@ -24,10 +24,10 @@ using namespace seissol::initializer::recording;
 void PlasticityRecorder::record(LTS& handler, Layer& layer) {
   setUpContext(handler, layer);
 
-  auto* pstrains = currentLayer->var(currentHandler->pstrain, AllocationPlace::Device);
+  auto* pstrains = currentLayer->var<LTS::PStrain>(AllocationPlace::Device);
   size_t nodalStressTensorCounter = 0;
-  real* scratchMem = static_cast<real*>(
-      currentLayer->var(currentHandler->integratedDofsScratch, AllocationPlace::Device));
+  real* scratchMem =
+      static_cast<real*>(currentLayer->var<LTS::IntegratedDofsScratch>(AllocationPlace::Device));
   const auto size = currentLayer->size();
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);
@@ -37,12 +37,11 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
-      dofsPtrs[cell] = static_cast<real*>(data.get(currentHandler->dofs));
+      dofsPtrs[cell] = static_cast<real*>(data.get<LTS::Dofs>());
       qstressNodalPtrs[cell] = &scratchMem[nodalStressTensorCounter];
       nodalStressTensorCounter += tensor::QStressNodal::size();
       pstransPtrs[cell] = static_cast<real*>(pstrains[cell]);
-      initialLoadPtrs[cell] =
-          static_cast<real*>(data.get(currentHandler->plasticity).initialLoading);
+      initialLoadPtrs[cell] = static_cast<real*>(data.get<LTS::Plasticity>().initialLoading);
     }
 
     const ConditionalKey key(*KernelNames::Plasticity);

@@ -180,7 +180,7 @@ void ReceiverWriter::init(
 
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                const seissol::initializer::Lut& ltsLut,
-                               const seissol::initializer::LTS& lts,
+                               const seissol::LTS& lts,
                                const CompoundGlobalData& global) {
   std::vector<Eigen::Vector3d> points;
   // Only parse if we have a receiver file

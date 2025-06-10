@@ -70,7 +70,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
   if (initConditionParams.type ==
       seissol::initializer::parameters::InitializationType::Planarwave) {
     initialConditionDescription = "Planar wave";
-    auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0);
+    auto materialData = memoryManager.getLtsLut()->lookup<LTS::Material>(0);
 
     for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
       const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
@@ -80,7 +80,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
              seissol::initializer::parameters::InitializationType::SuperimposedPlanarwave) {
     initialConditionDescription = "Super-imposed planar wave";
 
-    auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0);
+    auto materialData = memoryManager.getLtsLut()->lookup<LTS::Material>(0);
     for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
       const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
       initConditions.emplace_back(new physics::SuperimposedPlanarwave(materialData, phase));
@@ -95,8 +95,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
     initialConditionDescription = "Travelling wave";
     auto travellingWaveParameters = getTravellingWaveInformation(seissolInstance);
     initConditions.emplace_back(new physics::TravellingWave(
-        memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
-        travellingWaveParameters));
+        memoryManager.getLtsLut()->lookup<LTS::Material>(0), travellingWaveParameters));
   } else if (initConditionParams.type ==
                  seissol::initializer::parameters::InitializationType::AcousticTravellingWithITM &&
              model::MaterialT::Mechanisms == 0) {
@@ -104,8 +103,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
     auto acousticTravellingWaveParametersITM =
         getAcousticTravellingWaveITMInformation(seissolInstance);
     initConditions.emplace_back(new physics::AcousticTravellingWaveITM(
-        memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
-        acousticTravellingWaveParametersITM));
+        memoryManager.getLtsLut()->lookup<LTS::Material>(0), acousticTravellingWaveParametersITM));
   } else if (initConditionParams.type ==
                  seissol::initializer::parameters::InitializationType::Scholte &&
              model::MaterialT::Mechanisms == 0) {

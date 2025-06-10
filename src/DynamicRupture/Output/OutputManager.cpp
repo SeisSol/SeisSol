@@ -148,7 +148,7 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
 }
 
 void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
-                               seissol::initializer::LTS* userWpDescr,
+                               seissol::LTS* userWpDescr,
                                seissol::initializer::Lut* userWpLut,
                                seissol::initializer::LTSTree* userDrTree,
                                seissol::initializer::DynamicRupture* userDrDescr) {

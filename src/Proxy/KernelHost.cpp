@@ -32,8 +32,8 @@ void ProxyKernelHostAder::run(ProxyData& data,
                               seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsTree.layer(data.layerId);
   const unsigned nrOfCells = layer.size();
-  real** buffers = layer.var(data.lts.buffers);
-  real** derivatives = layer.var(data.lts.derivatives);
+  real** buffers = layer.var<LTS::Buffers>();
+  real** derivatives = layer.var<LTS::Derivatives>();
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -80,7 +80,7 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
                                      seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsTree.layer(data.layerId);
   const unsigned nrOfCells = layer.size();
-  real** buffers = layer.var(data.lts.buffers);
+  real** buffers = layer.var<LTS::Buffers>();
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -107,7 +107,7 @@ auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> P
 
   auto& layer = data.ltsTree.layer(data.layerId);
   const unsigned nrOfCells = layer.size();
-  CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
+  CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
   for (unsigned cell = 0; cell < nrOfCells; ++cell) {
     unsigned int nonZeroFlops = 0;
     unsigned int hardwareFlops = 0;
@@ -128,8 +128,8 @@ void ProxyKernelHostLocal::run(ProxyData& data,
                                seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsTree.layer(data.layerId);
   const unsigned nrOfCells = layer.size();
-  real** buffers = layer.var(data.lts.buffers);
-  real** derivatives = layer.var(data.lts.derivatives);
+  real** buffers = layer.var<LTS::Buffers>();
+  real** derivatives = layer.var<LTS::Derivatives>();
 
 #ifdef _OPENMP
 #pragma omp parallel
@@ -156,9 +156,9 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
                                   seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsTree.layer(data.layerId);
   const unsigned nrOfCells = layer.size();
-  real*(*faceNeighbors)[4] = layer.var(data.lts.faceNeighbors);
-  CellDRMapping(*drMapping)[4] = layer.var(data.lts.drMapping);
-  CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
+  real*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
+  CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
+  CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
 
   real* timeIntegrated[4];
   real* faceNeighborsPrefetch[4];
@@ -225,8 +225,8 @@ auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> Perf
   // iterate over cells
   auto& layer = data.ltsTree.layer(data.layerId);
   const unsigned nrOfCells = layer.size();
-  CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
-  CellDRMapping(*drMapping)[4] = layer.var(data.lts.drMapping);
+  CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
+  CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
   for (unsigned int cell = 0; cell < nrOfCells; cell++) {
     unsigned int nonZeroFlops = 0;
     unsigned int hardwareFlops = 0;

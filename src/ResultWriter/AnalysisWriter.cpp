@@ -157,9 +157,9 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
     alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities];
     for (auto& layer : ltsTree.leaves(Ghost)) {
-      const auto* secondaryInformation = layer.var(lts.secondaryInformation);
-      const auto* materialData = layer.var(lts.material);
-      const auto* dofsData = layer.var(lts.dofs);
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* materialData = layer.var<LTS::Material>();
+      const auto* dofsData = layer.var<LTS::Dofs>();
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
       // Note: Adding default(none) leads error when using gcc-8
 #pragma omp parallel for shared(elements,                                                          \

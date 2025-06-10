@@ -116,7 +116,7 @@ class ReceiverCluster {
   double m_syncPointInterval;
   std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities;
   seissol::SeisSol& seissolInstance;
-  initializer::LTS& lts;
+  LTS& lts;
 };
 } // namespace kernels
 } // namespace seissol

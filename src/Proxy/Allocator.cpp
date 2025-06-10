@@ -33,23 +33,23 @@
 #endif
 
 namespace {
-void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp) {
-  real(*dofs)[tensor::Q::size()] = layer.var(lts.dofs);
-  real** buffers = layer.var(lts.buffers);
-  real** derivatives = layer.var(lts.derivatives);
-  real*(*faceNeighbors)[4] = layer.var(lts.faceNeighbors);
-  auto* localIntegration = layer.var(lts.localIntegration);
-  auto* neighboringIntegration = layer.var(lts.neighboringIntegration);
-  auto* cellInformation = layer.var(lts.cellInformation);
-  auto* secondaryInformation = layer.var(lts.secondaryInformation);
+void fakeData(LTS& lts, initializer::Layer& layer, FaceType faceTp) {
+  real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
+  real** buffers = layer.var<LTS::Buffers>();
+  real** derivatives = layer.var<LTS::Derivatives>();
+  real*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
+  auto* localIntegration = layer.var<LTS::LocalIntegration>();
+  auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
+  auto* cellInformation = layer.var<LTS::CellInformation>();
+  auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
   real* bucket =
-      static_cast<real*>(layer.var(lts.buffersDerivatives, initializer::AllocationPlace::Host));
+      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Host));
 
-  real** buffersDevice = layer.var(lts.buffersDevice);
-  real** derivativesDevice = layer.var(lts.derivativesDevice);
-  real*(*faceNeighborsDevice)[4] = layer.var(lts.faceNeighborsDevice);
+  real** buffersDevice = layer.var<LTS::BuffersDevice>();
+  real** derivativesDevice = layer.var<LTS::DerivativesDevice>();
+  real*(*faceNeighborsDevice)[4] = layer.var<LTS::FaceNeighborsDevice>();
   real* bucketDevice =
-      static_cast<real*>(layer.var(lts.buffersDerivatives, initializer::AllocationPlace::Device));
+      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Device));
 
   std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
@@ -158,7 +158,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   ltsTree.layer(layerId).setNumberOfCells(cellCount);
 
   seissol::initializer::Layer& layer = ltsTree.layer(layerId);
-  layer.setEntrySize(lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.size());
+  layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(real) * tensor::I::size() * layer.size());
 
   ltsTree.allocateVariables();
   ltsTree.touchVariables();
@@ -217,7 +217,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   if (enableDR) {
     // From lts tree
     CellDRMapping(*drMapping)[4] =
-        isDeviceOn() ? ltsTree.var(lts.drMappingDevice) : ltsTree.var(lts.drMapping);
+        isDeviceOn() ? ltsTree.var<LTS::DRMappingDevice>() : ltsTree.var<LTS::DRMapping>();
 
     constexpr initializer::AllocationPlace Place =
         isDeviceOn() ? initializer::AllocationPlace::Device : initializer::AllocationPlace::Host;
@@ -288,7 +288,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
   ltsTree.allocateScratchPads();
 
-  seissol::initializer::recording::CompositeRecorder<seissol::initializer::LTS> recorder;
+  seissol::initializer::recording::CompositeRecorder<seissol::LTS> recorder;
   recorder.addRecorder(new seissol::initializer::recording::LocalIntegrationRecorder);
   recorder.addRecorder(new seissol::initializer::recording::NeighIntegrationRecorder);
 

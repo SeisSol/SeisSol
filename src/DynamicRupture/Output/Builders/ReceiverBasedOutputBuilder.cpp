@@ -51,7 +51,7 @@ void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshRead
 }
 
 void ReceiverBasedOutputBuilder::setLtsData(seissol::initializer::LTSTree* userWpTree,
-                                            seissol::initializer::LTS* userWpDescr,
+                                            seissol::LTS* userWpDescr,
                                             seissol::initializer::Lut* userWpLut,
                                             seissol::initializer::LTSTree* userDrTree,
                                             seissol::initializer::DynamicRupture* userDrDescr) {
@@ -170,14 +170,14 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   std::vector<real*> indexPtrs(outputData->cellCount);
 
   for (const auto& [index, arrayIndex] : elementIndices) {
-    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->derivativesDevice, index);
+    indexPtrs[arrayIndex] = wpLut->lookup<LTS::DerivativesDevice>(index);
     assert(indexPtrs[arrayIndex] != nullptr);
   }
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
     indexPtrs[arrayIndex] =
-        wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
+        wpLut->lookup<LTS::FaceNeighborsDevice>(neighbor.first)[neighbor.second];
     assert(indexPtrs[arrayIndex] != nullptr);
   }
 

@@ -40,10 +40,10 @@ void LocalIntegrationRecorder::record(LTS& handler, Layer& layer) {
 }
 
 void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
-  real* integratedDofsScratch = static_cast<real*>(
-      currentLayer->var(currentHandler->integratedDofsScratch, AllocationPlace::Device));
-  real* derivativesScratch = static_cast<real*>(
-      currentLayer->var(currentHandler->derivativesScratch, AllocationPlace::Device));
+  real* integratedDofsScratch =
+      static_cast<real*>(currentLayer->var<LTS::IntegratedDofsScratch>(AllocationPlace::Device));
+  real* derivativesScratch =
+      static_cast<real*>(currentLayer->var<LTS::DerivativesScratch>(AllocationPlace::Device));
 
   const auto size = currentLayer->size();
   if (size > 0) {
@@ -61,22 +61,21 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     idofsPtrs.reserve(size);
     dQPtrs.resize(size);
 
-    real** derivatives = currentLayer->var(currentHandler->derivativesDevice);
-    real** buffers = currentLayer->var(currentHandler->buffersDevice);
+    real** derivatives = currentLayer->var<LTS::DerivativesDevice>();
+    real** buffers = currentLayer->var<LTS::BuffersDevice>();
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
       auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
 
       // dofs
-      dofsPtrs[cell] = static_cast<real*>(data.get(currentHandler->dofs));
+      dofsPtrs[cell] = static_cast<real*>(data.get<LTS::Dofs>());
 
       // idofs
       real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter];
       const bool isBuffersProvided =
-          ((dataHost.get(currentHandler->cellInformation).ltsSetup >> 8) % 2) == 1;
-      const bool isLtsBuffers =
-          ((dataHost.get(currentHandler->cellInformation).ltsSetup >> 10) % 2) == 1;
+          ((dataHost.get<LTS::CellInformation>().ltsSetup >> 8) % 2) == 1;
+      const bool isLtsBuffers = ((dataHost.get<LTS::CellInformation>().ltsSetup >> 10) % 2) == 1;
 
       if (isBuffersProvided) {
         if (isLtsBuffers) {
@@ -100,31 +99,29 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       }
 
       // stars
-      localPtrs[cell] = reinterpret_cast<real*>(&data.get(currentHandler->localIntegration));
+      localPtrs[cell] = reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>());
 #ifdef USE_VISCOELASTIC2
-      auto* dofsAne = currentLayer->var(currentHandler->dofsAne, AllocationPlace::Device);
+      auto* dofsAne = currentLayer->var<LTS::DofsAne>(AllocationPlace::Device);
       dofsAnePtrs[cell] = dofsAne[cell];
 
-      auto* idofsAne = currentLayer->var(currentHandler->idofsAneScratch, AllocationPlace::Device);
+      auto* idofsAne = currentLayer->var<LTS::IDofsAneScratch>(AllocationPlace::Device);
       idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + tensor::Iane::size() * cell;
 
-      auto* derivativesExt =
-          currentLayer->var(currentHandler->derivativesExtScratch, AllocationPlace::Device);
+      auto* derivativesExt = currentLayer->var<LTS::DerivativesExtScratch>(AllocationPlace::Device);
       derivativesExtPtrs[cell] = static_cast<real*>(derivativesExt) +
                                  (tensor::dQext::size(1) + tensor::dQext::size(2)) * cell;
 
-      auto* derivativesAne =
-          currentLayer->var(currentHandler->derivativesAneScratch, AllocationPlace::Device);
+      auto* derivativesAne = currentLayer->var<LTS::DerivativesAneScratch>(AllocationPlace::Device);
       derivativesAnePtrs[cell] = static_cast<real*>(derivativesAne) +
                                  (tensor::dQane::size(1) + tensor::dQane::size(2)) * cell;
 
-      auto* dofsExt = currentLayer->var(currentHandler->dofsExtScratch, AllocationPlace::Device);
+      auto* dofsExt = currentLayer->var<LTS::DofsExtScratch>(AllocationPlace::Device);
       dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + tensor::Qext::size() * cell;
 #endif
 
       // derivatives
       const bool isDerivativesProvided =
-          ((dataHost.get(currentHandler->cellInformation).ltsSetup >> 9) % 2) == 1;
+          ((dataHost.get<LTS::CellInformation>().ltsSetup >> 9) % 2) == 1;
       if (isDerivativesProvided) {
         dQPtrs[cell] = derivatives[cell];
 
@@ -179,13 +176,12 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
 
       // no element local contribution in the case of dynamic rupture boundary conditions
-      if (dataHost.get(currentHandler->cellInformation).faceTypes[face] !=
-          FaceType::DynamicRupture) {
+      if (dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
         idofsPtrs.push_back(idofsAddressRegistry[cell]);
-        dofsPtrs.push_back(static_cast<real*>(data.get(currentHandler->dofs)));
-        localPtrs.push_back(reinterpret_cast<real*>(&data.get(currentHandler->localIntegration)));
+        dofsPtrs.push_back(static_cast<real*>(data.get<LTS::Dofs>()));
+        localPtrs.push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
 #ifdef USE_VISCOELASTIC2
-        auto* dofsExt = currentLayer->var(currentHandler->dofsExtScratch, AllocationPlace::Device);
+        auto* dofsExt = currentLayer->var<LTS::DofsExtScratch>(AllocationPlace::Device);
         dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + tensor::Qext::size() * cell);
 #endif
       }
@@ -206,7 +202,7 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
 }
 
 void LocalIntegrationRecorder::recordDisplacements() {
-  real*(*faceDisplacements)[4] = currentLayer->var(currentHandler->faceDisplacementsDevice);
+  real*(*faceDisplacements)[4] = currentLayer->var<LTS::FaceDisplacementsDevice>();
   std::array<std::vector<real*>, 4> iVelocitiesPtrs{{}};
   std::array<std::vector<real*>, 4> displacementsPtrs{};
 
@@ -216,8 +212,8 @@ void LocalIntegrationRecorder::recordDisplacements() {
 
     for (unsigned face = 0; face < 4; ++face) {
       auto isRequired = faceDisplacements[cell][face] != nullptr;
-      auto notFreeSurfaceGravity = dataHost.get(currentHandler->cellInformation).faceTypes[face] !=
-                                   FaceType::FreeSurfaceGravity;
+      auto notFreeSurfaceGravity =
+          dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::FreeSurfaceGravity;
 
       if (isRequired && notFreeSurfaceGravity) {
         auto iview = init::I::view::create(idofsAddressRegistry[cell]);
@@ -244,8 +240,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
   const auto size = currentLayer->size();
   constexpr size_t NodalAvgDisplacementsSize = tensor::averageNormalDisplacement::size();
 
-  real* nodalAvgDisplacements = static_cast<real*>(
-      currentLayer->var(currentHandler->nodalAvgDisplacements, AllocationPlace::Device));
+  real* nodalAvgDisplacements =
+      static_cast<real*>(currentLayer->var<LTS::NodalAvgDisplacements>(AllocationPlace::Device));
 
   if (size > 0) {
     std::array<std::vector<unsigned>, 4> cellIndices{};
@@ -269,24 +265,22 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
       auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
 
       for (unsigned face = 0; face < 4; ++face) {
-        if (dataHost.get(currentHandler->cellInformation).faceTypes[face] ==
-            FaceType::FreeSurfaceGravity) {
-          assert(dataHost.get(currentHandler->faceDisplacementsDevice)[face] != nullptr);
+        if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
+          assert(dataHost.get<LTS::FaceDisplacementsDevice>()[face] != nullptr);
           cellIndices[face].push_back(cell);
 
           derivatives[face].push_back(dQPtrs[cell]);
-          dofsPtrs[face].push_back(static_cast<real*>(data.get(currentHandler->dofs)));
+          dofsPtrs[face].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
 
           neighPtrs[face].push_back(
-              reinterpret_cast<real*>(&data.get(currentHandler->neighboringIntegration)));
-          displacementsPtrs[face].push_back(
-              dataHost.get(currentHandler->faceDisplacementsDevice)[face]);
-          t[face].push_back(dataHost.get(currentHandler->boundaryMappingDevice)[face].TData);
-          tInv[face].push_back(dataHost.get(currentHandler->boundaryMappingDevice)[face].TinvData);
+              reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
+          displacementsPtrs[face].push_back(dataHost.get<LTS::FaceDisplacementsDevice>()[face]);
+          t[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].TData);
+          tInv[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].TinvData);
 
-          rhos[face].push_back(dataHost.get(currentHandler->material).local.rho);
-          lambdas[face].push_back(dataHost.get(currentHandler->material).local.getLambdaBar());
+          rhos[face].push_back(dataHost.get<LTS::Material>().local.rho);
+          lambdas[face].push_back(dataHost.get<LTS::Material>().local.getLambdaBar());
 
           real* displ{&nodalAvgDisplacements[nodalAvgDisplacementsCounter]};
           nodalAvgDisplacementsPtrs[face].push_back(displ);
@@ -337,19 +331,19 @@ void LocalIntegrationRecorder::recordDirichletBc() {
       auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
 
       for (unsigned face = 0; face < 4; ++face) {
-        if (dataHost.get(currentHandler->cellInformation).faceTypes[face] == FaceType::Dirichlet) {
+        if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Dirichlet) {
 
-          dofsPtrs[face].push_back(static_cast<real*>(data.get(currentHandler->dofs)));
+          dofsPtrs[face].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
 
-          tInv[face].push_back(dataHost.get(currentHandler->boundaryMappingDevice)[face].TinvData);
+          tInv[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].TinvData);
           neighPtrs[face].push_back(
-              reinterpret_cast<real*>(&data.get(currentHandler->neighboringIntegration)));
+              reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
 
           easiBoundaryMapPtrs[face].push_back(
-              dataHost.get(currentHandler->boundaryMappingDevice)[face].easiBoundaryMap);
+              dataHost.get<LTS::BoundaryMappingDevice>()[face].easiBoundaryMap);
           easiBoundaryConstantPtrs[face].push_back(
-              dataHost.get(currentHandler->boundaryMappingDevice)[face].easiBoundaryConstant);
+              dataHost.get<LTS::BoundaryMappingDevice>()[face].easiBoundaryConstant);
         }
       }
     }
@@ -381,18 +375,18 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS& handler, Layer& layer) {
     std::array<std::vector<real*>, 4> analytical{};
 
     real* analyticScratch =
-        reinterpret_cast<real*>(layer.var(handler.analyticScratch, AllocationPlace::Device));
+        reinterpret_cast<real*>(layer.var<LTS::AnalyticScratch>(AllocationPlace::Device));
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
       auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
 
       for (unsigned face = 0; face < 4; ++face) {
-        if (dataHost.get(currentHandler->cellInformation).faceTypes[face] == FaceType::Analytical) {
+        if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Analytical) {
           cellIndices[face].push_back(cell);
-          dofsPtrs[face].push_back(data.get(currentHandler->dofs));
+          dofsPtrs[face].push_back(data.get<LTS::Dofs>());
           neighPtrs[face].push_back(
-              reinterpret_cast<real*>(&data.get(currentHandler->neighboringIntegration)));
+              reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
           analytical[face].push_back(analyticScratch + cell * tensor::INodal::size());
         }
       }

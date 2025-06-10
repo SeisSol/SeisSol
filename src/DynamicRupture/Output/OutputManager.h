@@ -26,7 +26,7 @@ class OutputManager {
   OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance);
   void setInputParam(seissol::geometry::MeshReader& userMesher);
   void setLtsData(seissol::initializer::LTSTree* userWpTree,
-                  seissol::initializer::LTS* userWpDescr,
+                  seissol::LTS* userWpDescr,
                   seissol::initializer::Lut* userWpLut,
                   seissol::initializer::LTSTree* userDrTree,
                   seissol::initializer::DynamicRupture* userDrDescr);
@@ -52,7 +52,7 @@ class OutputManager {
   std::shared_ptr<ReceiverOutputData> ewOutputData{nullptr};
   std::shared_ptr<ReceiverOutputData> ppOutputData{nullptr};
 
-  seissol::initializer::LTS* wpDescr{nullptr};
+  seissol::LTS* wpDescr{nullptr};
   seissol::initializer::LTSTree* wpTree{nullptr};
   seissol::initializer::Lut* wpLut{nullptr};
   seissol::initializer::LTSTree* drTree{nullptr};

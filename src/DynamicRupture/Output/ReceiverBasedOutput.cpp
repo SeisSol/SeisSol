@@ -38,7 +38,7 @@ using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
 void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
-                                seissol::initializer::LTS* userWpDescr,
+                                seissol::LTS* userWpDescr,
                                 seissol::initializer::Lut* userWpLut,
                                 seissol::initializer::LTSTree* userDrTree,
                                 seissol::initializer::DynamicRupture* userDrDescr) {
@@ -51,14 +51,14 @@ void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
 
 void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
   // get DOFs from 0th derivatives
-  assert((wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup >> 9) % 2 == 1);
+  assert((wpLut->lookup<LTS::CellInformation>(meshId).ltsSetup >> 9) % 2 == 1);
 
-  real* derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
+  real* derivatives = wpLut->lookup<LTS::Derivatives>(meshId);
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 }
 
 void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side) {
-  real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
+  real* derivatives = wpLut->lookup<LTS::FaceNeighbors>(meshId)[side];
   assert(derivatives != nullptr);
 
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);

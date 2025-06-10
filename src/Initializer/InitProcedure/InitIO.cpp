@@ -117,10 +117,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         NumAlignedBasisFunctions,
         seissolInstance.meshReader(),
         ltsClusteringData,
-        reinterpret_cast<const real*>(ltsTree->var(lts->dofs)),
-        reinterpret_cast<const real*>(ltsTree->var(lts->pstrain)),
+        reinterpret_cast<const real*>(ltsTree->var<LTS::Dofs>()),
+        reinterpret_cast<const real*>(ltsTree->var<LTS::PStrain>()),
         seissolInstance.postProcessor().getIntegrals(ltsTree),
-        ltsLut->getMeshToLtsLut(ltsTree->info(lts->dofs).mask)[0].data(),
+        ltsLut->getMeshToLtsLut(ltsTree->info<LTS::Dofs>().mask)[0].data(),
         seissolParams.output.waveFieldParameters,
         seissolParams.output.xdmfWriterBackend,
         backupTimeStamp);
@@ -217,7 +217,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             seissol::model::MaterialT::Quantities[quantity],
             {},
             [=](real* target, std::size_t index) {
-              const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, cellIndices[index]);
+              const auto* dofsAllQuantities = ltsLut->lookup<LTS::Dofs>(cellIndices[index]);
               const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
               kernel::projectBasisToVtkVolume vtkproj;
               vtkproj.qb = dofsSingleQuantity;
@@ -236,7 +236,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               seissol::model::PlasticityData::Quantities[quantity],
               {},
               [=](real* target, std::size_t index) {
-                const auto* dofsAllQuantities = ltsLut->lookup(lts->pstrain, cellIndices[index]);
+                const auto* dofsAllQuantities = ltsLut->lookup<LTS::PStrain>(cellIndices[index]);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj;
                 vtkproj.qb = dofsSingleQuantity;
@@ -317,7 +317,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       writer.addPointData<real>(quantityLabels[quantity], {}, [=](real* target, std::size_t index) {
         auto meshId = surfaceMeshIds[index];
         auto side = surfaceMeshSides[index];
-        const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, meshId);
+        const auto* dofsAllQuantities = ltsLut->lookup<LTS::Dofs>(meshId);
         const auto* dofsSingleQuantity =
             dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
         kernel::projectBasisToVtkFaceFromVolume vtkproj;
@@ -335,7 +335,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           [=](real* target, std::size_t index) {
             auto meshId = surfaceMeshIds[index];
             auto side = surfaceMeshSides[index];
-            const auto* faceDisplacements = ltsLut->lookup(lts->faceDisplacements, meshId);
+            const auto* faceDisplacements = ltsLut->lookup<LTS::FaceDisplacements>(meshId);
             const auto* faceDisplacementVariable =
                 faceDisplacements[side] + FaceDisplacementPadded * quantity;
             kernel::projectNodalToVtkFace vtkproj;

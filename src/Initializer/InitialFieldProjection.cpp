@@ -145,10 +145,10 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
       kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
-      const auto* secondaryInformation = layer.var(lts.secondaryInformation);
-      const auto* material = layer.var(lts.material);
-      auto* dofs = layer.var(lts.dofs);
-      auto* dofsAne = layer.var(lts.dofsAne);
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* material = layer.var<LTS::Material>();
+      auto* dofs = layer.var<LTS::Dofs>();
+      auto* dofsAne = layer.var<LTS::DofsAne>();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
@@ -284,10 +284,10 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
       kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
-      const auto* secondaryInformation = layer.var(lts.secondaryInformation);
-      const auto* material = layer.var(lts.material);
-      auto* dofs = layer.var(lts.dofs);
-      auto* dofsAne = layer.var(lts.dofsAne);
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* material = layer.var<LTS::Material>();
+      auto* dofs = layer.var<LTS::Dofs>();
+      auto* dofsAne = layer.var<LTS::DofsAne>();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
