@@ -42,6 +42,7 @@ class StreamRuntime {
 
   public:
   static constexpr size_t RingbufferSize = 4;
+  static constexpr size_t EventPoolSize = 100;
 
   StreamRuntime(const std::shared_ptr<seissol::parallel::host::CpuExecutor>& cpu =
                     std::make_shared<host::SyncExecutor>(),
@@ -111,18 +112,24 @@ class StreamRuntime {
 
   template <typename F>
   void envMany(size_t count, F&& handler) {
-    for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-      void* event = getEvent();
-      device().api->recordEventOnStream(event, streamPtr);
-      device().api->syncStreamWithEvent(ringbufferPtr[i], event);
-    }
-    for (size_t i = 0; i < count; ++i) {
-      std::invoke(handler, ringbufferPtr[i % ringbufferPtr.size()], i);
-    }
-    for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-      void* event = getEvent();
-      device().api->recordEventOnStream(event, ringbufferPtr[i]);
-      device().api->syncStreamWithEvent(streamPtr, event);
+    if constexpr (Backend != DeviceBackend::Hip) {
+      void* forkEvent = getEvent();
+      device().api->recordEventOnStream(forkEvent, streamPtr);
+      for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
+        device().api->syncStreamWithEvent(ringbufferPtr[i], forkEvent);
+      }
+      for (size_t i = 0; i < count; ++i) {
+        std::invoke(handler, ringbufferPtr[i % ringbufferPtr.size()], i);
+      }
+      for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
+        void* joinEvent = getEvent();
+        device().api->recordEventOnStream(joinEvent, ringbufferPtr[i]);
+        device().api->syncStreamWithEvent(streamPtr, joinEvent);
+      }
+    } else {
+      for (size_t i = 0; i < count; ++i) {
+        std::invoke(handler, streamPtr, i);
+      }
     }
   }
 

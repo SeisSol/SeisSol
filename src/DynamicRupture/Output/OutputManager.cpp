@@ -95,12 +95,7 @@ std::string buildIndexedMPIFileName(const std::string& namePrefix,
                                     const std::string& nameSuffix,
                                     const std::string& fileExtension = std::string()) {
   std::stringstream suffix;
-#ifdef PARALLEL
-  suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
-         << makeFormatted<int, WideFormat>(seissol::MPI::mpi.rank());
-#else
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index);
-#endif
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
 
@@ -182,6 +177,7 @@ void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
 }
 
 void OutputManager::initElementwiseOutput() {
+  logInfo() << "Setting up the fault output.";
   ewOutputBuilder->build(ewOutputData);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
@@ -276,11 +272,12 @@ void OutputManager::initElementwiseOutput() {
 }
 
 void OutputManager::initPickpointOutput() {
+  logInfo() << "Setting up on-fault receivers.";
   ppOutputBuilder->build(ppOutputData);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
   if (seissolParameters.output.pickpointParameters.collectiveio) {
-    logError() << "Collective IO for the Fault Pickpoint output is still under construction.";
+    logError() << "Collective IO for the on-fault receiver output is still under construction.";
   }
 
   std::stringstream baseHeader;

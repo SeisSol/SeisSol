@@ -52,11 +52,14 @@ class BaseFrictionLaw : public FrictionSolver {
         layerData.getNumberOfCells(),
         [fullUpdateTime, &self, &layerData, timeWeights](std::size_t ltsFace) {
           alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
+          const auto etaPDamp =
+              self.drParameters->etaStop > self.mFullUpdateTime ? self.drParameters->etaHack : 1.0;
           common::precomputeStressFromQInterpolated(faultStresses,
                                                     self.impAndEta[ltsFace],
                                                     self.impedanceMatrices[ltsFace],
                                                     self.qInterpolatedPlus[ltsFace],
-                                                    self.qInterpolatedMinus[ltsFace]);
+                                                    self.qInterpolatedMinus[ltsFace],
+                                                    etaPDamp);
 
           // define some temporary variables
           std::array<real, misc::NumPaddedPoints> stateVariableBuffer{0};
@@ -69,13 +72,16 @@ class BaseFrictionLaw : public FrictionSolver {
           real updateTime = self.mFullUpdateTime;
           for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
             updateTime += self.deltaT[timeIndex];
-            common::adjustInitialStress(self.initialStressInFaultCS[ltsFace],
-                                        self.nucleationStressInFaultCS[ltsFace],
-                                        self.initialPressure[ltsFace],
-                                        self.nucleationPressure[ltsFace],
-                                        updateTime,
-                                        self.drParameters->t0,
-                                        self.deltaT[timeIndex]);
+            for (int i = 0; i < self.drParameters->nucleationCount; ++i) {
+              common::adjustInitialStress(self.initialStressInFaultCS[ltsFace],
+                                          self.nucleationStressInFaultCS[i][ltsFace],
+                                          self.initialPressure[ltsFace],
+                                          self.nucleationPressure[i][ltsFace],
+                                          updateTime,
+                                          self.drParameters->t0[i],
+                                          self.drParameters->s0[i],
+                                          self.deltaT[timeIndex]);
+            }
 
             static_cast<Derived&>(self).updateFrictionAndSlip(faultStresses,
                                                               tractionResults,
