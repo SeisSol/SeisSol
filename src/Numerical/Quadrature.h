@@ -21,8 +21,8 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-namespace seissol {
-namespace quadrature {
+
+namespace seissol::quadrature {
 static const unsigned MaxIterations = 100;
 static const double Tolerance = 10. * std::numeric_limits<double>::epsilon();
 
@@ -37,23 +37,27 @@ inline void GaussLegendre(double* points, double* weights, unsigned n) {
   unsigned nh = (n + 1) / 2;
   for (unsigned i = 1; i <= nh; ++i) {
     // x = Initial guess for polynomial root
-    double x = cos(M_PI * (4. * i - 1.) / (4. * n + 2.)), w;
-    double Pn = 0.0, dPn = 1.0, Pn_2, Pn_1;
+    double x = cos(M_PI * (4. * i - 1.) / (4. * n + 2.));
+    double w{};
+    double pn = 0.0;
+    double dPn = 1.0;
+    double pn2{};
+    double pn1{};
     unsigned it = 0;
     // Refine polynomial roots with Newton iteration
     do {
-      x -= Pn / dPn;
-      Pn_1 = 0.0;
-      Pn = 1.0;
+      x -= pn / dPn;
+      pn1 = 0.0;
+      pn = 1.0;
       // Recursive procedure to calculate the n-th Legendre polynomial at x
       for (unsigned j = 1; j <= n; ++j) {
-        Pn_2 = Pn_1;
-        Pn_1 = Pn;
-        Pn = ((2. * j - 1.) * x * Pn_1 - (j - 1.) * Pn_2) / j;
+        pn2 = pn1;
+        pn1 = pn;
+        pn = ((2. * j - 1.) * x * pn1 - (j - 1.) * pn2) / j;
       }
       // Derivative at x
-      dPn = (n * Pn_1 - n * x * Pn) / (1. - x * x);
-    } while (fabs(Pn) > Tolerance && ++it < MaxIterations);
+      dPn = (n * pn1 - n * x * pn) / (1. - x * x);
+    } while (fabs(pn) > Tolerance && ++it < MaxIterations);
     // Weight = 2 / [(1-x^2) * P_n'(x)^2]
     w = 2. / ((1 - x * x) * dPn * dPn);
     points[i - 1] = -x;
@@ -79,14 +83,15 @@ inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a,
   for (unsigned i = 1; i <= n; ++i) {
     // x = Initial guess for polynomial root
     double x = cos(M_PI * (0.5 * a + i - 0.25) / (0.5 * (1.0 + a + b) + n));
-    double Pn = 0.0, dPn = 1.0;
+    double pn = 0.0;
+    double dPn = 1.0;
     unsigned it = 0;
     // Refine polynomial roots with Newton iteration
     do {
-      x -= Pn / dPn;
-      Pn = functions::JacobiP(n, a, b, x);
+      x -= pn / dPn;
+      pn = functions::JacobiP(n, a, b, x);
       dPn = functions::JacobiPDerivative(n, a, b, x);
-    } while (fabs(Pn) > Tolerance && ++it < MaxIterations);
+    } while (fabs(pn) > Tolerance && ++it < MaxIterations);
     points[i - 1] = x;
     weights[i - 1] = weightFactor / (functions::JacobiP(n + 1, a, b, x) * dPn);
   }
@@ -98,12 +103,12 @@ inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a,
  *
  *  n is the polynomial degree. Make sure that points and weights have space for n^2 entries.
  */
-template <typename float_t>
-inline void TriangleQuadrature(float_t (*points)[2], float_t* weights, unsigned n) {
-  double* points0 = new double[n];
-  double* weights0 = new double[n];
-  double* points1 = new double[n];
-  double* weights1 = new double[n];
+template <typename FloatT>
+inline void TriangleQuadrature(FloatT (*points)[2], FloatT* weights, unsigned n) {
+  auto* points0 = new double[n];
+  auto* weights0 = new double[n];
+  auto* points1 = new double[n];
+  auto* weights1 = new double[n];
 
   GaussJacobi(points0, weights0, n, 0, 0);
   GaussJacobi(points1, weights1, n, 1, 0);
@@ -181,7 +186,7 @@ inline void TetrahedronQuadrature(double (*points)[3], double* weights, unsigned
     logError() << "Sum of tetrahedron quadrature weights are " << sumWeights << " /= " << 1. / 6.;
   }
 }
-} // namespace quadrature
-} // namespace seissol
+} // namespace seissol::quadrature
+
 
 #endif // SEISSOL_SRC_NUMERICAL_QUADRATURE_H_
