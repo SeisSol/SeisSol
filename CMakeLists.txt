@@ -94,9 +94,6 @@ endif()
 # LTO
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
-configure_file("src/Alignment.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
-
 function(capitalize INARG OUTARG)
   string(REPLACE "_" ";" PARTS ${INARG})
   set(PREOUTARG "")
@@ -110,6 +107,24 @@ function(capitalize INARG OUTARG)
   endforeach()
   set(${OUTARG} ${PREOUTARG} PARENT_SCOPE)
 endfunction()
+
+set (BUILDTYPE_STR "Cpu")
+set (DEVICE_BACKEND_STR "None")
+if (WITH_GPU)
+  set (BUILDTYPE_STR "Gpu")
+  if (DEVICE_BACKEND STREQUAL "cuda")
+    set (DEVICE_BACKEND_STR "Cuda")
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hip")
+    set (DEVICE_BACKEND_STR "Hip")
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "acpp" OR DEVICE_BACKEND STREQUAL "oneapi")
+    set (DEVICE_BACKEND_STR "Sycl")
+  endif()
+endif()
+
+configure_file("src/Alignment.h.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
 
 if (EQUATIONS STREQUAL "viscoelastic")
   set(PARAMETER_MATERIAL "Viscoelastic")
