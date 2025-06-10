@@ -205,9 +205,6 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
   for (std::size_t i = 0; i < layout.localClusterIds.size(); ++i) {
     connectIfBothExist2D(cellClusterBackmap[i][Copy], cellClusterBackmap[i][Interior]);
     connectIfBothExist2D(cellClusterBackmap[i][Copy], cellClusterBackmap[i][Ghost]);
-    for (std::size_t j = i + 1; j < layout.localClusterIds.size(); ++j) {
-      connectIfBothExist1D(cellClusterBackmap[i][Copy], cellClusterBackmap[j][Ghost]);
-    }
 
     connectIfBothExist2D(faceClusterBackmap[i][Interior], cellClusterBackmap[i][Interior]);
     connectIfBothExist2D(faceClusterBackmap[i][Interior], cellClusterBackmap[i][Copy]);
@@ -217,12 +214,13 @@ void TimeManager::addClusters(initializer::ClusterLayout& layout,
   }
 
   for (std::size_t i = 1; i < layout.localClusterIds.size(); ++i) {
-    if (layout.localClusterIds[i - 1] + 1 == layout.localClusterIds[i]) {
-      connectIfBothExist2D(cellClusterBackmap[i][Interior], cellClusterBackmap[i - 1][Interior]);
-      connectIfBothExist2D(cellClusterBackmap[i][Interior], cellClusterBackmap[i - 1][Copy]);
-      connectIfBothExist2D(cellClusterBackmap[i][Copy], cellClusterBackmap[i - 1][Interior]);
-      connectIfBothExist2D(cellClusterBackmap[i][Copy], cellClusterBackmap[i - 1][Copy]);
-    }
+    connectIfBothExist2D(cellClusterBackmap[i][Interior], cellClusterBackmap[i - 1][Interior]);
+    connectIfBothExist2D(cellClusterBackmap[i][Interior], cellClusterBackmap[i - 1][Copy]);
+    connectIfBothExist2D(cellClusterBackmap[i][Copy], cellClusterBackmap[i - 1][Interior]);
+    connectIfBothExist2D(cellClusterBackmap[i][Copy], cellClusterBackmap[i - 1][Copy]);
+
+    connectIfBothExist2D(cellClusterBackmap[i][Copy], cellClusterBackmap[i - 1][Ghost]);
+    connectIfBothExist1D(cellClusterBackmap[i - 1][Copy], cellClusterBackmap[i][Ghost]);
   }
 
   if (seissol::useCommThread(MPI::mpi, seissolInstance.env())) {

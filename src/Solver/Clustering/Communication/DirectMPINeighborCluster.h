@@ -79,7 +79,9 @@ class DirectMPINeighborCluster : public NeighborCluster {
 
   ~DirectMPINeighborCluster() override = default;
 
-  bool emptyStep(ComputeStep step) const override { return step == ComputeStep::Interact; }
+  bool emptyStep(ComputeStep step) const override {
+    return step == ComputeStep::Interact || step == ComputeStep::Correct;
+  }
 
   void runCompute(ComputeStep step) override {
     if (step == ComputeStep::Predict) {
@@ -94,10 +96,7 @@ class DirectMPINeighborCluster : public NeighborCluster {
     const auto sendPollResult = send.poll();
     const auto recvPollResult = recv.poll();
     if (step == ComputeStep::Communicate) {
-      return recvPollResult;
-    }
-    if (step == ComputeStep::Correct) {
-      return sendPollResult;
+      return recvPollResult && sendPollResult;
     }
     return true;
   }
