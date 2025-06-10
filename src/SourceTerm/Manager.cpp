@@ -33,8 +33,8 @@
 #include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
+#include <Solver/Clustering/TimeManager.h>
 #include <Solver/MultipleSimulations.h>
-#include <Solver/time_stepping/TimeManager.h>
 #include <SourceTerm/NRF.h>
 #include <SourceTerm/Typedefs.h>
 #include <algorithm>
@@ -290,8 +290,8 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
 #endif
 
   return seissol::kernels::PointSourceClusterPair{
-      std::make_unique<kernels::PointSourceClusterOnHost>(hostData.first, hostData.second),
-      std::make_unique<GpuImpl>(deviceData.first, deviceData.second)};
+      std::make_shared<kernels::PointSourceClusterOnHost>(hostData.first, hostData.second),
+      std::make_shared<GpuImpl>(deviceData.first, deviceData.second)};
 }
 
 auto loadSourcesFromFSRM(const char* fileName,
@@ -524,7 +524,7 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
                           seissol::initializer::LTSTree* ltsTree,
                           seissol::initializer::LTS* lts,
                           seissol::initializer::Lut* ltsLut,
-                          time_stepping::TimeManager& timeManager) {
+                          solver::clustering::TimeManager& timeManager) {
 #ifdef ACL_DEVICE
   auto memkind = useUSM() ? seissol::memory::DeviceUnifiedMemory : seissol::memory::Standard;
 #else

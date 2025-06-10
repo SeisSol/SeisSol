@@ -183,20 +183,11 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   // refocusing both the waves. Default scenario. Works for both waves, only P-wave and constant
   // impedance case
   {
-    for (auto& cluster : *timeClusters) {
+    for (auto& cluster : timeClusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
       auto* neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
         neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() /
-                                           velocityScalingFactor);
-      }
-    }
-
-    for (auto& cluster : *ghostTimeClusters) {
-      cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
-      auto* ghostNeighborClusters = cluster->getNeighborClusters();
-      for (auto& neighborcluster : *ghostNeighborClusters) {
-        neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() /
                                            velocityScalingFactor);
       }
     }
@@ -213,7 +204,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
       timeStepScalingFactor = 2.0;
     }
 
-    for (auto& cluster : *timeClusters) {
+    for (auto& cluster : timeClusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() * timeStepScalingFactor);
       auto* neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
@@ -221,26 +212,13 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
                                            timeStepScalingFactor);
       }
     }
-
-    for (auto& cluster : *ghostTimeClusters) {
-      cluster->setClusterTimes(cluster->getClusterTimes() * timeStepScalingFactor);
-      auto* ghostNeighborClusters = cluster->getNeighborClusters();
-      for (auto& neighborcluster : *ghostNeighborClusters) {
-        neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() *
-                                           timeStepScalingFactor);
-      }
-    }
   }
 }
 
 void InstantaneousTimeMirrorManager::setTimeClusterVector(
-    std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters) {
-  timeClusters = clusters;
-}
-
-void InstantaneousTimeMirrorManager::setGhostClusterVector(
-    std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* clusters) {
-  ghostTimeClusters = clusters;
+    const std::vector<std::shared_ptr<seissol::solver::clustering::AbstractTimeCluster>>&
+        timeClusters) {
+  this->timeClusters = timeClusters;
 }
 
 void initializeTimeMirrorManagers(double scalingFactor,

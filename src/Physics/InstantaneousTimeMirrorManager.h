@@ -14,8 +14,7 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
 #include "Modules/Module.h"
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
-#include "Solver/time_stepping/TimeCluster.h"
+#include <Solver/Clustering/AbstractTimeCluster.h>
 
 namespace seissol {
 class SeisSol;
@@ -34,9 +33,7 @@ class InstantaneousTimeMirrorManager : Module {
   initializer::Lut* ltsLut{};
   const TimeStepping* timestepping{};
 
-  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters{};
-  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>*
-      ghostTimeClusters{};
+  std::vector<std::shared_ptr<seissol::solver::clustering::AbstractTimeCluster>> timeClusters;
 
   public:
   explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
@@ -52,10 +49,8 @@ class InstantaneousTimeMirrorManager : Module {
                                                // what exactly is to be sent here
 
   void setTimeClusterVector(
-      std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters);
-
-  void setGhostClusterVector(
-      std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* clusters);
+      const std::vector<std::shared_ptr<seissol::solver::clustering::AbstractTimeCluster>>&
+          timeClusters);
 
   void syncPoint(double currentTime) override;
 

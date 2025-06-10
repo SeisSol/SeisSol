@@ -23,6 +23,7 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Alignment.h>
+#include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -68,6 +69,7 @@ void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     std::shared_ptr<ReceiverOutputData> outputData,
+    seissol::parallel::runtime::StreamRuntime& runtime,
     double time) {
 
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
@@ -76,18 +78,13 @@ void ReceiverOutput::calcFaultOutput(
   const auto& faultInfos = meshReader->getFault();
 
 #ifdef ACL_DEVICE
-  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  outputData->deviceDataCollector->gatherToHost(stream);
+  outputData->deviceDataCollector->gatherToHost(runtime.stream());
   for (auto& [_, dataCollector] : outputData->deviceVariables) {
-    dataCollector->gatherToHost(stream);
+    dataCollector->gatherToHost(runtime.stream());
   }
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
-#pragma omp parallel for
-#endif
-  for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
+  runtime.enqueueOmpFor(outputData->receiverPoints.size(), [=](size_t i) {
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
 
@@ -121,11 +118,13 @@ void ReceiverOutput::calcFaultOutput(
       std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
     }
 #else
-    getDofs(dofsPlus, faultInfo.element);
-    if (faultInfo.neighborElement >= 0) {
-      getDofs(dofsMinus, faultInfo.neighborElement);
-    } else {
-      getNeighborDofs(dofsMinus, faultInfo.element, faultInfo.side);
+    {
+      getDofs(dofsPlus, faultInfo.element);
+      if (faultInfo.neighborElement >= 0) {
+        getDofs(dofsMinus, faultInfo.neighborElement);
+      } else {
+        getNeighborDofs(dofsMinus, faultInfo.element, faultInfo.side);
+      }
     }
 #endif
 
@@ -307,11 +306,13 @@ void ReceiverOutput::calcFaultOutput(
           sin1 * slip1[local.nearestGpIndex] + cos1 * slip2[local.nearestGpIndex];
     }
     this->outputSpecifics(outputData, local, level, i);
-  }
+  });
 
   if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
-    outputData->cachedTime[outputData->currentCacheLevel] = time;
-    outputData->currentCacheLevel += 1;
+    runtime.enqueueHost([=] {
+      outputData->cachedTime[outputData->currentCacheLevel] = time;
+      outputData->currentCacheLevel += 1;
+    });
   }
 }
 

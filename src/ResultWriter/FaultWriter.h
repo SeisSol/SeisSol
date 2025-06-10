@@ -20,6 +20,9 @@
 #include "Modules/Module.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"
+#include <Parallel/Host/SyncExecutor.h>
+#include <Parallel/Runtime/Stream.h>
+#include <memory>
 
 namespace seissol {
 class SeisSol;
@@ -51,6 +54,8 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
   Stopwatch m_stopwatch;
 
   dr::output::OutputManager* callbackObject{nullptr};
+
+  parallel::runtime::StreamRuntime runtime;
 
   public:
   explicit FaultWriter(seissol::SeisSol& seissolInstance)
@@ -126,7 +131,10 @@ class FaultWriter : private async::Module<FaultWriterExecutor, FaultInitParam, F
     m_stopwatch.printTime("Time fault writer frontend:");
   }
 
-  void tearDown() override { m_executor.finalize(); }
+  void tearDown() override {
+    m_executor.finalize();
+    runtime.dispose();
+  }
 
   void setupCallbackObject(dr::output::OutputManager* faultOutputManager) {
     callbackObject = faultOutputManager;

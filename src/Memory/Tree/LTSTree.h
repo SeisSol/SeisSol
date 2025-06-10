@@ -60,8 +60,18 @@ class LTSTree : public LTSInternalNode {
 #endif
   }
 
-  void setNumberOfTimeClusters(unsigned numberOfTimeCluster) {
-    setChildren<TimeCluster>(numberOfTimeCluster);
+  void setNumberOfTimeClusters(unsigned count) { setChildren<TimeCluster>(count); }
+
+  void setTimeClusters(unsigned count, const unsigned* ids) {
+    setChildren<TimeCluster>(count);
+    for (unsigned i = 0; i < count; ++i) {
+      auto& timecluster = child(i);
+      timecluster.setClusterId(ids[i]);
+    }
+  }
+
+  void setTimeClusters(const std::vector<unsigned>& ids) {
+    setTimeClusters(ids.size(), ids.data());
   }
 
   void fixate() {
@@ -224,8 +234,12 @@ class LTSTree : public LTSInternalNode {
                                       scratchpadMemInfo[id].allocMode);
     }
 
+    auto scratchpadOffsets = std::vector<std::size_t>(scratchpadMemInfo.size());
     for (auto& leaf : leaves()) {
-      leaf.setMemoryRegionsForScratchpads(scratchpadMemories);
+      leaf.setMemoryRegionsForScratchpads(scratchpadMemories, scratchpadOffsets);
+      if (concurrentClusters()) {
+        leaf.findMaxScratchpadSizes(scratchpadOffsets);
+      }
     }
   }
 #endif

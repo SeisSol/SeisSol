@@ -18,6 +18,7 @@
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
+#include "Parallel/Runtime/Stream.h"
 #include "generated_code/init.h"
 #include <Common/Executor.h>
 #include <Eigen/Dense>
@@ -92,8 +93,11 @@ class ReceiverCluster {
                    seissol::initializer::LTS const& lts);
 
   //! Returns new receiver time
-  double calcReceivers(
-      double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream);
+  double calcReceivers(double time,
+                       double expansionPoint,
+                       double timeStepWidth,
+                       Executor executor,
+                       seissol::parallel::runtime::StreamRuntime& runtime);
 
   std::vector<Receiver>::iterator begin() { return m_receivers.begin(); }
 

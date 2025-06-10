@@ -72,6 +72,10 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       : FrictionSolverDetails(drParameters) {}
   ~BaseFrictionSolver<Derived>() override = default;
 
+  std::unique_ptr<FrictionSolver> clone() override {
+    return std::make_unique<Derived>(*static_cast<Derived*>(this));
+  }
+
   SEISSOL_DEVICE static void evaluatePoint(FrictionLawContext& ctx) {
     constexpr common::RangeType gpuRangeType{common::RangeType::GPU};
 
