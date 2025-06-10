@@ -166,6 +166,44 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
 void LocalIntegrationRecorder::recordLocalFluxIntegral() {
   const auto size = currentLayer->getNumberOfCells();
+  std::vector<bool> all4(size);
+  std::vector<real*> idofsPtrs{};
+  std::vector<real*> dofsPtrs{};
+  std::vector<real*> localPtrs{};
+
+  std::vector<real*> dofsExtPtrs{};
+  for (unsigned cell = 0; cell < size; ++cell) {
+    auto data = currentLoader->entry(cell);
+    auto dataHost = currentLoaderHost->entry(cell);
+    all4[cell] = true;
+    for (int face = 0; face < 4; ++face) {
+      if (dataHost.cellInformation().faceTypes[face] == FaceType::DynamicRupture) {
+        all4[cell] = false;
+        break;
+      }
+    }
+    if (all4[cell]) {
+      idofsPtrs.push_back(idofsAddressRegistry[cell]);
+      dofsPtrs.push_back(static_cast<real*>(data.dofs()));
+      localPtrs.push_back(reinterpret_cast<real*>(&data.localIntegration()));
+#ifdef USE_VISCOELASTIC2
+      auto* dofsExt = currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch,
+                                                        AllocationPlace::Device);
+      dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + tensor::Qext::size() * cell);
+#endif
+    }
+  }
+  if (!dofsPtrs.empty()) {
+    const ConditionalKey key(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture);
+    checkKey(key);
+    (*currentTable)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
+#ifdef USE_VISCOELASTIC2
+    (*currentTable)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
+#endif
+  }
+
   for (unsigned face = 0; face < 4; ++face) {
     std::vector<real*> idofsPtrs{};
     std::vector<real*> dofsPtrs{};
@@ -182,7 +220,7 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       auto dataHost = currentLoaderHost->entry(cell);
 
       // no element local contribution in the case of dynamic rupture boundary conditions
-      if (dataHost.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
+      if (dataHost.cellInformation().faceTypes[face] != FaceType::DynamicRupture && !all4[cell]) {
         idofsPtrs.push_back(idofsAddressRegistry[cell]);
         dofsPtrs.push_back(static_cast<real*>(data.dofs()));
         localPtrs.push_back(reinterpret_cast<real*>(&data.localIntegration()));

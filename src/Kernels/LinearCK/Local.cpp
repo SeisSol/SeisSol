@@ -66,6 +66,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
   deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceLocalFluxCombinedKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
 #else
   deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
   deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
@@ -283,24 +284,54 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
     volKrnl.execute();
   }
 
-  // Local Flux Integral
-  for (unsigned face = 0; face < 4; ++face) {
-    key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
+  runtime.envMany(2, [&](void* stream, std::size_t index) {
+    if (index == 0) {
+      ConditionalKey ckey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture);
+      if (dataTable.find(ckey) != dataTable.end()) {
+        auto& entry = dataTable[ckey];
 
-    if (dataTable.find(key) != dataTable.end()) {
-      auto& entry = dataTable[key];
-      localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-      localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-      localFluxKrnl.I =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      localFluxKrnl.AplusT = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-      localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
-      localFluxKrnl.linearAllocator.initialize(tmpMem.get());
-      localFluxKrnl.streamPtr = runtime.stream();
-      localFluxKrnl.execute(face);
+        kernel::gpu_localFluxCombined krnl = deviceLocalFluxCombinedKernelPrototype;
+
+        krnl.numElements = (dataTable[ckey].get(inner_keys::Wp::Id::Dofs))->getSize();
+
+        krnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+        krnl.I =
+            const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+
+        for (size_t i = 0; i < yateto::numFamilyMembers<tensor::ApT>(); ++i) {
+          krnl.ApT(i) = const_cast<const real**>(
+              (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+          krnl.extraOffset_ApT(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, i);
+        }
+        krnl.linearAllocator.initialize(tmpMem.get());
+        krnl.streamPtr = stream;
+        krnl.execute();
+      }
+    } else {
+
+      // Local Flux Integral
+      for (unsigned face = 0; face < 4; ++face) {
+        key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
+
+        if (dataTable.find(key) != dataTable.end()) {
+          auto& entry = dataTable[key];
+          localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+          localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+          localFluxKrnl.I =
+              const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+          localFluxKrnl.AplusT = const_cast<const real**>(
+              entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+          localFluxKrnl.extraOffset_AplusT =
+              SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+          localFluxKrnl.linearAllocator.initialize(tmpMem.get());
+          localFluxKrnl.streamPtr = stream;
+          localFluxKrnl.execute(face);
+        }
+      }
     }
+  });
 
+  for (int face = 0; face < 4; ++face) {
     ConditionalKey fsgKey(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
     if (dataTable.find(fsgKey) != dataTable.end()) {

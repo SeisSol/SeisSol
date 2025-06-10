@@ -403,6 +403,19 @@ class LinearADERDG(ADERDGBase):
                 target="gpu",
             )
 
+            Aplusminus_spp = self.flux_solver_spp()
+            self.ApT = [Tensor(f"ApT({i})", Aplusminus_spp.shape, spp=Aplusminus_spp) for i in range(4)]
+
+            generator.add(
+                "gpu_localFluxCombined",
+                self.Q["kp"] <= self.Q["kp"]
+                    + plusFluxMatrixAccessor(0) * self.I["lq"] * self.ApT[0]["qp"]
+                    + plusFluxMatrixAccessor(1) * self.I["lq"] * self.ApT[1]["qp"]
+                    + plusFluxMatrixAccessor(2) * self.I["lq"] * self.ApT[2]["qp"]
+                    + plusFluxMatrixAccessor(3) * self.I["lq"] * self.ApT[3]["qp"],
+                target="gpu",
+            )
+
     def addNeighbor(self, generator, targets):
         neighborFlux = (
             lambda h, j, i: self.Q["kp"]

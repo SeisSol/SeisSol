@@ -76,6 +76,7 @@ class Local : public LocalKernel {
 #ifdef ACL_DEVICE
   kernel::gpu_volume deviceVolumeKernelPrototype;
   kernel::gpu_localFlux deviceLocalFluxKernelPrototype;
+  kernel::gpu_localFluxCombined deviceLocalFluxCombinedKernelPrototype;
   kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
   kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
