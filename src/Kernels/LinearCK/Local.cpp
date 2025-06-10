@@ -77,9 +77,8 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
 struct ApplyAnalyticalSolution {
   ApplyAnalyticalSolution(seissol::physics::InitialField* initCondition,
-                          seissol::initializer::Layer::CellRef& data,
-                          seissol::LTS& lts)
-      : initCondition(initCondition), localData(data), lts(lts) {}
+                          seissol::initializer::Layer::CellRef& data)
+      : initCondition(initCondition), localData(data) {}
 
   void operator()(const real* nodes, double time, seissol::init::INodal::view::type& boundaryDofs) {
 
@@ -104,12 +103,10 @@ struct ApplyAnalyticalSolution {
   private:
   seissol::physics::InitialField* initCondition{};
   seissol::initializer::Layer::CellRef& localData;
-  seissol::LTS& lts;
 };
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
                             seissol::initializer::Layer::CellRef& data,
-                            seissol::LTS& lts,
                             LocalTmp& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                             const CellMaterialData* materialData,
@@ -227,7 +224,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       assert(cellBoundaryMapping != nullptr);
       assert(initConds != nullptr);
       assert(initConds->size() == 1);
-      ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data, lts);
+      ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
 
       dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
                                               face,
@@ -352,7 +349,6 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
                                            ConditionalIndicesTable& indicesTable,
                                            seissol::initializer::Layer& layer,
-                                           seissol::LTS& lts,
                                            double time,
                                            double timeStepWidth,
                                            seissol::parallel::runtime::StreamRuntime& runtime) {
@@ -368,7 +364,7 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
       auto* analytical =
           reinterpret_cast<real(*)[tensor::INodal::size()]>(layer.var<LTS::AnalyticScratch>());
 
-      runtime.enqueueOmpFor(numElements, [=, &cellIds, &layer, &lts](std::size_t index) {
+      runtime.enqueueOmpFor(numElements, [=, &cellIds, &layer](std::size_t index) {
         auto cellId = cellIds.at(index);
         auto data = layer.cellRef(cellId);
 
@@ -376,7 +372,7 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
 
         assert(initConds != nullptr);
         assert(initConds->size() == 1);
-        ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data, lts);
+        ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
 
         dirichletBoundary.evaluateTimeDependent(nullptr,
                                                 face,

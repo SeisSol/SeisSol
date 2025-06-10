@@ -33,7 +33,7 @@
 #endif
 
 namespace {
-void fakeData(LTS& lts, initializer::Layer& layer, FaceType faceTp) {
+void fakeData(initializer::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
   real** buffers = layer.var<LTS::Buffers>();
   real** derivatives = layer.var<LTS::Derivatives>();
@@ -151,7 +151,7 @@ void ProxyData::initGlobalData() {
 
 void ProxyData::initDataStructures(bool enableDR) {
   // init RNG
-  lts.addTo(ltsTree, false); // proxy does not use plasticity
+  LTS::addTo(ltsTree, false); // proxy does not use plasticity
   ltsTree.setLayerCount(1, {Config()});
   ltsTree.fixate();
 
@@ -212,7 +212,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   }
 
   /* cell information and integration data*/
-  fakeData(lts, layer, (enableDR) ? FaceType::DynamicRupture : FaceType::Regular);
+  fakeData(layer, (enableDR) ? FaceType::DynamicRupture : FaceType::Regular);
 
   if (enableDR) {
     // From lts tree
@@ -285,7 +285,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
 
   seissol::initializer::Layer& layer = ltsTree.layer(layerId);
 
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree);
   ltsTree.allocateScratchPads();
 
   seissol::initializer::recording::CompositeRecorder<seissol::LTS> recorder;
@@ -293,7 +293,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
   recorder.addRecorder(new seissol::initializer::recording::NeighIntegrationRecorder);
 
   recorder.addRecorder(new seissol::initializer::recording::PlasticityRecorder);
-  recorder.record(lts, layer);
+  recorder.record(LTS(), layer);
   if (enableDR) {
     dynRupTree.synchronizeTo(seissol::initializer::AllocationPlace::Device,
                              device.api->getDefaultStream());

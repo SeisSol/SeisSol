@@ -209,7 +209,6 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   seissol::initializer::initializeCellLocalMatrices(meshReader,
                                                     memoryManager.getLtsTree(),
-                                                    memoryManager.getLts(),
                                                     memoryManager.getLtsLut(),
                                                     ltsInfo.timeStepping,
                                                     seissolParams.model);
@@ -223,7 +222,6 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
                                                          memoryManager.getLtsTree(),
-                                                         memoryManager.getLts(),
                                                          memoryManager.getLtsLut(),
                                                          memoryManager.getDynamicRuptureTree(),
                                                          memoryManager.getDynamicRupture(),
@@ -236,7 +234,6 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   seissol::initializer::initializeBoundaryMappings(meshReader,
                                                    memoryManager.getEasiBoundaryReader(),
                                                    memoryManager.getLtsTree(),
-                                                   memoryManager.getLts(),
                                                    memoryManager.getLtsLut());
 
 #ifdef ACL_DEVICE
@@ -251,7 +248,6 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
     const double startingTime = itmParameters.itmStartingTime;
 
     auto* mLtsTree = memoryManager.getLtsTree();
-    auto* mLts = memoryManager.getLts();
     auto* mLtsLut = memoryManager.getLtsLut();
     const auto* mTimeStepping = seissolInstance.timeManager().getTimeStepping();
 
@@ -259,7 +255,6 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                  startingTime,
                                  &meshReader,
                                  mLtsTree,
-                                 mLts,
                                  mLtsLut,
                                  timeMirrorManagers.first,
                                  timeMirrorManagers.second,
@@ -331,7 +326,6 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   delete[] numberOfDRInteriorFaces;
 
   const auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
-  const auto& lts = seissolInstance.getMemoryManager().getLts();
 
   std::size_t* ltsToMesh = nullptr;
   std::size_t numberOfMeshCells = 0;

@@ -58,7 +58,6 @@ seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator()
 
 void seissol::solver::FreeSurfaceIntegrator::initialize(  unsigned maxRefinementDepth,
                                                           GlobalData* globalData,
-                                                          seissol::LTS* lts,
                                                           seissol::initializer::LTSTree* ltsTree  )
 {
   if (maxRefinementDepth > FREESURFACE_MAX_REFINEMENT) {
@@ -69,7 +68,7 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(  unsigned maxRefinement
 
 	logInfo() << "Initializing free surface integrator.";
   initializeProjectionMatrices(maxRefinementDepth);
-  initializeSurfaceLTSTree(lts, ltsTree);
+  initializeSurfaceLTSTree(ltsTree);
 	logInfo() << "Initializing free surface integrator. Done.";
 }
 
@@ -249,8 +248,7 @@ seissol::solver::FreeSurfaceIntegrator::LocationFlag seissol::solver::FreeSurfac
   }
 }
 
-void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol::LTS* lts,
-                                                                        seissol::initializer::LTSTree* ltsTree )
+void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol::initializer::LTSTree* ltsTree )
 {
   seissol::initializer::LayerMask ghostMask(Ghost);
 

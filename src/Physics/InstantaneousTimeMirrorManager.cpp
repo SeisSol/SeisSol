@@ -27,7 +27,6 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           double triggerTime,
                                           seissol::geometry::MeshReader* meshReader,
                                           initializer::LTSTree* ltsTree,
-                                          LTS* lts,
                                           initializer::Lut* ltsLut,
                                           const TimeStepping* timestepping) {
   isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
@@ -36,7 +35,6 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   this->triggerTime = triggerTime;
   this->meshReader = meshReader;
   this->ltsTree = ltsTree;
-  this->lts = lts;
   this->ltsLut = ltsLut;
   this->timestepping = timestepping; // An empty timestepping is added. Need to discuss what exactly
                                      // is to be sent here
@@ -60,12 +58,8 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   updateVelocities();
 
   logInfo() << "Updating CellLocalMatrices";
-  initializer::initializeCellLocalMatrices(*meshReader,
-                                           ltsTree,
-                                           lts,
-                                           ltsLut,
-                                           *timestepping,
-                                           seissolInstance.getSeisSolParameters().model);
+  initializer::initializeCellLocalMatrices(
+      *meshReader, ltsTree, ltsLut, *timestepping, seissolInstance.getSeisSolParameters().model);
   // An empty timestepping is added. Need to discuss what exactly is to be sent here
 
   logInfo() << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor;
@@ -247,7 +241,6 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   double triggerTime,
                                   seissol::geometry::MeshReader* meshReader,
                                   initializer::LTSTree* ltsTree,
-                                  LTS* lts,
                                   initializer::Lut* ltsLut,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
@@ -257,7 +250,6 @@ void initializeTimeMirrorManagers(double scalingFactor,
                        triggerTime,
                        meshReader,
                        ltsTree,
-                       lts,
                        ltsLut,
                        timestepping); // An empty timestepping is added. Need to discuss what
                                       // exactly is to be sent here
@@ -269,7 +261,6 @@ void initializeTimeMirrorManagers(double scalingFactor,
                        triggerTime + eps,
                        meshReader,
                        ltsTree,
-                       lts,
                        ltsLut,
                        timestepping); // An empty timestepping is added. Need to discuss what
                                       // exactly is to be sent here

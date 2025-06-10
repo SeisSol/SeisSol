@@ -75,7 +75,6 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 
 void Spacetime::executeSTP(double timeStepWidth,
                            seissol::initializer::Layer::CellRef& data,
-                           seissol::LTS& lts,
                            real timeIntegrated[tensor::I::size()],
                            real* stp)
 
@@ -135,7 +134,6 @@ void Spacetime::executeSTP(double timeStepWidth,
 
 void Spacetime::computeAder(double timeStepWidth,
                             seissol::initializer::Layer::CellRef& data,
-                            seissol::LTS& lts,
                             LocalTmp& tmp,
                             real timeIntegrated[tensor::I::size()],
                             real* timeDerivatives,
@@ -150,7 +148,7 @@ void Spacetime::computeAder(double timeStepWidth,
 
   alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor::size()];
   real* stpBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
-  executeSTP(timeStepWidth, data, lts, timeIntegrated, stpBuffer);
+  executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
 }
 
 void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {

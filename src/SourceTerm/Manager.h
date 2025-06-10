@@ -25,7 +25,6 @@ class Manager {
                           const char* fileName,
                           const seissol::geometry::MeshReader& mesh,
                           seissol::initializer::LTSTree* ltsTree,
-                          seissol::LTS* lts,
                           seissol::initializer::Lut* ltsLut,
                           time_stepping::TimeManager& timeManager);
 };

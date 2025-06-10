@@ -157,7 +157,6 @@ void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
 auto mapClusterToMesh(ClusterMapping& clusterMapping,
                       const unsigned* meshIds,
                       seissol::initializer::LTSTree* ltsTree,
-                      seissol::LTS* lts,
                       seissol::initializer::Lut* ltsLut,
                       seissol::initializer::AllocationPlace place) {
   unsigned clusterSource = 0;
@@ -189,7 +188,6 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
 auto mapPointSourcesToClusters(const unsigned* meshIds,
                                unsigned numberOfSources,
                                seissol::initializer::LTSTree* ltsTree,
-                               seissol::LTS* lts,
                                seissol::initializer::Lut* ltsLut,
                                seissol::memory::Memkind memkind)
     -> std::unordered_map<LayerType, std::vector<ClusterMapping>> {
@@ -244,7 +242,6 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
       mapClusterToMesh(clusterMappings[cluster],
                        meshIds,
                        ltsTree,
-                       lts,
                        ltsLut,
                        seissol::initializer::AllocationPlace::Host);
     }
@@ -257,7 +254,6 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
                             const PointSources& sources,
                             const unsigned* meshIds,
                             seissol::initializer::LTSTree* ltsTree,
-                            seissol::LTS* lts,
                             seissol::initializer::Lut* ltsLut)
     -> seissol::kernels::PointSourceClusterPair {
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
@@ -276,7 +272,6 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
       mapClusterToMesh(predeviceClusterMapping,
                        meshIds,
                        ltsTree,
-                       lts,
                        ltsLut,
                        seissol::initializer::AllocationPlace::Device);
       auto deviceClusterMapping =
@@ -298,7 +293,6 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
 auto loadSourcesFromFSRM(const char* fileName,
                          const seissol::geometry::MeshReader& mesh,
                          seissol::initializer::LTSTree* ltsTree,
-                         seissol::LTS* lts,
                          seissol::initializer::Lut* ltsLut,
                          seissol::memory::Memkind memkind)
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
@@ -330,7 +324,7 @@ auto loadSourcesFromFSRM(const char* fileName,
 
   logInfo() << "Mapping point sources to LTS cells...";
   auto layeredClusterMapping =
-      mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, lts, ltsLut, memkind);
+      mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, ltsLut, memkind);
   std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
       layeredSourceClusters;
 
@@ -397,7 +391,7 @@ auto loadSourcesFromFSRM(const char* fileName,
       }
 
       sourceCluster[cluster] = makePointSourceCluster(
-          clusterMappings[cluster], sources, meshIds.data(), ltsTree, lts, ltsLut);
+          clusterMappings[cluster], sources, meshIds.data(), ltsTree, ltsLut);
     }
   }
 
@@ -411,7 +405,6 @@ auto loadSourcesFromFSRM(const char* fileName,
 auto loadSourcesFromNRF(const char* fileName,
                         const seissol::geometry::MeshReader& mesh,
                         seissol::initializer::LTSTree* ltsTree,
-                        seissol::LTS* lts,
                         seissol::initializer::Lut* ltsLut,
                         seissol::memory::Memkind memkind)
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
@@ -456,7 +449,7 @@ auto loadSourcesFromNRF(const char* fileName,
   logInfo() << "Mapping point sources to LTS cells...";
 
   auto layeredClusterMapping =
-      mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, lts, ltsLut, memkind);
+      mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, ltsLut, memkind);
   std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
       layeredSourceClusters;
 
@@ -511,7 +504,7 @@ auto loadSourcesFromNRF(const char* fileName,
             memkind);
       }
       sourceCluster[cluster] = makePointSourceCluster(
-          clusterMappings[cluster], sources, meshIds.data(), ltsTree, lts, ltsLut);
+          clusterMappings[cluster], sources, meshIds.data(), ltsTree, ltsLut);
     }
   }
 
@@ -529,7 +522,6 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
                           const char* fileName,
                           const seissol::geometry::MeshReader& mesh,
                           seissol::initializer::LTSTree* ltsTree,
-                          seissol::LTS* lts,
                           seissol::initializer::Lut* ltsLut,
                           time_stepping::TimeManager& timeManager) {
 #ifdef ACL_DEVICE
@@ -542,14 +534,14 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
   if (sourceType == seissol::initializer::parameters::PointSourceType::NrfSource) {
     logInfo() << "Reading an NRF source (type 42).";
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-    sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsTree, lts, ltsLut, memkind);
+    sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsTree, ltsLut, memkind);
 #else
     logError() << "NRF sources (type 42) need SeisSol to be linked with an (active) Netcdf "
                   "library. However, this is not the case for this build.";
 #endif
   } else if (sourceType == seissol::initializer::parameters::PointSourceType::FsrmSource) {
     logInfo() << "Reading an FSRM source (type 50).";
-    sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsTree, lts, ltsLut, memkind);
+    sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsTree, ltsLut, memkind);
   } else if (sourceType == seissol::initializer::parameters::PointSourceType::None) {
     logInfo() << "No source term specified.";
   } else {

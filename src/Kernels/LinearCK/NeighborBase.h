@@ -29,7 +29,6 @@ class Neighbor : public NeighborKernel {
   void setGlobalData(const CompoundGlobalData& global) override;
 
   void computeNeighborsIntegral(seissol::initializer::Layer::CellRef& data,
-                                seissol::LTS& lts,
                                 const CellDRMapping (&cellDrMapping)[4],
                                 real* timeIntegrated[4],
                                 real* faceNeighborsPrefetch[4]) override;

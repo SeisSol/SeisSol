@@ -49,7 +49,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       globalIds[i] = seissolInstance.meshReader().getElements()[ltsToMesh[i]].globalId;
     }
     checkpoint.registerTree("lts", tree, globalIds);
-    seissolInstance.getMemoryManager().getLts()->registerCheckpointVariables(checkpoint, tree);
+    LTS::registerCheckpointVariables(checkpoint, tree);
   }
 
   {
@@ -88,7 +88,6 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
-  auto* lts = memoryManager.getLts();
   auto* ltsTree = memoryManager.getLtsTree();
   auto* ltsLut = memoryManager.getLtsLut();
   auto* dynRup = memoryManager.getDynamicRupture();
@@ -355,8 +354,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     receiverWriter.init(seissolParams.output.prefix,
                         seissolParams.timeStepping.endTime,
                         seissolParams.output.receiverParameters);
-    receiverWriter.addPoints(
-        seissolInstance.meshReader(), *ltsLut, *lts, memoryManager.getGlobalData());
+    receiverWriter.addPoints(seissolInstance.meshReader(), *ltsLut, memoryManager.getGlobalData());
     seissolInstance.timeManager().setReceiverClusters(receiverWriter);
   }
 
@@ -368,7 +366,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                       dynRupTree,
                       &seissolInstance.meshReader(),
                       ltsTree,
-                      lts,
                       seissolParams.model.plasticity,
                       seissolParams.output.prefix,
                       seissolParams.output.energyParameters);
@@ -408,10 +405,8 @@ void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
       refinement = 0;
     }
 
-    seissolInstance.freeSurfaceIntegrator().initialize(refinement,
-                                                       memoryManager.getGlobalDataOnHost(),
-                                                       memoryManager.getLts(),
-                                                       memoryManager.getLtsTree());
+    seissolInstance.freeSurfaceIntegrator().initialize(
+        refinement, memoryManager.getGlobalDataOnHost(), memoryManager.getLtsTree());
   }
 }
 

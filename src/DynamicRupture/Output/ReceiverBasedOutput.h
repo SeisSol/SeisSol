@@ -25,7 +25,6 @@ class ReceiverOutput {
   virtual ~ReceiverOutput() = default;
 
   void setLtsData(seissol::initializer::LTSTree* userWpTree,
-                  seissol::LTS* userWpDescr,
                   seissol::initializer::Lut* userWpLut,
                   seissol::initializer::LTSTree* userDrTree,
                   seissol::initializer::DynamicRupture* userDrDescr);
@@ -40,7 +39,6 @@ class ReceiverOutput {
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
   protected:
-  seissol::LTS* wpDescr{nullptr};
   seissol::initializer::LTSTree* wpTree{nullptr};
   seissol::initializer::Lut* wpLut{nullptr};
   seissol::initializer::LTSTree* drTree{nullptr};

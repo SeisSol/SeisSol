@@ -59,7 +59,6 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
                             seissol::initializer::Layer::CellRef& data,
-                            seissol::LTS& lts,
                             LocalTmp& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                             const CellMaterialData* materialData,
@@ -221,7 +220,6 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
                                            ConditionalIndicesTable& indicesTable,
                                            seissol::initializer::Layer& layer,
-                                           seissol::LTS& lts,
                                            double time,
                                            double timeStepWidth,
                                            seissol::parallel::runtime::StreamRuntime& runtime) {}

@@ -422,7 +422,7 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   m_ltsTree.setName("cluster");
 
   // Setup tree variables
-  m_lts.addTo(m_ltsTree, usePlasticity);
+  LTS::addTo(m_ltsTree, usePlasticity);
   seissolInstance.postProcessor().allocateMemory(&m_ltsTree);
   m_ltsTree.setLayerCount(i_timeStepping.numberOfGlobalClusters, {Config()});
 
@@ -470,7 +470,7 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
   m_boundaryTree.setName("boundary");
 
   // Boundary face tree
-  m_boundary.addTo(m_boundaryTree);
+  Boundary::addTo(m_boundaryTree);
   m_boundaryTree.setLayerCount(m_ltsTree.numTimeClusters(), m_ltsTree.getConfigs());
   m_boundaryTree.fixate();
 
@@ -567,7 +567,7 @@ void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
 }
 
 #ifdef ACL_DEVICE
-void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LTSTree& ltsTree, LTS& lts) {
+void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LTSTree& ltsTree) {
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
@@ -757,7 +757,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
   initializeFaceDisplacements();
 
 #ifdef ACL_DEVICE
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(m_ltsTree, m_lts);
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(m_ltsTree);
   m_ltsTree.allocateScratchPads();
 #endif
 }
@@ -795,7 +795,7 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
   }
 
   for (auto& layer : m_ltsTree.leaves(Ghost)) {
-    recorder.record(m_lts, layer);
+    recorder.record(LTS(), layer);
   }
 
   recording::CompositeRecorder<seissol::initializer::DynamicRupture> drRecorder;
@@ -861,7 +861,6 @@ void seissol::initializer::MemoryManager::initFaultOutputManager(const std::stri
   if (m_seissolParams->drParameters.isDynamicRuptureEnabled) {
     m_faultOutputManager->setInputParam(seissolInstance.meshReader());
     m_faultOutputManager->setLtsData(&m_ltsTree,
-                                     &m_lts,
                                      &m_ltsLut,
                                      &m_dynRupTree,
                                      m_dynRup.get());

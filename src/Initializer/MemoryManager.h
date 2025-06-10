@@ -107,7 +107,6 @@ class MemoryManager {
 
     //! Memory organization tree
     LTSTree               m_ltsTree;
-    LTS                   m_lts;
     Lut                   m_ltsLut;
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
@@ -121,7 +120,6 @@ class MemoryManager {
     std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
     LTSTree m_boundaryTree;
-    Boundary m_boundary;
 
     EasiBoundary m_easiBoundary;
 
@@ -249,10 +247,6 @@ class MemoryManager {
     inline LTSTree* getLtsTree() {
       return &m_ltsTree;
     }
-                          
-    inline LTS* getLts() {
-      return &m_lts;
-    }
 
     inline Lut* getLtsLut() {
       return &m_ltsLut;
@@ -273,10 +267,6 @@ class MemoryManager {
 
     inline LTSTree* getBoundaryTree() {
       return &m_boundaryTree;
-    }
-
-    inline Boundary* getBoundary() {
-      return &m_boundary;
     }
 
     inline void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
@@ -339,7 +329,7 @@ class MemoryManager {
   /**
    * Derives sizes of scratch memory required during computations of Wave Propagation solver
    **/
-  static void deriveRequiredScratchpadMemoryForWp(LTSTree &ltsTree, LTS& lts);
+  static void deriveRequiredScratchpadMemoryForWp(LTSTree &ltsTree);
 
   /**
    * Derives sizes of scratch memory required during computations of Dynamic Rupture solver

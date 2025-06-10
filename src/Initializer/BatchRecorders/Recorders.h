@@ -22,7 +22,7 @@ class AbstractRecorder {
   public:
   virtual ~AbstractRecorder() = default;
 
-  virtual void record(LtsT& handler, Layer& layer) = 0;
+  virtual void record(const LtsT& lts, Layer& layer) = 0;
 
   protected:
   void checkKey(const ConditionalKey& key) {
@@ -32,7 +32,7 @@ class AbstractRecorder {
     }
   }
 
-  void setUpContext(LtsT& handler, Layer& layer) {
+  void setUpContext(const LtsT& handler, Layer& layer) {
     currentTable = &(layer.getConditionalTable<inner_keys::Wp>());
     currentDrTable = &(layer.getConditionalTable<inner_keys::Dr>());
     currentMaterialTable = &(layer.getConditionalTable<inner_keys::Material>());
@@ -41,11 +41,19 @@ class AbstractRecorder {
     currentLayer = &(layer);
   }
 
+  void setUpContext(Layer& layer) {
+    currentTable = &(layer.getConditionalTable<inner_keys::Wp>());
+    currentDrTable = &(layer.getConditionalTable<inner_keys::Dr>());
+    currentMaterialTable = &(layer.getConditionalTable<inner_keys::Material>());
+    currentIndicesTable = &(layer.getConditionalTable<inner_keys::Indices>());
+    currentLayer = &(layer);
+  }
+
   ConditionalPointersToRealsTable* currentTable{nullptr};
   DrConditionalPointersToRealsTable* currentDrTable{nullptr};
   ConditionalMaterialTable* currentMaterialTable{nullptr};
   ConditionalIndicesTable* currentIndicesTable{nullptr};
-  LtsT* currentHandler{nullptr};
+  const LtsT* currentHandler{nullptr};
   Layer* currentLayer{nullptr};
 };
 
@@ -58,7 +66,7 @@ class CompositeRecorder : public AbstractRecorder<LtsT> {
     }
   }
 
-  void record(LtsT& handler, Layer& layer) override {
+  void record(const LtsT& handler, Layer& layer) override {
     for (auto recorder : concreteRecorders) {
       recorder->record(handler, layer);
     }
@@ -78,19 +86,19 @@ class CompositeRecorder : public AbstractRecorder<LtsT> {
 
 class LocalIntegrationRecorder : public AbstractRecorder<seissol::LTS> {
   public:
-  void record(LTS& handler, Layer& layer) override;
+  void record(const seissol::LTS& lts, Layer& layer) override;
 
   private:
-  void setUpContext(LTS& handler, Layer& layer) {
+  void setUpContext(Layer& layer) {
     integratedDofsAddressCounter = 0;
     derivativesAddressCounter = 0;
-    AbstractRecorder::setUpContext(handler, layer);
+    AbstractRecorder::setUpContext(layer);
   }
 
   void recordTimeAndVolumeIntegrals();
   void recordFreeSurfaceGravityBc();
   void recordDirichletBc();
-  void recordAnalyticalBc(LTS& handler, Layer& layer);
+  void recordAnalyticalBc(Layer& layer);
   void recordLocalFluxIntegral();
   void recordDisplacements();
 
@@ -103,12 +111,12 @@ class LocalIntegrationRecorder : public AbstractRecorder<seissol::LTS> {
 
 class NeighIntegrationRecorder : public AbstractRecorder<seissol::LTS> {
   public:
-  void record(LTS& handler, Layer& layer) override;
+  void record(const seissol::LTS& lts, Layer& layer) override;
 
   private:
-  void setUpContext(LTS& handler, Layer& layer) {
+  void setUpContext(Layer& layer) {
     integratedDofsAddressCounter = 0;
-    AbstractRecorder::setUpContext(handler, layer);
+    AbstractRecorder::setUpContext(layer);
   }
   void recordDofsTimeEvaluation();
   void recordNeighborFluxIntegrals();
@@ -118,17 +126,17 @@ class NeighIntegrationRecorder : public AbstractRecorder<seissol::LTS> {
 
 class PlasticityRecorder : public AbstractRecorder<seissol::LTS> {
   public:
-  void setUpContext(LTS& handler, Layer& layer) { AbstractRecorder::setUpContext(handler, layer); }
+  void setUpContext(Layer& layer) { AbstractRecorder::setUpContext(layer); }
 
-  void record(LTS& handler, Layer& layer) override;
+  void record(const seissol::LTS& lts, Layer& layer) override;
 };
 
 class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializer::DynamicRupture> {
   public:
-  void record(DynamicRupture& handler, Layer& layer) override;
+  void record(const DynamicRupture& handler, Layer& layer) override;
 
   private:
-  void setUpContext(DynamicRupture& handler, Layer& layer) {
+  void setUpContext(const DynamicRupture& handler, Layer& layer) {
     AbstractRecorder::setUpContext(handler, layer);
   }
   void recordDofsTimeEvaluation();

@@ -91,7 +91,6 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
   const auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
-  auto& lts = *seissolInstance.getMemoryManager().getLts();
   auto& ltsTree = *seissolInstance.getMemoryManager().getLtsTree();
   auto* globalData = seissolInstance.getMemoryManager().getGlobalDataOnHost();
 
@@ -169,7 +168,6 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                                     globalData,                                                    \
                                     errsLInfLocal,                                                 \
                                     simulationTime,                                                \
-                                    lts,                                                           \
                                     sim,                                                           \
                                     quadratureWeights,                                             \
                                     elemsLInfLocal,                                                \

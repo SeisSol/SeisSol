@@ -56,7 +56,6 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Neighbor::computeNeighborsIntegral(seissol::initializer::Layer::CellRef& data,
-                                        seissol::LTS& lts,
                                         const CellDRMapping (&cellDrMapping)[4],
                                         real* timeIntegrated[4],
                                         real* faceNeighborsPrefetch[4]) {

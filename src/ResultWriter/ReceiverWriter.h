@@ -46,7 +46,6 @@ class ReceiverWriter : public seissol::Module {
 
   void addPoints(const seissol::geometry::MeshReader& mesh,
                  const seissol::initializer::Lut& ltsLut,
-                 const seissol::LTS& lts,
                  const CompoundGlobalData& global);
 
   kernels::ReceiverCluster* receiverCluster(unsigned clusterId, LayerType layer);

@@ -64,8 +64,7 @@ Receiver::Receiver(unsigned pointId,
 }
 
 ReceiverCluster::ReceiverCluster(seissol::SeisSol& seissolInstance)
-    : m_samplingInterval(1.0e99), m_syncPointInterval(0.0), seissolInstance(seissolInstance),
-      lts(*seissolInstance.getMemoryManager().getLts()) {}
+    : m_samplingInterval(1.0e99), m_syncPointInterval(0.0), seissolInstance(seissolInstance) {}
 
 ReceiverCluster::ReceiverCluster(
     const CompoundGlobalData& global,
@@ -76,7 +75,7 @@ ReceiverCluster::ReceiverCluster(
     seissol::SeisSol& seissolInstance)
     : m_quantities(quantities), m_samplingInterval(samplingInterval),
       m_syncPointInterval(syncPointInterval), derivedQuantities(derivedQuantities),
-      seissolInstance(seissolInstance), lts(*seissolInstance.getMemoryManager().getLts()) {
+      seissolInstance(seissolInstance) {
   timeKernel.setGlobalData(global);
   spacetimeKernel.setGlobalData(global);
   spacetimeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
@@ -179,7 +178,6 @@ double ReceiverCluster::calcReceivers(
 
       spacetimeKernel.computeAder(timeStepWidth,
                                   tmpReceiverData,
-                                  lts,
                                   tmp,
                                   timeEvaluated, // useless but the interface requires it
                                   timeDerivatives);

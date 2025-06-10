@@ -162,7 +162,6 @@ void EnergyOutput::init(
     seissol::initializer::LTSTree* newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
     seissol::initializer::LTSTree* newLtsTree,
-    seissol::LTS* newLts,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
@@ -194,7 +193,6 @@ void EnergyOutput::init(
   dynRupTree = newDynRuptTree;
   meshReader = newMeshReader;
   ltsTree = newLtsTree;
-  lts = newLts;
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
@@ -440,7 +438,7 @@ void EnergyOutput::computeVolumeEnergies() {
                                                         totalMomentumYLocal,                       \
                                                         totalMomentumZLocal,                       \
                                                         totalPlasticMoment)                        \
-    shared(elements, vertices, lts, global)
+    shared(elements, vertices, global)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         if (secondaryInformation[cell].duplicate > 0) {

@@ -38,12 +38,10 @@ using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
 void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
-                                seissol::LTS* userWpDescr,
                                 seissol::initializer::Lut* userWpLut,
                                 seissol::initializer::LTSTree* userDrTree,
                                 seissol::initializer::DynamicRupture* userDrDescr) {
   wpTree = userWpTree;
-  wpDescr = userWpDescr;
   wpLut = userWpLut;
   drTree = userDrTree;
   drDescr = userDrDescr;

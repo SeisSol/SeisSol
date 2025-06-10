@@ -125,7 +125,7 @@ struct LTS {
   struct IDofsAneScratch : public initializer::Scratchpad<real> {};
   struct DofsExtScratch : public initializer::Scratchpad<real> {};
 
-  void addTo(initializer::LTSTree& tree, bool usePlasticity) {
+  static void addTo(initializer::LTSTree& tree, bool usePlasticity) {
     using namespace initializer;
     LayerMask plasticityMask;
     if (usePlasticity) {
@@ -188,8 +188,8 @@ struct LTS {
     }
   }
 
-  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   initializer::LTSTree* tree) const {
+  static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                          initializer::LTSTree* tree) {
     manager.registerData<Dofs>("dofs", tree);
     if constexpr (kernels::size<tensor::Qane>() > 0) {
       manager.registerData<DofsAne>("dofsAne", tree);

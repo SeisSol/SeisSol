@@ -104,7 +104,6 @@ private:
     seissol::initializer::Layer* m_clusterData;
     seissol::initializer::Layer* dynRupInteriorData;
     seissol::initializer::Layer* dynRupCopyData;
-    seissol::LTS*         m_lts;
     seissol::initializer::DynamicRupture* m_dynRup;
     dr::friction_law::FrictionSolver* frictionSolver;
     dr::friction_law::FrictionSolver* frictionSolverDevice;
@@ -259,7 +258,6 @@ public:
       seissol::initializer::Layer *i_clusterData,
       seissol::initializer::Layer* dynRupInteriorData,
       seissol::initializer::Layer* dynRupCopyData,
-      seissol::LTS* i_lts,
       seissol::initializer::DynamicRupture* i_dynRup,
       seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
       seissol::dr::friction_law::FrictionSolver* i_FrictionSolverDevice,

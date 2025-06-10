@@ -25,7 +25,6 @@ class EasiBoundary;
  **/
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  LTSTree* ltsTree,
-                                 LTS* lts,
                                  Lut* ltsLut,
                                  const TimeStepping& timeStepping,
                                  const parameters::ModelParameters& modelParameters);
@@ -33,12 +32,10 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 const EasiBoundary* easiBoundary,
                                 LTSTree* ltsTree,
-                                LTS* lts,
                                 Lut* ltsLut);
 
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
                                       LTSTree* ltsTree,
-                                      LTS* lts,
                                       Lut* ltsLut,
                                       LTSTree* dynRupTree,
                                       DynamicRupture* dynRup,

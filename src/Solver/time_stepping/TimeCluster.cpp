@@ -43,7 +43,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  seissol::initializer::Layer *i_clusterData,
                                                  seissol::initializer::Layer *dynRupInteriorData,
                                                  seissol::initializer::Layer *dynRupCopyData,
-                                                 seissol::LTS *i_lts,
                                                  seissol::initializer::DynamicRupture* i_dynRup,
                                                  seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
                                                  seissol::dr::friction_law::FrictionSolver* i_FrictionSolverDevice,
@@ -67,7 +66,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     // global data
     dynRupInteriorData(dynRupInteriorData),
     dynRupCopyData(dynRupCopyData),
-    m_lts(i_lts),
     m_dynRup(i_dynRup),
     frictionSolver(i_FrictionSolver),
     frictionSolverDevice(i_FrictionSolverDevice),
@@ -334,7 +332,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     }
 
     spacetimeKernel.computeAder(timeStepSize(),
-                             data, *m_lts,
+                             data,
                              tmp,
                              l_bufferPointer,
                              derivatives[l_cell],
@@ -343,7 +341,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // Compute local integrals (including some boundary conditions)
     CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var<LTS::BoundaryMapping>();
     m_localKernel.computeIntegral(l_bufferPointer,
-                                  data, *m_lts,
+                                  data,
                                   tmp,
                                   &materialData[l_cell],
                                   &boundaryMapping[l_cell],
@@ -417,7 +415,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
     m_localKernel.evaluateBatchedTimeDependentBc(dataTable,
                                                indicesTable,
                                                i_layerData,
-                                               *m_lts,
                                                ct.correctionTime,
                                                timeStepWidth,
                                                streamRuntime);
@@ -865,7 +862,7 @@ template<bool usePlasticity>
           l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
         }
 
-        m_neighborKernel.computeNeighborsIntegral( data, *m_lts,
+        m_neighborKernel.computeNeighborsIntegral( data,
                                                    drMapping[l_cell],
                                                    l_timeIntegrated, l_faceNeighbors_prefetch
         );

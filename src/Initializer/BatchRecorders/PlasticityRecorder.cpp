@@ -21,8 +21,8 @@ using namespace device;
 using namespace seissol::initializer;
 using namespace seissol::initializer::recording;
 
-void PlasticityRecorder::record(LTS& handler, Layer& layer) {
-  setUpContext(handler, layer);
+void PlasticityRecorder::record(const seissol::LTS& lts, Layer& layer) {
+  setUpContext(layer);
 
   auto* pstrains = currentLayer->var<LTS::PStrain>(AllocationPlace::Device);
   size_t nodalStressTensorCounter = 0;

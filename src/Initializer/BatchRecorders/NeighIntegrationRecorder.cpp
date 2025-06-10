@@ -26,8 +26,8 @@ using namespace device;
 using namespace seissol::initializer;
 using namespace seissol::initializer::recording;
 
-void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
-  setUpContext(handler, layer);
+void NeighIntegrationRecorder::record(const seissol::LTS& lts, Layer& layer) {
+  setUpContext(layer);
   idofsAddressRegistry.clear();
 
   recordDofsTimeEvaluation();

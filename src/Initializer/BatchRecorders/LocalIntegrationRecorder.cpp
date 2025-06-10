@@ -27,14 +27,14 @@ using namespace device;
 using namespace seissol::initializer;
 using namespace seissol::initializer::recording;
 
-void LocalIntegrationRecorder::record(LTS& handler, Layer& layer) {
-  setUpContext(handler, layer);
+void LocalIntegrationRecorder::record(const seissol::LTS& lts, Layer& layer) {
+  setUpContext(layer);
   idofsAddressRegistry.clear();
 
   recordTimeAndVolumeIntegrals();
   recordFreeSurfaceGravityBc();
   recordDirichletBc();
-  recordAnalyticalBc(handler, layer);
+  recordAnalyticalBc(layer);
   recordLocalFluxIntegral();
   recordDisplacements();
 }
@@ -366,7 +366,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
   }
 }
 
-void LocalIntegrationRecorder::recordAnalyticalBc(LTS& handler, Layer& layer) {
+void LocalIntegrationRecorder::recordAnalyticalBc(Layer& layer) {
   const auto size = currentLayer->size();
   if (size > 0) {
     std::array<std::vector<real*>, 4> dofsPtrs{};
