@@ -24,6 +24,20 @@
 
 namespace seissol::solver { class FreeSurfaceIntegrator; }
 
+namespace seissol {
+
+struct SurfaceLTS {
+  struct Dofs : public seissol::initializer::Variable<real*>{};
+  struct DisplacementDofs : public seissol::initializer::Variable<real*>{};
+  struct Side : public seissol::initializer::Variable<unsigned>{};
+  struct MeshId : public seissol::initializer::Variable<unsigned>{};
+  struct BoundaryMapping : public seissol::initializer::Variable<CellBoundaryMapping*>{};
+
+  static void addTo(seissol::initializer::LTSTree& surfaceLtsTree);
+};
+
+} // namespace seissol
+
 class seissol::solver::FreeSurfaceIntegrator {
 private:
   enum class LocationFlag {
@@ -31,15 +45,6 @@ private:
     Acoustic = 1,
     FreeSurface = 2,
     FreeSurfaceWithGravity = 3
-  };
-  struct SurfaceLTS {
-    seissol::initializer::Variable<real*> dofs;
-    seissol::initializer::Variable<real*> displacementDofs;
-    seissol::initializer::Variable<unsigned> side;
-    seissol::initializer::Variable<unsigned> meshId;
-    seissol::initializer::Variable<CellBoundaryMapping*> boundaryMapping;
-
-    void addTo(seissol::initializer::LTSTree& surfaceLtsTree);
   };
 
   real* projectionMatrixMemory{nullptr};
@@ -71,7 +76,6 @@ public:
   unsigned totalNumberOfFreeSurfaces;
   unsigned totalNumberOfTriangles{0};
 
-  SurfaceLTS surfaceLts;
   seissol::initializer::LTSTree surfaceLtsTree;
   seissol::refinement::TriangleRefiner triRefiner;
   

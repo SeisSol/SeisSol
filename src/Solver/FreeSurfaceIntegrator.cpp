@@ -20,14 +20,14 @@
 #include <Common/Iterator.h>
 #include <utils/logger.h>
 
-void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializer::LTSTree& surfaceLtsTree)
+void seissol::SurfaceLTS::addTo(seissol::initializer::LTSTree& surfaceLtsTree)
 {
   seissol::initializer::LayerMask ghostMask(Ghost);
-  surfaceLtsTree.add(             dofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
-  surfaceLtsTree.add( displacementDofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
-  surfaceLtsTree.add(             side, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
-  surfaceLtsTree.add(           meshId, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
-  surfaceLtsTree.add(  boundaryMapping, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add<Dofs>(             ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add<DisplacementDofs>( ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add<Side>(             ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add<MeshId>(           ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add<BoundaryMapping>(  ghostMask,                 1,      initializer::AllocationMode::HostOnly );
 }
 
 seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator()
@@ -41,7 +41,7 @@ seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator()
     displacements[dim] = nullptr;
   }
 
-  surfaceLts.addTo(surfaceLtsTree);
+  SurfaceLTS::addTo(surfaceLtsTree);
 }
 
 seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator()
@@ -78,9 +78,9 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
   unsigned offset = 0;
   seissol::initializer::LayerMask ghostMask(Ghost);
   for (auto& surfaceLayer : surfaceLtsTree.leaves(ghostMask)) {
-    real** dofs = surfaceLayer.var(surfaceLts.dofs);
-    real** displacementDofs = surfaceLayer.var(surfaceLts.displacementDofs);
-    unsigned* side = surfaceLayer.var(surfaceLts.side);
+    real** dofs = surfaceLayer.var<SurfaceLTS::Dofs>();
+    real** displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>();
+    unsigned* side = surfaceLayer.var<SurfaceLTS::Side>();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
     #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, displacementDofs, side)
@@ -299,15 +299,15 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     auto* cellInformation = layer.var<LTS::CellInformation>();
     real (*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
     real* (*faceDisplacements)[4] = layer.var<LTS::FaceDisplacements>();
-    real** surfaceDofs = surfaceLayer.var(surfaceLts.dofs);
-    real** displacementDofs = surfaceLayer.var(surfaceLts.displacementDofs);
+    real** surfaceDofs = surfaceLayer.var<SurfaceLTS::Dofs>();
+    real** displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>();
     auto* cellMaterialData = layer.var<LTS::Material>();
-    auto* surfaceBoundaryMapping = surfaceLayer.var(surfaceLts.boundaryMapping);
+    auto* surfaceBoundaryMapping = surfaceLayer.var<SurfaceLTS::BoundaryMapping>();
     auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
-    unsigned* side = surfaceLayer.var(surfaceLts.side);
-    unsigned* meshId = surfaceLayer.var(surfaceLts.meshId);
+    unsigned* side = surfaceLayer.var<SurfaceLTS::Side>();
+    unsigned* meshId = surfaceLayer.var<SurfaceLTS::MeshId>();
     unsigned surfaceCell = 0;
     for (unsigned cell = 0; cell < layer.size(); ++cell) {
       if (secondaryInformation[cell].duplicate == 0) {

@@ -56,10 +56,8 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
   const unsigned numberOfSubTriangles = m_freeSurfaceIntegrator->triRefiner.subTris.size();
 
   unsigned idx = 0;
-  unsigned* meshIds =
-      m_freeSurfaceIntegrator->surfaceLtsTree.var(m_freeSurfaceIntegrator->surfaceLts.meshId);
-  unsigned* sides =
-      m_freeSurfaceIntegrator->surfaceLtsTree.var(m_freeSurfaceIntegrator->surfaceLts.side);
+  unsigned* meshIds = m_freeSurfaceIntegrator->surfaceLtsTree.var<SurfaceLTS::MeshId>();
+  unsigned* sides = m_freeSurfaceIntegrator->surfaceLtsTree.var<SurfaceLTS::Side>();
   for (unsigned fs = 0; fs < m_freeSurfaceIntegrator->totalNumberOfFreeSurfaces; ++fs) {
     const unsigned meshId = meshIds[fs];
     const unsigned side = sides[fs];

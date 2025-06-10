@@ -276,10 +276,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     io::writer::ScheduledWriter schedWriter;
     schedWriter.name = "free-surface";
     schedWriter.interval = seissolParams.output.freeSurfaceParameters.interval;
-    auto* surfaceMeshIds =
-        freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.meshId);
-    auto* surfaceMeshSides =
-        freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.side);
+    auto* surfaceMeshIds = freeSurfaceIntegrator.surfaceLtsTree.var<SurfaceLTS::MeshId>();
+    auto* surfaceMeshSides = freeSurfaceIntegrator.surfaceLtsTree.var<SurfaceLTS::Side>();
     auto writer = io::instance::mesh::VtkHdfWriter(
         "free-surface", freeSurfaceIntegrator.surfaceLtsTree.size(), 2, order);
     writer.addPointProjector([=](double* target, std::size_t index) {
