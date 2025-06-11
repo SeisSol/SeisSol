@@ -9,9 +9,8 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#include "Kernels/Neighbor.h"
+#include "Kernels/LinearCK/NeighborBase.h"
 
-#include "NeighborBase.h"
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
@@ -29,7 +28,7 @@
 #include "utils/logger.h"
 
 #ifndef NDEBUG
-#include <Common/Constants.h>
+#include "Alignment.h"
 #endif
 
 namespace seissol::kernels::solver::linearck {

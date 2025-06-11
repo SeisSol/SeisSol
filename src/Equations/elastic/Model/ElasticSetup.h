@@ -28,8 +28,8 @@ struct MaterialSetup<ElasticMaterial> {
       getTransposedCoefficientMatrix(const ElasticMaterial& material, unsigned dim, T& matM) {
     matM.setZero();
 
-    real lambda2mu = material.lambda + 2.0 * material.mu;
-    real rhoInv = 1.0 / material.rho;
+    const auto lambda2mu = material.lambda + 2.0 * material.mu;
+    const auto rhoInv = 1.0 / material.rho;
 
     switch (dim) {
     case 0:
@@ -181,13 +181,13 @@ struct MaterialSetup<ElasticMaterial> {
         normal, tangent1, tangent2, matTinv, 6, 6);
   }
 
-  static ElasticMaterial getRotatedMaterialCoefficients(real rotationParameters[36],
+  static ElasticMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
                                                         ElasticMaterial& material) {
     return material;
   }
 
   static void initializeSpecificLocalData(const ElasticMaterial& material,
-                                          real timeStepWidth,
+                                          double timeStepWidth,
                                           Vertex localVertices[4],
                                           real& localVolume,
                                           real localSurfaces[4],

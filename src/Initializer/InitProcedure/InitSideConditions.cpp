@@ -72,7 +72,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
     initialConditionDescription = "Planar wave";
     auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0);
 
-    for (int s = 0; s < seissol::multisim::NumSimulations; ++s) {
+    for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
       const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
       initConditions.emplace_back(new physics::Planarwave(materialData, phase));
     }
@@ -81,7 +81,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
     initialConditionDescription = "Super-imposed planar wave";
 
     auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0);
-    for (int s = 0; s < seissol::multisim::NumSimulations; ++s) {
+    for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
       const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
       initConditions.emplace_back(new physics::SuperimposedPlanarwave(materialData, phase));
     }
@@ -165,7 +165,8 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
                                                   initConditionParams.hasTime);
   } else {
     auto initConditions = buildInitialConditionList(seissolInstance);
-    if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero) {
+    if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero &&
+        !initConditionParams.avoidIC) {
       seissol::initializer::projectInitialField(initConditions,
                                                 *memoryManager.getGlobalDataOnHost(),
                                                 seissolInstance.meshReader(),

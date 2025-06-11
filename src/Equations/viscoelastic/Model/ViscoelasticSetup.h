@@ -24,7 +24,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
 
   template <typename T>
   static void
-      getTransposedViscoelasticCoefficientMatrix(real omega, unsigned dim, unsigned mech, T& M) {
+      getTransposedViscoelasticCoefficientMatrix(double omega, unsigned dim, unsigned mech, T& M) {
     unsigned col = MaterialT::NumElasticQuantities + mech * MaterialT::NumberPerMechanism;
     switch (dim) {
     case 0:
@@ -102,7 +102,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   }
 
   static void initializeSpecificLocalData(const MaterialT& material,
-                                          real timeStepWidth,
+                                          double timeStepWidth,
                                           Vertex localVertices[4],
                                           real& localVolume,
                                           real localSurfaces[4],
@@ -135,7 +135,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
     }
   }
 
-  static MaterialT getRotatedMaterialCoefficients(real rotationParameters[36],
+  static MaterialT getRotatedMaterialCoefficients(double rotationParameters[36],
                                                   MaterialT& material) {
     return material;
   }

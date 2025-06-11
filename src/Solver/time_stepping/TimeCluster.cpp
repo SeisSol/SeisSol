@@ -905,11 +905,13 @@ template<bool usePlasticity>
 #endif // INTEGRATE_QUANTITIES
       }
 
-      yieldCells[0] += numberOTetsWithPlasticYielding;
-      seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
-        i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
-      seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
-          i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+      if constexpr (usePlasticity) {
+        yieldCells[0] += numberOTetsWithPlasticYielding;
+        seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
+          i_layerData.getNumberOfCells() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
+        seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
+            i_layerData.getNumberOfCells() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+      }
 
       m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.getNumberOfCells(), m_profilingId);
 

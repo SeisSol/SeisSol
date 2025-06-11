@@ -10,7 +10,6 @@
 #include "utils/stringutils.h"
 #include <algorithm>
 #include <cctype>
-#include <cstdlib>
 #include <mpi.h>
 #include <string>
 #include <unistd.h>

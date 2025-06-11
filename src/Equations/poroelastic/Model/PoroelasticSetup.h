@@ -334,7 +334,7 @@ struct MaterialSetup<PoroElasticMaterial> {
   }
 
   static void initializeSpecificLocalData(const PoroElasticMaterial& material,
-                                          real timeStepWidth,
+                                          double timeStepWidth,
                                           Vertex localVertices[4],
                                           real& localVolume,
                                           real localSurfaces[4],
@@ -377,7 +377,7 @@ struct MaterialSetup<PoroElasticMaterial> {
         normal, tangent1, tangent2, matTinv, origin, origin);
   }
 
-  static PoroElasticMaterial getRotatedMaterialCoefficients(real rotationParameters[36],
+  static PoroElasticMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
                                                             PoroElasticMaterial& material) {
     return material;
   }
