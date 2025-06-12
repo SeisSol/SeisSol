@@ -8,7 +8,6 @@
 #include "ModelParameters.h"
 #include <Equations/Datastructures.h>
 #include <Initializer/Parameters/ParameterReader.h>
-#include <Model/CommonDatastructures.h>
 #include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
