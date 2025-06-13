@@ -457,13 +457,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
                                       double etaHack) {
-
-  if constexpr (!model::MaterialT::SupportsDR) {
-    logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
-                  "(built with:"
-               << model::MaterialT::Text << ")";
-  }
-
   real matTData[tensor::T::size()];
   real matTinvData[tensor::Tinv::size()];
   real matAPlusData[tensor::star::size(0)];
