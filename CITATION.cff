@@ -13,15 +13,15 @@ abstract: >-
   simulating 3D seismic, acoustic, and gravity waves
   as well as earthquake rupture dynamics. It implements
   high-order accurate seismic wave propagation in elastic,
-  anisotropic, viscoelastic, poroelastic, and general
-  non-linear media, using an arbitrary high-order
+  anisotropic, viscoelastic, and poroelastic media,
+  using an arbitrary high-order
   derivative discontinuous Galerkin (ADER-DG)
   discretization on unstructured adaptive tetrahedral
   meshes. SeisSol's dynamic rupture implementation
   supports linear slip weakening, classic rate-and-state
   friction and fast-velocity weakening friction and can
   be combined with Drucker-Prager off-fault plasticity,
-  off-fault brittle damage, and thermal pressurization.
+  and thermal pressurization.
   SeisSol is optimized for large-scale supercomputing
   platforms, supporting CPU parallelization via hybrid
   MPI+OpenMP and MPI+CUDA/HIP/SYCL for GPU architectures.
