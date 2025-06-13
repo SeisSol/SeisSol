@@ -39,13 +39,13 @@ using namespace device;
 #endif
 
 namespace seissol::kernels {
-unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
-                                       double timeStepWidth,
-                                       double tV,
-                                       const GlobalData* global,
-                                       const seissol::model::PlasticityData* plasticityData,
-                                       real degreesOfFreedom[tensor::Q::size()],
-                                       real* pstrain) {
+std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
+                                          double timeStepWidth,
+                                          double tV,
+                                          const GlobalData* global,
+                                          const seissol::model::PlasticityData* plasticityData,
+                                          real degreesOfFreedom[tensor::Q::size()],
+                                          real* pstrain) {
   if constexpr (multisim::MultisimEnabled) {
     // TODO: really still the case?
     logError() << "Plasticity does not work with multiple simulations";
@@ -73,7 +73,7 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   //  @todo multiple sims
 
   real prevDegreesOfFreedom[tensor::QStress::size()];
-  for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
+  for (std::size_t q = 0; q < tensor::QStress::size(); ++q) {
     prevDegreesOfFreedom[q] = degreesOfFreedom[q];
   }
 
@@ -112,19 +112,19 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   siKrnl.execute();
 
   // tau := sqrt(I_2) for every node
-  for (unsigned ip = 0; ip < tensor::secondInvariant::size(); ++ip) {
+  for (std::size_t ip = 0; ip < tensor::secondInvariant::size(); ++ip) {
     tau[ip] = sqrt(secondInvariant[ip]);
   }
 
   // Compute tau_c for every node
-  for (unsigned ip = 0; ip < tensor::meanStress::size(); ++ip) {
+  for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
     taulim[ip] = std::max(static_cast<real>(0.0),
                           plasticityData->cohesionTimesCosAngularFriction -
                               meanStress[ip] * plasticityData->sinAngularFriction);
   }
 
   bool adjust = false;
-  for (unsigned ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
+  for (std::size_t ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
     // Compute yield := (t_c / tau - 1) r for every node,
     // where r = 1 - exp(-timeStepWidth / tV)
     if (tau[ip] > taulim[ip]) {
@@ -209,9 +209,9 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     m2nEtaKrnl.execute();
 
     auto qStressNodalView = init::QStressNodal::view::create(qStressNodal);
-    const unsigned numNodes = qStressNodalView.shape(multisim::BasisFunctionDimension);
+    const auto numNodes = qStressNodalView.shape(multisim::BasisFunctionDimension);
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-      for (unsigned i = 0; i < numNodes; ++i) {
+      for (std::size_t i = 0; i < numNodes; ++i) {
         // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
         // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
         qEtaNodal[i * multisim::NumSimulations + s] =
@@ -237,7 +237,7 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     n2mEtaKrnl.QEtaNodal = qEtaNodal;
     n2mEtaKrnl.QEtaModal = qEtaModal;
     n2mEtaKrnl.execute();
-    for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
+    for (std::size_t q = 0; q < tensor::QEtaModal::size(); ++q) {
       pstrain[tensor::QStress::size() + q] = qEtaModal[q];
     }
     return 1;
@@ -251,7 +251,7 @@ void Plasticity::computePlasticityBatched(
     const GlobalData* global,
     initializer::recording::ConditionalPointersToRealsTable& table,
     seissol::model::PlasticityData* plasticityData,
-    unsigned* yieldCounter,
+    std::size_t* yieldCounter,
     seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
@@ -270,7 +270,7 @@ void Plasticity::computePlasticityBatched(
     const size_t numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
 
     // copy dofs for later comparison, only first dof of stresses required
-    constexpr unsigned DofsSize = tensor::Q::Size;
+    constexpr std::size_t DofsSize = tensor::Q::Size;
     const size_t prevDofsSize = DofsSize * numElements;
     auto prevDofs = runtime.memoryHandle<real>(prevDofsSize);
 
