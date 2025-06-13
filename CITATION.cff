@@ -12,20 +12,31 @@ type: software
 repository-code: 'https://github.com/SeisSol/SeisSol'
 url: 'https://seissol.org'
 abstract: >-
-  SeisSol is an open-source software for the simulation
-  of seismic wave phenomena and earthquake dynamics.
-  Seismic wave propagation is implemented for elastic,
-  viscoelastic and poroelastic media, based on high-order
-  discontinuous Galerkin discretization and ADER time
-  stepping on unstructured adaptive tetrahedral meshes.
-  SeisSol is optimized for large supercomputing platforms,
-  using MPI+OpenMP for parallelization and MPI+CUDA/HIP/SYCL
-  for GPU architectures.
+  SeisSol is an open-source software package for
+  simulating 3D seismic, acoustic, and gravity waves
+  as well as earthquake rupture dynamics. It implements
+  high-order accurate seismic wave propagation in elastic,
+  anisotropic, viscoelastic, poroelastic, and general
+  non-linear media, using an arbitrary high-order
+  derivative discontinuous Galerkin (ADER-DG)
+  discretization on unstructured adaptive tetrahedral
+  meshes. SeisSol's dynamic rupture implementation
+  supports linear slip weakening, classic rate-and-state
+  friction and fast-velocity weakening friction and can
+  be combined with Drucker-Prager off-fault plasticity,
+  off-fault brittle damage, and thermal pressurization.
+  SeisSol is optimized for large-scale supercomputing
+  platforms, supporting CPU parallelization via hybrid
+  MPI+OpenMP and MPI+CUDA/HIP/SYCL for GPU architectures.
+
 license: BSD-3-Clause
 keywords:
   - earthquake simulation
   - high performance computing
   - discontinuous Galerkin
+  - tsunami simulation
+  - seismic wave propagation
+  - acoustic wave propagation
 
 contact:
   - affiliation: "University of California, San Diego"
@@ -42,18 +53,15 @@ contact:
 # use as surrogate for "acknowledgements"; as the
 # citation format doesn't seem to provide a field for it yet
 message: >-
-  We especially acknowledge the work of Martin Käser
-  and Michael Dumbser, the originators and developers
-  of the first generation of SeisSol, as well as early
-  SeisSol authors Cristobal Castro, Verena Hermann
+  We gratefully acknowledge Martin Käser and Michael Dumbser,
+  originators and developers of the first version of SeisSol,
+  as well as early contributors Cristobal Castro, Verena Hermann,
   and Josep de la Puente.
-  In addition, we express our sincere gratitude to all
-  contributors to SeisSol documentation, benchmarks,
-  postprocessing, workflows, testing and bug fixes:
-  Gilbert Brietzke, Duo Li, Fabian Kutschera,
-  Kadek Hendrawan Palgunadi,Victoria Pauw, John Rekoske,
-  Taufiqurrahman (and probably many more).
-
+  We also extend our sincere thanks to all who have contributed
+  to SeisSol's documentation, benchmarking, postprocessing,
+  workflows, testing, and bug fixes, including Gilbert Brietzke,
+  Duo Li, Fabian Kutschera, Kadek Hendrawan Palgunadi, Victoria Pauw,
+  John Rekoske, Taufiqurrahman, and many others.
 
 # author list, by generation
 authors:
