@@ -52,7 +52,7 @@ GENERATE_HAS_MEMBER(globalMkDivMT)
 
 namespace seissol::kernels::solver::linearck {
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  set_kDivMT(m_krnlPrototype, global->stiffnessMatricesTransposed);
+  set_kDivMT(m_krnlPrototype, global.onHost->stiffnessMatricesTransposed);
   projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onHost->V3mTo2nFace;
 
 #ifdef ACL_DEVICE
