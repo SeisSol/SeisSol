@@ -60,7 +60,7 @@ class Spacetime : public SpacetimeKernel {
 
 class Time : public TimeKernel {
   public:
-  void checkGlobalData(const GlobalData* global) override;
+  void setGlobalData(const GlobalData* global) override;
   void evaluateAtTime(
       std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
       const real* timeDerivatives,
