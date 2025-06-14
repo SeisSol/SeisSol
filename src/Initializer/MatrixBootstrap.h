@@ -34,7 +34,7 @@ struct GlobalMatrixPointers {
         for (int i = 0; i < seissol::init::ew_quad_nodes_vv::Shape[0]; ++i) {
             Eigen::Vector3d point(volumePoints(i, 0), volumePoints(i, 1), volumePoints(i, 2));
             Eigen::Matrix3d dvol = transform.mapDVolume(point);
-            const auto dvoldet = dvol.determinant();
+            const auto dvoldet = 1 / dvol.determinant();
             volsum += dvoldet;
             matM(i) = dvoldet;
 
@@ -44,11 +44,10 @@ struct GlobalMatrixPointers {
             // i.e. J(phi(x)) = Jphi(x) @ (Jmap)^{-1}(x)
             // after the variable transformation, the map^{-1} cancels out.
             // (may need some double checking)
-            Eigen::Matrix3d dvoli = dvol.inverse();
             for (int j = 0; j < 3; ++j) {
                 for (int k = 0; k < 3; ++k) {
                     // TODO: check ordering (transpose?)
-                    matk(i, j, k) = dvoldet * dvoli(j, k);
+                    matk(i, j, k) = dvoldet * dvol(j, k);
                 }
             }
         }
@@ -64,6 +63,7 @@ struct GlobalMatrixPointers {
             }
         }
 
+        // handle the faces
         auto facePoints = seissol::init::ew_quad_nodes_ff::view::create(const_cast<real*>(seissol::init::ew_quad_nodes_ff::Values));
         for (int f = 0; f < 4; ++f) {
             for (int i = 0; i < seissol::init::ew_quad_nodes_ff::Shape[0]; ++i) {

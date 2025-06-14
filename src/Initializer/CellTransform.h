@@ -36,7 +36,12 @@ public:
         imat(2, 2) = v41(2);
 
         offset = v1;
-        transform = imat.inverse();
+        transform = imat;
+        itransform = imat.inverse();
+    }
+
+    [[nodiscard]] Eigen::Matrix3d mapDIVolume(const Eigen::Vector3d& point) const {
+        return itransform;
     }
 
     [[nodiscard]] Eigen::Matrix3d mapDVolume(const Eigen::Vector3d& point) const {
@@ -71,6 +76,7 @@ public:
 
 private:
     Eigen::Matrix3d transform;
+    Eigen::Matrix3d itransform;
     Eigen::Vector3d offset;
 };
 
