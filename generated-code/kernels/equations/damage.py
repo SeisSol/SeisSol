@@ -9,7 +9,7 @@
 from kernels.equations.elastic import ElasticADERDG as ADERDGBase
 from kernels.common import generate_kernel_name_prefix
 
-from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
+from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile, parseJSONMatrixFile
 
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor
@@ -26,6 +26,12 @@ class DamageADERDG(ADERDGBase):
         self.db.update(parseXMLMatrixFile("{}/matrices_damage.xml".format(matricesDir), clones))
         self.db.update( parseXMLMatrixFile('{}/plasticity_{}_matrices_{}.xml'.format(matricesDir, 'nb', self.order), clones=dict(), alignStride=self.alignStride) )
         numberOfNodes = self.t(self.db.v.shape())[0]
+
+        # For cell-average
+        self.db.update(parseXMLMatrixFile('{}/phi_ave_{}.xml'.format(matricesDir, order), transpose=self.transpose, alignStride=self.alignStride))
+        qAveShape = (self.numberOfQuantities(),)
+        self.QAve = OptionalDimTensor('QAve', 's', multipleSimulations, 0, qAveShape, alignStride=True)
+        self.db.update( parseJSONMatrixFile(f'{matricesDir}/dr_stroud_matrices_{self.order}.json', clones, alignStride=self.alignStride, transpose=self.transpose) )
 
         # For storing nodal values
         qNShape = (numberOfNodes, self.numberOfQuantities())
@@ -47,6 +53,9 @@ class DamageADERDG(ADERDGBase):
 
     def addLocal(self, generator, targets):
         super().addLocal(generator, targets)
+
+        # For cell average
+        generator.add('cellAve', self.QAve['p'] <= self.db.phiAve[self.t('l')] * self.Q['lp'] * 6.0 )
 
     def addNeighbor(self, generator, targets):
         super().addNeighbor(generator, targets)

@@ -163,26 +163,25 @@ void Local::updateMaterials(LocalData& data) {
   real rusanovPlusNull[tensor::QcorrLocal::size()]{};
   real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
 
-  // kernel::cellAve m_cellAverageKernel;
+  kernel::cellAve m_cellAverageKernel;
   // // real Q_aveData[NUMBER_OF_QUANTITIES];
-  // real Q_aveData[tensor::QAve::size()];
-  // auto Q_ave = init::QAve::view::create(Q_aveData);>
-
-  // data = loader.entry(l_cell);
+  real Q_aveData[tensor::QAve::size()];
+  auto Q_ave = init::QAve::view::create(Q_aveData);
 
   // // TODO: compute cell-average of solutions and compute new material properties
-  // // real Q_ave[NUMBER_OF_QUANTITIES];
-  // m_cellAverageKernel.phiAve = init::phiAve::Values;
-  // m_cellAverageKernel.Q = data.dofs;
-  // m_cellAverageKernel.QAve = Q_aveData;
-  // m_cellAverageKernel.execute();
+  m_cellAverageKernel.phiAve = init::phiAve::Values;
+  m_cellAverageKernel.Q = data.dofs();
+  m_cellAverageKernel.QAve = Q_aveData;
+  m_cellAverageKernel.execute();
+
+  real alphaAve = Q_aveData[9];
 
   // Change to updated material properties
-  data.material().local.mu = data.material().local.muE * 0.9;
-  data.material().local.lambda = data.material().local.lambdaE * 0.9;
+  data.material().local.mu = data.material().local.muE * (0.9-alphaAve+0.1);
+  data.material().local.lambda = data.material().local.lambdaE * (0.9-alphaAve+0.1);
   for (unsigned i_s = 0; i_s < 4; i_s++) {
-    data.material().neighbor[i_s].mu = data.material().neighbor[i_s].muE * 0.9;
-    data.material().neighbor[i_s].lambda = data.material().neighbor[i_s].lambdaE * 0.9;
+    data.material().neighbor[i_s].mu = data.material().neighbor[i_s].muE * (0.9-alphaAve+0.1);
+    data.material().neighbor[i_s].lambda = data.material().neighbor[i_s].lambdaE * (0.9-alphaAve+0.1);
   }
 
   /// global coordinates of the vertices
