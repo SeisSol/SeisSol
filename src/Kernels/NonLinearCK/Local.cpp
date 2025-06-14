@@ -8,7 +8,9 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "Kernels/NonLinearCK/LocalBase.h"
-#include <Equations/Datastructures.h>
+
+// Required for material update
+#include <Equations/Setup.h>
 
 // #include "LocalBase.h"
 #include <Alignment.h>
@@ -20,8 +22,11 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
+
+// Required for material update
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+
 #include <Parallel/Runtime/Stream.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
