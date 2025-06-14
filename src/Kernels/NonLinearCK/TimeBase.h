@@ -48,7 +48,7 @@ class Spacetime : public SpacetimeKernel {
   unsigned bytesAder() override;
 
   protected:
-  kernel::derivative m_krnlPrototype;
+  kernel::derivativeDamage m_krnlPrototype;
   kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 
 #ifdef ACL_DEVICE

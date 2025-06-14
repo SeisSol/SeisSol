@@ -161,7 +161,7 @@ void Spacetime::computeAder(double timeStepWidth,
   alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
-  kernel::derivative krnl = m_krnlPrototype;
+  kernel::derivativeDamage krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
     krnl.star(i) = data.localIntegration().starMatrices[i];
   }
@@ -176,9 +176,9 @@ void Spacetime::computeAder(double timeStepWidth,
 
   krnl.I = timeIntegrated;
   // powers in the taylor-series expansion
-  krnl.power(0) = timeStepWidth;
+  krnl.nlPower(0) = timeStepWidth;
   for (std::size_t der = 1; der < ConvergenceOrder; ++der) {
-    krnl.power(der) = krnl.power(der - 1) * timeStepWidth / real(der + 1);
+    krnl.nlPower(der) = krnl.nlPower(der - 1) * timeStepWidth / real(der + 1);
   }
 
   if (updateDisplacement) {
