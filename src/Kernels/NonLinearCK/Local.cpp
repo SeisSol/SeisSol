@@ -7,16 +7,15 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Carsten Uphoff
 
-#include "Kernels/Local.h"
-#include "Numerical/Transformation.h"
+#include "Kernels/NonLinearCK/LocalBase.h"
 
+// #include "LocalBase.h"
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
-#include <Equations/Setup.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
-#include <Kernels/LocalBase.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
@@ -43,9 +42,13 @@
 
 #include "utils/logger.h"
 
+#ifdef ACL_DEVICE
+#include "Common/Offset.h"
+#endif
+
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
-namespace seissol::kernels {
+namespace seissol::kernels::solver::nonlinearck {
 
 void setStarMatrix(
     const real* matAT, const real* matBT, const real* matCT, const real grad[3], real* starMatrix) {
@@ -62,39 +65,19 @@ void setStarMatrix(
   }
 }
 
-void LocalBase::checkGlobalData(const GlobalData* global, size_t alignment) {
-#ifndef NDEBUG
-  for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
-    assert((reinterpret_cast<uintptr_t>(global->stiffnessMatrices(stiffness))) % alignment == 0);
-  }
-  for (unsigned flux = 0; flux < 4; ++flux) {
-    assert((reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(flux))) %
-               alignment ==
-           0);
-    assert((reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(flux))) % alignment == 0);
-  }
-#endif
-}
-
-void Local::setHostGlobalData(const GlobalData* global) {
-  checkGlobalData(global, Alignment);
-  m_volumeKernelPrototype.kDivM = global->stiffnessMatrices;
-  m_localFluxKernelPrototype.rDivM = global->changeOfBasisMatrices;
-  m_localFluxKernelPrototype.fMrT = global->localChangeOfBasisMatricesTransposed;
-
-  m_nodalLfKrnlPrototype.project2nFaceTo3m = global->project2nFaceTo3m;
-
-  m_projectKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
-  m_projectRotatedKrnlPrototype.V3mTo2nFace = global->V3mTo2nFace;
-}
-
 void Local::setGlobalData(const CompoundGlobalData& global) {
-  setHostGlobalData(global.onHost);
+  m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
+  m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
+  m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
+
+  m_nodalLfKrnlPrototype.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
+
+  m_projectKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
+  m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
-  checkGlobalData(global.onDevice, deviceAlignment);
 
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
@@ -117,7 +100,7 @@ struct ApplyAnalyticalSolution {
 
     auto nodesVec = std::vector<std::array<double, 3>>{};
     int offset = 0;
-    for (unsigned int s = 0; s < multisim::NumSimulations; ++s) {
+    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
 
       for (unsigned int i = 0; i < seissol::tensor::INodal::Shape[0]; ++i) {
@@ -138,7 +121,7 @@ struct ApplyAnalyticalSolution {
   LocalDataType& localData;
 };
 
-void LocalBase::updateMaterials(LocalData& data) {
+void Local::updateMaterials(LocalData& data) {
   // Summary of the requried input:
   // LocalData: material.local, material.neighbor, cellInformation, dofs,
   // LocalData.specific: localVertices, localElements, meshId,
@@ -347,7 +330,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       auto applyFreeSurfaceBc =
           [&displacement, &materialData, &localG](const real*, // nodes are unused
                                                   init::INodal::view::type& boundaryDofs) {
-            for (unsigned int s = 0; s < multisim::NumSimulations; ++s) {
+            for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
               auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
               auto slicedDisplacement = multisim::simtensor(displacement, s);
 
@@ -452,28 +435,26 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 
   const auto maxTmpMem = yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl);
 
-  real* tmpMem = nullptr;
+  // volume kernel always contains more elements than any local one
+  const auto maxNumElements = dataTable.find(key) != dataTable.end()
+                                  ? (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getSize()
+                                  : 0;
+  auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * maxNumElements) / sizeof(real));
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
 
-    unsigned maxNumElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
     volKrnl.numElements = maxNumElements;
-
-    // volume kernel always contains more elements than any local one
-    tmpMem = (real*)(device.api->getStackMemory(maxTmpMem * maxNumElements));
 
     volKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
     volKrnl.I =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
-    unsigned starOffset = 0;
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      volKrnl.star(i) =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
-      volKrnl.extraOffset_star(i) = starOffset;
-      starOffset += tensor::star::size(i);
+      volKrnl.star(i) = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
-    volKrnl.linearAllocator.initialize(tmpMem);
+    volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
   }
@@ -488,9 +469,10 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
       localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
       localFluxKrnl.I =
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      localFluxKrnl.AplusT =
-          const_cast<const real**>(entry.get(inner_keys::Wp::Id::AplusT)->getDeviceDataPtr());
-      localFluxKrnl.linearAllocator.initialize(tmpMem);
+      localFluxKrnl.AplusT = const_cast<const real**>(
+          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+      localFluxKrnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+      localFluxKrnl.linearAllocator.initialize(tmpMem.get());
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
     }
@@ -536,9 +518,6 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
                                          device,
                                          runtime);
     }
-  }
-  if (tmpMem != nullptr) {
-    device.api->popStackMemory();
   }
 #else
   logError() << "No GPU implementation provided";
@@ -590,8 +569,12 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
       auto nodalLfKrnl = deviceNodalLfKrnlPrototype;
       nodalLfKrnl.INodal = const_cast<const real**>(
           dataTable[analyticalKey].get(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
-      nodalLfKrnl.AminusT = const_cast<const real**>(
-          dataTable[analyticalKey].get(inner_keys::Wp::Id::AminusT)->getDeviceDataPtr());
+      nodalLfKrnl.AminusT =
+          const_cast<const real**>(dataTable[analyticalKey]
+                                       .get(inner_keys::Wp::Id::NeighborIntegrationData)
+                                       ->getDeviceDataPtr());
+      nodalLfKrnl.extraOffset_AminusT =
+          SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
       nodalLfKrnl.Q = dataTable[analyticalKey].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
       nodalLfKrnl.streamPtr = runtime.stream();
       nodalLfKrnl.numElements = numElements;
@@ -661,4 +644,4 @@ unsigned Local::bytesIntegral() {
   return reals * sizeof(real);
 }
 
-} // namespace seissol::kernels
+} // namespace seissol::kernels::solver::nonlinearck

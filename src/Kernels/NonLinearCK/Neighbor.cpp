@@ -9,72 +9,46 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#include "Kernels/Neighbor.h"
+#include "Kernels/NonLinearCK/NeighborBase.h"
 
-#include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
-#include <Kernels/NeighborBase.h>
 #include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
-#include <cstddef>
 #include <generated_code/tensor.h>
 #include <stdint.h>
 
+#ifdef ACL_DEVICE
+#include "Common/Offset.h"
+#endif
+
 #include "utils/logger.h"
 
-namespace seissol::kernels {
-
-void NeighborBase::checkGlobalData(const GlobalData* global, size_t alignment) {
 #ifndef NDEBUG
-  for (int neighbor = 0; neighbor < 4; ++neighbor) {
-    assert((reinterpret_cast<uintptr_t>(global->changeOfBasisMatrices(neighbor))) % alignment == 0);
-    assert((reinterpret_cast<uintptr_t>(global->localChangeOfBasisMatricesTransposed(neighbor))) %
-               alignment ==
-           0);
-    assert(
-        (reinterpret_cast<uintptr_t>(global->neighbourChangeOfBasisMatricesTransposed(neighbor))) %
-            alignment ==
-        0);
-  }
-
-  for (int h = 0; h < 3; ++h) {
-    assert((reinterpret_cast<uintptr_t>(global->neighbourFluxMatrices(h))) % alignment == 0);
-  }
-
-  for (int i = 0; i < 4; ++i) {
-    for (int h = 0; h < 3; ++h) {
-      assert((reinterpret_cast<uintptr_t>(global->nodalFluxMatrices(i, h))) % alignment == 0);
-    }
-  }
+#include "Alignment.h"
 #endif
-}
 
-void Neighbor::setHostGlobalData(const GlobalData* global) {
-  checkGlobalData(global, Alignment);
-  m_nfKrnlPrototype.rDivM = global->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global->neighborChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global->neighborFluxMatrices;
-  m_drKrnlPrototype.V3mTo2nTWDivM = global->nodalFluxMatrices;
-}
-
+namespace seissol::kernels::solver::nonlinearck {
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
-  setHostGlobalData(global.onHost);
+
+  m_nfKrnlPrototype.rDivM = global.onHost->changeOfBasisMatrices;
+  m_nfKrnlPrototype.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
+  m_nfKrnlPrototype.fP = global.onHost->neighborFluxMatrices;
+  m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
-  checkGlobalData(global.onDevice, deviceAlignment);
 
 #ifdef USE_PREMULTIPLY_FLUX
   deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
 #else
   deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype.rT = global.onDevice->neighbourChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype.fP = global.onDevice->neighbourFluxMatrices;
+  deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
 #endif
   deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
 #endif
@@ -104,11 +78,6 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       nfKrnl.execute(data.cellInformation().faceRelations[face][1],
                      data.cellInformation().faceRelations[face][0],
                      face);
-#ifdef USE_DAMAGE
-      // Define the neighbor integration for nonlinear case
-      // Part of previous TimeCluster.h
-      // NOTE: need to account for the face relation in spatial integration
-#endif
       break;
     }
     case FaceType::DynamicRupture: {
@@ -137,16 +106,7 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
   kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
 
-  real* tmpMem = nullptr;
-  auto resetDeviceCurrentState = [this](size_t counter) {
-    for (size_t i = 0; i < counter; ++i) {
-      this->device.api->popStackMemory();
-    }
-  };
-
   for (size_t face = 0; face < 4; face++) {
-    size_t streamCounter{0};
-
     runtime.envMany(
         (*FaceRelations::Count) + (*DrFaceRelations::Count), [&](void* stream, size_t i) {
           if (i < (*FaceRelations::Count)) {
@@ -168,15 +128,17 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
               neighFluxKrnl.I = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
-                  (entry.get(inner_keys::Wp::Id::AminusT))->getDeviceDataPtr());
+                  entry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+              neighFluxKrnl.extraOffset_AminusT =
+                  SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
-              tmpMem = reinterpret_cast<real*>(
-                  device.api->getStackMemory(neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements));
+              real* tmpMem = reinterpret_cast<real*>(device.api->allocMemAsync(
+                  neighFluxKrnl.TmpMaxMemRequiredInBytes * numElements, stream));
               neighFluxKrnl.linearAllocator.initialize(tmpMem);
 
               neighFluxKrnl.streamPtr = stream;
               (neighFluxKrnl.*neighFluxKrnl.ExecutePtrs[faceRelation])();
-              ++streamCounter;
+              device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
             }
           } else {
             unsigned faceRelation = i - (*FaceRelations::Count);
@@ -196,18 +158,16 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
                   (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
               drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
-              tmpMem = reinterpret_cast<real*>(
-                  device.api->getStackMemory(drKrnl.TmpMaxMemRequiredInBytes * numElements));
+              real* tmpMem = reinterpret_cast<real*>(
+                  device.api->allocMemAsync(drKrnl.TmpMaxMemRequiredInBytes * numElements, stream));
               drKrnl.linearAllocator.initialize(tmpMem);
 
               drKrnl.streamPtr = stream;
               (drKrnl.*drKrnl.ExecutePtrs[faceRelation])();
-              ++streamCounter;
+              device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
             }
           }
         });
-
-    resetDeviceCurrentState(streamCounter);
   }
 #else
   logError() << "No GPU implementation provided";
@@ -264,4 +224,4 @@ unsigned Neighbor::bytesNeighborsIntegral() {
   return reals * sizeof(real);
 }
 
-} // namespace seissol::kernels
+} // namespace seissol::kernels::solver::nonlinearck

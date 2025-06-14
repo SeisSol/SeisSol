@@ -15,6 +15,7 @@
 #include "Model/CommonDatastructures.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
+#include <Kernels/NonLinearCK/Solver.h>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -31,13 +32,13 @@ struct DamageMaterial : Material {
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Damage;
-  static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevski;
   static inline const std::string Text = "damage";
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3", "alpha"};
 
   using LocalSpecificData = DamageLocalData;
   using NeighborSpecificData = DamageNeighborData;
+  using Solver = kernels::solver::nonlinearck::Solver;
 
   double lambda;
   double mu;

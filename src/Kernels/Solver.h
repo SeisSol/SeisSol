@@ -9,6 +9,7 @@
 
 #include <Equations/Datastructures.h>
 
+#include <Kernels/NonLinearCK/Solver.h>
 #include <Kernels/LinearCK/Solver.h>
 #include <Kernels/LinearCKAnelastic/Solver.h>
 #include <Kernels/STP/Solver.h>
@@ -24,6 +25,10 @@
 #include <Kernels/LinearCK/NeighborBase.h>
 #include <Kernels/LinearCK/TimeBase.h>
 #include <Kernels/STP/TimeBase.h>
+#elif defined(USE_DAMAGE)
+#include <Kernels/NonLinearCK/LocalBase.h>
+#include <Kernels/NonLinearCK/NeighborBase.h>
+#include <Kernels/NonLinearCK/TimeBase.h>
 #else
 #include <Kernels/LinearCK/LocalBase.h>
 #include <Kernels/LinearCK/NeighborBase.h>

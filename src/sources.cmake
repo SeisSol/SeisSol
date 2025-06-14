@@ -237,10 +237,9 @@ elseif ("${EQUATIONS}" STREQUAL "anisotropic")
 
   elseif ("${EQUATIONS}" STREQUAL "damage")
   target_sources(seissol-common-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damage/Kernels/DirichletBoundary.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damage/Kernels/Neighbor.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damage/Kernels/Local.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damage/Kernels/Time.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/NonLinearCK/Neighbor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/NonLinearCK/Local.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/NonLinearCK/Time.cpp
   )
   target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/damage)
   target_compile_definitions(seissol-common-properties INTERFACE USE_DAMAGE)

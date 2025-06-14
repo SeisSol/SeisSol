@@ -16,8 +16,8 @@
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 #include "generated_code/init.h"
-#include <Equations/damage/Model/Datastructures.h>
-#include <Equations/damage/Model/IntegrationData.h>
+#include <Model/Datastructures.h>
+#include <Model/IntegrationData.h>
 #include <Geometry/MeshDefinition.h>
 
 namespace seissol::model {

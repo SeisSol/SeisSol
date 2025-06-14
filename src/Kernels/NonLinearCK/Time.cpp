@@ -9,15 +9,17 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#include "Kernels/Time.h"
-#include "Kernels/GravitationalFreeSurfaceBC.h"
-#include "Kernels/TimeBase.h"
+#include "Kernels/NonLinearCK/TimeBase.h"
+
+#include "GravitationalFreeSurfaceBC.h"
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
+#include <Numerical/BasisFunction.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <generated_code/kernel.h>
@@ -29,71 +31,35 @@
 
 #include <cassert>
 #include <cstring>
+#include <memory>
 #include <stdint.h>
 
 #include <yateto.h>
+#include <yateto/InitTools.h>
 
 #include "utils/logger.h"
+
+#ifdef ACL_DEVICE
+#include "Common/Offset.h"
+#endif
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
-namespace seissol::kernels {
-
-TimeBase::TimeBase() {
-  m_derivativesOffsets[0] = 0;
-  for (std::size_t order = 0; order < ConvergenceOrder; ++order) {
-    if (order > 0) {
-      m_derivativesOffsets[order] = tensor::dQ::size(order - 1) + m_derivativesOffsets[order - 1];
-    }
-  }
-}
-
-void TimeBase::checkGlobalData(const GlobalData* global, size_t alignment) {
-  assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(0))) % alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(1))) % alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(global->stiffnessMatricesTransposed(2))) % alignment == 0);
-}
-
-void Time::setHostGlobalData(const GlobalData* global) {
-#ifdef USE_STP
-  // Note: We could use the space time predictor for elasticity.
-  // This is not tested and experimental
-  for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
-    if (n > 0) {
-      for (int d = 0; d < 3; ++d) {
-        m_krnlPrototype.kDivMTSub(d, n) = init::kDivMTSub::Values[tensor::kDivMTSub::index(d, n)];
-      }
-    }
-    m_krnlPrototype.selectModes(n) = init::selectModes::Values[tensor::selectModes::index(n)];
-  }
-  m_krnlPrototype.Zinv = init::Zinv::Values;
-  m_krnlPrototype.timeInt = init::timeInt::Values;
-  m_krnlPrototype.wHat = init::wHat::Values;
-#else // USE_STP
-  checkGlobalData(global, Alignment);
-
-  m_krnlPrototype.kDivMT = global->stiffnessMatricesTransposed;
-
-  projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global->V3mTo2nFace;
-
-#endif // USE_STP
-}
-
-void Time::setGlobalData(const CompoundGlobalData& global) {
-  setHostGlobalData(global.onHost);
+namespace seissol::kernels::solver::nonlinearck {
+void Spacetime::setGlobalData(const CompoundGlobalData& global) {
+  m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
+  projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onHost->V3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
-  checkGlobalData(global.onDevice, deviceAlignment);
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
   deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->V3mTo2nFace;
-
 #endif
 }
 
-void Time::computeAder(double timeStepWidth,
+void Spacetime::computeAder(double timeStepWidth,
                        LocalData& data,
                        LocalTmp& tmp,
                        real timeIntegrated[tensor::I::size()],
@@ -111,104 +77,87 @@ void Time::computeAder(double timeStepWidth,
                   std::end(data.cellInformation().faceTypes),
                   [](const FaceType f) { return f == FaceType::FreeSurfaceGravity; });
 
-#if defined(USE_STP)
-  // Note: We could use the space time predictor for elasticity.
-  // This is not tested and experimental
-  alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictor::size()];
-  alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()]{};
-  kernel::spaceTimePredictor krnl = m_krnlPrototype;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    krnl.star(i) = data.localIntegration().starMatrices[i];
-  }
-  krnl.Q = const_cast<real*>(data.dofs());
-  krnl.I = timeIntegrated;
-  krnl.timestep = timeStepWidth;
-  krnl.spaceTimePredictor = stp;
-  krnl.spaceTimePredictorRhs = stpRhs;
-  krnl.execute();
-#elif defined(USE_DAMAGE)
-// In this computeAder() function, 'I' and 'derivatives in linear case is computed;
-// In nonlinear case, 'derivatives' and 'F' will be computed here.
-// Step 1: Compute each order of derivatives
-  alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
-  auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
+// // In this computeAder() function, 'I' and 'derivatives in linear case is computed;
+// // In nonlinear case, 'derivatives' and 'F' will be computed here.
+// // Step 1: Compute each order of derivatives
+//   alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
+//   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
-  // Step 1.1: Convert the Modal solution data.dofs(), Q, to Nodal space
-  kernel::damageConvertToNodal d_converToKrnl;
-  alignas(PagesizeStack) real solNData[tensor::QNodal::size()];
-  d_converToKrnl.v = init::v::Values;
-  d_converToKrnl.QNodal = solNData;
-  d_converToKrnl.Q = data.dofs();
-  d_converToKrnl.execute();
+//   // Step 1.1: Convert the Modal solution data.dofs(), Q, to Nodal space
+//   kernel::damageConvertToNodal d_converToKrnl;
+//   alignas(PagesizeStack) real solNData[tensor::QNodal::size()];
+//   d_converToKrnl.v = init::v::Values;
+//   d_converToKrnl.QNodal = solNData;
+//   d_converToKrnl.Q = data.dofs();
+//   d_converToKrnl.execute();
 
-  // Step 1.2: Compute rhs of damage evolution
-  alignas(PagesizeStack) real fNodalData[tensor::FNodal::size()] = {0};
-  real* exxNodal = ( solNData + 0*tensor::Q::Shape[0] );
-  real* eyyNodal = (solNData + 1*tensor::Q::Shape[0]);
-  real* ezzNodal = (solNData + 2*tensor::Q::Shape[0]);
-  real* exyNodal = (solNData + 3*tensor::Q::Shape[0]);
-  real* eyzNodal = (solNData + 4*tensor::Q::Shape[0]);
-  real* ezxNodal = (solNData + 5*tensor::Q::Shape[0]);
-  real* alphaNodal = (solNData + 9*tensor::Q::Shape[0]);
-  // real* breakNodal = (solNData + 10*tensor::Q::Shape[0]);
+//   // Step 1.2: Compute rhs of damage evolution
+//   alignas(PagesizeStack) real fNodalData[tensor::FNodal::size()] = {0};
+//   real* exxNodal = ( solNData + 0*tensor::Q::Shape[0] );
+//   real* eyyNodal = (solNData + 1*tensor::Q::Shape[0]);
+//   real* ezzNodal = (solNData + 2*tensor::Q::Shape[0]);
+//   real* exyNodal = (solNData + 3*tensor::Q::Shape[0]);
+//   real* eyzNodal = (solNData + 4*tensor::Q::Shape[0]);
+//   real* ezxNodal = (solNData + 5*tensor::Q::Shape[0]);
+//   real* alphaNodal = (solNData + 9*tensor::Q::Shape[0]);
+//   // real* breakNodal = (solNData + 10*tensor::Q::Shape[0]);
 
-  real alpha_ave = 0.0;
-  // real break_ave = 0.0;
-  real w_ave = 1.0/tensor::Q::Shape[0];
-  for (unsigned int q = 0; q<tensor::Q::Shape[0]; ++q){
-    // break_ave += breakNodal[q] * w_ave;
-    alpha_ave += alphaNodal[q] * w_ave;
-  }
+//   real alpha_ave = 0.0;
+//   // real break_ave = 0.0;
+//   real w_ave = 1.0/tensor::Q::Shape[0];
+//   for (unsigned int q = 0; q<tensor::Q::Shape[0]; ++q){
+//     // break_ave += breakNodal[q] * w_ave;
+//     alpha_ave += alphaNodal[q] * w_ave;
+//   }
 
-  real const damage_para1 = data.material().local.Cd; // 1.2e-4*2;
-  real const damage_para2 = data.material().local.gammaR;
+//   real const damage_para1 = data.material().local.Cd; // 1.2e-4*2;
+//   real const damage_para2 = data.material().local.gammaR;
 
-  for (unsigned int q = 0; q<tensor::Q::Shape[0]; ++q){
-    real EspI = (exxNodal[q]+data.material().local.epsInit_xx) + 
-      (eyyNodal[q]+data.material().local.epsInit_yy) + (ezzNodal[q]+data.material().local.epsInit_zz);
-    real EspII = 
-      (exxNodal[q]+data.material().local.epsInit_xx)*(exxNodal[q]+data.material().local.epsInit_xx)
-    + (eyyNodal[q]+data.material().local.epsInit_yy)*(eyyNodal[q]+data.material().local.epsInit_yy)
-    + (ezzNodal[q]+data.material().local.epsInit_zz)*(ezzNodal[q]+data.material().local.epsInit_zz)
-    + 2*(exyNodal[q]+data.material().local.epsInit_xy)*(exyNodal[q]+data.material().local.epsInit_xy)
-    + 2*(eyzNodal[q]+data.material().local.epsInit_yz)*(eyzNodal[q]+data.material().local.epsInit_yz)
-    + 2*(ezxNodal[q]+data.material().local.epsInit_xz)*(ezxNodal[q]+data.material().local.epsInit_xz);
+//   for (unsigned int q = 0; q<tensor::Q::Shape[0]; ++q){
+//     real EspI = (exxNodal[q]+data.material().local.epsInit_xx) + 
+//       (eyyNodal[q]+data.material().local.epsInit_yy) + (ezzNodal[q]+data.material().local.epsInit_zz);
+//     real EspII = 
+//       (exxNodal[q]+data.material().local.epsInit_xx)*(exxNodal[q]+data.material().local.epsInit_xx)
+//     + (eyyNodal[q]+data.material().local.epsInit_yy)*(eyyNodal[q]+data.material().local.epsInit_yy)
+//     + (ezzNodal[q]+data.material().local.epsInit_zz)*(ezzNodal[q]+data.material().local.epsInit_zz)
+//     + 2*(exyNodal[q]+data.material().local.epsInit_xy)*(exyNodal[q]+data.material().local.epsInit_xy)
+//     + 2*(eyzNodal[q]+data.material().local.epsInit_yz)*(eyzNodal[q]+data.material().local.epsInit_yz)
+//     + 2*(ezxNodal[q]+data.material().local.epsInit_xz)*(ezxNodal[q]+data.material().local.epsInit_xz);
 
-    real W_energy = 0.0*0.5*data.material().local.lambdaE*EspI*EspI
-        + data.material().local.muE*EspII;
+//     real W_energy = 0.0*0.5*data.material().local.lambdaE*EspI*EspI
+//         + data.material().local.muE*EspII;
 
-    if (W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)) > 0) {
-      if (alpha_ave < 0.8){
-        fNodalData[9*tensor::Q::Shape[0] + q] =
-          1.0/(damage_para1*damage_para2)
-                *(W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)));
-      }
-      else{
-        fNodalData[9*tensor::Q::Shape[0] + q] = 0.0;
-      }
-    } else if (alpha_ave > 8e-1) {
-      fNodalData[9*tensor::Q::Shape[0] + q] =
-        1.0/(damage_para1*damage_para2)
-                *(W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)));
-    }
-    else {
-      fNodalData[9*tensor::Q::Shape[0] + q] = 0;
-    }
+//     if (W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)) > 0) {
+//       if (alpha_ave < 0.8){
+//         fNodalData[9*tensor::Q::Shape[0] + q] =
+//           1.0/(damage_para1*damage_para2)
+//                 *(W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)));
+//       }
+//       else{
+//         fNodalData[9*tensor::Q::Shape[0] + q] = 0.0;
+//       }
+//     } else if (alpha_ave > 8e-1) {
+//       fNodalData[9*tensor::Q::Shape[0] + q] =
+//         1.0/(damage_para1*damage_para2)
+//                 *(W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)));
+//     }
+//     else {
+//       fNodalData[9*tensor::Q::Shape[0] + q] = 0;
+//     }
 
-  }
+//   }
 
-// Step 2: Convert from Modal to Nodal for each temporal quadrature point;
-// Meanwhile, compute the nonlinear nodal Rusanov fluxes 
-// (TimeCluster.h, in previous version)
-// For neighbor cell: 0.5(Fpd * nd - C * up)
-// NOTE: need to include face relation in the final integration, but maybe 
-// not necessarily here - can be integrated in Neighbor.cpp
+// // Step 2: Convert from Modal to Nodal for each temporal quadrature point;
+// // Meanwhile, compute the nonlinear nodal Rusanov fluxes 
+// // (TimeCluster.h, in previous version)
+// // For neighbor cell: 0.5(Fpd * nd - C * up)
+// // NOTE: need to include face relation in the final integration, but maybe 
+// // not necessarily here - can be integrated in Neighbor.cpp
 
-// Step 3: Do time integration for the Rusanov flux
+// // Step 3: Do time integration for the Rusanov flux
 
-// Step 4: Convert the integrated Rusanov flux from Nodal to Modal space
+// // Step 4: Convert the integrated Rusanov flux from Nodal to Modal space
 
-#else  // USE_STP, USE_DAMAGE
   alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
@@ -263,15 +212,14 @@ void Time::computeAder(double timeStepWidth,
       }
     }
   }
-#endif // USE_STP, USE_DAMAGE
 }
 
-void Time::computeBatchedAder(double timeStepWidth,
-                              LocalTmp& tmp,
-                              ConditionalPointersToRealsTable& dataTable,
-                              ConditionalMaterialTable& materialTable,
-                              bool updateDisplacement,
-                              seissol::parallel::runtime::StreamRuntime& runtime) {
+void Spacetime::computeBatchedAder(double timeStepWidth,
+                                  LocalTmp& tmp,
+                                  ConditionalPointersToRealsTable& dataTable,
+                                  ConditionalMaterialTable& materialTable,
+                                  bool updateDisplacement,
+                                  seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
 
@@ -283,41 +231,36 @@ void Time::computeBatchedAder(double timeStepWidth,
     derivativesKrnl.numElements = numElements;
     derivativesKrnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
 
-    unsigned starOffset = 0;
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-      derivativesKrnl.star(i) =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Star))->getDeviceDataPtr());
-      derivativesKrnl.extraOffset_star(i) = starOffset;
-      starOffset += tensor::star::size(i);
+      derivativesKrnl.star(i) = const_cast<const real**>(
+          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      derivativesKrnl.extraOffset_star(i) =
+          SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
     }
 
-    unsigned derivativesOffset = 0;
     for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivativesKrnl.dQ(i) = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
-      derivativesKrnl.extraOffset_dQ(i) = derivativesOffset;
-
-      derivativesOffset += tensor::dQ::size(i);
+      derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
     }
 
     // stream dofs to the zero derivative
     device.algorithms.streamBatchedData(
-        (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(),
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
         (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
         tensor::Q::Size,
         derivativesKrnl.numElements,
         runtime.stream());
 
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
-    real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(maxTmpMem * numElements));
+    auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
 
     derivativesKrnl.power(0) = timeStepWidth;
     for (std::size_t Der = 1; Der < ConvergenceOrder; ++Der) {
       derivativesKrnl.power(Der) = derivativesKrnl.power(Der - 1) * timeStepWidth / real(Der + 1);
     }
-    derivativesKrnl.linearAllocator.initialize(tmpMem);
+    derivativesKrnl.linearAllocator.initialize(tmpMem.get());
     derivativesKrnl.streamPtr = runtime.stream();
     derivativesKrnl.execute();
-    device.api->popStackMemory();
   }
 
   if (updateDisplacement) {
@@ -338,12 +281,12 @@ void Time::computeBatchedAder(double timeStepWidth,
 #endif
 }
 
-void Time::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
   nonZeroFlops = kernel::derivative::NonZeroFlops;
   hardwareFlops = kernel::derivative::HardwareFlops;
 }
 
-unsigned Time::bytesAder() {
+unsigned Spacetime::bytesAder() {
   unsigned reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -386,7 +329,7 @@ void Time::computeIntegral(double expansionPoint,
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = timeIntegrated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
+    intKrnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
   // iterate over time derivatives
@@ -430,16 +373,14 @@ void Time::computeBatchedIntegral(double expansionPoint,
 
   kernel::gpu_derivativeTaylorExpansion intKrnl;
   intKrnl.numElements = numElements;
-  real* tmpMem = reinterpret_cast<real*>(
-      device.api->getStackMemory(intKrnl.TmpMaxMemRequiredInBytes * numElements));
+  auto tmpMem =
+      runtime.memoryHandle<real>((intKrnl.TmpMaxMemRequiredInBytes * numElements) / sizeof(real));
 
   intKrnl.I = timeIntegratedDofs;
 
-  unsigned derivativesOffset = 0;
   for (size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = timeDerivatives;
-    intKrnl.extraOffset_dQ(i) = derivativesOffset;
-    derivativesOffset += tensor::dQ::size(i);
+    intKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
   // iterate over time derivatives
@@ -451,10 +392,9 @@ void Time::computeBatchedIntegral(double expansionPoint,
     intKrnl.power(der) = firstTerm - secondTerm;
     intKrnl.power(der) /= factorial;
   }
-  intKrnl.linearAllocator.initialize(tmpMem);
+  intKrnl.linearAllocator.initialize(tmpMem.get());
   intKrnl.streamPtr = runtime.stream();
   intKrnl.execute();
-  device.api->popStackMemory();
 #else
   seissol::kernels::time::aux::taylorSum(true,
                                          numElements,
@@ -489,13 +429,14 @@ void Time::computeTaylorExpansion(real time,
   kernel::derivativeTaylorExpansion intKrnl;
   intKrnl.I = timeEvaluated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    intKrnl.dQ(i) = timeDerivatives + m_derivativesOffsets[i];
+    intKrnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
   intKrnl.power(0) = 1.0;
 
   // iterate over time derivatives
   for (std::size_t derivative = 1; derivative < ConvergenceOrder; ++derivative) {
-    intKrnl.power(derivative) = intKrnl.power(derivative - 1) * deltaT / real(derivative);
+    intKrnl.power(derivative) =
+        intKrnl.power(derivative - 1) * deltaT / static_cast<real>(derivative);
   }
 
   intKrnl.execute();
@@ -522,7 +463,7 @@ void Time::computeBatchedTaylorExpansion(real time,
   intKrnl.I = timeEvaluated;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     intKrnl.dQ(i) = const_cast<const real**>(timeDerivatives);
-    intKrnl.extraOffset_dQ(i) = m_derivativesOffsets[i];
+    intKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
   // iterate over time derivatives
@@ -553,6 +494,30 @@ void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlop
   hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }
 
-unsigned int* Time::getDerivativesOffsets() { return m_derivativesOffsets; }
+void Time::evaluateAtTime(std::shared_ptr<seissol::basisFunction::SampledTimeBasisFunctions<real>>
+                              evaluatedTimeBasisFunctions,
+                          const real* timeDerivatives,
+                          real timeEvaluated[tensor::Q::size()]) {
+#ifdef USE_STP
+  kernel::evaluateDOFSAtTimeSTP krnl;
+  krnl.spaceTimePredictor = timeDerivatives;
+  krnl.QAtTimeSTP = timeEvaluated;
+  krnl.timeBasisFunctionsAtPoint = evaluatedTimeBasisFunctions->m_data.data();
+  krnl.execute();
+#endif
+}
 
-} // namespace seissol::kernels
+void Time::flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) {
+#ifdef USE_STP
+  // reset flops
+  nonZeroFlops = 0;
+  hardwareFlops = 0;
+
+  nonZeroFlops += kernel::evaluateDOFSAtTimeSTP::NonZeroFlops;
+  hardwareFlops += kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
+#endif
+}
+
+void Time::setGlobalData(const CompoundGlobalData& global) {}
+
+} // namespace seissol::kernels::solver::nonlinearck
