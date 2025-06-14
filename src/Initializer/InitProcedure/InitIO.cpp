@@ -74,9 +74,9 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     dynrup->registerCheckpointVariables(checkpoint, tree);
   }
 
-  if (seissolInstance.getCheckpointLoadFile().has_value()) {
-    const double time = seissolInstance.getOutputManager().loadCheckpoint(
-        seissolInstance.getCheckpointLoadFile().value());
+  const auto& checkpointFile = seissolInstance.getCheckpointLoadFile();
+  if (checkpointFile.has_value()) {
+    const double time = seissolInstance.getOutputManager().loadCheckpoint(checkpointFile.value());
     seissolInstance.simulator().setCurrentTime(time);
   }
 
@@ -359,7 +359,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     receiverWriter.init(seissolParams.output.prefix,
                         seissolParams.timeStepping.endTime,
                         seissolParams.output.receiverParameters);
-    receiverWriter.addPoints(seissolInstance.meshReader(), *ltsLut, *lts, globalData);
+    receiverWriter.addPoints(
+        seissolInstance.meshReader(), *ltsLut, *lts, memoryManager.getGlobalData());
     seissolInstance.timeManager().setReceiverClusters(receiverWriter);
   }
 

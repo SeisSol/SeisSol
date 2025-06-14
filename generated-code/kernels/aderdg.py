@@ -27,6 +27,7 @@ class ADERDGBase(ABC):
         self.globals = enable_globals
 
         self.alignStride = lambda name: True
+        self.multipleSimulations = multipleSimulations
         if multipleSimulations > 1:
             self.alignStride = lambda name: name.startswith("fP")
         transpose = multipleSimulations > 1

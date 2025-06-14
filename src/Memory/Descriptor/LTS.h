@@ -129,6 +129,10 @@ struct LTS {
   ScratchpadMemory derivativesScratch;
   ScratchpadMemory nodalAvgDisplacements;
   ScratchpadMemory analyticScratch;
+  ScratchpadMemory derivativesExtScratch;
+  ScratchpadMemory derivativesAneScratch;
+  ScratchpadMemory idofsAneScratch;
+  ScratchpadMemory dofsExtScratch;
 #endif
 
   /// \todo Memkind
@@ -140,6 +144,11 @@ struct LTS {
     if (kernels::size<tensor::Qane>() > 0) {
       tree.addVar(
           dofsAne, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+    } else {
+      tree.addVar(dofsAne,
+                  LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
+                  PagesizeHeap,
+                  allocationModeWP(AllocationPreset::Dofs));
     }
     tree.addVar(
         buffers, LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
@@ -210,6 +219,10 @@ struct LTS {
     tree.addVar(boundaryMappingDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
 
 #ifdef ACL_DEVICE
+    tree.addScratchpadMemory(derivativesExtScratch, 1, AllocationMode::DeviceOnly);
+    tree.addScratchpadMemory(derivativesAneScratch, 1, AllocationMode::DeviceOnly);
+    tree.addScratchpadMemory(idofsAneScratch, 1, AllocationMode::DeviceOnly);
+    tree.addScratchpadMemory(dofsExtScratch, 1, AllocationMode::DeviceOnly);
     tree.addScratchpadMemory(integratedDofsScratch, 1, AllocationMode::HostDeviceSplit);
     tree.addScratchpadMemory(derivativesScratch, 1, AllocationMode::DeviceOnly);
     tree.addScratchpadMemory(nodalAvgDisplacements, 1, AllocationMode::DeviceOnly);

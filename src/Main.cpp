@@ -9,7 +9,6 @@
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
-#include <cstdlib>
 #include <ctime>
 #include <exception>
 #include <fty/fty.hpp>
@@ -60,12 +59,9 @@ std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
 
 int main(int argc, char* argv[]) {
 #ifdef ACL_DEVICE
-#ifdef USE_MPI
   seissol::MPI::mpi.bindAcceleratorDevice();
-#endif // USE_MPI
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->initialize();
-  device.api->allocateStackMem();
 #endif // ACL_DEVICE
 
   utils::Env env("SEISSOL_");
@@ -107,16 +103,15 @@ int main(int argc, char* argv[]) {
 
   // Print welcome message
   logInfo() << "Welcome to SeisSol";
-  logInfo() << "Copyright (c) 2012 -" << COMMIT_YEAR << " SeisSol Group";
-  logInfo() << "Version:" << VERSION_STRING;
+  logInfo() << "Copyright (c) 2012 -" << BuildInfo::CommitYear.c_str() << " SeisSol Group";
+  logInfo() << "Version:" << BuildInfo::VersionString.c_str();
   logInfo() << "Built on:" << __DATE__ << __TIME__;
-#ifdef COMMIT_HASH
-  logInfo() << "Last commit:" << COMMIT_HASH << "at" << COMMIT_TIMESTAMP;
-#endif
-  logInfo() << "Compiled with HOST_ARCH =" << SEISSOL_HOST_ARCH;
+  logInfo() << "Last commit:" << BuildInfo::CommitHash.c_str() << "at"
+            << BuildInfo::CommitTimestamp.c_str();
+  logInfo() << "Compiled with HOST_ARCH =" << BuildInfo::SeisSolHostArch.c_str();
 #ifdef ACL_DEVICE
-  logInfo() << "Compiled with DEVICE_BACKEND =" << SEISSOL_DEVICE_BACKEND;
-  logInfo() << "Compiled with DEVICE_ARCH =" << SEISSOL_DEVICE_ARCH;
+  logInfo() << "Compiled with DEVICE_BACKEND =" << BuildInfo::SeisSolDeviceBackend.c_str();
+  logInfo() << "Compiled with DEVICE_ARCH =" << BuildInfo::SeisSolDeviceArch.c_str();
 #endif
 
   if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
@@ -143,8 +138,7 @@ int main(int argc, char* argv[]) {
   }
   case utils::Args::Error: {
     seissol::MPI::finalize();
-    exit(1);
-    break;
+    return 1;
   }
   case utils::Args::Success: {
     break;

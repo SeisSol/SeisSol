@@ -9,10 +9,9 @@
 #ifndef SEISSOL_SRC_PARALLEL_MPI_H_
 #define SEISSOL_SRC_PARALLEL_MPI_H_
 
+#include <Common/Real.h>
+#include <Kernels/Precision.h>
 #include <functional>
-#ifndef USE_MPI
-#include "MPIDummy.h"
-#else // USE_MPI
 
 #include "MPIBasic.h"
 #include "utils/logger.h"
@@ -22,13 +21,7 @@
 #include <optional>
 #include <string>
 
-#endif // USE_MPI
-
 namespace seissol {
-
-#ifndef USE_MPI
-typedef MPIDummy MPI;
-#else // USE_MPI
 
 /**
  * MPI handling.
@@ -65,7 +58,7 @@ class MPI : public MPIBasic {
   void setComm(MPI_Comm comm);
 
   template <typename T>
-  [[nodiscard]] MPI_Datatype castToMpiType() const {
+  [[nodiscard]] static MPI_Datatype castToMpiType() {
     if constexpr (std::is_same_v<T, double>) {
       return MPI_DOUBLE;
     } else if constexpr (std::is_same_v<T, float>) {
@@ -78,6 +71,17 @@ class MPI : public MPIBasic {
       return MPI_CHAR;
     } else if constexpr (std::is_same_v<T, bool>) {
       return MPI_C_BOOL;
+    }
+  }
+
+  [[nodiscard]] static MPI_Datatype precisionToMpiType(RealType type) {
+    switch (type) {
+    case seissol::RealType::F32:
+      return MPI_FLOAT;
+    case seissol::RealType::F64:
+      return MPI_DOUBLE;
+    default:
+      return MPI_BYTE;
     }
   }
 
@@ -244,8 +248,6 @@ class MPI : public MPIBasic {
   DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
   std::vector<std::string> hostNames;
 };
-
-#endif // USE_MPI
 
 } // namespace seissol
 

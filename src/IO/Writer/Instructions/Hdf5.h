@@ -18,7 +18,7 @@
 namespace seissol::io::writer::instructions {
 class Hdf5Location {
   public:
-  Hdf5Location(const std::string& longstring);
+  explicit Hdf5Location(const std::string& longstring);
 
   Hdf5Location(const std::string& file,
                const std::vector<std::string>& groups,

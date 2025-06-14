@@ -10,6 +10,7 @@
 
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Model/CommonDatastructures.h"
+#include <Kernels/STP/Solver.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -26,7 +27,6 @@ struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Poroelastic;
-  static constexpr LocalSolver Solver = LocalSolver::SpaceTimePredictorPoroelastic;
   static inline const std::string Text = "poroelastic";
   static inline const std::array<std::string, NumQuantities> Quantities{"s_xx",
                                                                         "s_yy",
@@ -44,6 +44,7 @@ struct PoroElasticMaterial : public ElasticMaterial {
 
   using LocalSpecificData = PoroelasticLocalData;
   using NeighborSpecificData = PoroelasticNeighborData;
+  using Solver = kernels::solver::stp::Solver;
 
   double bulkSolid;
   double porosity;
@@ -55,7 +56,7 @@ struct PoroElasticMaterial : public ElasticMaterial {
 
   PoroElasticMaterial() = default;
 
-  PoroElasticMaterial(const std::vector<double>& materialValues)
+  explicit PoroElasticMaterial(const std::vector<double>& materialValues)
       : bulkSolid(materialValues.at(0)), porosity(materialValues.at(4)),
         permeability(materialValues.at(5)), tortuosity(materialValues.at(6)),
         bulkFluid(materialValues.at(7)), rhoFluid(materialValues.at(8)),

@@ -8,6 +8,7 @@
 
 #include "DynamicRupture.h"
 
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/Typedefs.h>
@@ -40,33 +41,14 @@
 
 namespace seissol::kernels {
 
-void DynamicRupture::checkGlobalData(const GlobalData* global, size_t alignment) {
-#ifndef NDEBUG
-  for (unsigned face = 0; face < 4; ++face) {
-    for (unsigned h = 0; h < 4; ++h) {
-      assert((reinterpret_cast<const uintptr_t>(global->faceToNodalMatrices(face, h))) %
-                 alignment ==
-             0);
-    }
-  }
-#endif
-}
-
-void DynamicRupture::setHostGlobalData(const GlobalData* global) {
-  checkGlobalData(global, Alignment);
-  m_krnlPrototype.V3mTo2n = global->faceToNodalMatrices;
-  m_timeKernel.setHostGlobalData(global);
-}
-
 void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
-  this->setHostGlobalData(global.onHost);
+  m_krnlPrototype.V3mTo2n = global.onHost->faceToNodalMatrices;
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  const auto deviceAlignment = device.api->getGlobMemAlignment();
-  checkGlobalData(global.onDevice, deviceAlignment);
   m_gpuKrnlPrototype.V3mTo2n = global.onDevice->faceToNodalMatrices;
-  m_timeKernel.setGlobalData(global);
 #endif
+
+  m_timeKernel.setGlobalData(global);
 }
 
 void DynamicRupture::setTimeStepWidth(double timestep) {
@@ -173,12 +155,6 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
   real** degreesOfFreedomPlus{nullptr};
   real** degreesOfFreedomMinus{nullptr};
 
-  auto resetDeviceCurrentState = [this](size_t counter) {
-    for (size_t i = 0; i < counter; ++i) {
-      this->device.api->popStackMemory();
-    }
-  };
-
   for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
     ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     if (table.find(timeIntegrationKey) != table.end()) {
@@ -219,8 +195,8 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getSize();
 
           auto krnl = m_gpuKrnlPrototype;
-          real* tmpMem =
-              (real*)(device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
+          real* tmpMem = reinterpret_cast<real*>(
+              device.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
           ++streamCounter;
           krnl.linearAllocator.initialize(tmpMem);
           krnl.streamPtr = stream;
@@ -234,6 +210,8 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           krnl.TinvT =
               const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
           krnl.execute(side, 0);
+
+          device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
         }
       } else {
         ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
@@ -242,8 +220,8 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getSize();
 
           auto krnl = m_gpuKrnlPrototype;
-          real* tmpMem =
-              (real*)(device.api->getStackMemory(krnl.TmpMaxMemRequiredInBytes * numElements));
+          real* tmpMem = reinterpret_cast<real*>(
+              device.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
           ++streamCounter;
           krnl.linearAllocator.initialize(tmpMem);
           krnl.streamPtr = stream;
@@ -257,10 +235,11 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           krnl.TinvT =
               const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
           krnl.execute(side, faceRelation);
+
+          device.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
         }
       }
     });
-    resetDeviceCurrentState(streamCounter);
   }
 #else
   logError() << "No GPU implementation provided";

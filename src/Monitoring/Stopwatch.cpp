@@ -27,7 +27,7 @@ void Stopwatch::reset() { time = 0; }
 /**
  * starts the time measuring
  */
-void Stopwatch::start() { clock_gettime(CLOCK_MONOTONIC, &startTime); }
+void Stopwatch::start() { (void)clock_gettime(CLOCK_MONOTONIC, &startTime); }
 
 /**
  * get time measuring
@@ -36,7 +36,7 @@ void Stopwatch::start() { clock_gettime(CLOCK_MONOTONIC, &startTime); }
  */
 double Stopwatch::split() {
   struct timespec end{};
-  clock_gettime(CLOCK_MONOTONIC, &end);
+  (void)clock_gettime(CLOCK_MONOTONIC, &end);
 
   return seconds(difftime(startTime, end));
 }
@@ -48,7 +48,7 @@ double Stopwatch::split() {
  */
 double Stopwatch::pause() {
   struct timespec end{};
-  clock_gettime(CLOCK_MONOTONIC, &end);
+  (void)clock_gettime(CLOCK_MONOTONIC, &end);
 
   time += difftime(startTime, end);
   return seconds(time);
@@ -76,7 +76,6 @@ void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
   int rank = 0;
   double avg = time;
 
-#ifdef USE_MPI
   double min = time;
   double max = time;
 
@@ -99,14 +98,10 @@ void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
     MPI_Reduce(&min, nullptr, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
     MPI_Reduce(&max, nullptr, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
   }
-#endif // USE_MPI
 
-  logInfo() << text << UnitTime.formatTime(avg).c_str()
-#ifdef USE_MPI
-            << "(min:" << utils::nospace << UnitTime.formatTime(min).c_str()
-            << ", max: " << UnitTime.formatTime(max).c_str() << ')'
-#endif // USE_MPI
-      ;
+  logInfo() << text << UnitTime.formatTime(avg).c_str() << "(min:" << utils::nospace
+            << UnitTime.formatTime(min).c_str() << ", max: " << UnitTime.formatTime(max).c_str()
+            << ')';
 }
 
 } // namespace seissol

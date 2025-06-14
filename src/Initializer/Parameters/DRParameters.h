@@ -15,7 +15,13 @@
 #include "Kernels/Precision.h"
 #include "ParameterReader.h"
 
+#include <Solver/MultipleSimulations.h>
+
+#include <numeric>
+
 namespace seissol::initializer::parameters {
+
+constexpr std::size_t MaxNucleactions = 16;
 
 /**
  * Stores the different types of friction laws
@@ -62,7 +68,8 @@ struct DRParameters {
   SlipRateOutputType slipRateOutputType{1};
   FrictionLawType frictionLawType{0};
   real healingThreshold{-1.0};
-  real t0{0.0};
+  std::array<real, MaxNucleactions> t0{};
+  std::array<real, MaxNucleactions> s0{};
   real tpProxyExponent{0.0};
   real rsF0{0.0};
   real rsB{0.0};
@@ -78,9 +85,12 @@ struct DRParameters {
   real vStar{0.0}; // Prakash-Clifton regularization parameter
   real prakashLength{0.0};
   std::string faultFileName;
+  std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
   Eigen::Vector3d referencePoint;
   real terminatorSlipRateThreshold{0.0};
   double etaHack{1.0};
+  double etaStop{std::numeric_limits<double>::infinity()};
+  int nucleationCount{0};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);

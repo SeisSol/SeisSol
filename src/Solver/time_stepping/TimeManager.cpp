@@ -147,7 +147,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
 
     increaseManager.setTimeClusterVector(&clusters);
     decreaseManager.setTimeClusterVector(&clusters);
-#ifdef USE_MPI
+
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
     const auto persistent = usePersistentMpi(seissolInstance.env());
@@ -181,7 +181,6 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
         ghostClusters.back()->connect(*copy);
       }
     }
-#endif
   }
 
   clusteringWriter.write();
@@ -308,6 +307,9 @@ void seissol::time_stepping::TimeManager::advanceInTime(const double &synchroniz
 #ifdef ACL_DEVICE
   device.api->popLastProfilingMark();
 #endif
+  for (auto& cluster : clusters) {
+    cluster->finishPhase();
+  }
 }
 
 void seissol::time_stepping::TimeManager::printComputationTime(

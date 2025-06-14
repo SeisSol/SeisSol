@@ -16,6 +16,7 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -31,8 +32,6 @@ void ImposedSlipRatesInitializer::initializeFault(
     seissol::initializer::LTSTree* const dynRupTree) {
   logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
             << " points.";
-  seissol::initializer::FaultParameterDB faultParameterDB;
-
   for (auto& layer : dynRupTree->leaves(Ghost)) {
 
     // parameters to be read from fault parameters yaml file
@@ -56,28 +55,44 @@ void ImposedSlipRatesInitializer::initializeFault(
     // get additional parameters (for derived friction laws)
     addAdditionalParameters(parameterToStorageMap, dynRup, layer);
 
-    // read parameters from yaml file
-    for (const auto& parameterStoragePair : parameterToStorageMap) {
-      faultParameterDB.addParameter(parameterStoragePair.first, parameterStoragePair.second);
+    for (std::size_t i = 0; i < multisim::NumSimulations; ++i) {
+      seissol::initializer::FaultParameterDB faultParameterDB(i);
+      // read parameters from yaml file
+      for (const auto& parameterStoragePair : parameterToStorageMap) {
+        faultParameterDB.addParameter(parameterStoragePair.first, parameterStoragePair.second);
+      }
+      const auto faceIDs = getFaceIDsInIterator(dynRup, layer);
+      queryModel(faultParameterDB, faceIDs, i);
     }
-    const auto faceIDs = getFaceIDsInIterator(dynRup, layer);
-    queryModel(faultParameterDB, faceIDs);
 
     rotateSlipToFaultCS(
         dynRup, layer, strikeSlip, dipSlip, imposedSlipDirection1, imposedSlipDirection2);
 
-    auto* nucleationStressInFaultCS = layer.var(dynRup->nucleationStressInFaultCS);
     auto* initialStressInFaultCS = layer.var(dynRup->initialStressInFaultCS);
-
-    // Set initial and nucleation stress to zero, these are not needed for this FL
+    auto* initialPressure = layer.var(dynRup->initialPressure);
     for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
-      for (unsigned int dim = 0; dim < 6; ++dim) {
-        for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+        for (unsigned int dim = 0; dim < 6; ++dim) {
           initialStressInFaultCS[ltsFace][dim][pointIndex] = 0;
-          nucleationStressInFaultCS[ltsFace][dim][pointIndex] = 0;
+        }
+        initialPressure[ltsFace][pointIndex] = 0;
+      }
+    }
+
+    for (int i = 0; i < drParameters->nucleationCount; ++i) {
+      auto* nucleationStressInFaultCS = layer.var(dynRup->nucleationStressInFaultCS[i]);
+      auto* nucleationPressure = layer.var(dynRup->nucleationPressure[i]);
+      for (unsigned int ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+        for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+          for (unsigned int dim = 0; dim < 6; ++dim) {
+            nucleationStressInFaultCS[ltsFace][dim][pointIndex] = 0;
+          }
+          nucleationPressure[ltsFace][pointIndex] = 0;
         }
       }
     }
+
+    // Set initial and nucleation stress to zero, these are not needed for this FL
 
     fixInterpolatedSTFParameters(dynRup, layer);
 

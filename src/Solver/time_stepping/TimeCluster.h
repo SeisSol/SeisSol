@@ -11,10 +11,8 @@
 #ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
 #define SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
 
-#ifdef USE_MPI
 #include <mpi.h>
 #include <list>
-#endif
 
 #include "Initializer/Typedefs.h"
 #include "SourceTerm/Typedefs.h"
@@ -22,19 +20,17 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
 
-#include "Kernels/Time.h"
-#include "Kernels/Local.h"
-#include "Kernels/Neighbor.h"
+#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
+#include "DynamicRupture/Output/OutputManager.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Plasticity.h"
 #include "Kernels/PointSourceCluster.h"
+#include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
-#include "Solver/FreeSurfaceIntegrator.h"
-#include "Monitoring/LoopStatistics.h"
-#include "Monitoring/ActorStateStatistics.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "DynamicRupture/Output/OutputManager.h"
+#include "Monitoring/ActorStateStatistics.h"
+#include "Monitoring/LoopStatistics.h"
+#include "Solver/FreeSurfaceIntegrator.h"
 #include <Common/Executor.h>
 
 #include "AbstractTimeCluster.h"
@@ -76,6 +72,7 @@ private:
     /*
      * integrators
      */
+    kernels::Spacetime spacetimeKernel;
     //! time kernel
     kernels::Time m_timeKernel;
 
@@ -130,9 +127,6 @@ private:
     //! Tv parameter for plasticity
     double m_tv;
     
-    //! Relax time for plasticity
-    double m_oneMinusIntegratingFactor;
-    
     //! Stopwatch of TimeManager
     LoopStatistics* m_loopStatistics;
     ActorStateStatistics* actorStateStatistics;
@@ -142,6 +136,8 @@ private:
     unsigned        m_regionComputePointSources;
 
     kernels::ReceiverCluster* m_receiverCluster;
+
+    seissol::memory::MemkindArray<unsigned> yieldCells;
 
     /**
      * Writes the receiver output if applicable (receivers present, receivers have to be written).
@@ -218,11 +214,6 @@ private:
                                     long long& hardwareFlops);
                                           
     void computeFlops();
-    
-    //! Update relax time for plasticity
-    void updateRelaxTime() {
-      m_oneMinusIntegratingFactor = (m_tv > 0.0) ? 1.0 - exp(-timeStepSize() / m_tv) : 1.0;
-    }
 
   const LayerType layerType;
   //! time of the next receiver output
@@ -302,7 +293,6 @@ public:
    */
   void setTv(double tv) {
     m_tv = tv;
-    updateRelaxTime();
   }
 
   void setLastSubTime(double lastSubTime) {
@@ -322,6 +312,8 @@ public:
   std::vector<NeighborCluster>* getNeighborClusters();
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream);
+
+  void finishPhase() override;
 };
 
 

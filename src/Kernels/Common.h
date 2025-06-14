@@ -14,6 +14,8 @@
 #include "Kernels/Precision.h"
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
+#include <Alignment.h>
+#include <Common/Typedefs.h>
 #include <algorithm>
 #include <cassert>
 #include <type_traits>
@@ -194,12 +196,7 @@ constexpr auto size() -> std::size_t {
 }
 } // namespace kernels
 
-constexpr bool isDeviceOn() {
-#ifdef ACL_DEVICE
-  return true;
-#endif
-  return false;
-}
+constexpr bool isDeviceOn() { return HardwareSupport == BuildType::Gpu; }
 } // namespace seissol
 
 // for now, make these #defines constexprs. Soon, they should be namespaced.

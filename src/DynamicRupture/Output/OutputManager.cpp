@@ -93,12 +93,7 @@ std::string buildIndexedMPIFileName(const std::string& namePrefix,
                                     const std::string& nameSuffix,
                                     const std::string& fileExtension = std::string()) {
   std::stringstream suffix;
-#ifdef PARALLEL
-  suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
-         << makeFormatted<int, WideFormat>(seissol::MPI::mpi.rank());
-#else
   suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index);
-#endif
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
 
@@ -180,6 +175,7 @@ void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
 }
 
 void OutputManager::initElementwiseOutput() {
+  logInfo() << "Setting up the fault output.";
   ewOutputBuilder->build(ewOutputData);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
@@ -270,11 +266,12 @@ void OutputManager::initElementwiseOutput() {
 }
 
 void OutputManager::initPickpointOutput() {
+  logInfo() << "Setting up on-fault receivers.";
   ppOutputBuilder->build(ppOutputData);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
   if (seissolParameters.output.pickpointParameters.collectiveio) {
-    logError() << "Collective IO for the Fault Pickpoint output is still under construction.";
+    logError() << "Collective IO for the on-fault receiver output is still under construction.";
   }
 
   std::stringstream baseHeader;
@@ -327,8 +324,8 @@ void OutputManager::initPickpointOutput() {
           const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
           const auto* initialStress = initialStressVar[face];
           std::array<real, 6> unrotatedInitialStress{};
-          for (std::size_t i = 0; i < unrotatedInitialStress.size(); ++i) {
-            unrotatedInitialStress[i] = initialStress[i][receiver.nearestGpIndex];
+          for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size(); ++stressVar) {
+            unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.nearestGpIndex];
           }
 
           seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;

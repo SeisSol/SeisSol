@@ -74,8 +74,6 @@ if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   append_coverage_compiler_flags()
 endif()
 
-set(HARDWARE_DEFINITIONS "REAL_SIZE=${REAL_SIZE_IN_BYTES}")
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -95,6 +93,60 @@ endif()
 
 # LTO
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
+
+function(capitalize INARG OUTARG)
+  string(REPLACE "_" ";" PARTS ${INARG})
+  set(PREOUTARG "")
+  foreach(PART IN LISTS PARTS)
+    string(SUBSTRING ${PART} 0 1 FIRST)
+    string(TOUPPER ${FIRST} FIRSTU)
+    string(LENGTH ${PART} LEN)
+    string(SUBSTRING ${PART} 1 ${LEN} NEXT)
+    string(PREPEND NEXT ${FIRSTU})
+    string(APPEND PREOUTARG ${NEXT})
+  endforeach()
+  set(${OUTARG} ${PREOUTARG} PARENT_SCOPE)
+endfunction()
+
+set (BUILDTYPE_STR "Cpu")
+set (DEVICE_BACKEND_STR "None")
+if (WITH_GPU)
+  set (BUILDTYPE_STR "Gpu")
+  if (DEVICE_BACKEND STREQUAL "cuda")
+    set (DEVICE_BACKEND_STR "Cuda")
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hip")
+    set (DEVICE_BACKEND_STR "Hip")
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "acpp" OR DEVICE_BACKEND STREQUAL "oneapi")
+    set (DEVICE_BACKEND_STR "Sycl")
+  endif()
+endif()
+
+configure_file("src/Alignment.h.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
+
+if (EQUATIONS STREQUAL "viscoelastic")
+  set(PARAMETER_MATERIAL "Viscoelastic")
+  set(PARAMETER_VISCOMODE "QuantityExtension")
+elseif (EQUATIONS STREQUAL "viscoelastic2")
+  set(PARAMETER_MATERIAL "Viscoelastic")
+  set(PARAMETER_VISCOMODE "AnelasticTensor")
+else()
+  capitalize(${EQUATIONS} PARAMETER_MATERIAL)
+  set(PARAMETER_VISCOMODE "None")
+endif()
+
+capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
+
+if (PRECISION STREQUAL "single")
+  set(PARAMETER_REALTYPE "F32")
+else()
+  set(PARAMETER_REALTYPE "F64")
+endif()
+
+configure_file("src/Config.h.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/Config.h")
 
 # Generate version.h
 include(GetGitRevisionDescription)
@@ -262,7 +314,6 @@ include(cmake/cpu_arch_flags.cmake)
 get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 
 # set hardware/compiler specific definitions and flags
-target_compile_definitions(seissol-common-properties INTERFACE ${HARDWARE_DEFINITIONS})
 target_compile_options(seissol-common-properties INTERFACE ${CPU_ARCH_FLAGS})
 
 target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LEVEL})
@@ -272,13 +323,6 @@ target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_L
 if(NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
   target_compile_definitions(seissol-common-properties INTERFACE MULTIPLE_SIMULATIONS=${NUMBER_OF_FUSED_SIMULATIONS})
 endif()
-
-if (PLASTICITY_METHOD STREQUAL "ip")
-  target_compile_definitions(seissol-common-properties INTERFACE USE_PLASTICITY_IP)
-elseif (PLASTICITY_METHOD STREQUAL "nb")
-  target_compile_definitions(seissol-common-properties INTERFACE USE_PLASTICITY_NB)
-endif()
-
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
@@ -310,6 +354,18 @@ if (NUMA_AWARE_PINNING)
   find_package(NUMA REQUIRED)
 
   target_link_libraries(seissol-common-properties INTERFACE NUMA::NUMA)
+endif()
+
+if (ASAGI)
+  find_package (asagi)
+  if (NOT asagi_FOUND)
+      find_package (PkgConfig REQUIRED)
+      pkg_check_modules (ASAGI REQUIRED IMPORTED_TARGET asagi)
+      add_library(asagi::asagi ALIAS PkgConfig::ASAGI)
+  endif()
+
+  target_link_libraries(seissol-common-properties INTERFACE asagi::asagi)
+  target_compile_definitions(seissol-common-properties INTERFACE USE_ASAGI)
 endif()
 
 #set(HDF5_PREFER_PARALLEL True)
@@ -363,16 +419,6 @@ if (NOT GRAPH_PARTITIONING_LIBS)
   message(WARNING "Compiling without graph partitioning library; expect poor performance in multi-rank runs.")
 endif()
 
-find_package(PkgConfig REQUIRED) 
-if (ASAGI)
-  # todo warn if netcdf is off
-  pkg_check_modules(ASAGI REQUIRED IMPORTED_TARGET asagi) # asagi_nompi?
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ASAGI)
-  target_link_libraries(seissol-common-properties INTERFACE ${ASAGI_LDFLAGS})
-  target_include_directories(seissol-common-properties INTERFACE ${ASAGI_INCLUDE_DIRS})
-  target_compile_options(seissol-common-properties INTERFACE ${ASAGI_CFLAGS} ${ASAGI_CFLAGS_OTHER})
-endif()
-
 if (MEMKIND)
   find_package(Memkind REQUIRED)
   target_include_directories(seissol-common-properties INTERFACE ${MEMKIND_INCLUDE_DIR})
@@ -401,7 +447,7 @@ if (INTEGRATE_QUANTITIES)
   target_compile_definitions(seissol-common-properties INTERFACE INTEGRATE_QUANTITIES)
 endif()
 
-if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
   target_compile_definitions(seissol-common-properties INTERFACE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 endif()
 
@@ -462,11 +508,6 @@ target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_BINARY_DIR}/src/
 )
 
-target_compile_definitions(seissol-common-properties INTERFACE
-    NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-    ${DR_QUAD_RULE}
-)
-
 if (PREMULTIPLY_FLUX)
   target_compile_definitions(seissol-common-properties INTERFACE USE_PREMULTIPLY_FLUX)
 endif()
@@ -494,7 +535,7 @@ if (WITH_GPU)
   if (DEVICE_BACKEND STREQUAL "hip")
     target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_HIP)
   endif()
-  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "oneapi")
+  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "acpp" OR DEVICE_BACKEND STREQUAL "oneapi")
     target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_SYCL)
   endif()
 
@@ -510,7 +551,7 @@ if (WITH_GPU)
   target_link_libraries(seissol-common-properties INTERFACE seissol-device-lib)
 
   set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
-  set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}")
+  set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_BACKEND}")
 
   # set up GPU install targets
   install(TARGETS seissol-device-lib LIBRARY)

@@ -11,6 +11,8 @@
 #include <Geometry/Refinement/VariableSubSampler.h>
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Kernels/Precision.h>
+#include <Parallel/Helper.h>
+#include <Parallel/MPI.h>
 #include <ResultWriter/WaveFieldWriterExecutor.h>
 #include <algorithm>
 #include <async/Module.h>
@@ -24,6 +26,7 @@
 #include <ostream>
 #include <string>
 #include <utility>
+#include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -35,7 +38,8 @@
 
 void seissol::writer::WaveFieldWriter::setUp() {
   setExecutor(m_executor);
-  if (isAffinityNecessary()) {
+  utils::Env env("SEISSOL_");
+  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
     logInfo() << "Wave field writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
@@ -82,9 +86,9 @@ seissol::refinement::TetrahedronRefiner<double>*
 const unsigned*
     seissol::writer::WaveFieldWriter::adjustOffsets(refinement::MeshRefiner<double>* meshRefiner) {
   const unsigned* constCells = nullptr;
-// Cells are a bit complicated because the vertex filter will now longer work if we just use the
-// buffer We will add the offset later
-#ifdef USE_MPI
+  // Cells are a bit complicated because the vertex filter will now longer work if we just use the
+  // buffer We will add the offset later
+
   // Add the offset to the cells
   MPI_Comm groupComm = seissolInstance.asyncIO().groupComm();
   unsigned int offset = meshRefiner->getNumVertices();
@@ -97,9 +101,6 @@ const unsigned*
     cells[i] = meshRefiner->getCellData()[i] + offset;
   }
   constCells = cells;
-#else  // USE_MPI
-  const_cells = meshRefiner->getCellData();
-#endif // USE_MPI
   return constCells;
 }
 
@@ -405,10 +406,8 @@ void seissol::writer::WaveFieldWriter::init(
   // Remove the low mesh refiner if it was setup
   delete pLowMeshRefiner;
 
-#ifdef USE_MPI
   delete[] constCells;
   delete[] constLowCells;
-#endif // USE_MPI
 
   // Save dof/map pointer
   m_dofs = dofs;

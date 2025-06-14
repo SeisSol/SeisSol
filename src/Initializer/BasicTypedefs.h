@@ -71,6 +71,7 @@ enum class ComputeGraphType {
   StreamedVelocities,
   NeighborIntegral,
   DynamicRuptureInterface,
+  Plasticity,
   Count
 };
 

@@ -22,6 +22,7 @@
 #include "Numerical/BasisFunction.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <Alignment.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -56,7 +57,7 @@ void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 }
 
-void ReceiverOutput::getNeighbourDofs(real dofs[tensor::Q::size()], int meshId, int side) {
+void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side) {
   real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
   assert(derivatives != nullptr);
 
@@ -124,7 +125,7 @@ void ReceiverOutput::calcFaultOutput(
     if (faultInfo.neighborElement >= 0) {
       getDofs(dofsMinus, faultInfo.neighborElement);
     } else {
-      getNeighbourDofs(dofsMinus, faultInfo.element, faultInfo.side);
+      getNeighborDofs(dofsMinus, faultInfo.element, faultInfo.side);
     }
 #endif
 
@@ -250,8 +251,8 @@ void ReceiverOutput::calcFaultOutput(
     if (totalTractions.isActive) {
       std::array<real, tensor::initialStress::size()> unrotatedInitStress{};
       std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
-      for (std::size_t i = 0; i < unrotatedInitStress.size(); ++i) {
-        unrotatedInitStress[i] = initStresses[i][local.nearestGpIndex];
+      for (std::size_t stressVar = 0; stressVar < unrotatedInitStress.size(); ++stressVar) {
+        unrotatedInitStress[stressVar] = initStresses[stressVar][local.nearestGpIndex];
       }
       alignAlongDipAndStrikeKernel.initialStress = unrotatedInitStress.data();
       alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitStress.data();

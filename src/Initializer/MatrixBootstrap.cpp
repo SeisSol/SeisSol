@@ -6,6 +6,8 @@
 
 namespace {
 
+using namespace seissol;
+
 template<typename RealT>
 Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic> toEigen(const yateto::DenseTensorView<2, RealT>& tensorView) {
     Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic> eigenMatrix;

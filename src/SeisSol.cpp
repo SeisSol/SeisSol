@@ -10,7 +10,6 @@
 
 #include <Common/Executor.h>
 #include <Kernels/Common.h>
-#include <climits>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -38,7 +37,6 @@ bool SeisSol::init(int argc, char* argv[]) {
     logInfo() << "Running on (rank=0):" << hostNames.front();
   }
 
-#ifdef USE_MPI
   logInfo() << "Using MPI with #ranks:" << seissol::MPI::mpi.size();
   logInfo() << "Node-wide (shared memory) MPI with #ranks/node:"
             << seissol::MPI::mpi.sharedMemMpiSize();
@@ -47,7 +45,6 @@ bool SeisSol::init(int argc, char* argv[]) {
   seissol::MPI::mpi.setDataTransferModeFromEnv();
 
   printPersistentMpiInfo(m_env);
-#endif
 #ifdef ACL_DEVICE
   printUSMInfo(m_env);
   printMPIUSMInfo(m_env);

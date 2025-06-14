@@ -12,6 +12,7 @@
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Initializer/PointMapper.h>
+#include <Initializer/Typedefs.h>
 #include <Kernels/Receiver.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
@@ -79,9 +80,6 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
 std::string ReceiverWriter::fileName(unsigned pointId) const {
   std::stringstream fns;
   fns << std::setfill('0') << m_fileNamePrefix << "-receiver-" << std::setw(5) << (pointId + 1);
-#ifdef PARALLEL
-  fns << "-" << std::setw(5) << seissol::MPI::mpi.rank();
-#endif
   fns << ".dat";
   return fns.str();
 }
@@ -180,7 +178,7 @@ void ReceiverWriter::init(
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                const seissol::initializer::Lut& ltsLut,
                                const seissol::initializer::LTS& lts,
-                               const GlobalData* global) {
+                               const CompoundGlobalData& global) {
   std::vector<Eigen::Vector3d> points;
   // Only parse if we have a receiver file
   if (!m_receiverFileName.empty()) {
@@ -203,8 +201,8 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   initializer::findMeshIds(
       points.data(), mesh, numberOfPoints, contained.data(), meshIds.data(), 1e-3);
   std::vector<short> globalContained(contained.begin(), contained.end());
-#ifdef USE_MPI
-  logInfo() << "Cleaning possible double occurring receivers for MPI...";
+
+  logInfo() << "Cleaning possible double occurring receivers for multi-rank setups...";
   initializer::cleanDoubles(contained.data(), numberOfPoints);
   MPI_Allreduce(MPI_IN_PLACE,
                 globalContained.data(),
@@ -212,10 +210,9 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                 MPI_SHORT,
                 MPI_MAX,
                 seissol::MPI::mpi.comm());
-#endif
 
   bool receiversMissing = false;
-  for (int i = 0; i < numberOfPoints; ++i) {
+  for (std::size_t i = 0; i < numberOfPoints; ++i) {
     if (globalContained[i] == 0) {
       logWarning() << "Receiver point" << i << "could not be found. Coordinates:" << points[i](0)
                    << points[i](1) << points[i](2);
