@@ -48,7 +48,7 @@ class Spacetime : public SpacetimeKernel {
   unsigned bytesAder() override;
 
   protected:
-  kernel::derivativeDamage m_krnlPrototype;
+  kernel::derivative m_krnlPrototype;
   kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
 
 #ifdef ACL_DEVICE
@@ -60,7 +60,7 @@ class Spacetime : public SpacetimeKernel {
 
 class Time : public TimeKernel {
   public:
-  void setGlobalData(const CompoundGlobalData* global) override;
+  void setGlobalData(const CompoundGlobalData& global) override;
   void evaluateAtTime(
       std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
       const real* timeDerivatives,

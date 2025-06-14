@@ -19,6 +19,8 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
+#include "Model/Common.h"
+#include "Numerical/Transformation.h"
 #include <Parallel/Runtime/Stream.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>

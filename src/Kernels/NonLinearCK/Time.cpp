@@ -11,7 +11,7 @@
 
 #include "Kernels/NonLinearCK/TimeBase.h"
 
-#include "GravitationalFreeSurfaceBC.h"
+#include "Kernels/LinearCK/GravitationalFreeSurfaceBC.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
@@ -171,7 +171,7 @@ void Spacetime::computeAder(double timeStepWidth,
 
   krnl.dQ(0) = const_cast<real*>(data.dofs());
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = derivativesBuffer + m_derivativesOffsets[i];
+    krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
   krnl.I = timeIntegrated;
