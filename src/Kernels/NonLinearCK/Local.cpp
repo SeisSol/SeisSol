@@ -8,6 +8,7 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "Kernels/NonLinearCK/LocalBase.h"
+#include <Equations/Datastructures.h>
 
 // #include "LocalBase.h"
 #include <Alignment.h>
