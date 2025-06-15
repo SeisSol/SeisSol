@@ -244,7 +244,7 @@ class WaveFieldWriterExecutor {
 
   void finalize() {
     if (m_waveFieldWriter != nullptr) {
-      m_stopwatch.printTime("Time wave field writer backend:", m_comm);
+      m_stopwatch.printTime("Time wave field writer backend:");
     }
 
     if (m_comm != MPI_COMM_NULL) {
