@@ -39,14 +39,18 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 
   {
     auto* tree = seissolInstance.getMemoryManager().getLtsTree();
+    auto* desc = seissolInstance.getMemoryManager().getLts();
     std::vector<std::size_t> globalIds(tree->size(seissol::initializer::LayerMask(Ghost)));
-    const auto* ltsToMesh = seissolInstance.getMemoryManager().getLtsLut()->getLtsToMeshLut(
-        seissol::initializer::LayerMask(Ghost));
+    std::size_t offset = 0;
+    for (auto& layer : tree->leaves(Ghost)) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (std::size_t i = 0; i < globalIds.size(); ++i) {
-      globalIds[i] = seissolInstance.meshReader().getElements()[ltsToMesh[i]].globalId;
+      for (std::size_t i = 0; i < layer.size(); ++i) {
+        const auto meshId = layer.var(desc->secondaryInformation)[i].meshId;
+        globalIds[offset + i] = seissolInstance.meshReader().getElements()[meshId].globalId;
+      }
+      offset += layer.size();
     }
     checkpoint.registerTree("lts", tree, globalIds);
     seissolInstance.getMemoryManager().getLts()->registerCheckpointVariables(checkpoint, tree);
@@ -88,9 +92,9 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
+  auto* memoryContainer = &memoryManager.memoryContainer();
   auto* lts = memoryManager.getLts();
   auto* ltsTree = memoryManager.getLtsTree();
-  auto* ltsLut = memoryManager.getLtsLut();
   auto* dynRup = memoryManager.getDynamicRupture();
   auto* dynRupTree = memoryManager.getDynamicRuptureTree();
   auto* globalData = memoryManager.getGlobalData().onHost;
@@ -110,6 +114,21 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     for (const auto& element : meshElements) {
       ltsClusteringData[element.localId] = element.clusterId;
     }
+    auto* tree = seissolInstance.getMemoryManager().getLtsTree();
+    auto* desc = seissolInstance.getMemoryManager().getLts();
+    std::vector<std::size_t> meshToLts(tree->size(seissol::initializer::LayerMask(Ghost)));
+    std::size_t offset = 0;
+    for (auto& layer : tree->leaves(Ghost)) {
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+      for (std::size_t i = 0; i < layer.size(); ++i) {
+        const auto meshId = layer.var(desc->secondaryInformation)[i].meshId;
+        meshToLts[offset + i] = meshId;
+      }
+      offset += layer.size();
+    }
+
     // Initialize wave field output
     seissolInstance.waveFieldWriter().init(
         NumQuantities,
@@ -120,7 +139,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         reinterpret_cast<const real*>(ltsTree->var(lts->dofs)),
         reinterpret_cast<const real*>(ltsTree->var(lts->pstrain)),
         seissolInstance.postProcessor().getIntegrals(ltsTree),
-        ltsLut->getMeshToLtsLut(ltsTree->info(lts->dofs).mask)[0].data(),
+        meshToLts.data(),
         seissolParams.output.waveFieldParameters,
         seissolParams.output.xdmfWriterBackend,
         backupTimeStamp);
@@ -217,7 +236,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             seissol::model::MaterialT::Quantities[quantity],
             {},
             [=](real* target, std::size_t index) {
-              const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, cellIndices[index]);
+              const auto position =
+                  memoryContainer->clusterBackmap.storagePositionLookup(cellIndices[index]);
+              auto& layer = ltsTree->layer(position.color);
+
+              const auto* dofsAllQuantities = layer.var(lts->dofs)[position.cell];
               const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
               kernel::projectBasisToVtkVolume vtkproj;
               vtkproj.qb = dofsSingleQuantity;
@@ -236,7 +259,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               seissol::model::PlasticityData::Quantities[quantity],
               {},
               [=](real* target, std::size_t index) {
-                const auto* dofsAllQuantities = ltsLut->lookup(lts->pstrain, cellIndices[index]);
+                const auto position =
+                    memoryContainer->clusterBackmap.storagePositionLookup(cellIndices[index]);
+                auto& layer = ltsTree->layer(position.color);
+
+                const auto* dofsAllQuantities = layer.var(lts->pstrain)[position.cell];
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj;
                 vtkproj.qb = dofsSingleQuantity;
@@ -317,7 +344,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       writer.addPointData<real>(quantityLabels[quantity], {}, [=](real* target, std::size_t index) {
         auto meshId = surfaceMeshIds[index];
         auto side = surfaceMeshSides[index];
-        const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, meshId);
+        const auto position = memoryContainer->clusterBackmap.storagePositionLookup(meshId);
+        auto& layer = ltsTree->layer(position.color);
+
+        const auto* dofsAllQuantities = layer.var(lts->dofs)[position.cell];
         const auto* dofsSingleQuantity =
             dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
         kernel::projectBasisToVtkFaceFromVolume vtkproj;
@@ -335,7 +365,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           [=](real* target, std::size_t index) {
             auto meshId = surfaceMeshIds[index];
             auto side = surfaceMeshSides[index];
-            const auto* faceDisplacements = ltsLut->lookup(lts->faceDisplacements, meshId);
+            const auto position = memoryContainer->clusterBackmap.storagePositionLookup(meshId);
+            auto& layer = ltsTree->layer(position.color);
+
+            const auto* faceDisplacements = layer.var(lts->faceDisplacements)[position.cell];
             const auto* faceDisplacementVariable =
                 faceDisplacements[side] + FaceDisplacementPadded * quantity;
             kernel::projectNodalToVtkFace vtkproj;

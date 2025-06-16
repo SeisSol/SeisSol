@@ -21,6 +21,7 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
+#include <Memory/MemoryContainer.h>
 #include <memory>
 #include <vector>
 
@@ -31,11 +32,7 @@ class ReceiverBasedOutputBuilder {
   virtual void build(std::shared_ptr<ReceiverOutputData> outputData) = 0;
 
   void setMeshReader(const seissol::geometry::MeshReader* reader);
-  void setLtsData(seissol::initializer::LTSTree* userWpTree,
-                  seissol::initializer::LTS* userWpDescr,
-                  seissol::initializer::Lut* userWpLut,
-                  seissol::initializer::LTSTree* userDrTree,
-                  seissol::initializer::DynamicRupture* userDrDescr);
+  void setLtsData(seissol::memory::MemoryContainer* memoryContainer);
 
   void setVariableList(const std::vector<std::size_t>& variables);
   void setFaceToLtsMap(std::vector<std::size_t>* faceToLtsMap);
@@ -55,9 +52,9 @@ class ReceiverBasedOutputBuilder {
   const seissol::geometry::MeshReader* meshReader{};
   seissol::initializer::LTSTree* wpTree;
   seissol::initializer::LTS* wpDescr;
-  seissol::initializer::Lut* wpLut;
   seissol::initializer::LTSTree* drTree;
   seissol::initializer::DynamicRupture* drDescr;
+  seissol::memory::MemoryContainer* container{nullptr};
   std::shared_ptr<ReceiverOutputData> outputData;
   std::vector<std::size_t> variables;
   std::vector<std::size_t>* faceToLtsMap{nullptr};

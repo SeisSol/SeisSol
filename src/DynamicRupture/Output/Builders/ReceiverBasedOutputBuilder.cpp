@@ -24,6 +24,7 @@
 #include "Numerical/Transformation.h"
 #include <Common/Typedefs.h>
 #include <Config.h>
+#include <Memory/MemoryContainer.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -51,16 +52,12 @@ void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshRead
   localRank = MPI::mpi.rank();
 }
 
-void ReceiverBasedOutputBuilder::setLtsData(seissol::initializer::LTSTree* userWpTree,
-                                            seissol::initializer::LTS* userWpDescr,
-                                            seissol::initializer::Lut* userWpLut,
-                                            seissol::initializer::LTSTree* userDrTree,
-                                            seissol::initializer::DynamicRupture* userDrDescr) {
-  wpTree = userWpTree;
-  wpDescr = userWpDescr;
-  wpLut = userWpLut;
-  drTree = userDrTree;
-  drDescr = userDrDescr;
+void ReceiverBasedOutputBuilder::setLtsData(seissol::memory::MemoryContainer* memoryContainer) {
+  wpTree = &memoryContainer->volume;
+  wpDescr = &memoryContainer->wpdesc;
+  drTree = &memoryContainer->dynrup;
+  drDescr = memoryContainer->drdesc.get();
+  container = memoryContainer;
 }
 
 void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>& variables) {
@@ -171,14 +168,18 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   std::vector<real*> indexPtrs(outputData->cellCount);
 
   for (const auto& [index, arrayIndex] : elementIndices) {
-    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->derivativesDevice, index);
+    const auto position = container->clusterBackmap.storagePositionLookup(index);
+    auto& layer = wpTree->layer(position.color);
+    indexPtrs[arrayIndex] = layer.var(wpDescr->derivativesDevice)[position.cell];
     assert(indexPtrs[arrayIndex] != nullptr);
   }
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
-    indexPtrs[arrayIndex] =
-        wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
+
+    const auto position = container->clusterBackmap.storagePositionLookup(neighbor.first);
+    auto& layer = wpTree->layer(position.color);
+    indexPtrs[arrayIndex] = layer.var(wpDescr->faceNeighborsDevice)[position.cell][neighbor.second];
     assert(indexPtrs[arrayIndex] != nullptr);
   }
 

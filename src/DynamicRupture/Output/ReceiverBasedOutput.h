@@ -16,6 +16,7 @@
 #include "Memory/Tree/Lut.h"
 
 #include <DynamicRupture/Misc.h>
+#include <Memory/MemoryContainer.h>
 #include <memory>
 #include <vector>
 
@@ -24,11 +25,7 @@ class ReceiverOutput {
   public:
   virtual ~ReceiverOutput() = default;
 
-  void setLtsData(seissol::initializer::LTSTree* userWpTree,
-                  seissol::initializer::LTS* userWpDescr,
-                  seissol::initializer::Lut* userWpLut,
-                  seissol::initializer::LTSTree* userDrTree,
-                  seissol::initializer::DynamicRupture* userDrDescr);
+  void setLtsData(seissol::memory::MemoryContainer* memoryContainer);
 
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
@@ -42,9 +39,9 @@ class ReceiverOutput {
   protected:
   seissol::initializer::LTS* wpDescr{nullptr};
   seissol::initializer::LTSTree* wpTree{nullptr};
-  seissol::initializer::Lut* wpLut{nullptr};
   seissol::initializer::LTSTree* drTree{nullptr};
   seissol::initializer::DynamicRupture* drDescr{nullptr};
+  seissol::memory::MemoryContainer* container{nullptr};
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
   real* deviceCopyMemory{nullptr};
@@ -102,8 +99,8 @@ class ReceiverOutput {
     }
   }
 
-  void getDofs(real dofs[tensor::Q::size()], int meshId);
-  void getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side);
+  void getDofs(real dofs[tensor::Q::size()], std::size_t meshId);
+  void getNeighborDofs(real dofs[tensor::Q::size()], std::size_t meshId, int side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }

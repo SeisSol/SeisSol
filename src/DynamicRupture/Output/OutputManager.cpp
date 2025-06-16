@@ -148,17 +148,13 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   }
 }
 
-void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
-                               seissol::initializer::LTS* userWpDescr,
-                               seissol::initializer::Lut* userWpLut,
-                               seissol::initializer::LTSTree* userDrTree,
-                               seissol::initializer::DynamicRupture* userDrDescr) {
-  wpDescr = userWpDescr;
-  wpTree = userWpTree;
-  wpLut = userWpLut;
-  drTree = userDrTree;
-  drDescr = userDrDescr;
-  impl->setLtsData(wpTree, wpDescr, wpLut, drTree, drDescr);
+void OutputManager::setLtsData(seissol::memory::MemoryContainer* memoryContainer) {
+  wpTree = &memoryContainer->volume;
+  wpDescr = &memoryContainer->wpdesc;
+  drTree = &memoryContainer->dynrup;
+  drDescr = memoryContainer->drdesc.get();
+  container = memoryContainer;
+  impl->setLtsData(memoryContainer);
   initFaceToLtsMap();
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
@@ -170,12 +166,12 @@ void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
   if (pointEnabled) {
-    ppOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut, userDrTree, userDrDescr);
+    ppOutputBuilder->setLtsData(memoryContainer);
     ppOutputBuilder->setVariableList(impl->getOutputVariables());
     ppOutputBuilder->setFaceToLtsMap(&globalFaceToLtsMap);
   }
   if (elementwiseEnabled) {
-    ewOutputBuilder->setLtsData(userWpTree, userWpDescr, userWpLut, userDrTree, userDrDescr);
+    ewOutputBuilder->setLtsData(memoryContainer);
     ewOutputBuilder->setFaceToLtsMap(&globalFaceToLtsMap);
   }
 }

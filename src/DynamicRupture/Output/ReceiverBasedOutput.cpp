@@ -23,6 +23,7 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Alignment.h>
+#include <Memory/MemoryContainer.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -37,28 +38,28 @@
 using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
-void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
-                                seissol::initializer::LTS* userWpDescr,
-                                seissol::initializer::Lut* userWpLut,
-                                seissol::initializer::LTSTree* userDrTree,
-                                seissol::initializer::DynamicRupture* userDrDescr) {
-  wpTree = userWpTree;
-  wpDescr = userWpDescr;
-  wpLut = userWpLut;
-  drTree = userDrTree;
-  drDescr = userDrDescr;
+void ReceiverOutput::setLtsData(seissol::memory::MemoryContainer* memoryContainer) {
+  wpTree = &memoryContainer->volume;
+  wpDescr = &memoryContainer->wpdesc;
+  drTree = &memoryContainer->dynrup;
+  drDescr = memoryContainer->drdesc.get();
+  container = memoryContainer;
 }
 
-void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
+void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], std::size_t meshId) {
+  const auto position = container->clusterBackmap.storagePositionLookup(meshId);
+  auto& layer = wpTree->layer(position.color);
   // get DOFs from 0th derivatives
-  assert((wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup >> 9) % 2 == 1);
+  assert((layer.var(wpDescr->cellInformation)[position.cell].ltsSetup >> 9) % 2 == 1);
 
-  auto* derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
+  auto* derivatives = layer.var(wpDescr->derivatives)[position.cell];
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 }
 
-void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side) {
-  real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
+void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], std::size_t meshId, int side) {
+  const auto position = container->clusterBackmap.storagePositionLookup(meshId);
+  auto& layer = wpTree->layer(position.color);
+  auto* derivatives = layer.var(wpDescr->faceNeighbors)[position.cell][side];
   assert(derivatives != nullptr);
 
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);

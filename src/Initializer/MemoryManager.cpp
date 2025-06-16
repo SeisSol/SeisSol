@@ -370,7 +370,7 @@ void seissol::initializer::MemoryManager::initFaultOutputManager(
   // TODO: switch m_dynRup to shared or weak pointer
   if (m_seissolParams->drParameters.isDynamicRuptureEnabled) {
     m_faultOutputManager->setInputParam(seissolInstance.meshReader());
-    m_faultOutputManager->setLtsData(&m_ltsTree, &m_lts, &m_ltsLut, &m_dynRupTree, m_dynRup.get());
+    m_faultOutputManager->setLtsData(&memoryContainer());
     m_faultOutputManager->setBackupTimeStamp(backupTimeStamp);
     m_faultOutputManager->init();
   }

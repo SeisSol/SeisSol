@@ -13,6 +13,7 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include <DynamicRupture/Output/DataTypes.h>
+#include <Memory/MemoryContainer.h>
 #include <memory>
 
 namespace seissol {
@@ -26,11 +27,7 @@ class OutputManager {
   OutputManager() = delete;
   OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance);
   void setInputParam(seissol::geometry::MeshReader& userMesher);
-  void setLtsData(seissol::initializer::LTSTree* userWpTree,
-                  seissol::initializer::LTS* userWpDescr,
-                  seissol::initializer::Lut* userWpLut,
-                  seissol::initializer::LTSTree* userDrTree,
-                  seissol::initializer::DynamicRupture* userDrDescr);
+  void setLtsData(seissol::memory::MemoryContainer* memoryContainer);
   void setBackupTimeStamp(const std::string& stamp) { this->backupTimeStamp = stamp; }
 
   void init();
@@ -64,9 +61,10 @@ class OutputManager {
 
   seissol::initializer::LTS* wpDescr{nullptr};
   seissol::initializer::LTSTree* wpTree{nullptr};
-  seissol::initializer::Lut* wpLut{nullptr};
   seissol::initializer::LTSTree* drTree{nullptr};
   seissol::initializer::DynamicRupture* drDescr{nullptr};
+
+  seissol::memory::MemoryContainer* container{nullptr};
 
   FaceToLtsMapType faceToLtsMap{};
   std::vector<std::size_t> globalFaceToLtsMap;
