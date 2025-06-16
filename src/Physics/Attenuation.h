@@ -8,10 +8,14 @@
 #ifndef SEISSOL_SRC_PHYSICS_ATTENUATION_H_
 #define SEISSOL_SRC_PHYSICS_ATTENUATION_H_
 
-#include "Equations/Datastructures.h"
 #include <Eigen/Dense>
 #include <cmath>
 #include <cstddef>
+
+namespace seissol::model {
+template <std::size_t>
+class ViscoElasticMaterialParametrized;
+} // namespace seissol::model
 
 namespace seissol::physics {
 
