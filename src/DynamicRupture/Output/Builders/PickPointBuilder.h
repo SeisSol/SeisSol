@@ -13,6 +13,7 @@
 #include "ReceiverBasedOutputBuilder.h"
 
 #include <Common/Iterator.h>
+#include <memory>
 #include <optional>
 
 namespace seissol::dr::output {
@@ -28,6 +29,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);
     assignNearestInternalGaussianPoints();
+    assignFusedIndices();
     assignFaultTags();
     initTimeCaching();
     initFaultDirections();
@@ -102,7 +104,11 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     reportFoundReceivers(contained);
     for (auto& receiver : potentialReceivers) {
       if (receiver.isInside) {
-        outputData->receiverPoints.push_back(receiver);
+        for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
+          auto singleReceiver = receiver;
+          singleReceiver.simIndex = i;
+          outputData->receiverPoints.push_back(singleReceiver);
+        }
       }
     }
   }

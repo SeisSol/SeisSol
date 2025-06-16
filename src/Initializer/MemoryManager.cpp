@@ -82,7 +82,6 @@ void seissol::initializer::MemoryManager::correctGhostRegionSetups()
 
 void seissol::initializer::MemoryManager::deriveLayerLayouts() {
   // initialize memory
-#ifdef USE_MPI
   m_numberOfGhostBuffers           = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
   m_numberOfGhostRegionBuffers     = (unsigned int**) m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int* ), 1 );
   m_numberOfGhostDerivatives       = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
@@ -92,19 +91,16 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
   m_numberOfCopyRegionBuffers      = (unsigned int**) m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int* ), 1 );
   m_numberOfCopyDerivatives        = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
   m_numberOfCopyRegionDerivatives  = (unsigned int**) m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int* ), 1 );
-#endif // USE_MPI
 
   m_numberOfInteriorBuffers        = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
   m_numberOfInteriorDerivatives    = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numChildren() * sizeof( unsigned int  ), 1 );
 
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_ltsTree.child(tc);
-#ifdef USE_MPI
     CellLocalInformation* ghostCellInformation    = cluster.child<Ghost>().var(m_lts.cellInformation);
     CellLocalInformation* copyCellInformation     = cluster.child<Copy>().var(m_lts.cellInformation);
-#endif
     CellLocalInformation* interiorCellInformation = cluster.child<Interior>().var(m_lts.cellInformation);
-#ifdef USE_MPI
+
     m_numberOfGhostBuffers[             tc] = 0;
     m_numberOfGhostRegionBuffers[       tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
     m_numberOfGhostDerivatives[         tc] = 0;
@@ -114,12 +110,10 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
     m_numberOfCopyRegionBuffers[        tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
     m_numberOfCopyDerivatives[          tc] = 0;
     m_numberOfCopyRegionDerivatives[    tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
-#endif // USE_MPI
 
     m_numberOfInteriorBuffers[          tc]       = 0;
     m_numberOfInteriorDerivatives[      tc]       = 0;
 
-#ifdef USE_MPI
     unsigned int l_ghostOffset = 0;
     unsigned int l_copyOffset  = 0;
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
@@ -162,7 +156,6 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
       m_numberOfCopyBuffers[      tc ]  += m_numberOfCopyRegionBuffers[      tc][l_region];
       m_numberOfCopyDerivatives[  tc ]  += m_numberOfCopyRegionDerivatives[  tc][l_region];
     }
-#endif // USE_MPI
 
     // iterate over all cells of this clusters interior
     for( unsigned int l_cell = 0; l_cell < m_meshStructure[tc].numberOfInteriorCells; l_cell++ ) {
@@ -173,7 +166,6 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
   }
 }
 
-#ifdef USE_MPI
 void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
 #ifdef ACL_DEVICE
   const auto allocationPlace = seissol::initializer::AllocationPlace::Device;
@@ -247,16 +239,11 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
     }
   }
 }
-#endif
 
 void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    cluster,
                                                                     Layer&      layer )
 {
-#ifdef USE_MPI
   assert(layer.getIdentifier().halo == Copy || layer.getIdentifier().halo == Interior);
-#else
-  assert(layer.getIdentifier().halo == Interior);
-#endif
 
   // iterate over clusters
 
@@ -332,7 +319,6 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_ltsTree.child(tc);
 
-#ifdef USE_MPI
     /*
      * ghost layer
      */
@@ -356,7 +342,6 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
                                        static_cast<real*>(cluster.child<Copy>().var(m_lts.buffersDerivatives)),
                                        cluster.child<Copy>().var(m_lts.buffers),
                                        cluster.child<Copy>().var(m_lts.derivatives) );
-#endif
 
     /*
      * Interior
@@ -370,7 +355,6 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
                                           cluster.child<Interior>().var(m_lts.derivatives)  );
 
 #ifdef ACL_DEVICE
-    #ifdef USE_MPI
     /*
      * ghost layer
      */
@@ -406,7 +390,6 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
                                           static_cast<real*>(cluster.child<Interior>().var(m_lts.buffersDerivatives, seissol::initializer::AllocationPlace::Device)),
                                           cluster.child<Interior>().var(m_lts.buffersDevice),
                                           cluster.child<Interior>().var(m_lts.derivativesDevice)  );
-#endif
   }
 }
 
@@ -712,7 +695,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
     size_t l_ghostSize = 0;
     size_t l_copySize = 0;
     size_t l_interiorSize = 0;
-#ifdef USE_MPI
+
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       l_ghostSize    += sizeof(real) * tensor::Q::size() * m_numberOfGhostRegionBuffers[tc][l_region];
       l_ghostSize    += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfGhostRegionDerivatives[tc][l_region];
@@ -720,7 +703,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
       l_copySize     += sizeof(real) * tensor::Q::size() * m_numberOfCopyRegionBuffers[tc][l_region];
       l_copySize     += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfCopyRegionDerivatives[tc][l_region];
     }
-#endif // USE_MPI
+
     l_interiorSize += sizeof(real) * tensor::Q::size() * m_numberOfInteriorBuffers[tc];
     l_interiorSize += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfInteriorDerivatives[tc];
 
@@ -739,9 +722,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
   // initialize face neighbors
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_ltsTree.child(tc);
-#ifdef USE_MPI
     initializeFaceNeighbors(tc, cluster.child<Copy>());
-#endif
     initializeFaceNeighbors(tc, cluster.child<Interior>());
   }
 
@@ -764,10 +745,8 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
     kernels::touchBuffersDerivatives(buffers, derivatives, layer.size());
   }
 
-#ifdef USE_MPI
   // initialize the communication structure
   initializeCommunicationStructure();
-#endif
 
   initializeFaceDisplacements();
 

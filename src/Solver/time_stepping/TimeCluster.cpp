@@ -758,13 +758,11 @@ void TimeCluster::correct() {
 
   // TODO(Lukas) Adjust with time step rate? Relevant is maximum cluster is not on this node
   const auto nextCorrectionSteps = ct.nextCorrectionSteps();
-  if constexpr (USE_MPI) {
-    if (printProgress && (((nextCorrectionSteps / timeStepRate) % 100) == 0)) {
-      logInfo() << "#max-updates since sync: " << nextCorrectionSteps
-                    << " @ " << ct.nextCorrectionTime(syncTime);
+  if (printProgress && (((nextCorrectionSteps / timeStepRate) % 100) == 0)) {
+    logInfo() << "#max-updates since sync: " << nextCorrectionSteps
+                  << " @ " << ct.nextCorrectionTime(syncTime);
 
-      }
-  }
+    }
 }
 
 void TimeCluster::reset() {
