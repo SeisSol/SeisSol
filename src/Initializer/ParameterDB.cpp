@@ -230,11 +230,8 @@ easi::Query FaultGPGenerator::generate() const {
     auto coords = cellToVertex.elementCoordinates(element);
     for (unsigned n = 0; n < NumPoints; ++n, ++q) {
       double xiEtaZeta[3];
-      #ifdef MULTIPLE_SIMULATIONS
-      double localPoints[2] = {pointsView(0, n), pointsView(1, n)};
-      #else
-      double localPoints[2] = {pointsView(n, 0), pointsView(n, 1)};
-      #endif
+      double localPoints[2] = {seissol::multisim::multisimTranspose(pointsView, n, 0),
+                               seissol::multisim::multisimTranspose(pointsView, n, 1)};
       // padded points are in the middle of the tetrahedron
       if (n >= dr::misc::NumBoundaryGaussPoints) {
         localPoints[0] = 1.0 / 3.0;

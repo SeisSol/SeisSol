@@ -88,7 +88,7 @@ void ReceiverOutput::calcFaultOutput(
 #pragma omp parallel for
 #endif
   for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
-    //TODO: query the dofs, only once per simulation
+    // TODO: query the dofs, only once per simulation
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
 
@@ -155,11 +155,10 @@ void ReceiverOutput::calcFaultOutput(
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
     kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
 
-      
     real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
     real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
 
-    //TODO: do these operations only once per simulation
+    // TODO: do these operations only once per simulation
     kernel.Q = dofsPlus;
     kernel.basisFunctionsAtPoint = phiPlusSide;
     kernel.QAtPoint = faceAlignedValuesPlus;
@@ -170,9 +169,12 @@ void ReceiverOutput::calcFaultOutput(
     kernel.QAtPoint = faceAlignedValuesMinus;
     kernel.execute();
 
-    for(size_t j = 0; j < tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]; ++j) {
-      local.faceAlignedValuesPlus[j] = faceAlignedValuesPlus[j*seissol::multisim::NumSimulations + local.fusedIndex];
-      local.faceAlignedValuesMinus[j] = faceAlignedValuesMinus[j*seissol::multisim::NumSimulations + local.fusedIndex];
+    for (size_t j = 0; j < tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension];
+         ++j) {
+      local.faceAlignedValuesPlus[j] =
+          faceAlignedValuesPlus[j * seissol::multisim::NumSimulations + local.fusedIndex];
+      local.faceAlignedValuesMinus[j] =
+          faceAlignedValuesMinus[j * seissol::multisim::NumSimulations + local.fusedIndex];
     }
 
     this->computeLocalStresses(local);
@@ -447,13 +449,9 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
 
     auto* rt = getCellData(local, drDescr->ruptureTime);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
-      #ifdef MULTIPLE_SIMULATIONS
-      const real chi = chiTau2dPoints(0, jBndGP);
-      const real tau = chiTau2dPoints(1, jBndGP);
-      #else
-      const real chi = chiTau2dPoints(jBndGP, 0);
-      const real tau = chiTau2dPoints(jBndGP, 1);
-      #endif
+      const real chi = seissol::multisim::multisimTranspose(chiTau2dPoints, 0, jBndGP);
+      const real tau = seissol::multisim::multisimTranspose(chiTau2dPoints, 1, jBndGP);
+
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
       for (size_t d = 0; d < NumDegFr2d; ++d) {
@@ -461,19 +459,16 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
             seissol::multisim::multisimWrap(weights, 0, jBndGP) * rt[jBndGP] * phiAtPoint[d];
       }
     }
-
     auto m2inv =
         seissol::init::M2inv::view::create(const_cast<real*>(seissol::init::M2inv::Values));
     for (size_t d = 0; d < NumDegFr2d; ++d) {
       projectedRT[d] *= m2inv(d, d);
     }
-    #ifdef MULTIPLE_SIMULATIONS
-    const real chi = chiTau2dPoints(0, local.nearestInternalGpIndex); //TODO: is this something that needs internal GpIndex with fused, or without?
-    const real tau = chiTau2dPoints(1, local.nearestInternalGpIndex); //TODO: is this something that needs internal GpIndex with fused, or without?
-    #else
-    const real chi = chiTau2dPoints(local.nearestInternalGpIndex, 0);
-    const real tau = chiTau2dPoints(local.nearestInternalGpIndex, 1);
-    #endif
+
+    const real chi =
+        seissol::multisim::multisimTranspose(chiTau2dPoints, 0, local.nearestInternalGpIndex);
+    const real tau =
+        seissol::multisim::multisimTranspose(chiTau2dPoints, 1, local.nearestInternalGpIndex);
     basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
     real dTdChi{0.0};

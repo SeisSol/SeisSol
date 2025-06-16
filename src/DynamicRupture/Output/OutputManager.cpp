@@ -281,8 +281,8 @@ void OutputManager::initPickpointOutput() {
     logError() << "Collective IO for the on-fault receiver output is still under construction.";
   }
 
-    auto& outputData = ppOutputData;
-    const bool allReceiversInOneFilePerRank = seissolParameters.output.pickpointParameters.aggregate;
+  auto& outputData = ppOutputData;
+  const bool allReceiversInOneFilePerRank = seissolParameters.output.pickpointParameters.aggregate;
 
   if (allReceiversInOneFilePerRank) {
     // aggregate all receivers per rank
@@ -305,7 +305,7 @@ void OutputManager::initPickpointOutput() {
     std::size_t counter = 0;
     for (const auto& [index, receivers] : globalIndexMap) {
       auto fileName =
-          buildIndexedMPIFileName(seissolParameters.output.prefix, index+1, "faultreceiver");
+          buildIndexedMPIFileName(seissolParameters.output.prefix, index + 1, "faultreceiver");
       seissol::generateBackupFileIfNecessary(fileName, "dat", {backupTimeStamp});
       fileName += ".dat";
 
@@ -316,11 +316,10 @@ void OutputManager::initPickpointOutput() {
 
   std::stringstream baseHeader;
 
-  auto suffix = [&allReceiversInOneFilePerRank](auto pointIndex, auto simIndex){
-
+  auto suffix = [&allReceiversInOneFilePerRank](auto pointIndex, auto simIndex) {
     std::string suffix;
 
-    if (allReceiversInOneFilePerRank){
+    if (allReceiversInOneFilePerRank) {
       suffix += std::to_string(pointIndex);
     }
 
@@ -331,26 +330,28 @@ void OutputManager::initPickpointOutput() {
     return suffix;
   };
 
-  size_t actualPointCount = allReceiversInOneFilePerRank ? ppOutputData->receiverPoints.size() / multisim::NumSimulations : 1;
+  size_t actualPointCount = allReceiversInOneFilePerRank
+                                ? ppOutputData->receiverPoints.size() / multisim::NumSimulations
+                                : 1;
 
-  for(std::size_t pointIndex=0; pointIndex < actualPointCount; ++pointIndex){
-  for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
-    size_t labelCounter = 0;
-    auto collectVariableNames = [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](auto& var, int) {
-
-    if (var.isActive) {
-      for (int dim = 0; dim < var.dim(); ++dim) {
-        baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter) << suffix(pointIndex, simIndex) << '\"';
-        ++labelCounter;
-      }
-    } else {
-      labelCounter += var.dim();
+  for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
+    for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
+      size_t labelCounter = 0;
+      auto collectVariableNames =
+          [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](auto& var, int) {
+            if (var.isActive) {
+              for (int dim = 0; dim < var.dim(); ++dim) {
+                baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter)
+                           << suffix(pointIndex + 1, simIndex + 1) << '\"';
+                ++labelCounter;
+              }
+            } else {
+              labelCounter += var.dim();
+            }
+          };
+      misc::forEach(ppOutputData->vars, collectVariableNames);
     }
-  };
-  misc::forEach(ppOutputData->vars, collectVariableNames);
   }
-}
-
 
   for (size_t i = 0; i < ppFiles.size(); ++i) {
     const auto& receiver = outputData->receiverPoints[i];
@@ -366,8 +367,8 @@ void OutputManager::initPickpointOutput() {
         title << "TITLE = \"Temporal Signal for fault receiver number(s) and simulation(s)";
         for (const auto& gIdx : ppfile.indices) {
           const auto& receiver = outputData->receiverPoints[gIdx];
-          const size_t globalIndex = receiver.globalReceiverIndex;
-          const size_t simIndex = receiver.simIndex;
+          const size_t globalIndex = receiver.globalReceiverIndex + 1;
+          const size_t simIndex = receiver.simIndex + 1;
           title << " " << globalIndex << "," << simIndex << ";";
         }
         title << "\"";
@@ -381,7 +382,7 @@ void OutputManager::initPickpointOutput() {
 
         for (const auto& gIdx : ppfile.indices) {
           const auto& receiver = outputData->receiverPoints[gIdx];
-          const size_t globalIndex = receiver.globalReceiverIndex;
+          const size_t globalIndex = receiver.globalReceiverIndex + 1;
           const size_t simIndex = receiver.simIndex;
           const auto& point = const_cast<ExtVrtxCoords&>(receiver.global);
 
@@ -417,12 +418,9 @@ void OutputManager::initPickpointOutput() {
             alignAlongDipAndStrikeKernel.execute();
           }
 
-          file << "# P_0" << simIndex << "\t"
-               << makeFormatted(rotatedInitialStress[0]) << '\n';
-          file << "# T_s" << simIndex << "\t"
-               << makeFormatted(rotatedInitialStress[3]) << '\n';
-          file << "# T_d" << simIndex << "\t"
-               << makeFormatted(rotatedInitialStress[5]) << '\n';
+          file << "# P_0" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[0]) << '\n';
+          file << "# T_s" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[3]) << '\n';
+          file << "# T_d" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[5]) << '\n';
         }
       } else {
         logError() << "cannot open " << ppfile.fileName;

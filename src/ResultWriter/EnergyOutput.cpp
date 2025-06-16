@@ -326,7 +326,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         return timeDerivativeMinusHost + QSize * i;
       };
 #else
-      //TODO: do this once and reuse
+      // TODO: do this once and reuse
       real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
       real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
       const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
@@ -458,8 +458,8 @@ void EnergyOutput::computeVolumeEnergies() {
 
       // Needed to weight the integral.
       const auto jacobiDet = 6 * volume;
-      
-      //TODO: modify such that this is needed to be done only once per element for all simulations
+
+      // TODO: modify such that this is needed to be done only once per element for all simulations
       alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
       auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
       // Evaluate numerical solution at quad. nodes
