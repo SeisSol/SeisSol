@@ -12,6 +12,7 @@
 #include "Geometry/MeshReader.h"
 #include "Memory/Tree/Lut.h"
 #include "Solver/time_stepping/TimeManager.h"
+#include <Memory/MemoryContainer.h>
 #include <cstdarg>
 
 namespace seissol::sourceterm {
@@ -24,9 +25,7 @@ class Manager {
   static void loadSources(seissol::initializer::parameters::PointSourceType sourceType,
                           const char* fileName,
                           const seissol::geometry::MeshReader& mesh,
-                          seissol::initializer::LTSTree* ltsTree,
-                          seissol::initializer::LTS* lts,
-                          seissol::initializer::Lut* ltsLut,
+                          seissol::memory::MemoryContainer& container,
                           time_stepping::TimeManager& timeManager);
 };
 
