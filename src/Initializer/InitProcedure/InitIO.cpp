@@ -93,7 +93,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   auto* ltsLut = memoryManager.getLtsLut();
   auto* dynRup = memoryManager.getDynamicRupture();
   auto* dynRupTree = memoryManager.getDynamicRuptureTree();
-  auto* globalData = memoryManager.getGlobalDataOnHost();
+  auto* globalData = memoryManager.getGlobalData().onHost;
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
   constexpr auto NumQuantities =
@@ -410,7 +410,7 @@ void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
     }
 
     seissolInstance.freeSurfaceIntegrator().initialize(refinement,
-                                                       memoryManager.getGlobalDataOnHost(),
+                                                       memoryManager.getGlobalData().onHost,
                                                        memoryManager.getLts(),
                                                        memoryManager.getLtsTree());
   }

@@ -35,6 +35,7 @@
 
 #include "Physics/InitialField.h"
 
+#include <utility>
 #include <vector>
 #include <memory>
 
@@ -63,47 +64,6 @@ class MemoryManager {
     unsigned int* ltsToFace;
 
     /*
-     * Interior
-     */
-    //! number of buffers in the interior per cluster
-    unsigned int *m_numberOfInteriorBuffers;
-
-    //! number of derivatives in the interior per cluster
-    unsigned int *m_numberOfInteriorDerivatives;
-
-#ifdef USE_MPI
-    /*
-     * Ghost layer
-     */
-    //! number of buffers in the ghost layer per cluster
-    unsigned int  *m_numberOfGhostBuffers;
-
-    //! number of buffers in the ghost regions per cluster
-    unsigned int **m_numberOfGhostRegionBuffers;
-
-    //! number of derivatives in the ghost layer per cluster
-    unsigned int  *m_numberOfGhostDerivatives;
-
-    //! number of derivatives in the ghost regions per cluster
-    unsigned int **m_numberOfGhostRegionDerivatives;
-
-    /*
-     * Copy Layer
-     */
-    //! number of buffers in the copy layer per cluster
-    unsigned int  *m_numberOfCopyBuffers;
-
-    //! number of buffers in the copy regions per cluster
-    unsigned int **m_numberOfCopyRegionBuffers;
-
-    //! number of derivatives in the copy layer per cluster
-    unsigned int  *m_numberOfCopyDerivatives;
-
-    //! number of derivatives in the copy regionsper cluster
-    unsigned int **m_numberOfCopyRegionDerivatives;
-#endif
-
-    /*
      * Cross-cluster
      */
     //! global data
@@ -129,54 +89,6 @@ class MemoryManager {
     Boundary m_boundary;
 
     EasiBoundary m_easiBoundary;
-
-    /**
-     * Corrects the LTS Setups (buffer or derivatives, never both) in the ghost region
-     **/
-    void correctGhostRegionSetups(); 
-
-    /**
-     * Derives the layouts -- number of buffers and derivatives -- of the layers.
-     **/
-    void deriveLayerLayouts();
-
-    /**
-     * Initializes the face neighbor pointers of the internal state.
-     **/
-    void initializeFaceNeighbors( unsigned    cluster,
-                                  Layer& layer);
-
-    /**
-     * Initializes the pointers of the internal state.
-     **/
-    void initializeBuffersDerivatives();
-
-    /**
-    * Derives the size of the displacement accumulation buffer.
-    */
-    void deriveFaceDisplacementsBucket();
-
-    /**
-     * Derives the size of the displacement accumulation buffer.
-     */
-    void deriveDisplacementsBucket();
-
-    /**
-     * Initializes the displacement accumulation buffer.
-     */
-    void initializeDisplacements();
-
-    /**
-     * Initializes the displacement accumulation buffer.
-     */
-  void initializeFaceDisplacements();
-
-#ifdef USE_MPI
-    /**
-     * Initializes the communication structure.
-     **/
-    void initializeCommunicationStructure();
-#endif
 
   public:
     /**
@@ -210,8 +122,8 @@ class MemoryManager {
      *
      * @param i_meshStructrue mesh structure.
      **/
-    void fixateLtsTree(struct TimeStepping& i_timeStepping,
-                       struct MeshStructure*i_meshStructure,
+    void fixateLtsTree(struct TimeStepping& timeStepping,
+                       struct MeshStructure*meshStructure,
                        unsigned* numberOfDRCopyFaces,
                        unsigned* numberOfDRInteriorFaces,
                        bool usePlasticity);
@@ -223,31 +135,10 @@ class MemoryManager {
     void initializeMemoryLayout();
 
     /**
-     * Gets global data on the host.
-     **/
-    GlobalData* getGlobalDataOnHost() {
-      return &m_globalDataOnHost;
-    }
-
-    /**
-     * Gets the global data on device.
-     **/
-    GlobalData* getGlobalDataOnDevice() {
-      assert(seissol::isDeviceOn() && "application is not compiled for acceleration device");
-      return &m_globalDataOnDevice;
-    }
-
-    /**
      * Gets the global data on both host and device.
     **/
     CompoundGlobalData getGlobalData() {
-      CompoundGlobalData global{};
-      global.onHost = &m_globalDataOnHost;
-      global.onDevice = nullptr;
-      if constexpr (seissol::isDeviceOn()) {
-        global.onDevice = &m_globalDataOnDevice;
-      }
-      return global;
+      return memoryContainer().globalDataStorage;
     }
 
     /**
@@ -259,7 +150,7 @@ class MemoryManager {
      * @param o_globalDataCopies several copies of global data
      **/
     std::pair<MeshStructure*, CompoundGlobalData>
-    getMemoryLayout(unsigned int i_cluster);
+    getMemoryLayout(unsigned int cluster);
                           
     LTSTree* getLtsTree() {
       return &container.value().volume;
@@ -297,50 +188,50 @@ class MemoryManager {
       return &container.value().dynrupBackmap;
     }
 
-    inline void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
+    void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
       m_iniConds = std::move(iniConds);
     }
 
-    inline const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
+    const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
       return m_iniConds;
     }
 
-    inline void setLtsToFace(unsigned int* ptr) {
+    void setLtsToFace(unsigned int* ptr) {
       ltsToFace = ptr;
     }
 
-    inline unsigned int* ltsToFaceMap() const {
+    unsigned int* ltsToFaceMap() const {
       return ltsToFace;
     }
 
     void initializeEasiBoundaryReader(const char* fileName);
 
-    inline EasiBoundary* getEasiBoundaryReader() {
+    EasiBoundary* getEasiBoundaryReader() {
       return &m_easiBoundary;
     }
 
-    inline dr::friction_law::FrictionSolver* getFrictionLaw() {
+    dr::friction_law::FrictionSolver* getFrictionLaw() {
         return m_FrictionLaw.get();
     }
-    inline dr::friction_law::FrictionSolver* getFrictionLawDevice() {
+    dr::friction_law::FrictionSolver* getFrictionLawDevice() {
         return m_FrictionLawDevice.get();
     }
-    inline  dr::initializer::BaseDRInitializer* getDRInitializer() {
+     dr::initializer::BaseDRInitializer* getDRInitializer() {
         return m_DRInitializer.get();
     }
-    inline seissol::dr::output::OutputManager* getFaultOutputManager() {
+    seissol::dr::output::OutputManager* getFaultOutputManager() {
         return m_faultOutputManager.get();
     }
-    inline seissol::initializer::parameters::DRParameters* getDRParameters() {
+    seissol::initializer::parameters::DRParameters* getDRParameters() {
         return &(m_seissolParams->drParameters);
     }
 
-    inline seissol::initializer::parameters::LtsParameters* getLtsParameters() {
+    seissol::initializer::parameters::LtsParameters* getLtsParameters() {
         return &(m_seissolParams->timeStepping.lts);
     };
 
     void setInputParams(std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> params) {
-      m_seissolParams = params;
+      m_seissolParams = std::move(params);
     }
 
     std::string getOutputPrefix() const {
@@ -382,8 +273,8 @@ class MemoryManager {
                               const CellMaterialData &material,
                               unsigned int face);
     bool requiresNodalFlux(FaceType f);
-    }
-}
+    } // namespace initializer
+} // namespace seissol
 
 
 #endif // SEISSOL_SRC_INITIALIZER_MEMORYMANAGER_H_
