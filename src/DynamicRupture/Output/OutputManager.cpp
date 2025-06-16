@@ -28,6 +28,7 @@
 #include "Memory/Tree/Lut.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -280,41 +281,9 @@ void OutputManager::initPickpointOutput() {
     logError() << "Collective IO for the on-fault receiver output is still under construction.";
   }
 
-  std::stringstream baseHeader;
+    auto& outputData = ppOutputData;
+    const bool allReceiversInOneFilePerRank = seissolParameters.output.pickpointParameters.aggregate;
 
-  if constexpr (seissol::multisim::MultisimEnabled) {
-  for (int simIdx = 0; simIdx < seissol::multisim::NumSimulations; ++simIdx) {
-    size_t labelCounter = 0;
-    auto collectVariableNames = [&baseHeader, &labelCounter, simIdx](auto& var, int) {
-      if (var.isActive) {
-        for (int dim = 0; dim < var.dim(); ++dim) {
-          baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter) << simIdx << '\"';
-          ++labelCounter;
-        }
-      } else {
-        labelCounter += var.dim();
-      }
-    };
-    misc::forEach(ppOutputData->vars, collectVariableNames);
-  }
-} else {
-  size_t labelCounter = 0;
-  auto collectVariableNames = [&baseHeader, &labelCounter](auto& var, int) {
-    if (var.isActive) {
-      for (int dim = 0; dim < var.dim(); ++dim) {
-        baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter) << '\"';
-        ++labelCounter;
-      }
-    } else {
-      labelCounter += var.dim();
-    }
-  };
-  misc::forEach(ppOutputData->vars, collectVariableNames);
-}
-
-  auto& outputData = ppOutputData;
-
-  const bool allReceiversInOneFilePerRank = seissolParameters.output.pickpointParameters.aggregate;
   if (allReceiversInOneFilePerRank) {
     // aggregate all receivers per rank
 
@@ -345,6 +314,44 @@ void OutputManager::initPickpointOutput() {
     }
   }
 
+  std::stringstream baseHeader;
+
+  auto suffix = [&allReceiversInOneFilePerRank](auto pointIndex, auto simIndex){
+
+    std::string suffix;
+
+    if (allReceiversInOneFilePerRank){
+      suffix += std::to_string(pointIndex);
+    }
+
+    if constexpr (seissol::multisim::MultisimEnabled) {
+      suffix += std::to_string(simIndex);
+    }
+
+    return suffix;
+  };
+
+  size_t actualPointCount = allReceiversInOneFilePerRank ? ppOutputData->receiverPoints.size() / multisim::NumSimulations : 1;
+
+  for(std::size_t pointIndex=0; pointIndex < actualPointCount; ++pointIndex){
+  for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
+    size_t labelCounter = 0;
+    auto collectVariableNames = [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](auto& var, int) {
+
+    if (var.isActive) {
+      for (int dim = 0; dim < var.dim(); ++dim) {
+        baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter) << suffix(pointIndex, simIndex) << '\"';
+        ++labelCounter;
+      }
+    } else {
+      labelCounter += var.dim();
+    }
+  };
+  misc::forEach(ppOutputData->vars, collectVariableNames);
+  }
+}
+
+
   for (size_t i = 0; i < ppFiles.size(); ++i) {
     const auto& receiver = outputData->receiverPoints[i];
     const size_t globalIndex = receiver.globalReceiverIndex + 1;
@@ -359,31 +366,31 @@ void OutputManager::initPickpointOutput() {
         title << "TITLE = \"Temporal Signal for fault receiver number(s) and simulation(s)";
         for (const auto& gIdx : ppfile.indices) {
           const auto& receiver = outputData->receiverPoints[gIdx];
-          const size_t globalIndex = receiver.globalReceiverIndex + 1;
-          const size_t simIndex = receiver.simIndex + 1;
+          const size_t globalIndex = receiver.globalReceiverIndex;
+          const size_t simIndex = receiver.simIndex;
           title << " " << globalIndex << "," << simIndex << ";";
         }
         title << "\"";
 
         file << title.str() << '\n';
         file << "VARIABLES = \"Time\"";
-        for (const auto& _ [[maybe_unused]] : ppfile.indices) {
-          file << baseHeader.str();
-        }
+
+        file << baseHeader.str();
+
         file << '\n';
 
         for (const auto& gIdx : ppfile.indices) {
           const auto& receiver = outputData->receiverPoints[gIdx];
-          const size_t globalIndex = receiver.globalReceiverIndex + 1;
+          const size_t globalIndex = receiver.globalReceiverIndex;
           const size_t simIndex = receiver.simIndex;
           const auto& point = const_cast<ExtVrtxCoords&>(receiver.global);
 
           // output coordinates
           if (simIndex == 0) {
             file << "# Receiver number " << globalIndex << '\n';
-            file << " x1\t" << makeFormatted(point[0]) << '\n';
-            file << " x2\t" << makeFormatted(point[1]) << '\n';
-            file << " x3\t" << makeFormatted(point[2]) << '\n';
+            file << "# x1\t" << makeFormatted(point[0]) << '\n';
+            file << "# x2\t" << makeFormatted(point[1]) << '\n';
+            file << "# x3\t" << makeFormatted(point[2]) << '\n';
           }
 
           // stress info
@@ -410,11 +417,11 @@ void OutputManager::initPickpointOutput() {
             alignAlongDipAndStrikeKernel.execute();
           }
 
-          file << " P_0" << simIndex << "\t"
+          file << "# P_0" << simIndex << "\t"
                << makeFormatted(rotatedInitialStress[0]) << '\n';
-          file << " T_s" << simIndex << "\t"
+          file << "# T_s" << simIndex << "\t"
                << makeFormatted(rotatedInitialStress[3]) << '\n';
-          file << " T_d" << simIndex << "\t"
+          file << "# T_d" << simIndex << "\t"
                << makeFormatted(rotatedInitialStress[5]) << '\n';
         }
       } else {
