@@ -41,6 +41,7 @@ struct InitializationParameters {
   double k;
   std::string filename;
   bool hasTime;
+  bool avoidIC;
 };
 
 InitializationParameters readInitializationParameters(ParameterReader* baseReader);

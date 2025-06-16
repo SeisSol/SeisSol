@@ -24,6 +24,7 @@
 #include "Numerical/Transformation.h"
 #include <Common/Typedefs.h>
 #include <Config.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -376,6 +377,17 @@ void ReceiverBasedOutputBuilder::assignFaultTags() {
   const auto& faultInfo = meshReader->getFault();
   for (auto& geoPoint : geoPoints) {
     geoPoint.faultTag = faultInfo[geoPoint.faultFaceIndex].tag;
+  }
+}
+
+void ReceiverBasedOutputBuilder::assignFusedIndices() {
+  // potential TODO: split properly between the nearestGpIndex and the fused nearestGpIndex
+  auto& geoPoints = outputData->receiverPoints;
+  for (auto& geoPoint : geoPoints) {
+    geoPoint.nearestGpIndex =
+        multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
+    geoPoint.nearestInternalGpIndex =
+        multisim::NumSimulations * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
   }
 }
 
