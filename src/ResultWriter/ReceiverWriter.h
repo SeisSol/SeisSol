@@ -19,7 +19,6 @@
 #include "Geometry/MeshReader.h"
 #include "Kernels/Receiver.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Lut.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
 #include <Eigen/Dense>

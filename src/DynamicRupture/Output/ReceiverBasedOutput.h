@@ -13,7 +13,6 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Lut.h"
 
 #include <DynamicRupture/Misc.h>
 #include <Memory/MemoryContainer.h>

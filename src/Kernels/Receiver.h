@@ -14,7 +14,6 @@
 #include "Kernels/Interface.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Lut.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"

@@ -171,8 +171,9 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
 
     initializer::StoragePosition ltsId = initializer::StoragePosition::NullPosition;
     for (std::size_t dup = 0;
-         dup < seissol::initializer::ClusterBackmap::MaxDuplicates && (ltsId = memoryContainer.clusterBackmap.storagePositionLookup(meshId, dup)) !=
-                        initializer::StoragePosition::NullPosition;
+         dup < seissol::initializer::ClusterBackmap::MaxDuplicates &&
+         (ltsId = memoryContainer.clusterBackmap.storagePositionLookup(meshId, dup)) !=
+             initializer::StoragePosition::NullPosition;
          ++dup) {
       clusterMapping.cellToSources[mapping].dofs =
           &memoryContainer.volume.layer(ltsId.color)
@@ -213,9 +214,9 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
     unsigned numberOfMappings = 0;
     for (auto it = clusterToMeshIds[cluster].begin(); it != last; ++it) {
       const unsigned meshId = *it;
-      for (unsigned dup = 0;
-           dup < seissol::initializer::ClusterBackmap::MaxDuplicates && memoryContainer.clusterBackmap.storagePositionLookup(meshId, dup) !=
-                          initializer::StoragePosition::NullPosition;
+      for (unsigned dup = 0; dup < seissol::initializer::ClusterBackmap::MaxDuplicates &&
+                             memoryContainer.clusterBackmap.storagePositionLookup(meshId, dup) !=
+                                 initializer::StoragePosition::NullPosition;
            ++dup) {
         ++numberOfMappings;
       }

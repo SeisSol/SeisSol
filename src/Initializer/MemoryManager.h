@@ -29,7 +29,6 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
 
 #include "Physics/InitialField.h"
 
@@ -71,7 +70,6 @@ class MemoryManager {
   //! Memory organization tree
   LTSTree m_ltsTree;
   LTS m_lts;
-  Lut m_ltsLut;
 
   std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
@@ -148,8 +146,6 @@ class MemoryManager {
   LTSTree* getLtsTree() { return &container.value().volume; }
 
   LTS* getLts() { return &container.value().wpdesc; }
-
-  Lut* getLtsLut() { return &m_ltsLut; }
 
   LTSTree* getDynamicRuptureTree() { return &container.value().dynrup; }
 
