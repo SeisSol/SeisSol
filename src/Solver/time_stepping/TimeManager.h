@@ -19,7 +19,6 @@
 #include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 #include "Initializer/MemoryManager.h"
-#include "Initializer/TimeStepping/LtsLayout.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "ResultWriter/ReceiverWriter.h"
