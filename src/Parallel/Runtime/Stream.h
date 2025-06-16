@@ -31,16 +31,17 @@ class StreamRuntime {
 
   public:
   static constexpr size_t RingbufferSize = 4;
+  static constexpr size_t EventPoolSize = 100;
 
   StreamRuntime() : disposed(false) {
     streamPtr = device().api->createStream();
     ringbufferPtr.resize(RingbufferSize);
-    forkEvents.resize(RingbufferSize);
-    joinEvents.resize(RingbufferSize);
+    events.resize(EventPoolSize);
     for (size_t i = 0; i < RingbufferSize; ++i) {
       ringbufferPtr[i] = device().api->createStream();
-      forkEvents[i] = device().api->createEvent();
-      joinEvents[i] = device().api->createEvent();
+    }
+    for (size_t i = 0; i < events.size(); ++i) {
+      events[i] = device().api->createEvent();
     }
 
     allStreams.resize(RingbufferSize + 1);
@@ -48,9 +49,6 @@ class StreamRuntime {
     for (size_t i = 0; i < RingbufferSize; ++i) {
       allStreams[i + 1] = ringbufferPtr[i];
     }
-
-    forkEventSycl = device().api->createEvent();
-    joinEventSycl = device().api->createEvent();
   }
 
   void dispose() {
@@ -58,11 +56,10 @@ class StreamRuntime {
       device().api->destroyGenericStream(streamPtr);
       for (size_t i = 0; i < RingbufferSize; ++i) {
         device().api->destroyGenericStream(ringbufferPtr[i]);
-        device().api->destroyEvent(forkEvents[i]);
-        device().api->destroyEvent(joinEvents[i]);
       }
-      device().api->destroyEvent(forkEventSycl);
-      device().api->destroyEvent(joinEventSycl);
+      for (size_t i = 0; i < events.size(); ++i) {
+        device().api->destroyEvent(events[i]);
+      }
       disposed = true;
     }
   }
@@ -92,18 +89,32 @@ class StreamRuntime {
     });
   }
 
+  void* nextEvent() {
+    const auto pos = eventpos;
+    eventpos = (eventpos + 1) % events.size();
+    return events[pos];
+  }
+
   template <typename F>
   void envMany(size_t count, F&& handler) {
-    for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-      device().api->recordEventOnStream(forkEvents[i], streamPtr);
-      device().api->syncStreamWithEvent(ringbufferPtr[i], forkEvents[i]);
-    }
-    for (size_t i = 0; i < count; ++i) {
-      std::invoke(handler, ringbufferPtr[i % ringbufferPtr.size()], i);
-    }
-    for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-      device().api->recordEventOnStream(joinEvents[i], ringbufferPtr[i]);
-      device().api->syncStreamWithEvent(streamPtr, joinEvents[i]);
+    if constexpr (Backend != DeviceBackend::Hip) {
+      void* forkEvent = nextEvent();
+      device().api->recordEventOnStream(forkEvent, streamPtr);
+      for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
+        device().api->syncStreamWithEvent(ringbufferPtr[i], forkEvent);
+      }
+      for (size_t i = 0; i < count; ++i) {
+        std::invoke(handler, ringbufferPtr[i % ringbufferPtr.size()], i);
+      }
+      for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
+        void* joinEvent = nextEvent();
+        device().api->recordEventOnStream(joinEvent, ringbufferPtr[i]);
+        device().api->syncStreamWithEvent(streamPtr, joinEvent);
+      }
+    } else {
+      for (size_t i = 0; i < count; ++i) {
+        std::invoke(handler, streamPtr, i);
+      }
     }
   }
 
@@ -141,29 +152,6 @@ class StreamRuntime {
     }
   }
 
-  template <typename F>
-  void envSycl(void* queue, F&& handler) {
-    syncToSycl(queue);
-    std::invoke(handler);
-    syncFromSycl(queue);
-  }
-
-  void syncToSycl(void* queue);
-  void syncFromSycl(void* queue);
-
-  /*
-  // disabled unless using a modern compiler
-    template <typename F>
-    void envOMP(omp_depend_t& depobj, F&& handler) {
-      syncToOMP(depobj);
-      std::invoke(handler);
-      syncFromOMP(depobj);
-    }
-
-    void syncToOMP(omp_depend_t& depobj);
-    void syncFromOMP(omp_depend_t& depobj);
-  */
-
   template <typename T>
   T* allocMemory(std::size_t count) {
     return reinterpret_cast<T*>(device().api->allocMemAsync(count * sizeof(T), streamPtr));
@@ -184,10 +172,8 @@ class StreamRuntime {
   void* streamPtr;
   std::vector<void*> ringbufferPtr;
   std::vector<void*> allStreams;
-  std::vector<void*> forkEvents;
-  std::vector<void*> joinEvents;
-  void* forkEventSycl;
-  void* joinEventSycl;
+  std::vector<void*> events;
+  std::size_t eventpos{0};
 #else
   public:
   template <typename T>
