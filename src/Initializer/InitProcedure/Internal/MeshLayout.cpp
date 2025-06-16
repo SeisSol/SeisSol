@@ -7,8 +7,7 @@
 #include "MeshLayout.h"
 
 #include <Geometry/MeshReader.h>
-#include <Parallel/MPI.h>
-#include <stdexcept>
+#include <cstddef>
 #include <unordered_map>
 #include <vector>
 
@@ -21,7 +20,8 @@ std::vector<ClusterLayout> layoutCells(const std::vector<std::size_t>& color,
   // add cells to color clusters
 
   std::vector<ClusterLayout> clusters(maxColors);
-  std::vector<std::unordered_map<std::size_t, std::vector<std::size_t>>> clusterCopy(maxColors);
+  const std::vector<std::unordered_map<std::size_t, std::vector<std::size_t>>> clusterCopy(
+      maxColors);
   std::vector<std::unordered_map<std::size_t, std::vector<std::size_t>>> clusterGhost(maxColors);
 
   std::size_t linearId = 0;

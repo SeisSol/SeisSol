@@ -12,9 +12,9 @@
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/Typedefs.h>
 #include <Memory/Descriptor/LTS.h>
+#include <Memory/MemoryContainer.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
-#include <Memory/Tree/Lut.h>
 #include <Modules/Module.h>
 #include <cmath>
 #include <memory>

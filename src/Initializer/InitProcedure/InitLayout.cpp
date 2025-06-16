@@ -12,9 +12,19 @@
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/InitProcedure/Internal/Buckets.h>
 #include <Initializer/InitProcedure/Internal/LtsSetup.h>
+#include <Initializer/ParameterDB.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
+#include <Parallel/MPI.h>
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <mpi.h>
+#include <unordered_map>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
 
 namespace {
 using namespace seissol::initializer;

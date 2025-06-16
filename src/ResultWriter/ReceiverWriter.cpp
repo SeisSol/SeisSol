@@ -10,13 +10,12 @@
 
 #include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
+#include <Initializer/BasicTypedefs.h>
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Initializer/PointMapper.h>
-#include <Initializer/Typedefs.h>
 #include <Kernels/Receiver.h>
-#include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Memory/Tree/Lut.h>
+#include <Memory/MemoryContainer.h>
+#include <Memory/Tree/Colormap.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cassert>

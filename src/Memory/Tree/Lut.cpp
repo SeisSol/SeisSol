@@ -7,6 +7,7 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "Lut.h"
+#include <Initializer/BasicTypedefs.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <cassert>

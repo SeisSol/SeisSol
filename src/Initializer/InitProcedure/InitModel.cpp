@@ -5,43 +5,24 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Equations/Datastructures.h"
 #include "Initializer/CellLocalMatrices.h"
-#include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
-#include <Common/Constants.h>
-#include <Common/Real.h>
-#include <Config.h>
-#include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Kernels/Common.h>
-#include <Memory/Tree/Layer.h>
-#include <Model/CommonDatastructures.h>
-#include <Model/Plasticity.h>
 #include <Modules/Modules.h>
 #include <Monitoring/Stopwatch.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
 #include <Solver/Estimator.h>
-#include <array>
 #include <cassert>
-#include <cstddef>
-#include <memory>
 #include <string>
-#include <unordered_map>
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
-#include <vector>
 
 #include "InitModel.h"
 #include "SeisSol.h"
-
-#include "Parallel/MPI.h"
 
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
 #include "Physics/Attenuation.h"

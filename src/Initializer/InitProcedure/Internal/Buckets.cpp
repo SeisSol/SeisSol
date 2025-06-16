@@ -6,10 +6,20 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Buckets.h"
 #include "Parallel/MPI.h"
+#include <Config.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/InitProcedure/Internal/MeshLayout.h>
 #include <Initializer/MemoryManager.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/MemoryContainer.h>
+#include <Memory/Tree/Layer.h>
+#include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <type_traits>
+#include <utility>
+#include <vector>
 #include <yateto/InitTools.h>
 
 namespace {
@@ -58,8 +68,8 @@ std::vector<CommunicationInfo>
   BucketManager manager;
 
   auto allocate = [&](std::size_t index, bool useDerivatives) {
-    bool hasBuffers = (cellInformation[index].ltsSetup >> 8) != 0;
-    bool hasDerivatives = (cellInformation[index].ltsSetup >> 9) != 0;
+    const bool hasBuffers = (cellInformation[index].ltsSetup >> 8) != 0;
+    const bool hasDerivatives = (cellInformation[index].ltsSetup >> 9) != 0;
     if (useDerivatives) {
       derivatives[index] = manager.markAllocate<LTS::DerivativeT>(hasDerivatives);
     } else {

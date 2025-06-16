@@ -344,7 +344,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
   MPI_Type_free(&ghostElementType);
 
   for (auto& [_, rankdata] : m_ghostlayerMetadata) {
-    std::size_t prevEnd = m_boundaryElements.size();
+    const std::size_t prevEnd = m_boundaryElements.size();
     m_boundaryElements.insert(m_boundaryElements.end(), rankdata.begin(), rankdata.end());
     for (std::size_t i = 0; i < rankdata.size(); ++i) {
       rankdata[i].linearId = prevEnd + i;

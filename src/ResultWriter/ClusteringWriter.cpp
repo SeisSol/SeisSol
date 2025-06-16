@@ -8,7 +8,7 @@
 #include "ClusteringWriter.h"
 
 #include "Common/Filesystem.h"
-#include <Memory/Tree/Layer.h>
+#include <Initializer/BasicTypedefs.h>
 #include <cstddef>
 #include <fstream>
 #include <ios>

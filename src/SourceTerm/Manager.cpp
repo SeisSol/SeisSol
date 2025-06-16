@@ -23,6 +23,7 @@
 #include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
 #include <Geometry/MeshTools.h>
+#include <Initializer/BasicTypedefs.h>
 #include <Initializer/Parameters/SourceParameters.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Kernels/Precision.h>
@@ -32,7 +33,6 @@
 #include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
-#include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
 #include <Solver/MultipleSimulations.h>
@@ -43,7 +43,6 @@
 #include <array>
 #include <cassert>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -172,7 +171,7 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
 
     initializer::StoragePosition ltsId = initializer::StoragePosition::NullPosition;
     for (std::size_t dup = 0;
-         dup < 4 && memoryContainer.clusterBackmap.storagePositionLookup(meshId, dup) !=
+         dup < 4 && (ltsId = memoryContainer.clusterBackmap.storagePositionLookup(meshId, dup)) !=
                         initializer::StoragePosition::NullPosition;
          ++dup) {
       clusterMapping.cellToSources[mapping].dofs =

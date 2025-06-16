@@ -29,6 +29,7 @@
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/MemoryContainer.h>
+#include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>

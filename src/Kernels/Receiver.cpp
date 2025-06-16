@@ -18,10 +18,8 @@
 #include <Kernels/Common.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
-#include <Memory/Descriptor/LTS.h>
 #include <Memory/MemoryContainer.h>
 #include <Memory/Tree/Layer.h>
-#include <Memory/Tree/Lut.h>
 #include <Numerical/Transformation.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>

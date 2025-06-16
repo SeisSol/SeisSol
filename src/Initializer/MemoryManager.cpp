@@ -8,23 +8,23 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#include <Solver/MultipleSimulations.h>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
-#include "Initializer/Parameters/SeisSolParameters.h"
+#include "MemoryManager.h"
 #include "Kernels/Common.h"
 #include "Kernels/Touch.h"
 #include "Memory/GlobalData.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
-#include "MemoryManager.h"
 #include "SeisSol.h"
-#include <cmath>
-#include <cstddef>
-#include <type_traits>
-#include <unordered_set>
+#include <DynamicRupture/Factory.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/CellLocalInformation.h>
+#include <Initializer/Parameters/DRParameters.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Precision.h>
+#include <limits>
+#include <memory>
+#include <utility>
+#include <utils/logger.h>
 #include <yateto.h>
 
 #include <DynamicRupture/Misc.h>
@@ -85,7 +85,7 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& tim
 }
 
 void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
-  seissol::initializer::LayerMask ghostMask(Ghost);
+  const seissol::initializer::LayerMask ghostMask(Ghost);
 
   m_boundaryTree.setName("boundary");
 
@@ -288,7 +288,7 @@ std::pair<MeshStructure*, CompoundGlobalData>
 
 void seissol::initializer::MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
   const auto fileNameStr = std::string{fileName};
-  if (fileNameStr != "") {
+  if (!fileNameStr.empty()) {
     m_easiBoundary = EasiBoundary(fileNameStr);
   }
 }
