@@ -57,8 +57,8 @@ bool MeshReader::hasFault() const { return !m_fault.empty(); }
 bool MeshReader::hasPlusFault() const { return m_hasPlusFault; }
 
 void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
-  for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
-    for (unsigned i = 0; i < 3; ++i) {
+  for (std::size_t vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
+    for (int i = 0; i < 3; ++i) {
       m_vertices[vertexNo].coords[i] += displacement[i];
     }
   }
@@ -68,12 +68,12 @@ void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
 //  scalingMatrix is stored column-major, i.e.
 //  scalingMatrix_ij = scalingMatrix[j][i]
 void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
-  for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
+  for (std::size_t vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
     Eigen::Vector3d point;
     point << m_vertices[vertexNo].coords[0], m_vertices[vertexNo].coords[1],
         m_vertices[vertexNo].coords[2];
     const auto result = scalingMatrix * point;
-    for (unsigned i = 0; i < 3; ++i) {
+    for (int i = 0; i < 3; ++i) {
       m_vertices[vertexNo].coords[i] = result[i];
     }
   }

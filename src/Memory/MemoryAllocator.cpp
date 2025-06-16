@@ -158,9 +158,9 @@ void* hostToDevicePointer(void* host, enum Memkind memkind) {
   }
 }
 
-void printMemoryAlignment(std::vector<std::vector<unsigned long long>> memoryAlignment) {
+void printMemoryAlignment(std::vector<std::vector<std::size_t>> memoryAlignment) {
   logDebug() << "printing memory alignment per struct";
-  for (unsigned long long i = 0; i < memoryAlignment.size(); i++) {
+  for (std::size_t i = 0; i < memoryAlignment.size(); i++) {
     logDebug() << memoryAlignment[i][0] << ", " << memoryAlignment[i][1];
   }
 }

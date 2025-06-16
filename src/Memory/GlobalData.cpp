@@ -28,9 +28,9 @@ MemoryProperties OnHost::getProperties() {
 }
 
 void OnHost::negateStiffnessMatrix(GlobalData& globalData) {
-  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
+  for (int transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
     real* matrix = const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness));
-    for (unsigned i = 0; i < init::kDivMT::size(transposedStiffness); ++i) {
+    for (std::size_t i = 0; i < init::kDivMT::size(transposedStiffness); ++i) {
       matrix[i] *= -1.0;
     }
   }
@@ -81,7 +81,7 @@ MemoryProperties OnDevice::getProperties() {
 void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
+  for (int transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
     const real scaleFactor = -1.0;
     device.algorithms.scaleArray(
         const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness)),
@@ -110,7 +110,7 @@ void OnDevice::initSpecificGlobalData(GlobalData& globalData,
 real* OnDevice::DeviceCopyPolicy::copy(const real* first, const real* last, real*& mem) {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  const unsigned bytes = (last - first) * sizeof(real);
+  const std::size_t bytes = (last - first) * sizeof(real);
   device.api->copyTo(mem, first, bytes);
   mem += (last - first);
   return mem;
@@ -129,7 +129,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
 
   // We ensure that global matrices always start at an aligned memory address,
   // such that mixed cases with aligned and non-aligned global matrices do also work.
-  unsigned globalMatrixMemSize = 0;
+  std::size_t globalMatrixMemSize = 0;
   globalMatrixMemSize +=
       yateto::computeFamilySize<init::kDivM>(yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
@@ -213,7 +213,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   MatrixManipPolicyT::negateStiffnessMatrix(globalData);
 
   // Dynamic Rupture global matrices
-  unsigned drGlobalMatrixMemSize = 0;
+  std::size_t drGlobalMatrixMemSize = 0;
   drGlobalMatrixMemSize +=
       yateto::computeFamilySize<init::V3mTo2nTWDivM>(yateto::alignedReals<real>(prop.alignment));
   drGlobalMatrixMemSize +=
@@ -231,7 +231,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   assert(drGlobalMatrixMemPtr == drGlobalMatrixMem + drGlobalMatrixMemSize);
 
   // Plasticity global matrices
-  unsigned plasticityGlobalMatrixMemSize = 0;
+  std::size_t plasticityGlobalMatrixMemSize = 0;
   plasticityGlobalMatrixMemSize +=
       yateto::alignedUpper(tensor::v::size(), yateto::alignedReals<real>(prop.alignment));
   plasticityGlobalMatrixMemSize +=

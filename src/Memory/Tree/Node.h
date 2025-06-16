@@ -36,7 +36,7 @@ class Node {
   virtual ~Node() = default;
 
   template <typename T>
-  void setChildren(unsigned numChildren) {
+  void setChildren(std::size_t numChildren) {
     m_children.resize(numChildren);
     for (auto& child : m_children) {
       child = std::make_shared<T>();
@@ -45,7 +45,7 @@ class Node {
 
   [[nodiscard]] bool isLeaf() const { return m_children.empty(); }
 
-  [[nodiscard]] unsigned numChildren() const { return m_children.size(); }
+  [[nodiscard]] std::size_t numChildren() const { return m_children.size(); }
 
   class Iterator {
 public:

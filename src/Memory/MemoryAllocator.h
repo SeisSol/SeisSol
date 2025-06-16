@@ -106,7 +106,7 @@ T* hostToDevicePointerTyped(T* host, enum Memkind memkind) {
  *
  * @param memoryAlignment memory alignment.
  **/
-void printMemoryAlignment(std::vector<std::vector<unsigned long long>> memoryAlignment);
+void printMemoryAlignment(std::vector<std::vector<std::size_t>> memoryAlignment);
 
 /**
  * Automatically frees allocated memory on destruction.

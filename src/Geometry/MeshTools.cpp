@@ -150,7 +150,7 @@ bool MeshTools::inside(const Element& e, const std::vector<Vertex>& vertices, co
    * The point is inside the tetrahedron if it lies on the backside
    * of each of the 4 planes defined by the normal vectors (and a point
    * on the plane). */
-  for (unsigned face = 0; face < 4; ++face) {
+  for (int face = 0; face < 4; ++face) {
     VrtxCoords pp;
     sub(p, vertices[e.vertices[FACE2NODES[face][0]]].coords, pp);
     normal(e, face, vertices, nrm);

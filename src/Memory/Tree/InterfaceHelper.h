@@ -58,7 +58,7 @@ struct extract_type<F<X>> {
     template <typename T>                                                                          \
     static NAME lookup(HANDLE_STRUCT const& handleStruct,                                          \
                        T const& lut,                                                               \
-                       unsigned meshId,                                                            \
+                       std::size_t meshId,                                                         \
                        seissol::initializer::AllocationPlace place =                               \
                            seissol::initializer::AllocationPlace::Host) {                          \
       return NAME(MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_LOOKUP, HANDLE_STRUCT, __VA_ARGS__));    \
@@ -70,10 +70,11 @@ struct extract_type<F<X>> {
                 T& tree,                                                                           \
                 seissol::initializer::AllocationPlace place =                                      \
                     seissol::initializer::AllocationPlace::Host){                                  \
-          MAGIC_FOR_EACH(_LTSTREE_LOAD, HANDLE_STRUCT, __VA_ARGS__)} NAME entry(unsigned index) {  \
+          MAGIC_FOR_EACH(_LTSTREE_LOAD, HANDLE_STRUCT, __VA_ARGS__)} NAME                          \
+          entry(std::size_t index) {                                                               \
         return NAME(MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_ACCESS, HANDLE_STRUCT, __VA_ARGS__));  \
       }                                                                                            \
-      NAME entry(unsigned index) const {                                                           \
+      NAME entry(std::size_t index) const {                                                        \
         return NAME(MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_ACCESS, HANDLE_STRUCT, __VA_ARGS__));  \
       }                                                                                            \
     };                                                                                             \
@@ -90,7 +91,7 @@ struct extract_type<F<X>> {
     template <typename T>                                                                          \
     static NAME lookup(HANDLE_STRUCT const& handleStruct,                                          \
                        T const& lut,                                                               \
-                       unsigned meshId,                                                            \
+                       std::size_t meshId,                                                         \
                        seissol::initializer::AllocationPlace place =                               \
                            seissol::initializer::AllocationPlace::Host) {                          \
       return NAME(MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_LOOKUP, HANDLE_STRUCT, __VA_ARGS__));    \
@@ -102,11 +103,12 @@ struct extract_type<F<X>> {
                 T& tree,                                                                           \
                 seissol::initializer::AllocationPlace place =                                      \
                     seissol::initializer::AllocationPlace::Host){                                  \
-          MAGIC_FOR_EACH(_LTSTREE_LOAD, HANDLE_STRUCT, __VA_ARGS__)} NAME entry(unsigned index) {  \
+          MAGIC_FOR_EACH(_LTSTREE_LOAD, HANDLE_STRUCT, __VA_ARGS__)} NAME                          \
+          entry(std::size_t index) {                                                               \
         return NAME(                                                                               \
             MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_PTR_ACCESS, HANDLE_STRUCT, __VA_ARGS__));      \
       }                                                                                            \
-      NAME entry(unsigned index) const {                                                           \
+      NAME entry(std::size_t index) const {                                                        \
         return NAME(                                                                               \
             MAGIC_FOR_EACH_COMMA_SEPARATED(_LTSTREE_PTR_ACCESS, HANDLE_STRUCT, __VA_ARGS__));      \
       }                                                                                            \
