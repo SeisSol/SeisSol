@@ -253,8 +253,6 @@ class Layer : public Node {
 
   std::size_t id() const { return posId; }
 
-  void setId(std::size_t posId) { this->posId = posId; }
-
   class CellRef {
 public:
     CellRef(std::size_t id, Layer& layer, AllocationPlace place = AllocationPlace::Host)
@@ -381,15 +379,18 @@ private:
 
   [[nodiscard]] const LayerIdentifier& getIdentifier() const { return identifier; }
 
-  void setIdentifier(const LayerIdentifier& identifier) { this->identifier = identifier; }
-
   [[nodiscard]] std::size_t size() const { return numCells; }
 
-  void setNumberOfCells(std::size_t numberOfCells) { numCells = numberOfCells; }
-
-  void fixPointers(const std::vector<MemoryInfo>& info,
+  void fixPointers(std::size_t size,
+                   std::size_t id,
+                   const LayerIdentifier& identifier,
+                   const std::vector<MemoryInfo>& info,
                    const std::unordered_map<std::type_index, std::size_t>& typemap,
                    const std::unordered_map<int*, std::size_t>& handlemap) {
+    this->numCells = size;
+    this->identifier = identifier;
+    this->posId = id;
+
     const auto count = info.size();
     memoryContainer.resize(count);
     memoryInfo.resize(count);

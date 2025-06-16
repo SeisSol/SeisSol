@@ -63,18 +63,18 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& tim
 
   // FIXME: m_dynRupTree.setLayerCount(m_ltsTree.numTimeClusters(), m_ltsTree.getConfigs());
   // FIXME: m_dynRupTree.fixate();
-
-  for (unsigned tc = 0; tc < m_dynRupTree.numTimeClusters(); ++tc) {
-    m_dynRupTree.layer(initializer::LayerIdentifier(HaloType::Ghost, Config(), tc))
-        .setNumberOfCells(0);
-    if (tc < timeStepping.numberOfLocalClusters) {
-      m_dynRupTree.layer(initializer::LayerIdentifier(HaloType::Copy, Config(), tc))
-          .setNumberOfCells(numberOfDRCopyFaces[tc]);
-      m_dynRupTree.layer(initializer::LayerIdentifier(HaloType::Interior, Config(), tc))
-          .setNumberOfCells(numberOfDRInteriorFaces[tc]);
+  /* FIXME:
+    for (unsigned tc = 0; tc < m_dynRupTree.numTimeClusters(); ++tc) {
+      m_dynRupTree.layer(initializer::LayerIdentifier(HaloType::Ghost, Config(), tc))
+          .setNumberOfCells(0);
+      if (tc < timeStepping.numberOfLocalClusters) {
+        m_dynRupTree.layer(initializer::LayerIdentifier(HaloType::Copy, Config(), tc))
+            .setNumberOfCells(numberOfDRCopyFaces[tc]);
+        m_dynRupTree.layer(initializer::LayerIdentifier(HaloType::Interior, Config(), tc))
+            .setNumberOfCells(numberOfDRInteriorFaces[tc]);
+      }
     }
-  }
-
+  */
   m_dynRupTree.allocateVariables();
   m_dynRupTree.touchVariables();
 
@@ -111,7 +111,7 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
         }
       }
     }
-    boundaryLayer.setNumberOfCells(numberOfBoundaryFaces);
+    // FIXME: boundaryLayer.setNumberOfCells(numberOfBoundaryFaces);
   }
   m_boundaryTree.allocateVariables();
   m_boundaryTree.touchVariables();
