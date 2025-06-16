@@ -244,13 +244,13 @@ struct MaterialSetup<DamageMaterial> {
     matTinv(9, 9) = 1;
   }
 
-  static DamageMaterial getRotatedMaterialCoefficients(real rotationParameters[36],
+  static DamageMaterial getRotatedMaterialCoefficients(double rotationParameters[36],
                                                        DamageMaterial& material) {
     return material;
   }
 
   static void initializeSpecificLocalData(const DamageMaterial& material,
-                                          real timeStepWidth,
+                                          double timeStepWidth,
                                           Vertex localVertices[4],
                                           real& localVolume,
                                           real localSurfaces[4],
