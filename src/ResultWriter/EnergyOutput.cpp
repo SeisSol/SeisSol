@@ -326,7 +326,6 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         return timeDerivativeMinusHost + QSize * i;
       };
 #else
-      //TODO: do this once and reuse
       real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
       real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
       const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
@@ -404,7 +403,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 void EnergyOutput::computeVolumeEnergies() {
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-    // TODO: Abstract energy calculations and implement it for anisotropic and poroelastic materials
+    // TODO: Abstract energy calculations and implement is for anisotropic and poroelastic materials
     [[maybe_unused]] auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy(sim);
     [[maybe_unused]] auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy(sim);
     [[maybe_unused]] auto& totalAcousticKineticEnergyLocal =
@@ -458,8 +457,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
       // Needed to weight the integral.
       const auto jacobiDet = 6 * volume;
-      
-      //TODO: modify such that this is needed to be done only once per element for all simulations
+
       alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
       auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
       // Evaluate numerical solution at quad. nodes

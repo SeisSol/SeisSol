@@ -96,7 +96,7 @@ std::string buildIndexedMPIFileName(const std::string& namePrefix,
                                     const std::string& nameSuffix,
                                     const std::string& fileExtension = std::string()) {
   std::stringstream suffix;
-  if (index > 0) {
+  if (index >= 0) {
     suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index);
   } else {
     suffix << nameSuffix << "-r" << makeFormatted<int, WideFormat>(seissol::MPI::mpi.rank());
@@ -305,7 +305,7 @@ void OutputManager::initPickpointOutput() {
     std::size_t counter = 0;
     for (const auto& [index, receivers] : globalIndexMap) {
       auto fileName =
-          buildIndexedMPIFileName(seissolParameters.output.prefix, index+1, "faultreceiver");
+          buildIndexedMPIFileName(seissolParameters.output.prefix, index, "faultreceiver");
       seissol::generateBackupFileIfNecessary(fileName, "dat", {backupTimeStamp});
       fileName += ".dat";
 
