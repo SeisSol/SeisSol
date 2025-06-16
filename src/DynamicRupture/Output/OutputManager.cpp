@@ -96,7 +96,7 @@ std::string buildIndexedMPIFileName(const std::string& namePrefix,
                                     const std::string& nameSuffix,
                                     const std::string& fileExtension = std::string()) {
   std::stringstream suffix;
-  if (index > 0) {
+  if (index >= 0) {
     suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index);
   } else {
     suffix << nameSuffix << "-r" << makeFormatted<int, WideFormat>(seissol::MPI::mpi.rank());

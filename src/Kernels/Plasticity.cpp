@@ -50,7 +50,6 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     // TODO: really still the case?
     logError() << "Plasticity does not work with multiple simulations";
   }
-
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);

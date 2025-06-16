@@ -404,7 +404,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
 void EnergyOutput::computeVolumeEnergies() {
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
-    // TODO: Abstract energy calculations and implement it for anisotropic and poroelastic materials
+    // TODO: Abstract energy calculations and implement is for anisotropic and poroelastic materials
     [[maybe_unused]] auto& totalGravitationalEnergyLocal = energiesStorage.gravitationalEnergy(sim);
     [[maybe_unused]] auto& totalAcousticEnergyLocal = energiesStorage.acousticEnergy(sim);
     [[maybe_unused]] auto& totalAcousticKineticEnergyLocal =
