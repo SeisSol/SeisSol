@@ -175,7 +175,8 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
                                                   initConditionParams.hasTime);
   } else {
     auto initConditions = buildInitialConditionList(seissolInstance);
-    if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero) {
+    if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero &&
+        !initConditionParams.avoidIC) {
       seissol::initializer::projectInitialField(initConditions,
                                                 *memoryManager.getGlobalData().onHost,
                                                 seissolInstance.meshReader(),

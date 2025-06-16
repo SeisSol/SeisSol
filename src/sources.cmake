@@ -161,8 +161,6 @@ src/Solver/FreeSurfaceIntegrator.cpp
 
 src/Reader/AsagiModule.cpp
 src/Reader/AsagiReader.cpp
-
-src/Parallel/Runtime/StreamOMP.cpp
 )
 
 set(SYCL_ONLY_SRC_FILES

@@ -80,9 +80,6 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
 std::string ReceiverWriter::fileName(unsigned pointId) const {
   std::stringstream fns;
   fns << std::setfill('0') << m_fileNamePrefix << "-receiver-" << std::setw(5) << (pointId + 1);
-#ifdef PARALLEL
-  fns << "-" << std::setw(5) << seissol::MPI::mpi.rank();
-#endif
   fns << ".dat";
   return fns.str();
 }
@@ -200,8 +197,8 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   initializer::findMeshIds(
       points.data(), mesh, numberOfPoints, contained.data(), meshIds.data(), 1e-3);
   std::vector<short> globalContained(contained.begin(), contained.end());
-#ifdef USE_MPI
-  logInfo() << "Cleaning possible double occurring receivers for MPI...";
+
+  logInfo() << "Cleaning possible double occurring receivers for multi-rank setups...";
   initializer::cleanDoubles(contained.data(), numberOfPoints);
   MPI_Allreduce(MPI_IN_PLACE,
                 globalContained.data(),
@@ -209,7 +206,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                 MPI_SHORT,
                 MPI_MAX,
                 seissol::MPI::mpi.comm());
-#endif
 
   bool receiversMissing = false;
   for (std::size_t i = 0; i < numberOfPoints; ++i) {

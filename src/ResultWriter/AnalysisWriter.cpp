@@ -277,7 +277,6 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         MeshTools::center(elements[elemLInfLocal[i]], vertices, center);
       }
 
-#ifdef USE_MPI
       const auto& comm = mpi.comm();
 
       // Reduce error over all MPI ranks.
@@ -369,28 +368,6 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
           csvWriter.addObservation(std::to_string(i), "LInf_rel", errLInfRel);
         }
       }
-#else
-      for (unsigned int i = 0; i < numberOfQuantities; ++i) {
-        VrtxCoords center;
-        MeshTools::center(elements[elemLInfLocal[i]], vertices, center);
-        const auto errL1 = errL1Local[i];
-        const auto errL2 = std::sqrt(errL2Local[i]);
-        const auto errLInf = errLInfLocal[i];
-        const auto errL1Rel = errL1 / analyticalL1Local[i];
-        const auto errL2Rel = std::sqrt(errL2Local[i] / analyticalL2Local[i]);
-        const auto errLInfRel = errLInf / analyticalLInfLocal[i];
-        logInfo() << "L1  , var[" << i << "] =\t" << errL1 << "\t" << errL1Rel;
-        logInfo() << "L2  , var[" << i << "] =\t" << errL2 << "\t" << errL2Rel;
-        logInfo() << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel << "\tat ["
-                  << center[0] << ",\t" << center[1] << ",\t" << center[2] << "\t]";
-        csvWriter.addObservation(std::to_string(i), "L1", errL1);
-        csvWriter.addObservation(std::to_string(i), "L2", errL2);
-        csvWriter.addObservation(std::to_string(i), "LInf", errLInf);
-        csvWriter.addObservation(std::to_string(i), "L1_rel", errL1Rel);
-        csvWriter.addObservation(std::to_string(i), "L2_rel", errL2Rel);
-        csvWriter.addObservation(std::to_string(i), "LInf_rel", errLInfRel);
-      }
-#endif // USE_MPI
     }
   }
 }

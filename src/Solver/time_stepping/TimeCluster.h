@@ -12,10 +12,8 @@
 #define SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
 
 #include <Memory/Tree/Colormap.h>
-#ifdef USE_MPI
 #include <mpi.h>
 #include <list>
-#endif
 
 #include "Initializer/Typedefs.h"
 #include "SourceTerm/Typedefs.h"

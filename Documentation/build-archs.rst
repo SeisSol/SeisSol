@@ -128,6 +128,31 @@ CPU architectures
      -
      -
      -
+   * - ``rvv128``
+     - Dummy target for RISC-V 64 bit, V extension with 128 bits length
+     -
+     -
+     -
+   * - ``rvv256``
+     - Dummy target for RISC-V 64 bit, V extension with 256 bits length
+     -
+     -
+     -
+   * - ``rvv512``
+     - Dummy target for RISC-V 64 bit, V extension with 512 bits length
+     -
+     -
+     -
+   * - ``rvv1024``
+     - Dummy target for RISC-V 64 bit, V extension with 1024 bits length
+     -
+     -
+     -
+   * - ``rvv2048``
+     - Dummy target for RISC-V 64 bit, V extension with 2048 bits length
+     -
+     -
+     -
    * - ``apple-m1``
      - Apple M1 CPU
      -
@@ -135,6 +160,16 @@ CPU architectures
      -
    * - ``apple-m2``
      - Apple M2 CPU
+     -
+     -
+     -
+   * - ``apple-m3``
+     - Apple M3 CPU
+     -
+     -
+     -
+   * - ``apple-m4``
+     - Apple M4 CPU
      -
      -
      -
@@ -208,6 +243,16 @@ The following architectures are supported:
      - Nvidia Blackwell
      - Nvidia B100, B200
      - split; unified on GB superchip
+   * - ``sm_101``
+     - ``cuda``
+     - Nvidia Blackwell
+     -
+     - (unknown)
+   * - ``sm_120``
+     - ``cuda``
+     - Nvidia Blackwell
+     - Nvidia Geforce 5000 series
+     - split
    * - ``gfx900``
      - ``hip``
      - AMD GCN 5 (Vega)

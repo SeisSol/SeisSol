@@ -20,12 +20,10 @@
 #include <algorithm>
 #include <cstddef>
 #include <map>
+#include <mpi.h>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#ifdef USE_MPI
-#include <mpi.h>
-#endif
 
 namespace seissol::geometry {
 
@@ -254,7 +252,6 @@ void MeshReader::extractFaultInformation(
 }
 
 void MeshReader::exchangeGhostlayerMetadata() {
-#ifdef USE_MPI
   std::unordered_map<int, std::vector<GhostElementMetadata>> sendData;
   std::unordered_map<int, std::vector<GhostElementMetadata>> recvData;
 
@@ -354,7 +351,6 @@ void MeshReader::exchangeGhostlayerMetadata() {
       m_boundaryElements[i + prevEnd].linearId = i + prevEnd;
     }
   }
-#endif
 }
 
 void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInstance) {

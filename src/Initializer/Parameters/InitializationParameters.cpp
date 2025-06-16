@@ -57,7 +57,9 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
   const auto filename = reader->readPath("filename").value_or("");
   const auto hasTime = reader->read<bool>("hastime").value_or(true);
 
+  const auto avoidIC = reader->read<bool>("avoidic").value_or(false);
+
   return InitializationParameters{
-      type, origin, kVec, ampField, magnitude, width, k, filename, hasTime};
+      type, origin, kVec, ampField, magnitude, width, k, filename, hasTime, avoidIC};
 }
 } // namespace seissol::initializer::parameters

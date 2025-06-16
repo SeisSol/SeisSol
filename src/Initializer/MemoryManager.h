@@ -16,9 +16,7 @@
 #include <Config.h>
 #include <Memory/MemoryContainer.h>
 #include <Memory/Tree/Backmap.h>
-#ifdef USE_MPI
 #include <mpi.h>
-#endif
 
 #include <utils/logger.h>
 
