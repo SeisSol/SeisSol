@@ -19,10 +19,7 @@ format() {
         src/DynamicRupture
         src/Equations
         src/Geometry
-        src/Initializer/BatchRecorders
-        src/Initializer/InitProcedure
-        src/Initializer/Parameters
-        src/Initializer/TimeStepping/LtsWeights
+        src/Initializer
         src/IO
         src/Kernels
         src/Memory
@@ -41,21 +38,6 @@ format() {
 
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
-        src/Initializer/BasicTypedefs.h
-        src/Initializer/CellLocalInformation.h
-        src/Initializer/CellLocalMatrices.h
-        src/Initializer/CellLocalMatrices.cpp
-        src/Initializer/DeviceGraph.h
-        src/Initializer/InitialFieldProjection.h
-        src/Initializer/InitialFieldProjection.cpp
-        src/Initializer/InputAux.h
-        src/Initializer/ParameterDB.h
-        src/Initializer/ParameterDB.cpp
-        src/Initializer/PointMapper.h
-        src/Initializer/PointMapper.cpp
-        src/Initializer/PreProcessorMacros.h
-        src/Initializer/TimeStepping/GlobalTimestep.h
-        src/Initializer/TimeStepping/GlobalTimestep.cpp
         src/Solver/MultipleSimulations.h
         src/Solver/Estimator.h
         src/Solver/Estimator.cpp
