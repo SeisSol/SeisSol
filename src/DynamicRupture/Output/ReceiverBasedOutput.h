@@ -54,7 +54,7 @@ class ReceiverOutput {
     size_t ltsId{};
     int nearestGpIndex{};
     int nearestInternalGpIndex{};
-    int gpIndexFused{};
+    int gpIndex{};
     int internalGpIndexFused{};
 
     std::size_t index{};

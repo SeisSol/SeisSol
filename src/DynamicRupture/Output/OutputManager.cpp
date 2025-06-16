@@ -320,11 +320,11 @@ void OutputManager::initPickpointOutput() {
     std::string suffix;
 
     if (allReceiversInOneFilePerRank) {
-      suffix += std::to_string(pointIndex);
+      suffix += "-"+std::to_string(pointIndex);
     }
 
     if constexpr (seissol::multisim::MultisimEnabled) {
-      suffix += std::to_string(simIndex);
+      suffix += "-"+std::to_string(simIndex);
     }
 
     return suffix;
@@ -404,7 +404,7 @@ void OutputManager::initPickpointOutput() {
             std::array<real, 6> unrotatedInitialStress{};
             for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
                  ++stressVar) {
-              unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.gpIndexFused];
+              unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.gpIndex];
             }
 
             seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;

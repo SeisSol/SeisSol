@@ -326,7 +326,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         return timeDerivativeMinusHost + QSize * i;
       };
 #else
-      // TODO: do this once and reuse
+      // TODO: for fused simulations, do this once and reuse
       real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
       real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
       const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };

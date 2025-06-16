@@ -383,7 +383,7 @@ void ReceiverBasedOutputBuilder::assignFaultTags() {
 void ReceiverBasedOutputBuilder::assignFusedIndices() {
   auto& geoPoints = outputData->receiverPoints;
   for (auto& geoPoint : geoPoints) {
-    geoPoint.gpIndexFused = multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
+    geoPoint.gpIndex = multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
     geoPoint.internalGpIndexFused =
         multisim::NumSimulations * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
   }
