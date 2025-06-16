@@ -17,6 +17,7 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
+#include <Initializer/Parameters/DRParameters.h>
 
 namespace seissol::initializer {
 
@@ -32,6 +33,11 @@ inline auto allocationModeDR() {
 
 struct DynamicRupture {
   public:
+  DynamicRupture() = default;
+  explicit DynamicRupture(const parameters::DRParameters* parameters)
+      : nucleationStressInFaultCS(parameters->nucleationCount),
+        nucleationPressure(parameters->nucleationCount) {}
+
   virtual ~DynamicRupture() = default;
   Variable<real*> timeDerivativePlus;
   Variable<real*> timeDerivativeMinus;
@@ -52,10 +58,10 @@ struct DynamicRupture {
   // size padded for vectorization
   // CS = coordinate system
   Variable<real[6][dr::misc::NumPaddedPoints]> initialStressInFaultCS;
-  Variable<real[6][dr::misc::NumPaddedPoints]> nucleationStressInFaultCS;
+  std::vector<Variable<real[6][dr::misc::NumPaddedPoints]>> nucleationStressInFaultCS;
   // will be always zero, if not using poroelasticity
   Variable<real[dr::misc::NumPaddedPoints]> initialPressure;
-  Variable<real[dr::misc::NumPaddedPoints]> nucleationPressure;
+  std::vector<Variable<real[dr::misc::NumPaddedPoints]>> nucleationPressure;
   Variable<real[dr::misc::NumPaddedPoints]> mu;
   Variable<real[dr::misc::NumPaddedPoints]> accumulatedSlipMagnitude;
   Variable<real[dr::misc::NumPaddedPoints]>
@@ -100,10 +106,15 @@ struct DynamicRupture {
     tree.addVar(impAndEta, mask, Alignment, allocationModeDR(), true);
     tree.addVar(impedanceMatrices, mask, Alignment, allocationModeDR(), true);
     tree.addVar(initialStressInFaultCS, mask, Alignment, allocationModeDR());
-    tree.addVar(nucleationStressInFaultCS, mask, Alignment, allocationModeDR(), true);
     tree.addVar(initialPressure, mask, Alignment, allocationModeDR());
-    tree.addVar(nucleationPressure, mask, Alignment, allocationModeDR(), true);
     tree.addVar(ruptureTime, mask, Alignment, allocationModeDR());
+
+    for (auto& nucleation : nucleationStressInFaultCS) {
+      tree.addVar(nucleation, mask, Alignment, allocationModeDR(), true);
+    }
+    for (auto& nucleation : nucleationPressure) {
+      tree.addVar(nucleation, mask, Alignment, allocationModeDR(), true);
+    }
 
     tree.addVar(ruptureTimePending, mask, Alignment, allocationModeDR());
     tree.addVar(dynStressTime, mask, Alignment, allocationModeDR());
@@ -153,6 +164,9 @@ struct LTSLinearSlipWeakening : public DynamicRupture {
   Variable<real[dr::misc::NumPaddedPoints]> cohesion;
   Variable<real[dr::misc::NumPaddedPoints]> forcedRuptureTime;
 
+  explicit LTSLinearSlipWeakening(const parameters::DRParameters* parameters)
+      : DynamicRupture(parameters) {}
+
   void addTo(LTSTree& tree) override {
     DynamicRupture::addTo(tree);
     const auto mask = LayerMask(Ghost);
@@ -166,6 +180,9 @@ struct LTSLinearSlipWeakening : public DynamicRupture {
 
 struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
   Variable<real[dr::misc::NumPaddedPoints]> regularizedStrength;
+
+  explicit LTSLinearSlipWeakeningBimaterial(const parameters::DRParameters* parameters)
+      : LTSLinearSlipWeakening(parameters) {}
 
   void addTo(LTSTree& tree) override {
     LTSLinearSlipWeakening::addTo(tree);
@@ -185,6 +202,9 @@ struct LTSRateAndState : public DynamicRupture {
   Variable<real[dr::misc::NumPaddedPoints]> rsSl0;
   Variable<real[dr::misc::NumPaddedPoints]> stateVariable;
 
+  explicit LTSRateAndState(const parameters::DRParameters* parameters)
+      : DynamicRupture(parameters) {}
+
   void addTo(LTSTree& tree) override {
     DynamicRupture::addTo(tree);
     const auto mask = LayerMask(Ghost);
@@ -202,6 +222,9 @@ struct LTSRateAndState : public DynamicRupture {
 
 struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
   Variable<real[dr::misc::NumPaddedPoints]> rsSrW;
+
+  explicit LTSRateAndStateFastVelocityWeakening(const parameters::DRParameters* parameters)
+      : LTSRateAndState(parameters) {}
 
   void addTo(LTSTree& tree) override {
     LTSRateAndState::addTo(tree);
@@ -238,6 +261,9 @@ struct ThermalPressurization {
 };
 
 struct LTSRateAndStateThermalPressurization : public LTSRateAndState, public ThermalPressurization {
+  explicit LTSRateAndStateThermalPressurization(const parameters::DRParameters* parameters)
+      : LTSRateAndState(parameters) {}
+
   void addTo(LTSTree& tree) override {
     LTSRateAndState::addTo(tree);
     ThermalPressurization::addTo(tree);
@@ -253,6 +279,10 @@ struct LTSRateAndStateThermalPressurization : public LTSRateAndState, public The
 struct LTSRateAndStateThermalPressurizationFastVelocityWeakening
     : public LTSRateAndStateFastVelocityWeakening,
       public ThermalPressurization {
+  explicit LTSRateAndStateThermalPressurizationFastVelocityWeakening(
+      const parameters::DRParameters* parameters)
+      : LTSRateAndStateFastVelocityWeakening(parameters) {}
+
   void addTo(LTSTree& tree) override {
     LTSRateAndStateFastVelocityWeakening::addTo(tree);
     ThermalPressurization::addTo(tree);
@@ -270,6 +300,9 @@ struct LTSImposedSlipRates : public DynamicRupture {
   Variable<real[dr::misc::NumPaddedPoints]> imposedSlipDirection2;
   Variable<real[dr::misc::NumPaddedPoints]> onsetTime;
 
+  explicit LTSImposedSlipRates(const parameters::DRParameters* parameters)
+      : DynamicRupture(parameters) {}
+
   void addTo(LTSTree& tree) override {
     DynamicRupture::addTo(tree);
     const auto mask = LayerMask(Ghost);
@@ -283,6 +316,9 @@ struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
   Variable<real[dr::misc::NumPaddedPoints]> tauS;
   Variable<real[dr::misc::NumPaddedPoints]> tauR;
 
+  explicit LTSImposedSlipRatesYoffe(const parameters::DRParameters* parameters)
+      : LTSImposedSlipRates(parameters) {}
+
   void addTo(LTSTree& tree) override {
     LTSImposedSlipRates::addTo(tree);
     const auto mask = LayerMask(Ghost);
@@ -294,6 +330,9 @@ struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
 struct LTSImposedSlipRatesGaussian : public LTSImposedSlipRates {
   Variable<real[dr::misc::NumPaddedPoints]> riseTime;
 
+  explicit LTSImposedSlipRatesGaussian(const parameters::DRParameters* parameters)
+      : LTSImposedSlipRates(parameters) {}
+
   void addTo(LTSTree& tree) override {
     LTSImposedSlipRates::addTo(tree);
     const auto mask = LayerMask(Ghost);
@@ -301,7 +340,10 @@ struct LTSImposedSlipRatesGaussian : public LTSImposedSlipRates {
   }
 };
 
-struct LTSImposedSlipRatesDelta : public LTSImposedSlipRates {};
+struct LTSImposedSlipRatesDelta : public LTSImposedSlipRates {
+  explicit LTSImposedSlipRatesDelta(const parameters::DRParameters* parameters)
+      : LTSImposedSlipRates(parameters) {}
+};
 
 } // namespace seissol::initializer
 

@@ -24,7 +24,7 @@ extern long long libxsmm_num_total_flops;
 #endif
 
 #include "GeneratedCode/init.h"
-#include "Kernels/DenseMatrixOps.h"
+#include "Kernels/MemoryOps.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
 

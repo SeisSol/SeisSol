@@ -31,7 +31,7 @@ general users.
 
 # Collaboration
 
-If you are interested in a close collaboration, please contact [Alice Gabriel](http://www.geophysik.uni-muenchen.de/Members/gabriel).
+If you are interested in a close collaboration, please contact [Alice Gabriel](https://www.alicegabriel.com/).
 
 # Code of Conduct
 

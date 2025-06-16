@@ -77,18 +77,15 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-        "Debug" "Release" "RelWithDebInfo") # MinSizeRel is useless for us
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+        "Debug" "Release" "RelWithDebInfo") # MinSizeRel is useless for us
 
 # LTO
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
-
-configure_file("src/Alignment.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
 
 function(capitalize INARG OUTARG)
   string(REPLACE "_" ";" PARTS ${INARG})
@@ -103,6 +100,24 @@ function(capitalize INARG OUTARG)
   endforeach()
   set(${OUTARG} ${PREOUTARG} PARENT_SCOPE)
 endfunction()
+
+set (BUILDTYPE_STR "Cpu")
+set (DEVICE_BACKEND_STR "None")
+if (WITH_GPU)
+  set (BUILDTYPE_STR "Gpu")
+  if (DEVICE_BACKEND STREQUAL "cuda")
+    set (DEVICE_BACKEND_STR "Cuda")
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hip")
+    set (DEVICE_BACKEND_STR "Hip")
+  endif()
+  if (DEVICE_BACKEND STREQUAL "hipsycl" OR DEVICE_BACKEND STREQUAL "acpp" OR DEVICE_BACKEND STREQUAL "oneapi")
+    set (DEVICE_BACKEND_STR "Sycl")
+  endif()
+endif()
+
+configure_file("src/Alignment.h.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
 
 if (EQUATIONS STREQUAL "viscoelastic")
   set(PARAMETER_MATERIAL "Viscoelastic")

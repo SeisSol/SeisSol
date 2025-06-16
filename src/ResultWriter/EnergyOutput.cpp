@@ -599,7 +599,6 @@ void EnergyOutput::computeEnergies() {
 }
 
 void EnergyOutput::reduceEnergies() {
-#ifdef USE_MPI
   const auto& comm = MPI::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 energiesStorage.energies.data(),
@@ -607,11 +606,9 @@ void EnergyOutput::reduceEnergies() {
                 MPI_DOUBLE,
                 MPI_SUM,
                 comm);
-#endif
 }
 
 void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
-#ifdef USE_MPI
   const auto& comm = MPI::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 minTimeSinceSlipRateBelowThreshold.data(),
@@ -619,7 +616,6 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
                 MPI::castToMpiType<double>(),
                 MPI_MIN,
                 comm);
-#endif
 }
 
 void EnergyOutput::printEnergies() {
@@ -692,13 +688,6 @@ void EnergyOutput::printEnergies() {
       logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
                 << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
     }
-    if (shouldPrint(energiesStorage.plasticMoment(sim))) {
-      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                << " Plastic moment (value, equivalent Mw, % total moment):"
-                << energiesStorage.plasticMoment(sim) << " ,"
-                << 2.0 / 3.0 * std::log10(energiesStorage.plasticMoment(sim)) - 6.07 << " ,"
-                << ratioPlasticMoment;
-    }
     logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
               << " Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY << " ,"
               << totalMomentumZ;
@@ -737,10 +726,8 @@ void EnergyOutput::checkAbortCriterion(
   }
 
   bool abort = abortCount == multisim::NumSimulations;
-#ifdef USE_MPI
   const auto& comm = MPI::mpi.comm();
   MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
-#endif
   if (abort) {
     seissolInstance.simulator().abort();
   }

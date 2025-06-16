@@ -51,6 +51,8 @@ ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
 
 filename = ''  ! file name for the easi initial condition file
 hastime = 1    ! indicates the required support of a time dimension in the easi file. Requires easi 1.5.0 or higher.
+
+avoidic = 0    ! 1 iff use the IC only for analytical boundary conditions
 /
 
 &DynamicRupture
@@ -66,6 +68,7 @@ ZRef = -1.0
 refPointMethod = 1
 
 etahack = 1                 ! use any value smaller than one to mitigate quasi-divergent solutions in friction laws
+etastop = 10e10000000       ! time when to stop applying the etahack
 
 OutputPointType = 5         ! Type (0: no output, 3: ascii file, 4: paraview file, 5: 3+4)
 SlipRateOutputType=0        ! 0: (smoother) slip rate output evaluated from the difference between the velocity on both side of the fault
