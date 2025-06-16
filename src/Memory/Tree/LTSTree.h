@@ -147,10 +147,11 @@ class LTSTree : public LTSInternalNode {
     setPostOrderPointers();
     assert(map.size() == sizes.size());
     for (std::size_t i = 0; i < sizes.size(); ++i) {
-      layer(i).fixPointers(memoryInfo, typemap, handlemap);
+      // call the setters first
       layer(i).setIdentifier(map.argument(i));
       layer(i).setNumberOfCells(sizes[i]);
       layer(i).setId(i);
+      layer(i).fixPointers(memoryInfo, typemap, handlemap);
     }
   }
 
