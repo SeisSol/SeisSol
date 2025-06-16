@@ -171,7 +171,7 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
 
     initializer::StoragePosition ltsId = initializer::StoragePosition::NullPosition;
     for (std::size_t dup = 0;
-         dup < 4 && (ltsId = memoryContainer.clusterBackmap.storagePositionLookup(meshId, dup)) !=
+         dup < seissol::initializer::ClusterBackmap::MaxDuplicates && (ltsId = memoryContainer.clusterBackmap.storagePositionLookup(meshId, dup)) !=
                         initializer::StoragePosition::NullPosition;
          ++dup) {
       clusterMapping.cellToSources[mapping].dofs =
@@ -214,7 +214,7 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
     for (auto it = clusterToMeshIds[cluster].begin(); it != last; ++it) {
       const unsigned meshId = *it;
       for (unsigned dup = 0;
-           dup < 4 && memoryContainer.clusterBackmap.storagePositionLookup(meshId, dup) !=
+           dup < seissol::initializer::ClusterBackmap::MaxDuplicates && memoryContainer.clusterBackmap.storagePositionLookup(meshId, dup) !=
                           initializer::StoragePosition::NullPosition;
            ++dup) {
         ++numberOfMappings;

@@ -31,7 +31,6 @@
 #include <Memory/MemoryContainer.h>
 #include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/LTSTree.h>
-#include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/Eigenvalues.h>
 #include <algorithm>
@@ -537,7 +536,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       real* timeDerivative2 = nullptr;
       real* timeDerivative1Device = nullptr;
       real* timeDerivative2Device = nullptr;
-      for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
+      for (unsigned duplicate = 0; duplicate < ClusterBackmap::MaxDuplicates; ++duplicate) {
         const auto position =
             container.clusterBackmap.storagePositionLookup(derivativesMeshId, duplicate);
         const auto& cellInformation =
@@ -573,20 +572,20 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       assert(timeDerivativePlus[ltsFace] != nullptr && timeDerivativeMinus[ltsFace] != nullptr);
 
       /// DR mapping for elements
-      for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
+      for (unsigned duplicate = 0; duplicate < ClusterBackmap::MaxDuplicates; ++duplicate) {
         const auto plusLtsId =
             (fault[meshFace].element >= 0)
                 ? container.clusterBackmap.storagePositionLookup(fault[meshFace].element, duplicate)
-                : ClusterBackmap::NullPosition;
+                : StoragePosition::NullPosition;
         const auto minusLtsId = (fault[meshFace].neighborElement >= 0)
                                     ? container.clusterBackmap.storagePositionLookup(
                                           fault[meshFace].neighborElement, duplicate)
-                                    : ClusterBackmap::NullPosition;
+                                    : StoragePosition::NullPosition;
 
-        assert(duplicate != 0 || plusLtsId != ClusterBackmap::NullPosition ||
-               minusLtsId != ClusterBackmap::NullPosition);
+        assert(duplicate != 0 || plusLtsId != StoragePosition::NullPosition ||
+               minusLtsId != StoragePosition::NullPosition);
 
-        if (plusLtsId != ClusterBackmap::NullPosition) {
+        if (plusLtsId != StoragePosition::NullPosition) {
 #ifdef _OPENMP
 #pragma omp critical
 #endif // _OPENMP
@@ -607,7 +606,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
             mappingDevice.fluxSolver = &fluxSolverPlusDevice[ltsFace][0];
           }
         }
-        if (minusLtsId != ClusterBackmap::NullPosition) {
+        if (minusLtsId != StoragePosition::NullPosition) {
 #ifdef _OPENMP
 #pragma omp critical
 #endif // _OPENMP
@@ -645,22 +644,22 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       const auto plusLtsId =
           (fault[meshFace].element >= 0)
               ? container.clusterBackmap.storagePositionLookup(fault[meshFace].element)
-              : ClusterBackmap::NullPosition;
+              : StoragePosition::NullPosition;
       const auto minusLtsId =
           (fault[meshFace].neighborElement >= 0)
               ? container.clusterBackmap.storagePositionLookup(fault[meshFace].neighborElement)
-              : ClusterBackmap::NullPosition;
+              : StoragePosition::NullPosition;
 
-      assert(plusLtsId != ClusterBackmap::NullPosition ||
-             minusLtsId != ClusterBackmap::NullPosition);
+      assert(plusLtsId != StoragePosition::NullPosition ||
+             minusLtsId != StoragePosition::NullPosition);
 
-      if (plusLtsId != ClusterBackmap::NullPosition) {
+      if (plusLtsId != StoragePosition::NullPosition) {
         const auto& cellMaterialData =
             ltsTree->layer(plusLtsId.color).var(lts->material)[plusLtsId.cell];
         plusMaterial = cellMaterialData.local;
         minusMaterial = cellMaterialData.neighbor[faceInformation[ltsFace].plusSide];
       } else {
-        assert(minusLtsId != ClusterBackmap::NullPosition);
+        assert(minusLtsId != StoragePosition::NullPosition);
         const auto& cellMaterialData =
             ltsTree->layer(minusLtsId.color).var(lts->material)[minusLtsId.cell];
         plusMaterial = cellMaterialData.neighbor[faceInformation[ltsFace].minusSide];

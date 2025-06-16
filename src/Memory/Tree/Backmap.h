@@ -37,16 +37,16 @@ const inline StoragePosition StoragePosition::NullPosition =
                     std::numeric_limits<std::size_t>::max(),
                     std::numeric_limits<std::size_t>::max()};
 
-template <std::size_t MaxDuplicates, typename LtsTree>
+template <std::size_t MaxDuplicatesP, typename LtsTree>
 class StorageBackmap {
   public:
-  const inline static StoragePosition NullPosition = StoragePosition::NullPosition;
+  static constexpr std::size_t MaxDuplicates = MaxDuplicatesP;
 
   private:
   using CellStoragePosition = std::array<StoragePosition, MaxDuplicates>;
 
   const inline static std::vector<StoragePosition> PreNullCellStoragePosition =
-      std::vector<StoragePosition>(MaxDuplicates, NullPosition);
+      std::vector<StoragePosition>(MaxDuplicates, StoragePosition::NullPosition);
   const inline static CellStoragePosition NullCellStoragePosition =
       CellStoragePosition(PreNullCellStoragePosition.begin(), PreNullCellStoragePosition.end());
   // TODO(David): initialize with NullPosition
@@ -80,7 +80,7 @@ class StorageBackmap {
     auto storagePosition = StoragePosition{color, index, position};
     std::size_t j = 0;
     for (j = 0; j < MaxDuplicates; ++j) {
-      if (data[cell][j] == NullPosition) {
+      if (data[cell][j] == StoragePosition::NullPosition) {
         data[cell][j] = storagePosition;
         break;
       }
