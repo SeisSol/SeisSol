@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_ACTORSTATE_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_ACTORSTATE_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTORSTATE_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTORSTATE_H_
 
 #include <memory>
 #include <mutex>
@@ -80,7 +80,7 @@ struct ClusterTimes {
 
   //  [[nodiscard]] double& getTimeStepSize();
 
-  double getTimeStepSize() const { return maxTimeStepSize; }
+  [[nodiscard]] double getTimeStepSize() const { return maxTimeStepSize; }
 
   void setTimeStepSize(double newTimeStepSize) { maxTimeStepSize = newTimeStepSize; }
 };
@@ -127,4 +127,4 @@ enum class ActorPriority { Low, High };
 
 } // namespace seissol::time_stepping
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_ACTORSTATE_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTORSTATE_H_

@@ -15,7 +15,7 @@ bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<unsign
     MPI_Request* request = &requests[*region];
     int testSuccess = 0;
     MPI_Test(request, &testSuccess, MPI_STATUS_IGNORE);
-    if (testSuccess) {
+    if (testSuccess != 0) {
       region = regions.erase(region);
     } else {
       ++region;

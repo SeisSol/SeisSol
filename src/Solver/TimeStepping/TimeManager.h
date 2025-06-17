@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #include <cassert>
 #include <list>
 #include <memory>
@@ -27,9 +27,7 @@
 #include "TimeCluster.h"
 #include <utils/logger.h>
 
-namespace seissol {
-namespace time_stepping {
-class TimeManager;
+namespace seissol::time_stepping {
 class AbstractCommunicationManager;
 
 template <typename T>
@@ -46,13 +44,11 @@ constexpr T ipow(T x, T y) {
   }
   return result;
 }
-} // namespace time_stepping
-} // namespace seissol
 
 /**
  * Time manager, which takes care of the time stepping.
  **/
-class seissol::time_stepping::TimeManager {
+class TimeManager {
   // private:
   /**
    * Compares to cluster pointer by their id.
@@ -124,7 +120,7 @@ class seissol::time_stepping::TimeManager {
   /**
    * Gets the time tolerance of the time manager (1E-5 of the CFL time step width).
    **/
-  double getTimeTolerance();
+  [[nodiscard]] double getTimeTolerance() const;
 
   /**
    * Distributes point sources pointers to clusters
@@ -151,7 +147,7 @@ class seissol::time_stepping::TimeManager {
    *
    * @param i_time time.
    **/
-  void setInitialTimes(double i_time = 0);
+  void setInitialTimes(double time = 0);
 
   void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
 
@@ -159,7 +155,9 @@ class seissol::time_stepping::TimeManager {
 
   void synchronizeTo(seissol::initializer::AllocationPlace place);
 
-  inline const TimeStepping* getTimeStepping() { return &m_timeStepping; }
+  const TimeStepping* getTimeStepping() { return &m_timeStepping; }
 };
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
+} // namespace seissol::time_stepping
+
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_

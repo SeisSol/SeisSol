@@ -8,8 +8,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
 
 #include <list>
 #include <mpi.h>
@@ -316,4 +316,4 @@ class seissol::time_stepping::TimeCluster : public seissol::time_stepping::Abstr
   void finishPhase() override;
 };
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_

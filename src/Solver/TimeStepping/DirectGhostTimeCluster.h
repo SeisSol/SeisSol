@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_DIRECTGHOSTTIMECLUSTER_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_DIRECTGHOSTTIMECLUSTER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_DIRECTGHOSTTIMECLUSTER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_DIRECTGHOSTTIMECLUSTER_H_
 
 #include "Initializer/Typedefs.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
@@ -15,9 +15,9 @@
 namespace seissol::time_stepping {
 class DirectGhostTimeCluster : public AbstractGhostTimeCluster {
   protected:
-  virtual void sendCopyLayer();
-  virtual void receiveGhostLayer();
-  virtual bool testForGhostLayerReceives();
+  void sendCopyLayer() override;
+  void receiveGhostLayer() override;
+  bool testForGhostLayerReceives() override;
 
   public:
   DirectGhostTimeCluster(double maxTimeStepSize,
@@ -33,4 +33,4 @@ class DirectGhostTimeCluster : public AbstractGhostTimeCluster {
 };
 } // namespace seissol::time_stepping
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_DIRECTGHOSTTIMECLUSTER_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_DIRECTGHOSTTIMECLUSTER_H_

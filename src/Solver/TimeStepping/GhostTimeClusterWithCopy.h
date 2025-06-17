@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_GHOSTTIMECLUSTERWITHCOPY_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_GHOSTTIMECLUSTERWITHCOPY_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_GHOSTTIMECLUSTERWITHCOPY_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_GHOSTTIMECLUSTERWITHCOPY_H_
 
 #include "Parallel/MPI.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
@@ -22,7 +22,7 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
                            int otherGlobalTimeClusterId,
                            const MeshStructure* meshStructure,
                            bool persistent);
-  ~GhostTimeClusterWithCopy();
+  ~GhostTimeClusterWithCopy() override;
 
   GhostTimeClusterWithCopy(const GhostTimeClusterWithCopy<CommType>&) = delete;
   GhostTimeClusterWithCopy(const GhostTimeClusterWithCopy<CommType>&&) = delete;
@@ -42,11 +42,11 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
 
   private:
   unsigned int numberOfRegions{};
-  std::vector<real*> duplicatedCopyRegions{};
-  std::vector<real*> duplicatedGhostRegions{};
+  std::vector<real*> duplicatedCopyRegions;
+  std::vector<real*> duplicatedGhostRegions;
 
-  std::vector<void*> prefetchCopyRegionsStreams{};
-  std::vector<void*> prefetchGhostRegionsStreams{};
+  std::vector<void*> prefetchCopyRegionsStreams;
+  std::vector<void*> prefetchGhostRegionsStreams;
 
   enum class ReceiveState { RequiresMpiTesting, RequiresPrefetchTesting, Ready };
   std::vector<ReceiveState> receiveRegionsStates{};
@@ -57,4 +57,4 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
 };
 } // namespace seissol::time_stepping
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_GHOSTTIMECLUSTERWITHCOPY_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_GHOSTTIMECLUSTERWITHCOPY_H_

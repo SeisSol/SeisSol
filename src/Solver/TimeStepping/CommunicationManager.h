@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_COMMUNICATIONMANAGER_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_COMMUNICATIONMANAGER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_COMMUNICATIONMANAGER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_COMMUNICATIONMANAGER_H_
 
 #include "Parallel/Pin.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
@@ -18,31 +18,31 @@
 namespace seissol::time_stepping {
 class AbstractCommunicationManager {
   public:
-  using ghostClusters_t = std::vector<std::unique_ptr<AbstractGhostTimeCluster>>;
+  using GhostClustersT = std::vector<std::unique_ptr<AbstractGhostTimeCluster>>;
   virtual void progression() = 0;
   [[nodiscard]] virtual bool checkIfFinished() const = 0;
   virtual void reset(double newSyncTime);
 
   virtual ~AbstractCommunicationManager() = default;
 
-  ghostClusters_t* getGhostClusters();
+  GhostClustersT* getGhostClusters();
 
   protected:
-  explicit AbstractCommunicationManager(ghostClusters_t ghostClusters);
+  explicit AbstractCommunicationManager(GhostClustersT ghostClusters);
   bool poll();
-  ghostClusters_t ghostClusters;
+  GhostClustersT ghostClusters;
 };
 
 class SerialCommunicationManager : public AbstractCommunicationManager {
   public:
-  explicit SerialCommunicationManager(ghostClusters_t ghostClusters);
+  explicit SerialCommunicationManager(GhostClustersT ghostClusters);
   void progression() override;
   [[nodiscard]] bool checkIfFinished() const override;
 };
 
 class ThreadedCommunicationManager : public AbstractCommunicationManager {
   public:
-  ThreadedCommunicationManager(ghostClusters_t ghostClusters, const parallel::Pinning* pinning);
+  ThreadedCommunicationManager(GhostClustersT ghostClusters, const parallel::Pinning* pinning);
   void progression() override;
   [[nodiscard]] bool checkIfFinished() const override;
   void reset(double newSyncTime) override;
@@ -58,4 +58,4 @@ class ThreadedCommunicationManager : public AbstractCommunicationManager {
 
 } // end namespace seissol::time_stepping
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_COMMUNICATIONMANAGER_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_COMMUNICATIONMANAGER_H_

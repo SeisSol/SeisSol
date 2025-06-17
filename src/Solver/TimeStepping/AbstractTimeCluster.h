@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_ABSTRACTTIMECLUSTER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_ABSTRACTTIMECLUSTER_H_
 
 #include "ActorState.h"
 #include <chrono>
@@ -54,7 +54,7 @@ class AbstractTimeCluster {
   public:
   virtual ~AbstractTimeCluster() = default;
 
-  Executor getExecutor() const;
+  [[nodiscard]] Executor getExecutor() const;
 
   virtual ActorAction getNextLegalAction();
   virtual ActResult act();
@@ -99,4 +99,4 @@ class AbstractTimeCluster {
 
 } // namespace seissol::time_stepping
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_ABSTRACTTIMECLUSTER_H_

@@ -13,22 +13,24 @@
 #include "device.h"
 #endif // ACL_DEVICE
 
-seissol::time_stepping::AbstractCommunicationManager::AbstractCommunicationManager(
-    seissol::time_stepping::AbstractCommunicationManager::ghostClusters_t ghostClusters)
+namespace seissol::time_stepping {
+
+AbstractCommunicationManager::AbstractCommunicationManager(
+    AbstractCommunicationManager::GhostClustersT ghostClusters)
     : ghostClusters(std::move(ghostClusters)) {}
-void seissol::time_stepping::AbstractCommunicationManager::reset(double newSyncTime) {
+void AbstractCommunicationManager::reset(double newSyncTime) {
   for (auto& ghostCluster : ghostClusters) {
     ghostCluster->setSyncTime(newSyncTime);
     ghostCluster->reset();
   }
 }
 
-std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>*
-    seissol::time_stepping::AbstractCommunicationManager::getGhostClusters() {
+std::vector<std::unique_ptr<AbstractGhostTimeCluster>>*
+    AbstractCommunicationManager::getGhostClusters() {
   return &ghostClusters;
 }
 
-bool seissol::time_stepping::AbstractCommunicationManager::poll() {
+bool AbstractCommunicationManager::poll() {
   bool finished = true;
   for (auto& ghostCluster : ghostClusters) {
     ghostCluster->act();
@@ -37,11 +39,11 @@ bool seissol::time_stepping::AbstractCommunicationManager::poll() {
   return finished;
 }
 
-seissol::time_stepping::SerialCommunicationManager::SerialCommunicationManager(
-    seissol::time_stepping::AbstractCommunicationManager::ghostClusters_t ghostClusters)
+SerialCommunicationManager::SerialCommunicationManager(
+    AbstractCommunicationManager::GhostClustersT ghostClusters)
     : AbstractCommunicationManager(std::move(ghostClusters)) {}
 
-bool seissol::time_stepping::SerialCommunicationManager::checkIfFinished() const {
+bool SerialCommunicationManager::checkIfFinished() const {
   for (auto& ghostCluster : ghostClusters) {
     if (!ghostCluster->synced())
       return false;
@@ -49,23 +51,21 @@ bool seissol::time_stepping::SerialCommunicationManager::checkIfFinished() const
   return true;
 }
 
-void seissol::time_stepping::SerialCommunicationManager::progression() { poll(); }
+void SerialCommunicationManager::progression() { poll(); }
 
-seissol::time_stepping::ThreadedCommunicationManager::ThreadedCommunicationManager(
-    seissol::time_stepping::AbstractCommunicationManager::ghostClusters_t ghostClusters,
+ThreadedCommunicationManager::ThreadedCommunicationManager(
+    AbstractCommunicationManager::GhostClustersT ghostClusters,
     const seissol::parallel::Pinning* pinning)
     : AbstractCommunicationManager(std::move(ghostClusters)), thread(), shouldReset(false),
       isFinished(false), pinning(pinning) {}
 
-void seissol::time_stepping::ThreadedCommunicationManager::progression() {
+void ThreadedCommunicationManager::progression() {
   // Do nothing: Thread takes care of that.
 }
 
-bool seissol::time_stepping::ThreadedCommunicationManager::checkIfFinished() const {
-  return isFinished.load();
-}
+bool ThreadedCommunicationManager::checkIfFinished() const { return isFinished.load(); }
 
-void seissol::time_stepping::ThreadedCommunicationManager::reset(double newSyncTime) {
+void ThreadedCommunicationManager::reset(double newSyncTime) {
   // Send signal to comm. thread to finish and wait.
   shouldReset.store(true);
   if (thread.joinable()) {
@@ -94,8 +94,10 @@ void seissol::time_stepping::ThreadedCommunicationManager::reset(double newSyncT
   });
 }
 
-seissol::time_stepping::ThreadedCommunicationManager::~ThreadedCommunicationManager() {
+ThreadedCommunicationManager::~ThreadedCommunicationManager() {
   if (thread.joinable()) {
     thread.join();
   }
 }
+
+} // namespace seissol::time_stepping
