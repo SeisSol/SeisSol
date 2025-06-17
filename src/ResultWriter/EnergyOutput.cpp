@@ -601,7 +601,6 @@ void EnergyOutput::computeEnergies() {
 }
 
 void EnergyOutput::reduceEnergies() {
-#ifdef USE_MPI
   const auto& comm = MPI::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 energiesStorage.energies.data(),
@@ -609,11 +608,9 @@ void EnergyOutput::reduceEnergies() {
                 MPI_DOUBLE,
                 MPI_SUM,
                 comm);
-#endif
 }
 
 void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
-#ifdef USE_MPI
   const auto& comm = MPI::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 minTimeSinceSlipRateBelowThreshold.data(),
@@ -621,7 +618,6 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
                 MPI::castToMpiType<double>(),
                 MPI_MIN,
                 comm);
-#endif
 }
 
 void EnergyOutput::printEnergies() {
@@ -732,10 +728,8 @@ void EnergyOutput::checkAbortCriterion(
   }
 
   bool abort = abortCount == multisim::NumSimulations;
-#ifdef USE_MPI
   const auto& comm = MPI::mpi.comm();
   MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
-#endif
   if (abort) {
     seissolInstance.simulator().abort();
   }

@@ -152,7 +152,7 @@ SeisSol setups for community benchmark are described in the cookbook  (see :ref:
 .. include:: table_cookbook.rst
 
 
-We provide the following small-scale examples, specifically designed for SeisSol training and tutorials, such as the  `CHEESE Advanced training on HPC for Computational Seismology <https://www.hlrs.de/training/2021-10-19-cheese/>`_ and `ICTP Advanced Workshop on Earthquake Fault Mechanics <https:We provide the following small-scale examples, specifically designed for SeisSol training and tutorials//indico.ictp.it/event/8715/overview>`_ .  These SeisSol training examples are part of the `SeisSol Docker container <https://github.com/SeisSol/Training>`_  which also includes related open-source tools (Gmsh and ParaView) and all required input files.
+We provide the following small-scale examples, specifically designed for SeisSol training and tutorials. These example scenarios are part of the `SeisSol Docker container <https://github.com/SeisSol/Training>`_  which also includes related open-source tools (Gmsh and ParaView), as well as all required input files.
 
 .. list-table::
    :widths: 20 20 20 20 20 20

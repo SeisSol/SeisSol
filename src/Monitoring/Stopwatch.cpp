@@ -76,7 +76,6 @@ void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
   int rank = 0;
   double avg = time;
 
-#ifdef USE_MPI
   double min = time;
   double max = time;
 
@@ -99,14 +98,10 @@ void Stopwatch::print(const char* text, double time, MPI_Comm comm) {
     MPI_Reduce(&min, nullptr, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
     MPI_Reduce(&max, nullptr, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
   }
-#endif // USE_MPI
 
-  logInfo() << text << UnitTime.formatTime(avg).c_str()
-#ifdef USE_MPI
-            << "(min:" << utils::nospace << UnitTime.formatTime(min).c_str()
-            << ", max: " << UnitTime.formatTime(max).c_str() << ')'
-#endif // USE_MPI
-      ;
+  logInfo() << text << UnitTime.formatTime(avg).c_str() << "(min:" << utils::nospace
+            << UnitTime.formatTime(min).c_str() << ", max: " << UnitTime.formatTime(max).c_str()
+            << ')';
 }
 
 } // namespace seissol
