@@ -16,13 +16,13 @@
 namespace seissol::time_stepping {
 
 class AbstractTimeCluster {
-private:
+  private:
   ActorPriority priority = ActorPriority::Low;
   std::chrono::steady_clock::time_point timeOfLastStageChange;
   const std::chrono::seconds timeout = std::chrono::minutes(15);
   bool alreadyPrintedTimeOut = false;
 
-protected:
+  protected:
   ActorState state = ActorState::Synced;
   ClusterTimes ct;
   std::vector<NeighborCluster> neighbors;
@@ -46,13 +46,12 @@ protected:
 
   bool hasDifferentExecutorNeighbor();
 
-
   long timeStepRate;
   //! number of time steps
   long numberOfTimeSteps;
   Executor executor;
 
-public:
+  public:
   virtual ~AbstractTimeCluster() = default;
 
   Executor getExecutor() const;
@@ -96,12 +95,8 @@ public:
    * @return the pointer to the vector of neighbor clusters.
    */
   std::vector<NeighborCluster>* getNeighborClusters();
-
 };
 
-}
-
-
-
+} // namespace seissol::time_stepping
 
 #endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTTIMECLUSTER_H_

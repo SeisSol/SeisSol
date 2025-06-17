@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTGHOSTTIMECLUSTER_H_
 #define SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTGHOSTTIMECLUSTER_H_
 
-#include <list>
-#include "Initializer/Typedefs.h"
 #include "AbstractTimeCluster.h"
+#include "Initializer/Typedefs.h"
+#include <list>
 
 #include "Parallel/MPI.h"
 
@@ -46,10 +46,10 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
 
   public:
   AbstractGhostTimeCluster(double maxTimeStepSize,
-                          int timeStepRate,
-                          int globalTimeClusterId,
-                          int otherGlobalTimeClusterId,
-                          const MeshStructure* meshStructure);
+                           int timeStepRate,
+                           int globalTimeClusterId,
+                           int otherGlobalTimeClusterId,
+                           const MeshStructure* meshStructure);
 
   void reset() override;
   ActResult act() override;

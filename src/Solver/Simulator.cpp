@@ -18,7 +18,6 @@
 #include <utils/logger.h>
 #include <xdmfwriter/scorep_wrapper.h>
 
-#include "TimeStepping/TimeManager.h"
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Stopwatch.h"
@@ -26,6 +25,7 @@
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
+#include "TimeStepping/TimeManager.h"
 
 seissol::Simulator::Simulator()
     : currentTime(0), finalTime(0), usePlasticity(false), aborted(false) {}

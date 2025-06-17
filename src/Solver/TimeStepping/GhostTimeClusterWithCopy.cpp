@@ -14,18 +14,18 @@
 
 namespace seissol::time_stepping {
 template <MPI::DataTransferMode CommType>
-GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
-    double maxTimeStepSize,
-    int timeStepRate,
-    int globalTimeClusterId,
-    int otherGlobalTimeClusterId,
-    const MeshStructure* meshStructure,
-    bool persistent)
+GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(double maxTimeStepSize,
+                                                             int timeStepRate,
+                                                             int globalTimeClusterId,
+                                                             int otherGlobalTimeClusterId,
+                                                             const MeshStructure* meshStructure,
+                                                             bool persistent)
     : AbstractGhostTimeCluster(maxTimeStepSize,
                                timeStepRate,
                                globalTimeClusterId,
                                otherGlobalTimeClusterId,
-                               meshStructure), persistent(persistent) {
+                               meshStructure),
+      persistent(persistent) {
   numberOfRegions = meshStructure->numberOfRegions;
   prefetchCopyRegionsStreams.resize(numberOfRegions);
   prefetchGhostRegionsStreams.resize(numberOfRegions);
@@ -52,19 +52,19 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
       if (persistent) {
         MPI_Send_init(duplicatedCopyRegions[region],
-                  static_cast<int>(meshStructure->copyRegionSizes[region]),
-                  MPI::precisionToMpiType(Config::Precision),
-                  meshStructure->neighboringClusters[region][0],
-                  DataTagOffset + meshStructure->sendIdentifiers[region],
-                  seissol::MPI::mpi.comm(),
-                  sendRequests.data() + region);
+                      static_cast<int>(meshStructure->copyRegionSizes[region]),
+                      MPI::precisionToMpiType(Config::Precision),
+                      meshStructure->neighboringClusters[region][0],
+                      DataTagOffset + meshStructure->sendIdentifiers[region],
+                      seissol::MPI::mpi.comm(),
+                      sendRequests.data() + region);
         MPI_Recv_init(duplicatedGhostRegions[region],
-                  static_cast<int>(meshStructure->ghostRegionSizes[region]),
-                  MPI::precisionToMpiType(Config::Precision),
-                  meshStructure->neighboringClusters[region][0],
-                  DataTagOffset + meshStructure->receiveIdentifiers[region],
-                  seissol::MPI::mpi.comm(),
-                  recvRequests.data() + region);
+                      static_cast<int>(meshStructure->ghostRegionSizes[region]),
+                      MPI::precisionToMpiType(Config::Precision),
+                      meshStructure->neighboringClusters[region][0],
+                      DataTagOffset + meshStructure->receiveIdentifiers[region],
+                      seissol::MPI::mpi.comm(),
+                      recvRequests.data() + region);
       }
     }
   }
@@ -108,8 +108,7 @@ void GhostTimeClusterWithCopy<CommType>::sendCopyLayer() {
       if (device.api->isStreamWorkDone(stream)) {
         if (persistent) {
           MPI_Start(sendRequests.data() + (*region));
-        }
-        else {
+        } else {
           MPI_Isend(duplicatedCopyRegions[*region],
                     static_cast<int>(meshStructure->copyRegionSizes[*region]),
                     MPI::precisionToMpiType(Config::Precision),
@@ -135,8 +134,7 @@ void GhostTimeClusterWithCopy<CommType>::receiveGhostLayer() {
     if (meshStructure->neighboringClusters[region][1] == static_cast<int>(otherGlobalClusterId)) {
       if (persistent) {
         MPI_Start(recvRequests.data() + region);
-      }
-      else {
+      } else {
         MPI_Irecv(duplicatedGhostRegions[region],
                   static_cast<int>(meshStructure->ghostRegionSizes[region]),
                   MPI::precisionToMpiType(Config::Precision),
@@ -228,4 +226,3 @@ void GhostTimeClusterWithCopy<CommType>::prefetchGhostRegion(int region) {
 template class GhostTimeClusterWithCopy<MPI::DataTransferMode::CopyInCopyOutHost>;
 } // namespace seissol::time_stepping
 #endif // ACL_DEVICE
-
