@@ -320,19 +320,19 @@ void OutputManager::initPickpointOutput() {
     std::string suffix;
 
     if (allReceiversInOneFilePerRank) {
-      suffix += "-"+std::to_string(pointIndex);
+      suffix += "-" + std::to_string(pointIndex);
     }
 
     if constexpr (seissol::multisim::MultisimEnabled) {
-      suffix += "-"+std::to_string(simIndex);
+      suffix += "-" + std::to_string(simIndex);
     }
 
     return suffix;
   };
 
-  size_t actualPointCount = allReceiversInOneFilePerRank
-                                ? ppOutputData->receiverPoints.size() / multisim::NumSimulations
-                                : 1;
+  const size_t actualPointCount =
+      allReceiversInOneFilePerRank ? ppOutputData->receiverPoints.size() / multisim::NumSimulations
+                                   : 1;
 
   for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
     for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
