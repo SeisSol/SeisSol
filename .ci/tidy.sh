@@ -36,6 +36,7 @@ format() {
         src/Proxy
         src/Reader
         src/ResultWriter
+        src/Solver
         src/SourceTerm
         src/tests
         "
@@ -57,9 +58,6 @@ format() {
         src/Initializer/PreProcessorMacros.h
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
-        src/Solver/MultipleSimulations.h
-        src/Solver/Estimator.h
-        src/Solver/Estimator.cpp
         src/SeisSol.h
         src/SeisSol.cpp
         src/Main.cpp
