@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_GHOSTTIMECLUSTERWITHCOPY_H_
 #define SEISSOL_SRC_SOLVER_TIME_STEPPING_GHOSTTIMECLUSTERWITHCOPY_H_
 
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
+#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Parallel/MPI.h"
 #include <device.h>
 

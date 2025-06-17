@@ -25,7 +25,7 @@
 #include "ResultWriter/ReceiverWriter.h"
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
-#include "Solver/time_stepping/GhostTimeClusterFactory.h"
+#include "Solver/TimeStepping/GhostTimeClusterFactory.h"
 
 namespace seissol {
   namespace time_stepping {

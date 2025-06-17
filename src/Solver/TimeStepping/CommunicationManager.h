@@ -13,7 +13,7 @@
 #include <thread>
 #include <vector>
 #include "Parallel/Pin.h"
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
+#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 
 
 namespace seissol::time_stepping {

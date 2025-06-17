@@ -14,8 +14,8 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
 #include "Modules/Module.h"
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
-#include "Solver/time_stepping/TimeCluster.h"
+#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
+#include "Solver/TimeStepping/TimeCluster.h"
 
 namespace seissol {
 class SeisSol;
