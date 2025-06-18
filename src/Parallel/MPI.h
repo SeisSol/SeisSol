@@ -67,10 +67,20 @@ class MPI : public MPIBasic {
       return MPI_UNSIGNED;
     } else if constexpr (std::is_same_v<T, int>) {
       return MPI_INT;
+    } else if constexpr (std::is_same_v<T, unsigned long>) {
+      return MPI_UNSIGNED_LONG;
+    } else if constexpr (std::is_same_v<T, long>) {
+      return MPI_LONG;
+    } else if constexpr (std::is_same_v<T, unsigned long long>) {
+      return MPI_UNSIGNED_LONG_LONG;
+    } else if constexpr (std::is_same_v<T, long long>) {
+      return MPI_LONG_LONG;
     } else if constexpr (std::is_same_v<T, char>) {
       return MPI_CHAR;
     } else if constexpr (std::is_same_v<T, bool>) {
       return MPI_C_BOOL;
+    } else {
+      static_assert(sizeof(T) == 0, "Unimplemented MPI type.");
     }
   }
 
@@ -120,9 +130,10 @@ class MPI : public MPIBasic {
     MPI_Comm_size(comm.value(), &commSize);
 
     auto length = static_cast<int>(container.size());
-    auto lengths = collect(length);
+    auto lengths = collect(length, comm);
 
-    std::vector<int> displacements(commSize);
+    // including the total length
+    std::vector<int> displacements(commSize + 1);
     displacements[0] = 0;
     for (std::size_t i = 1; i < displacements.size(); ++i) {
       displacements[i] = displacements[i - 1] + lengths[i - 1];
@@ -142,12 +153,11 @@ class MPI : public MPIBasic {
                 0,
                 comm.value());
 
-    displacements.push_back(recvBufferSize);
     std::vector<ContainerType> collected(commSize);
     for (int rank = 0; rank < commSize; ++rank) {
       const auto begin = displacements[rank];
       const auto end = displacements[rank + 1];
-      collected[rank] = ContainerType(&recvBuffer[begin], &recvBuffer[end]);
+      collected[rank] = ContainerType(recvBuffer.begin() + begin, recvBuffer.begin() + end);
     }
     return collected;
   }
