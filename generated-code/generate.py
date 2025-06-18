@@ -141,6 +141,7 @@ def main():
 
     def generate_equation(subfolders, equation, order):
         precision = "double" if cmdLineArgs.host_arch[0] == "d" else "single"
+        fusedSuffix = "-f"+str(cmdLineArgs.multipleSimulations) if cmdLineArgs.multipleSimulations > 1 else ""
 
         if cmdLineArgs.memLayout == "auto":
             # TODO(Lukas) Don't hardcode this
@@ -213,7 +214,7 @@ def main():
         )
         kernels.point.addKernels(generator, adg)
 
-        outputDirName = f"equation-{adg.name()}-{order}-{precision}"
+        outputDirName = f"equation-{adg.name()}-{order}-{precision}{fusedSuffix}"
         trueOutputDir = os.path.join(cmdLineArgs.outputDir, outputDirName)
         if not os.path.exists(trueOutputDir):
             os.mkdir(trueOutputDir)

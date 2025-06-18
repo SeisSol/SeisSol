@@ -21,8 +21,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-namespace seissol {
-namespace quadrature {
+namespace seissol::quadrature {
 static const unsigned MaxIterations = 100;
 static const double Tolerance = 10. * std::numeric_limits<double>::epsilon();
 
@@ -181,7 +180,6 @@ inline void TetrahedronQuadrature(double (*points)[3], double* weights, unsigned
     logError() << "Sum of tetrahedron quadrature weights are " << sumWeights << " /= " << 1. / 6.;
   }
 }
-} // namespace quadrature
-} // namespace seissol
+} // namespace seissol::quadrature
 
 #endif // SEISSOL_SRC_NUMERICAL_QUADRATURE_H_

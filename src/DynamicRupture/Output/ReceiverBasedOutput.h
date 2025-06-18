@@ -54,8 +54,11 @@ class ReceiverOutput {
     size_t ltsId{};
     int nearestGpIndex{};
     int nearestInternalGpIndex{};
+    int gpIndex{};
+    int internalGpIndexFused{};
 
     std::size_t index{};
+    std::size_t fusedIndex{};
 
     real iniTraction1{};
     real iniTraction2{};
@@ -81,8 +84,10 @@ class ReceiverOutput {
     real slipRateStrike{};
     real slipRateDip{};
 
-    real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
-    real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
+    real
+        faceAlignedValuesPlus[tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
+    real faceAlignedValuesMinus
+        [tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
 
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};

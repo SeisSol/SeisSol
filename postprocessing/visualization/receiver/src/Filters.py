@@ -100,13 +100,10 @@ class MultipleSimulations(Filter):
     
   def apply(self, wf):
     simulationIndex = str(self.simulationIndex.value())
-    removeDigits = lambda s: ''.join(filter(lambda x: not x.isdigit(), s))
-    containsNoDigits = lambda s: not any(c.isdigit() for c in s)
-    testSimulationIndex = lambda s: simulationIndex in s or containsNoDigits(s)
 
-    wf.norms = {removeDigits(k):v for k,v in wf.norms.items() if testSimulationIndex(k)}
-    wf.waveforms = {removeDigits(k):v for k,v in wf.waveforms.items() if testSimulationIndex(k)}
-      
+    testSimulationIndex = lambda s: s.endswith(simulationIndex)
+    wf.norm = {k:v for k,v in wf.norm.items() if testSimulationIndex(k)}
+    wf.waveforms = {k:v for k,v in wf.waveforms.items() if testSimulationIndex(k)}
 class Deconvolve(Filter):
   def __init__(self, parent = None):
     super(Deconvolve, self).__init__('Deconvolve', parent)
