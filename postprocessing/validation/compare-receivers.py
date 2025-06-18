@@ -204,8 +204,8 @@ def read_receiver(filename):
 
 
 def receiver_diff(args, i):
-    sim_files = glob.glob(f"{args.output}/{args.prefix}-receiver-{i:05d}-*.dat")
-    ref_files = glob.glob(f"{args.output_ref}/{args.prefix}-receiver-{i:05d}-*.dat")
+    sim_files = glob.glob(f"{args.output}/{args.prefix}-receiver-{i:05d}*.dat")
+    ref_files = glob.glob(f"{args.output_ref}/{args.prefix}-receiver-{i:05d}*.dat")
 
     # allow copy layer receivers
     assert len(sim_files) >= 1
@@ -306,7 +306,7 @@ def find_all_receivers(directory, prefix, faultreceiver=False):
     if faultreceiver:
         file_candidates = glob.glob(f"{directory}/{prefix}-faultreceiver-*.dat")
     else:
-        file_candidates = glob.glob(f"{directory}/{prefix}-receiver-*-*.dat")
+        file_candidates = glob.glob(f"{directory}/{prefix}-receiver-*-*.dat")    
     
     extract_id = re.compile(r".+/\w+-\w+-(\d+)(?:-\d+)?\.dat$")
     receiver_ids = []

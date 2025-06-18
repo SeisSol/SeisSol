@@ -13,5 +13,9 @@ enum class DRQuadRuleType { Stroud, Dunavant, WitherdenVincent };
 
 enum class ViscoImplementation { None, QuantityExtension, AnelasticTensor };
 
+enum class BuildType { Cpu, Gpu };
+
+enum class DeviceBackend { None, Cuda, Hip, Sycl };
+
 } // namespace seissol
 #endif // SEISSOL_SRC_COMMON_TYPEDEFS_H_
