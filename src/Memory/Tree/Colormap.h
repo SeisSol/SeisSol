@@ -102,7 +102,7 @@ class LayerSet {
   template <typename... RestArgs>
   [[nodiscard]] std::size_t color(const typename Definition::Type& value,
                                   const RestArgs&... rest) const {
-    return definition.color(std::move(value)) + definition.size() * subLayerSet.color(rest...);
+    return definition.color(value) + definition.size() * subLayerSet.color(rest...);
   }
 
   [[nodiscard]] std::size_t size() const { return definition.size() * subLayerSet.size(); }
@@ -117,7 +117,7 @@ class LayerSet {
   [[nodiscard]] Type argument(std::size_t color) const {
     const std::size_t index = color % definition.size();
     const std::size_t subColor = color / definition.size();
-    return std::tuple_cat(std::make_tuple(definition.argument(color)),
+    return std::tuple_cat(std::make_tuple(definition.argument(index)),
                           subLayerSet.argument(subColor));
   }
 

@@ -45,10 +45,19 @@ class StorageBackmap {
   private:
   using CellStoragePosition = std::array<StoragePosition, MaxDuplicates>;
 
+  static StoragePosition getNullPosition(std::size_t index) {
+    return StoragePosition::NullPosition;
+  }
+
+  template <std::size_t... Indices>
+  static CellStoragePosition getNullStoragePosition(std::index_sequence<Indices...> /*...*/) {
+    return CellStoragePosition{getNullPosition(Indices)...};
+  }
+
   const inline static std::vector<StoragePosition> PreNullCellStoragePosition =
       std::vector<StoragePosition>(MaxDuplicates, StoragePosition::NullPosition);
   const inline static CellStoragePosition NullCellStoragePosition =
-      CellStoragePosition(PreNullCellStoragePosition.begin(), PreNullCellStoragePosition.end());
+      getNullStoragePosition(std::make_index_sequence<MaxDuplicates>());
   // TODO(David): initialize with NullPosition
   std::vector<CellStoragePosition> data;
 
@@ -67,7 +76,7 @@ class StorageBackmap {
     return data[id][duplicate];
   }
 
-  void setSize(std::size_t size) { data.resize(NullCellStoragePosition, size); }
+  void setSize(std::size_t size) { data.resize(size, NullCellStoragePosition); }
 
   template <typename TRef>
   std::size_t addElement(std::size_t color,

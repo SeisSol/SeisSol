@@ -67,6 +67,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   container.wpdesc.addTo(container.volume, seissolInstance.getSeisSolParameters().model.plasticity);
   container.volume.initialize(container.colorMap, wpStructure);
+  container.clusterBackmap.setSize(meshReader.getElements().size());
 
   logInfo() << "Setting up cell storage...";
   // just need pick a test variable that is available everywhere
