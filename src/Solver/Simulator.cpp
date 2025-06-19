@@ -27,25 +27,26 @@
 #include "SeisSol.h"
 #include "TimeStepping/TimeManager.h"
 
-seissol::Simulator::Simulator()
-    : currentTime(0), finalTime(0), usePlasticity(false), aborted(false) {}
+namespace seissol {
 
-void seissol::Simulator::setFinalTime(double finalTime) {
+Simulator::Simulator() : currentTime(0), finalTime(0), usePlasticity(false), aborted(false) {}
+
+void Simulator::setFinalTime(double finalTime) {
   assert(finalTime > 0);
   this->finalTime = finalTime;
 }
 
-void seissol::Simulator::setUsePlasticity(bool plasticity) { usePlasticity = plasticity; }
+void Simulator::setUsePlasticity(bool plasticity) { usePlasticity = plasticity; }
 
-void seissol::Simulator::setCurrentTime(double currentTime) {
+void Simulator::setCurrentTime(double currentTime) {
   assert(currentTime >= 0);
   this->currentTime = currentTime;
   checkpoint = true;
 }
 
-void seissol::Simulator::abort() { aborted = true; }
+void Simulator::abort() { aborted = true; }
 
-void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
+void Simulator::simulate(SeisSol& seissolInstance) {
   SCOREP_USER_REGION("simulate", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
@@ -85,7 +86,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
   ioStopwatch.pause();
 
-  Stopwatch::print("Time spent for initial IO:", ioStopwatch.split(), seissol::MPI::mpi.comm());
+  Stopwatch::print("Time spent for initial IO:", ioStopwatch.split(), MPI::mpi.comm());
 
   // use an empty log message as visual separator
   logInfo() << "";
@@ -112,7 +113,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     currentTime = upcomingTime;
 
     // Synchronize data (TODO(David): synchronize lazily)
-    seissolInstance.timeManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
+    seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
     // Check all synchronization point hooks and set the new upcoming time
     upcomingTime = std::min(finalTime, Modules::callSyncHook(currentTime, timeTolerance));
@@ -120,12 +121,9 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     ioStopwatch.pause();
 
     double currentSplit = simulationStopwatch.split();
-    Stopwatch::print(
-        "Time spent this phase (total):", currentSplit - lastSplit, seissol::MPI::mpi.comm());
-    Stopwatch::print(
-        "Time spent this phase (compute):", computeStopwatch.split(), seissol::MPI::mpi.comm());
-    Stopwatch::print(
-        "Time spent this phase (blocking IO):", ioStopwatch.split(), seissol::MPI::mpi.comm());
+    Stopwatch::print("Time spent this phase (total):", currentSplit - lastSplit, MPI::mpi.comm());
+    Stopwatch::print("Time spent this phase (compute):", computeStopwatch.split(), MPI::mpi.comm());
+    Stopwatch::print("Time spent this phase (blocking IO):", ioStopwatch.split(), MPI::mpi.comm());
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
 
@@ -134,14 +132,14 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   }
 
   // synchronize data (TODO(David): synchronize lazily)
-  seissolInstance.timeManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
+  seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
   Modules::callSyncHook(currentTime, timeTolerance, true);
 
   const double wallTime = simulationStopwatch.pause();
-  simulationStopwatch.printTime("Simulation time (total):", seissol::MPI::mpi.comm());
-  computeStopwatch.printTime("Simulation time (compute):", seissol::MPI::mpi.comm());
-  ioStopwatch.printTime("Simulation time (blocking IO):", seissol::MPI::mpi.comm());
+  simulationStopwatch.printTime("Simulation time (total):", MPI::mpi.comm());
+  computeStopwatch.printTime("Simulation time (compute):", MPI::mpi.comm());
+  ioStopwatch.printTime("Simulation time (blocking IO):", MPI::mpi.comm());
 
   Modules::callHook<ModuleHook::SimulationEnd>();
 
@@ -154,3 +152,5 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
   seissolInstance.flopCounter().printPerformanceSummary(wallTime);
 }
+
+} // namespace seissol

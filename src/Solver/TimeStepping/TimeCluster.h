@@ -39,20 +39,16 @@
 #include <device.h>
 #endif
 
-namespace seissol {
-namespace time_stepping {
-class TimeCluster;
-}
-
-namespace kernels {
+namespace seissol::kernels {
 class ReceiverCluster;
-}
-} // namespace seissol
+} // namespace seissol::kernels
+
+namespace seissol::time_stepping {
 
 /**
  * Time cluster, which represents a collection of elements having the same time step width.
  **/
-class seissol::time_stepping::TimeCluster : public seissol::time_stepping::AbstractTimeCluster {
+class TimeCluster : public AbstractTimeCluster {
   private:
   // Last correction time of the neighboring cluster with higher dt
   double lastSubTime;
@@ -109,7 +105,7 @@ class seissol::time_stepping::TimeCluster : public seissol::time_stepping::Abstr
 
   seissol::kernels::PointSourceClusterPair m_sourceCluster;
 
-  enum class ComputePart {
+  enum class ComputePart : int {
     Local = 0,
     Neighbor,
     DRNeighbor,
@@ -117,11 +113,11 @@ class seissol::time_stepping::TimeCluster : public seissol::time_stepping::Abstr
     DRFrictionLawCopy,
     PlasticityCheck,
     PlasticityYield,
-    NUM_COMPUTE_PARTS
+    NumComputeParts
   };
 
-  long long m_flops_nonZero[static_cast<int>(ComputePart::NUM_COMPUTE_PARTS)];
-  long long m_flops_hardware[static_cast<int>(ComputePart::NUM_COMPUTE_PARTS)];
+  long long m_flops_nonZero[static_cast<int>(ComputePart::NumComputeParts)];
+  long long m_flops_hardware[static_cast<int>(ComputePart::NumComputeParts)];
 
   //! Tv parameter for plasticity
   double m_tv;
@@ -315,5 +311,7 @@ class seissol::time_stepping::TimeCluster : public seissol::time_stepping::Abstr
 
   void finishPhase() override;
 };
+
+} // namespace seissol::time_stepping
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_

@@ -35,7 +35,7 @@ seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
     face = nullptr;
   }
 
-  for (unsigned dim = 0; dim < FREESURFACE_NUMBER_OF_COMPONENTS; ++dim) {
+  for (unsigned dim = 0; dim < NumComponents; ++dim) {
     velocities[dim] = nullptr;
     displacements[dim] = nullptr;
   }
@@ -44,7 +44,7 @@ seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
 }
 
 seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
-  for (unsigned dim = 0; dim < FREESURFACE_NUMBER_OF_COMPONENTS; ++dim) {
+  for (unsigned dim = 0; dim < NumComponents; ++dim) {
     seissol::memory::free(velocities[dim]);
     seissol::memory::free(displacements[dim]);
   }
@@ -58,7 +58,7 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(unsigned maxRefinementDe
                                                         seissol::initializer::LTS* lts,
                                                         seissol::initializer::LTSTree* ltsTree,
                                                         seissol::initializer::Lut* ltsLut) {
-  if (maxRefinementDepth > FREESURFACE_MAX_REFINEMENT) {
+  if (maxRefinementDepth > MaxRefinement) {
     logError()
         << "Free surface integrator: Currently more than 3 levels of refinements are unsupported."
         << std::endl;
@@ -85,8 +85,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput() {
     shared(offset, surfaceLayer, dofs, displacementDofs, side)
 #endif // _OPENMP
     for (unsigned face = 0; face < surfaceLayer.getNumberOfCells(); ++face) {
-      alignas(Alignment)
-          real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)];
+      alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs::size(MaxRefinement)];
 
       kernel::subTriangleVelocity vkrnl;
       vkrnl.Q = dofs[face];
@@ -95,8 +94,8 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput() {
       vkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
       vkrnl.execute(triRefiner.maxDepth);
 
-      auto addOutput = [&](real* output[FREESURFACE_NUMBER_OF_COMPONENTS]) {
-        for (unsigned component = 0; component < FREESURFACE_NUMBER_OF_COMPONENTS; ++component) {
+      auto addOutput = [&](const std::array<real*, NumComponents>& output) {
+        for (unsigned component = 0; component < NumComponents; ++component) {
           real* target = output[component] + offset + face * numberOfSubTriangles;
           /// @yateto_todo fix for multiple simulations
           real* source = subTriangleDofs + component * numberOfAlignedSubTriangles;
@@ -303,7 +302,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
   surfaceLtsTree.allocateVariables();
   surfaceLtsTree.touchVariables();
 
-  for (unsigned dim = 0; dim < FREESURFACE_NUMBER_OF_COMPONENTS; ++dim) {
+  for (unsigned dim = 0; dim < NumComponents; ++dim) {
     velocities[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
     displacements[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
   }

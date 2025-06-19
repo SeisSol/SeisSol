@@ -11,14 +11,12 @@
 #define SEISSOL_SRC_SOLVER_SIMULATOR_H_
 
 namespace seissol {
-class Simulator;
 class SeisSol;
-} // namespace seissol
 
 /**
  * Simulator, which takes care of the simulation: Sync. times, wave field output, checkpoints.
  **/
-class seissol::Simulator {
+class Simulator {
   // private:
   //! current time of the simulation
   double currentTime;
@@ -74,5 +72,7 @@ class seissol::Simulator {
    **/
   void simulate(seissol::SeisSol& seissolInstance);
 };
+
+} // namespace seissol
 
 #endif // SEISSOL_SRC_SOLVER_SIMULATOR_H_

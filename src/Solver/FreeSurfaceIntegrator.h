@@ -19,14 +19,13 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
 
-#define FREESURFACE_MAX_REFINEMENT 3
-#define FREESURFACE_NUMBER_OF_COMPONENTS 3
-
 namespace seissol::solver {
-class FreeSurfaceIntegrator;
-}
 
-class seissol::solver::FreeSurfaceIntegrator {
+class FreeSurfaceIntegrator {
+  public:
+  static constexpr std::size_t MaxRefinement = 3;
+  static constexpr std::size_t NumComponents = 3;
+
   private:
   enum class LocationFlag {
     Elastic = 0,
@@ -71,8 +70,8 @@ class seissol::solver::FreeSurfaceIntegrator {
       getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
 
   public:
-  real* velocities[FREESURFACE_NUMBER_OF_COMPONENTS];
-  real* displacements[FREESURFACE_NUMBER_OF_COMPONENTS];
+  std::array<real*, NumComponents> velocities;
+  std::array<real*, NumComponents> displacements;
 
   std::vector<unsigned int> locationFlags;
   unsigned totalNumberOfFreeSurfaces;
@@ -95,5 +94,7 @@ class seissol::solver::FreeSurfaceIntegrator {
 
   [[nodiscard]] bool enabled() const { return m_enabled; }
 };
+
+} // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
