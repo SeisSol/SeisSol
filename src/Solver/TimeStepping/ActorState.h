@@ -28,9 +28,6 @@ struct AdvancedCorrectionTimeMessage {
 };
 
 using Message = std::variant<AdvancedPredictionTimeMessage, AdvancedCorrectionTimeMessage>;
-// Helper for std::visit variant pattern
-template <class T>
-struct always_false : std::false_type {};
 
 inline std::ostream& operator<<(std::ostream& stream, const Message& message);
 

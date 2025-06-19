@@ -48,7 +48,7 @@ class AbstractTimeCluster {
 
   long timeStepRate;
   //! number of time steps
-  long numberOfTimeSteps;
+  long numberOfTimeSteps{0};
   Executor executor;
 
   public:
@@ -77,7 +77,7 @@ class AbstractTimeCluster {
 
   virtual void finishPhase();
 
-  long getTimeStepRate();
+  [[nodiscard]] long getTimeStepRate() const;
 
   /**
    * @brief Returns the time step size of the cluster.

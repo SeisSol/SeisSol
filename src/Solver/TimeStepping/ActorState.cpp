@@ -5,11 +5,15 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include <Common/Executor.h>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <iostream>
-#include <memory>
+#include <mutex>
+#include <string>
 #include <type_traits>
+#include <variant>
 
 #include "ActorState.h"
 
@@ -24,7 +28,7 @@ inline std::ostream& operator<<(std::ostream& stream, const Message& message) {
         } else if constexpr (std::is_same_v<T, AdvancedCorrectionTimeMessage>) {
           stream << "AdvancedCorrectionTimeMessage, t = " << msg.time;
         } else {
-          static_assert(always_false<T>::value, "non-exhaustive visitor");
+          static_assert(sizeof(T) == 0, "non-exhaustive visitor");
         }
       },
       message);
@@ -44,12 +48,12 @@ std::string actorStateToString(ActorState state) {
 }
 
 void MessageQueue::push(const Message& message) {
-  std::lock_guard lock{mutex};
+  const std::lock_guard lock{mutex};
   queue.push(message);
 }
 
 Message MessageQueue::pop() {
-  std::lock_guard lock{mutex};
+  const std::lock_guard lock{mutex};
   const Message message = queue.front();
   queue.pop();
   return message;

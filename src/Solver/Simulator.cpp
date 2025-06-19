@@ -9,27 +9,23 @@
 
 #include "Simulator.h"
 
-#include <Memory/Tree/Layer.h>
-#include <Parallel/Runtime/Stream.h>
-#include <algorithm>
-#include <cassert>
-#include <cstdlib>
-#include <limits>
-#include <utils/logger.h>
-#include <xdmfwriter/scorep_wrapper.h>
-
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Stopwatch.h"
-#include "Monitoring/Unit.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
 #include "TimeStepping/TimeManager.h"
+#include <Memory/Tree/Layer.h>
+#include <algorithm>
+#include <cassert>
+#include <optional>
+#include <utils/logger.h>
+#include <xdmfwriter/scorep_wrapper.h>
 
 namespace seissol {
 
-Simulator::Simulator() : currentTime(0), finalTime(0), usePlasticity(false), aborted(false) {}
+Simulator::Simulator() = default;
 
 void Simulator::setFinalTime(double finalTime) {
   assert(finalTime > 0);
@@ -120,7 +116,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
     ioStopwatch.pause();
 
-    double currentSplit = simulationStopwatch.split();
+    const double currentSplit = simulationStopwatch.split();
     Stopwatch::print("Time spent this phase (total):", currentSplit - lastSplit, MPI::mpi.comm());
     Stopwatch::print("Time spent this phase (compute):", computeStopwatch.split(), MPI::mpi.comm());
     Stopwatch::print("Time spent this phase (blocking IO):", ioStopwatch.split(), MPI::mpi.comm());

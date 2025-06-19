@@ -5,11 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Initializer/Typedefs.h"
 #ifdef ACL_DEVICE
 
-#include "Parallel/MPI.h"
 #include "Solver/TimeStepping/GhostTimeClusterWithCopy.h"
+#include "Parallel/MPI.h"
 #include "device.h"
 
 namespace seissol::time_stepping {

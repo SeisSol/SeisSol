@@ -8,6 +8,9 @@
 #include "CommunicationManager.h"
 
 #include "Parallel/Pin.h"
+#include <memory>
+#include <utility>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include "device.h"
@@ -44,9 +47,10 @@ SerialCommunicationManager::SerialCommunicationManager(
     : AbstractCommunicationManager(std::move(ghostClusters)) {}
 
 bool SerialCommunicationManager::checkIfFinished() const {
-  for (auto& ghostCluster : ghostClusters) {
-    if (!ghostCluster->synced())
+  for (const auto& ghostCluster : ghostClusters) {
+    if (!ghostCluster->synced()) {
       return false;
+    }
   }
   return true;
 }
@@ -56,8 +60,8 @@ void SerialCommunicationManager::progression() { poll(); }
 ThreadedCommunicationManager::ThreadedCommunicationManager(
     AbstractCommunicationManager::GhostClustersT ghostClusters,
     const seissol::parallel::Pinning* pinning)
-    : AbstractCommunicationManager(std::move(ghostClusters)), thread(), shouldReset(false),
-      isFinished(false), pinning(pinning) {}
+    : AbstractCommunicationManager(std::move(ghostClusters)), shouldReset(false), isFinished(false),
+      pinning(pinning) {}
 
 void ThreadedCommunicationManager::progression() {
   // Do nothing: Thread takes care of that.

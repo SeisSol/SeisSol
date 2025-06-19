@@ -9,11 +9,31 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#include "Parallel/MPI.h"
-#include <Common/Executor.h>
+#include <Alignment.h>
+#include <DynamicRupture/FrictionLaws/FrictionSolver.h>
+#include <DynamicRupture/Output/OutputManager.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Common.h>
+#include <Kernels/Interface.h>
+#include <Kernels/LinearCK/GravitationalFreeSurfaceBC.h>
+#include <Kernels/Plasticity.h>
 #include <Kernels/PointSourceCluster.h>
+#include <Kernels/Precision.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/Layer.h>
-#include <SourceTerm/Manager.h>
+#include <Monitoring/ActorStateStatistics.h>
+#include <Monitoring/LoopStatistics.h>
+#include <Solver/TimeStepping/AbstractTimeCluster.h>
+#include <Solver/TimeStepping/ActorState.h>
+#include <chrono>
+#include <equation-elastic-6-double/init.h>
+#include <equation-elastic-6-double/tensor.h>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -25,7 +45,6 @@
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
 #include "SeisSol.h"
-#include "SourceTerm/PointSource.h"
 #include "TimeCluster.h"
 
 #include <cassert>
@@ -185,8 +204,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
-    unsigned prefetchFace = (face < layerData.getNumberOfCells() - 1) ? face + 1 : face;
+  for (std::size_t face = 0; face < layerData.getNumberOfCells(); ++face) {
+    const std::size_t prefetchFace = (face < layerData.getNumberOfCells() - 1) ? face + 1 : face;
     dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
                                                 globalDataOnHost,
                                                 &godunovData[face],
@@ -275,7 +294,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops(
 
   DRFaceInformation* faceInformation = layerData.var(dynRup->faceInformation);
 
-  for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
+  for (std::size_t face = 0; face < layerData.getNumberOfCells(); ++face) {
     long long faceNonZeroFlops = 0;
     long long faceHardwareFlops = 0;
     dynamicRuptureKernel.flopsGodunovState(
@@ -344,7 +363,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(bool resetBuff
                                 ct.correctionTime,
                                 timeStepSize());
 
-    for (unsigned face = 0; face < 4; ++face) {
+    for (int face = 0; face < 4; ++face) {
       auto& curFaceDisplacements = data.faceDisplacements()[face];
       // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
       if (curFaceDisplacements != nullptr &&
@@ -365,7 +384,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(bool resetBuff
     if (!resetMyBuffers && buffersProvided) {
       assert(buffers[cell] != nullptr);
 
-      for (unsigned int dof = 0; dof < tensor::I::size(); ++dof) {
+      for (std::size_t dof = 0; dof < tensor::I::size(); ++dof) {
         buffers[cell][dof] += integrationBuffer[dof];
       }
     }
@@ -411,7 +430,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(bool res
                                                    timeStepWidth,
                                                    streamRuntime);
 
-        for (unsigned face = 0; face < 4; ++face) {
+        for (int face = 0; face < 4; ++face) {
           ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
           if (dataTable.find(key) != dataTable.end()) {
             auto& entry = dataTable[key];
@@ -711,7 +730,7 @@ void TimeCluster::correct() {
    * those of previous clusters, Cc needs to evaluate the time prediction of Cn in the interval
    * [2dt, 3dt].
    */
-  double subTimeStart = ct.correctionTime - lastSubTime;
+  const double subTimeStart = ct.correctionTime - lastSubTime;
 
   // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int.
   // Otherwise, this is an interior layer actor, and we need only the FL_Int.
@@ -818,7 +837,9 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   auto* cellInformation = clusterData->var(lts->cellInformation);
   auto* plasticity = clusterData->var(lts->plasticity);
   auto* pstrain = clusterData->var(lts->pstrain);
-  unsigned numberOTetsWithPlasticYielding = 0;
+
+  // NOLINTNEXTLINE
+  std::size_t numberOTetsWithPlasticYielding = 0;
 
   kernels::NeighborData::Loader loader;
   loader.load(*lts, *clusterData);

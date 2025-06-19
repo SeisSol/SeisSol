@@ -6,8 +6,17 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
-#include "Parallel/MPI.h"
+#include <Common/Executor.h>
+#include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
+#include <Monitoring/Instrumentation.h>
+#include <Solver/TimeStepping/AbstractTimeCluster.h>
+#include <Solver/TimeStepping/ActorState.h>
+#include <cassert>
+#include <chrono>
+#include <list>
+#include <mpi.h>
+#include <utils/logger.h>
 
 namespace seissol::time_stepping {
 bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<unsigned int>& regions) {
@@ -61,7 +70,8 @@ bool AbstractGhostTimeCluster::maySync() {
   return testForGhostLayerReceives() && testForCopyLayerSends() && AbstractTimeCluster::maySync();
 }
 
-void AbstractGhostTimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster&) {
+void AbstractGhostTimeCluster::handleAdvancedPredictionTimeMessage(
+    const NeighborCluster& /*neighborCluster*/) {
   assert(testForCopyLayerSends());
   sendCopyLayer();
 }

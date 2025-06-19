@@ -10,12 +10,27 @@
 #include "Parallel/MPI.h"
 
 #include "CommunicationManager.h"
-#include "Initializer/TimeStepping/Common.h"
-#include "Monitoring/Instrumentation.h"
 #include "Parallel/Helper.h"
 #include "ResultWriter/ClusteringWriter.h"
 #include "SeisSol.h"
 #include "TimeManager.h"
+#include <DynamicRupture/Output/OutputManager.h>
+#include <Initializer/MemoryManager.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/PointSourceCluster.h>
+#include <Memory/Tree/Layer.h>
+#include <ResultWriter/ReceiverWriter.h>
+#include <Solver/TimeStepping/AbstractGhostTimeCluster.h>
+#include <Solver/TimeStepping/ActorState.h>
+#include <Solver/TimeStepping/GhostTimeClusterFactory.h>
+#include <Solver/TimeStepping/TimeCluster.h>
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <memory>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include <device.h>

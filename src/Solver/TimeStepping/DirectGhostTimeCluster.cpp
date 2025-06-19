@@ -7,6 +7,12 @@
 
 #include "Solver/TimeStepping/DirectGhostTimeCluster.h"
 #include "Parallel/MPI.h"
+#include <Config.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Monitoring/Instrumentation.h>
+#include <Solver/TimeStepping/AbstractGhostTimeCluster.h>
+#include <cassert>
+#include <mpi.h>
 
 namespace seissol::time_stepping {
 void DirectGhostTimeCluster::sendCopyLayer() {

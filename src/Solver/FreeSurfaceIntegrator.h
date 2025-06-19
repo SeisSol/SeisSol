@@ -84,6 +84,12 @@ class FreeSurfaceIntegrator {
   explicit FreeSurfaceIntegrator();
   ~FreeSurfaceIntegrator();
 
+  FreeSurfaceIntegrator(const FreeSurfaceIntegrator&) = delete;
+  auto operator=(const FreeSurfaceIntegrator&) -> FreeSurfaceIntegrator& = delete;
+
+  FreeSurfaceIntegrator(FreeSurfaceIntegrator&&) = delete;
+  auto operator=(FreeSurfaceIntegrator&&) -> FreeSurfaceIntegrator& = delete;
+
   void initialize(unsigned maxRefinementDepth,
                   GlobalData* globalData,
                   seissol::initializer::LTS* lts,

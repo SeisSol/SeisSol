@@ -6,12 +6,18 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "utils/logger.h"
+#include <Common/Executor.h>
+#include <Solver/TimeStepping/ActorState.h>
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <iostream>
+#include <memory>
+#include <type_traits>
+#include <variant>
+#include <vector>
 
 #include "AbstractTimeCluster.h"
-#include "Parallel/MPI.h"
 
 namespace seissol::time_stepping {
 double AbstractTimeCluster::timeStepSize() const { return ct.timeStepSize(syncTime); }
@@ -20,7 +26,7 @@ AbstractTimeCluster::AbstractTimeCluster(double maxTimeStepSize,
                                          long timeStepRate,
                                          Executor executor)
     : timeOfLastStageChange(std::chrono::steady_clock::now()), timeStepRate(timeStepRate),
-      numberOfTimeSteps(0), executor(executor) {
+      executor(executor) {
   ct.maxTimeStepSize = maxTimeStepSize;
   ct.timeStepRate = timeStepRate;
 }
@@ -157,7 +163,7 @@ bool AbstractTimeCluster::processMessages() {
               neighbor.ct.stepsSinceLastSync = msg.stepsSinceSync;
               handleAdvancedCorrectionTimeMessage(neighbor);
             } else {
-              static_assert(always_false<T>::value, "non-exhaustive visitor!");
+              static_assert(sizeof(T) == 0, "non-exhaustive visitor!");
             }
           },
           message);
@@ -173,8 +179,9 @@ bool AbstractTimeCluster::mayPredict() {
       neighbors.begin(), neighbors.end(), [](const NeighborCluster& a, const NeighborCluster& b) {
         return a.ct.nextCorrectionSteps() < b.ct.nextCorrectionSteps();
       });
-  bool stepBasedPredict = minNeighborSteps == neighbors.end() ||
-                          ct.predictionsSinceLastSync < minNeighborSteps->ct.nextCorrectionSteps();
+  const bool stepBasedPredict =
+      minNeighborSteps == neighbors.end() ||
+      ct.predictionsSinceLastSync < minNeighborSteps->ct.nextCorrectionSteps();
   return stepBasedPredict;
 }
 
@@ -249,7 +256,7 @@ void AbstractTimeCluster::setCorrectionTime(double time) {
   }
 }
 
-long AbstractTimeCluster::getTimeStepRate() { return timeStepRate; }
+long AbstractTimeCluster::getTimeStepRate() const { return timeStepRate; }
 
 void AbstractTimeCluster::finalize() {}
 
