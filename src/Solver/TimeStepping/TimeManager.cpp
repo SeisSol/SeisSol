@@ -157,9 +157,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       }
     }
 
-    auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
-    auto& [increaseManager, decreaseManager] = timeMirrorManagers;
-
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
     const auto persistent = usePersistentMpi(seissolInstance.env());
@@ -174,9 +171,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                       });
       if (hasNeighborRegions) {
         assert(static_cast<int>(otherGlobalClusterId) >= std::max(globalClusterId - 1, 0));
-        assert(
-            static_cast<int>(otherGlobalClusterId) <
-            std::min(globalClusterId + 2, static_cast<int>(timeStepping.numberOfGlobalClusters)));
+        assert(static_cast<int>(otherGlobalClusterId) <
+               std::min(globalClusterId + 2, static_cast<int>(clusterLayout.globalClusterCount)));
         const auto otherTimeStepSize = clusterLayout.timestepRate(otherGlobalClusterId);
         const long otherTimeStepRate = clusterLayout.timestepRate(otherGlobalClusterId);
 

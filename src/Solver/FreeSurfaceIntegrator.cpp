@@ -31,9 +31,9 @@
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
-#include <equation-elastic-6-double/init.h>
-#include <equation-elastic-6-double/tensor.h>
+#include <init.h>
 #include <ostream>
+#include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -155,7 +155,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(
 
   assert(numberOfAlignedSubTriangles * projectionMatrixNCols ==
          tensor::subTriangleProjection::size(maxRefinementDepth));
-  assert(numberOfSubTriangles == (1u << (2u * maxRefinementDepth)));
+  assert(numberOfSubTriangles == (1U << (2U * maxRefinementDepth)));
 
   const auto projectionMatrixNumberOfReals =
       4 * tensor::subTriangleProjection::size(maxRefinementDepth);

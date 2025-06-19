@@ -127,7 +127,7 @@ class TimeCluster : public AbstractTimeCluster {
   unsigned regionComputeDynamicRupture;
   unsigned regionComputePointSources;
 
-  kernels::ReceiverCluster* receiverCluster;
+  kernels::ReceiverCluster* receiverCluster{nullptr};
 
   seissol::memory::MemkindArray<unsigned> yieldCells;
 
@@ -258,7 +258,7 @@ class TimeCluster : public AbstractTimeCluster {
               LoopStatistics* loopStatistics,
               ActorStateStatistics* actorStateStatistics);
 
-  ~TimeCluster() override;
+  ~TimeCluster() override = default;
 
   /**
    * Sets the the cluster's point sources

@@ -9,6 +9,14 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "TimeCluster.h"
+#include "Kernels/DynamicRupture.h"
+#include "Kernels/Receiver.h"
+#include "Kernels/TimeCommon.h"
+#include "Monitoring/FlopCounter.h"
+#include "Monitoring/Instrumentation.h"
+#include "SeisSol.h"
+#include "generated_code/kernel.h"
 #include <Alignment.h>
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/Output/OutputManager.h>
@@ -28,9 +36,11 @@
 #include <Monitoring/LoopStatistics.h>
 #include <Solver/TimeStepping/AbstractTimeCluster.h>
 #include <Solver/TimeStepping/ActorState.h>
+#include <cassert>
 #include <chrono>
-#include <equation-elastic-6-double/init.h>
-#include <equation-elastic-6-double/tensor.h>
+#include <cstring>
+#include <init.h>
+#include <tensor.h>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -38,19 +48,6 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-
-#include "Kernels/DynamicRupture.h"
-#include "Kernels/Receiver.h"
-#include "Kernels/TimeCommon.h"
-#include "Monitoring/FlopCounter.h"
-#include "Monitoring/Instrumentation.h"
-#include "SeisSol.h"
-#include "TimeCluster.h"
-
-#include <cassert>
-#include <cstring>
-
-#include "generated_code/kernel.h"
 
 seissol::time_stepping::TimeCluster::TimeCluster(
     unsigned int clusterId,
@@ -88,8 +85,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(
       sourceCluster(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
       loopStatistics(loopStatistics), actorStateStatistics(actorStateStatistics),
-      receiverCluster(nullptr), layerType(layerType), printProgress(printProgress),
-      clusterId(clusterId), globalClusterId(globalClusterId), profilingId(profilingId),
+      layerType(layerType), printProgress(printProgress), clusterId(clusterId),
+      globalClusterId(globalClusterId), profilingId(profilingId),
       dynamicRuptureScheduler(dynamicRuptureScheduler),
       yieldCells(1, isDeviceOn() ? seissol::memory::PinnedMemory : seissol::memory::Standard) {
   // assert all pointers are valid
@@ -118,10 +115,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(
   regionComputePointSources = loopStatistics->getRegion("computePointSources");
 
   yieldCells[0] = 0;
-}
-
-seissol::time_stepping::TimeCluster::~TimeCluster() {
-  logDebug() << "#(time steps):" << numberOfTimeSteps;
 }
 
 void seissol::time_stepping::TimeCluster::setPointSources(
@@ -405,7 +398,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(bool res
   auto& indicesTable = clusterData->getConditionalTable<inner_keys::Indices>();
 
   kernels::LocalData::Loader loader;
-  loader.load(*lts, layerData);
+  loader.load(*lts, *clusterData);
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
   const double timeStepWidth = timeStepSize();
@@ -414,7 +407,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(bool res
       resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
   streamRuntime.runGraph(
-      computeGraphKey, layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
+      computeGraphKey, *clusterData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
         spacetimeKernel.computeBatchedAder(
             timeStepWidth, tmp, dataTable, materialTable, true, streamRuntime);
 
@@ -424,7 +417,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(bool res
         localKernel.evaluateBatchedTimeDependentBc(dataTable,
                                                    indicesTable,
                                                    loader,
-                                                   layerData,
+                                                   *clusterData,
                                                    *lts,
                                                    ct.correctionTime,
                                                    timeStepWidth,
@@ -506,7 +499,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice(do
   auto computeGraphKey = initializer::GraphKey(graphType);
 
   streamRuntime.runGraph(
-      computeGraphKey, layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
+      computeGraphKey, *clusterData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
         neighborKernel.computeBatchedNeighborsIntegral(table, streamRuntime);
       });
 
@@ -515,7 +508,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice(do
     auto* plasticity =
         clusterData->var(lts->plasticity, seissol::initializer::AllocationPlace::Device);
     streamRuntime.runGraph(plasticityGraphKey,
-                           layerData,
+                           *clusterData,
                            [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
                              seissol::kernels::Plasticity::computePlasticityBatched(
                                  timeStepWidth,
@@ -825,6 +818,8 @@ void TimeCluster::finalize() {
   sourceCluster.host.reset(nullptr);
   sourceCluster.device.reset(nullptr);
   streamRuntime.dispose();
+
+  logDebug() << "#(time steps):" << numberOfTimeSteps;
 }
 
 template <bool UsePlasticity>
@@ -921,7 +916,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
     }
 #ifdef INTEGRATE_QUANTITIES
     seissolInstance.postProcessor().integrateQuantities(
-        m_timeStepWidth, layerData, cell, dofs[cell]);
+        m_timeStepWidth, *clusterData, cell, dofs[cell]);
 #endif // INTEGRATE_QUANTITIES
   }
 
