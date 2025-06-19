@@ -10,6 +10,7 @@
 
 #include "Parallel/Pin.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
+#include <Parallel/HelperThread.h>
 #include <atomic>
 #include <memory>
 #include <thread>
@@ -47,13 +48,8 @@ class ThreadedCommunicationManager : public AbstractCommunicationManager {
   [[nodiscard]] bool checkIfFinished() const override;
   void reset(double newSyncTime) override;
 
-  ~ThreadedCommunicationManager() override;
-
   private:
-  std::thread thread;
-  std::atomic<bool> shouldReset;
-  std::atomic<bool> isFinished;
-  const parallel::Pinning* pinning;
+  seissol::parallel::HelperThread helper;
 };
 
 } // end namespace seissol::time_stepping
