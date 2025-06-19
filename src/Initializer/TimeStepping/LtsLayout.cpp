@@ -866,7 +866,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
   o_ltsToMesh            = new std::size_t[ numberOfLtsCells ];
 
   // current lts cell
-  unsigned int l_ltsCell = 0;
+  std::size_t l_ltsCell = 0;
   unsigned int layerId = 0;
 
   // iterate over the setup an derive a linear layout
@@ -880,7 +880,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         unsigned int l_clusterId = m_clusteredCopy[l_cluster][l_region].first[1];
 
         // set mapping invalid
-        o_ltsToMesh[l_ltsCell] = std::numeric_limits<unsigned int>::max();
+        o_ltsToMesh[l_ltsCell] = std::numeric_limits<std::size_t>::max();
 
         secondaryInformation[l_ltsCell].clusterId = l_clusterId;
         secondaryInformation[l_ltsCell].meshId = l_ghostCell;
