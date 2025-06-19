@@ -24,14 +24,13 @@
 namespace seissol::time_stepping {
 
 TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
-    : m_logUpdates(std::numeric_limits<unsigned int>::max()), seissolInstance(seissolInstance),
-      actorStateStatisticsManager(m_loopStatistics) {
-  m_loopStatistics.addRegion("computeLocalIntegration");
-  m_loopStatistics.addRegion("computeNeighboringIntegration");
-  m_loopStatistics.addRegion("computeDynamicRupture");
-  m_loopStatistics.addRegion("computePointSources");
+    : seissolInstance(seissolInstance), actorStateStatisticsManager(loopStatistics) {
+  loopStatistics.addRegion("computeLocalIntegration");
+  loopStatistics.addRegion("computeNeighboringIntegration");
+  loopStatistics.addRegion("computeDynamicRupture");
+  loopStatistics.addRegion("computePointSources");
 
-  m_loopStatistics.enableSampleOutput(
+  loopStatistics.enableSampleOutput(
       seissolInstance.getSeisSolParameters().output.loopStatisticsNetcdfOutput);
 }
 
@@ -44,25 +43,25 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
   std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
   // assert non-zero pointers
-  assert(meshStructure != NULL);
+  assert(meshStructure != nullptr);
 
   // store the time stepping
-  m_timeStepping = timeStepping;
+  this->timeStepping = timeStepping;
 
   auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
 
   bool foundDynamicRuptureCluster = false;
 
   // iterate over local time clusters
-  for (unsigned int localClusterId = 0; localClusterId < m_timeStepping.numberOfLocalClusters;
-       localClusterId++) {
+  for (std::size_t localClusterId = 0; localClusterId < timeStepping.numberOfLocalClusters;
+       ++localClusterId) {
     // get memory layout of this cluster
     auto [meshStructure, globalData] = memoryManager.getMemoryLayout(localClusterId);
 
-    const int globalClusterId = static_cast<int>(m_timeStepping.clusterIds[localClusterId]);
+    const int globalClusterId = static_cast<int>(timeStepping.clusterIds[localClusterId]);
     // chop off at synchronization time
-    const auto timeStepSize = m_timeStepping.globalCflTimeStepWidths[globalClusterId];
-    const long timeStepRate = ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
+    const auto timeStepSize = timeStepping.globalCflTimeStepWidths[globalClusterId];
+    const long timeStepRate = ipow(static_cast<long>(timeStepping.globalTimeStepRates[0]),
                                    static_cast<long>(globalClusterId));
 
     // Dynamic rupture
@@ -82,11 +81,11 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
             numberOfDynRupCells, isFirstDynamicRuptureCluster));
 
     for (auto type : {Copy, Interior}) {
-      const auto offsetMonitoring = type == Interior ? 0 : m_timeStepping.numberOfGlobalClusters;
+      const auto offsetMonitoring = type == Interior ? 0 : timeStepping.numberOfGlobalClusters;
       // We print progress only if it is the cluster with the largest time step on each rank.
       // This does not mean that it is the largest cluster globally!
       const bool printProgress =
-          (localClusterId == m_timeStepping.numberOfLocalClusters - 1) && (type == Interior);
+          (localClusterId == timeStepping.numberOfLocalClusters - 1) && (type == Interior);
       const auto profilingId = globalClusterId + offsetMonitoring;
       auto* layerData = &memoryManager.getLtsTree()->child(localClusterId).child(type);
       auto* dynRupInteriorData = &dynRupTree.child(Interior);
@@ -111,7 +110,7 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
                                         memoryManager.getFrictionLawDevice(),
                                         memoryManager.getFaultOutputManager(),
                                         seissolInstance,
-                                        &m_loopStatistics,
+                                        &loopStatistics,
                                         &actorStateStatisticsManager.addCluster(profilingId)));
 
       const auto clusterSize = layerData->getNumberOfCells();
@@ -152,7 +151,7 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
     const auto persistent = usePersistentMpi(seissolInstance.env());
     for (unsigned int otherGlobalClusterId = 0;
-         otherGlobalClusterId < m_timeStepping.numberOfGlobalClusters;
+         otherGlobalClusterId < timeStepping.numberOfGlobalClusters;
          ++otherGlobalClusterId) {
       const bool hasNeighborRegions =
           std::any_of(meshStructure->neighboringClusters,
@@ -164,11 +163,10 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
         assert(static_cast<int>(otherGlobalClusterId) >= std::max(globalClusterId - 1, 0));
         assert(
             static_cast<int>(otherGlobalClusterId) <
-            std::min(globalClusterId + 2, static_cast<int>(m_timeStepping.numberOfGlobalClusters)));
-        const auto otherTimeStepSize = m_timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
-        const long otherTimeStepRate =
-            ipow(static_cast<long>(m_timeStepping.globalTimeStepRates[0]),
-                 static_cast<long>(otherGlobalClusterId));
+            std::min(globalClusterId + 2, static_cast<int>(timeStepping.numberOfGlobalClusters)));
+        const auto otherTimeStepSize = timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
+        const long otherTimeStepRate = ipow(static_cast<long>(timeStepping.globalTimeStepRates[0]),
+                                            static_cast<long>(otherGlobalClusterId));
 
         auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
                                                          otherTimeStepRate,
@@ -213,31 +211,31 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
   auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
   auto& [increaseManager, decreaseManager] = timeMirrorManagers;
 
-  auto ghostClusterPointer = communicationManager->getGhostClusters();
+  auto* ghostClusterPointer = communicationManager->getGhostClusters();
 
   increaseManager.setGhostClusterVector(ghostClusterPointer);
   decreaseManager.setGhostClusterVector(ghostClusterPointer);
 }
 
 void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
-  m_faultOutputManager = faultOutputManager;
+  this->faultOutputManager = faultOutputManager;
   for (auto& cluster : clusters) {
     cluster->setFaultOutputManager(faultOutputManager);
   }
 }
 
 seissol::dr::output::OutputManager* TimeManager::getFaultOutputManager() {
-  assert(m_faultOutputManager != nullptr);
-  return m_faultOutputManager;
+  assert(faultOutputManager != nullptr);
+  return faultOutputManager;
 }
 
 void TimeManager::advanceInTime(const double& synchronizationTime) {
   SCOREP_USER_REGION("advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   // We should always move forward in time
-  assert(m_timeStepping.synchronizationTime <= synchronizationTime);
+  assert(timeStepping.synchronizationTime <= synchronizationTime);
 
-  m_timeStepping.synchronizationTime = synchronizationTime;
+  timeStepping.synchronizationTime = synchronizationTime;
 
   for (auto& cluster : clusters) {
     cluster->setSyncTime(synchronizationTime);
@@ -313,12 +311,12 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 void TimeManager::printComputationTime(const std::string& outputPrefix,
                                        bool isLoopStatisticsNetcdfOutputOn) {
   actorStateStatisticsManager.finish();
-  m_loopStatistics.printSummary(MPI::mpi.comm());
-  m_loopStatistics.writeSamples(outputPrefix, isLoopStatisticsNetcdfOutputOn);
+  loopStatistics.printSummary(MPI::mpi.comm());
+  loopStatistics.writeSamples(outputPrefix, isLoopStatisticsNetcdfOutputOn);
 }
 
 double TimeManager::getTimeTolerance() const {
-  return 1E-5 * m_timeStepping.globalCflTimeStepWidths[0];
+  return 1E-5 * timeStepping.globalCflTimeStepWidths[0];
 }
 
 void TimeManager::setPointSourcesForClusters(
@@ -355,15 +353,8 @@ void TimeManager::setInitialTimes(double time) {
   }
 }
 
-void TimeManager::setTv(double tv) {
-  for (auto& cluster : clusters) {
-    cluster->setTv(tv);
-  }
-}
-
 void TimeManager::freeDynamicResources() {
   for (auto& cluster : clusters) {
-    cluster->freePointSources();
     cluster->finalize();
   }
   communicationManager.reset(nullptr);

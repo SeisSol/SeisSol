@@ -69,15 +69,15 @@ class TimeCluster : public AbstractTimeCluster {
    */
   kernels::Spacetime spacetimeKernel;
   //! time kernel
-  kernels::Time m_timeKernel;
+  kernels::Time timeKernel;
 
   //! local kernel
-  kernels::Local m_localKernel;
+  kernels::Local localKernel;
 
   //! neighbor kernel
-  kernels::Neighbor m_neighborKernel;
+  kernels::Neighbor neighborKernel;
 
-  kernels::DynamicRupture m_dynamicRuptureKernel;
+  kernels::DynamicRupture dynamicRuptureKernel;
 
   seissol::parallel::runtime::StreamRuntime streamRuntime;
 
@@ -85,8 +85,8 @@ class TimeCluster : public AbstractTimeCluster {
    * global data
    */
   //! global data structures
-  GlobalData* m_globalDataOnHost{nullptr};
-  GlobalData* m_globalDataOnDevice{nullptr};
+  GlobalData* globalDataOnHost{nullptr};
+  GlobalData* globalDataOnDevice{nullptr};
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
@@ -94,16 +94,16 @@ class TimeCluster : public AbstractTimeCluster {
   /*
    * element data
    */
-  seissol::initializer::Layer* m_clusterData;
+  seissol::initializer::Layer* clusterData;
   seissol::initializer::Layer* dynRupInteriorData;
   seissol::initializer::Layer* dynRupCopyData;
-  seissol::initializer::LTS* m_lts;
-  seissol::initializer::DynamicRupture* m_dynRup;
+  seissol::initializer::LTS* lts;
+  seissol::initializer::DynamicRupture* dynRup;
   dr::friction_law::FrictionSolver* frictionSolver;
   dr::friction_law::FrictionSolver* frictionSolverDevice;
   dr::output::OutputManager* faultOutputManager;
 
-  seissol::kernels::PointSourceClusterPair m_sourceCluster;
+  seissol::kernels::PointSourceClusterPair sourceCluster;
 
   enum class ComputePart : int {
     Local = 0,
@@ -116,21 +116,18 @@ class TimeCluster : public AbstractTimeCluster {
     NumComputeParts
   };
 
-  long long m_flops_nonZero[static_cast<int>(ComputePart::NumComputeParts)];
-  long long m_flops_hardware[static_cast<int>(ComputePart::NumComputeParts)];
-
-  //! Tv parameter for plasticity
-  double m_tv;
+  std::array<long long, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero;
+  std::array<long long, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware;
 
   //! Stopwatch of TimeManager
-  LoopStatistics* m_loopStatistics;
+  LoopStatistics* loopStatistics;
   ActorStateStatistics* actorStateStatistics;
-  unsigned m_regionComputeLocalIntegration;
-  unsigned m_regionComputeNeighboringIntegration;
-  unsigned m_regionComputeDynamicRupture;
-  unsigned m_regionComputePointSources;
+  unsigned regionComputeLocalIntegration;
+  unsigned regionComputeNeighboringIntegration;
+  unsigned regionComputeDynamicRupture;
+  unsigned regionComputePointSources;
 
-  kernels::ReceiverCluster* m_receiverCluster;
+  kernels::ReceiverCluster* receiverCluster;
 
   seissol::memory::MemkindArray<unsigned> yieldCells;
 
@@ -162,14 +159,14 @@ class TimeCluster : public AbstractTimeCluster {
    * Remark: After this step the DOFs are only updated half with the boundary contribution
    *         of the neighborings cells missing.
    *
-   * @param i_numberOfCells number of cells.
-   * @param i_cellInformation cell local information.
-   * @param i_cellData cell data.
-   * @param io_buffers time integration buffers.
-   * @param io_derivatives time derivatives.
-   * @param io_dofs degrees of freedom.
+   * @param numberOfCells number of cells.
+   * @param cellInformation cell local information.
+   * @param cellData cell data.
+   * @param buffers time integration buffers.
+   * @param derivatives time derivatives.
+   * @param dofs degrees of freedom.
    **/
-  void computeLocalIntegration(seissol::initializer::Layer& layerData, bool resetBuffers);
+  void computeLocalIntegration(bool resetBuffers);
 
   /**
    * Computes the contribution of the neighboring cells to the boundary integral.
@@ -178,34 +175,31 @@ class TimeCluster : public AbstractTimeCluster {
    *time step.
    * TODO: This excludes dynamic rupture contribution.
    *
-   * @param i_numberOfCells number of cells.
-   * @param i_cellInformation cell local information.
-   * @param i_cellData cell data.
-   * @param i_faceNeighbors pointers to neighboring time buffers or derivatives.
-   * @param io_dofs degrees of freedom.
+   * @param numberOfCells number of cells.
+   * @param cellInformation cell local information.
+   * @param cellData cell data.
+   * @param faceNeighbors pointers to neighboring time buffers or derivatives.
+   * @param dofs degrees of freedom.
    **/
-  void computeNeighboringIntegration(seissol::initializer::Layer& layerData, double subTimeStart);
+  void computeNeighboringIntegration(double subTimeStart);
 
 #ifdef ACL_DEVICE
-  void computeLocalIntegrationDevice(seissol::initializer::Layer& layerData, bool resetBuffers);
+  void computeLocalIntegrationDevice(bool resetBuffers);
   void computeDynamicRuptureDevice(seissol::initializer::Layer& layerData);
-  void computeNeighboringIntegrationDevice(seissol::initializer::Layer& layerData,
-                                           double subTimeStart);
+  void computeNeighboringIntegrationDevice(double subTimeStart);
 #endif
 
-  void computeLocalIntegrationFlops(seissol::initializer::Layer& layerData);
+  void computeLocalIntegrationFlops();
 
-  template <bool usePlasticity>
-  std::pair<long, long>
-      computeNeighboringIntegrationImplementation(seissol::initializer::Layer& layerData,
-                                                  double subTimeStart);
+  template <bool UsePlasticity>
+  void computeNeighboringIntegrationImplementation(double subTimeStart);
 
   void computeLocalIntegrationFlops(unsigned numberOfCells,
                                     const CellLocalInformation* cellInformation,
                                     long long& nonZeroFlops,
                                     long long& hardwareFlops);
 
-  void computeNeighborIntegrationFlops(seissol::initializer::Layer& layerData);
+  void computeNeighborIntegrationFlops();
 
   void computeDynamicRuptureFlops(seissol::initializer::Layer& layerData,
                                   long long& nonZeroFlops,
@@ -215,18 +209,18 @@ class TimeCluster : public AbstractTimeCluster {
 
   const LayerType layerType;
   //! time of the next receiver output
-  double m_receiverTime;
+  double receiverTime;
 
   //! print status every 100th timestep
   bool printProgress;
   //! cluster id on this rank
-  const unsigned int m_clusterId;
+  const unsigned int clusterId;
 
   //! global cluster cluster id
-  const unsigned int m_globalClusterId;
+  const unsigned int globalClusterId;
 
   //! id used to identify this cluster (including layer type) when profiling
-  const unsigned int m_profilingId;
+  const unsigned int profilingId;
 
   DynamicRuptureScheduler* dynamicRuptureScheduler;
 
@@ -238,12 +232,12 @@ class TimeCluster : public AbstractTimeCluster {
   /**
    * Constructs a new LTS cluster.
    *
-   * @param i_clusterId id of this cluster with respect to the current rank.
-   * @param i_globalClusterId global id of this cluster.
+   * @param clusterId id of this cluster with respect to the current rank.
+   * @param globalClusterId global id of this cluster.
    * @param usePlasticity true if using plasticity
    **/
-  TimeCluster(unsigned int i_clusterId,
-              unsigned int i_globalClusterId,
+  TimeCluster(unsigned int clusterId,
+              unsigned int globalClusterId,
               unsigned int profilingId,
               bool usePlasticity,
               LayerType layerType,
@@ -251,23 +245,19 @@ class TimeCluster : public AbstractTimeCluster {
               long timeStepRate,
               bool printProgress,
               DynamicRuptureScheduler* dynamicRuptureScheduler,
-              CompoundGlobalData i_globalData,
-              seissol::initializer::Layer* i_clusterData,
+              CompoundGlobalData globalData,
+              seissol::initializer::Layer* clusterData,
               seissol::initializer::Layer* dynRupInteriorData,
               seissol::initializer::Layer* dynRupCopyData,
-              seissol::initializer::LTS* i_lts,
-              seissol::initializer::DynamicRupture* i_dynRup,
-              seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
-              seissol::dr::friction_law::FrictionSolver* i_FrictionSolverDevice,
-              dr::output::OutputManager* i_faultOutputManager,
+              seissol::initializer::LTS* lts,
+              seissol::initializer::DynamicRupture* dynRup,
+              seissol::dr::friction_law::FrictionSolver* frictionSolver,
+              seissol::dr::friction_law::FrictionSolver* frictionSolverDevice,
+              dr::output::OutputManager* faultOutputManager,
               seissol::SeisSol& seissolInstance,
-              LoopStatistics* i_loopStatistics,
+              LoopStatistics* loopStatistics,
               ActorStateStatistics* actorStateStatistics);
 
-  /**
-   * Destructor of a LTS cluster.
-   * TODO: Currently prints only statistics in debug mode.
-   **/
   ~TimeCluster() override;
 
   /**
@@ -276,23 +266,14 @@ class TimeCluster : public AbstractTimeCluster {
    * @param sourceCluster Contains point sources for cluster
    */
   void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster);
-  void freePointSources() {
-    m_sourceCluster.host.reset(nullptr);
-    m_sourceCluster.device.reset(nullptr);
-  }
 
   void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) {
-    m_receiverCluster = receiverCluster;
+    this->receiverCluster = receiverCluster;
   }
 
   void setFaultOutputManager(dr::output::OutputManager* outputManager) {
     faultOutputManager = outputManager;
   }
-
-  /**
-   * Set Tv constant for plasticity.
-   */
-  void setTv(double tv) { m_tv = tv; }
 
   void setLastSubTime(double lastSubTime) { this->lastSubTime = lastSubTime; }
 

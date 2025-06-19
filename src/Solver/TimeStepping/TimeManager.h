@@ -49,23 +49,11 @@ constexpr T ipow(T x, T y) {
  * Time manager, which takes care of the time stepping.
  **/
 class TimeManager {
-  // private:
-  /**
-   * Compares to cluster pointer by their id.
-   **/
-  struct clusterCompare {
-    bool operator()(const TimeCluster* l_first, const TimeCluster* l_second) {
-      return l_first->getGlobalClusterId() > l_second->getGlobalClusterId();
-    }
-  };
-
-  //! last #updates of log
-  unsigned int m_logUpdates;
-
+  private:
   seissol::SeisSol& seissolInstance;
 
   //! time stepping
-  TimeStepping m_timeStepping;
+  TimeStepping timeStepping;
 
   //! all local (copy & interior) LTS clusters, which are under control of this time manager
   std::vector<std::unique_ptr<TimeCluster>> clusters;
@@ -79,11 +67,11 @@ class TimeManager {
   std::unique_ptr<AbstractCommunicationManager> communicationManager;
 
   //! Stopwatch
-  LoopStatistics m_loopStatistics;
+  LoopStatistics loopStatistics;
   ActorStateStatisticsManager actorStateStatisticsManager;
 
   //! dynamic rupture output
-  dr::output::OutputManager* m_faultOutputManager{};
+  dr::output::OutputManager* faultOutputManager{};
 
   public:
   /**
@@ -104,8 +92,8 @@ class TimeManager {
    * @param memoryManager memory manager.
    * @param i_meshToClusters mapping from the mesh to the clusters.
    **/
-  void addClusters(TimeStepping& i_timeStepping,
-                   MeshStructure* i_meshStructure,
+  void addClusters(TimeStepping& timeStepping,
+                   MeshStructure* meshStructure,
                    initializer::MemoryManager& memoryManager,
                    bool usePlasticity);
 
@@ -137,11 +125,6 @@ class TimeManager {
   void setReceiverClusters(writer::ReceiverWriter& receiverWriter);
 
   /**
-   * Set Tv constant for plasticity.
-   */
-  void setTv(double tv);
-
-  /**
    * Sets the initial time (time DOFS/DOFs/receivers) of all time clusters.
    * Required only if different from zero, for example in checkpointing.
    *
@@ -155,7 +138,7 @@ class TimeManager {
 
   void synchronizeTo(seissol::initializer::AllocationPlace place);
 
-  const TimeStepping* getTimeStepping() { return &m_timeStepping; }
+  const TimeStepping* getTimeStepping() { return &timeStepping; }
 };
 
 } // namespace seissol::time_stepping

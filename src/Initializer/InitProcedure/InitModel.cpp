@@ -365,11 +365,6 @@ void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                             seissolInstance.getMemoryManager(),
                                             seissolParams.model.plasticity);
 
-  // set tv for all time clusters (this needs to be done, after the time clusters start existing)
-  if (seissolParams.model.plasticity) {
-    seissolInstance.timeManager().setTv(seissolParams.model.tv);
-  }
-
   seissolInstance.getMemoryManager().fixateBoundaryLtsTree();
 }
 
