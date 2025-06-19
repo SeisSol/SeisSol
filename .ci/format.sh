@@ -32,15 +32,13 @@ format() {
         src/Proxy
         src/Reader
         src/ResultWriter
+        src/Solver
         src/SourceTerm
         src/tests
         "
 
     # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
     local allowlist_file="
-        src/Solver/MultipleSimulations.h
-        src/Solver/Estimator.h
-        src/Solver/Estimator.cpp
         src/SeisSol.h
         src/SeisSol.cpp
         src/Main.cpp

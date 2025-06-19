@@ -13,6 +13,7 @@
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/MemoryContainer.h"
+#include <Initializer/TimeStepping/ClusterLayout.h>
 
 namespace seissol::initializer {
 class EasiBoundary;
@@ -21,7 +22,7 @@ class EasiBoundary;
  **/
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  seissol::memory::MemoryContainer& container,
-                                 const TimeStepping& timeStepping,
+                                 const ClusterLayout& clusterLayout,
                                  const parameters::ModelParameters& modelParameters);
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,

@@ -10,12 +10,14 @@
 #include "Initializer/Typedefs.h"
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Kernels/Common.h>
 #include <Modules/Modules.h>
 #include <Monitoring/Stopwatch.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
 #include <Solver/Estimator.h>
 #include <cassert>
+#include <optional>
 #include <string>
 #include <utils/env.h>
 #include <utils/logger.h>
@@ -175,7 +177,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 struct LtsInfo {
   unsigned* ltsMeshToFace = nullptr;
   MeshStructure* meshStructure = nullptr;
-  TimeStepping timeStepping{};
+  std::optional<ClusterLayout> clusterLayout;
 
   // IMPORTANT: DO NOT DEALLOCATE THE ABOVE POINTERS... THEY ARE PASSED ON AND REQUIRED DURING
   // RUNTIME
@@ -188,8 +190,10 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   auto& meshReader = seissolInstance.meshReader();
   auto& memoryManager = seissolInstance.getMemoryManager();
 
-  seissol::initializer::initializeCellLocalMatrices(
-      meshReader, memoryManager.memoryContainer(), ltsInfo.timeStepping, seissolParams.model);
+  seissol::initializer::initializeCellLocalMatrices(meshReader,
+                                                    memoryManager.memoryContainer(),
+                                                    ltsInfo.clusterLayout.value(),
+                                                    seissolParams.model);
 
   if (seissolParams.drParameters.etaHack != 1.0) {
     logWarning() << "The \"eta hack\" has been enabled in the timeframe [0,"
@@ -217,7 +221,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
     const double scalingFactor = itmParameters.itmVelocityScalingFactor;
     const double startingTime = itmParameters.itmStartingTime;
 
-    const auto* mTimeStepping = seissolInstance.timeManager().getTimeStepping();
+    const auto* timeStepping = &seissolInstance.timeManager().getClusterLayout();
 
     initializeTimeMirrorManagers(scalingFactor,
                                  startingTime,
@@ -226,7 +230,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                  timeMirrorManagers.first,
                                  timeMirrorManagers.second,
                                  seissolInstance,
-                                 mTimeStepping);
+                                 timeStepping);
   }
 }
 
@@ -265,15 +269,10 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
 void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
-  seissolInstance.timeManager().addClusters(ltsInfo.timeStepping,
+  seissolInstance.timeManager().addClusters(ltsInfo.clusterLayout.value(),
                                             ltsInfo.meshStructure,
                                             seissolInstance.getMemoryManager(),
                                             seissolParams.model.plasticity);
-
-  // set tv for all time clusters (this needs to be done, after the time clusters start existing)
-  if (seissolParams.model.plasticity) {
-    seissolInstance.timeManager().setTv(seissolParams.model.tv);
-  }
 }
 
 } // namespace

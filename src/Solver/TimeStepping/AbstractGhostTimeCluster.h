@@ -5,12 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTGHOSTTIMECLUSTER_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTGHOSTTIMECLUSTER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_ABSTRACTGHOSTTIMECLUSTER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_ABSTRACTGHOSTTIMECLUSTER_H_
 
-#include <list>
-#include "Initializer/Typedefs.h"
 #include "AbstractTimeCluster.h"
+#include "Initializer/Typedefs.h"
+#include <list>
 
 #include "Parallel/MPI.h"
 
@@ -46,14 +46,14 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
 
   public:
   AbstractGhostTimeCluster(double maxTimeStepSize,
-                          int timeStepRate,
-                          int globalTimeClusterId,
-                          int otherGlobalTimeClusterId,
-                          const MeshStructure* meshStructure);
+                           int timeStepRate,
+                           int globalTimeClusterId,
+                           int otherGlobalTimeClusterId,
+                           const MeshStructure* meshStructure);
 
   void reset() override;
   ActResult act() override;
 };
 } // namespace seissol::time_stepping
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_ABSTRACTGHOSTTIMECLUSTER_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_ABSTRACTGHOSTTIMECLUSTER_H_

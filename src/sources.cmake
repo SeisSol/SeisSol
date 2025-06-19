@@ -22,14 +22,14 @@ add_library(seissol-common-lib
 
 src/Initializer/CellLocalMatrices.cpp
 src/Memory/GlobalData.cpp
-src/Solver/time_stepping/AbstractGhostTimeCluster.cpp
-src/Solver/time_stepping/AbstractTimeCluster.cpp
-src/Solver/time_stepping/ActorState.cpp
-src/Solver/time_stepping/CommunicationManager.cpp
-src/Solver/time_stepping/DirectGhostTimeCluster.cpp
-src/Solver/time_stepping/GhostTimeClusterWithCopy.cpp
-src/Solver/time_stepping/TimeCluster.cpp
-src/Solver/time_stepping/TimeManager.cpp
+src/Solver/TimeStepping/AbstractGhostTimeCluster.cpp
+src/Solver/TimeStepping/AbstractTimeCluster.cpp
+src/Solver/TimeStepping/ActorState.cpp
+src/Solver/TimeStepping/CommunicationManager.cpp
+src/Solver/TimeStepping/DirectGhostTimeCluster.cpp
+src/Solver/TimeStepping/GhostTimeClusterWithCopy.cpp
+src/Solver/TimeStepping/TimeCluster.cpp
+src/Solver/TimeStepping/TimeManager.cpp
 
 src/Kernels/DynamicRupture.cpp
 src/Kernels/Plasticity.cpp
@@ -70,6 +70,7 @@ src/Model/Common.cpp
 src/Numerical/Functions.cpp
 src/Numerical/Statistics.cpp
 src/Parallel/Pin.cpp
+src/Parallel/HelperThread.cpp
 src/Physics/InstantaneousTimeMirrorManager.cpp
 src/ResultWriter/ClusteringWriter.cpp
 src/ResultWriter/AsyncIO.cpp

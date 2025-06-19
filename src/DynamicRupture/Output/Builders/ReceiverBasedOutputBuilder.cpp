@@ -16,9 +16,6 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include <Common/Typedefs.h>

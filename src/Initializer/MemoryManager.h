@@ -14,6 +14,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Layer.h"
 #include <Config.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Memory/MemoryContainer.h>
 #include <Memory/Tree/Backmap.h>
 #include <mpi.h>
@@ -116,7 +117,7 @@ class MemoryManager {
    *
    * @param i_meshStructrue mesh structure.
    **/
-  void fixateLtsTree(struct TimeStepping& timeStepping,
+  void fixateLtsTree(struct ClusterLayout& clusterLayout,
                      struct MeshStructure* meshStructure,
                      unsigned* numberOfDRCopyFaces,
                      unsigned* numberOfDRInteriorFaces,

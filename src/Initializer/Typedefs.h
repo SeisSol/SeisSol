@@ -29,39 +29,6 @@ namespace kernels {
 constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
 } // namespace kernels
 
-// cross-cluster time stepping information
-struct TimeStepping {
-  /*
-   * Number of lts clusters present throughout the entire domain.
-   */
-  unsigned int numberOfGlobalClusters;
-
-  /*
-   * Time step rate the cluster is smaller than the next one.
-   */
-  unsigned int* globalTimeStepRates;
-
-  /*
-   * Time step widths of the global time clusters according to CFL.
-   */
-  double* globalCflTimeStepWidths;
-
-  /*
-   * Time all clusters are aiming to reach.
-   */
-  double synchronizationTime;
-
-  /*
-   * Number of local clusters present on this rank.
-   */
-  unsigned int numberOfLocalClusters;
-
-  /*
-   * Ids of the local clusters with respect to global ordering.
-   */
-  unsigned int* clusterIds;
-};
-
 struct MeshStructure {
   /*
    * Number of regions in the ghost and copy layer.
@@ -233,7 +200,7 @@ struct GlobalData {
    **/
   seissol::tensor::V3mTo2nTWDivM::Container<const real*> nodalFluxMatrices;
 
-  seissol::nodal::tensor::V3mTo2nFace::Container<const real*> V3mTo2nFace;
+  seissol::nodal::tensor::V3mTo2nFace::Container<const real*> v3mTo2nFace;
   seissol::tensor::project2nFaceTo3m::Container<const real*> project2nFaceTo3m;
 
   /**
@@ -317,7 +284,7 @@ struct DRFaceInformation {
 };
 
 struct DRGodunovData {
-  real TinvT[seissol::tensor::TinvT::size()];
+  real dataTinvT[seissol::tensor::TinvT::size()];
   real tractionPlusMatrix[seissol::tensor::tractionPlusMatrix::size()];
   real tractionMinusMatrix[seissol::tensor::tractionMinusMatrix::size()];
   // When integrating quantities over the fault
@@ -369,8 +336,8 @@ struct CellDRMapping {
 
 struct CellBoundaryMapping {
   real* nodes;
-  real* TData;
-  real* TinvData;
+  real* dataT;
+  real* dataTinv;
   real* easiBoundaryConstant;
   real* easiBoundaryMap;
 };
@@ -378,8 +345,8 @@ struct CellBoundaryMapping {
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
   real nodes[seissol::nodal::tensor::nodes2D::Shape[0] * 3];
-  real TData[seissol::tensor::T::size()];
-  real TinvData[seissol::tensor::Tinv::size()];
+  real dataT[seissol::tensor::T::size()];
+  real dataTinv[seissol::tensor::Tinv::size()];
   real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
   real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
 };
