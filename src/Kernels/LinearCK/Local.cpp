@@ -56,8 +56,8 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
   m_nodalLfKrnlPrototype.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
 
-  m_projectKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
-  m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
+  m_projectKrnlPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -71,7 +71,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
   deviceNodalLfKrnlPrototype.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-  deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->V3mTo2nFace;
+  deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
 }
 

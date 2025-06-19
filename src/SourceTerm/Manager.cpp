@@ -34,7 +34,7 @@
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
 #include <Solver/MultipleSimulations.h>
-#include <Solver/time_stepping/TimeManager.h>
+#include <Solver/TimeStepping/TimeManager.h>
 #include <SourceTerm/NRF.h>
 #include <SourceTerm/Typedefs.h>
 #include <algorithm>

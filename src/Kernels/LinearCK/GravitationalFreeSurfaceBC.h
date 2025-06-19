@@ -67,10 +67,10 @@ class GravitationalFreeSurfaceBc {
 
     // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
     assert(boundaryMapping.nodes != nullptr);
-    assert(boundaryMapping.TinvData != nullptr);
-    assert(boundaryMapping.TData != nullptr);
-    auto tinv = init::Tinv::view::create(boundaryMapping.TinvData);
-    auto t = init::Tinv::view::create(boundaryMapping.TData);
+    assert(boundaryMapping.dataTinv != nullptr);
+    assert(boundaryMapping.dataT != nullptr);
+    auto tinv = init::Tinv::view::create(boundaryMapping.dataTinv);
+    auto t = init::Tinv::view::create(boundaryMapping.dataT);
     auto projectKernel = std::forward<MappingKrnl>(projectKernelPrototype);
     projectKernel.Tinv = tinv.data();
 

@@ -5,12 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_GHOSTTIMECLUSTERFACTORY_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_GHOSTTIMECLUSTERFACTORY_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_GHOSTTIMECLUSTERFACTORY_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_GHOSTTIMECLUSTERFACTORY_H_
 
-#include "Solver/time_stepping/DirectGhostTimeCluster.h"
+#include "Solver/TimeStepping/DirectGhostTimeCluster.h"
 #ifdef ACL_DEVICE
-#include "Solver/time_stepping/GhostTimeClusterWithCopy.h"
+#include "Solver/TimeStepping/GhostTimeClusterWithCopy.h"
 #endif // ACL_DEVICE
 #include "Parallel/MPI.h"
 #include "memory"
@@ -53,4 +53,4 @@ struct GhostTimeClusterFactory {
 };
 } // namespace seissol::time_stepping
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_GHOSTTIMECLUSTERFACTORY_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_GHOSTTIMECLUSTERFACTORY_H_

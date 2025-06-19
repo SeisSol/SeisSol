@@ -17,6 +17,7 @@
 
 #include "Initializer/Parameters/SeisSolParameters.h"
 
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <array>
 #include <cassert>
 #include <limits>
@@ -405,12 +406,7 @@ class seissol::initializer::time_stepping::LtsLayout {
     void deriveLayout( enum TimeClustering i_timeClustering,
                        unsigned int        i_clusterRate = std::numeric_limits<unsigned int>::max() );
 
-    /**
-     * Gets the cross-cluster time stepping information.
-     *
-     * @param o_timeStepping cross-cluster time stepping information.
-     **/
-    void getCrossClusterTimeStepping( struct TimeStepping &o_timeStepping );
+    [[nodiscard]] ClusterLayout clusterLayout() const;
 
     /**
      * Initializes the data structures required for computation.

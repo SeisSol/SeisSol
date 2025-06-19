@@ -11,7 +11,7 @@
 
 #include "Geometry/MeshReader.h"
 #include "Memory/Tree/Lut.h"
-#include "Solver/time_stepping/TimeManager.h"
+#include "Solver/TimeStepping/TimeManager.h"
 #include <cstdarg>
 
 namespace seissol::sourceterm {

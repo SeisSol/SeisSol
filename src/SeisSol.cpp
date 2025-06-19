@@ -8,8 +8,6 @@
 
 #include "SeisSol.h"
 
-#include <Common/Executor.h>
-#include <Kernels/Common.h>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -139,19 +137,6 @@ void SeisSol::setBackupTimeStamp(const std::string& stamp) {
 
 void SeisSol::loadCheckpoint(const std::string& file) {
   checkpointLoadFile = std::make_optional<std::string>(file);
-}
-
-Executor SeisSol::executionPlace(std::size_t clusterSize) {
-  constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
-  if (executionPlaceCutoff.has_value()) {
-    if (executionPlaceCutoff.value() <= clusterSize) {
-      return DefaultDevice;
-    } else {
-      return Executor::Host;
-    }
-  } else {
-    return DefaultDevice;
-  }
 }
 
 void SeisSol::setExecutionPlaceCutoff(std::size_t size) { executionPlaceCutoff = size; }
