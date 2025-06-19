@@ -91,13 +91,13 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
       const auto plusSide = faceInfo[faceId].plusSide;
       qInterpolatedPlusPtr[plusSide].push_back(&qInterpolatedPlus[faceId][0][0]);
       idofsPlusPtr[plusSide].push_back(&idofsPlus[faceId * idofsSize]);
-      tInvTPlusPtr[plusSide].push_back((&godunovData[faceId])->TinvT);
+      tInvTPlusPtr[plusSide].push_back((&godunovData[faceId])->dataTinvT);
 
       const auto minusSide = faceInfo[faceId].minusSide;
       const auto faceRelation = faceInfo[faceId].faceRelation;
       qInterpolatedMinusPtr[minusSide][faceRelation].push_back(&qInterpolatedMinus[faceId][0][0]);
       idofsMinusPtr[minusSide][faceRelation].push_back(&idofsMinus[faceId * idofsSize]);
-      tInvTMinusPtr[minusSide][faceRelation].push_back((&godunovData[faceId])->TinvT);
+      tInvTMinusPtr[minusSide][faceRelation].push_back((&godunovData[faceId])->dataTinvT);
     }
 
     for (unsigned side = 0; side < 4; ++side) {

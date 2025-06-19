@@ -370,7 +370,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(bool resetBuff
           data.cellInformation().faceTypes[face] != FaceType::FreeSurfaceGravity) {
         kernel::addVelocity addVelocityKrnl;
 
-        addVelocityKrnl.V3mTo2nFace = globalDataOnHost->V3mTo2nFace;
+        addVelocityKrnl.V3mTo2nFace = globalDataOnHost->v3mTo2nFace;
         addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
         addVelocityKrnl.faceDisplacement = data.faceDisplacements()[face];
         addVelocityKrnl.I = bufferPointer;
@@ -442,7 +442,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(bool res
                 entry.get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
             displacementKrnl.integratedVelocities = const_cast<const real**>(
                 entry.get(inner_keys::Wp::Id::Ivelocities)->getDeviceDataPtr());
-            displacementKrnl.V3mTo2nFace = globalDataOnDevice->V3mTo2nFace;
+            displacementKrnl.V3mTo2nFace = globalDataOnDevice->v3mTo2nFace;
 
             // Note: this kernel doesn't require tmp. memory
             displacementKrnl.numElements =

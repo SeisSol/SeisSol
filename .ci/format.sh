@@ -50,6 +50,7 @@ format() {
         src/Initializer/InitialFieldProjection.h
         src/Initializer/InitialFieldProjection.cpp
         src/Initializer/InputAux.h
+        src/Initializer/Typedefs.h
         src/Initializer/ParameterDB.h
         src/Initializer/ParameterDB.cpp
         src/Initializer/PointMapper.h

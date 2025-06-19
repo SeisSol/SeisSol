@@ -412,8 +412,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         }
 
         // Compute map that rotates to normal aligned coordinate system.
-        real* matTData = boundary[cell][side].TData;
-        real* matTinvData = boundary[cell][side].TinvData;
+        real* matTData = boundary[cell][side].dataT;
+        real* matTinvData = boundary[cell][side].dataTinv;
         assert(matTData != nullptr);
         assert(matTinvData != nullptr);
         auto matT = init::T::view::create(matTData);
@@ -755,7 +755,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       /// Transpose matTinv
       dynamicRupture::kernel::transposeTinv ttKrnl;
       ttKrnl.Tinv = matTinvData;
-      ttKrnl.TinvT = godunovData[ltsFace].TinvT;
+      ttKrnl.TinvT = godunovData[ltsFace].dataTinvT;
       ttKrnl.execute();
 
       double plusSurfaceArea = 0;

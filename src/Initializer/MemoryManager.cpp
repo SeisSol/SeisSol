@@ -500,25 +500,25 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
       for (unsigned face = 0; face < 4; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
-          boundaryMapping[cell][face].TData = faceInformation[boundaryFace].TData;
-          boundaryMapping[cell][face].TinvData = faceInformation[boundaryFace].TinvData;
+          boundaryMapping[cell][face].dataT = faceInformation[boundaryFace].dataT;
+          boundaryMapping[cell][face].dataTinv = faceInformation[boundaryFace].dataTinv;
           boundaryMapping[cell][face].easiBoundaryMap = faceInformation[boundaryFace].easiBoundaryMap;
           boundaryMapping[cell][face].easiBoundaryConstant = faceInformation[boundaryFace].easiBoundaryConstant;
           boundaryMappingDevice[cell][face].nodes = faceInformationDevice[boundaryFace].nodes;
-          boundaryMappingDevice[cell][face].TData = faceInformationDevice[boundaryFace].TData;
-          boundaryMappingDevice[cell][face].TinvData = faceInformationDevice[boundaryFace].TinvData;
+          boundaryMappingDevice[cell][face].dataT = faceInformationDevice[boundaryFace].dataT;
+          boundaryMappingDevice[cell][face].dataTinv = faceInformationDevice[boundaryFace].dataTinv;
           boundaryMappingDevice[cell][face].easiBoundaryMap = faceInformationDevice[boundaryFace].easiBoundaryMap;
           boundaryMappingDevice[cell][face].easiBoundaryConstant = faceInformationDevice[boundaryFace].easiBoundaryConstant;
           ++boundaryFace;
         } else {
           boundaryMapping[cell][face].nodes = nullptr;
-          boundaryMapping[cell][face].TData = nullptr;
-          boundaryMapping[cell][face].TinvData = nullptr;
+          boundaryMapping[cell][face].dataT = nullptr;
+          boundaryMapping[cell][face].dataTinv = nullptr;
           boundaryMapping[cell][face].easiBoundaryMap = nullptr;
           boundaryMapping[cell][face].easiBoundaryConstant = nullptr;
           boundaryMappingDevice[cell][face].nodes = nullptr;
-          boundaryMappingDevice[cell][face].TData = nullptr;
-          boundaryMappingDevice[cell][face].TinvData = nullptr;
+          boundaryMappingDevice[cell][face].dataT = nullptr;
+          boundaryMappingDevice[cell][face].dataTinv = nullptr;
           boundaryMappingDevice[cell][face].easiBoundaryMap = nullptr;
           boundaryMappingDevice[cell][face].easiBoundaryConstant = nullptr;
         }

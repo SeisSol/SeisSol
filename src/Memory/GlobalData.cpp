@@ -184,7 +184,7 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   copyManager.template copyFamilyToMemAndSetPtr<init::fP>(
       globalMatrixMemPtr, globalData.neighborFluxMatrices, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<nodal::init::V3mTo2nFace>(
-      globalMatrixMemPtr, globalData.V3mTo2nFace, prop.alignment);
+      globalMatrixMemPtr, globalData.v3mTo2nFace, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::project2nFaceTo3m>(
       globalMatrixMemPtr, globalData.project2nFaceTo3m, prop.alignment);
 
