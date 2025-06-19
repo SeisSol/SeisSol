@@ -16,6 +16,7 @@
 #include "Modules/Module.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Solver/TimeStepping/TimeCluster.h"
+#include <Solver/TimeStepping/AbstractTimeCluster.h>
 
 namespace seissol {
 class SeisSol;
@@ -34,9 +35,7 @@ class InstantaneousTimeMirrorManager : Module {
   initializer::Lut* ltsLut{};
   const TimeStepping* timestepping{};
 
-  std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* timeClusters{};
-  std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>*
-      ghostTimeClusters{};
+  std::vector<seissol::time_stepping::AbstractTimeCluster*> clusters;
 
   public:
   explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
@@ -51,11 +50,7 @@ class InstantaneousTimeMirrorManager : Module {
             const TimeStepping* timestepping); // An empty timestepping is added. Need to discuss
                                                // what exactly is to be sent here
 
-  void setTimeClusterVector(
-      std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters);
-
-  void setGhostClusterVector(
-      std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* clusters);
+  void setClusterVector(const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters);
 
   void syncPoint(double currentTime) override;
 

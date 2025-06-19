@@ -21,6 +21,7 @@
 #include <Memory/Tree/Layer.h>
 #include <ResultWriter/ReceiverWriter.h>
 #include <Solver/TimeStepping/AbstractGhostTimeCluster.h>
+#include <Solver/TimeStepping/AbstractTimeCluster.h>
 #include <Solver/TimeStepping/ActorState.h>
 #include <Solver/TimeStepping/GhostTimeClusterFactory.h>
 #include <Solver/TimeStepping/TimeCluster.h>
@@ -159,9 +160,6 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
     auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
     auto& [increaseManager, decreaseManager] = timeMirrorManagers;
 
-    increaseManager.setTimeClusterVector(&clusters);
-    decreaseManager.setTimeClusterVector(&clusters);
-
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
     const auto persistent = usePersistentMpi(seissolInstance.env());
@@ -228,8 +226,16 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
 
   auto* ghostClusterPointer = communicationManager->getGhostClusters();
 
-  increaseManager.setGhostClusterVector(ghostClusterPointer);
-  decreaseManager.setGhostClusterVector(ghostClusterPointer);
+  std::vector<AbstractTimeCluster*> allClusters(clusters.size() + ghostClusterPointer->size());
+  for (std::size_t i = 0; i < clusters.size(); ++i) {
+    allClusters[i] = clusters[i].get();
+  }
+  for (std::size_t i = 0; i < ghostClusterPointer->size(); ++i) {
+    allClusters[i + clusters.size()] = ghostClusterPointer->at(i).get();
+  }
+
+  increaseManager.setClusterVector(allClusters);
+  decreaseManager.setClusterVector(allClusters);
 }
 
 void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
@@ -357,14 +363,10 @@ void TimeManager::setInitialTimes(double time) {
   assert(time >= 0);
 
   for (auto& cluster : clusters) {
-    cluster->setPredictionTime(time);
-    cluster->setCorrectionTime(time);
-    cluster->setReceiverTime(time);
-    cluster->setLastSubTime(time);
+    cluster->setTime(time);
   }
   for (auto& cluster : *communicationManager->getGhostClusters()) {
-    cluster->setPredictionTime(time);
-    cluster->setCorrectionTime(time);
+    cluster->setTime(time);
   }
 }
 

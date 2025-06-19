@@ -17,7 +17,7 @@
 #include <Memory/Tree/Lut.h>
 #include <Modules/Module.h>
 #include <cmath>
-#include <memory>
+#include <cstddef>
 #include <utils/logger.h>
 #include <vector>
 
@@ -85,7 +85,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     CellMaterialData* materials = layer.var(lts->material);
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves) {
-      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
 // Refocusing both waves
 #ifndef USE_ACOUSTIC
@@ -102,7 +102,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     }
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWavesVelocity) {
-      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing both waves with constant velocities
         material.local.lambda *= velocityScalingFactor;
@@ -121,7 +121,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     }
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
-      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only P-waves
         material.local.lambda *= velocityScalingFactor * velocityScalingFactor;
@@ -132,7 +132,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     }
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
-      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only S-waves
         // material.local.lambda =
@@ -183,20 +183,11 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
   // refocusing both the waves. Default scenario. Works for both waves, only P-wave and constant
   // impedance case
   {
-    for (auto& cluster : *timeClusters) {
+    for (auto& cluster : clusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
       auto* neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
         neighborCluster.ct.setTimeStepSize(neighborCluster.ct.getTimeStepSize() /
-                                           velocityScalingFactor);
-      }
-    }
-
-    for (auto& cluster : *ghostTimeClusters) {
-      cluster->setClusterTimes(cluster->getClusterTimes() / velocityScalingFactor);
-      auto* ghostNeighborClusters = cluster->getNeighborClusters();
-      for (auto& neighborcluster : *ghostNeighborClusters) {
-        neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() /
                                            velocityScalingFactor);
       }
     }
@@ -213,7 +204,7 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
       timeStepScalingFactor = 2.0;
     }
 
-    for (auto& cluster : *timeClusters) {
+    for (auto& cluster : clusters) {
       cluster->setClusterTimes(cluster->getClusterTimes() * timeStepScalingFactor);
       auto* neighborClusters = cluster->getNeighborClusters();
       for (auto& neighborCluster : *neighborClusters) {
@@ -221,26 +212,12 @@ void InstantaneousTimeMirrorManager::updateTimeSteps() {
                                            timeStepScalingFactor);
       }
     }
-
-    for (auto& cluster : *ghostTimeClusters) {
-      cluster->setClusterTimes(cluster->getClusterTimes() * timeStepScalingFactor);
-      auto* ghostNeighborClusters = cluster->getNeighborClusters();
-      for (auto& neighborcluster : *ghostNeighborClusters) {
-        neighborcluster.ct.setTimeStepSize(neighborcluster.ct.getTimeStepSize() *
-                                           timeStepScalingFactor);
-      }
-    }
   }
 }
 
-void InstantaneousTimeMirrorManager::setTimeClusterVector(
-    std::vector<std::unique_ptr<seissol::time_stepping::TimeCluster>>* clusters) {
-  timeClusters = clusters;
-}
-
-void InstantaneousTimeMirrorManager::setGhostClusterVector(
-    std::vector<std::unique_ptr<seissol::time_stepping::AbstractGhostTimeCluster>>* clusters) {
-  ghostTimeClusters = clusters;
+void InstantaneousTimeMirrorManager::setClusterVector(
+    const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters) {
+  this->clusters = clusters;
 }
 
 void initializeTimeMirrorManagers(double scalingFactor,

@@ -242,16 +242,11 @@ void AbstractTimeCluster::setPriority(ActorPriority newPriority) { this->priorit
 
 ActorState AbstractTimeCluster::getState() const { return state; }
 
-void AbstractTimeCluster::setPredictionTime(double time) {
+void AbstractTimeCluster::setTime(double time) {
   ct.predictionTime = time;
-  for (auto& neighbor : neighbors) {
-    neighbor.ct.predictionTime = time;
-  }
-}
-
-void AbstractTimeCluster::setCorrectionTime(double time) {
   ct.correctionTime = time;
   for (auto& neighbor : neighbors) {
+    neighbor.ct.predictionTime = time;
     neighbor.ct.correctionTime = time;
   }
 }

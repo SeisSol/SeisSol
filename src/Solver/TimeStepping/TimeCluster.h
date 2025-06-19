@@ -275,8 +275,6 @@ class TimeCluster : public AbstractTimeCluster {
     faultOutputManager = outputManager;
   }
 
-  void setLastSubTime(double lastSubTime) { this->lastSubTime = lastSubTime; }
-
   void reset() override;
 
   void finalize() override;
@@ -284,11 +282,11 @@ class TimeCluster : public AbstractTimeCluster {
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] LayerType getLayerType() const;
-  void setReceiverTime(double receiverTime);
+  void setTime(double time) override;
 
   std::vector<NeighborCluster>* getNeighborClusters();
 
-  void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream);
+  void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 
   void finishPhase() override;
 };

@@ -815,7 +815,11 @@ unsigned int TimeCluster::getClusterId() const { return clusterId; }
 unsigned int TimeCluster::getGlobalClusterId() const { return globalClusterId; }
 
 LayerType TimeCluster::getLayerType() const { return layerType; }
-void TimeCluster::setReceiverTime(double receiverTime) { this->receiverTime = receiverTime; }
+void TimeCluster::setTime(double time) {
+  AbstractTimeCluster::setTime(time);
+  this->receiverTime = time;
+  this->lastSubTime = time;
+}
 
 void TimeCluster::finalize() {
   sourceCluster.host.reset(nullptr);

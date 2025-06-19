@@ -9,8 +9,10 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ABSTRACTTIMECLUSTER_H_
 
 #include "ActorState.h"
+#include <Memory/Tree/Layer.h>
 #include <chrono>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace seissol::time_stepping {
@@ -54,6 +56,10 @@ class AbstractTimeCluster {
   public:
   virtual ~AbstractTimeCluster() = default;
 
+  virtual void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {}
+
+  [[nodiscard]] virtual std::string description() const { return ""; }
+
   [[nodiscard]] Executor getExecutor() const;
 
   virtual ActorAction getNextLegalAction();
@@ -72,12 +78,15 @@ class AbstractTimeCluster {
   [[nodiscard]] bool synced() const;
   virtual void reset();
 
-  void setPredictionTime(double time);
-  void setCorrectionTime(double time);
+  virtual void setTime(double time);
 
   virtual void finishPhase();
 
   [[nodiscard]] long getTimeStepRate() const;
+
+  [[nodiscard]] std::string identifier() const {
+    return description() + "-" + std::to_string(ct.timeStepRate);
+  }
 
   /**
    * @brief Returns the time step size of the cluster.
