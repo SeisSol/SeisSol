@@ -16,6 +16,7 @@
 #include "Modules/Module.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Solver/TimeStepping/TimeCluster.h"
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Solver/TimeStepping/AbstractTimeCluster.h>
 
 namespace seissol {
@@ -33,7 +34,7 @@ class InstantaneousTimeMirrorManager : Module {
   initializer::LTSTree* ltsTree{};
   initializer::LTS* lts{};
   initializer::Lut* ltsLut{};
-  const TimeStepping* timestepping{};
+  const initializer::ClusterLayout* clusterLayout;
 
   std::vector<seissol::time_stepping::AbstractTimeCluster*> clusters;
 
@@ -41,14 +42,15 @@ class InstantaneousTimeMirrorManager : Module {
   explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
       : seissolInstance(seissolInstance) {};
 
-  void init(double velocityScalingFactor,
-            double triggerTime,
-            seissol::geometry::MeshReader* meshReader,
-            initializer::LTSTree* ltsTree,
-            initializer::LTS* lts,
-            initializer::Lut* ltsLut,
-            const TimeStepping* timestepping); // An empty timestepping is added. Need to discuss
-                                               // what exactly is to be sent here
+  void init(
+      double velocityScalingFactor,
+      double triggerTime,
+      seissol::geometry::MeshReader* meshReader,
+      initializer::LTSTree* ltsTree,
+      initializer::LTS* lts,
+      initializer::Lut* ltsLut,
+      const initializer::ClusterLayout* clusterLayout); // An empty timestepping is added. Need to
+                                                        // discuss what exactly is to be sent here
 
   void setClusterVector(const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters);
 
@@ -69,8 +71,8 @@ void initializeTimeMirrorManagers(
     InstantaneousTimeMirrorManager& increaseManager,
     InstantaneousTimeMirrorManager& decreaseManager,
     seissol::SeisSol& seissolInstance,
-    const TimeStepping* timestepping); // An empty timestepping is added. Need to discuss what
-                                       // exactly is to be sent here
+    const initializer::ClusterLayout* clusterLayout); // An empty timestepping is added. Need to
+                                                      // discuss what exactly is to be sent here
 } // namespace ITM
 } // namespace seissol
 

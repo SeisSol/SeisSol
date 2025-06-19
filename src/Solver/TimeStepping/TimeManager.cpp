@@ -16,6 +16,7 @@
 #include "TimeManager.h"
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/MemoryManager.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Memory/Tree/Layer.h>
@@ -52,7 +53,7 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
 
 TimeManager::~TimeManager() = default;
 
-void TimeManager::addClusters(TimeStepping& timeStepping,
+void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                               MeshStructure* meshStructure,
                               initializer::MemoryManager& memoryManager,
                               bool usePlasticity) {
@@ -62,23 +63,22 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
   assert(meshStructure != nullptr);
 
   // store the time stepping
-  this->timeStepping = timeStepping;
+  this->clusterLayout = clusterLayout;
 
   auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
 
   bool foundDynamicRuptureCluster = false;
 
   // iterate over local time clusters
-  for (std::size_t localClusterId = 0; localClusterId < timeStepping.numberOfLocalClusters;
+  for (std::size_t localClusterId = 0; localClusterId < clusterLayout.globalClusterCount;
        ++localClusterId) {
     // get memory layout of this cluster
     auto [meshStructure, globalData] = memoryManager.getMemoryLayout(localClusterId);
 
-    const int globalClusterId = static_cast<int>(timeStepping.clusterIds[localClusterId]);
+    const int globalClusterId = static_cast<int>(localClusterId);
     // chop off at synchronization time
-    const auto timeStepSize = timeStepping.globalCflTimeStepWidths[globalClusterId];
-    const long timeStepRate = ipow(static_cast<long>(timeStepping.globalTimeStepRates[0]),
-                                   static_cast<long>(globalClusterId));
+    const auto timeStepSize = clusterLayout.timestepRate(localClusterId);
+    const long timeStepRate = clusterLayout.clusterRate(localClusterId);
 
     // Dynamic rupture
     auto& dynRupTree = memoryManager.getDynamicRuptureTree()->child(localClusterId);
@@ -97,11 +97,11 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
             numberOfDynRupCells, isFirstDynamicRuptureCluster));
 
     for (auto type : {Copy, Interior}) {
-      const auto offsetMonitoring = type == Interior ? 0 : timeStepping.numberOfGlobalClusters;
+      const auto offsetMonitoring = type == Interior ? 0 : clusterLayout.globalClusterCount;
       // We print progress only if it is the cluster with the largest time step on each rank.
       // This does not mean that it is the largest cluster globally!
       const bool printProgress =
-          (localClusterId == timeStepping.numberOfLocalClusters - 1) && (type == Interior);
+          (localClusterId == clusterLayout.globalClusterCount - 1) && (type == Interior);
       const auto profilingId = globalClusterId + offsetMonitoring;
       auto* layerData = &memoryManager.getLtsTree()->child(localClusterId).child(type);
       auto* dynRupInteriorData = &dynRupTree.child(Interior);
@@ -164,7 +164,7 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
     const auto persistent = usePersistentMpi(seissolInstance.env());
     for (unsigned int otherGlobalClusterId = 0;
-         otherGlobalClusterId < timeStepping.numberOfGlobalClusters;
+         otherGlobalClusterId < clusterLayout.globalClusterCount;
          ++otherGlobalClusterId) {
       const bool hasNeighborRegions =
           std::any_of(meshStructure->neighboringClusters,
@@ -177,9 +177,8 @@ void TimeManager::addClusters(TimeStepping& timeStepping,
         assert(
             static_cast<int>(otherGlobalClusterId) <
             std::min(globalClusterId + 2, static_cast<int>(timeStepping.numberOfGlobalClusters)));
-        const auto otherTimeStepSize = timeStepping.globalCflTimeStepWidths[otherGlobalClusterId];
-        const long otherTimeStepRate = ipow(static_cast<long>(timeStepping.globalTimeStepRates[0]),
-                                            static_cast<long>(otherGlobalClusterId));
+        const auto otherTimeStepSize = clusterLayout.timestepRate(otherGlobalClusterId);
+        const long otherTimeStepRate = clusterLayout.timestepRate(otherGlobalClusterId);
 
         auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
                                                          otherTimeStepRate,
@@ -252,11 +251,6 @@ seissol::dr::output::OutputManager* TimeManager::getFaultOutputManager() {
 
 void TimeManager::advanceInTime(const double& synchronizationTime) {
   SCOREP_USER_REGION("advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION)
-
-  // We should always move forward in time
-  assert(timeStepping.synchronizationTime <= synchronizationTime);
-
-  timeStepping.synchronizationTime = synchronizationTime;
 
   for (auto& cluster : clusters) {
     cluster->setSyncTime(synchronizationTime);
@@ -337,7 +331,7 @@ void TimeManager::printComputationTime(const std::string& outputPrefix,
 }
 
 double TimeManager::getTimeTolerance() const {
-  return 1E-5 * timeStepping.globalCflTimeStepWidths[0];
+  return 1E-5 * clusterLayout.value().minimumTimestep;
 }
 
 void TimeManager::setPointSourcesForClusters(

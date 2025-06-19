@@ -29,39 +29,6 @@ namespace kernels {
 constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
 } // namespace kernels
 
-// cross-cluster time stepping information
-struct TimeStepping {
-  /*
-   * Number of lts clusters present throughout the entire domain.
-   */
-  unsigned int numberOfGlobalClusters;
-
-  /*
-   * Time step rate the cluster is smaller than the next one.
-   */
-  unsigned int *globalTimeStepRates;
-
-  /*
-   * Time step widths of the global time clusters according to CFL.
-   */
-  double *globalCflTimeStepWidths;
-
-  /*
-   * Time all clusters are aiming to reach.
-   */
-  double synchronizationTime;
-
-  /*
-   * Number of local clusters present on this rank.
-   */
-  unsigned int numberOfLocalClusters;
-
-  /*
-   * Ids of the local clusters with respect to global ordering.
-   */
-  unsigned int *clusterIds;
-};
-
 struct MeshStructure {
   /*
    * Number of regions in the ghost and copy layer.

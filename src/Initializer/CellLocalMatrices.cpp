@@ -24,6 +24,7 @@
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
@@ -133,7 +134,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                  LTSTree* ltsTree,
                                  LTS* lts,
                                  Lut* ltsLut,
-                                 const TimeStepping& timeStepping,
+                                 const ClusterLayout& clusterLayout,
                                  const parameters::ModelParameters& modelParameters) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -187,7 +188,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 #endif
       for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
         const auto clusterId = secondaryInformation[cell].clusterId;
-        const auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
+        const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
         const auto meshId = secondaryInformation[cell].meshId;
 
         double x[4];

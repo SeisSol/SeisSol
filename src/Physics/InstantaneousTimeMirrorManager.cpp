@@ -10,6 +10,7 @@
 #include "Modules/Modules.h"
 #include "SeisSol.h"
 #include <Initializer/Parameters/ModelParameters.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Typedefs.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/LTSTree.h>
@@ -29,7 +30,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           initializer::LTSTree* ltsTree,
                                           initializer::LTS* lts,
                                           initializer::Lut* ltsLut,
-                                          const TimeStepping* timestepping) {
+                                          const initializer::ClusterLayout* clusterLayout) {
   isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
                     // Need this by default as true for it to work.
   this->velocityScalingFactor = velocityScalingFactor;
@@ -38,8 +39,8 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   this->ltsTree = ltsTree;
   this->lts = lts;
   this->ltsLut = ltsLut;
-  this->timestepping = timestepping; // An empty timestepping is added. Need to discuss what exactly
-                                     // is to be sent here
+  this->clusterLayout = clusterLayout; // An empty timestepping is added. Need to discuss what
+                                       // exactly is to be sent here
   setSyncInterval(triggerTime);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
 }
@@ -64,7 +65,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
                                            ltsTree,
                                            lts,
                                            ltsLut,
-                                           *timestepping,
+                                           *clusterLayout,
                                            seissolInstance.getSeisSolParameters().model);
   // An empty timestepping is added. Need to discuss what exactly is to be sent here
 
@@ -229,15 +230,15 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
                                   seissol::SeisSol& seissolInstance,
-                                  const TimeStepping* timestepping) {
+                                  const initializer::ClusterLayout* clusterLayout) {
   increaseManager.init(scalingFactor,
                        triggerTime,
                        meshReader,
                        ltsTree,
                        lts,
                        ltsLut,
-                       timestepping); // An empty timestepping is added. Need to discuss what
-                                      // exactly is to be sent here
+                       clusterLayout); // An empty timestepping is added. Need to discuss what
+                                       // exactly is to be sent here
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
   const double eps = itmParameters.itmDuration;
 
@@ -248,7 +249,7 @@ void initializeTimeMirrorManagers(double scalingFactor,
                        ltsTree,
                        lts,
                        ltsLut,
-                       timestepping); // An empty timestepping is added. Need to discuss what
-                                      // exactly is to be sent here
+                       clusterLayout); // An empty timestepping is added. Need to discuss what
+                                       // exactly is to be sent here
 };
 } // namespace seissol::ITM

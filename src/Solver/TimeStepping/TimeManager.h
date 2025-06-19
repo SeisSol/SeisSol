@@ -9,6 +9,7 @@
 
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <cassert>
 #include <list>
 #include <memory>
@@ -30,21 +31,6 @@
 namespace seissol::time_stepping {
 class AbstractCommunicationManager;
 
-template <typename T>
-constexpr T ipow(T x, T y) {
-  static_assert(std::is_integral_v<T>);
-  assert(y >= 0);
-
-  if (y == 0) {
-    return 1;
-  }
-  T result = x;
-  while (--y) {
-    result *= x;
-  }
-  return result;
-}
-
 /**
  * Time manager, which takes care of the time stepping.
  **/
@@ -53,7 +39,7 @@ class TimeManager {
   seissol::SeisSol& seissolInstance;
 
   //! time stepping
-  TimeStepping timeStepping;
+  std::optional<initializer::ClusterLayout> clusterLayout;
 
   //! all local (copy & interior) LTS clusters, which are under control of this time manager
   std::vector<std::unique_ptr<TimeCluster>> clusters;
@@ -92,7 +78,7 @@ class TimeManager {
    * @param memoryManager memory manager.
    * @param i_meshToClusters mapping from the mesh to the clusters.
    **/
-  void addClusters(TimeStepping& timeStepping,
+  void addClusters(const initializer::ClusterLayout& clusterLayout,
                    MeshStructure* meshStructure,
                    initializer::MemoryManager& memoryManager,
                    bool usePlasticity);
@@ -138,7 +124,7 @@ class TimeManager {
 
   void synchronizeTo(seissol::initializer::AllocationPlace place);
 
-  const TimeStepping* getTimeStepping() { return &timeStepping; }
+  const initializer::ClusterLayout& getClusterLayout() { return clusterLayout.value(); }
 };
 
 } // namespace seissol::time_stepping

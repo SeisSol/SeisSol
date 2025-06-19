@@ -393,20 +393,20 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
   }
 }
 
-void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_timeStepping,
-                                                         struct MeshStructure*i_meshStructure,
+void seissol::initializer::MemoryManager::fixateLtsTree(struct ClusterLayout& clusterLayout,
+                                                         struct MeshStructure* meshStructure,
                                                          unsigned* numberOfDRCopyFaces,
                                                          unsigned* numberOfDRInteriorFaces,
                                                          bool usePlasticity) {
   // store mesh structure and the number of time clusters
-  m_meshStructure = i_meshStructure;
+  m_meshStructure = meshStructure;
 
   m_ltsTree.setName("cluster");
 
   // Setup tree variables
   m_lts.addTo(m_ltsTree, usePlasticity);
   seissolInstance.postProcessor().allocateMemory(&m_ltsTree);
-  m_ltsTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
+  m_ltsTree.setNumberOfTimeClusters(clusterLayout.globalClusterCount);
 
   /// From this point, the tree layout, variables, and buckets cannot be changed anymore
   m_ltsTree.fixate();
@@ -414,9 +414,9 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   // Set number of cells and bucket sizes in ltstree
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_ltsTree.child(tc);
-    cluster.child<Ghost>().setNumberOfCells(i_meshStructure[tc].numberOfGhostCells);
-    cluster.child<Copy>().setNumberOfCells(i_meshStructure[tc].numberOfCopyCells);
-    cluster.child<Interior>().setNumberOfCells(i_meshStructure[tc].numberOfInteriorCells);
+    cluster.child<Ghost>().setNumberOfCells(meshStructure[tc].numberOfGhostCells);
+    cluster.child<Copy>().setNumberOfCells(meshStructure[tc].numberOfCopyCells);
+    cluster.child<Interior>().setNumberOfCells(meshStructure[tc].numberOfInteriorCells);
   }
 
   m_ltsTree.allocateVariables();
@@ -427,19 +427,14 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   /// Dynamic rupture tree
   m_dynRup->addTo(m_dynRupTree);
 
-  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfGlobalClusters);
+  m_dynRupTree.setNumberOfTimeClusters(clusterLayout.globalClusterCount);
   m_dynRupTree.fixate();
 
   for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_dynRupTree.child(tc);
     cluster.child<Ghost>().setNumberOfCells(0);
-    if (tc >= i_timeStepping.numberOfLocalClusters) {
-        cluster.child<Copy>().setNumberOfCells(0);
-        cluster.child<Interior>().setNumberOfCells(0);
-    } else {
-        cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
-        cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
-    }
+    cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
+    cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
   }
 
   m_dynRupTree.allocateVariables();
