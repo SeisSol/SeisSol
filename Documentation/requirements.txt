@@ -5,6 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-urllib3<2
+urllib3==2.5.0
 sphinx==5.3.0
 sphinx_rtd_theme==1.2.0
+
