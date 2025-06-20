@@ -315,22 +315,22 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
     timeWeights[point] = 0.5 * timeStepWidth * timeWeights[point];
   }
 
-  alignas(PagesizeStack) real QInterpolatedBody[CONVERGENCE_ORDER][tensor::Q::size()];
+  alignas(PagesizeStack) real QInterpolatedBody[ConvergenceOrder][tensor::Q::size()];
   real* QInterpolatedBodyi;
-  alignas(PagesizeStack) real QInterpolatedBodyNodal[CONVERGENCE_ORDER][tensor::QNodal::size()];
+  alignas(PagesizeStack) real QInterpolatedBodyNodal[ConvergenceOrder][tensor::QNodal::size()];
   real* QInterpolatedBodyNodali;
 
-  kernel::damageConvertToNodal d_converToKrnl;
-  for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
-    QInterpolatedBodyi = QInterpolatedBody[timeInterval];
-    QInterpolatedBodyNodali = QInterpolatedBodyNodal[timeInterval];
-    m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, derivatives[l_cell], QInterpolatedBodyi);
-    /// Convert Q_{lp}(tau_z) in modal basis to QN_{ip}(tau_z) in nodal basis
-    d_converToKrnl.v = init::v::Values;
-    d_converToKrnl.QNodal = QInterpolatedBodyNodali;
-    d_converToKrnl.Q = QInterpolatedBodyi;
-    d_converToKrnl.execute();
-  }
+  // kernel::damageConvertToNodal d_converToKrnl;
+  // for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
+  //   QInterpolatedBodyi = QInterpolatedBody[timeInterval];
+  //   QInterpolatedBodyNodali = QInterpolatedBodyNodal[timeInterval];
+  //   m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, derivatives[l_cell], QInterpolatedBodyi);
+  //   /// Convert Q_{lp}(tau_z) in modal basis to QN_{ip}(tau_z) in nodal basis
+  //   d_converToKrnl.v = init::v::Values;
+  //   d_converToKrnl.QNodal = QInterpolatedBodyNodali;
+  //   d_converToKrnl.Q = QInterpolatedBodyi;
+  //   d_converToKrnl.execute();
+  // }
 
   alignas(PagesizeStack) real FluxInterpolatedBodyX[ConvergenceOrder][tensor::QNodal::size()] = {{0}};
   alignas(PagesizeStack) real FluxInterpolatedBodyY[ConvergenceOrder][tensor::QNodal::size()] = {{0}};
