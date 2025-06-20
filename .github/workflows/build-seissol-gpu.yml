@@ -21,14 +21,11 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('{0}_{1}{2}_{3}_{4}_{5}{6}',
-            matrix.build_type,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.setup.arch,
-            matrix.setup.backend,
-            matrix.equation.order,
+          format('gpu-{0}-{1}-p{2}{3}',
             matrix.equation.type,
-            matrix.equation.multisim != 1 && format('_f{0}', matrix.equation.multisim) || ''
+            matrix.precision == 'single' && 's' || 'd',
+            matrix.order,
+            matrix.equation.multisim != 1 && format('-f{0}', matrix.equation.multisim) || ''
           )
         }}
     strategy:
@@ -154,7 +151,7 @@ jobs:
           export CXX=${{matrix.setup.cxx}}
           export FC=${{matrix.setup.fc}}
 
-          cmake .. -GNinja -DDEVICE_CODEGEN=${DEVICE_CODEGEN} -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.equation.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
+          cmake .. -GNinja -DNEW_BINARY_NAMING=ON -DDEVICE_CODEGEN=${DEVICE_CODEGEN} -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.equation.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
           ninja install
 
       - name: upload-seissol
@@ -197,14 +194,11 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('{0}_{1}{2}_{3}_{4}_{5}{6}',
-            matrix.build_type,
+          format('gpu-{0}-{1}-p{2}{3}',
+            matrix.equation.type,
             matrix.precision == 'single' && 's' || 'd',
-            matrix.setup.arch,
-            matrix.setup.backend,
-            matrix.case.order,
-            matrix.case.equation,
-            matrix.case.multisim != 1 && format('_f{0}', matrix.case.multisim) || ''
+            matrix.order,
+            matrix.equation.multisim != 1 && format('-f{0}', matrix.equation.multisim) || ''
           )
         }}
     strategy:
@@ -405,7 +399,7 @@ jobs:
 
           cd precomputed/${{matrix.case.name}}
           
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} SeisSol_${EXENAME}
+          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
