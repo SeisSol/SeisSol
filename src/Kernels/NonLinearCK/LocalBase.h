@@ -12,6 +12,10 @@
 #include "Common/Constants.h"
 #include "generated_code/kernel.h"
 #include <Kernels/Local.h>
+
+#include "Kernels/Solver.h"
+#include "Kernels/Kernel.h"
+
 #include <memory>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -84,6 +88,14 @@ class Local : public LocalKernel {
   kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
 
   kernels::DirichletBoundary dirichletBoundary;
+
+  //! time integration
+  // kernel::derivativeTaylorExpansion m_timeIntKrnl;
+  // Keep using the linear integration
+  void computeTaylorExpansion(real time,
+                              real expansionPoint,
+                              const real* timeDerivatives,
+                              real timeEvaluated[tensor::Q::size()]);
 
 #ifdef ACL_DEVICE
   kernel::gpu_volume deviceVolumeKernelPrototype;
