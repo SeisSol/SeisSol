@@ -115,7 +115,7 @@ set(DEVICE_CODEGEN "auto" CACHE STRING "GPU code generators")
 set(DEVICE_CODEGEN_OPTIONS "auto" "gemmforge-chainforge" "tensorforge" "tinytc")
 set_property(CACHE DEVICE_CODEGEN PROPERTY STRINGS ${DEVICE_CODEGEN_OPTIONS})
 
-option(OLDNAMES "Use the legacy naming scheme" OFF)
+option(NEW_BINARY_NAMING "Use the updated binary naming scheme" OFF)
 
 #-------------------------------------------------------------------------------
 # ------------------------------- ERROR CHECKING -------------------------------

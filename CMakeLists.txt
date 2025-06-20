@@ -456,7 +456,7 @@ if (PREMULTIPLY_FLUX)
   target_compile_definitions(seissol-common-properties INTERFACE USE_PREMULTIPLY_FLUX)
 endif()
 
-if (OLDNAMES)
+if (NOT NEW_BINARY_NAMING)
   # adjust prefix name of executables
   if ("${DEVICE_ARCH_STR}" STREQUAL "none")
     set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
@@ -486,7 +486,7 @@ else()
 endif()
 
 if (SHARED)
-  if (OLDNAMES)
+  if (NOT NEW_BINARY_NAMING)
     set_target_properties(seissol-lib PROPERTIES OUTPUT_NAME "SeisSol_lib_${EXE_NAME_PREFIX}")
   else()
     set_target_properties(seissol-lib PROPERTIES OUTPUT_NAME "seissollib-${NAME_SUFFIX}")
@@ -516,7 +516,7 @@ if (WITH_GPU)
   # add SeisSol GPU part
   target_link_libraries(seissol-common-properties INTERFACE seissol-device-lib)
 
-  if (OLDNAMES)
+  if (NOT NEW_BINARY_NAMING)
     set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
     set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_BACKEND}")
   else()
@@ -676,7 +676,7 @@ endif()
 
 # build seissol-bin
 add_executable(seissol-bin src/Main.cpp)
-if (OLDNAMES)
+if (NOT NEW_BINARY_NAMING)
   set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
 else()
   set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "seissol-${NAME_SUFFIX}")
