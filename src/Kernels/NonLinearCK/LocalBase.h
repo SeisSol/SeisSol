@@ -34,6 +34,16 @@ class Local : public LocalKernel {
   void setGlobalData(const CompoundGlobalData& global) override;
   
   void updateMaterials(LocalData& data);
+
+  void computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                      real* nlDerivatives,
+                      LocalData& data,
+                      LocalTmp& tmp,
+                      const CellMaterialData* materialData,
+                      const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                      double time,
+                      double timeStepWidth);
+
   void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
                        LocalData& data,
                        LocalTmp& tmp,

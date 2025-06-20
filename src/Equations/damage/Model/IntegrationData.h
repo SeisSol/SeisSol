@@ -25,6 +25,7 @@ struct DamageLocalData {
   std::array<std::array<double, 3>, 4> localNormal;
   std::array<std::array<double, 3>, 4> localTangent1;
   std::array<std::array<double, 3>, 4> localTangent2;
+  real gradXiEtaZeta[3][3];
   // unsigned int globalMeshId;
 };
 struct DamageNeighborData {};

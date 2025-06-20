@@ -36,6 +36,14 @@ class Spacetime : public SpacetimeKernel {
                    real timeIntegrated[tensor::I::size()],
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
+  //Temporary, computeAder for NL
+  void computeNonlAder(double timeStepWidth,
+                   LocalData& data,
+                   LocalTmp& tmp,
+                   real timeIntegrated[tensor::I::size()],
+                   real* timeDerivativesForNL,
+                   real* timeDerivativesOrSTP = nullptr,
+                   bool updateDisplacement = false);
   void computeBatchedAder(double timeStepWidth,
                           LocalTmp& tmp,
                           ConditionalPointersToRealsTable& dataTable,

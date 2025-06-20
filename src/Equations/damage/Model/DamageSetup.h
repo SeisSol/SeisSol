@@ -269,7 +269,29 @@ struct MaterialSetup<DamageMaterial> {
       }
     }
     localData->localVolume = localVolume;
+
+    double x[4];
+    double y[4];
+    double z[4];
+    double gradXi[3];
+    double gradEta[3];
+    double gradZeta[3];
+
+    for (unsigned vertex = 0; vertex < 4; ++vertex) {
+      const VrtxCoords& coords = localData->localVertices[vertex].coords;
+      x[vertex] = coords[0];
+      y[vertex] = coords[1];
+      z[vertex] = coords[2];
+    }
+
+    seissol::transformations::tetrahedronGlobalToReferenceJacobian(
+        x, y, z, gradXi, gradEta, gradZeta);
     // localData->globalMeshId = meshId;
+    for (unsigned int i_x = 0; i_x<3; i_x++){
+      localData->gradXiEtaZeta[i_x][0] = gradXi[i_x];
+      localData->gradXiEtaZeta[i_x][1] = gradEta[i_x];
+      localData->gradXiEtaZeta[i_x][2] = gradZeta[i_x];
+    }
   }
 
   static void initializeSpecificNeighborData(const DamageMaterial& material,

@@ -335,18 +335,44 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       l_bufferPointer = l_integrationBuffer;
     }
 
+    #ifdef USE_DAMAGE
+    // In nonlinear damage case, derivatives always need to be:
+    // 1. computed in computeAder()
+    // 2. used in computeIntegral()
+    alignas(PagesizeStack) real temporaryDer[yateto::computeFamilySize<tensor::dQ>()];
+    #endif
+
     // Update the local materia modulus for next prediction
-    // This function is only not dummy for Damage Mat.
+    // This function is only temporary for nonlinear mat.
+    // Can be merged with usual ones, but requires a change in the general input
 #ifdef USE_DAMAGE
     m_localKernel.updateMaterials(data);
-#endif
+
+    spacetimeKernel.computeNonlAder(timeStepSize(),
+                             data,
+                             tmp,
+                             l_bufferPointer,
+                             temporaryDer,
+                             derivatives[l_cell],
+                             true);
+    // Compute local integrals (including some boundary conditions)
+    CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
+    m_localKernel.computeNonlIntegral(l_bufferPointer,
+                                  temporaryDer,
+                                  data,
+                                  tmp,
+                                  &materialData[l_cell],
+                                  &boundaryMapping[l_cell],
+                                  ct.correctionTime,
+                                  timeStepSize()
+    );
+#else
     spacetimeKernel.computeAder(timeStepSize(),
                              data,
                              tmp,
                              l_bufferPointer,
                              derivatives[l_cell],
                              true);
-
     // Compute local integrals (including some boundary conditions)
     CellBoundaryMapping (*boundaryMapping)[4] = i_layerData.var(m_lts->boundaryMapping);
     m_localKernel.computeIntegral(l_bufferPointer,
@@ -357,6 +383,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
                                   ct.correctionTime,
                                   timeStepSize()
     );
+#endif
 
     for (unsigned face = 0; face < 4; ++face) {
       auto& curFaceDisplacements = data.faceDisplacements()[face];

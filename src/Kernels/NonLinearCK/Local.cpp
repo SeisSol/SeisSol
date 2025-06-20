@@ -26,6 +26,7 @@
 // Required for material update
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+#include "Numerical/Quadrature.h"
 
 #include <Parallel/Runtime/Stream.h>
 #include <Physics/InitialField.h>
@@ -279,6 +280,186 @@ void Local::updateMaterials(LocalData& data) {
     }
     neighKrnl.execute();
   }
+}
+
+void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+                            real* nlDerivatives,
+                            LocalData& data,
+                            LocalTmp& tmp,
+                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
+                            const CellMaterialData* materialData,
+                            const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                            double time,
+                            double timeStepWidth) {
+  assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(nlDerivatives) % Alignment == 0);
+
+  kernel::volume volKrnl = m_volumeKernelPrototype;
+  volKrnl.Q = data.dofs();
+  volKrnl.I = timeIntegratedDegreesOfFreedom;
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    volKrnl.star(i) = data.localIntegration().starMatrices[i];
+  }
+
+  // Optional source term
+  set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration().specific));
+
+  // Local integration in nonlinear way
+  // Step 1: volumetric integration
+  double timePoints[ConvergenceOrder];
+  double timeWeights[ConvergenceOrder];
+  seissol::quadrature::GaussLegendre(timePoints, timeWeights, ConvergenceOrder);
+  for (unsigned int point = 0; point < ConvergenceOrder; ++point) {
+    timePoints[point] = 0.5 * (timeStepWidth * timePoints[point] + timeStepWidth);
+    timeWeights[point] = 0.5 * timeStepWidth * timeWeights[point];
+  }
+
+  alignas(PagesizeStack) real QInterpolatedBody[CONVERGENCE_ORDER][tensor::Q::size()];
+  real* QInterpolatedBodyi;
+  alignas(PagesizeStack) real QInterpolatedBodyNodal[CONVERGENCE_ORDER][tensor::QNodal::size()];
+  real* QInterpolatedBodyNodali;
+
+  kernel::damageConvertToNodal d_converToKrnl;
+  for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
+    QInterpolatedBodyi = QInterpolatedBody[timeInterval];
+    QInterpolatedBodyNodali = QInterpolatedBodyNodal[timeInterval];
+    m_timeKernel.computeTaylorExpansion(timePoints[timeInterval], 0.0, derivatives[l_cell], QInterpolatedBodyi);
+    /// Convert Q_{lp}(tau_z) in modal basis to QN_{ip}(tau_z) in nodal basis
+    d_converToKrnl.v = init::v::Values;
+    d_converToKrnl.QNodal = QInterpolatedBodyNodali;
+    d_converToKrnl.Q = QInterpolatedBodyi;
+    d_converToKrnl.execute();
+  }
+
+  alignas(PagesizeStack) real FluxInterpolatedBodyX[ConvergenceOrder][tensor::QNodal::size()] = {{0}};
+  alignas(PagesizeStack) real FluxInterpolatedBodyY[ConvergenceOrder][tensor::QNodal::size()] = {{0}};
+  alignas(PagesizeStack) real FluxInterpolatedBodyZ[ConvergenceOrder][tensor::QNodal::size()] = {{0}};
+
+
+  kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
+  lfKrnl.Q = data.dofs();
+  lfKrnl.I = timeIntegratedDegreesOfFreedom;
+  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
+  lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
+
+  volKrnl.execute();
+
+  for (int face = 0; face < 4; ++face) {
+    // no element local contribution in the case of dynamic rupture boundary conditions
+    if (data.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
+      lfKrnl.AplusT = data.localIntegration().nApNm1[face];
+      lfKrnl.execute(face);
+    }
+
+    alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+    auto nodalLfKrnl = m_nodalLfKrnlPrototype;
+    nodalLfKrnl.Q = data.dofs();
+    nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
+    nodalLfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
+    nodalLfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
+    nodalLfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
+
+    // Include some boundary conditions here.
+    switch (data.cellInformation().faceTypes[face]) {
+    case FaceType::FreeSurfaceGravity: {
+      assert(cellBoundaryMapping != nullptr);
+      assert(materialData != nullptr);
+      auto* displ = tmp.nodalAvgDisplacements[face].data();
+      auto displacement = init::averageNormalDisplacement::view::create(displ);
+      // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
+      const auto localG = gravitationalAcceleration;
+      auto applyFreeSurfaceBc =
+          [&displacement, &materialData, &localG](const real*, // nodes are unused
+                                                  init::INodal::view::type& boundaryDofs) {
+            for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+              auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
+              auto slicedDisplacement = multisim::simtensor(displacement, s);
+
+              for (unsigned int i = 0;
+                   i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
+                   ++i) {
+                const double rho = materialData->local.rho;
+                assert(localG > 0);
+                const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);
+
+                slicedBoundaryDofs(i, 0) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 0);
+                slicedBoundaryDofs(i, 1) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 1);
+                slicedBoundaryDofs(i, 2) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 2);
+              }
+            }
+          };
+
+      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
+                                 face,
+                                 (*cellBoundaryMapping)[face],
+                                 m_projectRotatedKrnlPrototype,
+                                 applyFreeSurfaceBc,
+                                 dofsFaceBoundaryNodal);
+
+      nodalLfKrnl.execute(face);
+      break;
+    }
+    case FaceType::Dirichlet: {
+      assert(cellBoundaryMapping != nullptr);
+      auto* easiBoundaryMap = (*cellBoundaryMapping)[face].easiBoundaryMap;
+      auto* easiBoundaryConstant = (*cellBoundaryMapping)[face].easiBoundaryConstant;
+      assert(easiBoundaryConstant != nullptr);
+      assert(easiBoundaryMap != nullptr);
+      auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
+                                   const real* nodes, init::INodal::view::type& boundaryDofs) {
+        seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
+        easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
+        easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
+        easiBoundaryKernel.easiIdentMap = init::easiIdentMap::Values;
+        easiBoundaryKernel.INodal = boundaryDofs.data();
+        easiBoundaryKernel.execute();
+      };
+
+      // Compute boundary in [n, t_1, t_2] basis
+      dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
+                                 face,
+                                 (*cellBoundaryMapping)[face],
+                                 m_projectRotatedKrnlPrototype,
+                                 applyEasiBoundary,
+                                 dofsFaceBoundaryNodal);
+
+      // We do not need to rotate the boundary data back to the [x,y,z] basis
+      // as we set the Tinv matrix to the identity matrix in the flux solver
+      // See init. in CellLocalMatrices.initializeCellLocalMatrices!
+
+      nodalLfKrnl.execute(face);
+      break;
+    }
+    case FaceType::Analytical: {
+      assert(cellBoundaryMapping != nullptr);
+      assert(initConds != nullptr);
+      assert(initConds->size() == 1);
+      ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
+
+      dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
+                                              face,
+                                              (*cellBoundaryMapping)[face],
+                                              m_projectKrnlPrototype,
+                                              applyAnalyticalSolution,
+                                              dofsFaceBoundaryNodal,
+                                              time,
+                                              timeStepWidth);
+      nodalLfKrnl.execute(face);
+      break;
+    }
+    default:
+      // No boundary condition.
+      break;
+    }
+  }
+#ifdef USE_DAMAGE
+  assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
+  // Do volumetric flux integration (volKrnl) + local face flux integration (lfKrnl)
+  // One additional: nonlinear source term
+  // Previous TimeCluster.cpp
+#endif
 }
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
