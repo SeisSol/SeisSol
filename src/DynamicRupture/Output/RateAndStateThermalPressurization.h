@@ -44,8 +44,10 @@ class RateAndStateThermalPressurization : public RateAndState {
   std::vector<std::size_t> getOutputVariables() const override {
     using DrLtsDescrType = seissol::initializer::ThermalPressurization;
     auto baseVector = RateAndState::getOutputVariables();
-    baseVector.push_back(dynamic_cast<const DrLtsDescrType*>(drDescr)->temperature.index);
-    baseVector.push_back(dynamic_cast<const DrLtsDescrType*>(drDescr)->pressure.index);
+    baseVector.push_back(
+        drTree->info(dynamic_cast<const DrLtsDescrType*>(drDescr)->temperature).index);
+    baseVector.push_back(
+        drTree->info(dynamic_cast<const DrLtsDescrType*>(drDescr)->pressure).index);
     return baseVector;
   }
 };

@@ -66,7 +66,6 @@ class EnergyOutput : public Module {
             seissol::geometry::MeshReader* newMeshReader,
             seissol::initializer::LTSTree* newLtsTree,
             seissol::initializer::LTS* newLts,
-            seissol::initializer::Lut* newLtsLut,
             bool newIsPlasticityEnabled,
             const std::string& outputFileNamePrefix,
             const seissol::initializer::parameters::EnergyOutputParameters& parameters);
@@ -133,7 +132,6 @@ class EnergyOutput : public Module {
   seissol::geometry::MeshReader* meshReader = nullptr;
   seissol::initializer::LTSTree* ltsTree = nullptr;
   seissol::initializer::LTS* lts = nullptr;
-  seissol::initializer::Lut* ltsLut = nullptr;
 
   EnergiesStorage energiesStorage{};
   std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold;

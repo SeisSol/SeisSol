@@ -184,7 +184,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
 
-    if (layerData.getNumberOfCells() == 0) {
+    if (layerData.size() == 0) {
       return;
     }
 
@@ -193,7 +193,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
     FrictionSolverInterface::copyLtsTreeToLocal(&dataHost, layerData, dynRup, fullUpdateTime);
     Derived::copySpecificLtsDataTreeToLocal(&dataHost, layerData, dynRup, fullUpdateTime);
-    this->currLayerSize = layerData.getNumberOfCells();
+    this->currLayerSize = layerData.size();
     dataHost.drParameters = *this->drParameters;
 
     std::memcpy(dataHost.deltaT, deltaT, sizeof(decltype(deltaT)));

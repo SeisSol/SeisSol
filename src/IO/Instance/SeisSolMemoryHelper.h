@@ -28,10 +28,10 @@ std::shared_ptr<writer::DataSource> variableBuffer(initializer::LTSTree& tree,
       subcount *= dim;
     }
     return writer::WriteBuffer::create(tree.var(variable),
-                                       subcount * tree.getNumberOfCells(variable.mask),
+                                       subcount * tree.size(variable.mask),
                                        datatype::inferDatatype<std::remove_all_extents_t<T>>());
   } else {
-    return writer::WriteBuffer::create(tree.var(variable), tree.getNumberOfCells(variable.mask));
+    return writer::WriteBuffer::create(tree.var(variable), tree.size(variable.mask));
   }
 }
 

@@ -29,7 +29,8 @@ class RateAndState : public ReceiverOutput {
   std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = ReceiverOutput::getOutputVariables();
     baseVector.push_back(
-        static_cast<seissol::initializer::LTSRateAndState*>(drDescr)->stateVariable.index);
+        drTree->info(dynamic_cast<seissol::initializer::LTSRateAndState*>(drDescr)->stateVariable)
+            .index);
     return baseVector;
   }
 };

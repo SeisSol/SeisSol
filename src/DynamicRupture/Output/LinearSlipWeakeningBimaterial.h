@@ -22,7 +22,8 @@ class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
   std::vector<std::size_t> getOutputVariables() const override {
     using DrLtsDescrType = seissol::initializer::LTSLinearSlipWeakeningBimaterial;
     auto baseVector = LinearSlipWeakening::getOutputVariables();
-    baseVector.push_back(static_cast<DrLtsDescrType*>(drDescr)->regularizedStrength.index);
+    baseVector.push_back(
+        drTree->info(dynamic_cast<DrLtsDescrType*>(drDescr)->regularizedStrength).index);
     return baseVector;
   }
 };

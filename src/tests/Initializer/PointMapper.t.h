@@ -32,14 +32,14 @@ TEST_CASE("Point mapper") {
                                      0.25 *
                                          (vertices[0] + vertices[1] + vertices[2] + vertices[3])};
   short contained[3] = {0, 0, 0};
-  unsigned meshId[3] = {std::numeric_limits<unsigned>::max(),
-                        std::numeric_limits<unsigned>::max(),
-                        std::numeric_limits<unsigned>::max()};
+  std::size_t meshId[3] = {std::numeric_limits<std::size_t>::max(),
+                           std::numeric_limits<std::size_t>::max(),
+                           std::numeric_limits<std::size_t>::max()};
   seissol::initializer::findMeshIds(points, mockReader, 3, contained, meshId);
 
   std::array<short, 3> expectedContained = {0, 0, 1};
-  std::array<unsigned, 3> expectedMeshId = {
-      std::numeric_limits<unsigned>::max(), std::numeric_limits<unsigned>::max(), 0};
+  std::array<std::size_t, 3> expectedMeshId = {
+      std::numeric_limits<std::size_t>::max(), std::numeric_limits<std::size_t>::max(), 0};
 
   for (int i = 0; i < 3; i++) {
     REQUIRE(contained[i] == expectedContained[i]);

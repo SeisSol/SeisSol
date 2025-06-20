@@ -29,9 +29,9 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
 
   auto* pstrains = currentLayer->var(currentHandler->pstrain, AllocationPlace::Device);
   size_t nodalStressTensorCounter = 0;
-  real* scratchMem = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->integratedDofsScratch, AllocationPlace::Device));
-  const auto size = currentLayer->getNumberOfCells();
+  real* scratchMem = static_cast<real*>(
+      currentLayer->var(currentHandler->integratedDofsScratch, AllocationPlace::Device));
+  const auto size = currentLayer->size();
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);
     std::vector<real*> qstressNodalPtrs(size, nullptr);

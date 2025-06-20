@@ -44,12 +44,12 @@ void LocalIntegrationRecorder::record(LTS& handler, Layer& layer) {
 }
 
 void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
-  real* integratedDofsScratch = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->integratedDofsScratch, AllocationPlace::Device));
-  real* derivativesScratch = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->derivativesScratch, AllocationPlace::Device));
+  real* integratedDofsScratch = static_cast<real*>(
+      currentLayer->var(currentHandler->integratedDofsScratch, AllocationPlace::Device));
+  real* derivativesScratch = static_cast<real*>(
+      currentLayer->var(currentHandler->derivativesScratch, AllocationPlace::Device));
 
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);
     std::vector<real*> dofsAnePtrs(size, nullptr);
@@ -107,22 +107,20 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       auto* dofsAne = currentLayer->var(currentHandler->dofsAne, AllocationPlace::Device);
       dofsAnePtrs[cell] = dofsAne[cell];
 
-      auto* idofsAne = currentLayer->getScratchpadMemory(currentHandler->idofsAneScratch,
-                                                         AllocationPlace::Device);
+      auto* idofsAne = currentLayer->var(currentHandler->idofsAneScratch, AllocationPlace::Device);
       idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + tensor::Iane::size() * cell;
 
-      auto* derivativesExt = currentLayer->getScratchpadMemory(
-          currentHandler->derivativesExtScratch, AllocationPlace::Device);
+      auto* derivativesExt =
+          currentLayer->var(currentHandler->derivativesExtScratch, AllocationPlace::Device);
       derivativesExtPtrs[cell] = static_cast<real*>(derivativesExt) +
                                  (tensor::dQext::size(1) + tensor::dQext::size(2)) * cell;
 
-      auto* derivativesAne = currentLayer->getScratchpadMemory(
-          currentHandler->derivativesAneScratch, AllocationPlace::Device);
+      auto* derivativesAne =
+          currentLayer->var(currentHandler->derivativesAneScratch, AllocationPlace::Device);
       derivativesAnePtrs[cell] = static_cast<real*>(derivativesAne) +
                                  (tensor::dQane::size(1) + tensor::dQane::size(2)) * cell;
 
-      auto* dofsExt = currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch,
-                                                        AllocationPlace::Device);
+      auto* dofsExt = currentLayer->var(currentHandler->dofsExtScratch, AllocationPlace::Device);
       dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + tensor::Qext::size() * cell;
 #endif
 
@@ -165,7 +163,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 }
 
 void LocalIntegrationRecorder::recordLocalFluxIntegral() {
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   for (unsigned face = 0; face < 4; ++face) {
     std::vector<real*> idofsPtrs{};
     std::vector<real*> dofsPtrs{};
@@ -187,8 +185,7 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
         dofsPtrs.push_back(static_cast<real*>(data.dofs()));
         localPtrs.push_back(reinterpret_cast<real*>(&data.localIntegration()));
 #ifdef USE_VISCOELASTIC2
-        auto* dofsExt = currentLayer->getScratchpadMemory(currentHandler->dofsExtScratch,
-                                                          AllocationPlace::Device);
+        auto* dofsExt = currentLayer->var(currentHandler->dofsExtScratch, AllocationPlace::Device);
         dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + tensor::Qext::size() * cell);
 #endif
       }
@@ -213,7 +210,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
   std::array<std::vector<real*>, 4> iVelocitiesPtrs{{}};
   std::array<std::vector<real*>, 4> displacementsPtrs{};
 
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   for (unsigned cell = 0; cell < size; ++cell) {
     auto dataHost = currentLoaderHost->entry(cell);
 
@@ -244,11 +241,11 @@ void LocalIntegrationRecorder::recordDisplacements() {
 }
 
 void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   constexpr size_t NodalAvgDisplacementsSize = tensor::averageNormalDisplacement::size();
 
-  real* nodalAvgDisplacements = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->nodalAvgDisplacements, AllocationPlace::Device));
+  real* nodalAvgDisplacements = static_cast<real*>(
+      currentLayer->var(currentHandler->nodalAvgDisplacements, AllocationPlace::Device));
 
   if (size > 0) {
     std::array<std::vector<unsigned>, 4> cellIndices{};
@@ -322,7 +319,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 }
 
 void LocalIntegrationRecorder::recordDirichletBc() {
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   if (size > 0) {
     std::array<std::vector<real*>, 4> dofsPtrs{};
     std::array<std::vector<real*>, 4> idofsPtrs{};
@@ -372,15 +369,15 @@ void LocalIntegrationRecorder::recordDirichletBc() {
 }
 
 void LocalIntegrationRecorder::recordAnalyticalBc(LTS& handler, Layer& layer) {
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   if (size > 0) {
     std::array<std::vector<real*>, 4> dofsPtrs{};
     std::array<std::vector<real*>, 4> neighPtrs{};
     std::array<std::vector<unsigned>, 4> cellIndices{};
     std::array<std::vector<real*>, 4> analytical{};
 
-    real* analyticScratch = reinterpret_cast<real*>(
-        layer.getScratchpadMemory(handler.analyticScratch, AllocationPlace::Device));
+    real* analyticScratch =
+        reinterpret_cast<real*>(layer.var(handler.analyticScratch, AllocationPlace::Device));
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto dataHost = currentLoaderHost->entry(cell);
