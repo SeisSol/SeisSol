@@ -301,8 +301,10 @@ class LTSTree : public LTSInternalNode {
     }
 
     for (size_t id = 0; id < memoryInfo.size(); ++id) {
-      memoryContainer[id].allocate(
-          allocator, memoryInfo[id].size, memoryInfo[id].alignment, memoryInfo[id].allocMode);
+      if (memoryInfo[id].type == MemoryType::Scratchpad) {
+        memoryContainer[id].allocate(
+            allocator, memoryInfo[id].size, memoryInfo[id].alignment, memoryInfo[id].allocMode);
+      }
     }
 
     for (auto& leaf : leaves()) {
