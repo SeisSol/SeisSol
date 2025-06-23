@@ -47,7 +47,6 @@ struct Wp {
     DerivativesExt,
     Analytical,
     PrevDofs,
-    QEtaModal,
     QEtaNodal,
     DuDtStrain,
     Count

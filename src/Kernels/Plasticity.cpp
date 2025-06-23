@@ -324,7 +324,6 @@ void Plasticity::computePlasticityBatched(
 
     // prepare memory
     real** qEtaNodalPtrs = (entry.get(inner_keys::Wp::Id::QEtaNodal))->getDeviceDataPtr();
-    real** qEtaModalPtrs = (entry.get(inner_keys::Wp::Id::QEtaModal))->getDeviceDataPtr();
     real** dUdTpstrainPtrs = (entry.get(inner_keys::Wp::Id::DuDtStrain))->getDeviceDataPtr();
 
     static_assert(tensor::QStress::Size == tensor::QStressNodal::Size);
@@ -355,14 +354,12 @@ void Plasticity::computePlasticityBatched(
     m2nKrnlDudtPstrain.numElements = numElements;
     m2nKrnlDudtPstrain.execute();
 
-    device::aux::plasticity::pstrainToQEtaModal(
-        pstrains, qEtaModalPtrs, isAdjustableVector, numElements, defaultStream);
-
     // Convert modal to nodal
     static_assert(kernel::gpu_plConvertEtaModal2Nodal::TmpMaxMemRequiredInBytes == 0);
     kernel::gpu_plConvertEtaModal2Nodal m2nEtaKrnl;
     m2nEtaKrnl.v = global->vandermondeMatrix;
-    m2nEtaKrnl.QEtaModal = const_cast<const real**>(qEtaModalPtrs);
+    m2nEtaKrnl.QEtaModal = const_cast<const real**>(pstrains);
+    m2nEtaKrnl.extraOffset_QEtaModal = tensor::QStress::size();
     m2nEtaKrnl.QEtaNodal = qEtaNodalPtrs;
     m2nEtaKrnl.streamPtr = defaultStream;
     m2nEtaKrnl.flags = isAdjustableVector;
@@ -382,15 +379,12 @@ void Plasticity::computePlasticityBatched(
     kernel::gpu_plConvertEtaNodal2Modal n2mEtaKrnl;
     n2mEtaKrnl.vInv = global->vandermondeMatrixInverse;
     n2mEtaKrnl.QEtaNodal = const_cast<const real**>(qEtaNodalPtrs);
-    n2mEtaKrnl.QEtaModal = qEtaModalPtrs;
+    n2mEtaKrnl.QEtaModal = pstrains;
+    n2mEtaKrnl.extraOffset_QEtaModal = tensor::QStress::size();
     n2mEtaKrnl.streamPtr = defaultStream;
     n2mEtaKrnl.flags = isAdjustableVector;
     n2mEtaKrnl.numElements = numElements;
     n2mEtaKrnl.execute();
-
-    // copy: QEtaModal -> pstrain
-    device::aux::plasticity::qEtaModalToPstrain(
-        qEtaModalPtrs, pstrains, isAdjustableVector, numElements, defaultStream);
   }
 #else
   logError() << "No GPU implementation provided";

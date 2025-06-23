@@ -124,7 +124,6 @@ struct LTS {
   Scratchpad<unsigned> flagScratch;
   Scratchpad<real> prevDofsScratch;
   Scratchpad<real> qEtaNodalScratch;
-  Scratchpad<real> qEtaModalScratch;
   Scratchpad<real> qStressNodalScratch;
 
   void addTo(LTSTree& tree, bool usePlasticity) {
@@ -205,7 +204,6 @@ struct LTS {
       tree.add(flagScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
       tree.add(prevDofsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
       tree.add(qEtaNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(qEtaModalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
       tree.add(qStressNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
     }
   }

@@ -153,56 +153,6 @@ void computePstrains(real** pstrains,
   });
 }
 
-void pstrainToQEtaModal(real** pstrains,
-                        real** QEtaModalPtrs,
-                        unsigned* isAdjustableVector,
-                        size_t numElements,
-                        void* queuePtr) {
-  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
-  sycl::nd_range rng{{1024 * numElements}, {1024}};
-
-  queue->submit([&](sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-      static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
-
-      auto wid = item.get_group().get_group_id(0);
-      auto lid = item.get_local_id(0);
-      if (isAdjustableVector[wid]) {
-        real* localQEtaModal = QEtaModalPtrs[wid];
-        real* localPstrain = pstrains[wid];
-        for (std::size_t i = lid; i < tensor::QEtaModal::Size; i += 1024) {
-          localQEtaModal[i] = localPstrain[NumStressComponents * leadDim<init::QStressNodal>() + i];
-        }
-      }
-    });
-  });
-}
-
-void qEtaModalToPstrain(real** QEtaModalPtrs,
-                        real** pstrains,
-                        unsigned* isAdjustableVector,
-                        size_t numElements,
-                        void* queuePtr) {
-  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
-  sycl::nd_range rng{{1024 * numElements}, {1024}};
-
-  queue->submit([&](sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-      static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>());
-
-      auto wid = item.get_group().get_group_id(0);
-      auto lid = item.get_local_id(0);
-      if (isAdjustableVector[wid]) {
-        real* localQEtaModal = QEtaModalPtrs[wid];
-        real* localPstrain = pstrains[wid];
-        for (std::size_t i = lid; i < tensor::QEtaModal::Size; i += 1024) {
-          localPstrain[NumStressComponents * leadDim<init::QStressNodal>() + i] = localQEtaModal[i];
-        }
-      }
-    });
-  });
-}
-
 void updateQEtaNodal(real** QEtaNodalPtrs,
                      real** QStressNodalPtrs,
                      double timeStepWidth,

@@ -34,18 +34,6 @@ void computePstrains(real** pstrains,
                      size_t numElements,
                      void* streamPtr);
 
-void pstrainToQEtaModal(real** pstrains,
-                        real** qEtaModalPtrs,
-                        unsigned* isAdjustableVector,
-                        size_t numElements,
-                        void* streamPtr);
-
-void qEtaModalToPstrain(real** qEtaModalPtrs,
-                        real** pstrains,
-                        unsigned* isAdjustableVector,
-                        size_t numElements,
-                        void* streamPtr);
-
 void updateQEtaNodal(real** qEtaNodalPtrs,
                      real** qStressNodalPtrs,
                      double timeStepWidth,

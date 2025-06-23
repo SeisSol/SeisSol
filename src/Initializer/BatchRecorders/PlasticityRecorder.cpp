@@ -31,8 +31,6 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
   size_t nodalStressTensorCounter = 0;
   real* scratchMem = static_cast<real*>(
       currentLayer->var(currentHandler->integratedDofsScratch, AllocationPlace::Device));
-  real* qEtaModalScratch = static_cast<real*>(
-      currentLayer->var(currentHandler->qEtaModalScratch, AllocationPlace::Device));
   real* qEtaNodalScratch = static_cast<real*>(
       currentLayer->var(currentHandler->qEtaNodalScratch, AllocationPlace::Device));
   real* qStressNodalScratch = static_cast<real*>(
@@ -45,7 +43,6 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
     std::vector<real*> qstressNodalPtrs(size, nullptr);
     std::vector<real*> pstransPtrs(size, nullptr);
     std::vector<real*> initialLoadPtrs(size, nullptr);
-    std::vector<real*> qEtaModalPtrs(size, nullptr);
     std::vector<real*> qEtaNodalPtrs(size, nullptr);
     std::vector<real*> qStressNodalPtrs(size, nullptr);
     std::vector<real*> prevDofsPtrs(size, nullptr);
@@ -57,7 +54,6 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
       nodalStressTensorCounter += tensor::QStressNodal::size();
       pstransPtrs[cell] = static_cast<real*>(pstrains[cell]);
       initialLoadPtrs[cell] = static_cast<real*>(data.plasticity().initialLoading);
-      qEtaModalPtrs[cell] = qEtaModalScratch + cell * tensor::QEtaModal::size();
       qEtaNodalPtrs[cell] = qEtaNodalScratch + cell * tensor::QEtaNodal::size();
       qStressNodalPtrs[cell] = qStressNodalScratch + cell * tensor::QStressNodal::size();
       prevDofsPtrs[cell] = prevDofsScratch + cell * tensor::Q::size();
@@ -70,7 +66,6 @@ void PlasticityRecorder::record(LTS& handler, Layer& layer) {
     (*currentTable)[key].set(inner_keys::Wp::Id::Pstrains, pstransPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::InitialLoad, initialLoadPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::PrevDofs, prevDofsPtrs);
-    (*currentTable)[key].set(inner_keys::Wp::Id::QEtaModal, qEtaModalPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::QEtaNodal, qEtaNodalPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::DuDtStrain, qStressNodalPtrs);
   }

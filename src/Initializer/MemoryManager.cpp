@@ -639,8 +639,6 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
                                 layer.size() * tensor::Q::Size * sizeof(real));
       layer.setEntrySize(lts.qEtaNodalScratch,
                                 layer.size() * tensor::QEtaNodal::Size * sizeof(real));
-      layer.setEntrySize(lts.qEtaModalScratch,
-                                layer.size() * tensor::QEtaModal::Size * sizeof(real));
       layer.setEntrySize(lts.qStressNodalScratch,
                                 layer.size() * tensor::QStressNodal::Size * sizeof(real));
     }
