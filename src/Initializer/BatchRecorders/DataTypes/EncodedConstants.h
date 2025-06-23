@@ -46,6 +46,10 @@ struct Wp {
     DerivativesAne,
     DerivativesExt,
     Analytical,
+    PrevDofs,
+    QEtaModal,
+    QEtaNodal,
+    DuDtStrain,
     Count
   };
 };

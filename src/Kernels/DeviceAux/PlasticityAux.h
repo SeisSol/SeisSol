@@ -22,19 +22,10 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
                              size_t numElements,
                              void* streamPtr);
 
-void adjustPointers(real* qEtaNodal,
-                    real** qEtaNodalPtrs,
-                    real* qEtaModal,
-                    real** qEtaModalPtrs,
-                    real* dUdTpstrain,
-                    real** dUdTpstrainPtrs,
-                    size_t numElements,
-                    void* streamPtr);
-
 void computePstrains(real** pstrains,
                      const seissol::model::PlasticityData* plasticityData,
                      real** dofs,
-                     real* prevDofs,
+                     real** prevDofs,
                      real** dUdTpstrain,
                      double tV,
                      double oneMinusIntegratingFactor,

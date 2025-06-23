@@ -121,6 +121,12 @@ struct LTS {
   Scratchpad<real> idofsAneScratch;
   Scratchpad<real> dofsExtScratch;
 
+  Scratchpad<unsigned> flagScratch;
+  Scratchpad<real> prevDofsScratch;
+  Scratchpad<real> qEtaNodalScratch;
+  Scratchpad<real> qEtaModalScratch;
+  Scratchpad<real> qStressNodalScratch;
+
   void addTo(LTSTree& tree, bool usePlasticity) {
     LayerMask plasticityMask;
     if (usePlasticity) {
@@ -195,6 +201,12 @@ struct LTS {
       tree.add(derivativesScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
       tree.add(nodalAvgDisplacements, LayerMask(), 1, AllocationMode::DeviceOnly);
       tree.add(analyticScratch, LayerMask(), 1, AllocationMode::HostDevicePinned);
+
+      tree.add(flagScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(prevDofsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(qEtaNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(qEtaModalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(qStressNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
     }
   }
 

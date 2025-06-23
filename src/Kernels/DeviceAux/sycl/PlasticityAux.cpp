@@ -111,33 +111,10 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
   });
 }
 
-void adjustPointers(real* QEtaNodal,
-                    real** QEtaNodalPtrs,
-                    real* QEtaModal,
-                    real** QEtaModalPtrs,
-                    real* dUdTpstrain,
-                    real** dUdTpstrainPtrs,
-                    size_t numElements,
-                    void* queuePtr) {
-  auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
-  sycl::range rng{numElements};
-
-  queue->submit([&](sycl::handler& cgh) {
-    cgh.parallel_for(rng, [=](sycl::item<1> item) {
-      auto tid = item.get_id(0);
-      if (tid < numElements) {
-        QEtaNodalPtrs[tid] = &QEtaNodal[tensor::QEtaNodal::Size * tid];
-        QEtaModalPtrs[tid] = &QEtaModal[tensor::QEtaModal::Size * tid];
-        dUdTpstrainPtrs[tid] = &dUdTpstrain[tensor::QStressNodal::Size * tid];
-      }
-    });
-  });
-}
-
 void computePstrains(real** pstrains,
                      const seissol::model::PlasticityData* plasticityData,
                      real** dofs,
-                     real* prevDofs,
+                     real** prevDofs,
                      real** dUdTpstrain,
                      double T_v,
                      double oneMinusIntegratingFactor,
@@ -156,7 +133,7 @@ void computePstrains(real** pstrains,
 
       if (isAdjustableVector[wid]) {
         real* localDofs = dofs[wid];
-        real* localPrevDofs = &prevDofs[tensor::Q::Size * wid];
+        real* localPrevDofs = prevDofs[wid];
         const seissol::model::PlasticityData* localData = &plasticityData[wid];
         real* localPstrain = pstrains[wid];
         real* localDuDtPstrain = dUdTpstrain[wid];

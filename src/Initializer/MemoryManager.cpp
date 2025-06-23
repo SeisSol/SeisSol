@@ -562,7 +562,7 @@ void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
 }
 
 #ifdef ACL_DEVICE
-void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LTSTree& ltsTree, LTS& lts) {
+void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree& ltsTree, LTS& lts) {
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
@@ -632,6 +632,18 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
 #endif
     layer.setEntrySize(lts.analyticScratch,
                              analyticCounter * tensor::INodal::size() * sizeof(real));
+    if (plasticity) {
+      layer.setEntrySize(lts.flagScratch,
+                                layer.size() * sizeof(unsigned));
+      layer.setEntrySize(lts.prevDofsScratch,
+                                layer.size() * tensor::Q::Size * sizeof(real));
+      layer.setEntrySize(lts.qEtaNodalScratch,
+                                layer.size() * tensor::QEtaNodal::Size * sizeof(real));
+      layer.setEntrySize(lts.qEtaModalScratch,
+                                layer.size() * tensor::QEtaModal::Size * sizeof(real));
+      layer.setEntrySize(lts.qStressNodalScratch,
+                                layer.size() * tensor::QStressNodal::Size * sizeof(real));
+    }
   }
 }
 
@@ -751,7 +763,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
   initializeFaceDisplacements();
 
 #ifdef ACL_DEVICE
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(m_ltsTree, m_lts);
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(seissolInstance.getSeisSolParameters().model.plasticity, m_ltsTree, m_lts);
   m_ltsTree.allocateScratchPads();
 #endif
 }
