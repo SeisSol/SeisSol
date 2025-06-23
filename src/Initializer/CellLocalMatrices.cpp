@@ -53,22 +53,22 @@ void setStarMatrix(const real* matAT,
                    const real* matCT,
                    const double grad[3],
                    real* starMatrix) {
-  for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
   }
 
-  for (unsigned idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
     starMatrix[idx] += grad[1] * matBT[idx];
   }
 
-  for (unsigned idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
     starMatrix[idx] += grad[2] * matCT[idx];
   }
 }
 
 void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
-                          unsigned meshId,
-                          unsigned side,
+                          std::size_t meshId,
+                          int side,
                           double* surfaceArea,
                           double* volume) {
   const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -189,7 +189,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
-      for (unsigned cell = 0; cell < layer.size(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto clusterId = secondaryInformation[cell].clusterId;
         const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
         const auto meshId = secondaryInformation[cell].meshId;
@@ -202,7 +202,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         double gradZeta[3];
 
         // Iterate over all 4 vertices of the tetrahedron
-        for (unsigned vertex = 0; vertex < 4; ++vertex) {
+        for (int vertex = 0; vertex < 4; ++vertex) {
           const VrtxCoords& coords = vertices[elements[meshId].vertices[vertex]].coords;
           x[vertex] = coords[0];
           y[vertex] = coords[1];
@@ -224,7 +224,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
         const double volume = MeshTools::volume(elements[meshId], vertices);
 
-        for (unsigned side = 0; side < 4; ++side) {
+        for (int side = 0; side < 4; ++side) {
           VrtxCoords normal;
           VrtxCoords tangent1;
           VrtxCoords tangent2;
@@ -381,13 +381,13 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
-    for (unsigned cell = 0; cell < layer.size(); ++cell) {
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto& element = elements[secondaryInformation[cell].meshId];
       const double* coords[4];
-      for (unsigned v = 0; v < 4; ++v) {
+      for (int v = 0; v < 4; ++v) {
         coords[v] = vertices[element.vertices[v]].coords;
       }
-      for (unsigned side = 0; side < 4; ++side) {
+      for (int side = 0; side < 4; ++side) {
         if (cellInformation[cell].faceTypes[side] != FaceType::FreeSurfaceGravity &&
             cellInformation[cell].faceTypes[side] != FaceType::Dirichlet &&
             cellInformation[cell].faceTypes[side] != FaceType::Analytical) {
@@ -400,7 +400,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         auto* nodes = boundary[cell][side].nodes;
         assert(nodes != nullptr);
         auto offset = 0;
-        for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+        for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
           double nodeReference[2];
           nodeReference[0] = nodesReference(i, 0);
           nodeReference[1] = nodesReference(i, 1);
@@ -502,8 +502,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
     schedule(static)
 #endif
-    for (unsigned ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      const unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      const std::size_t meshFace = layerLtsFaceToMeshFace[ltsFace];
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
 
       /// Face information

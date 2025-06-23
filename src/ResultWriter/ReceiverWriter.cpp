@@ -186,7 +186,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
   const unsigned numberOfPoints = points.size();
   std::vector<short> contained(numberOfPoints);
-  std::vector<unsigned> meshIds(numberOfPoints);
+  std::vector<std::size_t> meshIds(numberOfPoints);
 
   // We want to plot all quantities except for the memory variables
   std::vector<unsigned> quantities(seissol::model::MaterialT::Quantities.size());
@@ -223,7 +223,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   logInfo() << "Mapping receivers to LTS cells...";
   for (unsigned point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
-      const unsigned meshId = meshIds[point];
+      const auto meshId = meshIds[point];
       const auto position = container.clusterBackmap.storagePositionLookup(meshId);
       const auto layer = position.color;
       // Make sure that needed empty clusters are initialized.
