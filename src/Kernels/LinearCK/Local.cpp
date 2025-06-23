@@ -77,31 +77,32 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
 template <typename LocalDataType>
 struct ApplyAnalyticalSolution {
-  ApplyAnalyticalSolution(seissol::physics::InitialField* initCondition, LocalDataType& data)
-      : initCondition(initCondition), localData(data) {}
+  ApplyAnalyticalSolution(const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
+                          LocalDataType& data)
+      : initConditions(initConditions), localData(data) {}
 
   void operator()(const real* nodes, double time, seissol::init::INodal::view::type& boundaryDofs) {
-
-    auto nodesVec = std::vector<std::array<double, 3>>{};
-    int offset = 0;
+    auto nodesVec = std::vector<std::array<double, 3>>{
+        seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension]};
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
 
-      for (unsigned int i = 0; i < seissol::tensor::INodal::Shape[0]; ++i) {
-        auto curNode = std::array<double, 3>{};
-        curNode[0] = nodes[offset++];
-        curNode[1] = nodes[offset++];
-        curNode[2] = nodes[offset++];
-        nodesVec.push_back(curNode);
+      std::size_t offset = 0;
+#pragma omp simd
+      for (std::size_t i = 0; i < seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension];
+           ++i) {
+        nodesVec[i][0] = nodes[i * 3 * multisim::NumSimulations + 0];
+        nodesVec[i][1] = nodes[i * 3 * multisim::NumSimulations + 1];
+        nodesVec[i][2] = nodes[i * 3 * multisim::NumSimulations + 2];
       }
 
-      assert(initCondition != nullptr);
-      initCondition->evaluate(time, nodesVec, localData.material(), slicedBoundaryDofs);
+      assert(initConditions != nullptr);
+      initConditions->at(s)->evaluate(time, nodesVec, localData.material(), slicedBoundaryDofs);
     }
   }
 
   private:
-  seissol::physics::InitialField* initCondition{};
+  const std::vector<std::unique_ptr<physics::InitialField>>* initConditions;
   LocalDataType& localData;
 };
 
@@ -223,8 +224,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
     case FaceType::Analytical: {
       assert(cellBoundaryMapping != nullptr);
       assert(initConds != nullptr);
-      assert(initConds->size() == 1);
-      ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
+      ApplyAnalyticalSolution applyAnalyticalSolution(initConds, data);
 
       dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
                                               face,
@@ -375,8 +375,7 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
         alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
         assert(initConds != nullptr);
-        assert(initConds->size() == 1);
-        ApplyAnalyticalSolution applyAnalyticalSolution(this->getInitCond(0), data);
+        ApplyAnalyticalSolution applyAnalyticalSolution(initConds, data);
 
         dirichletBoundary.evaluateTimeDependent(nullptr,
                                                 face,
