@@ -191,6 +191,41 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       break;
     }
     case FaceType::Dirichlet: {
+      // (for now, override dirichlet)
+      auto applyBoundary =
+          [&](const real* nodes, double time, init::INodal::view::type& boundaryDofs) {
+            for (unsigned int i = 0;
+                 i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
+                 ++i) {
+              // vx
+              boundaryDofs(i, 6) = 0;
+
+              // vy
+              boundaryDofs(i, 7) = 0;
+
+              // vz
+              boundaryDofs(i, 8) = std::sin(time * 0.1);
+            }
+          };
+
+      // Compute boundary in [n, t_1, t_2] basis
+      dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
+                                              face,
+                                              (*cellBoundaryMapping)[face],
+                                              m_projectKrnlPrototype,
+                                              applyBoundary,
+                                              dofsFaceBoundaryNodal,
+                                              time,
+                                              timeStepWidth);
+
+      // We do not need to rotate the boundary data back to the [x,y,z] basis
+      // as we set the Tinv matrix to the identity matrix in the flux solver
+      // See init. in CellLocalMatrices.initializeCellLocalMatrices!
+
+      nodalLfKrnl.execute(face);
+      break;
+    }
+    /*case FaceType::Dirichlet: {
       assert(cellBoundaryMapping != nullptr);
       auto* easiBoundaryMap = (*cellBoundaryMapping)[face].easiBoundaryMap;
       auto* easiBoundaryConstant = (*cellBoundaryMapping)[face].easiBoundaryConstant;
@@ -220,7 +255,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 
       nodalLfKrnl.execute(face);
       break;
-    }
+    }*/
     case FaceType::Analytical: {
       assert(cellBoundaryMapping != nullptr);
       assert(initConds != nullptr);
