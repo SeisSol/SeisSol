@@ -126,6 +126,13 @@ struct LTS {
   Scratchpad<real> qEtaNodalScratch;
   Scratchpad<real> qStressNodalScratch;
 
+  Scratchpad<real> rotateDisplacementToFaceNormalScratch;
+  Scratchpad<real> rotateDisplacementToGlobalScratch;
+  Scratchpad<real> rotatedFaceDisplacementScratch;
+  Scratchpad<real> dofsFaceNodalScratch;
+  Scratchpad<real> prevCoefficientsScratch;
+  Scratchpad<real> dofsFaceBoundaryNodalScratch;
+
   void addTo(LTSTree& tree, bool usePlasticity) {
     LayerMask plasticityMask;
     if (usePlasticity) {
@@ -205,6 +212,13 @@ struct LTS {
       tree.add(prevDofsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
       tree.add(qEtaNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
       tree.add(qStressNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+
+      tree.add(rotateDisplacementToFaceNormalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(rotateDisplacementToGlobalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(rotatedFaceDisplacementScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(dofsFaceNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(prevCoefficientsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(dofsFaceBoundaryNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
     }
   }
 
