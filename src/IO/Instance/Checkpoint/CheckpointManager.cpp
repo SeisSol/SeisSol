@@ -40,7 +40,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
     writer::Writer writer;
     const auto filename = prefix + std::string("-checkpoint-") + std::to_string(counter) + ".h5";
     for (const auto& [_, ckpTree] : dataRegistry) {
-      const std::size_t cells = ckpTree.tree->getNumberOfCells(Ghost);
+      const std::size_t cells = ckpTree.tree->size(Ghost);
       assert(cells == ckpTree.ids.size());
       std::size_t totalCells = 0;
       MPI_Allreduce(&cells,
