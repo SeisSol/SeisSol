@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #include <vector>
 #include <queue>
 #include <list>
@@ -165,4 +165,4 @@ class seissol::time_stepping::TimeManager {
 };
 
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
