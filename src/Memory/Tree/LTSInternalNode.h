@@ -128,10 +128,10 @@ public:
 
   [[nodiscard]] ConstLeafIterator endLeaf() const { return ConstLeafIterator(end()); }
 
-  [[nodiscard]] unsigned getNumberOfCells(LayerMask layerMask = LayerMask()) const {
-    unsigned numCells = 0;
+  [[nodiscard]] std::size_t size(LayerMask layerMask = LayerMask()) const {
+    std::size_t numCells = 0;
     for (const auto& leaf : leaves(layerMask)) {
-      numCells += leaf.getNumberOfCells();
+      numCells += leaf.size();
     }
     return numCells;
   }
