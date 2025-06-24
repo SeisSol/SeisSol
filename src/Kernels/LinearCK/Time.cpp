@@ -19,7 +19,6 @@
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
-#include <Numerical/BasisFunction.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <generated_code/kernel.h>
@@ -31,7 +30,6 @@
 
 #include <cassert>
 #include <cstring>
-#include <memory>
 #include <stdint.h>
 
 #include <yateto.h>

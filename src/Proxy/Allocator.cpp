@@ -18,7 +18,6 @@
 #include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/TimeCluster.h>
-#include <Proxy/Constants.h>
 #include <cstddef>
 #include <random>
 #include <stdlib.h>

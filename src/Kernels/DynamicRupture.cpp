@@ -21,7 +21,6 @@
 
 #include "utils/logger.h"
 
-#include "Numerical/Quadrature.h"
 #include "generated_code/kernel.h"
 #ifdef ACL_DEVICE
 #include "device.h"

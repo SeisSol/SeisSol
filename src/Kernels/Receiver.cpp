@@ -18,6 +18,7 @@
 #include <Kernels/Common.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>

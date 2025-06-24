@@ -19,9 +19,11 @@
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Kernels/TimeCommon.h>
 #include <Memory/Tree/Layer.h>
 #include <Monitoring/Instrumentation.h>
+#include <Numerical/Quadrature.h>
 #include <Parallel/Runtime/Stream.h>
 #include <memory>
 #include <omp.h>

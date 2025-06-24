@@ -189,8 +189,8 @@ void Time::evaluateBatched(const real* coeffs,
     krnl.power(i) = coeffs[i];
   }
 
-  intKrnl.streamPtr = runtime.stream();
-  intKrnl.execute();
+  krnl.streamPtr = runtime.stream();
+  krnl.execute();
 #else
   logError() << "No GPU implementation provided";
 #endif
