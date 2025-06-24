@@ -42,20 +42,20 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
   auto* cellInformation = layer.var(lts.cellInformation);
   auto* secondaryInformation = layer.var(lts.secondaryInformation);
   real* bucket =
-      static_cast<real*>(layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Host));
+      static_cast<real*>(layer.var(lts.buffersDerivatives, initializer::AllocationPlace::Host));
 
   real** buffersDevice = layer.var(lts.buffersDevice);
   real** derivativesDevice = layer.var(lts.derivativesDevice);
   real*(*faceNeighborsDevice)[4] = layer.var(lts.faceNeighborsDevice);
-  real* bucketDevice = static_cast<real*>(
-      layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Device));
+  real* bucketDevice =
+      static_cast<real*>(layer.var(lts.buffersDerivatives, initializer::AllocationPlace::Device));
 
-  std::mt19937 rng(layer.getNumberOfCells());
+  std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
   std::uniform_int_distribution<unsigned> orientationDist(0, 2);
-  std::uniform_int_distribution<unsigned> cellDist(0, layer.getNumberOfCells() - 1);
+  std::uniform_int_distribution<unsigned> cellDist(0, layer.size() - 1);
 
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+  for (unsigned cell = 0; cell < layer.size(); ++cell) {
     buffers[cell] = bucket + cell * tensor::I::size();
     derivatives[cell] = nullptr;
     buffersDevice[cell] = bucketDevice + cell * tensor::I::size();
@@ -73,7 +73,7 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+  for (unsigned cell = 0; cell < layer.size(); ++cell) {
     for (unsigned f = 0; f < 4; ++f) {
       switch (faceTp) {
       case FaceType::FreeSurface:
@@ -92,22 +92,20 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
     }
   }
 
-  kernels::fillWithStuff(
-      reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.getNumberOfCells(), false);
-  kernels::fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells(), false);
+  kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
+  kernels::fillWithStuff(bucket, tensor::I::size() * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
-                         sizeof(LocalIntegrationData) / sizeof(real) * layer.getNumberOfCells(),
+                         sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
                          false);
   kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration),
-                         sizeof(NeighboringIntegrationData) / sizeof(real) *
-                             layer.getNumberOfCells(),
+                         sizeof(NeighboringIntegrationData) / sizeof(real) * layer.size(),
                          false);
 
 #ifdef USE_POROELASTIC
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+  for (unsigned cell = 0; cell < layer.size(); ++cell) {
     localIntegration[cell].specific.typicalTimeStepWidth = seissol::proxy::Timestep;
   }
 #endif
@@ -160,8 +158,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   cluster.child<Interior>().setNumberOfCells(cellCount);
 
   seissol::initializer::Layer& layer = cluster.child<Interior>();
-  layer.setBucketSize(lts.buffersDerivatives,
-                      sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
+  layer.setEntrySize(lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.size());
 
   ltsTree.allocateVariables();
   ltsTree.touchVariables();
@@ -246,7 +243,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     std::mt19937 rng(cellCount);
     std::uniform_int_distribution<unsigned> sideDist(0, 3);
     std::uniform_int_distribution<unsigned> orientationDist(0, 2);
-    std::uniform_int_distribution<unsigned> drDist(0, interior.getNumberOfCells() - 1);
+    std::uniform_int_distribution<unsigned> drDist(0, interior.size() - 1);
     std::uniform_int_distribution<unsigned> cellDist(0, cellCount - 1);
 
     /* init drMapping */
@@ -264,7 +261,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     }
 
     /* init dr godunov state */
-    for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
+    for (unsigned face = 0; face < interior.size(); ++face) {
       const auto plusCell = cellDist(rng);
       const auto minusCell = cellDist(rng);
       timeDerivativeHostPlus[face] =

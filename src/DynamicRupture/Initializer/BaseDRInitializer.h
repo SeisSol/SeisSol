@@ -47,13 +47,13 @@ class BaseDRInitializer {
    */
   struct StressTensor {
     explicit StressTensor(size_t size) {
-      xx.reserve(size);
-      yy.reserve(size);
-      zz.reserve(size);
-      xy.reserve(size);
-      yz.reserve(size);
-      xz.reserve(size);
-      p.reserve(size);
+      xx.resize(size);
+      yy.resize(size);
+      zz.resize(size);
+      xy.resize(size);
+      yz.resize(size);
+      xz.resize(size);
+      p.resize(size);
     }
     using VectorOfArraysT = std::vector<std::array<real, misc::NumPaddedPoints>>;
     VectorOfArraysT xx;

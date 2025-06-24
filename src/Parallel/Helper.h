@@ -45,9 +45,12 @@ inline void printPersistentMpiInfo(utils::Env& env) {
   }
 }
 
-#ifdef ACL_DEVICE
 inline bool useUSM(utils::Env& env) {
+#ifdef ACL_DEVICE
   return env.get<bool>("USM", device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+#else
+  return true;
+#endif
 }
 
 inline bool useUSM() {
@@ -64,8 +67,12 @@ inline void printUSMInfo(utils::Env& env) {
 }
 
 inline bool useMPIUSM(utils::Env& env) {
+#ifdef ACL_DEVICE
   return env.get<bool>("USM_MPI",
                        device::DeviceInstance::getInstance().api->isUnifiedMemoryDefault());
+#else
+  return true;
+#endif
 }
 
 inline bool useMPIUSM() {
@@ -80,7 +87,6 @@ inline void printMPIUSMInfo(utils::Env& env) {
     logInfo() << "Using separate buffers for CPU-GPU MPI data.";
   }
 }
-#endif
 
 } // namespace seissol
 

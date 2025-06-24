@@ -33,7 +33,7 @@ namespace seissol::proxy {
 void ProxyKernelHostAder::run(ProxyData& data,
                               seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsTree.child(0).child<Interior>();
-  const unsigned nrOfCells = layer.getNumberOfCells();
+  const unsigned nrOfCells = layer.size();
   real** buffers = layer.var(data.lts.buffers);
   real** derivatives = layer.var(data.lts.derivatives);
 
@@ -64,7 +64,7 @@ auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> Performa
   ret.hardwareFlop = 0;
 
   // iterate over cells
-  const unsigned nrOfCells = data.ltsTree.child(0).child<Interior>().getNumberOfCells();
+  const unsigned nrOfCells = data.ltsTree.child(0).child<Interior>().size();
   for (unsigned int cell = 0; cell < nrOfCells; ++cell) {
     unsigned int nonZeroFlops = 0;
     unsigned int hardwareFlops = 0;
@@ -83,7 +83,7 @@ auto ProxyKernelHostAder::needsDR() const -> bool { return false; }
 void ProxyKernelHostLocalWOAder::run(ProxyData& data,
                                      seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsTree.child(0).child<Interior>();
-  const unsigned nrOfCells = layer.getNumberOfCells();
+  const unsigned nrOfCells = layer.size();
   real** buffers = layer.var(data.lts.buffers);
 
   kernels::LocalData::Loader loader;
@@ -113,7 +113,7 @@ auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> P
   ret.hardwareFlop = 0.0;
 
   auto& layer = data.ltsTree.child(0).child<Interior>();
-  const unsigned nrOfCells = layer.getNumberOfCells();
+  const unsigned nrOfCells = layer.size();
   CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
   for (unsigned cell = 0; cell < nrOfCells; ++cell) {
     unsigned int nonZeroFlops = 0;
@@ -134,7 +134,7 @@ auto ProxyKernelHostLocalWOAder::needsDR() const -> bool { return false; }
 void ProxyKernelHostLocal::run(ProxyData& data,
                                seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsTree.child(0).child<Interior>();
-  const unsigned nrOfCells = layer.getNumberOfCells();
+  const unsigned nrOfCells = layer.size();
   real** buffers = layer.var(data.lts.buffers);
   real** derivatives = layer.var(data.lts.derivatives);
 
@@ -164,7 +164,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 void ProxyKernelHostNeighbor::run(ProxyData& data,
                                   seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsTree.child(0).child<Interior>();
-  const unsigned nrOfCells = layer.getNumberOfCells();
+  const unsigned nrOfCells = layer.size();
   real*(*faceNeighbors)[4] = layer.var(data.lts.faceNeighbors);
   CellDRMapping(*drMapping)[4] = layer.var(data.lts.drMapping);
   CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
@@ -241,7 +241,7 @@ auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> Perf
 
   // iterate over cells
   auto& layer = data.ltsTree.child(0).child<Interior>();
-  const unsigned nrOfCells = layer.getNumberOfCells();
+  const unsigned nrOfCells = layer.size();
   CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
   CellDRMapping(*drMapping)[4] = layer.var(data.lts.drMapping);
   for (unsigned int cell = 0; cell < nrOfCells; cell++) {
@@ -286,8 +286,8 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) private(qInterpolatedPlus, qInterpolatedMinus)
 #endif
-  for (unsigned face = 0; face < layerData.getNumberOfCells(); ++face) {
-    const unsigned prefetchFace = (face < layerData.getNumberOfCells() - 1) ? face + 1 : face;
+  for (unsigned face = 0; face < layerData.size(); ++face) {
+    const unsigned prefetchFace = (face < layerData.size() - 1) ? face + 1 : face;
     data.dynRupKernel.spaceTimeInterpolation(faceInformation[face],
                                              &data.globalDataOnHost,
                                              &godunovData[face],
@@ -309,7 +309,7 @@ auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> Per
   // iterate over cells
   seissol::initializer::Layer& interior = data.dynRupTree.child(0).child<Interior>();
   DRFaceInformation* faceInformation = interior.var(data.dynRup.faceInformation);
-  for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
+  for (unsigned face = 0; face < interior.size(); ++face) {
     long long drNonZeroFlops = 0;
     long long drHardwareFlops = 0;
     data.dynRupKernel.flopsGodunovState(faceInformation[face], drNonZeroFlops, drHardwareFlops);

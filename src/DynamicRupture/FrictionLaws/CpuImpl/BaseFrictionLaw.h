@@ -36,7 +36,7 @@ class BaseFrictionLaw : public FrictionSolver {
                 const FrictionTime& frictionTime,
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
-    if (layerData.getNumberOfCells() == 0) {
+    if (layerData.size() == 0) {
       return;
     }
 
@@ -50,7 +50,7 @@ class BaseFrictionLaw : public FrictionSolver {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
+    for (unsigned ltsFace = 0; ltsFace < layerData.size(); ++ltsFace) {
       alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
