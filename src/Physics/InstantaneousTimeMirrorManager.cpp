@@ -86,7 +86,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     CellMaterialData* materials = layer.var(lts->material);
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves) {
-      for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         auto& material = materials[cell];
 // Refocusing both waves
 #ifndef USE_ACOUSTIC
@@ -103,7 +103,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     }
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWavesVelocity) {
-      for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         auto& material = materials[cell];
         // Refocusing both waves with constant velocities
         material.local.lambda *= velocityScalingFactor;
@@ -122,7 +122,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     }
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
-      for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only P-waves
         material.local.lambda *= velocityScalingFactor * velocityScalingFactor;
@@ -133,7 +133,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     }
 
     if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
-      for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         auto& material = materials[cell];
         // Refocusing only S-waves
         // material.local.lambda =

@@ -423,8 +423,8 @@ class seissol::initializer::time_stepping::LtsLayout {
      **/
     void getCellInformation( CellLocalInformation* io_cellLocalInformation,
                              SecondaryCellLocalInformation* secondaryInformation,
-                             unsigned int         *&o_ltsToMesh,
-                             unsigned int          &o_numberOfMeshCells );
+                             std::size_t         *&o_ltsToMesh,
+                             std::size_t          &o_numberOfMeshCells );
 
     void getDynamicRuptureInformation(  unsigned*&  ltsToFace,
                                         unsigned*&  numberOfDRCopyFaces,

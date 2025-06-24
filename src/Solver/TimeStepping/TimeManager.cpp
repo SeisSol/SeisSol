@@ -83,9 +83,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     // Dynamic rupture
     auto& dynRupTree = memoryManager.getDynamicRuptureTree()->child(localClusterId);
     // Note: We need to include the Ghost part, as we need to compute its DR part as well.
-    const long numberOfDynRupCells = dynRupTree.child(Interior).getNumberOfCells() +
-                                     dynRupTree.child(Copy).getNumberOfCells() +
-                                     dynRupTree.child(Ghost).getNumberOfCells();
+    const long numberOfDynRupCells = dynRupTree.child(Interior).size() +
+                                     dynRupTree.child(Copy).size() + dynRupTree.child(Ghost).size();
 
     bool isFirstDynamicRuptureCluster = false;
     if (!foundDynamicRuptureCluster && numberOfDynRupCells > 0) {
@@ -129,9 +128,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                         &loopStatistics,
                                         &actorStateStatisticsManager.addCluster(profilingId)));
 
-      const auto clusterSize = layerData->getNumberOfCells();
-      const auto dynRupSize = type == Copy ? dynRupCopyData->getNumberOfCells()
-                                           : dynRupInteriorData->getNumberOfCells();
+      const auto clusterSize = layerData->size();
+      const auto dynRupSize = type == Copy ? dynRupCopyData->size() : dynRupInteriorData->size();
       // Add writer to output
       clusteringWriter.addCluster(profilingId, localClusterId, type, clusterSize, dynRupSize);
     }

@@ -71,9 +71,8 @@ seissol::time_stepping::TimeCluster::TimeCluster(
     seissol::SeisSol& seissolInstance,
     LoopStatistics* loopStatistics,
     ActorStateStatistics* actorStateStatistics)
-    : AbstractTimeCluster(maxTimeStepSize,
-                          timeStepRate,
-                          seissolInstance.executionPlace(clusterData->getNumberOfCells())),
+    : AbstractTimeCluster(
+          maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
       // cluster ids
       usePlasticity(usePlasticity), seissolInstance(seissolInstance),
       globalDataOnHost(globalData.onHost), globalDataOnDevice(globalData.onDevice),
@@ -170,7 +169,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 
 void seissol::time_stepping::TimeCluster::computeDynamicRupture(
     seissol::initializer::Layer& layerData) {
-  if (layerData.getNumberOfCells() == 0) {
+  if (layerData.size() == 0) {
     return;
   }
   SCOREP_USER_REGION_DEFINE(myRegionHandle)
@@ -197,8 +196,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (std::size_t face = 0; face < layerData.getNumberOfCells(); ++face) {
-    const std::size_t prefetchFace = (face < layerData.getNumberOfCells() - 1) ? face + 1 : face;
+  for (std::size_t face = 0; face < layerData.size(); ++face) {
+    const std::size_t prefetchFace = (face < layerData.size() - 1) ? face + 1 : face;
     dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
                                                 globalDataOnHost,
                                                 &godunovData[face],
@@ -227,7 +226,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
     LIKWID_MARKER_STOP("computeDynamicRuptureFrictionLaw");
   }
 
-  loopStatistics->end(regionComputeDynamicRupture, layerData.getNumberOfCells(), profilingId);
+  loopStatistics->end(regionComputeDynamicRupture, layerData.size(), profilingId);
 }
 
 #ifdef ACL_DEVICE
@@ -237,7 +236,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice(
 
   loopStatistics->begin(regionComputeDynamicRupture);
 
-  if (layerData.getNumberOfCells() > 0) {
+  if (layerData.size() > 0) {
     // compute space time interpolation part
 
     const double stepSizeWidth = timeStepSize();
@@ -276,7 +275,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice(
     }
     streamRuntime.wait();
   }
-  loopStatistics->end(regionComputeDynamicRupture, layerData.getNumberOfCells(), profilingId);
+  loopStatistics->end(regionComputeDynamicRupture, layerData.size(), profilingId);
 }
 #endif
 
@@ -287,7 +286,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops(
 
   DRFaceInformation* faceInformation = layerData.var(dynRup->faceInformation);
 
-  for (std::size_t face = 0; face < layerData.getNumberOfCells(); ++face) {
+  for (std::size_t face = 0; face < layerData.size(); ++face) {
     long long faceNonZeroFlops = 0;
     long long faceHardwareFlops = 0;
     dynamicRuptureKernel.flopsGodunovState(
@@ -321,7 +320,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(bool resetBuff
 #pragma omp parallel for private(bufferPointer, integrationBuffer),                                \
     firstprivate(tmp) schedule(static)
 #endif
-  for (std::size_t cell = 0; cell < clusterData->getNumberOfCells(); cell++) {
+  for (std::size_t cell = 0; cell < clusterData->size(); cell++) {
     auto data = loader.entry(cell);
 
     // We need to check, whether we can overwrite the buffer or if it is
@@ -383,7 +382,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(bool resetBuff
     }
   }
 
-  loopStatistics->end(regionComputeLocalIntegration, clusterData->getNumberOfCells(), profilingId);
+  loopStatistics->end(regionComputeLocalIntegration, clusterData->size(), profilingId);
 }
 #ifdef ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
@@ -471,7 +470,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(bool res
 
   streamRuntime.wait();
 
-  loopStatistics->end(regionComputeLocalIntegration, clusterData->getNumberOfCells(), profilingId);
+  loopStatistics->end(regionComputeLocalIntegration, clusterData->size(), profilingId);
   device.api->popLastProfilingMark();
 }
 #endif // ACL_DEVICE
@@ -521,17 +520,14 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice(do
                            });
 
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
-        clusterData->getNumberOfCells() *
-        accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
+        clusterData->size() * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
-        clusterData->getNumberOfCells() *
-        accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+        clusterData->size() * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
   }
 
   device.api->popLastProfilingMark();
   streamRuntime.wait();
-  loopStatistics->end(
-      regionComputeNeighboringIntegration, clusterData->getNumberOfCells(), profilingId);
+  loopStatistics->end(regionComputeNeighboringIntegration, clusterData->size(), profilingId);
 }
 #endif // ACL_DEVICE
 
@@ -542,7 +538,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationFlops() {
   flopsHardware = 0;
 
   auto* cellInformation = clusterData->var(lts->cellInformation);
-  for (std::size_t cell = 0; cell < clusterData->getNumberOfCells(); ++cell) {
+  for (std::size_t cell = 0; cell < clusterData->size(); ++cell) {
     unsigned cellNonZero = 0;
     unsigned cellHardware = 0;
     spacetimeKernel.flopsAder(cellNonZero, cellHardware);
@@ -576,7 +572,7 @@ void seissol::time_stepping::TimeCluster::computeNeighborIntegrationFlops() {
 
   auto* cellInformation = clusterData->var(lts->cellInformation);
   auto* drMapping = clusterData->var(lts->drMapping);
-  for (std::size_t cell = 0; cell < clusterData->getNumberOfCells(); ++cell) {
+  for (std::size_t cell = 0; cell < clusterData->size(); ++cell) {
     unsigned cellNonZero = 0;
     unsigned cellHardware = 0;
     long long cellDRNonZero = 0;
@@ -633,7 +629,7 @@ void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& /*.
 }
 void TimeCluster::predict() {
   assert(state == ActorState::Corrected);
-  if (clusterData->getNumberOfCells() == 0) {
+  if (clusterData->size() == 0) {
     return;
   }
 
@@ -668,7 +664,7 @@ void TimeCluster::predict() {
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host
                                               : seissol::initializer::AllocationPlace::Device;
-    clusterData->bucketSynchronizeTo(lts->buffersDerivatives, other, streamRuntime.stream());
+    clusterData->varSynchronizeTo(lts->buffersDerivatives, other, streamRuntime.stream());
     streamRuntime.wait();
   }
 #endif
@@ -824,7 +820,7 @@ void TimeCluster::finalize() {
 
 template <bool UsePlasticity>
 void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStart) {
-  if (clusterData->getNumberOfCells() == 0) {
+  if (clusterData->size() == 0) {
     return;
   }
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
@@ -864,7 +860,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                subTimeStart,                                                                       \
                tV) reduction(+ : numberOTetsWithPlasticYielding)
 #endif
-  for (std::size_t cell = 0; cell < clusterData->getNumberOfCells(); cell++) {
+  for (std::size_t cell = 0; cell < clusterData->size(); cell++) {
     auto data = loader.entry(cell);
     seissol::kernels::TimeCommon::computeIntegrals(
         timeKernel,
@@ -892,7 +888,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                                    : drMapping[cell][3].godunov;
 
     // fourth face's prefetches
-    if (cell < (clusterData->getNumberOfCells() - 1)) {
+    if (cell < (clusterData->size() - 1)) {
       faceNeighborsPrefetch[3] =
           (cellInformation[cell + 1].faceTypes[0] != FaceType::DynamicRupture)
               ? faceNeighbors[cell + 1][0]
@@ -923,15 +919,12 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   if constexpr (UsePlasticity) {
     yieldCells[0] += numberOTetsWithPlasticYielding;
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
-        clusterData->getNumberOfCells() *
-        accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
+        clusterData->size() * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
-        clusterData->getNumberOfCells() *
-        accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+        clusterData->size() * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
   }
 
-  loopStatistics->end(
-      regionComputeNeighboringIntegration, clusterData->getNumberOfCells(), profilingId);
+  loopStatistics->end(regionComputeNeighboringIntegration, clusterData->size(), profilingId);
 }
 
 void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {

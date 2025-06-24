@@ -148,7 +148,7 @@ class GravitationalFreeSurfaceBc {
       for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
         // Derivatives of interior variables
         constexpr int PIdx = 0;
-        constexpr int UIdx = 6;
+        constexpr int UIdx = model::MaterialT::TractionQuantities;
 
         const auto uInside = dofsFaceNodal(i, UIdx + 0);
         const auto vInside = dofsFaceNodal(i, UIdx + 1);

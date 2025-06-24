@@ -82,7 +82,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   ioStopwatch.pause();
 
-  Stopwatch::print("Time spent for initial IO:", ioStopwatch.split(), MPI::mpi.comm());
+  Stopwatch::print("Time spent for initial IO:", ioStopwatch.split());
 
   // use an empty log message as visual separator
   logInfo() << "";
@@ -117,9 +117,9 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     ioStopwatch.pause();
 
     const double currentSplit = simulationStopwatch.split();
-    Stopwatch::print("Time spent this phase (total):", currentSplit - lastSplit, MPI::mpi.comm());
-    Stopwatch::print("Time spent this phase (compute):", computeStopwatch.split(), MPI::mpi.comm());
-    Stopwatch::print("Time spent this phase (blocking IO):", ioStopwatch.split(), MPI::mpi.comm());
+    Stopwatch::print("Time spent this phase (total):", currentSplit - lastSplit);
+    Stopwatch::print("Time spent this phase (compute):", computeStopwatch.split());
+    Stopwatch::print("Time spent this phase (blocking IO):", ioStopwatch.split());
     seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
     lastSplit = currentSplit;
 
@@ -133,9 +133,9 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   Modules::callSyncHook(currentTime, timeTolerance, true);
 
   const double wallTime = simulationStopwatch.pause();
-  simulationStopwatch.printTime("Simulation time (total):", MPI::mpi.comm());
-  computeStopwatch.printTime("Simulation time (compute):", MPI::mpi.comm());
-  ioStopwatch.printTime("Simulation time (blocking IO):", MPI::mpi.comm());
+  simulationStopwatch.printTime("Simulation time (total):");
+  computeStopwatch.printTime("Simulation time (compute):");
+  ioStopwatch.printTime("Simulation time (blocking IO):");
 
   Modules::callHook<ModuleHook::SimulationEnd>();
 

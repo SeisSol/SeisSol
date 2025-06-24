@@ -63,8 +63,7 @@ class FreeSurfaceIntegrator {
       const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
       const double* weights) const;
   void initializeSurfaceLTSTree(seissol::initializer::LTS* lts,
-                                seissol::initializer::LTSTree* ltsTree,
-                                seissol::initializer::Lut* ltsLut);
+                                seissol::initializer::LTSTree* ltsTree);
 
   static LocationFlag
       getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
@@ -93,8 +92,7 @@ class FreeSurfaceIntegrator {
   void initialize(unsigned maxRefinementDepth,
                   GlobalData* globalData,
                   seissol::initializer::LTS* lts,
-                  seissol::initializer::LTSTree* ltsTree,
-                  seissol::initializer::Lut* ltsLut);
+                  seissol::initializer::LTSTree* ltsTree);
 
   void calculateOutput();
 
