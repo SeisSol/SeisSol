@@ -78,7 +78,7 @@ class FreeSurfaceWriterExecutor {
 
   void finalize() {
     if (m_xdmfWriter != nullptr) {
-      m_stopwatch.printTime("Time free surface writer backend:", m_comm);
+      m_stopwatch.printTime("Time free surface writer backend:");
     }
 
     if (m_comm != MPI_COMM_NULL) {
