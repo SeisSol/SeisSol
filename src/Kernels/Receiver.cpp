@@ -139,6 +139,9 @@ double ReceiverCluster::calcReceivers(
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
 
       kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
+
+      // TODO: make space kernels. Sadly.
+
 #ifdef USE_STP
       alignas(PagesizeStack) real timeDerivatives[tensor::spaceTimePredictor::size()];
       kernel::evaluateDOFSAtPointSTP krnl;

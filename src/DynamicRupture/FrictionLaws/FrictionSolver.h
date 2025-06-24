@@ -47,7 +47,7 @@ class FrictionSolver {
    * compute the DeltaT from the current timePoints call this function before evaluate
    * to set the correct DeltaT
    */
-  static FrictionTime computeDeltaT(const std::vector<double>& timePoints);
+  static FrictionTime computeDeltaT(const std::vector<real>& timePoints);
 
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
