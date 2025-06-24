@@ -65,9 +65,9 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
     // Dynamic rupture
     auto& dynRupTree = memoryManager.getDynamicRuptureTree()->child(localClusterId);
     // Note: We need to include the Ghost part, as we need to compute its DR part as well.
-    const long numberOfDynRupCells = dynRupTree.child(Interior).getNumberOfCells() +
-        dynRupTree.child(Copy).getNumberOfCells() +
-        dynRupTree.child(Ghost).getNumberOfCells();
+    const long numberOfDynRupCells = dynRupTree.child(Interior).size() +
+        dynRupTree.child(Copy).size() +
+        dynRupTree.child(Ghost).size();
 
     bool isFirstDynamicRuptureCluster = false;
     if (!foundDynamicRuptureCluster && numberOfDynRupCells > 0) {
@@ -110,9 +110,9 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
           &actorStateStatisticsManager.addCluster(profilingId))
       );
 
-      const auto clusterSize = layerData->getNumberOfCells();
-      const auto dynRupSize = type == Copy ? dynRupCopyData->getNumberOfCells()
-                                           : dynRupInteriorData->getNumberOfCells();
+      const auto clusterSize = layerData->size();
+      const auto dynRupSize = type == Copy ? dynRupCopyData->size()
+                                           : dynRupInteriorData->size();
       // Add writer to output
       clusteringWriter.addCluster(profilingId, localClusterId, type, clusterSize, dynRupSize);
     }
@@ -147,7 +147,7 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
 
     increaseManager.setTimeClusterVector(&clusters);
     decreaseManager.setTimeClusterVector(&clusters);
-#ifdef USE_MPI
+
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
     const auto persistent = usePersistentMpi(seissolInstance.env());
@@ -181,7 +181,6 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
         ghostClusters.back()->connect(*copy);
       }
     }
-#endif
   }
 
   clusteringWriter.write();

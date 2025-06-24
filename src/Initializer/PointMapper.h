@@ -21,7 +21,7 @@ void findMeshIds(const Eigen::Vector3d* points,
                  const seissol::geometry::MeshReader& mesh,
                  std::size_t numPoints,
                  short* contained,
-                 unsigned* meshId,
+                 std::size_t* meshId,
                  double tolerance = 0);
 
 void findMeshIds(const Eigen::Vector3d* points,
@@ -29,11 +29,11 @@ void findMeshIds(const Eigen::Vector3d* points,
                  const std::vector<Element>& elements,
                  std::size_t numPoints,
                  short* contained,
-                 unsigned* meshIds,
+                 std::size_t* meshIds,
                  double tolerance = 0);
-#ifdef USE_MPI
+
 void cleanDoubles(short* contained, std::size_t numPoints);
-#endif
+
 } // namespace seissol::initializer
 
 #endif // SEISSOL_SRC_INITIALIZER_POINTMAPPER_H_
