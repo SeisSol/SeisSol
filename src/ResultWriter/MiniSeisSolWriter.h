@@ -14,7 +14,7 @@
 namespace seissol::writer {
 class MiniSeisSolWriter {
   public:
-  MiniSeisSolWriter(const char* outputDirectory) : outputDirectory(outputDirectory) {}
+  explicit MiniSeisSolWriter(const char* outputDirectory) : outputDirectory(outputDirectory) {}
   void write(double elapsedTime, double weight);
 
   private:

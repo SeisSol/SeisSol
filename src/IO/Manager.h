@@ -24,7 +24,7 @@ namespace seissol::io {
 
 class OutputManager : public seissol::Module {
   public:
-  OutputManager(SeisSol& seissolInstance);
+  explicit OutputManager(SeisSol& seissolInstance);
 
   void addOutput(const writer::ScheduledWriter& writer);
 

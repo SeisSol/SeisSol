@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Allocator.h"
-#include <Common/Constants.h>
+#include <Alignment.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
@@ -20,8 +20,13 @@
 #include <Memory/Tree/TimeCluster.h>
 #include <Proxy/Constants.h>
 #include <cstddef>
+#include <random>
 #include <stdlib.h>
 #include <tensor.h>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 #ifdef ACL_DEVICE
 #include <Initializer/MemoryManager.h>
@@ -38,15 +43,20 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
   auto* cellInformation = layer.var(lts.cellInformation);
   auto* secondaryInformation = layer.var(lts.secondaryInformation);
   real* bucket =
-      static_cast<real*>(layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Host));
+      static_cast<real*>(layer.var(lts.buffersDerivatives, initializer::AllocationPlace::Host));
 
   real** buffersDevice = layer.var(lts.buffersDevice);
   real** derivativesDevice = layer.var(lts.derivativesDevice);
   real*(*faceNeighborsDevice)[4] = layer.var(lts.faceNeighborsDevice);
-  real* bucketDevice = static_cast<real*>(
-      layer.bucket(lts.buffersDerivatives, initializer::AllocationPlace::Device));
+  real* bucketDevice =
+      static_cast<real*>(layer.var(lts.buffersDerivatives, initializer::AllocationPlace::Device));
 
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+  std::mt19937 rng(layer.size());
+  std::uniform_int_distribution<unsigned> sideDist(0, 3);
+  std::uniform_int_distribution<unsigned> orientationDist(0, 2);
+  std::uniform_int_distribution<unsigned> cellDist(0, layer.size() - 1);
+
+  for (unsigned cell = 0; cell < layer.size(); ++cell) {
     buffers[cell] = bucket + cell * tensor::I::size();
     derivatives[cell] = nullptr;
     buffersDevice[cell] = bucketDevice + cell * tensor::I::size();
@@ -54,10 +64,9 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
 
     for (unsigned f = 0; f < 4; ++f) {
       cellInformation[cell].faceTypes[f] = faceTp;
-      cellInformation[cell].faceRelations[f][0] = ((unsigned int)lrand48() % 4);
-      cellInformation[cell].faceRelations[f][1] = ((unsigned int)lrand48() % 3);
-      secondaryInformation[cell].faceNeighborIds[f] =
-          ((unsigned int)lrand48() % layer.getNumberOfCells());
+      cellInformation[cell].faceRelations[f][0] = sideDist(rng);
+      cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
+      secondaryInformation[cell].faceNeighborIds[f] = cellDist(rng);
     }
     cellInformation[cell].ltsSetup = 0;
   }
@@ -65,7 +74,7 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+  for (unsigned cell = 0; cell < layer.size(); ++cell) {
     for (unsigned f = 0; f < 4; ++f) {
       switch (faceTp) {
       case FaceType::FreeSurface:
@@ -84,22 +93,20 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
     }
   }
 
-  kernels::fillWithStuff(
-      reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.getNumberOfCells(), false);
-  kernels::fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells(), false);
+  kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
+  kernels::fillWithStuff(bucket, tensor::I::size() * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
-                         sizeof(LocalIntegrationData) / sizeof(real) * layer.getNumberOfCells(),
+                         sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
                          false);
   kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration),
-                         sizeof(NeighboringIntegrationData) / sizeof(real) *
-                             layer.getNumberOfCells(),
+                         sizeof(NeighboringIntegrationData) / sizeof(real) * layer.size(),
                          false);
 
 #ifdef USE_POROELASTIC
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+  for (unsigned cell = 0; cell < layer.size(); ++cell) {
     localIntegration[cell].specific.typicalTimeStepWidth = seissol::proxy::Timestep;
   }
 #endif
@@ -144,7 +151,6 @@ void ProxyData::initGlobalData() {
 
 void ProxyData::initDataStructures(bool enableDR) {
   // init RNG
-  srand48(cellCount);
   lts.addTo(ltsTree, false); // proxy does not use plasticity
   ltsTree.setNumberOfTimeClusters(1);
   ltsTree.fixate();
@@ -155,8 +161,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   cluster.child<Interior>().setNumberOfCells(cellCount);
 
   seissol::initializer::Layer& layer = cluster.child<Interior>();
-  layer.setBucketSize(lts.buffersDerivatives,
-                      sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
+  layer.setEntrySize(lts.buffersDerivatives, sizeof(real) * tensor::I::size() * layer.size());
 
   ltsTree.allocateVariables();
   ltsTree.touchVariables();
@@ -180,12 +185,22 @@ void ProxyData::initDataStructures(bool enableDR) {
         allocator.allocateMemory(cellCount * yateto::computeFamilySize<tensor::dQ>() * sizeof(real),
                                  PagesizeHeap,
                                  seissol::memory::Standard));
+
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static)
+#pragma omp parallel
 #endif
-    for (unsigned cell = 0; cell < cellCount; ++cell) {
-      for (unsigned i = 0; i < yateto::computeFamilySize<tensor::dQ>(); i++) {
-        fakeDerivativesHost[cell * yateto::computeFamilySize<tensor::dQ>() + i] = (real)drand48();
+    {
+#ifdef _OPENMP
+      const auto offset = omp_get_thread_num();
+#else
+      const auto offset = 0;
+#endif
+      std::mt19937 rng(cellCount + offset);
+      std::uniform_real_distribution<real> urd;
+      for (unsigned cell = 0; cell < cellCount; ++cell) {
+        for (unsigned i = 0; i < yateto::computeFamilySize<tensor::dQ>(); i++) {
+          fakeDerivativesHost[cell * yateto::computeFamilySize<tensor::dQ>() + i] = urd(rng);
+        }
       }
     }
 
@@ -228,13 +243,19 @@ void ProxyData::initDataStructures(bool enableDR) {
                                               : interior.var(dynRup.timeDerivativeMinus);
     DRFaceInformation* faceInformation = interior.var(dynRup.faceInformation);
 
+    std::mt19937 rng(cellCount);
+    std::uniform_int_distribution<unsigned> sideDist(0, 3);
+    std::uniform_int_distribution<unsigned> orientationDist(0, 2);
+    std::uniform_int_distribution<unsigned> drDist(0, interior.size() - 1);
+    std::uniform_int_distribution<unsigned> cellDist(0, cellCount - 1);
+
     /* init drMapping */
     for (unsigned cell = 0; cell < cellCount; ++cell) {
       for (unsigned face = 0; face < 4; ++face) {
         CellDRMapping& drm = drMapping[cell][face];
-        const unsigned side = (unsigned int)lrand48() % 4;
-        const unsigned orientation = (unsigned int)lrand48() % 3;
-        const unsigned drFace = (unsigned int)lrand48() % interior.getNumberOfCells();
+        const auto side = sideDist(rng);
+        const auto orientation = orientationDist(rng);
+        const auto drFace = drDist(rng);
         drm.side = side;
         drm.faceRelation = orientation;
         drm.godunov = imposedStatePlus[drFace];
@@ -243,9 +264,9 @@ void ProxyData::initDataStructures(bool enableDR) {
     }
 
     /* init dr godunov state */
-    for (unsigned face = 0; face < interior.getNumberOfCells(); ++face) {
-      const unsigned plusCell = (unsigned int)lrand48() % cellCount;
-      const unsigned minusCell = (unsigned int)lrand48() % cellCount;
+    for (unsigned face = 0; face < interior.size(); ++face) {
+      const auto plusCell = cellDist(rng);
+      const auto minusCell = cellDist(rng);
       timeDerivativeHostPlus[face] =
           &fakeDerivativesHost[plusCell * yateto::computeFamilySize<tensor::dQ>()];
       timeDerivativeHostMinus[face] =
@@ -255,9 +276,9 @@ void ProxyData::initDataStructures(bool enableDR) {
       timeDerivativeMinus[face] =
           &fakeDerivatives[minusCell * yateto::computeFamilySize<tensor::dQ>()];
 
-      faceInformation[face].plusSide = (unsigned int)lrand48() % 4;
-      faceInformation[face].minusSide = (unsigned int)lrand48() % 4;
-      faceInformation[face].faceRelation = (unsigned int)lrand48() % 3;
+      faceInformation[face].plusSide = sideDist(rng);
+      faceInformation[face].minusSide = sideDist(rng);
+      faceInformation[face].faceRelation = orientationDist(rng);
     }
   }
 }

@@ -63,6 +63,7 @@ struct PickpointParameters {
   int maxPickStore{50};
   std::array<bool, 12> outputMask{true, true, true};
   std::string pickpointFileName;
+  bool aggregate{false};
   bool collectiveio{false};
 };
 

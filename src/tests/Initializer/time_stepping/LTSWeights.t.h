@@ -19,8 +19,6 @@
 namespace seissol::unit_test {
 
 TEST_CASE("LTS Weights") {
-// PUMLReader is only available with MPI
-#ifdef USE_MPI
   std::cout.setstate(std::ios_base::failbit);
   using namespace seissol::initializer::time_stepping;
   const LtsWeightsConfig config{seissol::initializer::parameters::BoundaryFormat::I32, 2, 1, 1, 1};
@@ -35,11 +33,13 @@ TEST_CASE("LTS Weights") {
       1.0,
       seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor,
       seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
-  seissol::initializer::parameters::SeisSolParameters seissolParameters;
+  seissol::initializer::parameters::SeisSolParameters seissolParameters{};
   seissolParameters.timeStepping.lts = ltsParameters;
   seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
   seissolParameters.model.materialFileName = "Testing/material.yaml";
+  seissolParameters.model.useCellHomogenizedMaterial = false;
+  seissolParameters.model.plasticity = false;
   const utils::Env env("SEISSOL_");
   seissol::SeisSol seissolInstance(seissolParameters, env);
 
@@ -58,7 +58,6 @@ TEST_CASE("LTS Weights") {
       std::vector<unsigned>{2, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 1};
 
   REQUIRE(givenWeights == expectedWeights);
-#endif
 }
 
 TEST_CASE("Cost function for LTS") {

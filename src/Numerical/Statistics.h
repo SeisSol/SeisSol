@@ -13,8 +13,8 @@
 
 namespace seissol::statistics {
 struct Summary {
-  Summary(double value = 0.0);
-  Summary(const std::vector<double>& values);
+  explicit Summary(double value = 0.0);
+  explicit Summary(const std::vector<double>& values);
 
   double mean;
   double std;

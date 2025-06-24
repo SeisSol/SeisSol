@@ -11,7 +11,7 @@
 namespace seissol::dr::friction_law::cpu {
 class NoTP {
   public:
-  NoTP(seissol::initializer::parameters::DRParameters* drParameters) {};
+  explicit NoTP(seissol::initializer::parameters::DRParameters* drParameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           const seissol::initializer::DynamicRupture* const dynRup,

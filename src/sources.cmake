@@ -153,8 +153,6 @@ src/Solver/FreeSurfaceIntegrator.cpp
 
 src/Reader/AsagiModule.cpp
 src/Reader/AsagiReader.cpp
-
-src/Parallel/Runtime/StreamOMP.cpp
 )
 
 set(SYCL_ONLY_SRC_FILES
@@ -265,7 +263,7 @@ if (WITH_GPU)
     include(${CMAKE_SOURCE_DIR}/src/cuda.cmake)
   elseif ("${DEVICE_BACKEND}" STREQUAL "hip")
     include(${CMAKE_SOURCE_DIR}/src/hip.cmake)
-  elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
+  elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "acpp" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
     include(${CMAKE_SOURCE_DIR}/src/sycl.cmake)
   endif()
 

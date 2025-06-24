@@ -39,8 +39,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 
   {
     auto* tree = seissolInstance.getMemoryManager().getLtsTree();
-    std::vector<std::size_t> globalIds(
-        tree->getNumberOfCells(seissol::initializer::LayerMask(Ghost)));
+    std::vector<std::size_t> globalIds(tree->size(seissol::initializer::LayerMask(Ghost)));
     const auto* ltsToMesh = seissolInstance.getMemoryManager().getLtsLut()->getLtsToMeshLut(
         seissol::initializer::LayerMask(Ghost));
 #ifdef _OPENMP
@@ -56,8 +55,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   {
     auto* tree = seissolInstance.getMemoryManager().getDynamicRuptureTree();
     auto* dynrup = seissolInstance.getMemoryManager().getDynamicRupture();
-    std::vector<std::size_t> faceIdentifiers(
-        tree->getNumberOfCells(seissol::initializer::LayerMask(Ghost)));
+    std::vector<std::size_t> faceIdentifiers(tree->size(seissol::initializer::LayerMask(Ghost)));
     const auto* drFaceInformation = tree->var(dynrup->faceInformation);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -74,9 +72,9 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     dynrup->registerCheckpointVariables(checkpoint, tree);
   }
 
-  if (seissolInstance.getCheckpointLoadFile().has_value()) {
-    const double time = seissolInstance.getOutputManager().loadCheckpoint(
-        seissolInstance.getCheckpointLoadFile().value());
+  const auto& checkpointFile = seissolInstance.getCheckpointLoadFile();
+  if (checkpointFile.has_value()) {
+    const double time = seissolInstance.getOutputManager().loadCheckpoint(checkpointFile.value());
     seissolInstance.simulator().setCurrentTime(time);
   }
 
@@ -235,7 +233,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     auto* surfaceMeshSides =
         freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.side);
     auto writer = io::instance::geometry::GeometryWriter(
-        "free-surface", freeSurfaceIntegrator.surfaceLtsTree.getNumberOfCells(), 2, order);
+        "free-surface", freeSurfaceIntegrator.surfaceLtsTree.size(), 2, order);
     writer.addPointProjector([=](double* target, std::size_t index) {
       auto meshId = surfaceMeshIds[index];
       auto side = surfaceMeshSides[index];
@@ -327,7 +325,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                       &seissolInstance.meshReader(),
                       ltsTree,
                       lts,
-                      ltsLut,
                       seissolParams.model.plasticity,
                       seissolParams.output.prefix,
                       seissolParams.output.energyParameters);
@@ -357,8 +354,7 @@ void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
     seissolInstance.freeSurfaceIntegrator().initialize(refinement,
                                                        memoryManager.getGlobalDataOnHost(),
                                                        memoryManager.getLts(),
-                                                       memoryManager.getLtsTree(),
-                                                       memoryManager.getLtsLut());
+                                                       memoryManager.getLtsTree());
   }
 }
 

@@ -23,7 +23,7 @@ extern long long libxsmm_num_total_flops;
 #include "Common/Offset.h"
 #endif
 
-#include "Kernels/DenseMatrixOps.h"
+#include "Kernels/MemoryOps.h"
 #include "generated_code/init.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
@@ -253,8 +253,6 @@ void Time::computeBatchedIntegral(double expansionPoint,
 
   kernel::gpu_derivativeTaylorExpansionEla intKrnl;
   intKrnl.numElements = numElements;
-  real* tmpMem = reinterpret_cast<real*>(device.api->getStackMemory(
-      seissol::kernel::gpu_derivativeTaylorExpansionEla::TmpMaxMemRequiredInBytes * numElements));
 
   intKrnl.I = timeIntegratedDofs;
 
@@ -274,10 +272,8 @@ void Time::computeBatchedIntegral(double expansionPoint,
     intKrnl.power(der) = firstTerm - secondTerm;
     intKrnl.power(der) /= factorial;
   }
-  intKrnl.linearAllocator.initialize(tmpMem);
   intKrnl.streamPtr = runtime.stream();
   intKrnl.execute();
-  device.api->popStackMemory();
 #else
   assert(false && "no implementation provided");
 #endif
@@ -381,7 +377,7 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
     }
 
     device.algorithms.streamBatchedData(
-        (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(),
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
         (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr(),
         tensor::Q::Size,
         krnl.numElements,

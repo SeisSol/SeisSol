@@ -12,7 +12,7 @@ extern long long libxsmm_num_total_flops;
 #endif
 
 #include "Kernels/Common.h"
-#include "Kernels/DenseMatrixOps.h"
+#include "Kernels/MemoryOps.h"
 
 #include <Eigen/Dense>
 #include <cassert>

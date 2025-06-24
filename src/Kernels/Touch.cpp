@@ -28,7 +28,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
     if (buffer != nullptr) {
       for (unsigned dof = 0; dof < tensor::Q::size(); ++dof) {
         // zero time integration buffers
-        buffer[dof] = (real)0;
+        buffer[dof] = static_cast<real>(0);
       }
     }
 
@@ -36,7 +36,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
     real* derivative = derivatives[cell];
     if (derivative != nullptr) {
       for (unsigned dof = 0; dof < yateto::computeFamilySize<tensor::dQ>(); ++dof) {
-        derivative[dof] = (real)0;
+        derivative[dof] = static_cast<real>(0);
       }
     }
   }
@@ -44,13 +44,15 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
 
 void fillWithStuff(real* buffer, unsigned nValues, [[maybe_unused]] bool onDevice) {
   // No real point for these numbers. Should be just something != 0 and != NaN and != Inf
-  const auto stuff = [](unsigned n) { return static_cast<real>((214013 * n + 2531011) / 65536); };
+  const auto stuff = [](unsigned n) {
+    return static_cast<real>((214013.0 * n + 2531011.0) / 16777216.0);
+  };
 #ifdef ACL_DEVICE
   if (onDevice) {
     void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 
     device::DeviceInstance::getInstance().algorithms.fillArray<real>(
-        buffer, static_cast<real>(2531011.0 / 65536), nValues, stream);
+        buffer, static_cast<real>(2531011.0 / 65536.0), nValues, stream);
 
     device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
     return;

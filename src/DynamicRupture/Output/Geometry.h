@@ -20,7 +20,7 @@ struct ExtVrtxCoords {
   ~ExtVrtxCoords() = default;
 
   template <typename T>
-  ExtVrtxCoords(const T& other) {
+  explicit ExtVrtxCoords(const T& other) {
     for (int i = 0; i < 3; ++i) {
       coords[i] = other[i];
     }
@@ -97,6 +97,7 @@ struct ReceiverPoint {
   bool isInside{false};        // If a point is inside the mesh or not
   int nearestGpIndex{-1};
   int faultTag{-1};
+  int simIndex{0};
 
   // Internal points are required because computed gradients
   // are inaccurate near triangle edges,

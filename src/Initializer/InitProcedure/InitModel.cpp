@@ -12,15 +12,15 @@
 #include "Initializer/TimeStepping/Common.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSSync.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
 #include <Common/Constants.h>
+#include <Common/Real.h>
+#include <Config.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Kernels/Common.h>
-#include <Kernels/Precision.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
@@ -43,8 +43,6 @@
 #include "SeisSol.h"
 
 #include "Parallel/MPI.h"
-
-#include <cmath>
 
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
 #include "Physics/Attenuation.h"
@@ -154,7 +152,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       // set the materials for the cell volume and its faces
       auto meshId = secondaryInformation[cell].meshId;
       auto& material = materialArray[cell];
@@ -218,9 +216,10 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                                     seissolParams.model);
 
   if (seissolParams.drParameters.etaHack != 1.0) {
-    logWarning()
-        << "The \"eta hack\" has been enabled to mitigate quasi-divergent solutions in the "
-           "friction law. The results may not conform to the existing benchmarks.";
+    logWarning() << "The \"eta hack\" has been enabled in the timeframe [0,"
+                 << seissolParams.drParameters.etaStop
+                 << ") to mitigate quasi-divergent solutions in the "
+                    "friction law. The results may not conform to the existing benchmarks.";
   }
 
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
@@ -335,8 +334,8 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   const auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
   const auto& lts = seissolInstance.getMemoryManager().getLts();
 
-  unsigned* ltsToMesh = nullptr;
-  unsigned numberOfMeshCells = 0;
+  std::size_t* ltsToMesh = nullptr;
+  std::size_t numberOfMeshCells = 0;
 
   seissolInstance.getLtsLayout().getCellInformation(ltsTree->var(lts->cellInformation),
                                                     ltsTree->var(lts->secondaryInformation),
@@ -392,7 +391,8 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   logInfo() << "Model info:";
   logInfo() << "Material:" << MaterialT::Text.c_str();
   logInfo() << "Order:" << ConvergenceOrder;
-  logInfo() << "Precision:" << (sizeof(real) == 4 ? "single (f32)" : "double (f64)");
+  logInfo() << "Precision:"
+            << (Config::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
   logInfo() << "Plasticity:"
             << (seissolInstance.getSeisSolParameters().model.plasticity ? "on" : "off");
   logInfo() << "Flux:"

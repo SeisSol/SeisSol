@@ -38,11 +38,13 @@
 #include <ios>
 #include <kernel.h>
 #include <memory>
+#include <numeric>
 #include <ostream>
 #include <sstream>
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
 #include <utils/timeutils.h>
@@ -92,12 +94,11 @@ std::string buildIndexedMPIFileName(const std::string& namePrefix,
                                     const std::string& nameSuffix,
                                     const std::string& fileExtension = std::string()) {
   std::stringstream suffix;
-#ifdef PARALLEL
-  suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index) << '-'
-         << makeFormatted<int, WideFormat>(seissol::MPI::mpi.rank());
-#else
-  suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index);
-#endif
+  if (index >= 0) {
+    suffix << nameSuffix << '-' << makeFormatted<int, WideFormat>(index);
+  } else {
+    suffix << nameSuffix << "-r" << makeFormatted<int, WideFormat>(seissol::MPI::mpi.rank());
+  }
   return buildFileName(namePrefix, suffix.str(), fileExtension);
 }
 
@@ -179,6 +180,7 @@ void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
 }
 
 void OutputManager::initElementwiseOutput() {
+  logInfo() << "Setting up the fault output.";
   ewOutputBuilder->build(ewOutputData);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
@@ -233,11 +235,12 @@ void OutputManager::initElementwiseOutput() {
 }
 
 void OutputManager::initPickpointOutput() {
+  logInfo() << "Setting up on-fault receivers.";
   ppOutputBuilder->build(ppOutputData);
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
   if (seissolParameters.output.pickpointParameters.collectiveio) {
-    logError() << "Collective IO for the Fault Pickpoint output is still under construction.";
+    logError() << "Collective IO for the on-fault receiver output is still under construction.";
   }
 
   std::stringstream baseHeader;
@@ -250,63 +253,114 @@ void OutputManager::initPickpointOutput() {
     }
   };
   misc::forEach(ppOutputData->vars, collectVariableNames);
-
   auto& outputData = ppOutputData;
-  for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
+
+  const bool allReceiversInOneFilePerRank = seissolParameters.output.pickpointParameters.aggregate;
+  if (allReceiversInOneFilePerRank) {
+    // aggregate all receivers per rank
+
+    ppFiles.resize(1);
+    auto fileName = buildIndexedMPIFileName(seissolParameters.output.prefix, -1, "faultreceiver");
+    fileName += ".dat";
+    std::vector<std::size_t> receivers(ppOutputData->receiverPoints.size());
+    std::iota(receivers.begin(), receivers.end(), 0);
+    ppFiles[0] = PickpointFile{fileName, receivers};
+  } else {
+    // aggregate at least all fused simulations
+
+    std::unordered_map<std::size_t, std::vector<std::size_t>> globalIndexMap;
+    for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
+      globalIndexMap[outputData->receiverPoints[i].globalReceiverIndex].push_back(i);
+    }
+
+    ppFiles.resize(globalIndexMap.size());
+    std::size_t counter = 0;
+    for (const auto& [index, receivers] : globalIndexMap) {
+      auto fileName =
+          buildIndexedMPIFileName(seissolParameters.output.prefix, index, "faultreceiver");
+      seissol::generateBackupFileIfNecessary(fileName, "dat", {backupTimeStamp});
+      fileName += ".dat";
+
+      ppFiles[counter] = PickpointFile{fileName, receivers};
+      ++counter;
+    }
+  }
+
+  for (size_t i = 0; i < ppFiles.size(); ++i) {
     const auto& receiver = outputData->receiverPoints[i];
     const size_t globalIndex = receiver.globalReceiverIndex + 1;
 
-    auto fileName =
-        buildIndexedMPIFileName(seissolParameters.output.prefix, globalIndex, "faultreceiver");
-    seissol::generateBackupFileIfNecessary(fileName, "dat", {backupTimeStamp});
-    fileName += ".dat";
+    const auto& ppfile = ppFiles[i];
 
-    if (!seissol::filesystem::exists(fileName)) {
-      std::ofstream file(fileName, std::ios_base::out);
+    if (!seissol::filesystem::exists(ppfile.fileName)) {
+      std::ofstream file(ppfile.fileName, std::ios_base::out);
       if (file.is_open()) {
         std::stringstream title;
-        title << "TITLE = \"Temporal Signal for fault receiver number " << globalIndex << "\"";
+
+        title << "TITLE = \"Temporal Signal for fault receiver number(s) and simulation(s)";
+        for (const auto& gIdx : ppfile.indices) {
+          const auto& receiver = outputData->receiverPoints[gIdx];
+          const size_t globalIndex = receiver.globalReceiverIndex + 1;
+          const size_t simIndex = receiver.simIndex + 1;
+          title << " " << globalIndex << "," << simIndex << ";";
+        }
+        title << "\"";
 
         file << title.str() << '\n';
-        file << baseHeader.str() << '\n';
+        file << "VARIABLES = \"Time\"";
+        for (const auto& _ [[maybe_unused]] : ppfile.indices) {
+          file << baseHeader.str();
+        }
+        file << '\n';
 
-        const auto& point = const_cast<ExtVrtxCoords&>(receiver.global);
+        for (const auto& gIdx : ppfile.indices) {
+          const auto& receiver = outputData->receiverPoints[gIdx];
+          const size_t globalIndex = receiver.globalReceiverIndex + 1;
+          const size_t simIndex = receiver.simIndex + 1;
+          const auto& point = const_cast<ExtVrtxCoords&>(receiver.global);
 
-        // output coordinates
-        file << "# x1\t" << makeFormatted(point[0]) << '\n';
-        file << "# x2\t" << makeFormatted(point[1]) << '\n';
-        file << "# x3\t" << makeFormatted(point[2]) << '\n';
+          // output coordinates
+          file << "# " << globalIndex << "," << simIndex << " x1\t" << makeFormatted(point[0])
+               << '\n';
+          file << "# " << globalIndex << "," << simIndex << " x2\t" << makeFormatted(point[1])
+               << '\n';
+          file << "# " << globalIndex << "," << simIndex << " x3\t" << makeFormatted(point[2])
+               << '\n';
 
-        // stress info
-        std::array<real, 6> rotatedInitialStress{};
+          // stress info
+          std::array<real, 6> rotatedInitialStress{};
 
-        {
-          auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
+          {
+            auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
-          const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
-          const auto* initialStress = initialStressVar[face];
-          std::array<real, 6> unrotatedInitialStress{};
-          for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size(); ++stressVar) {
-            unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.nearestGpIndex];
+            const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
+            const auto* initialStress = initialStressVar[face];
+            std::array<real, 6> unrotatedInitialStress{};
+            for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
+                 ++stressVar) {
+              unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.nearestGpIndex];
+            }
+
+            seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
+            alignAlongDipAndStrikeKernel.stressRotationMatrix =
+                outputData->stressGlbToDipStrikeAligned[i].data();
+            alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
+                outputData->stressFaceAlignedToGlb[i].data();
+
+            alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
+            alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
+            alignAlongDipAndStrikeKernel.execute();
           }
 
-          seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
-          alignAlongDipAndStrikeKernel.stressRotationMatrix =
-              outputData->stressGlbToDipStrikeAligned[i].data();
-          alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-              outputData->stressFaceAlignedToGlb[i].data();
-
-          alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
-          alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
-          alignAlongDipAndStrikeKernel.execute();
+          file << "# " << globalIndex << "," << simIndex << " P_0\t"
+               << makeFormatted(rotatedInitialStress[0]) << '\n';
+          file << "# " << globalIndex << "," << simIndex << " T_s\t"
+               << makeFormatted(rotatedInitialStress[3]) << '\n';
+          file << "# " << globalIndex << "," << simIndex << " T_d\t"
+               << makeFormatted(rotatedInitialStress[5]) << '\n';
         }
-
-        file << "# P_0\t" << makeFormatted(rotatedInitialStress[0]) << '\n';
-        file << "# T_s\t" << makeFormatted(rotatedInitialStress[3]) << '\n';
-        file << "# T_d\t" << makeFormatted(rotatedInitialStress[5]) << '\n';
-
       } else {
-        logError() << "cannot open " << fileName;
+        logError() << "cannot open " << ppfile.fileName;
       }
       file.close();
     }
@@ -325,14 +379,14 @@ void OutputManager::init() {
 void OutputManager::initFaceToLtsMap() {
   if (drTree != nullptr) {
     const size_t readerFaultSize = meshReader->getFault().size();
-    const size_t ltsFaultSize = drTree->getNumberOfCells(Ghost);
+    const size_t ltsFaultSize = drTree->size(Ghost);
 
     faceToLtsMap.resize(std::max(readerFaultSize, ltsFaultSize));
     globalFaceToLtsMap.resize(faceToLtsMap.size());
     for (auto& layer : drTree->leaves(Ghost)) {
 
       DRFaceInformation* faceInformation = layer.var(drDescr->faceInformation);
-      for (size_t ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+      for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
       }
     }
@@ -385,30 +439,28 @@ void OutputManager::flushPickpointDataToFile() {
   auto& outputData = ppOutputData;
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
-  for (size_t pointId = 0; pointId < outputData->receiverPoints.size(); ++pointId) {
+  for (const auto& ppfile : ppFiles) {
     std::stringstream data;
     for (size_t level = 0; level < outputData->currentCacheLevel; ++level) {
       data << makeFormatted(outputData->cachedTime[level]) << '\t';
-      auto recordResults = [pointId, level, &data](auto& var, int) {
-        if (var.isActive) {
-          for (int dim = 0; dim < var.dim(); ++dim) {
-            data << makeFormatted(var(dim, level, pointId)) << '\t';
+      for (std::size_t pointId : ppfile.indices) {
+        auto recordResults = [pointId, level, &data](auto& var, int) {
+          if (var.isActive) {
+            for (int dim = 0; dim < var.dim(); ++dim) {
+              data << makeFormatted(var(dim, level, pointId)) << '\t';
+            }
           }
-        }
-      };
-      misc::forEach(outputData->vars, recordResults);
+        };
+        misc::forEach(outputData->vars, recordResults);
+      }
       data << '\n';
     }
 
-    const auto globalIndex = outputData->receiverPoints[pointId].globalReceiverIndex + 1;
-    const auto fileName = buildIndexedMPIFileName(
-        seissolParameters.output.prefix, globalIndex, "faultreceiver", "dat");
-
-    std::ofstream file(fileName, std::ios_base::app);
+    std::ofstream file(ppfile.fileName, std::ios_base::app);
     if (file.is_open()) {
       file << data.str();
     } else {
-      logError() << "cannot open " << fileName;
+      logError() << "cannot open " << ppfile.fileName;
     }
     file.close();
   }
