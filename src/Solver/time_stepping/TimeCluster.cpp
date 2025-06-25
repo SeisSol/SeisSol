@@ -501,6 +501,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice( s
   if (usePlasticity) {
     auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
     auto* plasticity = i_layerData.var<LTS::Plasticity>(seissol::initializer::AllocationPlace::Device);
+    auto* isAdjustableVector = i_layerData.var(m_lts->flagScratch, seissol::initializer::AllocationPlace::Device);
     streamRuntime.runGraph(plasticityGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
       seissol::kernels::Plasticity::computePlasticityBatched(timeStepWidth,
                                                               m_tv,
@@ -508,6 +509,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice( s
                                                               table,
                                                               plasticity,
                                                               yieldCells.data(),
+                                                              isAdjustableVector,
                                                               streamRuntime);
     });
 
@@ -748,13 +750,11 @@ void TimeCluster::correct() {
 
   // TODO(Lukas) Adjust with time step rate? Relevant is maximum cluster is not on this node
   const auto nextCorrectionSteps = ct.nextCorrectionSteps();
-  if constexpr (USE_MPI) {
-    if (printProgress && (((nextCorrectionSteps / timeStepRate) % 100) == 0)) {
-      logInfo() << "#max-updates since sync: " << nextCorrectionSteps
-                    << " @ " << ct.nextCorrectionTime(syncTime);
+  if (printProgress && (((nextCorrectionSteps / timeStepRate) % 100) == 0)) {
+    logInfo() << "#max-updates since sync: " << nextCorrectionSteps
+                  << " @ " << ct.nextCorrectionTime(syncTime);
 
-      }
-  }
+    }
 }
 
 void TimeCluster::reset() {
@@ -884,11 +884,13 @@ template<bool usePlasticity>
 #endif // INTEGRATE_QUANTITIES
       }
 
-      yieldCells[0] += numberOTetsWithPlasticYielding;
-      seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
-        i_layerData.size() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
-      seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
-          i_layerData.size() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+      if constexpr (usePlasticity) {
+        yieldCells[0] += numberOTetsWithPlasticYielding;
+        seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
+          i_layerData.size() * m_flops_nonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
+        seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
+            i_layerData.size() * m_flops_hardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+      }
 
       m_loopStatistics->end(m_regionComputeNeighboringIntegration, i_layerData.size(), m_profilingId);
 

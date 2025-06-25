@@ -28,12 +28,21 @@ void PlasticityRecorder::record(const seissol::LTS& lts, Layer& layer) {
   size_t nodalStressTensorCounter = 0;
   real* scratchMem =
       static_cast<real*>(currentLayer->var<LTS::IntegratedDofsScratch>(AllocationPlace::Device));
+  real* qEtaNodalScratch = static_cast<real*>(
+      currentLayer->var(currentHandler->qEtaNodalScratch, AllocationPlace::Device));
+  real* qStressNodalScratch = static_cast<real*>(
+      currentLayer->var(currentHandler->qStressNodalScratch, AllocationPlace::Device));
+  real* prevDofsScratch = static_cast<real*>(
+      currentLayer->var(currentHandler->prevDofsScratch, AllocationPlace::Device));
   const auto size = currentLayer->size();
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);
     std::vector<real*> qstressNodalPtrs(size, nullptr);
     std::vector<real*> pstransPtrs(size, nullptr);
     std::vector<real*> initialLoadPtrs(size, nullptr);
+    std::vector<real*> qEtaNodalPtrs(size, nullptr);
+    std::vector<real*> qStressNodalPtrs(size, nullptr);
+    std::vector<real*> prevDofsPtrs(size, nullptr);
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
@@ -42,6 +51,9 @@ void PlasticityRecorder::record(const seissol::LTS& lts, Layer& layer) {
       nodalStressTensorCounter += tensor::QStressNodal::size();
       pstransPtrs[cell] = static_cast<real*>(pstrains[cell]);
       initialLoadPtrs[cell] = static_cast<real*>(data.get<LTS::Plasticity>().initialLoading);
+      qEtaNodalPtrs[cell] = qEtaNodalScratch + cell * tensor::QEtaNodal::size();
+      qStressNodalPtrs[cell] = qStressNodalScratch + cell * tensor::QStressNodal::size();
+      prevDofsPtrs[cell] = prevDofsScratch + cell * tensor::Q::size();
     }
 
     const ConditionalKey key(*KernelNames::Plasticity);
@@ -50,5 +62,8 @@ void PlasticityRecorder::record(const seissol::LTS& lts, Layer& layer) {
     (*currentTable)[key].set(inner_keys::Wp::Id::NodalStressTensor, qstressNodalPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::Pstrains, pstransPtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::InitialLoad, initialLoadPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::PrevDofs, prevDofsPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::QEtaNodal, qEtaNodalPtrs);
+    (*currentTable)[key].set(inner_keys::Wp::Id::DuDtStrain, qStressNodalPtrs);
   }
 }

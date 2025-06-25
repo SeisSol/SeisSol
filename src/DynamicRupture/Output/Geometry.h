@@ -97,11 +97,15 @@ struct ReceiverPoint {
   bool isInside{false};        // If a point is inside the mesh or not
   int nearestGpIndex{-1};
   int faultTag{-1};
+  int simIndex{0}; // Simulation index for multisim
+  int gpIndex{-1}; // Index of the nearest gaussian point considering fused simulations
 
   // Internal points are required because computed gradients
   // are inaccurate near triangle edges,
   // specifically for low-order elements
   int nearestInternalGpIndex{-1};
+  int internalGpIndexFused{
+      -1}; // Index of the nearest internal gaussian point considering fused simulations
 };
 using ReceiverPoints = std::vector<ReceiverPoint>;
 

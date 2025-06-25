@@ -23,14 +23,14 @@ constexpr bool isEncodedConstant() {
          std::is_same_v<inner_keys::Material::Id, T>;
 }
 
-template <class T, typename std::enable_if<isEncodedConstant<T>()>::type>
+template <class T, std::enable_if_t<isEncodedConstant<T>()>>
 class Condition {
   public:
   Condition() = delete;
 
-  Condition(T initialEncoding) : encoding(static_cast<size_t>(initialEncoding)) {
-    highBitsMask = ~((~size_t(0)) << static_cast<size_t>(T::Count));
-  }
+  Condition(T initialEncoding)
+      : highBitsMask(~((~size_t(0)) << static_cast<size_t>(T::Count))),
+        encoding(static_cast<size_t>(initialEncoding)) {}
 
   Condition& operator!() {
     encoding = highBitsMask & (~encoding);
@@ -65,8 +65,7 @@ using namespace seissol;
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
 template <typename T>
-typename std::enable_if<isEncodedConstant<T>(), size_t>::type operator||(const T& lhs,
-                                                                         const T& rhs) {
+std::enable_if_t<isEncodedConstant<T>(), size_t> operator||(const T& lhs, const T& rhs) {
   return (static_cast<size_t>(lhs) | static_cast<size_t>(rhs));
 }
 
@@ -76,8 +75,7 @@ typename std::enable_if<isEncodedConstant<T>(), size_t>::type operator||(const T
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
 template <typename T>
-constexpr typename std::enable_if<isEncodedConstant<T>(), size_t>::type
-    operator*(const T& condition) {
+constexpr std::enable_if_t<isEncodedConstant<T>(), size_t> operator*(const T& condition) {
   return static_cast<size_t>(condition);
 }
 
@@ -87,7 +85,7 @@ constexpr typename std::enable_if<isEncodedConstant<T>(), size_t>::type
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
 template <typename T>
-typename std::enable_if<isEncodedConstant<T>(), size_t>::type operator!(const T& condition) {
+std::enable_if_t<isEncodedConstant<T>(), size_t> operator!(const T& condition) {
   size_t highBitsMask = ~((~size_t(0)) << static_cast<size_t>(T::Count));
   return highBitsMask & (~static_cast<size_t>(condition));
 }

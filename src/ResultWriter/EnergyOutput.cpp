@@ -323,6 +323,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         return timeDerivativeMinusHost + QSize * i;
       };
 #else
+      // TODO: for fused simulations, do this once and reuse
       real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
       real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
       const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
@@ -479,8 +480,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
         auto numSub = multisim::simtensor(numericalSolution, sim);
 
-        // TODO: move to the material class (maybe done by #1297 + MaterialT::NumTractionQuantities)
-        constexpr int UIdx = model::MaterialT::Type == model::MaterialType::Acoustic ? 1 : 6;
+        constexpr int UIdx = model::MaterialT::TractionQuantities;
 
         for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
           const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
@@ -611,7 +611,6 @@ void EnergyOutput::computeEnergies() {
 }
 
 void EnergyOutput::reduceEnergies() {
-#ifdef USE_MPI
   const auto& comm = MPI::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 energiesStorage.energies.data(),
@@ -619,11 +618,9 @@ void EnergyOutput::reduceEnergies() {
                 MPI_DOUBLE,
                 MPI_SUM,
                 comm);
-#endif
 }
 
 void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
-#ifdef USE_MPI
   const auto& comm = MPI::mpi.comm();
   MPI_Allreduce(MPI_IN_PLACE,
                 minTimeSinceSlipRateBelowThreshold.data(),
@@ -631,7 +628,6 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
                 MPI::castToMpiType<double>(),
                 MPI_MIN,
                 comm);
-#endif
 }
 
 void EnergyOutput::printEnergies() {
@@ -742,10 +738,8 @@ void EnergyOutput::checkAbortCriterion(
   }
 
   bool abort = abortCount == multisim::NumSimulations;
-#ifdef USE_MPI
   const auto& comm = MPI::mpi.comm();
   MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
-#endif
   if (abort) {
     seissolInstance.simulator().abort();
   }

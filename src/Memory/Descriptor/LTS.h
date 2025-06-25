@@ -125,6 +125,18 @@ struct LTS {
   struct IDofsAneScratch : public initializer::Scratchpad<real> {};
   struct DofsExtScratch : public initializer::Scratchpad<real> {};
 
+  initializer::Scratchpad<unsigned> flagScratch;
+  initializer::Scratchpad<real> prevDofsScratch;
+  initializer::Scratchpad<real> qEtaNodalScratch;
+  initializer::Scratchpad<real> qStressNodalScratch;
+
+  initializer::Scratchpad<real> rotateDisplacementToFaceNormalScratch;
+  initializer::Scratchpad<real> rotateDisplacementToGlobalScratch;
+  initializer::Scratchpad<real> rotatedFaceDisplacementScratch;
+  initializer::Scratchpad<real> dofsFaceNodalScratch;
+  initializer::Scratchpad<real> prevCoefficientsScratch;
+  initializer::Scratchpad<real> dofsFaceBoundaryNodalScratch;
+
   static void addTo(initializer::LTSTree& tree, bool usePlasticity) {
     using namespace initializer;
     LayerMask plasticityMask;
@@ -185,6 +197,18 @@ struct LTS {
       tree.add<DerivativesScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
       tree.add<NodalAvgDisplacements>(LayerMask(), 1, AllocationMode::DeviceOnly);
       tree.add<AnalyticScratch>(LayerMask(), 1, AllocationMode::HostDevicePinned);
+
+      tree.add(flagScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(prevDofsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(qEtaNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(qStressNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+
+      tree.add(rotateDisplacementToFaceNormalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(rotateDisplacementToGlobalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(rotatedFaceDisplacementScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(dofsFaceNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(prevCoefficientsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(dofsFaceBoundaryNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
     }
   }
 

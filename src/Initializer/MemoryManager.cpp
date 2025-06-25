@@ -18,6 +18,8 @@
 #include "MemoryManager.h"
 #include "InternalState.h"
 #include "Memory/Tree/Layer.h"
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <yateto.h>
 #include <unordered_set>
@@ -82,7 +84,6 @@ void seissol::initializer::MemoryManager::correctGhostRegionSetups()
 
 void seissol::initializer::MemoryManager::deriveLayerLayouts() {
   // initialize memory
-#ifdef USE_MPI
   m_numberOfGhostBuffers           = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numTimeClusters() * sizeof( unsigned int  ), 1 );
   m_numberOfGhostRegionBuffers     = (unsigned int**) m_memoryAllocator.allocateMemory( m_ltsTree.numTimeClusters() * sizeof( unsigned int* ), 1 );
   m_numberOfGhostDerivatives       = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numTimeClusters() * sizeof( unsigned int  ), 1 );
@@ -92,18 +93,15 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
   m_numberOfCopyRegionBuffers      = (unsigned int**) m_memoryAllocator.allocateMemory( m_ltsTree.numTimeClusters() * sizeof( unsigned int* ), 1 );
   m_numberOfCopyDerivatives        = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numTimeClusters() * sizeof( unsigned int  ), 1 );
   m_numberOfCopyRegionDerivatives  = (unsigned int**) m_memoryAllocator.allocateMemory( m_ltsTree.numTimeClusters() * sizeof( unsigned int* ), 1 );
-#endif // USE_MPI
 
   m_numberOfInteriorBuffers        = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numTimeClusters() * sizeof( unsigned int  ), 1 );
   m_numberOfInteriorDerivatives    = (unsigned int*)  m_memoryAllocator.allocateMemory( m_ltsTree.numTimeClusters() * sizeof( unsigned int  ), 1 );
 
   for (unsigned tc = 0; tc < m_ltsTree.numTimeClusters(); ++tc) {
-#ifdef USE_MPI
     CellLocalInformation* ghostCellInformation    = m_ltsTree.layer(initializer::LayerIdentifier(Ghost, Config(), tc)).var<LTS::CellInformation>();
     CellLocalInformation* copyCellInformation     = m_ltsTree.layer(initializer::LayerIdentifier(Copy, Config(), tc)).var<LTS::CellInformation>();
-#endif
     CellLocalInformation* interiorCellInformation = m_ltsTree.layer(initializer::LayerIdentifier(Interior, Config(), tc)).var<LTS::CellInformation>();
-#ifdef USE_MPI
+
     m_numberOfGhostBuffers[             tc] = 0;
     m_numberOfGhostRegionBuffers[       tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
     m_numberOfGhostDerivatives[         tc] = 0;
@@ -113,12 +111,10 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
     m_numberOfCopyRegionBuffers[        tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
     m_numberOfCopyDerivatives[          tc] = 0;
     m_numberOfCopyRegionDerivatives[    tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
-#endif // USE_MPI
 
     m_numberOfInteriorBuffers[          tc]       = 0;
     m_numberOfInteriorDerivatives[      tc]       = 0;
 
-#ifdef USE_MPI
     unsigned int l_ghostOffset = 0;
     unsigned int l_copyOffset  = 0;
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
@@ -161,7 +157,6 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
       m_numberOfCopyBuffers[      tc ]  += m_numberOfCopyRegionBuffers[      tc][l_region];
       m_numberOfCopyDerivatives[  tc ]  += m_numberOfCopyRegionDerivatives[  tc][l_region];
     }
-#endif // USE_MPI
 
     // iterate over all cells of this clusters interior
     for( unsigned int l_cell = 0; l_cell < m_meshStructure[tc].numberOfInteriorCells; l_cell++ ) {
@@ -172,7 +167,6 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
   }
 }
 
-#ifdef USE_MPI
 void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
 #ifdef ACL_DEVICE
   const auto allocationPlace = seissol::initializer::AllocationPlace::Device;
@@ -246,16 +240,11 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
     }
   }
 }
-#endif
 
 void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    cluster,
                                                                     Layer&      layer )
 {
-#ifdef USE_MPI
   assert(layer.getIdentifier().halo == Copy || layer.getIdentifier().halo == Interior);
-#else
-  assert(layer.getIdentifier().halo == Interior);
-#endif
 
   // iterate over clusters
 
@@ -333,7 +322,6 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
     const auto copyId = initializer::LayerIdentifier(Copy, Config(), tc);
     const auto interiorId = initializer::LayerIdentifier(Interior, Config(), tc);
 
-#ifdef USE_MPI
     /*
      * ghost layer
      */
@@ -357,7 +345,6 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
                                        static_cast<real*>(m_ltsTree.layer(copyId).var<LTS::BuffersDerivatives>()),
                                        m_ltsTree.layer(copyId).var<LTS::Buffers>(),
                                        m_ltsTree.layer(copyId).var<LTS::Derivatives>() );
-#endif
 
     /*
      * Interior
@@ -371,7 +358,6 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
                                           m_ltsTree.layer(interiorId).var<LTS::Derivatives>()  );
 
 #ifdef ACL_DEVICE
-    #ifdef USE_MPI
     /*
      * ghost layer
      */
@@ -407,7 +393,6 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
                                           static_cast<real*>(m_ltsTree.layer(interiorId).var<LTS::BuffersDerivatives>(seissol::initializer::AllocationPlace::Device)),
                                           m_ltsTree.layer(interiorId).var<LTS::BuffersDevice>(),
                                           m_ltsTree.layer(interiorId).var<LTS::DerivativesDevice>()  );
-#endif
   }
 }
 
@@ -567,7 +552,7 @@ void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
 }
 
 #ifdef ACL_DEVICE
-void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LTSTree& ltsTree) {
+void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree& ltsTree) {
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
@@ -582,6 +567,9 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
     std::size_t nodalDisplacementsCounter{0};
     std::size_t analyticCounter = 0;
 
+    std::array<std::size_t, 4> freeSurfacePerFace{};
+    std::array<std::size_t, 4> dirichletPerFace{};
+
     for (unsigned cell = 0; cell < layer.size(); ++cell) {
       bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
       if (needsScratchMemForDerivatives) {
@@ -590,7 +578,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
       ++integratedDofsCounter;
 
       // include data provided by ghost layers
-      for (unsigned face = 0; face < 4; ++face) {
+      for (int face = 0; face < 4; ++face) {
         real *neighborBuffer = faceNeighbors[cell][face];
 
         // check whether a neighbor element idofs has not been counted twice
@@ -617,8 +605,19 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
         if (cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
           ++analyticCounter;
         }
+
+        if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
+          ++freeSurfacePerFace[face];
+        }
+
+        if (cellInformation[cell].faceTypes[face] == FaceType::Dirichlet) {
+          ++dirichletPerFace[face];
+        }
       }
     }
+    const auto freeSurfaceCount = *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
+    const auto dirichletCount = *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
+
     layer.setEntrySize<LTS::IntegratedDofsScratch>(
                              integratedDofsCounter * tensor::I::size() * sizeof(real));
     layer.setEntrySize<LTS::DerivativesScratch>(
@@ -637,6 +636,29 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
 #endif
     layer.setEntrySize<LTS::AnalyticScratch>(
                              analyticCounter * tensor::INodal::size() * sizeof(real));
+    if (plasticity) {
+      layer.setEntrySize(lts.flagScratch,
+                                layer.size() * sizeof(unsigned));
+      layer.setEntrySize(lts.prevDofsScratch,
+                                layer.size() * tensor::Q::Size * sizeof(real));
+      layer.setEntrySize(lts.qEtaNodalScratch,
+                                layer.size() * tensor::QEtaNodal::Size * sizeof(real));
+      layer.setEntrySize(lts.qStressNodalScratch,
+                                layer.size() * tensor::QStressNodal::Size * sizeof(real));
+    }
+
+    layer.setEntrySize(lts.dofsFaceBoundaryNodalScratch, sizeof(real) * dirichletCount * tensor::INodal::size());
+
+    layer.setEntrySize(lts.rotateDisplacementToFaceNormalScratch, 
+      sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
+    layer.setEntrySize(lts.rotateDisplacementToGlobalScratch, 
+      sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
+    layer.setEntrySize(lts.rotatedFaceDisplacementScratch, 
+      sizeof(real) * freeSurfaceCount * init::rotatedFaceDisplacement::Size);
+    layer.setEntrySize(lts.dofsFaceNodalScratch, 
+      sizeof(real) * freeSurfaceCount * tensor::INodal::size());
+    layer.setEntrySize(lts.prevCoefficientsScratch, 
+      sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[0]);
   }
 }
 
@@ -698,7 +720,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
     size_t l_ghostSize = 0;
     size_t l_copySize = 0;
     size_t l_interiorSize = 0;
-#ifdef USE_MPI
+
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       l_ghostSize    += sizeof(real) * tensor::Q::size() * m_numberOfGhostRegionBuffers[tc][l_region];
       l_ghostSize    += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfGhostRegionDerivatives[tc][l_region];
@@ -706,7 +728,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
       l_copySize     += sizeof(real) * tensor::Q::size() * m_numberOfCopyRegionBuffers[tc][l_region];
       l_copySize     += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfCopyRegionDerivatives[tc][l_region];
     }
-#endif // USE_MPI
+
     l_interiorSize += sizeof(real) * tensor::Q::size() * m_numberOfInteriorBuffers[tc];
     l_interiorSize += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfInteriorDerivatives[tc];
 
@@ -724,9 +746,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
 
   // initialize face neighbors
   for (unsigned tc = 0; tc < m_ltsTree.numTimeClusters(); ++tc) {
-#ifdef USE_MPI
     initializeFaceNeighbors(tc, m_ltsTree.layer(initializer::LayerIdentifier(Copy, Config(), tc)));
-#endif
     initializeFaceNeighbors(tc, m_ltsTree.layer(initializer::LayerIdentifier(Interior, Config(), tc)));
   }
 
@@ -749,15 +769,13 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
     kernels::touchBuffersDerivatives(buffers, derivatives, layer.size());
   }
 
-#ifdef USE_MPI
   // initialize the communication structure
   initializeCommunicationStructure();
-#endif
 
   initializeFaceDisplacements();
 
 #ifdef ACL_DEVICE
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(m_ltsTree);
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(seissolInstance.getSeisSolParameters().model.plasticity, m_ltsTree);
   m_ltsTree.allocateScratchPads();
 #endif
 }

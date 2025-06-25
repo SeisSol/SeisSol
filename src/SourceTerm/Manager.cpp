@@ -155,7 +155,7 @@ void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
 }
 
 auto mapClusterToMesh(ClusterMapping& clusterMapping,
-                      const unsigned* meshIds,
+                      const std::size_t* meshIds,
                       seissol::initializer::LTSTree* ltsTree,
                       seissol::initializer::Lut* ltsLut,
                       seissol::initializer::AllocationPlace place) {
@@ -169,10 +169,10 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
       ++next;
     }
 
-    for (unsigned ltsId = 0, dup = 0;
+    for (std::size_t ltsId = 0, dup = 0;
          dup < seissol::initializer::Lut::MaxDuplicates &&
          (ltsId = ltsLut->ltsId(ltsTree->info<LTS::Dofs>().mask, meshId, dup)) !=
-             std::numeric_limits<unsigned>::max();
+             std::numeric_limits<std::size_t>::max();
          ++dup) {
       clusterMapping.cellToSources[mapping].dofs = &ltsTree->var<LTS::Dofs>(place)[ltsId];
       clusterMapping.cellToSources[mapping].pointSourcesOffset = clusterSource;
@@ -185,17 +185,18 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
   assert(mapping == clusterMapping.cellToSources.size());
 }
 
-auto mapPointSourcesToClusters(const unsigned* meshIds,
+auto mapPointSourcesToClusters(const std::size_t* meshIds,
                                unsigned numberOfSources,
                                seissol::initializer::LTSTree* ltsTree,
                                seissol::initializer::Lut* ltsLut,
                                seissol::memory::Memkind memkind)
     -> std::unordered_map<LayerType, std::vector<ClusterMapping>> {
   auto layerClusterToPointSources =
-      std::unordered_map<LayerType, std::vector<std::vector<unsigned>>>{};
+      std::unordered_map<LayerType, std::vector<std::vector<std::size_t>>>{};
   layerClusterToPointSources[Copy].resize(ltsTree->numChildren());
   layerClusterToPointSources[Interior].resize(ltsTree->numChildren());
-  auto layerClusterToMeshIds = std::unordered_map<LayerType, std::vector<std::vector<unsigned>>>{};
+  auto layerClusterToMeshIds =
+      std::unordered_map<LayerType, std::vector<std::vector<std::size_t>>>{};
   layerClusterToMeshIds[Copy].resize(ltsTree->numChildren());
   layerClusterToMeshIds[Interior].resize(ltsTree->numChildren());
 
@@ -223,7 +224,7 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
         const unsigned meshId = *it;
         for (unsigned dup = 0; dup < seissol::initializer::Lut::MaxDuplicates &&
                                ltsLut->ltsId(ltsTree->info<LTS::Dofs>().mask, meshId, dup) !=
-                                   std::numeric_limits<unsigned>::max();
+                                   std::numeric_limits<std::size_t>::max();
              ++dup) {
           ++numberOfMappings;
         }
@@ -252,7 +253,7 @@ auto mapPointSourcesToClusters(const unsigned* meshIds,
 
 auto makePointSourceCluster(const ClusterMapping& mapping,
                             const PointSources& sources,
-                            const unsigned* meshIds,
+                            const std::size_t* meshIds,
                             seissol::initializer::LTSTree* ltsTree,
                             seissol::initializer::Lut* ltsLut)
     -> seissol::kernels::PointSourceClusterPair {
@@ -304,17 +305,15 @@ auto loadSourcesFromFSRM(const char* fileName,
   logInfo() << "Finding meshIds for point sources...";
 
   auto contained = std::vector<short>(fsrm.numberOfSources);
-  auto meshIds = std::vector<unsigned>(fsrm.numberOfSources);
+  auto meshIds = std::vector<std::size_t>(fsrm.numberOfSources);
 
   initializer::findMeshIds(
       fsrm.centers.data(), mesh, fsrm.numberOfSources, contained.data(), meshIds.data());
 
-#ifdef USE_MPI
-  logInfo() << "Cleaning possible double occurring point sources for MPI...";
+  logInfo() << "Cleaning possible double occurring point sources in multi-rank setups...";
   initializer::cleanDoubles(contained.data(), fsrm.numberOfSources);
-#endif
 
-  auto originalIndex = std::vector<unsigned>(fsrm.numberOfSources);
+  auto originalIndex = std::vector<std::size_t>(fsrm.numberOfSources);
   unsigned numSources = 0;
   for (unsigned source = 0; source < fsrm.numberOfSources; ++source) {
     originalIndex[numSources] = source;
@@ -415,17 +414,15 @@ auto loadSourcesFromNRF(const char* fileName,
   readNRF(fileName, nrf);
 
   auto contained = std::vector<short>(nrf.size());
-  auto meshIds = std::vector<unsigned>(nrf.size());
+  auto meshIds = std::vector<std::size_t>(nrf.size());
 
   logInfo() << "Finding meshIds for point sources...";
   initializer::findMeshIds(nrf.centres.data(), mesh, nrf.size(), contained.data(), meshIds.data());
 
-#ifdef USE_MPI
-  logInfo() << "Cleaning possible double occurring point sources for MPI...";
+  logInfo() << "Cleaning possible double occurring point sources for multi-rank setups...";
   initializer::cleanDoubles(contained.data(), nrf.size());
-#endif
 
-  auto originalIndex = std::vector<unsigned>(nrf.size());
+  auto originalIndex = std::vector<std::size_t>(nrf.size());
   unsigned numSources = 0;
   for (unsigned source = 0; source < nrf.size(); ++source) {
     originalIndex[numSources] = source;
@@ -435,9 +432,7 @@ auto loadSourcesFromNRF(const char* fileName,
 
   // Checking that all sources are within the domain
   unsigned globalnumSources = numSources;
-#ifdef USE_MPI
   MPI_Reduce(&numSources, &globalnumSources, 1, MPI_UNSIGNED, MPI_SUM, 0, seissol::MPI::mpi.comm());
-#endif
 
   if (rank == 0) {
     const int numSourceOutside = nrf.size() - globalnumSources;

@@ -11,10 +11,8 @@
 #ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
 #define SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMECLUSTER_H_
 
-#ifdef USE_MPI
 #include <mpi.h>
 #include <list>
-#endif
 
 #include "Initializer/Typedefs.h"
 #include "SourceTerm/Typedefs.h"
@@ -138,7 +136,7 @@ private:
 
     kernels::ReceiverCluster* m_receiverCluster;
 
-    seissol::memory::MemkindArray<unsigned> yieldCells;
+    seissol::memory::MemkindArray<std::size_t> yieldCells;
 
     /**
      * Writes the receiver output if applicable (receivers present, receivers have to be written).

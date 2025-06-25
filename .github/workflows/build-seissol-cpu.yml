@@ -21,13 +21,11 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('{0}_{1}{2}_{3}_{4}{5}',
-            matrix.build_type,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.arch,
-            matrix.order,
+          format('cpu-{0}-{1}-p{2}{3}',
             matrix.equation.type,
-            matrix.equation.multisim != 1 && format('_f{0}', matrix.equation.multisim) || ''
+            matrix.precision == 'single' && 's' || 'd',
+            matrix.order,
+            matrix.equation.multisim != 1 && format('-f{0}', matrix.equation.multisim) || ''
           )
         }}
     strategy:
@@ -110,7 +108,7 @@ jobs:
             TESTING_COMMAND="";
           fi;
 
-          cmake .. -GNinja -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DASAGI=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
+          cmake .. -GNinja -DNEW_BINARY_NAMING=ON -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DASAGI=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
           ninja install
 
       - name: test-seissol
@@ -130,9 +128,9 @@ jobs:
 
           cd build
           set +e
-          ${TESTING_COMMAND} ./SeisSol_${EXENAME}
+          ${TESTING_COMMAND} ./seissol-${EXENAME}
           RETVAL_EXE=$?
-          ./SeisSol_proxy_${EXENAME}
+          ./proxyseissol-${EXENAME}
           RETVAL_PROXY=$?
           set -e
 
@@ -152,14 +150,14 @@ jobs:
         run: |
           cd build
 
-          ./SeisSol_proxy_${EXENAME} 100 1 ader
-          ./SeisSol_proxy_${EXENAME} 100 1 localwoader
-          ./SeisSol_proxy_${EXENAME} 100 1 local
-          ./SeisSol_proxy_${EXENAME} 100 1 neigh
-          ./SeisSol_proxy_${EXENAME} 100 1 all
-          ./SeisSol_proxy_${EXENAME} 100 1 neigh_dr
-          ./SeisSol_proxy_${EXENAME} 100 1 godunov_dr
-          ./SeisSol_proxy_${EXENAME} 100 1 all_dr
+          ./proxyseissol-${EXENAME} 100 1 ader
+          ./proxyseissol-${EXENAME} 100 1 localwoader
+          ./proxyseissol-${EXENAME} 100 1 local
+          ./proxyseissol-${EXENAME} 100 1 neigh
+          ./proxyseissol-${EXENAME} 100 1 all
+          ./proxyseissol-${EXENAME} 100 1 neigh_dr
+          ./proxyseissol-${EXENAME} 100 1 godunov_dr
+          ./proxyseissol-${EXENAME} 100 1 all_dr
  
       - name: upload-seissol
         uses: actions/upload-artifact@v4
@@ -178,13 +176,11 @@ jobs:
     env:
       EXENAME: |
         ${{
-          format('{0}_{1}{2}_{3}_{4}{5}',
-            matrix.build_type,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.arch,
-            matrix.order,
+          format('cpu-{0}-{1}-p{2}{3}',
             matrix.case.equation,
-            matrix.case.multisim != 1 && format('_f{0}', matrix.case.multisim) || ''
+            matrix.precision == 'single' && 's' || 'd',
+            matrix.order,
+            matrix.case.multisim != 1 && format('-f{0}', matrix.case.multisim) || ''
           )
         }}
     strategy:
@@ -287,6 +283,12 @@ jobs:
             energies: true
             receivers: true
             fault: false # NYI
+          - name: tpv13-fused
+            equation: elastic
+            multisim: 8
+            energies: false # incomplete, hence disabled
+            receivers: true
+            fault: false # incomplete, hence disabled
         precision:
           - single
           - double
@@ -371,7 +373,7 @@ jobs:
 
           cd precomputed/${{matrix.case.name}}
           
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} SeisSol_${EXENAME}
+          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts

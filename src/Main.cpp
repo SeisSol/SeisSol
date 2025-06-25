@@ -59,9 +59,7 @@ std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
 
 int main(int argc, char* argv[]) {
 #ifdef ACL_DEVICE
-#ifdef USE_MPI
   seissol::MPI::mpi.bindAcceleratorDevice();
-#endif // USE_MPI
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   device.api->initialize();
 #endif // ACL_DEVICE

@@ -70,12 +70,11 @@ GlobalTimestep
   for (unsigned cell = 0; cell < cellToVertex.size; ++cell) {
     const double pWaveVel = materials[cell].getMaxWaveSpeed();
     const std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
-    timestep.cellTimeStepWidths[cell] =
-        computeCellTimestep(vertices,
-                            pWaveVel,
-                            seissolParams.timeStepping.cfl,
-                            seissolParams.timeStepping.maxTimestepWidth,
-                            seissolParams);
+    const auto materialMaxTimestep = materials[cell].maximumTimestep();
+    const auto cellMaxTimestep =
+        std::min(materialMaxTimestep, seissolParams.timeStepping.maxTimestepWidth);
+    timestep.cellTimeStepWidths[cell] = computeCellTimestep(
+        vertices, pWaveVel, seissolParams.timeStepping.cfl, cellMaxTimestep, seissolParams);
   }
 
   const auto minmaxCellPosition =
@@ -84,7 +83,6 @@ GlobalTimestep
   double localMinTimestep = *minmaxCellPosition.first;
   double localMaxTimestep = *minmaxCellPosition.second;
 
-#ifdef USE_MPI
   MPI_Allreduce(&localMinTimestep,
                 &timestep.globalMinTimeStep,
                 1,
@@ -97,10 +95,6 @@ GlobalTimestep
                 MPI_DOUBLE,
                 MPI_MAX,
                 seissol::MPI::mpi.comm());
-#else
-  timestep.globalMinTimeStep = localMinTimestep;
-  timestep.globalMaxTimeStep = localMaxTimestep;
-#endif
   return timestep;
 }
 } // namespace seissol::initializer

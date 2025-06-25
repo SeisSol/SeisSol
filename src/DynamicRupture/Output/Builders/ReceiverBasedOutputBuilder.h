@@ -21,6 +21,7 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
+#include <memory>
 #include <vector>
 
 namespace seissol::dr::output {
@@ -48,8 +49,8 @@ class ReceiverBasedOutputBuilder {
   void initJacobian2dMatrices();
   void assignNearestInternalGaussianPoints();
   void assignFaultTags();
+  void assignFusedIndices();
 
-  protected:
   const seissol::geometry::MeshReader* meshReader{};
   seissol::initializer::LTSTree* wpTree;
   seissol::initializer::Lut* wpLut;

@@ -19,6 +19,7 @@
 #include <cassert>
 #include <cstring>
 #include <limits>
+#include <string>
 #include <tuple>
 #include <vector>
 

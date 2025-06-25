@@ -80,9 +80,6 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
 std::string ReceiverWriter::fileName(unsigned pointId) const {
   std::stringstream fns;
   fns << std::setfill('0') << m_fileNamePrefix << "-receiver-" << std::setw(5) << (pointId + 1);
-#ifdef PARALLEL
-  fns << "-" << std::setw(5) << seissol::MPI::mpi.rank();
-#endif
   fns << ".dat";
   return fns.str();
 }
@@ -193,7 +190,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
   const unsigned numberOfPoints = points.size();
   std::vector<short> contained(numberOfPoints);
-  std::vector<unsigned> meshIds(numberOfPoints);
+  std::vector<std::size_t> meshIds(numberOfPoints);
 
   // We want to plot all quantities except for the memory variables
   std::vector<unsigned> quantities(seissol::model::MaterialT::Quantities.size());
@@ -203,8 +200,8 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   initializer::findMeshIds(
       points.data(), mesh, numberOfPoints, contained.data(), meshIds.data(), 1e-3);
   std::vector<short> globalContained(contained.begin(), contained.end());
-#ifdef USE_MPI
-  logInfo() << "Cleaning possible double occurring receivers for MPI...";
+
+  logInfo() << "Cleaning possible double occurring receivers for multi-rank setups...";
   initializer::cleanDoubles(contained.data(), numberOfPoints);
   MPI_Allreduce(MPI_IN_PLACE,
                 globalContained.data(),
@@ -212,7 +209,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                 MPI_SHORT,
                 MPI_MAX,
                 seissol::MPI::mpi.comm());
-#endif
 
   bool receiversMissing = false;
   for (std::size_t i = 0; i < numberOfPoints; ++i) {
@@ -229,9 +225,9 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   logInfo() << "Mapping receivers to LTS cells...";
   m_receiverClusters[Interior].clear();
   m_receiverClusters[Copy].clear();
-  for (unsigned point = 0; point < numberOfPoints; ++point) {
+  for (std::size_t point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
-      const unsigned meshId = meshIds[point];
+      const std::size_t meshId = meshIds[point];
       const unsigned cluster = ltsLut.cluster(meshId);
       const LayerType layer = ltsLut.layer(meshId);
 

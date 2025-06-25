@@ -26,7 +26,7 @@ void findMeshIds(const Eigen::Vector3d* points,
                  const seissol::geometry::MeshReader& mesh,
                  std::size_t numPoints,
                  short* contained,
-                 unsigned* meshIds,
+                 std::size_t* meshIds,
                  double tolerance) {
   findMeshIds(
       points, mesh.getVertices(), mesh.getElements(), numPoints, contained, meshIds, tolerance);
@@ -37,7 +37,7 @@ void findMeshIds(const Eigen::Vector3d* points,
                  const std::vector<Element>& elements,
                  std::size_t numPoints,
                  short* contained,
-                 unsigned* meshIds,
+                 std::size_t* meshIds,
                  double tolerance) {
 
   memset(contained, 0, numPoints * sizeof(short));
@@ -93,7 +93,7 @@ void findMeshIds(const Eigen::Vector3d* points,
              logError() << "point with id " << point << " was already found in a different
           element!";
           }*/
-          const auto localId = static_cast<unsigned>(elements[elem].localId);
+          const auto localId = static_cast<std::size_t>(elements[elem].localId);
           if ((contained[point] == 0) || (meshIds[point] > localId)) {
             contained[point] = 1;
             meshIds[point] = localId;
@@ -106,7 +106,6 @@ void findMeshIds(const Eigen::Vector3d* points,
   }
 }
 
-#ifdef USE_MPI
 void cleanDoubles(short* contained, std::size_t numPoints) {
   const auto myrank = seissol::MPI::mpi.rank();
   const auto size = seissol::MPI::mpi.size();
@@ -137,6 +136,5 @@ void cleanDoubles(short* contained, std::size_t numPoints) {
     logInfo() << "Cleaned " << cleaned << " double occurring points on rank " << myrank << ".";
   }
 }
-#endif
 
 } // namespace seissol::initializer
