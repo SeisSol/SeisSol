@@ -50,7 +50,8 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Spacetime::computeAder(double timeStepWidth,
+void Spacetime::computeAder(const real* coeffs,
+                            double timeStepWidth,
                             LocalData& data,
                             LocalTmp& tmp,
                             real timeIntegrated[tensor::I::size()],
@@ -106,11 +107,8 @@ void Spacetime::computeAder(double timeStepWidth,
   krnl.E = data.localIntegration().specific.E;
 
   // powers in the taylor-series expansion
-  krnl.power(0) = timeStepWidth;
-
-  for (std::size_t der = 1; der < ConvergenceOrder; ++der) {
-    // update scalar for this derivative
-    krnl.power(der) = krnl.power(der - 1) * timeStepWidth / real(der + 1);
+  for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
+    krnl.power(der) = coeffs[der];
   }
 
   krnl.execute();
@@ -196,7 +194,8 @@ void Time::evaluateBatched(const real* coeffs,
 #endif
 }
 
-void Spacetime::computeBatchedAder(double timeStepWidth,
+void Spacetime::computeBatchedAder(const real* coeffs,
+                                   double timeStepWidth,
                                    LocalTmp& tmp,
                                    ConditionalPointersToRealsTable& dataTable,
                                    ConditionalMaterialTable& materialTable,
@@ -247,12 +246,9 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     krnl.extraOffset_E = SEISSOL_OFFSET(LocalIntegrationData, specific.E);
 
-    // powers in the taylor-series expansion
-    krnl.power(0) = timeStepWidth;
-
-    for (unsigned der = 1; der < ConvergenceOrder; ++der) {
+    for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
       // update scalar for this derivative
-      krnl.power(der) = krnl.power(der - 1) * timeStepWidth / real(der + 1);
+      krnl.power(der) = coeffs[der];
     }
 
     device.algorithms.streamBatchedData(

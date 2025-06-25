@@ -25,13 +25,15 @@ namespace seissol::kernels::solver::stp {
 class Spacetime : public SpacetimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void computeAder(double timeStepWidth,
+  void computeAder(const real* coeffs,
+                   double timeStepWidth,
                    LocalData& data,
                    LocalTmp& tmp,
                    real timeIntegrated[tensor::I::size()],
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
-  void computeBatchedAder(double timeStepWidth,
+  void computeBatchedAder(const real* coeffs,
+                          double timeStepWidth,
                           LocalTmp& tmp,
                           ConditionalPointersToRealsTable& dataTable,
                           ConditionalMaterialTable& materialTable,
@@ -61,6 +63,7 @@ class Time : public TimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
   void evaluate(const real* coeffs,
+                const real* coeffs,
                 const real* timeDerivatives,
                 real timeEvaluated[tensor::I::size()]) override;
   void evaluateBatched(const real* coeffs,

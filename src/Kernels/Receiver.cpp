@@ -178,7 +178,9 @@ double ReceiverCluster::calcReceivers(
             deviceCollector->get(deviceIndices[i]));
       }
 
-      spacetimeKernel.computeAder(timeStepWidth,
+      const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
+      spacetimeKernel.computeAder(integrationCoeffs.data(),
+                                  timeStepWidth,
                                   tmpReceiverData,
                                   tmp,
                                   timeEvaluated, // useless but the interface requires it

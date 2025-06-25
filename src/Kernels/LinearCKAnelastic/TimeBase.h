@@ -18,13 +18,15 @@ namespace seissol::kernels::solver::linearckanelastic {
 class Spacetime : public SpacetimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void computeAder(double timeStepWidth,
+  void computeAder(const real* coeffs,
+                   double timeStepWidth,
                    LocalData& data,
                    LocalTmp& tmp,
                    real timeIntegrated[tensor::I::size()],
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
-  void computeBatchedAder(double timeStepWidth,
+  void computeBatchedAder(const real* coeffs,
+                          double timeStepWidth,
                           LocalTmp& tmp,
                           ConditionalPointersToRealsTable& dataTable,
                           ConditionalMaterialTable& materialTable,

@@ -320,6 +320,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
   const auto timeStepWidth = timeStepSize();
+  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
 #ifdef _OPENMP
   #pragma omp parallel for private(l_bufferPointer, l_integrationBuffer), firstprivate(tmp) schedule(static)
@@ -344,7 +346,8 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       l_bufferPointer = l_integrationBuffer;
     }
 
-    spacetimeKernel.computeAder(timeStepWidth,
+    spacetimeKernel.computeAder(integrationCoeffs.data(),
+                             timeStepWidth,
                              data,
                              tmp,
                              l_bufferPointer,
@@ -410,11 +413,13 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegrationDevice(
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
   const double timeStepWidth = timeStepSize();
+  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
   ComputeGraphType graphType = resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
   streamRuntime.runGraph(computeGraphKey, i_layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-    spacetimeKernel.computeBatchedAder(timeStepWidth,
+    spacetimeKernel.computeBatchedAder(integrationCoeffs.data(), timeStepWidth,
                                     tmp,
                                     dataTable,
                                     materialTable,

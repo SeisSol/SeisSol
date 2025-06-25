@@ -27,13 +27,15 @@ namespace seissol::kernels {
 class SpacetimeKernel : public Kernel {
   public:
   ~SpacetimeKernel() override = default;
-  virtual void computeAder(double timeStepWidth,
+  virtual void computeAder(const real* coeffs,
+                           double timeStepWidth,
                            LocalData& data,
                            LocalTmp& tmp,
                            real timeIntegrated[tensor::I::size()],
                            real* timeDerivativesOrSTP = nullptr,
                            bool updateDisplacement = false) = 0;
-  virtual void computeBatchedAder(double timeStepWidth,
+  virtual void computeBatchedAder(const real* coeffs,
+                                  double timeStepWidth,
                                   LocalTmp& tmp,
                                   ConditionalPointersToRealsTable& dataTable,
                                   ConditionalMaterialTable& materialTable,

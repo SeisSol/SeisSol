@@ -40,6 +40,8 @@ void ProxyKernelHostAder::run(ProxyData& data,
   kernels::LocalData::Loader loader;
   loader.load(data.lts, layer);
 
+  const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
+
 #ifdef _OPENMP
 #pragma omp parallel
   {
@@ -51,7 +53,8 @@ void ProxyKernelHostAder::run(ProxyData& data,
 #endif
     for (unsigned int cell = 0; cell < nrOfCells; cell++) {
       auto local = loader.entry(cell);
-      data.spacetimeKernel.computeAder(Timestep, local, tmp, buffers[cell], derivatives[cell]);
+      data.spacetimeKernel.computeAder(
+          integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
     }
 #ifdef _OPENMP
     LIKWID_MARKER_STOP("ader");
@@ -141,6 +144,8 @@ void ProxyKernelHostLocal::run(ProxyData& data,
   kernels::LocalData::Loader loader;
   loader.load(data.lts, layer);
 
+  const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
+
 #ifdef _OPENMP
 #pragma omp parallel
   {
@@ -152,7 +157,8 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 #endif
     for (unsigned int cell = 0; cell < nrOfCells; cell++) {
       auto local = loader.entry(cell);
-      data.spacetimeKernel.computeAder(Timestep, local, tmp, buffers[cell], derivatives[cell]);
+      data.spacetimeKernel.computeAder(
+          integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
       data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
     }
 #ifdef _OPENMP

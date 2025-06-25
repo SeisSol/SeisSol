@@ -131,7 +131,8 @@ void Spacetime::executeSTP(double timeStepWidth,
   }
 }
 
-void Spacetime::computeAder(double timeStepWidth,
+void Spacetime::computeAder(const real* coeffs,
+                            double timeStepWidth,
                             LocalData& data,
                             LocalTmp& tmp,
                             real timeIntegrated[tensor::I::size()],
@@ -179,7 +180,8 @@ unsigned Spacetime::bytesAder() {
   return reals * sizeof(real);
 }
 
-void Spacetime::computeBatchedAder(double timeStepWidth,
+void Spacetime::computeBatchedAder(const real* coeffs,
+                                   double timeStepWidth,
                                    LocalTmp& tmp,
                                    ConditionalPointersToRealsTable& dataTable,
                                    ConditionalMaterialTable& materialTable,
