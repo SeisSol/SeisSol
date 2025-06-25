@@ -8,6 +8,10 @@ import os
 import re
 import glob
 
+if hasattr(np, 'trapezoid'):
+    trapz_func = np.trapezoid
+else:
+    trapz_func = np.trapz
 
 def velocity_norm(receiver, fused_index=""):
     names = [f"v1{fused_index}", f"v2{fused_index}", f"v3{fused_index}"]
@@ -98,7 +102,7 @@ def normal_velocity_norm(receiver, fused_suffix=""):
 
 
 def integrate_in_time(time, samples):
-    return np.trapezoid(samples, x=time)
+    return trapz_func(samples, x=time)
 
 
 def integrate_quantity_in_time(receiver, quantity, fused_index=0):
@@ -306,7 +310,7 @@ def find_all_receivers(directory, prefix, faultreceiver=False):
     if faultreceiver:
         file_candidates = glob.glob(f"{directory}/{prefix}-faultreceiver-*.dat")
     else:
-        file_candidates = glob.glob(f"{directory}/{prefix}-receiver-*-*.dat")    
+        file_candidates = glob.glob(f"{directory}/{prefix}-receiver-*.dat")
     
     extract_id = re.compile(r".+/\w+-\w+-(\d+)(?:-\d+)?\.dat$")
     receiver_ids = []
