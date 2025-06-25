@@ -28,12 +28,12 @@ void PlasticityRecorder::record(const seissol::LTS& lts, Layer& layer) {
   size_t nodalStressTensorCounter = 0;
   real* scratchMem =
       static_cast<real*>(currentLayer->var<LTS::IntegratedDofsScratch>(AllocationPlace::Device));
-  real* qEtaNodalScratch = static_cast<real*>(
-      currentLayer->var(currentHandler->qEtaNodalScratch, AllocationPlace::Device));
-  real* qStressNodalScratch = static_cast<real*>(
-      currentLayer->var(currentHandler->qStressNodalScratch, AllocationPlace::Device));
-  real* prevDofsScratch = static_cast<real*>(
-      currentLayer->var(currentHandler->prevDofsScratch, AllocationPlace::Device));
+  real* qEtaNodalScratch =
+      static_cast<real*>(currentLayer->var<LTS::QEtaNodalScratch>(AllocationPlace::Device));
+  real* qStressNodalScratch =
+      static_cast<real*>(currentLayer->var<LTS::QStressNodalScratch>(AllocationPlace::Device));
+  real* prevDofsScratch =
+      static_cast<real*>(currentLayer->var<LTS::PrevDofsScratch>(AllocationPlace::Device));
   const auto size = currentLayer->size();
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);

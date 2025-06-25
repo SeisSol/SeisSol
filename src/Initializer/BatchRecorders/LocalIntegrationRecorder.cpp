@@ -243,16 +243,16 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
   real* nodalAvgDisplacements =
       static_cast<real*>(currentLayer->var<LTS::NodalAvgDisplacements>(AllocationPlace::Device));
 
-  real* rotateDisplacementToFaceNormalScratch = static_cast<real*>(currentLayer->var(
-      currentHandler->rotateDisplacementToFaceNormalScratch, AllocationPlace::Device));
-  real* rotateDisplacementToGlobalScratch = static_cast<real*>(currentLayer->var(
-      currentHandler->rotateDisplacementToGlobalScratch, AllocationPlace::Device));
+  real* rotateDisplacementToFaceNormalScratch = static_cast<real*>(
+      currentLayer->var<LTS::RotateDisplacementToFaceNormalScratch>(AllocationPlace::Device));
+  real* rotateDisplacementToGlobalScratch = static_cast<real*>(
+      currentLayer->var<LTS::RotateDisplacementToGlobalScratch>(AllocationPlace::Device));
   real* rotatedFaceDisplacementScratch = static_cast<real*>(
-      currentLayer->var(currentHandler->rotatedFaceDisplacementScratch, AllocationPlace::Device));
-  real* dofsFaceNodalScratch = static_cast<real*>(
-      currentLayer->var(currentHandler->dofsFaceNodalScratch, AllocationPlace::Device));
-  real* prevCoefficientsScratch = static_cast<real*>(
-      currentLayer->var(currentHandler->prevCoefficientsScratch, AllocationPlace::Device));
+      currentLayer->var<LTS::RotatedFaceDisplacementScratch>(AllocationPlace::Device));
+  real* dofsFaceNodalScratch =
+      static_cast<real*>(currentLayer->var<LTS::DofsFaceNodalScratch>(AllocationPlace::Device));
+  real* prevCoefficientsScratch =
+      static_cast<real*>(currentLayer->var<LTS::PrevCoefficientsScratch>(AllocationPlace::Device));
 
   if (size > 0) {
     std::array<std::vector<unsigned>, 4> cellIndices{};
@@ -378,7 +378,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
     std::array<std::size_t, 4> counter{};
 
     real* dofsFaceBoundaryNodalScratch = static_cast<real*>(
-        currentLayer->var(currentHandler->dofsFaceBoundaryNodalScratch, AllocationPlace::Device));
+        currentLayer->var<LTS::DofsFaceBoundaryNodalScratch>(AllocationPlace::Device));
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLayer->cellRef(cell, AllocationPlace::Device);

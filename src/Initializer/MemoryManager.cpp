@@ -637,27 +637,27 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
     layer.setEntrySize<LTS::AnalyticScratch>(
                              analyticCounter * tensor::INodal::size() * sizeof(real));
     if (plasticity) {
-      layer.setEntrySize(lts.flagScratch,
+      layer.setEntrySize<LTS::FlagScratch>(
                                 layer.size() * sizeof(unsigned));
-      layer.setEntrySize(lts.prevDofsScratch,
+      layer.setEntrySize<LTS::PrevDofsScratch>(
                                 layer.size() * tensor::Q::Size * sizeof(real));
-      layer.setEntrySize(lts.qEtaNodalScratch,
+      layer.setEntrySize<LTS::QEtaNodalScratch>(
                                 layer.size() * tensor::QEtaNodal::Size * sizeof(real));
-      layer.setEntrySize(lts.qStressNodalScratch,
+      layer.setEntrySize<LTS::QStressNodalScratch>(
                                 layer.size() * tensor::QStressNodal::Size * sizeof(real));
     }
 
-    layer.setEntrySize(lts.dofsFaceBoundaryNodalScratch, sizeof(real) * dirichletCount * tensor::INodal::size());
+    layer.setEntrySize<LTS::DofsFaceBoundaryNodalScratch>(sizeof(real) * dirichletCount * tensor::INodal::size());
 
-    layer.setEntrySize(lts.rotateDisplacementToFaceNormalScratch, 
+    layer.setEntrySize<LTS::RotateDisplacementToFaceNormalScratch>(
       sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
-    layer.setEntrySize(lts.rotateDisplacementToGlobalScratch, 
+    layer.setEntrySize<LTS::RotateDisplacementToGlobalScratch>( 
       sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
-    layer.setEntrySize(lts.rotatedFaceDisplacementScratch, 
+    layer.setEntrySize<LTS::RotatedFaceDisplacementScratch>( 
       sizeof(real) * freeSurfaceCount * init::rotatedFaceDisplacement::Size);
-    layer.setEntrySize(lts.dofsFaceNodalScratch, 
+    layer.setEntrySize<LTS::DofsFaceNodalScratch>(
       sizeof(real) * freeSurfaceCount * tensor::INodal::size());
-    layer.setEntrySize(lts.prevCoefficientsScratch, 
+    layer.setEntrySize<LTS::PrevCoefficientsScratch>(
       sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[0]);
   }
 }

@@ -125,17 +125,17 @@ struct LTS {
   struct IDofsAneScratch : public initializer::Scratchpad<real> {};
   struct DofsExtScratch : public initializer::Scratchpad<real> {};
 
-  initializer::Scratchpad<unsigned> flagScratch;
-  initializer::Scratchpad<real> prevDofsScratch;
-  initializer::Scratchpad<real> qEtaNodalScratch;
-  initializer::Scratchpad<real> qStressNodalScratch;
+  struct FlagScratch : public initializer::Scratchpad<unsigned> {};
+  struct PrevDofsScratch : public initializer::Scratchpad<real> {};
+  struct QEtaNodalScratch : public initializer::Scratchpad<real> {};
+  struct QStressNodalScratch : public initializer::Scratchpad<real> {};
 
-  initializer::Scratchpad<real> rotateDisplacementToFaceNormalScratch;
-  initializer::Scratchpad<real> rotateDisplacementToGlobalScratch;
-  initializer::Scratchpad<real> rotatedFaceDisplacementScratch;
-  initializer::Scratchpad<real> dofsFaceNodalScratch;
-  initializer::Scratchpad<real> prevCoefficientsScratch;
-  initializer::Scratchpad<real> dofsFaceBoundaryNodalScratch;
+  struct RotateDisplacementToFaceNormalScratch : public initializer::Scratchpad<real> {};
+  struct RotateDisplacementToGlobalScratch : public initializer::Scratchpad<real> {};
+  struct RotatedFaceDisplacementScratch : public initializer::Scratchpad<real> {};
+  struct DofsFaceNodalScratch : public initializer::Scratchpad<real> {};
+  struct PrevCoefficientsScratch : public initializer::Scratchpad<real> {};
+  struct DofsFaceBoundaryNodalScratch : public initializer::Scratchpad<real> {};
 
   static void addTo(initializer::LTSTree& tree, bool usePlasticity) {
     using namespace initializer;
@@ -198,17 +198,17 @@ struct LTS {
       tree.add<NodalAvgDisplacements>(LayerMask(), 1, AllocationMode::DeviceOnly);
       tree.add<AnalyticScratch>(LayerMask(), 1, AllocationMode::HostDevicePinned);
 
-      tree.add(flagScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(prevDofsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(qEtaNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(qStressNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add<FlagScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add<PrevDofsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add<QEtaNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add<QStressNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
 
-      tree.add(rotateDisplacementToFaceNormalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(rotateDisplacementToGlobalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(rotatedFaceDisplacementScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(dofsFaceNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(prevCoefficientsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add(dofsFaceBoundaryNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add<RotateDisplacementToFaceNormalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add<RotateDisplacementToGlobalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add<RotatedFaceDisplacementScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add<DofsFaceNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add<PrevCoefficientsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add<DofsFaceBoundaryNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
     }
   }
 

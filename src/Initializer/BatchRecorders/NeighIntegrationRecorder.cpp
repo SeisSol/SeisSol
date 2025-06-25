@@ -122,7 +122,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   CellDRMapping(*drMappingDevice)[4] = currentLayer->var<LTS::DRMappingDevice>();
 
 #ifdef USE_VISCOELASTIC2
-  auto* dofsExt = currentLayer->var(currentHandler->dofsExtScratch, AllocationPlace::Device);
+  auto* dofsExt = currentLayer->var<LTS::DofsExtScratch>(AllocationPlace::Device);
 #endif
 
   const auto size = currentLayer->size();
