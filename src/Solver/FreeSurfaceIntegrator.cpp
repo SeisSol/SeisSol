@@ -23,11 +23,11 @@
 void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializer::LTSTree& surfaceLtsTree)
 {
   seissol::initializer::LayerMask ghostMask(Ghost);
-  surfaceLtsTree.addVar(             dofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
-  surfaceLtsTree.addVar( displacementDofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
-  surfaceLtsTree.addVar(             side, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
-  surfaceLtsTree.addVar(           meshId, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
-  surfaceLtsTree.addVar(  boundaryMapping, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add(             dofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add( displacementDofs, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add(             side, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add(           meshId, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
+  surfaceLtsTree.add(  boundaryMapping, ghostMask,                 1,      initializer::AllocationMode::HostOnly );
 }
 
 seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator()
@@ -59,8 +59,7 @@ seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator()
 void seissol::solver::FreeSurfaceIntegrator::initialize(  unsigned maxRefinementDepth,
                                                           GlobalData* globalData,
                                                           seissol::initializer::LTS* lts,
-                                                          seissol::initializer::LTSTree* ltsTree,
-                                                          seissol::initializer::Lut* ltsLut  )
+                                                          seissol::initializer::LTSTree* ltsTree  )
 {
   if (maxRefinementDepth > FREESURFACE_MAX_REFINEMENT) {
     logError() << "Free surface integrator: Currently more than 3 levels of refinements are unsupported." << std::endl;
@@ -70,7 +69,7 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(  unsigned maxRefinement
 
 	logInfo() << "Initializing free surface integrator.";
   initializeProjectionMatrices(maxRefinementDepth);
-  initializeSurfaceLTSTree(lts, ltsTree, ltsLut);
+  initializeSurfaceLTSTree(lts, ltsTree);
 	logInfo() << "Initializing free surface integrator. Done.";
 }
 
@@ -86,7 +85,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
     #pragma omp parallel for schedule(static) default(none) shared(offset, surfaceLayer, dofs, displacementDofs, side)
 #endif // _OPENMP
-    for (unsigned face = 0; face < surfaceLayer.getNumberOfCells(); ++face) {
+    for (unsigned face = 0; face < surfaceLayer.size(); ++face) {
       alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs::size(FREESURFACE_MAX_REFINEMENT)];
 
       kernel::subTriangleVelocity vkrnl;
@@ -122,7 +121,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput()
 
       addOutput(displacements);
     }
-    offset += surfaceLayer.getNumberOfCells() * numberOfSubTriangles;
+    offset += surfaceLayer.size() * numberOfSubTriangles;
   }
 }
 
@@ -251,8 +250,7 @@ seissol::solver::FreeSurfaceIntegrator::LocationFlag seissol::solver::FreeSurfac
 }
 
 void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol::initializer::LTS* lts,
-                                                                        seissol::initializer::LTSTree* ltsTree,
-                                                                        seissol::initializer::Lut* ltsLut )
+                                                                        seissol::initializer::LTSTree* ltsTree )
 {
   seissol::initializer::LayerMask ghostMask(Ghost);
 
@@ -266,7 +264,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     auto* cellMaterialData = layer.var(lts->material);
 
     unsigned numberOfFreeSurfaces = 0;
-    const auto layerSize = layer.getNumberOfCells();
+    const auto layerSize = layer.size();
 #ifdef _OPENMP
     #pragma omp parallel for schedule(static) reduction(+ : numberOfFreeSurfaces)
 #endif // _OPENMP
@@ -311,7 +309,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(  seissol:
     unsigned* side = surfaceLayer.var(surfaceLts.side);
     unsigned* meshId = surfaceLayer.var(surfaceLts.meshId);
     unsigned surfaceCell = 0;
-    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+    for (unsigned cell = 0; cell < layer.size(); ++cell) {
       if (secondaryInformation[cell].duplicate == 0) {
         for (unsigned face = 0; face < 4; ++face) {
           if (initializer::requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {

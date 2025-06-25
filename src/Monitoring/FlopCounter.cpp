@@ -9,6 +9,7 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "Unit.h"
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <fstream>
@@ -120,7 +121,7 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
     NumCounters
   };
 
-  double flops[NumCounters];
+  std::array<double, NumCounters> flops;
 
   flops[Libxsmm] = libxsmm_num_total_flops;
   flops[Pspamm] = pspamm_num_total_flops;
@@ -131,8 +132,14 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
   flops[PLNonZeroFlops] = nonZeroFlopsPlasticity;
   flops[PLHardwareFlops] = hardwareFlopsPlasticity;
 
-  double totalFlops[NumCounters];
-  MPI_Reduce(&flops, &totalFlops, NumCounters, MPI_DOUBLE, MPI_SUM, 0, seissol::MPI::mpi.comm());
+  std::array<double, NumCounters> totalFlops;
+  MPI_Reduce(flops.data(),
+             totalFlops.data(),
+             NumCounters,
+             MPI_DOUBLE,
+             MPI_SUM,
+             0,
+             seissol::MPI::mpi.comm());
 
 #ifndef NDEBUG
   logInfo() << "Total    libxsmm HW-FLOP: " << UnitFlop.formatPrefix(totalFlops[Libxsmm]).c_str();

@@ -491,14 +491,14 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
 }
 
 std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
-  return {drDescr->initialStressInFaultCS.index,
-          drDescr->mu.index,
-          drDescr->ruptureTime.index,
-          drDescr->accumulatedSlipMagnitude.index,
-          drDescr->peakSlipRate.index,
-          drDescr->dynStressTime.index,
-          drDescr->slip1.index,
-          drDescr->slip2.index};
+  return {drTree->info(drDescr->initialStressInFaultCS).index,
+          drTree->info(drDescr->mu).index,
+          drTree->info(drDescr->ruptureTime).index,
+          drTree->info(drDescr->accumulatedSlipMagnitude).index,
+          drTree->info(drDescr->peakSlipRate).index,
+          drTree->info(drDescr->dynStressTime).index,
+          drTree->info(drDescr->slip1).index,
+          drTree->info(drDescr->slip2).index};
 }
 
 } // namespace seissol::dr::output

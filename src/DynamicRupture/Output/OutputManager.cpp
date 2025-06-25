@@ -442,14 +442,14 @@ void OutputManager::init() {
 void OutputManager::initFaceToLtsMap() {
   if (drTree != nullptr) {
     const size_t readerFaultSize = meshReader->getFault().size();
-    const size_t ltsFaultSize = drTree->getNumberOfCells(Ghost);
+    const size_t ltsFaultSize = drTree->size(Ghost);
 
     faceToLtsMap.resize(std::max(readerFaultSize, ltsFaultSize));
     globalFaceToLtsMap.resize(faceToLtsMap.size());
     for (auto& layer : drTree->leaves(Ghost)) {
 
       DRFaceInformation* faceInformation = layer.var(drDescr->faceInformation);
-      for (size_t ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+      for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
       }
     }
