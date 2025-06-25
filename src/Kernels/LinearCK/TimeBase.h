@@ -67,7 +67,7 @@ class Time : public TimeKernel {
   void evaluateBatched(const real* coeffs,
                        const real** timeDerivatives,
                        real** timeIntegratedDofs,
-                       unsigned numElements,
+                       std::size_t numElements,
                        seissol::parallel::runtime::StreamRuntime& runtime) override;
   void flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) override;
 };

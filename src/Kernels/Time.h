@@ -17,6 +17,7 @@
 #include <Numerical/BasisFunction.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
+#include <cstddef>
 #include <memory>
 
 namespace seissol::kernels {
@@ -31,7 +32,7 @@ class TimeKernel : public Kernel {
   virtual void evaluateBatched(const real* coeffs,
                                const real** timeDerivatives,
                                real** timeIntegratedDofs,
-                               unsigned numElements,
+                               std::size_t numElements,
                                seissol::parallel::runtime::StreamRuntime& runtime) = 0;
   virtual void flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) = 0;
 };

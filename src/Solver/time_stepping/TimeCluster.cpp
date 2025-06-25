@@ -186,7 +186,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   const auto [timePoints, timeWeights] = seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timeStepSize());
   const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timeStepSize());
-  const auto frictionTime = frictionSolver->computeDeltaT(pointsCollocate);
+  const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
 #pragma omp parallel 
   {
@@ -249,7 +249,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice( seissol::
 
     const auto [timePoints, timeWeights] = seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timeStepSize());
     const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, stepSizeWidth);
-    const auto frictionTime = frictionSolver->computeDeltaT(pointsCollocate);
+    const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
     streamRuntime.runGraph(computeGraphKey, layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
       m_dynamicRuptureKernel.batchedSpaceTimeInterpolation(table, pointsCollocate.data(), streamRuntime);

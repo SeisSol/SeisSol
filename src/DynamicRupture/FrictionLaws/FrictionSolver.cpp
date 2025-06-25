@@ -16,7 +16,7 @@
 
 namespace seissol::dr::friction_law {
 
-FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<real>& timePoints) {
+FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<double>& timePoints) {
   std::vector<real> deltaT(ConvergenceOrder);
   real sumDt = 0;
 

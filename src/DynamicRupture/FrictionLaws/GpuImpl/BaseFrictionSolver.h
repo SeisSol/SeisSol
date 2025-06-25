@@ -197,7 +197,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     this->currLayerSize = layerData.size();
     dataHost.drParameters = *this->drParameters;
 
-    std::memcpy(dataHost.deltaT, frictionTime.deltaT.data(), sizeof(decltype(deltaT)));
+    std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), dataHost.deltaT);
     dataHost.sumDt = frictionTime.sumDt;
 
     copyParameters(runtime, timeWeights);

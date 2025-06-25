@@ -43,7 +43,7 @@ class BaseFrictionLaw : public FrictionSolver {
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    std::memcpy(this->deltaT, frictionTime.deltaT.data(), sizeof(decltype(deltaT)));
+    std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), this->deltaT);
     this->sumDt = frictionTime.sumDt;
 
     // loop over all dynamic rupture faces, in this LTS layer

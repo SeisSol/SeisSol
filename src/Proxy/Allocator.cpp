@@ -31,6 +31,10 @@
 #include <Initializer/MemoryManager.h>
 #endif
 
+#ifdef USE_POROELASTIC
+#include "Proxy/Constants.h"
+#endif
+
 namespace {
 void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var(lts.dofs);

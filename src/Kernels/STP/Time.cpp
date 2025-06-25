@@ -259,11 +259,11 @@ void Time::evaluate(const real* coeffs,
   krnl.execute();
 }
 
-void evaluateBatched(const real* coeffs,
-                     const real** timeDerivatives,
-                     real** timeIntegratedDofs,
-                     unsigned numElements,
-                     seissol::parallel::runtime::StreamRuntime& runtime) override {
+void Time::evaluateBatched(const real* coeffs,
+                           const real** timeDerivatives,
+                           real** timeIntegratedDofs,
+                           std::size_t numElements,
+                           seissol::parallel::runtime::StreamRuntime& runtime) {
   logError() << "No GPU implementation provided";
 }
 

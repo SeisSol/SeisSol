@@ -239,7 +239,7 @@ void Time::evaluate(const real* coeffs,
 void Time::evaluateBatched(const real* coeffs,
                            const real** timeDerivatives,
                            real** timeIntegratedDofs,
-                           unsigned numElements,
+                           std::size_t numElements,
                            seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   assert(timeDerivatives != nullptr);
