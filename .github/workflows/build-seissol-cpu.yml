@@ -283,6 +283,12 @@ jobs:
             energies: true
             receivers: true
             fault: false # NYI
+          - name: tpv13-fused
+            equation: elastic
+            multisim: 8
+            energies: false # incomplete, hence disabled
+            receivers: true
+            fault: false # incomplete, hence disabled
         precision:
           - single
           - double
