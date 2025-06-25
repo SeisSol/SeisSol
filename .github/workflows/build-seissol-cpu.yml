@@ -177,10 +177,10 @@ jobs:
       EXENAME: |
         ${{
           format('cpu-{0}-{1}-p{2}{3}',
-            matrix.equation.type,
+            matrix.case.equation,
             matrix.precision == 'single' && 's' || 'd',
             matrix.order,
-            matrix.equation.multisim != 1 && format('-f{0}', matrix.equation.multisim) || ''
+            matrix.case.multisim != 1 && format('-f{0}', matrix.case.multisim) || ''
           )
         }}
     strategy:
