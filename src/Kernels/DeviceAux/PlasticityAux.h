@@ -8,12 +8,13 @@
 #ifndef SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
 #define SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
 
+#include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Model/Plasticity.h"
 #include <stddef.h>
 
 namespace seissol::kernels::device::aux::plasticity {
-constexpr static int NumStressComponents = 6;
+constexpr static int NumStressComponents = model::MaterialT::TractionQuantities;
 
 void adjustDeviatoricTensors(real** nodalStressTensors,
                              unsigned* isAdjustableVector,
