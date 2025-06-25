@@ -43,6 +43,7 @@ class Plasticity {
                                initializer::recording::ConditionalPointersToRealsTable& table,
                                seissol::model::PlasticityData* plasticityData,
                                std::size_t* yieldCounter,
+                               unsigned* isAdjustableVector,
                                seissol::parallel::runtime::StreamRuntime& runtime);
 
   static void flopsPlasticity(long long& nonZeroFlopsCheck,
