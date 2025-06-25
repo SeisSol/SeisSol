@@ -84,7 +84,9 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   m_projectKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
   m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
 
+  // Initialize for nonlinear related kernels
   m_krnlNonlVolPrototype.kDivM = global.onHost->stiffnessMatrices;
+  m_nonlinearInterpolation.V3mTo2n = global.onHost->faceToNodalMatrices;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -495,10 +497,227 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
       lfKrnl.execute(face);
     }
 
+    // Nonlinear integration
     if (data.cellInformation().faceTypes[face] == FaceType::Regular
       || data.cellInformation().faceTypes[face] == FaceType::Periodic) {
-      lfKrnl.AplusT = data.localIntegration().nApNm1[face];
-      lfKrnl.execute(face);
+      // Compute local integrals with derivatives and Rusanov flux
+      /// S1: compute the space-time interpolated Q on both side of 4 faces
+      /// S2: at the same time rotate the field to face-aligned coord.
+      alignas(PagesizeStack) real QInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()] = {{0.0}};
+      // alignas(PagesizeStack) real QInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()] = {{0.0}};
+
+      for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
+        alignas(Alignment) real degreesOfFreedomPlus[tensor::Q::size()];
+        // alignas(Alignment) real degreesOfFreedomMinus[tensor::Q::size()];
+        for (unsigned i_f = 0; i_f < tensor::Q::size(); i_f++){
+          degreesOfFreedomPlus[i_f] = static_cast<real>(0.0);
+          // degreesOfFreedomMinus[i_f] = static_cast<real>(0.0);
+        }
+
+        // !!! Make sure every time after entering this function, the last input should be reinitialized to zero
+        computeTaylorExpansion(timePoints[timeInterval], 0.0, nlDerivatives, degreesOfFreedomPlus);
+
+        /// Prototype is necessary for openmp
+        kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter
+          = m_nonlinearInterpolation;
+        m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
+        m_nonLinInter.Q = degreesOfFreedomPlus;
+        m_nonLinInter.execute(face, 0);
+
+      }
+
+      /// S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
+      //// Reshape the interpolated results
+      using QInterpolatedShapeT = const real(*)[seissol::dr::misc::NumQuantities][seissol::dr::misc::NumPaddedPoints];
+      // std::cout << seissol::dr::misc::numQuantities << std::endl;
+      auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedPlus));
+
+      // Local component of Rusanove flux
+      alignas(Alignment) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
+      for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++){
+        rusanovFluxPlus[i_f] = static_cast<real>(0.0);
+      }
+      using rusanovFluxShape = real(*)[seissol::dr::misc::NumPaddedPoints];
+      auto* rusanovFluxP = reinterpret_cast<rusanovFluxShape>(rusanovFluxPlus);
+
+      using namespace seissol::dr::misc::quantity_indices;
+      unsigned DAM = 9;
+
+      real neighbor_lambda0 = data.material().neighbor[face].lambda0;
+      real neighbor_mu0 = data.material().neighbor[face].mu0;
+      real neighbor_rho = data.material().neighbor[face].rho;
+      real lambda_max = 1.0*std::sqrt( (neighbor_lambda0+2*neighbor_mu0)/neighbor_rho );
+      real sxxP, syyP, szzP, sxyP, syzP, szxP;
+      real mu0P = mat_mu0;
+      real lambda0P = mat_lambda0;
+      real rho0P = data.material().local.rho;
+
+      /// In this time loop, use "qIPlus" and "qIMinus" to interpolate "rusanovFluxP"
+      for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+        auto weight = timeWeights[o];
+        for (unsigned i = 0; i < seissol::dr::misc::NumPaddedPoints;
+            i ++) {
+          real EspIp = (qIPlus[o][XX][i]+epsInitxx) + (qIPlus[o][YY][i]+epsInityy) + (qIPlus[o][ZZ][i]+epsInitzz);
+
+          real alphap = qIPlus[o][DAM][i];
+
+          sxxP = (lambda0P - alphap*lambda0P)*EspIp
+                + (2*(mu0P - alphap*mu0P))
+                  *(qIPlus[o][XX][i]+epsInitxx);
+
+          syyP = (lambda0P - alphap*lambda0P)*EspIp
+                + (2*(mu0P - alphap*mu0P))
+                  *(qIPlus[o][YY][i]+epsInityy);
+
+          szzP = (lambda0P - alphap*lambda0P)*EspIp
+                + (2*(mu0P - alphap*mu0P))
+                  *(qIPlus[o][ZZ][i]+epsInitzz);
+
+          sxyP = 0
+                + (2*(mu0P - alphap*mu0P))
+                  *(qIPlus[o][XY][i]+epsInitxy);
+
+          syzP = 0
+                + (2*(mu0P - alphap*mu0P))
+                  *(qIPlus[o][YZ][i]+epsInityz);
+
+          szxP = 0
+                + (2*(mu0P - alphap*mu0P))
+                  *(qIPlus[o][XZ][i]+epsInitzx);
+
+          rusanovFluxP[XX][i] += weight * (
+            (
+              0.5*(-qIPlus[o][U][i])
+            ) * data.localIntegration().specific.localNormal[face][0]
+            + (
+              0.5*(-0) + 0.5*(-0)
+            ) * data.localIntegration().specific.localNormal[face][1]
+            + (
+              0.5*(-0) + 0.5*(-0)
+            ) * data.localIntegration().specific.localNormal[face][2]
+            + 0.5*lambda_max*(qIPlus[o][XX][i]+epsInitxx)
+          );
+
+          rusanovFluxP[YY][i] += weight * (
+            (
+              0.5*(-0) + 0.5*(-0)
+            ) * data.localIntegration().specific.localNormal[face][0]
+            + (
+              0.5*(-qIPlus[o][V][i])
+            ) * data.localIntegration().specific.localNormal[face][1]
+            + (
+              0.5*(-0) + 0.5*(-0)
+            ) * data.localIntegration().specific.localNormal[face][2]
+            + 0.5*lambda_max*(qIPlus[o][YY][i]+epsInityy)
+          );
+
+          rusanovFluxP[ZZ][i] += weight * (
+            (
+              0.5*(-0) + 0.5*(-0)
+            ) * data.localIntegration().specific.localNormal[face][0]
+            + (
+              0.5*(-0) + 0.5*(-0)
+            ) * data.localIntegration().specific.localNormal[face][1]
+            + (
+              0.5*(-qIPlus[o][W][i])
+            ) * data.localIntegration().specific.localNormal[face][2]
+            + 0.5*lambda_max*(qIPlus[o][ZZ][i]+epsInitzz)
+          );
+
+          rusanovFluxP[XY][i] += weight * (
+            (
+              0.5*(-0.5*qIPlus[o][V][i])
+            ) * data.localIntegration().specific.localNormal[face][0]
+            + (
+              0.5*(-0.5*qIPlus[o][U][i])
+            ) * data.localIntegration().specific.localNormal[face][1]
+            + (
+              0.5*(-0) + 0.5*(-0)
+            ) * data.localIntegration().specific.localNormal[face][2]
+            + 0.5*lambda_max*(qIPlus[o][XY][i]+epsInitxy)
+          );
+
+          rusanovFluxP[YZ][i] += weight * (
+            (
+              0.5*(-0) + 0.5*(-0)
+            ) * data.localIntegration().specific.localNormal[face][0]
+            + (
+              0.5*(-0.5*qIPlus[o][W][i])
+            ) * data.localIntegration().specific.localNormal[face][1]
+            + (
+              0.5*(-0.5*qIPlus[o][V][i])
+            ) * data.localIntegration().specific.localNormal[face][2]
+            + 0.5*lambda_max*(qIPlus[o][YZ][i]+epsInityz)
+          );
+
+          rusanovFluxP[XZ][i] += weight * (
+            (
+              0.5*(-0.5*qIPlus[o][W][i])
+            ) * data.localIntegration().specific.localNormal[face][0]
+            + (
+              0.5*(-0) + 0.5*(-0)
+            ) * data.localIntegration().specific.localNormal[face][1]
+            + (
+              0.5*(-0.5*qIPlus[o][U][i])
+            ) * data.localIntegration().specific.localNormal[face][2]
+            + 0.5*lambda_max*(qIPlus[o][XZ][i]+epsInitzx)
+          );
+
+          rusanovFluxP[U][i] += weight * (
+            (
+              0.5*(-sxxP/rho0P)
+            ) * data.localIntegration().specific.localNormal[face][0]
+            + (
+              0.5*(-sxyP/rho0P)
+            ) * data.localIntegration().specific.localNormal[face][1]
+            + (
+              0.5*(-szxP/rho0P)
+            ) * data.localIntegration().specific.localNormal[face][2]
+            + 0.5*lambda_max*(qIPlus[o][U][i])
+          );
+
+          rusanovFluxP[V][i] += weight * (
+            (
+              0.5*(-sxyP/rho0P)
+            ) * data.localIntegration().specific.localNormal[face][0]
+            + (
+              0.5*(-syyP/rho0P)
+            ) * data.localIntegration().specific.localNormal[face][1]
+            + (
+              0.5*(-syzP/rho0P)
+            ) * data.localIntegration().specific.localNormal[face][2]
+            + 0.5*lambda_max*(qIPlus[o][V][i])
+          );
+
+          rusanovFluxP[W][i] += weight * (
+            (
+              0.5*(-szxP/rho0P)
+            ) * data.localIntegration().specific.localNormal[face][0]
+            + (
+              0.5*(-syzP/rho0P)
+            ) * data.localIntegration().specific.localNormal[face][1]
+            + (
+              0.5*(-szzP/rho0P)
+            ) * data.localIntegration().specific.localNormal[face][2]
+            + 0.5*lambda_max*(qIPlus[o][W][i])
+          );
+
+          rusanovFluxP[DAM][i] += weight * (
+            (
+              0.5*(-0) + 0.5*(-0)
+            ) * data.localIntegration().specific.localNormal[face][0]
+            + (
+              0.5*(-0) + 0.5*(-0)
+            ) * data.localIntegration().specific.localNormal[face][1]
+            + (
+              0.5*(-0) + 0.5*(-0)
+            ) * data.localIntegration().specific.localNormal[face][2]
+            + 0.0*lambda_max*(qIPlus[o][DAM][i])
+          );
+        }
+      } // time integration loop
+      // Tested that after this step, rusanovFluxPlus is also changed
+      
     }
 
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];

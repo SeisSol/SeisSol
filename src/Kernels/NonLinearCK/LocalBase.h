@@ -84,7 +84,9 @@ class Local : public LocalKernel {
   kernel::localFlux m_localFluxKernelPrototype;
   kernel::localFluxNodal m_nodalLfKrnlPrototype;
 
+  //Added for nonlinear integration
   kernel::nonlinearVolumeIntegration m_krnlNonlVolPrototype;
+  kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonlinearInterpolation;
 
   kernel::projectToNodalBoundary m_projectKrnlPrototype;
   kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;

@@ -12,7 +12,7 @@ from kernels.common import generate_kernel_name_prefix
 from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile, parseJSONMatrixFile
 
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, Tensor
+from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.ast.node import Add
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
@@ -105,6 +105,17 @@ class DamageADERDG(ADERDGBase):
                             ) #* TweightN
                         )
             generator.add(f'nonlinearVolumeIntegration({i})', volumeNonl)
+
+        # Kernel for Interpolating on the surface quadrature points
+        numberOfPoints = self.db.resample.shape()[0]
+        gShape = (numberOfPoints, self.numberOfQuantities())
+        QInterpolated = OptionalDimTensor('QInterpolated', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), gShape, alignStride=True)
+        def interpolateQGenerator(i,h):
+            return QInterpolated['kp'] <= self.db.V3mTo2n[i,h][self.t('kl')] * self.Q['lp'] # * self.TinvT['qp']
+        # interpolateQPrefetch = lambda i,h: QInterpolated
+        generator.addFamily(f'nonlEvaluateAndRotateQAtInterpolationPoints',
+                            simpleParameterSpace(4,4),
+                            interpolateQGenerator)
 
     def addNeighbor(self, generator, targets):
         super().addNeighbor(generator, targets)
