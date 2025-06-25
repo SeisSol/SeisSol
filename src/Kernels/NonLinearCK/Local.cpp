@@ -297,15 +297,15 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
   assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(nlDerivatives) % Alignment == 0);
 
-  kernel::volume volKrnl = m_volumeKernelPrototype;
-  volKrnl.Q = data.dofs();
-  volKrnl.I = timeIntegratedDegreesOfFreedom;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = data.localIntegration().starMatrices[i];
-  }
+  // kernel::volume volKrnl = m_volumeKernelPrototype;
+  // volKrnl.Q = data.dofs();
+  // volKrnl.I = timeIntegratedDegreesOfFreedom;
+  // for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+  //   volKrnl.star(i) = data.localIntegration().starMatrices[i];
+  // }
 
-  // Optional source term
-  set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration().specific));
+  // // Optional source term
+  // set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration().specific));
 
   // Local integration in nonlinear way
   // Step 1: volumetric integration
@@ -452,28 +452,31 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
 
     // Do integration of the nonlinear volumetric flux here
     /// Integrate V^-1_li * F_ip^d * Theta_ed * K^e_kl in time (*TweightN)
-    // kernel::nonlinearVolumeIntegration d_nonlinearVolumeIntegration = m_krnlNonlVolPrototype;
-    // for (unsigned int timeInterval = 0; timeInterval < CONVERGENCE_ORDER; ++timeInterval){
-    //   /// Convert F^d_{lp}(tau_z) in nodal basis back to modal basis
-    //   d_nonlinearVolumeIntegration.vInv = init::vInv::Values;
-    //   d_nonlinearVolumeIntegration.gradXiEtaZetaX0 = data.localIntegration().specific.gradXiEtaZeta[0][0]*timeWeights[timeInterval];
-    //   d_nonlinearVolumeIntegration.gradXiEtaZetaX1 = data.localIntegration().specific.gradXiEtaZeta[0][1]*timeWeights[timeInterval];
-    //   d_nonlinearVolumeIntegration.gradXiEtaZetaX2 = data.localIntegration().specific.gradXiEtaZeta[0][2]*timeWeights[timeInterval];
-    //   d_nonlinearVolumeIntegration.gradXiEtaZetaY0 = data.localIntegration().specific.gradXiEtaZeta[1][0]*timeWeights[timeInterval];
-    //   d_nonlinearVolumeIntegration.gradXiEtaZetaY1 = data.localIntegration().specific.gradXiEtaZeta[1][1]*timeWeights[timeInterval];
-    //   d_nonlinearVolumeIntegration.gradXiEtaZetaY2 = data.localIntegration().specific.gradXiEtaZeta[1][2]*timeWeights[timeInterval];
-    //   d_nonlinearVolumeIntegration.gradXiEtaZetaZ0 = data.localIntegration().specific.gradXiEtaZeta[2][0]*timeWeights[timeInterval];
-    //   d_nonlinearVolumeIntegration.gradXiEtaZetaZ1 = data.localIntegration().specific.gradXiEtaZeta[2][1]*timeWeights[timeInterval];
-    //   d_nonlinearVolumeIntegration.gradXiEtaZetaZ2 = data.localIntegration().specific.gradXiEtaZeta[2][2]*timeWeights[timeInterval];
+    kernel::nonlinearVolumeIntegration d_nonlinearVolumeIntegration = m_krnlNonlVolPrototype;
+    for (unsigned int timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval){
+      /// Convert F^d_{lp}(tau_z) in nodal basis back to modal basis
+      d_nonlinearVolumeIntegration.vInv = init::vInv::Values;
+      d_nonlinearVolumeIntegration.gradXiEtaZetaX0 = data.localIntegration().specific.gradXiEtaZeta[0][0]*timeWeights[timeInterval];
+      d_nonlinearVolumeIntegration.gradXiEtaZetaX1 = data.localIntegration().specific.gradXiEtaZeta[0][1]*timeWeights[timeInterval];
+      d_nonlinearVolumeIntegration.gradXiEtaZetaX2 = data.localIntegration().specific.gradXiEtaZeta[0][2]*timeWeights[timeInterval];
+      d_nonlinearVolumeIntegration.gradXiEtaZetaY0 = data.localIntegration().specific.gradXiEtaZeta[1][0]*timeWeights[timeInterval];
+      d_nonlinearVolumeIntegration.gradXiEtaZetaY1 = data.localIntegration().specific.gradXiEtaZeta[1][1]*timeWeights[timeInterval];
+      d_nonlinearVolumeIntegration.gradXiEtaZetaY2 = data.localIntegration().specific.gradXiEtaZeta[1][2]*timeWeights[timeInterval];
+      d_nonlinearVolumeIntegration.gradXiEtaZetaZ0 = data.localIntegration().specific.gradXiEtaZeta[2][0]*timeWeights[timeInterval];
+      d_nonlinearVolumeIntegration.gradXiEtaZetaZ1 = data.localIntegration().specific.gradXiEtaZeta[2][1]*timeWeights[timeInterval];
+      d_nonlinearVolumeIntegration.gradXiEtaZetaZ2 = data.localIntegration().specific.gradXiEtaZeta[2][2]*timeWeights[timeInterval];
 
-    //   d_nonlinearVolumeIntegration.Q = data.dofs;
-    //   d_nonlinearVolumeIntegration.FluxVolX(timeInterval) = FluxInterpolatedBodyX[timeInterval];
-    //   d_nonlinearVolumeIntegration.FluxVolY(timeInterval) = FluxInterpolatedBodyY[timeInterval];
-    //   d_nonlinearVolumeIntegration.FluxVolZ(timeInterval) = FluxInterpolatedBodyZ[timeInterval];
-    //   // d_nonlinearVolumeIntegration.TweightN = (timeWeights[timeInterval]);
-    //   // std::cout << timeWeights[timeInterval] << std::endl;
-    //   d_nonlinearVolumeIntegration.execute(timeInterval);
-    // }
+      d_nonlinearVolumeIntegration.Q = data.dofs();
+      d_nonlinearVolumeIntegration.FluxVolX(timeInterval) = FluxInterpolatedBodyX[timeInterval];
+      d_nonlinearVolumeIntegration.FluxVolY(timeInterval) = FluxInterpolatedBodyY[timeInterval];
+      d_nonlinearVolumeIntegration.FluxVolZ(timeInterval) = FluxInterpolatedBodyZ[timeInterval];
+      // d_nonlinearVolumeIntegration.TweightN = (timeWeights[timeInterval]);
+      // std::cout << timeWeights[timeInterval] << std::endl;
+      d_nonlinearVolumeIntegration.execute(timeInterval);
+    }
+  
+  // Local integration in nonlinear way
+  // Step 2: surface integration of the local ingradients
 
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.dofs();
@@ -481,11 +484,19 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
   lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
   lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
 
-  volKrnl.execute();
+  // volKrnl.execute();
 
   for (int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
+    if (data.cellInformation().faceTypes[face] != FaceType::DynamicRupture
+      && data.cellInformation().faceTypes[face] != FaceType::Regular
+      && data.cellInformation().faceTypes[face] != FaceType::Periodic) {
+      lfKrnl.AplusT = data.localIntegration().nApNm1[face];
+      lfKrnl.execute(face);
+    }
+
+    if (data.cellInformation().faceTypes[face] == FaceType::Regular
+      || data.cellInformation().faceTypes[face] == FaceType::Periodic) {
       lfKrnl.AplusT = data.localIntegration().nApNm1[face];
       lfKrnl.execute(face);
     }
