@@ -124,8 +124,8 @@ void Spacetime::computeAder(double timeStepWidth,
 //     + 2*(eyzNodal[q]+data.material().local.epsInit_yz)*(eyzNodal[q]+data.material().local.epsInit_yz)
 //     + 2*(ezxNodal[q]+data.material().local.epsInit_xz)*(ezxNodal[q]+data.material().local.epsInit_xz);
 
-//     real W_energy = 0.0*0.5*data.material().local.lambdaE*EspI*EspI
-//         + data.material().local.muE*EspII;
+//     real W_energy = 0.0*0.5*data.material().local.lambda0*EspI*EspI
+//         + data.material().local.mu0*EspII;
 
 //     if (W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)) > 0) {
 //       if (alpha_ave < 0.8){
@@ -281,8 +281,8 @@ void Spacetime::computeNonlAder(double timeStepWidth,
 //     + 2*(eyzNodal[q]+data.material().local.epsInit_yz)*(eyzNodal[q]+data.material().local.epsInit_yz)
 //     + 2*(ezxNodal[q]+data.material().local.epsInit_xz)*(ezxNodal[q]+data.material().local.epsInit_xz);
 
-//     real W_energy = 0.0*0.5*data.material().local.lambdaE*EspI*EspI
-//         + data.material().local.muE*EspII;
+//     real W_energy = 0.0*0.5*data.material().local.lambda0*EspI*EspI
+//         + data.material().local.mu0*EspII;
 
 //     if (W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)) > 0) {
 //       if (alpha_ave < 0.8){
