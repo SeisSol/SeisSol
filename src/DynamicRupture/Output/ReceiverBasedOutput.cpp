@@ -449,9 +449,6 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
 
     auto* rt = getCellData(local, drDescr->ruptureTime);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
-      // const real chi = seissol::multisim::multisimTranspose(chiTau2dPoints, 0, jBndGP);
-      // const real tau = seissol::multisim::multisimTranspose(chiTau2dPoints, 1, jBndGP);
-
       const real chi = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 0);
       const real tau = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 1);
 
