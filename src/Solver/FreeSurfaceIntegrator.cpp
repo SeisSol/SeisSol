@@ -37,8 +37,9 @@
 #include <utils/logger.h>
 #include <vector>
 
-void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(
-    seissol::initializer::LTSTree& surfaceLtsTree) {
+namespace seissol::solver {
+
+void FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializer::LTSTree& surfaceLtsTree) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
   surfaceLtsTree.add(dofs, ghostMask, 1, initializer::AllocationMode::HostOnly);
   surfaceLtsTree.add(displacementDofs, ghostMask, 1, initializer::AllocationMode::HostOnly);
@@ -47,7 +48,7 @@ void seissol::solver::FreeSurfaceIntegrator::SurfaceLTS::addTo(
   surfaceLtsTree.add(boundaryMapping, ghostMask, 1, initializer::AllocationMode::HostOnly);
 }
 
-seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
+FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
   for (auto& face : projectionMatrix) {
     face = nullptr;
   }
@@ -60,7 +61,7 @@ seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
   surfaceLts.addTo(surfaceLtsTree);
 }
 
-seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
+FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
   for (unsigned dim = 0; dim < NumComponents; ++dim) {
     seissol::memory::free(velocities[dim]);
     seissol::memory::free(displacements[dim]);
@@ -70,10 +71,10 @@ seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
   seissol::memory::free(projectionMatrixFromFace);
 }
 
-void seissol::solver::FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
-                                                        GlobalData* globalData,
-                                                        seissol::initializer::LTS* lts,
-                                                        seissol::initializer::LTSTree* ltsTree) {
+void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
+                                       GlobalData* globalData,
+                                       seissol::initializer::LTS* lts,
+                                       seissol::initializer::LTSTree* ltsTree) {
   if (maxRefinementDepth > MaxRefinement) {
     logError()
         << "Free surface integrator: Currently more than 3 levels of refinements are unsupported."
@@ -88,7 +89,7 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(unsigned maxRefinementDe
   logInfo() << "Initializing free surface integrator. Done.";
 }
 
-void seissol::solver::FreeSurfaceIntegrator::calculateOutput() {
+void FreeSurfaceIntegrator::calculateOutput() {
   unsigned offset = 0;
   const seissol::initializer::LayerMask ghostMask(Ghost);
   for (auto& surfaceLayer : surfaceLtsTree.leaves(ghostMask)) {
@@ -141,8 +142,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput() {
   }
 }
 
-void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(
-    unsigned maxRefinementDepth) {
+void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementDepth) {
   // Sub triangles
   triRefiner.refine(maxRefinementDepth);
 
@@ -212,7 +212,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(
   delete[] weights;
 }
 
-void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(
+void FreeSurfaceIntegrator::computeSubTriangleAverages(
     real* projectionMatrixRow,
     const std::array<std::array<double, 3>, NumQuadraturePoints>& bfPoints,
     const double* weights) const {
@@ -240,7 +240,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(
   }
 }
 
-void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces(
+void FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces(
     real* projectionMatrixFromFaceRow,
     const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
     const double* weights) const {
@@ -262,10 +262,8 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces
   }
 }
 
-seissol::solver::FreeSurfaceIntegrator::LocationFlag
-    seissol::solver::FreeSurfaceIntegrator::getLocationFlag(CellMaterialData materialData,
-                                                            FaceType faceType,
-                                                            unsigned int face) {
+FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
+    CellMaterialData materialData, FaceType faceType, unsigned int face) {
   if (initializer::isAcousticSideOfElasticAcousticInterface(materialData, face)) {
     return LocationFlag::Acoustic;
   } else if (initializer::isElasticSideOfElasticAcousticInterface(materialData, face)) {
@@ -281,8 +279,8 @@ seissol::solver::FreeSurfaceIntegrator::LocationFlag
   }
 }
 
-void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
-    seissol::initializer::LTS* lts, seissol::initializer::LTSTree* ltsTree) {
+void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* lts,
+                                                     seissol::initializer::LTSTree* ltsTree) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
 
   surfaceLtsTree.setNumberOfTimeClusters(ltsTree->numChildren());
@@ -369,3 +367,5 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
     }
   }
 }
+
+} // namespace seissol::solver
