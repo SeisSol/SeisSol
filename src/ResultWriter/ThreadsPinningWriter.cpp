@@ -76,7 +76,7 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
   auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
   PinningInfo commThreadInfo;
-  if (seissol::useCommThread(seissol::MPI::mpi, env)) {
+  if (seissol::useCommThread(seissol::MPI::mpi, env) == CommThreadType::Pinned) {
     auto freeCpus = pinning.getFreeCPUsMask();
     commThreadInfo = getPinningInfo(freeCpus.set);
   } else {
