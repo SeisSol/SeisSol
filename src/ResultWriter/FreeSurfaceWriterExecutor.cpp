@@ -40,7 +40,7 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
     std::string outputName(static_cast<const char*>(info.buffer(OutputPrefix)));
     outputName += "-surface";
 
-    m_numVariables = 2 * FREESURFACE_NUMBER_OF_COMPONENTS;
+    m_numVariables = 2 * seissol::solver::FreeSurfaceIntegrator::NumComponents;
     std::vector<const char*> variables;
     variables.reserve(m_numVariables);
     for (unsigned int i = 0; i < m_numVariables; i++) {

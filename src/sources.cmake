@@ -70,6 +70,7 @@ src/Model/Common.cpp
 src/Numerical/Functions.cpp
 src/Numerical/Statistics.cpp
 src/Parallel/Pin.cpp
+src/Parallel/HelperThread.cpp
 src/Physics/InstantaneousTimeMirrorManager.cpp
 src/ResultWriter/ClusteringWriter.cpp
 src/ResultWriter/AsyncIO.cpp

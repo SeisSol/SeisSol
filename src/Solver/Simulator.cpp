@@ -9,43 +9,40 @@
 
 #include "Simulator.h"
 
-#include <Memory/Tree/Layer.h>
-#include <Parallel/Runtime/Stream.h>
-#include <algorithm>
-#include <cassert>
-#include <cstdlib>
-#include <limits>
-#include <utils/logger.h>
-#include <xdmfwriter/scorep_wrapper.h>
-
-#include "TimeStepping/TimeManager.h"
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Stopwatch.h"
-#include "Monitoring/Unit.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
+#include "TimeStepping/TimeManager.h"
+#include <Memory/Tree/Layer.h>
+#include <algorithm>
+#include <cassert>
+#include <optional>
+#include <utils/logger.h>
+#include <xdmfwriter/scorep_wrapper.h>
 
-seissol::Simulator::Simulator()
-    : currentTime(0), finalTime(0), usePlasticity(false), aborted(false) {}
+namespace seissol {
 
-void seissol::Simulator::setFinalTime(double finalTime) {
+Simulator::Simulator() = default;
+
+void Simulator::setFinalTime(double finalTime) {
   assert(finalTime > 0);
   this->finalTime = finalTime;
 }
 
-void seissol::Simulator::setUsePlasticity(bool plasticity) { usePlasticity = plasticity; }
+void Simulator::setUsePlasticity(bool plasticity) { usePlasticity = plasticity; }
 
-void seissol::Simulator::setCurrentTime(double currentTime) {
+void Simulator::setCurrentTime(double currentTime) {
   assert(currentTime >= 0);
   this->currentTime = currentTime;
   checkpoint = true;
 }
 
-void seissol::Simulator::abort() { aborted = true; }
+void Simulator::abort() { aborted = true; }
 
-void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
+void Simulator::simulate(SeisSol& seissolInstance) {
   SCOREP_USER_REGION("simulate", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
@@ -112,7 +109,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
     currentTime = upcomingTime;
 
     // Synchronize data (TODO(David): synchronize lazily)
-    seissolInstance.timeManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
+    seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
     // Check all synchronization point hooks and set the new upcoming time
     upcomingTime = std::min(finalTime, Modules::callSyncHook(currentTime, timeTolerance));
@@ -131,7 +128,7 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
   }
 
   // synchronize data (TODO(David): synchronize lazily)
-  seissolInstance.timeManager().synchronizeTo(seissol::initializer::AllocationPlace::Host);
+  seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
   Modules::callSyncHook(currentTime, timeTolerance, true);
 
@@ -151,3 +148,5 @@ void seissol::Simulator::simulate(seissol::SeisSol& seissolInstance) {
 
   seissolInstance.flopCounter().printPerformanceSummary(wallTime);
 }
+
+} // namespace seissol

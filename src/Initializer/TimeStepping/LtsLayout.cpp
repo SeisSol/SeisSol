@@ -16,6 +16,7 @@
 #include "GlobalTimestep.h"
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Monitoring/Unit.h>
 #include <math.h>
 #include <math.h>
@@ -769,31 +770,8 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
   deriveDynamicRupturePlainCopyInterior();
 }
 
-void seissol::initializer::time_stepping::LtsLayout::getCrossClusterTimeStepping( struct TimeStepping &o_timeStepping ) {
-  // set number of global clusters
-  o_timeStepping.numberOfGlobalClusters = m_numberOfGlobalClusters;
-
-  o_timeStepping.globalTimeStepRates     = new unsigned int[ 1 ];
-  o_timeStepping.globalCflTimeStepWidths = new double[ o_timeStepping.numberOfGlobalClusters ];
-
-  o_timeStepping.globalTimeStepRates[0]     = m_globalTimeStepRates[0];
-
-  // set global time step rates
-  for( unsigned int l_cluster = 0; l_cluster < o_timeStepping.numberOfGlobalClusters; l_cluster++ ) {
-    o_timeStepping.globalCflTimeStepWidths[l_cluster] = m_globalTimeStepWidths[l_cluster];
-  }
-
-  // set synchronization time invalid
-  o_timeStepping.synchronizationTime = std::numeric_limits<double>::min();
-
-  // set number of local clusters
-  o_timeStepping.numberOfLocalClusters = m_localClusters.size();
-
-  o_timeStepping.clusterIds = new unsigned int[ o_timeStepping.numberOfLocalClusters ];
-
-  for( unsigned int l_cluster = 0; l_cluster < o_timeStepping.numberOfLocalClusters; l_cluster++ ) {
-    o_timeStepping.clusterIds[l_cluster] = m_localClusters[l_cluster];
-  }
+seissol::initializer::ClusterLayout seissol::initializer::time_stepping::LtsLayout::clusterLayout() const {
+  return ClusterLayout({m_globalTimeStepRates[0]}, m_globalTimeStepWidths[0], m_numberOfGlobalClusters);
 }
 
 void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLocalInformation* io_cellLocalInformation,

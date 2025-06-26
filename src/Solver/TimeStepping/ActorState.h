@@ -28,21 +28,19 @@ struct AdvancedCorrectionTimeMessage {
 };
 
 using Message = std::variant<AdvancedPredictionTimeMessage, AdvancedCorrectionTimeMessage>;
-// Helper for std::visit variant pattern
-template<class T> struct always_false : std::false_type {};
 
 inline std::ostream& operator<<(std::ostream& stream, const Message& message);
 
 class MessageQueue {
- private:
+  private:
   std::queue<Message> queue;
   std::mutex mutex;
 
- public:
+  public:
   MessageQueue() = default;
   ~MessageQueue() = default;
 
-  void push(Message const& message);
+  void push(const Message& message);
 
   Message pop();
 
@@ -51,19 +49,9 @@ class MessageQueue {
   [[nodiscard]] size_t size() const;
 };
 
-enum class ActorState {
-  Corrected,
-  Predicted,
-  Synced
-};
+enum class ActorState { Corrected, Predicted, Synced };
 
-enum class ActorAction {
-  Nothing,
-  Correct,
-  Predict,
-  Sync,
-  RestartAfterSync
-};
+enum class ActorAction { Nothing, Correct, Predict, Sync, RestartAfterSync };
 
 std::string actorStateToString(ActorState state);
 
@@ -85,19 +73,13 @@ struct ClusterTimes {
   //! Returns time step s.t. we won't miss the sync point
   [[nodiscard]] double timeStepSize(double syncTime) const;
 
-  [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime,
-                                               double newSyncTime) const;
+  [[nodiscard]] long computeStepsUntilSyncTime(double oldSyncTime, double newSyncTime) const;
 
-//  [[nodiscard]] double& getTimeStepSize();
+  //  [[nodiscard]] double& getTimeStepSize();
 
-  double getTimeStepSize() const {
-    return maxTimeStepSize;
-  }
+  [[nodiscard]] double getTimeStepSize() const { return maxTimeStepSize; }
 
-  void setTimeStepSize(double newTimeStepSize) {
-    maxTimeStepSize = newTimeStepSize;
-  }
-
+  void setTimeStepSize(double newTimeStepSize) { maxTimeStepSize = newTimeStepSize; }
 };
 
 struct NeighborCluster {
@@ -107,7 +89,6 @@ struct NeighborCluster {
   std::shared_ptr<MessageQueue> outbox = nullptr;
 
   NeighborCluster(double maxTimeStepSize, int timeStepRate, Executor executor);
-
 };
 
 class DynamicRuptureScheduler {
@@ -117,7 +98,7 @@ class DynamicRuptureScheduler {
   long numberOfDynamicRuptureFaces;
   bool firstClusterWithDynamicRuptureFaces;
 
-public:
+  public:
   DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, bool isFirstDynamicRuptureCluster);
 
   [[nodiscard]] bool mayComputeInterior(long curCorrectionSteps) const;
@@ -139,12 +120,8 @@ struct ActResult {
   bool isStateChanged = false;
 };
 
-enum class ActorPriority {
-  Low,
-  High
-};
+enum class ActorPriority { Low, High };
 
-}
-
+} // namespace seissol::time_stepping
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTORSTATE_H_

@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_GHOSTTIMECLUSTERWITHCOPY_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_GHOSTTIMECLUSTERWITHCOPY_H_
 
-#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Parallel/MPI.h"
+#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include <device.h>
 
 namespace seissol::time_stepping {
@@ -22,7 +22,7 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
                            int otherGlobalTimeClusterId,
                            const MeshStructure* meshStructure,
                            bool persistent);
-  ~GhostTimeClusterWithCopy();
+  ~GhostTimeClusterWithCopy() override;
 
   GhostTimeClusterWithCopy(const GhostTimeClusterWithCopy<CommType>&) = delete;
   GhostTimeClusterWithCopy(const GhostTimeClusterWithCopy<CommType>&&) = delete;
@@ -42,11 +42,11 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
 
   private:
   unsigned int numberOfRegions{};
-  std::vector<real*> duplicatedCopyRegions{};
-  std::vector<real*> duplicatedGhostRegions{};
+  std::vector<real*> duplicatedCopyRegions;
+  std::vector<real*> duplicatedGhostRegions;
 
-  std::vector<void*> prefetchCopyRegionsStreams{};
-  std::vector<void*> prefetchGhostRegionsStreams{};
+  std::vector<void*> prefetchCopyRegionsStreams;
+  std::vector<void*> prefetchGhostRegionsStreams;
 
   enum class ReceiveState { RequiresMpiTesting, RequiresPrefetchTesting, Ready };
   std::vector<ReceiveState> receiveRegionsStates{};

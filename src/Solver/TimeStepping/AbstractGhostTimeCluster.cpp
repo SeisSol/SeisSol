@@ -5,19 +5,26 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Parallel/MPI.h"
-#include <Kernels/Common.h>
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
-
+#include <Common/Executor.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Common.h>
+#include <Monitoring/Instrumentation.h>
+#include <Solver/TimeStepping/AbstractTimeCluster.h>
+#include <Solver/TimeStepping/ActorState.h>
+#include <cassert>
+#include <chrono>
+#include <list>
+#include <mpi.h>
+#include <utils/logger.h>
 
 namespace seissol::time_stepping {
-bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests,
-                                         std::list<unsigned int>& regions) {
+bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<unsigned int>& regions) {
   for (auto region = regions.begin(); region != regions.end();) {
-    MPI_Request *request = &requests[*region];
+    MPI_Request* request = &requests[*region];
     int testSuccess = 0;
     MPI_Test(request, &testSuccess, MPI_STATUS_IGNORE);
-    if (testSuccess) {
+    if (testSuccess != 0) {
       region = regions.erase(region);
     } else {
       ++region;
@@ -27,7 +34,7 @@ bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests,
 }
 
 bool AbstractGhostTimeCluster::testForCopyLayerSends() {
-  SCOREP_USER_REGION( "testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION )
+  SCOREP_USER_REGION("testForCopyLayerSends", SCOREP_USER_REGION_TYPE_FUNCTION)
   return testQueue(sendRequests.data(), sendQueue);
 }
 
@@ -63,12 +70,14 @@ bool AbstractGhostTimeCluster::maySync() {
   return testForGhostLayerReceives() && testForCopyLayerSends() && AbstractTimeCluster::maySync();
 }
 
-void AbstractGhostTimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster&) {
+void AbstractGhostTimeCluster::handleAdvancedPredictionTimeMessage(
+    const NeighborCluster& /*neighborCluster*/) {
   assert(testForCopyLayerSends());
   sendCopyLayer();
 }
 
-void AbstractGhostTimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) {
+void AbstractGhostTimeCluster::handleAdvancedCorrectionTimeMessage(
+    const NeighborCluster& neighborCluster) {
   assert(testForGhostLayerReceives());
 
   auto upcomingCorrectionSteps = ct.stepsSinceLastSync;
@@ -78,24 +87,24 @@ void AbstractGhostTimeCluster::handleAdvancedCorrectionTimeMessage(const Neighbo
 
   const bool ignoreMessage = upcomingCorrectionSteps >= ct.stepsUntilSync;
 
-  // If we are already at a sync point, we must not post an additional receive, as otherwise start() posts an additional
-  // request!
-  // This is also true for the last sync point (i.e. end of simulation), as in this case we do not want to have any
-  // hanging request.
+  // If we are already at a sync point, we must not post an additional receive, as otherwise start()
+  // posts an additional request! This is also true for the last sync point (i.e. end of
+  // simulation), as in this case we do not want to have any hanging request.
   if (!ignoreMessage) {
     receiveGhostLayer();
   }
 }
 
 AbstractGhostTimeCluster::AbstractGhostTimeCluster(double maxTimeStepSize,
-                                                 int timeStepRate,
-                                                 int globalTimeClusterId,
-                                                 int otherGlobalTimeClusterId,
-                                                 const MeshStructure *meshStructure)
-    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
-      globalClusterId(globalTimeClusterId),
-      otherGlobalClusterId(otherGlobalTimeClusterId),
-      meshStructure(meshStructure), sendRequests(meshStructure->numberOfRegions), recvRequests(meshStructure->numberOfRegions) {}
+                                                   int timeStepRate,
+                                                   int globalTimeClusterId,
+                                                   int otherGlobalTimeClusterId,
+                                                   const MeshStructure* meshStructure)
+    : AbstractTimeCluster(
+          maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
+      globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId),
+      meshStructure(meshStructure), sendRequests(meshStructure->numberOfRegions),
+      recvRequests(meshStructure->numberOfRegions) {}
 
 void AbstractGhostTimeCluster::reset() {
   AbstractTimeCluster::reset();
@@ -104,25 +113,21 @@ void AbstractGhostTimeCluster::reset() {
 }
 
 void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
-  logError()
-      << "Ghost: No update since " << timeSinceLastUpdate.count()
-      << "[s] for global cluster " << globalClusterId
-      << " with other cluster id " << otherGlobalClusterId
-      << " at state " << actorStateToString(state)
-      << " mayPredict = " << mayPredict()
-      << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
-      << " mayCorrect = " << mayCorrect()
-      << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
-      << " maySync = " << maySync();
+  logError() << "Ghost: No update since " << timeSinceLastUpdate.count()
+             << "[s] for global cluster " << globalClusterId << " with other cluster id "
+             << otherGlobalClusterId << " at state " << actorStateToString(state)
+             << " mayPredict = " << mayPredict()
+             << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
+             << " mayCorrect = " << mayCorrect()
+             << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
+             << " maySync = " << maySync();
   for (auto& neighbor : neighbors) {
-    logError()
-        << "Neighbor with rate = " << neighbor.ct.timeStepRate
-        << "PredTime = " << neighbor.ct.predictionTime
-        << "CorrTime = " << neighbor.ct.correctionTime
-        << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
-        << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
+    logError() << "Neighbor with rate = " << neighbor.ct.timeStepRate
+               << "PredTime = " << neighbor.ct.predictionTime
+               << "CorrTime = " << neighbor.ct.correctionTime
+               << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
+               << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
   }
 }
 
 } // namespace seissol::time_stepping
-

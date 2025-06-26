@@ -11,26 +11,24 @@
 #define SEISSOL_SRC_SOLVER_SIMULATOR_H_
 
 namespace seissol {
-class Simulator;
 class SeisSol;
-} // namespace seissol
 
 /**
  * Simulator, which takes care of the simulation: Sync. times, wave field output, checkpoints.
  **/
-class seissol::Simulator {
+class Simulator {
   // private:
   //! current time of the simulation
-  double currentTime;
+  double currentTime{0};
 
   //! final time of the simulation
-  double finalTime;
+  double finalTime{0};
 
   //! usePlasticity = true if plasticity is on
-  bool usePlasticity;
+  bool usePlasticity{false};
 
   //! If true, the while loop of the simulation will be aborted (see terminator)
-  bool aborted;
+  bool aborted{false};
 
   bool checkpoint{false};
 
@@ -74,5 +72,7 @@ class seissol::Simulator {
    **/
   void simulate(seissol::SeisSol& seissolInstance);
 };
+
+} // namespace seissol
 
 #endif // SEISSOL_SRC_SOLVER_SIMULATOR_H_

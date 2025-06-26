@@ -9,20 +9,22 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ABSTRACTTIMECLUSTER_H_
 
 #include "ActorState.h"
+#include <Memory/Tree/Layer.h>
 #include <chrono>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace seissol::time_stepping {
 
 class AbstractTimeCluster {
-private:
+  private:
   ActorPriority priority = ActorPriority::Low;
   std::chrono::steady_clock::time_point timeOfLastStageChange;
   const std::chrono::seconds timeout = std::chrono::minutes(15);
   bool alreadyPrintedTimeOut = false;
 
-protected:
+  protected:
   ActorState state = ActorState::Synced;
   ClusterTimes ct;
   std::vector<NeighborCluster> neighbors;
@@ -46,16 +48,19 @@ protected:
 
   bool hasDifferentExecutorNeighbor();
 
-
   long timeStepRate;
   //! number of time steps
-  long numberOfTimeSteps;
+  long numberOfTimeSteps{0};
   Executor executor;
 
-public:
+  public:
   virtual ~AbstractTimeCluster() = default;
 
-  Executor getExecutor() const;
+  virtual void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {}
+
+  [[nodiscard]] virtual std::string description() const { return ""; }
+
+  [[nodiscard]] Executor getExecutor() const;
 
   virtual ActorAction getNextLegalAction();
   virtual ActResult act();
@@ -73,12 +78,15 @@ public:
   [[nodiscard]] bool synced() const;
   virtual void reset();
 
-  void setPredictionTime(double time);
-  void setCorrectionTime(double time);
+  virtual void setTime(double time);
 
   virtual void finishPhase();
 
-  long getTimeStepRate();
+  [[nodiscard]] long getTimeStepRate() const;
+
+  [[nodiscard]] std::string identifier() const {
+    return description() + "-" + std::to_string(ct.timeStepRate);
+  }
 
   /**
    * @brief Returns the time step size of the cluster.
@@ -96,12 +104,8 @@ public:
    * @return the pointer to the vector of neighbor clusters.
    */
   std::vector<NeighborCluster>* getNeighborClusters();
-
 };
 
-}
-
-
-
+} // namespace seissol::time_stepping
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_ABSTRACTTIMECLUSTER_H_

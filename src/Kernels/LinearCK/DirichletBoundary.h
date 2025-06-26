@@ -43,8 +43,8 @@ void addRotationToProjectKernel(MappingKrnl& projectKernel,
 template <>
 void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
                                 const seissol::CellBoundaryMapping& boundaryMapping) {
-  assert(boundaryMapping.TinvData != nullptr);
-  projectKernel.Tinv = boundaryMapping.TinvData;
+  assert(boundaryMapping.dataTinv != nullptr);
+  projectKernel.Tinv = boundaryMapping.dataTinv;
 }
 #pragma GCC diagnostic pop
 
@@ -103,12 +103,12 @@ class DirichletBoundary {
         yateto::getMaxTmpMemRequired(nodalLfKrnlPrototype, projectKernelPrototype);
     auto auxTmpMem = runtime.memoryHandle<real>((auxTmpMemSize * numElements) / sizeof(real));
 
-    auto** TinvData = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+    auto** dataTinv = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
     auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
 
     auto projectKrnl = projectKernelPrototype;
     projectKrnl.numElements = numElements;
-    projectKrnl.Tinv = const_cast<const real**>(TinvData);
+    projectKrnl.Tinv = const_cast<const real**>(dataTinv);
     projectKrnl.I = const_cast<const real**>(idofsPtrs);
     projectKrnl.INodal = dofsFaceBoundaryNodalPtrs;
     projectKrnl.linearAllocator.initialize(auxTmpMem.get());
