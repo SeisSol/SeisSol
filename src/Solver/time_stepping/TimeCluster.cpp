@@ -335,14 +335,14 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       l_bufferPointer = l_integrationBuffer;
     }
 
-    #ifdef USE_DAMAGE
+#ifdef USE_DAMAGE
     // In nonlinear damage case, derivatives always need to be:
     // 1. computed in computeAder()
     // 2. used in computeIntegral()
     alignas(PagesizeStack) real temporaryDer[yateto::computeFamilySize<tensor::dQ>()];
-    #endif
+#endif
 
-    // Update the local materia modulus for next prediction
+    // Update the local material modulus for next prediction
     // This function is only temporary for nonlinear mat.
     // Can be merged with usual ones, but requires a change in the general input
 #ifdef USE_DAMAGE

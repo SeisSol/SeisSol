@@ -65,6 +65,22 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
     case FaceType::Regular:
       // Fallthrough intended
     case FaceType::Periodic: {
+      // Standard for nonlinear LTS
+      // Step 1: Received integrated Rusanov flux in modal space,
+      // Project it on to face quadratures, as rusanovFluxMinus:
+      // using "kernel::nonlEvaluateAndRotateQAtInterpolationPoints"
+      // The face relations are the same as the cae of receiving 'derivatives'
+      // Because both are in Modal space of the neighboring cell
+
+      // Step 2: Integrated from the face quadrature
+      // kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
+      // real fluxScale = - 2.0 / 6.0 * data.localIntegration().specific.localSurfaces[face]
+      //               / data.localIntegration().specific.localVolume;
+      // m_surfIntegral.Q = data.dofs();
+      // m_surfIntegral.Flux = rusanovFluxMinus;
+      // m_surfIntegral.fluxScale = fluxScale;
+      // m_surfIntegral.execute(face, 0);
+
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
       assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
