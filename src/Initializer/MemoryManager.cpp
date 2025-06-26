@@ -9,9 +9,9 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include "MemoryManager.h"
-#include "InternalState.h"
 #include "Kernels/Common.h"
 #include "Kernels/Touch.h"
+#include "Memory/GlobalData.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
 #include <DynamicRupture/Factory.h>
