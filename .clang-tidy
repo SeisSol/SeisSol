@@ -13,11 +13,24 @@
 # * clang-analyzer-cplusplus.NewDeleteLeaks
 # * clang-analyzer-optin.cplusplus.VirtualCall
 # * clang-analyzer-deadcode.DeadStores
+# * bugprone-narrowing-conversions,
+# * bugprone-easily-swappable-parameters,
+# * bugprone-unchecked-optional-access,
+# * bugprone-crtp-constructor-accessibility,
+# * bugprone-exception-escape,
+# * bugprone-branch-clone,
 
 Checks: |
   -clang-analyzer-cplusplus.NewDeleteLeaks
   -clang-analyzer-optin.cplusplus.VirtualCall
   -clang-analyzer-deadcode.DeadStores
+  bugprone-*,
+  -bugprone-narrowing-conversions,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-unchecked-optional-access,
+  -bugprone-crtp-constructor-accessibility,
+  -bugprone-exception-escape,
+  -bugprone-branch-clone,
   clang-diagnostic-*,
   cppcoreguidelines-*,
   -cppcoreguidelines-avoid-c-arrays,
