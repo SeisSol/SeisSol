@@ -18,6 +18,8 @@
 #include "MemoryManager.h"
 #include "InternalState.h"
 #include "Memory/Tree/Layer.h"
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <yateto.h>
 #include <unordered_set>
@@ -393,20 +395,20 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
   }
 }
 
-void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_timeStepping,
-                                                         struct MeshStructure*i_meshStructure,
+void seissol::initializer::MemoryManager::fixateLtsTree(struct ClusterLayout& clusterLayout,
+                                                         struct MeshStructure* meshStructure,
                                                          unsigned* numberOfDRCopyFaces,
                                                          unsigned* numberOfDRInteriorFaces,
                                                          bool usePlasticity) {
   // store mesh structure and the number of time clusters
-  m_meshStructure = i_meshStructure;
+  m_meshStructure = meshStructure;
 
   m_ltsTree.setName("cluster");
 
   // Setup tree variables
   m_lts.addTo(m_ltsTree, usePlasticity);
   seissolInstance.postProcessor().allocateMemory(&m_ltsTree);
-  m_ltsTree.setNumberOfTimeClusters(i_timeStepping.numberOfLocalClusters);
+  m_ltsTree.setNumberOfTimeClusters(clusterLayout.globalClusterCount);
 
   /// From this point, the tree layout, variables, and buckets cannot be changed anymore
   m_ltsTree.fixate();
@@ -414,9 +416,9 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   // Set number of cells and bucket sizes in ltstree
   for (unsigned tc = 0; tc < m_ltsTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_ltsTree.child(tc);
-    cluster.child<Ghost>().setNumberOfCells(i_meshStructure[tc].numberOfGhostCells);
-    cluster.child<Copy>().setNumberOfCells(i_meshStructure[tc].numberOfCopyCells);
-    cluster.child<Interior>().setNumberOfCells(i_meshStructure[tc].numberOfInteriorCells);
+    cluster.child<Ghost>().setNumberOfCells(meshStructure[tc].numberOfGhostCells);
+    cluster.child<Copy>().setNumberOfCells(meshStructure[tc].numberOfCopyCells);
+    cluster.child<Interior>().setNumberOfCells(meshStructure[tc].numberOfInteriorCells);
   }
 
   m_ltsTree.allocateVariables();
@@ -427,19 +429,14 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   /// Dynamic rupture tree
   m_dynRup->addTo(m_dynRupTree);
 
-  m_dynRupTree.setNumberOfTimeClusters(i_timeStepping.numberOfGlobalClusters);
+  m_dynRupTree.setNumberOfTimeClusters(clusterLayout.globalClusterCount);
   m_dynRupTree.fixate();
 
   for (unsigned tc = 0; tc < m_dynRupTree.numChildren(); ++tc) {
     TimeCluster& cluster = m_dynRupTree.child(tc);
     cluster.child<Ghost>().setNumberOfCells(0);
-    if (tc >= i_timeStepping.numberOfLocalClusters) {
-        cluster.child<Copy>().setNumberOfCells(0);
-        cluster.child<Interior>().setNumberOfCells(0);
-    } else {
-        cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
-        cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
-    }
+    cluster.child<Copy>().setNumberOfCells(numberOfDRCopyFaces[tc]);
+    cluster.child<Interior>().setNumberOfCells(numberOfDRInteriorFaces[tc]);
   }
 
   m_dynRupTree.allocateVariables();
@@ -505,25 +502,25 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
       for (unsigned face = 0; face < 4; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
-          boundaryMapping[cell][face].TData = faceInformation[boundaryFace].TData;
-          boundaryMapping[cell][face].TinvData = faceInformation[boundaryFace].TinvData;
+          boundaryMapping[cell][face].dataT = faceInformation[boundaryFace].dataT;
+          boundaryMapping[cell][face].dataTinv = faceInformation[boundaryFace].dataTinv;
           boundaryMapping[cell][face].easiBoundaryMap = faceInformation[boundaryFace].easiBoundaryMap;
           boundaryMapping[cell][face].easiBoundaryConstant = faceInformation[boundaryFace].easiBoundaryConstant;
           boundaryMappingDevice[cell][face].nodes = faceInformationDevice[boundaryFace].nodes;
-          boundaryMappingDevice[cell][face].TData = faceInformationDevice[boundaryFace].TData;
-          boundaryMappingDevice[cell][face].TinvData = faceInformationDevice[boundaryFace].TinvData;
+          boundaryMappingDevice[cell][face].dataT = faceInformationDevice[boundaryFace].dataT;
+          boundaryMappingDevice[cell][face].dataTinv = faceInformationDevice[boundaryFace].dataTinv;
           boundaryMappingDevice[cell][face].easiBoundaryMap = faceInformationDevice[boundaryFace].easiBoundaryMap;
           boundaryMappingDevice[cell][face].easiBoundaryConstant = faceInformationDevice[boundaryFace].easiBoundaryConstant;
           ++boundaryFace;
         } else {
           boundaryMapping[cell][face].nodes = nullptr;
-          boundaryMapping[cell][face].TData = nullptr;
-          boundaryMapping[cell][face].TinvData = nullptr;
+          boundaryMapping[cell][face].dataT = nullptr;
+          boundaryMapping[cell][face].dataTinv = nullptr;
           boundaryMapping[cell][face].easiBoundaryMap = nullptr;
           boundaryMapping[cell][face].easiBoundaryConstant = nullptr;
           boundaryMappingDevice[cell][face].nodes = nullptr;
-          boundaryMappingDevice[cell][face].TData = nullptr;
-          boundaryMappingDevice[cell][face].TinvData = nullptr;
+          boundaryMappingDevice[cell][face].dataT = nullptr;
+          boundaryMappingDevice[cell][face].dataTinv = nullptr;
           boundaryMappingDevice[cell][face].easiBoundaryMap = nullptr;
           boundaryMappingDevice[cell][face].easiBoundaryConstant = nullptr;
         }
@@ -562,7 +559,7 @@ void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
 }
 
 #ifdef ACL_DEVICE
-void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LTSTree& ltsTree, LTS& lts) {
+void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree& ltsTree, LTS& lts) {
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
@@ -577,6 +574,9 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
     std::size_t nodalDisplacementsCounter{0};
     std::size_t analyticCounter = 0;
 
+    std::array<std::size_t, 4> freeSurfacePerFace{};
+    std::array<std::size_t, 4> dirichletPerFace{};
+
     for (unsigned cell = 0; cell < layer.size(); ++cell) {
       bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
       if (needsScratchMemForDerivatives) {
@@ -585,7 +585,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
       ++integratedDofsCounter;
 
       // include data provided by ghost layers
-      for (unsigned face = 0; face < 4; ++face) {
+      for (int face = 0; face < 4; ++face) {
         real *neighborBuffer = faceNeighbors[cell][face];
 
         // check whether a neighbor element idofs has not been counted twice
@@ -612,8 +612,19 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
         if (cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
           ++analyticCounter;
         }
+
+        if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
+          ++freeSurfacePerFace[face];
+        }
+
+        if (cellInformation[cell].faceTypes[face] == FaceType::Dirichlet) {
+          ++dirichletPerFace[face];
+        }
       }
     }
+    const auto freeSurfaceCount = *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
+    const auto dirichletCount = *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
+
     layer.setEntrySize(lts.integratedDofsScratch,
                              integratedDofsCounter * tensor::I::size() * sizeof(real));
     layer.setEntrySize(lts.derivativesScratch,
@@ -632,6 +643,29 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
 #endif
     layer.setEntrySize(lts.analyticScratch,
                              analyticCounter * tensor::INodal::size() * sizeof(real));
+    if (plasticity) {
+      layer.setEntrySize(lts.flagScratch,
+                                layer.size() * sizeof(unsigned));
+      layer.setEntrySize(lts.prevDofsScratch,
+                                layer.size() * tensor::Q::Size * sizeof(real));
+      layer.setEntrySize(lts.qEtaNodalScratch,
+                                layer.size() * tensor::QEtaNodal::Size * sizeof(real));
+      layer.setEntrySize(lts.qStressNodalScratch,
+                                layer.size() * tensor::QStressNodal::Size * sizeof(real));
+    }
+
+    layer.setEntrySize(lts.dofsFaceBoundaryNodalScratch, sizeof(real) * dirichletCount * tensor::INodal::size());
+
+    layer.setEntrySize(lts.rotateDisplacementToFaceNormalScratch, 
+      sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
+    layer.setEntrySize(lts.rotateDisplacementToGlobalScratch, 
+      sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
+    layer.setEntrySize(lts.rotatedFaceDisplacementScratch, 
+      sizeof(real) * freeSurfaceCount * init::rotatedFaceDisplacement::Size);
+    layer.setEntrySize(lts.dofsFaceNodalScratch, 
+      sizeof(real) * freeSurfaceCount * tensor::INodal::size());
+    layer.setEntrySize(lts.prevCoefficientsScratch, 
+      sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[0]);
   }
 }
 
@@ -751,7 +785,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
   initializeFaceDisplacements();
 
 #ifdef ACL_DEVICE
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(m_ltsTree, m_lts);
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(seissolInstance.getSeisSolParameters().model.plasticity, m_ltsTree, m_lts);
   m_ltsTree.allocateScratchPads();
 #endif
 }

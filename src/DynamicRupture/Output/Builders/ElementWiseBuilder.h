@@ -28,6 +28,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);
     assignNearestInternalGaussianPoints();
+    assignFusedIndices();
     assignFaultTags();
     initTimeCaching();
     initOutputVariables(elementwiseParams.outputMask);

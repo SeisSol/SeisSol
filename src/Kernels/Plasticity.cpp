@@ -39,13 +39,13 @@ using namespace device;
 #endif
 
 namespace seissol::kernels {
-unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
-                                       double timeStepWidth,
-                                       double tV,
-                                       const GlobalData* global,
-                                       const seissol::model::PlasticityData* plasticityData,
-                                       real degreesOfFreedom[tensor::Q::size()],
-                                       real* pstrain) {
+std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
+                                          double timeStepWidth,
+                                          double tV,
+                                          const GlobalData* global,
+                                          const seissol::model::PlasticityData* plasticityData,
+                                          real degreesOfFreedom[tensor::Q::size()],
+                                          real* pstrain) {
   if constexpr (multisim::MultisimEnabled) {
     // TODO: really still the case?
     logError() << "Plasticity does not work with multiple simulations";
@@ -73,7 +73,7 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   //  @todo multiple sims
 
   real prevDegreesOfFreedom[tensor::QStress::size()];
-  for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
+  for (std::size_t q = 0; q < tensor::QStress::size(); ++q) {
     prevDegreesOfFreedom[q] = degreesOfFreedom[q];
   }
 
@@ -112,19 +112,19 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   siKrnl.execute();
 
   // tau := sqrt(I_2) for every node
-  for (unsigned ip = 0; ip < tensor::secondInvariant::size(); ++ip) {
+  for (std::size_t ip = 0; ip < tensor::secondInvariant::size(); ++ip) {
     tau[ip] = sqrt(secondInvariant[ip]);
   }
 
   // Compute tau_c for every node
-  for (unsigned ip = 0; ip < tensor::meanStress::size(); ++ip) {
+  for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
     taulim[ip] = std::max(static_cast<real>(0.0),
                           plasticityData->cohesionTimesCosAngularFriction -
                               meanStress[ip] * plasticityData->sinAngularFriction);
   }
 
   bool adjust = false;
-  for (unsigned ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
+  for (std::size_t ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
     // Compute yield := (t_c / tau - 1) r for every node,
     // where r = 1 - exp(-timeStepWidth / tV)
     if (tau[ip] > taulim[ip]) {
@@ -209,9 +209,9 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     m2nEtaKrnl.execute();
 
     auto qStressNodalView = init::QStressNodal::view::create(qStressNodal);
-    const unsigned numNodes = qStressNodalView.shape(multisim::BasisFunctionDimension);
+    const auto numNodes = qStressNodalView.shape(multisim::BasisFunctionDimension);
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-      for (unsigned i = 0; i < numNodes; ++i) {
+      for (std::size_t i = 0; i < numNodes; ++i) {
         // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
         // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
         qEtaNodal[i * multisim::NumSimulations + s] =
@@ -237,7 +237,7 @@ unsigned Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     n2mEtaKrnl.QEtaNodal = qEtaNodal;
     n2mEtaKrnl.QEtaModal = qEtaModal;
     n2mEtaKrnl.execute();
-    for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
+    for (std::size_t q = 0; q < tensor::QEtaModal::size(); ++q) {
       pstrain[tensor::QStress::size() + q] = qEtaModal[q];
     }
     return 1;
@@ -251,7 +251,8 @@ void Plasticity::computePlasticityBatched(
     const GlobalData* global,
     initializer::recording::ConditionalPointersToRealsTable& table,
     seissol::model::PlasticityData* plasticityData,
-    unsigned* yieldCounter,
+    std::size_t* yieldCounter,
+    unsigned* isAdjustableVector,
     seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
@@ -270,17 +271,12 @@ void Plasticity::computePlasticityBatched(
     const size_t numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
 
     // copy dofs for later comparison, only first dof of stresses required
-    constexpr unsigned DofsSize = tensor::Q::Size;
-    const size_t prevDofsSize = DofsSize * numElements;
-    auto prevDofs = runtime.memoryHandle<real>(prevDofsSize);
+    constexpr auto DofsSize = tensor::Q::Size;
 
+    real** prevDofs = (entry.get(inner_keys::Wp::Id::PrevDofs))->getDeviceDataPtr();
     real** dofsPtrs = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    device.algorithms.copyScatterToUniform(const_cast<const real**>(dofsPtrs),
-                                           prevDofs.get(),
-                                           DofsSize,
-                                           DofsSize,
-                                           numElements,
-                                           defaultStream);
+    device.algorithms.streamBatchedData(
+        const_cast<const real**>(dofsPtrs), prevDofs, DofsSize, numElements, defaultStream);
 
     // Convert modal to nodal
     real** modalStressTensors = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
@@ -300,11 +296,8 @@ void Plasticity::computePlasticityBatched(
     m2nKrnl.numElements = numElements;
     m2nKrnl.execute();
 
-    // adjust deviatoric tensors
-    auto isAdjustableVector = runtime.memoryHandle<unsigned>(numElements);
-
     device::aux::plasticity::adjustDeviatoricTensors(nodalStressTensors,
-                                                     isAdjustableVector.get(),
+                                                     isAdjustableVector,
                                                      plasticityData,
                                                      oneMinusIntegratingFactor,
                                                      numElements,
@@ -312,7 +305,7 @@ void Plasticity::computePlasticityBatched(
 
     // count how many elements needs to be adjusted
     device.algorithms.reduceVector(yieldCounter,
-                                   isAdjustableVector.get(),
+                                   isAdjustableVector,
                                    true,
                                    numElements,
                                    ::device::ReductionType::Add,
@@ -325,29 +318,15 @@ void Plasticity::computePlasticityBatched(
     n2mKrnl.QStressNodal = const_cast<const real**>(nodalStressTensors);
     n2mKrnl.QStress = modalStressTensors;
     n2mKrnl.streamPtr = defaultStream;
-    n2mKrnl.flags = isAdjustableVector.get();
+    n2mKrnl.flags = isAdjustableVector;
     n2mKrnl.numElements = numElements;
     n2mKrnl.execute();
 
     // prepare memory
-    auto qEtaNodal = runtime.memoryHandle<real>(tensor::QEtaNodal::Size * numElements);
-    auto qEtaNodalPtrs = runtime.memoryHandle<real*>(numElements);
-
-    auto qEtaModal = runtime.memoryHandle<real>(tensor::QEtaModal::Size * numElements);
-    auto qEtaModalPtrs = runtime.memoryHandle<real*>(numElements);
+    real** qEtaNodalPtrs = (entry.get(inner_keys::Wp::Id::QEtaNodal))->getDeviceDataPtr();
+    real** dUdTpstrainPtrs = (entry.get(inner_keys::Wp::Id::DuDtStrain))->getDeviceDataPtr();
 
     static_assert(tensor::QStress::Size == tensor::QStressNodal::Size);
-    auto dUdTpstrain = runtime.memoryHandle<real>(tensor::QStressNodal::Size * numElements);
-    auto dUdTpstrainPtrs = runtime.memoryHandle<real*>(numElements);
-
-    device::aux::plasticity::adjustPointers(qEtaNodal.get(),
-                                            qEtaNodalPtrs.get(),
-                                            qEtaModal.get(),
-                                            qEtaModalPtrs.get(),
-                                            dUdTpstrain.get(),
-                                            dUdTpstrainPtrs.get(),
-                                            numElements,
-                                            defaultStream);
 
     // ------------------------------------------------------------------------------
     real** pstrains = entry.get(inner_keys::Wp::Id::Pstrains)->getDeviceDataPtr();
@@ -355,12 +334,12 @@ void Plasticity::computePlasticityBatched(
     device::aux::plasticity::computePstrains(pstrains,
                                              plasticityData,
                                              dofs,
-                                             prevDofs.get(),
-                                             dUdTpstrainPtrs.get(),
+                                             prevDofs,
+                                             dUdTpstrainPtrs,
                                              tV,
                                              oneMinusIntegratingFactor,
                                              timeStepWidth,
-                                             isAdjustableVector.get(),
+                                             isAdjustableVector,
                                              numElements,
                                              defaultStream);
 
@@ -368,32 +347,30 @@ void Plasticity::computePlasticityBatched(
     static_assert(kernel::gpu_plConvertToNodalNoLoading::TmpMaxMemRequiredInBytes == 0);
     kernel::gpu_plConvertToNodalNoLoading m2nKrnlDudtPstrain;
     m2nKrnlDudtPstrain.v = global->vandermondeMatrix;
-    m2nKrnlDudtPstrain.QStress = const_cast<const real**>(dUdTpstrainPtrs.get());
+    m2nKrnlDudtPstrain.QStress = const_cast<const real**>(dUdTpstrainPtrs);
     m2nKrnlDudtPstrain.QStressNodal = nodalStressTensors;
     m2nKrnlDudtPstrain.streamPtr = defaultStream;
-    m2nKrnlDudtPstrain.flags = isAdjustableVector.get();
+    m2nKrnlDudtPstrain.flags = isAdjustableVector;
     m2nKrnlDudtPstrain.numElements = numElements;
     m2nKrnlDudtPstrain.execute();
-
-    device::aux::plasticity::pstrainToQEtaModal(
-        pstrains, qEtaModalPtrs.get(), isAdjustableVector.get(), numElements, defaultStream);
 
     // Convert modal to nodal
     static_assert(kernel::gpu_plConvertEtaModal2Nodal::TmpMaxMemRequiredInBytes == 0);
     kernel::gpu_plConvertEtaModal2Nodal m2nEtaKrnl;
     m2nEtaKrnl.v = global->vandermondeMatrix;
-    m2nEtaKrnl.QEtaModal = const_cast<const real**>(qEtaModalPtrs.get());
-    m2nEtaKrnl.QEtaNodal = qEtaNodalPtrs.get();
+    m2nEtaKrnl.QEtaModal = const_cast<const real**>(pstrains);
+    m2nEtaKrnl.extraOffset_QEtaModal = tensor::QStress::size();
+    m2nEtaKrnl.QEtaNodal = qEtaNodalPtrs;
     m2nEtaKrnl.streamPtr = defaultStream;
-    m2nEtaKrnl.flags = isAdjustableVector.get();
+    m2nEtaKrnl.flags = isAdjustableVector;
     m2nEtaKrnl.numElements = numElements;
     m2nEtaKrnl.execute();
 
     // adjust: QEtaNodal
-    device::aux::plasticity::updateQEtaNodal(qEtaNodalPtrs.get(),
+    device::aux::plasticity::updateQEtaNodal(qEtaNodalPtrs,
                                              nodalStressTensors,
                                              timeStepWidth,
-                                             isAdjustableVector.get(),
+                                             isAdjustableVector,
                                              numElements,
                                              defaultStream);
 
@@ -401,16 +378,13 @@ void Plasticity::computePlasticityBatched(
     static_assert(kernel::gpu_plConvertEtaNodal2Modal::TmpMaxMemRequiredInBytes == 0);
     kernel::gpu_plConvertEtaNodal2Modal n2mEtaKrnl;
     n2mEtaKrnl.vInv = global->vandermondeMatrixInverse;
-    n2mEtaKrnl.QEtaNodal = const_cast<const real**>(qEtaNodalPtrs.get());
-    n2mEtaKrnl.QEtaModal = qEtaModalPtrs.get();
+    n2mEtaKrnl.QEtaNodal = const_cast<const real**>(qEtaNodalPtrs);
+    n2mEtaKrnl.QEtaModal = pstrains;
+    n2mEtaKrnl.extraOffset_QEtaModal = tensor::QStress::size();
     n2mEtaKrnl.streamPtr = defaultStream;
-    n2mEtaKrnl.flags = isAdjustableVector.get();
+    n2mEtaKrnl.flags = isAdjustableVector;
     n2mEtaKrnl.numElements = numElements;
     n2mEtaKrnl.execute();
-
-    // copy: QEtaModal -> pstrain
-    device::aux::plasticity::qEtaModalToPstrain(
-        qEtaModalPtrs.get(), pstrains, isAdjustableVector.get(), numElements, defaultStream);
   }
 #else
   logError() << "No GPU implementation provided";

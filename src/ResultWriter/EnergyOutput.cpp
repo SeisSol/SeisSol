@@ -86,13 +86,13 @@ std::array<real, multisim::NumSimulations>
 
   krnl.QInterpolated = qInterpolatedPlus;
   krnl.Q = qPlus;
-  krnl.TinvT = godunovData.TinvT;
+  krnl.TinvT = godunovData.dataTinvT;
   krnl._prefetch.QInterpolated = qInterpolatedPlus;
   krnl.execute(faceInfo.plusSide, 0);
 
   krnl.QInterpolated = qInterpolatedMinus;
   krnl.Q = qMinus;
-  krnl.TinvT = godunovData.TinvT;
+  krnl.TinvT = godunovData.dataTinvT;
   krnl._prefetch.QInterpolated = qInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
 
@@ -325,6 +325,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         return timeDerivativeMinusHost + QSize * i;
       };
 #else
+      // TODO: for fused simulations, do this once and reuse
       real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
       real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
       const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
@@ -481,8 +482,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
         auto numSub = multisim::simtensor(numericalSolution, sim);
 
-        // TODO: move to the material class (maybe done by #1297 + MaterialT::NumTractionQuantities)
-        constexpr int UIdx = model::MaterialT::Type == model::MaterialType::Acoustic ? 1 : 6;
+        constexpr int UIdx = model::MaterialT::TractionQuantities;
 
         for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
           const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
@@ -550,7 +550,7 @@ void EnergyOutput::computeVolumeEnergies() {
           // Displacements are stored in face-aligned coordinate system.
           // We need to rotate it to the global coordinate system.
           const auto& boundaryMapping = boundaryMappings[face];
-          auto tinv = init::Tinv::view::create(boundaryMapping.TinvData);
+          auto tinv = init::Tinv::view::create(boundaryMapping.dataTinv);
           alignas(Alignment)
               real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
 

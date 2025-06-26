@@ -150,48 +150,10 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
 }
 
 //--------------------------------------------------------------------------------------------------
-__global__ void kernel_adjustPointers(real* qEtaNodal,
-                                      real** qEtaNodalPtrs,
-                                      real* qEtaModal,
-                                      real** qEtaModalPtrs,
-                                      real* dUdTpstrain,
-                                      real** dUdTpstrainPtrs,
-                                      size_t numElements) {
-
-  const size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < numElements) {
-    qEtaNodalPtrs[tid] = &qEtaNodal[tensor::QEtaNodal::Size * tid];
-    qEtaModalPtrs[tid] = &qEtaModal[tensor::QEtaModal::Size * tid];
-    dUdTpstrainPtrs[tid] = &dUdTpstrain[tensor::QStressNodal::Size * tid];
-  }
-}
-
-void adjustPointers(real* qEtaNodal,
-                    real** qEtaNodalPtrs,
-                    real* qEtaModal,
-                    real** qEtaModalPtrs,
-                    real* dUdTpstrain,
-                    real** dUdTpstrainPtrs,
-                    size_t numElements,
-                    void* streamPtr) {
-  const dim3 block(1024, 1, 1);
-  const size_t numBlocks = (numElements + block.x - 1) / block.x;
-  const dim3 grid(numBlocks, 1, 1);
-  auto stream = reinterpret_cast<StreamT>(streamPtr);
-  kernel_adjustPointers<<<grid, block, 0, stream>>>(qEtaNodal,
-                                                    qEtaNodalPtrs,
-                                                    qEtaModal,
-                                                    qEtaModalPtrs,
-                                                    dUdTpstrain,
-                                                    dUdTpstrainPtrs,
-                                                    numElements);
-}
-
-//--------------------------------------------------------------------------------------------------
 __global__ void kernel_computePstrains(real** pstrains,
                                        const seissol::model::PlasticityData* plasticityData,
                                        real** dofs,
-                                       real* prevDofs,
+                                       real** prevDofs,
                                        real** dUdTpstrain,
                                        double tV,
                                        double oneMinusIntegratingFactor,
@@ -199,7 +161,7 @@ __global__ void kernel_computePstrains(real** pstrains,
                                        const unsigned* isAdjustableVector) {
   if (isAdjustableVector[blockIdx.x]) {
     real* localDofs = dofs[blockIdx.x];
-    real* localPrevDofs = &prevDofs[tensor::Q::Size * blockIdx.x];
+    real* localPrevDofs = prevDofs[blockIdx.x];
     const seissol::model::PlasticityData* localData = &plasticityData[blockIdx.x];
     real* localPstrain = pstrains[blockIdx.x];
     real* localDuDtPstrain = dUdTpstrain[blockIdx.x];
@@ -220,7 +182,7 @@ __global__ void kernel_computePstrains(real** pstrains,
 void computePstrains(real** pstrains,
                      const seissol::model::PlasticityData* plasticityData,
                      real** dofs,
-                     real* prevDofs,
+                     real** prevDofs,
                      real** dUdTpstrain,
                      double tV,
                      double oneMinusIntegratingFactor,
@@ -241,60 +203,6 @@ void computePstrains(real** pstrains,
                                                      oneMinusIntegratingFactor,
                                                      timeStepWidth,
                                                      isAdjustableVector);
-}
-
-//--------------------------------------------------------------------------------------------------
-__global__ void kernel_pstrainToQEtaModal(real** pstrains,
-                                          real** qEtaModalPtrs,
-                                          const unsigned* isAdjustableVector) {
-  static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>(), "");
-
-  if (isAdjustableVector[blockIdx.x]) {
-    real* localQEtaModal = qEtaModalPtrs[blockIdx.x];
-    real* localPstrain = pstrains[blockIdx.x];
-    for (std::size_t i = threadIdx.x; i < tensor::QEtaModal::Size; i += 1024) {
-      localQEtaModal[i] = localPstrain[NumStressComponents * leadDim<init::QStressNodal>() + i];
-    }
-  }
-}
-
-void pstrainToQEtaModal(real** pstrains,
-                        real** qEtaModalPtrs,
-                        unsigned* isAdjustableVector,
-                        size_t numElements,
-                        void* streamPtr) {
-  const dim3 block(1024, 1, 1);
-  const dim3 grid(numElements, 1, 1);
-  auto stream = reinterpret_cast<StreamT>(streamPtr);
-  kernel_pstrainToQEtaModal<<<grid, block, 0, stream>>>(
-      pstrains, qEtaModalPtrs, isAdjustableVector);
-}
-
-//--------------------------------------------------------------------------------------------------
-__global__ void kernel_qEtaModalToPstrain(real** qEtaModalPtrs,
-                                          real** pstrains,
-                                          const unsigned* isAdjustableVector) {
-  static_assert(tensor::QEtaModal::Size == leadDim<init::QStressNodal>(), "");
-
-  if (isAdjustableVector[blockIdx.x]) {
-    real* localQEtaModal = qEtaModalPtrs[blockIdx.x];
-    real* localPstrain = pstrains[blockIdx.x];
-    for (std::size_t i = threadIdx.x; i < tensor::QEtaModal::Size; i += 1024) {
-      localPstrain[NumStressComponents * leadDim<init::QStressNodal>() + i] = localQEtaModal[i];
-    }
-  }
-}
-
-void qEtaModalToPstrain(real** qEtaModalPtrs,
-                        real** pstrains,
-                        unsigned* isAdjustableVector,
-                        size_t numElements,
-                        void* streamPtr) {
-  const dim3 block(1024, 1, 1);
-  const dim3 grid(numElements, 1, 1);
-  auto stream = reinterpret_cast<StreamT>(streamPtr);
-  kernel_qEtaModalToPstrain<<<grid, block, 0, stream>>>(
-      qEtaModalPtrs, pstrains, isAdjustableVector);
 }
 
 //--------------------------------------------------------------------------------------------------
