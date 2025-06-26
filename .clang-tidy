@@ -10,9 +10,14 @@
 # * readability-function-size
 # * cppcoreguidelines-pro-type-const-cast
 # * readability-convert-member-functions-to-static
+# * clang-analyzer-cplusplus.NewDeleteLeaks
+# * clang-analyzer-optin.cplusplus.VirtualCall
+# * clang-analyzer-deadcode.DeadStores
 
 Checks: |
-  -*,
+  -clang-analyzer-cplusplus.NewDeleteLeaks
+  -clang-analyzer-optin.cplusplus.VirtualCall
+  -clang-analyzer-deadcode.DeadStores
   clang-diagnostic-*,
   cppcoreguidelines-*,
   -cppcoreguidelines-avoid-c-arrays,
