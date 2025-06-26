@@ -18,6 +18,8 @@
 #include "MemoryManager.h"
 #include "InternalState.h"
 #include "Memory/Tree/Layer.h"
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <yateto.h>
 #include <unordered_set>
@@ -557,7 +559,7 @@ void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
 }
 
 #ifdef ACL_DEVICE
-void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LTSTree& ltsTree, LTS& lts) {
+void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree& ltsTree, LTS& lts) {
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
@@ -572,6 +574,9 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
     std::size_t nodalDisplacementsCounter{0};
     std::size_t analyticCounter = 0;
 
+    std::array<std::size_t, 4> freeSurfacePerFace{};
+    std::array<std::size_t, 4> dirichletPerFace{};
+
     for (unsigned cell = 0; cell < layer.size(); ++cell) {
       bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
       if (needsScratchMemForDerivatives) {
@@ -580,7 +585,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
       ++integratedDofsCounter;
 
       // include data provided by ghost layers
-      for (unsigned face = 0; face < 4; ++face) {
+      for (int face = 0; face < 4; ++face) {
         real *neighborBuffer = faceNeighbors[cell][face];
 
         // check whether a neighbor element idofs has not been counted twice
@@ -607,8 +612,19 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
         if (cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
           ++analyticCounter;
         }
+
+        if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
+          ++freeSurfacePerFace[face];
+        }
+
+        if (cellInformation[cell].faceTypes[face] == FaceType::Dirichlet) {
+          ++dirichletPerFace[face];
+        }
       }
     }
+    const auto freeSurfaceCount = *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
+    const auto dirichletCount = *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
+
     layer.setEntrySize(lts.integratedDofsScratch,
                              integratedDofsCounter * tensor::I::size() * sizeof(real));
     layer.setEntrySize(lts.derivativesScratch,
@@ -627,6 +643,29 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
 #endif
     layer.setEntrySize(lts.analyticScratch,
                              analyticCounter * tensor::INodal::size() * sizeof(real));
+    if (plasticity) {
+      layer.setEntrySize(lts.flagScratch,
+                                layer.size() * sizeof(unsigned));
+      layer.setEntrySize(lts.prevDofsScratch,
+                                layer.size() * tensor::Q::Size * sizeof(real));
+      layer.setEntrySize(lts.qEtaNodalScratch,
+                                layer.size() * tensor::QEtaNodal::Size * sizeof(real));
+      layer.setEntrySize(lts.qStressNodalScratch,
+                                layer.size() * tensor::QStressNodal::Size * sizeof(real));
+    }
+
+    layer.setEntrySize(lts.dofsFaceBoundaryNodalScratch, sizeof(real) * dirichletCount * tensor::INodal::size());
+
+    layer.setEntrySize(lts.rotateDisplacementToFaceNormalScratch, 
+      sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
+    layer.setEntrySize(lts.rotateDisplacementToGlobalScratch, 
+      sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
+    layer.setEntrySize(lts.rotatedFaceDisplacementScratch, 
+      sizeof(real) * freeSurfaceCount * init::rotatedFaceDisplacement::Size);
+    layer.setEntrySize(lts.dofsFaceNodalScratch, 
+      sizeof(real) * freeSurfaceCount * tensor::INodal::size());
+    layer.setEntrySize(lts.prevCoefficientsScratch, 
+      sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[0]);
   }
 }
 
@@ -746,7 +785,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
   initializeFaceDisplacements();
 
 #ifdef ACL_DEVICE
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(m_ltsTree, m_lts);
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(seissolInstance.getSeisSolParameters().model.plasticity, m_ltsTree, m_lts);
   m_ltsTree.allocateScratchPads();
 #endif
 }

@@ -333,7 +333,7 @@ class MemoryManager {
   /**
    * Derives sizes of scratch memory required during computations of Wave Propagation solver
    **/
-  static void deriveRequiredScratchpadMemoryForWp(LTSTree &ltsTree, LTS& lts);
+  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree &ltsTree, LTS& lts);
 
   /**
    * Derives sizes of scratch memory required during computations of Dynamic Rupture solver

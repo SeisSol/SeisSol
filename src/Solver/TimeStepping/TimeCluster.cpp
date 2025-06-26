@@ -506,6 +506,8 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice(do
     auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
     auto* plasticity =
         clusterData->var(lts->plasticity, seissol::initializer::AllocationPlace::Device);
+    auto* isAdjustableVector =
+        clusterData->var(lts->flagScratch, seissol::initializer::AllocationPlace::Device);
     streamRuntime.runGraph(plasticityGraphKey,
                            *clusterData,
                            [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
@@ -516,6 +518,7 @@ void seissol::time_stepping::TimeCluster::computeNeighboringIntegrationDevice(do
                                  table,
                                  plasticity,
                                  yieldCells.data(),
+                                 isAdjustableVector,
                                  streamRuntime);
                            });
 
