@@ -286,7 +286,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
 
   seissol::initializer::Layer& layer = ltsTree.layer(0);
 
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsTree, lts);
   ltsTree.allocateScratchPads();
 
   seissol::initializer::recording::CompositeRecorder<seissol::initializer::LTS> recorder;
