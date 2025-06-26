@@ -12,7 +12,6 @@
 #include "Initializer/TimeStepping/Common.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSSync.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
 #include <Common/Constants.h>
@@ -118,27 +117,20 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   auto materialsDBGhost =
       queryDB<MaterialT>(queryGenGhost, seissolParams.model.materialFileName, ghostVertices.size());
 
-#if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
-  // we need to compute all model parameters before we can use them...
-  // TODO(David): integrate this with the Viscoelastic material class or the ParameterDB directly?
-  logDebug() << "Initializing attenuation.";
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t i = 0; i < materialsDB.size(); ++i) {
     auto& cellMat = materialsDB[i];
-    seissol::physics::fitAttenuation(
-        cellMat, seissolParams.model.freqCentral, seissolParams.model.freqRatio);
+    cellMat.initialize(seissolParams.model);
   }
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t i = 0; i < materialsDBGhost.size(); ++i) {
     auto& cellMat = materialsDBGhost[i];
-    seissol::physics::fitAttenuation(
-        cellMat, seissolParams.model.freqCentral, seissolParams.model.freqRatio);
+    cellMat.initialize(seissolParams.model);
   }
-#endif
 
   logDebug() << "Setting cell materials in the LTS tree (for interior and copy layers).";
   const auto& elements = meshReader.getElements();
@@ -153,7 +145,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (std::size_t cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       // set the materials for the cell volume and its faces
       auto meshId = secondaryInformation[cell].meshId;
       auto& material = materialArray[cell];
@@ -335,8 +327,8 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   const auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
   const auto& lts = seissolInstance.getMemoryManager().getLts();
 
-  unsigned* ltsToMesh = nullptr;
-  unsigned numberOfMeshCells = 0;
+  std::size_t* ltsToMesh = nullptr;
+  std::size_t numberOfMeshCells = 0;
 
   seissolInstance.getLtsLayout().getCellInformation(ltsTree->var(lts->cellInformation),
                                                     ltsTree->var(lts->secondaryInformation),

@@ -54,8 +54,11 @@ class ReceiverOutput {
     size_t ltsId{};
     int nearestGpIndex{};
     int nearestInternalGpIndex{};
+    int gpIndex{};
+    int internalGpIndexFused{};
 
     std::size_t index{};
+    std::size_t fusedIndex{};
 
     real iniTraction1{};
     real iniTraction2{};
@@ -81,8 +84,10 @@ class ReceiverOutput {
     real slipRateStrike{};
     real slipRateDip{};
 
-    real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
-    real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
+    real
+        faceAlignedValuesPlus[tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
+    real faceAlignedValuesMinus
+        [tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
 
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};
@@ -93,7 +98,7 @@ class ReceiverOutput {
   template <typename T>
   std::remove_extent_t<T>* getCellData(const LocalInfo& local,
                                        const seissol::initializer::Variable<T>& variable) {
-    auto devVar = local.state->deviceVariables.find(variable.index);
+    auto devVar = local.state->deviceVariables.find(drTree->info(variable).index);
     if (devVar != local.state->deviceVariables.end()) {
       return reinterpret_cast<std::remove_extent_t<T>*>(
           devVar->second->get(local.state->deviceIndices[local.index]));

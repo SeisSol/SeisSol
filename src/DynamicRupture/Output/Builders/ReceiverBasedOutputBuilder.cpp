@@ -187,7 +187,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
   for (const auto& variable : variables) {
     auto* var = drTree->varUntyped(variable, initializer::AllocationPlace::Device);
-    const std::size_t elementSize = drTree->info(variable).elemsize;
+    const std::size_t elementSize = drTree->info(variable).bytes;
 
     assert(elementSize % sizeof(real) == 0);
 
@@ -381,12 +381,10 @@ void ReceiverBasedOutputBuilder::assignFaultTags() {
 }
 
 void ReceiverBasedOutputBuilder::assignFusedIndices() {
-  // potential TODO: split properly between the nearestGpIndex and the fused nearestGpIndex
   auto& geoPoints = outputData->receiverPoints;
   for (auto& geoPoint : geoPoints) {
-    geoPoint.nearestGpIndex =
-        multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
-    geoPoint.nearestInternalGpIndex =
+    geoPoint.gpIndex = multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
+    geoPoint.internalGpIndexFused =
         multisim::NumSimulations * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
   }
 }

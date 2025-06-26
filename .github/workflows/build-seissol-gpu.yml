@@ -24,7 +24,7 @@ jobs:
           format('gpu-{0}-{1}-p{2}{3}',
             matrix.equation.type,
             matrix.precision == 'single' && 's' || 'd',
-            matrix.order,
+            matrix.equation.order,
             matrix.equation.multisim != 1 && format('-f{0}', matrix.equation.multisim) || ''
           )
         }}
@@ -195,10 +195,10 @@ jobs:
       EXENAME: |
         ${{
           format('gpu-{0}-{1}-p{2}{3}',
-            matrix.equation.type,
+            matrix.case.equation,
             matrix.precision == 'single' && 's' || 'd',
-            matrix.order,
-            matrix.equation.multisim != 1 && format('-f{0}', matrix.equation.multisim) || ''
+            matrix.case.order,
+            matrix.case.multisim != 1 && format('-f{0}', matrix.case.multisim) || ''
           )
         }}
     strategy:

@@ -60,8 +60,7 @@ private:
                                            const std::array<std::array<double, 2>,numQuadraturePoints>& bfPoints,
                                            double const* weights) const;
   void initializeSurfaceLTSTree(  seissol::initializer::LTS* lts,
-                                  seissol::initializer::LTSTree* ltsTree,
-                                  seissol::initializer::Lut* ltsLut );
+                                  seissol::initializer::LTSTree* ltsTree );
 
   static LocationFlag getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
 public:
@@ -82,8 +81,7 @@ public:
   void initialize(  unsigned maxRefinementDepth,
                     GlobalData* globalData,
                     seissol::initializer::LTS* lts,
-                    seissol::initializer::LTSTree* ltsTree,
-                    seissol::initializer::Lut* ltsLut );
+                    seissol::initializer::LTSTree* ltsTree );
 
   void calculateOutput();
   
