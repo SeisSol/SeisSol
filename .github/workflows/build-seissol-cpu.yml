@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: 0fe0a82d19d2452c213789a51bc1d65edcf3c1ee
+  precomputed-hash: cbcab3f832289de2412dd732304588c828b1e8b7
 
 jobs:
   seissol-build-test:
@@ -177,10 +177,10 @@ jobs:
       EXENAME: |
         ${{
           format('cpu-{0}-{1}-p{2}{3}',
-            matrix.equation.type,
+            matrix.case.equation,
             matrix.precision == 'single' && 's' || 'd',
             matrix.order,
-            matrix.equation.multisim != 1 && format('-f{0}', matrix.equation.multisim) || ''
+            matrix.case.multisim != 1 && format('-f{0}', matrix.case.multisim) || ''
           )
         }}
     strategy:
@@ -283,6 +283,12 @@ jobs:
             energies: true
             receivers: true
             fault: false # NYI
+          - name: tpv13-fused
+            equation: elastic
+            multisim: 8
+            energies: false # incomplete, hence disabled
+            receivers: true
+            fault: false # incomplete, hence disabled
         precision:
           - single
           - double

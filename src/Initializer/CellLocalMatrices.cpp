@@ -690,11 +690,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
       switch (plusMaterial->getMaterialType()) {
-      case seissol::model::MaterialType::Elastic:
-        [[fallthrough]];
-      case seissol::model::MaterialType::Viscoelastic: {
-        break;
-      }
       case seissol::model::MaterialType::Poroelastic: {
         auto plusEigenpair =
             seissol::model::getEigenDecomposition(*dynamic_cast<model::MaterialT*>(plusMaterial));
@@ -722,9 +717,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         break;
       }
       default: {
-        logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
-                      "(built with:"
-                   << model::MaterialT::Text << ")";
+        if constexpr (!model::MaterialT::SupportsDR) {
+          logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
+                        "(built with:"
+                     << model::MaterialT::Text << ")";
+        }
         break;
       }
       }

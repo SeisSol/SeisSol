@@ -325,6 +325,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
         return timeDerivativeMinusHost + QSize * i;
       };
 #else
+      // TODO: for fused simulations, do this once and reuse
       real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
       real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
       const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
@@ -481,8 +482,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
         auto numSub = multisim::simtensor(numericalSolution, sim);
 
-        // TODO: move to the material class (maybe done by #1297 + MaterialT::NumTractionQuantities)
-        constexpr int UIdx = model::MaterialT::Type == model::MaterialType::Acoustic ? 1 : 6;
+        constexpr int UIdx = model::MaterialT::TractionQuantities;
 
         for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
           const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
