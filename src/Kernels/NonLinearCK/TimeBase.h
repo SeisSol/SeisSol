@@ -55,6 +55,13 @@ class Spacetime : public SpacetimeKernel {
 
   unsigned bytesAder() override;
 
+  private:
+  // Keep using the linear integration
+  void computeTaylorExpansion(real time,
+                              real expansionPoint,
+                              const real* timeDerivatives,
+                              real timeEvaluated[tensor::Q::size()]);
+
   protected:
   kernel::derivativeDamage m_krnlPrototype;
   kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
