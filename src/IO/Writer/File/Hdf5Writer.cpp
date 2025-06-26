@@ -224,7 +224,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     const auto [memspace, space] = [&]() -> std::pair<hid_t, hid_t> {
       if (nullstart.empty()) {
         return {h5memspace, h5space};
-      } else if (source->distributed() && writeLength[0] > 0) {
+      } else if (writeLength[0] > 0 || !source->distributed()) {
         _eh(H5Sselect_hyperslab(
             h5memspace, H5S_SELECT_SET, nullstart.data(), nullptr, writeLength.data(), nullptr));
 
