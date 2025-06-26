@@ -63,7 +63,6 @@ class Time : public TimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
   void evaluate(const real* coeffs,
-                const real* coeffs,
                 const real* timeDerivatives,
                 real timeEvaluated[tensor::I::size()]) override;
   void evaluateBatched(const real* coeffs,
