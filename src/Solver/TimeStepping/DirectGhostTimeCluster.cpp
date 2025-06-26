@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Parallel/MPI.h"
-#include "Solver/time_stepping/DirectGhostTimeCluster.h"
+#include "Solver/TimeStepping/DirectGhostTimeCluster.h"
 
 
 namespace seissol::time_stepping {

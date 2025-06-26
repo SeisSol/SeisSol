@@ -5,12 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_DIRECTGHOSTTIMECLUSTER_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_DIRECTGHOSTTIMECLUSTER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_DIRECTGHOSTTIMECLUSTER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_DIRECTGHOSTTIMECLUSTER_H_
 
 #include <list>
 #include "Initializer/Typedefs.h"
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
+#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 
 
 namespace seissol::time_stepping {
@@ -33,4 +33,4 @@ private:
 };
 } // namespace seissol::time_stepping
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_DIRECTGHOSTTIMECLUSTER_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_DIRECTGHOSTTIMECLUSTER_H_

@@ -48,16 +48,16 @@ private:
   unsigned numberOfSubTriangles{0};
   unsigned numberOfAlignedSubTriangles{0};
 
-  static constexpr auto polyDegree = ConvergenceOrder-1;
-  static constexpr auto numQuadraturePoints = polyDegree*polyDegree;
+  static constexpr auto PolyDegree = ConvergenceOrder-1;
+  static constexpr auto NumQuadraturePoints = PolyDegree*PolyDegree;
   bool m_enabled{false};
   
   void initializeProjectionMatrices(unsigned maxRefinementDepth);
   void computeSubTriangleAverages(real* projectionMatrixRow,
-                                  const std::array<std::array<double, 3>,numQuadraturePoints>& bfPoints,
+                                  const std::array<std::array<double, 3>,NumQuadraturePoints>& bfPoints,
                                   double const* weights) const;
   void computeSubTriangleAveragesFromFaces(real* projectionMatrixFromFaceRow,
-                                           const std::array<std::array<double, 2>,numQuadraturePoints>& bfPoints,
+                                           const std::array<std::array<double, 2>,NumQuadraturePoints>& bfPoints,
                                            double const* weights) const;
   void initializeSurfaceLTSTree(  seissol::initializer::LTS* lts,
                                   seissol::initializer::LTSTree* ltsTree );
@@ -85,7 +85,7 @@ public:
 
   void calculateOutput();
   
-  bool enabled() const { return m_enabled; }
+  [[nodiscard]] bool enabled() const { return m_enabled; }
 };
 
 

@@ -5,15 +5,15 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_COMMUNICATIONMANAGER_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_COMMUNICATIONMANAGER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_COMMUNICATIONMANAGER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_COMMUNICATIONMANAGER_H_
 
 #include <atomic>
 #include <memory>
 #include <thread>
 #include <vector>
 #include "Parallel/Pin.h"
-#include "Solver/time_stepping/AbstractGhostTimeCluster.h"
+#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 
 
 namespace seissol::time_stepping {
@@ -62,4 +62,4 @@ private:
 } // end namespace seissol::time_stepping
 
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_COMMUNICATIONMANAGER_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_COMMUNICATIONMANAGER_H_

@@ -32,7 +32,7 @@
 #include "ResultWriter/WaveFieldWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Simulator.h"
-#include "Solver/time_stepping/TimeManager.h"
+#include "Solver/TimeStepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
 
 namespace seissol {
