@@ -418,8 +418,8 @@ void Plasticity::flopsPlasticity(long long& nonZeroFlopsCheck,
   hardwareFlopsCheck += kernel::plComputeSecondInvariant::HardwareFlops;
 
   // compute taulim (1 add, 1 mul, max NOT counted)
-  nonZeroFlopsCheck += 2 * tensor::meanStress::size();
-  hardwareFlopsCheck += 2 * tensor::meanStress::size();
+  nonZeroFlopsCheck += static_cast<long long>(2 * tensor::meanStress::size());
+  hardwareFlopsCheck += static_cast<long long>(2 * tensor::meanStress::size());
 
   // check for yield (NOT counted, as it would require counting the number of yielding points)
 

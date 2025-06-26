@@ -46,18 +46,22 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
 #ifdef _OPENMP
   numberOfThreads = omp_get_max_threads();
 #endif
-  auto* integrationBufferLTS = reinterpret_cast<real*>(allocator.allocateMemory(
-      numberOfThreads * (4 * tensor::I::size()) * sizeof(real), alignment, memkind));
+  auto* integrationBufferLTS = reinterpret_cast<real*>(
+      allocator.allocateMemory(static_cast<std::size_t>(numberOfThreads) *
+                                   static_cast<std::size_t>(4 * tensor::I::size()) * sizeof(real),
+                               alignment,
+                               memkind));
 
 // initialize w.r.t. NUMA
 #ifdef _OPENMP
 #pragma omp parallel
   {
-    const std::size_t threadOffset = omp_get_thread_num() * (4 * tensor::I::size());
+    const auto threadOffset = static_cast<std::size_t>(omp_get_thread_num()) *
+                              static_cast<std::size_t>(4 * tensor::I::size());
 #else
   std::size_t threadOffset = 0;
 #endif
-    for (std::size_t dof = 0; dof < (4 * tensor::I::size()); ++dof) {
+    for (std::size_t dof = 0; dof < (static_cast<std::size_t>(4 * tensor::I::size())); ++dof) {
       integrationBufferLTS[dof + threadOffset] = static_cast<real>(0.0);
     }
 #ifdef _OPENMP

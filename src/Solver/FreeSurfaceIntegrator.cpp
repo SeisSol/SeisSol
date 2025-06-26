@@ -29,6 +29,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
 #include <init.h>
 #include <ostream>
@@ -111,9 +112,11 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput() {
 
       auto addOutput = [&](const std::array<real*, NumComponents>& output) {
         for (unsigned component = 0; component < NumComponents; ++component) {
-          real* target = output[component] + offset + face * numberOfSubTriangles;
+          real* target =
+              output[component] + offset + static_cast<size_t>(face * numberOfSubTriangles);
           /// @yateto_todo fix for multiple simulations
-          real* source = subTriangleDofs + component * numberOfAlignedSubTriangles;
+          real* source =
+              subTriangleDofs + static_cast<size_t>(component * numberOfAlignedSubTriangles);
           for (unsigned subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
             target[subtri] = source[subtri];
             if (!std::isfinite(source[subtri])) {
@@ -170,7 +173,8 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(
 
   for (unsigned face = 0; face < 4; ++face) {
     projectionMatrix[face] =
-        projectionMatrixMemory + face * tensor::subTriangleProjection::size(maxRefinementDepth);
+        projectionMatrixMemory +
+        static_cast<size_t>(face * tensor::subTriangleProjection::size(maxRefinementDepth));
   }
 
   // Triangle quadrature points and weights
@@ -228,7 +232,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(
         // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
         average *= 2.0;
 
-        projectionMatrixRow[nbf * numberOfAlignedSubTriangles] = average;
+        projectionMatrixRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles)] = average;
 
         ++nbf;
       }
@@ -252,7 +256,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces
       // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
       average *= 2.0;
 
-      projectionMatrixFromFaceRow[nbf * numberOfAlignedSubTriangles] = average;
+      projectionMatrixFromFaceRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles)] = average;
       ++nbf;
     }
   }

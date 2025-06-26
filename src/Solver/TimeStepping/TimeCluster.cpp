@@ -38,6 +38,7 @@
 #include <Solver/TimeStepping/ActorState.h>
 #include <cassert>
 #include <chrono>
+#include <cstddef>
 #include <cstring>
 #include <init.h>
 #include <tensor.h>
@@ -197,7 +198,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t face = 0; face < layerData.size(); ++face) {
-    const std::size_t prefetchFace = (face < layerData.size() - 1) ? face + 1 : face;
+    const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
     dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
                                                 globalDataOnHost,
                                                 &godunovData[face],
@@ -873,8 +874,9 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
         timeStepSize(),
         faceNeighbors[cell],
 #ifdef _OPENMP
-        *reinterpret_cast<real(*)[4][tensor::I::size()]>(&(
-            globalDataOnHost->integrationBufferLTS[omp_get_thread_num() * 4 * tensor::I::size()])),
+        *reinterpret_cast<real(*)[4][tensor::I::size()]>(
+            &(globalDataOnHost->integrationBufferLTS[static_cast<size_t>(omp_get_thread_num() * 4 *
+                                                                         tensor::I::size())])),
 #else
         *reinterpret_cast<real(*)[4][tensor::I::size()]>(globalDataOnHost->integrationBufferLTS),
 #endif
@@ -891,7 +893,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                                    : drMapping[cell][3].godunov;
 
     // fourth face's prefetches
-    if (cell < (clusterData->size() - 1)) {
+    if (cell + 1 < clusterData->size()) {
       faceNeighborsPrefetch[3] =
           (cellInformation[cell + 1].faceTypes[0] != FaceType::DynamicRupture)
               ? faceNeighbors[cell + 1][0]

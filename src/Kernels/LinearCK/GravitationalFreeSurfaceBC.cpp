@@ -23,8 +23,8 @@ std::pair<long long, long long>
   constexpr auto NumberOfNodes = nodal::tensor::nodes2D::Shape[0];
 
   // initialize integral of displacement
-  hardwareFlops += 1 * NumberOfNodes;
-  nonZeroFlops += 1 * NumberOfNodes;
+  hardwareFlops += static_cast<long long>(1 * NumberOfNodes);
+  nonZeroFlops += static_cast<long long>(1 * NumberOfNodes);
 
   // Before adjusting the range of the loop, check range of loop in computation!
   for (std::size_t order = 1; order < ConvergenceOrder + 1; ++order) {

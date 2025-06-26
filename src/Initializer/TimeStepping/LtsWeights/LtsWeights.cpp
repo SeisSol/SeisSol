@@ -431,7 +431,7 @@ int LtsWeights::computeClusterIdsAndEnforceMaximumDifferenceCached(double curWig
 #ifdef _OPENMP
 #pragma omp parallel for reduction(+ : cellchanges)
 #endif
-      for (unsigned cell = 0; cell < m_mesh->cells().size(); ++cell) {
+      for (std::size_t cell = 0; cell < m_mesh->cells().size(); ++cell) {
         if (lb->second[cell] > newClusterIds[cell]) {
           ++cellchanges;
         }
@@ -460,7 +460,7 @@ std::vector<int> LtsWeights::computeClusterIds(double curWiggleFactor) {
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
+  for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     clusterIds[cell] = getCluster(
         m_details.cellTimeStepWidths[cell], m_details.globalMinTimeStep, curWiggleFactor, m_rate);
   }
@@ -472,14 +472,14 @@ std::vector<int> LtsWeights::computeCostsPerTimestep() {
 
   std::vector<int> cellCosts(cells.size());
   const void* boundaryCond = m_mesh->cellData(1);
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
+  for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     int dynamicRupture = 0;
     int freeSurfaceWithGravity = 0;
 
     unsigned int faceids[4];
     PUML::Downward::faces(*m_mesh, cells[cell], faceids);
 
-    for (unsigned face = 0; face < 4; ++face) {
+    for (int face = 0; face < 4; ++face) {
       const auto faceType = getBoundaryCondition(boundaryCond, cell, face);
       dynamicRupture += (faceType == FaceType::DynamicRupture) ? 1 : 0;
       freeSurfaceWithGravity += (faceType == FaceType::FreeSurfaceGravity) ? 1 : 0;
@@ -515,11 +515,11 @@ void LtsWeights::prepareDifferenceEnforcement() {
   const void* boundaryCond = m_mesh->cellData(1);
 
   std::unordered_map<int, std::vector<std::size_t>> rankToSharedFacesPre;
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
+  for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     unsigned int faceids[4]{};
     bool atBoundary = false;
     PUML::Downward::faces(*m_mesh, cells[cell], faceids);
-    for (unsigned f = 0; f < 4; ++f) {
+    for (int f = 0; f < 4; ++f) {
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
@@ -564,12 +564,12 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
 #ifdef _OPENMP
 #pragma omp parallel for reduction(+ : numberOfReductions)
 #endif
-  for (unsigned cell = 0; cell < cells.size(); ++cell) {
+  for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     int timeCluster = m_clusterIds[cell];
 
     unsigned int faceids[4]{};
     PUML::Downward::faces(*m_mesh, cells[cell], faceids);
-    for (unsigned f = 0; f < 4; ++f) {
+    for (int f = 0; f < 4; ++f) {
       int difference = maxDifference;
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
       // Continue for regular, dynamic rupture, and periodic boundary cells
@@ -632,13 +632,13 @@ int LtsWeights::enforceMaximumDifferenceLocal(int maxDifference) {
 #ifdef _OPENMP
 #pragma omp parallel for reduction(+ : numberOfReductions)
 #endif
-  for (unsigned bcell = 0; bcell < boundaryCells.size(); ++bcell) {
+  for (std::size_t bcell = 0; bcell < boundaryCells.size(); ++bcell) {
     const auto cell = boundaryCells[bcell];
     int& timeCluster = m_clusterIds[cell];
 
     unsigned int faceids[4]{};
     PUML::Downward::faces(*m_mesh, cells[cell], faceids);
-    for (unsigned f = 0; f < 4; ++f) {
+    for (int f = 0; f < 4; ++f) {
       int difference = maxDifference;
       const auto boundary = getBoundaryCondition(boundaryCond, cell, f);
       // Continue for regular, dynamic rupture, and periodic boundary cells

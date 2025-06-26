@@ -57,8 +57,6 @@
 #include <utils/logger.h>
 #endif
 
-#include <Solver/MultipleSimulations.h>
-
 GENERATE_HAS_MEMBER(selectAneFull)
 GENERATE_HAS_MEMBER(selectElaFull)
 GENERATE_HAS_MEMBER(Values)
