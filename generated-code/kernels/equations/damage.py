@@ -116,6 +116,17 @@ class DamageADERDG(ADERDGBase):
         generator.addFamily(f'nonlEvaluateAndRotateQAtInterpolationPoints',
                             simpleParameterSpace(4,4),
                             interpolateQGenerator)
+        
+        # Surface integration based on the Rusanov flux values on surface quadrature points.
+        fluxScale = Scalar('fluxScale')
+        Flux = OptionalDimTensor('Flux', self.Q.optName(), self.Q.optSize(), self.Q.optPos(), gShape, alignStride=True)
+
+        nodalFluxGenerator = lambda i,h: self.extendedQTensor()['kp'] <= self.extendedQTensor()['kp'] + fluxScale * self.db.V3mTo2nTWDivM[i,h][self.t('kl')] * Flux['lp'] # * self.TT['qp']
+        # nodalFluxPrefetch = lambda i,h: self.I
+
+        generator.addFamily(f'nonlinearSurfaceIntegral',
+                            simpleParameterSpace(4,4),
+                            nodalFluxGenerator)
 
     def addNeighbor(self, generator, targets):
         super().addNeighbor(generator, targets)

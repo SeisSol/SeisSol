@@ -87,6 +87,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   // Initialize for nonlinear related kernels
   m_krnlNonlVolPrototype.kDivM = global.onHost->stiffnessMatrices;
   m_nonlinearInterpolation.V3mTo2n = global.onHost->faceToNodalMatrices;
+  m_nonlSurfIntPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -546,13 +547,16 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
       real neighbor_lambda0 = data.material().neighbor[face].lambda0;
       real neighbor_mu0 = data.material().neighbor[face].mu0;
       real neighbor_rho = data.material().neighbor[face].rho;
-      real lambda_max = 1.0*std::sqrt( (neighbor_lambda0+2*neighbor_mu0)/neighbor_rho );
       real sxxP, syyP, szzP, sxyP, syzP, szxP;
       real mu0P = mat_mu0;
       real lambda0P = mat_lambda0;
       real rho0P = data.material().local.rho;
 
-      /// In this time loop, use "qIPlus" and "qIMinus" to interpolate "rusanovFluxP"
+      real lambda_max = 1.0*
+        std::max(std::sqrt( (mat_lambda0+2*mat_mu0)/rho0P ),
+          std::sqrt( (neighbor_lambda0+2*neighbor_mu0)/neighbor_rho ));
+
+      /// In this time loop, use "qIPlus" to interpolate "rusanovFluxP"
       for (unsigned o = 0; o < ConvergenceOrder; ++o) {
         auto weight = timeWeights[o];
         for (unsigned i = 0; i < seissol::dr::misc::NumPaddedPoints;
@@ -590,33 +594,33 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
               0.5*(-qIPlus[o][U][i])
             ) * data.localIntegration().specific.localNormal[face][0]
             + (
-              0.5*(-0) + 0.5*(-0)
+              0.5*(-0)
             ) * data.localIntegration().specific.localNormal[face][1]
             + (
-              0.5*(-0) + 0.5*(-0)
+              0.5*(-0)
             ) * data.localIntegration().specific.localNormal[face][2]
             + 0.5*lambda_max*(qIPlus[o][XX][i]+epsInitxx)
           );
 
           rusanovFluxP[YY][i] += weight * (
             (
-              0.5*(-0) + 0.5*(-0)
+              0.5*(-0)
             ) * data.localIntegration().specific.localNormal[face][0]
             + (
               0.5*(-qIPlus[o][V][i])
             ) * data.localIntegration().specific.localNormal[face][1]
             + (
-              0.5*(-0) + 0.5*(-0)
+              0.5*(-0)
             ) * data.localIntegration().specific.localNormal[face][2]
             + 0.5*lambda_max*(qIPlus[o][YY][i]+epsInityy)
           );
 
           rusanovFluxP[ZZ][i] += weight * (
             (
-              0.5*(-0) + 0.5*(-0)
+              0.5*(-0)
             ) * data.localIntegration().specific.localNormal[face][0]
             + (
-              0.5*(-0) + 0.5*(-0)
+              0.5*(-0)
             ) * data.localIntegration().specific.localNormal[face][1]
             + (
               0.5*(-qIPlus[o][W][i])
@@ -632,14 +636,14 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
               0.5*(-0.5*qIPlus[o][U][i])
             ) * data.localIntegration().specific.localNormal[face][1]
             + (
-              0.5*(-0) + 0.5*(-0)
+              0.5*(-0)
             ) * data.localIntegration().specific.localNormal[face][2]
             + 0.5*lambda_max*(qIPlus[o][XY][i]+epsInitxy)
           );
 
           rusanovFluxP[YZ][i] += weight * (
             (
-              0.5*(-0) + 0.5*(-0)
+              0.5*(-0)
             ) * data.localIntegration().specific.localNormal[face][0]
             + (
               0.5*(-0.5*qIPlus[o][W][i])
@@ -655,7 +659,7 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
               0.5*(-0.5*qIPlus[o][W][i])
             ) * data.localIntegration().specific.localNormal[face][0]
             + (
-              0.5*(-0) + 0.5*(-0)
+              0.5*(-0)
             ) * data.localIntegration().specific.localNormal[face][1]
             + (
               0.5*(-0.5*qIPlus[o][U][i])
@@ -704,20 +708,28 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
 
           rusanovFluxP[DAM][i] += weight * (
             (
-              0.5*(-0) + 0.5*(-0)
+              0.5*(-0)
             ) * data.localIntegration().specific.localNormal[face][0]
             + (
-              0.5*(-0) + 0.5*(-0)
+              0.5*(-0)
             ) * data.localIntegration().specific.localNormal[face][1]
             + (
-              0.5*(-0) + 0.5*(-0)
+              0.5*(-0)
             ) * data.localIntegration().specific.localNormal[face][2]
             + 0.0*lambda_max*(qIPlus[o][DAM][i])
           );
         }
       } // time integration loop
       // Tested that after this step, rusanovFluxPlus is also changed
-      
+
+      /// S5: Integrate in space using quadrature.
+      kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
+      real fluxScale = - 2.0 / 6.0 * data.localIntegration().specific.localSurfaces[face]
+                    / data.localIntegration().specific.localVolume;
+      m_surfIntegral.Q = data.dofs();
+      m_surfIntegral.Flux = rusanovFluxPlus;
+      m_surfIntegral.fluxScale = fluxScale;
+      m_surfIntegral.execute(face, 0);
     }
 
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];

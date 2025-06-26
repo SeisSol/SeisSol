@@ -87,6 +87,7 @@ class Local : public LocalKernel {
   //Added for nonlinear integration
   kernel::nonlinearVolumeIntegration m_krnlNonlVolPrototype;
   kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonlinearInterpolation;
+  kernel::nonlinearSurfaceIntegral m_nonlSurfIntPrototype;
 
   kernel::projectToNodalBoundary m_projectKrnlPrototype;
   kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
