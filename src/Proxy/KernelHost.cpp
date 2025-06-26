@@ -24,6 +24,7 @@
 #include <Monitoring/Instrumentation.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <omp.h>
 #include <tensor.h>
@@ -65,8 +66,8 @@ auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> Performa
   // iterate over cells
   const auto nrOfCells = data.ltsTree.child(0).child<Interior>().size();
   for (std::size_t cell = 0; cell < nrOfCells; ++cell) {
-    unsigned int nonZeroFlops = 0;
-    unsigned int hardwareFlops = 0;
+    std::uint64_t nonZeroFlops = 0;
+    std::uint64_t hardwareFlops = 0;
     // get flops
     data.spacetimeKernel.flopsAder(nonZeroFlops, hardwareFlops);
     ret.nonzeroFlop += nonZeroFlops;
@@ -115,8 +116,8 @@ auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> P
   const auto nrOfCells = layer.size();
   CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
   for (std::size_t cell = 0; cell < nrOfCells; ++cell) {
-    unsigned int nonZeroFlops = 0;
-    unsigned int hardwareFlops = 0;
+    std::uint64_t nonZeroFlops = 0;
+    std::uint64_t hardwareFlops = 0;
     data.localKernel.flopsIntegral(cellInformation[cell].faceTypes, nonZeroFlops, hardwareFlops);
     ret.nonzeroFlop += nonZeroFlops;
     ret.hardwareFlop += hardwareFlops;
@@ -239,10 +240,10 @@ auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> Perf
   CellLocalInformation* cellInformation = layer.var(data.lts.cellInformation);
   CellDRMapping(*drMapping)[4] = layer.var(data.lts.drMapping);
   for (std::size_t cell = 0; cell < nrOfCells; cell++) {
-    unsigned int nonZeroFlops = 0;
-    unsigned int hardwareFlops = 0;
-    long long drNonZeroFlops = 0;
-    long long drHardwareFlops = 0;
+    std::uint64_t nonZeroFlops = 0;
+    std::uint64_t hardwareFlops = 0;
+    std::uint64_t drNonZeroFlops = 0;
+    std::uint64_t drHardwareFlops = 0;
     // get flops
     data.neighborKernel.flopsNeighborsIntegral(cellInformation[cell].faceTypes,
                                                cellInformation[cell].faceRelations,
@@ -300,8 +301,8 @@ auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> Per
   seissol::initializer::Layer& interior = data.dynRupTree.child(0).child<Interior>();
   DRFaceInformation* faceInformation = interior.var(data.dynRup.faceInformation);
   for (std::size_t face = 0; face < interior.size(); ++face) {
-    long long drNonZeroFlops = 0;
-    long long drHardwareFlops = 0;
+    std::uint64_t drNonZeroFlops = 0;
+    std::uint64_t drHardwareFlops = 0;
     data.dynRupKernel.flopsGodunovState(faceInformation[face], drNonZeroFlops, drHardwareFlops);
     ret.nonzeroFlop += drNonZeroFlops;
     ret.hardwareFlop += drHardwareFlops;

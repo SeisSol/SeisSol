@@ -114,7 +114,7 @@ void OnDevice::initSpecificGlobalData(GlobalData& globalData,
 real* OnDevice::DeviceCopyPolicy::copy(const real* first, const real* last, real*& mem) {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  const unsigned bytes = (last - first) * sizeof(real);
+  const std::size_t bytes = (last - first) * sizeof(real);
   device.api->copyTo(mem, first, bytes);
   mem += (last - first);
   return mem;

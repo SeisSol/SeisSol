@@ -39,6 +39,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <init.h>
 #include <tensor.h>
@@ -276,16 +277,16 @@ void TimeCluster::computeDynamicRuptureDevice(seissol::initializer::Layer& layer
 #endif
 
 void TimeCluster::computeDynamicRuptureFlops(seissol::initializer::Layer& layerData,
-                                             long long& nonZeroFlops,
-                                             long long& hardwareFlops) {
+                                             std::uint64_t& nonZeroFlops,
+                                             std::uint64_t& hardwareFlops) {
   nonZeroFlops = 0;
   hardwareFlops = 0;
 
   DRFaceInformation* faceInformation = layerData.var(dynRup->faceInformation);
 
   for (std::size_t face = 0; face < layerData.size(); ++face) {
-    long long faceNonZeroFlops = 0;
-    long long faceHardwareFlops = 0;
+    std::uint64_t faceNonZeroFlops = 0;
+    std::uint64_t faceHardwareFlops = 0;
     dynamicRuptureKernel.flopsGodunovState(
         faceInformation[face], faceNonZeroFlops, faceHardwareFlops);
 
@@ -539,8 +540,8 @@ void TimeCluster::computeLocalIntegrationFlops() {
 
   auto* cellInformation = clusterData->var(lts->cellInformation);
   for (std::size_t cell = 0; cell < clusterData->size(); ++cell) {
-    unsigned cellNonZero = 0;
-    unsigned cellHardware = 0;
+    std::uint64_t cellNonZero = 0;
+    std::uint64_t cellHardware = 0;
     spacetimeKernel.flopsAder(cellNonZero, cellHardware);
     flopsNonZero += cellNonZero;
     flopsHardware += cellHardware;
@@ -573,10 +574,10 @@ void TimeCluster::computeNeighborIntegrationFlops() {
   auto* cellInformation = clusterData->var(lts->cellInformation);
   auto* drMapping = clusterData->var(lts->drMapping);
   for (std::size_t cell = 0; cell < clusterData->size(); ++cell) {
-    unsigned cellNonZero = 0;
-    unsigned cellHardware = 0;
-    long long cellDRNonZero = 0;
-    long long cellDRHardware = 0;
+    std::uint64_t cellNonZero = 0;
+    std::uint64_t cellHardware = 0;
+    std::uint64_t cellDRNonZero = 0;
+    std::uint64_t cellDRHardware = 0;
     neighborKernel.flopsNeighborsIntegral(cellInformation[cell].faceTypes,
                                           cellInformation[cell].faceRelations,
                                           drMapping[cell],

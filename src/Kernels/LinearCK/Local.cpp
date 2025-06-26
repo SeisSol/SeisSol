@@ -22,6 +22,7 @@
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
 #include <cstddef>
+#include <cstdint>
 #include <generated_code/init.h>
 #include <generated_code/kernel.h>
 #include <tensor.h>
@@ -412,12 +413,12 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
 }
 
 void Local::flopsIntegral(const FaceType faceTypes[4],
-                          unsigned int& nonZeroFlops,
-                          unsigned int& hardwareFlops) {
+                          std::uint64_t& nonZeroFlops,
+                          std::uint64_t& hardwareFlops) {
   nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
   hardwareFlops = seissol::kernel::volume::HardwareFlops;
 
-  for (unsigned int face = 0; face < 4; ++face) {
+  for (int face = 0; face < 4; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
     if (faceTypes[face] != FaceType::DynamicRupture) {
@@ -454,13 +455,13 @@ void Local::flopsIntegral(const FaceType faceTypes[4],
   }
 }
 
-unsigned Local::bytesIntegral() {
-  unsigned reals = 0;
+std::uint64_t Local::bytesIntegral() {
+  std::uint64_t reals = 0;
 
   // star matrices load
   reals += yateto::computeFamilySize<tensor::star>();
   // flux solvers
-  reals += 4 * tensor::AplusT::size();
+  reals += static_cast<std::uint64_t>(4 * tensor::AplusT::size());
 
   // DOFs write
   reals += tensor::Q::size();
