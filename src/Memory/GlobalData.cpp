@@ -7,6 +7,9 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "GlobalData.h"
+
+#include "Kernels/Solver.h"
+
 #include "generated_code/init.h"
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
@@ -47,17 +50,17 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
   numberOfThreads = omp_get_max_threads();
 #endif
   auto* integrationBufferLTS = reinterpret_cast<real*>(allocator.allocateMemory(
-      numberOfThreads * (4 * tensor::I::size()) * sizeof(real), alignment, memkind));
+      numberOfThreads * (4 * seissol::kernels::Solver::BufferSize) * sizeof(real), alignment, memkind));
 
 // initialize w.r.t. NUMA
 #ifdef _OPENMP
 #pragma omp parallel
   {
-    const std::size_t threadOffset = omp_get_thread_num() * (4 * tensor::I::size());
+    const std::size_t threadOffset = omp_get_thread_num() * (4 * seissol::kernels::Solver::BufferSize);
 #else
   std::size_t threadOffset = 0;
 #endif
-    for (std::size_t dof = 0; dof < (4 * tensor::I::size()); ++dof) {
+    for (std::size_t dof = 0; dof < (4 * seissol::kernels::Solver::BufferSize); ++dof) {
       integrationBufferLTS[dof + threadOffset] = static_cast<real>(0.0);
     }
 #ifdef _OPENMP

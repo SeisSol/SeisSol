@@ -66,7 +66,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       // Fallthrough intended
     case FaceType::Periodic: {
       // Standard for nonlinear LTS
-      // Step 1: Received integrated Rusanov flux in modal space,
+      // Step 1: Received integrated flux in x,y,z and q in modal space,
       // Project it on to face quadratures, as rusanovFluxMinus:
       // using "kernel::nonlEvaluateAndRotateQAtInterpolationPoints"
       // The face relations are the same as the cae of receiving 'derivatives'

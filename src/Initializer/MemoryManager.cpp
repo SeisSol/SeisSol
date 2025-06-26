@@ -632,7 +632,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
       }
     }
     layer.setScratchpadSize(lts.integratedDofsScratch,
-                             integratedDofsCounter * tensor::I::size() * sizeof(real));
+                             integratedDofsCounter * seissol::kernels::Solver::BufferSize * sizeof(real));
     layer.setScratchpadSize(lts.derivativesScratch,
                              derivativesCounter * totalDerivativesSize * sizeof(real));
     layer.setScratchpadSize(lts.nodalAvgDisplacements,

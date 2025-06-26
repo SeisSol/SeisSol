@@ -189,11 +189,11 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
           Timestep,
           faceNeighbors[cell],
 #ifdef _OPENMP
-          *reinterpret_cast<real(*)[4][tensor::I::size()]>(
+          *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(
               &(data.globalDataOnHost
-                    .integrationBufferLTS[omp_get_thread_num() * 4 * tensor::I::size()])),
+                    .integrationBufferLTS[omp_get_thread_num() * 4 * seissol::kernels::Solver::BufferSize])),
 #else
-        *reinterpret_cast<real(*)[4][tensor::I::size()]>(
+        *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(
             data.globalDataOnHost.integrationBufferLTS),
 #endif
           timeIntegrated);

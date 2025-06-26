@@ -57,9 +57,9 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
   std::uniform_int_distribution<unsigned> cellDist(0, layer.getNumberOfCells() - 1);
 
   for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
-    buffers[cell] = bucket + cell * tensor::I::size();
+    buffers[cell] = bucket + cell * seissol::kernels::Solver::BufferSize;
     derivatives[cell] = nullptr;
-    buffersDevice[cell] = bucketDevice + cell * tensor::I::size();
+    buffersDevice[cell] = bucketDevice + cell * seissol::kernels::Solver::BufferSize;
     derivativesDevice[cell] = nullptr;
 
     for (unsigned f = 0; f < 4; ++f) {
@@ -95,7 +95,7 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
 
   kernels::fillWithStuff(
       reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.getNumberOfCells(), false);
-  kernels::fillWithStuff(bucket, tensor::I::size() * layer.getNumberOfCells(), false);
+  kernels::fillWithStuff(bucket, seissol::kernels::Solver::BufferSize * layer.getNumberOfCells(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
                          sizeof(LocalIntegrationData) / sizeof(real) * layer.getNumberOfCells(),
                          false);
@@ -164,7 +164,7 @@ void ProxyData::initDataStructures(bool enableDR) {
 
   seissol::initializer::Layer& layer = cluster.child<Interior>();
   layer.setBucketSize(lts.buffersDerivatives,
-                      sizeof(real) * tensor::I::size() * layer.getNumberOfCells());
+                      sizeof(real) * seissol::kernels::Solver::BufferSize * layer.getNumberOfCells());
 
   ltsTree.allocateVariables();
   ltsTree.touchVariables();

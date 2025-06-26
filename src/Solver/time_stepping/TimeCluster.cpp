@@ -299,7 +299,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
   m_loopStatistics->begin(m_regionComputeLocalIntegration);
 
   // local integration buffer
-  alignas(Alignment) real l_integrationBuffer[tensor::I::size()];
+  alignas(Alignment) real l_integrationBuffer[seissol::kernels::Solver::BufferSize];
 
   // pointer for the call of the ADER-function
   real* l_bufferPointer;
@@ -406,7 +406,7 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     if (!resetMyBuffers && buffersProvided) {
       assert(buffers[l_cell] != nullptr);
 
-      for (unsigned int l_dof = 0; l_dof < tensor::I::size(); ++l_dof) {
+      for (unsigned int l_dof = 0; l_dof < seissol::kernels::Solver::BufferSize; ++l_dof) {
         buffers[l_cell][l_dof] += l_integrationBuffer[l_dof];
       }
     }
@@ -885,9 +885,9 @@ template<bool usePlasticity>
                                                        timeStepSize(),
                                                        faceNeighbors[l_cell],
 #ifdef _OPENMP
-                                                       *reinterpret_cast<real (*)[4][tensor::I::size()]>(&(m_globalDataOnHost->integrationBufferLTS[omp_get_thread_num()*4*tensor::I::size()])),
+                                                       *reinterpret_cast<real (*)[4][seissol::kernels::Solver::BufferSize]>(&(m_globalDataOnHost->integrationBufferLTS[omp_get_thread_num()*4*seissol::kernels::Solver::BufferSize])),
 #else
-            *reinterpret_cast<real (*)[4][tensor::I::size()]>(m_globalDataOnHost->integrationBufferLTS),
+            *reinterpret_cast<real (*)[4][seissol::kernels::Solver::BufferSize]>(m_globalDataOnHost->integrationBufferLTS),
 #endif
                                                        l_timeIntegrated);
 

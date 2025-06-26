@@ -82,7 +82,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                   ltsIDofsPtrs.push_back(nextTempIDofsPtr);
                   ltsDerivativesPtrs.push_back(neighborBuffer);
                 }
-                integratedDofsAddressCounter += tensor::I::size();
+                integratedDofsAddressCounter += seissol::kernels::Solver::BufferSize;
               } else {
                 idofsAddressRegistry[neighborBuffer] = neighborBuffer;
               }

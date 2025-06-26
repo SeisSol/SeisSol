@@ -6,6 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Alexander Breuer
 
+#include "Kernels/Solver.h"
+
 #include "InternalState.h"
 #include <limits>
 #include <cstddef>
@@ -107,14 +109,14 @@ void seissol::initializer::InternalState::setUpLayerPointers(       unsigned int
       // set pointers and increase conunters
       if( (i_cellLocalInformation[l_cell].ltsSetup >> 8 ) % 2 ) {
         o_buffers[l_cell] = i_layerMemory + l_offset
-                                          + l_bufferCounter * tensor::I::size();
+                                          + l_bufferCounter * seissol::kernels::Solver::BufferSize;
         l_bufferCounter++;
       }
       else o_buffers[l_cell] = NULL;
 
       if( (i_cellLocalInformation[l_cell].ltsSetup >> 9 ) % 2 ) {
         o_derivatives[l_cell] = i_layerMemory + l_offset 
-                                              + i_numberOfBuffers[l_region] * tensor::I::size()
+                                              + i_numberOfBuffers[l_region] * seissol::kernels::Solver::BufferSize
                                               + l_derivativeCounter * yateto::computeFamilySize<tensor::dQ>();
         l_derivativeCounter++;
       }
@@ -127,7 +129,7 @@ void seissol::initializer::InternalState::setUpLayerPointers(       unsigned int
 
     // update offsets
     l_firstRegionCell = l_firstNonRegionCell;
-    l_offset += i_numberOfBuffers[l_region]     * tensor::I::size() +
+    l_offset += i_numberOfBuffers[l_region]     * seissol::kernels::Solver::BufferSize +
                 i_numberOfDerivatives[l_region] * yateto::computeFamilySize<tensor::dQ>();
   }
 }
