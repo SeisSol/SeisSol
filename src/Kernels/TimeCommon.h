@@ -49,7 +49,7 @@ struct TimeCommon {
                                const double currentTime[5],
                                double timeStepWidth,
                                real* const timeDofs[4],
-                               real integrationBuffer[4][tensor::I::size()],
+                               real integrationBuffer[4][seissol::kernels::Solver::BufferSize],
                                real* timeIntegrated[4]);
 
   /**
@@ -74,7 +74,7 @@ struct TimeCommon {
                                double timeStepStart,
                                double timeStepWidth,
                                real* const timeDofs[4],
-                               real integrationBuffer[4][tensor::I::size()],
+                               real integrationBuffer[4][seissol::kernels::Solver::BufferSize],
                                real* timeIntegrated[4]);
 
   static void computeBatchedIntegrals(Time& time,

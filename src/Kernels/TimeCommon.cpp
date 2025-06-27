@@ -37,7 +37,7 @@ void TimeCommon::computeIntegrals(Time& time,
                                   const double currentTime[5],
                                   double timeStepWidth,
                                   real* const timeDofs[4],
-                                  real integrationBuffer[4][tensor::I::size()],
+                                  real integrationBuffer[4][seissol::kernels::Solver::BufferSize],
                                   real* timeIntegrated[4]) {
   /*
    * assert valid input.
@@ -84,7 +84,7 @@ void TimeCommon::computeIntegrals(Time& time,
                                   const double timeStepStart,
                                   const double timeStepWidth,
                                   real* const timeDofs[4],
-                                  real integrationBuffer[4][tensor::I::size()],
+                                  real integrationBuffer[4][seissol::kernels::Solver::BufferSize],
                                   real* timeIntegrated[4]) {
   double startTimes[5];
   startTimes[0] = timeStepStart;
