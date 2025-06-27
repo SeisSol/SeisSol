@@ -14,9 +14,9 @@
 namespace seissol::proxy {
 
 struct PerformanceEstimate {
-  std::size_t hardwareFlop{0};
-  std::size_t nonzeroFlop{0};
-  std::size_t bytes{0};
+  std::uint64_t hardwareFlop{0};
+  std::uint64_t nonzeroFlop{0};
+  std::uint64_t bytes{0};
 
   auto operator+(const PerformanceEstimate& other) const -> PerformanceEstimate;
 };

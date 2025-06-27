@@ -57,8 +57,6 @@
 #include <utils/logger.h>
 #endif
 
-#include <Solver/MultipleSimulations.h>
-
 GENERATE_HAS_MEMBER(selectAneFull)
 GENERATE_HAS_MEMBER(selectElaFull)
 GENERATE_HAS_MEMBER(Values)
@@ -285,7 +283,6 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
       const auto* secondaryInformation = layer.var(lts.secondaryInformation);
-      const auto* material = layer.var(lts.material);
       auto* dofs = layer.var(lts.dofs);
       auto* dofsAne = layer.var(lts.dofsAne);
 

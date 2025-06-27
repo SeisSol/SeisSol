@@ -29,12 +29,12 @@ class Neighbor : public NeighborKernel {
   void flopsNeighborsIntegral(const FaceType faceTypes[4],
                               const int neighboringIndices[4][2],
                               const CellDRMapping (&cellDrMapping)[4],
-                              unsigned int& nonZeroFlops,
-                              unsigned int& hardwareFlops,
-                              long long& drNonZeroFlops,
-                              long long& drHardwareFlops) override;
+                              std::uint64_t& nonZeroFlops,
+                              std::uint64_t& hardwareFlops,
+                              std::uint64_t& drNonZeroFlops,
+                              std::uint64_t& drHardwareFlops) override;
 
-  unsigned bytesNeighborsIntegral() override;
+  std::uint64_t bytesNeighborsIntegral() override;
 
   protected:
   kernel::neighborFluxExt m_nfKrnlPrototype;

@@ -269,7 +269,6 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
-    finished = true;
     communicationManager->progression();
 
     // Update all high priority clusters

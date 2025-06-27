@@ -46,10 +46,10 @@ class Plasticity {
                                unsigned* isAdjustableVector,
                                seissol::parallel::runtime::StreamRuntime& runtime);
 
-  static void flopsPlasticity(long long& nonZeroFlopsCheck,
-                              long long& hardwareFlopsCheck,
-                              long long& nonZeroFlopsYield,
-                              long long& hardwareFlopsYield);
+  static void flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
+                              std::uint64_t& hardwareFlopsCheck,
+                              std::uint64_t& nonZeroFlopsYield,
+                              std::uint64_t& hardwareFlopsYield);
 };
 
 } // namespace seissol::kernels

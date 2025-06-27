@@ -247,8 +247,8 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 }
 
 void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
-                                       long long& nonZeroFlops,
-                                       long long& hardwareFlops) {
+                                       std::uint64_t& nonZeroFlops,
+                                       std::uint64_t& hardwareFlops) {
   m_timeKernel.flopsTaylorExpansion(nonZeroFlops, hardwareFlops);
 
   // 2x evaluateTaylorExpansion
