@@ -13,6 +13,7 @@
 #include <Initializer/InitProcedure/Internal/Buckets.h>
 #include <Initializer/InitProcedure/Internal/LtsSetup.h>
 #include <Initializer/ParameterDB.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
@@ -34,11 +35,16 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& meshReader = seissolInstance.meshReader();
 
   std::size_t maxLtsId = 0;
+  double minimumTimestep = std::numeric_limits<double>::max();
   for (const auto& element : meshReader.getElements()) {
     maxLtsId = std::max(maxLtsId, static_cast<std::size_t>(element.clusterId));
+    minimumTimestep = std::min(minimumTimestep, element.timestep);
   }
   MPI_Allreduce(
       MPI_IN_PLACE, &maxLtsId, 1, MPI::castToMpiType<std::size_t>(), MPI_MAX, MPI::mpi.comm());
+  MPI_Allreduce(
+      MPI_IN_PLACE, &minimumTimestep, 1, MPI_DOUBLE, MPI_MIN, MPI::mpi.comm());
+  ClusterLayout layout({seissolInstance.getSeisSolParameters().timeStepping.lts.getRate()}, minimumTimestep, maxLtsId + 1);
 
   seissolInstance.getMemoryManager().setupMemoryContainer(maxLtsId, {Config()});
   auto& container = seissolInstance.getMemoryManager().memoryContainer();

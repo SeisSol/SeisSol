@@ -262,6 +262,19 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
 void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
+  std::size_t maxLtsId = 0;
+  double minimumTimestep = std::numeric_limits<double>::max();
+  for (const auto& element : seissolInstance.meshReader().getElements()) {
+    maxLtsId = std::max(maxLtsId, static_cast<std::size_t>(element.clusterId));
+    minimumTimestep = std::min(minimumTimestep, element.timestep);
+  }
+  MPI_Allreduce(
+      MPI_IN_PLACE, &maxLtsId, 1, MPI::castToMpiType<std::size_t>(), MPI_MAX, MPI::mpi.comm());
+  MPI_Allreduce(
+      MPI_IN_PLACE, &minimumTimestep, 1, MPI_DOUBLE, MPI_MIN, MPI::mpi.comm());
+  ClusterLayout layout({seissolInstance.getSeisSolParameters().timeStepping.lts.getRate()}, minimumTimestep, maxLtsId + 1);
+  ltsInfo.clusterLayout = layout;
+
   seissolInstance.timeManager().addClusters(ltsInfo.clusterLayout.value(),
                                             ltsInfo.meshStructure,
                                             seissolInstance.getMemoryManager(),
