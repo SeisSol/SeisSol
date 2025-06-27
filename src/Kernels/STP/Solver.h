@@ -20,6 +20,8 @@ namespace seissol::kernels::solver::stp {
 class Spacetime;
 
 struct Solver {
+  static constexpr std::size_t BufferSize = tensor::I::size();
+
   using SpacetimeKernelT = Spacetime;
   using TimeKernelT = linearck::Time;
   using LocalKernelT = linearck::Local;

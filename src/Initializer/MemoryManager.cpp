@@ -28,6 +28,8 @@
 #include "Kernels/Common.h"
 #include "Kernels/Touch.h"
 
+#include "Kernels/Solver.h"
+
 #include <DynamicRupture/Misc.h>
 
 #include "Common/Iterator.h"
