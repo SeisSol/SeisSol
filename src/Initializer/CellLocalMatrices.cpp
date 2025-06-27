@@ -268,7 +268,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                   return hasAtLeastOneDRFace;
                 };
                 const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[cell]);
-                const auto neighborID = secondaryInformation[cell].faceNeighborGlobalIds[side];
+                const auto neighborID = secondaryInformation[cell].faceNeighborIds[side];
                 const bool neighborBehindSideHasAtLeastOneDRFace =
                     hasDRFace(cellInformationAll[neighborID]);
                 const bool adjacentDRFaceExists =

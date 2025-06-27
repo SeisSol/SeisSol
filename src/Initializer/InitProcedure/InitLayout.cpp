@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <limits>
 #include <mpi.h>
 #include <unordered_map>
 #include <utility>
@@ -67,6 +68,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   container.wpdesc.addTo(container.volume, seissolInstance.getSeisSolParameters().model.plasticity);
   container.volume.initialize(container.colorMap, wpStructure);
+  container.volume.allocateTouchVariables();
   container.clusterBackmap.setSize(meshReader.getElements().size());
 
   logInfo() << "Setting up cell storage...";
@@ -152,8 +154,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     return {vectorDB, vectorDBP};
   };
 
-  auto innerDB =
-      queryMaterial(seissol::initializer::CellToVertexArray::fromMeshReader(meshReader), true);
+  auto innerDB = queryMaterial(seissol::initializer::CellToVertexArray::fromMeshReader(meshReader),
+                               seissolParams.model.plasticity);
   auto ghostDB = queryMaterial(
       seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups), false);
   logInfo() << "Setting up cell data...";
@@ -167,63 +169,66 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         layer.getIdentifier().halo == HaloType::Copy) {
       auto* material = layer.var(container.wpdesc.material);
       auto* plasticity = layer.var(container.wpdesc.plasticity);
-      std::size_t index = 0;
-
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
       for (std::size_t i = 0; i < cells.size(); ++i) {
         const auto cell = cells[i];
+        const auto index = i;
 
         // TODO: parametrize
         new (&materialData[index]) model::MaterialT(innerDB.first[cell]);
-        new (&plasticity[index]) model::PlasticityData(innerDB.second[cell], &materialData[index]);
+        if (seissolParams.model.plasticity) {
+          new (&plasticity[index])
+              model::PlasticityData(innerDB.second[cell], &materialData[index]);
+        }
 
         material[index].local = &materialData[index];
         secondaryCellInformation[index].rank = MPI::mpi.rank();
         for (int face = 0; face < 4; ++face) {
-          const auto& neighbor = [&]() {
-            const auto& element = meshReader.getElements()[cell];
-            const bool ghostNeighbor = element.neighbors[face] == meshReader.getElements().size();
-            if (ghostNeighbor) {
-              const auto rank = element.neighborRanks[face];
-              const auto mpiIndex = element.mpiIndices[face];
-              // ghost layer
-              return container.ghostClusterBackmap.storagePositionLookup(
-                  meshReader.getGhostlayerMetadata().at(rank)[mpiIndex].linearId);
-            } else {
-              // copy/interior layer
-              return container.clusterBackmap.storagePositionLookup(
-                  meshReader.getElements()[cell].neighbors[face]);
-            }
-          }();
-          secondaryCellInformation[index].neighborRanks[face] =
-              meshReader.getElements()[cell].neighborRanks[face];
-          secondaryCellInformation[index].faceNeighborIds[face] = neighbor.cell;
-          secondaryCellInformation[index].faceNeighborGlobalIds[face] = neighbor.global;
-          cellInformation[index].neighborConfigIds[face] = neighbor.color;
-          cellInformation[index].faceTypes[face] =
-              static_cast<FaceType>(meshReader.getElements()[cell].boundaries[face]);
-          cellInformation[index].faceRelations[face][0] =
-              meshReader.getElements()[cell].neighborSides[face];
-          cellInformation[index].faceRelations[face][1] =
-              meshReader.getElements()[cell].sideOrientations[face];
+          const auto& element = meshReader.getElements()[cell];
+          secondaryCellInformation[index].neighborRanks[face] = element.neighborRanks[face];
+          cellInformation[index].faceTypes[face] = static_cast<FaceType>(element.boundaries[face]);
+          cellInformation[index].faceRelations[face][0] = element.neighborSides[face];
+          cellInformation[index].faceRelations[face][1] = element.sideOrientations[face];
 
-          // TODO: parametrize
-          auto& neighborLayer = container.volume.layer(neighbor.color);
-          const auto& materialData2 = neighborLayer.var(container.wpdesc.materialData);
-          material[index].neighbor[face] = &materialData2[neighbor.cell];
+          if (element.neighbors[face] != meshReader.getElements().size() ||
+              element.neighborRanks[face] != MPI::mpi.rank()) {
+            const auto& neighbor = [&]() {
+              const bool ghostNeighbor = element.neighborRanks[face] != MPI::mpi.rank();
+              if (ghostNeighbor) {
+                const auto rank = element.neighborRanks[face];
+                const auto mpiIndex = element.mpiIndices[face];
+                // ghost layer
+                return container.ghostClusterBackmap.storagePositionLookup(
+                    meshReader.getGhostlayerMetadata().at(rank)[mpiIndex].linearId);
+              } else {
+                // copy/interior layer
+                return container.clusterBackmap.storagePositionLookup(element.neighbors[face]);
+              }
+            }();
+
+            secondaryCellInformation[index].faceNeighborIds[face] = neighbor.global;
+            cellInformation[index].neighborConfigIds[face] = neighbor.color;
+            // TODO: parametrize
+            auto& neighborLayer = container.volume.layer(neighbor.color);
+            const auto& materialData2 = neighborLayer.var(container.wpdesc.materialData);
+            material[index].neighbor[face] = &materialData2[neighbor.cell];
+          } else {
+            secondaryCellInformation[index].faceNeighborIds[face] =
+                std::numeric_limits<std::size_t>::max();
+            cellInformation[index].neighborConfigIds[face] = -1;
+            material[index].neighbor[face] = nullptr;
+          }
         }
-        ++index;
       }
     } else if (layer.getIdentifier().halo == HaloType::Ghost) {
-      std::size_t index = 0;
-
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
       for (std::size_t i = 0; i < cells.size(); ++i) {
         const auto cell = cells[i];
+        const auto index = i;
 
         // TODO: parametrize
         new (&materialData[index]) seissol::model::MaterialT(ghostDB.first[cell]);
@@ -232,8 +237,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         secondaryCellInformation[index].rank = boundaryElement.rank;
         const auto neighbor =
             container.clusterBackmap.storagePositionLookup(boundaryElement.localElement);
-        secondaryCellInformation[index].faceNeighborIds[boundaryElement.localSide] = neighbor.cell;
-        secondaryCellInformation[index].faceNeighborGlobalIds[boundaryElement.localSide] =
+        secondaryCellInformation[index].faceNeighborIds[boundaryElement.localSide] =
             neighbor.global;
 
         const int face = boundaryElement.neighborSide;
@@ -247,7 +251,6 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         cellInformation[index].faceRelations[face][1] =
             meshReader.getElements()[boundaryElement.localElement]
                 .sideOrientations[boundaryElement.localSide];
-        ++index;
       }
     }
   }

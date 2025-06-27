@@ -369,8 +369,9 @@ bool seissol::initializer::isAtElasticAcousticInterface(const CellMaterialData& 
                                                         unsigned int face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
-  return isAcousticSideOfElasticAcousticInterface(material, face) ||
-         isElasticSideOfElasticAcousticInterface(material, face);
+  return material.local != nullptr && material.neighbor[face] != nullptr &&
+         (isAcousticSideOfElasticAcousticInterface(material, face) ||
+          isElasticSideOfElasticAcousticInterface(material, face));
 }
 
 bool seissol::initializer::requiresDisplacement(CellLocalInformation cellLocalInformation,

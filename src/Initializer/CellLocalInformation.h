@@ -36,10 +36,8 @@ struct SecondaryCellLocalInformation {
   // local mesh ID (for interior/copy) or position in the linearized ghost layer
   unsigned int meshId;
 
-  // ids of the face neighbors (in their respective Config LTS tree)
-  unsigned int faceNeighborIds[4];
-
-  std::size_t faceNeighborGlobalIds[4];
+  // ids of the face neighbors
+  std::size_t faceNeighborIds[4];
 
   // ID in layer
   unsigned int layerId;

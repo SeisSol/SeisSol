@@ -235,6 +235,11 @@ class LTSTree : public LTSInternalNode {
     addInternal<HandleT>(mask, alignment, allocMode, constant, count);
   }
 
+  void allocateTouchVariables() {
+    allocateVariables();
+    touchVariables();
+  }
+
   void allocateVariables() {
     std::vector<std::size_t> sizes(memoryInfo.size());
     for (auto& leaf : leaves()) {

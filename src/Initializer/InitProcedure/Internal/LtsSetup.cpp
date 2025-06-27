@@ -232,7 +232,7 @@ void handleLtsSetup(memory::MemoryContainer& container) {
       std::array<std::size_t, 4> neighbors;
 
       for (int face = 0; face < 4; ++face) {
-        neighbors[face] = secondaryCellInformation[i].faceNeighborGlobalIds[face];
+        neighbors[face] = secondaryCellInformation[i].faceNeighborIds[face];
       }
       cellInformation[i].ltsSetup = determineLtsSetup(cellInformation,
                                                       secondaryCellInformation,
@@ -254,7 +254,7 @@ void handleLtsSetup(memory::MemoryContainer& container) {
       std::array<std::size_t, 4> neighbors;
 
       for (int face = 0; face < 4; ++face) {
-        neighbors[face] = secondaryCellInformation[i].faceNeighborGlobalIds[face];
+        neighbors[face] = secondaryCellInformation[i].faceNeighborIds[face];
       }
       cellInformation[i].ltsSetup = correctLtsSetup(cellInformation, self, neighbors);
     }
@@ -269,7 +269,7 @@ void handleLtsSetup(memory::MemoryContainer& container) {
       const std::size_t self = secondaryCellInformation[i].linearId;
       std::array<std::size_t, 4> neighbors;
       for (int face = 0; face < 4; ++face) {
-        neighbors[face] = secondaryCellInformation[i].faceNeighborGlobalIds[face];
+        neighbors[face] = secondaryCellInformation[i].faceNeighborIds[face];
       }
       cellInformation[i].ltsSetup = correctGhostLayer(cellInformation, self, neighbors);
     }

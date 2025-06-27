@@ -179,6 +179,7 @@ struct LTS {
              allocationModeWP(AllocationPreset::ConstantShared),
              true);
     tree.add(material, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    tree.add(materialData, LayerMask(), 1, AllocationMode::HostOnly, true);
     tree.add(plasticity, plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);
     tree.add(drMapping, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
     tree.add(
