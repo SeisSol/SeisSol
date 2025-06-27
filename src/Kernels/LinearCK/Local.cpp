@@ -105,7 +105,7 @@ struct ApplyAnalyticalSolution {
   LocalDataType& localData;
 };
 
-void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+void Local::computeIntegral(real* timeIntegratedDegreesOfFreedom,
                             LocalData& data,
                             LocalTmp& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?

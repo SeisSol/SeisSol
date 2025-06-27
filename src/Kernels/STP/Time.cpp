@@ -75,7 +75,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 
 void Spacetime::executeSTP(double timeStepWidth,
                            LocalData& data,
-                           real timeIntegrated[tensor::I::size()],
+                           real* timeIntegrated,
                            real* stp)
 
 {
@@ -134,7 +134,7 @@ void Spacetime::executeSTP(double timeStepWidth,
 void Spacetime::computeAder(double timeStepWidth,
                             LocalData& data,
                             LocalTmp& tmp,
-                            real timeIntegrated[tensor::I::size()],
+                            real* timeIntegrated,
                             real* timeDerivatives,
                             bool updateDisplacement) {
   /*

@@ -35,7 +35,7 @@ class TimeKernel : public Kernel {
                                double integrationStart,
                                double integrationEnd,
                                const real* timeDerivatives,
-                               real timeIntegrated[tensor::I::size()]) = 0;
+                               real* timeIntegrated) = 0;
 
   virtual void computeBatchedIntegral(double expansionPoint,
                                       double integrationStart,

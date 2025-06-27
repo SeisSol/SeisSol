@@ -33,7 +33,7 @@ class Spacetime : public SpacetimeKernel {
   void computeAder(double timeStepWidth,
                    LocalData& data,
                    LocalTmp& tmp,
-                   real timeIntegrated[tensor::I::size()],
+                   real* timeIntegrated,
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   //Temporary, computeAder for NL
@@ -86,7 +86,7 @@ class Time : public TimeKernel {
                        double integrationStart,
                        double integrationEnd,
                        const real* timeDerivatives,
-                       real timeIntegrated[tensor::I::size()]) override;
+                       real* timeIntegrated) override;
 
   void computeBatchedIntegral(double expansionPoint,
                               double integrationStart,

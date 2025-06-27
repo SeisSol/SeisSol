@@ -28,7 +28,7 @@ class Spacetime : public SpacetimeKernel {
   void computeAder(double timeStepWidth,
                    LocalData& data,
                    LocalTmp& tmp,
-                   real timeIntegrated[tensor::I::size()],
+                   real* timeIntegrated,
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   void computeBatchedAder(double timeStepWidth,
@@ -45,7 +45,7 @@ class Spacetime : public SpacetimeKernel {
   private:
   void executeSTP(double timeStepWidth,
                   LocalData& data,
-                  real timeIntegrated[tensor::I::size()],
+                  real* timeIntegrated,
                   real* stp);
 
   kernel::spaceTimePredictor m_krnlPrototype;

@@ -37,7 +37,7 @@ class LocalKernel : public Kernel {
     return condition.get();
   }
   
-  virtual void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+  virtual void computeIntegral(real* timeIntegratedDegreesOfFreedom,
                                LocalData& data,
                                LocalTmp& tmp,
                                const CellMaterialData* materialData,

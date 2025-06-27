@@ -48,7 +48,7 @@ class Local : public LocalKernel {
                       double time,
                       double timeStepWidth);
 
-  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+  void computeIntegral(real* timeIntegratedDegreesOfFreedom,
                        LocalData& data,
                        LocalTmp& tmp,
                        const CellMaterialData* materialData,

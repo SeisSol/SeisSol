@@ -30,7 +30,7 @@ class SpacetimeKernel : public Kernel {
   virtual void computeAder(double timeStepWidth,
                            LocalData& data,
                            LocalTmp& tmp,
-                           real timeIntegrated[tensor::I::size()],
+                           real* timeIntegrated,
                            real* timeDerivativesOrSTP = nullptr,
                            bool updateDisplacement = false) = 0;
   virtual void computeBatchedAder(double timeStepWidth,

@@ -53,7 +53,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 void Spacetime::computeAder(double timeStepWidth,
                             LocalData& data,
                             LocalTmp& tmp,
-                            real timeIntegrated[tensor::I::size()],
+                            real* timeIntegrated,
                             real* timeDerivatives,
                             bool updateDisplacement) {
   /*
@@ -143,7 +143,7 @@ void Time::computeIntegral(double expansionPoint,
                            double integrationStart,
                            double integrationEnd,
                            const real* timeDerivatives,
-                           real timeIntegrated[tensor::I::size()]) {
+                           real* timeIntegrated) {
 
   /*
    * assert alignments.
