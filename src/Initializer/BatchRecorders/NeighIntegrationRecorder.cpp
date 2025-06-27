@@ -22,6 +22,8 @@
 #include <vector>
 #include <yateto.h>
 
+#include "Kernels/Solver.h"
+
 using namespace device;
 using namespace seissol::initializer;
 using namespace seissol::initializer::recording;

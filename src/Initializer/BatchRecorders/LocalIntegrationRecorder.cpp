@@ -5,6 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Kernels/Solver.h"
+
 #include "Kernels/Interface.h"
 #include "Recorders.h"
 #include <DataTypes/ConditionalKey.h>
