@@ -43,7 +43,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
                                                  seissol::initializer::Layer *i_clusterData,
                                                  seissol::initializer::Layer *dynRupInteriorData,
                                                  seissol::initializer::Layer *dynRupCopyData,
-                                                 seissol::initializer::DynamicRupture* i_dynRup,
                                                  seissol::dr::friction_law::FrictionSolver* i_FrictionSolver,
                                                  seissol::dr::friction_law::FrictionSolver* i_FrictionSolverDevice,
                                                  dr::output::OutputManager* i_faultOutputManager,
@@ -66,7 +65,6 @@ seissol::time_stepping::TimeCluster::TimeCluster(unsigned int i_clusterId, unsig
     // global data
     dynRupInteriorData(dynRupInteriorData),
     dynRupCopyData(dynRupCopyData),
-    m_dynRup(i_dynRup),
     frictionSolver(i_FrictionSolver),
     frictionSolverDevice(i_FrictionSolverDevice),
     faultOutputManager(i_faultOutputManager),
@@ -174,13 +172,13 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   m_loopStatistics->begin(m_regionComputeDynamicRupture);
 
-  DRFaceInformation* faceInformation = layerData.var(m_dynRup->faceInformation);
-  DRGodunovData* godunovData = layerData.var(m_dynRup->godunovData);
-  DREnergyOutput* drEnergyOutput = layerData.var(m_dynRup->drEnergyOutput);
-  real** timeDerivativePlus = layerData.var(m_dynRup->timeDerivativePlus);
-  real** timeDerivativeMinus = layerData.var(m_dynRup->timeDerivativeMinus);
-  auto* qInterpolatedPlus = layerData.var(m_dynRup->qInterpolatedPlus);
-  auto* qInterpolatedMinus = layerData.var(m_dynRup->qInterpolatedMinus);
+  DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
+  DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
+  DREnergyOutput* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
+  real** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
+  real** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
+  auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>();
+  auto* qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>();
 
   m_dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
   frictionSolver->computeDeltaT(m_dynamicRuptureKernel.timePoints);
@@ -214,7 +212,6 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture( seissol::initia
 
   SCOREP_USER_REGION_BEGIN(myRegionHandle, "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_COMMON )
   frictionSolver->evaluate(layerData,
-                           m_dynRup,
                            ct.correctionTime,
                            m_dynamicRuptureKernel.timeWeights,
                            streamRuntime);
@@ -247,24 +244,23 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice( seissol::
     });
     device.api->popLastProfilingMark();
     if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
-      layerData.varSynchronizeTo(m_dynRup->qInterpolatedPlus, initializer::AllocationPlace::Host, streamRuntime.stream());
-      layerData.varSynchronizeTo(m_dynRup->qInterpolatedMinus, initializer::AllocationPlace::Host, streamRuntime.stream());
+      layerData.varSynchronizeTo<DynamicRupture::QInterpolatedPlus>(initializer::AllocationPlace::Host, streamRuntime.stream());
+      layerData.varSynchronizeTo<DynamicRupture::QInterpolatedMinus>(initializer::AllocationPlace::Host, streamRuntime.stream());
       streamRuntime.wait();
     }
 
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
     frictionSolverDevice->computeDeltaT(m_dynamicRuptureKernel.timePoints);
     frictionSolverDevice->evaluate(layerData,
-                             m_dynRup,
                              ct.correctionTime,
                              m_dynamicRuptureKernel.timeWeights,
                              streamRuntime);
     device.api->popLastProfilingMark();
     if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
-      layerData.varSynchronizeTo(m_dynRup->fluxSolverMinus, initializer::AllocationPlace::Device, streamRuntime.stream());
-      layerData.varSynchronizeTo(m_dynRup->fluxSolverPlus, initializer::AllocationPlace::Device, streamRuntime.stream());
-      layerData.varSynchronizeTo(m_dynRup->imposedStateMinus, initializer::AllocationPlace::Device, streamRuntime.stream());
-      layerData.varSynchronizeTo(m_dynRup->imposedStatePlus, initializer::AllocationPlace::Device, streamRuntime.stream());
+      layerData.varSynchronizeTo<DynamicRupture::FluxSolverMinus>(initializer::AllocationPlace::Device, streamRuntime.stream());
+      layerData.varSynchronizeTo<DynamicRupture::FluxSolverPlus>(initializer::AllocationPlace::Device, streamRuntime.stream());
+      layerData.varSynchronizeTo<DynamicRupture::ImposedStateMinus>(initializer::AllocationPlace::Device, streamRuntime.stream());
+      layerData.varSynchronizeTo<DynamicRupture::ImposedStatePlus>(initializer::AllocationPlace::Device, streamRuntime.stream());
     }
     streamRuntime.wait();
   }
@@ -280,7 +276,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops( seissol::i
   nonZeroFlops = 0;
   hardwareFlops = 0;
 
-  DRFaceInformation* faceInformation = layerData.var(m_dynRup->faceInformation);
+  DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
 
   for (unsigned face = 0; face < layerData.size(); ++face) {
     long long faceNonZeroFlops, faceHardwareFlops;
@@ -670,10 +666,10 @@ void TimeCluster::handleDynamicRupture(initializer::Layer& layerData) {
   // TODO(David): restrict to copy/interior of same cluster type
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host : seissol::initializer::AllocationPlace::Device;
-    layerData.varSynchronizeTo(m_dynRup->fluxSolverMinus, other, streamRuntime.stream());
-    layerData.varSynchronizeTo(m_dynRup->fluxSolverPlus, other, streamRuntime.stream());
-    layerData.varSynchronizeTo(m_dynRup->imposedStateMinus, other, streamRuntime.stream());
-    layerData.varSynchronizeTo(m_dynRup->imposedStatePlus, other, streamRuntime.stream());
+    layerData.varSynchronizeTo<DynamicRupture::FluxSolverMinus>(other, streamRuntime.stream());
+    layerData.varSynchronizeTo<DynamicRupture::FluxSolverPlus>(other, streamRuntime.stream());
+    layerData.varSynchronizeTo<DynamicRupture::ImposedStateMinus>(other, streamRuntime.stream());
+    layerData.varSynchronizeTo<DynamicRupture::ImposedStatePlus>(other, streamRuntime.stream());
     streamRuntime.wait();
   }
 #else

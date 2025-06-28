@@ -26,8 +26,7 @@ class ReceiverOutput {
 
   void setLtsData(seissol::initializer::LTSTree* userWpTree,
                   seissol::initializer::Lut* userWpLut,
-                  seissol::initializer::LTSTree* userDrTree,
-                  seissol::initializer::DynamicRupture* userDrDescr);
+                  seissol::initializer::LTSTree* userDrTree);
 
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
@@ -42,7 +41,6 @@ class ReceiverOutput {
   seissol::initializer::LTSTree* wpTree{nullptr};
   seissol::initializer::Lut* wpLut{nullptr};
   seissol::initializer::LTSTree* drTree{nullptr};
-  seissol::initializer::DynamicRupture* drDescr{nullptr};
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
   real* deviceCopyMemory{nullptr};
@@ -102,6 +100,17 @@ class ReceiverOutput {
           devVar->second->get(local.state->deviceIndices[local.index]));
     } else {
       return local.layer->var(variable)[local.ltsId];
+    }
+  }
+
+  template <typename StorageT>
+  std::remove_extent_t<typename StorageT::Type>* getCellData(const LocalInfo& local) {
+    auto devVar = local.state->deviceVariables.find(drTree->info<StorageT>().index);
+    if (devVar != local.state->deviceVariables.end()) {
+      return reinterpret_cast<std::remove_extent_t<typename StorageT::Type>*>(
+          devVar->second->get(local.state->deviceIndices[local.index]));
+    } else {
+      return local.layer->var<StorageT>()[local.ltsId];
     }
   }
 

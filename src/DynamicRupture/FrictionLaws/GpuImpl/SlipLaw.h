@@ -17,11 +17,9 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
   using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
   using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::copyLtsTreeToLocal;
 
-  static void
-      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                     seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) {}
+  static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+                                             seissol::initializer::Layer& layerData,
+                                             real fullUpdateTime) {}
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];

@@ -28,7 +28,7 @@ namespace dr::factory {
  * quantity to which output
  */
 struct DynamicRuptureTuple {
-  std::unique_ptr<seissol::initializer::DynamicRupture> ltsTree;
+  std::unique_ptr<seissol::DynamicRupture> ltsTree;
   std::unique_ptr<seissol::dr::initializer::BaseDRInitializer> initializer;
   std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLaw;
   std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLawDevice;

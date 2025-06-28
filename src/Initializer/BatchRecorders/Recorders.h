@@ -131,7 +131,7 @@ class PlasticityRecorder : public AbstractRecorder<seissol::LTS> {
   void record(const seissol::LTS& lts, Layer& layer) override;
 };
 
-class DynamicRuptureRecorder : public AbstractRecorder<seissol::initializer::DynamicRupture> {
+class DynamicRuptureRecorder : public AbstractRecorder<seissol::DynamicRupture> {
   public:
   void record(const DynamicRupture& handler, Layer& layer) override;
 

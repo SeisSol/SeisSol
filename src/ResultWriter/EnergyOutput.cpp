@@ -158,7 +158,6 @@ double& EnergiesStorage::totalMomentumZ(size_t sim) {
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    seissol::initializer::DynamicRupture* newDynRup,
     seissol::initializer::LTSTree* newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
     seissol::initializer::LTSTree* newLtsTree,
@@ -189,7 +188,6 @@ void EnergyOutput::init(
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
   global = newGlobal;
-  dynRup = newDynRup;
   dynRupTree = newDynRuptTree;
   meshReader = newMeshReader;
   ltsTree = newLtsTree;
@@ -324,16 +322,18 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       };
 #else
       // TODO: for fused simulations, do this once and reuse
-      real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
-      real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
+      real** timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
+      real** timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
       const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
       const auto timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
 #endif
-      DRGodunovData* godunovData = layer.var(dynRup->godunovData);
-      DRFaceInformation* faceInformation = layer.var(dynRup->faceInformation);
-      DREnergyOutput* drEnergyOutput = layer.var(dynRup->drEnergyOutput);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
+      DRGodunovData* godunovData = layer.var<DynamicRupture::GodunovData>();
+      DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+      DREnergyOutput* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
+      seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus =
+          layer.var<DynamicRupture::WaveSpeedsPlus>();
+      seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus =
+          layer.var<DynamicRupture::WaveSpeedsMinus>();
       const auto layerSize = layer.size();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP

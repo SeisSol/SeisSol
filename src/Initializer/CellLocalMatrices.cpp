@@ -450,7 +450,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       LTSTree* ltsTree,
                                       Lut* ltsLut,
                                       LTSTree* dynRupTree,
-                                      DynamicRupture* dynRup,
                                       unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
                                       double etaHack) {
@@ -473,24 +472,27 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
-    auto* timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
-    auto* timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
-    auto* timeDerivativePlusDevice = layer.var(dynRup->timeDerivativePlusDevice);
-    auto* timeDerivativeMinusDevice = layer.var(dynRup->timeDerivativeMinusDevice);
-    auto* godunovData = layer.var(dynRup->godunovData);
-    auto* imposedStatePlus = layer.var(dynRup->imposedStatePlus, AllocationPlace::Host);
-    auto* imposedStateMinus = layer.var(dynRup->imposedStateMinus, AllocationPlace::Host);
-    auto* fluxSolverPlus = layer.var(dynRup->fluxSolverPlus, AllocationPlace::Host);
-    auto* fluxSolverMinus = layer.var(dynRup->fluxSolverMinus, AllocationPlace::Host);
-    auto* imposedStatePlusDevice = layer.var(dynRup->imposedStatePlus, AllocationPlace::Device);
-    auto* imposedStateMinusDevice = layer.var(dynRup->imposedStateMinus, AllocationPlace::Device);
-    auto* fluxSolverPlusDevice = layer.var(dynRup->fluxSolverPlus, AllocationPlace::Device);
-    auto* fluxSolverMinusDevice = layer.var(dynRup->fluxSolverMinus, AllocationPlace::Device);
-    auto* faceInformation = layer.var(dynRup->faceInformation);
-    auto* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
-    auto* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
-    auto* impAndEta = layer.var(dynRup->impAndEta);
-    auto* impedanceMatrices = layer.var(dynRup->impedanceMatrices);
+    auto* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
+    auto* timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
+    auto* timeDerivativePlusDevice = layer.var<DynamicRupture::TimeDerivativePlusDevice>();
+    auto* timeDerivativeMinusDevice = layer.var<DynamicRupture::TimeDerivativeMinusDevice>();
+    auto* godunovData = layer.var<DynamicRupture::GodunovData>();
+    auto* imposedStatePlus = layer.var<DynamicRupture::ImposedStatePlus>(AllocationPlace::Host);
+    auto* imposedStateMinus = layer.var<DynamicRupture::ImposedStateMinus>(AllocationPlace::Host);
+    auto* fluxSolverPlus = layer.var<DynamicRupture::FluxSolverPlus>(AllocationPlace::Host);
+    auto* fluxSolverMinus = layer.var<DynamicRupture::FluxSolverMinus>(AllocationPlace::Host);
+    auto* imposedStatePlusDevice =
+        layer.var<DynamicRupture::ImposedStatePlus>(AllocationPlace::Device);
+    auto* imposedStateMinusDevice =
+        layer.var<DynamicRupture::ImposedStateMinus>(AllocationPlace::Device);
+    auto* fluxSolverPlusDevice = layer.var<DynamicRupture::FluxSolverPlus>(AllocationPlace::Device);
+    auto* fluxSolverMinusDevice =
+        layer.var<DynamicRupture::FluxSolverMinus>(AllocationPlace::Device);
+    auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+    auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
+    auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
+    auto* impAndEta = layer.var<DynamicRupture::ImpAndEta>();
+    auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
 
 #ifdef _OPENMP
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
@@ -789,8 +791,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       dynamicRupture::kernel::rotateFluxMatrix krnl;
       krnl.T = matTData;
 
-      real(*fluxSolverPlusHost)[tensor::fluxSolver::size()] = layer.var(dynRup->fluxSolverPlus);
-      real(*fluxSolverMinusHost)[tensor::fluxSolver::size()] = layer.var(dynRup->fluxSolverMinus);
+      real(*fluxSolverPlusHost)[tensor::fluxSolver::size()] =
+          layer.var<DynamicRupture::FluxSolverPlus>();
+      real(*fluxSolverMinusHost)[tensor::fluxSolver::size()] =
+          layer.var<DynamicRupture::FluxSolverMinus>();
 
       krnl.fluxSolver = fluxSolverPlusHost[ltsFace];
       krnl.fluxScaleDR = -2.0 * plusSurfaceArea / (6.0 * plusVolume);

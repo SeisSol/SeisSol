@@ -53,12 +53,10 @@ void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshRead
 
 void ReceiverBasedOutputBuilder::setLtsData(seissol::initializer::LTSTree* userWpTree,
                                             seissol::initializer::Lut* userWpLut,
-                                            seissol::initializer::LTSTree* userDrTree,
-                                            seissol::initializer::DynamicRupture* userDrDescr) {
+                                            seissol::initializer::LTSTree* userDrTree) {
   wpTree = userWpTree;
   wpLut = userWpLut;
   drTree = userDrTree;
-  drDescr = userDrDescr;
 }
 
 void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>& variables) {

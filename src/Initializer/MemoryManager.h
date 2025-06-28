@@ -254,7 +254,7 @@ class MemoryManager {
     inline LTSTree* getDynamicRuptureTree() {
       return &m_dynRupTree;
     }
-                          
+
     inline DynamicRupture* getDynamicRupture() {
       return m_dynRup.get();
     }
@@ -328,7 +328,7 @@ class MemoryManager {
   /**
    * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
    **/
-  static void deriveRequiredScratchpadMemoryForDr(LTSTree &ltsTree, DynamicRupture& dynRup);
+  static void deriveRequiredScratchpadMemoryForDr(LTSTree &ltsTree);
 #endif
 
   void initializeFrictionLaw();

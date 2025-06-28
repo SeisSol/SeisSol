@@ -14,6 +14,7 @@
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Kernels/Touch.h>
+#include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/GlobalData.h>
 #include <Memory/MemoryAllocator.h>
@@ -165,6 +166,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   ltsTree.allocateBuckets();
 
   if (enableDR) {
+    DynamicRupture dynRup;
     dynRup.addTo(dynRupTree);
     dynRupTree.setLayerCount(1, {Config()});
     dynRupTree.fixate();
@@ -225,16 +227,18 @@ void ProxyData::initDataStructures(bool enableDR) {
     // From dynamic rupture tree
     seissol::initializer::Layer& interior = dynRupTree.layer(layerId);
     real(*imposedStatePlus)[seissol::tensor::QInterpolated::size()] =
-        interior.var(dynRup.imposedStatePlus, Place);
+        interior.var<DynamicRupture::ImposedStatePlus>(Place);
     real(*fluxSolverPlus)[seissol::tensor::fluxSolver::size()] =
-        interior.var(dynRup.fluxSolverPlus, Place);
-    real** timeDerivativeHostPlus = interior.var(dynRup.timeDerivativePlus);
-    real** timeDerivativeHostMinus = interior.var(dynRup.timeDerivativeMinus);
-    real** timeDerivativePlus = isDeviceOn() ? interior.var(dynRup.timeDerivativePlusDevice)
-                                             : interior.var(dynRup.timeDerivativePlus);
-    real** timeDerivativeMinus = isDeviceOn() ? interior.var(dynRup.timeDerivativeMinusDevice)
-                                              : interior.var(dynRup.timeDerivativeMinus);
-    DRFaceInformation* faceInformation = interior.var(dynRup.faceInformation);
+        interior.var<DynamicRupture::FluxSolverPlus>(Place);
+    real** timeDerivativeHostPlus = interior.var<DynamicRupture::TimeDerivativePlus>();
+    real** timeDerivativeHostMinus = interior.var<DynamicRupture::TimeDerivativeMinus>();
+    real** timeDerivativePlus = isDeviceOn()
+                                    ? interior.var<DynamicRupture::TimeDerivativePlusDevice>()
+                                    : interior.var<DynamicRupture::TimeDerivativePlus>();
+    real** timeDerivativeMinus = isDeviceOn()
+                                     ? interior.var<DynamicRupture::TimeDerivativeMinusDevice>()
+                                     : interior.var<DynamicRupture::TimeDerivativeMinus>();
+    DRFaceInformation* faceInformation = interior.var<DynamicRupture::FaceInformation>();
 
     std::mt19937 rng(cellCount);
     std::uniform_int_distribution<unsigned> sideDist(0, 3);
@@ -298,13 +302,14 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
     dynRupTree.synchronizeTo(seissol::initializer::AllocationPlace::Device,
                              device.api->getDefaultStream());
     device.api->syncDefaultStreamWithHost();
-    seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(dynRupTree, dynRup);
+    seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(dynRupTree);
     dynRupTree.allocateScratchPads();
 
-    CompositeRecorder<seissol::initializer::DynamicRupture> drRecorder;
+    CompositeRecorder<seissol::DynamicRupture> drRecorder;
     drRecorder.addRecorder(new DynamicRuptureRecorder);
 
     auto& drLayer = dynRupTree.layer(layerId);
+    DynamicRupture dynRup;
     drRecorder.record(dynRup, drLayer);
   }
 #endif // ACL_DEVICE

@@ -151,13 +151,11 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
 
 void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
                                seissol::initializer::Lut* userWpLut,
-                               seissol::initializer::LTSTree* userDrTree,
-                               seissol::initializer::DynamicRupture* userDrDescr) {
+                               seissol::initializer::LTSTree* userDrTree) {
   wpTree = userWpTree;
   wpLut = userWpLut;
   drTree = userDrTree;
-  drDescr = userDrDescr;
-  impl->setLtsData(wpTree, wpLut, drTree, drDescr);
+  impl->setLtsData(wpTree, wpLut, drTree);
   initFaceToLtsMap();
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
@@ -169,12 +167,12 @@ void OutputManager::setLtsData(seissol::initializer::LTSTree* userWpTree,
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
   if (pointEnabled) {
-    ppOutputBuilder->setLtsData(userWpTree, userWpLut, userDrTree, userDrDescr);
+    ppOutputBuilder->setLtsData(userWpTree, userWpLut, userDrTree);
     ppOutputBuilder->setVariableList(impl->getOutputVariables());
     ppOutputBuilder->setFaceToLtsMap(&globalFaceToLtsMap);
   }
   if (elementwiseEnabled) {
-    ewOutputBuilder->setLtsData(userWpTree, userWpLut, userDrTree, userDrDescr);
+    ewOutputBuilder->setLtsData(userWpTree, userWpLut, userDrTree);
     ewOutputBuilder->setFaceToLtsMap(&globalFaceToLtsMap);
   }
 }
@@ -397,7 +395,7 @@ void OutputManager::initPickpointOutput() {
           {
             auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
-            const auto* initialStressVar = layer->var(drDescr->initialStressInFaultCS);
+            const auto* initialStressVar = layer->var<DynamicRupture::InitialStressInFaultCS>();
             const auto* initialStress = initialStressVar[face];
             std::array<real, 6> unrotatedInitialStress{};
             for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
@@ -446,13 +444,13 @@ void OutputManager::initFaceToLtsMap() {
     globalFaceToLtsMap.resize(faceToLtsMap.size());
     for (auto& layer : drTree->leaves(Ghost)) {
 
-      DRFaceInformation* faceInformation = layer.var(drDescr->faceInformation);
+      DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
       }
     }
 
-    DRFaceInformation* faceInformation = drTree->var(drDescr->faceInformation);
+    DRFaceInformation* faceInformation = drTree->var<DynamicRupture::FaceInformation>();
     for (size_t ltsFace = 0; ltsFace < ltsFaultSize; ++ltsFace) {
       globalFaceToLtsMap[faceInformation[ltsFace].meshFace] = ltsFace;
     }

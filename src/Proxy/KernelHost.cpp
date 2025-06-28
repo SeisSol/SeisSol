@@ -20,6 +20,7 @@
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
 #include <Kernels/TimeCommon.h>
+#include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Tree/Layer.h>
 #include <Monitoring/Instrumentation.h>
 #include <Parallel/Runtime/Stream.h>
@@ -253,11 +254,11 @@ auto ProxyKernelHostNeighborDR::needsDR() const -> bool { return true; }
 void ProxyKernelHostGodunovDR::run(ProxyData& data,
                                    seissol::parallel::runtime::StreamRuntime& runtime) const {
   seissol::initializer::Layer& layerData = data.dynRupTree.layer(data.layerId);
-  DRFaceInformation* faceInformation = layerData.var(data.dynRup.faceInformation);
-  DRGodunovData* godunovData = layerData.var(data.dynRup.godunovData);
-  DREnergyOutput* drEnergyOutput = layerData.var(data.dynRup.drEnergyOutput);
-  real** timeDerivativePlus = layerData.var(data.dynRup.timeDerivativePlus);
-  real** timeDerivativeMinus = layerData.var(data.dynRup.timeDerivativeMinus);
+  DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
+  DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
+  DREnergyOutput* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
+  real** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
+  real** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
   alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()];
   alignas(Alignment) real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()];
 
@@ -285,7 +286,7 @@ auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> Per
 
   // iterate over cells
   seissol::initializer::Layer& interior = data.dynRupTree.layer(data.layerId);
-  DRFaceInformation* faceInformation = interior.var(data.dynRup.faceInformation);
+  DRFaceInformation* faceInformation = interior.var<DynamicRupture::FaceInformation>();
   for (unsigned face = 0; face < interior.size(); ++face) {
     long long drNonZeroFlops = 0;
     long long drHardwareFlops = 0;

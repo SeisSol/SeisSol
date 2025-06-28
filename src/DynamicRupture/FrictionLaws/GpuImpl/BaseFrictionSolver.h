@@ -181,7 +181,6 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime, real fullUpdateTime);
 
   void evaluate(seissol::initializer::Layer& layerData,
-                const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
@@ -193,8 +192,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     // TODO: avoid copying the data all the time
     // TODO: allocate FrictionLawData as constant data
 
-    FrictionSolverInterface::copyLtsTreeToLocal(&dataHost, layerData, dynRup, fullUpdateTime);
-    Derived::copySpecificLtsDataTreeToLocal(&dataHost, layerData, dynRup, fullUpdateTime);
+    FrictionSolverInterface::copyLtsTreeToLocal(&dataHost, layerData, fullUpdateTime);
+    Derived::copySpecificLtsDataTreeToLocal(&dataHost, layerData, fullUpdateTime);
     this->currLayerSize = layerData.size();
     dataHost.drParameters = *this->drParameters;
 

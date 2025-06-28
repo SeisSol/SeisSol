@@ -105,7 +105,6 @@ void seissol::time_stepping::TimeManager::addClusters(TimeStepping& timeStepping
           layerData,
           dynRupInteriorData,
           dynRupCopyData,
-          memoryManager.getDynamicRupture(),
           memoryManager.getFrictionLaw(),
           memoryManager.getFrictionLawDevice(),
           memoryManager.getFaultOutputManager(),

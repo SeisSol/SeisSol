@@ -52,9 +52,7 @@ class ThermalPressurization {
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData, real fullUpdateTime);
 
   /**
    * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face

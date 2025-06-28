@@ -53,17 +53,15 @@ class ThermalPressurization {
    */
   static void copyLtsTreeToLocal(FrictionLawData* data,
                                  seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
                                  real fullUpdateTime) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::ThermalPressurization*>(dynRup);
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->temperature = layerData.var(concreteLts->temperature, place);
-    data->pressure = layerData.var(concreteLts->pressure, place);
-    data->theta = layerData.var(concreteLts->theta, place);
-    data->sigma = layerData.var(concreteLts->sigma, place);
-    data->halfWidthShearZone = layerData.var(concreteLts->halfWidthShearZone, place);
-    data->hydraulicDiffusivity = layerData.var(concreteLts->hydraulicDiffusivity, place);
+    data->temperature = layerData.var<LTSThermalPressurization::Temperature>(place);
+    data->pressure = layerData.var<LTSThermalPressurization::Pressure>(place);
+    data->theta = layerData.var<LTSThermalPressurization::Theta>(place);
+    data->sigma = layerData.var<LTSThermalPressurization::Sigma>(place);
+    data->halfWidthShearZone = layerData.var<LTSThermalPressurization::HalfWidthShearZone>(place);
+    data->hydraulicDiffusivity =
+        layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(place);
   }
 
   SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& ctx) {

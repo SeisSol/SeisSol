@@ -34,7 +34,6 @@ struct ProxyData {
 
   seissol::initializer::LTSTree ltsTree;
   seissol::initializer::LTSTree dynRupTree;
-  seissol::initializer::DynamicRupture dynRup;
 
   GlobalData globalDataOnHost;
   GlobalData globalDataOnDevice;

@@ -28,8 +28,7 @@ class OutputManager {
   void setInputParam(seissol::geometry::MeshReader& userMesher);
   void setLtsData(seissol::initializer::LTSTree* userWpTree,
                   seissol::initializer::Lut* userWpLut,
-                  seissol::initializer::LTSTree* userDrTree,
-                  seissol::initializer::DynamicRupture* userDrDescr);
+                  seissol::initializer::LTSTree* userDrTree);
   void setBackupTimeStamp(const std::string& stamp) { this->backupTimeStamp = stamp; }
 
   void init();
@@ -64,7 +63,6 @@ class OutputManager {
   seissol::initializer::LTSTree* wpTree{nullptr};
   seissol::initializer::Lut* wpLut{nullptr};
   seissol::initializer::LTSTree* drTree{nullptr};
-  seissol::initializer::DynamicRupture* drDescr{nullptr};
 
   FaceToLtsMapType faceToLtsMap{};
   std::vector<std::size_t> globalFaceToLtsMap;

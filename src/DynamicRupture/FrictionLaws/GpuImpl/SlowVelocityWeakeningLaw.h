@@ -19,11 +19,9 @@ class SlowVelocityWeakeningLaw
   public:
   using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  static void
-      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                     seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) {}
+  static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+                                             seissol::initializer::Layer& layerData,
+                                             real fullUpdateTime) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {

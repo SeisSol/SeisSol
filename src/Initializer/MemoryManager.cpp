@@ -663,13 +663,12 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
 }
 
 void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(
-    LTSTree &ltsTree,
-    DynamicRupture& dynRup) {
+    LTSTree &ltsTree) {
   constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
   for (auto& layer : ltsTree.leaves()) {
     const auto layerSize = layer.size();
-    layer.setEntrySize(dynRup.idofsPlusOnDevice, idofsSize * layerSize);
-    layer.setEntrySize(dynRup.idofsMinusOnDevice, idofsSize * layerSize);
+    layer.setEntrySize<DynamicRupture::IdofsPlusOnDevice>(idofsSize * layerSize);
+    layer.setEntrySize<DynamicRupture::IdofsMinusOnDevice>(idofsSize * layerSize);
   }
 }
 #endif
@@ -816,7 +815,7 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
     recorder.record(LTS(), layer);
   }
 
-  recording::CompositeRecorder<seissol::initializer::DynamicRupture> drRecorder;
+  recording::CompositeRecorder<seissol::DynamicRupture> drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
   for (auto& layer : m_dynRupTree.leaves(Ghost)) {
     drRecorder.record(*m_dynRup, layer);
@@ -880,8 +879,7 @@ void seissol::initializer::MemoryManager::initFaultOutputManager(const std::stri
     m_faultOutputManager->setInputParam(seissolInstance.meshReader());
     m_faultOutputManager->setLtsData(&m_ltsTree,
                                      &m_ltsLut,
-                                     &m_dynRupTree,
-                                     m_dynRup.get());
+                                     &m_dynRupTree);
     m_faultOutputManager->setBackupTimeStamp(backupTimeStamp);
     m_faultOutputManager->init();
 
@@ -892,7 +890,7 @@ void seissol::initializer::MemoryManager::initFaultOutputManager(const std::stri
 void seissol::initializer::MemoryManager::initFrictionData() {
   if (m_seissolParams->drParameters.isDynamicRuptureEnabled) {
 
-    m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
+    m_DRInitializer->initializeFault(&m_dynRupTree);
 
 #ifdef ACL_DEVICE
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {

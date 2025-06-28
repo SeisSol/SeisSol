@@ -26,11 +26,8 @@ void NoSpecialization::resampleSlipRate(
   resampleKrnl.execute();
 }
 void BiMaterialFault::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                         const seissol::initializer::DynamicRupture* const dynRup,
                                          real fullUpdateTime) {
-  const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup);
-  regularizedStrength = layerData.var(concreteLts->regularizedStrength);
+  regularizedStrength = layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
 }
 
 #pragma omp declare simd

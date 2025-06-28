@@ -61,7 +61,6 @@ struct EnergiesStorage {
 class EnergyOutput : public Module {
   public:
   void init(GlobalData* newGlobal,
-            seissol::initializer::DynamicRupture* newDynRup,
             seissol::initializer::LTSTree* newDynRuptTree,
             seissol::geometry::MeshReader* newMeshReader,
             seissol::initializer::LTSTree* newLtsTree,
@@ -126,7 +125,6 @@ class EnergyOutput : public Module {
 #endif
 
   const GlobalData* global = nullptr;
-  seissol::initializer::DynamicRupture* dynRup = nullptr;
   seissol::initializer::LTSTree* dynRupTree = nullptr;
   seissol::geometry::MeshReader* meshReader = nullptr;
   seissol::initializer::LTSTree* ltsTree = nullptr;

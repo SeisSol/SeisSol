@@ -56,7 +56,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     auto* tree = seissolInstance.getMemoryManager().getDynamicRuptureTree();
     auto* dynrup = seissolInstance.getMemoryManager().getDynamicRupture();
     std::vector<std::size_t> faceIdentifiers(tree->size(seissol::initializer::LayerMask(Ghost)));
-    const auto* drFaceInformation = tree->var(dynrup->faceInformation);
+    const auto* drFaceInformation = tree->var<DynamicRupture::FaceInformation>();
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
@@ -362,7 +362,6 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     auto& energyOutput = seissolInstance.energyOutput();
 
     energyOutput.init(globalData,
-                      dynRup,
                       dynRupTree,
                       &seissolInstance.meshReader(),
                       ltsTree,

@@ -10,6 +10,7 @@
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
+#include <Memory/Descriptor/DynamicRupture.h>
 
 namespace seissol::dr::friction_law::gpu {
 
@@ -25,12 +26,10 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
 
   void allocateAuxiliaryMemory() override { FrictionSolverDetails::allocateAuxiliaryMemory(); }
 
-  static void
-      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                     seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) {
-    Derived::copySpecificLtsDataTreeToLocal(data, layerData, dynRup, fullUpdateTime);
+  static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+                                             seissol::initializer::Layer& layerData,
+                                             real fullUpdateTime) {
+    Derived::copySpecificLtsDataTreeToLocal(data, layerData, fullUpdateTime);
   }
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, unsigned timeIndex) {
@@ -136,21 +135,20 @@ class LinearSlipWeakeningLaw
       : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters){};
 
-  static void
-      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                     seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening*>(dynRup);
-    data->dC = layerData.var(concreteLts->dC, seissol::initializer::AllocationPlace::Device);
-    data->muS = layerData.var(concreteLts->muS, seissol::initializer::AllocationPlace::Device);
-    data->muD = layerData.var(concreteLts->muD, seissol::initializer::AllocationPlace::Device);
-    data->cohesion =
-        layerData.var(concreteLts->cohesion, seissol::initializer::AllocationPlace::Device);
-    data->forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime,
-                                            seissol::initializer::AllocationPlace::Device);
-    SpecializationT::copyLtsTreeToLocal(data, layerData, dynRup, fullUpdateTime);
+  static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+                                             seissol::initializer::Layer& layerData,
+                                             real fullUpdateTime) {
+    data->dC =
+        layerData.var<LTSLinearSlipWeakening::DC>(seissol::initializer::AllocationPlace::Device);
+    data->muS =
+        layerData.var<LTSLinearSlipWeakening::MuS>(seissol::initializer::AllocationPlace::Device);
+    data->muD =
+        layerData.var<LTSLinearSlipWeakening::MuD>(seissol::initializer::AllocationPlace::Device);
+    data->cohesion = layerData.var<LTSLinearSlipWeakening::Cohesion>(
+        seissol::initializer::AllocationPlace::Device);
+    data->forcedRuptureTime = layerData.var<LTSLinearSlipWeakening::ForcedRuptureTime>(
+        seissol::initializer::AllocationPlace::Device);
+    SpecializationT::copyLtsTreeToLocal(data, layerData, fullUpdateTime);
   }
 
   SEISSOL_DEVICE static void calcStrengthHook(FrictionLawContext& ctx, unsigned int timeIndex) {
@@ -228,7 +226,6 @@ class NoSpecialization {
 
   static void copyLtsTreeToLocal(FrictionLawData* data,
                                  seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
                                  real fullUpdateTime) {}
 
   SEISSOL_DEVICE static real
@@ -283,12 +280,10 @@ class BiMaterialFault {
 
   static void copyLtsTreeToLocal(FrictionLawData* data,
                                  seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
                                  real fullUpdateTime) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSLinearSlipWeakeningBimaterial*>(dynRup);
-    data->regularizedStrength = layerData.var(concreteLts->regularizedStrength,
-                                              seissol::initializer::AllocationPlace::Device);
+    data->regularizedStrength =
+        layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(
+            seissol::initializer::AllocationPlace::Device);
   }
 
   SEISSOL_DEVICE static real
@@ -327,7 +322,6 @@ class TPApprox {
 
   static void copyLtsTreeToLocal(FrictionLawData* data,
                                  seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
                                  real fullUpdateTime) {}
 
   SEISSOL_DEVICE static real
