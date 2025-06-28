@@ -21,7 +21,6 @@ class RateAndState : public ReceiverOutput {
   }
 
   real computeStateVariable(LocalInfo& local) override {
-    assert((descr != nullptr) && "dr descr. must be a subtype of LTS_RateAndState");
     return getCellData<LTSRateAndState::StateVariable>(local)[local.gpIndex];
   }
 

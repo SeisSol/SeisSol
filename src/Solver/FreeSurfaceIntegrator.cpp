@@ -37,7 +37,7 @@
 #include <vector>
 
 void seissol::SurfaceLTS::addTo(seissol::initializer::LTSTree& surfaceLtsTree) {
-  seissol::initializer::LayerMask ghostMask(Ghost);
+  const seissol::initializer::LayerMask ghostMask(Ghost);
   surfaceLtsTree.add<Dofs>(ghostMask, 1, initializer::AllocationMode::HostOnly);
   surfaceLtsTree.add<DisplacementDofs>(ghostMask, 1, initializer::AllocationMode::HostOnly);
   surfaceLtsTree.add<Side>(ghostMask, 1, initializer::AllocationMode::HostOnly);
@@ -277,7 +277,7 @@ seissol::solver::FreeSurfaceIntegrator::LocationFlag
 
 void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
     seissol::initializer::LTSTree* ltsTree) {
-  seissol::initializer::LayerMask ghostMask(Ghost);
+  const seissol::initializer::LayerMask ghostMask(Ghost);
 
   surfaceLtsTree.setLayerCount(ltsTree->numTimeClusters(), ltsTree->getConfigs());
   surfaceLtsTree.fixate();
