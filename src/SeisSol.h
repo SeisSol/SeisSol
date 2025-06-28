@@ -12,6 +12,7 @@
 #include <Common/Executor.h>
 #include <IO/Manager.h>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "utils/env.h"
@@ -65,7 +66,18 @@ class SeisSol {
 
   void loadCheckpoint(const std::string& file);
 
-  Executor executionPlace(std::size_t clusterSize);
+  Executor executionPlace(std::size_t clusterSize) {
+    constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
+    if (executionPlaceCutoff.has_value()) {
+      if (executionPlaceCutoff.value() <= clusterSize) {
+        return DefaultDevice;
+      } else {
+        return Executor::Host;
+      }
+    } else {
+      return DefaultDevice;
+    }
+  }
 
   void setExecutionPlaceCutoff(std::size_t size);
 

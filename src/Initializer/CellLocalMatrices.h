@@ -17,6 +17,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
+#include <Initializer/TimeStepping/ClusterLayout.h>
 
 namespace seissol::initializer {
 class EasiBoundary;
@@ -26,7 +27,7 @@ class EasiBoundary;
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  LTSTree* ltsTree,
                                  Lut* ltsLut,
-                                 const TimeStepping& timeStepping,
+                                 const ClusterLayout& clusterLayout,
                                  const parameters::ModelParameters& modelParameters);
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,

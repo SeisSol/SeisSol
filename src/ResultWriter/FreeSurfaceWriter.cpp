@@ -203,7 +203,7 @@ void seissol::writer::FreeSurfaceWriter::write(double time) {
   FreeSurfaceParam param;
   param.time = time;
 
-  for (unsigned i = 0; i < 2 * FREESURFACE_NUMBER_OF_COMPONENTS; ++i) {
+  for (unsigned i = 0; i < 2 * seissol::solver::FreeSurfaceIntegrator::NumComponents; ++i) {
     sendBuffer(FreeSurfaceWriterExecutor::Variables0 + i);
   }
 

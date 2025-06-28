@@ -187,8 +187,8 @@ class MemoryManager {
      *
      * @param i_meshStructrue mesh structure.
      **/
-    void fixateLtsTree(struct TimeStepping& i_timeStepping,
-                       struct MeshStructure*i_meshStructure,
+    void fixateLtsTree(struct ClusterLayout& clusterLayout,
+                       struct MeshStructure* meshStructure,
                        unsigned* numberOfDRCopyFaces,
                        unsigned* numberOfDRInteriorFaces,
                        bool usePlasticity);

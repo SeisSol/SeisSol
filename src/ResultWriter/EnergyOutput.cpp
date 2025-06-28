@@ -86,13 +86,13 @@ std::array<real, multisim::NumSimulations>
 
   krnl.QInterpolated = qInterpolatedPlus;
   krnl.Q = qPlus;
-  krnl.TinvT = godunovData.TinvT;
+  krnl.TinvT = godunovData.dataTinvT;
   krnl._prefetch.QInterpolated = qInterpolatedPlus;
   krnl.execute(faceInfo.plusSide, 0);
 
   krnl.QInterpolated = qInterpolatedMinus;
   krnl.Q = qMinus;
-  krnl.TinvT = godunovData.TinvT;
+  krnl.TinvT = godunovData.dataTinvT;
   krnl._prefetch.QInterpolated = qInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
 
@@ -548,7 +548,7 @@ void EnergyOutput::computeVolumeEnergies() {
           // Displacements are stored in face-aligned coordinate system.
           // We need to rotate it to the global coordinate system.
           const auto& boundaryMapping = boundaryMappings[face];
-          auto tinv = init::Tinv::view::create(boundaryMapping.TinvData);
+          auto tinv = init::Tinv::view::create(boundaryMapping.dataTinv);
           alignas(Alignment)
               real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
 

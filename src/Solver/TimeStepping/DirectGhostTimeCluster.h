@@ -8,27 +8,27 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_DIRECTGHOSTTIMECLUSTER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_DIRECTGHOSTTIMECLUSTER_H_
 
-#include <list>
 #include "Initializer/Typedefs.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
-
+#include <list>
 
 namespace seissol::time_stepping {
 class DirectGhostTimeCluster : public AbstractGhostTimeCluster {
-protected:
-  virtual void sendCopyLayer();
-  virtual void receiveGhostLayer();
-  virtual bool testForGhostLayerReceives();
+  protected:
+  void sendCopyLayer() override;
+  void receiveGhostLayer() override;
+  bool testForGhostLayerReceives() override;
 
-public:
-    DirectGhostTimeCluster(double maxTimeStepSize,
-                           int timeStepRate,
-                           int globalTimeClusterId,
-                           int otherGlobalTimeClusterId,
-                           const MeshStructure* meshStructure,
-                           bool persistent);
-    void finalize() override;
-private:
+  public:
+  DirectGhostTimeCluster(double maxTimeStepSize,
+                         int timeStepRate,
+                         int globalTimeClusterId,
+                         int otherGlobalTimeClusterId,
+                         const MeshStructure* meshStructure,
+                         bool persistent);
+  void finalize() override;
+
+  private:
   bool persistent;
 };
 } // namespace seissol::time_stepping

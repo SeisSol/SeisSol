@@ -396,29 +396,29 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
   }
 }
 
-void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_timeStepping,
-                                                         struct MeshStructure*i_meshStructure,
+void seissol::initializer::MemoryManager::fixateLtsTree(struct ClusterLayout& clusterLayout,
+                                                         struct MeshStructure* meshStructure,
                                                          unsigned* numberOfDRCopyFaces,
                                                          unsigned* numberOfDRInteriorFaces,
                                                          bool usePlasticity) {
   // store mesh structure and the number of time clusters
-  m_meshStructure = i_meshStructure;
+  m_meshStructure = meshStructure;
 
   m_ltsTree.setName("cluster");
 
   // Setup tree variables
   LTS::addTo(m_ltsTree, usePlasticity);
   seissolInstance.postProcessor().allocateMemory(&m_ltsTree);
-  m_ltsTree.setLayerCount(i_timeStepping.numberOfGlobalClusters, {Config()});
+  m_ltsTree.setLayerCount(clusterLayout.globalClusterCount, {Config()});
 
   /// From this point, the tree layout, variables, and buckets cannot be changed anymore
   m_ltsTree.fixate();
 
   // Set number of cells and bucket sizes in ltstree
   for (unsigned tc = 0; tc < m_ltsTree.numTimeClusters(); ++tc) {
-    m_ltsTree.layer(initializer::LayerIdentifier(Ghost, Config(), tc)).setNumberOfCells(i_meshStructure[tc].numberOfGhostCells);
-    m_ltsTree.layer(initializer::LayerIdentifier(Copy, Config(), tc)).setNumberOfCells(i_meshStructure[tc].numberOfCopyCells);
-    m_ltsTree.layer(initializer::LayerIdentifier(Interior, Config(), tc)).setNumberOfCells(i_meshStructure[tc].numberOfInteriorCells);
+    m_ltsTree.layer(initializer::LayerIdentifier(Ghost, Config(), tc)).setNumberOfCells(meshStructure[tc].numberOfGhostCells);
+    m_ltsTree.layer(initializer::LayerIdentifier(Copy, Config(), tc)).setNumberOfCells(meshStructure[tc].numberOfCopyCells);
+    m_ltsTree.layer(initializer::LayerIdentifier(Interior, Config(), tc)).setNumberOfCells(meshStructure[tc].numberOfInteriorCells);
   }
 
   m_ltsTree.allocateVariables();
@@ -434,10 +434,8 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
 
   for (unsigned tc = 0; tc < m_dynRupTree.numTimeClusters(); ++tc) {
     m_dynRupTree.layer(initializer::LayerIdentifier(Ghost, Config(), tc)).setNumberOfCells(0);
-    if (tc < i_timeStepping.numberOfLocalClusters) {
-      m_dynRupTree.layer(initializer::LayerIdentifier(Copy, Config(), tc)).setNumberOfCells(numberOfDRCopyFaces[tc]);
-      m_dynRupTree.layer(initializer::LayerIdentifier(Interior, Config(), tc)).setNumberOfCells(numberOfDRInteriorFaces[tc]);
-    }
+    m_dynRupTree.layer(initializer::LayerIdentifier(Copy, Config(), tc)).setNumberOfCells(numberOfDRCopyFaces[tc]);
+    m_dynRupTree.layer(initializer::LayerIdentifier(Interior, Config(), tc)).setNumberOfCells(numberOfDRInteriorFaces[tc]);
   }
 
   m_dynRupTree.allocateVariables();
@@ -495,25 +493,25 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
       for (unsigned face = 0; face < 4; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
-          boundaryMapping[cell][face].TData = faceInformation[boundaryFace].TData;
-          boundaryMapping[cell][face].TinvData = faceInformation[boundaryFace].TinvData;
+          boundaryMapping[cell][face].dataT = faceInformation[boundaryFace].dataT;
+          boundaryMapping[cell][face].dataTinv = faceInformation[boundaryFace].dataTinv;
           boundaryMapping[cell][face].easiBoundaryMap = faceInformation[boundaryFace].easiBoundaryMap;
           boundaryMapping[cell][face].easiBoundaryConstant = faceInformation[boundaryFace].easiBoundaryConstant;
           boundaryMappingDevice[cell][face].nodes = faceInformationDevice[boundaryFace].nodes;
-          boundaryMappingDevice[cell][face].TData = faceInformationDevice[boundaryFace].TData;
-          boundaryMappingDevice[cell][face].TinvData = faceInformationDevice[boundaryFace].TinvData;
+          boundaryMappingDevice[cell][face].dataT = faceInformationDevice[boundaryFace].dataT;
+          boundaryMappingDevice[cell][face].dataTinv = faceInformationDevice[boundaryFace].dataTinv;
           boundaryMappingDevice[cell][face].easiBoundaryMap = faceInformationDevice[boundaryFace].easiBoundaryMap;
           boundaryMappingDevice[cell][face].easiBoundaryConstant = faceInformationDevice[boundaryFace].easiBoundaryConstant;
           ++boundaryFace;
         } else {
           boundaryMapping[cell][face].nodes = nullptr;
-          boundaryMapping[cell][face].TData = nullptr;
-          boundaryMapping[cell][face].TinvData = nullptr;
+          boundaryMapping[cell][face].dataT = nullptr;
+          boundaryMapping[cell][face].dataTinv = nullptr;
           boundaryMapping[cell][face].easiBoundaryMap = nullptr;
           boundaryMapping[cell][face].easiBoundaryConstant = nullptr;
           boundaryMappingDevice[cell][face].nodes = nullptr;
-          boundaryMappingDevice[cell][face].TData = nullptr;
-          boundaryMappingDevice[cell][face].TinvData = nullptr;
+          boundaryMappingDevice[cell][face].dataT = nullptr;
+          boundaryMappingDevice[cell][face].dataTinv = nullptr;
           boundaryMappingDevice[cell][face].easiBoundaryMap = nullptr;
           boundaryMappingDevice[cell][face].easiBoundaryConstant = nullptr;
         }

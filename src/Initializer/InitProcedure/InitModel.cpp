@@ -20,6 +20,7 @@
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Kernels/Common.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
@@ -32,6 +33,7 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utils/env.h>
@@ -187,7 +189,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 struct LtsInfo {
   unsigned* ltsMeshToFace = nullptr;
   MeshStructure* meshStructure = nullptr;
-  TimeStepping timeStepping{};
+  std::optional<ClusterLayout> clusterLayout;
 
   // IMPORTANT: DO NOT DEALLOCATE THE ABOVE POINTERS... THEY ARE PASSED ON AND REQUIRED DURING
   // RUNTIME
@@ -203,7 +205,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   seissol::initializer::initializeCellLocalMatrices(meshReader,
                                                     memoryManager.getLtsTree(),
                                                     memoryManager.getLtsLut(),
-                                                    ltsInfo.timeStepping,
+                                                    ltsInfo.clusterLayout.value(),
                                                     seissolParams.model);
 
   if (seissolParams.drParameters.etaHack != 1.0) {
@@ -239,19 +241,19 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
     const double scalingFactor = itmParameters.itmVelocityScalingFactor;
     const double startingTime = itmParameters.itmStartingTime;
 
-    auto* mLtsTree = memoryManager.getLtsTree();
-    auto* mLtsLut = memoryManager.getLtsLut();
-    const auto* mTimeStepping = seissolInstance.timeManager().getTimeStepping();
+    auto* ltsTree = memoryManager.getLtsTree();
+    auto* ltsLut = memoryManager.getLtsLut();
+    const auto* timeStepping = &seissolInstance.timeManager().getClusterLayout();
 
     initializeTimeMirrorManagers(scalingFactor,
                                  startingTime,
                                  &meshReader,
-                                 mLtsTree,
-                                 mLtsLut,
+                                 ltsTree,
+                                 ltsLut,
                                  timeMirrorManagers.first,
                                  timeMirrorManagers.second,
                                  seissolInstance,
-                                 mTimeStepping);
+                                 timeStepping);
   }
 }
 
@@ -296,7 +298,7 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                               seissolParams.timeStepping.lts.getRate());
 
   seissolInstance.getLtsLayout().getMeshStructure(ltsInfo.meshStructure);
-  seissolInstance.getLtsLayout().getCrossClusterTimeStepping(ltsInfo.timeStepping);
+  ltsInfo.clusterLayout = seissolInstance.getLtsLayout().clusterLayout();
 
   seissolInstance.getMemoryManager().initializeFrictionLaw();
 
@@ -306,7 +308,7 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   seissolInstance.getLtsLayout().getDynamicRuptureInformation(
       ltsInfo.ltsMeshToFace, numberOfDRCopyFaces, numberOfDRInteriorFaces);
 
-  seissolInstance.getMemoryManager().fixateLtsTree(ltsInfo.timeStepping,
+  seissolInstance.getMemoryManager().fixateLtsTree(ltsInfo.clusterLayout.value(),
                                                    ltsInfo.meshStructure,
                                                    numberOfDRCopyFaces,
                                                    numberOfDRInteriorFaces,
@@ -333,10 +335,11 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   delete[] ltsToMesh;
 
-  seissol::initializer::time_stepping::deriveLtsSetups(ltsInfo.timeStepping.numberOfLocalClusters,
-                                                       ltsInfo.meshStructure,
-                                                       ltsTree->var<LTS::CellInformation>(),
-                                                       ltsTree->var<LTS::SecondaryInformation>());
+  seissol::initializer::time_stepping::deriveLtsSetups(
+      ltsInfo.clusterLayout.value().globalClusterCount,
+      ltsInfo.meshStructure,
+      ltsTree->var<LTS::CellInformation>(),
+      ltsTree->var<LTS::SecondaryInformation>());
 }
 
 void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
@@ -344,15 +347,10 @@ void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   seissolInstance.getMemoryManager().initializeMemoryLayout();
 
-  seissolInstance.timeManager().addClusters(ltsInfo.timeStepping,
+  seissolInstance.timeManager().addClusters(ltsInfo.clusterLayout.value(),
                                             ltsInfo.meshStructure,
                                             seissolInstance.getMemoryManager(),
                                             seissolParams.model.plasticity);
-
-  // set tv for all time clusters (this needs to be done, after the time clusters start existing)
-  if (seissolParams.model.plasticity) {
-    seissolInstance.timeManager().setTv(seissolParams.model.tv);
-  }
 
   seissolInstance.getMemoryManager().fixateBoundaryLtsTree();
 }

@@ -296,8 +296,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
           displacementsPtrs[face].push_back(dataHost.get<LTS::FaceDisplacementsDevice>()[face]);
-          t[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].TData);
-          tInv[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].TinvData);
+          t[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].dataT);
+          tInv[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].dataTinv);
 
           rhos[face].push_back(dataHost.get<LTS::Material>().local.rho);
           lambdas[face].push_back(dataHost.get<LTS::Material>().local.getLambdaBar());
@@ -390,7 +390,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
           dofsPtrs[face].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
           idofsPtrs[face].push_back(idofsAddressRegistry[cell]);
 
-          tInv[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].TinvData);
+          tInv[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].dataTinv);
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
 
