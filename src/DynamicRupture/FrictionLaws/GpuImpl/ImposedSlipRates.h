@@ -35,7 +35,7 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, unsigned timeIndex) {
     const real timeIncrement = ctx.data->deltaT[timeIndex];
     real currentTime = ctx.fullUpdateTime;
-    for (int i = 0; i <= timeIndex; i++) {
+    for (unsigned i = 0; i <= timeIndex; i++) {
       currentTime += ctx.data->deltaT[i];
     }
 
