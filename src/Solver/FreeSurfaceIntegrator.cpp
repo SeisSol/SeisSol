@@ -152,18 +152,18 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
   }
 
   // Triangle quadrature points and weights
-  auto* points = new double[numQuadraturePoints][2];
-  auto* weights = new double[numQuadraturePoints];
+  auto* points = new double[NumQuadraturePoints][2];
+  auto* weights = new double[NumQuadraturePoints];
   // TODO(SW): Use the same quadrature rule, which is used for Dynamic Rupture
-  seissol::quadrature::TriangleQuadrature(points, weights, polyDegree);
+  seissol::quadrature::TriangleQuadrature(points, weights, PolyDegree);
 
-  auto points3D = std::array<std::array<double, 3>, numQuadraturePoints>{}; // Points for eval of 3D basis
-  auto points2D = std::array<std::array<double, 2>, numQuadraturePoints>{}; // Points for eval of 2D basis
+  auto points3D = std::array<std::array<double, 3>, NumQuadraturePoints>{}; // Points for eval of 3D basis
+  auto points2D = std::array<std::array<double, 2>, NumQuadraturePoints>{}; // Points for eval of 2D basis
 
   // Compute projection matrices
   for (unsigned face = 0; face < 4; ++face) {
     for (unsigned tri = 0; tri < numberOfSubTriangles; ++tri) {
-      for (unsigned qp = 0; qp < numQuadraturePoints; ++qp) {
+      for (unsigned qp = 0; qp < NumQuadraturePoints; ++qp) {
         seissol::refinement::Triangle const& subTri = triRefiner.subTris[tri];
         const auto chiTau = std::array<double, 2>{
             points[qp][0] * (subTri.x[1][0] - subTri.x[0][0]) + points[qp][1] * (subTri.x[2][0] - subTri.x[0][0]) +
@@ -186,7 +186,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(unsign
 }
 
 void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(real* projectionMatrixRow,
-                                                                        const std::array<std::array<double, 3>,numQuadraturePoints>& bfPoints,
+                                                                        const std::array<std::array<double, 3>,NumQuadraturePoints>& bfPoints,
                                                                         double const* weights) const
 {
   unsigned nbf = 0;
@@ -197,7 +197,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(real* pr
 
         // Compute subtriangle average via quadrature
         double average = 0.0;
-        for (unsigned qp = 0; qp < numQuadraturePoints; ++qp) {
+        for (unsigned qp = 0; qp < NumQuadraturePoints; ++qp) {
           average += weights[qp] * seissol::functions::TetraDubinerP({i, j, k}, {bfPoints[qp][0], bfPoints[qp][1], bfPoints[qp][2]});
         }
         // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
@@ -212,14 +212,14 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(real* pr
 }
 
 void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces(real* projectionMatrixFromFaceRow,
-                                                                                 const std::array<std::array<double, 2>, numQuadraturePoints>& bfPoints,
+                                                                                 const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
                                                                                  double const* weights) const {
   unsigned nbf = 0;
   for (unsigned d = 0; d < ConvergenceOrder; ++d) {
     for (unsigned j = 0; j <= d; ++j) {
       // Compute subtriangle average via quadrature
       double average = 0.0;
-      for (unsigned qp = 0; qp < numQuadraturePoints; ++qp) {
+      for (unsigned qp = 0; qp < NumQuadraturePoints; ++qp) {
         average += weights[qp] * seissol::functions::TriDubinerP({d - j, j}, {bfPoints[qp][0], bfPoints[qp][1]});
       }
       // We have a factor J / area. As J = 2*area we have to multiply the average by 2.

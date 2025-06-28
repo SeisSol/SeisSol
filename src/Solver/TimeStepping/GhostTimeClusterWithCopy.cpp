@@ -9,7 +9,7 @@
 #ifdef ACL_DEVICE
 
 #include "Parallel/MPI.h"
-#include "Solver/time_stepping/GhostTimeClusterWithCopy.h"
+#include "Solver/TimeStepping/GhostTimeClusterWithCopy.h"
 #include "device.h"
 
 namespace seissol::time_stepping {

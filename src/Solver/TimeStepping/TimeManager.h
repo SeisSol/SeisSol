@@ -7,8 +7,8 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
-#define SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
+#ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
+#define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #include <vector>
 #include <queue>
 #include <list>
@@ -25,7 +25,7 @@
 #include "ResultWriter/ReceiverWriter.h"
 #include "TimeCluster.h"
 #include "Monitoring/Stopwatch.h"
-#include "Solver/time_stepping/GhostTimeClusterFactory.h"
+#include "Solver/TimeStepping/GhostTimeClusterFactory.h"
 
 namespace seissol {
   namespace time_stepping {
@@ -165,4 +165,4 @@ class seissol::time_stepping::TimeManager {
 };
 
 
-#endif // SEISSOL_SRC_SOLVER_TIME_STEPPING_TIMEMANAGER_H_
+#endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
