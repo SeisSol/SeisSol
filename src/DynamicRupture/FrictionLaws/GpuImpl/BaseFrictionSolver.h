@@ -97,9 +97,11 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       for (int i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
         common::adjustInitialStress<gpuRangeType>(
             ctx.data->initialStressInFaultCS[ctx.ltsFace],
-            ctx.data->nucleationStressInFaultCS[i][ctx.ltsFace],
+            ctx.data
+                ->nucleationStressInFaultCS[ctx.ltsFace * ctx.data->drParameters.nucleationCount +
+                                            i],
             ctx.data->initialPressure[ctx.ltsFace],
-            ctx.data->nucleationPressure[i][ctx.ltsFace],
+            ctx.data->nucleationPressure[ctx.ltsFace * ctx.data->drParameters.nucleationCount + i],
             updateTime,
             ctx.data->drParameters.t0[i],
             ctx.data->drParameters.s0[i],

@@ -80,14 +80,15 @@ void ImposedSlipRatesInitializer::initializeFault(
     }
 
     for (int i = 0; i < drParameters->nucleationCount; ++i) {
-      auto* nucleationStressInFaultCS = layer.var(dynRup->nucleationStressInFaultCS[i]);
-      auto* nucleationPressure = layer.var(dynRup->nucleationPressure[i]);
+      auto* nucleationStressInFaultCS = layer.var(dynRup->nucleationStressInFaultCS);
+      auto* nucleationPressure = layer.var(dynRup->nucleationPressure);
       for (unsigned int ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
           for (unsigned int dim = 0; dim < 6; ++dim) {
-            nucleationStressInFaultCS[ltsFace][dim][pointIndex] = 0;
+            nucleationStressInFaultCS[ltsFace * drParameters->nucleationCount + i][dim]
+                                     [pointIndex] = 0;
           }
-          nucleationPressure[ltsFace][pointIndex] = 0;
+          nucleationPressure[ltsFace * drParameters->nucleationCount + i][pointIndex] = 0;
         }
       }
     }

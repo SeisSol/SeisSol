@@ -83,12 +83,12 @@ class LTSTree : public LTSInternalNode {
 
     if constexpr (std::is_same_v<typename TraitT::Type, void>) {
       m.bytes = 0;
-      m.bytesLayer = [](const LayerIdentifier& identifier) {
+      m.bytesLayer = [count](const LayerIdentifier& identifier) {
         return std::visit(
             [&](auto type) {
               using SelfT = typename TraitT::template VariantType<decltype(type)>;
               if constexpr (!std::is_same_v<void, SelfT>) {
-                return sizeof(typename TraitT::template VariantType<decltype(type)>);
+                return sizeof(SelfT) * count;
               }
               return static_cast<std::size_t>(0);
             },
@@ -96,8 +96,8 @@ class LTSTree : public LTSInternalNode {
       };
     } else {
       using SelfT = typename TraitT::Type;
-      m.bytes = sizeof(SelfT);
-      m.bytesLayer = [](const LayerIdentifier& identifier) { return sizeof(SelfT); };
+      m.bytes = sizeof(SelfT) * count;
+      m.bytesLayer = [count](const LayerIdentifier& identifier) { return sizeof(SelfT) * count; };
     }
 
     const auto bytesLayer = m.bytesLayer;

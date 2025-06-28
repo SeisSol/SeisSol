@@ -85,14 +85,15 @@ class BaseFrictionLaw : public FrictionSolver {
       for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
         updateTime += this->deltaT[timeIndex];
         for (int i = 0; i < this->drParameters->nucleationCount; ++i) {
-          common::adjustInitialStress(initialStressInFaultCS[ltsFace],
-                                      nucleationStressInFaultCS[i][ltsFace],
-                                      initialPressure[ltsFace],
-                                      nucleationPressure[i][ltsFace],
-                                      updateTime,
-                                      this->drParameters->t0[i],
-                                      this->drParameters->s0[i],
-                                      this->deltaT[timeIndex]);
+          common::adjustInitialStress(
+              initialStressInFaultCS[ltsFace],
+              nucleationStressInFaultCS[ltsFace * this->drParameters->nucleationCount + i],
+              initialPressure[ltsFace],
+              nucleationPressure[ltsFace * this->drParameters->nucleationCount + i],
+              updateTime,
+              this->drParameters->t0[i],
+              this->drParameters->s0[i],
+              this->deltaT[timeIndex]);
         }
 
         static_cast<Derived*>(this)->updateFrictionAndSlip(faultStresses,

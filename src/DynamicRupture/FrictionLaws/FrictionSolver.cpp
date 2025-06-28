@@ -34,9 +34,7 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
   impAndEta = layerData.var(dynRup->impAndEta, place);
   impedanceMatrices = layerData.var(dynRup->impedanceMatrices, place);
   initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS, place);
-  for (std::size_t i = 0; i < dynRup->nucleationStressInFaultCS.size(); ++i) {
-    nucleationStressInFaultCS[i] = layerData.var(dynRup->nucleationStressInFaultCS[i], place);
-  }
+  nucleationStressInFaultCS = layerData.var(dynRup->nucleationStressInFaultCS, place);
   mu = layerData.var(dynRup->mu, place);
   accumulatedSlipMagnitude = layerData.var(dynRup->accumulatedSlipMagnitude, place);
   slip1 = layerData.var(dynRup->slip1, place);
@@ -59,9 +57,7 @@ void FrictionSolver::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
   qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus, place);
   qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus, place);
   initialPressure = layerData.var(dynRup->initialPressure, place);
-  for (std::size_t i = 0; i < dynRup->nucleationPressure.size(); ++i) {
-    nucleationPressure[i] = layerData.var(dynRup->nucleationPressure[i], place);
-  }
+  nucleationPressure = layerData.var(dynRup->nucleationPressure, place);
 }
 seissol::initializer::AllocationPlace FrictionSolver::allocationPlace() {
   return seissol::initializer::AllocationPlace::Host;

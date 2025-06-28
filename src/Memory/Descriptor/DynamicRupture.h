@@ -35,9 +35,9 @@ inline auto allocationModeDR() {
 struct DynamicRupture {
   public:
   DynamicRupture() = default;
+  std::size_t nucleationCount{1};
   explicit DynamicRupture(const parameters::DRParameters* parameters)
-      : nucleationStressInFaultCS(parameters->nucleationCount),
-        nucleationPressure(parameters->nucleationCount) {}
+      : nucleationCount(parameters->nucleationCount) {}
 
   virtual ~DynamicRupture() = default;
   Variable<real*> timeDerivativePlus;
@@ -59,10 +59,10 @@ struct DynamicRupture {
   // size padded for vectorization
   // CS = coordinate system
   Variable<real[6][dr::misc::NumPaddedPoints]> initialStressInFaultCS;
-  std::vector<Variable<real[6][dr::misc::NumPaddedPoints]>> nucleationStressInFaultCS;
+  Variable<real[6][dr::misc::NumPaddedPoints]> nucleationStressInFaultCS;
   // will be always zero, if not using poroelasticity
   Variable<real[dr::misc::NumPaddedPoints]> initialPressure;
-  std::vector<Variable<real[dr::misc::NumPaddedPoints]>> nucleationPressure;
+  Variable<real[dr::misc::NumPaddedPoints]> nucleationPressure;
   Variable<real[dr::misc::NumPaddedPoints]> mu;
   Variable<real[dr::misc::NumPaddedPoints]> accumulatedSlipMagnitude;
   Variable<real[dr::misc::NumPaddedPoints]>
@@ -108,12 +108,8 @@ struct DynamicRupture {
     tree.add(initialPressure, mask, Alignment, allocationModeDR());
     tree.add(ruptureTime, mask, Alignment, allocationModeDR());
 
-    for (auto& nucleation : nucleationStressInFaultCS) {
-      tree.add(nucleation, mask, Alignment, allocationModeDR(), true);
-    }
-    for (auto& nucleation : nucleationPressure) {
-      tree.add(nucleation, mask, Alignment, allocationModeDR(), true);
-    }
+    tree.add(nucleationStressInFaultCS, mask, Alignment, allocationModeDR(), true, nucleationCount);
+    tree.add(nucleationPressure, mask, Alignment, allocationModeDR(), true, nucleationCount);
 
     tree.add(ruptureTimePending, mask, Alignment, allocationModeDR());
     tree.add(dynStressTime, mask, Alignment, allocationModeDR());

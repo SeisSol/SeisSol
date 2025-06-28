@@ -25,8 +25,7 @@ struct FrictionLawData {
   const ImpedanceMatrices* __restrict impedanceMatrices{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
-  const real (*__restrict nucleationStressInFaultCS
-                  [seissol::initializer::parameters::MaxNucleactions])[6][misc::NumPaddedPoints]{};
+  const real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints]{};
   const real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
@@ -45,8 +44,7 @@ struct FrictionLawData {
   DREnergyOutput* __restrict energyData{};
   const DRGodunovData* __restrict godunovData{};
   real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
-  const real (*__restrict nucleationPressure[seissol::initializer::parameters::MaxNucleactions])
-      [misc::NumPaddedPoints]{};
+  const real (*__restrict nucleationPressure)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
@@ -110,10 +108,7 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
     data->impAndEta = layerData.var(dynRup->impAndEta, place);
     data->impedanceMatrices = layerData.var(dynRup->impedanceMatrices, place);
     data->initialStressInFaultCS = layerData.var(dynRup->initialStressInFaultCS, place);
-    for (std::size_t i = 0; i < dynRup->nucleationStressInFaultCS.size(); ++i) {
-      data->nucleationStressInFaultCS[i] =
-          layerData.var(dynRup->nucleationStressInFaultCS[i], place);
-    }
+    data->nucleationStressInFaultCS = layerData.var(dynRup->nucleationStressInFaultCS, place);
     data->mu = layerData.var(dynRup->mu, place);
     data->accumulatedSlipMagnitude = layerData.var(dynRup->accumulatedSlipMagnitude, place);
     data->slip1 = layerData.var(dynRup->slip1, place);
@@ -135,9 +130,7 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
     data->qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus, place);
     data->qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus, place);
     data->initialPressure = layerData.var(dynRup->initialPressure, place);
-    for (std::size_t i = 0; i < dynRup->nucleationPressure.size(); ++i) {
-      data->nucleationPressure[i] = layerData.var(dynRup->nucleationPressure[i], place);
-    }
+    data->nucleationPressure = layerData.var(dynRup->nucleationPressure, place);
   }
 
   protected:

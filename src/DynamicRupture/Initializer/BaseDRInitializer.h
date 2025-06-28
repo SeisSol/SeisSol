@@ -172,6 +172,8 @@ class BaseDRInitializer {
   void rotateStressToFaultCS(const seissol::initializer::DynamicRupture* dynRup,
                              seissol::initializer::Layer& layer,
                              real (*stressInFaultCS)[6][misc::NumPaddedPoints],
+                             std::size_t index,
+                             std::size_t count,
                              const StressTensor& stress);
 
   /**
