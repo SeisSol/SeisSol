@@ -187,7 +187,7 @@ class LinearSlipWeakeningLaw
     const auto tpProxyExponent{ctx.data->drParameters.tpProxyExponent};
 
     real tn = ctx.fullUpdateTime;
-    for (int i = 0; i <= timeIndex; ++i) {
+    for (unsigned i = 0; i <= timeIndex; ++i) {
       tn += ctx.data->deltaT[i];
     }
 
