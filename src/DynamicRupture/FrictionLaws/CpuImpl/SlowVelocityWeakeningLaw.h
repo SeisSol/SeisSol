@@ -36,49 +36,61 @@ class SlowVelocityWeakeningLaw
         pointIndex, face, stateVarReference, timeIncrement, localSlipRate);
   }
 
-/**
- * Computes the friction coefficient from the state variable and slip rate
- * \f[\mu = a \cdot \sinh^{-1} \left( \frac{V}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Psi
- * / L)}{a} \right)\right).\f]
- * Note that we need double precision here, since single precision led to NaNs.
- * @param localSlipRateMagnitude \f$ V \f$
- * @param localStateVariable \f$ \Psi \f$
- * @return \f$ \mu \f$
- */
-#pragma omp declare simd
-  double updateMu(unsigned int ltsFace,
-                  unsigned int pointIndex,
-                  double localSlipRateMagnitude,
-                  double localStateVariable) {
-    const double localA = this->a[ltsFace][pointIndex];
-    const double localSl0 = this->sl0[ltsFace][pointIndex];
-    const double log1 = std::log(this->drParameters->rsSr0 * localStateVariable / localSl0);
-    // x in asinh(x) for mu calculation
-    const double x = 0.5 * (localSlipRateMagnitude / this->drParameters->rsSr0) *
-                     std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
-    return localA * std::asinh(x);
+  struct MuDetails {
+    std::array<double, misc::NumPaddedPoints> a{};
+    std::array<double, misc::NumPaddedPoints> c{};
+    std::array<double, misc::NumPaddedPoints> ac{};
+  };
+
+  MuDetails getMuDetails(unsigned ltsFace,
+                         const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
+    MuDetails details{};
+#pragma omp simd
+    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      const double localA = this->a[ltsFace][pointIndex];
+      const double localSl0 = this->sl0[ltsFace][pointIndex];
+      const double log1 = std::log(this->drParameters->rsSr0 *
+                                   static_cast<double>(localStateVariable[pointIndex]) / localSl0);
+      const double c =
+          0.5 / this->drParameters->rsSr0 *
+          std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
+      details.a[pointIndex] = localA;
+      details.c[pointIndex] = c;
+      details.ac[pointIndex] = localA * c;
+    }
+    return details;
   }
 
-/**
- * Computes the derivative of the friction coefficient with respect to the slip rate.
- * \f[\frac{\partial}{\partial V}\mu = \frac{aC}{\sqrt{(VC)^2 +1}} \text{ with } C =
- * \frac{1}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Psi / L)}{a} \right). \f]
- * Note that we need double precision here, since single precision led to NaNs.
- * @param localSlipRateMagnitude \f$ V \f$
- * @param localStateVariable \f$ \Psi \f$
- * @return \f$ \mu \f$
- */
+  /**
+   * Computes the friction coefficient from the state variable and slip rate
+   * \f[\mu = a \cdot \sinh^{-1} \left( \frac{V}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Psi
+   * / L)}{a} \right)\right).\f]
+   * Note that we need double precision here, since single precision led to NaNs.
+   * @param localSlipRateMagnitude \f$ V \f$
+   * @param localStateVariable \f$ \Psi \f$
+   * @return \f$ \mu \f$
+   */
 #pragma omp declare simd
-  double updateMuDerivative(unsigned int ltsFace,
-                            unsigned int pointIndex,
+  double updateMu(unsigned pointIndex, double localSlipRateMagnitude, const MuDetails& details) {
+    const double x = localSlipRateMagnitude * details.c[pointIndex];
+    return details.a[pointIndex] * std::asinh(x);
+  }
+
+  /**
+   * Computes the derivative of the friction coefficient with respect to the slip rate.
+   * \f[\frac{\partial}{\partial V}\mu = \frac{aC}{\sqrt{(VC)^2 +1}} \text{ with } C =
+   * \frac{1}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Psi / L)}{a} \right). \f]
+   * Note that we need double precision here, since single precision led to NaNs.
+   * @param localSlipRateMagnitude \f$ V \f$
+   * @param localStateVariable \f$ \Psi \f$
+   * @return \f$ \mu \f$
+   */
+#pragma omp declare simd
+  double updateMuDerivative(unsigned pointIndex,
                             double localSlipRateMagnitude,
-                            double localStateVariable) {
-    const double localA = this->a[ltsFace][pointIndex];
-    const double localSl0 = this->sl0[ltsFace][pointIndex];
-    const double log1 = std::log(this->drParameters->rsSr0 * localStateVariable / localSl0);
-    const double c = (0.5 / this->drParameters->rsSr0) *
-                     std::exp((this->drParameters->rsF0 + this->drParameters->rsB * log1) / localA);
-    return localA * c / std::sqrt(misc::power<2>(localSlipRateMagnitude * c) + 1);
+                            const MuDetails& details) {
+    const double x = localSlipRateMagnitude * details.c[pointIndex];
+    return details.ac[pointIndex] / std::sqrt(x * x + 1.0);
   }
 
   /**
