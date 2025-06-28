@@ -14,7 +14,6 @@
 #include <Initializer/PointMapper.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Receiver.h>
-#include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
 #include <Solver/MultipleSimulations.h>

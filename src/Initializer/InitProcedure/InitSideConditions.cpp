@@ -15,6 +15,7 @@
 #include <Equations/Datastructures.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Model/CommonDatastructures.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>

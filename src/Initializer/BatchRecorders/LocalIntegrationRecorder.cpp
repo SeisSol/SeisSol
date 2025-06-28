@@ -27,7 +27,7 @@ using namespace device;
 using namespace seissol::initializer;
 using namespace seissol::initializer::recording;
 
-void LocalIntegrationRecorder::record(const seissol::LTS& lts, Layer& layer) {
+void LocalIntegrationRecorder::record(Layer& layer) {
   setUpContext(layer);
   idofsAddressRegistry.clear();
 

@@ -292,12 +292,12 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsTree);
   ltsTree.allocateScratchPads();
 
-  seissol::initializer::recording::CompositeRecorder<seissol::LTS> recorder;
+  seissol::initializer::recording::CompositeRecorder recorder;
   recorder.addRecorder(new seissol::initializer::recording::LocalIntegrationRecorder);
   recorder.addRecorder(new seissol::initializer::recording::NeighIntegrationRecorder);
 
   recorder.addRecorder(new seissol::initializer::recording::PlasticityRecorder);
-  recorder.record(LTS(), layer);
+  recorder.record(layer);
   if (enableDR) {
     dynRupTree.synchronizeTo(seissol::initializer::AllocationPlace::Device,
                              device.api->getDefaultStream());
@@ -305,12 +305,11 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
     seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(dynRupTree);
     dynRupTree.allocateScratchPads();
 
-    CompositeRecorder<seissol::DynamicRupture> drRecorder;
+    CompositeRecorder drRecorder;
     drRecorder.addRecorder(new DynamicRuptureRecorder);
 
     auto& drLayer = dynRupTree.layer(layerId);
-    DynamicRupture dynRup;
-    drRecorder.record(dynRup, drLayer);
+    drRecorder.record(drLayer);
   }
 #endif // ACL_DEVICE
 }

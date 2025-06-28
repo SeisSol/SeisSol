@@ -21,6 +21,7 @@
 #include <Kernels/Precision.h>
 #include <Kernels/TimeCommon.h>
 #include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <Monitoring/Instrumentation.h>
 #include <Parallel/Runtime/Stream.h>

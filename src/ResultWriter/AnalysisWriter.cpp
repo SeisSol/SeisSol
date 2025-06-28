@@ -15,6 +15,7 @@
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <Numerical/Quadrature.h>
 #include <Numerical/Transformation.h>

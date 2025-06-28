@@ -444,7 +444,7 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct TimeStepping& i_t
   m_dynRupTree.touchVariables();
 
 #ifdef ACL_DEVICE
-  MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree, *m_dynRup.get());
+  MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree);
   m_dynRupTree.allocateScratchPads();
 #endif
 }
@@ -803,7 +803,7 @@ void seissol::initializer::MemoryManager::initializeEasiBoundaryReader(const cha
 
 #ifdef ACL_DEVICE
 void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticity) {
-  recording::CompositeRecorder<seissol::LTS> recorder;
+  recording::CompositeRecorder recorder;
   recorder.addRecorder(new recording::LocalIntegrationRecorder);
   recorder.addRecorder(new recording::NeighIntegrationRecorder);
 
@@ -812,13 +812,13 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
   }
 
   for (auto& layer : m_ltsTree.leaves(Ghost)) {
-    recorder.record(LTS(), layer);
+    recorder.record(layer);
   }
 
-  recording::CompositeRecorder<seissol::DynamicRupture> drRecorder;
+  recording::CompositeRecorder drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
   for (auto& layer : m_dynRupTree.leaves(Ghost)) {
-    drRecorder.record(*m_dynRup, layer);
+    drRecorder.record(layer);
   }
 }
 #endif // ACL_DEVICE

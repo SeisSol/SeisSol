@@ -10,19 +10,16 @@
 
 #include "DataTypes/ConditionalTable.h"
 #include "Kernels/Interface.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "utils/logger.h"
 #include <vector>
 
 namespace seissol::initializer::recording {
-template <typename LtsT>
 class AbstractRecorder {
   public:
   virtual ~AbstractRecorder() = default;
 
-  virtual void record(const LtsT& lts, Layer& layer) = 0;
+  virtual void record(Layer& layer) = 0;
 
   protected:
   void checkKey(const ConditionalKey& key) {
@@ -30,15 +27,6 @@ class AbstractRecorder {
       logError()
           << "Table key conflict detected. Problems with hashing in batch recording subsystem";
     }
-  }
-
-  void setUpContext(const LtsT& handler, Layer& layer) {
-    currentTable = &(layer.getConditionalTable<inner_keys::Wp>());
-    currentDrTable = &(layer.getConditionalTable<inner_keys::Dr>());
-    currentMaterialTable = &(layer.getConditionalTable<inner_keys::Material>());
-    currentIndicesTable = &(layer.getConditionalTable<inner_keys::Indices>());
-    currentHandler = &(handler);
-    currentLayer = &(layer);
   }
 
   void setUpContext(Layer& layer) {
@@ -53,26 +41,24 @@ class AbstractRecorder {
   DrConditionalPointersToRealsTable* currentDrTable{nullptr};
   ConditionalMaterialTable* currentMaterialTable{nullptr};
   ConditionalIndicesTable* currentIndicesTable{nullptr};
-  const LtsT* currentHandler{nullptr};
   Layer* currentLayer{nullptr};
 };
 
-template <typename LtsT>
-class CompositeRecorder : public AbstractRecorder<LtsT> {
+class CompositeRecorder : public AbstractRecorder {
   public:
   ~CompositeRecorder() override {
-    for (auto recorder : concreteRecorders) {
+    for (auto* recorder : concreteRecorders) {
       delete recorder;
     }
   }
 
-  void record(const LtsT& handler, Layer& layer) override {
-    for (auto recorder : concreteRecorders) {
-      recorder->record(handler, layer);
+  void record(Layer& layer) override {
+    for (auto* recorder : concreteRecorders) {
+      recorder->record(layer);
     }
   }
 
-  void addRecorder(AbstractRecorder<LtsT>* recorder) { concreteRecorders.push_back(recorder); }
+  void addRecorder(AbstractRecorder* recorder) { concreteRecorders.push_back(recorder); }
 
   void removeRecorder(size_t recorderIndex) {
     if (recorderIndex < concreteRecorders.size()) {
@@ -81,12 +67,12 @@ class CompositeRecorder : public AbstractRecorder<LtsT> {
   }
 
   private:
-  std::vector<AbstractRecorder<LtsT>*> concreteRecorders{};
+  std::vector<AbstractRecorder*> concreteRecorders;
 };
 
-class LocalIntegrationRecorder : public AbstractRecorder<seissol::LTS> {
+class LocalIntegrationRecorder : public AbstractRecorder {
   public:
-  void record(const seissol::LTS& lts, Layer& layer) override;
+  void record(Layer& layer) override;
 
   private:
   void setUpContext(Layer& layer) {
@@ -109,9 +95,9 @@ class LocalIntegrationRecorder : public AbstractRecorder<seissol::LTS> {
   size_t derivativesAddressCounter{0};
 };
 
-class NeighIntegrationRecorder : public AbstractRecorder<seissol::LTS> {
+class NeighIntegrationRecorder : public AbstractRecorder {
   public:
-  void record(const seissol::LTS& lts, Layer& layer) override;
+  void record(Layer& layer) override;
 
   private:
   void setUpContext(Layer& layer) {
@@ -124,21 +110,19 @@ class NeighIntegrationRecorder : public AbstractRecorder<seissol::LTS> {
   size_t integratedDofsAddressCounter{0};
 };
 
-class PlasticityRecorder : public AbstractRecorder<seissol::LTS> {
+class PlasticityRecorder : public AbstractRecorder {
   public:
   void setUpContext(Layer& layer) { AbstractRecorder::setUpContext(layer); }
 
-  void record(const seissol::LTS& lts, Layer& layer) override;
+  void record(Layer& layer) override;
 };
 
-class DynamicRuptureRecorder : public AbstractRecorder<seissol::DynamicRupture> {
+class DynamicRuptureRecorder : public AbstractRecorder {
   public:
-  void record(const DynamicRupture& handler, Layer& layer) override;
+  void record(Layer& layer) override;
 
   private:
-  void setUpContext(const DynamicRupture& handler, Layer& layer) {
-    AbstractRecorder::setUpContext(handler, layer);
-  }
+  void setUpContext(Layer& layer) { AbstractRecorder::setUpContext(layer); }
   void recordDofsTimeEvaluation();
   void recordSpaceInterpolation();
   std::unordered_map<real*, real*> idofsAddressRegistry;
