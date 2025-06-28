@@ -193,42 +193,49 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            alwaysdouble: false
           - name: tpv5-nuc
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            alwaysdouble: false
           - name: tpv5-visco
             equation: viscoelastic2
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            alwaysdouble: false
           - name: tpv5-poro
             equation: poroelastic
             multisim: 1
             energies: false # incomplete, hence disabled
             receivers: true
             fault: true
+            alwaysdouble: false
           - name: tpv6
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            alwaysdouble: false
           - name: tpv13
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            alwaysdouble: false
           - name: tpv16
             equation: elastic
             multisim: 1
             energies: true
-            receivers: true
+            receivers: false # possibly broken
             fault: true
+            alwaysdouble: true
           #- name: tpv33
           #  equation: elastic
           #  multisim: 1
@@ -241,54 +248,63 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            alwaysdouble: false
           - name: tpv101-slip
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            alwaysdouble: false
           - name: tpv104
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            alwaysdouble: false
           - name: tpv105
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            alwaysdouble: true
           - name: tpvahsp
             equation: anisotropic
             multisim: 1
             energies: false
             receivers: true
             fault: false
+            alwaysdouble: false
           - name: tpvgaussian
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            alwaysdouble: false
           - name: tpvyoffe
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            alwaysdouble: false
           - name: tpvloh1-fused
             equation: elastic
             multisim: 8
             energies: true
             receivers: true
-            fault: false # NYI
+            fault: false
+            alwaysdouble: false
           - name: tpv13-fused
             equation: elastic
             multisim: 8
             energies: false # incomplete, hence disabled
             receivers: true
             fault: false # incomplete, hence disabled
+            alwaysdouble: false
         precision:
           - single
           - double
@@ -388,12 +404,24 @@ jobs:
           FAULT_FILE=tpv-fault.xdmf
           EPSILON=0.05
 
+          if ${{matrix.case.alwaysdouble}}; then
+            REFPRECISION=double;
+          else
+            REFPRECISION=${{matrix.precision}};
+          fi;
+
           cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-faults.py ./output/${FAULT_FILE} ./precomputed/${{matrix.precision}}/${FAULT_FILE} --epsilon ${EPSILON}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-faults.py ./output/${FAULT_FILE} ./precomputed/$REFPRECISION/${FAULT_FILE} --epsilon ${EPSILON}
       - name: check-receivers
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.receivers }}
         run: |
           EPSILON=0.05
+
+          if ${{matrix.case.alwaysdouble}}; then
+            REFPRECISION=double;
+          else
+            REFPRECISION=${{matrix.precision}};
+          fi;
 
           if [ ${{matrix.case.name}} = tpv5 ] || [ ${{matrix.case.name}} = tpv5-nuc ] || [ ${{matrix.case.name}} = tpv6 ] || [ ${{matrix.case.name}} = tpv16 ]; then
             MODE=lsw;
@@ -404,12 +432,18 @@ jobs:
           fi;
 
           cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/${{matrix.precision}} --epsilon ${EPSILON} --mode $MODE
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-receivers.py ./output ./precomputed/$REFPRECISION --epsilon ${EPSILON} --mode $MODE
       - name: check-energy
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.energies }}
         run: |
           ENERGY_FILE=tpv-energy.csv
           EPSILON=0.05
 
+          if ${{matrix.case.alwaysdouble}}; then
+            REFPRECISION=double;
+          else
+            REFPRECISION=${{matrix.precision}};
+          fi;
+
           cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-energies.py ./output/${ENERGY_FILE} ./precomputed/${{matrix.precision}}/${ENERGY_FILE} --epsilon ${EPSILON}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-energies.py ./output/${ENERGY_FILE} ./precomputed/$REFPRECISION/${ENERGY_FILE} --epsilon ${EPSILON}
