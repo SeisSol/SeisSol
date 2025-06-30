@@ -299,10 +299,7 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
 void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
-  assert(seissolParams.timeStepping.lts.getRate() > 0);
-
-  seissolInstance.getLtsLayout().deriveLayout(TimeClustering::MultiRate,
-                                              seissolParams.timeStepping.lts.getRate());
+  seissolInstance.getLtsLayout().deriveLayout(seissolParams.timeStepping.lts.getRate());
 
   seissolInstance.getLtsLayout().getMeshStructure(ltsInfo.meshStructure);
   ltsInfo.clusterLayout = seissolInstance.getLtsLayout().clusterLayout();

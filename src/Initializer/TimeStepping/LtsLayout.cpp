@@ -726,13 +726,12 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredGhost() {
   delete[] l_requests;
 }
 
-void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClustering i_timeClustering,
-                                                                    unsigned int        i_clusterRate ) {
-  m_globalTimeStepRates.resize(1);
-  m_globalTimeStepRates[0] = i_clusterRate;
+void seissol::initializer::time_stepping::LtsLayout::deriveLayout( const std::vector<uint64_t>& rates ) {
+  ClusterLayout layout(rates, m_globalTimeStepWidths[0], m_numberOfGlobalClusters);
+  m_globalTimeStepRates = rates;
   
   for (std::size_t i = 1; i < m_numberOfGlobalClusters; ++i) {
-    m_globalTimeStepWidths[i] = m_globalTimeStepWidths[i - 1] * i_clusterRate;
+    m_globalTimeStepWidths[i] = layout.timestepRate(i);
   }
 
   // derive plain copy and the interior
@@ -771,7 +770,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
 }
 
 seissol::initializer::ClusterLayout seissol::initializer::time_stepping::LtsLayout::clusterLayout() const {
-  return ClusterLayout({m_globalTimeStepRates[0]}, m_globalTimeStepWidths[0], m_numberOfGlobalClusters);
+  return ClusterLayout(m_globalTimeStepRates, m_globalTimeStepWidths[0], m_numberOfGlobalClusters);
 }
 
 void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLocalInformation* io_cellLocalInformation,

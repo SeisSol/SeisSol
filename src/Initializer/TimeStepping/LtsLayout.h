@@ -52,7 +52,7 @@ class seissol::initializer::time_stepping::LtsLayout {
     std::vector<double> m_globalTimeStepWidths;
 
     //! time step rates of all clusters
-    std::vector<unsigned int> m_globalTimeStepRates;
+    std::vector<uint64_t> m_globalTimeStepRates;
 
     //! mpi tags used for communication
     enum mpiTag {
@@ -403,8 +403,7 @@ class seissol::initializer::time_stepping::LtsLayout {
      * @param i_timeClustering clustering strategy.
      * @param i_clusterRate cluster rate in the case of a multi-rate scheme.
      **/
-    void deriveLayout( enum TimeClustering i_timeClustering,
-                       unsigned int        i_clusterRate = std::numeric_limits<unsigned int>::max() );
+    void deriveLayout( const std::vector<uint64_t>& rates );
 
     [[nodiscard]] ClusterLayout clusterLayout() const;
 
