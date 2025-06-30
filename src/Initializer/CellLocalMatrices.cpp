@@ -24,6 +24,7 @@
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
@@ -133,7 +134,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                  LTSTree* ltsTree,
                                  LTS* lts,
                                  Lut* ltsLut,
-                                 const TimeStepping& timeStepping,
+                                 const ClusterLayout& clusterLayout,
                                  const parameters::ModelParameters& modelParameters) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -187,7 +188,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto clusterId = secondaryInformation[cell].clusterId;
-        const auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
+        const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
         const auto meshId = secondaryInformation[cell].meshId;
 
         double x[4];
@@ -411,8 +412,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         }
 
         // Compute map that rotates to normal aligned coordinate system.
-        real* matTData = boundary[cell][side].TData;
-        real* matTinvData = boundary[cell][side].TinvData;
+        real* matTData = boundary[cell][side].dataT;
+        real* matTinvData = boundary[cell][side].dataTinv;
         assert(matTData != nullptr);
         assert(matTinvData != nullptr);
         auto matT = init::T::view::create(matTData);
@@ -755,7 +756,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       /// Transpose matTinv
       dynamicRupture::kernel::transposeTinv ttKrnl;
       ttKrnl.Tinv = matTinvData;
-      ttKrnl.TinvT = godunovData[ltsFace].TinvT;
+      ttKrnl.TinvT = godunovData[ltsFace].dataTinvT;
       ttKrnl.execute();
 
       double plusSurfaceArea = 0;

@@ -334,7 +334,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     });
     std::vector<std::string> quantityLabels = {"v1", "v2", "v3", "u1", "u2", "u3"};
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
-      for (std::size_t quantity = 0; quantity < FREESURFACE_NUMBER_OF_COMPONENTS; ++quantity) {
+      for (std::size_t quantity = 0;
+           quantity < seissol::solver::FreeSurfaceIntegrator::NumComponents;
+           ++quantity) {
         writer.addPointData<real>(
             namewrap(quantityLabels[quantity], sim), {}, [=](real* target, std::size_t index) {
               auto meshId = surfaceMeshIds[index];
@@ -354,9 +356,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               vtkproj.execute(order, side);
             });
       }
-      for (std::size_t quantity = 0; quantity < FREESURFACE_NUMBER_OF_COMPONENTS; ++quantity) {
+      for (std::size_t quantity = 0;
+           quantity < seissol::solver::FreeSurfaceIntegrator::NumComponents;
+           ++quantity) {
         writer.addPointData<real>(
-            namewrap(quantityLabels[quantity + FREESURFACE_NUMBER_OF_COMPONENTS], sim),
+            namewrap(
+                quantityLabels[quantity + seissol::solver::FreeSurfaceIntegrator::NumComponents],
+                sim),
             {},
             [=](real* target, std::size_t index) {
               auto meshId = surfaceMeshIds[index];
