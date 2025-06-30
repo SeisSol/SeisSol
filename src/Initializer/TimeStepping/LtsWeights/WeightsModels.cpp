@@ -19,7 +19,7 @@ void ExponentialWeights::setVertexWeights() {
       getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
 
   for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
-    const int factor = LtsWeights::ipow(m_rate, maxCluster - m_clusterIds[cell]);
+    const int factor = ratepow(m_rate, m_clusterIds[cell], maxCluster);
     m_vertexWeights[m_ncon * cell] = factor * m_cellCosts[cell];
   }
 }
@@ -38,7 +38,7 @@ void ExponentialBalancedWeights::setVertexWeights() {
       getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
 
   for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
-    const int factor = LtsWeights::ipow(m_rate, maxCluster - m_clusterIds[cell]);
+    const int factor = ratepow(m_rate, m_clusterIds[cell], maxCluster);
     m_vertexWeights[m_ncon * cell] = factor * m_cellCosts[cell];
 
     constexpr int MemoryWeight{1};
