@@ -18,8 +18,8 @@ struct StableAccumulator {
   auto operator+(RealT number) -> StableAccumulator<RealT> {
     StableAccumulator<RealT> newacc;
     const auto numberC = number - corr;
-    newacc.acc = acc + number;
-    newacc.corr = (newacc.acc - number) - numberC;
+    newacc.acc = acc + numberC;
+    newacc.corr = (newacc.acc - acc) - numberC;
     return newacc;
   }
 
@@ -29,6 +29,10 @@ struct StableAccumulator {
     this->corr = tempnew.corr;
     return *this;
   }
+
+  auto operator-(RealT number) -> StableAccumulator<RealT> { return (*this + (-number)); }
+
+  auto operator-=(RealT number) -> StableAccumulator<RealT> { return (*this += (-number)); }
 
   RealT result() const { return acc; }
 

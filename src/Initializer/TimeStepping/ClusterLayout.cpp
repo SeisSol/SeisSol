@@ -9,8 +9,12 @@
 #include <Monitoring/Unit.h>
 #include <Numerical/StableSum.h>
 #include <Parallel/MPI.h>
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <utils/logger.h>
 #include <vector>
 
 #include <mpi.h>

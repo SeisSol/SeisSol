@@ -15,6 +15,7 @@
 #include <ios>
 #include <string>
 #include <utils/logger.h>
+#include <vector>
 
 #include "Parallel/MPI.h"
 namespace seissol::writer {
