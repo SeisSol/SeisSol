@@ -7,6 +7,7 @@
 
 #include "Functions.h"
 
+#include <Numerical/StableSum.h>
 #include <array>
 #include <cstdint>
 
@@ -173,10 +174,11 @@ double shiftedLegendre(int n, double x, int d) {
   double yP = 0;
   double yM = 0;
   double coeff = 1;
+  numerical::StableAccumulator<double> y;
   for (int i = 0; i < -d; ++i) {
     xp *= x;
   }
-  for (int k = 0; k < n; ++k) {
+  for (int k = 0; k <= n; ++k) {
     if (k >= d) {
       double dcoeff = 1;
       for (int i = 0; i < -d; ++i) {
@@ -186,18 +188,18 @@ double shiftedLegendre(int n, double x, int d) {
         dcoeff *= (k - i);
       }
       if ((n + k) % 2 == 0) {
-        yP += xp * coeff * dcoeff;
+        y += xp * coeff * dcoeff;
       } else {
-        yM += xp * coeff * dcoeff;
+        y -= xp * coeff * dcoeff;
       }
 
       xp *= x;
     }
 
-    coeff *= (n - k) * (n + k);
-    coeff /= k * k;
+    coeff *= (n - k) * (n + k + 1);
+    coeff /= (k + 1) * (k + 1);
   }
-  return yP - yM;
+  return y.result();
 }
 
 template <>
@@ -216,7 +218,7 @@ double DubinerP<3U>(const std::array<unsigned, 3U>& i, const std::array<double, 
 template <>
 std::array<double, 1U> gradDubinerP<1U>(const std::array<unsigned, 1U>& i,
                                         const std::array<double, 1U>& xi) {
-  return {JacobiPDerivative(i[0], 0, 0, 2.0 * xi[0] - 1.0)};
+  return {2.0 * JacobiPDerivative(i[0], 0, 0, 2.0 * xi[0] - 1.0)};
 }
 template <>
 std::array<double, 2U> gradDubinerP<2U>(const std::array<unsigned, 2U>& i,
