@@ -138,21 +138,9 @@ double ReceiverCluster::calcReceivers(
       alignas(Alignment) real timeEvaluated[tensor::Q::size()];
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+      alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize];
 
       kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
-
-      // TODO: make space kernels. Sadly.
-
-#ifdef USE_STP
-      alignas(PagesizeStack) real timeDerivatives[tensor::spaceTimePredictor::size()];
-      kernel::evaluateDOFSAtPointSTP krnl;
-      krnl.QAtPoint = timeEvaluatedAtPoint;
-      krnl.spaceTimePredictor = timeDerivatives;
-      kernel::evaluateDerivativeDOFSAtPointSTP derivativeKrnl;
-      derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
-      derivativeKrnl.spaceTimePredictor = timeDerivatives;
-#else
-      alignas(Alignment) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
 
       kernel::evaluateDOFSAtPoint krnl;
       krnl.QAtPoint = timeEvaluatedAtPoint;
@@ -160,7 +148,6 @@ double ReceiverCluster::calcReceivers(
       kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
       derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
       derivativeKrnl.Q = timeEvaluated;
-#endif
 
       auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
       auto qDerivativeAtPoint =
