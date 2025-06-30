@@ -11,6 +11,12 @@
 #include "BaseFrictionLaw.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 
+#ifdef __INTEL_LLVM_COMPILER
+#if __INTEL_LLVM_COMPILER >= 20250000
+#define SEISSOL_INTEL_SIMD_EXCEPTION
+#endif
+#endif // __INTEL_LLVM_COMPILER
+
 namespace seissol::dr::friction_law::cpu {
 /**
  * General implementation of a rate and state solver
@@ -330,7 +336,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       if (hasConverged) {
         return hasConverged;
       }
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION
 #pragma omp simd
+#endif
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
 
         // derivative of g
