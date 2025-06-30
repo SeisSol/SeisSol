@@ -210,20 +210,6 @@ class seissol::initializer::time_stepping::LtsLayout {
     void normalizeMpiIndices();
 
     /**
-     * Normalizes the clustering.
-     **/
-    void normalizeClustering();
-
-    /**
-     * Gets the maximum possible speedups.
-     *
-     * @param o_perCellTimeStepWidths maximum possible speedup, when every cell is allowed to do an individual time step width.
-     * @param o_clustering maximum possible speedup with the derived clustering strategy.
-     **/
-    void getTheoreticalSpeedup( double &o_perCellTimeStepWidths,
-                                double &o_clustering );
-
-    /**
      * Sorts a clustered copy region neighboring to a copy region in GTS fashion.
      * Copy cells send either buffers or derivatives to neighboring cells, never both.
      * For a copy region with clusterd id $l$ neighboring to a cluster with clusterd $n$ the following holds:
@@ -403,9 +389,7 @@ class seissol::initializer::time_stepping::LtsLayout {
      * @param i_timeClustering clustering strategy.
      * @param i_clusterRate cluster rate in the case of a multi-rate scheme.
      **/
-    void deriveLayout( const std::vector<uint64_t>& rates );
-
-    [[nodiscard]] ClusterLayout clusterLayout() const;
+    void deriveLayout(  );
 
     /**
      * Initializes the data structures required for computation.

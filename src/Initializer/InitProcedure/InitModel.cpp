@@ -299,10 +299,13 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
 void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
-  seissolInstance.getLtsLayout().deriveLayout(seissolParams.timeStepping.lts.getRate());
+  seissolInstance.getLtsLayout().deriveLayout();
 
   seissolInstance.getLtsLayout().getMeshStructure(ltsInfo.meshStructure);
-  ltsInfo.clusterLayout = seissolInstance.getLtsLayout().clusterLayout();
+  ltsInfo.clusterLayout = ClusterLayout::fromMesh(seissolParams.timeStepping.lts.getRate(),
+                                                  seissolInstance.meshReader(),
+                                                  seissolParams.timeStepping.lts.getWiggleFactor(),
+                                                  true);
 
   seissolInstance.getMemoryManager().initializeFrictionLaw();
 
