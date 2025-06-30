@@ -378,8 +378,8 @@ if __name__ == "__main__":
         print(
             f"{q} exceeds relative error of {args.epsilon} at receivers {broken_receivers}"
         )
-        # if len(broken_receivers) > 0:
-        #     sys.exit(1)
+        if len(broken_receivers) > 0:
+            sys.exit(1)
 
     quantities = [
         "absolute slip",
