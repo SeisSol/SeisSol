@@ -171,8 +171,6 @@ std::array<double, 3> gradTetraDubinerP(const std::array<unsigned, 3>& i,
 double shiftedLegendre(int n, double x, int d) {
   // cf. https://en.wikipedia.org/wiki/Legendre_polynomials#Shifted_Legendre_polynomials
   double xp = 1;
-  double yP = 0;
-  double yM = 0;
   double coeff = 1;
   numerical::StableAccumulator<double> y;
   for (int i = 0; i < -d; ++i) {

@@ -137,7 +137,7 @@ TEST_CASE("Test Dubiner polynomials") {
   }
 }
 
-TEST_CASE("Lagrange Polynomials") {
+TEST_CASE("Legendre Polynomials") {
   constexpr double Epsilon = 10 * std::numeric_limits<double>::epsilon();
   constexpr double EpsilonRelaxed = 1e8 * std::numeric_limits<double>::epsilon();
 

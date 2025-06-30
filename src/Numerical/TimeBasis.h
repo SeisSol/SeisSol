@@ -40,7 +40,7 @@ class MonomialBasis : public TimeBasis<RealT> {
     if (coeffs.size() > 1) {
       coeffs[1] = 1;
       double coeffCache = 1;
-      for (std::size_t i = 1; i < order; ++i) {
+      for (std::size_t i = 1; i + 1 < order; ++i) {
         coeffCache *= position / i;
         coeffs[i + 1] = coeffCache;
       }
