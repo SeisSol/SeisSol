@@ -44,33 +44,32 @@ void ClusteringWriter::write() const {
   const auto sizes = mpi.collectContainer(clusteringInformation.sizes);
   const auto dynamicRuptureSizes = mpi.collectContainer(clusteringInformation.dynamicRuptureSizes);
 
-  logInfo() << "Cluster statistics:";
-  for (std::size_t i = 0; i < clusteringInformation.profilingIds.size(); ++i) {
-    std::vector<double> sizestat(mpi.size());
-    for (std::size_t j = 0; j < sizestat.size(); ++j) {
-      sizestat[j] = sizes[j][i];
-    }
-    const auto sizeSummary = statistics::Summary(sizestat);
-    const auto layerType = static_cast<LayerType>(clusteringInformation.layerTypes[i]);
-    const std::string layerTypeStr = layerType == Interior ? "interior" : "copy";
-    logInfo() << "cell" << layerTypeStr.c_str() << localClusterIds[0][i] << ":" << sizeSummary.sum
-              << "(per rank:" << sizeSummary.mean << "±" << sizeSummary.std << "; range: ["
-              << sizeSummary.min << ";" << sizeSummary.max << "])";
-  }
-  for (std::size_t i = 0; i < clusteringInformation.profilingIds.size(); ++i) {
-    std::vector<double> sizestat(mpi.size());
-    for (std::size_t j = 0; j < sizestat.size(); ++j) {
-      sizestat[j] = dynamicRuptureSizes[j][i];
-    }
-    const auto sizeSummary = statistics::Summary(sizestat);
-    const auto layerType = static_cast<LayerType>(clusteringInformation.layerTypes[i]);
-    const std::string layerTypeStr = layerType == Interior ? "interior" : "copy";
-    logInfo() << "DR" << layerTypeStr.c_str() << localClusterIds[0][i] << ":" << sizeSummary.sum
-              << "(per rank:" << sizeSummary.mean << "±" << sizeSummary.std << "; range: ["
-              << sizeSummary.min << ";" << sizeSummary.max << "])";
-  }
-
   if (mpi.rank() == 0) {
+    logInfo() << "Cluster statistics:";
+    for (std::size_t i = 0; i < clusteringInformation.profilingIds.size(); ++i) {
+      std::vector<double> sizestat(mpi.size());
+      for (std::size_t j = 0; j < sizestat.size(); ++j) {
+        sizestat[j] = sizes[j][i];
+      }
+      const auto sizeSummary = statistics::Summary(sizestat);
+      const auto layerType = static_cast<LayerType>(clusteringInformation.layerTypes[i]);
+      const std::string layerTypeStr = layerType == Interior ? "interior" : "copy";
+      logInfo() << "cell" << layerTypeStr.c_str() << localClusterIds[0][i] << ":" << sizeSummary.sum
+                << "(per rank:" << sizeSummary.mean << "±" << sizeSummary.std << "; range: ["
+                << sizeSummary.min << ";" << sizeSummary.max << "])";
+    }
+    for (std::size_t i = 0; i < clusteringInformation.profilingIds.size(); ++i) {
+      std::vector<double> sizestat(mpi.size());
+      for (std::size_t j = 0; j < sizestat.size(); ++j) {
+        sizestat[j] = dynamicRuptureSizes[j][i];
+      }
+      const auto sizeSummary = statistics::Summary(sizestat);
+      const auto layerType = static_cast<LayerType>(clusteringInformation.layerTypes[i]);
+      const std::string layerTypeStr = layerType == Interior ? "interior" : "copy";
+      logInfo() << "DR" << layerTypeStr.c_str() << localClusterIds[0][i] << ":" << sizeSummary.sum
+                << "(per rank:" << sizeSummary.mean << "±" << sizeSummary.std << "; range: ["
+                << sizeSummary.min << ";" << sizeSummary.max << "])";
+    }
 
     auto filepath = path(outputPrefix);
     filepath += path("-clustering.csv");
