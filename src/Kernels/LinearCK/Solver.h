@@ -8,6 +8,8 @@
 #define SEISSOL_SRC_KERNELS_LINEARCK_SOLVER_H_
 
 #include <cstddef>
+#include <generated_code/tensor.h>
+#include <yateto/InitTools.h>
 
 namespace seissol::numerical {
 template <typename>
@@ -29,6 +31,8 @@ struct Solver {
 
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
+
+  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();
 };
 
 } // namespace seissol::kernels::solver::linearck

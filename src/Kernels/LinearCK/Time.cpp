@@ -76,7 +76,7 @@ void Spacetime::computeAder(const real* coeffs,
                   std::end(data.cellInformation().faceTypes),
                   [](const FaceType f) { return f == FaceType::FreeSurfaceGravity; });
 
-  alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
+  alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
   kernel::derivative krnl = m_krnlPrototype;

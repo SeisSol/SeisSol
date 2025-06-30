@@ -131,7 +131,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       } else {
         dQPtrs[cell] = &derivativesScratch[derivativesAddressCounter];
-        derivativesAddressCounter += yateto::computeFamilySize<tensor::dQ>();
+        derivativesAddressCounter += seissol::kernels::Solver::DerivativesSize;
       }
     }
     // just to be sure that we took all branches while filling in idofsPtrs vector
