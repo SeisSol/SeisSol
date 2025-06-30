@@ -14,7 +14,11 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
     for target in targets:
         name_prefix = generate_kernel_name_prefix(targets)
 
-        vtko = parseJSONMatrixFile(f"{matricesDir}/vtko{aderdg.order}.json")
+        # align all VTK matrices
+        alignStride = lambda name: True
+        vtko = parseJSONMatrixFile(
+            f"{matricesDir}/vtko{aderdg.order}.json", alignStride=alignStride
+        )
 
         simcount = aderdg.multipleSimulations
 
