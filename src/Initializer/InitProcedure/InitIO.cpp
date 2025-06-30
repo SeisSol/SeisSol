@@ -18,6 +18,7 @@
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
@@ -233,7 +234,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, cellIndices[index]);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj;
-                std::array<real, multisim::NumSimulations> simselect;
+                memory::AlignedArray<real, multisim::NumSimulations> simselect;
                 simselect[sim] = 1;
                 vtkproj.simselect = simselect.data();
                 vtkproj.qb = dofsSingleQuantity;
@@ -255,7 +256,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   const auto* dofsAllQuantities = ltsLut->lookup(lts->pstrain, cellIndices[index]);
                   const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                   kernel::projectBasisToVtkVolume vtkproj;
-                  std::array<real, multisim::NumSimulations> simselect;
+                  memory::AlignedArray<real, multisim::NumSimulations> simselect;
                   simselect[sim] = 1;
                   vtkproj.simselect = simselect.data();
                   vtkproj.qb = dofsSingleQuantity;
@@ -345,7 +346,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               const auto* dofsSingleQuantity =
                   dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
               kernel::projectBasisToVtkFaceFromVolume vtkproj;
-              std::array<real, multisim::NumSimulations> simselect;
+              memory::AlignedArray<real, multisim::NumSimulations> simselect;
               simselect[sim] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.qb = dofsSingleQuantity;
@@ -371,7 +372,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               const auto* faceDisplacementVariable =
                   faceDisplacements[side] + FaceDisplacementPadded * quantity;
               kernel::projectNodalToVtkFace vtkproj;
-              std::array<real, multisim::NumSimulations> simselect;
+              memory::AlignedArray<real, multisim::NumSimulations> simselect;
               simselect[sim] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.pn = faceDisplacementVariable;
