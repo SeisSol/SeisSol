@@ -16,7 +16,7 @@ class Local;
 class Neighbor;
 
 struct Solver {
-  static constexpr std::size_t BufferSize = tensor::I::size();
+  static constexpr std::size_t BufferSize = 4*tensor::I::size();
 
   using SpacetimeKernelT = Spacetime;
   using TimeKernelT = Time;

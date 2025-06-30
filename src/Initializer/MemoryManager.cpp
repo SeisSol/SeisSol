@@ -198,7 +198,7 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
       unsigned int l_numberOfBuffers     = m_meshStructure[tc].numberOfGhostRegionCells[l_region] - l_numberOfDerivatives;
 
       // set size
-      m_meshStructure[tc].ghostRegionSizes[l_region] = tensor::Q::size() * l_numberOfBuffers +
+      m_meshStructure[tc].ghostRegionSizes[l_region] = seissol::kernels::Solver::BufferSize * l_numberOfBuffers +
                                                        yateto::computeFamilySize<tensor::dQ>() * l_numberOfDerivatives;
 
       // update the pointer
@@ -241,7 +241,7 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
       assert( m_meshStructure[tc].copyRegions[l_region] != NULL );
 
       // set size
-      m_meshStructure[tc].copyRegionSizes[l_region] = tensor::Q::size() * l_numberOfBuffers +
+      m_meshStructure[tc].copyRegionSizes[l_region] = seissol::kernels::Solver::BufferSize * l_numberOfBuffers +
                                                       yateto::computeFamilySize<tensor::dQ>() * l_numberOfDerivatives;
 
       // jump over region
@@ -634,7 +634,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(LT
       }
     }
     layer.setScratchpadSize(lts.integratedDofsScratch,
-                             integratedDofsCounter * seissol::kernels::Solver::BufferSize * sizeof(real));
+                             integratedDofsCounter * tensor::I::size() * sizeof(real));
     layer.setScratchpadSize(lts.derivativesScratch,
                              derivativesCounter * totalDerivativesSize * sizeof(real));
     layer.setScratchpadSize(lts.nodalAvgDisplacements,
@@ -716,14 +716,14 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
     size_t l_interiorSize = 0;
 #ifdef USE_MPI
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
-      l_ghostSize    += sizeof(real) * tensor::Q::size() * m_numberOfGhostRegionBuffers[tc][l_region];
+      l_ghostSize    += sizeof(real) * seissol::kernels::Solver::BufferSize * m_numberOfGhostRegionBuffers[tc][l_region];
       l_ghostSize    += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfGhostRegionDerivatives[tc][l_region];
 
-      l_copySize     += sizeof(real) * tensor::Q::size() * m_numberOfCopyRegionBuffers[tc][l_region];
+      l_copySize     += sizeof(real) * seissol::kernels::Solver::BufferSize * m_numberOfCopyRegionBuffers[tc][l_region];
       l_copySize     += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfCopyRegionDerivatives[tc][l_region];
     }
 #endif // USE_MPI
-    l_interiorSize += sizeof(real) * tensor::Q::size() * m_numberOfInteriorBuffers[tc];
+    l_interiorSize += sizeof(real) * seissol::kernels::Solver::BufferSize * m_numberOfInteriorBuffers[tc];
     l_interiorSize += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfInteriorDerivatives[tc];
 
     cluster.child<Ghost>().setBucketSize(m_lts.buffersDerivatives, l_ghostSize);
