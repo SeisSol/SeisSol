@@ -25,6 +25,7 @@
 #include <Solver/TimeStepping/AbstractTimeCluster.h>
 #include <Solver/TimeStepping/ActorState.h>
 #include <Solver/TimeStepping/GhostTimeClusterFactory.h>
+#include <Solver/TimeStepping/HaloCommunication.h>
 #include <Solver/TimeStepping/TimeCluster.h>
 #include <algorithm>
 #include <cassert>
@@ -60,7 +61,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
   std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
   // assert non-zero pointers
-  assert(meshStructure != nullptr);
+  const auto haloStructure = solver::getHaloCommunication(clusterLayout, meshStructure);
 
   // store the time stepping
   this->clusterLayout = clusterLayout;
@@ -73,7 +74,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   for (std::size_t localClusterId = 0; localClusterId < clusterLayout.globalClusterCount;
        ++localClusterId) {
     // get memory layout of this cluster
-    auto [meshStructure, globalData] = memoryManager.getMemoryLayout(localClusterId);
+    auto globalData = memoryManager.getGlobalData();
 
     const int globalClusterId = static_cast<int>(localClusterId);
     // chop off at synchronization time
@@ -162,11 +163,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
          otherGlobalClusterId < clusterLayout.globalClusterCount;
          ++otherGlobalClusterId) {
       const bool hasNeighborRegions =
-          std::any_of(meshStructure->neighboringClusters,
-                      meshStructure->neighboringClusters + meshStructure->numberOfRegions,
-                      [otherGlobalClusterId](const auto& neighbor) {
-                        return static_cast<unsigned>(neighbor[1]) == otherGlobalClusterId;
-                      });
+          !haloStructure.at(globalClusterId).at(otherGlobalClusterId).empty();
       if (hasNeighborRegions) {
         assert(static_cast<int>(otherGlobalClusterId) >= std::max(globalClusterId - 1, 0));
         assert(static_cast<int>(otherGlobalClusterId) <
@@ -178,7 +175,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                                          otherTimeStepRate,
                                                          globalClusterId,
                                                          otherGlobalClusterId,
-                                                         meshStructure,
+                                                         haloStructure,
                                                          preferredDataTransferMode,
                                                          persistent);
         ghostClusters.push_back(std::move(ghostCluster));
