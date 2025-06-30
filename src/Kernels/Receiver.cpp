@@ -18,6 +18,7 @@
 #include <Kernels/Common.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
@@ -124,6 +125,8 @@ double ReceiverCluster::calcReceivers(
   }
 #endif
 
+  const auto timeBasis = seissol::kernels::timeBasis();
+
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     // heuristic; to avoid the overhead from the parallel region
     const std::size_t threshold = std::max(1000, omp_get_num_threads() * 100);
@@ -137,6 +140,9 @@ double ReceiverCluster::calcReceivers(
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
 
       kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
+
+      // TODO: make space kernels. Sadly.
+
 #ifdef USE_STP
       alignas(PagesizeStack) real timeDerivatives[tensor::spaceTimePredictor::size()];
       kernel::evaluateDOFSAtPointSTP krnl;
@@ -167,14 +173,14 @@ double ReceiverCluster::calcReceivers(
 
       // Copy DOFs from device to host.
       LocalData tmpReceiverData{receiver.dataHost};
-#ifdef ACL_DEVICE
       if (executor == Executor::Device) {
         tmpReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(
             deviceCollector->get(deviceIndices[i]));
       }
-#endif
 
-      spacetimeKernel.computeAder(timeStepWidth,
+      const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
+      spacetimeKernel.computeAder(integrationCoeffs.data(),
+                                  timeStepWidth,
                                   tmpReceiverData,
                                   tmp,
                                   timeEvaluated, // useless but the interface requires it
@@ -185,17 +191,9 @@ double ReceiverCluster::calcReceivers(
 
       double receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
-#ifdef USE_STP
-        // eval time basis
-        const double tau = (time - expansionPoint) / timeStepWidth;
-        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(ConvergenceOrder,
-                                                                                   tau);
-        krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
-        derivativeKrnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
-#else
-        timeKernel.computeTaylorExpansion(
-            receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
-#endif
+        const auto coeffs = timeBasis.point(time - expansionPoint, timeStepWidth);
+
+        timeKernel.evaluate(coeffs.data(), timeDerivatives, timeEvaluated);
 
         krnl.execute();
         derivativeKrnl.execute();

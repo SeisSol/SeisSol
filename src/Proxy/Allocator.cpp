@@ -18,7 +18,6 @@
 #include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/TimeCluster.h>
-#include <Proxy/Constants.h>
 #include <cstddef>
 #include <random>
 #include <stdlib.h>
@@ -30,6 +29,10 @@
 
 #ifdef ACL_DEVICE
 #include <Initializer/MemoryManager.h>
+#endif
+
+#ifdef USE_POROELASTIC
+#include "Proxy/Constants.h"
 #endif
 
 namespace {
@@ -145,8 +148,6 @@ void ProxyData::initGlobalData() {
   localKernel.setGlobalData(globalData);
   neighborKernel.setGlobalData(globalData);
   dynRupKernel.setGlobalData(globalData);
-
-  dynRupKernel.setTimeStepWidth(Timestep);
 }
 
 void ProxyData::initDataStructures(bool enableDR) {
