@@ -18,6 +18,7 @@
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
+#include <Kernels/LinearCK/Solver.h>
 #include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>

@@ -10,6 +10,7 @@
 #include <DataTypes/ConditionalKey.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <array>

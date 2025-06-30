@@ -26,6 +26,8 @@ class AbsApprox {
 
   inline AbsApprox& epsilon(double newEpsilon);
 
+  inline AbsApprox& delta(double newDelta);
+
   friend bool operator==(double lhs, const AbsApprox& rhs);
 
   friend bool operator==(const AbsApprox& lhs, double rhs);
@@ -53,16 +55,17 @@ class AbsApprox {
   friend doctest::String toString(const AbsApprox& in);
 
   private:
-  double m_epsilon;
-  double m_value;
+  double m_epsilon{std::numeric_limits<double>::epsilon()};
+  double m_delta{0.0};
+  double m_value{0.0};
 };
 
-AbsApprox::AbsApprox(double value)
-    : m_epsilon(std::numeric_limits<double>::epsilon()), m_value(value) {}
+AbsApprox::AbsApprox(double value) : m_value(value) {}
 
 AbsApprox AbsApprox::operator()(double newValue) const {
   AbsApprox approx(newValue);
   approx.epsilon(m_epsilon);
+  approx.delta(m_delta);
   return approx;
 }
 
@@ -71,8 +74,13 @@ AbsApprox& AbsApprox::epsilon(double newEpsilon) {
   return *this;
 }
 
+AbsApprox& AbsApprox::delta(double newDelta) {
+  m_delta = newDelta;
+  return *this;
+}
+
 inline bool operator==(double lhs, const AbsApprox& rhs) {
-  return std::abs(lhs - rhs.m_value) < rhs.m_epsilon;
+  return std::abs(lhs - rhs.m_value) < rhs.m_epsilon + rhs.m_delta * std::abs(rhs.m_value);
 }
 
 inline bool operator==(const AbsApprox& lhs, double rhs) { return operator==(rhs, lhs); }

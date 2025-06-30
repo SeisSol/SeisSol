@@ -11,6 +11,7 @@
 #include "generated_code/tensor.h"
 #include <Kernels/Precision.h>
 #include <Kernels/Solver.h>
+#include <cstddef>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE

@@ -12,6 +12,7 @@
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Kernels/Touch.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/GlobalData.h>
