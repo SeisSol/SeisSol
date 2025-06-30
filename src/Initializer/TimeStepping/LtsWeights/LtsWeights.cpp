@@ -377,7 +377,7 @@ std::uint64_t LtsWeights::getCluster(double timestep,
 
   std::uint64_t cluster = 0;
   while (upper <= timestep) {
-    upper *= rate.size() > cluster ? rate[cluster] : rate.back();
+    upper *= rate.size() > (cluster + 1) ? rate[cluster + 1] : rate.back();
     ++cluster;
   }
   return cluster;
