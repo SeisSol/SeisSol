@@ -357,6 +357,13 @@ struct MaterialSetup<PoroElasticMaterial> {
   }
 
   static void initializeSpecificNeighborData(const PoroElasticMaterial& material,
+                                            double timeStepWidth,
+                                            Vertex localVertices[4],
+                                            real& localVolume,
+                                            real localSurfaces[4],
+                                            std::array<std::array<double, 3>, 4>& localNormal,
+                                            std::array<std::array<double, 3>, 4>& localTangent1,
+                                            std::array<std::array<double, 3>, 4>& localTangent2,
                                              PoroelasticNeighborData* localData) {}
 
   static void getFaceRotationMatrix(const VrtxCoords normal,

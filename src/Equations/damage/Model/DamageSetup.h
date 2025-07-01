@@ -294,8 +294,54 @@ struct MaterialSetup<DamageMaterial> {
     }
   }
 
+  //TODO (Zihua): currently, it uses the same input as the LocalData
+  // there might be some redundant variables that may
+  // do not need to be passed. Better remove for cleaning the code.
   static void initializeSpecificNeighborData(const DamageMaterial& material,
-                                             DamageNeighborData* localData) {}
+                                            double timeStepWidth,
+                                            Vertex localVertices[4],
+                                            real& localVolume,
+                                            real localSurfaces[4],
+                                            std::array<std::array<double, 3>, 4>& localNormal,
+                                            std::array<std::array<double, 3>, 4>& localTangent1,
+                                            std::array<std::array<double, 3>, 4>& localTangent2,
+                                            DamageNeighborData* localData) {
+  // currently, it takes new memory. Later on can switch to pointers
+    for (int i_v = 0; i_v < 4; i_v++) {
+      localData->localVertices[i_v] = localVertices[i_v];
+      localData->localSurfaces[i_v] = localSurfaces[i_v];
+      for (int i_c = 0; i_c < 3; i_c++) {
+        localData->localNormal[i_v][i_c] = localNormal[i_v][i_c];
+        localData->localTangent1[i_v][i_c] = localTangent1[i_v][i_c];
+        localData->localTangent2[i_v][i_c] = localTangent2[i_v][i_c];
+      }
+    }
+    localData->localVolume = localVolume;
+
+    double x[4];
+    double y[4];
+    double z[4];
+    double gradXi[3];
+    double gradEta[3];
+    double gradZeta[3];
+
+    for (unsigned vertex = 0; vertex < 4; ++vertex) {
+      const VrtxCoords& coords = localData->localVertices[vertex].coords;
+      x[vertex] = coords[0];
+      y[vertex] = coords[1];
+      z[vertex] = coords[2];
+    }
+
+    seissol::transformations::tetrahedronGlobalToReferenceJacobian(
+        x, y, z, gradXi, gradEta, gradZeta);
+    // localData->globalMeshId = meshId;
+    for (unsigned int i_x = 0; i_x<3; i_x++){
+      localData->gradXiEtaZeta[i_x][0] = gradXi[i_x];
+      localData->gradXiEtaZeta[i_x][1] = gradEta[i_x];
+      localData->gradXiEtaZeta[i_x][2] = gradZeta[i_x];
+    }
+  }
+
   static void getPlaneWaveOperator(
       const DamageMaterial& material,
       const double n[3],
