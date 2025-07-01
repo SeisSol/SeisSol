@@ -200,6 +200,9 @@ struct LTSRateAndState : public DynamicRupture {
   Variable<real[dr::misc::NumPaddedPoints]> rsA;
   Variable<real[dr::misc::NumPaddedPoints]> rsSl0;
   Variable<real[dr::misc::NumPaddedPoints]> stateVariable;
+  Variable<real[dr::misc::NumPaddedPoints]> rsF0;
+  Variable<real[dr::misc::NumPaddedPoints]> rsMuW;
+  Variable<real[dr::misc::NumPaddedPoints]> rsB;
 
   explicit LTSRateAndState(const parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
@@ -210,6 +213,9 @@ struct LTSRateAndState : public DynamicRupture {
     tree.add(rsA, mask, Alignment, allocationModeDR(), true);
     tree.add(rsSl0, mask, Alignment, allocationModeDR(), true);
     tree.add(stateVariable, mask, Alignment, allocationModeDR());
+    tree.add(rsF0, mask, Alignment, allocationModeDR(), true);
+    tree.add(rsMuW, mask, Alignment, allocationModeDR(), true);
+    tree.add(rsB, mask, Alignment, allocationModeDR(), true);
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
