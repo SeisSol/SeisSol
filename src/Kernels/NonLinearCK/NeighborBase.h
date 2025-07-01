@@ -52,6 +52,7 @@ class Neighbor : public NeighborKernel {
   
   // For nonlinear integration
   kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonlinearInterpolation;
+  kernel::nonlinearSurfaceIntegral m_nonlSurfIntPrototype;
 
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux deviceNfKrnlPrototype;

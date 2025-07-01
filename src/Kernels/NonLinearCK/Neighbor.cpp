@@ -40,6 +40,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
 
   m_nonlinearInterpolation.V3mTo2n = global.onHost->faceToNodalMatrices;
+  m_nonlSurfIntPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -68,6 +69,12 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       // Fallthrough intended
     case FaceType::Periodic: {
       // Standard for nonlinear LTS
+      // Remarks on the implementation (Zihua)
+      // In theory, it is possible to communicate only the Rusanov flux on the
+      // interpolated face nodes. Yet, in this case, the ordering of the nodal
+      // values is of the neighboring elements, not the local element. We need
+      // new stored matrices to correct for this
+
       // Step 1: Received INTEGRATED flux in x,y,z and q in modal space,
       // Project it on to face quadratures, as rusanovFluxMinus:
       // using "kernel::nonlEvaluateAndRotateQAtInterpolationPoints"
@@ -102,14 +109,22 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       m_nonLinInter.execute(data.cellInformation().faceRelations[face][0]
                         , data.cellInformation().faceRelations[face][1]+1);
       
-      // Step 2: Integrated from the face quadrature
-      // kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
-      // real fluxScale = - 2.0 / 6.0 * data.neighboringIntegration().specific.localSurfaces[face]
-      //               / data.neighboringIntegration().specific.localVolume;
-      // m_surfIntegral.Q = data.dofs();
-      // m_surfIntegral.Flux = rusanovFluxMinus;
-      // m_surfIntegral.fluxScale = fluxScale;
-      // m_surfIntegral.execute(face, 0);
+      // Step 2: Compute Rusanov flux on the interpolated face quadrature points
+      
+      // Step 3: Integrated from the face quadrature
+      alignas(Alignment) real rusanovFluxMinus[tensor::QInterpolated::size()] = {0.0};
+      // Is seissol::dr::misc::numPaddedPoints = tensor::QInterpolated::size()?
+      for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++){
+        rusanovFluxMinus[i_f] = static_cast<real>(0.0);
+      }
+
+      kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
+      real fluxScale = - 2.0 / 6.0 * data.neighboringIntegration().specific.localSurfaces[face]
+                    / data.neighboringIntegration().specific.localVolume;
+      m_surfIntegral.Q = data.dofs();
+      m_surfIntegral.Flux = rusanovFluxMinus;
+      m_surfIntegral.fluxScale = fluxScale;
+      m_surfIntegral.execute(face, 0);
 
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
