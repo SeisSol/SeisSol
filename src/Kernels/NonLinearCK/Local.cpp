@@ -505,7 +505,6 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
       || data.cellInformation().faceTypes[face] == FaceType::Periodic) {
       // Compute local integrals with derivatives and Rusanov flux
       /// S1: compute the space-time interpolated Q on both side of 4 faces
-      /// S2: at the same time rotate the field to face-aligned coord.
       alignas(PagesizeStack) real QInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()] = {{0.0}};
       // alignas(PagesizeStack) real QInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()] = {{0.0}};
 

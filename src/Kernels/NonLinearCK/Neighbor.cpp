@@ -39,6 +39,8 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   m_nfKrnlPrototype.fP = global.onHost->neighborFluxMatrices;
   m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
 
+  m_nonlinearInterpolation.V3mTo2n = global.onHost->faceToNodalMatrices;
+
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
@@ -66,16 +68,44 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       // Fallthrough intended
     case FaceType::Periodic: {
       // Standard for nonlinear LTS
-      // Step 1: Received integrated flux in x,y,z and q in modal space,
+      // Step 1: Received INTEGRATED flux in x,y,z and q in modal space,
       // Project it on to face quadratures, as rusanovFluxMinus:
       // using "kernel::nonlEvaluateAndRotateQAtInterpolationPoints"
       // The face relations are the same as the cae of receiving 'derivatives'
       // Because both are in Modal space of the neighboring cell
+      alignas(Alignment) real InterpolatedQMinus[tensor::QInterpolated::size()];
+      alignas(Alignment) real InterpolatedFxMinus[tensor::QInterpolated::size()];
+      alignas(Alignment) real InterpolatedFyMinus[tensor::QInterpolated::size()];
+      alignas(Alignment) real InterpolatedFzMinus[tensor::QInterpolated::size()];
 
+      kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter
+        = m_nonlinearInterpolation;
+      // Interpolated Q
+      m_nonLinInter.QInterpolated = &InterpolatedQMinus[0];
+      m_nonLinInter.Q = timeIntegrated[face];
+      m_nonLinInter.execute(data.cellInformation().faceRelations[face][0]
+                        , data.cellInformation().faceRelations[face][1]+1);
+      
+      // Interpolated Fx
+      m_nonLinInter.QInterpolated = &InterpolatedFxMinus[0];
+      m_nonLinInter.Q = timeIntegrated[face] + 1*tensor::Q::size();
+      m_nonLinInter.execute(data.cellInformation().faceRelations[face][0]
+                        , data.cellInformation().faceRelations[face][1]+1);
+      // Interpolated Fy
+      m_nonLinInter.QInterpolated = &InterpolatedFyMinus[0];
+      m_nonLinInter.Q = timeIntegrated[face] + 2*tensor::Q::size();
+      m_nonLinInter.execute(data.cellInformation().faceRelations[face][0]
+                        , data.cellInformation().faceRelations[face][1]+1);
+      // Interpolated Fz
+      m_nonLinInter.QInterpolated = &InterpolatedFzMinus[0];
+      m_nonLinInter.Q = timeIntegrated[face] + 3*tensor::Q::size();
+      m_nonLinInter.execute(data.cellInformation().faceRelations[face][0]
+                        , data.cellInformation().faceRelations[face][1]+1);
+      
       // Step 2: Integrated from the face quadrature
       // kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
-      // real fluxScale = - 2.0 / 6.0 * data.localIntegration().specific.localSurfaces[face]
-      //               / data.localIntegration().specific.localVolume;
+      // real fluxScale = - 2.0 / 6.0 * data.neighboringIntegration().specific.localSurfaces[face]
+      //               / data.neighboringIntegration().specific.localVolume;
       // m_surfIntegral.Q = data.dofs();
       // m_surfIntegral.Flux = rusanovFluxMinus;
       // m_surfIntegral.fluxScale = fluxScale;

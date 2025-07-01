@@ -49,6 +49,9 @@ class Neighbor : public NeighborKernel {
   protected:
   kernel::neighboringFlux m_nfKrnlPrototype;
   dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
+  
+  // For nonlinear integration
+  kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonlinearInterpolation;
 
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux deviceNfKrnlPrototype;
