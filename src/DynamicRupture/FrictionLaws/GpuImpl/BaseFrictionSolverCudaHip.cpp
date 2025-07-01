@@ -20,6 +20,7 @@
 #include "SourceTimeFunction.h"
 #include "ThermalPressurization/NoTP.h"
 #include "ThermalPressurization/ThermalPressurization.h"
+#include <Common/Constants.h>
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"
@@ -43,26 +44,11 @@ constexpr std::size_t PaddedMultiple =
 
 template <typename T>
 __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints) __global__
-    void flkernelwrapper(int elements,
-                         FrictionLawData* data,
-                         double* timeWeights,
-                         real* spaceWeights,
-                         real* resampleMatrix,
-                         real fullUpdateTime,
-                         real* TpInverseFourierCoefficients,
-                         real* TpGridPoints,
-                         real* HeatSource) {
+    void flkernelwrapper(int elements, FrictionLawArgs args) {
   FrictionLawContext ctx{};
 
-  ctx.data = data;
-  ctx.devTimeWeights = timeWeights;
-  ctx.devSpaceWeights = spaceWeights;
-  ctx.resampleMatrix = resampleMatrix;
-  ctx.fullUpdateTime = fullUpdateTime;
-
-  ctx.TpInverseFourierCoefficients = TpInverseFourierCoefficients;
-  ctx.TpGridPoints = TpGridPoints;
-  ctx.HeatSource = HeatSource;
+  ctx.data = args.data;
+  ctx.args = &args;
 
   __shared__ real shm[PaddedMultiple * seissol::dr::misc::NumPaddedPoints];
   ctx.sharedMemory = &shm[threadIdx.z * seissol::dr::misc::NumPaddedPoints];
@@ -81,7 +67,9 @@ namespace seissol::dr::friction_law::gpu {
 
 template <typename T>
 void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
-                                           real fullUpdateTime) {
+                                           real fullUpdateTime,
+                                           const double timeWeights[ConvergenceOrder],
+                                           const FrictionTime& frictionTime) {
 #ifdef __CUDACC__
   using StreamT = cudaStream_t;
 #endif
@@ -91,15 +79,20 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   auto stream = reinterpret_cast<StreamT>(runtime.stream());
   dim3 block(multisim::NumSimulations, misc::NumPaddedPointsSingleSim, PaddedMultiple);
   dim3 grid((this->currLayerSize + PaddedMultiple - 1) / PaddedMultiple);
-  flkernelwrapper<T><<<grid, block, 0, stream>>>(this->currLayerSize,
-                                                 data,
-                                                 devTimeWeights,
-                                                 devSpaceWeights,
-                                                 resampleMatrix,
-                                                 fullUpdateTime,
-                                                 devTpInverseFourierCoefficients,
-                                                 devTpGridPoints,
-                                                 devHeatSource);
+
+  FrictionLawArgs args{};
+  args.data = data;
+  args.spaceWeights = devSpaceWeights;
+  args.resampleMatrix = resampleMatrix;
+  args.tpInverseFourierCoefficients = devTpInverseFourierCoefficients;
+  args.tpGridPoints = devTpGridPoints;
+  args.heatSource = devHeatSource;
+  std::copy_n(timeWeights, ConvergenceOrder, args.timeWeights);
+  std::copy_n(frictionTime.deltaT.data(), ConvergenceOrder, args.deltaT);
+  args.sumDt = frictionTime.sumDt;
+  args.fullUpdateTime = fullUpdateTime;
+
+  flkernelwrapper<T><<<grid, block, 0, stream>>>(this->currLayerSize, args);
 }
 
 template class BaseFrictionSolver<NoFault>;

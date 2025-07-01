@@ -24,8 +24,7 @@ class YoffeSTF : public ImposedSlipRates<YoffeSTF> {
   public:
   static void copyLtsTreeToLocal(FrictionLawData* data,
                                  seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
-                                 real fullUpdateTime) {
+                                 const seissol::initializer::DynamicRupture* const dynRup) {
     const auto* concreteLts =
         dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe*>(dynRup);
     const auto place = seissol::initializer::AllocationPlace::Device;
@@ -47,8 +46,7 @@ class GaussianSTF : public ImposedSlipRates<GaussianSTF> {
   public:
   static void copyLtsTreeToLocal(FrictionLawData* data,
                                  seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
-                                 real fullUpdateTime) {
+                                 const seissol::initializer::DynamicRupture* const dynRup) {
     const auto* concreteLts =
         dynamic_cast<const seissol::initializer::LTSImposedSlipRatesGaussian*>(dynRup);
     const auto place = seissol::initializer::AllocationPlace::Device;
@@ -70,8 +68,7 @@ class DeltaSTF : public ImposedSlipRates<DeltaSTF> {
   public:
   static void copyLtsTreeToLocal(FrictionLawData* data,
                                  seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
-                                 real fullUpdateTime) {
+                                 const seissol::initializer::DynamicRupture* const dynRup) {
     const auto* concreteLts =
         dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta*>(dynRup);
     const auto place = seissol::initializer::AllocationPlace::Device;

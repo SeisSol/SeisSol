@@ -28,15 +28,14 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   static void
       copySpecificLtsDataTreeToLocal(FrictionLawData* data,
                                      seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) {
+                                     const seissol::initializer::DynamicRupture* const dynRup) {
     const auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
     data->a = layerData.var(concreteLts->rsA, seissol::initializer::AllocationPlace::Device);
     data->sl0 = layerData.var(concreteLts->rsSl0, seissol::initializer::AllocationPlace::Device);
     data->stateVariable =
         layerData.var(concreteLts->stateVariable, seissol::initializer::AllocationPlace::Device);
-    Derived::copySpecificLtsDataTreeToLocal(data, layerData, dynRup, fullUpdateTime);
-    TPMethod::copyLtsTreeToLocal(data, layerData, dynRup, fullUpdateTime);
+    Derived::copySpecificLtsDataTreeToLocal(data, layerData, dynRup);
+    TPMethod::copyLtsTreeToLocal(data, layerData, dynRup);
   }
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, unsigned timeIndex) {
@@ -107,7 +106,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     for (unsigned j = 0; j < settings.numberStateVariableUpdates; j++) {
 
-      const auto dt{ctx.data->deltaT[timeIndex]};
+      const auto dt{ctx.args->deltaT[timeIndex]};
       Derived::updateStateVariable(ctx, dt);
       TPMethod::calcFluidPressure(ctx, timeIndex, false);
       updateNormalStress(ctx, timeIndex);
@@ -146,9 +145,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto& devFaultStresses{ctx.faultStresses};
     auto& devTractionResults{ctx.tractionResults};
 
-    const auto deltaTime{ctx.data->deltaT[timeIndex]};
+    const auto deltaTime{ctx.args->deltaT[timeIndex]};
 
-    Derived::updateStateVariable(ctx, ctx.data->deltaT[timeIndex]);
+    Derived::updateStateVariable(ctx, ctx.args->deltaT[timeIndex]);
 
     const auto localStateVariable = devStateVariableBuffer;
     const auto slipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
@@ -203,10 +202,10 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto rsF0{ctx.data->drParameters.rsF0};
 
     const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
-    if (localRuptureTime > 0.0 && localRuptureTime <= ctx.fullUpdateTime &&
+    if (localRuptureTime > 0.0 && localRuptureTime <= ctx.args->fullUpdateTime &&
         ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
         ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <= (muW + 0.05 * (rsF0 - muW))) {
-      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = ctx.fullUpdateTime;
+      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = ctx.args->fullUpdateTime;
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }

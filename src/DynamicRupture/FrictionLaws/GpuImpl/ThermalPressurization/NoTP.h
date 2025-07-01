@@ -17,8 +17,7 @@ class NoTP {
   public:
   static void copyLtsTreeToLocal(FrictionLawData* data,
                                  seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
-                                 real fullUpdateTime) {}
+                                 const seissol::initializer::DynamicRupture* const dynRup) {}
 
   SEISSOL_DEVICE static void
       calcFluidPressure(FrictionLawContext& ctx, int timeIndex, bool saveTmpInTP) {}

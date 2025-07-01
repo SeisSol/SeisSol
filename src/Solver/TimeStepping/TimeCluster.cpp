@@ -225,8 +225,8 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
 
   SCOREP_USER_REGION_BEGIN(
       myRegionHandle, "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_COMMON)
-  frictionSolver->evaluate(
-      layerData, dynRup, ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
+  frictionSolver->setupLayer(layerData, dynRup, streamRuntime);
+  frictionSolver->evaluate(ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
   SCOREP_USER_REGION_END(myRegionHandle)
 #pragma omp parallel
   {
@@ -272,8 +272,9 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice(
     }
 
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
+    frictionSolverDevice->setupLayer(layerData, dynRup, streamRuntime);
     frictionSolverDevice->evaluate(
-        layerData, dynRup, ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
+        ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
     device.api->popLastProfilingMark();
     if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
       layerData.varSynchronizeTo(

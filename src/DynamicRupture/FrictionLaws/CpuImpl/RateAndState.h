@@ -86,14 +86,13 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {
+                          const seissol::initializer::DynamicRupture* const dynRup) {
     const auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
     a = layerData.var(concreteLts->rsA);
     sl0 = layerData.var(concreteLts->rsSl0);
     stateVariable = layerData.var(concreteLts->stateVariable);
-    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
-    tpMethod.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup);
+    tpMethod.copyLtsTreeToLocal(layerData, dynRup);
   }
 
   /**

@@ -16,9 +16,6 @@
 // which, in its turn, is not supposed to know anything about SYCL
 namespace seissol::dr::friction_law::gpu {
 struct FrictionLawData {
-  real deltaT[ConvergenceOrder] = {};
-  real sumDt{};
-
   seissol::initializer::parameters::DRParameters drParameters;
 
   const ImpedancesAndEta* __restrict impAndEta{};
@@ -103,8 +100,7 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
 
   static void copyLtsTreeToLocal(FrictionLawData* data,
                                  seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* dynRup,
-                                 real fullUpdateTime) {
+                                 const seissol::initializer::DynamicRupture* dynRup) {
     const seissol::initializer::AllocationPlace place =
         seissol::initializer::AllocationPlace::Device;
     data->impAndEta = layerData.var(dynRup->impAndEta, place);

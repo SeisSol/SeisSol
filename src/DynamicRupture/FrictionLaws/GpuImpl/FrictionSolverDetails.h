@@ -25,7 +25,6 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   size_t currLayerSize{};
 
   real* resampleMatrix{nullptr};
-  double* devTimeWeights{nullptr};
   real* devSpaceWeights{nullptr};
   real* devTpInverseFourierCoefficients{nullptr};
   real* devTpGridPoints{nullptr};

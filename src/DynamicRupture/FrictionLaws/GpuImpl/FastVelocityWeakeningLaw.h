@@ -22,14 +22,12 @@ class FastVelocityWeakeningLaw
 
   static void copyLtsTreeToLocal(FrictionLawData* data,
                                  seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
-                                 real fullUpdateTime) {}
+                                 const seissol::initializer::DynamicRupture* const dynRup) {}
 
   static void
       copySpecificLtsDataTreeToLocal(FrictionLawData* data,
                                      seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) {
+                                     const seissol::initializer::DynamicRupture* const dynRup) {
     using SelfInitializerType = seissol::initializer::LTSRateAndStateFastVelocityWeakening;
     const auto* concreteLts = dynamic_cast<const SelfInitializerType*>(dynRup);
     data->srW = layerData.var(concreteLts->rsSrW, seissol::initializer::AllocationPlace::Device);
@@ -105,11 +103,11 @@ class FastVelocityWeakeningLaw
     real resampledDeltaStateVar{0.0};
     for (size_t i{0}; i < Dim1; ++i) {
       if constexpr (multisim::MultisimEnabled) {
-        resampledDeltaStateVar += ctx.resampleMatrix[simPointIndex * Dim1 + i] *
+        resampledDeltaStateVar += ctx.args->resampleMatrix[simPointIndex * Dim1 + i] *
                                   ctx.sharedMemory[i * multisim::NumSimulations + simId];
       } else {
         resampledDeltaStateVar +=
-            ctx.resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
+            ctx.args->resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
       }
     }
 

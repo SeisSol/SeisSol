@@ -21,8 +21,7 @@ class NoFault : public BaseFrictionSolver<NoFault> {
   static void
       copySpecificLtsDataTreeToLocal(FrictionLawData* data,
                                      seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) {}
+                                     const seissol::initializer::DynamicRupture* const dynRup) {}
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, unsigned timeIndex) {
     // calculate traction
