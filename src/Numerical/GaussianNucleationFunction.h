@@ -18,13 +18,13 @@ namespace seissol::gaussianNucleationFunction {
 /**
  * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
  */
-template <typename T, typename MathFunctions>
+template <typename T>
 SEISSOL_HOSTDEVICE inline T smoothStep(T currentTime, T t0) {
   if (currentTime <= 0) {
     return 0.0;
   } else if (currentTime < t0) {
     const T tau = currentTime - t0;
-    return MathFunctions::exp(tau * tau / (currentTime * (currentTime - 2.0 * t0)));
+    return std::exp(tau * tau / (currentTime * (currentTime - 2.0 * t0)));
   } else {
     return 1.0;
   }
@@ -33,10 +33,9 @@ SEISSOL_HOSTDEVICE inline T smoothStep(T currentTime, T t0) {
 /**
  * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf
  */
-template <typename T, typename MathFunctions = seissol::functions::HostStdFunctions>
+template <typename T>
 SEISSOL_HOSTDEVICE inline T smoothStepIncrement(T currentTime, T dt, T t0) {
-  return smoothStep<T, MathFunctions>(currentTime, t0) -
-         smoothStep<T, MathFunctions>(currentTime - dt, t0);
+  return smoothStep<T>(currentTime, t0) - smoothStep<T>(currentTime - dt, t0);
 }
 
 } // namespace seissol::gaussianNucleationFunction
