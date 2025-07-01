@@ -57,7 +57,11 @@ class FrictionSolver {
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           const seissol::initializer::DynamicRupture* dynRup);
 
+  virtual void allocateAuxiliaryMemory() {}
+
   virtual seissol::initializer::AllocationPlace allocationPlace();
+
+  virtual std::unique_ptr<FrictionSolver> clone() = 0;
 
   protected:
   /**

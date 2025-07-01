@@ -24,6 +24,10 @@ class SlowVelocityWeakeningLaw
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
                           const seissol::initializer::DynamicRupture* const dynRup) {}
 
+  std::unique_ptr<FrictionSolver> clone() override {
+    return std::make_unique<Derived>(*static_cast<Derived*>(this));
+  }
+
 // Note that we need double precision here, since single precision led to NaNs.
 #pragma omp declare simd
   double updateStateVariable(int pointIndex,

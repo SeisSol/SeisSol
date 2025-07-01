@@ -92,8 +92,6 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
       : seissol::dr::friction_law::FrictionSolver(drParameters) {}
   ~FrictionSolverInterface() override = default;
 
-  virtual void allocateAuxiliaryMemory() = 0;
-
   seissol::initializer::AllocationPlace allocationPlace() override {
     return seissol::initializer::AllocationPlace::Device;
   }

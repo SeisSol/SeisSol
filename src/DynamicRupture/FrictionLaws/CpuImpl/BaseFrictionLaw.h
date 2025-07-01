@@ -30,6 +30,10 @@ class BaseFrictionLaw : public FrictionSolver {
   explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
       : FrictionSolver(drParameters) {}
 
+  std::unique_ptr<FrictionSolver> clone() override {
+    return std::make_unique<Derived>(*static_cast<Derived*>(this));
+  }
+
   void setupLayer(seissol::initializer::Layer& layerData,
                   const seissol::initializer::DynamicRupture* dynRup,
                   seissol::parallel::runtime::StreamRuntime& runtime) override {

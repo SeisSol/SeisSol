@@ -12,6 +12,7 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
 
 #include <list>
+#include <memory>
 #include <mpi.h>
 
 #include "Initializer/Typedefs.h"
@@ -100,8 +101,10 @@ class TimeCluster : public AbstractTimeCluster {
   seissol::initializer::Layer* dynRupCopyData;
   seissol::initializer::LTS* lts;
   seissol::initializer::DynamicRupture* dynRup;
-  dr::friction_law::FrictionSolver* frictionSolver;
-  dr::friction_law::FrictionSolver* frictionSolverDevice;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolver;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverDevice;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopy;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopyDevice;
   dr::output::OutputManager* faultOutputManager;
 
   seissol::kernels::PointSourceClusterPair sourceCluster;
