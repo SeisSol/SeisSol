@@ -237,7 +237,7 @@ class View(QWidget):
             ref_interp = scipy.interpolate.interp1d(wf_ref.time, wf_ref.waveforms[name])
             wf_union = wf_interp(time_union)
             ref_union = ref_interp(time_union)
-            diff = numpy.sqrt(scipy.integrate.trapz((wf_union - ref_union)**2, x=time_union))
+            diff = numpy.sqrt(scipy.integrate.trapezoid((wf_union - ref_union)**2, x=time_union))
             p.text(0.05, 1-0.1*nWf, f"L2 diff={diff:.2e}", transform = p.transAxes)
 
       self.figure.tight_layout()

@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -118,7 +119,7 @@ class WaveFieldWriter
                                     std::map<int, int>& newToOldCellMap) const;
 
   public:
-  WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
+  explicit WaveFieldWriter(seissol::SeisSol& seissolInstance) : seissolInstance(seissolInstance) {}
 
   /**
    * Activate the wave field output
@@ -156,7 +157,7 @@ class WaveFieldWriter
             const real* dofs,
             const real* pstrain,
             const real* integrals,
-            const unsigned int* map,
+            const std::size_t* map,
             const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
             xdmfwriter::BackendType backend,
             const std::string& backupTimeStamp);

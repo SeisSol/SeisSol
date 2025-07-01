@@ -31,20 +31,16 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
   const unsigned int nCells = info.bufferSize(Cells) / (3 * sizeof(int));
   const unsigned int nVertices = info.bufferSize(Vertices) / (3 * sizeof(double));
 
-#ifdef USE_MPI
   MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
-#endif // USE_MPI
 
   if (nCells > 0) {
     int rank = 0;
-#ifdef USE_MPI
     MPI_Comm_rank(m_comm, &rank);
-#endif // USE_MPI
 
     std::string outputName(static_cast<const char*>(info.buffer(OutputPrefix)));
     outputName += "-surface";
 
-    m_numVariables = 2 * FREESURFACE_NUMBER_OF_COMPONENTS;
+    m_numVariables = 2 * seissol::solver::FreeSurfaceIntegrator::NumComponents;
     std::vector<const char*> variables;
     variables.reserve(m_numVariables);
     for (unsigned int i = 0; i < m_numVariables; i++) {
@@ -55,9 +51,7 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
     m_xdmfWriter = new xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>(
         param.backend, outputName.c_str(), param.timestep);
 
-#ifdef USE_MPI
     m_xdmfWriter->setComm(m_comm);
-#endif // USE_MPI
     m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
     const std::string extraIntVarName = "locationFlag";
     const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);

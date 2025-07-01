@@ -145,13 +145,14 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     const ImpedanceMatrices& impedanceMatrices,
     const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
+    real etaPDamp,
     unsigned startLoopIndex = 0) {
   static_assert(tensor::QInterpolated::Shape[seissol::multisim::BasisFunctionDimension] ==
                     tensor::resample::Shape[0],
                 "Different number of quadrature points?");
 
 #ifndef USE_POROELASTIC
-  const auto etaP = impAndEta.etaP;
+  const auto etaP = impAndEta.etaP * etaPDamp;
   const auto etaS = impAndEta.etaS;
   const auto invZp = impAndEta.invZp;
   const auto invZs = impAndEta.invZs;
@@ -410,8 +411,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
  * @param[in] dt
  * @param[in] index - device iteration index
  */
-template <RangeType Type = RangeType::CPU,
-          typename MathFunctions = seissol::functions::HostStdFunctions>
+template <RangeType Type = RangeType::CPU>
 // See https://github.com/llvm/llvm-project/issues/60163
 // NOLINTNEXTLINE
 SEISSOL_HOSTDEVICE inline void
@@ -423,11 +423,12 @@ SEISSOL_HOSTDEVICE inline void
                         const real nucleationPressure[misc::NumPaddedPoints],
                         real fullUpdateTime,
                         real t0,
+                        real s0,
                         real dt,
                         unsigned startIndex = 0) {
-  if (fullUpdateTime <= t0) {
+  if (fullUpdateTime <= t0 + s0 && fullUpdateTime >= s0) {
     const real gNuc =
-        gaussianNucleationFunction::smoothStepIncrement<MathFunctions>(fullUpdateTime, dt, t0);
+        gaussianNucleationFunction::smoothStepIncrement<real>(fullUpdateTime - s0, dt, t0);
 
     using Range = typename NumPoints<Type>::Range;
 
@@ -605,7 +606,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
       const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
       const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
 
-      const auto spaceWeight = spaceWeights[i];
+      const auto spaceWeight = spaceWeights[i / multisim::NumSimulations];
 
       const auto weight = -timeWeight * spaceWeight * doubledSurfaceArea;
       frictionalEnergy[i] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +

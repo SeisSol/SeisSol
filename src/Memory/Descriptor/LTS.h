@@ -17,6 +17,7 @@
 #include "Model/Plasticity.h"
 #include "generated_code/tensor.h"
 #include <Initializer/CellLocalInformation.h>
+#include <Parallel/Helper.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/Helper.h"
@@ -28,64 +29,63 @@ class Qane;
 
 namespace seissol::initializer {
 
-enum class AllocationPreset {
-  Global,
-  Timedofs,
-  Constant,
-  Dofs,
-  TimedofsConstant,
-  ConstantShared,
-  Timebucket,
-  Plasticity,
-  PlasticityData
-};
-
-inline auto allocationModeWP(AllocationPreset preset,
-                             int convergenceOrder = seissol::ConvergenceOrder) {
-#ifndef ACL_DEVICE
-  switch (preset) {
-  case seissol::initializer::AllocationPreset::Global:
-    [[fallthrough]];
-  case seissol::initializer::AllocationPreset::TimedofsConstant:
-    return AllocationMode::HostOnlyHBM;
-  case seissol::initializer::AllocationPreset::Plasticity:
-    return AllocationMode::HostOnly;
-  case seissol::initializer::AllocationPreset::PlasticityData:
-    return AllocationMode::HostOnly;
-  case seissol::initializer::AllocationPreset::Timebucket:
-    [[fallthrough]];
-  case seissol::initializer::AllocationPreset::Timedofs:
-    return (convergenceOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
-  case seissol::initializer::AllocationPreset::Constant:
-    [[fallthrough]];
-  case seissol::initializer::AllocationPreset::ConstantShared:
-    return (convergenceOrder <= 4 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
-  case seissol::initializer::AllocationPreset::Dofs:
-    return (convergenceOrder <= 3 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
-  default:
-    return AllocationMode::HostOnly;
-  }
-#else
-  switch (preset) {
-  case seissol::initializer::AllocationPreset::Global:
-    [[fallthrough]];
-  case seissol::initializer::AllocationPreset::Constant:
-    [[fallthrough]];
-  case seissol::initializer::AllocationPreset::TimedofsConstant:
-    return AllocationMode::HostOnly;
-  case seissol::initializer::AllocationPreset::Dofs:
-    [[fallthrough]];
-  case seissol::initializer::AllocationPreset::PlasticityData:
-    return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplitPinned;
-  case seissol::initializer::AllocationPreset::Timebucket:
-    return useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
-  default:
-    return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
-  }
-#endif
-}
-
 struct LTS {
+  enum class AllocationPreset {
+    Global,
+    Timedofs,
+    Constant,
+    Dofs,
+    TimedofsConstant,
+    ConstantShared,
+    Timebucket,
+    Plasticity,
+    PlasticityData
+  };
+
+  static auto allocationModeWP(AllocationPreset preset,
+                               int convergenceOrder = seissol::ConvergenceOrder) {
+    if constexpr (!isDeviceOn()) {
+      switch (preset) {
+      case AllocationPreset::Global:
+        [[fallthrough]];
+      case AllocationPreset::TimedofsConstant:
+        return AllocationMode::HostOnlyHBM;
+      case AllocationPreset::Plasticity:
+        return AllocationMode::HostOnly;
+      case AllocationPreset::PlasticityData:
+        return AllocationMode::HostOnly;
+      case AllocationPreset::Timebucket:
+        [[fallthrough]];
+      case AllocationPreset::Timedofs:
+        return (convergenceOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+      case AllocationPreset::Constant:
+        [[fallthrough]];
+      case AllocationPreset::ConstantShared:
+        return (convergenceOrder <= 4 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+      case AllocationPreset::Dofs:
+        return (convergenceOrder <= 3 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
+      default:
+        return AllocationMode::HostOnly;
+      }
+    } else {
+      switch (preset) {
+      case AllocationPreset::Global:
+        [[fallthrough]];
+      case AllocationPreset::Constant:
+        [[fallthrough]];
+      case AllocationPreset::TimedofsConstant:
+        return AllocationMode::HostOnly;
+      case AllocationPreset::Dofs:
+        [[fallthrough]];
+      case AllocationPreset::PlasticityData:
+        return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplitPinned;
+      case AllocationPreset::Timebucket:
+        return useMPIUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
+      default:
+        return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
+      }
+    }
+  }
   Variable<real[tensor::Q::size()]> dofs;
   // size is zero if Qane is not defined
   Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> dofsAne;
@@ -102,8 +102,8 @@ struct LTS {
   Variable<CellBoundaryMapping[4]> boundaryMapping;
   Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
   Variable<real* [4]> faceDisplacements;
-  Bucket buffersDerivatives;
-  Bucket faceDisplacementsBuffer;
+  Bucket<real> buffersDerivatives;
+  Bucket<real> faceDisplacementsBuffer;
 
   Variable<real*> buffersDevice;
   Variable<real*> derivativesDevice;
@@ -112,14 +112,27 @@ struct LTS {
   Variable<CellDRMapping[4]> drMappingDevice;
   Variable<CellBoundaryMapping[4]> boundaryMappingDevice;
 
-#ifdef ACL_DEVICE
-  ScratchpadMemory integratedDofsScratch;
-  ScratchpadMemory derivativesScratch;
-  ScratchpadMemory nodalAvgDisplacements;
-  ScratchpadMemory analyticScratch;
-#endif
+  Scratchpad<real> integratedDofsScratch;
+  Scratchpad<real> derivativesScratch;
+  Scratchpad<real> nodalAvgDisplacements;
+  Scratchpad<real> analyticScratch;
+  Scratchpad<real> derivativesExtScratch;
+  Scratchpad<real> derivativesAneScratch;
+  Scratchpad<real> idofsAneScratch;
+  Scratchpad<real> dofsExtScratch;
 
-  /// \todo Memkind
+  Scratchpad<unsigned> flagScratch;
+  Scratchpad<real> prevDofsScratch;
+  Scratchpad<real> qEtaNodalScratch;
+  Scratchpad<real> qStressNodalScratch;
+
+  Scratchpad<real> rotateDisplacementToFaceNormalScratch;
+  Scratchpad<real> rotateDisplacementToGlobalScratch;
+  Scratchpad<real> rotatedFaceDisplacementScratch;
+  Scratchpad<real> dofsFaceNodalScratch;
+  Scratchpad<real> prevCoefficientsScratch;
+  Scratchpad<real> dofsFaceBoundaryNodalScratch;
+
   void addTo(LTSTree& tree, bool usePlasticity) {
     LayerMask plasticityMask;
     if (usePlasticity) {
@@ -128,63 +141,85 @@ struct LTS {
       plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
     }
 
-    tree.addVar(dofs, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+    tree.add(dofs, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
     if (kernels::size<tensor::Qane>() > 0) {
-      tree.addVar(
-          dofsAne, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+      tree.add(dofsAne, LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+    } else {
+      tree.add(dofsAne,
+               LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
+               PagesizeHeap,
+               allocationModeWP(AllocationPreset::Dofs));
     }
-    tree.addVar(
-        buffers, LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
-    tree.addVar(
+    tree.add(buffers, LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+    tree.add(
         derivatives, LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
-    tree.addVar(
-        cellInformation, LayerMask(), 1, allocationModeWP(AllocationPreset::Constant), true);
-    tree.addVar(secondaryInformation, LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.addVar(faceNeighbors,
-                LayerMask(Ghost),
-                1,
-                allocationModeWP(AllocationPreset::TimedofsConstant),
-                true);
-    tree.addVar(localIntegration,
-                LayerMask(Ghost),
-                1,
-                allocationModeWP(AllocationPreset::ConstantShared),
-                true);
-    tree.addVar(neighboringIntegration,
-                LayerMask(Ghost),
-                1,
-                allocationModeWP(AllocationPreset::ConstantShared),
-                true);
-    tree.addVar(material, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.addVar(
-        plasticity, plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);
-    tree.addVar(drMapping, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
-    tree.addVar(
+    tree.add(cellInformation, LayerMask(), 1, allocationModeWP(AllocationPreset::Constant), true);
+    tree.add(secondaryInformation, LayerMask(), 1, AllocationMode::HostOnly, true);
+    tree.add(faceNeighbors,
+             LayerMask(Ghost),
+             1,
+             allocationModeWP(AllocationPreset::TimedofsConstant),
+             true);
+    tree.add(localIntegration,
+             LayerMask(Ghost),
+             1,
+             allocationModeWP(AllocationPreset::ConstantShared),
+             true);
+    tree.add(neighboringIntegration,
+             LayerMask(Ghost),
+             1,
+             allocationModeWP(AllocationPreset::ConstantShared),
+             true);
+    tree.add(material, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    tree.add(plasticity, plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);
+    tree.add(drMapping, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
+    tree.add(
         boundaryMapping, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
-    tree.addVar(
+    tree.add(
         pstrain, plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::PlasticityData));
-    tree.addVar(faceDisplacements, LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
+    tree.add(faceDisplacements, LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
 
     // TODO(David): remove/rename "constant" flag (the data is temporary; and copying it for IO is
     // handled differently)
-    tree.addBucket(
-        buffersDerivatives, PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
-    tree.addBucket(
-        faceDisplacementsBuffer, PagesizeHeap, allocationModeWP(AllocationPreset::Timedofs));
+    tree.add(buffersDerivatives,
+             LayerMask(),
+             PagesizeHeap,
+             allocationModeWP(AllocationPreset::Timebucket),
+             true);
+    tree.add(faceDisplacementsBuffer,
+             LayerMask(),
+             PagesizeHeap,
+             allocationModeWP(AllocationPreset::Timedofs));
 
-    tree.addVar(buffersDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.addVar(derivativesDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.addVar(faceDisplacementsDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.addVar(faceNeighborsDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.addVar(drMappingDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.addVar(boundaryMappingDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    tree.add(buffersDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
+    tree.add(derivativesDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
+    tree.add(faceDisplacementsDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    tree.add(faceNeighborsDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    tree.add(drMappingDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    tree.add(boundaryMappingDevice, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
 
-#ifdef ACL_DEVICE
-    tree.addScratchpadMemory(integratedDofsScratch, 1, AllocationMode::HostDeviceSplit);
-    tree.addScratchpadMemory(derivativesScratch, 1, AllocationMode::DeviceOnly);
-    tree.addScratchpadMemory(nodalAvgDisplacements, 1, AllocationMode::DeviceOnly);
-    tree.addScratchpadMemory(analyticScratch, 1, AllocationMode::HostDevicePinned);
-#endif
+    if constexpr (isDeviceOn()) {
+      tree.add(derivativesExtScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(derivativesAneScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(idofsAneScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(dofsExtScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(integratedDofsScratch, LayerMask(), 1, AllocationMode::HostDeviceSplit);
+      tree.add(derivativesScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(nodalAvgDisplacements, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(analyticScratch, LayerMask(), 1, AllocationMode::HostDevicePinned);
+
+      tree.add(flagScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(prevDofsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(qEtaNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(qStressNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+
+      tree.add(rotateDisplacementToFaceNormalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(rotateDisplacementToGlobalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(rotatedFaceDisplacementScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(dofsFaceNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(prevCoefficientsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(dofsFaceBoundaryNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+    }
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
@@ -194,7 +229,7 @@ struct LTS {
       manager.registerData("dofsAne", tree, dofsAne);
     }
     // check plasticity usage over the layer mask (for now)
-    if (plasticity.mask == LayerMask(Ghost)) {
+    if (tree->info(plasticity).mask == LayerMask(Ghost)) {
       manager.registerData("pstrain", tree, pstrain);
     }
   }

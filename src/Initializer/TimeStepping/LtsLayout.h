@@ -17,6 +17,7 @@
 
 #include "Initializer/Parameters/SeisSolParameters.h"
 
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <array>
 #include <cassert>
 #include <limits>
@@ -83,9 +84,6 @@ class seissol::initializer::time_stepping::LtsLayout {
 
     //! number of ghost cells per rank
     unsigned int *m_numberOfPlainGhostCells;
-
-    //! cluster ids of the cells in the ghost layer
-    unsigned int **m_plainGhostCellClusterIds;
 
     //! face ids of interior dr faces
     std::vector< std::vector<int> > m_dynamicRupturePlainInterior;
@@ -408,12 +406,7 @@ class seissol::initializer::time_stepping::LtsLayout {
     void deriveLayout( enum TimeClustering i_timeClustering,
                        unsigned int        i_clusterRate = std::numeric_limits<unsigned int>::max() );
 
-    /**
-     * Gets the cross-cluster time stepping information.
-     *
-     * @param o_timeStepping cross-cluster time stepping information.
-     **/
-    void getCrossClusterTimeStepping( struct TimeStepping &o_timeStepping );
+    [[nodiscard]] ClusterLayout clusterLayout() const;
 
     /**
      * Initializes the data structures required for computation.
@@ -430,8 +423,8 @@ class seissol::initializer::time_stepping::LtsLayout {
      **/
     void getCellInformation( CellLocalInformation* io_cellLocalInformation,
                              SecondaryCellLocalInformation* secondaryInformation,
-                             unsigned int         *&o_ltsToMesh,
-                             unsigned int          &o_numberOfMeshCells );
+                             std::size_t         *&o_ltsToMesh,
+                             std::size_t          &o_numberOfMeshCells );
 
     void getDynamicRuptureInformation(  unsigned*&  ltsToFace,
                                         unsigned*&  numberOfDRCopyFaces,

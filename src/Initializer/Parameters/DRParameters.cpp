@@ -8,8 +8,13 @@
 #include "DRParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>
 #include <Kernels/Precision.h>
+#include <Solver/MultipleSimulations.h>
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <limits>
+#include <optional>
+#include <string>
 #include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
@@ -67,7 +72,19 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
   const auto healingThreshold =
       static_cast<real>(reader->readWithDefault("lsw_healingthreshold", -1.0));
-  const auto t0 = static_cast<real>(reader->readWithDefault("t_0", 0.0));
+  const auto nucleationCount = reader->readWithDefault("nucleationcount", 1);
+  if (nucleationCount > MaxNucleactions) {
+    logError() << "You requested more nucleations than supported by this build of SeisSol. Either "
+                  "adjust that yourself, or complain to the developers. :)";
+  }
+  std::array<real, MaxNucleactions> t0;
+  std::array<real, MaxNucleactions> s0;
+  for (std::size_t i = 0; i < nucleationCount; ++i) {
+    const std::string t0name = i == 0 ? "t_0" : ("t" + std::to_string(i + 1) + "_0");
+    t0[i] = static_cast<real>(reader->readWithDefault(t0name, 0.0));
+    const std::string s0name = i == 0 ? "s_0" : ("s" + std::to_string(i + 1) + "_0");
+    s0[i] = static_cast<real>(reader->readWithDefault(s0name, 0.0));
+  }
   const auto tpProxyExponent =
       static_cast<real>(reader->readWithDefault("tpproxyexponent", 1. / 3.));
 
@@ -104,6 +121,23 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
 
   const auto faultFileName = reader->readPath("modelfilename");
 
+  std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
+
+  bool isDynamicRuptureEnabled = false;
+
+  if (!faultFileName.value_or("").empty()) {
+    faultFileNames[0] = faultFileName.value();
+    isDynamicRuptureEnabled = true;
+  }
+
+  for (std::size_t i = 0; i < faultFileNames.size(); ++i) {
+    const auto fieldname = "modelfilename" + std::to_string(i);
+    if (reader->hasField(fieldname)) {
+      faultFileNames[i] = reader->read<std::string>(fieldname);
+      isDynamicRuptureEnabled = true;
+    }
+  }
+
   auto* outputReader = baseReader->readSubNode("output");
   const bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
   const bool energiesFromAcrossFaultVelocities =
@@ -115,9 +149,6 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
       "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
-
-  // if there is no fileName given for the fault, assume that we do not use dynamic rupture
-  const bool isDynamicRuptureEnabled = !faultFileName.value_or("").empty();
 
   const double etaHack = [&]() {
     const auto hackRead1 = reader->read<double>("etahack");
@@ -135,6 +166,9 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
     }
   }();
 
+  const auto hackStop =
+      reader->read<double>("etastop").value_or(std::numeric_limits<double>::infinity());
+
   reader->warnDeprecated({"rf_output_on", "backgroundtype"});
 
   return DRParameters{isDynamicRuptureEnabled,
@@ -148,6 +182,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       frictionLawType,
                       healingThreshold,
                       t0,
+                      s0,
                       tpProxyExponent,
                       rsF0,
                       rsB,
@@ -163,8 +198,11 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                       vStar,
                       prakashLength,
                       faultFileName.value_or(""),
+                      faultFileNames,
                       referencePoint,
                       terminatorSlipRateThreshold,
-                      etaHack};
+                      etaHack,
+                      hackStop,
+                      nucleationCount};
 }
 } // namespace seissol::initializer::parameters

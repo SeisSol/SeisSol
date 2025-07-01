@@ -25,7 +25,7 @@ template <typename Derived>
 class BaseFrictionLaw : public FrictionSolver {
   public:
   explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
-      : FrictionSolver(drParameters) {};
+      : FrictionSolver(drParameters) {}
 
   /**
    * evaluates the current friction model
@@ -35,7 +35,7 @@ class BaseFrictionLaw : public FrictionSolver {
                 real fullUpdateTime,
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
-    if (layerData.getNumberOfCells() == 0) {
+    if (layerData.size() == 0) {
       return;
     }
 
@@ -47,16 +47,19 @@ class BaseFrictionLaw : public FrictionSolver {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (unsigned ltsFace = 0; ltsFace < layerData.getNumberOfCells(); ++ltsFace) {
+    for (unsigned ltsFace = 0; ltsFace < layerData.size(); ++ltsFace) {
       alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
+      const auto etaPDamp =
+          drParameters->etaStop > this->mFullUpdateTime ? drParameters->etaHack : 1.0;
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
                                                 impedanceMatrices[ltsFace],
                                                 qInterpolatedPlus[ltsFace],
-                                                qInterpolatedMinus[ltsFace]);
+                                                qInterpolatedMinus[ltsFace],
+                                                etaPDamp);
       LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");
       SCOREP_USER_REGION_END(myRegionHandle)
 
@@ -81,13 +84,16 @@ class BaseFrictionLaw : public FrictionSolver {
       real updateTime = this->mFullUpdateTime;
       for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
         updateTime += this->deltaT[timeIndex];
-        common::adjustInitialStress(initialStressInFaultCS[ltsFace],
-                                    nucleationStressInFaultCS[ltsFace],
-                                    initialPressure[ltsFace],
-                                    nucleationPressure[ltsFace],
-                                    updateTime,
-                                    this->drParameters->t0,
-                                    this->deltaT[timeIndex]);
+        for (int i = 0; i < this->drParameters->nucleationCount; ++i) {
+          common::adjustInitialStress(initialStressInFaultCS[ltsFace],
+                                      nucleationStressInFaultCS[i][ltsFace],
+                                      initialPressure[ltsFace],
+                                      nucleationPressure[i][ltsFace],
+                                      updateTime,
+                                      this->drParameters->t0[i],
+                                      this->drParameters->s0[i],
+                                      this->deltaT[timeIndex]);
+        }
 
         static_cast<Derived*>(this)->updateFrictionAndSlip(faultStresses,
                                                            tractionResults,

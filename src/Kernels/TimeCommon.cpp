@@ -11,7 +11,7 @@
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Kernels/Precision.h>
-#include <Kernels/Time.h>
+#include <Kernels/Solver.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
 #include <stdint.h>
@@ -25,7 +25,7 @@
 #endif
 
 #ifndef NDEBUG
-#include "Common/Constants.h"
+#include "Alignment.h"
 #include <cstdint>
 #endif
 
@@ -56,7 +56,7 @@ void TimeCommon::computeIntegrals(Time& time,
   /*
    * set/compute time integrated DOFs.
    */
-  for (int dofneighbor = 0; dofneighbor < 4; ++dofneighbor) {
+  for (unsigned dofneighbor = 0; dofneighbor < 4; ++dofneighbor) {
     // collect information only in the case that neighboring element contributions are required
     if (faceTypes[dofneighbor] != FaceType::Outflow &&
         faceTypes[dofneighbor] != FaceType::DynamicRupture) {
@@ -114,7 +114,7 @@ void TimeCommon::computeBatchedIntegrals(Time& time,
                                          ConditionalPointersToRealsTable& table,
                                          seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-  // Compute time integrated dofs using neighbours derivatives using the GTS relation,
+  // Compute time integrated dofs using neighbors derivatives using the GTS relation,
   // i.e. the expansion point is around 'timeStepStart'
   ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
   if (table.find(key) != table.end()) {
@@ -129,7 +129,7 @@ void TimeCommon::computeBatchedIntegrals(Time& time,
         runtime);
   }
 
-  // Compute time integrated dofs using neighbours derivatives using the LTS relation,
+  // Compute time integrated dofs using neighbors derivatives using the LTS relation,
   // i.e. the expansion point is around '0'
   key = ConditionalKey(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
   if (table.find(key) != table.end()) {

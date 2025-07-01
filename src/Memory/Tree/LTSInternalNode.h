@@ -49,7 +49,7 @@ private:
     }
 
 public:
-    LeafIterator(const Iterator& end) : Iterator(end) {}
+    explicit LeafIterator(const Iterator& end) : Iterator(end) {}
     LeafIterator(const Iterator& begin, const Iterator& end, LayerMask layerMask)
         : Iterator(begin), m_end(end), m_layerMask(layerMask) {}
 
@@ -97,7 +97,7 @@ private:
     }
 
 public:
-    ConstLeafIterator(const ConstIterator& end) : ConstIterator(end) {}
+    explicit ConstLeafIterator(const ConstIterator& end) : ConstIterator(end) {}
     ConstLeafIterator(const ConstIterator& begin, const ConstIterator& end, LayerMask layerMask)
         : ConstIterator(begin), m_end(end), m_layerMask(layerMask) {}
 
@@ -128,10 +128,10 @@ public:
 
   [[nodiscard]] ConstLeafIterator endLeaf() const { return ConstLeafIterator(end()); }
 
-  [[nodiscard]] unsigned getNumberOfCells(LayerMask layerMask = LayerMask()) const {
-    unsigned numCells = 0;
+  [[nodiscard]] std::size_t size(LayerMask layerMask = LayerMask()) const {
+    std::size_t numCells = 0;
     for (const auto& leaf : leaves(layerMask)) {
-      numCells += leaf.getNumberOfCells();
+      numCells += leaf.size();
     }
     return numCells;
   }

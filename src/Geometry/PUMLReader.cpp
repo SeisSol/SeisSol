@@ -195,9 +195,7 @@ void PUMLReader::read(PUML::TETPUML& puml, const char* meshFile) {
   const size_t localCells = puml.numOriginalCells();
   size_t localStart = 0;
 
-#ifdef USE_MPI
   MPI_Exscan(&localCells, &localStart, 1, PUML::MPITypeInfer<size_t>::type(), MPI_SUM, puml.comm());
-#endif
 
   std::vector<size_t> cellIdsAsInFile(localCells);
   std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), localStart);
@@ -224,7 +222,6 @@ void PUMLReader::partition(PUML::TETPUML& puml,
   auto graph = PUML::TETPartitionGraph(puml);
   graph.setVertexWeights(ltsWeights->vertexWeights(), ltsWeights->nWeightsPerVertex());
 
-#ifdef USE_MPI
   auto nodeWeights = std::vector<double>(MPI::mpi.size());
   MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::MPI::mpi.comm());
   double sum = 0.0;
@@ -234,9 +231,6 @@ void PUMLReader::partition(PUML::TETPUML& puml,
   for (auto& w : nodeWeights) {
     w /= sum;
   }
-#else
-  auto nodeWeights = std::vector<double>{1.0};
-#endif
 
   auto target = PUML::PartitionTarget{};
   target.setVertexWeights(nodeWeights);
@@ -445,8 +439,8 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
       PUML::Upward::cells(puml, faces[info.second[i]], cellIds);
       assert(cellIds[1] < 0);
 
-      const int side = copySide[k][i];
-      const int gSide = ghostSide[k][i];
+      const auto side = copySide[k][i];
+      const auto gSide = ghostSide[k][i];
       m_elements[cellIds[0]].neighborSides[PumlFaceToSeisSol[side]] = PumlFaceToSeisSol[gSide];
 
       // Set side sideOrientation

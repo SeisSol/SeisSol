@@ -11,10 +11,15 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_DATASTRUCTURES_H_
 
 #include "Common/Constants.h"
+#include "Config.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Model/CommonDatastructures.h"
 #include "generated_code/tensor.h"
+#include <Initializer/Parameters/ModelParameters.h>
+#include <Kernels/LinearCK/Solver.h>
+#include <Kernels/LinearCKAnelastic/Solver.h>
+#include <Physics/Attenuation.h>
 #include <array>
 #include <cstddef>
 #include <string>
@@ -29,15 +34,25 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   static constexpr std::size_t NumElasticQuantities = 9;
   static constexpr std::size_t NumQuantities =
       NumElasticQuantities + MechanismsP * NumberPerMechanism;
+  static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = MechanismsP;
   static constexpr MaterialType Type = MaterialType::Viscoelastic;
-  static constexpr LocalSolver Solver = LocalSolver::CauchyKovalevskiAnelastic;
   static inline const std::string Text = "viscoelastic-" + std::to_string(MechanismsP);
   static inline const std::array<std::string, NumElasticQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+  static constexpr std::size_t Parameters = ElasticMaterial::Parameters + 4 * Mechanisms;
+
+  static constexpr bool SupportsDR = true;
+  static constexpr bool SupportsLTS = true;
 
   using LocalSpecificData = ViscoElasticLocalData;
   using NeighborSpecificData = ViscoElasticNeighborData;
+
+#ifdef USE_VISCOELASTIC2
+  using Solver = kernels::solver::linearckanelastic::Solver;
+#else
+  using Solver = kernels::solver::linearck::Solver;
+#endif
 
   //! Relaxation frequencies
   double omega[zeroLengthArrayHandler(Mechanisms)];
@@ -69,9 +84,13 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   ~ViscoElasticMaterialParametrized() override = default;
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
+
+  void initialize(const initializer::parameters::ModelParameters& parameters) override {
+    physics::fitAttenuation<Mechanisms>(*this, parameters.freqCentral, parameters.freqRatio);
+  }
 };
 
-using ViscoElasticMaterial = ViscoElasticMaterialParametrized<NUMBER_OF_RELAXATION_MECHANISMS>;
+using ViscoElasticMaterial = ViscoElasticMaterialParametrized<Config::RelaxationMechanisms>;
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_DATASTRUCTURES_H_

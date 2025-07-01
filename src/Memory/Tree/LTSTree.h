@@ -15,168 +15,267 @@
 
 #include "Memory/MemoryAllocator.h"
 
+#include "Monitoring/Unit.h"
+#include "utils/logger.h"
+#include <type_traits>
+
 namespace seissol::initializer {
+
+/*
+Assigns the given value to the target object, initializing the memory in the process.
+
+NOTE: std::copy (or the likes) do not work here, since they do not initialize the _vptr for virtual
+function calls (rather, they leave it undefined), since they do merely assign `value` to `target`.
+*/
+
+template <typename T>
+void initAssign(T& target, const T& value) {
+  if constexpr (std::is_trivially_copyable_v<T>) {
+    // if the object is trivially copyable, we may just memcpy it (it's safe to do that in this
+    // case).
+    std::memcpy(&target, &value, sizeof(T));
+  } else {
+    // otherwise, call the class/struct initializer.
+    // problem: we may have an array here... So we unwrap it.
+    if constexpr (std::is_array_v<T>) {
+      // unwrap array, dimension by dimension...
+      // example: T[N][M] yields SubT=T[M]
+      using SubT = std::remove_extent_t<T>;
+      auto subExtent = std::extent_v<T>;
+
+      // for now, init element-wise... (TODO(David): we could look for something faster here, in
+      // case it should ever matter)
+      for (size_t i = 0; i < subExtent; ++i) {
+        initAssign<SubT>(target[i], value[i]);
+      }
+    } else {
+      // now call new here.
+      new (&target) T(value);
+    }
+  }
+  // (these two methods cannot be combined, unless we have some way for C-style arrays, i.e. S[N]
+  // for <typename S, size_t N>, to use a copy constructor as well)
+}
 
 class LTSTree : public LTSInternalNode {
   private:
-  std::vector<DualMemoryContainer> m_vars;
-  std::vector<DualMemoryContainer> m_buckets;
-  std::vector<MemoryInfo> varInfo;
-  std::vector<MemoryInfo> bucketInfo;
-  seissol::memory::ManagedAllocator m_allocator;
-  std::vector<size_t> variableSizes; /*!< sizes of variables within the entire tree in bytes */
-  std::vector<size_t> bucketSizes;   /*!< sizes of buckets within the entire tree in bytes */
+  std::vector<DualMemoryContainer> memoryContainer;
+  std::vector<MemoryInfo> memoryInfo;
 
-#ifdef ACL_DEVICE
-  std::vector<MemoryInfo> scratchpadMemInfo{};
-  std::vector<size_t>
-      scratchpadMemSizes{}; /*!< sizes of variables within the entire tree in bytes */
-  std::vector<DualMemoryContainer> scratchpadMemories;
-  std::vector<int> scratchpadMemIds{};
-#endif // ACL_DEVICE
+  seissol::memory::ManagedAllocator allocator;
+  std::string name;
+
+  std::unordered_map<std::type_index, std::size_t> typemap;
+  std::unordered_map<int*, std::size_t> handlemap;
+
+  template <typename TraitT>
+  void addInternal(LayerMask mask,
+                   size_t alignment,
+                   AllocationMode allocMode,
+                   bool constant,
+                   std::size_t count) {
+    MemoryInfo m;
+    m.alignment = alignment;
+    m.mask = mask;
+    m.allocMode = allocMode;
+    m.constant = constant;
+    m.type = TraitT::Storage;
+    m.index = memoryInfo.size();
+
+    if constexpr (std::is_same_v<typename TraitT::Type, void>) {
+      m.bytes = 0;
+      m.bytesLayer = [](const LayerIdentifier& identifier) {
+        return std::visit(
+            [&](auto type) {
+              using SelfT = typename TraitT::template VariantType<decltype(type)>;
+              if constexpr (!std::is_same_v<void, SelfT>) {
+                return sizeof(typename TraitT::template VariantType<decltype(type)>);
+              }
+              return static_cast<std::size_t>(0);
+            },
+            identifier.config);
+      };
+    } else {
+      using SelfT = typename TraitT::Type;
+      m.bytes = sizeof(SelfT);
+      m.bytesLayer = [](const LayerIdentifier& identifier) { return sizeof(SelfT); };
+    }
+
+    const auto bytesLayer = m.bytesLayer;
+
+    m.filterLayer = [mask, bytesLayer](const LayerIdentifier& identifier) {
+      return (mask.to_ulong() & identifier.halo) != 0 && bytesLayer(identifier) > 0;
+    };
+
+    memoryInfo.push_back(m);
+  }
 
   public:
   LTSTree() = default;
 
   ~LTSTree() override = default;
 
+  void setName(const std::string& name) { this->name = name; }
+
   void synchronizeTo(AllocationPlace place, void* stream) {
-    for (auto& variable : m_vars) {
-      variable.synchronizeTo(place, stream);
+    for (auto& container : memoryContainer) {
+      container.synchronizeTo(place, stream);
     }
-    for (auto& bucket : m_buckets) {
-      bucket.synchronizeTo(place, stream);
-    }
-#ifdef ACL_DEVICE
-    for (auto& scratchpad : scratchpadMemories) {
-      scratchpad.synchronizeTo(place, stream);
-    }
-#endif
   }
 
-  void setNumberOfTimeClusters(unsigned numberOfTimeCluster) {
+  void setNumberOfTimeClusters(std::size_t numberOfTimeCluster) {
     setChildren<TimeCluster>(numberOfTimeCluster);
   }
 
   void fixate() {
+    memoryContainer.resize(memoryInfo.size());
     setPostOrderPointers();
     for (auto& leaf : leaves()) {
-      leaf.allocatePointerArrays(varInfo.size(), bucketInfo.size());
-#ifdef ACL_DEVICE
-      leaf.allocateScratchpadArrays(scratchpadMemInfo.size());
-#endif
+      leaf.fixPointers(memoryInfo, typemap, handlemap);
     }
   }
 
-  TimeCluster& child(unsigned index) {
+  TimeCluster& child(std::size_t index) {
     return *dynamic_cast<TimeCluster*>(m_children[index].get());
   }
 
-  [[nodiscard]] const TimeCluster& child(unsigned index) const {
+  [[nodiscard]] const TimeCluster& child(std::size_t index) const {
     return *dynamic_cast<TimeCluster*>(m_children[index].get());
   }
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
-    assert(index != std::numeric_limits<unsigned>::max());
-    assert(m_vars.size() > index);
-    return m_vars[index].get(place);
+    assert(index != std::numeric_limits<std::size_t>::max());
+    assert(memoryContainer.size() > index);
+    return memoryContainer[index].get(place);
   }
 
-  template <typename T>
-  T* var(const Variable<T>& handle, AllocationPlace place = AllocationPlace::Host) {
-    return static_cast<T*>(varUntyped(handle.index, place));
+  template <typename HandleT>
+  typename HandleT::Type* var(const HandleT& handle,
+                              AllocationPlace place = AllocationPlace::Host) {
+    return static_cast<typename HandleT::Type*>(varUntyped(handlemap.at(handle.pointer()), place));
   }
 
-  [[nodiscard]] const MemoryInfo& info(unsigned index) const { return varInfo[index]; }
-
-  [[nodiscard]] unsigned getNumberOfVariables() const { return varInfo.size(); }
-
-  template <typename T>
-  void addVar(Variable<T>& handle,
-              LayerMask mask,
-              size_t alignment,
-              AllocationMode allocMode,
-              bool constant = false) {
-    handle.index = varInfo.size();
-    handle.mask = mask;
-    MemoryInfo m;
-    m.bytes = sizeof(T) * handle.count;
-    m.alignment = alignment;
-    m.mask = mask;
-    m.allocMode = allocMode;
-    m.constant = constant;
-    m.elemsize = sizeof(T);
-    varInfo.push_back(m);
+  template <typename StorageT>
+  typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
+    const auto index = typemap.at(std::type_index(typeid(StorageT)));
+    assert(memoryContainer.size() > index);
+    return static_cast<typename StorageT::Type*>(memoryContainer[index].get(place));
   }
 
-  void
-      addBucket(Bucket& handle, size_t alignment, AllocationMode allocMode, bool constant = false) {
-    handle.index = bucketInfo.size();
-    MemoryInfo m;
-    m.alignment = alignment;
-    m.allocMode = allocMode;
-    m.constant = constant;
-    bucketInfo.push_back(m);
+  template <typename StorageT>
+  void varSynchronizeTo(AllocationPlace place, void* stream) {
+    const auto index = typemap.at(std::type_index(typeid(StorageT)));
+    assert(memoryContainer.size() > index);
+    memoryContainer[index].synchronizeTo(place, stream);
   }
 
-#ifdef ACL_DEVICE
-  void addScratchpadMemory(ScratchpadMemory& handle,
-                           size_t alignment,
-                           AllocationMode allocMode,
-                           bool constant = false) {
-    handle.index = scratchpadMemInfo.size();
-    MemoryInfo memoryInfo;
-    memoryInfo.alignment = alignment;
-    memoryInfo.allocMode = allocMode;
-    memoryInfo.constant = constant;
-    scratchpadMemInfo.push_back(memoryInfo);
+  template <typename StorageT>
+  [[nodiscard]] const MemoryInfo& info() const {
+    const auto index = typemap.at(std::type_index(typeid(StorageT)));
+    assert(memoryInfo.size() > index);
+    return memoryInfo[index];
   }
-#endif // ACL_DEVICE
+
+  template <typename HandleT>
+  [[nodiscard]] const MemoryInfo& info(const HandleT& handle) const {
+    const auto index = handlemap.at(handle.pointer());
+    assert(memoryInfo.size() > index);
+    return memoryInfo[index];
+  }
+
+  [[nodiscard]] const MemoryInfo& info(std::size_t index) const {
+    assert(memoryInfo.size() > index);
+    return memoryInfo[index];
+  }
+
+  [[nodiscard]] std::size_t getNumberOfVariables() const { return memoryInfo.size(); }
+
+  template <typename StorageT>
+  void add(LayerMask mask,
+           size_t alignment,
+           AllocationMode allocMode,
+           bool constant = false,
+           std::size_t count = 1) {
+    typemap[std::type_index(typeid(StorageT))] = memoryInfo.size();
+    addInternal<StorageT>(mask, alignment, allocMode, constant, count);
+  }
+
+  template <typename HandleT>
+  void add(HandleT& handle,
+           LayerMask mask,
+           size_t alignment,
+           AllocationMode allocMode,
+           bool constant = false,
+           std::size_t count = 1) {
+    handlemap[handle.pointer()] = memoryInfo.size();
+    addInternal<HandleT>(mask, alignment, allocMode, constant, count);
+  }
 
   void allocateVariables() {
-    m_vars.resize(varInfo.size());
-    variableSizes.resize(varInfo.size(), 0);
-
+    std::vector<std::size_t> sizes(memoryInfo.size());
     for (auto& leaf : leaves()) {
-      leaf.addVariableSizes(varInfo, variableSizes);
+      leaf.addVariableSizes(memoryInfo, sizes);
     }
 
-    for (unsigned var = 0; var < varInfo.size(); ++var) {
-      m_vars[var].allocate(
-          m_allocator, variableSizes[var], varInfo[var].alignment, varInfo[var].allocMode);
-      m_vars[var].constant = varInfo[var].constant;
+    std::size_t totalSize = 0;
+    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
+      if (memoryInfo[var].type == MemoryType::Variable) {
+        memoryInfo[var].size = sizes[var];
+        totalSize += sizes[var];
+      }
+    }
+    if (!name.empty()) {
+      logInfo() << "Storage" << name << "; variables:" << UnitByte.formatPrefix(totalSize).c_str();
     }
 
-    std::fill(variableSizes.begin(), variableSizes.end(), 0);
+    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
+      if (memoryInfo[var].type == MemoryType::Variable) {
+        memoryContainer[var].allocate(
+            allocator, memoryInfo[var].size, memoryInfo[var].alignment, memoryInfo[var].allocMode);
+        memoryContainer[var].constant = memoryInfo[var].constant;
+      }
+    }
+
+    std::fill(sizes.begin(), sizes.end(), 0);
     for (auto& leaf : leaves()) {
-      leaf.setMemoryRegionsForVariables(varInfo, m_vars, variableSizes);
-      leaf.addVariableSizes(varInfo, variableSizes);
+      leaf.setMemoryRegionsForVariables(memoryInfo, memoryContainer, sizes);
+      leaf.addVariableSizes(memoryInfo, sizes);
     }
   }
 
   void allocateBuckets() {
-    m_buckets.resize(bucketInfo.size());
-    bucketSizes.resize(bucketInfo.size(), 0);
-
+    std::vector<std::size_t> sizes(memoryInfo.size());
     for (auto& leaf : leaves()) {
-      leaf.addBucketSizes(bucketSizes);
+      leaf.addBucketSizes(memoryInfo, sizes);
     }
 
-    for (unsigned bucket = 0; bucket < bucketInfo.size(); ++bucket) {
-      m_buckets[bucket].allocate(m_allocator,
-                                 bucketSizes[bucket],
-                                 bucketInfo[bucket].alignment,
-                                 bucketInfo[bucket].allocMode);
+    std::size_t totalSize = 0;
+    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
+      if (memoryInfo[var].type == MemoryType::Bucket) {
+        memoryInfo[var].size = sizes[var];
+        totalSize += sizes[var];
+      }
+    }
+    if (!name.empty()) {
+      logInfo() << "Storage" << name << "; buckets:" << UnitByte.formatPrefix(totalSize).c_str();
     }
 
-    std::fill(bucketSizes.begin(), bucketSizes.end(), 0);
+    for (std::size_t bucket = 0; bucket < memoryInfo.size(); ++bucket) {
+      if (memoryInfo[bucket].type == MemoryType::Bucket) {
+        memoryContainer[bucket].allocate(allocator,
+                                         memoryInfo[bucket].size,
+                                         memoryInfo[bucket].alignment,
+                                         memoryInfo[bucket].allocMode);
+      }
+    }
+
+    std::fill(sizes.begin(), sizes.end(), 0);
     for (auto& leaf : leaves()) {
-      leaf.setMemoryRegionsForBuckets(m_buckets, bucketSizes);
-      leaf.addBucketSizes(bucketSizes);
+      leaf.setMemoryRegionsForBuckets(memoryContainer, sizes);
+      leaf.addBucketSizes(memoryInfo, sizes);
     }
   }
 
-#ifdef ACL_DEVICE
   // Walks through all leaves, computes the maximum amount of memory for each scratchpad entity,
   // allocates all scratchpads based on evaluated max. scratchpad sizes, and, finally,
   // redistributes scratchpads to all leaves.
@@ -184,42 +283,50 @@ class LTSTree : public LTSInternalNode {
   // Note, all scratchpad entities are shared between leaves.
   // Do not update leaves in parallel inside of the same MPI rank while using GPUs.
   void allocateScratchPads() {
-    scratchpadMemories.resize(scratchpadMemInfo.size());
-    scratchpadMemSizes.resize(scratchpadMemInfo.size(), 0);
-
+    std::vector<std::size_t> sizes(memoryInfo.size());
     for (auto& leaf : leaves()) {
-      leaf.findMaxScratchpadSizes(scratchpadMemSizes);
+      leaf.findMaxScratchpadSizes(memoryInfo, sizes);
     }
 
-    for (size_t id = 0; id < scratchpadMemSizes.size(); ++id) {
-      // TODO {ravil}: check whether the assert makes sense
-      // assert((scratchpadMemSizes[id] > 0) && "ERROR: scratchpad mem. size is equal to zero");
-      scratchpadMemories[id].allocate(m_allocator,
-                                      scratchpadMemSizes[id],
-                                      scratchpadMemInfo[id].alignment,
-                                      scratchpadMemInfo[id].allocMode);
+    std::size_t totalSize = 0;
+    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
+      if (memoryInfo[var].type == MemoryType::Scratchpad) {
+        memoryInfo[var].size = sizes[var];
+        totalSize += sizes[var];
+      }
+    }
+    if (!name.empty()) {
+      logInfo() << "Storage" << name
+                << "; scratchpads:" << UnitByte.formatPrefix(totalSize).c_str();
+    }
+
+    for (size_t id = 0; id < memoryInfo.size(); ++id) {
+      if (memoryInfo[id].type == MemoryType::Scratchpad) {
+        memoryContainer[id].allocate(
+            allocator, memoryInfo[id].size, memoryInfo[id].alignment, memoryInfo[id].allocMode);
+      }
     }
 
     for (auto& leaf : leaves()) {
-      leaf.setMemoryRegionsForScratchpads(scratchpadMemories);
+      leaf.setMemoryRegionsForScratchpads(memoryContainer);
     }
   }
-#endif
 
   void touchVariables() {
-    for (auto& leaf : leaves()) {
-      leaf.touchVariables(varInfo);
+#ifdef _OPENMP
+#pragma omp parallel
+#endif
+    {
+      for (auto& leaf : leaves()) {
+        leaf.touchVariables(memoryInfo);
+      }
     }
   }
-
-  [[nodiscard]] const std::vector<size_t>& getVariableSizes() const { return variableSizes; }
-
-  [[nodiscard]] const std::vector<size_t>& getBucketSizes() const { return bucketSizes; }
 
   [[nodiscard]] size_t getMaxClusterSize(LayerMask mask = LayerMask()) const {
     size_t maxClusterSize{0};
     for (const auto& leaf : leaves(mask)) {
-      const auto currClusterSize = static_cast<size_t>(leaf.getNumberOfCells());
+      const auto currClusterSize = static_cast<size_t>(leaf.size());
       maxClusterSize = std::max(currClusterSize, maxClusterSize);
     }
     return maxClusterSize;

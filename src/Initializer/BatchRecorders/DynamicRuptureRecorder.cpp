@@ -31,12 +31,12 @@ void DynamicRuptureRecorder::record(DynamicRupture& handler, Layer& layer) {
 void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
   real** timeDerivativePlus = currentLayer->var(currentHandler->timeDerivativePlusDevice);
   real** timeDerivativeMinus = currentLayer->var(currentHandler->timeDerivativeMinusDevice);
-  real* idofsPlus = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->idofsPlusOnDevice, AllocationPlace::Device));
-  real* idofsMinus = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->idofsMinusOnDevice, AllocationPlace::Device));
+  real* idofsPlus = static_cast<real*>(
+      currentLayer->var(currentHandler->idofsPlusOnDevice, AllocationPlace::Device));
+  real* idofsMinus = static_cast<real*>(
+      currentLayer->var(currentHandler->idofsMinusOnDevice, AllocationPlace::Device));
 
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   if (size > 0) {
     std::vector<real*> timeDerivativePlusPtrs(size, nullptr);
     std::vector<real*> timeDerivativeMinusPtrs(size, nullptr);
@@ -67,16 +67,16 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
   auto* qInterpolatedMinus =
       currentLayer->var(currentHandler->qInterpolatedMinus, AllocationPlace::Device);
 
-  real* idofsPlus = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->idofsPlusOnDevice, AllocationPlace::Device));
-  real* idofsMinus = static_cast<real*>(currentLayer->getScratchpadMemory(
-      currentHandler->idofsMinusOnDevice, AllocationPlace::Device));
+  real* idofsPlus = static_cast<real*>(
+      currentLayer->var(currentHandler->idofsPlusOnDevice, AllocationPlace::Device));
+  real* idofsMinus = static_cast<real*>(
+      currentLayer->var(currentHandler->idofsMinusOnDevice, AllocationPlace::Device));
 
   DRGodunovData* godunovData =
       currentLayer->var(currentHandler->godunovData, AllocationPlace::Device);
   DRFaceInformation* faceInfo = currentLayer->var(currentHandler->faceInformation);
 
-  const auto size = currentLayer->getNumberOfCells();
+  const auto size = currentLayer->size();
   if (size > 0) {
     std::array<std::vector<real*>, *FaceId::Count> qInterpolatedPlusPtr{};
     std::array<std::vector<real*>, *FaceId::Count> idofsPlusPtr{};
@@ -91,13 +91,13 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
       const auto plusSide = faceInfo[faceId].plusSide;
       qInterpolatedPlusPtr[plusSide].push_back(&qInterpolatedPlus[faceId][0][0]);
       idofsPlusPtr[plusSide].push_back(&idofsPlus[faceId * idofsSize]);
-      tInvTPlusPtr[plusSide].push_back((&godunovData[faceId])->TinvT);
+      tInvTPlusPtr[plusSide].push_back((&godunovData[faceId])->dataTinvT);
 
       const auto minusSide = faceInfo[faceId].minusSide;
       const auto faceRelation = faceInfo[faceId].faceRelation;
       qInterpolatedMinusPtr[minusSide][faceRelation].push_back(&qInterpolatedMinus[faceId][0][0]);
       idofsMinusPtr[minusSide][faceRelation].push_back(&idofsMinus[faceId * idofsSize]);
-      tInvTMinusPtr[minusSide][faceRelation].push_back((&godunovData[faceId])->TinvT);
+      tInvTMinusPtr[minusSide][faceRelation].push_back((&godunovData[faceId])->dataTinvT);
     }
 
     for (unsigned side = 0; side < 4; ++side) {

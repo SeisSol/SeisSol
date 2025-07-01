@@ -21,6 +21,9 @@ namespace seissol::parallel::runtime {
 
 enum class Runtime { Native, Sycl, OpenMP };
 
+template <typename T>
+class StreamMemoryHandle;
+
 class StreamRuntime {
 #ifdef ACL_DEVICE
   private:
@@ -28,16 +31,17 @@ class StreamRuntime {
 
   public:
   static constexpr size_t RingbufferSize = 4;
+  static constexpr size_t EventPoolSize = 100;
 
   StreamRuntime() : disposed(false) {
     streamPtr = device().api->createStream();
     ringbufferPtr.resize(RingbufferSize);
-    forkEvents.resize(RingbufferSize);
-    joinEvents.resize(RingbufferSize);
+    events.resize(EventPoolSize);
     for (size_t i = 0; i < RingbufferSize; ++i) {
       ringbufferPtr[i] = device().api->createStream();
-      forkEvents[i] = device().api->createEvent();
-      joinEvents[i] = device().api->createEvent();
+    }
+    for (size_t i = 0; i < events.size(); ++i) {
+      events[i] = device().api->createEvent();
     }
 
     allStreams.resize(RingbufferSize + 1);
@@ -45,9 +49,6 @@ class StreamRuntime {
     for (size_t i = 0; i < RingbufferSize; ++i) {
       allStreams[i + 1] = ringbufferPtr[i];
     }
-
-    forkEventSycl = device().api->createEvent();
-    joinEventSycl = device().api->createEvent();
   }
 
   void dispose() {
@@ -55,11 +56,10 @@ class StreamRuntime {
       device().api->destroyGenericStream(streamPtr);
       for (size_t i = 0; i < RingbufferSize; ++i) {
         device().api->destroyGenericStream(ringbufferPtr[i]);
-        device().api->destroyEvent(forkEvents[i]);
-        device().api->destroyEvent(joinEvents[i]);
       }
-      device().api->destroyEvent(forkEventSycl);
-      device().api->destroyEvent(joinEventSycl);
+      for (size_t i = 0; i < events.size(); ++i) {
+        device().api->destroyEvent(events[i]);
+      }
       disposed = true;
     }
   }
@@ -89,18 +89,32 @@ class StreamRuntime {
     });
   }
 
+  void* nextEvent() {
+    const auto pos = eventpos;
+    eventpos = (eventpos + 1) % events.size();
+    return events[pos];
+  }
+
   template <typename F>
   void envMany(size_t count, F&& handler) {
-    for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-      device().api->recordEventOnStream(forkEvents[i], streamPtr);
-      device().api->syncStreamWithEvent(ringbufferPtr[i], forkEvents[i]);
-    }
-    for (size_t i = 0; i < count; ++i) {
-      std::invoke(handler, ringbufferPtr[i % ringbufferPtr.size()], i);
-    }
-    for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
-      device().api->recordEventOnStream(joinEvents[i], ringbufferPtr[i]);
-      device().api->syncStreamWithEvent(streamPtr, joinEvents[i]);
+    if constexpr (Backend != DeviceBackend::Hip) {
+      void* forkEvent = nextEvent();
+      device().api->recordEventOnStream(forkEvent, streamPtr);
+      for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
+        device().api->syncStreamWithEvent(ringbufferPtr[i], forkEvent);
+      }
+      for (size_t i = 0; i < count; ++i) {
+        std::invoke(handler, ringbufferPtr[i % ringbufferPtr.size()], i);
+      }
+      for (size_t i = 0; i < std::min(count, ringbufferPtr.size()); ++i) {
+        void* joinEvent = nextEvent();
+        device().api->recordEventOnStream(joinEvent, ringbufferPtr[i]);
+        device().api->syncStreamWithEvent(streamPtr, joinEvent);
+      }
+    } else {
+      for (size_t i = 0; i < count; ++i) {
+        std::invoke(handler, streamPtr, i);
+      }
     }
   }
 
@@ -109,20 +123,13 @@ class StreamRuntime {
   void* stream() { return streamPtr; }
 
   template <typename F>
-  void runGraph(seissol::initializer::GraphKey computeGraphKey,
-                seissol::initializer::Layer& layer,
-                F&& handler) {
-    auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
-
-    if (!computeGraphHandle) {
-      device().api->streamBeginCapture(allStreams);
+  void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle, F&& handler) {
+    if (!computeGraphHandle.isInitialized()) {
+      computeGraphHandle = device().api->streamBeginCapture(allStreams);
 
       std::invoke(std::forward<F>(handler), *this);
 
-      device().api->streamEndCapture();
-
-      computeGraphHandle = device().api->getLastGraphHandle();
-      layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
+      device().api->streamEndCapture(computeGraphHandle);
     }
 
     if (computeGraphHandle.isInitialized()) {
@@ -131,42 +138,78 @@ class StreamRuntime {
   }
 
   template <typename F>
-  void envSycl(void* queue, F&& handler) {
-    syncToSycl(queue);
-    std::invoke(handler);
-    syncFromSycl(queue);
+  void runGraph(seissol::initializer::GraphKey computeGraphKey,
+                seissol::initializer::Layer& layer,
+                F&& handler) {
+    auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
+
+    bool needsUpdate = !computeGraphHandle.isInitialized();
+
+    runGraphGeneric(computeGraphHandle, std::forward<F>(handler));
+
+    if (needsUpdate && computeGraphHandle.isInitialized()) {
+      layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
+    }
   }
 
-  void syncToSycl(void* queue);
-  void syncFromSycl(void* queue);
+  template <typename T>
+  T* allocMemory(std::size_t count) {
+    return reinterpret_cast<T*>(device().api->allocMemAsync(count * sizeof(T), streamPtr));
+  }
 
-  /*
-  // disabled unless using a modern compiler
-    template <typename F>
-    void envOMP(omp_depend_t& depobj, F&& handler) {
-      syncToOMP(depobj);
-      std::invoke(handler);
-      syncFromOMP(depobj);
-    }
+  template <typename T>
+  void freeMemory(T* ptr) {
+    device().api->freeMemAsync(reinterpret_cast<T*>(ptr), streamPtr);
+  }
 
-    void syncToOMP(omp_depend_t& depobj);
-    void syncFromOMP(omp_depend_t& depobj);
-  */
+  template <typename T>
+  StreamMemoryHandle<T> memoryHandle(std::size_t count) {
+    return StreamMemoryHandle<T>(count, *this);
+  }
 
   private:
   bool disposed;
   void* streamPtr;
   std::vector<void*> ringbufferPtr;
   std::vector<void*> allStreams;
-  std::vector<void*> forkEvents;
-  std::vector<void*> joinEvents;
-  void* forkEventSycl;
-  void* joinEventSycl;
+  std::vector<void*> events;
+  std::size_t eventpos{0};
 #else
   public:
+  template <typename T>
+  T* allocMemory(std::size_t count) {
+    return new T[count];
+  }
+  template <typename T>
+  void freeMemory(T* ptr) {
+    delete[] ptr;
+  }
   void wait() {}
   void dispose() {}
 #endif
+};
+
+template <typename T>
+class StreamMemoryHandle {
+  public:
+  StreamMemoryHandle(std::size_t count, StreamRuntime& runtime)
+      : data(runtime.allocMemory<T>(count)), runtime(runtime) {}
+
+  StreamMemoryHandle(const StreamMemoryHandle&) = delete;
+  auto operator=(const StreamMemoryHandle& stream) = delete;
+
+  StreamMemoryHandle(StreamMemoryHandle&&) = default;
+  auto operator=(StreamMemoryHandle&& stream) -> StreamMemoryHandle& = default;
+
+  T* get() { return data; }
+
+  const T* get() const { return data; }
+
+  ~StreamMemoryHandle() { runtime.freeMemory(data); }
+
+  private:
+  T* data;
+  StreamRuntime& runtime;
 };
 
 } // namespace seissol::parallel::runtime

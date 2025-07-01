@@ -15,6 +15,7 @@ template <class Derived, class TPMethod>
 class SlowVelocityWeakeningLaw
     : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived, TPMethod>, TPMethod> {
   public:
+  SlowVelocityWeakeningLaw() = default;
   using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   /**

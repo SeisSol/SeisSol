@@ -19,6 +19,7 @@
 #include <Kernels/Precision.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Datastructures.h>
+#include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -205,7 +206,7 @@ easi::Query FaultGPGenerator::generate() const {
   const std::vector<Element>& elements = m_meshReader.getElements();
   auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
 
-  constexpr size_t NumPoints = dr::misc::NumPaddedPoints;
+  constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim;
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
   easi::Query query(NumPoints * m_faceIDs.size(), 3);
   unsigned q = 0;
@@ -229,7 +230,8 @@ easi::Query FaultGPGenerator::generate() const {
     auto coords = cellToVertex.elementCoordinates(element);
     for (unsigned n = 0; n < NumPoints; ++n, ++q) {
       double xiEtaZeta[3];
-      double localPoints[2] = {pointsView(n, 0), pointsView(n, 1)};
+      double localPoints[2] = {seissol::multisim::multisimTranspose(pointsView, n, 0),
+                               seissol::multisim::multisimTranspose(pointsView, n, 1)};
       // padded points are in the middle of the tetrahedron
       if (n >= dr::misc::NumBoundaryGaussPoints) {
         localPoints[0] = 1.0 / 3.0;
@@ -510,7 +512,8 @@ void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGen
 
   easi::ArraysAdapter<real> adapter;
   for (auto& kv : m_parameters) {
-    adapter.addBindingPoint(kv.first, kv.second.first, kv.second.second);
+    adapter.addBindingPoint(
+        kv.first, kv.second.first + simid, kv.second.second * multisim::NumSimulations);
   }
   model->evaluate(query, adapter);
 

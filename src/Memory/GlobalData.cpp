@@ -58,7 +58,7 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
   std::size_t threadOffset = 0;
 #endif
     for (std::size_t dof = 0; dof < (4 * tensor::I::size()); ++dof) {
-      integrationBufferLTS[dof + threadOffset] = (real)0.0;
+      integrationBufferLTS[dof + threadOffset] = static_cast<real>(0.0);
     }
 #ifdef _OPENMP
   }
@@ -152,6 +152,13 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   globalMatrixMemSize +=
       yateto::alignedUpper(tensor::projectQP::size(), yateto::alignedReals<real>(prop.alignment));
 
+#ifdef USE_VISCOELASTIC2
+  globalMatrixMemSize +=
+      yateto::alignedUpper(tensor::selectAne::size(), yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize +=
+      yateto::alignedUpper(tensor::selectEla::size(), yateto::alignedReals<real>(prop.alignment));
+#endif
+
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
   globalMatrixMemSize +=
       yateto::computeFamilySize<init::plusFluxMatrices>(yateto::alignedReals<real>(prop.alignment));
@@ -171,13 +178,13 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   copyManager.template copyFamilyToMemAndSetPtr<init::rDivM>(
       globalMatrixMemPtr, globalData.changeOfBasisMatrices, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::rT>(
-      globalMatrixMemPtr, globalData.neighbourChangeOfBasisMatricesTransposed, prop.alignment);
+      globalMatrixMemPtr, globalData.neighborChangeOfBasisMatricesTransposed, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::fMrT>(
       globalMatrixMemPtr, globalData.localChangeOfBasisMatricesTransposed, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::fP>(
-      globalMatrixMemPtr, globalData.neighbourFluxMatrices, prop.alignment);
+      globalMatrixMemPtr, globalData.neighborFluxMatrices, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<nodal::init::V3mTo2nFace>(
-      globalMatrixMemPtr, globalData.V3mTo2nFace, prop.alignment);
+      globalMatrixMemPtr, globalData.v3mTo2nFace, prop.alignment);
   copyManager.template copyFamilyToMemAndSetPtr<init::project2nFaceTo3m>(
       globalMatrixMemPtr, globalData.project2nFaceTo3m, prop.alignment);
 
@@ -185,6 +192,13 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
       globalMatrixMemPtr, globalData.evalAtQPMatrix, prop.alignment);
   copyManager.template copyTensorToMemAndSetPtr<init::projectQP>(
       globalMatrixMemPtr, globalData.projectQPMatrix, prop.alignment);
+
+#ifdef USE_VISCOELASTIC2
+  copyManager.template copyTensorToMemAndSetPtr<init::selectAne>(
+      globalMatrixMemPtr, globalData.selectAne, prop.alignment);
+  copyManager.template copyTensorToMemAndSetPtr<init::selectEla>(
+      globalMatrixMemPtr, globalData.selectEla, prop.alignment);
+#endif
 
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
   copyManager.template copyFamilyToMemAndSetPtr<init::plusFluxMatrices>(

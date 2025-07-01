@@ -17,21 +17,28 @@
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
 #include "generated_code/tensor.h"
+#include <Initializer/Parameters/DRParameters.h>
+#include <Kernels/Common.h>
 
 namespace seissol::initializer {
 
 inline auto allocationModeDR() {
-#ifndef ACL_DEVICE
-  return AllocationMode::HostOnly;
-#else
-  return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
-#endif
+  if constexpr (!isDeviceOn()) {
+    return AllocationMode::HostOnly;
+  } else {
+    return useUSM() ? AllocationMode::HostDeviceUnified : AllocationMode::HostDeviceSplit;
+  }
 }
 
 // NOTE: for the sake of GPU performance, make sure that NumPaddedPoints is always last.
 
 struct DynamicRupture {
   public:
+  DynamicRupture() = default;
+  explicit DynamicRupture(const parameters::DRParameters* parameters)
+      : nucleationStressInFaultCS(parameters->nucleationCount),
+        nucleationPressure(parameters->nucleationCount) {}
+
   virtual ~DynamicRupture() = default;
   Variable<real*> timeDerivativePlus;
   Variable<real*> timeDerivativeMinus;
@@ -52,10 +59,10 @@ struct DynamicRupture {
   // size padded for vectorization
   // CS = coordinate system
   Variable<real[6][dr::misc::NumPaddedPoints]> initialStressInFaultCS;
-  Variable<real[6][dr::misc::NumPaddedPoints]> nucleationStressInFaultCS;
+  std::vector<Variable<real[6][dr::misc::NumPaddedPoints]>> nucleationStressInFaultCS;
   // will be always zero, if not using poroelasticity
   Variable<real[dr::misc::NumPaddedPoints]> initialPressure;
-  Variable<real[dr::misc::NumPaddedPoints]> nucleationPressure;
+  std::vector<Variable<real[dr::misc::NumPaddedPoints]>> nucleationPressure;
   Variable<real[dr::misc::NumPaddedPoints]> mu;
   Variable<real[dr::misc::NumPaddedPoints]> accumulatedSlipMagnitude;
   Variable<real[dr::misc::NumPaddedPoints]>
@@ -77,54 +84,57 @@ struct DynamicRupture {
   Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> qInterpolatedPlus;
   Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> qInterpolatedMinus;
 
-#ifdef ACL_DEVICE
-  ScratchpadMemory idofsPlusOnDevice;
-  ScratchpadMemory idofsMinusOnDevice;
-#endif
+  Scratchpad<real> idofsPlusOnDevice;
+  Scratchpad<real> idofsMinusOnDevice;
 
   virtual void addTo(LTSTree& tree) {
     const auto mask = LayerMask(Ghost);
-    tree.addVar(timeDerivativePlus, mask, Alignment, AllocationMode::HostOnly, true);
-    tree.addVar(timeDerivativeMinus, mask, Alignment, AllocationMode::HostOnly, true);
-    tree.addVar(timeDerivativePlusDevice, mask, Alignment, AllocationMode::HostOnly, true);
-    tree.addVar(timeDerivativeMinusDevice, mask, Alignment, AllocationMode::HostOnly, true);
-    tree.addVar(imposedStatePlus, mask, PagesizeHeap, allocationModeDR());
-    tree.addVar(imposedStateMinus, mask, PagesizeHeap, allocationModeDR());
-    tree.addVar(godunovData, mask, Alignment, allocationModeDR());
-    tree.addVar(fluxSolverPlus, mask, Alignment, allocationModeDR());
-    tree.addVar(fluxSolverMinus, mask, Alignment, allocationModeDR());
-    tree.addVar(faceInformation, mask, Alignment, AllocationMode::HostOnly, true);
-    tree.addVar(waveSpeedsPlus, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(waveSpeedsMinus, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(drEnergyOutput, mask, Alignment, allocationModeDR());
-    tree.addVar(impAndEta, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(impedanceMatrices, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(initialStressInFaultCS, mask, Alignment, allocationModeDR());
-    tree.addVar(nucleationStressInFaultCS, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(initialPressure, mask, Alignment, allocationModeDR());
-    tree.addVar(nucleationPressure, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(ruptureTime, mask, Alignment, allocationModeDR());
+    tree.add(timeDerivativePlus, mask, Alignment, AllocationMode::HostOnly, true);
+    tree.add(timeDerivativeMinus, mask, Alignment, AllocationMode::HostOnly, true);
+    tree.add(timeDerivativePlusDevice, mask, Alignment, AllocationMode::HostOnly, true);
+    tree.add(timeDerivativeMinusDevice, mask, Alignment, AllocationMode::HostOnly, true);
+    tree.add(imposedStatePlus, mask, PagesizeHeap, allocationModeDR());
+    tree.add(imposedStateMinus, mask, PagesizeHeap, allocationModeDR());
+    tree.add(godunovData, mask, Alignment, allocationModeDR());
+    tree.add(fluxSolverPlus, mask, Alignment, allocationModeDR());
+    tree.add(fluxSolverMinus, mask, Alignment, allocationModeDR());
+    tree.add(faceInformation, mask, Alignment, AllocationMode::HostOnly, true);
+    tree.add(waveSpeedsPlus, mask, Alignment, allocationModeDR(), true);
+    tree.add(waveSpeedsMinus, mask, Alignment, allocationModeDR(), true);
+    tree.add(drEnergyOutput, mask, Alignment, allocationModeDR());
+    tree.add(impAndEta, mask, Alignment, allocationModeDR(), true);
+    tree.add(impedanceMatrices, mask, Alignment, allocationModeDR(), true);
+    tree.add(initialStressInFaultCS, mask, Alignment, allocationModeDR());
+    tree.add(initialPressure, mask, Alignment, allocationModeDR());
+    tree.add(ruptureTime, mask, Alignment, allocationModeDR());
 
-    tree.addVar(ruptureTimePending, mask, Alignment, allocationModeDR());
-    tree.addVar(dynStressTime, mask, Alignment, allocationModeDR());
-    tree.addVar(dynStressTimePending, mask, Alignment, allocationModeDR());
-    tree.addVar(mu, mask, Alignment, allocationModeDR());
-    tree.addVar(accumulatedSlipMagnitude, mask, Alignment, allocationModeDR());
-    tree.addVar(slip1, mask, Alignment, allocationModeDR());
-    tree.addVar(slip2, mask, Alignment, allocationModeDR());
-    tree.addVar(slipRateMagnitude, mask, Alignment, allocationModeDR());
-    tree.addVar(slipRate1, mask, Alignment, allocationModeDR());
-    tree.addVar(slipRate2, mask, Alignment, allocationModeDR());
-    tree.addVar(peakSlipRate, mask, Alignment, allocationModeDR());
-    tree.addVar(traction1, mask, Alignment, allocationModeDR());
-    tree.addVar(traction2, mask, Alignment, allocationModeDR());
-    tree.addVar(qInterpolatedPlus, mask, Alignment, allocationModeDR());
-    tree.addVar(qInterpolatedMinus, mask, Alignment, allocationModeDR());
+    for (auto& nucleation : nucleationStressInFaultCS) {
+      tree.add(nucleation, mask, Alignment, allocationModeDR(), true);
+    }
+    for (auto& nucleation : nucleationPressure) {
+      tree.add(nucleation, mask, Alignment, allocationModeDR(), true);
+    }
 
-#ifdef ACL_DEVICE
-    tree.addScratchpadMemory(idofsPlusOnDevice, Alignment, AllocationMode::DeviceOnly);
-    tree.addScratchpadMemory(idofsMinusOnDevice, Alignment, AllocationMode::DeviceOnly);
-#endif
+    tree.add(ruptureTimePending, mask, Alignment, allocationModeDR());
+    tree.add(dynStressTime, mask, Alignment, allocationModeDR());
+    tree.add(dynStressTimePending, mask, Alignment, allocationModeDR());
+    tree.add(mu, mask, Alignment, allocationModeDR());
+    tree.add(accumulatedSlipMagnitude, mask, Alignment, allocationModeDR());
+    tree.add(slip1, mask, Alignment, allocationModeDR());
+    tree.add(slip2, mask, Alignment, allocationModeDR());
+    tree.add(slipRateMagnitude, mask, Alignment, allocationModeDR());
+    tree.add(slipRate1, mask, Alignment, allocationModeDR());
+    tree.add(slipRate2, mask, Alignment, allocationModeDR());
+    tree.add(peakSlipRate, mask, Alignment, allocationModeDR());
+    tree.add(traction1, mask, Alignment, allocationModeDR());
+    tree.add(traction2, mask, Alignment, allocationModeDR());
+    tree.add(qInterpolatedPlus, mask, Alignment, allocationModeDR());
+    tree.add(qInterpolatedMinus, mask, Alignment, allocationModeDR());
+
+    if constexpr (isDeviceOn()) {
+      tree.add(idofsPlusOnDevice, LayerMask(), Alignment, AllocationMode::DeviceOnly);
+      tree.add(idofsMinusOnDevice, LayerMask(), Alignment, AllocationMode::DeviceOnly);
+    }
   }
 
   virtual void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
@@ -153,24 +163,30 @@ struct LTSLinearSlipWeakening : public DynamicRupture {
   Variable<real[dr::misc::NumPaddedPoints]> cohesion;
   Variable<real[dr::misc::NumPaddedPoints]> forcedRuptureTime;
 
+  explicit LTSLinearSlipWeakening(const parameters::DRParameters* parameters)
+      : DynamicRupture(parameters) {}
+
   void addTo(LTSTree& tree) override {
     DynamicRupture::addTo(tree);
     const auto mask = LayerMask(Ghost);
-    tree.addVar(dC, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(muS, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(muD, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(cohesion, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(forcedRuptureTime, mask, Alignment, allocationModeDR(), true);
+    tree.add(dC, mask, Alignment, allocationModeDR(), true);
+    tree.add(muS, mask, Alignment, allocationModeDR(), true);
+    tree.add(muD, mask, Alignment, allocationModeDR(), true);
+    tree.add(cohesion, mask, Alignment, allocationModeDR(), true);
+    tree.add(forcedRuptureTime, mask, Alignment, allocationModeDR(), true);
   }
 };
 
 struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
   Variable<real[dr::misc::NumPaddedPoints]> regularizedStrength;
 
+  explicit LTSLinearSlipWeakeningBimaterial(const parameters::DRParameters* parameters)
+      : LTSLinearSlipWeakening(parameters) {}
+
   void addTo(LTSTree& tree) override {
     LTSLinearSlipWeakening::addTo(tree);
     const auto mask = LayerMask(Ghost);
-    tree.addVar(regularizedStrength, mask, Alignment, allocationModeDR());
+    tree.add(regularizedStrength, mask, Alignment, allocationModeDR());
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
@@ -188,15 +204,18 @@ struct LTSRateAndState : public DynamicRupture {
   Variable<real[dr::misc::NumPaddedPoints]> rsMuW;
   Variable<real[dr::misc::NumPaddedPoints]> rsB;
 
+  explicit LTSRateAndState(const parameters::DRParameters* parameters)
+      : DynamicRupture(parameters) {}
+
   void addTo(LTSTree& tree) override {
     DynamicRupture::addTo(tree);
     const auto mask = LayerMask(Ghost);
-    tree.addVar(rsA, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(rsSl0, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(stateVariable, mask, Alignment, allocationModeDR());
-    tree.addVar(rsF0, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(rsMuW, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(rsB, mask, Alignment, allocationModeDR(), true);
+    tree.add(rsA, mask, Alignment, allocationModeDR(), true);
+    tree.add(rsSl0, mask, Alignment, allocationModeDR(), true);
+    tree.add(stateVariable, mask, Alignment, allocationModeDR());
+    tree.add(rsF0, mask, Alignment, allocationModeDR(), true);
+    tree.add(rsMuW, mask, Alignment, allocationModeDR(), true);
+    tree.add(rsB, mask, Alignment, allocationModeDR(), true);
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
@@ -209,10 +228,13 @@ struct LTSRateAndState : public DynamicRupture {
 struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
   Variable<real[dr::misc::NumPaddedPoints]> rsSrW;
 
+  explicit LTSRateAndStateFastVelocityWeakening(const parameters::DRParameters* parameters)
+      : LTSRateAndState(parameters) {}
+
   void addTo(LTSTree& tree) override {
     LTSRateAndState::addTo(tree);
     const auto mask = LayerMask(Ghost);
-    tree.addVar(rsSrW, mask, Alignment, allocationModeDR(), true);
+    tree.add(rsSrW, mask, Alignment, allocationModeDR(), true);
   }
 };
 
@@ -226,12 +248,12 @@ struct ThermalPressurization {
 
   void addTo(LTSTree& tree) {
     const auto mask = LayerMask(Ghost);
-    tree.addVar(temperature, mask, Alignment, allocationModeDR());
-    tree.addVar(pressure, mask, Alignment, allocationModeDR());
-    tree.addVar(theta, mask, Alignment, allocationModeDR());
-    tree.addVar(sigma, mask, Alignment, allocationModeDR());
-    tree.addVar(halfWidthShearZone, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(hydraulicDiffusivity, mask, Alignment, allocationModeDR(), true);
+    tree.add(temperature, mask, Alignment, allocationModeDR());
+    tree.add(pressure, mask, Alignment, allocationModeDR());
+    tree.add(theta, mask, Alignment, allocationModeDR());
+    tree.add(sigma, mask, Alignment, allocationModeDR());
+    tree.add(halfWidthShearZone, mask, Alignment, allocationModeDR(), true);
+    tree.add(hydraulicDiffusivity, mask, Alignment, allocationModeDR(), true);
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
@@ -244,6 +266,9 @@ struct ThermalPressurization {
 };
 
 struct LTSRateAndStateThermalPressurization : public LTSRateAndState, public ThermalPressurization {
+  explicit LTSRateAndStateThermalPressurization(const parameters::DRParameters* parameters)
+      : LTSRateAndState(parameters) {}
+
   void addTo(LTSTree& tree) override {
     LTSRateAndState::addTo(tree);
     ThermalPressurization::addTo(tree);
@@ -259,6 +284,10 @@ struct LTSRateAndStateThermalPressurization : public LTSRateAndState, public The
 struct LTSRateAndStateThermalPressurizationFastVelocityWeakening
     : public LTSRateAndStateFastVelocityWeakening,
       public ThermalPressurization {
+  explicit LTSRateAndStateThermalPressurizationFastVelocityWeakening(
+      const parameters::DRParameters* parameters)
+      : LTSRateAndStateFastVelocityWeakening(parameters) {}
+
   void addTo(LTSTree& tree) override {
     LTSRateAndStateFastVelocityWeakening::addTo(tree);
     ThermalPressurization::addTo(tree);
@@ -276,12 +305,15 @@ struct LTSImposedSlipRates : public DynamicRupture {
   Variable<real[dr::misc::NumPaddedPoints]> imposedSlipDirection2;
   Variable<real[dr::misc::NumPaddedPoints]> onsetTime;
 
+  explicit LTSImposedSlipRates(const parameters::DRParameters* parameters)
+      : DynamicRupture(parameters) {}
+
   void addTo(LTSTree& tree) override {
     DynamicRupture::addTo(tree);
     const auto mask = LayerMask(Ghost);
-    tree.addVar(imposedSlipDirection1, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(imposedSlipDirection2, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(onsetTime, mask, Alignment, allocationModeDR(), true);
+    tree.add(imposedSlipDirection1, mask, Alignment, allocationModeDR(), true);
+    tree.add(imposedSlipDirection2, mask, Alignment, allocationModeDR(), true);
+    tree.add(onsetTime, mask, Alignment, allocationModeDR(), true);
   }
 };
 
@@ -289,25 +321,34 @@ struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
   Variable<real[dr::misc::NumPaddedPoints]> tauS;
   Variable<real[dr::misc::NumPaddedPoints]> tauR;
 
+  explicit LTSImposedSlipRatesYoffe(const parameters::DRParameters* parameters)
+      : LTSImposedSlipRates(parameters) {}
+
   void addTo(LTSTree& tree) override {
     LTSImposedSlipRates::addTo(tree);
     const auto mask = LayerMask(Ghost);
-    tree.addVar(tauS, mask, Alignment, allocationModeDR(), true);
-    tree.addVar(tauR, mask, Alignment, allocationModeDR(), true);
+    tree.add(tauS, mask, Alignment, allocationModeDR(), true);
+    tree.add(tauR, mask, Alignment, allocationModeDR(), true);
   }
 };
 
 struct LTSImposedSlipRatesGaussian : public LTSImposedSlipRates {
   Variable<real[dr::misc::NumPaddedPoints]> riseTime;
 
+  explicit LTSImposedSlipRatesGaussian(const parameters::DRParameters* parameters)
+      : LTSImposedSlipRates(parameters) {}
+
   void addTo(LTSTree& tree) override {
     LTSImposedSlipRates::addTo(tree);
     const auto mask = LayerMask(Ghost);
-    tree.addVar(riseTime, mask, Alignment, allocationModeDR(), true);
+    tree.add(riseTime, mask, Alignment, allocationModeDR(), true);
   }
 };
 
-struct LTSImposedSlipRatesDelta : public LTSImposedSlipRates {};
+struct LTSImposedSlipRatesDelta : public LTSImposedSlipRates {
+  explicit LTSImposedSlipRatesDelta(const parameters::DRParameters* parameters)
+      : LTSImposedSlipRates(parameters) {}
+};
 
 } // namespace seissol::initializer
 

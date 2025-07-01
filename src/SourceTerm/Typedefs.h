@@ -75,7 +75,7 @@ struct PointSources {
   std::array<seissol::memory::MemkindArray<real>, 3U> sample;
 
   /** Number of point sources in this struct. */
-  unsigned numberOfSources = 0;
+  unsigned numberOfSources{0};
 
   PointSources(seissol::memory::Memkind memkind)
       : mInvJInvPhisAtSources(memkind), simulationIndex(memkind), tensor(memkind), A(memkind),
@@ -97,22 +97,19 @@ struct PointSources {
         sample{seissol::memory::MemkindArray<real>(source.sample[0], memkind),
                seissol::memory::MemkindArray<real>(source.sample[1], memkind),
                seissol::memory::MemkindArray<real>(source.sample[2], memkind)} {}
-  ~PointSources() { numberOfSources = 0; }
 };
 
 struct CellToPointSourcesMapping {
   //! Pointer to DOFs
-  real (*dofs)[tensor::Q::size()];
+  real (*dofs)[tensor::Q::size()]{};
   //! First point source that has an effect on the cell
-  unsigned pointSourcesOffset;
+  unsigned pointSourcesOffset{0};
   /** The point sources buffer is ordered by cells, hence the point sources
    * that affect the cell with copyInteriorOffset reside in
    * {pointSourcesOffset, ..., pointSourcesOffset + numberOfPointSources - 1}
    * in the point sources buffer.
    **/
-  unsigned numberOfPointSources;
-
-  CellToPointSourcesMapping() : dofs(nullptr), pointSourcesOffset(0), numberOfPointSources(0) {}
+  unsigned numberOfPointSources{0};
 };
 
 struct ClusterMapping {

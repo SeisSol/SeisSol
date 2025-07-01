@@ -54,7 +54,7 @@ void RateAndStateInitializer::initializeFault(
     const auto rsBParam = !faultProvides("rs_b");
 
     using namespace dr::misc::quantity_indices;
-    for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+    for (unsigned ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         dynStressTimePending[ltsFace][pointIndex] = true;
         slipRate1[ltsFace][pointIndex] = drParameters->rsInitialSlipRate1;
@@ -187,7 +187,7 @@ void ThermalPressurizationInitializer::initializeFault(
     auto* theta = layer.var(concreteLts->theta);
     auto* sigma = layer.var(concreteLts->sigma);
 
-    for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
+    for (unsigned ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         temperature[ltsFace][pointIndex] = drParameters->initialTemperature;
         pressure[ltsFace][pointIndex] = drParameters->initialPressure;

@@ -22,6 +22,9 @@
 #include "Memory/Tree/Lut.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+#include <Common/Typedefs.h>
+#include <Config.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -82,7 +85,7 @@ struct HashPair {
     const std::hash<T1> hasher1;
     const std::hash<T2> hasher2;
     std::size_t seed = hasher1(data.first);
-    seed ^= hasher2(data.second) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    seed ^= hasher2(data.second) + 0x9e3779b9 + (seed << 6U) + (seed >> 2U);
     return seed;
   }
 };
@@ -184,7 +187,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
   for (const auto& variable : variables) {
     auto* var = drTree->varUntyped(variable, initializer::AllocationPlace::Device);
-    const std::size_t elementSize = drTree->info(variable).elemsize;
+    const std::size_t elementSize = drTree->info(variable).bytes;
 
     assert(elementSize % sizeof(real) == 0);
 
@@ -360,11 +363,12 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
 
   for (auto& geoPoint : geoPoints) {
     assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
-#ifdef stroud
-    geoPoint.nearestInternalGpIndex = getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
-#else
-    geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
-#endif
+    if constexpr (Config::DRQuadRule == DRQuadRuleType::Stroud) {
+      geoPoint.nearestInternalGpIndex =
+          getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
+    } else {
+      geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
+    }
   }
 }
 
@@ -373,6 +377,15 @@ void ReceiverBasedOutputBuilder::assignFaultTags() {
   const auto& faultInfo = meshReader->getFault();
   for (auto& geoPoint : geoPoints) {
     geoPoint.faultTag = faultInfo[geoPoint.faultFaceIndex].tag;
+  }
+}
+
+void ReceiverBasedOutputBuilder::assignFusedIndices() {
+  auto& geoPoints = outputData->receiverPoints;
+  for (auto& geoPoint : geoPoints) {
+    geoPoint.gpIndex = multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
+    geoPoint.internalGpIndexFused =
+        multisim::NumSimulations * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
   }
 }
 

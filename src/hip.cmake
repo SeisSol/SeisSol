@@ -24,7 +24,7 @@ set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" "${HIP_PATH}/lib/cmake/hip" ${CMAKE_MO
 
 find_package(HIP REQUIRED)
 
-set(SEISSOL_HIPCC -DREAL_SIZE=${REAL_SIZE_IN_BYTES}; -std=c++17; -O3)
+set(SEISSOL_HIPCC -std=c++17; -O3)
 
 set(IS_NVCC_PLATFORM OFF)
 if (DEFINED ENV{HIP_PLATFORM})
@@ -56,8 +56,8 @@ ${HCC_PATH} \
 
 set(DEVICE_SRC ${DEVICE_SRC}
                ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
-               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/hip/PlasticityAux.cpp
-               ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/elastic/Kernels/DeviceAux/hip/KernelsAux.cpp
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cudahip/PlasticityAux.cpp
+               ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
                ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
                ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterCudaHip.cpp)
 
@@ -72,12 +72,7 @@ hip_add_library(seissol-device-lib SHARED ${DEVICE_SRC}
 target_link_libraries(seissol-device-lib PRIVATE seissol-common-properties)
 target_include_directories(seissol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
 set_property(TARGET seissol-device-lib PROPERTY HIP_ARCHITECTURES OFF)
-target_compile_definitions(seissol-device-lib PRIVATE ${HARDWARE_DEFINITIONS}
-        CONVERGENCE_ORDER=${ORDER}
-        NUMBER_OF_QUANTITIES=${NUMBER_OF_QUANTITIES}
-        NUMBER_OF_RELAXATION_MECHANISMS=${NUMBER_OF_MECHANISMS}
-        ${DR_QUAD_RULE})
-if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 endif()
 

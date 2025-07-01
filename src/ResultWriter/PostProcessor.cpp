@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Vishal Sontakke
 
 #include "PostProcessor.h"
-#include <Common/Constants.h>
+#include <Alignment.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Memory/Tree/LTSTree.h>
@@ -35,7 +35,6 @@ void seissol::writer::PostProcessor::setIntegrationMask(
       m_numberOfVariables++;
     }
   }
-  m_integrals.count = m_numberOfVariables;
 }
 
 int seissol::writer::PostProcessor::getNumberOfVariables() const { return m_numberOfVariables; }
@@ -47,10 +46,12 @@ void seissol::writer::PostProcessor::getIntegrationMask(bool* transferTo) {
 }
 
 void seissol::writer::PostProcessor::allocateMemory(seissol::initializer::LTSTree* ltsTree) {
-  ltsTree->addVar(m_integrals,
-                  seissol::initializer::LayerMask(Ghost),
-                  PagesizeHeap,
-                  initializer::AllocationMode::HostOnly);
+  ltsTree->add(m_integrals,
+               seissol::initializer::LayerMask(Ghost),
+               PagesizeHeap,
+               initializer::AllocationMode::HostOnly,
+               false,
+               m_numberOfVariables);
 }
 
 const real* seissol::writer::PostProcessor::getIntegrals(seissol::initializer::LTSTree* ltsTree) {

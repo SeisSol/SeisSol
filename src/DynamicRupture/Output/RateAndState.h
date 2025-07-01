@@ -23,13 +23,14 @@ class RateAndState : public ReceiverOutput {
   real computeStateVariable(LocalInfo& local) override {
     const auto* descr = reinterpret_cast<seissol::initializer::LTSRateAndState*>(drDescr);
     assert((descr != nullptr) && "dr descr. must be a subtype of LTS_RateAndState");
-    return getCellData(local, descr->stateVariable)[local.nearestGpIndex];
+    return getCellData(local, descr->stateVariable)[local.gpIndex];
   }
 
   std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = ReceiverOutput::getOutputVariables();
     baseVector.push_back(
-        static_cast<seissol::initializer::LTSRateAndState*>(drDescr)->stateVariable.index);
+        drTree->info(dynamic_cast<seissol::initializer::LTSRateAndState*>(drDescr)->stateVariable)
+            .index);
     return baseVector;
   }
 };

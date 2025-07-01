@@ -8,6 +8,8 @@
 
 #include <Kernels/Precision.h>
 #include <Monitoring/Instrumentation.h> // IWYU pragma: keep
+#include <Parallel/Helper.h>
+#include <Parallel/MPI.h>
 #include <ResultWriter/FaultWriterExecutor.h>
 #include <algorithm>
 #include <async/Module.h>
@@ -15,6 +17,7 @@
 #include <cstring>
 #include <optional>
 #include <string>
+#include <utils/env.h>
 #include <utils/logger.h>
 
 #include "AsyncCellIDs.h"
@@ -26,7 +29,8 @@
 void seissol::writer::FaultWriter::setUp() {
   setExecutor(m_executor);
 
-  if (isAffinityNecessary()) {
+  utils::Env env("SEISSOL_");
+  if (isAffinityNecessary() && useCommThread(seissol::MPI::mpi, env)) {
     const auto freeCpus = seissolInstance.getPinning().getFreeCPUsMask();
     logInfo() << "Fault writer thread affinity:" << parallel::Pinning::maskToString(freeCpus);
     if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
@@ -69,11 +73,14 @@ void seissol::writer::FaultWriter::init(const unsigned int* cells,
   // Create mesh buffers
   bufferId = addSyncBuffer(cellIds.cells(), nCells * 3 * sizeof(int));
   assert(bufferId == FaultWriterExecutor::Cells);
+  NDBG_UNUSED(bufferId);
   bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
   assert(bufferId == FaultWriterExecutor::Vertices);
+  NDBG_UNUSED(bufferId);
 
   bufferId = addSyncBuffer(faultTags, nCells * sizeof(unsigned int));
   assert(bufferId == FaultWriterExecutor::FaultTags);
+  NDBG_UNUSED(bufferId);
 
   // Create data buffers
   std::fill_n(param.outputMask, FaultInitParam::OutputMaskSize, false);

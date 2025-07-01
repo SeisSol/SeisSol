@@ -11,8 +11,10 @@
 #include "Numerical/BasisFunction.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <Common/Executor.h>
+#include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
@@ -52,7 +54,7 @@ Receiver::Receiver(unsigned pointId,
   output.reserve(reserved);
 
   auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(
-      elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], position);
+      elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], this->position);
   basisFunctions = basisFunction::SampledBasisFunctions<real>(
       ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(
@@ -64,7 +66,7 @@ ReceiverCluster::ReceiverCluster(seissol::SeisSol& seissolInstance)
     : m_samplingInterval(1.0e99), m_syncPointInterval(0.0), seissolInstance(seissolInstance) {}
 
 ReceiverCluster::ReceiverCluster(
-    const GlobalData* global,
+    const CompoundGlobalData& global,
     const std::vector<unsigned>& quantities,
     double samplingInterval,
     double syncPointInterval,
@@ -73,8 +75,9 @@ ReceiverCluster::ReceiverCluster(
     : m_quantities(quantities), m_samplingInterval(samplingInterval),
       m_syncPointInterval(syncPointInterval), derivedQuantities(derivedQuantities),
       seissolInstance(seissolInstance) {
-  m_timeKernel.setHostGlobalData(global);
-  m_timeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
+  timeKernel.setGlobalData(global);
+  spacetimeKernel.setGlobalData(global);
+  spacetimeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
 }
 
 void ReceiverCluster::addReceiver(unsigned meshId,
@@ -132,17 +135,18 @@ double ReceiverCluster::calcReceivers(
       alignas(Alignment) real timeEvaluated[tensor::Q::size()];
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+
+      kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 #ifdef USE_STP
-      alignas(PagesizeStack) real stp[tensor::spaceTimePredictor::size()];
+      alignas(PagesizeStack) real timeDerivatives[tensor::spaceTimePredictor::size()];
       kernel::evaluateDOFSAtPointSTP krnl;
       krnl.QAtPoint = timeEvaluatedAtPoint;
-      krnl.spaceTimePredictor = stp;
+      krnl.spaceTimePredictor = timeDerivatives;
       kernel::evaluateDerivativeDOFSAtPointSTP derivativeKrnl;
       derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
-      derivativeKrnl.spaceTimePredictor = stp;
+      derivativeKrnl.spaceTimePredictor = timeDerivatives;
 #else
       alignas(Alignment) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
-      kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
       kernel::evaluateDOFSAtPoint krnl;
       krnl.QAtPoint = timeEvaluatedAtPoint;
@@ -170,15 +174,12 @@ double ReceiverCluster::calcReceivers(
       }
 #endif
 
-#ifdef USE_STP
-      m_timeKernel.executeSTP(timeStepWidth, tmpReceiverData, timeEvaluated, stp);
-#else
-      m_timeKernel.computeAder(timeStepWidth,
-                               tmpReceiverData,
-                               tmp,
-                               timeEvaluated, // useless but the interface requires it
-                               timeDerivatives);
-#endif
+      spacetimeKernel.computeAder(timeStepWidth,
+                                  tmpReceiverData,
+                                  tmp,
+                                  timeEvaluated, // useless but the interface requires it
+                                  timeDerivatives);
+
       seissolInstance.flopCounter().incrementNonZeroFlopsOther(m_nonZeroFlops);
       seissolInstance.flopCounter().incrementHardwareFlopsOther(m_hardwareFlops);
 
@@ -192,7 +193,7 @@ double ReceiverCluster::calcReceivers(
         krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
         derivativeKrnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
 #else
-        m_timeKernel.computeTaylorExpansion(
+        timeKernel.computeTaylorExpansion(
             receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
 #endif
 

@@ -24,6 +24,7 @@
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
@@ -46,24 +47,27 @@
 
 namespace {
 
-void setStarMatrix(
-    const real* matAT, const real* matBT, const real* matCT, const real grad[3], real* starMatrix) {
-  for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
+void setStarMatrix(const real* matAT,
+                   const real* matBT,
+                   const real* matCT,
+                   const double grad[3],
+                   real* starMatrix) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
   }
 
-  for (unsigned idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
     starMatrix[idx] += grad[1] * matBT[idx];
   }
 
-  for (unsigned idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
     starMatrix[idx] += grad[2] * matCT[idx];
   }
 }
 
 void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
-                          unsigned meshId,
-                          unsigned side,
+                          std::size_t meshId,
+                          int side,
                           double* surfaceArea,
                           double* volume) {
   const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -81,22 +85,23 @@ void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
 /**
  * Copies an eigen3 matrix to a 2D yateto tensor
  */
-template <typename T, int Dim1, int Dim2>
+template <typename T, typename S, int Dim1, int Dim2>
 void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
-                       yateto::DenseTensorView<2, T>& tensorView) {
+                       yateto::DenseTensorView<2, S>& tensorView) {
   assert(tensorView.shape(0) == Dim1);
   assert(tensorView.shape(1) == Dim2);
 
   tensorView.setZero();
   for (size_t row = 0; row < Dim1; ++row) {
     for (size_t col = 0; col < Dim2; ++col) {
-      tensorView(row, col) = matrix(row, col);
+      tensorView(row, col) = static_cast<S>(matrix(row, col));
     }
   }
 }
 
 constexpr int N = tensor::Zminus::Shape[0];
-Eigen::Matrix<real, N, N>
+template <typename T>
+Eigen::Matrix<T, N, N>
     extractMatrix(eigenvalues::Eigenpair<std::complex<double>,
                                          seissol::model::MaterialT::NumQuantities> eigenpair) {
   std::vector<int> tractionIndices;
@@ -118,7 +123,7 @@ Eigen::Matrix<real, N, N>
   const Eigen::Matrix<double, N, N> matRTInv = matRT.inverse();
   const Eigen::Matrix<double, N, N> matRU = matrix(velocityIndices, columnIndices).real();
   const Eigen::Matrix<double, N, N> matM = matRU * matRTInv;
-  return matM.cast<real>();
+  return matM.cast<T>();
 };
 
 } // namespace
@@ -129,7 +134,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                  LTSTree* ltsTree,
                                  LTS* lts,
                                  Lut* ltsLut,
-                                 const TimeStepping& timeStepping,
+                                 const ClusterLayout& clusterLayout,
                                  const parameters::ModelParameters& modelParameters) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -139,9 +144,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
   static_assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1],
                 "Shape mismatch for flux matrices");
 
-  assert(LayerMask(Ghost) == lts->material.mask);
-  assert(LayerMask(Ghost) == lts->localIntegration.mask);
-  assert(LayerMask(Ghost) == lts->neighboringIntegration.mask);
+  assert(LayerMask(Ghost) == ltsTree->info(lts->material).mask);
+  assert(LayerMask(Ghost) == ltsTree->info(lts->localIntegration).mask);
+  assert(LayerMask(Ghost) == ltsTree->info(lts->neighboringIntegration).mask);
 
   const auto* cellInformationAll = ltsTree->var(lts->cellInformation);
   for (auto& layer : ltsTree->leaves(Ghost)) {
@@ -181,20 +186,20 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
-      for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto clusterId = secondaryInformation[cell].clusterId;
-        const auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
+        const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
         const auto meshId = secondaryInformation[cell].meshId;
 
-        real x[4];
-        real y[4];
-        real z[4];
-        real gradXi[3];
-        real gradEta[3];
-        real gradZeta[3];
+        double x[4];
+        double y[4];
+        double z[4];
+        double gradXi[3];
+        double gradEta[3];
+        double gradZeta[3];
 
         // Iterate over all 4 vertices of the tetrahedron
-        for (unsigned vertex = 0; vertex < 4; ++vertex) {
+        for (int vertex = 0; vertex < 4; ++vertex) {
           const VrtxCoords& coords = vertices[elements[meshId].vertices[vertex]].coords;
           x[vertex] = coords[0];
           y[vertex] = coords[1];
@@ -216,7 +221,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
         const double volume = MeshTools::volume(elements[meshId], vertices);
 
-        for (unsigned side = 0; side < 4; ++side) {
+        for (int side = 0; side < 4; ++side) {
           VrtxCoords normal;
           VrtxCoords tangent1;
           VrtxCoords tangent2;
@@ -227,7 +232,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           MeshTools::normalize(tangent1, tangent1);
           MeshTools::normalize(tangent2, tangent2);
 
-          real nLocalData[6 * 6];
+          double nLocalData[6 * 6];
           seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
           seissol::model::getTransposedGodunovState(
               seissol::model::getRotatedMaterialCoefficients(nLocalData, material[cell].local),
@@ -246,7 +251,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
           // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
           // must be subtracted.
-          const real fluxScale = -2.0 * surface / (6.0 * volume);
+          const double fluxScale = -2.0 * surface / (6.0 * volume);
 
           const auto isSpecialBC =
               [&secondaryInformation, &cellInformation, &cellInformationAll, cell](int side) {
@@ -372,13 +377,13 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
-    for (unsigned cell = 0; cell < layer.getNumberOfCells(); ++cell) {
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto& element = elements[secondaryInformation[cell].meshId];
       const double* coords[4];
-      for (unsigned v = 0; v < 4; ++v) {
+      for (int v = 0; v < 4; ++v) {
         coords[v] = vertices[element.vertices[v]].coords;
       }
-      for (unsigned side = 0; side < 4; ++side) {
+      for (int side = 0; side < 4; ++side) {
         if (cellInformation[cell].faceTypes[side] != FaceType::FreeSurfaceGravity &&
             cellInformation[cell].faceTypes[side] != FaceType::Dirichlet &&
             cellInformation[cell].faceTypes[side] != FaceType::Analytical) {
@@ -391,7 +396,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         auto* nodes = boundary[cell][side].nodes;
         assert(nodes != nullptr);
         auto offset = 0;
-        for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+        for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
           double nodeReference[2];
           nodeReference[0] = nodesReference(i, 0);
           nodeReference[1] = nodesReference(i, 1);
@@ -407,8 +412,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         }
 
         // Compute map that rotates to normal aligned coordinate system.
-        real* matTData = boundary[cell][side].TData;
-        real* matTinvData = boundary[cell][side].TinvData;
+        real* matTData = boundary[cell][side].dataT;
+        real* matTinvData = boundary[cell][side].dataTinv;
         assert(matTData != nullptr);
         assert(matTinvData != nullptr);
         auto matT = init::T::view::create(matTData);
@@ -495,8 +500,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
     schedule(static)
 #endif
-    for (unsigned ltsFace = 0; ltsFace < layer.getNumberOfCells(); ++ltsFace) {
-      const unsigned meshFace = layerLtsFaceToMeshFace[ltsFace];
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      const std::size_t meshFace = layerLtsFaceToMeshFace[ltsFace];
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
 
       /// Face information
@@ -518,7 +523,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       /// Look for time derivative mapping in all duplicates
       int derivativesMeshId = 0;
-      int derivativesSide = 0;
+      unsigned derivativesSide = 0;
       if (fault[meshFace].element >= 0) {
         derivativesMeshId = fault[meshFace].element;
         derivativesSide = faceInformation[ltsFace].plusSide;
@@ -531,21 +536,22 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       real* timeDerivative1Device = nullptr;
       real* timeDerivative2Device = nullptr;
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
-        const unsigned ltsId =
-            ltsLut->ltsId(lts->cellInformation.mask, derivativesMeshId, duplicate);
-        if (timeDerivative1 == nullptr && (cellInformation[ltsId].ltsSetup >> 9) % 2 == 1) {
-          timeDerivative1 =
-              derivatives[ltsLut->ltsId(lts->derivatives.mask, derivativesMeshId, duplicate)];
-          timeDerivative1Device =
-              derivativesDevice[ltsLut->ltsId(lts->derivatives.mask, derivativesMeshId, duplicate)];
+        const std::size_t ltsId =
+            ltsLut->ltsId(ltsTree->info(lts->cellInformation).mask, derivativesMeshId, duplicate);
+        if (timeDerivative1 == nullptr && (cellInformation[ltsId].ltsSetup >> 9U) % 2 == 1) {
+          timeDerivative1 = derivatives[ltsLut->ltsId(
+              ltsTree->info(lts->derivatives).mask, derivativesMeshId, duplicate)];
+          timeDerivative1Device = derivativesDevice[ltsLut->ltsId(
+              ltsTree->info(lts->derivatives).mask, derivativesMeshId, duplicate)];
         }
         if (timeDerivative2 == nullptr &&
             (cellInformation[ltsId].ltsSetup >> derivativesSide) % 2 == 1) {
-          timeDerivative2 =
-              faceNeighbors[ltsLut->ltsId(lts->faceNeighbors.mask, derivativesMeshId, duplicate)]
-                           [derivativesSide];
+          timeDerivative2 = faceNeighbors[ltsLut->ltsId(ltsTree->info(lts->faceNeighbors).mask,
+                                                        derivativesMeshId,
+                                                        duplicate)][derivativesSide];
           timeDerivative2Device = faceNeighborsDevice[ltsLut->ltsId(
-              lts->faceNeighbors.mask, derivativesMeshId, duplicate)][derivativesSide];
+              ltsTree->info(lts->faceNeighbors).mask, derivativesMeshId, duplicate)]
+                                                     [derivativesSide];
         }
       }
 
@@ -567,19 +573,21 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       /// DR mapping for elements
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
-        const unsigned plusLtsId =
-            (fault[meshFace].element >= 0)
-                ? ltsLut->ltsId(lts->drMapping.mask, fault[meshFace].element, duplicate)
-                : std::numeric_limits<unsigned>::max();
-        const unsigned minusLtsId =
-            (fault[meshFace].neighborElement >= 0)
-                ? ltsLut->ltsId(lts->drMapping.mask, fault[meshFace].neighborElement, duplicate)
-                : std::numeric_limits<unsigned>::max();
+        const std::size_t plusLtsId = (fault[meshFace].element >= 0)
+                                          ? ltsLut->ltsId(ltsTree->info(lts->drMapping).mask,
+                                                          fault[meshFace].element,
+                                                          duplicate)
+                                          : std::numeric_limits<std::size_t>::max();
+        const std::size_t minusLtsId = (fault[meshFace].neighborElement >= 0)
+                                           ? ltsLut->ltsId(ltsTree->info(lts->drMapping).mask,
+                                                           fault[meshFace].neighborElement,
+                                                           duplicate)
+                                           : std::numeric_limits<std::size_t>::max();
 
-        assert(duplicate != 0 || plusLtsId != std::numeric_limits<unsigned>::max() ||
-               minusLtsId != std::numeric_limits<unsigned>::max());
+        assert(duplicate != 0 || plusLtsId != std::numeric_limits<std::size_t>::max() ||
+               minusLtsId != std::numeric_limits<std::size_t>::max());
 
-        if (plusLtsId != std::numeric_limits<unsigned>::max()) {
+        if (plusLtsId != std::numeric_limits<std::size_t>::max()) {
 #ifdef _OPENMP
 #pragma omp critical
 #endif // _OPENMP
@@ -597,7 +605,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
             mappingDevice.fluxSolver = &fluxSolverPlusDevice[ltsFace][0];
           }
         }
-        if (minusLtsId != std::numeric_limits<unsigned>::max()) {
+        if (minusLtsId != std::numeric_limits<std::size_t>::max()) {
 #ifdef _OPENMP
 #pragma omp critical
 #endif // _OPENMP
@@ -629,22 +637,23 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       /// Materials
       seissol::model::Material* plusMaterial = nullptr;
       seissol::model::Material* minusMaterial = nullptr;
-      const unsigned plusLtsId = (fault[meshFace].element >= 0)
-                                     ? ltsLut->ltsId(lts->material.mask, fault[meshFace].element)
-                                     : std::numeric_limits<unsigned>::max();
-      const unsigned minusLtsId =
+      const std::size_t plusLtsId =
+          (fault[meshFace].element >= 0)
+              ? ltsLut->ltsId(ltsTree->info(lts->material).mask, fault[meshFace].element)
+              : std::numeric_limits<std::size_t>::max();
+      const std::size_t minusLtsId =
           (fault[meshFace].neighborElement >= 0)
-              ? ltsLut->ltsId(lts->material.mask, fault[meshFace].neighborElement)
-              : std::numeric_limits<unsigned>::max();
+              ? ltsLut->ltsId(ltsTree->info(lts->material).mask, fault[meshFace].neighborElement)
+              : std::numeric_limits<std::size_t>::max();
 
-      assert(plusLtsId != std::numeric_limits<unsigned>::max() ||
-             minusLtsId != std::numeric_limits<unsigned>::max());
+      assert(plusLtsId != std::numeric_limits<std::size_t>::max() ||
+             minusLtsId != std::numeric_limits<std::size_t>::max());
 
-      if (plusLtsId != std::numeric_limits<unsigned>::max()) {
+      if (plusLtsId != std::numeric_limits<std::size_t>::max()) {
         plusMaterial = &material[plusLtsId].local;
         minusMaterial = &material[plusLtsId].neighbor[faceInformation[ltsFace].plusSide];
       } else {
-        assert(minusLtsId != std::numeric_limits<unsigned>::max());
+        assert(minusLtsId != std::numeric_limits<std::size_t>::max());
         plusMaterial = &material[minusLtsId].neighbor[faceInformation[ltsFace].minusSide];
         minusMaterial = &material[minusLtsId].local;
       }
@@ -676,18 +685,12 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       impAndEta[ltsFace].invZsNeig = 1 / impAndEta[ltsFace].zsNeig;
 
       impAndEta[ltsFace].etaP =
-          etaHack / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
+          1.0 / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
       impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
       impAndEta[ltsFace].etaS =
           1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
       switch (plusMaterial->getMaterialType()) {
-      case seissol::model::MaterialType::Elastic: {
-        break;
-      }
-      case seissol::model::MaterialType::Viscoelastic: {
-        break;
-      }
       case seissol::model::MaterialType::Poroelastic: {
         auto plusEigenpair =
             seissol::model::getEigenDecomposition(*dynamic_cast<model::MaterialT*>(plusMaterial));
@@ -697,9 +700,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         // The impedance matrices are diagonal in the (visco)elastic case, so we only store
         // the values Zp, Zs. In the poroelastic case, the fluid pressure and normal component
         // of the traction depend on each other, so we need a more complicated matrix structure.
-        const Eigen::Matrix<real, N, N> impedanceMatrix = extractMatrix(plusEigenpair);
-        const Eigen::Matrix<real, N, N> impedanceNeigMatrix = extractMatrix(minusEigenpair);
-        const Eigen::Matrix<real, N, N> etaMatrix =
+        const Eigen::Matrix<double, N, N> impedanceMatrix = extractMatrix<double>(plusEigenpair);
+        const Eigen::Matrix<double, N, N> impedanceNeigMatrix =
+            extractMatrix<double>(minusEigenpair);
+        const Eigen::Matrix<double, N, N> etaMatrix =
             (impedanceMatrix + impedanceNeigMatrix).inverse();
 
         auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);
@@ -714,9 +718,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         break;
       }
       default: {
-        logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
-                      "(built with:"
-                   << model::MaterialT::Text << ")";
+        if constexpr (!model::MaterialT::SupportsDR) {
+          logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
+                        "(built with:"
+                     << model::MaterialT::Text << ")";
+        }
         break;
       }
       }
@@ -750,7 +756,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       /// Transpose matTinv
       dynamicRupture::kernel::transposeTinv ttKrnl;
       ttKrnl.Tinv = matTinvData;
-      ttKrnl.TinvT = godunovData[ltsFace].TinvT;
+      ttKrnl.TinvT = godunovData[ltsFace].dataTinvT;
       ttKrnl.execute();
 
       double plusSurfaceArea = 0;
@@ -801,7 +807,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       krnl.execute();
     }
 
-    layerLtsFaceToMeshFace += layer.getNumberOfCells();
+    layerLtsFaceToMeshFace += layer.size();
   }
 }
 
