@@ -75,11 +75,13 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       // values is of the neighboring elements, not the local element. We need
       // new stored matrices to correct for this
 
-      // Step 1: Received INTEGRATED flux in x,y,z and q in modal space,
+      // Step 1: Received INTEGRATED flux in x,y,z and q*c in modal space,
       // Project it on to face quadratures, as rusanovFluxMinus:
       // using "kernel::nonlEvaluateAndRotateQAtInterpolationPoints"
       // The face relations are the same as the cae of receiving 'derivatives'
       // Because both are in Modal space of the neighboring cell
+      // Note: The integrated Q already multiplied C (max wave speed), 
+      // and added INITIAL STRAIN TENSOR
       alignas(Alignment) real InterpolatedQMinus[tensor::QInterpolated::size()];
       alignas(Alignment) real InterpolatedFxMinus[tensor::QInterpolated::size()];
       alignas(Alignment) real InterpolatedFyMinus[tensor::QInterpolated::size()];
@@ -87,7 +89,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
 
       kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter
         = m_nonlinearInterpolation;
-      // Interpolated Q
+      // Interpolated Q*C
       m_nonLinInter.QInterpolated = &InterpolatedQMinus[0];
       m_nonLinInter.Q = timeIntegrated[face];
       m_nonLinInter.execute(data.cellInformation().faceRelations[face][0]
@@ -110,14 +112,34 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
                         , data.cellInformation().faceRelations[face][1]+1);
       
       // Step 2: Compute Rusanov flux on the interpolated face quadrature points
-      
-      // Step 3: Integrated from the face quadrature
+      // F_rus = 0.5*(Fx*nx + Fy*ny + Fz*nz) - 0.5*(C*Q)
       alignas(Alignment) real rusanovFluxMinus[tensor::QInterpolated::size()] = {0.0};
       // Is seissol::dr::misc::numPaddedPoints = tensor::QInterpolated::size()?
       for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++){
         rusanovFluxMinus[i_f] = static_cast<real>(0.0);
       }
+      using faceFluxShape = real(*)[tensor::QInterpolated::size()];
 
+      auto* faceQM = reinterpret_cast<faceFluxShape>(InterpolatedQMinus);
+      auto* faceFxM = reinterpret_cast<faceFluxShape>(InterpolatedFxMinus);
+      auto* faceFyM = reinterpret_cast<faceFluxShape>(InterpolatedFyMinus);
+      auto* faceFzM = reinterpret_cast<faceFluxShape>(InterpolatedFzMinus);
+      
+      auto* rusanovFluxM = reinterpret_cast<faceFluxShape>(rusanovFluxMinus);
+      using namespace seissol::dr::misc::quantity_indices;
+      unsigned DAM = 9;
+
+      for (unsigned var = 0; var < 10; var++) {
+        for (unsigned i = 0; i < tensor::QInterpolated::size(); i++) {
+          rusanovFluxM[var][i] = 0.5 * (
+            faceFxM[var][i] * data.neighboringIntegration().specific.localNormal[face][0] +
+            faceFyM[var][i] * data.neighboringIntegration().specific.localNormal[face][1] +
+            faceFzM[var][i] * data.neighboringIntegration().specific.localNormal[face][2]
+          ) - 0.5 * faceQM[var][i];
+        }
+      }
+      
+      // Step 3: Integrated from the face quadrature
       kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
       real fluxScale = - 2.0 / 6.0 * data.neighboringIntegration().specific.localSurfaces[face]
                     / data.neighboringIntegration().specific.localVolume;
@@ -126,7 +148,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       m_surfIntegral.fluxScale = fluxScale;
       m_surfIntegral.execute(face, 0);
 
-      // Standard neighboring flux
+      // Standard neighboring flux (linear case)
       // Compute the neighboring elements flux matrix id.
       assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
       assert(data.cellInformation().faceRelations[face][0] < 4 &&
