@@ -113,10 +113,10 @@ seissol::time_stepping::TimeCluster::TimeCluster(
   neighborKernel.setGlobalData(globalData);
   dynamicRuptureKernel.setGlobalData(globalData);
 
-  frictionSolver->allocateAuxiliaryMemory();
-  frictionSolverDevice->allocateAuxiliaryMemory();
-  frictionSolverCopy->allocateAuxiliaryMemory();
-  frictionSolverCopyDevice->allocateAuxiliaryMemory();
+  frictionSolver->allocateAuxiliaryMemory(globalDataOnHost);
+  frictionSolverDevice->allocateAuxiliaryMemory(globalDataOnDevice);
+  frictionSolverCopy->allocateAuxiliaryMemory(globalDataOnHost);
+  frictionSolverCopyDevice->allocateAuxiliaryMemory(globalDataOnDevice);
 
   frictionSolver->setupLayer(*dynRupInteriorData, dynRup, streamRuntime);
   frictionSolverDevice->setupLayer(*dynRupInteriorData, dynRup, streamRuntime);

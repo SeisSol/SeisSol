@@ -19,7 +19,7 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   explicit FrictionSolverDetails(seissol::initializer::parameters::DRParameters* drParameters);
   ~FrictionSolverDetails() override;
 
-  void allocateAuxiliaryMemory() override;
+  void allocateAuxiliaryMemory(GlobalData* globalData) override;
 
   protected:
   size_t currLayerSize{};
