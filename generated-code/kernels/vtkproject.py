@@ -14,7 +14,13 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
     for target in targets:
         name_prefix = generate_kernel_name_prefix(targets)
 
-        vtko = parseJSONMatrixFile(f"{matricesDir}/vtko{aderdg.order}.json")
+        # align all VTK matrices
+        alignStride = lambda name: True
+        vtko = parseJSONMatrixFile(
+            f"{matricesDir}/vtko{aderdg.order}.json", alignStride=alignStride
+        )
+
+        simcount = aderdg.multipleSimulations
 
         # the following is due to a shortcut in Yateto,
         # where 1-column matrices are interpreted as rank-1 vectors
@@ -22,9 +28,9 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
         maxOrder = 8
         rangeLimit = maxOrder + 1
 
-        qb = Tensor("qb", (aderdg.numberOf3DBasisFunctions(),))
-        pb = Tensor("pb", (aderdg.numberOf2DBasisFunctions(),))
-        pn = Tensor("pn", (aderdg.numberOf2DBasisFunctions(),))
+        qb = Tensor("qb", (simcount, aderdg.numberOf3DBasisFunctions()))
+        pb = Tensor("pb", (simcount, aderdg.numberOf2DBasisFunctions()))
+        pn = Tensor("pn", (simcount, aderdg.numberOf2DBasisFunctions()))
         xv = [
             Tensor(f"xv({i})", (((i + 1) * (i + 2) * (i + 3)) // 6,))
             for i in range(rangeLimit)
@@ -33,18 +39,24 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
             Tensor(f"xf({i})", (((i + 1) * (i + 2)) // 2,)) for i in range(rangeLimit)
         ]
 
+        simselect = Tensor("simselect", (simcount,))
+
         generator.addFamily(
             f"{name_prefix}projectBasisToVtkVolume",
             simpleParameterSpace(rangeLimit),
             lambda i: xv[i]["p"]
-            <= vtko.byName(f"collvv({aderdg.order},{i})")["pb"] * qb["b"],
+            <= vtko.byName(f"collvv({aderdg.order},{i})")["pb"]
+            * simselect["s"]
+            * qb["sb"],
             target=target,
         )
         generator.addFamily(
             f"{name_prefix}projectBasisToVtkFace",
             simpleParameterSpace(rangeLimit),
             lambda i: xf[i]["p"]
-            <= vtko.byName(f"collff({aderdg.order},{i})")["pb"] * pb["b"],
+            <= vtko.byName(f"collff({aderdg.order},{i})")["pb"]
+            * simselect["s"]
+            * pb["sb"],
             target=target,
         )
         generator.addFamily(
@@ -52,16 +64,18 @@ def addKernels(generator, aderdg, matricesDir, targets=["cpu"]):
             simpleParameterSpace(rangeLimit),
             lambda i: xf[i]["p"]
             <= vtko.byName(f"collff({aderdg.order},{i})")["pb"]
+            * simselect["s"]
             * aderdg.db.MV2nTo2m["bm"]
-            * pn["m"],
+            * pn["sm"],
             target=target,
         )
-
         generator.addFamily(
             f"{name_prefix}projectBasisToVtkFaceFromVolume",
             simpleParameterSpace(rangeLimit, 4),
             lambda i, j: xf[i]["p"]
-            <= vtko.byName(f"collvf({aderdg.order},{i},{j})")["pb"] * qb["b"],
+            <= vtko.byName(f"collvf({aderdg.order},{i},{j})")["pb"]
+            * simselect["s"]
+            * qb["sb"],
             target=target,
         )
 
