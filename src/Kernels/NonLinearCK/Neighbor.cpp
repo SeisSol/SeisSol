@@ -118,7 +118,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++){
         rusanovFluxMinus[i_f] = static_cast<real>(0.0);
       }
-      using faceFluxShape = real(*)[tensor::QInterpolated::size()];
+      using faceFluxShape = real(*)[seissol::dr::misc::NumPaddedPoints];
 
       auto* faceQM = reinterpret_cast<faceFluxShape>(InterpolatedQMinus);
       auto* faceFxM = reinterpret_cast<faceFluxShape>(InterpolatedFxMinus);
@@ -130,7 +130,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       unsigned DAM = 9;
 
       for (unsigned var = 0; var < 10; var++) {
-        for (unsigned i = 0; i < tensor::QInterpolated::size(); i++) {
+        for (unsigned i = 0; i < seissol::dr::misc::NumPaddedPoints; i++) {
           rusanovFluxM[var][i] = 0.5 * (
             faceFxM[var][i] * data.neighboringIntegration().specific.localNormal[face][0] +
             faceFyM[var][i] * data.neighboringIntegration().specific.localNormal[face][1] +
