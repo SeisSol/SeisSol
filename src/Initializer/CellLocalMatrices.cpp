@@ -663,8 +663,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       auto matAPlus = init::star::view<0>::create(matAPlusData);
       auto matAMinus = init::star::view<0>::create(matAMinusData);
 
-      waveSpeedsPlus[ltsFace].density = plusMaterial->rho;
-      waveSpeedsMinus[ltsFace].density = minusMaterial->rho;
+      waveSpeedsPlus[ltsFace].density = plusMaterial->getDensity();
+      waveSpeedsMinus[ltsFace].density = minusMaterial->getDensity();
       waveSpeedsPlus[ltsFace].pWaveVelocity = plusMaterial->getPWaveSpeed();
       waveSpeedsPlus[ltsFace].sWaveVelocity = plusMaterial->getSWaveSpeed();
       waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
@@ -737,10 +737,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
       auto tractionMinusMatrix =
           init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
-      const double cZpP = plusMaterial->rho * waveSpeedsPlus[ltsFace].pWaveVelocity;
-      const double cZsP = plusMaterial->rho * waveSpeedsPlus[ltsFace].sWaveVelocity;
-      const double cZpM = minusMaterial->rho * waveSpeedsMinus[ltsFace].pWaveVelocity;
-      const double cZsM = minusMaterial->rho * waveSpeedsMinus[ltsFace].sWaveVelocity;
+      const double cZpP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].pWaveVelocity;
+      const double cZsP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].sWaveVelocity;
+      const double cZpM = minusMaterial->getDensity() * waveSpeedsMinus[ltsFace].pWaveVelocity;
+      const double cZsM = minusMaterial->getDensity() * waveSpeedsMinus[ltsFace].sWaveVelocity;
       const double etaP = cZpP * cZpM / (cZpP + cZpM);
       const double etaS = cZsP * cZsM / (cZsP + cZsM);
 

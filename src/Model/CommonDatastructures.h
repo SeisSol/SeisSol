@@ -55,6 +55,7 @@ struct Material {
   [[nodiscard]] virtual double getSWaveSpeed() const = 0;
   [[nodiscard]] virtual double getMuBar() const = 0;
   [[nodiscard]] virtual double getLambdaBar() const = 0;
+  [[nodiscard]] virtual double getDensity() const { return rho; }
   [[nodiscard]] virtual double maximumTimestep() const {
     return std::numeric_limits<double>::infinity();
   }

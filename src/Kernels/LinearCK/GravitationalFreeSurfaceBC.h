@@ -131,7 +131,7 @@ class GravitationalFreeSurfaceBc {
       projectKernel.dQ(i) = derivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
     }
 
-    const double rho = materialData.local->rho;
+    const double rho = materialData.local->getDensity();
     const double g = gravitationalAcceleration; // [m/s^2]
     const double z = std::sqrt(materialData.local->getLambdaBar() * rho);
 

@@ -82,7 +82,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
   auto reflectionType = itmParameters.itmReflectionType;
 
   const auto updateMaterial = [&](model::Material& material) {
-    const auto rho = material.rho;
+    const auto rho = material.getDensity();
     const auto lambda = material.getLambdaBar();
     const auto mu = material.getMuBar();
 

@@ -486,7 +486,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
         for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
           const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
-          const auto rho = material.rho;
+          const auto rho = material.getDensity();
 
           const auto u = numSub(qp, UIdx + 0);
           const auto v = numSub(qp, UIdx + 1);
@@ -575,7 +575,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
           // Perform quadrature
           const auto surface = MeshTools::surface(elements[elementId], face, vertices);
-          const auto rho = material.rho;
+          const auto rho = material.getDensity();
 
           static_assert(NumQuadraturePointsTri == init::rotatedFaceDisplacementAtQuadratureNodes::
                                                       Shape[multisim::BasisFunctionDimension]);

@@ -179,8 +179,8 @@ seissol::physics::TravellingWave::TravellingWave(
 seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
     const CellMaterialData& materialData,
     const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersItm)
-    : rho0(materialData.local->rho),
-      c0(sqrt(materialData.local->getLambdaBar() / materialData.local->rho)),
+    : rho0(materialData.local->getDensity()),
+      c0(sqrt(materialData.local->getLambdaBar() / materialData.local->getDensity())),
       k(acousticTravellingWaveParametersItm.k),
       tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime), tITMPlus(tITMMinus + tau),
       tau(acousticTravellingWaveParametersItm.itmDuration),
@@ -534,7 +534,7 @@ void seissol::physics::Ocean::evaluate(double time,
       logError() << "Ocean scenario only works for acoustic material (mu = 0.0)!";
     }
     const double pi = std::acos(-1);
-    const double rho = materialData.local->rho;
+    const double rho = materialData.local->getDensity();
 
     const double lx = 10.0;    // km
     const double ly = 10.0;    // km

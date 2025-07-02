@@ -377,7 +377,7 @@ auto loadSourcesFromFSRM(const char* fileName,
           const seissol::model::Material& material =
               *ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
           for (unsigned i = 0; i < 3; ++i) {
-            sources.tensor[clusterSource][6 + i] /= material.rho;
+            sources.tensor[clusterSource][6 + i] /= material.getDensity();
           }
         } else {
           logWarning()
