@@ -357,6 +357,7 @@ struct MaterialSetup<PoroElasticMaterial> {
   }
 
   static void initializeSpecificNeighborData(const PoroElasticMaterial& material,
+                                            PoroElasticMaterial* matNeighbor,
                                             double timeStepWidth,
                                             Vertex localVertices[4],
                                             real& localVolume,

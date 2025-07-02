@@ -217,7 +217,7 @@ void Spacetime::computeAder(double timeStepWidth,
 void Spacetime::computeNonlAder(double timeStepWidth,
                        LocalData& data,
                        LocalTmp& tmp,
-                       real timeIntegrated[tensor::I::size()],
+                       real timeIntegrated[4*tensor::I::size()],
                        real* timeDerivativesForNL,
                        real* timeDerivatives,
                        bool updateDisplacement) {
@@ -228,6 +228,12 @@ void Spacetime::computeNonlAder(double timeStepWidth,
          reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
 
   assert(reinterpret_cast<uintptr_t>(timeDerivativesForNL) % Alignment == 0);
+
+  // Nonlinear: Single out pointers to Q, Fx, Fy, Fz
+  real* integratedQ = timeIntegrated;
+  real* integratedFx = timeIntegrated + 1*tensor::I::size();
+  real* integratedFy = timeIntegrated + 2*tensor::I::size();
+  real* integratedFz = timeIntegrated + 3*tensor::I::size();
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
   updateDisplacement &=
@@ -251,7 +257,7 @@ void Spacetime::computeNonlAder(double timeStepWidth,
     krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ>(1, i);
   }
 
-  krnl.I = timeIntegrated;
+  krnl.I = integratedQ;
   // powers in the taylor-series expansion
   krnl.nlPower(0) = timeStepWidth;
   for (std::size_t der = 1; der < ConvergenceOrder; ++der) {
@@ -274,10 +280,7 @@ void Spacetime::computeNonlAder(double timeStepWidth,
   // In case dofs() is not copied to derivativesBuffer yet
   std::copy_n(data.dofs(), tensor::dQ::size(0), timeDerivativesForNL);
 
-  // In this computeAder() function, 'I' and 'derivatives in linear case is computed;
-  // In nonlinear case, 'derivatives' and 'F' will be computed here.
-  // Step 1: Compute each order of derivatives - already have "timeDerivativesForNL"
-  // Step 1.1: Convert the Modal solution data.dofs(), Q, to Nodal space
+  // For damage evolution later
   //   kernel::damageConvertToNodal d_converToKrnl;
   //   alignas(PagesizeStack) real solNData[tensor::QNodal::size()];
   //   d_converToKrnl.v = init::v::Values;
@@ -341,12 +344,18 @@ void Spacetime::computeNonlAder(double timeStepWidth,
 
   //   }
 
-  // Step 2: Convert from Modal to Nodal for each temporal quadrature point;
-  // Meanwhile, compute the nonlinear nodal Rusanov fluxes 
-  // (TimeCluster.h, in previous version)
-  // For neighbor cell: 0.5(Fpd * nd - C * up)
-  // NOTE: need to include face relation in the final integration, but maybe 
-  // not necessarily here - can be integrated in Neighbor.cpp
+  // Compute the time-integrated Fx, Fy, Fz,
+  // together with space-time inttionegra of local part of Rusanov flux
+
+  // In this computeAder() function, 'I' and 'derivatives in linear case is computed;
+  // In nonlinear case, integrated 'Fx,y,z, and Cq' and 'derivatives' will be computed here.
+  // Q is already integrated
+  // Just compute the integrated Fx, Fy, Fz in nodal space and project back to modal space
+
+  // Already have "timeDerivativesForNL"
+  // Step 2: Convert from Modal to Nodal for each temporal quadrature point;:
+  // Meanwhile, compute the nonlinear nodal Rusanov fluxes for neighboring cells,
+  // including the integrated Fx, Fy, Fz
   double timePoints[ConvergenceOrder];
   double timeWeights[ConvergenceOrder];
   seissol::quadrature::GaussLegendre(timePoints, timeWeights, ConvergenceOrder);
@@ -372,14 +381,52 @@ void Spacetime::computeNonlAder(double timeStepWidth,
     d_converToKrnl.execute();
   }
   // Step 3: Do time integration for the Rusanov flux
-  alignas(Alignment) real rusanovFluxMinusNodal[tensor::QNodal::size()] = {0.0};
-  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+  alignas(Alignment) real integratedFxNodal[tensor::QNodal::size()] = {0.0};
+  alignas(Alignment) real integratedFyNodal[tensor::QNodal::size()] = {0.0};
+  alignas(Alignment) real integratedFzNodal[tensor::QNodal::size()] = {0.0};
+
+  alignas(Alignment) real sxxNodal[tensor::QNodal::Shape[0]] = {0};
+  alignas(Alignment) real syyNodal[tensor::QNodal::Shape[0]] = {0};
+  alignas(Alignment) real szzNodal[tensor::QNodal::Shape[0]] = {0};
+  alignas(Alignment) real sxyNodal[tensor::QNodal::Shape[0]] = {0};
+  alignas(Alignment) real syzNodal[tensor::QNodal::Shape[0]] = {0};
+  alignas(Alignment) real szxNodal[tensor::QNodal::Shape[0]] = {0};
+
+  real mat_mu0 = data.material().local.mu0;
+  real mat_lambda0 = data.material().local.lambda0;
+  real mat_Cd = data.material().local.Cd;
+  real mat_gammaR = data.material().local.gammaR;
+
+  real epsInitxx = data.material().local.epsInit_xx;
+  real epsInityy = data.material().local.epsInit_yy;
+  real epsInitzz = data.material().local.epsInit_zz;
+  real epsInitxy = data.material().local.epsInit_xy;
+  real epsInityz = data.material().local.epsInit_yz;
+  real epsInitzx = data.material().local.epsInit_xz;
+
+
+  for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
     // Compute rusanovFluxMinusNodal at each time step and integrate in time
     // with temporal quadrature
-    auto weight = timeWeights[o];
+    auto weight = timeWeights[timeInterval];
+    real* exxNodal = (QInterpolatedBodyNodal[timeInterval] + 0*tensor::Q::Shape[0]);
+    real* eyyNodal = (QInterpolatedBodyNodal[timeInterval] + 1*tensor::Q::Shape[0]);
+    real* ezzNodal = (QInterpolatedBodyNodal[timeInterval] + 2*tensor::Q::Shape[0]);
+    real* alphaNodal = (QInterpolatedBodyNodal[timeInterval] + 9*tensor::Q::Shape[0]);
+    real* exyNodal = (QInterpolatedBodyNodal[timeInterval] + 3*tensor::Q::Shape[0]);
+    real* eyzNodal = (QInterpolatedBodyNodal[timeInterval] + 4*tensor::Q::Shape[0]);
+    real* ezxNodal = (QInterpolatedBodyNodal[timeInterval] + 5*tensor::Q::Shape[0]);
+    real* vxNodal = (QInterpolatedBodyNodal[timeInterval] + 6*tensor::Q::Shape[0]);
+    real* vyNodal = (QInterpolatedBodyNodal[timeInterval] + 7*tensor::Q::Shape[0]);
+    real* vzNodal = (QInterpolatedBodyNodal[timeInterval] + 8*tensor::Q::Shape[0]);
+    // time quadrature for each nodal values
+    for (unsigned q = 0; q < tensor::Q::Shape[0]; ++q){
+      integratedFxNodal[0*tensor::Q::Shape[0] + q] += -vxNodal[q] * weight;
+    }
   }
 
-  // // Step 4: Convert the integrated Rusanov flux from Nodal to Modal space
+  // // Step 4: Convert the integrated Fx, Fy and Fz flux from Nodal to Modal space
+  // Store them in integratedFx, integratedFy, and integratedFz
 
   // Do not compute it like this if at interface
   // Compute integrated displacement over time step if needed.

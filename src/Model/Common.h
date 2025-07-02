@@ -98,6 +98,7 @@ void initializeSpecificLocalData(const T& material,
 
 template <typename T>
 void initializeSpecificNeighborData(const T& material,
+                                    T* matNeighbor,
                                     double timeStepWidth,
                                     Vertex localVertices[4],
                                     real& localVolume,
@@ -106,7 +107,8 @@ void initializeSpecificNeighborData(const T& material,
                                     std::array<std::array<double, 3>, 4>& localTangent1,
                                     std::array<std::array<double, 3>, 4>& localTangent2,
                                     typename T::NeighborSpecificData* neighborData) {
-  MaterialSetup<T>::initializeSpecificNeighborData(material, 
+  MaterialSetup<T>::initializeSpecificNeighborData(material,
+                                                  matNeighbor, 
                                                   timeStepWidth,
                                                   localVertices,
                                                   localVolume,

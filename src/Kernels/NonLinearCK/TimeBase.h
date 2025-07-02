@@ -40,7 +40,7 @@ class Spacetime : public SpacetimeKernel {
   void computeNonlAder(double timeStepWidth,
                    LocalData& data,
                    LocalTmp& tmp,
-                   real timeIntegrated[tensor::I::size()],
+                   real timeIntegrated[4*tensor::I::size()],
                    real* timeDerivativesForNL,
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false);

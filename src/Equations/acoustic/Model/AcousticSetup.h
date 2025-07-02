@@ -112,6 +112,7 @@ struct MaterialSetup<AcousticMaterial> {
                                           AcousticLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const AcousticMaterial& material,
+                                            AcousticMaterial* matNeighbor,
                                             double timeStepWidth,
                                             Vertex localVertices[4],
                                             real& localVolume,

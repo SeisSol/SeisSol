@@ -115,6 +115,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   }
 
   static void initializeSpecificNeighborData(const MaterialT& material,
+                                            MaterialT* matNeighbor,
                                             double timeStepWidth,
                                             Vertex localVertices[4],
                                             real& localVolume,

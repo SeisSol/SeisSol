@@ -197,6 +197,7 @@ struct MaterialSetup<ElasticMaterial> {
                                           ElasticLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const ElasticMaterial& material,
+                                            ElasticMaterial* matNeighbor,
                                             double timeStepWidth,
                                             Vertex localVertices[4],
                                             real& localVolume,

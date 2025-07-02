@@ -332,6 +332,7 @@ struct MaterialSetup<AnisotropicMaterial> {
                                           AnisotropicLocalData* localData) {}
 
   static void initializeSpecificNeighborData(const AnisotropicMaterial& material,
+                                            AnisotropicMaterial* matNeighbor,
                                             double timeStepWidth,
                                             Vertex localVertices[4],
                                             real& localVolume,

@@ -80,8 +80,10 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       // using "kernel::nonlEvaluateAndRotateQAtInterpolationPoints"
       // The face relations are the same as the cae of receiving 'derivatives'
       // Because both are in Modal space of the neighboring cell
-      // Note: The integrated Q already multiplied C (max wave speed), 
-      // and added INITIAL STRAIN TENSOR
+      // Note: Multiplication of the integrated Q with C (max wave speed), 
+      // (added INITIAL STRAIN TENSOR) can only be done here.
+      // Because C is face-dependent
+      // Need to store material properties, or just max_speed
       alignas(Alignment) real InterpolatedQMinus[tensor::QInterpolated::size()];
       alignas(Alignment) real InterpolatedFxMinus[tensor::QInterpolated::size()];
       alignas(Alignment) real InterpolatedFyMinus[tensor::QInterpolated::size()];
@@ -89,7 +91,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
 
       kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter
         = m_nonlinearInterpolation;
-      // Interpolated Q*C
+      // Interpolated Q
       m_nonLinInter.QInterpolated = &InterpolatedQMinus[0];
       m_nonLinInter.Q = timeIntegrated[face];
       m_nonLinInter.execute(data.cellInformation().faceRelations[face][0]
@@ -135,7 +137,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
             faceFxM[var][i] * data.neighboringIntegration().specific.localNormal[face][0] +
             faceFyM[var][i] * data.neighboringIntegration().specific.localNormal[face][1] +
             faceFzM[var][i] * data.neighboringIntegration().specific.localNormal[face][2]
-          ) - 0.5 * faceQM[var][i];
+          ) - 0.5 * data.neighboringIntegration().specific.maxWavespeeds[face] * faceQM[var][i];
         }
       }
       
@@ -146,7 +148,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       m_surfIntegral.Q = data.dofs();
       m_surfIntegral.Flux = rusanovFluxMinus;
       m_surfIntegral.fluxScale = fluxScale;
-      m_surfIntegral.execute(face, 0);
+      // m_surfIntegral.execute(face, 0);
 
       // Standard neighboring flux (linear case)
       // Compute the neighboring elements flux matrix id.

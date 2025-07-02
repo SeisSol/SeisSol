@@ -36,6 +36,7 @@ struct DamageNeighborData {
   std::array<std::array<double, 3>, 4> localTangent1;
   std::array<std::array<double, 3>, 4> localTangent2;
   real gradXiEtaZeta[3][3];
+  real maxWavespeeds[4];
 };
 
 } // namespace seissol::model
