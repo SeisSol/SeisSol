@@ -46,6 +46,7 @@ MPI_Datatype convertArray(const seissol::io::datatype::ArrayDatatype& datatype) 
 }
 
 MPI_Datatype convertStruct(const seissol::io::datatype::StructDatatype& datatype) {
+  MPI_Datatype pretype = MPI_DATATYPE_NULL;
   MPI_Datatype type = MPI_DATATYPE_NULL;
   std::vector<MPI_Datatype> subtypes;
   std::vector<MPI_Aint> suboffsets;
@@ -56,7 +57,8 @@ MPI_Datatype convertStruct(const seissol::io::datatype::StructDatatype& datatype
     subtypes.push_back(seissol::io::datatype::convertToMPI(member.datatype, false));
   }
   MPI_Type_create_struct(
-      subtypes.size(), subsizes.data(), suboffsets.data(), subtypes.data(), &type);
+      subtypes.size(), subsizes.data(), suboffsets.data(), subtypes.data(), &pretype);
+  MPI_Type_create_resized(pretype, 0, datatype.size(), &type);
   return type;
 }
 
