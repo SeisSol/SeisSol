@@ -111,15 +111,14 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     }
   };
 
-  for (auto& layer : ltsTree->leaves(Ghost)) {
-    CellMaterialData* materials = layer.var(lts->material);
+  for (auto& layer : ltsTree->leaves()) {
+    auto* materialData = layer.var(lts->materialData);
 
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      auto& material = materials[cell];
-      updateMaterial(material.local);
-      for (int i = 0; i < 4; ++i) {
-        updateMaterial(material.neighbor[i]);
-      }
+      updateMaterial(materialData[cell]);
     }
   }
 }

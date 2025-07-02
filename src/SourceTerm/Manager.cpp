@@ -375,7 +375,7 @@ auto loadSourcesFromFSRM(const char* fileName,
         }
         if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
           const seissol::model::Material& material =
-              ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
+              *ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
           for (unsigned i = 0; i < 3; ++i) {
             sources.tensor[clusterSource][6 + i] /= material.rho;
           }
@@ -500,7 +500,7 @@ auto loadSourcesFromNRF(const char* fileName,
             nrf.sroffsets[nrfIndex],
             nrf.sroffsets[nrfIndex + 1],
             nrf.sliprates,
-            &ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
+            ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
             sources,
             clusterSource,
             memkind);
