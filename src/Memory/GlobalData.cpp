@@ -9,6 +9,7 @@
 #include "GlobalData.h"
 #include "generated_code/init.h"
 #include <DynamicRupture/FrictionLaws/TPCommon.h>
+#include <DynamicRupture/Misc.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Memory/MemoryAllocator.h>

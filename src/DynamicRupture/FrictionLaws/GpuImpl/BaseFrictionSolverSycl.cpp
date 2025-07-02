@@ -53,7 +53,7 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
       FrictionLawContext ctx{};
       ctx.sharedMemory = &sharedMemory[0];
       ctx.item = reinterpret_cast<void*>(&item);
-      ctx.data = data;
+      ctx.data = args.data;
       ctx.args = &args;
 
       const auto ltsFace = item.get_group().get_group_id(0);
