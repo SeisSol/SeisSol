@@ -99,7 +99,7 @@ for building—adjust to your actual location.
 
   # Set your compiler, e.g., for the Intel compiler
   # source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
-  # or 
+  # or
   # export CC=icx
   # export CXX=icpx
 
