@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::model {

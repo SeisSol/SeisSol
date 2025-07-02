@@ -9,14 +9,13 @@
 #include "Initializer/CellLocalMatrices.h"
 #include "Modules/Modules.h"
 #include "SeisSol.h"
-#include <Equations/Datastructures.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Initializer/Typedefs.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
+#include <Model/CommonDatastructures.h>
 #include <Modules/Module.h>
 #include <cmath>
 #include <cstddef>

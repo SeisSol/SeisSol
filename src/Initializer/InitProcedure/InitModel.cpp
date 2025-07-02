@@ -44,8 +44,6 @@
 #include "InitModel.h"
 #include "SeisSol.h"
 
-#include "Parallel/MPI.h"
-
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
 #include "Physics/Attenuation.h"
 #endif
