@@ -34,12 +34,12 @@ class NeighborKernel : public Kernel {
   virtual void flopsNeighborsIntegral(const FaceType faceTypes[4],
                                       const int neighboringIndices[4][2],
                                       const CellDRMapping (&cellDrMapping)[4],
-                                      unsigned int& nonZeroFlops,
-                                      unsigned int& hardwareFlops,
-                                      long long& drNonZeroFlops,
-                                      long long& drHardwareFlops) = 0;
+                                      std::uint64_t& nonZeroFlops,
+                                      std::uint64_t& hardwareFlops,
+                                      std::uint64_t& drNonZeroFlops,
+                                      std::uint64_t& drHardwareFlops) = 0;
 
-  virtual unsigned bytesNeighborsIntegral() = 0;
+  virtual std::uint64_t bytesNeighborsIntegral() = 0;
 };
 
 } // namespace seissol::kernels

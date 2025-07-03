@@ -11,6 +11,8 @@
 
 #include <mpi.h>
 
+#include <cstddef>
+
 #include "SeisSol.h"
 
 namespace seissol {
@@ -23,7 +25,7 @@ namespace seissol {
  *
  * @tparam CellVertices Number of vertices per cell
  */
-template <int CellVertices>
+template <std::size_t CellVertices>
 class AsyncCellIDs {
   private:
   /** Null, if MPI is not enabled */
@@ -32,7 +34,7 @@ class AsyncCellIDs {
   const unsigned int* constCells;
 
   public:
-  AsyncCellIDs(unsigned int nCells,
+  AsyncCellIDs(std::size_t nCells,
                unsigned int nVertices,
                const unsigned int* cells,
                seissol::SeisSol& seissolInstance) {
@@ -44,7 +46,7 @@ class AsyncCellIDs {
 
     // Add the offset to all cells
     localCells.resize(nCells * CellVertices);
-    for (unsigned int i = 0; i < nCells * CellVertices; i++) {
+    for (std::size_t i = 0; i < nCells * CellVertices; i++) {
       localCells[i] = cells[i] + offset;
     }
     constCells = localCells.data();

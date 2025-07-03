@@ -40,9 +40,9 @@ class SpacetimeKernel : public Kernel {
                                   bool updateDisplacement,
                                   seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) = 0;
+  virtual void flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) = 0;
 
-  virtual unsigned bytesAder() = 0;
+  virtual std::uint64_t bytesAder() = 0;
 };
 
 } // namespace seissol::kernels

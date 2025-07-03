@@ -63,8 +63,8 @@ class DynamicRupture : public Kernel {
                                      seissol::parallel::runtime::StreamRuntime& runtime);
 
   void flopsGodunovState(const DRFaceInformation& faceInfo,
-                         long long& nonZeroFlops,
-                         long long& hardwareFlops);
+                         std::uint64_t& nonZeroFlops,
+                         std::uint64_t& hardwareFlops);
 };
 
 } // namespace seissol::kernels

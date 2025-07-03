@@ -110,12 +110,12 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 }
 
 void Local::flopsIntegral(const FaceType faceTypes[4],
-                          unsigned int& nonZeroFlops,
-                          unsigned int& hardwareFlops) {
+                          std::uint64_t& nonZeroFlops,
+                          std::uint64_t& hardwareFlops) {
   nonZeroFlops = seissol::kernel::volumeExt::NonZeroFlops;
   hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
 
-  for (unsigned int face = 0; face < 4; ++face) {
+  for (int face = 0; face < 4; ++face) {
     if (faceTypes[face] != FaceType::DynamicRupture) {
       nonZeroFlops += seissol::kernel::localFluxExt::nonZeroFlops(face);
       hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
@@ -126,8 +126,8 @@ void Local::flopsIntegral(const FaceType faceTypes[4],
   hardwareFlops += seissol::kernel::local::HardwareFlops;
 }
 
-unsigned Local::bytesIntegral() {
-  unsigned reals = 0;
+std::uint64_t Local::bytesIntegral() {
+  std::uint64_t reals = 0;
 
   // star matrices load
   reals += yateto::computeFamilySize<tensor::star>() + tensor::w::size() + tensor::W::size() +

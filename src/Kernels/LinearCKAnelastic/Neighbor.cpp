@@ -135,17 +135,17 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
 void Neighbor::flopsNeighborsIntegral(const FaceType faceTypes[4],
                                       const int neighboringIndices[4][2],
                                       const CellDRMapping (&cellDrMapping)[4],
-                                      unsigned int& nonZeroFlops,
-                                      unsigned int& hardwareFlops,
-                                      long long& drNonZeroFlops,
-                                      long long& drHardwareFlops) {
+                                      std::uint64_t& nonZeroFlops,
+                                      std::uint64_t& hardwareFlops,
+                                      std::uint64_t& drNonZeroFlops,
+                                      std::uint64_t& drHardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
   hardwareFlops = 0;
   drNonZeroFlops = 0;
   drHardwareFlops = 0;
 
-  for (unsigned int face = 0; face < 4; face++) {
+  for (int face = 0; face < 4; face++) {
     // no neighboring cell contribution in the case of absorbing and dynamic rupture boundary
     // conditions
     if (faceTypes[face] != FaceType::Outflow && faceTypes[face] != FaceType::DynamicRupture) {
@@ -173,8 +173,8 @@ void Neighbor::flopsNeighborsIntegral(const FaceType faceTypes[4],
   hardwareFlops += kernel::neighbor::HardwareFlops;
 }
 
-unsigned Neighbor::bytesNeighborsIntegral() {
-  unsigned reals = 0;
+std::uint64_t Neighbor::bytesNeighborsIntegral() {
+  std::uint64_t reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write
   reals += 4 * tensor::I::size() + 2 * tensor::Q::size() + 2 * tensor::Qane::size();
