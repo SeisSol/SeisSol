@@ -28,7 +28,7 @@ You may explicitly compile and install multiple of these configurations at the s
     * ``Release``: default value; usually optimizes with ``-O3``.
     * ``RelWithDebInfo``: optimizes a bit less than ``Release`` (usually ``-O2``), but offers more debug information.
     * ``Debug``: Also enables assertions. Note that more bugs can appear here than when running with the release options.
-- ``EQUATION``: the equation system to compile for
+- ``EQUATIONS``: the equation system to compile for
 
     * ``elastic``: isotropic elastic
     * ``viscoelastic``: obsolete, use ``viscoelastic2`` instead
