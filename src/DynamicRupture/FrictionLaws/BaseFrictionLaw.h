@@ -126,7 +126,7 @@ class BaseFrictionLaw : public FrictionSolver {
           real syy_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
                         + 0.0*aB1 * std::sqrt(EspIIp)
                         + (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(qIPlus[o][YY][i]+epsInityy);
-          real szz_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+          real szz_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
                         + 0.0*aB1 * std::sqrt(EspIIp)
                         + (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(qIPlus[o][ZZ][i]+epsInitzz);
 
@@ -197,7 +197,7 @@ class BaseFrictionLaw : public FrictionSolver {
           real syy_bm = (2.0*aB2 + 0.0*xim*aB3)*EspIm
                         + 0.0*aB1 * std::sqrt(EspIIm)
                         + (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(qIMinus[o][YY][i]+epsInityy);
-          real szz_bm = (2.0*aB2 + 3.0*xim*aB3)*EspIm
+          real szz_bm = (2.0*aB2 + 0.0*xim*aB3)*EspIm
                         + 0.0*aB1 * std::sqrt(EspIIm)
                         + (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(qIMinus[o][ZZ][i]+epsInitzz);
 
