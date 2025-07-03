@@ -1008,7 +1008,7 @@ private:
                               + 0.0*aB1 * std::sqrt(EspIIp)
                               + (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(epsInitzz);
 
-                real sxy_bp = (2.0*aB0 + 0.0*aB1*xip - 0.0**xip*xip*xip)*(epsInitxy);
+                real sxy_bp = (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(epsInitxy);
                 real syz_bp = (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(epsInityz);
                 real szx_bp = (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(epsInitzx);
 
