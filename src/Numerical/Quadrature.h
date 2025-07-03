@@ -62,6 +62,22 @@ inline void GaussLegendre(double* points, double* weights, unsigned n) {
   }
 }
 
+inline std::pair<std::vector<double>, std::vector<double>>
+    ShiftedGaussLegendre(unsigned n, double a, double b) {
+  std::pair<std::vector<double>, std::vector<double>> output{std::vector<double>(n),
+                                                             std::vector<double>(n)};
+  GaussLegendre(output.first.data(), output.second.data(), n);
+  const auto ba = b - a;
+  const auto ab = b + a;
+  for (auto& point : output.first) {
+    point = (point * ba + ab) / 2;
+  }
+  for (auto& weight : output.second) {
+    weight = (weight * ba) / 2;
+  }
+  return output;
+}
+
 /** Returns quadrature points for the interval [-1,1] with weight function (1-x)^a * (1+x)^b, i.e.
  *  int_{-1}^{1} f(y)dy = sum_{i=0}^{n-1} f(points[i]) * weights[i]
  *  For other intervals use
