@@ -16,6 +16,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "generated_code/tensor.h"
+#include <Equations/Datastructures.h>
 #include <Initializer/CellLocalInformation.h>
 #include <Parallel/Helper.h>
 
@@ -96,6 +97,7 @@ struct LTS {
   Variable<real* [4]> faceNeighbors;
   Variable<LocalIntegrationData> localIntegration;
   Variable<NeighboringIntegrationData> neighboringIntegration;
+  Variable<model::MaterialT> materialData;
   Variable<CellMaterialData> material;
   Variable<seissol::model::PlasticityData> plasticity;
   Variable<CellDRMapping[4]> drMapping;
@@ -171,6 +173,7 @@ struct LTS {
              allocationModeWP(AllocationPreset::ConstantShared),
              true);
     tree.add(material, LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    tree.add(materialData, LayerMask(), 1, AllocationMode::HostOnly, true);
     tree.add(plasticity, plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);
     tree.add(drMapping, LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
     tree.add(

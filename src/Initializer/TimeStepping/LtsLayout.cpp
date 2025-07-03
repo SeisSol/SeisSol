@@ -857,16 +857,17 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         // get values
         unsigned int l_clusterId = m_clusteredCopy[l_cluster][l_region].first[1];
 
+        const auto rank = m_clusteredCopy[l_cluster][l_region].first[0];
+
         // set mapping invalid
         o_ltsToMesh[l_ltsCell] = std::numeric_limits<std::size_t>::max();
 
         secondaryInformation[l_ltsCell].clusterId = l_clusterId;
-        secondaryInformation[l_ltsCell].meshId = l_ghostCell;
+        // secondaryInformation[l_ltsCell].meshId will be set later
         secondaryInformation[l_ltsCell].duplicate = 0;
         secondaryInformation[l_ltsCell].halo = HaloType::Ghost;
 
-        secondaryInformation[l_ltsCell].globalId = m_mesh->getGhostlayerMetadata().at(m_clusteredCopy[l_cluster][l_region].first[0])[l_ghostCell].globalId; // TODO: check
-        secondaryInformation[l_ltsCell].rank = m_clusteredCopy[l_cluster][l_region].first[0];
+        secondaryInformation[l_ltsCell].rank = rank;
         secondaryInformation[l_ltsCell].layerId = layerId;
         secondaryInformation[l_ltsCell].configId = 0;
 
@@ -913,8 +914,11 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
           if( m_cells[l_meshId].neighborRanks[l_face] != rank ) {
             // remark: it is not sufficient to just search in the corresponding ghost region as copy cells can have more than one mpi-neighbor
 
+            const auto mpiIndex = m_cells[l_meshId].mpiIndices[l_face];
+            const auto& metadata = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[mpiIndex];
+
             // global neighboring cluster id
-            unsigned int l_globalNeighboringCluster = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[ m_cells[l_meshId].mpiIndices[l_face]].clusterId;
+            unsigned int l_globalNeighboringCluster = metadata.clusterId;
 
             // find local neighboring region
             unsigned int l_localNeighboringRegion;
@@ -929,14 +933,18 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
             }
 
             // get mesh id in the neighboring domain
-            unsigned int l_neighboringMeshId = m_mesh->getGhostlayerMetadata().at(m_cells[l_meshId].neighborRanks[l_face])[ m_cells[l_meshId].mpiIndices[l_face]].localId;
+            unsigned int l_neighboringMeshId = metadata.localId;
 
             unsigned int l_localGhostId = searchClusteredGhostCell( l_neighboringMeshId,
                                                                     l_cluster,
                                                                     l_localNeighboringRegion );
 
             // store value
-            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_ghostOffsets[l_cluster][l_localNeighboringRegion] + l_localGhostId;
+            const auto ghostId = l_ghostOffsets[l_cluster][l_localNeighboringRegion] + l_localGhostId;
+            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = ghostId;
+
+            secondaryInformation[ghostId].meshId = mpiIndex;
+            secondaryInformation[ghostId].globalId = metadata.globalId;
           }
           // else neighboring cell is part of the interior or copy layer
           else if (io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::Regular ||
