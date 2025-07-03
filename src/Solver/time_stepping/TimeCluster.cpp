@@ -1476,12 +1476,12 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
             - alphaAveNeigh*materialData[l_cell].neighbor[side].xi0*materialData[l_cell].neighbor[side].gammaR
             - 0.5*alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*xi)
             + breakAveNeigh * (
-                (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
+                (aB0)
               );
           materialData[l_cell].neighbor[side].lambda = (1-breakAveNeigh) * (lambda0
             - alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*(Q_aveData[2]+epsInitzz)/std::sqrt(EspII))
             + breakAveNeigh * (
-              (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[2]+epsInitzz)/std::sqrt(EspII)
+              (2.0*aB2)
             );
           materialData[l_cell].neighbor[side].gamma = alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR;
 
