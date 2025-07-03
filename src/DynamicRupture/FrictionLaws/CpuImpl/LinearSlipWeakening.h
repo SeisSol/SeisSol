@@ -47,8 +47,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {
+                          const seissol::initializer::DynamicRupture* const dynRup) {
     const auto* concreteLts =
         dynamic_cast<const seissol::initializer::LTSLinearSlipWeakening*>(dynRup);
     this->dC = layerData.var(concreteLts->dC);
@@ -56,7 +55,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     this->muD = layerData.var(concreteLts->muD);
     this->cohesion = layerData.var(concreteLts->cohesion);
     this->forcedRuptureTime = layerData.var(concreteLts->forcedRuptureTime);
-    specialization.copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    specialization.copyLtsTreeToLocal(layerData, dynRup);
   }
 
   /**
@@ -227,8 +226,7 @@ class NoSpecialization {
   explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {};
+                          const seissol::initializer::DynamicRupture* const dynRup) {};
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
    * the degrees of freedom resampleMatrix first projects LocSR on the two-dimensional basis on
@@ -264,8 +262,7 @@ class BiMaterialFault {
       : drParameters(parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+                          const seissol::initializer::DynamicRupture* dynRup);
   /**
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
    * together with Prakash-Clifton regularization, so for the BiMaterialFault specialization, we
@@ -305,8 +302,7 @@ class TPApprox {
       : drParameters(parameters) {};
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {}
+                          const seissol::initializer::DynamicRupture* const dynRup) {}
   /**
    * Use a simple copy for now, maybe use proper resampling later
    */

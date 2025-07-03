@@ -53,8 +53,7 @@ class ThermalPressurization {
    */
   static void copyLtsTreeToLocal(FrictionLawData* data,
                                  seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
-                                 real fullUpdateTime) {
+                                 const seissol::initializer::DynamicRupture* const dynRup) {
     const auto* concreteLts =
         dynamic_cast<const seissol::initializer::ThermalPressurization*>(dynRup);
     const auto place = seissol::initializer::AllocationPlace::Device;
@@ -93,15 +92,15 @@ class ThermalPressurization {
       // Gaussian shear zone in spectral domain, normalized by w
       // \hat{l} / w
       const real squaredNormalizedTpGrid =
-          misc::power<2>(ctx.TpGridPoints[tpGridPointIndex] /
+          misc::power<2>(ctx.args->tpGridPoints[tpGridPointIndex] /
                          ctx.data->halfWidthShearZone[ctx.ltsFace][ctx.pointIndex]);
 
       // This is exp(-A dt) in Noda & Lapusta (2010) equation (10)
       const real thetaTpGrid = ctx.data->drParameters.thermalDiffusivity * squaredNormalizedTpGrid;
       const real sigmaTpGrid =
           ctx.data->hydraulicDiffusivity[ctx.ltsFace][ctx.pointIndex] * squaredNormalizedTpGrid;
-      const real preExpTheta = -thetaTpGrid * ctx.data->deltaT[timeIndex];
-      const real preExpSigma = -sigmaTpGrid * ctx.data->deltaT[timeIndex];
+      const real preExpTheta = -thetaTpGrid * ctx.args->deltaT[timeIndex];
+      const real preExpSigma = -sigmaTpGrid * ctx.args->deltaT[timeIndex];
       const real expTheta = std::exp(preExpTheta);
       const real expSigma = std::exp(preExpSigma);
       const real exp1mTheta = -std::expm1(preExpTheta);
@@ -117,7 +116,7 @@ class ThermalPressurization {
       // Heat generation during timestep
       // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
       // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
-      const real omega = tauV * ctx.HeatSource[tpGridPointIndex];
+      const real omega = tauV * ctx.args->heatSource[tpGridPointIndex];
       const real thetaGeneration =
           omega / (ctx.data->drParameters.heatCapacity * thetaTpGrid) * exp1mTheta;
       const real sigmaGeneration = omega *
@@ -131,7 +130,7 @@ class ThermalPressurization {
       // Recover temperature and altered pressure using inverse Fourier transformation from the new
       // contribution
       const real scaledInverseFourierCoefficient =
-          ctx.TpInverseFourierCoefficients[tpGridPointIndex] /
+          ctx.args->tpInverseFourierCoefficients[tpGridPointIndex] /
           ctx.data->halfWidthShearZone[ctx.ltsFace][ctx.pointIndex];
       temperatureUpdate += scaledInverseFourierCoefficient * thetaNew;
       pressureUpdate += scaledInverseFourierCoefficient * sigmaNew;
