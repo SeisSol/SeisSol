@@ -159,13 +159,13 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     // real epsInityz = -0e-1; // eps_yz0
     // real epsInitzx = -0e-1; // eps_zx0
 
-    // // tpv5 30.9 deg, Zhao's y-x
-    // real epsInitxx = 1.8035e-4; // eps_xx0
-    // real epsInityy = -9.8849e-4; // eps_yy0
-    // real epsInitzz = -9.5732e-4; // eps_zz0
-    // real epsInitxy = 1.0909e-3; // eps_xy0
-    // real epsInityz = -0e-1; // eps_yz0
-    // real epsInitzx = -0e-1; // eps_zx0
+    // tpv5 30.9 deg, Zhao's y-x
+    real epsInitxx = 1.8035e-4; // eps_xx0
+    real epsInityy = -9.8849e-4; // eps_yy0
+    real epsInitzz = -9.5732e-4; // eps_zz0
+    real epsInitxy = 1.0909e-3; // eps_xy0
+    real epsInityz = -0e-1; // eps_yz0
+    real epsInitzx = -0e-1; // eps_zx0
 
     // // tpv5 35.4 deg, Zhao's y-x
     // real epsInitxx = -2.9027e-4; // eps_xx0
@@ -175,23 +175,27 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     // real epsInityz = -0e-1; // eps_yz0
     // real epsInitzx = -0e-1; // eps_zx0
 
-    // zero initial stress
-    real epsInitxx = -1.0e-20; // eps_xx0
-    real epsInityy = -1.0e-20; // eps_yy0
-    real epsInitzz = -1.0e-20; // eps_zz0
-    real epsInitxy = 0.0; // eps_xy0
-    real epsInityz = -0e-1; // eps_yz0
-    real epsInitzx = -0e-1; // eps_zx0
+    // // zero initial stress
+    // real epsInitxx = -1.0e-20; // eps_xx0
+    // real epsInityy = -1.0e-20; // eps_yy0
+    // real epsInitzz = -1.0e-20; // eps_zz0
+    // real epsInitxy = 0.0; // eps_xy0
+    // real epsInityz = -0e-1; // eps_yz0
+    // real epsInitzx = -0e-1; // eps_zx0
 
     real lambda0P = impAndEtaGet->lambda0P;
     real mu0P = impAndEtaGet->mu0P;
     real lambda0M = impAndEtaGet->lambda0M;
     real mu0M = impAndEtaGet->mu0M;
 
-    real aB0 = 12.43e9;
-    real aB1 = -0.0*12.14e9;
-    real aB2 = 18.93e9;
-    real aB3 = -0.0*5.067e9;
+    // real aB0 = 12.43e9;
+    // real aB1 = -0.0*12.14e9;
+    // real aB2 = 18.93e9;
+    // real aB3 = -0.0*5.067e9;
+    real aB0 = 8.42e9;
+    real aB1 = -23.79e9;
+    real aB2 = 20.90e9;
+    real aB3 = -5.93e9;
 
     for (unsigned int q=0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++){
       real EspIp = (dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx)
@@ -229,19 +233,19 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       real szx_sp = 2*mu_eff*(dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
 
       // breakage stress
-      real sxx_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
-                    + aB1 * std::sqrt(EspIIp)
-                    + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
-      real syy_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
-                    + aB1 * std::sqrt(EspIIp)
-                    + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(dofsNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
-      real szz_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
-                    + aB1 * std::sqrt(EspIIp)
-                    + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(dofsNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
+      real sxx_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
+                    + 0.0*aB1 * std::sqrt(EspIIp)
+                    + (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
+      real syy_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
+                    + 0.0*aB1 * std::sqrt(EspIIp)
+                    + (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
+      real szz_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
+                    + 0.0*aB1 * std::sqrt(EspIIp)
+                    + (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
 
-      real sxy_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(dofsNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
-      real syz_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
-      real szx_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
+      real sxy_bp = (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
+      real syz_bp = (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
+      real szx_bp = (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
 
       dofsStressNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
         (1-dofsNPlus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]) * sxx_sp
@@ -302,19 +306,19 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       real szx_sm = 2*mu_eff*(dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
 
       // breakage stress
-      real sxx_bm = (2.0*aB2 + 3.0*xim*aB3)*EspIm
-                    + aB1 * std::sqrt(EspIIm)
-                    + (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(dofsNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
-      real syy_bm = (2.0*aB2 + 3.0*xim*aB3)*EspIm
-                    + aB1 * std::sqrt(EspIIm)
-                    + (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(dofsNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
-      real szz_bm = (2.0*aB2 + 3.0*xim*aB3)*EspIm
-                    + aB1 * std::sqrt(EspIIm)
-                    + (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(dofsNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
+      real sxx_bm = (2.0*aB2 + 0.0*xim*aB3)*EspIm
+                    + 0.0*aB1 * std::sqrt(EspIIm)
+                    + (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
+      real syy_bm = (2.0*aB2 + 0.0*xim*aB3)*EspIm
+                    + 0.0*aB1 * std::sqrt(EspIIm)
+                    + (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
+      real szz_bm = (2.0*aB2 + 0.0*xim*aB3)*EspIm
+                    + 0.0*aB1 * std::sqrt(EspIIm)
+                    + (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
 
-      real sxy_bm = (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
-      real syz_bm = (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
-      real szx_bm = (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
+      real sxy_bm = (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
+      real syz_bm = (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
+      real szx_bm = (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
 
       dofsStressNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
         (1-dofsNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]) * sxx_sm

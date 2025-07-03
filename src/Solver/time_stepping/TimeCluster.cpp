@@ -461,13 +461,13 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // real epsInityz = -0e-1; // eps_yz0
     // real epsInitzx = -0e-1; // eps_zx0
 
-    // // tpv5 30.9 deg, Zhao's y-x
-    // real epsInitxx = 1.8035e-4; // eps_xx0
-    // real epsInityy = -9.8849e-4; // eps_yy0
-    // real epsInitzz = -9.5732e-4; // eps_zz0
-    // real epsInitxy = 1.0909e-3; // eps_xy0
-    // real epsInityz = -0e-1; // eps_yz0
-    // real epsInitzx = -0e-1; // eps_zx0
+    // tpv5 30.9 deg, Zhao's y-x
+    real epsInitxx = 1.8035e-4; // eps_xx0
+    real epsInityy = -9.8849e-4; // eps_yy0
+    real epsInitzz = -9.5732e-4; // eps_zz0
+    real epsInitxy = 1.0909e-3; // eps_xy0
+    real epsInityz = -0e-1; // eps_yz0
+    real epsInitzx = -0e-1; // eps_zx0
 
     // // tpv5 35.4 deg, Zhao's y-x
     // real epsInitxx = -2.9027e-4; // eps_xx0
@@ -477,22 +477,26 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // real epsInityz = -0e-1; // eps_yz0
     // real epsInitzx = -0e-1; // eps_zx0
 
-    // zero initial stress
-    real epsInitxx = -1.0e-20; // eps_xx0
-    real epsInityy = -1.0e-20; // eps_yy0
-    real epsInitzz = -1.0e-20; // eps_zz0
-    real epsInitxy = -0.0; // eps_xy0
-    real epsInityz = -0e-1; // eps_yz0
-    real epsInitzx = -0e-1; // eps_zx0
+    // // zero initial stress
+    // real epsInitxx = -1.0e-20; // eps_xx0
+    // real epsInityy = -1.0e-20; // eps_yy0
+    // real epsInitzz = -1.0e-20; // eps_zz0
+    // real epsInitxy = -0.0; // eps_xy0
+    // real epsInityz = -0e-1; // eps_yz0
+    // real epsInitzx = -0e-1; // eps_zx0
 
     real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
     real const break_coeff = 1e2*damage_para1;
     real const beta_alpha = 0.05;
 
-    real aB0 = 12.43e9;
-    real aB1 = -0.0*12.14e9;
-    real aB2 = 18.93e9;
-    real aB3 = -0.0*5.067e9;
+    // real aB0 = 12.43e9;
+    // real aB1 = -0.0*12.14e9;
+    // real aB2 = 18.93e9;
+    // real aB3 = -0.0*5.067e9;
+    real aB0 = 8.42e9;
+    real aB1 = -23.79e9;
+    real aB2 = 20.90e9;
+    real aB3 = -5.93e9;
 
     // std::cout << data.material.local.Cd << std::endl;
     // real const damage_para2 = 3e-6;
@@ -670,19 +674,19 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
         real szx_s = 2*mu_eff*(ezxNodal[q]+epsInitzx);
 
         // breakage stress
-        real sxx_b = (2.0*aB2 + 3.0*xi*aB3)*EspI
-                      + aB1 * std::sqrt(EspII)
-                      + (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(exxNodal[q]+epsInitxx);
-        real syy_b = (2.0*aB2 + 3.0*xi*aB3)*EspI
-                      + aB1 * std::sqrt(EspII)
-                      + (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(eyyNodal[q]+epsInityy);
-        real szz_b = (2.0*aB2 + 3.0*xi*aB3)*EspI
-                      + aB1 * std::sqrt(EspII)
-                      + (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(ezzNodal[q]+epsInitzz);
+        real sxx_b = (2.0*aB2 + 0.0*xi*aB3)*EspI
+                      + 0.0*aB1 * std::sqrt(EspII)
+                      + (2.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(exxNodal[q]+epsInitxx);
+        real syy_b = (2.0*aB2 + 0.0*xi*aB3)*EspI
+                      + 0.0*aB1 * std::sqrt(EspII)
+                      + (2.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(eyyNodal[q]+epsInityy);
+        real szz_b = (2.0*aB2 + 0.0*xi*aB3)*EspI
+                      + 0.0*aB1 * std::sqrt(EspII)
+                      + (2.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(ezzNodal[q]+epsInitzz);
 
-        real sxy_b = (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(exyNodal[q]+epsInitxy);
-        real syz_b = (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(eyzNodal[q]+epsInityz);
-        real szx_b = (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(ezxNodal[q]+epsInitzx);
+        real sxy_b = (2.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(exyNodal[q]+epsInitxy);
+        real syz_b = (2.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(eyzNodal[q]+epsInityz);
+        real szx_b = (2.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(ezxNodal[q]+epsInitzx);
 
         sxxNodal[q] = (1-breakNodal[q])*sxx_s + breakNodal[q]*sxx_b;
         syyNodal[q] = (1-breakNodal[q])*syy_s + breakNodal[q]*syy_b;
@@ -1254,13 +1258,13 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real epsInityz = -0e-1; // eps_yz0
       // real epsInitzx = -0e-1; // eps_zx0
 
-      // // tpv5 30.9 deg, Zhao's y-x
-      // real epsInitxx = 1.8035e-4; // eps_xx0
-      // real epsInityy = -9.8849e-4; // eps_yy0
-      // real epsInitzz = -9.5732e-4; // eps_zz0
-      // real epsInitxy = 1.0909e-3; // eps_xy0
-      // real epsInityz = -0e-1; // eps_yz0
-      // real epsInitzx = -0e-1; // eps_zx0
+      // tpv5 30.9 deg, Zhao's y-x
+      real epsInitxx = 1.8035e-4; // eps_xx0
+      real epsInityy = -9.8849e-4; // eps_yy0
+      real epsInitzz = -9.5732e-4; // eps_zz0
+      real epsInitxy = 1.0909e-3; // eps_xy0
+      real epsInityz = -0e-1; // eps_yz0
+      real epsInitzx = -0e-1; // eps_zx0
 
       // // tpv5 35.4 deg, Zhao's y-x
       // real epsInitxx = -2.9027e-4; // eps_xx0
@@ -1270,13 +1274,13 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real epsInityz = -0e-1; // eps_yz0
       // real epsInitzx = -0e-1; // eps_zx0
 
-      // zero initial stress
-      real epsInitxx = -1.0e-20; // eps_xx0
-      real epsInityy = -1.0e-20; // eps_yy0
-      real epsInitzz = -1.0e-20; // eps_zz0
-      real epsInitxy = -0.0; // eps_xy0
-      real epsInityz = -0e-1; // eps_yz0
-      real epsInitzx = -0e-1; // eps_zx0
+      // // zero initial stress
+      // real epsInitxx = -1.0e-20; // eps_xx0
+      // real epsInityy = -1.0e-20; // eps_yy0
+      // real epsInitzz = -1.0e-20; // eps_zz0
+      // real epsInitxy = -0.0; // eps_xy0
+      // real epsInityz = -0e-1; // eps_yz0
+      // real epsInitzx = -0e-1; // eps_zx0
 
       // END TODO
       real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
@@ -1313,10 +1317,14 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real aB2 = 23.96e9;
       // real aB3 = -10.112e9;
 
-      real aB0 = 12.43e9;
-      real aB1 = -0.0*12.14e9;
-      real aB2 = 18.93e9;
-      real aB3 = -0.0*5.067e9;
+      // real aB0 = 12.43e9;
+      // real aB1 = -0.0*12.14e9;
+      // real aB2 = 18.93e9;
+      // real aB3 = -0.0*5.067e9;
+      real aB0 = 8.42e9;
+      real aB1 = -23.79e9;
+      real aB2 = 20.90e9;
+      real aB3 = -5.93e9;
 
       unsigned int meshId = data.localIntegration.globalMeshId;
 
@@ -1334,12 +1342,12 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
           - alphaAve*materialData[l_cell].local.xi0*materialData[l_cell].local.gammaR
           - 0.5*alphaAve*materialData[l_cell].local.gammaR*xi)
           + breakAve * (
-            (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
+            (aB0)
           );
        materialData[l_cell].local.lambda = (1-breakAve) * (lambda0
         - alphaAve*materialData[l_cell].local.gammaR*(Q_aveData[2]+epsInitzz)/std::sqrt(EspII))
         + breakAve * (
-          (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[2]+epsInitzz)/std::sqrt(EspII)
+          (2.0*aB2)
         );
        materialData[l_cell].local.gamma = alphaAve*materialData[l_cell].local.gammaR;
 
