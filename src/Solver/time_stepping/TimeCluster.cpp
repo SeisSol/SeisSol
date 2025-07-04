@@ -626,10 +626,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
             if (break_ave < 1.0 ){
               FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
                 (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
-                  *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+                  * EspII * (xi + data.material.local.xi0);
               FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
                 (1 - breakNodal[q]) * damage_para1
-                  *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+                  * EspII * (xi + data.material.local.xi0);
             } else {
               FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
               FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
@@ -641,10 +641,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
         } else if (alpha_ave > 5e-1 ) {
           FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
             0.0*damage_para1
-              *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+              * EspII * (xi + data.material.local.xi0);
           FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
             0.0*damage_para1
-              *data.material.local.gammaR * EspII * (xi + data.material.local.xi0);
+              * EspII * (xi + data.material.local.xi0);
         }
         else {
           FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
