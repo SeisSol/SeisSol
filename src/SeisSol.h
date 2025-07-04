@@ -15,6 +15,7 @@
 #include <optional>
 #include <string>
 
+#include "ResultWriter/Citation.h"
 #include "utils/env.h"
 #include "utils/logger.h"
 
@@ -80,6 +81,8 @@ class SeisSol {
   }
 
   void setExecutionPlaceCutoff(std::size_t size);
+
+  CitationHandler& citation() { return citationHandler; }
 
   initializer::time_stepping::LtsLayout& getLtsLayout() { return m_ltsLayout; }
 
@@ -278,6 +281,8 @@ class SeisSol {
   std::optional<std::size_t> executionPlaceCutoff;
 
   utils::Env m_env;
+
+  CitationHandler citationHandler;
 
   public:
   SeisSol(initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)

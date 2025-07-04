@@ -20,6 +20,8 @@ ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
 
 add_library(seissol-common-lib
 
+src/ResultWriter/Citation.cpp
+
 src/Initializer/CellLocalMatrices.cpp
 src/Memory/GlobalData.cpp
 src/Solver/TimeStepping/AbstractGhostTimeCluster.cpp

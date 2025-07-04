@@ -102,6 +102,9 @@ void seissol::initializer::initprocedure::seissolMain(seissol::SeisSol& seissolI
   initSeisSol(seissolInstance);
   reportHardwareRelatedStatus(seissolInstance);
 
+  // print citations
+  seissolInstance.citation().print(seissolInstance.getSeisSolParameters().output.prefix);
+
   // just put a barrier here to make sure everyone is synched
   logInfo() << "Finishing initialization...";
   seissol::MPI::barrier(seissol::MPI::mpi.comm());
