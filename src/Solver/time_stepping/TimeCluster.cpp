@@ -866,6 +866,7 @@ template<bool usePlasticity>
       unsigned numberOTetsWithPlasticYielding = 0;
 
       kernels::NeighborData::Loader loader;
+      kernels::LocalData::Loader loaderLocal;
       loader.load(*m_lts, i_layerData);
 
       real *l_timeIntegrated[4];
@@ -874,13 +875,18 @@ template<bool usePlasticity>
       const auto oneMinusIntegratingFactor = seissol::kernels::Plasticity::computeRelaxTime(m_tv, timeStepSize());
 
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(oneMinusIntegratingFactor, cellInformation, loader, faceNeighbors, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
+#pragma omp parallel for schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(oneMinusIntegratingFactor, cellInformation, loader, loaderLocal, faceNeighbors, pstrain, i_layerData, plasticity, drMapping, subTimeStart) reduction(+:numberOTetsWithPlasticYielding)
 #endif
       for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
         auto data = loader.entry(l_cell);
 
+        //For nonlinear neighbor integration
         #ifdef USE_DAMAGE
-        seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
+        logInfo() << "data loading...";
+        auto dataLocal = loaderLocal.entry(l_cell);
+        logInfo() << "data loaded...";
+        seissol::kernels::TimeCommon::computeNonIntegrals(m_timeKernel,
+                                                       dataLocal,
                                                        data.cellInformation().ltsSetup,
                                                        data.cellInformation().faceTypes,
                                                        subTimeStart,
@@ -916,9 +922,8 @@ template<bool usePlasticity>
                                                    drMapping[l_cell],
                                                    l_timeIntegrated, l_faceNeighbors_prefetch
         );
-        #else // For nonlinear neighbor integration
-        seissol::kernels::TimeCommon::computeNonIntegrals(m_timeKernel,
-                                                       data,
+        #else
+        seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
                                                        data.cellInformation().ltsSetup,
                                                        data.cellInformation().faceTypes,
                                                        subTimeStart,
