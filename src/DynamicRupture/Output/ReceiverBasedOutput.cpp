@@ -235,17 +235,17 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       // breakage stress
       real sxx_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
                     + 0.0*aB1 * std::sqrt(EspIIp)
-                    + (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
+                    + (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
       real syy_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
                     + 0.0*aB1 * std::sqrt(EspIIp)
-                    + (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
+                    + (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
       real szz_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
                     + 0.0*aB1 * std::sqrt(EspIIp)
-                    + (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
+                    + (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
 
-      real sxy_bp = (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
-      real syz_bp = (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
-      real szx_bp = (2.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
+      real sxy_bp = (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
+      real syz_bp = (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
+      real szx_bp = (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(dofsNPlus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
 
       dofsStressNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
         (1-dofsNPlus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]) * sxx_sp
@@ -308,17 +308,17 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       // breakage stress
       real sxx_bm = (2.0*aB2 + 0.0*xim*aB3)*EspIm
                     + 0.0*aB1 * std::sqrt(EspIIm)
-                    + (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
+                    + (3.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx);
       real syy_bm = (2.0*aB2 + 0.0*xim*aB3)*EspIm
                     + 0.0*aB1 * std::sqrt(EspIIm)
-                    + (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
+                    + (3.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
       real szz_bm = (2.0*aB2 + 0.0*xim*aB3)*EspIm
                     + 0.0*aB1 * std::sqrt(EspIIm)
-                    + (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
+                    + (3.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
 
-      real sxy_bm = (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
-      real syz_bm = (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
-      real szx_bm = (2.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
+      real sxy_bm = (3.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxy);
+      real syz_bm = (3.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityz);
+      real szx_bm = (3.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(dofsNMinus[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzx);
 
       dofsStressNMinus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] =
         (1-dofsNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]) * sxx_sm

@@ -676,17 +676,17 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
         // breakage stress
         real sxx_b = (2.0*aB2 + 0.0*xi*aB3)*EspI
                       + 0.0*aB1 * std::sqrt(EspII)
-                      + (2.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(exxNodal[q]+epsInitxx);
+                      + (3.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(exxNodal[q]+epsInitxx);
         real syy_b = (2.0*aB2 + 0.0*xi*aB3)*EspI
                       + 0.0*aB1 * std::sqrt(EspII)
-                      + (2.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(eyyNodal[q]+epsInityy);
+                      + (3.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(eyyNodal[q]+epsInityy);
         real szz_b = (2.0*aB2 + 0.0*xi*aB3)*EspI
                       + 0.0*aB1 * std::sqrt(EspII)
-                      + (2.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(ezzNodal[q]+epsInitzz);
+                      + (3.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(ezzNodal[q]+epsInitzz);
 
-        real sxy_b = (2.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(exyNodal[q]+epsInitxy);
-        real syz_b = (2.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(eyzNodal[q]+epsInityz);
-        real szx_b = (2.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(ezxNodal[q]+epsInitzx);
+        real sxy_b = (3.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(exyNodal[q]+epsInitxy);
+        real syz_b = (3.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(eyzNodal[q]+epsInityz);
+        real szx_b = (3.0*aB0 + 0.0*aB1*xi - 0.0*aB3*xi*xi*xi)*(ezxNodal[q]+epsInitzx);
 
         sxxNodal[q] = (1-breakNodal[q])*sxx_s + breakNodal[q]*sxx_b;
         syyNodal[q] = (1-breakNodal[q])*syy_s + breakNodal[q]*syy_b;
@@ -1342,7 +1342,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
           - alphaAve*materialData[l_cell].local.xi0*materialData[l_cell].local.gammaR
           - 0.5*alphaAve*materialData[l_cell].local.gammaR*xi)
           + breakAve * (
-            (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
+            (1.5*aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
           );
        materialData[l_cell].local.lambda = (1-breakAve) * (lambda0
         - alphaAve*materialData[l_cell].local.gammaR*(Q_aveData[2]+epsInitzz)/std::sqrt(EspII))
@@ -1476,7 +1476,7 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
             - alphaAveNeigh*materialData[l_cell].neighbor[side].xi0*materialData[l_cell].neighbor[side].gammaR
             - 0.5*alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*xi)
             + breakAveNeigh * (
-                (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
+                (1.5*aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
               );
           materialData[l_cell].neighbor[side].lambda = (1-breakAveNeigh) * (lambda0
             - alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*(Q_aveData[2]+epsInitzz)/std::sqrt(EspII))

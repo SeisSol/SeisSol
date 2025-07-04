@@ -224,7 +224,7 @@ inline void precomputeStressFromQInterpolated(
   auto muP = (1-breP) * (mu0P
     - alphap*xi0P*gaRP
     - 0.5*alphap*gaRP*xip)
-    + breP * (
+    + 1.5*breP * (
       (aB0)
     );
   // auto laP = (1-breP) * (la0P
@@ -241,7 +241,7 @@ inline void precomputeStressFromQInterpolated(
   auto muM = (1-breM) * (mu0M
     - alpham*xi0M*gaRM
     - 0.5*alpham*gaRM*xim)
-    + breM * (
+    + 1.5*breM * (
       (aB0)
     );
   auto laM = (1-breM) * (la0M
