@@ -878,6 +878,8 @@ template<bool usePlasticity>
 #endif
       for( unsigned int l_cell = 0; l_cell < i_layerData.getNumberOfCells(); l_cell++ ) {
         auto data = loader.entry(l_cell);
+
+        #ifdef USE_DAMAGE
         seissol::kernels::TimeCommon::computeIntegrals(m_timeKernel,
                                                        data.cellInformation().ltsSetup,
                                                        data.cellInformation().faceTypes,
@@ -914,6 +916,45 @@ template<bool usePlasticity>
                                                    drMapping[l_cell],
                                                    l_timeIntegrated, l_faceNeighbors_prefetch
         );
+        #else // For nonlinear neighbor integration
+        seissol::kernels::TimeCommon::computeNonIntegrals(m_timeKernel,
+                                                       data,
+                                                       data.cellInformation().ltsSetup,
+                                                       data.cellInformation().faceTypes,
+                                                       subTimeStart,
+                                                       timeStepSize(),
+                                                       faceNeighbors[l_cell],
+#ifdef _OPENMP
+                                                       *reinterpret_cast<real (*)[4][seissol::kernels::Solver::BufferSize]>(&(m_globalDataOnHost->integrationBufferLTS[omp_get_thread_num()*4*seissol::kernels::Solver::BufferSize])),
+#else
+            *reinterpret_cast<real (*)[4][seissol::kernels::Solver::BufferSize]>(m_globalDataOnHost->integrationBufferLTS),
+#endif
+                                                       l_timeIntegrated);
+
+        l_faceNeighbors_prefetch[0] = (cellInformation[l_cell].faceTypes[1] != FaceType::DynamicRupture) ?
+                                      faceNeighbors[l_cell][1] :
+                                      drMapping[l_cell][1].godunov;
+        l_faceNeighbors_prefetch[1] = (cellInformation[l_cell].faceTypes[2] != FaceType::DynamicRupture) ?
+                                      faceNeighbors[l_cell][2] :
+                                      drMapping[l_cell][2].godunov;
+        l_faceNeighbors_prefetch[2] = (cellInformation[l_cell].faceTypes[3] != FaceType::DynamicRupture) ?
+                                      faceNeighbors[l_cell][3] :
+                                      drMapping[l_cell][3].godunov;
+
+        // fourth face's prefetches
+        if (l_cell < (i_layerData.getNumberOfCells()-1) ) {
+          l_faceNeighbors_prefetch[3] = (cellInformation[l_cell+1].faceTypes[0] != FaceType::DynamicRupture) ?
+                                        faceNeighbors[l_cell+1][0] :
+                                        drMapping[l_cell+1][0].godunov;
+        } else {
+          l_faceNeighbors_prefetch[3] = faceNeighbors[l_cell][3];
+        }
+
+        m_neighborKernel.computeNeighborsIntegral( data,
+                                                   drMapping[l_cell],
+                                                   l_timeIntegrated, l_faceNeighbors_prefetch
+        );
+        #endif
 
         if constexpr (usePlasticity) {
           numberOTetsWithPlasticYielding += seissol::kernels::Plasticity::computePlasticity( oneMinusIntegratingFactor,

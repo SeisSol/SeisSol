@@ -16,6 +16,25 @@
 
 namespace seissol::kernels {
 struct TimeCommon {
+  static void computeNonIntegrals(Time& time,
+                               NeighborData& data,
+                               unsigned short ltsSetup,
+                               const FaceType faceTypes[4],
+                               const double currentTime[5],
+                               double timeStepWidth,
+                               real* const timeDofs[4],
+                               real integrationBuffer[4][seissol::kernels::Solver::BufferSize],
+                               real* timeIntegrated[4]);
+  
+  static void computeNonIntegrals(Time& time,
+                               NeighborData& data,
+                               unsigned short ltsSetup,
+                               const FaceType faceTypes[4],
+                               double timeStepStart,
+                               double timeStepWidth,
+                               real* const timeDofs[4],
+                               real integrationBuffer[4][seissol::kernels::Solver::BufferSize],
+                               real* timeIntegrated[4]);
   /**
    * Either copies pointers to the DOFs in the time buffer or integrates the DOFs via time
    derivatives.

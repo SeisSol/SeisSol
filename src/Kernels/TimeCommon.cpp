@@ -31,6 +31,86 @@
 
 namespace seissol::kernels {
 
+void TimeCommon::computeNonIntegrals(Time& time,
+                                  NeighborData& data,
+                                  unsigned short ltsSetup,
+                                  const FaceType faceTypes[4],
+                                  const double currentTime[5],
+                                  double timeStepWidth,
+                                  real* const timeDofs[4],
+                                  real integrationBuffer[4][seissol::kernels::Solver::BufferSize],
+                                  real* timeIntegrated[4]) {
+  /*
+   * assert valid input.
+   */
+  // only lower 10 bits are used for lts encoding
+  assert(ltsSetup < 2048);
+
+#ifndef NDEBUG
+  // alignment of the time derivatives/integrated dofs and the buffer
+  for (int dofneighbor = 0; dofneighbor < 4; dofneighbor++) {
+    assert(reinterpret_cast<uintptr_t>(timeDofs[dofneighbor]) % Alignment == 0);
+    assert(reinterpret_cast<uintptr_t>(integrationBuffer[dofneighbor]) % Alignment == 0);
+  }
+#endif
+
+  /*
+   * set/compute time integrated DOFs.
+   */
+  for (unsigned dofneighbor = 0; dofneighbor < 4; ++dofneighbor) {
+    // collect information only in the case that neighboring element contributions are required
+    if (faceTypes[dofneighbor] != FaceType::Outflow &&
+        faceTypes[dofneighbor] != FaceType::DynamicRupture) {
+      // check if the time integration is already done (-> copy pointer)
+      if ((ltsSetup >> dofneighbor) % 2 == 0) {
+        timeIntegrated[dofneighbor] = timeDofs[dofneighbor];
+      }
+      // integrate the DOFs in time via the derivatives and set pointer to local buffer
+      else {
+        time.computeIntegral(currentTime[dofneighbor + 1],
+                             currentTime[0],
+                             currentTime[0] + timeStepWidth,
+                             timeDofs[dofneighbor],
+                             integrationBuffer[dofneighbor]);
+
+        timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
+      }
+    }
+  }
+}
+
+void TimeCommon::computeNonIntegrals(Time& time,
+                                  NeighborData& data,
+                                  unsigned short ltsSetup,
+                                  const FaceType faceTypes[4],
+                                  const double timeStepStart,
+                                  const double timeStepWidth,
+                                  real* const timeDofs[4],
+                                  real integrationBuffer[4][seissol::kernels::Solver::BufferSize],
+                                  real* timeIntegrated[4]) {
+  double startTimes[5];
+  startTimes[0] = timeStepStart;
+  startTimes[1] = startTimes[2] = startTimes[3] = startTimes[4] = 0;
+
+  // adjust start times for GTS on derivatives
+  for (unsigned int face = 0; face < 4; face++) {
+    if (((ltsSetup >> (face + 4)) % 2) != 0) {
+      startTimes[face + 1] = timeStepStart;
+    }
+  }
+
+  // call the more general assembly
+  computeNonIntegrals(time,
+                   data,
+                   ltsSetup,
+                   faceTypes,
+                   startTimes,
+                   timeStepWidth,
+                   timeDofs,
+                   integrationBuffer,
+                   timeIntegrated);
+}
+
 void TimeCommon::computeIntegrals(Time& time,
                                   unsigned short ltsSetup,
                                   const FaceType faceTypes[4],
@@ -65,6 +145,7 @@ void TimeCommon::computeIntegrals(Time& time,
         timeIntegrated[dofneighbor] = timeDofs[dofneighbor];
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer
+      // Zihua: In nonlinear case, integrate Q, Fx, Fy and Fz again from the derivatives
       else {
         time.computeIntegral(currentTime[dofneighbor + 1],
                              currentTime[0],
