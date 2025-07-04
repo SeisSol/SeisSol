@@ -461,13 +461,13 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // real epsInityz = -0e-1; // eps_yz0
     // real epsInitzx = -0e-1; // eps_zx0
 
-    // tpv5 30.9 deg, Zhao's y-x
-    real epsInitxx = 1.8035e-4; // eps_xx0
-    real epsInityy = -9.8849e-4; // eps_yy0
-    real epsInitzz = -9.5732e-4; // eps_zz0
-    real epsInitxy = 1.0909e-3; // eps_xy0
-    real epsInityz = -0e-1; // eps_yz0
-    real epsInitzx = -0e-1; // eps_zx0
+    // // tpv5 30.9 deg, Zhao's y-x
+    // real epsInitxx = 1.8035e-4; // eps_xx0
+    // real epsInityy = -9.8849e-4; // eps_yy0
+    // real epsInitzz = -9.5732e-4; // eps_zz0
+    // real epsInitxy = 1.0909e-3; // eps_xy0
+    // real epsInityz = -0e-1; // eps_yz0
+    // real epsInitzx = -0e-1; // eps_zx0
 
     // // tpv5 35.4 deg, Zhao's y-x
     // real epsInitxx = -2.9027e-4; // eps_xx0
@@ -485,6 +485,14 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // real epsInityz = -0e-1; // eps_yz0
     // real epsInitzx = -0e-1; // eps_zx0
 
+    // Benchmark
+    real epsInitxx = -2.81e-4; // eps_xx0
+    real epsInityy = -1.06e-3; // eps_yy0
+    real epsInitzz = -2.81e-4; // eps_zz0
+    real epsInitxy = 1.0909e-3; // eps_xy0
+    real epsInityz = -0e-1; // eps_yz0
+    real epsInitzx = -0e-1; // eps_zx0
+
     real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
     real const break_coeff = 1e2*damage_para1;
     real const beta_alpha = 0.05;
@@ -493,10 +501,10 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // real aB1 = -0.0*12.14e9;
     // real aB2 = 18.93e9;
     // real aB3 = -0.0*5.067e9;
-    real aB0 = 8.42e9;
-    real aB1 = -23.79e9;
-    real aB2 = 20.90e9;
-    real aB3 = -5.93e9;
+    real aB0 = 7.92418e9;
+    real aB1 = -22.7919e9;
+    real aB2 = 20.3222e9;
+    real aB3 = -5.25836e9;
 
     // std::cout << data.material.local.Cd << std::endl;
     // real const damage_para2 = 3e-6;
@@ -1258,13 +1266,13 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real epsInityz = -0e-1; // eps_yz0
       // real epsInitzx = -0e-1; // eps_zx0
 
-      // tpv5 30.9 deg, Zhao's y-x
-      real epsInitxx = 1.8035e-4; // eps_xx0
-      real epsInityy = -9.8849e-4; // eps_yy0
-      real epsInitzz = -9.5732e-4; // eps_zz0
-      real epsInitxy = 1.0909e-3; // eps_xy0
-      real epsInityz = -0e-1; // eps_yz0
-      real epsInitzx = -0e-1; // eps_zx0
+      // // tpv5 30.9 deg, Zhao's y-x
+      // real epsInitxx = 1.8035e-4; // eps_xx0
+      // real epsInityy = -9.8849e-4; // eps_yy0
+      // real epsInitzz = -9.5732e-4; // eps_zz0
+      // real epsInitxy = 1.0909e-3; // eps_xy0
+      // real epsInityz = -0e-1; // eps_yz0
+      // real epsInitzx = -0e-1; // eps_zx0
 
       // // tpv5 35.4 deg, Zhao's y-x
       // real epsInitxx = -2.9027e-4; // eps_xx0
@@ -1281,6 +1289,14 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real epsInitxy = -0.0; // eps_xy0
       // real epsInityz = -0e-1; // eps_yz0
       // real epsInitzx = -0e-1; // eps_zx0
+
+      // Benchmark
+      real epsInitxx = -2.81e-4; // eps_xx0
+      real epsInityy = -1.06e-3; // eps_yy0
+      real epsInitzz = -2.81e-4; // eps_zz0
+      real epsInitxy = 1.0909e-3; // eps_xy0
+      real epsInityz = -0e-1; // eps_yz0
+      real epsInitzx = -0e-1; // eps_zx0
 
       // END TODO
       real EspI = (Q_aveData[0]+epsInitxx) + (Q_aveData[1]+epsInityy) + (Q_aveData[2]+epsInitzz);
@@ -1321,10 +1337,10 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real aB1 = -0.0*12.14e9;
       // real aB2 = 18.93e9;
       // real aB3 = -0.0*5.067e9;
-      real aB0 = 8.42e9;
-      real aB1 = -23.79e9;
-      real aB2 = 20.90e9;
-      real aB3 = -5.93e9;
+      real aB0 = 7.92418e9;
+      real aB1 = -22.7919e9;
+      real aB2 = 20.3222e9;
+      real aB3 = -5.25836e9;
 
       unsigned int meshId = data.localIntegration.globalMeshId;
 

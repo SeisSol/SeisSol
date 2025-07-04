@@ -487,13 +487,13 @@ private:
             // real epsInityz = -0e-1; // eps_yz0
             // real epsInitzx = -0e-1; // eps_zx0
 
-            // tpv5 30.8 deg, Zhao's y-x
-            real epsInitxx = 1.8035e-4; // eps_xx0
-            real epsInityy = -9.8849e-4; // eps_yy0
-            real epsInitzz = -9.5732e-4; // eps_zz0
-            real epsInitxy = 1.0909e-3; // eps_xy0
-            real epsInityz = -0e-1; // eps_yz0
-            real epsInitzx = -0e-1; // eps_zx0
+            // // tpv5 30.8 deg, Zhao's y-x
+            // real epsInitxx = 1.8035e-4; // eps_xx0
+            // real epsInityy = -9.8849e-4; // eps_yy0
+            // real epsInitzz = -9.5732e-4; // eps_zz0
+            // real epsInitxy = 1.0909e-3; // eps_xy0
+            // real epsInityz = -0e-1; // eps_yz0
+            // real epsInitzx = -0e-1; // eps_zx0
 
             // // tpv5 35.4 deg, Zhao's y-x
             // real epsInitxx = -2.9027e-4; // eps_xx0
@@ -511,6 +511,14 @@ private:
             // real epsInityz = -0e-1; // eps_yz0
             // real epsInitzx = -0e-1; // eps_zx0
 
+            // Benchmark
+            real epsInitxx = -2.81e-4; // eps_xx0
+            real epsInityy = -1.06e-3; // eps_yy0
+            real epsInitzz = -2.81e-4; // eps_zz0
+            real epsInitxy = 1.0909e-3; // eps_xy0
+            real epsInityz = -0e-1; // eps_yz0
+            real epsInitzx = -0e-1; // eps_zx0
+
             real lambda0P = materialData[l_cell].local.lambda0;
             real mu0P = materialData[l_cell].local.mu0;
             real rho0P = materialData[l_cell].local.rho;
@@ -523,10 +531,10 @@ private:
             // real aB1 = -0.0*12.14e9;
             // real aB2 = 18.93e9;
             // real aB3 = -0.0*5.067e9;
-            real aB0 = 8.42e9;
-            real aB1 = -23.79e9;
-            real aB2 = 20.90e9;
-            real aB3 = -5.93e9;
+            real aB0 = 7.92418e9;
+            real aB1 = -22.7919e9;
+            real aB2 = 20.3222e9;
+            real aB3 = -5.25836e9;
 
             real lambda_max = 1.0*std::sqrt( (lambda0P+2*mu0P)/rho0P ) ;
             real sxxP, syyP, szzP, sxyP, syzP, szxP
@@ -908,13 +916,13 @@ private:
             // real epsInityz = -0e-1; // eps_yz0
             // real epsInitzx = -0e-1; // eps_zx0
 
-            // tpv5 30.9 deg, Zhao's y-x
-            real epsInitxx = 1.8035e-4; // eps_xx0
-            real epsInityy = -9.8849e-4; // eps_yy0
-            real epsInitzz = -9.5732e-4; // eps_zz0
-            real epsInitxy = 1.0909e-3; // eps_xy0
-            real epsInityz = -0e-1; // eps_yz0
-            real epsInitzx = -0e-1; // eps_zx0
+            // // tpv5 30.9 deg, Zhao's y-x
+            // real epsInitxx = 1.8035e-4; // eps_xx0
+            // real epsInityy = -9.8849e-4; // eps_yy0
+            // real epsInitzz = -9.5732e-4; // eps_zz0
+            // real epsInitxy = 1.0909e-3; // eps_xy0
+            // real epsInityz = -0e-1; // eps_yz0
+            // real epsInitzx = -0e-1; // eps_zx0
 
             // // tpv5 35.4 deg, Zhao's y-x
             // real epsInitxx = -2.9027e-4; // eps_xx0
@@ -932,6 +940,14 @@ private:
             // real epsInityz = -0e-1; // eps_yz0
             // real epsInitzx = -0e-1; // eps_zx0
 
+            // Benchmark
+            real epsInitxx = -2.81e-4; // eps_xx0
+            real epsInityy = -1.06e-3; // eps_yy0
+            real epsInitzz = -2.81e-4; // eps_zz0
+            real epsInitxy = 1.0909e-3; // eps_xy0
+            real epsInityz = -0e-1; // eps_yz0
+            real epsInitzx = -0e-1; // eps_zx0
+
             real lambda0P = materialData[l_cell].local.lambda0;
             real mu0P = materialData[l_cell].local.mu0;
             real rho0P = materialData[l_cell].local.rho;
@@ -940,10 +956,10 @@ private:
             // real aB1 = -0.0*12.14e9;
             // real aB2 = 18.93e9;
             // real aB3 = -0.0*5.067e9;
-            real aB0 = 8.42e9;
-            real aB1 = -23.79e9;
-            real aB2 = 20.90e9;
-            real aB3 = -5.93e9;
+            real aB0 = 7.92418e9;
+            real aB1 = -22.7919e9;
+            real aB2 = 20.3222e9;
+            real aB3 = -5.25836e9;
 
             real sxxP, syyP, szzP, sxyP, syzP, szxP;
 

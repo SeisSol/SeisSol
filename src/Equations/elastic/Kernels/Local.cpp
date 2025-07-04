@@ -239,12 +239,12 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             // eyzNodal[q] = -0e-1; // eps_yy0
             // ezxNodal[q] = -0e-1; // eps_zz0
 
-            exxNodal[q] = 1.8035e-4; // eps_xx0
-            eyyNodal[q] = -9.8849e-4; // eps_yy0
-            ezzNodal[q] = -9.5732e-4; // eps_zz0
-            exyNodal[q] = 1.0909e-3; // eps_xx0
-            eyzNodal[q] = -0e-1; // eps_yy0
-            ezxNodal[q] = -0e-1; // eps_zz0
+            // exxNodal[q] = 1.8035e-4; // eps_xx0
+            // eyyNodal[q] = -9.8849e-4; // eps_yy0
+            // ezzNodal[q] = -9.5732e-4; // eps_zz0
+            // exyNodal[q] = 1.0909e-3; // eps_xx0
+            // eyzNodal[q] = -0e-1; // eps_yy0
+            // ezxNodal[q] = -0e-1; // eps_zz0
 
             // exxNodal[q] = -2.9027e-4; // eps_xx0
             // eyyNodal[q] = -1.0539e-3; // eps_yy0
@@ -259,6 +259,13 @@ void seissol::kernels::Local::computeIntegral(real i_timeIntegratedDegreesOfFree
             // exyNodal[q] = 0.0; // eps_xx0
             // eyzNodal[q] = -0e-1; // eps_yy0
             // ezxNodal[q] = -0e-1; // eps_zz0
+
+            exxNodal[q] = -2.81e-4; // eps_xx0
+            eyyNodal[q] = -1.06e-3; // eps_yy0
+            ezzNodal[q] = -2.81e-4; // eps_zz0
+            exyNodal[q] = 1.0909e-3; // eps_xy0
+            eyzNodal[q] = -0e-1; // eps_yz0
+            ezxNodal[q] = -0e-1; // eps_zx0
           }
           kernel::damageAssignFToDQ d_convertInitialToModal;
           d_convertInitialToModal.dQModal = QInitialModal;

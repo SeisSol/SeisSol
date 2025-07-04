@@ -159,13 +159,13 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     // real epsInityz = -0e-1; // eps_yz0
     // real epsInitzx = -0e-1; // eps_zx0
 
-    // tpv5 30.9 deg, Zhao's y-x
-    real epsInitxx = 1.8035e-4; // eps_xx0
-    real epsInityy = -9.8849e-4; // eps_yy0
-    real epsInitzz = -9.5732e-4; // eps_zz0
-    real epsInitxy = 1.0909e-3; // eps_xy0
-    real epsInityz = -0e-1; // eps_yz0
-    real epsInitzx = -0e-1; // eps_zx0
+    // // tpv5 30.9 deg, Zhao's y-x
+    // real epsInitxx = 1.8035e-4; // eps_xx0
+    // real epsInityy = -9.8849e-4; // eps_yy0
+    // real epsInitzz = -9.5732e-4; // eps_zz0
+    // real epsInitxy = 1.0909e-3; // eps_xy0
+    // real epsInityz = -0e-1; // eps_yz0
+    // real epsInitzx = -0e-1; // eps_zx0
 
     // // tpv5 35.4 deg, Zhao's y-x
     // real epsInitxx = -2.9027e-4; // eps_xx0
@@ -183,6 +183,14 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     // real epsInityz = -0e-1; // eps_yz0
     // real epsInitzx = -0e-1; // eps_zx0
 
+    // Benchmark
+    real epsInitxx = -2.81e-4; // eps_xx0
+    real epsInityy = -1.06e-3; // eps_yy0
+    real epsInitzz = -2.81e-4; // eps_zz0
+    real epsInitxy = 1.0909e-3; // eps_xy0
+    real epsInityz = -0e-1; // eps_yz0
+    real epsInitzx = -0e-1; // eps_zx0
+
     real lambda0P = impAndEtaGet->lambda0P;
     real mu0P = impAndEtaGet->mu0P;
     real lambda0M = impAndEtaGet->lambda0M;
@@ -192,10 +200,10 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     // real aB1 = -0.0*12.14e9;
     // real aB2 = 18.93e9;
     // real aB3 = -0.0*5.067e9;
-    real aB0 = 8.42e9;
-    real aB1 = -23.79e9;
-    real aB2 = 20.90e9;
-    real aB3 = -5.93e9;
+    real aB0 = 7.92418e9;
+    real aB1 = -22.7919e9;
+    real aB2 = 20.3222e9;
+    real aB3 = -5.25836e9;
 
     for (unsigned int q=0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++){
       real EspIp = (dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx)
