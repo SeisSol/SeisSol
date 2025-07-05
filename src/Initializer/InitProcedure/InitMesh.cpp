@@ -130,6 +130,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   logInfo() << "Reading PUML mesh";
 
   auto boundaryFormat = seissolParams.mesh.pumlBoundaryFormat;
+  auto topologyFormat = seissolParams.mesh.pumlTopologyFormat;
 
   if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::Auto) {
     logInfo() << "Inferring boundary format.";
@@ -212,6 +213,21 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
     logInfo() << "Using boundary format: i32x4 (4xi32)";
   }
 
+  if (topologyFormat == seissol::initializer::parameters::TopologyFormat::Auto) {
+    logInfo() << "Inferring topology format; i.e. set it to the connectivity.";
+    topologyFormat = seissol::initializer::parameters::TopologyFormat::Connect;
+  }
+
+  if (topologyFormat == seissol::initializer::parameters::TopologyFormat::Connect) {
+    logInfo() << "Using the geometric topology.";
+  }
+  if (topologyFormat == seissol::initializer::parameters::TopologyFormat::CellIdentify) {
+    logInfo() << "Using cellvertex identification for topology.";
+  }
+  if (topologyFormat == seissol::initializer::parameters::TopologyFormat::VertexIdentify) {
+    logInfo() << "Using vertex identification for topology.";
+  }
+
   seissol::Stopwatch watch;
   watch.start();
 
@@ -228,6 +244,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName.c_str(),
                                                        seissolParams.mesh.partitioningLib.c_str(),
                                                        boundaryFormat,
+                                                       topologyFormat,
                                                        ltsWeights.get(),
                                                        nodeWeight);
   seissolInstance.setMeshReader(meshReader);

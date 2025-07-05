@@ -63,7 +63,7 @@ class LtsWeights {
   LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissolInstance);
 
   virtual ~LtsWeights() = default;
-  void computeWeights(PUML::TETPUML const& mesh);
+  void computeWeights(PUML::TETPUML const& mesh, PUML::TETPUML const& meshP);
 
   [[nodiscard]] const int* vertexWeights() const;
   [[nodiscard]] const double* imbalances() const;
@@ -102,6 +102,7 @@ class LtsWeights {
   int m_vertexWeightFreeSurfaceWithGravity{};
   int m_ncon{std::numeric_limits<int>::infinity()};
   const PUML::TETPUML* m_mesh{nullptr};
+  const PUML::TETPUML* m_meshP{nullptr};
   std::vector<int> m_clusterIds;
   double wiggleFactor = 1.0;
   std::map<double, decltype(m_clusterIds), std::greater<>>

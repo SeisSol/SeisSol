@@ -44,6 +44,8 @@ class PUMLReader : public seissol::geometry::MeshReader {
              const char* partitioningLib,
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
+             seissol::initializer::parameters::TopologyFormat topologyFormat =
+                 seissol::initializer::parameters::TopologyFormat::Connect,
              initializer::time_stepping::LtsWeights* ltsWeights = nullptr,
              double tpwgt = 1.0);
 
@@ -52,16 +54,18 @@ class PUMLReader : public seissol::geometry::MeshReader {
 
   private:
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
+  seissol::initializer::parameters::TopologyFormat topologyFormat;
 
   /**
    * Read the mesh
    */
-  void read(PUML::TETPUML& puml, const char* meshFile);
+  void read(PUML::TETPUML& puml, const char* meshFile, bool topology);
 
   /**
    * Create the partitioning
    */
   static void partition(PUML::TETPUML& puml,
+                        PUML::TETPUML& pumlP,
                         initializer::time_stepping::LtsWeights* ltsWeights,
                         double tpwgt,
                         const char* meshFile,
@@ -69,12 +73,12 @@ class PUMLReader : public seissol::geometry::MeshReader {
   /**
    * Generate the PUML data structure
    */
-  static void generatePUML(PUML::TETPUML& puml);
+  static void generatePUML(PUML::TETPUML& puml, PUML::TETPUML& pumlP);
 
   /**
    * Get the mesh
    */
-  void getMesh(const PUML::TETPUML& puml);
+  void getMesh(const PUML::TETPUML& puml, const PUML::TETPUML& pumlP);
 
   void addMPINeighor(const PUML::TETPUML& puml, int rank, const std::vector<unsigned int>& faces);
 };

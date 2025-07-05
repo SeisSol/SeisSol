@@ -53,9 +53,9 @@ enum class BCType { Internal, External, Unknown };
  * Decodes the boundary condition tag into a BCType.
  */
 constexpr BCType bcToType(int id) {
-  if (id == 0 || id == 3 || id > 64) {
+  if (id == 0 || id == 3 || id == 6 || id > 64) {
     return BCType::Internal;
-  } else if (id == 1 || id == 2 || id == 4 || id == 5 || id == 6 || id == 7) {
+  } else if (id == 1 || id == 2 || id == 4 || id == 5 || id == 7) {
     return BCType::External;
   } else {
     return BCType::Unknown;
@@ -157,31 +157,64 @@ namespace seissol::geometry {
 PUMLReader::PUMLReader(const char* meshFile,
                        const char* partitioningLib,
                        seissol::initializer::parameters::BoundaryFormat boundaryFormat,
+                       seissol::initializer::parameters::TopologyFormat topologyFormat,
                        initializer::time_stepping::LtsWeights* ltsWeights,
                        double tpwgt)
-    : MeshReader(MPI::mpi.rank()), boundaryFormat(boundaryFormat) {
-  PUML::TETPUML puml;
-  puml.setComm(MPI::mpi.comm());
+    : MeshReader(MPI::mpi.rank()), boundaryFormat(boundaryFormat), topologyFormat(topologyFormat) {
+  PUML::TETPUML pumlT;
+  PUML::TETPUML pumlP;
+  pumlT.setComm(MPI::mpi.comm());
+  pumlP.setComm(MPI::mpi.comm());
 
-  read(puml, meshFile);
+  read(pumlP, meshFile, false);
 
-  generatePUML(puml); // We need to call generatePUML in order to create the dual graph of the mesh
-  if (ltsWeights != nullptr) {
-    ltsWeights->computeWeights(puml);
+  // Note: we need to call generatePUML in order to create the dual graph of the mesh
+  // Note 2: we also need it for vertex identification
+  pumlP.generateMesh();
+
+  if (topologyFormat != initializer::parameters::TopologyFormat::Connect) {
+    // we have a topology mesh; separate from the physical mesh
+
+    read(pumlT, meshFile, topologyFormat == initializer::parameters::TopologyFormat::CellIdentify);
+
+    int id = -1;
+    if (topologyFormat == initializer::parameters::TopologyFormat::VertexIdentify) {
+      id = pumlT.addData<unsigned long>(
+          (std::string(meshFile) + ":/identify").c_str(), PUML::VERTEX, {});
+    }
+
+    // generate the topology mesh for the dual graph
+    pumlT.generateMesh();
+
+    if (topologyFormat == initializer::parameters::TopologyFormat::VertexIdentify) {
+      // re-identify vertices; then re-distribute
+      pumlT.identify(id);
+      pumlT.generateMesh();
+    }
   }
-  partition(puml, ltsWeights, tpwgt, meshFile, partitioningLib);
 
-  generatePUML(puml);
+  auto& puml = topologyFormat == initializer::parameters::TopologyFormat::Connect ? pumlP : pumlT;
 
-  getMesh(puml);
+  if (ltsWeights != nullptr) {
+    ltsWeights->computeWeights(puml, pumlP);
+  }
+  partition(puml, pumlP, ltsWeights, tpwgt, meshFile, partitioningLib);
+
+  generatePUML(puml, pumlP);
+
+  getMesh(puml, pumlP);
 }
 
-void PUMLReader::read(PUML::TETPUML& puml, const char* meshFile) {
+void PUMLReader::read(PUML::TETPUML& puml, const char* meshFile, bool topology) {
   SCOREP_USER_REGION("PUMLReader_read", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const std::string file(meshFile);
 
-  puml.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
+  if (topology) {
+    puml.open((file + ":/topology").c_str(), (file + ":/geometry").c_str());
+  } else {
+    puml.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
+  }
   puml.addData<int>((file + ":/group").c_str(), PUML::CELL, {});
 
   if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32) {
@@ -203,6 +236,7 @@ void PUMLReader::read(PUML::TETPUML& puml, const char* meshFile) {
 }
 
 void PUMLReader::partition(PUML::TETPUML& puml,
+                           PUML::TETPUML& pumlP,
                            initializer::time_stepping::LtsWeights* ltsWeights,
                            double tpwgt,
                            const char* meshFile,
@@ -238,19 +272,25 @@ void PUMLReader::partition(PUML::TETPUML& puml,
 
   auto newPartition = partitioner->partition(graph, target);
 
-  puml.addDataArray(ltsWeights->clusterIds().data(), PUML::CELL, {});
-  puml.addDataArray(ltsWeights->timesteps().data(), PUML::CELL, {});
+  pumlP.addDataArray(ltsWeights->clusterIds().data(), PUML::CELL, {});
+  pumlP.addDataArray(ltsWeights->timesteps().data(), PUML::CELL, {});
 
-  puml.partition(newPartition.data());
+  pumlP.partition(newPartition.data());
+  if (&puml != &pumlP) {
+    puml.partition(newPartition.data());
+  }
 }
 
-void PUMLReader::generatePUML(PUML::TETPUML& puml) {
+void PUMLReader::generatePUML(PUML::TETPUML& puml, PUML::TETPUML& pumlP) {
   SCOREP_USER_REGION("PUMLReader_generate", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  puml.generateMesh();
+  if (&puml != &pumlP) {
+    puml.generateMesh();
+  }
+  pumlP.generateMesh();
 }
 
-void PUMLReader::getMesh(const PUML::TETPUML& puml) {
+void PUMLReader::getMesh(const PUML::TETPUML& puml, const PUML::TETPUML& pumlP) {
   SCOREP_USER_REGION("PUMLReader_getmesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const int rank = MPI::mpi.rank();
@@ -259,11 +299,14 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
   const std::vector<PUML::TETPUML::face_t>& faces = puml.faces();
   const std::vector<PUML::TETPUML::vertex_t>& vertices = puml.vertices();
 
-  const int* group = reinterpret_cast<const int*>(puml.cellData(0));
-  const void* boundaryCond = puml.cellData(1);
-  const auto* cellIdsAsInFile = reinterpret_cast<const size_t*>(puml.cellData(2));
-  const auto* clusterIds = reinterpret_cast<const int*>(puml.cellData(3));
-  const auto* timestep = reinterpret_cast<const double*>(puml.cellData(4));
+  const std::vector<PUML::TETPUML::cell_t>& cellsP = pumlP.cells();
+  const std::vector<PUML::TETPUML::vertex_t>& verticesP = pumlP.vertices();
+
+  const int* group = reinterpret_cast<const int*>(pumlP.cellData(0));
+  const void* boundaryCond = pumlP.cellData(1);
+  const auto* cellIdsAsInFile = reinterpret_cast<const size_t*>(pumlP.cellData(2));
+  const auto* clusterIds = reinterpret_cast<const int*>(pumlP.cellData(3));
+  const auto* timestep = reinterpret_cast<const double*>(pumlP.cellData(4));
 
   std::unordered_map<int, std::vector<unsigned int>> neighborInfo; // List of shared local face ids
 
@@ -279,7 +322,7 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
     // Vertices
     PUML::Downward::vertices(
-        puml, cells[i], reinterpret_cast<unsigned int*>(m_elements[i].vertices));
+        pumlP, cellsP[i], reinterpret_cast<unsigned int*>(m_elements[i].vertices));
 
     // Neighbor information
     unsigned int faceids[4];
@@ -439,8 +482,8 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
       PUML::Upward::cells(puml, faces[info.second[i]], cellIds);
       assert(cellIds[1] < 0);
 
-      const auto side = copySide[k][i];
-      const auto gSide = ghostSide[k][i];
+      const auto side = static_cast<std::size_t>(copySide[k][i]);
+      const auto gSide = static_cast<std::size_t>(ghostSide[k][i]);
       m_elements[cellIds[0]].neighborSides[PumlFaceToSeisSol[side]] = PumlFaceToSeisSol[gSide];
 
       // Set side sideOrientation
@@ -457,11 +500,11 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
   }
 
   // Set vertices
-  m_vertices.resize(vertices.size());
-  for (std::size_t i = 0; i < vertices.size(); i++) {
-    memcpy(m_vertices[i].coords, vertices[i].coordinate(), 3 * sizeof(double));
+  m_vertices.resize(verticesP.size());
+  for (std::size_t i = 0; i < verticesP.size(); i++) {
+    memcpy(m_vertices[i].coords, verticesP[i].coordinate(), 3 * sizeof(double));
 
-    PUML::Upward::cells(puml, vertices[i], m_vertices[i].elements);
+    PUML::Upward::cells(pumlP, verticesP[i], m_vertices[i].elements);
   }
 }
 

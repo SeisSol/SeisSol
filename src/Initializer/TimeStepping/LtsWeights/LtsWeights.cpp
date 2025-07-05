@@ -118,7 +118,7 @@ LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissol
       m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
       boundaryFormat(config.boundaryFormat) {}
 
-void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
+void LtsWeights::computeWeights(PUML::TETPUML const& mesh, PUML::TETPUML const& meshP) {
   bool continueComputation = true;
   if (!model::MaterialT::SupportsLTS) {
     logInfo() << "The material" << model::MaterialT::Text
@@ -134,6 +134,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
   m_mesh = &mesh;
+  m_meshP = &meshP;
   m_details = collectGlobalTimeStepDetails();
   m_cellCosts = computeCostsPerTimestep();
 
@@ -406,7 +407,7 @@ int LtsWeights::ipow(int x, int y) {
 
 seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails() {
   return seissol::initializer::computeTimesteps(
-      seissol::initializer::CellToVertexArray::fromPUML(*m_mesh),
+      seissol::initializer::CellToVertexArray::fromPUML(*m_meshP),
       seissolInstance.getSeisSolParameters());
 }
 
