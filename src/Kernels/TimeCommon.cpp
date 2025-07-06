@@ -75,6 +75,8 @@ void TimeCommon::computeNonIntegrals(Time& time,
         // Step 1: Convert from Modal to Nodal for each temporal quadrature point;:
         // Meanwhile, compute the info for Rusanov fluxes for neighboring cells,
         // including the integrated Fx, Fy, Fz
+        // Note: need to consider start and end of temporal integration, as in 
+        // the original time.computeIntegral() for I here
         double timePoints[ConvergenceOrder];
         double timeWeights[ConvergenceOrder];
         seissol::quadrature::GaussLegendre(timePoints, timeWeights, ConvergenceOrder);
@@ -87,7 +89,6 @@ void TimeCommon::computeNonIntegrals(Time& time,
         real* QInterpolatedBodyi;
         alignas(PagesizeStack) real QInterpolatedBodyNodal[ConvergenceOrder][tensor::QNodal::size()];
         real* QInterpolatedBodyNodali;
-        logInfo() << "before quadrature in time...";
 
         kernel::damageConvertToNodal d_converToKrnl;
         for (unsigned int timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval){
@@ -100,8 +101,6 @@ void TimeCommon::computeNonIntegrals(Time& time,
           d_converToKrnl.Q = QInterpolatedBodyi;
           d_converToKrnl.execute();
         }
-
-        logInfo() << "reached quadrature in time...";
 
         // Step 2: Do time integration for the Rusanov flux
         real* integratedFx = integrationBuffer[dofneighbor] + 1*tensor::I::size();

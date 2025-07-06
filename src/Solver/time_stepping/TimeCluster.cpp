@@ -868,6 +868,7 @@ template<bool usePlasticity>
       kernels::NeighborData::Loader loader;
       kernels::LocalData::Loader loaderLocal;
       loader.load(*m_lts, i_layerData);
+      loaderLocal.load(*m_lts, i_layerData);
 
       real *l_timeIntegrated[4];
       real *l_faceNeighbors_prefetch[4];
@@ -882,9 +883,7 @@ template<bool usePlasticity>
 
         //For nonlinear neighbor integration
         #ifdef USE_DAMAGE
-        logInfo() << "data loading...";
         auto dataLocal = loaderLocal.entry(l_cell);
-        logInfo() << "data loaded...";
         seissol::kernels::TimeCommon::computeNonIntegrals(m_timeKernel,
                                                        dataLocal,
                                                        data.cellInformation().ltsSetup,
