@@ -90,7 +90,7 @@ struct DRParameters {
   real terminatorSlipRateThreshold{0.0};
   double etaHack{1.0};
   double etaStop{std::numeric_limits<double>::infinity()};
-  int nucleationCount{0};
+  unsigned nucleationCount{0};
 };
 
 DRParameters readDRParameters(ParameterReader* baseReader);

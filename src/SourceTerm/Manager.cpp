@@ -79,8 +79,8 @@ void computeMInvJInvPhisAtSources(
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
-  const double* coords[4];
-  for (unsigned v = 0; v < 4; ++v) {
+  const double* coords[Cell::NumVertices];
+  for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
     coords[v] = vertices[elements[meshId].vertices[v]].coords;
   }
   const auto xiEtaZeta = transformations::tetrahedronGlobalToReference(

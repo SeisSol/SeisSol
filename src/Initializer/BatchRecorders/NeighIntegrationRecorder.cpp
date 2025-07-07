@@ -49,10 +49,10 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
     std::vector<real*> gtsDerivativesPtrs{};
     std::vector<real*> gtsIDofsPtrs{};
 
-    for (unsigned cell = 0; cell < size; ++cell) {
+    for (std::size_t cell = 0; cell < size; ++cell) {
       auto dataHost = currentLoaderHost->entry(cell);
 
-      for (unsigned face = 0; face < 4; ++face) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         real* neighborBuffer = faceNeighborsDevice[cell][face];
 
         // check whether a neighbor element idofs has not been counted twice
@@ -129,11 +129,11 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
 #endif
 
   const auto size = currentLayer->size();
-  for (unsigned cell = 0; cell < size; ++cell) {
+  for (std::size_t cell = 0; cell < size; ++cell) {
     auto data = currentLoader->entry(cell);
     auto dataHost = currentLoaderHost->entry(cell);
 
-    for (unsigned int face = 0; face < 4; face++) {
+    for (std::size_t face = 0; face < Cell::NumFaces; face++) {
       switch (dataHost.cellInformation().faceTypes[face]) {
       case FaceType::Regular:
         [[fallthrough]];
@@ -143,9 +143,9 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         real* neighborBufferPtr = faceNeighborsDevice[cell][face];
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighborBufferPtr != nullptr) {
-          const unsigned faceRelation = dataHost.cellInformation().faceRelations[face][1] +
-                                        3 * dataHost.cellInformation().faceRelations[face][0] +
-                                        12 * face;
+          const auto faceRelation = dataHost.cellInformation().faceRelations[face][1] +
+                                    3 * dataHost.cellInformation().faceRelations[face][0] +
+                                    12 * face;
 
           assert((*FaceRelations::Count) > faceRelation &&
                  "incorrect face relation count has been detected");
@@ -166,7 +166,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         break;
       }
       case FaceType::DynamicRupture: {
-        const unsigned faceRelation =
+        const auto faceRelation =
             drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");
@@ -199,7 +199,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
     }
   }
 
-  for (unsigned int face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // regular and periodic
     for (size_t faceRelation = 0; faceRelation < (*FaceRelations::Count); ++faceRelation) {
       if (!regularPeriodicDofs[face][faceRelation].empty()) {
@@ -221,7 +221,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
     }
 
     // dynamic rupture
-    for (unsigned faceRelation = 0; faceRelation < (*DrFaceRelations::Count); ++faceRelation) {
+    for (std::size_t faceRelation = 0; faceRelation < (*DrFaceRelations::Count); ++faceRelation) {
       if (!drDofs[face][faceRelation].empty()) {
         const ConditionalKey key(
             *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
