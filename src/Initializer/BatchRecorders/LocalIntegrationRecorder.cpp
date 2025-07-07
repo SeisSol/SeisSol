@@ -7,6 +7,7 @@
 
 #include "Kernels/Interface.h"
 #include "Recorders.h"
+#include <Common/Constants.h>
 #include <DataTypes/ConditionalKey.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Kernels/Precision.h>
@@ -165,7 +166,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
 void LocalIntegrationRecorder::recordLocalFluxIntegral() {
   const auto size = currentLayer->size();
-  for (unsigned face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     std::vector<real*> idofsPtrs{};
     std::vector<real*> dofsPtrs{};
     std::vector<real*> localPtrs{};
@@ -176,7 +177,7 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
     dofsPtrs.reserve(size);
     localPtrs.reserve(size);
 
-    for (unsigned cell = 0; cell < size; ++cell) {
+    for (std::size_t cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
       auto dataHost = currentLoaderHost->entry(cell);
 
@@ -212,10 +213,10 @@ void LocalIntegrationRecorder::recordDisplacements() {
   std::array<std::vector<real*>, 4> displacementsPtrs{};
 
   const auto size = currentLayer->size();
-  for (unsigned cell = 0; cell < size; ++cell) {
+  for (std::size_t cell = 0; cell < size; ++cell) {
     auto dataHost = currentLoaderHost->entry(cell);
 
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       auto isRequired = faceDisplacements[cell][face] != nullptr;
       auto notFreeSurfaceGravity =
           dataHost.cellInformation().faceTypes[face] != FaceType::FreeSurfaceGravity;
@@ -231,7 +232,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
     }
   }
 
-  for (unsigned face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     if (!displacementsPtrs[face].empty()) {
       const ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
       checkKey(key);
@@ -285,11 +286,11 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
     size_t nodalAvgDisplacementsCounter{0};
 
-    for (unsigned cell = 0; cell < size; ++cell) {
+    for (std::size_t cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
       auto dataHost = currentLoaderHost->entry(cell);
 
-      for (unsigned face = 0; face < 4; ++face) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (dataHost.cellInformation().faceTypes[face] == FaceType::FreeSurfaceGravity) {
           assert(dataHost.faceDisplacementsDevice()[face] != nullptr);
           cellIndices[face].push_back(cell);
@@ -329,7 +330,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
       }
     }
 
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (!cellIndices[face].empty()) {
         const ConditionalKey key(
             *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
@@ -384,11 +385,11 @@ void LocalIntegrationRecorder::recordDirichletBc() {
     real* dofsFaceBoundaryNodalScratch = static_cast<real*>(
         currentLayer->var(currentHandler->dofsFaceBoundaryNodalScratch, AllocationPlace::Device));
 
-    for (unsigned cell = 0; cell < size; ++cell) {
+    for (std::size_t cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
       auto dataHost = currentLoaderHost->entry(cell);
 
-      for (unsigned face = 0; face < 4; ++face) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (dataHost.cellInformation().faceTypes[face] == FaceType::Dirichlet) {
 
           dofsPtrs[face].push_back(static_cast<real*>(data.dofs()));
@@ -409,7 +410,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
       }
     }
 
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (!dofsPtrs[face].empty()) {
         const ConditionalKey key(
             *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
@@ -441,11 +442,11 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS& handler, Layer& layer) {
     real* analyticScratch =
         reinterpret_cast<real*>(layer.var(handler.analyticScratch, AllocationPlace::Device));
 
-    for (unsigned cell = 0; cell < size; ++cell) {
+    for (std::size_t cell = 0; cell < size; ++cell) {
       auto dataHost = currentLoaderHost->entry(cell);
       auto data = currentLoader->entry(cell);
 
-      for (unsigned face = 0; face < 4; ++face) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (dataHost.cellInformation().faceTypes[face] == FaceType::Analytical) {
           cellIndices[face].push_back(cell);
           dofsPtrs[face].push_back(data.dofs());
@@ -455,7 +456,7 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS& handler, Layer& layer) {
       }
     }
 
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (!cellIndices[face].empty()) {
         const ConditionalKey key(
             *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);

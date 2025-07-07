@@ -117,13 +117,13 @@ void Spacetime::computeAder(const real* coeffs,
   // Compute integrated displacement over time step if needed.
 }
 
-void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::derivative::NonZeroFlops;
   hardwareFlops = kernel::derivative::HardwareFlops;
 }
 
-unsigned Spacetime::bytesAder() {
-  unsigned reals = 0;
+std::uint64_t Spacetime::bytesAder() {
+  std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
   reals +=
@@ -159,7 +159,7 @@ void Time::evaluate(const real* coeffs,
   krnl.execute();
 }
 
-void Time::flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   // interate over derivatives
   nonZeroFlops = kernel::derivativeTaylorExpansionEla::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansionEla::HardwareFlops;

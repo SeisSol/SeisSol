@@ -78,7 +78,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     const int globalClusterId = static_cast<int>(localClusterId);
     // chop off at synchronization time
     const auto timeStepSize = clusterLayout.timestepRate(localClusterId);
-    const long timeStepRate = clusterLayout.clusterRate(localClusterId);
+    const auto timeStepRate = clusterLayout.clusterRate(localClusterId);
 
     // Dynamic rupture
     auto& dynRupTree = memoryManager.getDynamicRuptureTree()->child(localClusterId);
@@ -172,7 +172,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         assert(static_cast<int>(otherGlobalClusterId) <
                std::min(globalClusterId + 2, static_cast<int>(clusterLayout.globalClusterCount)));
         const auto otherTimeStepSize = clusterLayout.timestepRate(otherGlobalClusterId);
-        const long otherTimeStepRate = clusterLayout.timestepRate(otherGlobalClusterId);
+        const auto otherTimeStepRate = clusterLayout.clusterRate(otherGlobalClusterId);
 
         auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
                                                          otherTimeStepRate,
@@ -269,7 +269,6 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
-    finished = true;
     communicationManager->progression();
 
     // Update all high priority clusters

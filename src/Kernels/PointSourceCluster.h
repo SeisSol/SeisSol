@@ -47,7 +47,6 @@ struct PointSourceClusterPair {
  * @param sample Pointer to sample
  * @param sampleSize Size of the sample
  */
-template <typename MathFunctions = seissol::functions::HostStdFunctions>
 SEISSOL_HOSTDEVICE inline real computeSampleTimeIntegral(double from,
                                                          double to,
                                                          const double onsetTime,
@@ -78,16 +77,16 @@ SEISSOL_HOSTDEVICE inline real computeSampleTimeIntegral(double from,
   to -= onsetTime;
   // Adjust integration interval to sample time interval
   // Sample is implicitly zero outside of sample time interval
-  from = MathFunctions::max(from, 0.0);
-  to = MathFunctions::min(to, (sampleSize - 1) * samplingInterval);
+  from = std::max(from, 0.0);
+  to = std::min(to, (sampleSize - 1) * samplingInterval);
 
   // j_{from} := \argmax_j s.t. t_{from} >= j*dt = floor[t_{from} / dt]
-  long fromIndex = MathFunctions::floor(from / samplingInterval);
+  long fromIndex = std::floor(from / samplingInterval);
   // j_{to}   := \argmin_j s.t. t_{to}   <= j*dt =  ceil[t_{to}   / dt]
-  long toIndex = MathFunctions::ceil(to / samplingInterval);
+  long toIndex = std::ceil(to / samplingInterval);
 
-  fromIndex = MathFunctions::max(0L, fromIndex);
-  toIndex = MathFunctions::min(static_cast<long>(sampleSize) - 1, toIndex);
+  fromIndex = std::max(0L, fromIndex);
+  toIndex = std::min(static_cast<long>(sampleSize) - 1, toIndex);
   // Return zero if there is no overlap between integration interval and sample time interval
   if (fromIndex >= toIndex) {
     return 0.0;

@@ -18,37 +18,6 @@
 namespace seissol::functions {
 
 /**
- * @brief host standard math functions used in template metaprogramming
- */
-struct HostStdFunctions {
-#pragma omp declare simd
-  template <typename T>
-  SEISSOL_HOSTDEVICE static T exp(T value) {
-    return std::exp(value);
-  }
-#pragma omp declare simd
-  template <typename T1, typename... T>
-  SEISSOL_HOSTDEVICE static T1 max(T1 value1, T... value) {
-    return std::max(value1, value...);
-  }
-#pragma omp declare simd
-  template <typename T1, typename... T>
-  SEISSOL_HOSTDEVICE static T1 min(T1 value1, T... value) {
-    return std::min(value1, value...);
-  }
-#pragma omp declare simd
-  template <typename T>
-  SEISSOL_HOSTDEVICE static T ceil(T value) {
-    return std::ceil(value);
-  }
-#pragma omp declare simd
-  template <typename T>
-  SEISSOL_HOSTDEVICE static T floor(T value) {
-    return std::floor(value);
-  }
-};
-
-/**
  * @brief Computes \prod_{i=from}^{to} i. Returns 1 if from > to.
  */
 uint64_t rangeProduct(uint64_t from, uint64_t to);

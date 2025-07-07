@@ -9,18 +9,19 @@
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
 #include <cstddef>
+#include <cstdint>
 #include <generated_code/kernel.h>
 #include <generated_code/tensor.h>
 #include <utility>
 
 namespace seissol {
 
-std::pair<long long, long long>
+std::pair<std::uint64_t, std::uint64_t>
     GravitationalFreeSurfaceBc::getFlopsDisplacementFace(unsigned int face, FaceType faceType) {
-  long long hardwareFlops = 0;
-  long long nonZeroFlops = 0;
+  std::uint64_t hardwareFlops = 0;
+  std::uint64_t nonZeroFlops = 0;
 
-  constexpr auto NumberOfNodes = nodal::tensor::nodes2D::Shape[0];
+  constexpr std::uint64_t NumberOfNodes = nodal::tensor::nodes2D::Shape[0];
 
   // initialize integral of displacement
   hardwareFlops += 1 * NumberOfNodes;

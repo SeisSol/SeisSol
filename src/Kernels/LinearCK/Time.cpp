@@ -22,6 +22,7 @@
 #include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
+#include <cstdint>
 #include <generated_code/kernel.h>
 #include <generated_code/tensor.h>
 #include <iterator>
@@ -114,7 +115,7 @@ void Spacetime::computeAder(const real* coeffs,
   // Compute integrated displacement over time step if needed.
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (data.faceDisplacements()[face] != nullptr &&
           data.cellInformation().faceTypes[face] == FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
@@ -183,7 +184,7 @@ void Spacetime::computeBatchedAder(const real* coeffs,
 
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       bc.evaluateOnDevice(face,
                           deviceDerivativeToNodalBoundaryRotated,
                           *this,
@@ -199,13 +200,13 @@ void Spacetime::computeBatchedAder(const real* coeffs,
 #endif
 }
 
-void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::derivative::NonZeroFlops;
   hardwareFlops = kernel::derivative::HardwareFlops;
 }
 
-unsigned Spacetime::bytesAder() {
-  unsigned reals = 0;
+std::uint64_t Spacetime::bytesAder() {
+  std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
   reals += tensor::Q::size() + 2 * tensor::I::size();
@@ -271,7 +272,7 @@ void Time::evaluateBatched(const real* coeffs,
 #endif
 }
 
-void Time::flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::derivativeTaylorExpansion::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }
