@@ -193,6 +193,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
         const auto meshId = secondaryInformation[cell].meshId;
 
+        // NOLINTNEXTLINE
+        auto& materialLocal = materialData[cell];
+
         double x[Cell::NumVertices];
         double y[Cell::NumVertices];
         double z[Cell::NumVertices];
@@ -211,9 +214,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         seissol::transformations::tetrahedronGlobalToReferenceJacobian(
             x, y, z, gradXi, gradEta, gradZeta);
 
-        seissol::model::getTransposedCoefficientMatrix(materialData[cell], 0, matAT);
-        seissol::model::getTransposedCoefficientMatrix(materialData[cell], 1, matBT);
-        seissol::model::getTransposedCoefficientMatrix(materialData[cell], 2, matCT);
+        seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);
+        seissol::model::getTransposedCoefficientMatrix(materialLocal, 1, matBT);
+        seissol::model::getTransposedCoefficientMatrix(materialLocal, 2, matCT);
         setStarMatrix(
             matATData, matBTData, matCTData, gradXi, localIntegration[cell].starMatrices[0]);
         setStarMatrix(
@@ -237,14 +240,14 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           double nLocalData[6 * 6];
           seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
           seissol::model::getTransposedGodunovState(
-              seissol::model::getRotatedMaterialCoefficients(nLocalData, materialData[cell]),
+              seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
               seissol::model::getRotatedMaterialCoefficients(
                   nLocalData, *dynamic_cast<model::MaterialT*>(material[cell].neighbor[side])),
               cellInformation[cell].faceTypes[side],
               qGodLocal,
               qGodNeighbor);
           seissol::model::getTransposedCoefficientMatrix(
-              seissol::model::getRotatedMaterialCoefficients(nLocalData, materialData[cell]),
+              seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
               0,
               matATtilde);
 
@@ -276,7 +279,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                        adjacentDRFaceExists;
               };
 
-          const auto wavespeedLocal = materialData[cell].getMaxWaveSpeed();
+          const auto wavespeedLocal = materialLocal.getMaxWaveSpeed();
           const auto wavespeedNeighbor = material[cell].neighbor[side]->getMaxWaveSpeed();
           const auto wavespeed = std::max(wavespeedLocal, wavespeedNeighbor);
 
@@ -352,9 +355,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         }
 
         seissol::model::initializeSpecificLocalData(
-            materialData[cell], timeStepWidth, &localIntegration[cell].specific);
+            materialLocal, timeStepWidth, &localIntegration[cell].specific);
 
-        seissol::model::initializeSpecificNeighborData(materialData[cell],
+        seissol::model::initializeSpecificNeighborData(materialLocal,
                                                        &neighboringIntegration[cell].specific);
       }
 #ifdef _OPENMP

@@ -150,6 +150,9 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto& localSecondaryInformation = secondaryInformation[cell];
         const auto meshId = localSecondaryInformation.meshId;
+
+        // explicitly use polymorphic pointer arithmetic here
+        // NOLINTNEXTLINE
         auto& materialData = materialDataArray[cell];
 
         auto neighborRank = localSecondaryInformation.rank;
@@ -170,17 +173,24 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         const auto& localSecondaryInformation = secondaryInformation[cell];
         const auto meshId = localSecondaryInformation.meshId;
         auto& material = materialArray[cell];
-        auto& materialData = materialDataArray[cell];
         const auto& localMaterial = materialsDB[meshId];
         const auto& localCellInformation = cellInformation[cell];
 
+        // explicitly use polymorphic pointer arithmetic here
+        // NOLINTNEXTLINE
+        auto& materialData = materialDataArray[cell];
         initAssign(materialData, localMaterial);
         material.local = &materialData;
+
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           if (isInternalFaceType(localCellInformation.faceTypes[side])) {
             // use the neighbor face material info in case that we are not at a boundary
-            material.neighbor[side] =
-                &materialDataArrayGlobal[localSecondaryInformation.faceNeighborIds[side]];
+            const auto globalNeighborIndex = localSecondaryInformation.faceNeighborIds[side];
+
+            // explicitly use polymorphic pointer arithmetic here
+            // NOLINTNEXTLINE
+            auto* materialNeighbor = &materialDataArrayGlobal[globalNeighborIndex];
+            material.neighbor[side] = materialNeighbor;
           } else {
             // otherwise, use the material from the own cell
             material.neighbor[side] = material.local;

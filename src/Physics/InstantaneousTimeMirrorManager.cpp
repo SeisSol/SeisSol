@@ -9,7 +9,6 @@
 #include "Initializer/CellLocalMatrices.h"
 #include "Modules/Modules.h"
 #include "SeisSol.h"
-#include <Common/Constants.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Memory/Descriptor/LTS.h>
@@ -112,13 +111,13 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
   };
 
   for (auto& layer : ltsTree->leaves()) {
-    auto* materialData = layer.var(lts->materialData);
+    auto* material = layer.var(lts->material);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      updateMaterial(materialData[cell]);
+      updateMaterial(*material->local);
     }
   }
 }

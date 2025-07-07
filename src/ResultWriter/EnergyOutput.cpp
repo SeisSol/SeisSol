@@ -428,7 +428,7 @@ void EnergyOutput::computeVolumeEnergies() {
       const auto* secondaryInformation = layer.var(lts->secondaryInformation);
       const auto* cellInformationData = layer.var(lts->cellInformation);
       const auto* faceDisplacementsData = layer.var(lts->faceDisplacements);
-      const auto* materialData = layer.var(lts->materialData);
+      const auto* materialData = layer.var(lts->material);
       const auto* boundaryMappingData = layer.var(lts->boundaryMapping);
       const auto* pstrainData = layer.var(lts->pstrain);
       const auto* dofsData = layer.var(lts->dofs);
@@ -451,7 +451,7 @@ void EnergyOutput::computeVolumeEnergies() {
         }
         const auto elementId = secondaryInformation[cell].meshId;
         const double volume = MeshTools::volume(elements[elementId], vertices);
-        const auto& material = materialData[cell];
+        const auto& material = *materialData[cell].local;
         const auto& cellInformation = cellInformationData[cell];
         const auto& faceDisplacements = faceDisplacementsData[cell];
 
