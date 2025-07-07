@@ -77,11 +77,24 @@ void TimeCommon::computeNonIntegrals(Time& time,
         // including the integrated Fx, Fy, Fz
         // Note: need to consider start and end of temporal integration, as in 
         // the original time.computeIntegral() for I here
+        
+        // Step 1.1: Integrate I as in the linear case.
+        time.computeIntegral(currentTime[dofneighbor + 1],
+                             currentTime[0],
+                             currentTime[0] + timeStepWidth,
+                             timeDofs[dofneighbor],
+                             integrationBuffer[dofneighbor]);
+
+        // Step 1.2: Integrate Fx, Fy, 
+        // The integration needs to be sub-timestep
         double timePoints[ConvergenceOrder];
         double timeWeights[ConvergenceOrder];
         seissol::quadrature::GaussLegendre(timePoints, timeWeights, ConvergenceOrder);
+        // time difference between substep begins and expansion point:
+        // currentTime[0] is subTimeStart, which is already the dt from lastSubTIme
+        double dtStart = currentTime[0] - currentTime[dofneighbor + 1];
         for (unsigned int point = 0; point < ConvergenceOrder; ++point) {
-          timePoints[point] = 0.5 * (timeStepWidth * timePoints[point] + timeStepWidth);
+          timePoints[point] = dtStart + 0.5 * (timeStepWidth * timePoints[point] + timeStepWidth);
           timeWeights[point] = 0.5 * timeStepWidth * timeWeights[point];
         }
 
@@ -216,12 +229,6 @@ void TimeCommon::computeNonIntegrals(Time& time,
         d_convertBackKrnl.FNodal = integratedFzNodal;
         d_convertBackKrnl.dQModal = integratedFz;
         d_convertBackKrnl.execute();
-
-        time.computeIntegral(currentTime[dofneighbor + 1],
-                             currentTime[0],
-                             currentTime[0] + timeStepWidth,
-                             timeDofs[dofneighbor],
-                             integrationBuffer[dofneighbor]);
 
         timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
       }
