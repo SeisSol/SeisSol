@@ -60,7 +60,7 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::nonlinearck {
 
 void setStarMatrix(
-    const real* matAT, const real* matBT, const real* matCT, const real grad[3], real* starMatrix) {
+    const real* matAT, const real* matBT, const real* matCT, const double grad[3], real* starMatrix) {
   for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
   }
@@ -191,12 +191,12 @@ void Local::updateMaterials(LocalData& data) {
   }
 
   /// global coordinates of the vertices
-  real x[4];
-  real y[4];
-  real z[4];
-  real gradXi[3];
-  real gradEta[3];
-  real gradZeta[3];
+  double x[4];
+  double y[4];
+  double z[4];
+  double gradXi[3];
+  double gradEta[3];
+  double gradZeta[3];
 
   // Iterate over all 4 vertices of the tetrahedron
   for (unsigned vertex = 0; vertex < 4; ++vertex) {

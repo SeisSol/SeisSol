@@ -345,7 +345,7 @@ void Spacetime::computeNonlAder(double timeStepWidth,
   //   }
 
   // Compute the time-integrated Fx, Fy, Fz,
-  // together with space-time inttionegra of local part of Rusanov flux
+  // together with space-time inttionegration of the local part of Rusanov flux
 
   // In this computeAder() function, 'I' and 'derivatives in linear case is computed;
   // In nonlinear case, integrated 'Fx,y,z, and Cq' and 'derivatives' will be computed here.
