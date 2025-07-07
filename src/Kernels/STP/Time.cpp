@@ -269,7 +269,7 @@ void Time::evaluateBatched(const real* coeffs,
   logError() << "No GPU implementation provided";
 }
 
-void Time::flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::evaluateDOFSAtTimeSTP::NonZeroFlops;
   hardwareFlops = kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
 }

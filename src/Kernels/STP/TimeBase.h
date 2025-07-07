@@ -70,7 +70,7 @@ class Time : public TimeKernel {
                        real** timeIntegratedDofs,
                        std::size_t numElements,
                        seissol::parallel::runtime::StreamRuntime& runtime) override;
-  void flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) override;
+  void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
 };
 
 } // namespace seissol::kernels::solver::stp
