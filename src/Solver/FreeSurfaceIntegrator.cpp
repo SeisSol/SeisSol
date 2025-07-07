@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <init.h>
+#include <limits>
 #include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
@@ -81,56 +82,56 @@ void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
   logInfo() << "Initializing free surface integrator. Done.";
 }
 
-void FreeSurfaceIntegrator::calculateOutput() {
-  std::size_t offset = 0;
+void FreeSurfaceIntegrator::calculateOutput() const {
   const seissol::initializer::LayerMask ghostMask(Ghost);
   for (auto& surfaceLayer : surfaceLtsTree->leaves(ghostMask)) {
     real** dofs = surfaceLayer.var(surfaceLts->dofs);
     auto* displacementDofs = surfaceLayer.var(surfaceLts->displacementDofs);
     auto* side = surfaceLayer.var(surfaceLts->side);
+    auto* outputPosition = surfaceLayer.var(surfaceLts->outputPosition);
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) default(none)                                            \
-    shared(offset, surfaceLayer, dofs, displacementDofs, side)
+    shared(surfaceLayer, dofs, displacementDofs, side, outputPosition)
 #endif // _OPENMP
-    for (unsigned face = 0; face < surfaceLayer.size(); ++face) {
-      alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs::size(MaxRefinement)];
+    for (std::size_t face = 0; face < surfaceLayer.size(); ++face) {
+      if (outputPosition[face] != std::numeric_limits<std::size_t>::max()) {
+        alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs::size(MaxRefinement)];
 
-      kernel::subTriangleVelocity vkrnl;
-      vkrnl.Q = dofs[face];
-      vkrnl.selectVelocity = init::selectVelocity::Values;
-      vkrnl.subTriangleProjection(triRefiner.maxDepth) = projectionMatrix[side[face]];
-      vkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
-      vkrnl.execute(triRefiner.maxDepth);
+        kernel::subTriangleVelocity vkrnl;
+        vkrnl.Q = dofs[face];
+        vkrnl.selectVelocity = init::selectVelocity::Values;
+        vkrnl.subTriangleProjection(triRefiner.maxDepth) = projectionMatrix[side[face]];
+        vkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
+        vkrnl.execute(triRefiner.maxDepth);
 
-      auto addOutput = [&](const std::array<real*, NumComponents>& output) {
-        for (unsigned component = 0; component < NumComponents; ++component) {
-          real* target =
-              output[component] + offset + static_cast<size_t>(face * numberOfSubTriangles);
-          /// @yateto_todo fix for multiple simulations
-          real* source =
-              subTriangleDofs + static_cast<size_t>(component * numberOfAlignedSubTriangles);
-          for (unsigned subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
-            target[subtri] = source[subtri];
-            if (!std::isfinite(source[subtri])) {
-              logError() << "Detected Inf/NaN in free surface output. Aborting.";
+        auto addOutput = [&](const std::array<real*, NumComponents>& output) {
+          for (std::size_t component = 0; component < NumComponents; ++component) {
+            real* target = output[component] + outputPosition[face] * numberOfSubTriangles;
+            /// @yateto_todo fix for multiple simulations
+            real* source =
+                subTriangleDofs + static_cast<size_t>(component * numberOfAlignedSubTriangles);
+            for (std::size_t subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
+              target[subtri] = source[subtri];
+              if (!std::isfinite(source[subtri])) {
+                logError() << "Detected Inf/NaN in free surface output. Aborting.";
+              }
             }
           }
-        }
-      };
+        };
 
-      addOutput(velocities);
+        addOutput(velocities);
 
-      kernel::subTriangleDisplacement dkrnl;
-      dkrnl.faceDisplacement = displacementDofs[face];
-      dkrnl.MV2nTo2m = nodal::init::MV2nTo2m::Values;
-      dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace;
-      dkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
-      dkrnl.execute(triRefiner.maxDepth);
+        kernel::subTriangleDisplacement dkrnl;
+        dkrnl.faceDisplacement = displacementDofs[face];
+        dkrnl.MV2nTo2m = nodal::init::MV2nTo2m::Values;
+        dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace;
+        dkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
+        dkrnl.execute(triRefiner.maxDepth);
 
-      addOutput(displacements);
+        addOutput(displacements);
+      }
     }
-    offset += surfaceLayer.size() * numberOfSubTriangles;
   }
 }
 
@@ -286,24 +287,29 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
     auto* cellMaterialData = layer.var(lts->material);
 
     std::size_t numberOfFreeSurfaces = 0;
+    std::size_t numberOfOutputFreeSurfaces = 0;
     const auto layerSize = layer.size();
 #ifdef _OPENMP
-#pragma omp parallel for schedule(static) reduction(+ : numberOfFreeSurfaces)
+#pragma omp parallel for schedule(static)                                                          \
+    reduction(+ : numberOfFreeSurfaces, numberOfOutputFreeSurfaces)
 #endif // _OPENMP
     for (std::size_t cell = 0; cell < layerSize; ++cell) {
-      if (secondaryInformation[cell].duplicate == 0) {
-        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-          if (initializer::requiresDisplacement(
-                  cellInformation[cell], cellMaterialData[cell], face)) {
-            ++numberOfFreeSurfaces;
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+        if (initializer::requiresDisplacement(
+                cellInformation[cell], cellMaterialData[cell], face)) {
+          ++numberOfFreeSurfaces;
+
+          if (secondaryInformation[cell].duplicate == 0) {
+            ++numberOfOutputFreeSurfaces;
           }
         }
       }
     }
     surfaceLayer.setNumberOfCells(numberOfFreeSurfaces);
-    totalNumberOfFreeSurfaces += numberOfFreeSurfaces;
+    totalNumberOfFreeSurfaces += numberOfOutputFreeSurfaces;
   }
   totalNumberOfTriangles = totalNumberOfFreeSurfaces * numberOfSubTriangles;
+  backmap.resize(totalNumberOfFreeSurfaces);
 
   surfaceLtsTree->allocateVariables();
   surfaceLtsTree->touchVariables();
@@ -314,8 +320,11 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
   }
   locationFlags = std::vector<unsigned int>(totalNumberOfTriangles, 0);
 
-  /// @ yateto_todo
+  // NOTE: we store also for space tree duplicates here
+  // thus, we need a non-duplicate lookup table (backmap)
+
   std::size_t surfaceCellOffset = 0; // Counts all surface cells of all layers
+  std::size_t surfaceCellGlobal = 0;
   for (auto [layer, surfaceLayer] :
        seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree->leaves(ghostMask))) {
     auto* cellInformation = layer.var(lts->cellInformation);
@@ -333,32 +342,36 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
 
     auto* side = surfaceLayer.var(surfaceLts->side);
     auto* meshId = surfaceLayer.var(surfaceLts->meshId);
+    auto* outputPosition = surfaceLayer.var(surfaceLts->outputPosition);
     std::size_t surfaceCell = 0;
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      if (secondaryInformation[cell].duplicate == 0) {
-        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-          if (initializer::requiresDisplacement(
-                  cellInformation[cell], cellMaterialData[cell], face)) {
-            assert(faceDisplacements[cell][face] != nullptr);
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+        if (initializer::requiresDisplacement(
+                cellInformation[cell], cellMaterialData[cell], face)) {
+          surfaceDofs[surfaceCell] = dofs[cell];
 
-            surfaceDofs[surfaceCell] = dofs[cell];
+          // NOTE: assign LTSTree data here
+          faceDisplacements[cell][face] = displacementDofs[surfaceCell];
+          faceDisplacementsDevice[cell][face] = displacementDofsDevice[surfaceCell];
 
-            // NOTE: assign LTSTree data here
-            faceDisplacements[cell][face] = displacementDofs[surfaceCell];
-            faceDisplacementsDevice[cell][face] = displacementDofsDevice[surfaceCell];
+          side[surfaceCell] = face;
+          meshId[surfaceCell] = secondaryInformation[cell].meshId;
+          surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
 
-            side[surfaceCell] = face;
-            meshId[surfaceCell] = secondaryInformation[cell].meshId;
-            surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
-
+          if (secondaryInformation[cell].duplicate == 0) {
             for (std::size_t i = 0; i < numberOfSubTriangles; ++i) {
               locationFlags[surfaceCellOffset * numberOfSubTriangles + i] =
                   static_cast<unsigned int>(getLocationFlag(
                       cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
             }
-            ++surfaceCell;
             ++surfaceCellOffset;
+            outputPosition[surfaceCell] = surfaceCellOffset;
+            backmap[surfaceCellOffset] = surfaceCellGlobal;
+          } else {
+            outputPosition[surfaceCell] = std::numeric_limits<std::size_t>::max();
           }
+          ++surfaceCell;
+          ++surfaceCellGlobal;
         }
       }
     }

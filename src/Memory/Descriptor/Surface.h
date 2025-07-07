@@ -21,6 +21,7 @@ struct SurfaceLTS {
   seissol::initializer::Variable<real*> dofs;
   seissol::initializer::Variable<std::uint8_t> side;
   seissol::initializer::Variable<std::size_t> meshId;
+  seissol::initializer::Variable<std::size_t> outputPosition;
   seissol::initializer::Variable<CellBoundaryMapping*> boundaryMapping;
 
   seissol::initializer::Variable<FaceDisplacementType> displacementDofs;
@@ -30,6 +31,7 @@ struct SurfaceLTS {
     surfaceLtsTree.add(dofs, ghostMask, 1, initializer::AllocationMode::HostOnly);
     surfaceLtsTree.add(side, ghostMask, 1, initializer::AllocationMode::HostOnly);
     surfaceLtsTree.add(meshId, ghostMask, 1, initializer::AllocationMode::HostOnly);
+    surfaceLtsTree.add(outputPosition, ghostMask, 1, initializer::AllocationMode::HostOnly);
     surfaceLtsTree.add(boundaryMapping, ghostMask, 1, initializer::AllocationMode::HostOnly);
 
     surfaceLtsTree.add(displacementDofs, ghostMask, 1, initializer::allocationModeBoundary());

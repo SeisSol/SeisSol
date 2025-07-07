@@ -65,8 +65,9 @@ class FreeSurfaceIntegrator {
   std::array<real*, NumComponents> displacements;
 
   std::vector<unsigned int> locationFlags;
-  unsigned totalNumberOfFreeSurfaces;
-  unsigned totalNumberOfTriangles{0};
+  std::size_t totalNumberOfFreeSurfaces{0};
+  std::size_t totalNumberOfTriangles{0};
+  std::vector<std::size_t> backmap;
 
   SurfaceLTS* surfaceLts{nullptr};
   seissol::initializer::LTSTree* surfaceLtsTree{nullptr};
@@ -88,7 +89,7 @@ class FreeSurfaceIntegrator {
                   seissol::SurfaceLTS* surfacelts,
                   seissol::initializer::LTSTree* surfaceltsTree);
 
-  void calculateOutput();
+  void calculateOutput() const;
 
   [[nodiscard]] bool enabled() const { return m_enabled; }
 };

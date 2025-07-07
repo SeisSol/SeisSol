@@ -319,10 +319,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     auto* surfaceMeshSides =
         freeSurfaceIntegrator.surfaceLtsTree->var(freeSurfaceIntegrator.surfaceLts->side);
     auto writer = io::instance::mesh::VtkHdfWriter(
-        "free-surface", freeSurfaceIntegrator.surfaceLtsTree->size(), 2, order);
-    writer.addPointProjector([=](double* target, std::size_t index) {
-      auto meshId = surfaceMeshIds[index];
-      auto side = surfaceMeshSides[index];
+        "free-surface", freeSurfaceIntegrator.totalNumberOfFreeSurfaces, 2, order);
+    writer.addPointProjector([=, &freeSurfaceIntegrator](double* target, std::size_t index) {
+      auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
+      auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
       const auto& element = meshReader.getElements()[meshId];
       const auto& vertexArray = meshReader.getVertices();
 
@@ -356,9 +356,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
            quantity < seissol::solver::FreeSurfaceIntegrator::NumComponents;
            ++quantity) {
         writer.addPointData<real>(
-            namewrap(quantityLabels[quantity], sim), {}, [=](real* target, std::size_t index) {
-              auto meshId = surfaceMeshIds[index];
-              auto side = surfaceMeshSides[index];
+            namewrap(quantityLabels[quantity], sim),
+            {},
+            [=, &freeSurfaceIntegrator](real* target, std::size_t index) {
+              auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
+              auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
               const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, meshId);
               const auto* dofsSingleQuantity =
                   dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
@@ -382,9 +384,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 quantityLabels[quantity + seissol::solver::FreeSurfaceIntegrator::NumComponents],
                 sim),
             {},
-            [=](real* target, std::size_t index) {
-              auto meshId = surfaceMeshIds[index];
-              auto side = surfaceMeshSides[index];
+            [=, &freeSurfaceIntegrator](real* target, std::size_t index) {
+              auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
+              auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
               const auto* faceDisplacements = ltsLut->lookup(lts->faceDisplacements, meshId);
               const auto* faceDisplacementVariable =
                   faceDisplacements[side] + FaceDisplacementPadded * quantity;
