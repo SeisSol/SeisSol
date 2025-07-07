@@ -135,7 +135,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 
   volKrnl.execute();
 
-  for (int face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
     if (data.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
       lfKrnl.AplusT = data.localIntegration().nApNm1[face];
@@ -285,7 +285,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
   }
 
   // Local Flux Integral
-  for (unsigned face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
 
     if (dataTable.find(key) != dataTable.end()) {
@@ -359,7 +359,7 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
                                            seissol::parallel::runtime::StreamRuntime& runtime) {
 
 #ifdef ACL_DEVICE
-  for (unsigned face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if (indicesTable.find(analyticalKey) != indicesTable.end()) {
@@ -418,7 +418,7 @@ void Local::flopsIntegral(const FaceType faceTypes[4],
   nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
   hardwareFlops = seissol::kernel::volume::HardwareFlops;
 
-  for (int face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
     if (faceTypes[face] != FaceType::DynamicRupture) {

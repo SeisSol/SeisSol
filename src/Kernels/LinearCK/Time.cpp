@@ -116,7 +116,7 @@ void Spacetime::computeAder(double timeStepWidth,
   // Compute integrated displacement over time step if needed.
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (data.faceDisplacements()[face] != nullptr &&
           data.cellInformation().faceTypes[face] == FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
@@ -185,7 +185,7 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
 
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       bc.evaluateOnDevice(face,
                           deviceDerivativeToNodalBoundaryRotated,
                           *this,

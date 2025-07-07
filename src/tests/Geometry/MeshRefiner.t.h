@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "tests/TestHelper.h"
+#include <Common/Constants.h>
 #include <Eigen/Dense>
 #include <array>
 #include <cstddef>
@@ -17,13 +18,13 @@
 namespace seissol::unit_test {
 
 inline void assertPoint(const double* a, const Eigen::Vector3d& b, double epsilon) {
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     REQUIRE(a[i] == AbsApprox(b[i]).epsilon(epsilon));
   }
 }
 
 inline void assertCell(const unsigned int* a, const Eigen::Vector4i& b) {
-  for (int i = 0; i < 4; i++) {
+  for (std::size_t i = 0; i < Cell::NumFaces; i++) {
     REQUIRE(a[i] == b[i]);
   }
 }

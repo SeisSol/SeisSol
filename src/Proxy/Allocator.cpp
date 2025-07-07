@@ -8,6 +8,7 @@
 
 #include "Allocator.h"
 #include <Alignment.h>
+#include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
@@ -62,7 +63,7 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
     buffersDevice[cell] = bucketDevice + cell * tensor::I::size();
     derivativesDevice[cell] = nullptr;
 
-    for (int f = 0; f < 4; ++f) {
+    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = sideDist(rng);
       cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
@@ -75,7 +76,7 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    for (int f = 0; f < 4; ++f) {
+    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       switch (faceTp) {
       case FaceType::FreeSurface:
         faceNeighbors[cell][f] = buffers[cell];
@@ -251,7 +252,7 @@ void ProxyData::initDataStructures(bool enableDR) {
 
     /* init drMapping */
     for (std::size_t cell = 0; cell < cellCount; ++cell) {
-      for (int face = 0; face < 4; ++face) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         CellDRMapping& drm = drMapping[cell][face];
         const auto side = sideDist(rng);
         const auto orientation = orientationDist(rng);

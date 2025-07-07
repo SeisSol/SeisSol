@@ -171,7 +171,7 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
   std::fill_n(projectionMatrixMemory, 0, projectionMatrixNumberOfReals);
   std::fill_n(projectionMatrixFromFace, 0, projectionMatrixFromFaceMemoryNumberOfReals);
 
-  for (unsigned face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     projectionMatrix[face] =
         projectionMatrixMemory +
         static_cast<size_t>(face * tensor::subTriangleProjection::size(maxRefinementDepth));
@@ -189,7 +189,7 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
       std::array<std::array<double, 2>, NumQuadraturePoints>{}; // Points for eval of 2D basis
 
   // Compute projection matrices
-  for (unsigned face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     for (unsigned tri = 0; tri < numberOfSubTriangles; ++tri) {
       for (unsigned qp = 0; qp < NumQuadraturePoints; ++qp) {
         const seissol::refinement::Triangle& subTri = triRefiner.subTris[tri];
@@ -300,7 +300,7 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layerSize; ++cell) {
       if (secondaryInformation[cell].duplicate == 0) {
-        for (unsigned face = 0; face < 4; ++face) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurface ||
               cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity ||
               initializer::isAtElasticAcousticInterface(cellMaterialData[cell], face)) {
@@ -342,7 +342,7 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
     unsigned surfaceCell = 0;
     for (unsigned cell = 0; cell < layer.size(); ++cell) {
       if (secondaryInformation[cell].duplicate == 0) {
-        for (unsigned face = 0; face < 4; ++face) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           if (initializer::requiresDisplacement(
                   cellInformation[cell], cellMaterialData[cell], face)) {
             assert(faceDisplacements[cell][face] != nullptr);

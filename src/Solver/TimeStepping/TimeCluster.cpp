@@ -18,6 +18,7 @@
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
 #include <Alignment.h>
+#include <Common/Constants.h>
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/BasicTypedefs.h>
@@ -353,7 +354,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
                                 ct.correctionTime,
                                 timeStepSize());
 
-    for (int face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       auto& curFaceDisplacements = data.faceDisplacements()[face];
       // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
       if (curFaceDisplacements != nullptr &&
@@ -420,7 +421,7 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
                                                    timeStepWidth,
                                                    streamRuntime);
 
-        for (int face = 0; face < 4; ++face) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
           if (dataTable.find(key) != dataTable.end()) {
             auto& entry = dataTable[key];
@@ -549,7 +550,7 @@ void TimeCluster::computeLocalIntegrationFlops() {
     flopsNonZero += cellNonZero;
     flopsHardware += cellHardware;
     // Contribution from displacement/integrated displacement
-    for (int face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (cellInformation->faceTypes[face] == FaceType::FreeSurfaceGravity) {
         const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
             GravitationalFreeSurfaceBc::getFlopsDisplacementFace(
