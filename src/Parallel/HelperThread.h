@@ -31,10 +31,10 @@ class HelperThread {
 
   private:
   std::function<bool()> function;
-  std::thread thread;
-  std::atomic<bool> shouldReset;
-  std::atomic<bool> isFinished;
   const Pinning* pinning;
+  std::atomic<bool> isFinished;
+  std::atomic<bool> shouldReset;
+  std::thread thread;
 };
 
 } // namespace seissol::parallel

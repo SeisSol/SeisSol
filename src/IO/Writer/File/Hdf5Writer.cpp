@@ -291,7 +291,7 @@ void Hdf5Writer::writeAttribute(const async::ExecInfo& info,
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (const auto& _ : write.location.groups()) {
+  for (const auto& _ [[maybe_unused]] : write.location.groups()) {
     file.closeGroup();
   }
 }
@@ -313,7 +313,7 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (const auto& _ : write.location.groups()) {
+  for (const auto& _ [[maybe_unused]] : write.location.groups()) {
     file.closeGroup();
   }
 }

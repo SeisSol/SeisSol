@@ -240,9 +240,9 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
 void LoopStatistics::writeSamples(const std::string& outputPrefix,
                                   bool isLoopStatisticsNetcdfOutputOn) {
   if (isLoopStatisticsNetcdfOutputOn) {
+#if defined(USE_NETCDF)
     const auto loopStatFile = outputPrefix + "-loopStat-";
     const auto rank = MPI::mpi.rank();
-#if defined(USE_NETCDF)
     logInfo() << "Starting to write loop statistics samples to disk.";
     const unsigned nRegions = regions.size();
     for (unsigned region = 0; region < nRegions; ++region) {

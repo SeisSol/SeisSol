@@ -251,17 +251,17 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
 
   real** buffers = m_ltsTree.var(m_lts.buffers);          // faceNeighborIds are ltsIds and not layer-local
   real** derivatives = m_ltsTree.var(m_lts.derivatives);  // faceNeighborIds are ltsIds and not layer-local
-  real *(*faceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
+  real *(*faceNeighbors)[Cell::NumFaces] = layer.var(m_lts.faceNeighbors);
 #ifdef ACL_DEVICE
   real** buffersDevice = m_ltsTree.var(m_lts.buffersDevice);          // faceNeighborIds are ltsIds and not layer-local
   real** derivativesDevice = m_ltsTree.var(m_lts.derivativesDevice);  // faceNeighborIds are ltsIds and not layer-local
-  real *(*faceNeighborsDevice)[4] = layer.var(m_lts.faceNeighborsDevice);
+  real *(*faceNeighborsDevice)[Cell::NumFaces] = layer.var(m_lts.faceNeighborsDevice);
 #endif
   auto* cellInformation = layer.var(m_lts.cellInformation);
   auto* secondaryInformation = layer.var(m_lts.secondaryInformation);
 
   for (unsigned cell = 0; cell < layer.size(); ++cell) {
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (cellInformation[cell].faceTypes[face] == FaceType::Regular ||
 	  cellInformation[cell].faceTypes[face] == FaceType::Periodic ||
 	  cellInformation[cell].faceTypes[face] == FaceType::DynamicRupture) {
@@ -476,7 +476,7 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
     #pragma omp parallel for schedule(static) reduction(+ : numberOfBoundaryFaces)
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layerSize; ++cell) {
-      for (unsigned face = 0; face < 4; ++face) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           ++numberOfBoundaryFaces;
         }
@@ -497,9 +497,9 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
     auto* faceInformation = boundaryLayer.var(m_boundary.faceInformation, AllocationPlace::Host);
     auto* faceInformationDevice = boundaryLayer.var(m_boundary.faceInformation, AllocationPlace::Device);
 
-    auto boundaryFace = 0;
-    for (unsigned cell = 0; cell < layer.size(); ++cell) {
-      for (unsigned face = 0; face < 4; ++face) {
+    std::size_t boundaryFace = 0;
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
           boundaryMapping[cell][face].dataT = faceInformation[boundaryFace].dataT;
@@ -533,12 +533,12 @@ void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
 {
   for (auto& layer : m_ltsTree.leaves(m_ltsTree.info(m_lts.faceDisplacements).mask)) {
     CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
-    real* (*displacements)[4] = layer.var(m_lts.faceDisplacements);
+    real* (*displacements)[Cell::NumFaces] = layer.var(m_lts.faceDisplacements);
     CellMaterialData* cellMaterialData = layer.var(m_lts.material);
 
     unsigned numberOfFaces = 0;
     for (unsigned cell = 0; cell < layer.size(); ++cell) {
-      for (unsigned int face = 0; face < 4; ++face) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (requiresDisplacement(cellInformation[cell],
                                  cellMaterialData[cell],
                                  face)) {
@@ -567,7 +567,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
 
     CellLocalInformation *cellInformation = layer.var(lts.cellInformation);
     std::unordered_set<real *> registry{};
-    real *(*faceNeighbors)[4] = layer.var(lts.faceNeighborsDevice);
+    real *(*faceNeighbors)[Cell::NumFaces] = layer.var(lts.faceNeighborsDevice);
 
     std::size_t derivativesCounter{0};
     std::size_t integratedDofsCounter{0};
@@ -577,7 +577,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
     std::array<std::size_t, 4> freeSurfacePerFace{};
     std::array<std::size_t, 4> dirichletPerFace{};
 
-    for (unsigned cell = 0; cell < layer.size(); ++cell) {
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
       if (needsScratchMemForDerivatives) {
         ++derivativesCounter;
@@ -585,7 +585,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
       ++integratedDofsCounter;
 
       // include data provided by ghost layers
-      for (int face = 0; face < 4; ++face) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         real *neighborBuffer = faceNeighbors[cell][face];
 
         // check whether a neighbor element idofs has not been counted twice
@@ -687,16 +687,16 @@ void seissol::initializer::MemoryManager::initializeFaceDisplacements()
     if (layer.getEntrySize(m_lts.faceDisplacementsBuffer) == 0) {
       continue;
     }
-    real* (*displacements)[4] = layer.var(m_lts.faceDisplacements);
+    real* (*displacements)[Cell::NumFaces] = layer.var(m_lts.faceDisplacements);
     real* bucket = static_cast<real*>(layer.var(m_lts.faceDisplacementsBuffer));
-    real* (*displacementsDevice)[4] = layer.var(m_lts.faceDisplacementsDevice);
+    real* (*displacementsDevice)[Cell::NumFaces] = layer.var(m_lts.faceDisplacementsDevice);
     real* bucketDevice = static_cast<real*>(layer.var(m_lts.faceDisplacementsBuffer, seissol::initializer::AllocationPlace::Device));
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) default(none) shared(layer, displacements, bucket, displacementsDevice, bucketDevice)
 #endif // _OPENMP
-    for (unsigned cell = 0; cell < layer.size(); ++cell) {
-      for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (displacements[cell][face] != nullptr) {
           // Remove constant part that was added in deriveDisplacementsBucket.
           // We then have the pointer offset that needs to be added to the bucket.

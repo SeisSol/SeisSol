@@ -12,6 +12,7 @@
 
 #include "PUML/TypeInference.h"
 #include "Parallel/MPI.h"
+#include <Common/Constants.h>
 #include <Common/Iterator.h>
 #include <Initializer/ParameterDB.h>
 #include <Initializer/Parameters/DRParameters.h>
@@ -53,8 +54,8 @@ bool MeshReader::hasFault() const { return !m_fault.empty(); }
 bool MeshReader::hasPlusFault() const { return m_hasPlusFault; }
 
 void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
-  for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
-    for (unsigned i = 0; i < 3; ++i) {
+  for (std::size_t vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
       m_vertices[vertexNo].coords[i] += displacement[i];
     }
   }
@@ -64,12 +65,12 @@ void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
 //  scalingMatrix is stored column-major, i.e.
 //  scalingMatrix_ij = scalingMatrix[j][i]
 void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
-  for (unsigned vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
+  for (std::size_t vertexNo = 0; vertexNo < m_vertices.size(); ++vertexNo) {
     Eigen::Vector3d point;
     point << m_vertices[vertexNo].coords[0], m_vertices[vertexNo].coords[1],
         m_vertices[vertexNo].coords[2];
     const auto result = scalingMatrix * point;
-    for (unsigned i = 0; i < 3; ++i) {
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
       m_vertices[vertexNo].coords[i] = result[i];
     }
   }
@@ -82,7 +83,7 @@ void MeshReader::extractFaultInformation(
     const VrtxCoords& refPoint, seissol::initializer::parameters::RefPointMethod refPointMethod) {
   for (auto& i : m_elements) {
 
-    for (int j = 0; j < 4; j++) {
+    for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
       // Set default mpi fault indices
       i.mpiFaultIndices[j] = -1;
 
@@ -104,7 +105,8 @@ void MeshReader::extractFaultInformation(
 
         // FIXME we use the MPI number here for the neighbor element id
         // It is not very nice but should generate the correct ordering.
-        const MPINeighborElement neighbor = {i.localId, j, i.mpiIndices[j], i.neighborSides[j]};
+        const MPINeighborElement neighbor = {
+            i.localId, static_cast<SideId>(j), i.mpiIndices[j], i.neighborSides[j]};
         m_MPIFaultNeighbors[i.neighborRanks[j]].push_back(neighbor);
       }
 
@@ -241,7 +243,7 @@ void MeshReader::extractFaultInformation(
     }
 
     // Set the MPI fault number of all elements
-    for (int j = 0; j < static_cast<int>(i.second.size()); j++) {
+    for (std::size_t j = 0; j < i.second.size(); ++j) {
       m_elements[i.second[j].localElement].mpiFaultIndices[i.second[j].localSide] = j;
     }
   }
@@ -262,7 +264,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
 
   // assume that all vertices are stored contiguously
   const int datatypeCount = 6;
-  const std::vector<int> datatypeBlocklen{12, 1, 1, 1, 1, 1};
+  const std::vector<int> datatypeBlocklen{Cell::NumVertices * Cell::Dim, 1, 1, 1, 1, 1};
   const std::vector<MPI_Aint> datatypeDisplacement{offsetof(GhostElementMetadata, vertices),
                                                    offsetof(GhostElementMetadata, group),
                                                    offsetof(GhostElementMetadata, localId),
@@ -296,11 +298,11 @@ void MeshReader::exchangeGhostlayerMetadata() {
       const auto& element = m_elements.at(elementIdx);
       auto& ghost = sendData[targetRank][j];
 
-      for (size_t v = 0; v < 4; ++v) {
+      for (size_t v = 0; v < Cell::NumVertices; ++v) {
         const auto& vertex = m_vertices[element.vertices[v]];
-        ghost.vertices[v][0] = vertex.coords[0];
-        ghost.vertices[v][1] = vertex.coords[1];
-        ghost.vertices[v][2] = vertex.coords[2];
+        for (std::size_t d = 0; d < Cell::Dim; ++d) {
+          ghost.vertices[v][d] = vertex.coords[d];
+        }
       }
       ghost.group = element.group;
       ghost.localId = element.localId;
