@@ -83,7 +83,7 @@ void MeshReader::extractFaultInformation(
     const VrtxCoords& refPoint, seissol::initializer::parameters::RefPointMethod refPointMethod) {
   for (auto& i : m_elements) {
 
-    for (int j = 0; j < Cell::NumFaces; j++) {
+    for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
       // Set default mpi fault indices
       i.mpiFaultIndices[j] = -1;
 
@@ -105,7 +105,8 @@ void MeshReader::extractFaultInformation(
 
         // FIXME we use the MPI number here for the neighbor element id
         // It is not very nice but should generate the correct ordering.
-        const MPINeighborElement neighbor = {i.localId, j, i.mpiIndices[j], i.neighborSides[j]};
+        const MPINeighborElement neighbor = {
+            i.localId, static_cast<SideId>(j), i.mpiIndices[j], i.neighborSides[j]};
         m_MPIFaultNeighbors[i.neighborRanks[j]].push_back(neighbor);
       }
 
@@ -242,7 +243,7 @@ void MeshReader::extractFaultInformation(
     }
 
     // Set the MPI fault number of all elements
-    for (int j = 0; j < static_cast<int>(i.second.size()); j++) {
+    for (std::size_t j = 0; j < i.second.size(); ++j) {
       m_elements[i.second[j].localElement].mpiFaultIndices[i.second[j].localSide] = j;
     }
   }

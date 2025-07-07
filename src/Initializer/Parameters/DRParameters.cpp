@@ -72,7 +72,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
   const auto healingThreshold =
       static_cast<real>(reader->readWithDefault("lsw_healingthreshold", -1.0));
-  const auto nucleationCount = reader->readWithDefault("nucleationcount", 1);
+  const auto nucleationCount = reader->readWithDefault("nucleationcount", 1U);
   if (nucleationCount > MaxNucleactions) {
     logError() << "You requested more nucleations than supported by this build of SeisSol. Either "
                   "adjust that yourself, or complain to the developers. :)";

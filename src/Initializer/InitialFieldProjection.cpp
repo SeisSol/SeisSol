@@ -255,8 +255,6 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              LTSTree& tree,
                              LTS const& lts,
                              bool needsTime) {
-  const auto& elements = meshReader.getElements();
-
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 

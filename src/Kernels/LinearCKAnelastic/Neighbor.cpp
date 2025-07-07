@@ -42,7 +42,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
     assert((reinterpret_cast<uintptr_t>(global.onHost->neighborFluxMatrices(h))) % Alignment == 0);
   }
 
-  for (int i = 0; i < Cell::NumFaces; ++i) {
+  for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
     for (int h = 0; h < 3; ++h) {
       assert((reinterpret_cast<uintptr_t>(global.onHost->nodalFluxMatrices(i, h))) % Alignment ==
              0);

@@ -63,7 +63,7 @@ void findMeshIds(const Eigen::Vector3d* points,
       MeshTools::pointOnPlane(elements[elem], face, vertices, p);
       MeshTools::normal(elements[elem], face, vertices, n);
 
-      for (int i = 0; i < Cell::Dim; ++i) {
+      for (std::size_t i = 0; i < Cell::Dim; ++i) {
         planeEquations[i][face] = n[i];
       }
       planeEquations[Cell::Dim][face] = -MeshTools::dot(n, p);
