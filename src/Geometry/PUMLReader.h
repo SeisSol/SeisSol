@@ -35,7 +35,7 @@ inline int decodeBoundary(const void* data,
     return (dataCasted[cell] >> (16 * face)) & 0xffff;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I32x4) {
     const int* dataCasted = reinterpret_cast<const int*>(data);
-    return dataCasted[cell * 4 + face];
+    return dataCasted[cell * Cell::NumFaces + face];
   } else {
     logError() << "Unknown boundary format:" << static_cast<int>(format);
     return 0;

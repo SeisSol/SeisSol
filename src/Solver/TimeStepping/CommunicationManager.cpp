@@ -69,6 +69,10 @@ void ThreadedCommunicationManager::progression() {
 
 bool ThreadedCommunicationManager::checkIfFinished() const { return helper.finished(); }
 
-void ThreadedCommunicationManager::reset(double newSyncTime) { helper.restart(); }
+void ThreadedCommunicationManager::reset(double newSyncTime) {
+  helper.stop();
+  AbstractCommunicationManager::reset(newSyncTime);
+  helper.start();
+}
 
 } // namespace seissol::time_stepping

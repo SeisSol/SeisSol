@@ -93,24 +93,24 @@ struct LTS {
   Variable<real*> derivatives;
   Variable<CellLocalInformation> cellInformation;
   Variable<SecondaryCellLocalInformation> secondaryInformation;
-  Variable<real* [4]> faceNeighbors;
+  Variable<real* [Cell::NumFaces]> faceNeighbors;
   Variable<LocalIntegrationData> localIntegration;
   Variable<NeighboringIntegrationData> neighboringIntegration;
   Variable<CellMaterialData> material;
   Variable<seissol::model::PlasticityData> plasticity;
-  Variable<CellDRMapping[4]> drMapping;
-  Variable<CellBoundaryMapping[4]> boundaryMapping;
+  Variable<CellDRMapping[Cell::NumFaces]> drMapping;
+  Variable<CellBoundaryMapping[Cell::NumFaces]> boundaryMapping;
   Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
-  Variable<real* [4]> faceDisplacements;
+  Variable<real* [Cell::NumFaces]> faceDisplacements;
   Bucket<real> buffersDerivatives;
   Bucket<real> faceDisplacementsBuffer;
 
   Variable<real*> buffersDevice;
   Variable<real*> derivativesDevice;
-  Variable<real* [4]> faceDisplacementsDevice;
-  Variable<real* [4]> faceNeighborsDevice;
-  Variable<CellDRMapping[4]> drMappingDevice;
-  Variable<CellBoundaryMapping[4]> boundaryMappingDevice;
+  Variable<real* [Cell::NumFaces]> faceDisplacementsDevice;
+  Variable<real* [Cell::NumFaces]> faceNeighborsDevice;
+  Variable<CellDRMapping[Cell::NumFaces]> drMappingDevice;
+  Variable<CellBoundaryMapping[Cell::NumFaces]> boundaryMappingDevice;
 
   Scratchpad<real> integratedDofsScratch;
   Scratchpad<real> derivativesScratch;

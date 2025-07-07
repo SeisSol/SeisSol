@@ -7,6 +7,7 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "Geometry/MeshDefinition.h"
+#include <Common/Constants.h>
 #include <Common/Iterator.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/MeshParameters.h>
@@ -341,11 +342,11 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
         meshGeometry, cellsGeometry[i], reinterpret_cast<unsigned int*>(m_elements[i].vertices));
 
     // Neighbor information
-    unsigned int faceids[4];
+    unsigned int faceids[Cell::NumFaces];
     PUML::Downward::faces(meshTopology, cells[i], faceids);
-    int neighbors[4];
+    int neighbors[Cell::NumFaces];
     PUML::Neighbor::face(meshTopology, i, neighbors);
-    for (int j = 0; j < 4; j++) {
+    for (std::size_t j = 0; j < Cell::NumFaces; j++) {
       int bcCurrentFace = decodeBoundary(boundaryCond, i, j, boundaryFormat);
       const bool isLocallyCorrect = checkMeshCorrectnessLocally<PumlTopology>(
           faces[faceids[j]], neighbors, j, bcCurrentFace, cellIdsAsInFile[i]);
@@ -367,9 +368,9 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
 
         m_elements[i].neighbors[PumlFaceToSeisSol[j]] = neighbors[j];
 
-        int nfaces[4];
+        int nfaces[Cell::NumFaces];
         PUML::Neighbor::face(meshTopology, neighbors[j], nfaces);
-        int* back = std::find(nfaces, nfaces + 4, i);
+        int* back = std::find(nfaces, nfaces + Cell::NumFaces, i);
         assert(back < nfaces + 4);
 
         m_elements[i].neighborSides[PumlFaceToSeisSol[j]] = PumlFaceToSeisSol[back - nfaces];
@@ -377,9 +378,10 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
         const unsigned int firstVertex =
             m_elements[i].vertices[FirstFaceVertex[PumlFaceToSeisSol[j]]];
 
-        unsigned int nvertices[4];
+        unsigned int nvertices[Cell::NumVertices];
         PUML::Downward::vertices(meshTopology, cells[neighbors[j]], nvertices);
-        unsigned int* neighborFirstVertex = std::find(nvertices, nvertices + 4, firstVertex);
+        unsigned int* neighborFirstVertex =
+            std::find(nvertices, nvertices + Cell::NumVertices, firstVertex);
 
         m_elements[i].sideOrientations[PumlFaceToSeisSol[j]] =
             FaceVertexToOrientation[m_elements[i].neighborSides[PumlFaceToSeisSol[j]]]
@@ -456,8 +458,8 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
       // The side of boundary
       int cellIds[2];
       PUML::Upward::cells(meshTopology, faces[info.second[i]], cellIds);
-      const int side = PUML::Downward::faceSide(meshTopology, cells[cellIds[0]], info.second[i]);
-      assert(side >= 0 && side < 4);
+      const auto side = PUML::Downward::faceSide(meshTopology, cells[cellIds[0]], info.second[i]);
+      assert(side >= 0 && side < Cell::NumFaces);
       copySide[k][i] = side;
 
       // First vertex of the face on the boundary
@@ -503,10 +505,11 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
       m_elements[cellIds[0]].neighborSides[PumlFaceToSeisSol[side]] = PumlFaceToSeisSol[gSide];
 
       // Set side sideOrientation
-      unsigned long nvertices[4];
+      unsigned long nvertices[Cell::NumVertices];
       PUML::Downward::gvertices(meshTopology, cells[cellIds[0]], nvertices);
 
-      unsigned long* localFirstVertex = std::find(nvertices, nvertices + 4, ghostFirstVertex[k][i]);
+      unsigned long* localFirstVertex =
+          std::find(nvertices, nvertices + Cell::NumVertices, ghostFirstVertex[k][i]);
       assert(localFirstVertex != nvertices + 4);
 
       m_elements[cellIds[0]].sideOrientations[PumlFaceToSeisSol[side]] =
@@ -518,7 +521,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology, const PumlMesh& meshGeome
   // Set vertices
   m_vertices.resize(verticesGeometry.size());
   for (std::size_t i = 0; i < verticesGeometry.size(); i++) {
-    memcpy(m_vertices[i].coords, verticesGeometry[i].coordinate(), 3 * sizeof(double));
+    memcpy(m_vertices[i].coords, verticesGeometry[i].coordinate(), Cell::Dim * sizeof(double));
 
     PUML::Upward::cells(meshGeometry, verticesGeometry[i], m_vertices[i].elements);
   }
