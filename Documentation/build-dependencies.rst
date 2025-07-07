@@ -97,8 +97,11 @@ for building—adjust to your actual location.
 
 .. code-block:: bash
 
-  # For the Intel compiler
+  # Set your compiler, e.g., for the Intel compiler
   # source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
+  # or
+  # export CC=icx
+  # export CXX=icpx
 
   # write the path here which you created your directory in (you can figure it out via the `pwd` command)
   # here, $HOME/my-seissol-installation is used as an example; customize to your likening

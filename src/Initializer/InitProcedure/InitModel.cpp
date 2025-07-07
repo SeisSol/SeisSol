@@ -73,16 +73,16 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
   // unpack ghost layer (merely a re-ordering operation, since the CellToVertexArray right now
   // requires an vector there)
-  std::vector<std::array<std::array<double, 3>, 4>> ghostVertices;
+  std::vector<std::array<std::array<double, Cell::Dim>, Cell::NumVertices>> ghostVertices;
   std::vector<int> ghostGroups;
   std::unordered_map<int, std::vector<unsigned>> ghostIdxMap;
   for (const auto& neighbor : meshReader.getGhostlayerMetadata()) {
     ghostIdxMap[neighbor.first].reserve(neighbor.second.size());
     for (const auto& metadata : neighbor.second) {
       ghostIdxMap[neighbor.first].push_back(ghostVertices.size());
-      std::array<std::array<double, 3>, 4> vertices{};
-      for (size_t i = 0; i < 4; ++i) {
-        for (size_t j = 0; j < 3; ++j) {
+      std::array<std::array<double, Cell::Dim>, Cell::NumVertices> vertices{};
+      for (size_t i = 0; i < Cell::NumVertices; ++i) {
+        for (size_t j = 0; j < Cell::Dim; ++j) {
           vertices[i][j] = metadata.vertices[i][j];
         }
       }
@@ -176,7 +176,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
         initAssign(materialData, localMaterial);
         material.local = &materialData;
-        for (std::size_t side = 0; side < 4; ++side) {
+        for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           if (isInternalFaceType(localCellInformation.faceTypes[side])) {
             // use the neighbor face material info in case that we are not at a boundary
             material.neighbor[side] =

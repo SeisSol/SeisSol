@@ -22,6 +22,7 @@
 #include <Numerical/BasisFunction.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
+#include <cstdint>
 #include <generated_code/kernel.h>
 #include <generated_code/tensor.h>
 #include <iterator>
@@ -115,7 +116,7 @@ void Spacetime::computeAder(double timeStepWidth,
   // Compute integrated displacement over time step if needed.
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (data.faceDisplacements()[face] != nullptr &&
           data.cellInformation().faceTypes[face] == FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
@@ -184,7 +185,7 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
 
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       bc.evaluateOnDevice(face,
                           deviceDerivativeToNodalBoundaryRotated,
                           *this,
@@ -200,13 +201,13 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
 #endif
 }
 
-void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::derivative::NonZeroFlops;
   hardwareFlops = kernel::derivative::HardwareFlops;
 }
 
-unsigned Spacetime::bytesAder() {
-  unsigned reals = 0;
+std::uint64_t Spacetime::bytesAder() {
+  std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
   reals += tensor::Q::size() + 2 * tensor::I::size();
@@ -408,7 +409,7 @@ void Time::computeBatchedTaylorExpansion(real time,
 #endif
 }
 
-void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsTaylorExpansion(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::derivativeTaylorExpansion::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }
@@ -426,7 +427,7 @@ void Time::evaluateAtTime(std::shared_ptr<seissol::basisFunction::SampledTimeBas
 #endif
 }
 
-void Time::flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsEvaluateAtTime(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
 #ifdef USE_STP
   // reset flops
   nonZeroFlops = 0;
