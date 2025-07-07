@@ -492,14 +492,14 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
   for (int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
     if (data.cellInformation().faceTypes[face] != FaceType::DynamicRupture
-      // && data.cellInformation().faceTypes[face] != FaceType::Regular
-      // && data.cellInformation().faceTypes[face] != FaceType::Periodic
+      && data.cellInformation().faceTypes[face] != FaceType::Regular
+      && data.cellInformation().faceTypes[face] != FaceType::Periodic
       ) {
       lfKrnl.AplusT = data.localIntegration().nApNm1[face];
       lfKrnl.execute(face);
     }
 
-    /*
+    // /*
     // Nonlinear integration
     if (data.cellInformation().faceTypes[face] == FaceType::Regular
       || data.cellInformation().faceTypes[face] == FaceType::Periodic) {
@@ -732,7 +732,7 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
       m_surfIntegral.fluxScale = fluxScale;
       m_surfIntegral.execute(face, 0);
     }
-    nonlinear surface */
+    // nonlinear surface */
 
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;

@@ -148,21 +148,21 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       m_surfIntegral.Q = data.dofs();
       m_surfIntegral.Flux = rusanovFluxMinus;
       m_surfIntegral.fluxScale = fluxScale;
-      // m_surfIntegral.execute(face, 0);
+      m_surfIntegral.execute(face, 0);
 
       // Standard neighboring flux (linear case)
-      // Compute the neighboring elements flux matrix id.
-      assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
-      assert(data.cellInformation().faceRelations[face][0] < 4 &&
-             data.cellInformation().faceRelations[face][1] < 3);
-      kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
-      nfKrnl.Q = data.dofs();
-      nfKrnl.I = timeIntegrated[face];
-      nfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
-      nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
-      nfKrnl.execute(data.cellInformation().faceRelations[face][1],
-                     data.cellInformation().faceRelations[face][0],
-                     face);
+      // // Compute the neighboring elements flux matrix id.
+      // assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
+      // assert(data.cellInformation().faceRelations[face][0] < 4 &&
+      //        data.cellInformation().faceRelations[face][1] < 3);
+      // kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
+      // nfKrnl.Q = data.dofs();
+      // nfKrnl.I = timeIntegrated[face];
+      // nfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
+      // nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
+      // nfKrnl.execute(data.cellInformation().faceRelations[face][1],
+      //                data.cellInformation().faceRelations[face][0],
+      //                face);
       break;
     }
     case FaceType::DynamicRupture: {
