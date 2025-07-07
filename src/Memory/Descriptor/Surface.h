@@ -34,7 +34,8 @@ struct SurfaceLTS {
     surfaceLtsTree.add(outputPosition, ghostMask, 1, initializer::AllocationMode::HostOnly);
     surfaceLtsTree.add(boundaryMapping, ghostMask, 1, initializer::AllocationMode::HostOnly);
 
-    surfaceLtsTree.add(displacementDofs, ghostMask, 1, initializer::allocationModeBoundary());
+    surfaceLtsTree.add(
+        displacementDofs, ghostMask, PagesizeHeap, initializer::allocationModeBoundary());
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
