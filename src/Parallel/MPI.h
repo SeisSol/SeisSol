@@ -236,6 +236,8 @@ class MPI : public MPIBasic {
    */
   const auto& getHostNames() { return hostNames; }
 
+  const auto& getPCIAddresses() { return pcis; }
+
   static void barrier(MPI_Comm comm) { MPI_Barrier(comm); }
 
   /**
@@ -257,6 +259,7 @@ class MPI : public MPIBasic {
   MPI() : m_comm(MPI_COMM_NULL) {}
   DataTransferMode preferredDataTransferMode{DataTransferMode::Direct};
   std::vector<std::string> hostNames;
+  std::vector<std::string> pcis;
 };
 
 } // namespace seissol

@@ -99,15 +99,18 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
     path += seissol::filesystem::path("-threadPinning.csv");
 
     std::fstream fileStream(path, std::ios::out);
-    fileStream
-        << "hostname,rank,localRank,workermask,workernuma,commthread_mask,commthread_numa,nproc\n";
+    fileStream << "hostname,device,rank,localRank,workermask,workernuma,commthread_mask,commthread_"
+                  "numa,nproc\n";
 
     const auto& hostNames = seissol::MPI::mpi.getHostNames();
+    const auto& pcis = seissol::MPI::mpi.getPCIAddresses();
+    const std::string nullstring;
     for (int rank = 0; rank < seissol::MPI::mpi.size(); ++rank) {
-      fileStream << "\"" << hostNames[rank] << "\"," << rank << ',' << localRanks[rank] << ",\""
-                 << workerThreads[rank] << "\",\"" << workerNumas[rank] << "\",\""
-                 << commThreads[rank] << "\",\"" << commNumas[rank] << "\"," << numNProcs[rank]
-                 << "\n";
+      const auto& pci = pcis.empty() ? nullstring : pcis[rank];
+      fileStream << "\"" << hostNames[rank] << "\",\"" << pci << "\"," << rank << ','
+                 << localRanks[rank] << ",\"" << workerThreads[rank] << "\",\"" << workerNumas[rank]
+                 << "\",\"" << commThreads[rank] << "\",\"" << commNumas[rank] << "\","
+                 << numNProcs[rank] << "\n";
     }
 
     fileStream.close();
