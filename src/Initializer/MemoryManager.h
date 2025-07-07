@@ -13,6 +13,7 @@
 
 #include "Memory/Tree/Layer.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include <Memory/Descriptor/Surface.h>
 #include <mpi.h>
 
 #include <utils/logger.h>
@@ -119,6 +120,9 @@ class MemoryManager {
     LTSTree m_boundaryTree;
     Boundary m_boundary;
 
+    LTSTree surfaceTree;
+    SurfaceLTS surface;
+
     EasiBoundary m_easiBoundary;
 
     /**
@@ -143,11 +147,6 @@ class MemoryManager {
     void initializeBuffersDerivatives();
 
     /**
-    * Derives the size of the displacement accumulation buffer.
-    */
-    void deriveFaceDisplacementsBucket();
-
-    /**
      * Derives the size of the displacement accumulation buffer.
      */
     void deriveDisplacementsBucket();
@@ -156,11 +155,6 @@ class MemoryManager {
      * Initializes the displacement accumulation buffer.
      */
     void initializeDisplacements();
-
-    /**
-     * Initializes the displacement accumulation buffer.
-     */
-    void initializeFaceDisplacements();
 
     /**
      * Initializes the communication structure.
@@ -271,6 +265,14 @@ class MemoryManager {
 
     inline Boundary* getBoundary() {
       return &m_boundary;
+    }
+
+    LTSTree* getSurfaceTree() {
+      return &surfaceTree;
+    }
+
+    SurfaceLTS* getSurface() {
+      return &surface;
     }
 
     inline void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
