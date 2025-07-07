@@ -57,8 +57,6 @@
 #include <utils/logger.h>
 #endif
 
-#include <Solver/MultipleSimulations.h>
-
 GENERATE_HAS_MEMBER(selectAneFull)
 GENERATE_HAS_MEMBER(selectElaFull)
 GENERATE_HAS_MEMBER(Values)
@@ -124,7 +122,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  double quadraturePoints[NumQuadPoints][3];
+  double quadraturePoints[NumQuadPoints][Cell::Dim];
   double quadratureWeights[NumQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 
@@ -136,7 +134,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
       auto iniCond = init::iniCond::view::create(iniCondData);
 
-      std::vector<std::array<double, 3>> quadraturePointsXyz;
+      std::vector<std::array<double, Cell::Dim>> quadraturePointsXyz;
       quadraturePointsXyz.resize(NumQuadPoints);
 
       kernel::projectIniCond krnl;
@@ -155,8 +153,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto meshId = secondaryInformation[cell].meshId;
-        const double* elementCoords[4];
-        for (size_t v = 0; v < 4; ++v) {
+        const double* elementCoords[Cell::NumVertices];
+        for (size_t v = 0; v < Cell::NumVertices; ++v) {
           elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
         }
         for (size_t i = 0; i < NumQuadPoints; ++i) {
@@ -196,33 +194,33 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  const int dimensions = needsTime ? 4 : 3;
+  const int dimensions = needsTime ? (Cell::Dim + 1) : Cell::Dim;
   const int spaceStart = needsTime ? 1 : 0;
   easi::Query query(elements.size() * NumQuadPoints, dimensions);
 
   {
-    double quadraturePoints[NumQuadPoints][3];
+    double quadraturePoints[NumQuadPoints][Cell::Dim];
     double quadratureWeights[NumQuadPoints];
     seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
     for (std::size_t elem = 0; elem < elements.size(); ++elem) {
-      const double* elementCoords[4];
-      for (size_t v = 0; v < 4; ++v) {
+      const double* elementCoords[Cell::NumVertices];
+      for (size_t v = 0; v < Cell::NumVertices; ++v) {
         elementCoords[v] = vertices[elements[elem].vertices[v]].coords;
       }
       for (size_t i = 0; i < NumQuadPoints; ++i) {
-        std::array<double, 3> transformed;
+        std::array<double, Cell::Dim> transformed;
         seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
                                                                elementCoords[1],
                                                                elementCoords[2],
                                                                elementCoords[3],
                                                                quadraturePoints[i],
                                                                transformed.data());
-        query.x(elem * NumQuadPoints + i, spaceStart + 0) = transformed[0];
-        query.x(elem * NumQuadPoints + i, spaceStart + 1) = transformed[1];
-        query.x(elem * NumQuadPoints + i, spaceStart + 2) = transformed[2];
+        for (std::size_t d = 0; d < Cell::Dim; ++d) {
+          query.x(elem * NumQuadPoints + i, spaceStart + d) = transformed[d];
+        }
         if (needsTime) {
           query.x(elem * NumQuadPoints + i, 0) = 0;
         }
@@ -257,8 +255,6 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              LTSTree& tree,
                              LTS const& lts,
                              bool needsTime) {
-  const auto& elements = meshReader.getElements();
-
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
@@ -285,7 +281,6 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
       const auto* secondaryInformation = layer.var(lts.secondaryInformation);
-      const auto* material = layer.var(lts.material);
       auto* dofs = layer.var(lts.dofs);
       auto* dofsAne = layer.var(lts.dofsAne);
 

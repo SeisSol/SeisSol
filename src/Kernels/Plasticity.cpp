@@ -391,10 +391,10 @@ void Plasticity::computePlasticityBatched(
 #endif // ACL_DEVICE
 }
 
-void Plasticity::flopsPlasticity(long long& nonZeroFlopsCheck,
-                                 long long& hardwareFlopsCheck,
-                                 long long& nonZeroFlopsYield,
-                                 long long& hardwareFlopsYield) {
+void Plasticity::flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
+                                 std::uint64_t& hardwareFlopsCheck,
+                                 std::uint64_t& nonZeroFlopsYield,
+                                 std::uint64_t& hardwareFlopsYield) {
   // reset flops
   nonZeroFlopsCheck = 0;
   hardwareFlopsCheck = 0;
@@ -418,8 +418,8 @@ void Plasticity::flopsPlasticity(long long& nonZeroFlopsCheck,
   hardwareFlopsCheck += kernel::plComputeSecondInvariant::HardwareFlops;
 
   // compute taulim (1 add, 1 mul, max NOT counted)
-  nonZeroFlopsCheck += 2 * tensor::meanStress::size();
-  hardwareFlopsCheck += 2 * tensor::meanStress::size();
+  nonZeroFlopsCheck += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
+  hardwareFlopsCheck += static_cast<std::uint64_t>(2 * tensor::meanStress::size());
 
   // check for yield (NOT counted, as it would require counting the number of yielding points)
 

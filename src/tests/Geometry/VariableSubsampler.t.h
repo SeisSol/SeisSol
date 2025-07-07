@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include <array>
+#include <cstddef>
 #include <iomanip>
 #include <iostream>
 
@@ -43,7 +44,7 @@ TEST_CASE("Variable Subsampler") {
 
     // For order 3 there are 108 DOFs (taking alignment into account)
     std::array<real, 108> dofs;
-    for (int i = 0; i < 108; i++) {
+    for (std::size_t i = 0; i < 108; i++) {
       dofs[i] = static_cast<real>(std::rand()) / static_cast<real>(RAND_MAX);
     }
     unsigned int cellMap[1] = {0};
@@ -51,10 +52,10 @@ TEST_CASE("Variable Subsampler") {
     real outDofs[36];
     std::fill(std::begin(outDofs), std::end(outDofs), 0);
 
-    for (unsigned var = 0; var < 9; var++) {
+    for (std::size_t var = 0; var < 9; var++) {
       subsampler.get(dofs.data(), cellMap, var, &outDofs[var * 4]);
     }
-    for (int i = 0; i < 36; i++) {
+    for (std::size_t i = 0; i < 36; i++) {
       REQUIRE(outDofs[i] == AbsApprox(expectedDOFs[i]).epsilon(Epsilon));
     }
   };

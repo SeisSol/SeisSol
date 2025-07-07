@@ -47,8 +47,8 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
     return;
   }
 
-  cells = new unsigned[3 * nCells];
-  vertices = new double[3 * nVertices];
+  cells = new unsigned[static_cast<unsigned long>(3 * nCells)];
+  vertices = new double[static_cast<unsigned long>(3 * nVertices)];
 
   const std::vector<Element>& meshElements = meshReader.getElements();
   const std::vector<Vertex>& meshVertices = meshReader.getVertices();
@@ -140,10 +140,11 @@ void seissol::writer::FreeSurfaceWriter::init(
   NDBG_UNUSED(bufferId);
 
   // Create mesh buffers
-  bufferId = addSyncBuffer(cellIds.cells(), nCells * 3 * sizeof(unsigned));
+  bufferId =
+      addSyncBuffer(cellIds.cells(), static_cast<unsigned long>(nCells * 3) * sizeof(unsigned));
   assert(bufferId == FreeSurfaceWriterExecutor::Cells);
   NDBG_UNUSED(bufferId);
-  bufferId = addSyncBuffer(vertices, nVertices * 3 * sizeof(double));
+  bufferId = addSyncBuffer(vertices, static_cast<unsigned long>(nVertices * 3) * sizeof(double));
   assert(bufferId == FreeSurfaceWriterExecutor::Vertices);
   NDBG_UNUSED(bufferId);
   bufferId =

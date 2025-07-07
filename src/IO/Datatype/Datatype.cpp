@@ -289,7 +289,7 @@ StructDatatype::StructDatatype(const std::vector<MemberInfo>& members)
     : StructDatatype(members, minSize(members)) {}
 
 StructDatatype::StructDatatype(const std::vector<MemberInfo>& members, std::size_t size)
-    : membersP(members), sizeP(size) {
+    : sizeP(size), membersP(members) {
   assert(size >= minSize(members));
 }
 

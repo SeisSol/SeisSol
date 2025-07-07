@@ -411,8 +411,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
  * @param[in] dt
  * @param[in] index - device iteration index
  */
-template <RangeType Type = RangeType::CPU,
-          typename MathFunctions = seissol::functions::HostStdFunctions>
+template <RangeType Type = RangeType::CPU>
 // See https://github.com/llvm/llvm-project/issues/60163
 // NOLINTNEXTLINE
 SEISSOL_HOSTDEVICE inline void
@@ -428,8 +427,8 @@ SEISSOL_HOSTDEVICE inline void
                         real dt,
                         unsigned startIndex = 0) {
   if (fullUpdateTime <= t0 + s0 && fullUpdateTime >= s0) {
-    const real gNuc = gaussianNucleationFunction::smoothStepIncrement<real, MathFunctions>(
-        fullUpdateTime - s0, dt, t0);
+    const real gNuc =
+        gaussianNucleationFunction::smoothStepIncrement<real>(fullUpdateTime - s0, dt, t0);
 
     using Range = typename NumPoints<Type>::Range;
 

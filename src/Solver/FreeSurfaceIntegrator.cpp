@@ -30,13 +30,16 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
 #include <init.h>
 #include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
 
-seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
+namespace seissol::solver {
+
+FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
   for (auto& face : projectionMatrix) {
     face = nullptr;
   }
@@ -47,7 +50,7 @@ seissol::solver::FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
   }
 }
 
-seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
+FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
   for (unsigned dim = 0; dim < NumComponents; ++dim) {
     seissol::memory::free(velocities[dim]);
     seissol::memory::free(displacements[dim]);
@@ -57,13 +60,12 @@ seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
   seissol::memory::free(projectionMatrixFromFace);
 }
 
-void seissol::solver::FreeSurfaceIntegrator::initialize(
-    unsigned maxRefinementDepth,
-    GlobalData* globalData,
-    seissol::initializer::LTS* lts,
-    seissol::initializer::LTSTree* ltsTree,
-    seissol::SurfaceLTS* surfacelts,
-    seissol::initializer::LTSTree* surfaceltsTree) {
+void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
+                                       GlobalData* globalData,
+                                       seissol::initializer::LTS* lts,
+                                       seissol::initializer::LTSTree* ltsTree,
+                                       seissol::SurfaceLTS* surfacelts,
+                                       seissol::initializer::LTSTree* surfaceltsTree) {
   this->surfaceLts = surfacelts;
   this->surfaceLtsTree = surfaceltsTree;
   if (maxRefinementDepth > MaxRefinement) {
@@ -79,7 +81,7 @@ void seissol::solver::FreeSurfaceIntegrator::initialize(
   logInfo() << "Initializing free surface integrator. Done.";
 }
 
-void seissol::solver::FreeSurfaceIntegrator::calculateOutput() {
+void FreeSurfaceIntegrator::calculateOutput() {
   std::size_t offset = 0;
   const seissol::initializer::LayerMask ghostMask(Ghost);
   for (auto& surfaceLayer : surfaceLtsTree->leaves(ghostMask)) {
@@ -103,9 +105,11 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput() {
 
       auto addOutput = [&](const std::array<real*, NumComponents>& output) {
         for (unsigned component = 0; component < NumComponents; ++component) {
-          real* target = output[component] + offset + face * numberOfSubTriangles;
+          real* target =
+              output[component] + offset + static_cast<size_t>(face * numberOfSubTriangles);
           /// @yateto_todo fix for multiple simulations
-          real* source = subTriangleDofs + component * numberOfAlignedSubTriangles;
+          real* source =
+              subTriangleDofs + static_cast<size_t>(component * numberOfAlignedSubTriangles);
           for (unsigned subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
             target[subtri] = source[subtri];
             if (!std::isfinite(source[subtri])) {
@@ -130,8 +134,7 @@ void seissol::solver::FreeSurfaceIntegrator::calculateOutput() {
   }
 }
 
-void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(
-    unsigned maxRefinementDepth) {
+void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementDepth) {
   // Sub triangles
   triRefiner.refine(maxRefinementDepth);
 
@@ -160,9 +163,10 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(
   std::fill_n(projectionMatrixMemory, 0, projectionMatrixNumberOfReals);
   std::fill_n(projectionMatrixFromFace, 0, projectionMatrixFromFaceMemoryNumberOfReals);
 
-  for (unsigned face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     projectionMatrix[face] =
-        projectionMatrixMemory + face * tensor::subTriangleProjection::size(maxRefinementDepth);
+        projectionMatrixMemory +
+        static_cast<size_t>(face * tensor::subTriangleProjection::size(maxRefinementDepth));
   }
 
   // Triangle quadrature points and weights
@@ -177,7 +181,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(
       std::array<std::array<double, 2>, NumQuadraturePoints>{}; // Points for eval of 2D basis
 
   // Compute projection matrices
-  for (int face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     for (std::size_t tri = 0; tri < numberOfSubTriangles; ++tri) {
       for (std::size_t qp = 0; qp < NumQuadraturePoints; ++qp) {
         const seissol::refinement::Triangle& subTri = triRefiner.subTris[tri];
@@ -200,7 +204,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeProjectionMatrices(
   delete[] weights;
 }
 
-void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(
+void FreeSurfaceIntegrator::computeSubTriangleAverages(
     real* projectionMatrixRow,
     const std::array<std::array<double, 3>, NumQuadraturePoints>& bfPoints,
     const double* weights) const {
@@ -220,7 +224,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(
         // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
         average *= 2.0;
 
-        projectionMatrixRow[nbf * numberOfAlignedSubTriangles] = average;
+        projectionMatrixRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles)] = average;
 
         ++nbf;
       }
@@ -228,7 +232,7 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAverages(
   }
 }
 
-void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces(
+void FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces(
     real* projectionMatrixFromFaceRow,
     const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
     const double* weights) const {
@@ -244,16 +248,14 @@ void seissol::solver::FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces
       // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
       average *= 2.0;
 
-      projectionMatrixFromFaceRow[nbf * numberOfAlignedSubTriangles] = average;
+      projectionMatrixFromFaceRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles)] = average;
       ++nbf;
     }
   }
 }
 
-seissol::solver::FreeSurfaceIntegrator::LocationFlag
-    seissol::solver::FreeSurfaceIntegrator::getLocationFlag(CellMaterialData materialData,
-                                                            FaceType faceType,
-                                                            unsigned int face) {
+FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
+    CellMaterialData materialData, FaceType faceType, unsigned int face) {
   if (initializer::isAcousticSideOfElasticAcousticInterface(materialData, face)) {
     return LocationFlag::Acoustic;
   } else if (initializer::isElasticSideOfElasticAcousticInterface(materialData, face)) {
@@ -269,8 +271,8 @@ seissol::solver::FreeSurfaceIntegrator::LocationFlag
   }
 }
 
-void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
-    seissol::initializer::LTS* lts, seissol::initializer::LTSTree* ltsTree) {
+void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* lts,
+                                                     seissol::initializer::LTSTree* ltsTree) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
 
   surfaceLtsTree->setNumberOfTimeClusters(ltsTree->numChildren());
@@ -290,7 +292,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
 #endif // _OPENMP
     for (std::size_t cell = 0; cell < layerSize; ++cell) {
       if (secondaryInformation[cell].duplicate == 0) {
-        for (unsigned face = 0; face < 4; ++face) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           if (initializer::requiresDisplacement(
                   cellInformation[cell], cellMaterialData[cell], face)) {
             ++numberOfFreeSurfaces;
@@ -334,7 +336,7 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
     std::size_t surfaceCell = 0;
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       if (secondaryInformation[cell].duplicate == 0) {
-        for (unsigned face = 0; face < 4; ++face) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           if (initializer::requiresDisplacement(
                   cellInformation[cell], cellMaterialData[cell], face)) {
             assert(faceDisplacements[cell][face] != nullptr);
@@ -362,3 +364,5 @@ void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
     }
   }
 }
+
+} // namespace seissol::solver
