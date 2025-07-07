@@ -10,6 +10,7 @@
 
 #include "Parallel/MPI.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
+#include "Solver/TimeStepping/HaloCommunication.h"
 #include <device.h>
 
 namespace seissol::time_stepping {
@@ -20,7 +21,7 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
                            int timeStepRate,
                            int globalTimeClusterId,
                            int otherGlobalTimeClusterId,
-                           const MeshStructure* meshStructure,
+                           const seissol::solver::HaloCommunication& meshStructure,
                            bool persistent);
   ~GhostTimeClusterWithCopy() override;
 
@@ -38,12 +39,12 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
   void finalize() override;
 
   std::list<int> prefetchCopyLayer();
-  void prefetchGhostRegion(int region);
+  void prefetchGhostRegion(std::size_t region);
 
   private:
-  unsigned int numberOfRegions{};
-  std::vector<real*> duplicatedCopyRegions;
-  std::vector<real*> duplicatedGhostRegions;
+  std::size_t numberOfRegions{};
+  std::vector<void*> duplicatedCopyRegions;
+  std::vector<void*> duplicatedGhostRegions;
 
   std::vector<void*> prefetchCopyRegionsStreams;
   std::vector<void*> prefetchGhostRegionsStreams;

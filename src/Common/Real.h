@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_COMMON_REAL_H_
 #define SEISSOL_SRC_COMMON_REAL_H_
 
+#include <cstddef>
 namespace seissol {
 
 enum class RealType { F32, F64 };
@@ -26,6 +27,17 @@ struct RealTypeWrapper<RealType::F64> {
 
 template <RealType P>
 using RealT = typename RealTypeWrapper<P>::Type;
+
+constexpr std::size_t sizeOfRealType(RealType type) {
+  switch (type) {
+  case seissol::RealType::F32:
+    return 4;
+  case seissol::RealType::F64:
+    return 8;
+  default:
+    throw;
+  }
+}
 
 } // namespace seissol
 #endif // SEISSOL_SRC_COMMON_REAL_H_
