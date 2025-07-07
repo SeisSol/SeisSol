@@ -21,6 +21,7 @@ def velocity_norm(receiver, fused_index=""):
         and names[1] in receiver.columns
         and names[2] in receiver.columns
     )
+
     return np.sqrt(
         receiver[names[0]] ** 2 + receiver[names[1]] ** 2 + receiver[names[2]] ** 2
     )
@@ -105,7 +106,7 @@ def integrate_in_time(time, samples):
     return trapz_func(samples, x=time)
 
 
-def integrate_quantity_in_time(receiver, quantity, fused_index=0):
+def integrate_quantity_in_time(receiver, quantity, fused_index=0, number_of_fused_sims=1):
     quantity_to_norm = {
         "absolute slip": absolute_slip_norm,
         "friction coefficient": friction_coefficient_norm,
@@ -122,8 +123,8 @@ def integrate_quantity_in_time(receiver, quantity, fused_index=0):
         "temperature": temperature_norm,
     }
     fused_suffix = ""
-    if fused_index > 0:
-        fused_suffix += "-"+str(fused_index)
+    if number_of_fused_sims > 1:
+        fused_suffix += "-"+str(fused_index+1) # +1 because we want to use the fused index as per fault receiver numbering
     return integrate_in_time(receiver["Time"], quantity_to_norm[quantity](receiver, fused_suffix))
 
 
@@ -225,15 +226,20 @@ def receiver_diff(args, i):
     difference = sim_receiver - ref_receiver
 
     number_of_fused_sims = get_number_of_fused_sims(sim_receiver.columns)
+    if number_of_fused_sims < 1:
+        print("Setting the number of fused simulations to 1, because the receiver file does not contain any fused simulations.")
+        number_of_fused_sims = 1
 
     max_velocity = 0
     max_stress = 0
+
     for fused_index in range(number_of_fused_sims):
+        fused_suffix = f"{fused_index}" if number_of_fused_sims > 1 else ""
         ref_velocity_norm = integrate_in_time(
-            time, velocity_norm(ref_receiver, fused_index)
+            time, velocity_norm(ref_receiver, fused_suffix)
         )
         diff_velocity_norm = integrate_in_time(
-            time, velocity_norm(difference, fused_index)
+            time, velocity_norm(difference, fused_suffix)
         )
         rel_velocity_diff = diff_velocity_norm / ref_velocity_norm
         max_velocity = (
@@ -241,9 +247,9 @@ def receiver_diff(args, i):
         )
 
         ref_stress_norm = integrate_in_time(
-            time, stress_norm(ref_receiver, fused_index)
+            time, stress_norm(ref_receiver, fused_suffix)
         )
-        diff_stress_norm = integrate_in_time(time, stress_norm(difference, fused_index))
+        diff_stress_norm = integrate_in_time(time, stress_norm(difference, fused_suffix))
         rel_stress_diff = diff_stress_norm / ref_stress_norm
         max_stress = rel_stress_diff if rel_stress_diff > max_stress else max_stress
 
@@ -272,10 +278,13 @@ def faultreceiver_diff(args, i, quantities):
     time = sim_receiver["Time"]
     difference = sim_receiver - ref_receiver
     number_of_fused_sims = get_number_of_fused_sims(sim_receiver.columns) - 1 # -1 because the numbering of fault receivers is different for fused when compared to off-fault receivers
+    if number_of_fused_sims < 1:
+        print("Setting the number of fused simulations to 1, because the receiver file does not contain any fused simulations.")
+        number_of_fused_sims = 1
     # We still want to use the same time and not the difference in time steps.
     difference["Time"] = ref_receiver["Time"]
 
-    errors = pd.DataFrame(0, index=[i], columns=quantities)
+    errors = pd.DataFrame(0.0, index=[i], columns=quantities)
 
     possible_quantity_names = [
         "absolute slip",
@@ -296,8 +305,8 @@ def faultreceiver_diff(args, i, quantities):
     for fused_index in range(number_of_fused_sims):
         for quantity_name in possible_quantity_names:
             if quantity_name in quantities:
-                ref_norm = integrate_quantity_in_time(ref_receiver, quantity_name, fused_index=fused_index+1) # +1 because we want to use the fused index as per fault receiver numbering
-                diff_norm = integrate_quantity_in_time(difference, quantity_name, fused_index=fused_index+1)
+                ref_norm = integrate_quantity_in_time(ref_receiver, quantity_name, fused_index=fused_index, number_of_fused_sims=number_of_fused_sims)
+                diff_norm = integrate_quantity_in_time(difference, quantity_name, fused_index=fused_index, number_of_fused_sims=number_of_fused_sims)
                 errors.loc[i, quantity_name] = (
                     diff_norm / ref_norm
                     if diff_norm / ref_norm > errors.loc[i, quantity_name]

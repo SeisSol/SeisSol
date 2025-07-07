@@ -27,7 +27,7 @@ class SeisSol;
 namespace seissol::geometry {
 
 struct GhostElementMetadata {
-  double vertices[4][3];
+  double vertices[Cell::NumVertices][Cell::Dim];
   int group;
   LocalElemId localId;
   GlobalElemId globalId;

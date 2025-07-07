@@ -94,7 +94,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       updateTime += dt;
 
-      for (int i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
+      for (unsigned i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
         common::adjustInitialStress<gpuRangeType>(
             ctx.data->initialStressInFaultCS[ctx.ltsFace],
             ctx.data->nucleationStressInFaultCS[i][ctx.ltsFace],
