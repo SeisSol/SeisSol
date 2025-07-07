@@ -191,13 +191,6 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
         // solve again for Vnew
         this->slipRateMagnitude[ltsFace][pointIndex] = std::fabs(testSlipRate[pointIndex]);
-
-        // update friction coefficient based on new state variable and slip rate
-        this->mu[ltsFace][pointIndex] =
-            static_cast<Derived*>(this)->updateMu(ltsFace,
-                                                  pointIndex,
-                                                  this->slipRateMagnitude[ltsFace][pointIndex],
-                                                  localStateVariable[pointIndex]);
       } // End of pointIndex-loop
     }
   }
@@ -211,6 +204,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                TractionResults<Executor::Host>& tractionResults,
                                unsigned int timeIndex,
                                unsigned int ltsFace) {
+    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 #pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // SV from mean slip rate in tmp
@@ -222,11 +216,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                                            localSlipRate[pointIndex]);
 
       // update LocMu for next strength determination, only needed for last update
-      this->mu[ltsFace][pointIndex] =
-          static_cast<Derived*>(this)->updateMu(ltsFace,
-                                                pointIndex,
-                                                this->slipRateMagnitude[ltsFace][pointIndex],
-                                                localStateVariable[pointIndex]);
+      this->mu[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
+          pointIndex, this->slipRateMagnitude[ltsFace][pointIndex], details);
       const real strength = -this->mu[ltsFace][pointIndex] * normalStress[pointIndex];
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 = this->initialStressInFaultCS[ltsFace][3][pointIndex] +
@@ -304,6 +295,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     double g[misc::NumPaddedPoints];
     double dG[misc::NumPaddedPoints];
 
+    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+
+#pragma omp simd
     for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // first guess = sliprate value of the previous step
       slipRateTest[pointIndex] = this->slipRateMagnitude[ltsFace][pointIndex];
@@ -313,10 +307,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 #pragma omp simd
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // calculate friction coefficient and objective function
-        muF[pointIndex] = static_cast<Derived*>(this)->updateMu(
-            ltsFace, pointIndex, slipRateTest[pointIndex], localStateVariable[pointIndex]);
-        dMuF[pointIndex] = static_cast<Derived*>(this)->updateMuDerivative(
-            ltsFace, pointIndex, slipRateTest[pointIndex], localStateVariable[pointIndex]);
+        muF[pointIndex] =
+            static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTest[pointIndex], details);
         g[pointIndex] = -this->impAndEta[ltsFace].invEtaS *
                             (std::fabs(normalStress[pointIndex]) * muF[pointIndex] -
                              absoluteShearStress[pointIndex]) -
@@ -328,10 +320,16 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         return std::fabs(val) < settings.newtonTolerance;
       });
       if (hasConverged) {
+#pragma omp simd
+        for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+          this->mu[ltsFace][pointIndex] = muF[pointIndex];
+        }
         return hasConverged;
       }
 #pragma omp simd
       for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+        dMuF[pointIndex] = static_cast<Derived*>(this)->updateMuDerivative(
+            pointIndex, slipRateTest[pointIndex], details);
 
         // derivative of g
         dG[pointIndex] = -this->impAndEta[ltsFace].invEtaS *
