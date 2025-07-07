@@ -16,6 +16,7 @@
 #include <Equations/viscoelastic2/Model/Datastructures.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
+#include <Geometry/PUMLReader.h>
 #include <Kernels/Precision.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Datastructures.h>
@@ -33,8 +34,6 @@
 #include <vector>
 #ifdef USE_HDF
 // PUML.h needs to be included before Downward.h
-
-#include "PUML/PUML.h"
 
 #include "PUML/Downward.h"
 
@@ -82,7 +81,7 @@ CellToVertexArray
 }
 
 #ifdef USE_HDF
-CellToVertexArray CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
+CellToVertexArray CellToVertexArray::fromPUML(const seissol::geometry::PumlMesh& mesh) {
   const int* groups = reinterpret_cast<const int*>(mesh.cellData(0));
   const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
