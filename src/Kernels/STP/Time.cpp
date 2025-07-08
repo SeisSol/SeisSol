@@ -12,7 +12,7 @@ extern long long libxsmm_num_total_flops;
 #endif
 
 #include "Kernels/Common.h"
-#include "Kernels/DenseMatrixOps.h"
+#include "Kernels/MemoryOps.h"
 
 #include <Eigen/Dense>
 #include <cassert>
@@ -150,7 +150,7 @@ void Spacetime::computeAder(double timeStepWidth,
   executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
 }
 
-void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
   hardwareFlops = 0;
@@ -162,8 +162,8 @@ void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlop
   hardwareFlops += 3 * init::star::size(0);
 }
 
-unsigned Spacetime::bytesAder() {
-  unsigned reals = 0;
+std::uint64_t Spacetime::bytesAder() {
+  std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
   reals += tensor::Q::size() + 2 * tensor::I::size();

@@ -8,8 +8,6 @@
 
 #include "SeisSol.h"
 
-#include <Common/Executor.h>
-#include <Kernels/Common.h>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -37,7 +35,6 @@ bool SeisSol::init(int argc, char* argv[]) {
     logInfo() << "Running on (rank=0):" << hostNames.front();
   }
 
-#ifdef USE_MPI
   logInfo() << "Using MPI with #ranks:" << seissol::MPI::mpi.size();
   logInfo() << "Node-wide (shared memory) MPI with #ranks/node:"
             << seissol::MPI::mpi.sharedMemMpiSize();
@@ -46,7 +43,6 @@ bool SeisSol::init(int argc, char* argv[]) {
   seissol::MPI::mpi.setDataTransferModeFromEnv();
 
   printPersistentMpiInfo(m_env);
-#endif
 #ifdef ACL_DEVICE
   printUSMInfo(m_env);
   printMPIUSMInfo(m_env);
@@ -141,19 +137,6 @@ void SeisSol::setBackupTimeStamp(const std::string& stamp) {
 
 void SeisSol::loadCheckpoint(const std::string& file) {
   checkpointLoadFile = std::make_optional<std::string>(file);
-}
-
-Executor SeisSol::executionPlace(std::size_t clusterSize) {
-  constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
-  if (executionPlaceCutoff.has_value()) {
-    if (executionPlaceCutoff.value() <= clusterSize) {
-      return DefaultDevice;
-    } else {
-      return Executor::Host;
-    }
-  } else {
-    return DefaultDevice;
-  }
 }
 
 void SeisSol::setExecutionPlaceCutoff(std::size_t size) { executionPlaceCutoff = size; }

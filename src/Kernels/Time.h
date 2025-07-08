@@ -29,7 +29,7 @@ class TimeKernel : public Kernel {
       std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
       const real* timeDerivatives,
       real timeEvaluated[tensor::Q::size()]) = 0;
-  virtual void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) = 0;
+  virtual void flopsEvaluateAtTime(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) = 0;
 
   virtual void computeIntegral(double expansionPoint,
                                double integrationStart,
@@ -58,7 +58,7 @@ class TimeKernel : public Kernel {
                                     size_t numElements,
                                     seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) = 0;
+  virtual void flopsTaylorExpansion(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) = 0;
 };
 
 } // namespace seissol::kernels

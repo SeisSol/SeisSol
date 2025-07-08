@@ -8,12 +8,14 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "TimeCommon.h"
+#include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Kernels/Precision.h>
 #include <Kernels/Solver.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
+#include <cstddef>
 #include <stdint.h>
 #include <tensor.h>
 
@@ -285,7 +287,7 @@ void TimeCommon::computeIntegrals(Time& time,
 
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
-  for (int dofneighbor = 0; dofneighbor < 4; dofneighbor++) {
+  for (std::size_t dofneighbor = 0; dofneighbor < Cell::NumFaces; dofneighbor++) {
     assert(reinterpret_cast<uintptr_t>(timeDofs[dofneighbor]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(integrationBuffer[dofneighbor]) % Alignment == 0);
   }
@@ -294,7 +296,7 @@ void TimeCommon::computeIntegrals(Time& time,
   /*
    * set/compute time integrated DOFs.
    */
-  for (unsigned dofneighbor = 0; dofneighbor < 4; ++dofneighbor) {
+  for (std::size_t dofneighbor = 0; dofneighbor < Cell::NumFaces; ++dofneighbor) {
     // collect information only in the case that neighboring element contributions are required
     if (faceTypes[dofneighbor] != FaceType::Outflow &&
         faceTypes[dofneighbor] != FaceType::DynamicRupture) {
@@ -329,7 +331,7 @@ void TimeCommon::computeIntegrals(Time& time,
   startTimes[1] = startTimes[2] = startTimes[3] = startTimes[4] = 0;
 
   // adjust start times for GTS on derivatives
-  for (unsigned int face = 0; face < 4; face++) {
+  for (std::size_t face = 0; face < Cell::NumFaces; face++) {
     if (((ltsSetup >> (face + 4)) % 2) != 0) {
       startTimes[face + 1] = timeStepStart;
     }

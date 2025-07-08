@@ -22,6 +22,7 @@
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
 #include <cstddef>
+#include <cstdint>
 #include <generated_code/init.h>
 #include <generated_code/kernel.h>
 #include <tensor.h>
@@ -56,8 +57,8 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
   m_nodalLfKrnlPrototype.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
 
-  m_projectKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
-  m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
+  m_projectKrnlPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -71,7 +72,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
 #endif
   deviceNodalLfKrnlPrototype.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-  deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->V3mTo2nFace;
+  deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
 }
 
@@ -134,7 +135,7 @@ void Local::computeIntegral(real* timeIntegratedDegreesOfFreedom,
 
   volKrnl.execute();
 
-  for (int face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
     if (data.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
       lfKrnl.AplusT = data.localIntegration().nApNm1[face];
@@ -284,7 +285,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
   }
 
   // Local Flux Integral
-  for (unsigned face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
 
     if (dataTable.find(key) != dataTable.end()) {
@@ -358,15 +359,15 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
                                            seissol::parallel::runtime::StreamRuntime& runtime) {
 
 #ifdef ACL_DEVICE
-  for (unsigned face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if (indicesTable.find(analyticalKey) != indicesTable.end()) {
       const auto& cellIds =
           indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
       const size_t numElements = cellIds.size();
-      auto* analytical = reinterpret_cast<real(*)[tensor::INodal::size()]>(
-          layer.getScratchpadMemory(lts.analyticScratch));
+      auto* analytical =
+          reinterpret_cast<real(*)[tensor::INodal::size()]>(layer.var(lts.analyticScratch));
 
       runtime.enqueueOmpFor(numElements, [=, &cellIds](std::size_t index) {
         auto cellId = cellIds.at(index);
@@ -412,12 +413,12 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
 }
 
 void Local::flopsIntegral(const FaceType faceTypes[4],
-                          unsigned int& nonZeroFlops,
-                          unsigned int& hardwareFlops) {
+                          std::uint64_t& nonZeroFlops,
+                          std::uint64_t& hardwareFlops) {
   nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
   hardwareFlops = seissol::kernel::volume::HardwareFlops;
 
-  for (unsigned int face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
     if (faceTypes[face] != FaceType::DynamicRupture) {
@@ -454,13 +455,13 @@ void Local::flopsIntegral(const FaceType faceTypes[4],
   }
 }
 
-unsigned Local::bytesIntegral() {
-  unsigned reals = 0;
+std::uint64_t Local::bytesIntegral() {
+  std::uint64_t reals = 0;
 
   // star matrices load
   reals += yateto::computeFamilySize<tensor::star>();
   // flux solvers
-  reals += 4 * tensor::AplusT::size();
+  reals += static_cast<std::uint64_t>(4 * tensor::AplusT::size());
 
   // DOFs write
   reals += tensor::Q::size();

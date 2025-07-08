@@ -94,7 +94,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
       updateTime += dt;
 
-      for (int i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
+      for (unsigned i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
         common::adjustInitialStress<gpuRangeType>(
             ctx.data->initialStressInFaultCS[ctx.ltsFace],
             ctx.data->nucleationStressInFaultCS[i][ctx.ltsFace],
@@ -184,7 +184,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
 
-    if (layerData.getNumberOfCells() == 0) {
+    if (layerData.size() == 0) {
       return;
     }
 
@@ -193,7 +193,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
     FrictionSolverInterface::copyLtsTreeToLocal(&dataHost, layerData, dynRup, fullUpdateTime);
     Derived::copySpecificLtsDataTreeToLocal(&dataHost, layerData, dynRup, fullUpdateTime);
-    this->currLayerSize = layerData.getNumberOfCells();
+    this->currLayerSize = layerData.size();
     dataHost.drParameters = *this->drParameters;
 
     std::memcpy(dataHost.deltaT, deltaT, sizeof(decltype(deltaT)));

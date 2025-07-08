@@ -28,13 +28,13 @@ class Plasticity {
 
   /** Returns 1 if there was plastic yielding otherwise 0.
    */
-  static unsigned computePlasticity(double oneMinusIntegratingFactor,
-                                    double timeStepWidth,
-                                    double tV,
-                                    const GlobalData* global,
-                                    const seissol::model::PlasticityData* plasticityData,
-                                    real degreesOfFreedom[tensor::Q::size()],
-                                    real* pstrain);
+  static std::size_t computePlasticity(double oneMinusIntegratingFactor,
+                                       double timeStepWidth,
+                                       double tV,
+                                       const GlobalData* global,
+                                       const seissol::model::PlasticityData* plasticityData,
+                                       real degreesOfFreedom[tensor::Q::size()],
+                                       real* pstrain);
 
   static void
       computePlasticityBatched(double timeStepWidth,
@@ -42,13 +42,14 @@ class Plasticity {
                                const GlobalData* global,
                                initializer::recording::ConditionalPointersToRealsTable& table,
                                seissol::model::PlasticityData* plasticityData,
-                               unsigned* yieldCounter,
+                               std::size_t* yieldCounter,
+                               unsigned* isAdjustableVector,
                                seissol::parallel::runtime::StreamRuntime& runtime);
 
-  static void flopsPlasticity(long long& nonZeroFlopsCheck,
-                              long long& hardwareFlopsCheck,
-                              long long& nonZeroFlopsYield,
-                              long long& hardwareFlopsYield);
+  static void flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
+                              std::uint64_t& hardwareFlopsCheck,
+                              std::uint64_t& nonZeroFlopsYield,
+                              std::uint64_t& hardwareFlopsYield);
 };
 
 } // namespace seissol::kernels

@@ -16,13 +16,14 @@ class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
     using DrLtsDescrType = seissol::initializer::LTSLinearSlipWeakeningBimaterial;
     const auto* const regularizedStrengths =
         getCellData(local, static_cast<DrLtsDescrType*>(drDescr)->regularizedStrength);
-    return regularizedStrengths[local.nearestGpIndex];
+    return regularizedStrengths[local.gpIndex];
   }
 
   std::vector<std::size_t> getOutputVariables() const override {
     using DrLtsDescrType = seissol::initializer::LTSLinearSlipWeakeningBimaterial;
     auto baseVector = LinearSlipWeakening::getOutputVariables();
-    baseVector.push_back(static_cast<DrLtsDescrType*>(drDescr)->regularizedStrength.index);
+    baseVector.push_back(
+        drTree->info(dynamic_cast<DrLtsDescrType*>(drDescr)->regularizedStrength).index);
     return baseVector;
   }
 };

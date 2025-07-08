@@ -13,9 +13,7 @@
 
 #include "Memory/Tree/Layer.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#ifdef USE_MPI
 #include <mpi.h>
-#endif
 
 #include <utils/logger.h>
 
@@ -66,7 +64,6 @@ class MemoryManager {
     //! number of derivatives in the interior per cluster
     unsigned int *m_numberOfInteriorDerivatives;
 
-#ifdef USE_MPI
     /*
      * Ghost layer
      */
@@ -96,7 +93,6 @@ class MemoryManager {
 
     //! number of derivatives in the copy regionsper cluster
     unsigned int **m_numberOfCopyRegionDerivatives;
-#endif
 
     /*
      * Cross-cluster
@@ -164,14 +160,12 @@ class MemoryManager {
     /**
      * Initializes the displacement accumulation buffer.
      */
-  void initializeFaceDisplacements();
+    void initializeFaceDisplacements();
 
-#ifdef USE_MPI
     /**
      * Initializes the communication structure.
      **/
     void initializeCommunicationStructure();
-#endif
 
   public:
     /**
@@ -195,8 +189,8 @@ class MemoryManager {
      *
      * @param i_meshStructrue mesh structure.
      **/
-    void fixateLtsTree(struct TimeStepping& i_timeStepping,
-                       struct MeshStructure*i_meshStructure,
+    void fixateLtsTree(struct ClusterLayout& clusterLayout,
+                       struct MeshStructure* meshStructure,
                        unsigned* numberOfDRCopyFaces,
                        unsigned* numberOfDRInteriorFaces,
                        bool usePlasticity);
@@ -339,7 +333,7 @@ class MemoryManager {
   /**
    * Derives sizes of scratch memory required during computations of Wave Propagation solver
    **/
-  static void deriveRequiredScratchpadMemoryForWp(LTSTree &ltsTree, LTS& lts);
+  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree &ltsTree, LTS& lts);
 
   /**
    * Derives sizes of scratch memory required during computations of Dynamic Rupture solver

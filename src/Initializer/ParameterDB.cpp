@@ -72,7 +72,7 @@ CellToVertexArray
       elements.size(),
       [&](size_t index) {
         std::array<Eigen::Vector3d, 4> verts;
-        for (size_t i = 0; i < 4; ++i) {
+        for (size_t i = 0; i < Cell::NumVertices; ++i) {
           auto vindex = elements[index].vertices[i];
           const auto& vertex = vertices[vindex];
           verts[i] << vertex.coords[0], vertex.coords[1], vertex.coords[2];
@@ -91,10 +91,10 @@ CellToVertexArray CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
       elements.size(),
       [&](size_t cell) {
         std::array<Eigen::Vector3d, 4> x;
-        unsigned vertLids[4];
+        unsigned vertLids[Cell::NumVertices];
         PUML::Downward::vertices(mesh, elements[cell], vertLids);
-        for (unsigned vtx = 0; vtx < 4; ++vtx) {
-          for (unsigned d = 0; d < 3; ++d) {
+        for (std::size_t vtx = 0; vtx < Cell::NumVertices; ++vtx) {
+          for (std::size_t d = 0; d < Cell::Dim; ++d) {
             x[vtx](d) = vertices[vertLids[vtx]].coordinate()[d];
           }
         }
@@ -105,15 +105,15 @@ CellToVertexArray CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
 #endif
 
 CellToVertexArray CellToVertexArray::fromVectors(
-    const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
+    const std::vector<std::array<std::array<double, Cell::Dim>, Cell::NumVertices>>& vertices,
     const std::vector<int>& groups) {
   assert(vertices.size() == groups.size());
 
   return CellToVertexArray(
       vertices.size(),
       [&](size_t idx) {
-        std::array<Eigen::Vector3d, 4> verts;
-        for (size_t i = 0; i < 4; ++i) {
+        std::array<Eigen::Vector3d, Cell::NumVertices> verts;
+        for (size_t i = 0; i < Cell::NumVertices; ++i) {
           verts[i] << vertices[idx][i][0], vertices[idx][i][1], vertices[idx][i][2];
         }
         return verts;
@@ -122,7 +122,7 @@ CellToVertexArray CellToVertexArray::fromVectors(
 }
 
 easi::Query ElementBarycenterGenerator::generate() const {
-  easi::Query query(m_cellToVertex.size, 3);
+  easi::Query query(m_cellToVertex.size, Cell::Dim);
 
 #pragma omp parallel for schedule(static)
   for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
@@ -177,7 +177,7 @@ easi::Query FaultBarycenterGenerator::generate() const {
   const std::vector<Element>& elements = m_meshReader.getElements();
   const std::vector<Vertex>& vertices = m_meshReader.getVertices();
 
-  easi::Query query(m_numberOfPoints * fault.size(), 3);
+  easi::Query query(m_numberOfPoints * fault.size(), Cell::Dim);
   unsigned q = 0;
   for (const Fault& f : fault) {
     int element = 0;
@@ -193,7 +193,7 @@ easi::Query FaultBarycenterGenerator::generate() const {
     double barycenter[3] = {0.0, 0.0, 0.0};
     MeshTools::center(elements[element], side, vertices, barycenter);
     for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
-      for (unsigned dim = 0; dim < 3; ++dim) {
+      for (unsigned dim = 0; dim < Cell::Dim; ++dim) {
         query.x(q, dim) = barycenter[dim];
       }
       query.group(q) = elements[element].faultTags[side];
@@ -209,7 +209,7 @@ easi::Query FaultGPGenerator::generate() const {
 
   constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim;
   auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
-  easi::Query query(NumPoints * m_faceIDs.size(), 3);
+  easi::Query query(NumPoints * m_faceIDs.size(), Cell::Dim);
   unsigned q = 0;
   // loop over all fault elements which are managed by this generator
   // note: we have one generator per LTS layer
@@ -231,7 +231,8 @@ easi::Query FaultGPGenerator::generate() const {
     auto coords = cellToVertex.elementCoordinates(element);
     for (unsigned n = 0; n < NumPoints; ++n, ++q) {
       double xiEtaZeta[3];
-      double localPoints[2] = {pointsView(n, 0), pointsView(n, 1)};
+      double localPoints[2] = {seissol::multisim::multisimTranspose(pointsView, n, 0),
+                               seissol::multisim::multisimTranspose(pointsView, n, 1)};
       // padded points are in the middle of the tetrahedron
       if (n >= dr::misc::NumBoundaryGaussPoints) {
         localPoints[0] = 1.0 / 3.0;

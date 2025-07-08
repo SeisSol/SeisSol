@@ -174,9 +174,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
 
   const hid_t h5dxlist = H5Pcreate(H5P_DATASET_XFER);
   _eh(h5dxlist);
-#ifdef USE_MPI
   _eh(H5Pset_dxpl_mpio(h5dxlist, H5FD_MPIO_COLLECTIVE));
-#endif
 
   const hid_t h5memtype = datatype::convertToHdf5(source->datatype());
 
@@ -226,7 +224,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     const auto [memspace, space] = [&]() -> std::pair<hid_t, hid_t> {
       if (nullstart.empty()) {
         return {h5memspace, h5space};
-      } else if (source->distributed() && writeLength[0] > 0) {
+      } else if (writeLength[0] > 0 || !source->distributed()) {
         _eh(H5Sselect_hyperslab(
             h5memspace, H5S_SELECT_SET, nullstart.data(), nullptr, writeLength.data(), nullptr));
 
@@ -293,7 +291,7 @@ void Hdf5Writer::writeAttribute(const async::ExecInfo& info,
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (const auto& _ : write.location.groups()) {
+  for (const auto& _ [[maybe_unused]] : write.location.groups()) {
     file.closeGroup();
   }
 }
@@ -315,7 +313,7 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (const auto& _ : write.location.groups()) {
+  for (const auto& _ [[maybe_unused]] : write.location.groups()) {
     file.closeGroup();
   }
 }
