@@ -13,6 +13,7 @@
 #include "ReceiverBasedOutputBuilder.h"
 
 #include <Common/Iterator.h>
+#include <Geometry/CellTransform.h>
 #include <memory>
 #include <optional>
 
@@ -85,19 +86,17 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         receiver.globalTriangle = getGlobalTriangle(faultItem.side, element, meshVertices);
         projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
 
-        contained[receiverIdx] = true;
+        contained[receiverIdx] = 1;
         receiver.isInside = true;
         receiver.faultFaceIndex = closest.value();
         receiver.localFaceSideId = faultItem.side;
         receiver.globalReceiverIndex = receiverIdx;
         receiver.elementIndex = element.localId;
 
-        receiver.reference =
-            transformations::tetrahedronGlobalToReference(meshVertices[element.vertices[0]].coords,
-                                                          meshVertices[element.vertices[1]].coords,
-                                                          meshVertices[element.vertices[2]].coords,
-                                                          meshVertices[element.vertices[3]].coords,
-                                                          receiver.global.getAsEigen3LibVector());
+        const auto transform =
+            seissol::geometry::AffineTransform::fromMeshCell(faultItem.element, *meshReader);
+
+        receiver.reference = transform.spaceToRef(receiver.global.getAsEigen3LibVector());
       }
     }
 
@@ -145,14 +144,13 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     outputData->currentCacheLevel = 0;
   }
 
-  protected:
   void reportFoundReceivers(std::vector<short>& localContainVector) {
     const auto size = localContainVector.size();
     std::vector<short> globalContainVector(size);
 
-    auto comm = MPI::mpi.comm();
-    MPI_Reduce(const_cast<short*>(&localContainVector[0]),
-               const_cast<short*>(&globalContainVector[0]),
+    auto* comm = MPI::mpi.comm();
+    MPI_Reduce(const_cast<short*>(localContainVector.data()),
+               const_cast<short*>(globalContainVector.data()),
                size,
                MPI_SHORT,
                MPI_SUM,
@@ -164,7 +162,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       std::size_t missing = 0;
       for (size_t idx{0}; idx < size; ++idx) {
         const auto isFound = globalContainVector[idx];
-        if (!isFound) {
+        if (isFound == 0) {
           logWarning() << "On-fault receiver " << idx
                        << " is not inside any element along the rupture surface";
           allReceiversFound = false;
@@ -181,7 +179,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
   private:
   seissol::initializer::parameters::PickpointParameters pickpointParams;
-  std::vector<ReceiverPoint> potentialReceivers{};
+  std::vector<ReceiverPoint> potentialReceivers;
 };
 } // namespace seissol::dr::output
 

@@ -21,6 +21,7 @@
 #include "generated_code/init.h"
 #include <Common/Executor.h>
 #include <Eigen/Dense>
+#include <Geometry/CellTransform.h>
 #include <Initializer/Typedefs.h>
 #include <optional>
 #include <vector>
@@ -33,7 +34,7 @@ namespace kernels {
 struct Receiver {
   Receiver(unsigned pointId,
            Eigen::Vector3d position,
-           const std::array<std::array<double, Cell::Dim>, Cell::NumVertices>& elementCoords,
+           const seissol::geometry::CellTransform& elementCoords,
            kernels::LocalData dataHost,
            kernels::LocalData dataDevice,
            size_t reserved);

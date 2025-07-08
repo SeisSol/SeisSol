@@ -328,8 +328,8 @@ struct DREnergyOutput {
 };
 
 struct CellDRMapping {
-  unsigned side;
-  unsigned faceRelation;
+  int8_t side;
+  int8_t faceRelation;
   real* godunov;
   real* fluxSolver;
 };

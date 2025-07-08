@@ -21,6 +21,7 @@
 #include "generated_code/tensor.h"
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
+#include <Geometry/CellTransform.h>
 #include <Geometry/MeshReader.h>
 #include <Geometry/MeshTools.h>
 #include <Initializer/Parameters/SourceParameters.h>
@@ -71,7 +72,7 @@ using namespace seissol::sourceterm;
  * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
  */
 void computeMInvJInvPhisAtSources(
-    const Eigen::Vector3d& centre,
+    const Eigen::Vector3d& center,
     seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>&
         mInvJInvPhisAtSources,
     unsigned meshId,
@@ -79,12 +80,8 @@ void computeMInvJInvPhisAtSources(
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
-  std::array<std::array<double, Cell::Dim>, Cell::NumVertices> coords;
-  for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
-    coords[v] = vertices[elements[meshId].vertices[v]].coords;
-  }
-  const auto xiEtaZeta = transformations::tetrahedronGlobalToReference(
-      coords[0], coords[1], coords[2], coords[3], centre);
+  const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, mesh);
+  const auto xiEtaZeta = transform.spaceToRef(center);
   const auto basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
       ConvergenceOrder, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
@@ -99,7 +96,7 @@ void computeMInvJInvPhisAtSources(
   krnl.execute();
 }
 
-void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
+void transformNRFSourceToInternalSource(const Eigen::Vector3d& center,
                                         unsigned meshId,
                                         const seissol::geometry::MeshReader& mesh,
                                         const Subfault& subfault,
@@ -110,7 +107,7 @@ void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
                                         PointSources& pointSources,
                                         unsigned index,
                                         seissol::memory::Memkind memkind) {
-  computeMInvJInvPhisAtSources(centre, pointSources.mInvJInvPhisAtSources[index], meshId, mesh);
+  computeMInvJInvPhisAtSources(center, pointSources.mInvJInvPhisAtSources[index], meshId, mesh);
 
   auto& faultBasis = pointSources.tensor[index];
   faultBasis[0] = subfault.tan1(0);

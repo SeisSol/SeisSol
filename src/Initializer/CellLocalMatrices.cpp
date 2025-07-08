@@ -192,12 +192,12 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
         const auto meshId = secondaryInformation[cell].meshId;
 
-        double x[Cell::NumVertices];
-        double y[Cell::NumVertices];
-        double z[Cell::NumVertices];
-        std::array<double, 3> gradXi;
-        std::array<double, 3> gradEta;
-        std::array<double, 3> gradZeta;
+        std::array<double, Cell::NumVertices> x;
+        std::array<double, Cell::NumVertices> y;
+        std::array<double, Cell::NumVertices> z;
+        std::array<double, Cell::Dim> gradXi;
+        std::array<double, Cell::Dim> gradEta;
+        std::array<double, Cell::Dim> gradZeta;
 
         // Iterate over all 4 vertices of the tetrahedron
         for (std::size_t vertex = 0; vertex < Cell::NumVertices; ++vertex) {
@@ -207,6 +207,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           z[vertex] = coords[2];
         }
 
+        // IMPORTANT NOTE: we rely on the linearity of the cell transform in this place.
+        // hence, you may use an AffineTransform with an arbitrary point here; but nothing more.
         seissol::transformations::tetrahedronGlobalToReferenceJacobian(
             x, y, z, gradXi, gradEta, gradZeta);
 
@@ -519,8 +521,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
 
       /// Look for time derivative mapping in all duplicates
-      int derivativesMeshId = 0;
-      unsigned derivativesSide = 0;
+      size_t derivativesMeshId = 0;
+      int8_t derivativesSide = 0;
       if (fault[meshFace].element >= 0) {
         derivativesMeshId = fault[meshFace].element;
         derivativesSide = faceInformation[ltsFace].plusSide;

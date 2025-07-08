@@ -103,7 +103,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       elementIndicesGhost;
   std::size_t foundPoints = 0;
 
-  constexpr size_t NumVertices{4};
+  constexpr size_t NumVertices{Cell::NumVertices};
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
       if (faceIndices.find(faceToLtsMap->at(point.faultFaceIndex)) == faceIndices.end()) {

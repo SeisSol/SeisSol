@@ -58,9 +58,9 @@ Eigen::Vector3d seissol::transformations::tetrahedronGlobalToReference(const Coo
   return xiEtaZeta;
 }
 
-void seissol::transformations::tetrahedronGlobalToReferenceJacobian(const double iX[4],
-                                                                    const double iY[4],
-                                                                    const double iZ[4],
+void seissol::transformations::tetrahedronGlobalToReferenceJacobian(const std::array<double, 4>& iX,
+                                                                    const std::array<double, 4>& iY,
+                                                                    const std::array<double, 4>& iZ,
                                                                     CoordinateT& oGradXi,
                                                                     CoordinateT& oGradEta,
                                                                     CoordinateT& oGradZeta) {

@@ -14,6 +14,7 @@
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Common/Executor.h>
+#include <Geometry/CellTransform.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/Interface.h>
@@ -44,23 +45,22 @@
 
 namespace seissol::kernels {
 
-Receiver::Receiver(
-    unsigned pointId,
-    Eigen::Vector3d position,
-    const std::array<std::array<double, Cell::Dim>, Cell::NumVertices>& elementCoords,
-    kernels::LocalData dataHost,
-    kernels::LocalData dataDevice,
-    size_t reserved)
+Receiver::Receiver(unsigned pointId,
+                   Eigen::Vector3d position,
+                   const seissol::geometry::CellTransform& transform,
+                   kernels::LocalData dataHost,
+                   kernels::LocalData dataDevice,
+                   size_t reserved)
     : pointId(pointId), position(std::move(position)), dataHost(dataHost), dataDevice(dataDevice) {
   output.reserve(reserved);
 
-  auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(
-      elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], this->position);
+  auto xiEtaZeta = transform.spaceToRef(position);
   basisFunctions = basisFunction::SampledBasisFunctions<real>(
       ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(
       ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
-  basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
+  basisFunctionDerivatives.transformToGlobalCoordinates(
+      transform, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
 }
 
 ReceiverCluster::ReceiverCluster(seissol::SeisSol& seissolInstance)
@@ -90,17 +90,14 @@ void ReceiverCluster::addReceiver(unsigned meshId,
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
-  std::array<std::array<double, Cell::Dim>, Cell::NumVertices> coords{};
-  for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
-    coords[v] = vertices[elements[meshId].vertices[v]].coords;
-  }
+  const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, mesh);
 
   // (time + number of quantities) * number of samples until sync point
   const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
   m_receivers.emplace_back(
       pointId,
       point,
-      coords,
+      transform,
       kernels::LocalData::lookup(lts, ltsLut, meshId, initializer::AllocationPlace::Host),
       kernels::LocalData::lookup(lts,
                                  ltsLut,

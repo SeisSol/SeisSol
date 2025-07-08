@@ -47,9 +47,9 @@ Eigen::Vector3d tetrahedronGlobalToReference(const CoordinateT& v0,
  * xi(x, y, z), eta(x, y, z), zeta(x, y, z)
  * from a global tetrahedron to the reference tetrahedron.
  **/
-void tetrahedronGlobalToReferenceJacobian(const double iX[4],
-                                          const double iY[4],
-                                          const double iZ[4],
+void tetrahedronGlobalToReferenceJacobian(const std::array<double, 4>& iX,
+                                          const std::array<double, 4>& iY,
+                                          const std::array<double, 4>& iZ,
                                           CoordinateT& oGradXi,
                                           CoordinateT& oGradEta,
                                           CoordinateT& oGradZeta);
