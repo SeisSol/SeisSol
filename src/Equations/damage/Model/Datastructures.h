@@ -72,16 +72,16 @@ struct DamageMaterial : Material {
 
   DamageMaterial() = default;
 
-  // void assignTotalStrain() override {
-  //   this->mu0 = this->mu;
-  //   this->lambda0 = this->lambda;
-  //   this->epsTot_xx = this->epsInit_xx;
-  //   this->epsTot_yy = this->epsInit_yy;
-  //   this->epsTot_zz = this->epsInit_zz;
-  //   this->epsTot_xy = this->epsInit_xy;
-  //   this->epsTot_yz = this->epsInit_yz;
-  //   this->epsTot_xz = this->epsInit_xz;
-  // }
+  void assignTotalStrain() override {
+    this->mu0 = this->mu;
+    this->lambda0 = this->lambda;
+    this->epsTot_xx = this->epsInit_xx;
+    this->epsTot_yy = this->epsInit_yy;
+    this->epsTot_zz = this->epsInit_zz;
+    this->epsTot_xy = this->epsInit_xy;
+    this->epsTot_yz = this->epsInit_yz;
+    this->epsTot_xz = this->epsInit_xz;
+  }
 
   // This initialization is not used for material initialization with easi
   DamageMaterial(const std::vector<double>& materialValues)

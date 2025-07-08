@@ -353,9 +353,7 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
   real mat_mu0 = data.material().local.mu0;
   real mat_lambda0 = data.material().local.lambda0;
   real mat_Cd = data.material().local.Cd;
-  real mat_gammaR = data.material().local.gammaR;
-
-  logInfo() << "mu_0 is " << data.material().local.mu;
+  real mat_gammaR = data.material().local.gammaR;;
 
   real epsInitxx = data.material().local.epsInit_xx;
   real epsInityy = data.material().local.epsInit_yy;
