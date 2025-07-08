@@ -51,10 +51,10 @@ Please follow the rules when participating in our community.
 
 # Contributing
 
-We will be happy if you plan to contribute new features, extensions or bug fixes
-to SeisSol. To start off, please, open a new issue and discuss your feature with
-us before diving into coding. Visit our [doxygen documentation](https://ci_seissol.pages.gitlab.lrz.de/SeisSol/master)
-to learn more about the source code structure.
+You are very welcome to contribute new features, extensions or bug fixes
+to SeisSol.
+Before starting, it is best to discuss your planned feature with us;
+e.g. by opening a new issue for it.
 
 To learn more about contributing to SeisSol, please read our [**Contribution page**](CONTRIBUTING.md).
 
@@ -62,6 +62,6 @@ To learn more about contributing to SeisSol, please read our [**Contribution pag
 
 The source code of SeisSol is licensed under the BSD-3-Clause license.
 Some files in the `cmake` and `external` folders may have different licenses
-(BSL-1.0, MIT).
+(BSL-1.0, MIT, BSD-2-Clause).
 
 See the [LICENSE](LICENSE) file for more details.
