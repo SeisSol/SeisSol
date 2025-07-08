@@ -29,6 +29,17 @@ SeisSol is still under heavy development and comes without any guaranteed
 functionality. At the moment we can only provide very limited support for
 general users.
 
+# Citing SeisSol
+
+If you utilize SeisSol in a publication or want to refer to it,
+then please cite [doi.org/10.5281/zenodo.4672483](https://doi.org/10.5281/zenodo.4672483)
+for SeisSol as software package.
+
+If you make use specific SeisSol features,
+or require a list of applications, visit the
+[How To Cite page](https://seissol.org/about/howtocite/) on our website.
+It also includes an example on how to cite SeisSol itself.
+
 # Collaboration
 
 If you are interested in a close collaboration, please contact [Alice Gabriel](https://www.alicegabriel.com/).
