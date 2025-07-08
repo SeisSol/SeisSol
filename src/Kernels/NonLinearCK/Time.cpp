@@ -27,7 +27,7 @@
 #include <iterator>
 
 #include "Kernels/Common.h"
-#include "Kernels/DenseMatrixOps.h"
+#include "Kernels/MemoryOps.h"
 
 #include <cassert>
 #include <cstring>
@@ -49,13 +49,13 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::nonlinearck {
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onHost->V3mTo2nFace;
+  projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->V3mTo2nFace;
+  deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
 }
 
@@ -580,13 +580,13 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
 #endif
 }
 
-void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::derivative::NonZeroFlops;
   hardwareFlops = kernel::derivative::HardwareFlops;
 }
 
-unsigned Spacetime::bytesAder() {
-  unsigned reals = 0;
+std::uint64_t Spacetime::bytesAder() {
+  std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
   reals += tensor::Q::size() + 2 * tensor::I::size();
@@ -821,7 +821,7 @@ void Time::computeBatchedTaylorExpansion(real time,
 #endif
 }
 
-void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsTaylorExpansion(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::derivativeTaylorExpansion::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansion::HardwareFlops;
 }
@@ -839,7 +839,7 @@ void Time::evaluateAtTime(std::shared_ptr<seissol::basisFunction::SampledTimeBas
 #endif
 }
 
-void Time::flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsEvaluateAtTime(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
 #ifdef USE_STP
   // reset flops
   nonZeroFlops = 0;

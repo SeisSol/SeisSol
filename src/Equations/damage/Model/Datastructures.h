@@ -30,11 +30,16 @@ struct DamageMaterial : Material {
   static constexpr std::size_t NumQuantities = 10;
   static constexpr std::size_t NumElasticQuantities = 10;
   static constexpr std::size_t NumberPerMechanism = 0;
+  static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Damage;
   static inline const std::string Text = "damage";
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3", "alpha"};
+  static constexpr std::size_t Parameters = 18 + Material::Parameters;
+
+  static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsLTS = true;
 
   using LocalSpecificData = DamageLocalData;
   using NeighborSpecificData = DamageNeighborData;
@@ -67,16 +72,16 @@ struct DamageMaterial : Material {
 
   DamageMaterial() = default;
 
-  void assignTotalStrain() override {
-    this->mu0 = this->mu;
-    this->lambda0 = this->lambda;
-    this->epsTot_xx = this->epsInit_xx;
-    this->epsTot_yy = this->epsInit_yy;
-    this->epsTot_zz = this->epsInit_zz;
-    this->epsTot_xy = this->epsInit_xy;
-    this->epsTot_yz = this->epsInit_yz;
-    this->epsTot_xz = this->epsInit_xz;
-  }
+  // void assignTotalStrain() override {
+  //   this->mu0 = this->mu;
+  //   this->lambda0 = this->lambda;
+  //   this->epsTot_xx = this->epsInit_xx;
+  //   this->epsTot_yy = this->epsInit_yy;
+  //   this->epsTot_zz = this->epsInit_zz;
+  //   this->epsTot_xy = this->epsInit_xy;
+  //   this->epsTot_yz = this->epsInit_yz;
+  //   this->epsTot_xz = this->epsInit_xz;
+  // }
 
   // This initialization is not used for material initialization with easi
   DamageMaterial(const std::vector<double>& materialValues)

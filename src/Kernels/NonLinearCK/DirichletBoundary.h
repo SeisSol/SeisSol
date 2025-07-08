@@ -43,8 +43,8 @@ void addRotationToProjectKernel(MappingKrnl& projectKernel,
 template <>
 void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
                                 const seissol::CellBoundaryMapping& boundaryMapping) {
-  assert(boundaryMapping.TinvData != nullptr);
-  projectKernel.Tinv = boundaryMapping.TinvData;
+  assert(boundaryMapping.dataTinv != nullptr);
+  projectKernel.Tinv = boundaryMapping.dataTinv;
 }
 #pragma GCC diagnostic pop
 

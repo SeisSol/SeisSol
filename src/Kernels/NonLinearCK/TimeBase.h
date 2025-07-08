@@ -51,9 +51,9 @@ class Spacetime : public SpacetimeKernel {
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) override;
+  void flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
 
-  unsigned bytesAder() override;
+  std::uint64_t bytesAder() override;
 
   private:
   // Keep using the linear integration
@@ -80,7 +80,7 @@ class Time : public TimeKernel {
       std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
       const real* timeDerivatives,
       real timeEvaluated[tensor::Q::size()]) override;
-  void flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) override;
+  void flopsEvaluateAtTime(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
 
   void computeIntegral(double expansionPoint,
                        double integrationStart,
@@ -108,7 +108,7 @@ class Time : public TimeKernel {
                                      size_t numElements,
                                      seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) override;
+  void flopsTaylorExpansion(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
 
   protected:
 #ifdef ACL_DEVICE

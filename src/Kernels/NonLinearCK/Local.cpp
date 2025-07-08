@@ -81,8 +81,8 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
   m_nodalLfKrnlPrototype.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
 
-  m_projectKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
-  m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->V3mTo2nFace;
+  m_projectKrnlPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
   // Initialize for nonlinear related kernels
   m_krnlNonlVolPrototype.kDivM = global.onHost->stiffnessMatrices;
@@ -354,6 +354,8 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
   real mat_lambda0 = data.material().local.lambda0;
   real mat_Cd = data.material().local.Cd;
   real mat_gammaR = data.material().local.gammaR;
+
+  logInfo() << "mu_0 is " << data.material().local.mu;
 
   real epsInitxx = data.material().local.epsInit_xx;
   real epsInityy = data.material().local.epsInit_yy;
@@ -1191,12 +1193,12 @@ void Local::computeTaylorExpansion(real time,
 }
 
 void Local::flopsIntegral(const FaceType faceTypes[4],
-                          unsigned int& nonZeroFlops,
-                          unsigned int& hardwareFlops) {
+                          std::uint64_t& nonZeroFlops,
+                          std::uint64_t& hardwareFlops) {
   nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
   hardwareFlops = seissol::kernel::volume::HardwareFlops;
 
-  for (unsigned int face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < 4; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
     if (faceTypes[face] != FaceType::DynamicRupture) {
@@ -1233,13 +1235,13 @@ void Local::flopsIntegral(const FaceType faceTypes[4],
   }
 }
 
-unsigned Local::bytesIntegral() {
-  unsigned reals = 0;
+std::uint64_t Local::bytesIntegral() {
+  std::uint64_t reals = 0;
 
   // star matrices load
   reals += yateto::computeFamilySize<tensor::star>();
   // flux solvers
-  reals += 4 * tensor::AplusT::size();
+  reals += static_cast<std::uint64_t>(4 * tensor::AplusT::size());
 
   // DOFs write
   reals += tensor::Q::size();

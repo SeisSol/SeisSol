@@ -739,7 +739,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
       l_copySize     += sizeof(real) * seissol::kernels::Solver::BufferSize * m_numberOfCopyRegionBuffers[tc][l_region];
       l_copySize     += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfCopyRegionDerivatives[tc][l_region];
     }
-#endif // USE_MPI
+
     l_interiorSize += sizeof(real) * seissol::kernels::Solver::BufferSize * m_numberOfInteriorBuffers[tc];
     l_interiorSize += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfInteriorDerivatives[tc];
 

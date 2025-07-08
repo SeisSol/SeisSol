@@ -262,17 +262,17 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
 void Neighbor::flopsNeighborsIntegral(const FaceType faceTypes[4],
                                       const int neighboringIndices[4][2],
                                       const CellDRMapping (&cellDrMapping)[4],
-                                      unsigned int& nonZeroFlops,
-                                      unsigned int& hardwareFlops,
-                                      long long& drNonZeroFlops,
-                                      long long& drHardwareFlops) {
+                                      std::uint64_t& nonZeroFlops,
+                                      std::uint64_t& hardwareFlops,
+                                      std::uint64_t& drNonZeroFlops,
+                                      std::uint64_t& drHardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
   hardwareFlops = 0;
   drNonZeroFlops = 0;
   drHardwareFlops = 0;
 
-  for (unsigned int face = 0; face < 4; face++) {
+  for (std::size_t face = 0; face < 4; face++) {
     // compute the neighboring elements flux matrix id.
     switch (faceTypes[face]) {
     case FaceType::Regular:
@@ -298,13 +298,13 @@ void Neighbor::flopsNeighborsIntegral(const FaceType faceTypes[4],
   }
 }
 
-unsigned Neighbor::bytesNeighborsIntegral() {
-  unsigned reals = 0;
+std::uint64_t Neighbor::bytesNeighborsIntegral() {
+  std::uint64_t reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write
   reals += 4 * tensor::I::size() + 2 * tensor::Q::size();
   // flux solvers load
-  reals += 4 * tensor::AminusT::size();
+  reals += static_cast<std::uint64_t>(4 * tensor::AminusT::size());
 
   return reals * sizeof(real);
 }

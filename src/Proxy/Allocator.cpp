@@ -163,7 +163,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   cluster.child<Interior>().setNumberOfCells(cellCount);
 
   seissol::initializer::Layer& layer = cluster.child<Interior>();
-  layer.setBucketSize(lts.buffersDerivatives,
+  layer.setEntrySize(lts.buffersDerivatives,
                       sizeof(real) * seissol::kernels::Solver::BufferSize * layer.size());
 
   ltsTree.allocateVariables();
