@@ -22,7 +22,7 @@ double power<8>(double base) {
   return baseToTheEight;
 }
 
-void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip) {
+void computeStrikeAndDipVectors(const CoordinateT& normal, CoordinateT strike, CoordinateT dip) {
   // compute normalized strike vector
   const auto strikeInvLength = 1.0 / std::sqrt(normal[0] * normal[0] + normal[1] * normal[1]);
   strike[0] = normal[1] * strikeInvLength;

@@ -33,7 +33,7 @@ namespace kernels {
 struct Receiver {
   Receiver(unsigned pointId,
            Eigen::Vector3d position,
-           const double* elementCoords[4],
+           const std::array<std::array<double, Cell::Dim>, Cell::NumVertices>& elementCoords,
            kernels::LocalData dataHost,
            kernels::LocalData dataDevice,
            size_t reserved);

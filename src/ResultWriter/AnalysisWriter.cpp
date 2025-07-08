@@ -116,9 +116,9 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         seissolInstance.getSeisSolParameters().initialization.hasTime);
   }
 
-  double quadraturePoints[NumQuadPoints][3];
-  double quadratureWeights[NumQuadPoints];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
+  const auto quadrature = seissol::quadrature::quadrature<3>(QuadPolyDegree);
+  const auto& quadraturePoints = quadrature.first;
+  const auto& quadratureWeights = quadrature.second;
 
   for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
     logInfo() << "Analysis for simulation" << sim << ": absolute, relative";
@@ -201,18 +201,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
         if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
           // Compute global position of quadrature points.
-          const double* elementCoords[Cell::NumVertices];
-          for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
-            elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
-          }
-          for (std::size_t i = 0; i < NumQuadPoints; ++i) {
-            seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
-                                                                   elementCoords[1],
-                                                                   elementCoords[2],
-                                                                   elementCoords[3],
-                                                                   quadraturePoints[i],
-                                                                   quadraturePointsXyz[i].data());
-          }
+          const auto transform =
+              seissol::geometry::AffineTransform::fromMeshCell(meshId, *meshReader);
+
+          quadraturePointsXyz = transform.refToSpace(quadraturePoints);
 
           // Evaluate analytical solution at quad. nodes
           const CellMaterialData& material = materialData[cell];
@@ -273,7 +265,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
       for (std::size_t i = 0; i < NumQuantities; ++i) {
         // Find position of element with lowest LInf error.
-        VrtxCoords center;
+        CoordinateT center;
         MeshTools::center(elements[elemLInfLocal[i]], vertices, center);
       }
 
@@ -334,19 +326,20 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       }
 
       for (std::size_t i = 0; i < NumQuantities; ++i) {
-        VrtxCoords centerSend{};
+        CoordinateT centerSend{};
         MeshTools::center(elements[elemLInfLocal[i]], vertices, centerSend);
 
         if (mpi.rank() == errLInfRecv[i].rank && errLInfRecv[i].rank != 0) {
-          MPI_Send(centerSend, 3, MPI_DOUBLE, 0, i, comm);
+          MPI_Send(centerSend.data(), 3, MPI_DOUBLE, 0, i, comm);
         }
 
         if (mpi.rank() == 0) {
-          VrtxCoords centerRecv{};
+          CoordinateT centerRecv{};
           if (errLInfRecv[i].rank == 0) {
-            std::copy_n(centerSend, 3, centerRecv);
+            centerRecv = centerSend;
           } else {
-            MPI_Recv(centerRecv, 3, MPI_DOUBLE, errLInfRecv[i].rank, i, comm, MPI_STATUS_IGNORE);
+            MPI_Recv(
+                centerRecv.data(), 3, MPI_DOUBLE, errLInfRecv[i].rank, i, comm, MPI_STATUS_IGNORE);
           }
 
           const auto errL1 = errL1MPI[i];

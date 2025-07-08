@@ -61,14 +61,26 @@ struct Tetrahedron {
       : i(I), j(J), k(K), l(L), a(Eigen::Matrix<T, 3, 1>(A)), b(Eigen::Matrix<T, 3, 1>(B)),
         c(Eigen::Matrix<T, 3, 1>(C)), d(Eigen::Matrix<T, 3, 1>(D)) {};
 
-  static const Tetrahedron<T> unitTetrahedron() {
+  Tetrahedron(const std::array<T, 3>& A,
+              const std::array<T, 3>& B,
+              const std::array<T, 3>& C,
+              const std::array<T, 3>& D,
+              unsigned int I,
+              unsigned int J,
+              unsigned int K,
+              unsigned int L)
+      : i(I), j(J), k(K), l(L), a(Eigen::Matrix<T, 3, 1>(A.data())),
+        b(Eigen::Matrix<T, 3, 1>(B.data())), c(Eigen::Matrix<T, 3, 1>(C.data())),
+        d(Eigen::Matrix<T, 3, 1>(D.data())) {};
+
+  static Tetrahedron<T> unitTetrahedron() {
     return Tetrahedron(Eigen::Matrix<T, 3, 1>(0, 0, 0),
                        Eigen::Matrix<T, 3, 1>(0, 0, 1),
                        Eigen::Matrix<T, 3, 1>(1, 0, 0),
                        Eigen::Matrix<T, 3, 1>(0, 1, 0));
   }
 
-  const Eigen::Matrix<T, 3, 1> center() const { return middle(middle(a, b), middle(c, d)); }
+  Eigen::Matrix<T, 3, 1> center() const { return middle(middle(a, b), middle(c, d)); }
 };
 
 //------------------------------------------------------------------------------

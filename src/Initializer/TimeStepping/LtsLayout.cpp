@@ -900,7 +900,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         secondaryInformation[l_ltsCell].rank = rank;
         secondaryInformation[l_ltsCell].layerId = layerId;
         secondaryInformation[l_ltsCell].configId = 0;
-        std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
+        std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks.data(), sizeof(int[4]));
 
         // iterate over faces
         for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
@@ -1002,7 +1002,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
       secondaryInformation[l_ltsCell].rank = rank;
       secondaryInformation[l_ltsCell].layerId = layerId;
       secondaryInformation[l_ltsCell].configId = 0;
-      std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
+      std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks.data(), sizeof(int[4]));
 
       // set mappings
       o_ltsToMesh[l_ltsCell]                   = l_meshId;

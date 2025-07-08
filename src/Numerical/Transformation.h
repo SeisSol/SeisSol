@@ -19,27 +19,27 @@ namespace seissol::transformations {
  * Calculates the global coordinates from
  * reference tetrahedron coordinates.
  */
-void tetrahedronReferenceToGlobal(const double v0[3],
-                                  const double v1[3],
-                                  const double v2[3],
-                                  const double v3[3],
-                                  const double xiEtaZeta[3],
-                                  double xyz[3]);
+void tetrahedronReferenceToGlobal(const CoordinateT& v0,
+                                  const CoordinateT& v1,
+                                  const CoordinateT& v2,
+                                  const CoordinateT& v3,
+                                  const CoordinateT& xiEtaZeta,
+                                  CoordinateT& xyz);
 
 Eigen::Vector3d tetrahedronReferenceToGlobal(const Eigen::Vector3d& v0,
                                              const Eigen::Vector3d& v1,
                                              const Eigen::Vector3d& v2,
                                              const Eigen::Vector3d& v3,
-                                             const double xiEtaZeta[3]);
+                                             const CoordinateT& xiEtaZeta);
 
 /**
  * Calculates the reference tetrahedron coordinates from
  * global tetrahedron coordinates.
  */
-Eigen::Vector3d tetrahedronGlobalToReference(const double v0[3],
-                                             const double v1[3],
-                                             const double v2[3],
-                                             const double v3[3],
+Eigen::Vector3d tetrahedronGlobalToReference(const CoordinateT& v0,
+                                             const CoordinateT& v1,
+                                             const CoordinateT& v2,
+                                             const CoordinateT& v3,
                                              const Eigen::Vector3d& xyz);
 
 /**
@@ -50,16 +50,16 @@ Eigen::Vector3d tetrahedronGlobalToReference(const double v0[3],
 void tetrahedronGlobalToReferenceJacobian(const double iX[4],
                                           const double iY[4],
                                           const double iZ[4],
-                                          double oGradXi[3],
-                                          double oGradEta[3],
-                                          double oGradZeta[3]);
+                                          CoordinateT& oGradXi,
+                                          CoordinateT& oGradEta,
+                                          CoordinateT& oGradZeta);
 
 /**
  * Inverse of Tensor1RotationMatrix().
  **/
-void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
-                                  const VrtxCoords iTangent1,
-                                  const VrtxCoords iTangent2,
+void inverseTensor1RotationMatrix(const CoordinateT& iNormal,
+                                  const CoordinateT& iTangent1,
+                                  const CoordinateT& iTangent2,
                                   yateto::DenseTensorView<2, real, unsigned>& oTinv,
                                   unsigned row = 0,
                                   unsigned col = 0);
@@ -70,9 +70,9 @@ void inverseTensor1RotationMatrix(const VrtxCoords iNormal,
  * and tangents.
  * u' = T*u
  **/
-void tensor1RotationMatrix(const VrtxCoords iNormal,
-                           const VrtxCoords iTangent1,
-                           const VrtxCoords iTangent2,
+void tensor1RotationMatrix(const CoordinateT& iNormal,
+                           const CoordinateT& iTangent1,
+                           const CoordinateT& iTangent2,
                            yateto::DenseTensorView<2, real, unsigned>& oT,
                            unsigned row = 0,
                            unsigned col = 0);
@@ -81,9 +81,9 @@ void tensor1RotationMatrix(const VrtxCoords iNormal,
  * Inverse of SymmetricTensor2RotationMatrix().
  **/
 template <typename Tmatrix>
-void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
-                                           const VrtxCoords iTangent1,
-                                           const VrtxCoords iTangent2,
+void inverseSymmetricTensor2RotationMatrix(const CoordinateT& iNormal,
+                                           const CoordinateT& iTangent1,
+                                           const CoordinateT& iTangent2,
                                            Tmatrix& oTinv,
                                            unsigned row = 0,
                                            unsigned col = 0) {
@@ -141,18 +141,20 @@ void inverseSymmetricTensor2RotationMatrix(const VrtxCoords iNormal,
  * into a new coordinate system aligned with normal and tangents.
  * u' = T*u
  **/
-void symmetricTensor2RotationMatrix(const VrtxCoords iNormal,
-                                    const VrtxCoords iTangent1,
-                                    const VrtxCoords iTangent2,
+void symmetricTensor2RotationMatrix(const CoordinateT& iNormal,
+                                    const CoordinateT& iTangent1,
+                                    const CoordinateT& iTangent2,
                                     yateto::DenseTensorView<2, real, unsigned>& oTinv,
                                     unsigned row = 0,
                                     unsigned col = 0);
 
 void chiTau2XiEtaZeta(unsigned face,
-                      const double chiTau[2],
-                      double xiEtaZeta[3],
+                      const std::array<double, 2>& chiTau,
+                      std::array<double, 3>& xiEtaZeta,
                       int sideOrientation = -1);
-void XiEtaZeta2chiTau(unsigned face, const double xiEtaZeta[3], double chiTau[2]);
+void XiEtaZeta2chiTau(unsigned face,
+                      const std::array<double, 3>& xiEtaZeta,
+                      std::array<double, 2>& chiTau);
 } // namespace seissol::transformations
 
 #endif // SEISSOL_SRC_NUMERICAL_TRANSFORMATION_H_

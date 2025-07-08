@@ -51,7 +51,7 @@ namespace {
 void setStarMatrix(const real* matAT,
                    const real* matBT,
                    const real* matCT,
-                   const double grad[3],
+                   const std::array<double, 3> grad,
                    real* starMatrix) {
   for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
@@ -74,9 +74,9 @@ void surfaceAreaAndVolume(const seissol::geometry::MeshReader& meshReader,
   const std::vector<Vertex>& vertices = meshReader.getVertices();
   const std::vector<Element>& elements = meshReader.getElements();
 
-  VrtxCoords normal;
-  VrtxCoords tangent1;
-  VrtxCoords tangent2;
+  CoordinateT normal;
+  CoordinateT tangent1;
+  CoordinateT tangent2;
   MeshTools::normalAndTangents(elements[meshId], side, vertices, normal, tangent1, tangent2);
 
   *volume = MeshTools::volume(elements[meshId], vertices);
@@ -195,13 +195,13 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         double x[Cell::NumVertices];
         double y[Cell::NumVertices];
         double z[Cell::NumVertices];
-        double gradXi[3];
-        double gradEta[3];
-        double gradZeta[3];
+        std::array<double, 3> gradXi;
+        std::array<double, 3> gradEta;
+        std::array<double, 3> gradZeta;
 
         // Iterate over all 4 vertices of the tetrahedron
         for (std::size_t vertex = 0; vertex < Cell::NumVertices; ++vertex) {
-          const VrtxCoords& coords = vertices[elements[meshId].vertices[vertex]].coords;
+          const CoordinateT& coords = vertices[elements[meshId].vertices[vertex]].coords;
           x[vertex] = coords[0];
           y[vertex] = coords[1];
           z[vertex] = coords[2];
@@ -223,9 +223,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         const double volume = MeshTools::volume(elements[meshId], vertices);
 
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-          VrtxCoords normal;
-          VrtxCoords tangent1;
-          VrtxCoords tangent2;
+          CoordinateT normal;
+          CoordinateT tangent1;
+          CoordinateT tangent2;
           MeshTools::normalAndTangents(
               elements[meshId], side, vertices, normal, tangent1, tangent2);
           const double surface = MeshTools::surface(normal);
@@ -380,10 +380,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 #endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto& element = elements[secondaryInformation[cell].meshId];
-      const double* coords[Cell::NumVertices];
-      for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
-        coords[v] = vertices[element.vertices[v]].coords;
-      }
+      const auto transform = seissol::geometry::AffineTransform::fromMeshCell(
+          secondaryInformation[cell].meshId, meshReader);
       for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
         if (cellInformation[cell].faceTypes[side] != FaceType::FreeSurfaceGravity &&
             cellInformation[cell].faceTypes[side] != FaceType::Dirichlet &&
@@ -398,15 +396,13 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         assert(nodes != nullptr);
         auto offset = 0;
         for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-          double nodeReference[2];
+          std::array<double, 2> nodeReference;
           nodeReference[0] = nodesReference(i, 0);
           nodeReference[1] = nodesReference(i, 1);
           // Compute the global coordinates for the nodal points.
-          double xiEtaZeta[3];
-          double xyz[3];
+          std::array<double, 3> xiEtaZeta;
           seissol::transformations::chiTau2XiEtaZeta(side, nodeReference, xiEtaZeta);
-          seissol::transformations::tetrahedronReferenceToGlobal(
-              coords[0], coords[1], coords[2], coords[3], xiEtaZeta, xyz);
+          const auto xyz = transform.refToSpace(xiEtaZeta);
           nodes[offset++] = xyz[0];
           nodes[offset++] = xyz[1];
           nodes[offset++] = xyz[2];
@@ -420,9 +416,9 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         auto matT = init::T::view::create(matTData);
         auto matTinv = init::Tinv::view::create(matTinvData);
 
-        VrtxCoords normal;
-        VrtxCoords tangent1;
-        VrtxCoords tangent2;
+        CoordinateT normal;
+        CoordinateT tangent1;
+        CoordinateT tangent2;
         MeshTools::normalAndTangents(element, side, vertices, normal, tangent1, tangent2);
         MeshTools::normalize(normal, normal);
         MeshTools::normalize(tangent1, tangent1);

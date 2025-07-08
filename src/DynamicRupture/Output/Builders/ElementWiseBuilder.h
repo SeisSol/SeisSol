@@ -14,6 +14,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.h"
+#include <Geometry/CellTransform.h>
 #include <init.h>
 
 namespace seissol::dr::output {
@@ -70,14 +71,6 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         if (elementIdx >= 0) {
           const auto& element = elementsInfo[elementIdx];
 
-          // store coords of vertices of the current ELEMENT
-          constexpr size_t NumVertices{4};
-          std::array<const double*, NumVertices> elementVerticesCoords{};
-          for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
-            auto globalVertexIdx = element.vertices[vertexIdx];
-            elementVerticesCoords[vertexIdx] = verticesInfo[globalVertexIdx].coords;
-          }
-
           const auto faceSideIdx = fault.side;
 
           // init reference coordinates of the fault face
@@ -130,13 +123,8 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         if (elementIdx >= 0) {
           const auto& element = elementsInfo[elementIdx];
 
-          // store coords of vertices of the current ELEMENT
-          constexpr size_t NumVertices{4};
-          std::array<const double*, NumVertices> vertices{};
-          for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
-            auto globalVertexIdx = element.vertices[vertexIdx];
-            vertices[vertexIdx] = verticesInfo[globalVertexIdx].coords;
-          }
+          const auto transform =
+              seissol::geometry::AffineTransform::fromMeshCell(elementIdx, *meshReader);
 
           const auto faceSideIdx = fault.side;
 
@@ -152,14 +140,9 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
             real nullpoint[2] = {0, 0};
             const real* prepoint =
                 i > 0 ? (seissol::init::vtk2d::Values[order] + (i - 1) * 2) : nullpoint;
-            double point[2] = {prepoint[0], prepoint[1]};
+            std::array<double, 2> point = {prepoint[0], prepoint[1]};
             transformations::chiTau2XiEtaZeta(faceSideIdx, point, receiverPoint.reference.coords);
-            transformations::tetrahedronReferenceToGlobal(vertices[0],
-                                                          vertices[1],
-                                                          vertices[2],
-                                                          vertices[3],
-                                                          receiverPoint.reference.coords,
-                                                          receiverPoint.global.coords);
+            receiverPoint.global.coords = transform.refToSpace(receiverPoint.reference.coords);
             receiverPoint.globalTriangle = globalFace;
             receiverPoint.isInside = true;
             receiverPoint.faultFaceIndex = faceIdx;

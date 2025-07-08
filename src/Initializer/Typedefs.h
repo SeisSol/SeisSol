@@ -276,11 +276,11 @@ struct CellMaterialData {
 };
 
 struct DRFaceInformation {
-  unsigned meshFace;
-  unsigned plusSide;
-  unsigned minusSide;
-  unsigned faceRelation;
-  bool plusSideOnThisRank;
+  std::size_t meshFace{};
+  int8_t plusSide{};
+  int8_t minusSide{};
+  int8_t faceRelation{};
+  bool plusSideOnThisRank{};
 };
 
 struct DRGodunovData {

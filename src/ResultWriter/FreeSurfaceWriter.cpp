@@ -68,7 +68,7 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
     Eigen::Vector3d b;
     for (unsigned vertex = 0; vertex < 3; ++vertex) {
       const unsigned tetVertex = MeshTools::FACE2NODES[side][vertex];
-      const VrtxCoords& coords = meshVertices[meshElements[meshId].vertices[tetVertex]].coords;
+      const CoordinateT& coords = meshVertices[meshElements[meshId].vertices[tetVertex]].coords;
 
       x[vertex](0) = coords[0];
       x[vertex](1) = coords[1];

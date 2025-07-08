@@ -79,7 +79,7 @@ void computeMInvJInvPhisAtSources(
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
-  const double* coords[Cell::NumVertices];
+  std::array<std::array<double, Cell::Dim>, Cell::NumVertices> coords;
   for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
     coords[v] = vertices[elements[meshId].vertices[v]].coords;
   }

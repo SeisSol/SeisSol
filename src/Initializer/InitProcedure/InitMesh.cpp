@@ -69,9 +69,9 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
   logInfo() << "Extracting fault information.";
   auto* drParameters = seissolInstance.getMemoryManager().getDRParameters();
-  const VrtxCoords center{drParameters->referencePoint[0],
-                          drParameters->referencePoint[1],
-                          drParameters->referencePoint[2]};
+  const CoordinateT center{drParameters->referencePoint[0],
+                           drParameters->referencePoint[1],
+                           drParameters->referencePoint[2]};
   meshReader.extractFaultInformation(center, drParameters->refPointMethod);
 
   seissolInstance.getLtsLayout().setMesh(meshReader);

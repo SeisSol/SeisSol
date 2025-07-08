@@ -17,6 +17,7 @@
 #include "Common/Offset.h"
 
 #include "Numerical/Quadrature.h"
+#include <Common/Constants.h>
 #include <Parallel/Runtime/Stream.h>
 
 #include "Solver/MultipleSimulations.h"
@@ -54,7 +55,9 @@ namespace seissol::kernels {
 
 class DirichletBoundary {
   public:
-  DirichletBoundary() { quadrature::GaussLegendre(quadPoints, quadWeights, ConvergenceOrder); }
+  DirichletBoundary() {
+    quadrature::GaussLegendre(quadPoints.data(), quadWeights.data(), ConvergenceOrder);
+  }
 
   template <typename Func, typename MappingKrnl>
   void evaluate(const real* dofsVolumeInteriorModal,
@@ -181,8 +184,8 @@ class DirichletBoundary {
   }
 
   private:
-  double quadPoints[ConvergenceOrder];
-  double quadWeights[ConvergenceOrder];
+  std::array<double, ConvergenceOrder> quadPoints;
+  std::array<double, ConvergenceOrder> quadWeights;
 };
 
 } // namespace seissol::kernels

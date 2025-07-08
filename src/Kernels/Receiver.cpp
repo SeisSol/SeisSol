@@ -44,12 +44,13 @@
 
 namespace seissol::kernels {
 
-Receiver::Receiver(unsigned pointId,
-                   Eigen::Vector3d position,
-                   const double* elementCoords[4],
-                   kernels::LocalData dataHost,
-                   kernels::LocalData dataDevice,
-                   size_t reserved)
+Receiver::Receiver(
+    unsigned pointId,
+    Eigen::Vector3d position,
+    const std::array<std::array<double, Cell::Dim>, Cell::NumVertices>& elementCoords,
+    kernels::LocalData dataHost,
+    kernels::LocalData dataDevice,
+    size_t reserved)
     : pointId(pointId), position(std::move(position)), dataHost(dataHost), dataDevice(dataDevice) {
   output.reserve(reserved);
 
@@ -89,7 +90,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
-  const double* coords[Cell::NumVertices];
+  std::array<std::array<double, Cell::Dim>, Cell::NumVertices> coords{};
   for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
     coords[v] = vertices[elements[meshId].vertices[v]].coords;
   }

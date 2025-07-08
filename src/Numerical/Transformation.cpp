@@ -18,30 +18,31 @@
 #include <cmath>
 #endif
 
-void seissol::transformations::tetrahedronReferenceToGlobal(const double v0[3],
-                                                            const double v1[3],
-                                                            const double v2[3],
-                                                            const double v3[3],
-                                                            const double xiEtaZeta[3],
-                                                            double xyz[3]) {
+void seissol::transformations::tetrahedronReferenceToGlobal(const CoordinateT& v0,
+                                                            const CoordinateT& v1,
+                                                            const CoordinateT& v2,
+                                                            const CoordinateT& v3,
+                                                            const CoordinateT& xiEtaZeta,
+                                                            CoordinateT& xyz) {
   for (unsigned i = 0; i < 3; ++i) {
     xyz[i] = v0[i] + (v1[i] - v0[i]) * xiEtaZeta[0] + (v2[i] - v0[i]) * xiEtaZeta[1] +
              (v3[i] - v0[i]) * xiEtaZeta[2];
   }
 }
 
-Eigen::Vector3d seissol::transformations::tetrahedronReferenceToGlobal(const Eigen::Vector3d& v0,
-                                                                       const Eigen::Vector3d& v1,
-                                                                       const Eigen::Vector3d& v2,
-                                                                       const Eigen::Vector3d& v3,
-                                                                       const double xiEtaZeta[3]) {
+Eigen::Vector3d
+    seissol::transformations::tetrahedronReferenceToGlobal(const Eigen::Vector3d& v0,
+                                                           const Eigen::Vector3d& v1,
+                                                           const Eigen::Vector3d& v2,
+                                                           const Eigen::Vector3d& v3,
+                                                           const CoordinateT& xiEtaZeta) {
   return v0 + (v1 - v0) * xiEtaZeta[0] + (v2 - v0) * xiEtaZeta[1] + (v3 - v0) * xiEtaZeta[2];
 }
 
-Eigen::Vector3d seissol::transformations::tetrahedronGlobalToReference(const double v0[3],
-                                                                       const double v1[3],
-                                                                       const double v2[3],
-                                                                       const double v3[3],
+Eigen::Vector3d seissol::transformations::tetrahedronGlobalToReference(const CoordinateT& v0,
+                                                                       const CoordinateT& v1,
+                                                                       const CoordinateT& v2,
+                                                                       const CoordinateT& v3,
                                                                        const Eigen::Vector3d& xyz) {
   // Forward transformation
   Eigen::Matrix4d a;
@@ -60,9 +61,9 @@ Eigen::Vector3d seissol::transformations::tetrahedronGlobalToReference(const dou
 void seissol::transformations::tetrahedronGlobalToReferenceJacobian(const double iX[4],
                                                                     const double iY[4],
                                                                     const double iZ[4],
-                                                                    double oGradXi[3],
-                                                                    double oGradEta[3],
-                                                                    double oGradZeta[3]) {
+                                                                    CoordinateT& oGradXi,
+                                                                    CoordinateT& oGradEta,
+                                                                    CoordinateT& oGradZeta) {
   const double determinant =
       iX[0] * (iY[1] * (iZ[3] - iZ[2]) + iY[2] * (iZ[1] - iZ[3]) + iY[3] * (iZ[2] - iZ[1])) +
       iX[1] * (iY[0] * (iZ[2] - iZ[3]) + iY[2] * (iZ[3] - iZ[0]) + iY[3] * (iZ[0] - iZ[2])) +
@@ -96,9 +97,9 @@ void seissol::transformations::tetrahedronGlobalToReferenceJacobian(const double
 }
 
 void seissol::transformations::inverseTensor1RotationMatrix(
-    const VrtxCoords iNormal,
-    const VrtxCoords iTangent1,
-    const VrtxCoords iTangent2,
+    const CoordinateT& iNormal,
+    const CoordinateT& iTangent1,
+    const CoordinateT& iTangent2,
     yateto::DenseTensorView<2, real, unsigned>& oTinv,
     unsigned row,
     unsigned col) {
@@ -109,9 +110,9 @@ void seissol::transformations::inverseTensor1RotationMatrix(
   }
 }
 
-void seissol::transformations::tensor1RotationMatrix(const VrtxCoords iNormal,
-                                                     const VrtxCoords iTangent1,
-                                                     const VrtxCoords iTangent2,
+void seissol::transformations::tensor1RotationMatrix(const CoordinateT& iNormal,
+                                                     const CoordinateT& iTangent1,
+                                                     const CoordinateT& iTangent2,
                                                      yateto::DenseTensorView<2, real, unsigned>& oT,
                                                      unsigned row,
                                                      unsigned col) {
@@ -123,9 +124,9 @@ void seissol::transformations::tensor1RotationMatrix(const VrtxCoords iNormal,
 }
 
 void seissol::transformations::symmetricTensor2RotationMatrix(
-    const VrtxCoords iNormal,
-    const VrtxCoords iTangent1,
-    const VrtxCoords iTangent2,
+    const CoordinateT& iNormal,
+    const CoordinateT& iTangent1,
+    const CoordinateT& iTangent2,
     yateto::DenseTensorView<2, real, unsigned>& oT,
     unsigned row,
     unsigned col) {
@@ -178,8 +179,8 @@ void seissol::transformations::symmetricTensor2RotationMatrix(
 }
 
 void seissol::transformations::chiTau2XiEtaZeta(unsigned face,
-                                                const double chiTau[2],
-                                                double xiEtaZeta[3],
+                                                const std::array<double, 2>& chiTau,
+                                                std::array<double, 3>& xiEtaZeta,
                                                 int sideOrientation) {
   double chiTauTilde[2];
 
@@ -229,8 +230,8 @@ void seissol::transformations::chiTau2XiEtaZeta(unsigned face,
 }
 
 void seissol::transformations::XiEtaZeta2chiTau(unsigned face,
-                                                const double xiEtaZeta[3],
-                                                double chiTau[2]) {
+                                                const std::array<double, 3>& xiEtaZeta,
+                                                std::array<double, 2>& chiTau) {
   [[maybe_unused]] constexpr double Eps = 1e-6;
 
   switch (face) {

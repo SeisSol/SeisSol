@@ -176,9 +176,9 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
     }
   }
 
-  static void getFaceRotationMatrix(const VrtxCoords normal,
-                                    const VrtxCoords tangent1,
-                                    const VrtxCoords tangent2,
+  static void getFaceRotationMatrix(const CoordinateT& normal,
+                                    const CoordinateT& tangent1,
+                                    const CoordinateT& tangent2,
                                     init::T::view::type& matT,
                                     init::Tinv::view::type& matTinv) {
     ::seissol::model::getFaceRotationMatrix<ElasticMaterial>(

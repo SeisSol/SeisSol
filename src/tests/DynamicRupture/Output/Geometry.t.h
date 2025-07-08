@@ -44,7 +44,7 @@ TEST_CASE("DR Geometry") {
     constexpr double Epsilon = 1e-6;
     {
       ExtVrtxCoords testPoint{0.0, 0.0, 0.0};
-      VrtxCoords normalDirection{1.0, 1.0, 1.0};
+      CoordinateT normalDirection{1.0, 1.0, 1.0};
 
       projectPointToFace(testPoint, face, normalDirection);
 
@@ -54,7 +54,7 @@ TEST_CASE("DR Geometry") {
     }
     {
       ExtVrtxCoords testPoint{1.0, 1.0, 1.0};
-      VrtxCoords normalDirection{-1.0, -1.0, -1.0};
+      CoordinateT normalDirection{-1.0, -1.0, -1.0};
 
       projectPointToFace(testPoint, face, normalDirection);
 
@@ -152,9 +152,9 @@ TEST_CASE("DR Geometry") {
   }
 
   SUBCASE("StrikeAndDipVectors") {
-    VrtxCoords testNormal{-1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
-    VrtxCoords testStrike{0.0, 0.0, 0.0};
-    VrtxCoords testDip{0.0, 0.0, 0.0};
+    CoordinateT testNormal{-1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
+    CoordinateT testStrike{0.0, 0.0, 0.0};
+    CoordinateT testDip{0.0, 0.0, 0.0};
     misc::computeStrikeAndDipVectors(testNormal, testStrike, testDip);
 
     // compute expected Strike results
@@ -178,28 +178,28 @@ TEST_CASE("DR Geometry") {
     double testChiTau[2] = {0.0, 0.0};
     {
       const unsigned face = 0;
-      VrtxCoords xiEtaZeta{0.25, 0.1, 0.0};
+      CoordinateT xiEtaZeta{0.25, 0.1, 0.0};
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
       REQUIRE(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
       REQUIRE(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
     }
     {
       const unsigned face = 1;
-      VrtxCoords xiEtaZeta{0.1, 0.0, 0.25};
+      CoordinateT xiEtaZeta{0.1, 0.0, 0.25};
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
       REQUIRE(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
       REQUIRE(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
     }
     {
       const unsigned face = 2;
-      VrtxCoords xiEtaZeta{0.0, 0.1, 0.25};
+      CoordinateT xiEtaZeta{0.0, 0.1, 0.25};
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
       REQUIRE(testChiTau[0] == AbsApprox(0.25).epsilon(Epsilon));
       REQUIRE(testChiTau[1] == AbsApprox(0.1).epsilon(Epsilon));
     }
     {
       const unsigned face = 3;
-      VrtxCoords xiEtaZeta{
+      CoordinateT xiEtaZeta{
           1 / 3.0, 1 / 3.0, 1 / 3.0}; // center of the 4th face (triangle in 3D space)
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
       REQUIRE(testChiTau[0] == AbsApprox(1 / 3.0).epsilon(Epsilon));
@@ -210,7 +210,7 @@ TEST_CASE("DR Geometry") {
       ExtVrtxCoords xiEtaZeta{0.0, -0.15, 0.15};
       const ExtTriangle fourthFace(
           ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0}, ExtVrtxCoords{0.0, 0.0, 1.0});
-      VrtxCoords normalDirection{1.0, 1.0, 1.0};
+      CoordinateT normalDirection{1.0, 1.0, 1.0};
       projectPointToFace(xiEtaZeta, fourthFace, normalDirection);
 
       transformations::XiEtaZeta2chiTau(face, xiEtaZeta.coords, testChiTau);
@@ -221,22 +221,22 @@ TEST_CASE("DR Geometry") {
 
   SUBCASE("BasisFunctions") {
 
-    VrtxCoords point{0.25, 0.25, 0.0};
+    CoordinateT point{0.25, 0.25, 0.0};
 
     // placing two elements in such a way that basis functions on both sides end up being the same
-    const VrtxCoords plusElementCoords[4]{
+    const CoordinateT plusElementCoords[4]{
         {2.0, 0.0, 0.0}, {0.0, 2.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 2.0}};
 
-    const VrtxCoords minusElementCoords[4]{
+    const CoordinateT minusElementCoords[4]{
         {2.0, 0.0, 0.0}, {0.0, 2.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, -2.0}};
 
-    const VrtxCoords* plusElementCoordsPtr[4]{
+    const CoordinateT* plusElementCoordsPtr[4]{
         &plusElementCoords[0], &plusElementCoords[1], &plusElementCoords[2], &plusElementCoords[3]};
 
-    const VrtxCoords* minusElementCoordsPtr[4]{&minusElementCoords[0],
-                                               &minusElementCoords[1],
-                                               &minusElementCoords[2],
-                                               &minusElementCoords[3]};
+    const CoordinateT* minusElementCoordsPtr[4]{&minusElementCoords[0],
+                                                &minusElementCoords[1],
+                                                &minusElementCoords[2],
+                                                &minusElementCoords[3]};
 
     auto basisFunctions =
         getPlusMinusBasisFunctions(point, plusElementCoordsPtr, minusElementCoordsPtr);

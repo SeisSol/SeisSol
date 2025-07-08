@@ -136,7 +136,7 @@ SEISSOL_HOSTDEVICE inline T clamp(T value, T minval, T maxval) {
  * @param strike
  * @param dip
  */
-void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip);
+void computeStrikeAndDipVectors(const CoordinateT& normal, CoordinateT strike, CoordinateT dip);
 
 std::string frictionLawName(seissol::initializer::parameters::FrictionLawType type);
 

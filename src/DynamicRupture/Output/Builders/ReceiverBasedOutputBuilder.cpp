@@ -122,13 +122,13 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
 
       const auto neighborElementIndex = faultInfo[point.faultFaceIndex].neighborElement;
 
-      const VrtxCoords* elemCoords[NumVertices]{};
+      const CoordinateT* elemCoords[NumVertices]{};
       for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
         const auto address = elementsInfo[elementIndex].vertices[vertexIdx];
         elemCoords[vertexIdx] = &(verticesInfo[address].coords);
       }
 
-      const VrtxCoords* neighborElemCoords[NumVertices]{};
+      const CoordinateT* neighborElemCoords[NumVertices]{};
       if (neighborElementIndex >= 0) {
         if (elementIndices.find(neighborElementIndex) == elementIndices.end()) {
           const auto index = elementIndices.size();
@@ -156,7 +156,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
         for (size_t vertexIdx = 0; vertexIdx < NumVertices; ++vertexIdx) {
           const auto& array3d = ghostMetadataItr->second[neighborIndex].vertices[vertexIdx];
           auto* data = const_cast<double*>(array3d);
-          neighborElemCoords[vertexIdx] = reinterpret_cast<double (*)[3]>(data);
+          neighborElemCoords[vertexIdx] = reinterpret_cast<CoordinateT*>(data);
         }
       }
 
@@ -244,13 +244,13 @@ void ReceiverBasedOutputBuilder::initFaultDirections() {
     auto& tangent1 = outputData->faultDirections[receiverId].tangent1;
     auto& tangent2 = outputData->faultDirections[receiverId].tangent2;
 
-    std::copy_n(&faultInfo[globalIndex].normal[0], 3, faceNormal.begin());
-    std::copy_n(&faultInfo[globalIndex].tangent1[0], 3, tangent1.begin());
-    std::copy_n(&faultInfo[globalIndex].tangent2[0], 3, tangent2.begin());
+    std::copy_n(faultInfo[globalIndex].normal.data(), 3, faceNormal.begin());
+    std::copy_n(faultInfo[globalIndex].tangent1.data(), 3, tangent1.begin());
+    std::copy_n(faultInfo[globalIndex].tangent2.data(), 3, tangent2.begin());
 
     auto& strike = outputData->faultDirections[receiverId].strike;
     auto& dip = outputData->faultDirections[receiverId].dip;
-    misc::computeStrikeAndDipVectors(faceNormal.data(), strike.data(), dip.data());
+    misc::computeStrikeAndDipVectors(faceNormal, strike, dip);
   }
 }
 
@@ -277,14 +277,12 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
     {
       auto* memorySpace = outputData->stressGlbToDipStrikeAligned[receiverId].data();
       RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-      inverseSymmetricTensor2RotationMatrix(
-          faceNormal.data(), strike.data(), dip.data(), rotationMatrixView, 0, 0);
+      inverseSymmetricTensor2RotationMatrix(faceNormal, strike, dip, rotationMatrixView, 0, 0);
     }
     {
       auto* memorySpace = outputData->stressFaceAlignedToGlb[receiverId].data();
       RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-      symmetricTensor2RotationMatrix(
-          faceNormal.data(), tangent1.data(), tangent2.data(), rotationMatrixView, 0, 0);
+      symmetricTensor2RotationMatrix(faceNormal, tangent1, tangent2, rotationMatrixView, 0, 0);
     }
     {
       auto faceAlignedToGlb =
@@ -293,7 +291,7 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
           init::Tinv::view::create(outputData->glbToFaceAlignedData[receiverId].data());
 
       seissol::model::getFaceRotationMatrix(
-          faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);
+          faceNormal, tangent1, tangent2, faceAlignedToGlb, glbToFaceAligned);
     }
   }
 }
@@ -329,8 +327,8 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     const auto& element = elementsInfo[elementIndex];
     auto face = getGlobalTriangle(side, element, verticesInfo);
 
-    VrtxCoords xab;
-    VrtxCoords xac;
+    CoordinateT xab{};
+    CoordinateT xac{};
     {
       constexpr size_t X{0};
       constexpr size_t Y{1};
@@ -345,8 +343,8 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     }
 
     const auto faultIndex = outputData->receiverPoints[receiverId].faultFaceIndex;
-    const auto* tangent1 = faultInfo[faultIndex].tangent1;
-    const auto* tangent2 = faultInfo[faultIndex].tangent2;
+    const auto& tangent1 = faultInfo[faultIndex].tangent1;
+    const auto& tangent2 = faultInfo[faultIndex].tangent2;
 
     Eigen::Matrix<real, 2, 2> matrix;
     matrix(0, 0) = MeshTools::dot(tangent1, xab);

@@ -80,7 +80,7 @@ void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
  * Reconstruct the fault information from the boundary conditions
  */
 void MeshReader::extractFaultInformation(
-    const VrtxCoords& refPoint, seissol::initializer::parameters::RefPointMethod refPointMethod) {
+    const CoordinateT& refPoint, seissol::initializer::parameters::RefPointMethod refPointMethod) {
   for (auto& i : m_elements) {
 
     for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
@@ -106,7 +106,7 @@ void MeshReader::extractFaultInformation(
         // FIXME we use the MPI number here for the neighbor element id
         // It is not very nice but should generate the correct ordering.
         const MPINeighborElement neighbor = {
-            i.localId, static_cast<SideId>(j), i.mpiIndices[j], i.neighborSides[j]};
+            i.localId, static_cast<int8_t>(j), i.mpiIndices[j], i.neighborSides[j]};
         m_MPIFaultNeighbors[i.neighborRanks[j]].push_back(neighbor);
       }
 
@@ -115,8 +115,8 @@ void MeshReader::extractFaultInformation(
       // Detect +/- side
       // Computes the distance between the bary center of the tetrahedron and the face
       // Does not work for all meshes
-      //                VrtxCoords elementCenter;
-      //                VrtxCoords faceCenter;
+      //                CoordinateT elementCenter;
+      //                CoordinateT faceCenter;
       //                MeshTools::center(*i, m_vertices, elementCenter);
       //                MeshTools::center(*i, j, m_vertices, faceCenter);
       //
@@ -125,8 +125,8 @@ void MeshReader::extractFaultInformation(
 
       // Compute normal of the DR face
       // Boundary side vector pointing in chi- and tau-direction
-      VrtxCoords chiVec;
-      VrtxCoords tauVec;
+      CoordinateT chiVec{};
+      CoordinateT tauVec{};
       MeshTools::sub(m_vertices[i.vertices[MeshTools::FACE2NODES[j][1]]].coords,
                      m_vertices[i.vertices[MeshTools::FACE2NODES[j][0]]].coords,
                      chiVec);
@@ -139,8 +139,8 @@ void MeshReader::extractFaultInformation(
       MeshTools::mul(f.normal, 1.0 / MeshTools::norm(f.normal), f.normal);
 
       // Check whether the tetrahedron and the reference point are on the same side of the face
-      VrtxCoords tmp1;
-      VrtxCoords tmp2;
+      CoordinateT tmp1{};
+      CoordinateT tmp2{};
       MeshTools::sub(refPoint, m_vertices[i.vertices[MeshTools::FACE2NODES[j][0]]].coords, tmp1);
       MeshTools::sub(m_vertices[i.vertices[MeshTools::FACE2MISSINGNODE[j]]].coords,
                      m_vertices[i.vertices[MeshTools::FACE2NODES[j][0]]].coords,
@@ -190,7 +190,7 @@ void MeshReader::extractFaultInformation(
       // Index of the element on the other side
       const int neighborIndex = remoteNeighbor ? -1 : i.neighbors[j];
 
-      const GlobalElemId neighborGlobalId =
+      const auto neighborGlobalId =
           remoteNeighbor ? m_ghostlayerMetadata[i.neighborRanks[j]][i.mpiIndices[j]].globalId
                          : m_elements[i.neighbors[j]].globalId;
 
@@ -273,8 +273,8 @@ void MeshReader::exchangeGhostlayerMetadata() {
                                                    offsetof(GhostElementMetadata, timestep)};
   const std::vector<MPI_Datatype> datatypeDatatype{MPI_DOUBLE,
                                                    MPI_INT,
-                                                   PUML::MPITypeInfer<LocalElemId>::type(),
-                                                   PUML::MPITypeInfer<GlobalElemId>::type(),
+                                                   PUML::MPITypeInfer<size_t>::type(),
+                                                   PUML::MPITypeInfer<size_t>::type(),
                                                    MPI_INT,
                                                    MPI_DOUBLE};
 

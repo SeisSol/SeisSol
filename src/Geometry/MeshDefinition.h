@@ -15,83 +15,68 @@
 
 namespace seissol {
 
-using GlobalElemId = size_t;
-using LocalElemId = int;   // TODO(David): size_t, maybe, once the Netcdf Reader is gone
-using LocalVertexId = int; // TODO(David): size_t, maybe, once the Netcdf Reader is gone
-using SideId = int;        // TODO(David): int8_t , once the Netcdf Reader is gone
-
-using ElemVertices = LocalVertexId[Cell::NumVertices];
-using ElemNeighbors = LocalElemId[Cell::NumFaces];
-using ElemNeighborSides = SideId[Cell::NumFaces];
-using ElemSideOrientations = int[Cell::NumFaces];
-using ElemBoundaries = int[Cell::NumFaces];
-using ElemNeighborRanks = int[Cell::NumFaces]; // type prescribed by MPI
-/** The index of this element (side) in the communication array */
-using ElemMPIIndices = int[Cell::NumFaces];
-using ElemGroup = int;
-using ElemFaultTags = int[Cell::NumFaces];
-
-using VrtxCoords = double[Cell::Dim];
+using CoordinateT = std::array<double, Cell::Dim>;
 
 struct Element {
-  GlobalElemId globalId;
-  LocalElemId localId;
-  ElemVertices vertices;
-  ElemNeighbors neighbors;
-  ElemNeighborSides neighborSides;
-  ElemSideOrientations sideOrientations;
+  // global cell ID
+  size_t globalId{};
+  size_t localId{};
+  std::array<size_t, Cell::NumVertices> vertices{};
+  std::array<size_t, Cell::NumFaces> neighbors{};
+  std::array<int8_t, Cell::NumFaces> neighborSides{};
+  std::array<int8_t, Cell::NumFaces> sideOrientations{};
   /** Domain boundary condition, or 0 for inner elements and MPI boundaries */
-  ElemBoundaries boundaries;
-  ElemNeighborRanks neighborRanks;
-  ElemMPIIndices mpiIndices;
-  ElemMPIIndices mpiFaultIndices;
+  std::array<int, Cell::NumFaces> boundaries{};
+  std::array<int, Cell::NumFaces> neighborRanks{};
+  std::array<size_t, Cell::NumFaces> mpiIndices{};
+  std::array<size_t, Cell::NumFaces> mpiFaultIndices{};
   /** Material of the element */
-  ElemGroup group;
-  ElemFaultTags faultTags; // member of struct Element
-  int clusterId;
-  double timestep;
+  int group{};
+  std::array<int, Cell::NumFaces> faultTags{};
+  int clusterId{};
+  double timestep{};
 };
 
 struct Vertex {
-  VrtxCoords coords{};
+  CoordinateT coords{};
   /** Elements sharing this neighbor */
-  std::vector<LocalElemId> elements;
+  std::vector<size_t> elements;
 };
 
 struct MPINeighborElement {
   /** Local number of the local element */
-  LocalElemId localElement;
+  size_t localElement{};
   /** Side of the local element */
-  SideId localSide;
+  int8_t localSide{};
   /** Global number neighbor element */
-  LocalElemId neighborElement;
+  size_t neighborElement{};
   /** Side of the neighbor element */
-  SideId neighborSide;
+  int8_t neighborSide{};
 };
 
 struct Fault {
-  GlobalElemId globalId;
+  size_t globalId{};
   /** The element which contains this fault */
-  LocalElemId element;
+  size_t element{};
   /** The side of the element */
-  SideId side;
+  int8_t side{};
 
-  GlobalElemId neighborGlobalId;
-  LocalElemId neighborElement;
-  SideId neighborSide;
-  int tag;
+  size_t neighborGlobalId{};
+  size_t neighborElement{};
+  int8_t neighborSide{};
+  int tag{};
 
   /** Normal of the fault face */
-  VrtxCoords normal;
+  CoordinateT normal{};
 
   /** Rotation matrix */
-  VrtxCoords tangent1;
-  VrtxCoords tangent2;
+  CoordinateT tangent1{};
+  CoordinateT tangent2{};
 };
 
 struct MPINeighbor {
   /** Local ID of the MPI neighbor */
-  LocalElemId localID{};
+  size_t localID{};
 
   std::vector<MPINeighborElement> elements;
 };

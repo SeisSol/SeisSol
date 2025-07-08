@@ -94,9 +94,9 @@ void initializeSpecificNeighborData(const T& material,
  * another one.
  * c.f. 10.1111/j.1365-246X.2007.03381.x
  */
-void getBondMatrix(const VrtxCoords normal,
-                   const VrtxCoords tangent1,
-                   const VrtxCoords tangent2,
+void getBondMatrix(const CoordinateT& normal,
+                   const CoordinateT& tangent1,
+                   const CoordinateT& tangent2,
                    double* matN);
 
 template <typename MaterialT = seissol::model::MaterialT>
@@ -105,16 +105,16 @@ void getFaceRotationMatrix(const Eigen::Vector3d& normal,
                            const Eigen::Vector3d& tangent2,
                            init::T::view::type& matT,
                            init::Tinv::view::type& matTinv) {
-  const VrtxCoords n = {normal(0), normal(1), normal(2)};
-  const VrtxCoords s = {tangent1(0), tangent1(1), tangent1(2)};
-  const VrtxCoords t = {tangent2(0), tangent2(1), tangent2(2)};
+  const CoordinateT n = {normal(0), normal(1), normal(2)};
+  const CoordinateT s = {tangent1(0), tangent1(1), tangent1(2)};
+  const CoordinateT t = {tangent2(0), tangent2(1), tangent2(2)};
   getFaceRotationMatrix<MaterialT>(n, s, t, matT, matTinv);
 }
 
 template <typename MaterialT = seissol::model::MaterialT>
-void getFaceRotationMatrix(const VrtxCoords normal,
-                           const VrtxCoords tangent1,
-                           const VrtxCoords tangent2,
+void getFaceRotationMatrix(const CoordinateT& normal,
+                           const CoordinateT& tangent1,
+                           const CoordinateT& tangent2,
                            init::T::view::type& matT,
                            init::Tinv::view::type& matTinv) {
   MaterialSetup<MaterialT>::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);

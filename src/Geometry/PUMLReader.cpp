@@ -280,7 +280,7 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
 
     // Vertices
     PUML::Downward::vertices(
-        puml, cells[i], reinterpret_cast<unsigned int*>(m_elements[i].vertices));
+        puml, cells[i], reinterpret_cast<unsigned int*>(m_elements[i].vertices.data()));
 
     // Neighbor information
     unsigned int faceids[Cell::NumFaces];
@@ -462,9 +462,12 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
   // Set vertices
   m_vertices.resize(vertices.size());
   for (std::size_t i = 0; i < vertices.size(); i++) {
-    memcpy(m_vertices[i].coords, vertices[i].coordinate(), Cell::Dim * sizeof(double));
+    std::memcpy(m_vertices[i].coords.data(), vertices[i].coordinate(), Cell::Dim * sizeof(double));
 
-    PUML::Upward::cells(puml, vertices[i], m_vertices[i].elements);
+    std::vector<int> preElements;
+    PUML::Upward::cells(puml, vertices[i], preElements);
+    m_vertices[i].elements.insert(
+        m_vertices[i].elements.end(), preElements.begin(), preElements.end());
   }
 }
 

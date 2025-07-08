@@ -14,6 +14,7 @@
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include <Common/Constants.h>
+#include <Geometry/CellTransform.h>
 #include <Geometry/MeshDefinition.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
@@ -199,27 +200,16 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     writer.addPointProjector([=](double* target, std::size_t index) {
       const auto& element = meshReader.getElements()[cellIndices[index]];
       const auto& vertexArray = meshReader.getVertices();
+      const auto transform = seissol::geometry::AffineTransform::fromMeshCell(index, meshReader);
 
       // for the very time being, circumvent the bounding box mechanism of Yateto as follows.
-      const double zero[3] = {0, 0, 0};
-      seissol::transformations::tetrahedronReferenceToGlobal(
-          vertexArray[element.vertices[0]].coords,
-          vertexArray[element.vertices[1]].coords,
-          vertexArray[element.vertices[2]].coords,
-          vertexArray[element.vertices[3]].coords,
-          zero,
-          &target[0]);
+      std::array<double, 3> point{};
+      std::copy_n(transform.refToSpace(point).begin(), 3, &target[0]);
       for (std::size_t i = 1; i < tensor::vtk3d::Shape[order][1]; ++i) {
-        double point[3] = {init::vtk3d::Values[order][i * 3 - 3 + 0],
-                           init::vtk3d::Values[order][i * 3 - 3 + 1],
-                           init::vtk3d::Values[order][i * 3 - 3 + 2]};
-        seissol::transformations::tetrahedronReferenceToGlobal(
-            vertexArray[element.vertices[0]].coords,
-            vertexArray[element.vertices[1]].coords,
-            vertexArray[element.vertices[2]].coords,
-            vertexArray[element.vertices[3]].coords,
-            point,
-            &target[i * 3]);
+        point = {init::vtk3d::Values[order][i * 3 - 3 + 0],
+                 init::vtk3d::Values[order][i * 3 - 3 + 1],
+                 init::vtk3d::Values[order][i * 3 - 3 + 2]};
+        std::copy_n(transform.refToSpace(point).begin(), 3, &target[i * 3]);
       }
     });
 
@@ -308,29 +298,18 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       auto side = surfaceMeshSides[index];
       const auto& element = meshReader.getElements()[meshId];
       const auto& vertexArray = meshReader.getVertices();
+      const auto transform = seissol::geometry::AffineTransform::fromMeshCell(index, meshReader);
 
       // for the very time being, circumvent the bounding box mechanism of Yateto as follows.
-      const double zero[2] = {0, 0};
-      double xez[3];
+      const auto zero = std::array<double, 2>{0, 0};
+      std::array<double, 3> xez{};
       seissol::transformations::chiTau2XiEtaZeta(side, zero, xez);
-      seissol::transformations::tetrahedronReferenceToGlobal(
-          vertexArray[element.vertices[0]].coords,
-          vertexArray[element.vertices[1]].coords,
-          vertexArray[element.vertices[2]].coords,
-          vertexArray[element.vertices[3]].coords,
-          xez,
-          &target[0]);
+      std::copy_n(transform.refToSpace(xez).begin(), 3, &target[0]);
       for (std::size_t i = 1; i < tensor::vtk2d::Shape[order][1]; ++i) {
-        double point[2] = {init::vtk2d::Values[order][i * 2 - 2 + 0],
-                           init::vtk2d::Values[order][i * 2 - 2 + 1]};
+        const auto point = std::array<double, 2>{init::vtk2d::Values[order][i * 2 - 2 + 0],
+                                                 init::vtk2d::Values[order][i * 2 - 2 + 1]};
         seissol::transformations::chiTau2XiEtaZeta(side, point, xez);
-        seissol::transformations::tetrahedronReferenceToGlobal(
-            vertexArray[element.vertices[0]].coords,
-            vertexArray[element.vertices[1]].coords,
-            vertexArray[element.vertices[2]].coords,
-            vertexArray[element.vertices[3]].coords,
-            xez,
-            &target[i * 3]);
+        std::copy_n(transform.refToSpace(xez).begin(), 3, &target[i * 3]);
       }
     });
     std::vector<std::string> quantityLabels = {"v1", "v2", "v3", "u1", "u2", "u3"};

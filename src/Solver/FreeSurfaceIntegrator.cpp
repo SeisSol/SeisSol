@@ -178,10 +178,8 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
   }
 
   // Triangle quadrature points and weights
-  auto* points = new double[NumQuadraturePoints][2];
-  auto* weights = new double[NumQuadraturePoints];
-  // TODO(SW): Use the same quadrature rule, which is used for Dynamic Rupture
-  seissol::quadrature::TriangleQuadrature(points, weights, PolyDegree);
+  // TODO: Use the same quadrature rule, which is used for Dynamic Rupture
+  const auto [points, weights] = seissol::quadrature::quadrature<2>(PolyDegree);
 
   auto points3D =
       std::array<std::array<double, 3>, NumQuadraturePoints>{}; // Points for eval of 3D basis
@@ -198,18 +196,16 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
                 points[qp][1] * (subTri.x[2][0] - subTri.x[0][0]) + subTri.x[0][0],
             points[qp][0] * (subTri.x[1][1] - subTri.x[0][1]) +
                 points[qp][1] * (subTri.x[2][1] - subTri.x[0][1]) + subTri.x[0][1]};
-        seissol::transformations::chiTau2XiEtaZeta(face, chiTau.data(), points3D[qp].data());
+        seissol::transformations::chiTau2XiEtaZeta(face, chiTau, points3D[qp]);
         points2D[qp] = chiTau;
       }
-      computeSubTriangleAverages(projectionMatrix[face] + tri, points3D, weights);
+      computeSubTriangleAverages(projectionMatrix[face] + tri, points3D, weights.data());
       if (face == 0) {
-        computeSubTriangleAveragesFromFaces(projectionMatrixFromFace + tri, points2D, weights);
+        computeSubTriangleAveragesFromFaces(
+            projectionMatrixFromFace + tri, points2D, weights.data());
       }
     }
   }
-
-  delete[] points;
-  delete[] weights;
 }
 
 void FreeSurfaceIntegrator::computeSubTriangleAverages(
