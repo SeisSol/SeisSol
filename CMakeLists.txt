@@ -204,9 +204,9 @@ find_package(GemmTools REQUIRED)
 
 add_custom_command(
   COMMAND
-  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated-code/generate.py"
+  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/codegen/generate.py"
      "--equations" ${EQUATIONS}
-     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
+     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/codegen/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode
      "--host_arch" ${HOST_ARCH_STR}
      "--device_codegen" ${DEVICE_CODEGEN}
@@ -222,13 +222,13 @@ add_custom_command(
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
-     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated-code
+     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/codegen
      DEPENDS
         build-time-make-directory
-        generated-code/generate.py
-        generated-code/kernels
-        generated-code/matrices
-        generated-code/config
+        codegen/generate.py
+        codegen/kernels
+        codegen/matrices
+        codegen/config
     OUTPUT
         ${GENERATED_FILES_FOR_SEISSOL}
     COMMENT "Code generation for tensor operations..."
