@@ -12,7 +12,7 @@
 #define SEISSOL_SRC_KERNELS_STP_TIMEBASE_H_
 
 #include "Common/Constants.h"
-#include "generated_code/kernel.h"
+#include "GeneratedCode/kernel.h"
 #include <Kernels/Spacetime.h>
 #include <Kernels/Time.h>
 
