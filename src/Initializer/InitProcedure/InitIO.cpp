@@ -14,7 +14,6 @@
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include <Common/Constants.h>
-#include <GeneratedCode/init.h>
 #include <GeneratedCode/kernel.h>
 #include <GeneratedCode/tensor.h>
 #include <Geometry/MeshDefinition.h>

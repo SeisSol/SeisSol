@@ -63,7 +63,6 @@ format() {
         src/Initializer/TimeStepping/GlobalTimestep.cpp
         src/SeisSol.h
         src/SeisSol.cpp
-        src/Main.cpp
         "
 
 
