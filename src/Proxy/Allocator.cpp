@@ -9,6 +9,7 @@
 #include "Allocator.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
+#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
@@ -23,7 +24,6 @@
 #include <cstddef>
 #include <random>
 #include <stdlib.h>
-#include <tensor.h>
 
 #ifdef _OPENMP
 #include <omp.h>

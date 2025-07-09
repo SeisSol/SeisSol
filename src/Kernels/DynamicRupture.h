@@ -9,9 +9,9 @@
 #ifndef SEISSOL_SRC_KERNELS_DYNAMICRUPTURE_H_
 #define SEISSOL_SRC_KERNELS_DYNAMICRUPTURE_H_
 
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
 #include <Kernels/Kernel.h>
 #include <Kernels/Solver.h>
 #ifdef USE_STP

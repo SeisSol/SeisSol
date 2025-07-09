@@ -7,13 +7,13 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "GlobalData.h"
-#include "generated_code/init.h"
+#include "GeneratedCode/init.h"
+#include <GeneratedCode/tensor.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Memory/MemoryAllocator.h>
 #include <cassert>
 #include <cstddef>
-#include <tensor.h>
 #include <yateto.h>
 
 #ifdef _OPENMP

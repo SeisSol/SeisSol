@@ -169,24 +169,24 @@ message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
 
 add_custom_target(build-time-make-directory ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode")
 
-set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
-                                src/generated_code/tensor.cpp
-                                src/generated_code/subroutine.cpp
-                                src/generated_code/gpulike_subroutine.cpp
-                                src/generated_code/tensor.h
-                                src/generated_code/init.cpp
-                                src/generated_code/init.h
-                                src/generated_code/kernel.h
-                                src/generated_code/kernel.cpp)
+set(GENERATED_FILES_FOR_SEISSOL codegen/GeneratedCode/subroutine.h
+                                codegen/GeneratedCode/tensor.cpp
+                                codegen/GeneratedCode/subroutine.cpp
+                                codegen/GeneratedCode/gpulike_subroutine.cpp
+                                codegen/GeneratedCode/tensor.h
+                                codegen/GeneratedCode/init.cpp
+                                codegen/GeneratedCode/init.h
+                                codegen/GeneratedCode/kernel.h
+                                codegen/GeneratedCode/kernel.cpp)
 
 if (TESTING AND TESTING_GENERATED)
   set(GENERATED_FILES_FOR_SEISSOL ${GENERATED_FILES_FOR_SEISSOL}
-                                src/generated_code/test-kernel.cpp)
+                                codegen/GeneratedCode/test-kernel.cpp)
 endif()
 
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/)
 
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -207,7 +207,7 @@ add_custom_command(
   "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated-code/generate.py"
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
-     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
+     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode
      "--host_arch" ${HOST_ARCH_STR}
      "--device_codegen" ${DEVICE_CODEGEN}
      "--device_arch" ${DEVICE_ARCH_STR}
@@ -465,6 +465,7 @@ target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
+    ${CMAKE_CURRENT_BINARY_DIR}/codegen/
 )
 
 if (PREMULTIPLY_FLUX)
@@ -580,7 +581,7 @@ target_link_libraries(seissol-common-properties INTERFACE std::filesystem)
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
   set_source_files_properties(
-      ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
+      ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
   )
 endif()
 
@@ -615,8 +616,8 @@ if (TESTING)
 
   if (TESTING_GENERATED)
     # FIXME: fix by removing the `using namespace` in the test files
-    # and replace by ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
-    file(GLOB_RECURSE KERNEL_TESTFILES ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/**/test-kernel.cpp)
+    # and replace by ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp
+    file(GLOB_RECURSE KERNEL_TESTFILES ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/**/test-kernel.cpp)
     set(seissol_test_sources
             ${seissol_test_sources}
             ${KERNEL_TESTFILES}
@@ -681,7 +682,7 @@ if (TESTING)
                     "submodules/*"
                     "*/tests/*"
                     "external/*"
-                    "*/src/generated_code/*"
+                    "*/codegen/GeneratedCode/*"
                     "/opt/*"
             LCOV_ARGS --ignore-errors inconsistent
                       --ignore-errors unused

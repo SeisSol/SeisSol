@@ -13,6 +13,7 @@
 
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
+#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
@@ -21,7 +22,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <generated_code/tensor.h>
 #include <stdint.h>
 
 #ifdef ACL_DEVICE

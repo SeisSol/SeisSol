@@ -28,6 +28,8 @@
 #include "Memory/Tree/Lut.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
+#include <GeneratedCode/init.h>
+#include <GeneratedCode/kernel.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -35,10 +37,8 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
-#include <init.h>
 #include <iomanip>
 #include <ios>
-#include <kernel.h>
 #include <memory>
 #include <numeric>
 #include <ostream>
