@@ -689,22 +689,7 @@ if (TESTING)
   endif()
 endif()
 
-# build seissol-bin
-add_executable(seissol-bin src/Main.cpp)
-if (NOT NEW_BINARY_NAMING)
-  set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
-else()
-  set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "seissol-${NAME_SUFFIX}")
-endif()
-
-target_link_libraries(seissol-bin PUBLIC seissol-lib)
-
-install(TARGETS seissol-bin RUNTIME)
-# end build seissol-bin
-
-# build seissol-proxy
-add_subdirectory(auto-tuning/proxy/src)
-# end build seissol-proxy
+add_subdirectory(app)
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
