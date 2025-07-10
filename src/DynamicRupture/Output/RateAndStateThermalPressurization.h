@@ -22,7 +22,7 @@ class RateAndStateThermalPressurization : public RateAndState {
     using DrLtsDescrType = seissol::initializer::ThermalPressurization;
     const auto* const pressure =
         getCellData(local, dynamic_cast<DrLtsDescrType*>(drDescr)->pressure);
-    return pressure[local.nearestGpIndex];
+    return pressure[local.gpIndex];
   }
   void outputSpecifics(std::shared_ptr<ReceiverOutputData>& outputData,
                        const LocalInfo& local,
@@ -33,19 +33,21 @@ class RateAndStateThermalPressurization : public RateAndState {
       using DrLtsDescrType = seissol::initializer::ThermalPressurization;
       const auto* const temperature =
           getCellData(local, dynamic_cast<DrLtsDescrType*>(drDescr)->temperature);
-      tpVariables(TPID::Temperature, cacheLevel, receiverIdx) = temperature[local.nearestGpIndex];
+      tpVariables(TPID::Temperature, cacheLevel, receiverIdx) = temperature[local.gpIndex];
 
       const auto* const pressure =
           getCellData(local, dynamic_cast<DrLtsDescrType*>(drDescr)->pressure);
-      tpVariables(TPID::Pressure, cacheLevel, receiverIdx) = pressure[local.nearestGpIndex];
+      tpVariables(TPID::Pressure, cacheLevel, receiverIdx) = pressure[local.gpIndex];
     }
   }
 
   std::vector<std::size_t> getOutputVariables() const override {
     using DrLtsDescrType = seissol::initializer::ThermalPressurization;
     auto baseVector = RateAndState::getOutputVariables();
-    baseVector.push_back(dynamic_cast<const DrLtsDescrType*>(drDescr)->temperature.index);
-    baseVector.push_back(dynamic_cast<const DrLtsDescrType*>(drDescr)->pressure.index);
+    baseVector.push_back(
+        drTree->info(dynamic_cast<const DrLtsDescrType*>(drDescr)->temperature).index);
+    baseVector.push_back(
+        drTree->info(dynamic_cast<const DrLtsDescrType*>(drDescr)->pressure).index);
     return baseVector;
   }
 };

@@ -62,10 +62,10 @@ class LocalKernel : public Kernel {
                                      seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   virtual void flopsIntegral(const FaceType faceTypes[4],
-                             unsigned int& nonZeroFlops,
-                             unsigned int& hardwareFlops) = 0;
+                             std::uint64_t& nonZeroFlops,
+                             std::uint64_t& hardwareFlops) = 0;
 
-  virtual unsigned bytesIntegral() = 0;
+  virtual std::uint64_t bytesIntegral() = 0;
 };
 
 } // namespace seissol::kernels

@@ -43,8 +43,8 @@ void addRotationToProjectKernel(MappingKrnl& projectKernel,
 template <>
 void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
                                 const seissol::CellBoundaryMapping& boundaryMapping) {
-  assert(boundaryMapping.TinvData != nullptr);
-  projectKernel.Tinv = boundaryMapping.TinvData;
+  assert(boundaryMapping.dataTinv != nullptr);
+  projectKernel.Tinv = boundaryMapping.dataTinv;
 }
 #pragma GCC diagnostic pop
 
@@ -94,41 +94,35 @@ class DirichletBoundary {
 
     const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Dofs)->getSize()};
 
-    auto dofsFaceBoundaryNodalData =
-        runtime.memoryHandle<real>(tensor::INodal::size() * numElements);
-    auto dofsFaceBoundaryNodalPtrs = runtime.memoryHandle<real*>(numElements);
+    auto** dofsFaceBoundaryNodalPtrs =
+        dataTable[key].get(inner_keys::Wp::Id::DofsFaceBoundaryNodal)->getDeviceDataPtr();
 
     auto* deviceStream = runtime.stream();
-    device.algorithms.incrementalAdd(dofsFaceBoundaryNodalPtrs.get(),
-                                     dofsFaceBoundaryNodalData.get(),
-                                     tensor::INodal::size(),
-                                     numElements,
-                                     deviceStream);
 
     const auto auxTmpMemSize =
         yateto::getMaxTmpMemRequired(nodalLfKrnlPrototype, projectKernelPrototype);
     auto auxTmpMem = runtime.memoryHandle<real>((auxTmpMemSize * numElements) / sizeof(real));
 
-    auto** TinvData = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+    auto** dataTinv = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
     auto** idofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
 
     auto projectKrnl = projectKernelPrototype;
     projectKrnl.numElements = numElements;
-    projectKrnl.Tinv = const_cast<const real**>(TinvData);
+    projectKrnl.Tinv = const_cast<const real**>(dataTinv);
     projectKrnl.I = const_cast<const real**>(idofsPtrs);
-    projectKrnl.INodal = dofsFaceBoundaryNodalPtrs.get();
+    projectKrnl.INodal = dofsFaceBoundaryNodalPtrs;
     projectKrnl.linearAllocator.initialize(auxTmpMem.get());
     projectKrnl.streamPtr = deviceStream;
     projectKrnl.execute(faceIdx);
 
-    boundaryCondition.evaluate(dofsFaceBoundaryNodalPtrs.get(), numElements, deviceStream);
+    boundaryCondition.evaluate(dofsFaceBoundaryNodalPtrs, numElements, deviceStream);
 
     auto** dofsPtrs = dataTable[key].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
 
     auto nodalLfKrnl = nodalLfKrnlPrototype;
     nodalLfKrnl.numElements = numElements;
     nodalLfKrnl.Q = dofsPtrs;
-    nodalLfKrnl.INodal = const_cast<const real**>(dofsFaceBoundaryNodalPtrs.get());
+    nodalLfKrnl.INodal = const_cast<const real**>(dofsFaceBoundaryNodalPtrs);
     nodalLfKrnl.AminusT = const_cast<const real**>(
         dataTable[key].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
     nodalLfKrnl.extraOffset_AminusT =

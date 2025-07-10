@@ -11,6 +11,7 @@
 
 #include "PointMapper.h"
 #include "Parallel/MPI.h"
+#include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 #include <Geometry/MeshTools.h>
@@ -26,7 +27,7 @@ void findMeshIds(const Eigen::Vector3d* points,
                  const seissol::geometry::MeshReader& mesh,
                  std::size_t numPoints,
                  short* contained,
-                 unsigned* meshIds,
+                 std::size_t* meshIds,
                  double tolerance) {
   findMeshIds(
       points, mesh.getVertices(), mesh.getElements(), numPoints, contained, meshIds, tolerance);
@@ -37,17 +38,17 @@ void findMeshIds(const Eigen::Vector3d* points,
                  const std::vector<Element>& elements,
                  std::size_t numPoints,
                  short* contained,
-                 unsigned* meshIds,
+                 std::size_t* meshIds,
                  double tolerance) {
 
   memset(contained, 0, numPoints * sizeof(short));
 
-  auto points1 = std::vector<std::array<double, 4>>(numPoints);
+  auto points1 = std::vector<std::array<double, Cell::Dim + 1>>(numPoints);
   for (std::size_t point = 0; point < numPoints; ++point) {
-    points1[point][0] = points[point](0);
-    points1[point][1] = points[point](1);
-    points1[point][2] = points[point](2);
-    points1[point][3] = 1.0;
+    for (std::size_t c = 0; c < Cell::Dim; ++c) {
+      points1[point][c] = points[point](c);
+    }
+    points1[point][Cell::Dim] = 1.0;
   }
 
 /// @TODO Could use the code generator for the following
@@ -55,17 +56,17 @@ void findMeshIds(const Eigen::Vector3d* points,
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t elem = 0; elem < elements.size(); ++elem) {
-    auto planeEquations = std::array<std::array<double, 4>, 4>();
-    for (int face = 0; face < 4; ++face) {
+    auto planeEquations = std::array<std::array<double, Cell::Dim + 1>, Cell::Dim + 1>();
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       VrtxCoords n{};
       VrtxCoords p{};
       MeshTools::pointOnPlane(elements[elem], face, vertices, p);
       MeshTools::normal(elements[elem], face, vertices, n);
 
-      for (int i = 0; i < 3; ++i) {
+      for (std::size_t i = 0; i < Cell::Dim; ++i) {
         planeEquations[i][face] = n[i];
       }
-      planeEquations[3][face] = -MeshTools::dot(n, p);
+      planeEquations[Cell::Dim][face] = -MeshTools::dot(n, p);
     }
     for (std::size_t point = 0; point < numPoints; ++point) {
       // NOLINTNEXTLINE
@@ -73,9 +74,9 @@ void findMeshIds(const Eigen::Vector3d* points,
 #ifdef _OPENMP
 #pragma omp simd reduction(+ : notInside)
 #endif
-      for (unsigned face = 0; face < 4; ++face) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         double resultFace = 0;
-        for (unsigned dim = 0; dim < 4; ++dim) {
+        for (std::size_t dim = 0; dim < Cell::Dim + 1; ++dim) {
           resultFace += planeEquations[dim][face] * points1[point][dim];
         }
         notInside += (resultFace > tolerance) ? 1 : 0;
@@ -93,7 +94,7 @@ void findMeshIds(const Eigen::Vector3d* points,
              logError() << "point with id " << point << " was already found in a different
           element!";
           }*/
-          const auto localId = static_cast<unsigned>(elements[elem].localId);
+          const auto localId = static_cast<std::size_t>(elements[elem].localId);
           if ((contained[point] == 0) || (meshIds[point] > localId)) {
             contained[point] = 1;
             meshIds[point] = localId;

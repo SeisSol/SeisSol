@@ -16,6 +16,7 @@
 #include "GlobalTimestep.h"
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Monitoring/Unit.h>
 #include <math.h>
 #include <math.h>
@@ -94,7 +95,7 @@ void seissol::initializer::time_stepping::LtsLayout::derivePlainCopyInterior() {
 
   // derive neighboring ranks
   for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+    for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
       if(  m_cells[l_cell].neighborRanks[l_face] != rank ) {
         l_neighboringRanks.insert( m_cells[l_cell].neighborRanks[l_face] ) ;
       }
@@ -110,7 +111,7 @@ void seissol::initializer::time_stepping::LtsLayout::derivePlainCopyInterior() {
   // derive copy regions (split by ranks alone) and interior
   for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
     bool l_copyCell = false;
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+    for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
       if(  m_cells[l_cell].neighborRanks[l_face] != rank ) {
         // derive id of the local region
         int l_region = getPlainRegion( m_cells[l_cell].neighborRanks[l_face] );
@@ -372,7 +373,7 @@ void seissol::initializer::time_stepping::LtsLayout::sortClusteredCopyGts( clust
     // assert this is GTS
     assert( io_copyRegion.first[1] == m_cellClusterIds[l_meshId] );
 
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+    for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
       // check if the cell qualifies for reordering because of dynamic rupture
       if( // m_cells[l_meshId].neighborRanks[l_face] == io_copyRegion.first[0] && // Dynamic rupture cells in the copy layer communicate derivatives only
                                                                                   // TODO: Here's some minor potential for optimizations
@@ -450,7 +451,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredCopyInterior
   for( unsigned int l_cell = 0; l_cell < m_cells.size(); l_cell++ ) {
     bool l_copyCell = false;
 
-    for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+    for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
       // copy cell
       if( m_cells[l_cell].neighborRanks[l_face] != rank ) {
         l_copyCell = true;
@@ -769,37 +770,14 @@ void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClusterin
   deriveDynamicRupturePlainCopyInterior();
 }
 
-void seissol::initializer::time_stepping::LtsLayout::getCrossClusterTimeStepping( struct TimeStepping &o_timeStepping ) {
-  // set number of global clusters
-  o_timeStepping.numberOfGlobalClusters = m_numberOfGlobalClusters;
-
-  o_timeStepping.globalTimeStepRates     = new unsigned int[ 1 ];
-  o_timeStepping.globalCflTimeStepWidths = new double[ o_timeStepping.numberOfGlobalClusters ];
-
-  o_timeStepping.globalTimeStepRates[0]     = m_globalTimeStepRates[0];
-
-  // set global time step rates
-  for( unsigned int l_cluster = 0; l_cluster < o_timeStepping.numberOfGlobalClusters; l_cluster++ ) {
-    o_timeStepping.globalCflTimeStepWidths[l_cluster] = m_globalTimeStepWidths[l_cluster];
-  }
-
-  // set synchronization time invalid
-  o_timeStepping.synchronizationTime = std::numeric_limits<double>::min();
-
-  // set number of local clusters
-  o_timeStepping.numberOfLocalClusters = m_localClusters.size();
-
-  o_timeStepping.clusterIds = new unsigned int[ o_timeStepping.numberOfLocalClusters ];
-
-  for( unsigned int l_cluster = 0; l_cluster < o_timeStepping.numberOfLocalClusters; l_cluster++ ) {
-    o_timeStepping.clusterIds[l_cluster] = m_localClusters[l_cluster];
-  }
+seissol::initializer::ClusterLayout seissol::initializer::time_stepping::LtsLayout::clusterLayout() const {
+  return ClusterLayout({m_globalTimeStepRates[0]}, m_globalTimeStepWidths[0], m_numberOfGlobalClusters);
 }
 
 void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLocalInformation* io_cellLocalInformation,
                                                                           SecondaryCellLocalInformation* secondaryInformation,
-                                                                          unsigned int         *&o_ltsToMesh,
-                                                                          unsigned int          &o_numberOfMeshCells ) {
+                                                                          std::size_t         *&o_ltsToMesh,
+                                                                          std::size_t          &o_numberOfMeshCells ) {
 	const int rank = seissol::MPI::mpi.rank();
 
   // total sizes of the communication layers covering all clusters
@@ -863,10 +841,10 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
 
   // allocate memory
   // TODO: free sometime somewhere
-  o_ltsToMesh            = new unsigned int[ numberOfLtsCells ];
+  o_ltsToMesh            = new std::size_t[ numberOfLtsCells ];
 
   // current lts cell
-  unsigned int l_ltsCell = 0;
+  std::size_t l_ltsCell = 0;
   unsigned int layerId = 0;
 
   // iterate over the setup an derive a linear layout
@@ -880,7 +858,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         unsigned int l_clusterId = m_clusteredCopy[l_cluster][l_region].first[1];
 
         // set mapping invalid
-        o_ltsToMesh[l_ltsCell] = std::numeric_limits<unsigned int>::max();
+        o_ltsToMesh[l_ltsCell] = std::numeric_limits<std::size_t>::max();
 
         secondaryInformation[l_ltsCell].clusterId = l_clusterId;
         secondaryInformation[l_ltsCell].meshId = l_ghostCell;
@@ -925,7 +903,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
 
         // iterate over faces
-        for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+        for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
           // store mpi-independent values
           io_cellLocalInformation[l_ltsCell].faceTypes[l_face]        = getFaceType( m_cells[l_meshId].boundaries[l_face] );
           io_cellLocalInformation[l_ltsCell].faceRelations[l_face][0] = m_cells[l_meshId].neighborSides[l_face];
@@ -1030,7 +1008,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
       o_ltsToMesh[l_ltsCell]                   = l_meshId;
 
       // iterate over faces
-      for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+      for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
         // store mpi-independent values
         io_cellLocalInformation[l_ltsCell].faceTypes[l_face]        = getFaceType( m_cells[l_meshId].boundaries[l_face] );
         io_cellLocalInformation[l_ltsCell].faceRelations[l_face][0] = m_cells[l_meshId].neighborSides[l_face];

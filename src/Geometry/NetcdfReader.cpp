@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "NetcdfReader.h"
+#include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
 #include <algorithm>
 #include <mpi.h>
@@ -536,7 +537,7 @@ void NetcdfReader::addMPINeighbor(int localID,
 
 void NetcdfReader::findElementsPerVertex() {
   for (auto i = m_elements.begin(); i != m_elements.end(); i++) {
-    for (int j = 0; j < 4; j++) {
+    for (std::size_t j = 0; j < Cell::NumVertices; j++) {
       assert(i->vertices[j] < static_cast<int>(m_vertices.size()));
       m_vertices[i->vertices[j]].elements.push_back(i->localId);
     }

@@ -50,15 +50,28 @@ class CheckpointManager {
     dataRegistry[tree].ids = ids;
   }
 
-  template <typename T>
-  void registerData(const std::string& name,
-                    initializer::LTSTree* tree,
-                    initializer::Variable<T> var) {
-    if (var.mask != initializer::LayerMask(Ghost)) {
+  template <typename HandleT>
+  void registerData(const std::string& name, initializer::LTSTree* tree, const HandleT& var) {
+    if (tree->info(var).mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
-    dataRegistry[tree].variables.emplace_back(CheckpointVariable{
-        name, tree->var(var), datatype::inferDatatype<T>(), datatype::inferDatatype<T>()});
+    dataRegistry[tree].variables.emplace_back(
+        CheckpointVariable{name,
+                           tree->var(var),
+                           datatype::inferDatatype<typename HandleT::Type>(),
+                           datatype::inferDatatype<typename HandleT::Type>()});
+  }
+
+  template <typename StorageT>
+  void registerData(const std::string& name, initializer::LTSTree* tree) {
+    if (tree->info<StorageT>().mask != initializer::LayerMask(Ghost)) {
+      logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
+    }
+    dataRegistry[tree].variables.emplace_back(
+        CheckpointVariable{name,
+                           tree->var<StorageT>(),
+                           datatype::inferDatatype<typename StorageT::Type>(),
+                           datatype::inferDatatype<typename StorageT::Type>()});
   }
 
   template <typename S, typename T>
