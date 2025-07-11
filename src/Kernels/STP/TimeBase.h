@@ -43,10 +43,7 @@ class Spacetime : public SpacetimeKernel {
   std::uint64_t bytesAder() override;
 
   private:
-  void executeSTP(double timeStepWidth,
-                  LocalData& data,
-                  real* timeIntegrated,
-                  real* stp);
+  void executeSTP(double timeStepWidth, LocalData& data, real* timeIntegrated, real* stp);
 
   kernel::spaceTimePredictor m_krnlPrototype;
   kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;

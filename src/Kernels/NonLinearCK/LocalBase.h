@@ -13,8 +13,8 @@
 #include "generated_code/kernel.h"
 #include <Kernels/Local.h>
 
-#include "Kernels/Solver.h"
 #include "Kernels/Kernel.h"
+#include "Kernels/Solver.h"
 
 #include <memory>
 #pragma GCC diagnostic push
@@ -31,22 +31,22 @@ namespace seissol {
 struct GlobalData;
 } // namespace seissol
 
-namespace seissol::kernels::solver::nonlinearck  {
+namespace seissol::kernels::solver::nonlinearck {
 
 class Local : public LocalKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  
+
   void updateMaterials(LocalData& data);
 
   void computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                      real* nlDerivatives,
-                      LocalData& data,
-                      LocalTmp& tmp,
-                      const CellMaterialData* materialData,
-                      const CellBoundaryMapping (*cellBoundaryMapping)[4],
-                      double time,
-                      double timeStepWidth);
+                           real* nlDerivatives,
+                           LocalData& data,
+                           LocalTmp& tmp,
+                           const CellMaterialData* materialData,
+                           const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                           double time,
+                           double timeStepWidth);
 
   void computeIntegral(real* timeIntegratedDegreesOfFreedom,
                        LocalData& data,
@@ -84,7 +84,7 @@ class Local : public LocalKernel {
   kernel::localFlux m_localFluxKernelPrototype;
   kernel::localFluxNodal m_nodalLfKrnlPrototype;
 
-  //Added for nonlinear integration
+  // Added for nonlinear integration
   kernel::nonlinearVolumeIntegration m_krnlNonlVolPrototype;
   kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonlinearInterpolation;
   kernel::nonlinearSurfaceIntegral m_nonlSurfIntPrototype;

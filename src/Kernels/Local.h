@@ -36,7 +36,7 @@ class LocalKernel : public Kernel {
     const auto& condition = this->initConds->at(index);
     return condition.get();
   }
-  
+
   virtual void computeIntegral(real* timeIntegratedDegreesOfFreedom,
                                LocalData& data,
                                LocalTmp& tmp,

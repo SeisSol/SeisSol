@@ -9,9 +9,9 @@
 
 #include <Equations/Datastructures.h>
 
-#include <Kernels/NonLinearCK/Solver.h>
 #include <Kernels/LinearCK/Solver.h>
 #include <Kernels/LinearCKAnelastic/Solver.h>
+#include <Kernels/NonLinearCK/Solver.h>
 #include <Kernels/STP/Solver.h>
 
 // IWYU pragma: begin_exports

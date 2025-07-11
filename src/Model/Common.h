@@ -108,15 +108,15 @@ void initializeSpecificNeighborData(const T& material,
                                     std::array<std::array<double, 3>, 4>& localTangent2,
                                     typename T::NeighborSpecificData* neighborData) {
   MaterialSetup<T>::initializeSpecificNeighborData(material,
-                                                  matNeighbor, 
-                                                  timeStepWidth,
-                                                  localVertices,
-                                                  localVolume,
-                                                  localSurfaces,
-                                                  localNormal,
-                                                  localTangent1,
-                                                  localTangent2,
-                                                  neighborData);
+                                                   matNeighbor,
+                                                   timeStepWidth,
+                                                   localVertices,
+                                                   localVolume,
+                                                   localSurfaces,
+                                                   localNormal,
+                                                   localTangent1,
+                                                   localTangent2,
+                                                   neighborData);
 }
 
 /*

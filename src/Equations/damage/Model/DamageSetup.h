@@ -287,31 +287,32 @@ struct MaterialSetup<DamageMaterial> {
     seissol::transformations::tetrahedronGlobalToReferenceJacobian(
         x, y, z, gradXi, gradEta, gradZeta);
     // localData->globalMeshId = meshId;
-    for (unsigned int i_x = 0; i_x<3; i_x++){
+    for (unsigned int i_x = 0; i_x < 3; i_x++) {
       localData->gradXiEtaZeta[i_x][0] = gradXi[i_x];
       localData->gradXiEtaZeta[i_x][1] = gradEta[i_x];
       localData->gradXiEtaZeta[i_x][2] = gradZeta[i_x];
     }
   }
 
-  //TODO (Zihua): currently, it uses the same input as the LocalData
-  // there might be some redundant variables that may
-  // do not need to be passed. Better remove for cleaning the code.
+  // TODO (Zihua): currently, it uses the same input as the LocalData
+  //  there might be some redundant variables that may
+  //  do not need to be passed. Better remove for cleaning the code.
   static void initializeSpecificNeighborData(const DamageMaterial& material,
-                                            DamageMaterial* matNeighbor,
-                                            double timeStepWidth,
-                                            Vertex localVertices[4],
-                                            real& localVolume,
-                                            real localSurfaces[4],
-                                            std::array<std::array<double, 3>, 4>& localNormal,
-                                            std::array<std::array<double, 3>, 4>& localTangent1,
-                                            std::array<std::array<double, 3>, 4>& localTangent2,
-                                            DamageNeighborData* localData) {
+                                             DamageMaterial* matNeighbor,
+                                             double timeStepWidth,
+                                             Vertex localVertices[4],
+                                             real& localVolume,
+                                             real localSurfaces[4],
+                                             std::array<std::array<double, 3>, 4>& localNormal,
+                                             std::array<std::array<double, 3>, 4>& localTangent1,
+                                             std::array<std::array<double, 3>, 4>& localTangent2,
+                                             DamageNeighborData* localData) {
     // currently, it takes new memory. Later on can switch to pointers
-    double cpMinus = std::sqrt((material.lambda0+2.0*material.mu0)/material.rho);
+    double cpMinus = std::sqrt((material.lambda0 + 2.0 * material.mu0) / material.rho);
     for (int i_v = 0; i_v < 4; i_v++) {
-      double cpPlus = std::sqrt((matNeighbor[i_v].lambda0+2.0*matNeighbor[i_v].mu0)/matNeighbor[i_v].rho);
-      localData->maxWavespeeds[i_v] = std::max(cpMinus,cpPlus);
+      double cpPlus =
+          std::sqrt((matNeighbor[i_v].lambda0 + 2.0 * matNeighbor[i_v].mu0) / matNeighbor[i_v].rho);
+      localData->maxWavespeeds[i_v] = std::max(cpMinus, cpPlus);
       localData->localVertices[i_v] = localVertices[i_v];
       localData->localSurfaces[i_v] = localSurfaces[i_v];
       for (int i_c = 0; i_c < 3; i_c++) {
@@ -339,7 +340,7 @@ struct MaterialSetup<DamageMaterial> {
     seissol::transformations::tetrahedronGlobalToReferenceJacobian(
         x, y, z, gradXi, gradEta, gradZeta);
     // localData->globalMeshId = meshId;
-    for (unsigned int i_x = 0; i_x<3; i_x++){
+    for (unsigned int i_x = 0; i_x < 3; i_x++) {
       localData->gradXiEtaZeta[i_x][0] = gradXi[i_x];
       localData->gradXiEtaZeta[i_x][1] = gradEta[i_x];
       localData->gradXiEtaZeta[i_x][2] = gradZeta[i_x];

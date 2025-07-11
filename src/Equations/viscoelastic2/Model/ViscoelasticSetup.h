@@ -174,14 +174,14 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   }
 
   static void initializeSpecificNeighborData(const MaterialT& localMaterial,
-                                            MaterialT* matNeighbor,
-                                            double timeStepWidth,
-                                            Vertex localVertices[4],
-                                            real& localVolume,
-                                            real localSurfaces[4],
-                                            std::array<std::array<double, 3>, 4>& localNormal,
-                                            std::array<std::array<double, 3>, 4>& localTangent1,
-                                            std::array<std::array<double, 3>, 4>& localTangent2,
+                                             MaterialT* matNeighbor,
+                                             double timeStepWidth,
+                                             Vertex localVertices[4],
+                                             real& localVolume,
+                                             real localSurfaces[4],
+                                             std::array<std::array<double, 3>, 4>& localNormal,
+                                             std::array<std::array<double, 3>, 4>& localTangent1,
+                                             std::array<std::array<double, 3>, 4>& localTangent2,
                                              ViscoElasticNeighborData* neighborData) {
     // We only need the local omegas
     auto w = init::w::view::create(neighborData->w);

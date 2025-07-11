@@ -49,7 +49,7 @@ class Neighbor : public NeighborKernel {
   protected:
   kernel::neighboringFlux m_nfKrnlPrototype;
   dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
-  
+
   // For nonlinear integration
   kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonlinearInterpolation;
   kernel::nonlinearSurfaceIntegral m_nonlSurfIntPrototype;

@@ -380,15 +380,15 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                                     &localIntegration[cell].specific);
 
         seissol::model::initializeSpecificNeighborData(material[cell].local,
-                                                      material[cell].neighbor,
-                                                      timeStepWidth,
-                                                      localVertices,
-                                                      localVolume,
-                                                      localSurfaces,
-                                                      localNormal,
-                                                      localTangent1,
-                                                      localTangent2,
-                                                      &neighboringIntegration[cell].specific);
+                                                       material[cell].neighbor,
+                                                       timeStepWidth,
+                                                       localVertices,
+                                                       localVolume,
+                                                       localSurfaces,
+                                                       localNormal,
+                                                       localTangent1,
+                                                       localTangent2,
+                                                       &neighboringIntegration[cell].specific);
       }
 #ifdef _OPENMP
     }
