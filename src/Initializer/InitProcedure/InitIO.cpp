@@ -110,8 +110,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     // record the clustering info i.e., distribution of elements within an LTS tree
     const std::vector<Element>& meshElements = seissolInstance.meshReader().getElements();
     std::vector<unsigned> ltsClusteringData(meshElements.size());
+    std::vector<unsigned> ltsIdData(meshElements.size());
     for (const auto& element : meshElements) {
       ltsClusteringData[element.localId] = element.clusterId;
+      ltsIdData[element.localId] = element.globalId;
     }
     // Initialize wave field output
     seissolInstance.waveFieldWriter().init(
@@ -120,6 +122,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         NumAlignedBasisFunctions,
         seissolInstance.meshReader(),
         ltsClusteringData,
+        ltsIdData,
         reinterpret_cast<const real*>(ltsTree->var(lts->dofs)),
         reinterpret_cast<const real*>(ltsTree->var(lts->pstrain)),
         seissolInstance.postProcessor().getIntegrals(ltsTree),
