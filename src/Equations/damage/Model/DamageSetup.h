@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015 SeisSol Group
+// SPDX-FileCopyrightText: 2025 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -11,14 +11,15 @@
 #ifndef SEISSOL_SRC_EQUATIONS_DAMAGE_MODEL_DAMAGESETUP_H_
 #define SEISSOL_SRC_EQUATIONS_DAMAGE_MODEL_DAMAGESETUP_H_
 
+#include <Equations/damage/Model/Datastructures.h>
+#include <Equations/damage/Model/IntegrationData.h>
+#include <Geometry/MeshDefinition.h>
+
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 #include "generated_code/init.h"
-#include <Equations/damage/Model/Datastructures.h>
-#include <Equations/damage/Model/IntegrationData.h>
-#include <Geometry/MeshDefinition.h>
 
 namespace seissol::model {
 using Matrix1010 = Eigen::Matrix<double, 10, 10>;
@@ -361,4 +362,4 @@ struct MaterialSetup<DamageMaterial> {
 
 } // namespace seissol::model
 
-#endif // SEISSOL_SRC_EQUATIONS_DAMAGE_MODEL_ELASTICSETUP_H_
+#endif // SEISSOL_SRC_EQUATIONS_DAMAGE_MODEL_DAMAGESETUP_H_
