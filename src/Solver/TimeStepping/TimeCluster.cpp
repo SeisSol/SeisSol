@@ -29,6 +29,7 @@
 #include <Kernels/Plasticity.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/MemoryAllocator.h>
@@ -951,7 +952,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
         faceNeighbors[cell],
 #ifdef _OPENMP
         *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(
-            &(globalDataOnHost->integrationBufferLTS[static_cast<size_t>(omp_get_thread_num() * 4 *
+            &(globalDataOnHost->integrationBufferLTS[static_cast<size_t>(static_cast<size_t>(omp_get_thread_num()) * 4 *
                                                                          seissol::kernels::Solver::BufferSize)])),
 #else
         *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(globalDataOnHost->integrationBufferLTS),

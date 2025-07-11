@@ -35,11 +35,13 @@
 #include <Model/CommonDatastructures.h>
 #include <Numerical/Eigenvalues.h>
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <complex>
 #include <cstddef>
 #include <generated_code/init.h>
 #include <limits>
+#include <math.h>
 #include <utils/logger.h>
 #include <vector>
 #ifdef ACL_DEVICE
@@ -201,7 +203,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
         // Initialize specific variables for Damage materials
         Vertex localVertices[4];
-        real localVolume;
+        real localVolume{};
         real localSurfaces[4];
         std::array<std::array<double, 3>, 4> localNormal;
         std::array<std::array<double, 3>, 4> localTangent1;

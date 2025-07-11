@@ -20,6 +20,7 @@
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
 #include <Kernels/TimeCommon.h>
+#include <Kernels/Solver.h>
 #include <Memory/Tree/Layer.h>
 #include <Monitoring/Instrumentation.h>
 #include <Parallel/Runtime/Stream.h>
@@ -193,7 +194,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
 #ifdef _OPENMP
           *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(
               &(data.globalDataOnHost.integrationBufferLTS[
-                  omp_get_thread_num() * 4 * seissol::kernels::Solver::BufferSize])),
+                  static_cast<std::size_t>(omp_get_thread_num() * 4) * seissol::kernels::Solver::BufferSize])),
 #else
         *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(
             data.globalDataOnHost.integrationBufferLTS),
