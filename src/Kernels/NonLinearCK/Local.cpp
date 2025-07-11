@@ -25,8 +25,8 @@
 
 // Required for material update
 #include "Model/Common.h"
-#include "Numerical/Transformation.h"
 #include "Numerical/Quadrature.h"
+#include "Numerical/Transformation.h"
 
 #include <Parallel/Runtime/Stream.h>
 #include <Physics/InitialField.h>
@@ -59,8 +59,11 @@ GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::nonlinearck {
 
-void setStarMatrix(
-    const real* matAT, const real* matBT, const real* matCT, const double grad[3], real* starMatrix) {
+void setStarMatrix(const real* matAT,
+                   const real* matBT,
+                   const real* matCT,
+                   const double grad[3],
+                   real* starMatrix) {
   for (unsigned idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
   }
@@ -183,11 +186,12 @@ void Local::updateMaterials(LocalData& data) {
   real alphaAve = Q_aveData[9];
 
   // Change to updated material properties
-  data.material().local.mu = data.material().local.mu0 * (0.9-alphaAve+0.1);
-  data.material().local.lambda = data.material().local.lambda0 * (0.9-alphaAve+0.1);
+  data.material().local.mu = data.material().local.mu0 * (0.9 - alphaAve + 0.1);
+  data.material().local.lambda = data.material().local.lambda0 * (0.9 - alphaAve + 0.1);
   for (unsigned i_s = 0; i_s < 4; i_s++) {
-    data.material().neighbor[i_s].mu = data.material().neighbor[i_s].mu0 * (0.9-alphaAve+0.1);
-    data.material().neighbor[i_s].lambda = data.material().neighbor[i_s].lambda0 * (0.9-alphaAve+0.1);
+    data.material().neighbor[i_s].mu = data.material().neighbor[i_s].mu0 * (0.9 - alphaAve + 0.1);
+    data.material().neighbor[i_s].lambda =
+        data.material().neighbor[i_s].lambda0 * (0.9 - alphaAve + 0.1);
   }
 
   /// global coordinates of the vertices
@@ -288,14 +292,14 @@ void Local::updateMaterials(LocalData& data) {
 }
 
 void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                            real* nlDerivatives,
-                            LocalData& data,
-                            LocalTmp& tmp,
-                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-                            const CellMaterialData* materialData,
-                            const CellBoundaryMapping (*cellBoundaryMapping)[4],
-                            double time,
-                            double timeStepWidth) {
+                                real* nlDerivatives,
+                                LocalData& data,
+                                LocalTmp& tmp,
+                                // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
+                                const CellMaterialData* materialData,
+                                const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                                double time,
+                                double timeStepWidth) {
   assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(nlDerivatives) % Alignment == 0);
@@ -326,7 +330,7 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
   real* QInterpolatedBodyNodali;
 
   kernel::damageConvertToNodal d_converToKrnl;
-  for (unsigned int timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval){
+  for (unsigned int timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
     QInterpolatedBodyi = QInterpolatedBody[timeInterval];
     QInterpolatedBodyNodali = QInterpolatedBodyNodal[timeInterval];
     computeTaylorExpansion(timePoints[timeInterval], 0.0, nlDerivatives, QInterpolatedBodyi);
@@ -339,9 +343,12 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
 
   alignas(PagesizeStack) real FInterpolatedBody[ConvergenceOrder][tensor::QNodal::size()] = {{0}};
 
-  alignas(PagesizeStack) real FluxInterpolatedBodyX[ConvergenceOrder][tensor::QNodal::size()] = {{0}};
-  alignas(PagesizeStack) real FluxInterpolatedBodyY[ConvergenceOrder][tensor::QNodal::size()] = {{0}};
-  alignas(PagesizeStack) real FluxInterpolatedBodyZ[ConvergenceOrder][tensor::QNodal::size()] = {{0}};
+  alignas(PagesizeStack)
+      real FluxInterpolatedBodyX[ConvergenceOrder][tensor::QNodal::size()] = {{0}};
+  alignas(PagesizeStack)
+      real FluxInterpolatedBodyY[ConvergenceOrder][tensor::QNodal::size()] = {{0}};
+  alignas(PagesizeStack)
+      real FluxInterpolatedBodyZ[ConvergenceOrder][tensor::QNodal::size()] = {{0}};
 
   alignas(Alignment) real sxxNodal[tensor::Q::Shape[0]] = {0};
   alignas(Alignment) real syyNodal[tensor::Q::Shape[0]] = {0};
@@ -353,7 +360,8 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
   real mat_mu0 = data.material().local.mu0;
   real mat_lambda0 = data.material().local.lambda0;
   real mat_Cd = data.material().local.Cd;
-  real mat_gammaR = data.material().local.gammaR;;
+  real mat_gammaR = data.material().local.gammaR;
+  ;
 
   real epsInitxx = data.material().local.epsInit_xx;
   real epsInityy = data.material().local.epsInit_yy;
@@ -362,122 +370,142 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
   real epsInityz = data.material().local.epsInit_yz;
   real epsInitzx = data.material().local.epsInit_xz;
 
-  for (unsigned int timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval){
-      real* exxNodal = (QInterpolatedBodyNodal[timeInterval] + 0*tensor::Q::Shape[0]);
-      real* eyyNodal = (QInterpolatedBodyNodal[timeInterval] + 1*tensor::Q::Shape[0]);
-      real* ezzNodal = (QInterpolatedBodyNodal[timeInterval] + 2*tensor::Q::Shape[0]);
-      real* alphaNodal = (QInterpolatedBodyNodal[timeInterval] + 9*tensor::Q::Shape[0]);
-      // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
+  for (unsigned int timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
+    real* exxNodal = (QInterpolatedBodyNodal[timeInterval] + 0 * tensor::Q::Shape[0]);
+    real* eyyNodal = (QInterpolatedBodyNodal[timeInterval] + 1 * tensor::Q::Shape[0]);
+    real* ezzNodal = (QInterpolatedBodyNodal[timeInterval] + 2 * tensor::Q::Shape[0]);
+    real* alphaNodal = (QInterpolatedBodyNodal[timeInterval] + 9 * tensor::Q::Shape[0]);
+    // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
 
-      real* exyNodal = (QInterpolatedBodyNodal[timeInterval] + 3*tensor::Q::Shape[0]);
-      real* eyzNodal = (QInterpolatedBodyNodal[timeInterval] + 4*tensor::Q::Shape[0]);
-      real* ezxNodal = (QInterpolatedBodyNodal[timeInterval] + 5*tensor::Q::Shape[0]);
-      real* vxNodal = (QInterpolatedBodyNodal[timeInterval] + 6*tensor::Q::Shape[0]);
-      real* vyNodal = (QInterpolatedBodyNodal[timeInterval] + 7*tensor::Q::Shape[0]);
-      real* vzNodal = (QInterpolatedBodyNodal[timeInterval] + 8*tensor::Q::Shape[0]);
-      for (unsigned int q = 0; q<tensor::Q::Shape[0]; ++q){
-        real EspI = (exxNodal[q]+epsInitxx) + (eyyNodal[q]+epsInityy) + (ezzNodal[q]+epsInitzz);
-        real EspII = (exxNodal[q]+epsInitxx)*(exxNodal[q]+epsInitxx)
-          + (eyyNodal[q]+epsInityy)*(eyyNodal[q]+epsInityy)
-          + (ezzNodal[q]+epsInitzz)*(ezzNodal[q]+epsInitzz)
-          + 2*(exyNodal[q]+epsInitxy)*(exyNodal[q]+epsInitxy)
-          + 2*(eyzNodal[q]+epsInityz)*(eyzNodal[q]+epsInityz)
-          + 2*(ezxNodal[q]+epsInitzx)*(ezxNodal[q]+epsInitzx);
+    real* exyNodal = (QInterpolatedBodyNodal[timeInterval] + 3 * tensor::Q::Shape[0]);
+    real* eyzNodal = (QInterpolatedBodyNodal[timeInterval] + 4 * tensor::Q::Shape[0]);
+    real* ezxNodal = (QInterpolatedBodyNodal[timeInterval] + 5 * tensor::Q::Shape[0]);
+    real* vxNodal = (QInterpolatedBodyNodal[timeInterval] + 6 * tensor::Q::Shape[0]);
+    real* vyNodal = (QInterpolatedBodyNodal[timeInterval] + 7 * tensor::Q::Shape[0]);
+    real* vzNodal = (QInterpolatedBodyNodal[timeInterval] + 8 * tensor::Q::Shape[0]);
+    for (unsigned int q = 0; q < tensor::Q::Shape[0]; ++q) {
+      real EspI = (exxNodal[q] + epsInitxx) + (eyyNodal[q] + epsInityy) + (ezzNodal[q] + epsInitzz);
+      real EspII = (exxNodal[q] + epsInitxx) * (exxNodal[q] + epsInitxx) +
+                   (eyyNodal[q] + epsInityy) * (eyyNodal[q] + epsInityy) +
+                   (ezzNodal[q] + epsInitzz) * (ezzNodal[q] + epsInitzz) +
+                   2 * (exyNodal[q] + epsInitxy) * (exyNodal[q] + epsInitxy) +
+                   2 * (eyzNodal[q] + epsInityz) * (eyzNodal[q] + epsInityz) +
+                   2 * (ezxNodal[q] + epsInitzx) * (ezxNodal[q] + epsInitzx);
 
-        // Only impotant for damage integration later
-        real W_energy = 0.0*0.5*mat_lambda0*EspI*EspI
-        + mat_mu0*EspII;
+      // Only impotant for damage integration later
+      real W_energy = 0.0 * 0.5 * mat_lambda0 * EspI * EspI + mat_mu0 * EspII;
 
-        // For IWAN
-        if (W_energy - mat_gammaR*(alphaNodal[q]/(1-alphaNodal[q]))*(alphaNodal[q]/(1-alphaNodal[q])) > 0) {
-          if (alphaNodal[q] < 0.8 ){
-            FInterpolatedBody[timeInterval][9*tensor::Q::Shape[0] + q] =
-              1.0/(mat_Cd*mat_gammaR)
-                *(W_energy - mat_gammaR*(alphaNodal[q]/(1-alphaNodal[q]))*(alphaNodal[q]/(1-alphaNodal[q])));
-          } else {
-            FInterpolatedBody[timeInterval][9*tensor::Q::Shape[0] + q] = 0.0;
-          }
-        } else if (alphaNodal[q] > 8e-1 ) {
-          FInterpolatedBody[timeInterval][9*tensor::Q::Shape[0] + q] =
-            1.0/(mat_Cd*mat_gammaR)
-                *(W_energy - mat_gammaR*(alphaNodal[q]/(1-alphaNodal[q]))*(alphaNodal[q]/(1-alphaNodal[q])));
+      // For IWAN
+      if (W_energy - mat_gammaR * (alphaNodal[q] / (1 - alphaNodal[q])) *
+                         (alphaNodal[q] / (1 - alphaNodal[q])) >
+          0) {
+        if (alphaNodal[q] < 0.8) {
+          FInterpolatedBody[timeInterval][9 * tensor::Q::Shape[0] + q] =
+              1.0 / (mat_Cd * mat_gammaR) *
+              (W_energy - mat_gammaR * (alphaNodal[q] / (1 - alphaNodal[q])) *
+                              (alphaNodal[q] / (1 - alphaNodal[q])));
+        } else {
+          FInterpolatedBody[timeInterval][9 * tensor::Q::Shape[0] + q] = 0.0;
         }
-        else {
-          FInterpolatedBody[timeInterval][9*tensor::Q::Shape[0] + q] = 0;
-        }
-
-        // Compute nonlinear flux term
-        real mu_eff = mat_mu0 - alphaNodal[q]*mat_mu0;
-        sxxNodal[q] = (1-alphaNodal[q])*mat_lambda0*EspI
-                      + 2*mu_eff*(exxNodal[q]+epsInitxx);
-        syyNodal[q] = (1-alphaNodal[q])*mat_lambda0*EspI
-                      + 2*mu_eff*(eyyNodal[q]+epsInityy);
-        szzNodal[q] = (1-alphaNodal[q])*mat_lambda0*EspI
-                      + 2*mu_eff*(ezzNodal[q]+epsInitzz);
-        sxyNodal[q] = 2*mu_eff*(exyNodal[q]+epsInitxy);
-        syzNodal[q] = 2*mu_eff*(eyzNodal[q]+epsInityz);
-        szxNodal[q] = 2*mu_eff*(ezxNodal[q]+epsInitzx);
-        // //--- x-dir
-        FluxInterpolatedBodyX[timeInterval][0*tensor::Q::Shape[0] + q] = -vxNodal[q];
-        FluxInterpolatedBodyX[timeInterval][1*tensor::Q::Shape[0] + q] = 0;
-        FluxInterpolatedBodyX[timeInterval][2*tensor::Q::Shape[0] + q] = 0;
-        FluxInterpolatedBodyX[timeInterval][3*tensor::Q::Shape[0] + q] = -0.5*vyNodal[q];
-        FluxInterpolatedBodyX[timeInterval][4*tensor::Q::Shape[0] + q] = 0;
-        FluxInterpolatedBodyX[timeInterval][5*tensor::Q::Shape[0] + q] = -0.5*vzNodal[q];
-        FluxInterpolatedBodyX[timeInterval][6*tensor::Q::Shape[0] + q] = -sxxNodal[q]/data.material().local.rho;
-        FluxInterpolatedBodyX[timeInterval][7*tensor::Q::Shape[0] + q] = -sxyNodal[q]/data.material().local.rho;
-        FluxInterpolatedBodyX[timeInterval][8*tensor::Q::Shape[0] + q] = -szxNodal[q]/data.material().local.rho;
-        FluxInterpolatedBodyX[timeInterval][9*tensor::Q::Shape[0] + q] = 0;
-        //--- y-dir
-        FluxInterpolatedBodyY[timeInterval][0*tensor::Q::Shape[0] + q] = 0;
-        FluxInterpolatedBodyY[timeInterval][1*tensor::Q::Shape[0] + q] = -vyNodal[q];
-        FluxInterpolatedBodyY[timeInterval][2*tensor::Q::Shape[0] + q] = 0;
-        FluxInterpolatedBodyY[timeInterval][3*tensor::Q::Shape[0] + q] = -0.5*vxNodal[q];
-        FluxInterpolatedBodyY[timeInterval][4*tensor::Q::Shape[0] + q] = -0.5*vzNodal[q];
-        FluxInterpolatedBodyY[timeInterval][5*tensor::Q::Shape[0] + q] = 0;
-        FluxInterpolatedBodyY[timeInterval][6*tensor::Q::Shape[0] + q] = -sxyNodal[q]/data.material().local.rho;
-        FluxInterpolatedBodyY[timeInterval][7*tensor::Q::Shape[0] + q] = -syyNodal[q]/data.material().local.rho;
-        FluxInterpolatedBodyY[timeInterval][8*tensor::Q::Shape[0] + q] = -syzNodal[q]/data.material().local.rho;
-        FluxInterpolatedBodyY[timeInterval][9*tensor::Q::Shape[0] + q] = 0;
-        //--- z-dir
-        FluxInterpolatedBodyZ[timeInterval][0*tensor::Q::Shape[0] + q] = 0;
-        FluxInterpolatedBodyZ[timeInterval][1*tensor::Q::Shape[0] + q] = 0;
-        FluxInterpolatedBodyZ[timeInterval][2*tensor::Q::Shape[0] + q] = -vzNodal[q];
-        FluxInterpolatedBodyZ[timeInterval][3*tensor::Q::Shape[0] + q] = 0;
-        FluxInterpolatedBodyZ[timeInterval][4*tensor::Q::Shape[0] + q] = -0.5*vyNodal[q];
-        FluxInterpolatedBodyZ[timeInterval][5*tensor::Q::Shape[0] + q] = -0.5*vxNodal[q];
-        FluxInterpolatedBodyZ[timeInterval][6*tensor::Q::Shape[0] + q] = -szxNodal[q]/data.material().local.rho;
-        FluxInterpolatedBodyZ[timeInterval][7*tensor::Q::Shape[0] + q] = -syzNodal[q]/data.material().local.rho;
-        FluxInterpolatedBodyZ[timeInterval][8*tensor::Q::Shape[0] + q] = -szzNodal[q]/data.material().local.rho;
-        FluxInterpolatedBodyZ[timeInterval][9*tensor::Q::Shape[0] + q] = 0;
+      } else if (alphaNodal[q] > 8e-1) {
+        FInterpolatedBody[timeInterval][9 * tensor::Q::Shape[0] + q] =
+            1.0 / (mat_Cd * mat_gammaR) *
+            (W_energy - mat_gammaR * (alphaNodal[q] / (1 - alphaNodal[q])) *
+                            (alphaNodal[q] / (1 - alphaNodal[q])));
+      } else {
+        FInterpolatedBody[timeInterval][9 * tensor::Q::Shape[0] + q] = 0;
       }
-    }
 
-    // Do integration of the nonlinear volumetric flux here
-    /// Integrate V^-1_li * F_ip^d * Theta_ed * K^e_kl in time (*TweightN)
-    kernel::nonlinearVolumeIntegration d_nonlinearVolumeIntegration = m_krnlNonlVolPrototype;
-    for (unsigned int timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval){
-      /// Convert F^d_{lp}(tau_z) in nodal basis back to modal basis
-      d_nonlinearVolumeIntegration.vInv = init::vInv::Values;
-      d_nonlinearVolumeIntegration.gradXiEtaZetaX0 = data.localIntegration().specific.gradXiEtaZeta[0][0]*timeWeights[timeInterval];
-      d_nonlinearVolumeIntegration.gradXiEtaZetaX1 = data.localIntegration().specific.gradXiEtaZeta[0][1]*timeWeights[timeInterval];
-      d_nonlinearVolumeIntegration.gradXiEtaZetaX2 = data.localIntegration().specific.gradXiEtaZeta[0][2]*timeWeights[timeInterval];
-      d_nonlinearVolumeIntegration.gradXiEtaZetaY0 = data.localIntegration().specific.gradXiEtaZeta[1][0]*timeWeights[timeInterval];
-      d_nonlinearVolumeIntegration.gradXiEtaZetaY1 = data.localIntegration().specific.gradXiEtaZeta[1][1]*timeWeights[timeInterval];
-      d_nonlinearVolumeIntegration.gradXiEtaZetaY2 = data.localIntegration().specific.gradXiEtaZeta[1][2]*timeWeights[timeInterval];
-      d_nonlinearVolumeIntegration.gradXiEtaZetaZ0 = data.localIntegration().specific.gradXiEtaZeta[2][0]*timeWeights[timeInterval];
-      d_nonlinearVolumeIntegration.gradXiEtaZetaZ1 = data.localIntegration().specific.gradXiEtaZeta[2][1]*timeWeights[timeInterval];
-      d_nonlinearVolumeIntegration.gradXiEtaZetaZ2 = data.localIntegration().specific.gradXiEtaZeta[2][2]*timeWeights[timeInterval];
-
-      d_nonlinearVolumeIntegration.Q = data.dofs();
-      d_nonlinearVolumeIntegration.FluxVolX(timeInterval) = FluxInterpolatedBodyX[timeInterval];
-      d_nonlinearVolumeIntegration.FluxVolY(timeInterval) = FluxInterpolatedBodyY[timeInterval];
-      d_nonlinearVolumeIntegration.FluxVolZ(timeInterval) = FluxInterpolatedBodyZ[timeInterval];
-      // d_nonlinearVolumeIntegration.TweightN = (timeWeights[timeInterval]);
-      // std::cout << timeWeights[timeInterval] << std::endl;
-      d_nonlinearVolumeIntegration.execute(timeInterval);
+      // Compute nonlinear flux term
+      real mu_eff = mat_mu0 - alphaNodal[q] * mat_mu0;
+      sxxNodal[q] =
+          (1 - alphaNodal[q]) * mat_lambda0 * EspI + 2 * mu_eff * (exxNodal[q] + epsInitxx);
+      syyNodal[q] =
+          (1 - alphaNodal[q]) * mat_lambda0 * EspI + 2 * mu_eff * (eyyNodal[q] + epsInityy);
+      szzNodal[q] =
+          (1 - alphaNodal[q]) * mat_lambda0 * EspI + 2 * mu_eff * (ezzNodal[q] + epsInitzz);
+      sxyNodal[q] = 2 * mu_eff * (exyNodal[q] + epsInitxy);
+      syzNodal[q] = 2 * mu_eff * (eyzNodal[q] + epsInityz);
+      szxNodal[q] = 2 * mu_eff * (ezxNodal[q] + epsInitzx);
+      // //--- x-dir
+      FluxInterpolatedBodyX[timeInterval][0 * tensor::Q::Shape[0] + q] = -vxNodal[q];
+      FluxInterpolatedBodyX[timeInterval][1 * tensor::Q::Shape[0] + q] = 0;
+      FluxInterpolatedBodyX[timeInterval][2 * tensor::Q::Shape[0] + q] = 0;
+      FluxInterpolatedBodyX[timeInterval][3 * tensor::Q::Shape[0] + q] = -0.5 * vyNodal[q];
+      FluxInterpolatedBodyX[timeInterval][4 * tensor::Q::Shape[0] + q] = 0;
+      FluxInterpolatedBodyX[timeInterval][5 * tensor::Q::Shape[0] + q] = -0.5 * vzNodal[q];
+      FluxInterpolatedBodyX[timeInterval][6 * tensor::Q::Shape[0] + q] =
+          -sxxNodal[q] / data.material().local.rho;
+      FluxInterpolatedBodyX[timeInterval][7 * tensor::Q::Shape[0] + q] =
+          -sxyNodal[q] / data.material().local.rho;
+      FluxInterpolatedBodyX[timeInterval][8 * tensor::Q::Shape[0] + q] =
+          -szxNodal[q] / data.material().local.rho;
+      FluxInterpolatedBodyX[timeInterval][9 * tensor::Q::Shape[0] + q] = 0;
+      //--- y-dir
+      FluxInterpolatedBodyY[timeInterval][0 * tensor::Q::Shape[0] + q] = 0;
+      FluxInterpolatedBodyY[timeInterval][1 * tensor::Q::Shape[0] + q] = -vyNodal[q];
+      FluxInterpolatedBodyY[timeInterval][2 * tensor::Q::Shape[0] + q] = 0;
+      FluxInterpolatedBodyY[timeInterval][3 * tensor::Q::Shape[0] + q] = -0.5 * vxNodal[q];
+      FluxInterpolatedBodyY[timeInterval][4 * tensor::Q::Shape[0] + q] = -0.5 * vzNodal[q];
+      FluxInterpolatedBodyY[timeInterval][5 * tensor::Q::Shape[0] + q] = 0;
+      FluxInterpolatedBodyY[timeInterval][6 * tensor::Q::Shape[0] + q] =
+          -sxyNodal[q] / data.material().local.rho;
+      FluxInterpolatedBodyY[timeInterval][7 * tensor::Q::Shape[0] + q] =
+          -syyNodal[q] / data.material().local.rho;
+      FluxInterpolatedBodyY[timeInterval][8 * tensor::Q::Shape[0] + q] =
+          -syzNodal[q] / data.material().local.rho;
+      FluxInterpolatedBodyY[timeInterval][9 * tensor::Q::Shape[0] + q] = 0;
+      //--- z-dir
+      FluxInterpolatedBodyZ[timeInterval][0 * tensor::Q::Shape[0] + q] = 0;
+      FluxInterpolatedBodyZ[timeInterval][1 * tensor::Q::Shape[0] + q] = 0;
+      FluxInterpolatedBodyZ[timeInterval][2 * tensor::Q::Shape[0] + q] = -vzNodal[q];
+      FluxInterpolatedBodyZ[timeInterval][3 * tensor::Q::Shape[0] + q] = 0;
+      FluxInterpolatedBodyZ[timeInterval][4 * tensor::Q::Shape[0] + q] = -0.5 * vyNodal[q];
+      FluxInterpolatedBodyZ[timeInterval][5 * tensor::Q::Shape[0] + q] = -0.5 * vxNodal[q];
+      FluxInterpolatedBodyZ[timeInterval][6 * tensor::Q::Shape[0] + q] =
+          -szxNodal[q] / data.material().local.rho;
+      FluxInterpolatedBodyZ[timeInterval][7 * tensor::Q::Shape[0] + q] =
+          -syzNodal[q] / data.material().local.rho;
+      FluxInterpolatedBodyZ[timeInterval][8 * tensor::Q::Shape[0] + q] =
+          -szzNodal[q] / data.material().local.rho;
+      FluxInterpolatedBodyZ[timeInterval][9 * tensor::Q::Shape[0] + q] = 0;
     }
-  
+  }
+
+  // Do integration of the nonlinear volumetric flux here
+  /// Integrate V^-1_li * F_ip^d * Theta_ed * K^e_kl in time (*TweightN)
+  kernel::nonlinearVolumeIntegration d_nonlinearVolumeIntegration = m_krnlNonlVolPrototype;
+  for (unsigned int timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
+    /// Convert F^d_{lp}(tau_z) in nodal basis back to modal basis
+    d_nonlinearVolumeIntegration.vInv = init::vInv::Values;
+    d_nonlinearVolumeIntegration.gradXiEtaZetaX0 =
+        data.localIntegration().specific.gradXiEtaZeta[0][0] * timeWeights[timeInterval];
+    d_nonlinearVolumeIntegration.gradXiEtaZetaX1 =
+        data.localIntegration().specific.gradXiEtaZeta[0][1] * timeWeights[timeInterval];
+    d_nonlinearVolumeIntegration.gradXiEtaZetaX2 =
+        data.localIntegration().specific.gradXiEtaZeta[0][2] * timeWeights[timeInterval];
+    d_nonlinearVolumeIntegration.gradXiEtaZetaY0 =
+        data.localIntegration().specific.gradXiEtaZeta[1][0] * timeWeights[timeInterval];
+    d_nonlinearVolumeIntegration.gradXiEtaZetaY1 =
+        data.localIntegration().specific.gradXiEtaZeta[1][1] * timeWeights[timeInterval];
+    d_nonlinearVolumeIntegration.gradXiEtaZetaY2 =
+        data.localIntegration().specific.gradXiEtaZeta[1][2] * timeWeights[timeInterval];
+    d_nonlinearVolumeIntegration.gradXiEtaZetaZ0 =
+        data.localIntegration().specific.gradXiEtaZeta[2][0] * timeWeights[timeInterval];
+    d_nonlinearVolumeIntegration.gradXiEtaZetaZ1 =
+        data.localIntegration().specific.gradXiEtaZeta[2][1] * timeWeights[timeInterval];
+    d_nonlinearVolumeIntegration.gradXiEtaZetaZ2 =
+        data.localIntegration().specific.gradXiEtaZeta[2][2] * timeWeights[timeInterval];
+
+    d_nonlinearVolumeIntegration.Q = data.dofs();
+    d_nonlinearVolumeIntegration.FluxVolX(timeInterval) = FluxInterpolatedBodyX[timeInterval];
+    d_nonlinearVolumeIntegration.FluxVolY(timeInterval) = FluxInterpolatedBodyY[timeInterval];
+    d_nonlinearVolumeIntegration.FluxVolZ(timeInterval) = FluxInterpolatedBodyZ[timeInterval];
+    // d_nonlinearVolumeIntegration.TweightN = (timeWeights[timeInterval]);
+    // std::cout << timeWeights[timeInterval] << std::endl;
+    d_nonlinearVolumeIntegration.execute(timeInterval);
+  }
+
   // Local integration in nonlinear way
   // Step 2: surface integration of the local ingradients
 
@@ -491,52 +519,55 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
 
   for (int face = 0; face < 4; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.cellInformation().faceTypes[face] != FaceType::DynamicRupture
-      && data.cellInformation().faceTypes[face] != FaceType::Regular
-      && data.cellInformation().faceTypes[face] != FaceType::Periodic
-      ) {
+    if (data.cellInformation().faceTypes[face] != FaceType::DynamicRupture &&
+        data.cellInformation().faceTypes[face] != FaceType::Regular &&
+        data.cellInformation().faceTypes[face] != FaceType::Periodic) {
       lfKrnl.AplusT = data.localIntegration().nApNm1[face];
       lfKrnl.execute(face);
     }
 
     // /*
     // Nonlinear integration
-    if (data.cellInformation().faceTypes[face] == FaceType::Regular
-      || data.cellInformation().faceTypes[face] == FaceType::Periodic) {
+    if (data.cellInformation().faceTypes[face] == FaceType::Regular ||
+        data.cellInformation().faceTypes[face] == FaceType::Periodic) {
       // Compute local integrals with derivatives and Rusanov flux
       /// S1: compute the space-time interpolated Q on both side of 4 faces
-      alignas(PagesizeStack) real QInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()] = {{0.0}};
-      // alignas(PagesizeStack) real QInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()] = {{0.0}};
+      alignas(PagesizeStack)
+          real QInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()] = {
+              {0.0}};
+      // alignas(PagesizeStack) real
+      // QInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()] = {{0.0}};
 
       for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
         alignas(Alignment) real degreesOfFreedomPlus[tensor::Q::size()];
         // alignas(Alignment) real degreesOfFreedomMinus[tensor::Q::size()];
-        for (unsigned i_f = 0; i_f < tensor::Q::size(); i_f++){
+        for (unsigned i_f = 0; i_f < tensor::Q::size(); i_f++) {
           degreesOfFreedomPlus[i_f] = static_cast<real>(0.0);
           // degreesOfFreedomMinus[i_f] = static_cast<real>(0.0);
         }
 
-        // !!! Make sure every time after entering this function, the last input should be reinitialized to zero
+        // !!! Make sure every time after entering this function, the last input should be
+        // reinitialized to zero
         computeTaylorExpansion(timePoints[timeInterval], 0.0, nlDerivatives, degreesOfFreedomPlus);
 
         /// Prototype is necessary for openmp
-        kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter
-          = m_nonlinearInterpolation;
+        kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter =
+            m_nonlinearInterpolation;
         m_nonLinInter.QInterpolated = &QInterpolatedPlus[timeInterval][0];
         m_nonLinInter.Q = degreesOfFreedomPlus;
         m_nonLinInter.execute(face, 0);
-
       }
 
       /// S3: Construct matrices to store Rusanov flux on surface quadrature nodes.
       //// Reshape the interpolated results
-      using QInterpolatedShapeT = const real(*)[seissol::dr::misc::NumQuantities][seissol::dr::misc::NumPaddedPoints];
+      using QInterpolatedShapeT =
+          const real(*)[seissol::dr::misc::NumQuantities][seissol::dr::misc::NumPaddedPoints];
       // std::cout << seissol::dr::misc::numQuantities << std::endl;
       auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(QInterpolatedPlus));
 
       // Local component of Rusanove flux
       alignas(Alignment) real rusanovFluxPlus[tensor::QInterpolated::size()] = {0.0};
-      for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++){
+      for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++) {
         rusanovFluxPlus[i_f] = static_cast<real>(0.0);
       }
       using rusanovFluxShape = real(*)[seissol::dr::misc::NumPaddedPoints];
@@ -553,180 +584,113 @@ void Local::computeNonlIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::s
       real lambda0P = mat_lambda0;
       real rho0P = data.material().local.rho;
 
-      real lambda_max = 1.0*
-        std::max(std::sqrt( (mat_lambda0+2*mat_mu0)/rho0P ),
-          std::sqrt( (neighbor_lambda0+2*neighbor_mu0)/neighbor_rho ));
+      real lambda_max =
+          1.0 * std::max(std::sqrt((mat_lambda0 + 2 * mat_mu0) / rho0P),
+                         std::sqrt((neighbor_lambda0 + 2 * neighbor_mu0) / neighbor_rho));
 
       /// In this time loop, use "qIPlus" to interpolate "rusanovFluxP"
       for (unsigned o = 0; o < ConvergenceOrder; ++o) {
         auto weight = timeWeights[o];
-        for (unsigned i = 0; i < seissol::dr::misc::NumPaddedPoints;
-            i ++) {
-          real EspIp = (qIPlus[o][XX][i]+epsInitxx) + (qIPlus[o][YY][i]+epsInityy) + (qIPlus[o][ZZ][i]+epsInitzz);
+        for (unsigned i = 0; i < seissol::dr::misc::NumPaddedPoints; i++) {
+          real EspIp = (qIPlus[o][XX][i] + epsInitxx) + (qIPlus[o][YY][i] + epsInityy) +
+                       (qIPlus[o][ZZ][i] + epsInitzz);
 
           real alphap = qIPlus[o][DAM][i];
 
-          sxxP = (lambda0P - alphap*lambda0P)*EspIp
-                + (2*(mu0P - alphap*mu0P))
-                  *(qIPlus[o][XX][i]+epsInitxx);
+          sxxP = (lambda0P - alphap * lambda0P) * EspIp +
+                 (2 * (mu0P - alphap * mu0P)) * (qIPlus[o][XX][i] + epsInitxx);
 
-          syyP = (lambda0P - alphap*lambda0P)*EspIp
-                + (2*(mu0P - alphap*mu0P))
-                  *(qIPlus[o][YY][i]+epsInityy);
+          syyP = (lambda0P - alphap * lambda0P) * EspIp +
+                 (2 * (mu0P - alphap * mu0P)) * (qIPlus[o][YY][i] + epsInityy);
 
-          szzP = (lambda0P - alphap*lambda0P)*EspIp
-                + (2*(mu0P - alphap*mu0P))
-                  *(qIPlus[o][ZZ][i]+epsInitzz);
+          szzP = (lambda0P - alphap * lambda0P) * EspIp +
+                 (2 * (mu0P - alphap * mu0P)) * (qIPlus[o][ZZ][i] + epsInitzz);
 
-          sxyP = 0
-                + (2*(mu0P - alphap*mu0P))
-                  *(qIPlus[o][XY][i]+epsInitxy);
+          sxyP = 0 + (2 * (mu0P - alphap * mu0P)) * (qIPlus[o][XY][i] + epsInitxy);
 
-          syzP = 0
-                + (2*(mu0P - alphap*mu0P))
-                  *(qIPlus[o][YZ][i]+epsInityz);
+          syzP = 0 + (2 * (mu0P - alphap * mu0P)) * (qIPlus[o][YZ][i] + epsInityz);
 
-          szxP = 0
-                + (2*(mu0P - alphap*mu0P))
-                  *(qIPlus[o][XZ][i]+epsInitzx);
+          szxP = 0 + (2 * (mu0P - alphap * mu0P)) * (qIPlus[o][XZ][i] + epsInitzx);
 
-          rusanovFluxP[XX][i] += weight * (
-            (
-              0.5*(-qIPlus[o][U][i])
-            ) * data.localIntegration().specific.localNormal[face][0]
-            + (
-              0.5*(-0)
-            ) * data.localIntegration().specific.localNormal[face][1]
-            + (
-              0.5*(-0)
-            ) * data.localIntegration().specific.localNormal[face][2]
-            + 0.5*lambda_max*(qIPlus[o][XX][i]+epsInitxx)
-          );
+          rusanovFluxP[XX][i] +=
+              weight *
+              ((0.5 * (-qIPlus[o][U][i])) * data.localIntegration().specific.localNormal[face][0] +
+               (0.5 * (-0)) * data.localIntegration().specific.localNormal[face][1] +
+               (0.5 * (-0)) * data.localIntegration().specific.localNormal[face][2] +
+               0.5 * lambda_max * (qIPlus[o][XX][i] + epsInitxx));
 
-          rusanovFluxP[YY][i] += weight * (
-            (
-              0.5*(-0)
-            ) * data.localIntegration().specific.localNormal[face][0]
-            + (
-              0.5*(-qIPlus[o][V][i])
-            ) * data.localIntegration().specific.localNormal[face][1]
-            + (
-              0.5*(-0)
-            ) * data.localIntegration().specific.localNormal[face][2]
-            + 0.5*lambda_max*(qIPlus[o][YY][i]+epsInityy)
-          );
+          rusanovFluxP[YY][i] +=
+              weight *
+              ((0.5 * (-0)) * data.localIntegration().specific.localNormal[face][0] +
+               (0.5 * (-qIPlus[o][V][i])) * data.localIntegration().specific.localNormal[face][1] +
+               (0.5 * (-0)) * data.localIntegration().specific.localNormal[face][2] +
+               0.5 * lambda_max * (qIPlus[o][YY][i] + epsInityy));
 
-          rusanovFluxP[ZZ][i] += weight * (
-            (
-              0.5*(-0)
-            ) * data.localIntegration().specific.localNormal[face][0]
-            + (
-              0.5*(-0)
-            ) * data.localIntegration().specific.localNormal[face][1]
-            + (
-              0.5*(-qIPlus[o][W][i])
-            ) * data.localIntegration().specific.localNormal[face][2]
-            + 0.5*lambda_max*(qIPlus[o][ZZ][i]+epsInitzz)
-          );
+          rusanovFluxP[ZZ][i] +=
+              weight *
+              ((0.5 * (-0)) * data.localIntegration().specific.localNormal[face][0] +
+               (0.5 * (-0)) * data.localIntegration().specific.localNormal[face][1] +
+               (0.5 * (-qIPlus[o][W][i])) * data.localIntegration().specific.localNormal[face][2] +
+               0.5 * lambda_max * (qIPlus[o][ZZ][i] + epsInitzz));
 
-          rusanovFluxP[XY][i] += weight * (
-            (
-              0.5*(-0.5*qIPlus[o][V][i])
-            ) * data.localIntegration().specific.localNormal[face][0]
-            + (
-              0.5*(-0.5*qIPlus[o][U][i])
-            ) * data.localIntegration().specific.localNormal[face][1]
-            + (
-              0.5*(-0)
-            ) * data.localIntegration().specific.localNormal[face][2]
-            + 0.5*lambda_max*(qIPlus[o][XY][i]+epsInitxy)
-          );
+          rusanovFluxP[XY][i] +=
+              weight * ((0.5 * (-0.5 * qIPlus[o][V][i])) *
+                            data.localIntegration().specific.localNormal[face][0] +
+                        (0.5 * (-0.5 * qIPlus[o][U][i])) *
+                            data.localIntegration().specific.localNormal[face][1] +
+                        (0.5 * (-0)) * data.localIntegration().specific.localNormal[face][2] +
+                        0.5 * lambda_max * (qIPlus[o][XY][i] + epsInitxy));
 
-          rusanovFluxP[YZ][i] += weight * (
-            (
-              0.5*(-0)
-            ) * data.localIntegration().specific.localNormal[face][0]
-            + (
-              0.5*(-0.5*qIPlus[o][W][i])
-            ) * data.localIntegration().specific.localNormal[face][1]
-            + (
-              0.5*(-0.5*qIPlus[o][V][i])
-            ) * data.localIntegration().specific.localNormal[face][2]
-            + 0.5*lambda_max*(qIPlus[o][YZ][i]+epsInityz)
-          );
+          rusanovFluxP[YZ][i] +=
+              weight * ((0.5 * (-0)) * data.localIntegration().specific.localNormal[face][0] +
+                        (0.5 * (-0.5 * qIPlus[o][W][i])) *
+                            data.localIntegration().specific.localNormal[face][1] +
+                        (0.5 * (-0.5 * qIPlus[o][V][i])) *
+                            data.localIntegration().specific.localNormal[face][2] +
+                        0.5 * lambda_max * (qIPlus[o][YZ][i] + epsInityz));
 
-          rusanovFluxP[XZ][i] += weight * (
-            (
-              0.5*(-0.5*qIPlus[o][W][i])
-            ) * data.localIntegration().specific.localNormal[face][0]
-            + (
-              0.5*(-0)
-            ) * data.localIntegration().specific.localNormal[face][1]
-            + (
-              0.5*(-0.5*qIPlus[o][U][i])
-            ) * data.localIntegration().specific.localNormal[face][2]
-            + 0.5*lambda_max*(qIPlus[o][XZ][i]+epsInitzx)
-          );
+          rusanovFluxP[XZ][i] +=
+              weight * ((0.5 * (-0.5 * qIPlus[o][W][i])) *
+                            data.localIntegration().specific.localNormal[face][0] +
+                        (0.5 * (-0)) * data.localIntegration().specific.localNormal[face][1] +
+                        (0.5 * (-0.5 * qIPlus[o][U][i])) *
+                            data.localIntegration().specific.localNormal[face][2] +
+                        0.5 * lambda_max * (qIPlus[o][XZ][i] + epsInitzx));
 
-          rusanovFluxP[U][i] += weight * (
-            (
-              0.5*(-sxxP/rho0P)
-            ) * data.localIntegration().specific.localNormal[face][0]
-            + (
-              0.5*(-sxyP/rho0P)
-            ) * data.localIntegration().specific.localNormal[face][1]
-            + (
-              0.5*(-szxP/rho0P)
-            ) * data.localIntegration().specific.localNormal[face][2]
-            + 0.5*lambda_max*(qIPlus[o][U][i])
-          );
+          rusanovFluxP[U][i] +=
+              weight *
+              ((0.5 * (-sxxP / rho0P)) * data.localIntegration().specific.localNormal[face][0] +
+               (0.5 * (-sxyP / rho0P)) * data.localIntegration().specific.localNormal[face][1] +
+               (0.5 * (-szxP / rho0P)) * data.localIntegration().specific.localNormal[face][2] +
+               0.5 * lambda_max * (qIPlus[o][U][i]));
 
-          rusanovFluxP[V][i] += weight * (
-            (
-              0.5*(-sxyP/rho0P)
-            ) * data.localIntegration().specific.localNormal[face][0]
-            + (
-              0.5*(-syyP/rho0P)
-            ) * data.localIntegration().specific.localNormal[face][1]
-            + (
-              0.5*(-syzP/rho0P)
-            ) * data.localIntegration().specific.localNormal[face][2]
-            + 0.5*lambda_max*(qIPlus[o][V][i])
-          );
+          rusanovFluxP[V][i] +=
+              weight *
+              ((0.5 * (-sxyP / rho0P)) * data.localIntegration().specific.localNormal[face][0] +
+               (0.5 * (-syyP / rho0P)) * data.localIntegration().specific.localNormal[face][1] +
+               (0.5 * (-syzP / rho0P)) * data.localIntegration().specific.localNormal[face][2] +
+               0.5 * lambda_max * (qIPlus[o][V][i]));
 
-          rusanovFluxP[W][i] += weight * (
-            (
-              0.5*(-szxP/rho0P)
-            ) * data.localIntegration().specific.localNormal[face][0]
-            + (
-              0.5*(-syzP/rho0P)
-            ) * data.localIntegration().specific.localNormal[face][1]
-            + (
-              0.5*(-szzP/rho0P)
-            ) * data.localIntegration().specific.localNormal[face][2]
-            + 0.5*lambda_max*(qIPlus[o][W][i])
-          );
+          rusanovFluxP[W][i] +=
+              weight *
+              ((0.5 * (-szxP / rho0P)) * data.localIntegration().specific.localNormal[face][0] +
+               (0.5 * (-syzP / rho0P)) * data.localIntegration().specific.localNormal[face][1] +
+               (0.5 * (-szzP / rho0P)) * data.localIntegration().specific.localNormal[face][2] +
+               0.5 * lambda_max * (qIPlus[o][W][i]));
 
-          rusanovFluxP[DAM][i] += weight * (
-            (
-              0.5*(-0)
-            ) * data.localIntegration().specific.localNormal[face][0]
-            + (
-              0.5*(-0)
-            ) * data.localIntegration().specific.localNormal[face][1]
-            + (
-              0.5*(-0)
-            ) * data.localIntegration().specific.localNormal[face][2]
-            + 0.0*lambda_max*(qIPlus[o][DAM][i])
-          );
+          rusanovFluxP[DAM][i] +=
+              weight * ((0.5 * (-0)) * data.localIntegration().specific.localNormal[face][0] +
+                        (0.5 * (-0)) * data.localIntegration().specific.localNormal[face][1] +
+                        (0.5 * (-0)) * data.localIntegration().specific.localNormal[face][2] +
+                        0.0 * lambda_max * (qIPlus[o][DAM][i]));
         }
       } // time integration loop
       // Tested that after this step, rusanovFluxPlus is also changed
 
       /// S5: Integrate in space using quadrature.
       kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
-      real fluxScale = - 2.0 / 6.0 * data.localIntegration().specific.localSurfaces[face]
-                    / data.localIntegration().specific.localVolume;
+      real fluxScale = -2.0 / 6.0 * data.localIntegration().specific.localSurfaces[face] /
+                       data.localIntegration().specific.localVolume;
       m_surfIntegral.Q = data.dofs();
       m_surfIntegral.Flux = rusanovFluxPlus;
       m_surfIntegral.fluxScale = fluxScale;
@@ -1158,9 +1122,9 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
 }
 
 void Local::computeTaylorExpansion(real time,
-                                  real expansionPoint,
-                                  const real* timeDerivatives,
-                                  real timeEvaluated[tensor::Q::size()]) {
+                                   real expansionPoint,
+                                   const real* timeDerivatives,
+                                   real timeEvaluated[tensor::Q::size()]) {
   /*
    * assert alignments.
    */
