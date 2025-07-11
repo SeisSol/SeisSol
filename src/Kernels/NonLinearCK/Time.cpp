@@ -60,11 +60,11 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Spacetime::computeAder(double timeStepWidth,
-                       LocalData& data,
-                       LocalTmp& tmp,
-                       real* timeIntegrated,
-                       real* timeDerivatives,
-                       bool updateDisplacement) {
+                            LocalData& data,
+                            LocalTmp& tmp,
+                            real* timeIntegrated,
+                            real* timeDerivatives,
+                            bool updateDisplacement) {
 
   assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
@@ -77,86 +77,92 @@ void Spacetime::computeAder(double timeStepWidth,
                   std::end(data.cellInformation().faceTypes),
                   [](const FaceType f) { return f == FaceType::FreeSurfaceGravity; });
 
-// // In this computeAder() function, 'I' and 'derivatives in linear case is computed;
-// // In nonlinear case, 'derivatives' and 'F' will be computed here.
-// // Step 1: Compute each order of derivatives
-//   alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
-//   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
+  // // In this computeAder() function, 'I' and 'derivatives in linear case is computed;
+  // // In nonlinear case, 'derivatives' and 'F' will be computed here.
+  // // Step 1: Compute each order of derivatives
+  //   alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
+  //   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
-//   // Step 1.1: Convert the Modal solution data.dofs(), Q, to Nodal space
-//   kernel::damageConvertToNodal d_converToKrnl;
-//   alignas(PagesizeStack) real solNData[tensor::QNodal::size()];
-//   d_converToKrnl.v = init::v::Values;
-//   d_converToKrnl.QNodal = solNData;
-//   d_converToKrnl.Q = data.dofs();
-//   d_converToKrnl.execute();
+  //   // Step 1.1: Convert the Modal solution data.dofs(), Q, to Nodal space
+  //   kernel::damageConvertToNodal d_converToKrnl;
+  //   alignas(PagesizeStack) real solNData[tensor::QNodal::size()];
+  //   d_converToKrnl.v = init::v::Values;
+  //   d_converToKrnl.QNodal = solNData;
+  //   d_converToKrnl.Q = data.dofs();
+  //   d_converToKrnl.execute();
 
-//   // Step 1.2: Compute rhs of damage evolution
-//   alignas(PagesizeStack) real fNodalData[tensor::FNodal::size()] = {0};
-//   real* exxNodal = ( solNData + 0*tensor::Q::Shape[0] );
-//   real* eyyNodal = (solNData + 1*tensor::Q::Shape[0]);
-//   real* ezzNodal = (solNData + 2*tensor::Q::Shape[0]);
-//   real* exyNodal = (solNData + 3*tensor::Q::Shape[0]);
-//   real* eyzNodal = (solNData + 4*tensor::Q::Shape[0]);
-//   real* ezxNodal = (solNData + 5*tensor::Q::Shape[0]);
-//   real* alphaNodal = (solNData + 9*tensor::Q::Shape[0]);
-//   // real* breakNodal = (solNData + 10*tensor::Q::Shape[0]);
+  //   // Step 1.2: Compute rhs of damage evolution
+  //   alignas(PagesizeStack) real fNodalData[tensor::FNodal::size()] = {0};
+  //   real* exxNodal = ( solNData + 0*tensor::Q::Shape[0] );
+  //   real* eyyNodal = (solNData + 1*tensor::Q::Shape[0]);
+  //   real* ezzNodal = (solNData + 2*tensor::Q::Shape[0]);
+  //   real* exyNodal = (solNData + 3*tensor::Q::Shape[0]);
+  //   real* eyzNodal = (solNData + 4*tensor::Q::Shape[0]);
+  //   real* ezxNodal = (solNData + 5*tensor::Q::Shape[0]);
+  //   real* alphaNodal = (solNData + 9*tensor::Q::Shape[0]);
+  //   // real* breakNodal = (solNData + 10*tensor::Q::Shape[0]);
 
-//   real alpha_ave = 0.0;
-//   // real break_ave = 0.0;
-//   real w_ave = 1.0/tensor::Q::Shape[0];
-//   for (unsigned int q = 0; q<tensor::Q::Shape[0]; ++q){
-//     // break_ave += breakNodal[q] * w_ave;
-//     alpha_ave += alphaNodal[q] * w_ave;
-//   }
+  //   real alpha_ave = 0.0;
+  //   // real break_ave = 0.0;
+  //   real w_ave = 1.0/tensor::Q::Shape[0];
+  //   for (unsigned int q = 0; q<tensor::Q::Shape[0]; ++q){
+  //     // break_ave += breakNodal[q] * w_ave;
+  //     alpha_ave += alphaNodal[q] * w_ave;
+  //   }
 
-//   real const damage_para1 = data.material().local.Cd; // 1.2e-4*2;
-//   real const damage_para2 = data.material().local.gammaR;
+  //   real const damage_para1 = data.material().local.Cd; // 1.2e-4*2;
+  //   real const damage_para2 = data.material().local.gammaR;
 
-//   for (unsigned int q = 0; q<tensor::Q::Shape[0]; ++q){
-//     real EspI = (exxNodal[q]+data.material().local.epsInit_xx) + 
-//       (eyyNodal[q]+data.material().local.epsInit_yy) + (ezzNodal[q]+data.material().local.epsInit_zz);
-//     real EspII = 
-//       (exxNodal[q]+data.material().local.epsInit_xx)*(exxNodal[q]+data.material().local.epsInit_xx)
-//     + (eyyNodal[q]+data.material().local.epsInit_yy)*(eyyNodal[q]+data.material().local.epsInit_yy)
-//     + (ezzNodal[q]+data.material().local.epsInit_zz)*(ezzNodal[q]+data.material().local.epsInit_zz)
-//     + 2*(exyNodal[q]+data.material().local.epsInit_xy)*(exyNodal[q]+data.material().local.epsInit_xy)
-//     + 2*(eyzNodal[q]+data.material().local.epsInit_yz)*(eyzNodal[q]+data.material().local.epsInit_yz)
-//     + 2*(ezxNodal[q]+data.material().local.epsInit_xz)*(ezxNodal[q]+data.material().local.epsInit_xz);
+  //   for (unsigned int q = 0; q<tensor::Q::Shape[0]; ++q){
+  //     real EspI = (exxNodal[q]+data.material().local.epsInit_xx) +
+  //       (eyyNodal[q]+data.material().local.epsInit_yy) +
+  //       (ezzNodal[q]+data.material().local.epsInit_zz);
+  //     real EspII =
+  //       (exxNodal[q]+data.material().local.epsInit_xx)*(exxNodal[q]+data.material().local.epsInit_xx)
+  //     +
+  //     (eyyNodal[q]+data.material().local.epsInit_yy)*(eyyNodal[q]+data.material().local.epsInit_yy)
+  //     +
+  //     (ezzNodal[q]+data.material().local.epsInit_zz)*(ezzNodal[q]+data.material().local.epsInit_zz)
+  //     +
+  //     2*(exyNodal[q]+data.material().local.epsInit_xy)*(exyNodal[q]+data.material().local.epsInit_xy)
+  //     +
+  //     2*(eyzNodal[q]+data.material().local.epsInit_yz)*(eyzNodal[q]+data.material().local.epsInit_yz)
+  //     +
+  //     2*(ezxNodal[q]+data.material().local.epsInit_xz)*(ezxNodal[q]+data.material().local.epsInit_xz);
 
-//     real W_energy = 0.0*0.5*data.material().local.lambda0*EspI*EspI
-//         + data.material().local.mu0*EspII;
+  //     real W_energy = 0.0*0.5*data.material().local.lambda0*EspI*EspI
+  //         + data.material().local.mu0*EspII;
 
-//     if (W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)) > 0) {
-//       if (alpha_ave < 0.8){
-//         fNodalData[9*tensor::Q::Shape[0] + q] =
-//           1.0/(damage_para1*damage_para2)
-//                 *(W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)));
-//       }
-//       else{
-//         fNodalData[9*tensor::Q::Shape[0] + q] = 0.0;
-//       }
-//     } else if (alpha_ave > 8e-1) {
-//       fNodalData[9*tensor::Q::Shape[0] + q] =
-//         1.0/(damage_para1*damage_para2)
-//                 *(W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)));
-//     }
-//     else {
-//       fNodalData[9*tensor::Q::Shape[0] + q] = 0;
-//     }
+  //     if (W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)) > 0) {
+  //       if (alpha_ave < 0.8){
+  //         fNodalData[9*tensor::Q::Shape[0] + q] =
+  //           1.0/(damage_para1*damage_para2)
+  //                 *(W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)));
+  //       }
+  //       else{
+  //         fNodalData[9*tensor::Q::Shape[0] + q] = 0.0;
+  //       }
+  //     } else if (alpha_ave > 8e-1) {
+  //       fNodalData[9*tensor::Q::Shape[0] + q] =
+  //         1.0/(damage_para1*damage_para2)
+  //                 *(W_energy - damage_para2*(alpha_ave/(1-alpha_ave))*(alpha_ave/(1-alpha_ave)));
+  //     }
+  //     else {
+  //       fNodalData[9*tensor::Q::Shape[0] + q] = 0;
+  //     }
 
-//   }
+  //   }
 
-// // Step 2: Convert from Modal to Nodal for each temporal quadrature point;
-// // Meanwhile, compute the nonlinear nodal Rusanov fluxes 
-// // (TimeCluster.h, in previous version)
-// // For neighbor cell: 0.5(Fpd * nd - C * up)
-// // NOTE: need to include face relation in the final integration, but maybe 
-// // not necessarily here - can be integrated in Neighbor.cpp
+  // // Step 2: Convert from Modal to Nodal for each temporal quadrature point;
+  // // Meanwhile, compute the nonlinear nodal Rusanov fluxes
+  // // (TimeCluster.h, in previous version)
+  // // For neighbor cell: 0.5(Fpd * nd - C * up)
+  // // NOTE: need to include face relation in the final integration, but maybe
+  // // not necessarily here - can be integrated in Neighbor.cpp
 
-// // Step 3: Do time integration for the Rusanov flux
+  // // Step 3: Do time integration for the Rusanov flux
 
-// // Step 4: Convert the integrated Rusanov flux from Nodal to Modal space
+  // // Step 4: Convert the integrated Rusanov flux from Nodal to Modal space
 
   alignas(PagesizeStack) real temporaryBuffer[yateto::computeFamilySize<tensor::dQ>()];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
@@ -215,12 +221,12 @@ void Spacetime::computeAder(double timeStepWidth,
 }
 
 void Spacetime::computeNonlAder(double timeStepWidth,
-                       LocalData& data,
-                       LocalTmp& tmp,
-                       real timeIntegrated[4*tensor::I::size()],
-                       real* timeDerivativesForNL,
-                       real* timeDerivatives,
-                       bool updateDisplacement) {
+                                LocalData& data,
+                                LocalTmp& tmp,
+                                real timeIntegrated[4 * tensor::I::size()],
+                                real* timeDerivativesForNL,
+                                real* timeDerivatives,
+                                bool updateDisplacement) {
 
   assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
@@ -231,9 +237,9 @@ void Spacetime::computeNonlAder(double timeStepWidth,
 
   // Nonlinear: Single out pointers to Q, Fx, Fy, Fz
   real* integratedQ = timeIntegrated;
-  real* integratedFx = timeIntegrated + 1*tensor::I::size();
-  real* integratedFy = timeIntegrated + 2*tensor::I::size();
-  real* integratedFz = timeIntegrated + 3*tensor::I::size();
+  real* integratedFx = timeIntegrated + 1 * tensor::I::size();
+  real* integratedFy = timeIntegrated + 2 * tensor::I::size();
+  real* integratedFz = timeIntegrated + 3 * tensor::I::size();
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
   updateDisplacement &=
@@ -311,15 +317,21 @@ void Spacetime::computeNonlAder(double timeStepWidth,
   //   real const damage_para2 = data.material().local.gammaR;
 
   //   for (unsigned int q = 0; q<tensor::Q::Shape[0]; ++q){
-  //     real EspI = (exxNodal[q]+data.material().local.epsInit_xx) + 
-  //       (eyyNodal[q]+data.material().local.epsInit_yy) + (ezzNodal[q]+data.material().local.epsInit_zz);
-  //     real EspII = 
+  //     real EspI = (exxNodal[q]+data.material().local.epsInit_xx) +
+  //       (eyyNodal[q]+data.material().local.epsInit_yy) +
+  //       (ezzNodal[q]+data.material().local.epsInit_zz);
+  //     real EspII =
   //       (exxNodal[q]+data.material().local.epsInit_xx)*(exxNodal[q]+data.material().local.epsInit_xx)
-  //     + (eyyNodal[q]+data.material().local.epsInit_yy)*(eyyNodal[q]+data.material().local.epsInit_yy)
-  //     + (ezzNodal[q]+data.material().local.epsInit_zz)*(ezzNodal[q]+data.material().local.epsInit_zz)
-  //     + 2*(exyNodal[q]+data.material().local.epsInit_xy)*(exyNodal[q]+data.material().local.epsInit_xy)
-  //     + 2*(eyzNodal[q]+data.material().local.epsInit_yz)*(eyzNodal[q]+data.material().local.epsInit_yz)
-  //     + 2*(ezxNodal[q]+data.material().local.epsInit_xz)*(ezxNodal[q]+data.material().local.epsInit_xz);
+  //     +
+  //     (eyyNodal[q]+data.material().local.epsInit_yy)*(eyyNodal[q]+data.material().local.epsInit_yy)
+  //     +
+  //     (ezzNodal[q]+data.material().local.epsInit_zz)*(ezzNodal[q]+data.material().local.epsInit_zz)
+  //     +
+  //     2*(exyNodal[q]+data.material().local.epsInit_xy)*(exyNodal[q]+data.material().local.epsInit_xy)
+  //     +
+  //     2*(eyzNodal[q]+data.material().local.epsInit_yz)*(eyzNodal[q]+data.material().local.epsInit_yz)
+  //     +
+  //     2*(ezxNodal[q]+data.material().local.epsInit_xz)*(ezxNodal[q]+data.material().local.epsInit_xz);
 
   //     real W_energy = 0.0*0.5*data.material().local.lambda0*EspI*EspI
   //         + data.material().local.mu0*EspII;
@@ -370,7 +382,7 @@ void Spacetime::computeNonlAder(double timeStepWidth,
   real* QInterpolatedBodyNodali;
 
   kernel::damageConvertToNodal d_converToKrnl;
-  for (unsigned int timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval){
+  for (unsigned int timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
     QInterpolatedBodyi = QInterpolatedBody[timeInterval];
     QInterpolatedBodyNodali = QInterpolatedBodyNodal[timeInterval];
     computeTaylorExpansion(timePoints[timeInterval], 0.0, timeDerivativesForNL, QInterpolatedBodyi);
@@ -408,70 +420,79 @@ void Spacetime::computeNonlAder(double timeStepWidth,
     // Compute rusanovFluxMinusNodal at each time step and integrate in time
     // with temporal quadrature
     auto weight = timeWeights[timeInterval];
-    real* exxNodal = (QInterpolatedBodyNodal[timeInterval] + 0*tensor::Q::Shape[0]);
-    real* eyyNodal = (QInterpolatedBodyNodal[timeInterval] + 1*tensor::Q::Shape[0]);
-    real* ezzNodal = (QInterpolatedBodyNodal[timeInterval] + 2*tensor::Q::Shape[0]);
-    real* alphaNodal = (QInterpolatedBodyNodal[timeInterval] + 9*tensor::Q::Shape[0]);
-    real* exyNodal = (QInterpolatedBodyNodal[timeInterval] + 3*tensor::Q::Shape[0]);
-    real* eyzNodal = (QInterpolatedBodyNodal[timeInterval] + 4*tensor::Q::Shape[0]);
-    real* ezxNodal = (QInterpolatedBodyNodal[timeInterval] + 5*tensor::Q::Shape[0]);
-    real* vxNodal = (QInterpolatedBodyNodal[timeInterval] + 6*tensor::Q::Shape[0]);
-    real* vyNodal = (QInterpolatedBodyNodal[timeInterval] + 7*tensor::Q::Shape[0]);
-    real* vzNodal = (QInterpolatedBodyNodal[timeInterval] + 8*tensor::Q::Shape[0]);
+    real* exxNodal = (QInterpolatedBodyNodal[timeInterval] + 0 * tensor::Q::Shape[0]);
+    real* eyyNodal = (QInterpolatedBodyNodal[timeInterval] + 1 * tensor::Q::Shape[0]);
+    real* ezzNodal = (QInterpolatedBodyNodal[timeInterval] + 2 * tensor::Q::Shape[0]);
+    real* alphaNodal = (QInterpolatedBodyNodal[timeInterval] + 9 * tensor::Q::Shape[0]);
+    real* exyNodal = (QInterpolatedBodyNodal[timeInterval] + 3 * tensor::Q::Shape[0]);
+    real* eyzNodal = (QInterpolatedBodyNodal[timeInterval] + 4 * tensor::Q::Shape[0]);
+    real* ezxNodal = (QInterpolatedBodyNodal[timeInterval] + 5 * tensor::Q::Shape[0]);
+    real* vxNodal = (QInterpolatedBodyNodal[timeInterval] + 6 * tensor::Q::Shape[0]);
+    real* vyNodal = (QInterpolatedBodyNodal[timeInterval] + 7 * tensor::Q::Shape[0]);
+    real* vzNodal = (QInterpolatedBodyNodal[timeInterval] + 8 * tensor::Q::Shape[0]);
     // time quadrature for each nodal values
-    for (unsigned q = 0; q < tensor::Q::Shape[0]; ++q){
-      real EspI = (exxNodal[q]+epsInitxx) + (eyyNodal[q]+epsInityy) + (ezzNodal[q]+epsInitzz);
-      real EspII = (exxNodal[q]+epsInitxx)*(exxNodal[q]+epsInitxx)
-        + (eyyNodal[q]+epsInityy)*(eyyNodal[q]+epsInityy)
-        + (ezzNodal[q]+epsInitzz)*(ezzNodal[q]+epsInitzz)
-        + 2*(exyNodal[q]+epsInitxy)*(exyNodal[q]+epsInitxy)
-        + 2*(eyzNodal[q]+epsInityz)*(eyzNodal[q]+epsInityz)
-        + 2*(ezxNodal[q]+epsInitzx)*(ezxNodal[q]+epsInitzx);
-      
+    for (unsigned q = 0; q < tensor::Q::Shape[0]; ++q) {
+      real EspI = (exxNodal[q] + epsInitxx) + (eyyNodal[q] + epsInityy) + (ezzNodal[q] + epsInitzz);
+      real EspII = (exxNodal[q] + epsInitxx) * (exxNodal[q] + epsInitxx) +
+                   (eyyNodal[q] + epsInityy) * (eyyNodal[q] + epsInityy) +
+                   (ezzNodal[q] + epsInitzz) * (ezzNodal[q] + epsInitzz) +
+                   2 * (exyNodal[q] + epsInitxy) * (exyNodal[q] + epsInitxy) +
+                   2 * (eyzNodal[q] + epsInityz) * (eyzNodal[q] + epsInityz) +
+                   2 * (ezxNodal[q] + epsInitzx) * (ezxNodal[q] + epsInitzx);
+
       // Compute nonlinear flux term
-      real mu_eff = mat_mu0 - alphaNodal[q]*mat_mu0;
-      sxxNodal[q] = (1-alphaNodal[q])*mat_lambda0*EspI
-                    + 2*mu_eff*(exxNodal[q]+epsInitxx);
-      syyNodal[q] = (1-alphaNodal[q])*mat_lambda0*EspI
-                    + 2*mu_eff*(eyyNodal[q]+epsInityy);
-      szzNodal[q] = (1-alphaNodal[q])*mat_lambda0*EspI
-                    + 2*mu_eff*(ezzNodal[q]+epsInitzz);
-      sxyNodal[q] = 2*mu_eff*(exyNodal[q]+epsInitxy);
-      syzNodal[q] = 2*mu_eff*(eyzNodal[q]+epsInityz);
-      szxNodal[q] = 2*mu_eff*(ezxNodal[q]+epsInitzx);
+      real mu_eff = mat_mu0 - alphaNodal[q] * mat_mu0;
+      sxxNodal[q] =
+          (1 - alphaNodal[q]) * mat_lambda0 * EspI + 2 * mu_eff * (exxNodal[q] + epsInitxx);
+      syyNodal[q] =
+          (1 - alphaNodal[q]) * mat_lambda0 * EspI + 2 * mu_eff * (eyyNodal[q] + epsInityy);
+      szzNodal[q] =
+          (1 - alphaNodal[q]) * mat_lambda0 * EspI + 2 * mu_eff * (ezzNodal[q] + epsInitzz);
+      sxyNodal[q] = 2 * mu_eff * (exyNodal[q] + epsInitxy);
+      syzNodal[q] = 2 * mu_eff * (eyzNodal[q] + epsInityz);
+      szxNodal[q] = 2 * mu_eff * (ezxNodal[q] + epsInitzx);
 
-      integratedFxNodal[0*tensor::Q::Shape[0] + q] += -vxNodal[q]*weight;
-      integratedFxNodal[1*tensor::Q::Shape[0] + q] += 0;
-      integratedFxNodal[2*tensor::Q::Shape[0] + q] += 0;
-      integratedFxNodal[3*tensor::Q::Shape[0] + q] += -0.5*vyNodal[q]*weight;
-      integratedFxNodal[4*tensor::Q::Shape[0] + q] += 0;
-      integratedFxNodal[5*tensor::Q::Shape[0] + q] += -0.5*vzNodal[q]*weight;
-      integratedFxNodal[6*tensor::Q::Shape[0] + q] += -sxxNodal[q]/data.material().local.rho*weight;
-      integratedFxNodal[7*tensor::Q::Shape[0] + q] += -sxyNodal[q]/data.material().local.rho*weight;
-      integratedFxNodal[8*tensor::Q::Shape[0] + q] += -szxNodal[q]/data.material().local.rho*weight;
-      integratedFxNodal[9*tensor::Q::Shape[0] + q] += 0;
+      integratedFxNodal[0 * tensor::Q::Shape[0] + q] += -vxNodal[q] * weight;
+      integratedFxNodal[1 * tensor::Q::Shape[0] + q] += 0;
+      integratedFxNodal[2 * tensor::Q::Shape[0] + q] += 0;
+      integratedFxNodal[3 * tensor::Q::Shape[0] + q] += -0.5 * vyNodal[q] * weight;
+      integratedFxNodal[4 * tensor::Q::Shape[0] + q] += 0;
+      integratedFxNodal[5 * tensor::Q::Shape[0] + q] += -0.5 * vzNodal[q] * weight;
+      integratedFxNodal[6 * tensor::Q::Shape[0] + q] +=
+          -sxxNodal[q] / data.material().local.rho * weight;
+      integratedFxNodal[7 * tensor::Q::Shape[0] + q] +=
+          -sxyNodal[q] / data.material().local.rho * weight;
+      integratedFxNodal[8 * tensor::Q::Shape[0] + q] +=
+          -szxNodal[q] / data.material().local.rho * weight;
+      integratedFxNodal[9 * tensor::Q::Shape[0] + q] += 0;
 
-      integratedFyNodal[0*tensor::Q::Shape[0] + q] += 0;
-      integratedFyNodal[1*tensor::Q::Shape[0] + q] += -vyNodal[q]*weight;
-      integratedFyNodal[2*tensor::Q::Shape[0] + q] += 0;
-      integratedFyNodal[3*tensor::Q::Shape[0] + q] += -0.5*vxNodal[q]*weight;
-      integratedFyNodal[4*tensor::Q::Shape[0] + q] += -0.5*vzNodal[q]*weight;
-      integratedFyNodal[5*tensor::Q::Shape[0] + q] += 0;
-      integratedFyNodal[6*tensor::Q::Shape[0] + q] += -sxyNodal[q]/data.material().local.rho*weight;
-      integratedFyNodal[7*tensor::Q::Shape[0] + q] += -syyNodal[q]/data.material().local.rho*weight;
-      integratedFyNodal[8*tensor::Q::Shape[0] + q] += -syzNodal[q]/data.material().local.rho*weight;
-      integratedFyNodal[9*tensor::Q::Shape[0] + q] += 0;
+      integratedFyNodal[0 * tensor::Q::Shape[0] + q] += 0;
+      integratedFyNodal[1 * tensor::Q::Shape[0] + q] += -vyNodal[q] * weight;
+      integratedFyNodal[2 * tensor::Q::Shape[0] + q] += 0;
+      integratedFyNodal[3 * tensor::Q::Shape[0] + q] += -0.5 * vxNodal[q] * weight;
+      integratedFyNodal[4 * tensor::Q::Shape[0] + q] += -0.5 * vzNodal[q] * weight;
+      integratedFyNodal[5 * tensor::Q::Shape[0] + q] += 0;
+      integratedFyNodal[6 * tensor::Q::Shape[0] + q] +=
+          -sxyNodal[q] / data.material().local.rho * weight;
+      integratedFyNodal[7 * tensor::Q::Shape[0] + q] +=
+          -syyNodal[q] / data.material().local.rho * weight;
+      integratedFyNodal[8 * tensor::Q::Shape[0] + q] +=
+          -syzNodal[q] / data.material().local.rho * weight;
+      integratedFyNodal[9 * tensor::Q::Shape[0] + q] += 0;
 
-      integratedFzNodal[0*tensor::Q::Shape[0] + q] += 0;
-      integratedFzNodal[1*tensor::Q::Shape[0] + q] += 0;
-      integratedFzNodal[2*tensor::Q::Shape[0] + q] += -vzNodal[q]*weight;
-      integratedFzNodal[3*tensor::Q::Shape[0] + q] += 0;
-      integratedFzNodal[4*tensor::Q::Shape[0] + q] += -0.5*vyNodal[q]*weight;
-      integratedFzNodal[5*tensor::Q::Shape[0] + q] += -0.5*vxNodal[q]*weight;
-      integratedFzNodal[6*tensor::Q::Shape[0] + q] += -szxNodal[q]/data.material().local.rho*weight;
-      integratedFzNodal[7*tensor::Q::Shape[0] + q] += -syzNodal[q]/data.material().local.rho*weight;
-      integratedFzNodal[8*tensor::Q::Shape[0] + q] += -szzNodal[q]/data.material().local.rho*weight;
-      integratedFzNodal[9*tensor::Q::Shape[0] + q] += 0;
+      integratedFzNodal[0 * tensor::Q::Shape[0] + q] += 0;
+      integratedFzNodal[1 * tensor::Q::Shape[0] + q] += 0;
+      integratedFzNodal[2 * tensor::Q::Shape[0] + q] += -vzNodal[q] * weight;
+      integratedFzNodal[3 * tensor::Q::Shape[0] + q] += 0;
+      integratedFzNodal[4 * tensor::Q::Shape[0] + q] += -0.5 * vyNodal[q] * weight;
+      integratedFzNodal[5 * tensor::Q::Shape[0] + q] += -0.5 * vxNodal[q] * weight;
+      integratedFzNodal[6 * tensor::Q::Shape[0] + q] +=
+          -szxNodal[q] / data.material().local.rho * weight;
+      integratedFzNodal[7 * tensor::Q::Shape[0] + q] +=
+          -syzNodal[q] / data.material().local.rho * weight;
+      integratedFzNodal[8 * tensor::Q::Shape[0] + q] +=
+          -szzNodal[q] / data.material().local.rho * weight;
+      integratedFzNodal[9 * tensor::Q::Shape[0] + q] += 0;
     }
   } // end of time integration
 
@@ -514,11 +535,11 @@ void Spacetime::computeNonlAder(double timeStepWidth,
 }
 
 void Spacetime::computeBatchedAder(double timeStepWidth,
-                                  LocalTmp& tmp,
-                                  ConditionalPointersToRealsTable& dataTable,
-                                  ConditionalMaterialTable& materialTable,
-                                  bool updateDisplacement,
-                                  seissol::parallel::runtime::StreamRuntime& runtime) {
+                                   LocalTmp& tmp,
+                                   ConditionalPointersToRealsTable& dataTable,
+                                   ConditionalMaterialTable& materialTable,
+                                   bool updateDisplacement,
+                                   seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative derivativesKrnl = deviceKrnlPrototype;
 
@@ -599,9 +620,9 @@ std::uint64_t Spacetime::bytesAder() {
 }
 
 void Spacetime::computeTaylorExpansion(real time,
-                                  real expansionPoint,
-                                  const real* timeDerivatives,
-                                  real timeEvaluated[tensor::Q::size()]) {
+                                       real expansionPoint,
+                                       const real* timeDerivatives,
+                                       real timeEvaluated[tensor::Q::size()]) {
   /*
    * assert alignments.
    */

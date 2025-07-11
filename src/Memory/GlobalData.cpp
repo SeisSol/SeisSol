@@ -50,13 +50,16 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
   numberOfThreads = omp_get_max_threads();
 #endif
   auto* integrationBufferLTS = reinterpret_cast<real*>(allocator.allocateMemory(
-      numberOfThreads * (4 * seissol::kernels::Solver::BufferSize) * sizeof(real), alignment, memkind));
+      numberOfThreads * (4 * seissol::kernels::Solver::BufferSize) * sizeof(real),
+      alignment,
+      memkind));
 
 // initialize w.r.t. NUMA
 #ifdef _OPENMP
 #pragma omp parallel
   {
-    const std::size_t threadOffset = omp_get_thread_num() * (4 * seissol::kernels::Solver::BufferSize);
+    const std::size_t threadOffset =
+        omp_get_thread_num() * (4 * seissol::kernels::Solver::BufferSize);
 #else
   std::size_t threadOffset = 0;
 #endif

@@ -73,10 +73,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Spacetime::executeSTP(double timeStepWidth,
-                           LocalData& data,
-                           real* timeIntegrated,
-                           real* stp)
+void Spacetime::executeSTP(double timeStepWidth, LocalData& data, real* timeIntegrated, real* stp)
 
 {
   alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictorRhs::size()];

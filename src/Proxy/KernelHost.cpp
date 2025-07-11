@@ -193,8 +193,9 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
           faceNeighbors[cell],
 #ifdef _OPENMP
           *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(
-              &(data.globalDataOnHost.integrationBufferLTS[
-                  static_cast<std::size_t>(omp_get_thread_num() * 4) * seissol::kernels::Solver::BufferSize])),
+              &(data.globalDataOnHost
+                    .integrationBufferLTS[static_cast<std::size_t>(omp_get_thread_num() * 4) *
+                                          seissol::kernels::Solver::BufferSize])),
 #else
         *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(
             data.globalDataOnHost.integrationBufferLTS),

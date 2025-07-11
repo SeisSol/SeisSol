@@ -355,24 +355,18 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
 #ifdef USE_DAMAGE
     localKernel.updateMaterials(data);
 
-    spacetimeKernel.computeNonlAder(timeStepSize(),
-                             data,
-                             tmp,
-                             bufferPointer,
-                             temporaryDer,
-                             derivatives[cell],
-                             true);
+    spacetimeKernel.computeNonlAder(
+        timeStepSize(), data, tmp, bufferPointer, temporaryDer, derivatives[cell], true);
     // Compute local integrals (including some boundary conditions)
-    CellBoundaryMapping (*boundaryMapping)[4] = clusterData->var(lts->boundaryMapping);
+    CellBoundaryMapping(*boundaryMapping)[4] = clusterData->var(lts->boundaryMapping);
     localKernel.computeNonlIntegral(bufferPointer,
-                                  temporaryDer,
-                                  data,
-                                  tmp,
-                                  &materialData[cell],
-                                  &boundaryMapping[cell],
-                                  ct.correctionTime,
-                                  timeStepSize()
-    );
+                                    temporaryDer,
+                                    data,
+                                    tmp,
+                                    &materialData[cell],
+                                    &boundaryMapping[cell],
+                                    ct.correctionTime,
+                                    timeStepSize());
 #else
     spacetimeKernel.computeAder(timeStepSize(), data, tmp, bufferPointer, derivatives[cell], true);
 
@@ -913,10 +907,11 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
         faceNeighbors[cell],
 #ifdef _OPENMP
         *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(
-            &(globalDataOnHost->integrationBufferLTS[static_cast<size_t>(omp_get_thread_num() * 4 *
-                                                                         seissol::kernels::Solver::BufferSize)])),
+            &(globalDataOnHost->integrationBufferLTS[static_cast<size_t>(
+                omp_get_thread_num() * 4 * seissol::kernels::Solver::BufferSize)])),
 #else
-        *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(globalDataOnHost->integrationBufferLTS),
+        *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(
+            globalDataOnHost->integrationBufferLTS),
 #endif
         timeIntegrated);
 
@@ -952,10 +947,12 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
         faceNeighbors[cell],
 #ifdef _OPENMP
         *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(
-            &(globalDataOnHost->integrationBufferLTS[static_cast<size_t>(static_cast<size_t>(omp_get_thread_num()) * 4 *
-                                                                         seissol::kernels::Solver::BufferSize)])),
+            &(globalDataOnHost->integrationBufferLTS[static_cast<size_t>(
+                static_cast<size_t>(omp_get_thread_num()) * 4 *
+                seissol::kernels::Solver::BufferSize)])),
 #else
-        *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(globalDataOnHost->integrationBufferLTS),
+        *reinterpret_cast<real(*)[4][seissol::kernels::Solver::BufferSize]>(
+            globalDataOnHost->integrationBufferLTS),
 #endif
         timeIntegrated);
 

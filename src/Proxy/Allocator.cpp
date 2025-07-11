@@ -95,8 +95,7 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
     }
   }
 
-  kernels::fillWithStuff(
-      reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
+  kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
   kernels::fillWithStuff(bucket, seissol::kernels::Solver::BufferSize * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
                          sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
@@ -165,7 +164,7 @@ void ProxyData::initDataStructures(bool enableDR) {
 
   seissol::initializer::Layer& layer = cluster.child<Interior>();
   layer.setEntrySize(lts.buffersDerivatives,
-                      sizeof(real) * seissol::kernels::Solver::BufferSize * layer.size());
+                     sizeof(real) * seissol::kernels::Solver::BufferSize * layer.size());
 
   ltsTree.allocateVariables();
   ltsTree.touchVariables();

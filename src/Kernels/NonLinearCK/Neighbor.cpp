@@ -80,7 +80,7 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       // using "kernel::nonlEvaluateAndRotateQAtInterpolationPoints"
       // The face relations are the same as the cae of receiving 'derivatives'
       // Because both are in Modal space of the neighboring cell
-      // Note: Multiplication of the integrated Q with C (max wave speed), 
+      // Note: Multiplication of the integrated Q with C (max wave speed),
       // (added INITIAL STRAIN TENSOR) can only be done here.
       // Because C is face-dependent
       // Need to store material properties, or just max_speed
@@ -89,35 +89,34 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       alignas(Alignment) real InterpolatedFyMinus[tensor::QInterpolated::size()];
       alignas(Alignment) real InterpolatedFzMinus[tensor::QInterpolated::size()];
 
-      kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter
-        = m_nonlinearInterpolation;
+      kernel::nonlEvaluateAndRotateQAtInterpolationPoints m_nonLinInter = m_nonlinearInterpolation;
       // Interpolated Q
       m_nonLinInter.QInterpolated = &InterpolatedQMinus[0];
       m_nonLinInter.Q = timeIntegrated[face];
-      m_nonLinInter.execute(data.cellInformation().faceRelations[face][0]
-                        , data.cellInformation().faceRelations[face][1]+1);
-      
+      m_nonLinInter.execute(data.cellInformation().faceRelations[face][0],
+                            data.cellInformation().faceRelations[face][1] + 1);
+
       // Interpolated Fx
       m_nonLinInter.QInterpolated = &InterpolatedFxMinus[0];
-      m_nonLinInter.Q = timeIntegrated[face] + 1*tensor::Q::size();
-      m_nonLinInter.execute(data.cellInformation().faceRelations[face][0]
-                        , data.cellInformation().faceRelations[face][1]+1);
+      m_nonLinInter.Q = timeIntegrated[face] + 1 * tensor::Q::size();
+      m_nonLinInter.execute(data.cellInformation().faceRelations[face][0],
+                            data.cellInformation().faceRelations[face][1] + 1);
       // Interpolated Fy
       m_nonLinInter.QInterpolated = &InterpolatedFyMinus[0];
-      m_nonLinInter.Q = timeIntegrated[face] + 2*tensor::Q::size();
-      m_nonLinInter.execute(data.cellInformation().faceRelations[face][0]
-                        , data.cellInformation().faceRelations[face][1]+1);
+      m_nonLinInter.Q = timeIntegrated[face] + 2 * tensor::Q::size();
+      m_nonLinInter.execute(data.cellInformation().faceRelations[face][0],
+                            data.cellInformation().faceRelations[face][1] + 1);
       // Interpolated Fz
       m_nonLinInter.QInterpolated = &InterpolatedFzMinus[0];
-      m_nonLinInter.Q = timeIntegrated[face] + 3*tensor::Q::size();
-      m_nonLinInter.execute(data.cellInformation().faceRelations[face][0]
-                        , data.cellInformation().faceRelations[face][1]+1);
-      
+      m_nonLinInter.Q = timeIntegrated[face] + 3 * tensor::Q::size();
+      m_nonLinInter.execute(data.cellInformation().faceRelations[face][0],
+                            data.cellInformation().faceRelations[face][1] + 1);
+
       // Step 2: Compute Rusanov flux on the interpolated face quadrature points
       // F_rus = 0.5*(Fx*nx + Fy*ny + Fz*nz) - 0.5*(C*Q)
       alignas(Alignment) real rusanovFluxMinus[tensor::QInterpolated::size()] = {0.0};
       // Is seissol::dr::misc::numPaddedPoints = tensor::QInterpolated::size()?
-      for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++){
+      for (unsigned i_f = 0; i_f < tensor::QInterpolated::size(); i_f++) {
         rusanovFluxMinus[i_f] = static_cast<real>(0.0);
       }
       using faceFluxShape = real(*)[seissol::dr::misc::NumPaddedPoints];
@@ -126,25 +125,26 @@ void Neighbor::computeNeighborsIntegral(NeighborData& data,
       auto* faceFxM = reinterpret_cast<faceFluxShape>(InterpolatedFxMinus);
       auto* faceFyM = reinterpret_cast<faceFluxShape>(InterpolatedFyMinus);
       auto* faceFzM = reinterpret_cast<faceFluxShape>(InterpolatedFzMinus);
-      
+
       auto* rusanovFluxM = reinterpret_cast<faceFluxShape>(rusanovFluxMinus);
       using namespace seissol::dr::misc::quantity_indices;
       unsigned DAM = 9;
 
       for (unsigned var = 0; var < 10; var++) {
         for (unsigned i = 0; i < seissol::dr::misc::NumPaddedPoints; i++) {
-          rusanovFluxM[var][i] = 0.5 * (
-            faceFxM[var][i] * data.neighboringIntegration().specific.localNormal[face][0] +
-            faceFyM[var][i] * data.neighboringIntegration().specific.localNormal[face][1] +
-            faceFzM[var][i] * data.neighboringIntegration().specific.localNormal[face][2]
-          ) - 0.5 * data.neighboringIntegration().specific.maxWavespeeds[face] * faceQM[var][i];
+          rusanovFluxM[var][i] =
+              0.5 *
+                  (faceFxM[var][i] * data.neighboringIntegration().specific.localNormal[face][0] +
+                   faceFyM[var][i] * data.neighboringIntegration().specific.localNormal[face][1] +
+                   faceFzM[var][i] * data.neighboringIntegration().specific.localNormal[face][2]) -
+              0.5 * data.neighboringIntegration().specific.maxWavespeeds[face] * faceQM[var][i];
         }
       }
-      
+
       // Step 3: Integrated from the face quadrature
       kernel::nonlinearSurfaceIntegral m_surfIntegral = m_nonlSurfIntPrototype;
-      real fluxScale = - 2.0 / 6.0 * data.neighboringIntegration().specific.localSurfaces[face]
-                    / data.neighboringIntegration().specific.localVolume;
+      real fluxScale = -2.0 / 6.0 * data.neighboringIntegration().specific.localSurfaces[face] /
+                       data.neighboringIntegration().specific.localVolume;
       m_surfIntegral.Q = data.dofs();
       m_surfIntegral.Flux = rusanovFluxMinus;
       m_surfIntegral.fluxScale = fluxScale;
