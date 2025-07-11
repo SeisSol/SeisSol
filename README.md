@@ -32,13 +32,14 @@ general users.
 # Citing SeisSol
 
 If you utilize SeisSol in a publication or want to refer to it,
-then please cite [doi.org/10.5281/zenodo.4672483](https://doi.org/10.5281/zenodo.4672483)
-for SeisSol as software package.
+please follow the suggestions on our [How To Cite](https://seissol.org/about/howtocite/)
+page.
+It also includes examples how to cite specific SeisSol features,
+models or previous use cases.
 
-If you make use specific SeisSol features,
-or require a list of applications, visit the
-[How To Cite page](https://seissol.org/about/howtocite/) on our website.
-It also includes an example on how to cite SeisSol itself.
+To reference SeisSol as a software package and the specific version you used,
+please provide the link [doi.org/10.5281/zenodo.4672483](https://doi.org/10.5281/zenodo.4672483)
+which points to Zenodo.
 
 # Collaboration
 
