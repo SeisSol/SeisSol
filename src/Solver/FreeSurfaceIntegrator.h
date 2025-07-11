@@ -73,6 +73,7 @@ class FreeSurfaceIntegrator {
   std::array<real*, NumComponents> displacements;
 
   std::vector<unsigned int> locationFlags;
+  std::vector<unsigned int> globalIds;
   unsigned totalNumberOfFreeSurfaces;
   unsigned totalNumberOfTriangles{0};
 

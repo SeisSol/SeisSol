@@ -130,6 +130,7 @@ void seissol::writer::WaveFieldWriter::init(
     int numAlignedDOF,
     const seissol::geometry::MeshReader& meshReader,
     const std::vector<unsigned>& ltsClusteringData,
+    const std::vector<unsigned>& ltsIdData,
     const real* dofs,
     const real* pstrain,
     const real* integrals,
@@ -302,6 +303,10 @@ void seissol::writer::WaveFieldWriter::init(
       generateRefinedClusteringData(meshRefiner, ltsClusteringData, newToOldCellMap);
   param.bufferIds[Clustering] = addSyncBuffer(refinedClusteringData.data(),
                                               meshRefiner->getNumCells() * sizeof(unsigned int));
+  std::vector<unsigned int> refinedIdData =
+      generateRefinedClusteringData(meshRefiner, ltsIdData, newToOldCellMap);
+  param.bufferIds[GlobalIds] =
+      addSyncBuffer(refinedIdData.data(), meshRefiner->getNumCells() * sizeof(unsigned int));
 
   // Create data buffers
   bool first = false;
