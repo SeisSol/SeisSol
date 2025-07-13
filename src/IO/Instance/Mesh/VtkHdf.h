@@ -12,6 +12,7 @@
 #include <IO/Datatype/Datatype.h>
 #include <IO/Datatype/Inference.h>
 #include <IO/Datatype/MPIType.h>
+#include <IO/Instance/Geometry/Typedefs.h>
 #include <IO/Instance/SeisSolMemoryHelper.h>
 #include <IO/Writer/Instructions/Data.h>
 #include <IO/Writer/Instructions/Hdf5.h>
@@ -26,68 +27,52 @@ class VtkHdfWriter {
   public:
   VtkHdfWriter(const std::string& name,
                std::size_t localElementCount,
-               std::size_t dimension,
+               geometry::Shape shape,
                std::size_t targetDegree);
 
-  template <typename F>
-  void addPointProjector(F projector) {
-    auto selfLocalElementCount = localElementCount;
-    auto selfPointsPerElement = pointsPerElement;
+  void addData(const std::string& name,
+               const std::optional<std::string>& group,
+               bool isConst,
+               const std::shared_ptr<writer::DataSource>& data);
 
-    instructionsConst.emplace_back([=](const std::string& filename, double time) {
-      return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName}),
-          "Points",
-          writer::GeneratedBuffer::createElementwise<double>(
-              selfLocalElementCount, selfPointsPerElement, std::vector<std::size_t>{3}, projector),
-          datatype::inferDatatype<double>());
-    });
+  template <typename F>
+  void addPointProjector(F&& projector) {
+    const auto data =
+        writer::GeneratedBuffer::createElementwise<double>(localElementCount,
+                                                           pointsPerElement,
+                                                           std::vector<std::size_t>{3},
+                                                           std::forward<F>(projector));
+
+    addData("Points", std::optional<std::string>(), true, data);
   }
 
   template <typename T, typename F>
   void addPointData(const std::string& name,
                     const std::vector<std::size_t>& dimensions,
-                    F pointMapper) {
-    auto selfLocalElementCount = localElementCount;
-    auto selfPointsPerElement = pointsPerElement;
-
-    instructions.emplace_back([=](const std::string& filename, double time) {
-      return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName, PointDataName}),
-          name,
-          writer::GeneratedBuffer::createElementwise<T>(
-              selfLocalElementCount, selfPointsPerElement, dimensions, pointMapper),
-          datatype::inferDatatype<T>());
-    });
+                    bool isConst,
+                    F&& pointMapper) {
+    const auto data = writer::GeneratedBuffer::createElementwise<T>(
+        localElementCount, pointsPerElement, dimensions, std::forward<F>(pointMapper));
+    addData(name, PointDataName, isConst, data);
   }
 
   template <typename T, typename F>
   void addCellData(const std::string& name,
                    const std::vector<std::size_t>& dimensions,
-                   F cellMapper) {
-    auto selfLocalElementCount = localElementCount;
-
-    instructions.emplace_back([=](const std::string& filename, double time) {
-      return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName, CellDataName}),
-          name,
-          writer::GeneratedBuffer::createElementwise<T>(
-              selfLocalElementCount, 1, dimensions, cellMapper),
-          datatype::inferDatatype<T>());
-    });
+                   bool isConst,
+                   F&& cellMapper) {
+    const auto data = writer::GeneratedBuffer::createElementwise<T>(
+        localElementCount, 1, dimensions, std::forward<F>(cellMapper));
+    addData(name, CellDataName, isConst, data);
   }
 
   template <typename T>
   void addFieldData(const std::string& name,
                     const std::vector<std::size_t>& dimensions,
+                    bool isConst,
                     const std::vector<T>& data) {
-    instructions.emplace_back([=](const std::string& filename, double time) {
-      return std::make_shared<writer::instructions::Hdf5DataWrite>(
-          writer::instructions::Hdf5Location(filename, {GroupName, FieldDataName}),
-          name,
-          writer::WriteInline::createArray(dimensions, data),
-          datatype::inferDatatype<T>());
-    });
+    const auto datasource = writer::WriteInline::createArray(dimensions, data);
+    addData(name, FieldDataName, isConst, datasource);
   }
 
   void addHook(const std::function<void(std::size_t, double)>& hook);
@@ -107,6 +92,9 @@ class VtkHdfWriter {
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
       const std::string&, double)>>
       instructionsConst;
+  std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
+      const std::string&, const std::string&)>>
+      instructionsConstLink;
   std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
       const std::string&, double)>>
       instructions;

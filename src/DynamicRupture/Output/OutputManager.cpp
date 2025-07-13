@@ -27,6 +27,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Memory/Tree/Lut.h"
 #include "SeisSol.h"
+#include <IO/Instance/Geometry/Typedefs.h>
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -197,8 +198,11 @@ void OutputManager::initElementwiseOutput() {
 
   auto order = seissolParameters.output.elementwiseParameters.vtkorder;
 
-  io::instance::geometry::GeometryWriter writer(
-      "fault-elementwise", receiverPoints.size() / seissol::init::vtk2d::Shape[order][1], 2, order);
+  io::instance::geometry::GeometryWriter writer("fault-elementwise",
+                                                receiverPoints.size() /
+                                                    seissol::init::vtk2d::Shape[order][1],
+                                                io::instance::geometry::Shape::Triangle,
+                                                order);
 
   writer.addPointProjector([=](double* target, std::size_t index) {
     for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
@@ -213,12 +217,15 @@ void OutputManager::initElementwiseOutput() {
     if (var.isActive) {
       for (int d = 0; d < var.dim(); ++d) {
         auto* data = var.data[d];
-        writer.addGeometryOutput<real>(
-            VariableLabels[i][d], std::vector<std::size_t>(), [=](real* target, std::size_t index) {
-              std::memcpy(target,
-                          data + seissol::init::vtk2d::Shape[order][1] * index,
-                          sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
-            });
+        writer.addGeometryOutput<real>(VariableLabels[i][d],
+                                       std::vector<std::size_t>(),
+                                       false,
+                                       [=](real* target, std::size_t index) {
+                                         std::memcpy(
+                                             target,
+                                             data + seissol::init::vtk2d::Shape[order][1] * index,
+                                             sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
+                                       });
       }
     }
   });

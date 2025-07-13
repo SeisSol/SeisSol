@@ -15,7 +15,7 @@
 #include "SeisSol.h"
 #include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
-#include <Kernels/Common.h>
+#include <IO/Instance/Geometry/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Tree/Layer.h>
@@ -150,7 +150,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     io::writer::ScheduledWriter schedWriter;
     schedWriter.name = "wavefield";
     schedWriter.interval = seissolParams.output.waveFieldParameters.interval;
-    auto writer = io::instance::geometry::GeometryWriter("wavefield", celllist.size(), 3, order);
+    auto writer = io::instance::geometry::GeometryWriter(
+        "wavefield", celllist.size(), io::instance::geometry::Shape::Tetrahedron, order);
 
     writer.addPointProjector([=](double* target, std::size_t index) {
       const auto& element = meshReader.getElements()[cellIndices[index]];
@@ -185,6 +186,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         writer.addGeometryOutput<real>(
             seissol::model::MaterialT::Quantities[quantity],
             {},
+            false,
             [=](real* target, std::size_t index) {
               const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, cellIndices[index]);
               const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
@@ -204,6 +206,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           writer.addGeometryOutput<real>(
               seissol::model::PlasticityData::Quantities[quantity],
               {},
+              false,
               [=](real* target, std::size_t index) {
                 const auto* dofsAllQuantities = ltsLut->lookup(lts->pstrain, cellIndices[index]);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
@@ -232,8 +235,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.meshId);
     auto* surfaceMeshSides =
         freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.side);
-    auto writer = io::instance::geometry::GeometryWriter(
-        "free-surface", freeSurfaceIntegrator.surfaceLtsTree.size(), 2, order);
+    auto writer =
+        io::instance::geometry::GeometryWriter("free-surface",
+                                               freeSurfaceIntegrator.surfaceLtsTree.size(),
+                                               io::instance::geometry::Shape::Triangle,
+                                               order);
     writer.addPointProjector([=](double* target, std::size_t index) {
       auto meshId = surfaceMeshIds[index];
       auto side = surfaceMeshSides[index];
@@ -267,7 +273,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     std::vector<std::string> quantityLabels = {"v1", "v2", "v3", "u1", "u2", "u3"};
     for (std::size_t quantity = 0; quantity < FREESURFACE_NUMBER_OF_COMPONENTS; ++quantity) {
       writer.addGeometryOutput<real>(
-          quantityLabels[quantity], {}, [=](real* target, std::size_t index) {
+          quantityLabels[quantity], {}, false, [=](real* target, std::size_t index) {
             auto meshId = surfaceMeshIds[index];
             auto side = surfaceMeshSides[index];
             const auto* dofsAllQuantities = ltsLut->lookup(lts->dofs, meshId);
@@ -286,6 +292,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       writer.addGeometryOutput<real>(
           quantityLabels[quantity + FREESURFACE_NUMBER_OF_COMPONENTS],
           {},
+          false,
           [=](real* target, std::size_t index) {
             auto meshId = surfaceMeshIds[index];
             auto side = surfaceMeshSides[index];

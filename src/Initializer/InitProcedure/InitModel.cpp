@@ -25,6 +25,7 @@
 #include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
 #include <Modules/Modules.h>
+#include <Monitoring/Instrumentation.h>
 #include <Monitoring/Stopwatch.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
 #include <Solver/Estimator.h>
