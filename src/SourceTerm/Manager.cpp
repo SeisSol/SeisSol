@@ -376,8 +376,8 @@ auto loadSourcesFromFSRM(const char* fileName,
         if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
           const seissol::model::Material& material =
               ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
-          for (unsigned i = 0; i < 3; ++i) {
-            sources.tensor[clusterSource][6 + i] /= material.rho;
+          for (unsigned i = 0; i < Cell::Dim; ++i) {
+            sources.tensor[clusterSource][model::MaterialT::TractionQuantities + i] /= material.rho;
           }
         } else {
           logWarning()

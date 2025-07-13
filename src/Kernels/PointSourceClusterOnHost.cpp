@@ -15,6 +15,7 @@
 #include <Kernels/PointSourceCluster.h>
 #include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>
+#include <Solver/MultipleSimulations.h>
 #include <SourceTerm/Typedefs.h>
 #include <array>
 #include <memory>
@@ -84,6 +85,8 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceNRF(unsigned source,
   krnl.mInvJInvPhisAtSources = sources_->mInvJInvPhisAtSources[source].data();
   krnl.stiffnessTensor = sources_->stiffnessTensor[source].data();
   krnl.mSlip = rotatedSlip;
+
+  // NOTE: the 6 is not related to the number of traction quantities stored
   krnl.mNormal = sources_->tensor[source].data() + 6;
   krnl.mArea = -sources_->A[source];
   krnl.momentToNRF = init::momentToNRF::Values;
