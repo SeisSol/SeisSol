@@ -8,6 +8,7 @@
 
 #include "Allocator.h"
 #include <Alignment.h>
+#include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
@@ -54,15 +55,15 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
   std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
   std::uniform_int_distribution<unsigned> orientationDist(0, 2);
-  std::uniform_int_distribution<unsigned> cellDist(0, layer.size() - 1);
+  std::uniform_int_distribution<std::size_t> cellDist(0, layer.size() - 1);
 
-  for (unsigned cell = 0; cell < layer.size(); ++cell) {
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     buffers[cell] = bucket + cell * tensor::I::size();
     derivatives[cell] = nullptr;
     buffersDevice[cell] = bucketDevice + cell * tensor::I::size();
     derivativesDevice[cell] = nullptr;
 
-    for (unsigned f = 0; f < 4; ++f) {
+    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = sideDist(rng);
       cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
@@ -74,8 +75,8 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (unsigned cell = 0; cell < layer.size(); ++cell) {
-    for (unsigned f = 0; f < 4; ++f) {
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+    for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
       switch (faceTp) {
       case FaceType::FreeSurface:
         faceNeighbors[cell][f] = buffers[cell];
@@ -106,7 +107,7 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (unsigned cell = 0; cell < layer.size(); ++cell) {
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     localIntegration[cell].specific.typicalTimeStepWidth = seissol::proxy::Timestep;
   }
 #endif
@@ -197,8 +198,8 @@ void ProxyData::initDataStructures(bool enableDR) {
 #endif
       std::mt19937 rng(cellCount + offset);
       std::uniform_real_distribution<real> urd;
-      for (unsigned cell = 0; cell < cellCount; ++cell) {
-        for (unsigned i = 0; i < yateto::computeFamilySize<tensor::dQ>(); i++) {
+      for (std::size_t cell = 0; cell < cellCount; ++cell) {
+        for (std::size_t i = 0; i < yateto::computeFamilySize<tensor::dQ>(); i++) {
           fakeDerivativesHost[cell * yateto::computeFamilySize<tensor::dQ>() + i] = urd(rng);
         }
       }
@@ -246,12 +247,12 @@ void ProxyData::initDataStructures(bool enableDR) {
     std::mt19937 rng(cellCount);
     std::uniform_int_distribution<unsigned> sideDist(0, 3);
     std::uniform_int_distribution<unsigned> orientationDist(0, 2);
-    std::uniform_int_distribution<unsigned> drDist(0, interior.size() - 1);
-    std::uniform_int_distribution<unsigned> cellDist(0, cellCount - 1);
+    std::uniform_int_distribution<std::size_t> drDist(0, interior.size() - 1);
+    std::uniform_int_distribution<std::size_t> cellDist(0, cellCount - 1);
 
     /* init drMapping */
-    for (unsigned cell = 0; cell < cellCount; ++cell) {
-      for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t cell = 0; cell < cellCount; ++cell) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         CellDRMapping& drm = drMapping[cell][face];
         const auto side = sideDist(rng);
         const auto orientation = orientationDist(rng);
@@ -264,7 +265,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     }
 
     /* init dr godunov state */
-    for (unsigned face = 0; face < interior.size(); ++face) {
+    for (std::size_t face = 0; face < interior.size(); ++face) {
       const auto plusCell = cellDist(rng);
       const auto minusCell = cellDist(rng);
       timeDerivativeHostPlus[face] =
@@ -293,7 +294,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
   seissol::initializer::TimeCluster& cluster = ltsTree.child(0);
   seissol::initializer::Layer& layer = cluster.child<Interior>();
 
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(ltsTree, lts);
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsTree, lts);
   ltsTree.allocateScratchPads();
 
   seissol::initializer::recording::CompositeRecorder<seissol::initializer::LTS> recorder;

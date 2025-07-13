@@ -37,7 +37,7 @@ class GravitationalFreeSurfaceBc {
   explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
       : gravitationalAcceleration(gravitationalAcceleration) {};
 
-  static std::pair<long long, long long>
+  static std::pair<std::uint64_t, std::uint64_t>
       getFlopsDisplacementFace(unsigned face, [[maybe_unused]] FaceType faceType);
 
   template <typename TimeKrnl, typename MappingKrnl>
@@ -67,10 +67,10 @@ class GravitationalFreeSurfaceBc {
 
     // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
     assert(boundaryMapping.nodes != nullptr);
-    assert(boundaryMapping.TinvData != nullptr);
-    assert(boundaryMapping.TData != nullptr);
-    auto tinv = init::Tinv::view::create(boundaryMapping.TinvData);
-    auto t = init::Tinv::view::create(boundaryMapping.TData);
+    assert(boundaryMapping.dataTinv != nullptr);
+    assert(boundaryMapping.dataT != nullptr);
+    auto tinv = init::Tinv::view::create(boundaryMapping.dataTinv);
+    auto t = init::Tinv::view::create(boundaryMapping.dataT);
     auto projectKernel = std::forward<MappingKrnl>(projectKernelPrototype);
     projectKernel.Tinv = tinv.data();
 
@@ -148,7 +148,7 @@ class GravitationalFreeSurfaceBc {
       for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
         // Derivatives of interior variables
         constexpr int PIdx = 0;
-        constexpr int UIdx = 6;
+        constexpr int UIdx = model::MaterialT::TractionQuantities;
 
         const auto uInside = dofsFaceNodal(i, UIdx + 0);
         const auto vInside = dofsFaceNodal(i, UIdx + 1);
@@ -198,32 +198,25 @@ class GravitationalFreeSurfaceBc {
     if (dataTable.find(key) != dataTable.end()) {
       const size_t numElements{dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getSize()};
 
-      auto rotateDisplacementToFaceNormalPtrs = runtime.memoryHandle<real*>(numElements);
-      auto rotateDisplacementToGlobalPtrs = runtime.memoryHandle<real*>(numElements);
-      auto rotatedFaceDisplacementPtrs = runtime.memoryHandle<real*>(numElements);
-      auto dofsFaceNodalPtrs = runtime.memoryHandle<real*>(numElements);
-      auto prevCoefficientsPtrs = runtime.memoryHandle<real*>(numElements);
-
-      const auto setupMemory = [&](auto& ptrs, std::size_t elementSize) {
-        auto memory = runtime.memoryHandle<real>(elementSize * numElements);
-        device.algorithms.incrementalAdd(
-            ptrs.get(), memory.get(), elementSize, numElements, deviceStream);
-        return std::move(memory);
-      };
-
-      auto rotateDisplacementToFaceNormalMemory =
-          setupMemory(rotateDisplacementToFaceNormalPtrs, init::displacementRotationMatrix::Size);
-      auto rotateDisplacementToGlobalMemory =
-          setupMemory(rotateDisplacementToGlobalPtrs, init::displacementRotationMatrix::Size);
-      auto rotatedFaceDisplacementMemory =
-          setupMemory(rotatedFaceDisplacementPtrs, init::rotatedFaceDisplacement::Size);
-      auto dofsFaceNodalMemory = setupMemory(dofsFaceNodalPtrs, tensor::INodal::size());
-      auto prevCoefficients = setupMemory(prevCoefficientsPtrs, nodal::tensor::nodes2D::Shape[0]);
+      auto** rotateDisplacementToFaceNormalPtrs =
+          dataTable[key]
+              .get(inner_keys::Wp::Id::RotateDisplacementToFaceNormal)
+              ->getDeviceDataPtr();
+      auto** rotateDisplacementToGlobalPtrs =
+          dataTable[key].get(inner_keys::Wp::Id::RotateDisplacementToGlobal)->getDeviceDataPtr();
+      auto** rotatedFaceDisplacementPtrs =
+          dataTable[key].get(inner_keys::Wp::Id::RotatedFaceDisplacement)->getDeviceDataPtr();
+      auto** dofsFaceNodalPtrs =
+          dataTable[key].get(inner_keys::Wp::Id::DofsFaceNodal)->getDeviceDataPtr();
+      auto** prevCoefficientsPtrs =
+          dataTable[key].get(inner_keys::Wp::Id::PrevCoefficients)->getDeviceDataPtr();
+      auto* invImpedances =
+          materialTable[key].get(inner_keys::Material::Id::InvImpedances)->getDeviceDataPtr();
 
       auto** TinvDataPtrs = dataTable[key].get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
       auto** TDataPtrs = dataTable[key].get(inner_keys::Wp::Id::T)->getDeviceDataPtr();
-      kernels::time::aux::extractRotationMatrices(rotateDisplacementToFaceNormalPtrs.get(),
-                                                  rotateDisplacementToGlobalPtrs.get(),
+      kernels::time::aux::extractRotationMatrices(rotateDisplacementToFaceNormalPtrs,
+                                                  rotateDisplacementToGlobalPtrs,
                                                   TDataPtrs,
                                                   TinvDataPtrs,
                                                   numElements,
@@ -239,8 +232,8 @@ class GravitationalFreeSurfaceBc {
       rotateFaceDisplacementKrnl.numElements = numElements;
       rotateFaceDisplacementKrnl.faceDisplacement = const_cast<const real**>(displacementsPtrs);
       rotateFaceDisplacementKrnl.displacementRotationMatrix =
-          const_cast<const real**>(rotateDisplacementToFaceNormalPtrs.get());
-      rotateFaceDisplacementKrnl.rotatedFaceDisplacement = rotatedFaceDisplacementPtrs.get();
+          const_cast<const real**>(rotateDisplacementToFaceNormalPtrs);
+      rotateFaceDisplacementKrnl.rotatedFaceDisplacement = rotatedFaceDisplacementPtrs;
       rotateFaceDisplacementKrnl.linearAllocator.initialize(auxTmpMem.get());
       rotateFaceDisplacementKrnl.streamPtr = deviceStream;
       rotateFaceDisplacementKrnl.execute();
@@ -251,19 +244,17 @@ class GravitationalFreeSurfaceBc {
       auto** integratedDisplacementNodalPtrs =
           dataTable[key].get(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
       kernels::time::aux::initializeTaylorSeriesForGravitationalBoundary(
-          prevCoefficientsPtrs.get(),
+          prevCoefficientsPtrs,
           integratedDisplacementNodalPtrs,
-          rotatedFaceDisplacementPtrs.get(),
+          rotatedFaceDisplacementPtrs,
           deltaTInt,
           numElements,
           deviceStream);
 
-      auto invImpedances = runtime.memoryHandle<double>(numElements);
-
       auto* rhos = materialTable[key].get(inner_keys::Material::Id::Rho)->getDeviceDataPtr();
       auto* lambdas = materialTable[key].get(inner_keys::Material::Id::Lambda)->getDeviceDataPtr();
       kernels::time::aux::computeInvAcousticImpedance(
-          invImpedances.get(), rhos, lambdas, numElements, deviceStream);
+          invImpedances, rhos, lambdas, numElements, deviceStream);
 
       double factorEvaluated = 1;
       double factorInt = deltaTInt;
@@ -276,7 +267,7 @@ class GravitationalFreeSurfaceBc {
         factorEvaluated *= deltaT / (1.0 * order);
         factorInt *= deltaTInt / (order + 1.0);
 
-        device.algorithms.setToValue(dofsFaceNodalPtrs.get(),
+        device.algorithms.setToValue(dofsFaceNodalPtrs,
                                      static_cast<real>(0.0),
                                      tensor::INodal::size(),
                                      numElements,
@@ -285,7 +276,7 @@ class GravitationalFreeSurfaceBc {
         auto projectKernel = projectKernelPrototype;
         projectKernel.numElements = numElements;
         projectKernel.Tinv = const_cast<const real**>(TinvDataPtrs);
-        projectKernel.INodal = dofsFaceNodalPtrs.get();
+        projectKernel.INodal = dofsFaceNodalPtrs;
         projectKernel.linearAllocator.initialize(auxTmpMem.get());
         projectKernel.streamPtr = deviceStream;
 
@@ -296,11 +287,11 @@ class GravitationalFreeSurfaceBc {
 
         projectKernel.execute(order - 1, faceIdx);
 
-        kernels::time::aux::updateRotatedFaceDisplacement(rotatedFaceDisplacementPtrs.get(),
-                                                          prevCoefficientsPtrs.get(),
+        kernels::time::aux::updateRotatedFaceDisplacement(rotatedFaceDisplacementPtrs,
+                                                          prevCoefficientsPtrs,
                                                           integratedDisplacementNodalPtrs,
-                                                          dofsFaceNodalPtrs.get(),
-                                                          invImpedances.get(),
+                                                          dofsFaceNodalPtrs,
+                                                          invImpedances,
                                                           rhos,
                                                           g,
                                                           factorEvaluated,
@@ -311,9 +302,9 @@ class GravitationalFreeSurfaceBc {
 
       rotateFaceDisplacementKrnl.numElements = numElements;
       rotateFaceDisplacementKrnl.faceDisplacement =
-          const_cast<const real**>(rotatedFaceDisplacementPtrs.get());
+          const_cast<const real**>(rotatedFaceDisplacementPtrs);
       rotateFaceDisplacementKrnl.displacementRotationMatrix =
-          const_cast<const real**>(rotateDisplacementToGlobalPtrs.get());
+          const_cast<const real**>(rotateDisplacementToGlobalPtrs);
       rotateFaceDisplacementKrnl.rotatedFaceDisplacement = displacementsPtrs;
       rotateFaceDisplacementKrnl.linearAllocator.initialize(auxTmpMem.get());
       rotateFaceDisplacementKrnl.streamPtr = deviceStream;

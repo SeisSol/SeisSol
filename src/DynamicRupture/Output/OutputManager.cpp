@@ -28,6 +28,7 @@
 #include "Memory/Tree/Lut.h"
 #include "SeisSol.h"
 #include <IO/Instance/Geometry/Typedefs.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -250,19 +251,9 @@ void OutputManager::initPickpointOutput() {
     logError() << "Collective IO for the on-fault receiver output is still under construction.";
   }
 
-  std::stringstream baseHeader;
-  baseHeader << "VARIABLES = \"Time\"";
-  auto collectVariableNames = [&baseHeader](auto& var, int index) {
-    if (var.isActive) {
-      for (int dim = 0; dim < var.dim(); ++dim) {
-        baseHeader << " ,\"" << VariableLabels[index][dim] << '\"';
-      }
-    }
-  };
-  misc::forEach(ppOutputData->vars, collectVariableNames);
   auto& outputData = ppOutputData;
-
   const bool allReceiversInOneFilePerRank = seissolParameters.output.pickpointParameters.aggregate;
+
   if (allReceiversInOneFilePerRank) {
     // aggregate all receivers per rank
 
@@ -284,7 +275,7 @@ void OutputManager::initPickpointOutput() {
     std::size_t counter = 0;
     for (const auto& [index, receivers] : globalIndexMap) {
       auto fileName =
-          buildIndexedMPIFileName(seissolParameters.output.prefix, index, "faultreceiver");
+          buildIndexedMPIFileName(seissolParameters.output.prefix, index + 1, "faultreceiver");
       seissol::generateBackupFileIfNecessary(fileName, "dat", {backupTimeStamp});
       fileName += ".dat";
 
@@ -293,9 +284,47 @@ void OutputManager::initPickpointOutput() {
     }
   }
 
+  std::stringstream baseHeader;
+
+  auto suffix = [&allReceiversInOneFilePerRank](auto pointIndex, auto simIndex) {
+    std::string suffix;
+
+    if (allReceiversInOneFilePerRank) {
+      suffix += "-" + std::to_string(pointIndex);
+    }
+
+    if constexpr (seissol::multisim::MultisimEnabled) {
+      suffix += "-" + std::to_string(simIndex);
+    }
+
+    return suffix;
+  };
+
+  const size_t actualPointCount =
+      allReceiversInOneFilePerRank ? ppOutputData->receiverPoints.size() / multisim::NumSimulations
+                                   : 1;
+
+  for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
+    for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
+      size_t labelCounter = 0;
+      auto collectVariableNames =
+          [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](auto& var, int index) {
+            if (var.isActive) {
+              for (int dim = 0; dim < var.dim(); ++dim) {
+                baseHeader << " ,\"" << VariableLabels[index][dim]
+                           << suffix(pointIndex + 1, simIndex + 1) << '\"';
+                ++labelCounter;
+              }
+            } else {
+              labelCounter += var.dim();
+            }
+          };
+      misc::forEach(ppOutputData->vars, collectVariableNames);
+    }
+  }
+
   for (size_t i = 0; i < ppFiles.size(); ++i) {
     const auto& receiver = outputData->receiverPoints[i];
-    const size_t globalIndex = receiver.globalReceiverIndex + 1;
 
     const auto& ppfile = ppFiles[i];
 
@@ -315,28 +344,27 @@ void OutputManager::initPickpointOutput() {
 
         file << title.str() << '\n';
         file << "VARIABLES = \"Time\"";
-        for (const auto& _ [[maybe_unused]] : ppfile.indices) {
-          file << baseHeader.str();
-        }
+
+        file << baseHeader.str();
+
         file << '\n';
 
         for (const auto& gIdx : ppfile.indices) {
           const auto& receiver = outputData->receiverPoints[gIdx];
           const size_t globalIndex = receiver.globalReceiverIndex + 1;
-          const size_t simIndex = receiver.simIndex + 1;
+          const size_t simIndex = receiver.simIndex;
           const auto& point = const_cast<ExtVrtxCoords&>(receiver.global);
 
           // output coordinates
-          file << "# " << globalIndex << "," << simIndex << " x1\t" << makeFormatted(point[0])
-               << '\n';
-          file << "# " << globalIndex << "," << simIndex << " x2\t" << makeFormatted(point[1])
-               << '\n';
-          file << "# " << globalIndex << "," << simIndex << " x3\t" << makeFormatted(point[2])
-               << '\n';
+          if (simIndex == 0) {
+            file << "# Receiver number " << globalIndex << '\n';
+            file << "# x1\t" << makeFormatted(point[0]) << '\n';
+            file << "# x2\t" << makeFormatted(point[1]) << '\n';
+            file << "# x3\t" << makeFormatted(point[2]) << '\n';
+          }
 
           // stress info
           std::array<real, 6> rotatedInitialStress{};
-
           {
             auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
@@ -345,7 +373,7 @@ void OutputManager::initPickpointOutput() {
             std::array<real, 6> unrotatedInitialStress{};
             for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
                  ++stressVar) {
-              unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.nearestGpIndex];
+              unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.gpIndex];
             }
 
             seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
@@ -359,12 +387,9 @@ void OutputManager::initPickpointOutput() {
             alignAlongDipAndStrikeKernel.execute();
           }
 
-          file << "# " << globalIndex << "," << simIndex << " P_0\t"
-               << makeFormatted(rotatedInitialStress[0]) << '\n';
-          file << "# " << globalIndex << "," << simIndex << " T_s\t"
-               << makeFormatted(rotatedInitialStress[3]) << '\n';
-          file << "# " << globalIndex << "," << simIndex << " T_d\t"
-               << makeFormatted(rotatedInitialStress[5]) << '\n';
+          file << "# P_0" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[0]) << '\n';
+          file << "# T_s" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[3]) << '\n';
+          file << "# T_d" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[5]) << '\n';
         }
       } else {
         logError() << "cannot open " << ppfile.fileName;
@@ -444,7 +469,6 @@ void OutputManager::writePickpointOutput(double time, double dt) {
 
 void OutputManager::flushPickpointDataToFile() {
   auto& outputData = ppOutputData;
-  const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
   for (const auto& ppfile : ppFiles) {
     std::stringstream data;

@@ -95,9 +95,8 @@ Hdf5AttributeWrite::Hdf5AttributeWrite(const Hdf5Location& location,
     : location(location), name(name), dataSource(std::move(dataSource)) {}
 
 Hdf5AttributeWrite::Hdf5AttributeWrite(YAML::Node node)
-    : name(node["name"].as<std::string>()),
-      dataSource(writer::DataSource::deserialize(node["source"])),
-      location(Hdf5Location(node["location"])) {}
+    : location(Hdf5Location(node["location"])), name(node["name"].as<std::string>()),
+      dataSource(writer::DataSource::deserialize(node["source"])) {}
 
 std::vector<std::shared_ptr<DataSource>> Hdf5AttributeWrite::dataSources() { return {dataSource}; }
 
@@ -122,9 +121,9 @@ YAML::Node Hdf5DataWrite::serialize() {
 }
 
 Hdf5DataWrite::Hdf5DataWrite(YAML::Node node)
-    : name(node["name"].as<std::string>()),
+    : location(Hdf5Location(node["location"])), name(node["name"].as<std::string>()),
       dataSource(writer::DataSource::deserialize(node["source"])),
-      location(Hdf5Location(node["location"])),
+
       targetType(datatype::Datatype::deserialize(node["targetType"])),
       compress(node["compress"].as<int>()) {}
 

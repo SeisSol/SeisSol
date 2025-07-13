@@ -46,6 +46,15 @@ struct Wp {
     DerivativesAne,
     DerivativesExt,
     Analytical,
+    PrevDofs,
+    QEtaNodal,
+    DuDtStrain,
+    RotateDisplacementToFaceNormal,
+    RotateDisplacementToGlobal,
+    RotatedFaceDisplacement,
+    DofsFaceNodal,
+    PrevCoefficients,
+    DofsFaceBoundaryNodal,
     Count
   };
 };
@@ -70,7 +79,7 @@ struct Dr {
 
 struct Material {
   using DataType = double;
-  enum struct Id : size_t { Rho = 0, Lambda, Count };
+  enum struct Id : size_t { Rho = 0, Lambda, InvImpedances, Count };
 };
 
 struct Indices {
@@ -80,8 +89,8 @@ struct Indices {
 } // namespace seissol::initializer::recording::inner_keys
 
 namespace seissol::initializer::recording {
-constexpr size_t ALL_BITS = ~static_cast<size_t>(0);
-constexpr size_t encodeAny(unsigned count) { return ~(ALL_BITS << count); }
+constexpr size_t AllBits = ~static_cast<size_t>(0);
+constexpr size_t encodeAny(unsigned count) { return ~(AllBits << count); }
 
 enum struct KernelNames : size_t {
   Time = 1 << 0,
@@ -121,9 +130,9 @@ enum struct FaceKinds : size_t {
   None = encodeAny(Count)
 };
 
-enum struct FaceId : size_t { Count = 4, Any = ALL_BITS };
-enum struct FaceRelations : size_t { Count = 48, Any = ALL_BITS };
-enum struct DrFaceRelations : size_t { Count = 16, Any = ALL_BITS };
+enum struct FaceId : size_t { Count = 4, Any = AllBits };
+enum struct FaceRelations : size_t { Count = 48, Any = AllBits };
+enum struct DrFaceRelations : size_t { Count = 16, Any = AllBits };
 
 enum struct ExchangeInfo : size_t {
   Buffers = 1 << 0,

@@ -603,7 +603,7 @@ if (TESTING)
           src/tests/SourceTerm/TestSourceTerm.cpp
           src/tests/Parallel/TestParallel.cpp
           src/tests/ResultWriter/TestResultWriter.cpp
-          src/tests/Solver/time_stepping/TestSolverTimeStepping.cpp
+          src/tests/Solver/TimeStepping/TestSolverTimeStepping.cpp
           src/tests/DynamicRupture/TestDynamicRupture.cpp
           src/tests/Common/TestCommon.cpp
           )
@@ -620,12 +620,12 @@ if (TESTING)
   endif()
 
   configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/mesh.h5
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/TimeStepping/mesh.h5
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
     COPYONLY
     )
   configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/time_stepping/material.yaml
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/TimeStepping/material.yaml
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
     COPYONLY
     )

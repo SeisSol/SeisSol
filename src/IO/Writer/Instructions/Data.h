@@ -191,8 +191,8 @@ class GeneratedBuffer : public AdhocBuffer {
                   std::function<void(void*)> generator,
                   std::shared_ptr<datatype::Datatype> datatype,
                   const std::vector<std::size_t>& shape)
-      : generator(std::move(generator)), sourceCount(sourceCount), targetCount(targetCount),
-        targetStride(targetCount), AdhocBuffer(std::move(datatype), shape) {
+      : AdhocBuffer(std::move(datatype), shape), generator(std::move(generator)),
+        sourceCount(sourceCount), targetStride(targetCount) {
 
     for (auto dim : shape) {
       targetStride *= dim;
@@ -235,7 +235,6 @@ class GeneratedBuffer : public AdhocBuffer {
   private:
   std::function<void(void*)> generator;
   std::size_t sourceCount;
-  std::size_t targetCount;
   std::size_t targetStride;
 };
 

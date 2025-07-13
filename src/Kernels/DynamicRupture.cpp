@@ -136,13 +136,13 @@ void DynamicRupture::spaceTimeInterpolation(
 
     krnl.QInterpolated = &qInterpolatedPlus[timeInterval][0];
     krnl.Q = degreesOfFreedomPlus;
-    krnl.TinvT = godunovData->TinvT;
+    krnl.TinvT = godunovData->dataTinvT;
     krnl._prefetch.QInterpolated = plusPrefetch;
     krnl.execute(faceInfo.plusSide, 0);
 
     krnl.QInterpolated = &qInterpolatedMinus[timeInterval][0];
     krnl.Q = degreesOfFreedomMinus;
-    krnl.TinvT = godunovData->TinvT;
+    krnl.TinvT = godunovData->dataTinvT;
     krnl._prefetch.QInterpolated = minusPrefetch;
     krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
   }
@@ -247,8 +247,8 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 }
 
 void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
-                                       long long& nonZeroFlops,
-                                       long long& hardwareFlops) {
+                                       std::uint64_t& nonZeroFlops,
+                                       std::uint64_t& hardwareFlops) {
   m_timeKernel.flopsTaylorExpansion(nonZeroFlops, hardwareFlops);
 
   // 2x evaluateTaylorExpansion

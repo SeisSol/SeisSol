@@ -99,7 +99,7 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
     std::vector<bool> nucleationStressParameterizedByTraction(drParameters->nucleationCount);
     std::vector<StressTensor> nucleationStresses;
     nucleationStresses.reserve(drParameters->nucleationCount);
-    for (int i = 0; i < drParameters->nucleationCount; ++i) {
+    for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
       nucleationStresses.emplace_back(layer.size());
       nucleationStressParameterizedByTraction[i] =
           addStressesToStorageMap(nucleationStresses[i], i + 1);
@@ -126,7 +126,7 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
     auto* initialStressInFaultCS = layer.var(dynRup->initialStressInFaultCS);
     rotateStressToFaultCS(dynRup, layer, initialStressInFaultCS, initialStress);
     // rotate nucleation stress to fault coordinate system
-    for (int i = 0; i < drParameters->nucleationCount; ++i) {
+    for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
       if (nucleationStressParameterizedByTraction[i]) {
         rotateTractionToCartesianStress(dynRup, layer, nucleationStresses[i]);
       }
@@ -138,7 +138,7 @@ void BaseDRInitializer::initializeFault(const seissol::initializer::DynamicRuptu
     for (unsigned int ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         initialPressure[ltsFace][pointIndex] = initialStress.p[ltsFace][pointIndex];
-        for (int i = 0; i < drParameters->nucleationCount; ++i) {
+        for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
           auto* nucleationPressure = layer.var(dynRup->nucleationPressure[i]);
           nucleationPressure[ltsFace][pointIndex] = nucleationStresses[i].p[ltsFace][pointIndex];
         }
@@ -238,7 +238,7 @@ void BaseDRInitializer::rotateStressToFaultCS(
   cartesianToFaultCSRotationKernel.stressRotationMatrix = cartesianToFaultCSMatrixValues;
 
   for (unsigned int ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-    constexpr unsigned int NumStressComponents = 6;
+    constexpr unsigned int NumStressComponents = model::MaterialT::TractionQuantities;
     const auto& drFaceInformation = layer.var(dynRup->faceInformation);
     const unsigned meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);
     const Fault& fault = seissolInstance.meshReader().getFault().at(meshFace);

@@ -19,11 +19,13 @@
 #include "Parameters/ModelParameters.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <Common/Constants.h>
 #include <DynamicRupture/Typedefs.h>
 #include <Equations/Datastructures.h> // IWYU pragma: keep
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
@@ -133,7 +135,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                  LTSTree* ltsTree,
                                  LTS* lts,
                                  Lut* ltsLut,
-                                 const TimeStepping& timeStepping,
+                                 const ClusterLayout& clusterLayout,
                                  const parameters::ModelParameters& modelParameters) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -187,18 +189,18 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto clusterId = secondaryInformation[cell].clusterId;
-        const auto timeStepWidth = timeStepping.globalCflTimeStepWidths[clusterId];
+        const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
         const auto meshId = secondaryInformation[cell].meshId;
 
-        double x[4];
-        double y[4];
-        double z[4];
+        double x[Cell::NumVertices];
+        double y[Cell::NumVertices];
+        double z[Cell::NumVertices];
         double gradXi[3];
         double gradEta[3];
         double gradZeta[3];
 
         // Iterate over all 4 vertices of the tetrahedron
-        for (int vertex = 0; vertex < 4; ++vertex) {
+        for (std::size_t vertex = 0; vertex < Cell::NumVertices; ++vertex) {
           const VrtxCoords& coords = vertices[elements[meshId].vertices[vertex]].coords;
           x[vertex] = coords[0];
           y[vertex] = coords[1];
@@ -220,7 +222,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
         const double volume = MeshTools::volume(elements[meshId], vertices);
 
-        for (int side = 0; side < 4; ++side) {
+        for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           VrtxCoords normal;
           VrtxCoords tangent1;
           VrtxCoords tangent2;
@@ -256,7 +258,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               [&secondaryInformation, &cellInformation, &cellInformationAll, cell](int side) {
                 const auto hasDRFace = [](const CellLocalInformation& ci) {
                   bool hasAtLeastOneDRFace = false;
-                  for (size_t i = 0; i < 4; ++i) {
+                  for (size_t i = 0; i < Cell::NumFaces; ++i) {
                     if (ci.faceTypes[i] == FaceType::DynamicRupture) {
                       hasAtLeastOneDRFace = true;
                     }
@@ -378,11 +380,11 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 #endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto& element = elements[secondaryInformation[cell].meshId];
-      const double* coords[4];
-      for (int v = 0; v < 4; ++v) {
+      const double* coords[Cell::NumVertices];
+      for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
         coords[v] = vertices[element.vertices[v]].coords;
       }
-      for (int side = 0; side < 4; ++side) {
+      for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
         if (cellInformation[cell].faceTypes[side] != FaceType::FreeSurfaceGravity &&
             cellInformation[cell].faceTypes[side] != FaceType::Dirichlet &&
             cellInformation[cell].faceTypes[side] != FaceType::Analytical) {
@@ -411,8 +413,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         }
 
         // Compute map that rotates to normal aligned coordinate system.
-        real* matTData = boundary[cell][side].TData;
-        real* matTinvData = boundary[cell][side].TinvData;
+        real* matTData = boundary[cell][side].dataT;
+        real* matTinvData = boundary[cell][side].dataTinv;
         assert(matTData != nullptr);
         assert(matTinvData != nullptr);
         auto matT = init::T::view::create(matTData);
@@ -690,11 +692,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
       switch (plusMaterial->getMaterialType()) {
-      case seissol::model::MaterialType::Elastic:
-        [[fallthrough]];
-      case seissol::model::MaterialType::Viscoelastic: {
-        break;
-      }
       case seissol::model::MaterialType::Poroelastic: {
         auto plusEigenpair =
             seissol::model::getEigenDecomposition(*dynamic_cast<model::MaterialT*>(plusMaterial));
@@ -722,9 +719,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         break;
       }
       default: {
-        logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
-                      "(built with:"
-                   << model::MaterialT::Text << ")";
+        if constexpr (!model::MaterialT::SupportsDR) {
+          logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
+                        "(built with:"
+                     << model::MaterialT::Text << ")";
+        }
         break;
       }
       }
@@ -758,7 +757,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       /// Transpose matTinv
       dynamicRupture::kernel::transposeTinv ttKrnl;
       ttKrnl.Tinv = matTinvData;
-      ttKrnl.TinvT = godunovData[ltsFace].TinvT;
+      ttKrnl.TinvT = godunovData[ltsFace].dataTinvT;
       ttKrnl.execute();
 
       double plusSurfaceArea = 0;

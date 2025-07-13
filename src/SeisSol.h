@@ -12,6 +12,7 @@
 #include <Common/Executor.h>
 #include <IO/Manager.h>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "utils/env.h"
@@ -29,7 +30,7 @@
 #include "ResultWriter/PostProcessor.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Simulator.h"
-#include "Solver/time_stepping/TimeManager.h"
+#include "Solver/TimeStepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
 
 namespace seissol {
@@ -62,7 +63,18 @@ class SeisSol {
 
   void loadCheckpoint(const std::string& file);
 
-  Executor executionPlace(std::size_t clusterSize);
+  Executor executionPlace(std::size_t clusterSize) {
+    constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
+    if (executionPlaceCutoff.has_value()) {
+      if (executionPlaceCutoff.value() <= clusterSize) {
+        return DefaultDevice;
+      } else {
+        return Executor::Host;
+      }
+    } else {
+      return DefaultDevice;
+    }
+  }
 
   void setExecutionPlaceCutoff(std::size_t size);
 

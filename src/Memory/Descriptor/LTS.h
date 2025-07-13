@@ -93,24 +93,24 @@ struct LTS {
   Variable<real*> derivatives;
   Variable<CellLocalInformation> cellInformation;
   Variable<SecondaryCellLocalInformation> secondaryInformation;
-  Variable<real* [4]> faceNeighbors;
+  Variable<real* [Cell::NumFaces]> faceNeighbors;
   Variable<LocalIntegrationData> localIntegration;
   Variable<NeighboringIntegrationData> neighboringIntegration;
   Variable<CellMaterialData> material;
   Variable<seissol::model::PlasticityData> plasticity;
-  Variable<CellDRMapping[4]> drMapping;
-  Variable<CellBoundaryMapping[4]> boundaryMapping;
+  Variable<CellDRMapping[Cell::NumFaces]> drMapping;
+  Variable<CellBoundaryMapping[Cell::NumFaces]> boundaryMapping;
   Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
-  Variable<real* [4]> faceDisplacements;
+  Variable<real* [Cell::NumFaces]> faceDisplacements;
   Bucket<real> buffersDerivatives;
   Bucket<real> faceDisplacementsBuffer;
 
   Variable<real*> buffersDevice;
   Variable<real*> derivativesDevice;
-  Variable<real* [4]> faceDisplacementsDevice;
-  Variable<real* [4]> faceNeighborsDevice;
-  Variable<CellDRMapping[4]> drMappingDevice;
-  Variable<CellBoundaryMapping[4]> boundaryMappingDevice;
+  Variable<real* [Cell::NumFaces]> faceDisplacementsDevice;
+  Variable<real* [Cell::NumFaces]> faceNeighborsDevice;
+  Variable<CellDRMapping[Cell::NumFaces]> drMappingDevice;
+  Variable<CellBoundaryMapping[Cell::NumFaces]> boundaryMappingDevice;
 
   Scratchpad<real> integratedDofsScratch;
   Scratchpad<real> derivativesScratch;
@@ -120,6 +120,18 @@ struct LTS {
   Scratchpad<real> derivativesAneScratch;
   Scratchpad<real> idofsAneScratch;
   Scratchpad<real> dofsExtScratch;
+
+  Scratchpad<unsigned> flagScratch;
+  Scratchpad<real> prevDofsScratch;
+  Scratchpad<real> qEtaNodalScratch;
+  Scratchpad<real> qStressNodalScratch;
+
+  Scratchpad<real> rotateDisplacementToFaceNormalScratch;
+  Scratchpad<real> rotateDisplacementToGlobalScratch;
+  Scratchpad<real> rotatedFaceDisplacementScratch;
+  Scratchpad<real> dofsFaceNodalScratch;
+  Scratchpad<real> prevCoefficientsScratch;
+  Scratchpad<real> dofsFaceBoundaryNodalScratch;
 
   void addTo(LTSTree& tree, bool usePlasticity) {
     LayerMask plasticityMask;
@@ -195,6 +207,18 @@ struct LTS {
       tree.add(derivativesScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
       tree.add(nodalAvgDisplacements, LayerMask(), 1, AllocationMode::DeviceOnly);
       tree.add(analyticScratch, LayerMask(), 1, AllocationMode::HostDevicePinned);
+
+      tree.add(flagScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(prevDofsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(qEtaNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(qStressNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+
+      tree.add(rotateDisplacementToFaceNormalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(rotateDisplacementToGlobalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(rotatedFaceDisplacementScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(dofsFaceNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(prevCoefficientsScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
+      tree.add(dofsFaceBoundaryNodalScratch, LayerMask(), 1, AllocationMode::DeviceOnly);
     }
   }
 

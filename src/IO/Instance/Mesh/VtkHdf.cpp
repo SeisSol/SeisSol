@@ -31,7 +31,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
                            std::size_t localElementCount,
                            geometry::Shape shape,
                            std::size_t targetDegree)
-    : localElementCount(localElementCount), globalElementCount(localElementCount), name(name),
+    : name(name), localElementCount(localElementCount), globalElementCount(localElementCount),
       pointsPerElement(geometry::numPoints(targetDegree, shape)), type(geometry::vtkType(shape)),
       targetDegree(targetDegree) {
   MPI_Exscan(&localElementCount,

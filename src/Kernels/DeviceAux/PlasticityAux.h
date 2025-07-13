@@ -8,12 +8,13 @@
 #ifndef SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
 #define SEISSOL_SRC_KERNELS_DEVICEAUX_PLASTICITYAUX_H_
 
+#include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Model/Plasticity.h"
 #include <stddef.h>
 
 namespace seissol::kernels::device::aux::plasticity {
-constexpr static int NumStressComponents = 6;
+constexpr static int NumStressComponents = model::MaterialT::TractionQuantities;
 
 void adjustDeviatoricTensors(real** nodalStressTensors,
                              unsigned* isAdjustableVector,
@@ -22,19 +23,10 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
                              size_t numElements,
                              void* streamPtr);
 
-void adjustPointers(real* qEtaNodal,
-                    real** qEtaNodalPtrs,
-                    real* qEtaModal,
-                    real** qEtaModalPtrs,
-                    real* dUdTpstrain,
-                    real** dUdTpstrainPtrs,
-                    size_t numElements,
-                    void* streamPtr);
-
 void computePstrains(real** pstrains,
                      const seissol::model::PlasticityData* plasticityData,
                      real** dofs,
-                     real* prevDofs,
+                     real** prevDofs,
                      real** dUdTpstrain,
                      double tV,
                      double oneMinusIntegratingFactor,
@@ -42,18 +34,6 @@ void computePstrains(real** pstrains,
                      unsigned* isAdjustableVector,
                      size_t numElements,
                      void* streamPtr);
-
-void pstrainToQEtaModal(real** pstrains,
-                        real** qEtaModalPtrs,
-                        unsigned* isAdjustableVector,
-                        size_t numElements,
-                        void* streamPtr);
-
-void qEtaModalToPstrain(real** qEtaModalPtrs,
-                        real** pstrains,
-                        unsigned* isAdjustableVector,
-                        size_t numElements,
-                        void* streamPtr);
 
 void updateQEtaNodal(real** qEtaNodalPtrs,
                      real** qStressNodalPtrs,
