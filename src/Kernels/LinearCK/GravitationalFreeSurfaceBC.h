@@ -123,9 +123,10 @@ class GravitationalFreeSurfaceBc {
 
       // Initialize first component of Taylor series
       for (unsigned int i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
-        prevCoefficients[i] = rotatedFaceDisplacement(i, 0);
+        const auto localCoeff = rotatedFaceDisplacement(i, 0);
+        prevCoefficients[i] = localCoeff;
         // This is clearly a zeroth order approximation of the integral!
-        integratedDisplacementNodal(i) = deltaTInt * rotatedFaceDisplacement(i, 0); // 1 FLOP
+        integratedDisplacementNodal(i) = deltaTInt * localCoeff; // 1 FLOP
       }
 
       // Coefficients for Taylor series
