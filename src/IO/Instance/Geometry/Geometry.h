@@ -20,7 +20,7 @@ class GeometryWriter {
   static std::variant<mesh::VtkHdfWriter, mesh::XdmfWriter> getUnderlyingWriter(
       const std::string& name, std::size_t localElementCount, Shape shape, int targetDegree) {
     if (targetDegree < 0) {
-      return mesh::XdmfWriter(name, localElementCount, shape, targetDegree);
+      return mesh::XdmfWriter(name, localElementCount, shape, 0);
     } else {
       return mesh::VtkHdfWriter(name, localElementCount, shape, targetDegree);
     }

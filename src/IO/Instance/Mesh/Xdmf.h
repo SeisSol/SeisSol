@@ -37,6 +37,7 @@ class XdmfWriter {
   void addData(const std::string& name,
                const std::string& type,
                bool isConst,
+               std::size_t localCount,
                const std::shared_ptr<writer::DataSource>& data);
 
   template <typename F>
@@ -47,7 +48,7 @@ class XdmfWriter {
                                                            std::vector<std::size_t>{3},
                                                            std::forward<F>(projector));
 
-    addData("Points", "Geometry", true, data);
+    addData("XYZ", "Geometry", true, localElementCount * pointsPerElement, data);
   }
 
   template <typename T, typename F>
@@ -57,7 +58,7 @@ class XdmfWriter {
                     F&& pointMapper) {
     const auto data = writer::GeneratedBuffer::createElementwise<T>(
         localElementCount, pointsPerElement, dimensions, std::forward<F>(pointMapper));
-    addData(name, "AttributeNode", isConst, data);
+    addData(name, "AttributeNode", isConst, localElementCount * pointsPerElement, data);
   }
 
   template <typename T, typename F>
@@ -67,7 +68,7 @@ class XdmfWriter {
                    F&& cellMapper) {
     const auto data = writer::GeneratedBuffer::createElementwise<T>(
         localElementCount, 1, dimensions, std::forward<F>(cellMapper));
-    addData(name, "AttributeCell", isConst, data);
+    addData(name, "AttributeCell", isConst, localElementCount, data);
   }
 
   void addHook(const std::function<void(std::size_t, double)>& hook);
@@ -85,9 +86,10 @@ class XdmfWriter {
   std::size_t globalPointCount;
   std::size_t pointOffset;
   std::size_t pointsPerElement;
+  std::size_t datasetCount{0};
   std::vector<std::function<void(std::size_t, double)>> hooks;
-  std::vector<std::function<WriteResult(const std::string&, double)>> instructionsConst;
-  std::vector<std::function<WriteResult(const std::string&, double)>> instructions;
+  std::vector<std::function<WriteResult(const std::string&, std::size_t)>> instructionsConst;
+  std::vector<std::function<WriteResult(const std::string&, std::size_t)>> instructions;
 };
 
 } // namespace seissol::io::instance::mesh

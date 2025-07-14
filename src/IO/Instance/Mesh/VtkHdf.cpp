@@ -58,13 +58,13 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
   addData("Version", {}, false, writer::WriteInline::createArray<int64_t>({2}, {1, 0}));
 
   // to capture by value
-  auto selfGlobalElementCount = globalElementCount;
-  auto selfLocalElementCount = localElementCount;
-  auto selfGlobalPointCount = globalPointCount;
-  auto selfLocalPointCount = localPointCount;
-  auto selfPointOffset = pointOffset;
-  auto selfPointsPerElement = pointsPerElement;
-  auto selfType = type;
+  const auto selfGlobalElementCount = globalElementCount;
+  const auto selfLocalElementCount = localElementCount;
+  const auto selfGlobalPointCount = globalPointCount;
+  const auto selfLocalPointCount = localPointCount;
+  const auto selfPointOffset = pointOffset;
+  const auto selfPointsPerElement = pointsPerElement;
+  const auto selfType = type;
 
   // TODO: move the following arrays into a "common" HDF5 file
   // also, auto-generate them using a managed buffer

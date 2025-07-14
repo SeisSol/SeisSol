@@ -20,6 +20,7 @@
 #include <Initializer/Typedefs.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Memory/Tree/Layer.h>
+#include <Monitoring/Instrumentation.h>
 #include <ResultWriter/ReceiverWriter.h>
 #include <Solver/TimeStepping/AbstractGhostTimeCluster.h>
 #include <Solver/TimeStepping/AbstractTimeCluster.h>

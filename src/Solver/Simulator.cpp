@@ -17,6 +17,7 @@
 #include "SeisSol.h"
 #include "TimeStepping/TimeManager.h"
 #include <Memory/Tree/Layer.h>
+#include <Monitoring/Instrumentation.h>
 #include <algorithm>
 #include <cassert>
 #include <optional>

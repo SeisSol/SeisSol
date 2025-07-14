@@ -199,17 +199,18 @@ void OutputManager::initElementwiseOutput() {
 
   auto order = seissolParameters.output.elementwiseParameters.vtkorder;
 
+  const auto pointCount =
+      order > 1 ? seissol::init::vtk2d::Shape[order][1] : seissol::init::vtk2d::Shape[1][1];
+
   io::instance::geometry::GeometryWriter writer("fault-elementwise",
-                                                receiverPoints.size() /
-                                                    seissol::init::vtk2d::Shape[order][1],
+                                                receiverPoints.size() / pointCount,
                                                 io::instance::geometry::Shape::Triangle,
                                                 order);
 
   writer.addPointProjector([=](double* target, std::size_t index) {
-    for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
+    for (std::size_t i = 0; i < pointCount; ++i) {
       for (int j = 0; j < 3; ++j) {
-        target[i * 3 + j] =
-            receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[j];
+        target[i * 3 + j] = receiverPoints[pointCount * index + i].global.coords[j];
       }
     }
   });
@@ -218,15 +219,13 @@ void OutputManager::initElementwiseOutput() {
     if (var.isActive) {
       for (int d = 0; d < var.dim(); ++d) {
         auto* data = var.data[d];
-        writer.addGeometryOutput<real>(VariableLabels[i][d],
-                                       std::vector<std::size_t>(),
-                                       false,
-                                       [=](real* target, std::size_t index) {
-                                         std::memcpy(
-                                             target,
-                                             data + seissol::init::vtk2d::Shape[order][1] * index,
-                                             sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
-                                       });
+        writer.addGeometryOutput<real>(
+            VariableLabels[i][d],
+            std::vector<std::size_t>(),
+            false,
+            [=](real* target, std::size_t index) {
+              std::memcpy(target, data + pointCount * index, sizeof(real) * pointCount);
+            });
       }
     }
   });
