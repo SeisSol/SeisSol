@@ -51,10 +51,10 @@ set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
 
 set(HOST_ARCH "hsw" CACHE STRING "Type of host architecture")
-set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx naples rome milan bergamo turin thunderx2t99 power9 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2 apple-m3 apple-m4 rvv128 rvv256 rvv512 rvv1024 rvv2048 rvv4096 avx2-128 avx2-256 avx10-128 avx10-256 avx10-512)
+set(HOST_ARCH_OPTIONS noarch wsm snb hsw knc knl skx naples rome milan bergamo turin thunderx2t99 power9 power10 power11 a64fx neon sve128 sve256 sve512 sve1024 sve2048 apple-m1 apple-m2 apple-m3 apple-m4 rvv128 rvv256 rvv512 rvv1024 rvv2048 rvv4096 avx2-128 avx2-256 avx10-128 avx10-256 avx10-512 lsx lasx)
 # size of a vector registers in bytes for a given architecture
-set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64     32   32    32      64    64    16     16     256     16     16     32     64     128     256      128      128      128      128     16     32     64     128     256     512    64       64       64        64        64)
-set(HOST_ARCH_VECTORSIZE  16  16  32  32  64  64  64     32   32    32      64    64    16     16      64     16     16     32     64     128     256       16       16       16       16     16     32     64     128     256     512    16       32       16        32        64)
+set(HOST_ARCH_ALIGNMENT   16  16  32  32  64  64  64     32   32    32      64    64    16     16 16 16   256     16     16     32     64     128     256      128      128      128      128     16     32     64     128     256     512    64       64       64        64        64 16 32)
+set(HOST_ARCH_VECTORSIZE  16  16  32  32  64  64  64     32   32    32      64    64    16     16 16 16    64     16     16     32     64     128     256       16       16       16       16     16     32     64     128     256     512    16       32       16        32        64 16 32)
 set_property(CACHE HOST_ARCH PROPERTY STRINGS ${HOST_ARCH_OPTIONS})
 
 
@@ -66,7 +66,7 @@ set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
 set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
 
 # TODO: add vendor name here
-# (NOTE: bdw,skl,pvc as label kept for legacy reasons; prefer 8_0_0, 9_0_9, 12_60_7 resp.)
+# (NOTE: bdw,skl,pvc as labels are kept for legacy reasons; prefer 8_0_0, 9_0_9, 12_60_7 resp.)
 set(DEVICE_ARCH_OPTIONS none
         sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90 sm_100 sm_101 sm_120                    # Nvidia
         gfx900 gfx906 gfx908 gfx90a gfx942 gfx950 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102 gfx1103 gfx1200 gfx1201 # AMD
@@ -360,11 +360,6 @@ endif()
 # generate an internal representation of an architecture type which is used in seissol
 string(SUBSTRING ${PRECISION} 0 1 PRECISION_PREFIX)
 
-if (${DEVICE_ARCH} STREQUAL "none")
-    set(DEVICE_ARCH_STR "none")
-endif()
-
-
 function(cast_log_level_to_int log_level_str log_level_int)
   if (${log_level_str} STREQUAL "debug")
     set(${log_level_int} 3 PARENT_SCOPE)
@@ -377,7 +372,7 @@ function(cast_log_level_to_int log_level_str log_level_int)
   endif()
 endfunction()
 
-cast_log_level_to_int(LOG_LEVEL LOG_LEVEL)
+# cast_log_level_to_int(LOG_LEVEL LOG_LEVEL)
 cast_log_level_to_int(LOG_LEVEL_MASTER LOG_LEVEL_MASTER)
 
 if (PROXY_PYBINDING)
