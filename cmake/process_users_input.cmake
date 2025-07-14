@@ -45,6 +45,9 @@ set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
 
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 
+set(OVERRIDE_VECTORSIZE 0 CACHE STRING "If not 0, it overrides the pre-defined architecture vector length")
+set(OVERRIDE_ALIGNMENT 0 CACHE STRING "If not 0, it overrides the pre-defined architecture alignment")
+
 set(EQUATIONS "elastic" CACHE STRING "Equation set used")
 set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
@@ -321,6 +324,13 @@ else()
     list(GET HOST_ARCH_ALIGNMENT ${INDEX} ALIGNMENT)
     list(GET HOST_ARCH_VECTORSIZE ${INDEX} VECTORSIZE)
     set(DEVICE_BACKEND "none")
+endif()
+
+if (OVERRIDE_ALIGNMENT GREATER 0)
+    set(ALIGNMENT OVERRIDE_ALIGNMENT)
+endif()
+if (OVERRIDE_VECTORSIZE GREATER 0)
+    set(VECTORSIZE OVERRIDE_VECTORSIZE)
 endif()
 
 message(STATUS "Memory alignment has been set to ${ALIGNMENT} B.")

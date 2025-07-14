@@ -193,6 +193,12 @@ else()
   set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
 endif()
 
+if (OVERRIDE_VECTORSIZE GREATER 0)
+  set(OVERRIDE_VECTORSIZE_PARAM "--vectorsize ${OVERRIDE_VECTORSIZE}")
+else()
+  set(OVERRIDE_VECTORSIZE_PARAM "")
+endif()
+
 find_package(GemmTools REQUIRED)
 
 add_custom_command(
@@ -217,6 +223,7 @@ add_custom_command(
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
+     ${OVERRIDE_VECTORSIZE_PARAM}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated-code
      DEPENDS
         build-time-make-directory
