@@ -25,6 +25,7 @@
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstring>
 #include <init.h>
 #include <kernel.h>
@@ -226,6 +227,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     });
 
+    writer.addCellData<uint64_t>("clustering", {}, [=](uint64_t* target, std::size_t index) {
+      target[0] = meshReader.getElements()[index].clusterId;
+    });
+
+    writer.addCellData<std::size_t>("global-id", {}, [=](std::size_t* target, std::size_t index) {
+      target[0] = meshReader.getElements()[index].globalId;
+    });
+
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
       for (std::size_t quantity = 0; quantity < seissol::model::MaterialT::Quantities.size();
            ++quantity) {
@@ -304,6 +313,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.meshId);
     auto* surfaceMeshSides =
         freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.side);
+    auto* surfaceLocationFlag =
+        freeSurfaceIntegrator.surfaceLtsTree.var(freeSurfaceIntegrator.surfaceLts.locationFlag);
     auto writer = io::instance::mesh::VtkHdfWriter(
         "free-surface", freeSurfaceIntegrator.surfaceLtsTree.size(), 2, order);
     writer.addPointProjector([=](double* target, std::size_t index) {
@@ -336,6 +347,17 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             &target[i * 3]);
       }
     });
+
+    writer.addCellData<uint32_t>("locationFlag", {}, [=](uint32_t* target, std::size_t index) {
+      target[0] = surfaceLocationFlag[index];
+    });
+
+    writer.addCellData<std::size_t>("global-id", {}, [=](std::size_t* target, std::size_t index) {
+      const auto meshId = surfaceMeshIds[index];
+      const auto side = surfaceMeshSides[index];
+      target[0] = meshReader.getElements()[meshId].globalId * 4 + side;
+    });
+
     std::vector<std::string> quantityLabels = {"v1", "v2", "v3", "u1", "u2", "u3"};
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
       for (std::size_t quantity = 0;

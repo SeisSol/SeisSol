@@ -39,6 +39,7 @@ class FreeSurfaceIntegrator {
     seissol::initializer::Variable<unsigned> side;
     seissol::initializer::Variable<unsigned> meshId;
     seissol::initializer::Variable<CellBoundaryMapping*> boundaryMapping;
+    seissol::initializer::Variable<unsigned> locationFlag;
 
     void addTo(seissol::initializer::LTSTree& surfaceLtsTree);
   };
