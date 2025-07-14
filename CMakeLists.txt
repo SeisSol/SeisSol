@@ -208,10 +208,12 @@ add_custom_command(
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
-     "--host_arch" ${HOST_ARCH_STR}
+     "--host_arch" ${HOST_ARCH}
      "--device_codegen" ${DEVICE_CODEGEN}
-     "--device_arch" ${DEVICE_ARCH_STR}
+     "--device_arch" ${DEVICE_ARCH}
      "--device_backend" ${DEVICE_BACKEND}
+     "--device_vendor" ${DEVICE_VENDOR}
+     "--precision" ${PRECISION_PREFIX}
      "--order" ${ORDER}
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
@@ -473,10 +475,10 @@ endif()
 
 if (NOT NEW_BINARY_NAMING)
   # adjust prefix name of executables
-  if ("${DEVICE_ARCH_STR}" STREQUAL "none")
-    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
+  if ("${DEVICE_ARCH}" STREQUAL "none")
+    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${PRECISION_PREFIX}${HOST_ARCH}_${ORDER}_${EQUATIONS}")
   else()
-    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
+    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${PRECISION_PREFIX}${DEVICE_ARCH}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
   endif()
 
   if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)

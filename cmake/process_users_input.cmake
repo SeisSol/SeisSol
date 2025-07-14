@@ -64,10 +64,13 @@ set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
 
 
 set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
+
+# TODO: add vendor name here
+# (NOTE: bdw,skl,pvc as label kept for legacy reasons; prefer 8_0_0, 9_0_9, 12_60_7 resp.)
 set(DEVICE_ARCH_OPTIONS none
-        sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90 sm_100 sm_101 sm_120   # Nvidia
-        gfx900 gfx906 gfx908 gfx90a gfx942 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102               # AMD
-        bdw skl dg1 acm_g10 acm_g11 acm_g12 pvc Gen8 Gen9 Gen11 Gen12LP)                         # Intel
+        sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90 sm_100 sm_101 sm_120                    # Nvidia
+        gfx900 gfx906 gfx908 gfx90a gfx942 gfx950 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102 gfx1103 gfx1200 gfx1201 # AMD
+        8_0_0 9_0_9 12_10_0 12_55_8 12_56_5 12_57_0 12_60_7 12_61_7 20_1_4 20_2_0 bdw skl pvc) # Intel
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 set(PRECISION "double" CACHE STRING "Type of floating point precision, namely: double/single")
@@ -137,7 +140,8 @@ check_parameter("HOST_ARCH" ${HOST_ARCH} "${HOST_ARCH_OPTIONS}")
 
 # also allow hipsycl here for legacy reasons
 check_parameter("DEVICE_BACKEND" ${DEVICE_BACKEND} "${DEVICE_BACKEND_OPTIONS};hipsycl")
-check_parameter("DEVICE_ARCH" ${DEVICE_ARCH} "${DEVICE_ARCH_OPTIONS}")
+# NOTE: do not check GPU arch correctness here
+
 check_parameter("EQUATIONS" ${EQUATIONS} "${EQUATIONS_OPTIONS}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
@@ -201,9 +205,12 @@ if (DEVICE_ARCH MATCHES "sm_*")
 elseif(DEVICE_ARCH MATCHES "gfx*")
     set(DEVICE_VENDOR "amd")
     set(IS_NVIDIA_OR_AMD ON)
+elseif((DEVICE_ARCH MATCHES "[0-9]*") OR (DEVICE_ARCH STREQUAL "bdw") OR (DEVICE_ARCH STREQUAL "skl") OR (DEVICE_ARCH STREQUAL "pvc"))
+    set(DEVICE_VENDOR "intel")
+    set(IS_NVIDIA_OR_AMD OFF)
 else()
     # TODO(David): adjust as soon as we add support for more vendors
-    set(DEVICE_VENDOR "intel")
+    set(DEVICE_VENDOR "unknown")
     set(IS_NVIDIA_OR_AMD OFF)
 endif()
 
@@ -292,12 +299,15 @@ if (NOT ${DEVICE_ARCH} STREQUAL "none")
         message(FATAL_ERROR "DEVICE_BACKEND is not provided for ${DEVICE_ARCH}")
     endif()
 
-    if (${DEVICE_ARCH} MATCHES "sm_*")
+    if (${DEVICE_VENDOR} STREQUAL "nvidia")
         set(ALIGNMENT  64)
         set(VECTORSIZE 128)
-    elseif(${DEVICE_ARCH} MATCHES "gfx*")
+    elseif(${DEVICE_VENDOR} STREQUAL "amd")
         set(ALIGNMENT 128)
         set(VECTORSIZE 256)
+    elseif(${DEVICE_VENDOR} STREQUAL "intel")
+        set(ALIGNMENT 128)
+        set(VECTORSIZE 32)
     else()
         set(ALIGNMENT 128)
         set(VECTORSIZE 32)
@@ -349,13 +359,6 @@ endif()
 
 # generate an internal representation of an architecture type which is used in seissol
 string(SUBSTRING ${PRECISION} 0 1 PRECISION_PREFIX)
-if (${PRECISION} STREQUAL "double")
-    set(HOST_ARCH_STR "d${HOST_ARCH}")
-    set(DEVICE_ARCH_STR "d${DEVICE_ARCH}")
-elseif(${PRECISION} STREQUAL "single")
-    set(HOST_ARCH_STR "s${HOST_ARCH}")
-    set(DEVICE_ARCH_STR "s${DEVICE_ARCH}")
-endif()
 
 if (${DEVICE_ARCH} STREQUAL "none")
     set(DEVICE_ARCH_STR "none")
