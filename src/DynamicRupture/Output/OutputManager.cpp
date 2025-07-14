@@ -201,6 +201,7 @@ void OutputManager::initElementwiseOutput() {
 
   const auto pointCount =
       order > 1 ? seissol::init::vtk2d::Shape[order][1] : seissol::init::vtk2d::Shape[1][1];
+  const auto dataCount = order > 1 ? seissol::init::vtk2d::Shape[order][1] : 1;
 
   io::instance::geometry::GeometryWriter writer("fault-elementwise",
                                                 receiverPoints.size() / pointCount,
@@ -224,7 +225,7 @@ void OutputManager::initElementwiseOutput() {
             std::vector<std::size_t>(),
             false,
             [=](real* target, std::size_t index) {
-              std::memcpy(target, data + pointCount * index, sizeof(real) * pointCount);
+              std::memcpy(target, data + dataCount * index, sizeof(real) * dataCount);
             });
       }
     }

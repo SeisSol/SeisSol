@@ -121,7 +121,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   };
 
   if (seissolParams.output.waveFieldParameters.enabled) {
-    auto order = seissolParams.output.waveFieldParameters.vtkorder;
+    const auto orderIO = seissolParams.output.waveFieldParameters.vtkorder;
+    const auto order = std::max(0, orderIO);
     auto& meshReader = seissolInstance.meshReader();
 
     // TODO: store somewhere
@@ -170,6 +171,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       const auto& element = meshReader.getElements()[cellIndices[index]];
       const auto& vertexArray = meshReader.getVertices();
 
+      const auto trueOrder = order > 0 ? order : 1;
+
       // for the very time being, circumvent the bounding box mechanism of Yateto as follows.
       const double zero[3] = {0, 0, 0};
       seissol::transformations::tetrahedronReferenceToGlobal(
@@ -179,10 +182,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           vertexArray[element.vertices[3]].coords,
           zero,
           &target[0]);
-      for (std::size_t i = 1; i < tensor::vtk3d::Shape[order][1]; ++i) {
-        double point[3] = {init::vtk3d::Values[order][i * 3 - 3 + 0],
-                           init::vtk3d::Values[order][i * 3 - 3 + 1],
-                           init::vtk3d::Values[order][i * 3 - 3 + 2]};
+      for (std::size_t i = 1; i < tensor::vtk3d::Shape[trueOrder][1]; ++i) {
+        double point[3] = {init::vtk3d::Values[trueOrder][i * 3 - 3 + 0],
+                           init::vtk3d::Values[trueOrder][i * 3 - 3 + 1],
+                           init::vtk3d::Values[trueOrder][i * 3 - 3 + 2]};
         seissol::transformations::tetrahedronReferenceToGlobal(
             vertexArray[element.vertices[0]].coords,
             vertexArray[element.vertices[1]].coords,
@@ -246,7 +249,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   }
 
   if (seissolParams.output.freeSurfaceParameters.enabled) {
-    auto order = seissolParams.output.freeSurfaceParameters.vtkorder;
+    const auto orderIO = seissolParams.output.freeSurfaceParameters.vtkorder;
+    const auto order = std::max(0, orderIO);
+
     auto& freeSurfaceIntegrator = seissolInstance.freeSurfaceIntegrator();
     auto& meshReader = seissolInstance.meshReader();
     io::writer::ScheduledWriter schedWriter;
@@ -267,6 +272,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       const auto& element = meshReader.getElements()[meshId];
       const auto& vertexArray = meshReader.getVertices();
 
+      const auto trueOrder = order > 0 ? order : 1;
+
       // for the very time being, circumvent the bounding box mechanism of Yateto as follows.
       const double zero[2] = {0, 0};
       double xez[3];
@@ -278,9 +285,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           vertexArray[element.vertices[3]].coords,
           xez,
           &target[0]);
-      for (std::size_t i = 1; i < tensor::vtk2d::Shape[order][1]; ++i) {
-        double point[2] = {init::vtk2d::Values[order][i * 2 - 2 + 0],
-                           init::vtk2d::Values[order][i * 2 - 2 + 1]};
+      for (std::size_t i = 1; i < tensor::vtk2d::Shape[trueOrder][1]; ++i) {
+        double point[2] = {init::vtk2d::Values[trueOrder][i * 2 - 2 + 0],
+                           init::vtk2d::Values[trueOrder][i * 2 - 2 + 1]};
         seissol::transformations::chiTau2XiEtaZeta(side, point, xez);
         seissol::transformations::tetrahedronReferenceToGlobal(
             vertexArray[element.vertices[0]].coords,

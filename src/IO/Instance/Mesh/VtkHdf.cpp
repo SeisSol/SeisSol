@@ -22,6 +22,7 @@
 #include <mpi.h>
 #include <optional>
 #include <string>
+#include <utils/stringutils.h>
 #include <vector>
 
 #include "utils/logger.h"
@@ -135,7 +136,7 @@ void VtkHdfWriter::addData(const std::string& name,
           return std::make_shared<writer::instructions::Hdf5LinkExternalWrite>(
               writer::instructions::Hdf5Location(filename, groups),
               name,
-              writer::instructions::Hdf5Location(filenameConst, groups));
+              writer::instructions::Hdf5Location(filenameConst, groups, name));
         });
   }
 }
@@ -153,8 +154,11 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
     for (const auto& hook : self.hooks) {
       hook(counter, time);
     }
+
+    const auto lastPrefix = utils::StringUtils::split(prefix, '/');
     const auto filename = prefix + "-" + self.name + "-" + std::to_string(counter) + ".vtkhdf";
     const auto filenameConst = prefix + "-" + self.name + "-const.vtkhdf";
+    const auto filenameConstFile = lastPrefix.back() + "-" + self.name + "-const.vtkhdf";
     const auto filenamePvu = prefix + "-" + self.name + ".pvu";
     pvu.emplace_back(metadata::PvuEntry{filename, time});
     auto writer = writer::Writer();
@@ -166,7 +170,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
       }
     }
     for (const auto& instruction : self.instructionsConstLink) {
-      writer.addInstruction(instruction(filename, filenameConst));
+      writer.addInstruction(instruction(filename, filenameConstFile));
     }
     for (const auto& instruction : self.instructions) {
       writer.addInstruction(instruction(filename, time));

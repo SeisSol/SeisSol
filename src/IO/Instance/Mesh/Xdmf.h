@@ -48,7 +48,7 @@ class XdmfWriter {
                                                            std::vector<std::size_t>{3},
                                                            std::forward<F>(projector));
 
-    addData("XYZ", "Geometry", true, localElementCount * pointsPerElement, data);
+    addData("XYZ", "Geometry", true, localPointCount, data);
   }
 
   template <typename T, typename F>
@@ -58,7 +58,7 @@ class XdmfWriter {
                     F&& pointMapper) {
     const auto data = writer::GeneratedBuffer::createElementwise<T>(
         localElementCount, pointsPerElement, dimensions, std::forward<F>(pointMapper));
-    addData(name, "AttributeNode", isConst, localElementCount * pointsPerElement, data);
+    addData(name, "AttributeNode", isConst, localPointCount, data);
   }
 
   template <typename T, typename F>

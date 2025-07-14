@@ -57,10 +57,10 @@ struct XdmfDataset {
 
     auto data = std::make_shared<XmlData>("DataItem");
     data->addAttribute(XmlAttribute::create("NumberType", numberType))
-        .addAttribute(XmlAttribute::create("Precision", precision))
+        .addAttribute(XmlAttribute::create("Precision", std::to_string(precision)))
         .addAttribute(XmlAttribute::create("Format", format))
         .addAttribute(XmlAttribute::create("Dimensions", dimensionStream.str()));
-    data->setImmediate(writer::WriteInline::createString(payload));
+    data->setDataSource(writer::WriteInline::createString(payload));
     return data;
   }
 
@@ -102,6 +102,8 @@ struct XdmfDataset {
     for (std::size_t i = 0; i < dimensions.size(); ++i) {
       dimensionStream << " " << dimensions[i];
     }
+    hyperslab->addAttribute(XmlAttribute::create("ItemType", "HyperSlab"))
+        .addAttribute(XmlAttribute::create("Dimensions", std::to_string(dimensions[1])));
     hyperslab->addNode(dataItem("Int", 8, "XML", {3, dimensions.size()}, dimensionStream.str()));
     hyperslab->addNode(dataItem(datatype, format, dimensions, payload));
     return hyperslab;
@@ -113,11 +115,11 @@ struct XdmfDataset {
     if (type == "Topology") {
       node = std::make_shared<XmlNode>("Topology");
       node->addAttribute(XmlAttribute::create("TopologyType", name))
-          .addAttribute(XmlAttribute::create("NumberOfElements", dimensions[0]));
+          .addAttribute(XmlAttribute::create("NumberOfElements", std::to_string(dimensions[0])));
     } else if (type == "Geometry") {
       node = std::make_shared<XmlNode>("Geometry");
       node->addAttribute(XmlAttribute::create("GeometryType", name))
-          .addAttribute(XmlAttribute::create("NumberOfElements", dimensions[0]));
+          .addAttribute(XmlAttribute::create("NumberOfElements", std::to_string(dimensions[0])));
     } else if (type == "AttributeCell") {
       node = std::make_shared<XmlNode>("Attribute");
       node->addAttribute(XmlAttribute::create("Name", name))
@@ -155,6 +157,7 @@ struct XdmfMeta {
     root3->addAttribute(XmlAttribute::create("Name", "TimeSeries"))
         .addAttribute(XmlAttribute::create("GridType", "Collection"))
         .addAttribute(XmlAttribute::create("CollectionType", "Temporal"));
+    root2->addNode(root3);
 
     for (const auto& entry : entries) {
       auto grid = std::make_shared<XmlNode>("Grid");
@@ -207,16 +210,18 @@ XdmfWriter::XdmfWriter(const std::string& name,
   globalPointCount = globalElementCount * pointsPerElement;
 
   const auto selfPointOffset = pointOffset;
+  const auto selfPointsPerElement = pointsPerElement;
 
-  addData(
-      type,
-      "Topology",
-      true,
-      localPointCount,
-      writer::GeneratedBuffer::createElementwise<int64_t>(
-          localPointCount, 1, std::vector<std::size_t>(), [=](int64_t* target, std::size_t index) {
-            target[0] = index + selfPointOffset;
-          }));
+  addData(type,
+          "Topology",
+          true,
+          localElementCount,
+          writer::GeneratedBuffer::createElementwise<int64_t>(
+              localElementCount, 1, {pointsPerElement}, [=](int64_t* target, std::size_t index) {
+                for (std::size_t i = 0; i < selfPointsPerElement; ++i) {
+                  target[i] = selfPointsPerElement * index + i + selfPointOffset;
+                }
+              }));
 }
 
 void XdmfWriter::addData(const std::string& name,
@@ -240,12 +245,15 @@ void XdmfWriter::addData(const std::string& name,
                 MPI_SUM,
                 seissol::MPI::mpi.comm());
 
-  instrarray.emplace_back([=](const std::string& filename, std::size_t counter) {
+  instrarray.emplace_back([=](const std::string& preFilename, std::size_t counter) {
     WriteResult result{};
     result.name = name;
     result.type = type;
     result.datatype = data->datatype();
     result.format = binary ? "Binary" : "HDF";
+
+    const auto filenameParts = utils::StringUtils::split(preFilename, '/');
+    const auto& filename = filenameParts.back();
 
     // two modes:
     // * binary: append to the same file at some position
@@ -255,7 +263,8 @@ void XdmfWriter::addData(const std::string& name,
       const auto trueFilename = filename + "-dataset" + std::to_string(datasetId);
       result.format = "Binary";
       result.location = trueFilename;
-      result.instruction = std::make_shared<writer::instructions::BinaryWrite>(trueFilename, data);
+      result.instruction =
+          std::make_shared<writer::instructions::BinaryWrite>(trueFilename, data, counter > 0);
       if (!isConst) {
         // write into a single file
         result.offset.emplace_back(counter);

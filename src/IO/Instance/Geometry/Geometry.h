@@ -44,7 +44,7 @@ class GeometryWriter {
                          const std::vector<std::size_t>& dimensions,
                          bool isConst,
                          F writerFunction) {
-    if (order == 0) {
+    if (order <= 0) {
       // cell output
       std::visit(
           [&](auto& writer) {
