@@ -9,6 +9,7 @@
 #include "Receiver.h"
 #include "Monitoring/FlopCounter.h"
 #include "Numerical/BasisFunction.h"
+#include "Parallel/OpenMP.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
 #include <Alignment.h>
@@ -126,7 +127,8 @@ double ReceiverCluster::calcReceivers(
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     // heuristic; to avoid the overhead from the parallel region
-    const std::size_t threshold = std::max(1000, omp_get_num_threads() * 100);
+    const std::size_t threshold =
+        std::max(static_cast<std::size_t>(1000), OpenMP::threadCount() * 100);
     const std::size_t recvCount = m_receivers.size();
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) if (recvCount >= threshold)

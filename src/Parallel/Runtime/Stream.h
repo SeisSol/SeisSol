@@ -10,7 +10,6 @@
 
 #include <Memory/Tree/Layer.h>
 #include <functional>
-#include <omp.h>
 #include <utility>
 
 #ifdef ACL_DEVICE

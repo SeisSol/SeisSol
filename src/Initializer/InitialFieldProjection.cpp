@@ -266,8 +266,8 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
   for (auto& layer : tree.leaves(Ghost)) {
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel
-    {
 #endif
+    {
       alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
       auto iniCond = init::iniCond::view::create(iniCondData);
 
@@ -306,9 +306,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
         }
         krnl.execute();
       }
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
     }
-#endif
   }
 }
 

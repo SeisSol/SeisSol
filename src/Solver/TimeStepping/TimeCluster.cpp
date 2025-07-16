@@ -15,6 +15,7 @@
 #include "Kernels/TimeCommon.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
+#include "Parallel/OpenMP.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
 #include <Alignment.h>
@@ -47,10 +48,6 @@
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 namespace seissol::time_stepping {
 
@@ -870,13 +867,9 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
         subTimeStart,
         timeStepSize(),
         faceNeighbors[cell],
-#ifdef _OPENMP
         *reinterpret_cast<real(*)[4][tensor::I::size()]>(
-            &(globalDataOnHost->integrationBufferLTS[static_cast<size_t>(omp_get_thread_num() * 4 *
-                                                                         tensor::I::size())])),
-#else
-        *reinterpret_cast<real(*)[4][tensor::I::size()]>(globalDataOnHost->integrationBufferLTS),
-#endif
+            &(globalDataOnHost->integrationBufferLTS[OpenMP::threadId() * 4 *
+                                                     static_cast<size_t>(tensor::I::size())])),
         timeIntegrated);
 
     faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)

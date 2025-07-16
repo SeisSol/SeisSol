@@ -84,6 +84,8 @@ src/ResultWriter/AnalysisWriter.cpp
 
 ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
 ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
+
+src/Parallel/OpenMP.cpp
 )
 
 # target_link_options(seissol-common-lib PUBLIC seissol-kernel-lib)
