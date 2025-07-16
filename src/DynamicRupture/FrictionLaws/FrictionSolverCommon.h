@@ -577,8 +577,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
-    for (size_t index = Range::Start; index < Range::End;
-         index += Range::Step) {
+    for (size_t index = Range::Start; index < Range::End; index += Range::Step) {
 
       const size_t i{startIndex + index}; // startIndex is always 0 for CPU
 
