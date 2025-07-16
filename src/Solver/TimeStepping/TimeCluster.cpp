@@ -37,6 +37,7 @@
 #include <Monitoring/LoopStatistics.h>
 #include <Solver/TimeStepping/AbstractTimeCluster.h>
 #include <Solver/TimeStepping/ActorState.h>
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cstddef>
@@ -768,9 +769,20 @@ void TimeCluster::correct() {
   // First cluster calls fault receiver output
   // Call fault output only if both interior and copy parts of DR were computed
   // TODO: Change from iteration based to time based
-  if (dynamicRuptureScheduler->isFirstClusterWithDynamicRuptureFaces() &&
-      dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
-    faultOutputManager->writePickpointOutput(ct.correctionTime + timeStepSize(), timeStepSize());
+  if (dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
+    double time = ct.correctionTime;
+
+    // repeat the current solution for some times---to match the existing output scheme.
+    // maybe replace with just writePickpointOutput(globalClusterId, time + dt, dt); some day?
+
+    do {
+      const auto oldTime = time;
+      time += dynamicRuptureScheduler->getOutputTimestep();
+      const auto trueTime = std::min(time, syncTime);
+      const auto trueDt = trueTime - oldTime;
+      faultOutputManager->writePickpointOutput(globalClusterId, trueTime, trueDt);
+    } while (time * (1 + 1e-8) < ct.correctionTime + ct.maxTimeStepSize);
+
     dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
   }
 

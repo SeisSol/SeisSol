@@ -13,6 +13,7 @@
 #include "ReceiverBasedOutputBuilder.h"
 
 #include <Common/Iterator.h>
+#include <DynamicRupture/Output/DataTypes.h>
 #include <memory>
 #include <optional>
 
@@ -23,21 +24,25 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   void setParams(seissol::initializer::parameters::PickpointParameters params) {
     pickpointParams = std::move(params);
   }
-  void build(std::shared_ptr<ReceiverOutputData> pickPointOutputData) override {
-    outputData = pickPointOutputData;
+  void
+      build(std::unordered_map<int64_t, std::shared_ptr<ReceiverOutputData>>& pickPointOutputData) {
     readCoordsFromFile();
-    initReceiverLocations();
-    assignNearestGaussianPoints(outputData->receiverPoints);
-    assignNearestInternalGaussianPoints();
-    assignFusedIndices();
-    assignFaultTags();
-    initTimeCaching();
-    initFaultDirections();
-    initOutputVariables(pickpointParams.outputMask);
-    initRotationMatrices();
-    initBasisFunctions();
-    initJacobian2dMatrices();
-    outputData->isActive = true;
+    initReceiverLocations(pickPointOutputData);
+    for (auto& [id, singleClusterOutputData] : pickPointOutputData) {
+      singleClusterOutputData->clusterId = id;
+      outputData = singleClusterOutputData;
+      assignNearestGaussianPoints(outputData->receiverPoints);
+      assignNearestInternalGaussianPoints();
+      assignFusedIndices();
+      assignFaultTags();
+      initTimeCaching();
+      initFaultDirections();
+      initOutputVariables(pickpointParams.outputMask);
+      initRotationMatrices();
+      initBasisFunctions();
+      initJacobian2dMatrices();
+      outputData->isActive = true;
+    }
   }
 
   protected:
@@ -49,7 +54,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
     // iterate line by line and initialize DrRecordPoints
     for (const auto& line : content) {
-      std::array<real, 3> coords{};
+      std::array<double, 3> coords{};
       convertStringToMask(line, coords);
 
       ReceiverPoint point{};
@@ -61,7 +66,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     }
   }
 
-  void initReceiverLocations() {
+  void initReceiverLocations(
+      std::unordered_map<int64_t, std::shared_ptr<ReceiverOutputData>>& outputDataPerCluster) {
     const auto numReceiverPoints = potentialReceivers.size();
 
     const auto& meshElements = meshReader->getElements();
@@ -85,7 +91,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         receiver.globalTriangle = getGlobalTriangle(faultItem.side, element, meshVertices);
         projectPointToFace(receiver.global, receiver.globalTriangle, faultItem.normal);
 
-        contained[receiverIdx] = true;
+        contained[receiverIdx] = 1;
         receiver.isInside = true;
         receiver.faultFaceIndex = closest.value();
         receiver.localFaceSideId = faultItem.side;
@@ -106,8 +112,12 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       if (receiver.isInside) {
         for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
           auto singleReceiver = receiver;
+          const auto& element = meshElements.at(receiver.elementIndex);
           singleReceiver.simIndex = i;
-          outputData->receiverPoints.push_back(singleReceiver);
+          if (outputDataPerCluster[element.clusterId] == nullptr) {
+            outputDataPerCluster[element.clusterId] = std::make_shared<ReceiverOutputData>();
+          }
+          outputDataPerCluster[element.clusterId]->receiverPoints.push_back(singleReceiver);
         }
       }
     }
@@ -145,14 +155,13 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     outputData->currentCacheLevel = 0;
   }
 
-  protected:
   void reportFoundReceivers(std::vector<short>& localContainVector) {
     const auto size = localContainVector.size();
     std::vector<short> globalContainVector(size);
 
-    auto comm = MPI::mpi.comm();
-    MPI_Reduce(const_cast<short*>(&localContainVector[0]),
-               const_cast<short*>(&globalContainVector[0]),
+    MPI_Comm comm = MPI::mpi.comm();
+    MPI_Reduce(const_cast<short*>(localContainVector.data()),
+               const_cast<short*>(globalContainVector.data()),
                size,
                MPI_SHORT,
                MPI_SUM,
@@ -164,7 +173,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       std::size_t missing = 0;
       for (size_t idx{0}; idx < size; ++idx) {
         const auto isFound = globalContainVector[idx];
-        if (!isFound) {
+        if (isFound == 0) {
           logWarning() << "On-fault receiver " << idx
                        << " is not inside any element along the rupture surface";
           allReceiversFound = false;
@@ -181,7 +190,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
   private:
   seissol::initializer::parameters::PickpointParameters pickpointParams;
-  std::vector<ReceiverPoint> potentialReceivers{};
+  std::vector<ReceiverPoint> potentialReceivers;
 };
 } // namespace seissol::dr::output
 
