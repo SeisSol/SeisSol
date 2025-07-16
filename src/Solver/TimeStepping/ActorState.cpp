@@ -98,8 +98,9 @@ bool DynamicRuptureScheduler::mayComputeInterior(long curCorrectionSteps) const 
 }
 
 bool DynamicRuptureScheduler::mayComputeFaultOutput(long curCorrectionSteps) const {
-  return curCorrectionSteps == lastCorrectionStepsInterior &&
-         curCorrectionSteps == lastCorrectionStepsCopy && curCorrectionSteps > lastFaultOutput;
+  return !hasDynamicRuptureFaces() ||
+         (curCorrectionSteps == lastCorrectionStepsInterior &&
+          curCorrectionSteps == lastCorrectionStepsCopy && curCorrectionSteps > lastFaultOutput);
 }
 
 void DynamicRuptureScheduler::setLastCorrectionStepsInterior(long steps) {
