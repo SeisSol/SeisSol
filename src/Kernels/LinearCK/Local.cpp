@@ -369,7 +369,7 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
       auto* analytical =
           reinterpret_cast<real(*)[tensor::INodal::size()]>(layer.var(lts.analyticScratch));
 
-      runtime.enqueueOmpFor(numElements, [=, &cellIds](std::size_t index) {
+      runtime.enqueueLoop(numElements, [=, &cellIds](std::size_t index) {
         auto cellId = cellIds.at(index);
         auto data = loader.entry(cellId);
 

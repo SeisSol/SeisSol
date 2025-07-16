@@ -79,7 +79,7 @@ class StreamRuntime {
   }
 
   template <typename F>
-  void enqueueOmpFor(std::size_t elemCount, F&& handler) {
+  void enqueueLoop(std::size_t elemCount, F&& handler) {
     enqueueHost([=]() {
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < elemCount; ++i) {
@@ -175,6 +175,19 @@ class StreamRuntime {
   std::size_t eventpos{0};
 #else
   public:
+  template <typename F>
+  void enqueueLoop(std::size_t elemCount, F handler) {
+#pragma omp parallel for schedule(static)
+    for (std::size_t i = 0; i < elemCount; ++i) {
+      std::invoke(handler, i);
+    }
+  }
+
+  void* stream() {
+    // dummy
+    return nullptr;
+  }
+
   template <typename T>
   T* allocMemory(std::size_t count) {
     return new T[count];

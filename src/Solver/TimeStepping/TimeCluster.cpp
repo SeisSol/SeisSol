@@ -126,7 +126,7 @@ void TimeCluster::writeReceivers() {
 
   if (receiverCluster != nullptr) {
     receiverTime = receiverCluster->calcReceivers(
-        receiverTime, ct.correctionTime, timeStepSize(), executor, nullptr);
+        receiverTime, ct.correctionTime, timeStepSize(), executor, streamRuntime);
   }
 }
 

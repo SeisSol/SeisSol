@@ -23,6 +23,7 @@
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
 #include <Numerical/Transformation.h>
+#include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cmath>
@@ -110,30 +111,25 @@ void ReceiverCluster::addReceiver(unsigned meshId,
       reserved);
 }
 
-double ReceiverCluster::calcReceivers(
-    double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream) {
+double ReceiverCluster::calcReceivers(double time,
+                                      double expansionPoint,
+                                      double timeStepWidth,
+                                      Executor executor,
+                                      parallel::runtime::StreamRuntime& runtime) {
 
   double outReceiverTime = time;
   while (outReceiverTime < expansionPoint + timeStepWidth) {
     outReceiverTime += m_samplingInterval;
   }
 
-#ifdef ACL_DEVICE
   if (executor == Executor::Device) {
-    deviceCollector->gatherToHost(device::DeviceInstance::getInstance().api->getDefaultStream());
-    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    deviceCollector->gatherToHost(runtime.stream());
   }
-#endif
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
-    // heuristic; to avoid the overhead from the parallel region
-    const std::size_t threshold =
-        std::max(static_cast<std::size_t>(1000), OpenMP::threadCount() * 100);
     const std::size_t recvCount = m_receivers.size();
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static) if (recvCount >= threshold)
-#endif
-    for (size_t i = 0; i < recvCount; ++i) {
+    const auto receiverHandler = [this, timeStepWidth, time, expansionPoint, executor](
+                                     std::size_t i) {
       alignas(Alignment) real timeEvaluated[tensor::Q::size()];
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
@@ -169,12 +165,11 @@ double ReceiverCluster::calcReceivers(
 
       // Copy DOFs from device to host.
       LocalData tmpReceiverData{receiver.dataHost};
-#ifdef ACL_DEVICE
+
       if (executor == Executor::Device) {
         tmpReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(
             deviceCollector->get(deviceIndices[i]));
       }
-#endif
 
       spacetimeKernel.computeAder(timeStepWidth,
                                   tmpReceiverData,
@@ -222,7 +217,8 @@ double ReceiverCluster::calcReceivers(
 
         receiverTime += m_samplingInterval;
       }
-    }
+    };
+    runtime.enqueueLoop(recvCount, receiverHandler);
   }
   return outReceiverTime;
 }
