@@ -43,6 +43,7 @@ struct NumPoints {
   using GpuRange = ForLoopRange<0, 1, 1>;
 
   public:
+  // Range::Start is 0, and Range::End is seissol::misc::NumPaddedPoints for CPU
   using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
 };
 
@@ -577,8 +578,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
 #pragma omp simd
 #endif
     for (size_t index = Range::Start; index < Range::End;
-         index += Range::Step) { // Range::Start is 0, and Range::End is
-                                 // seissol::misc::NumPaddedPoints for CPU
+         index += Range::Step) {
 
       const size_t i{startIndex + index}; // startIndex is always 0 for CPU
 
