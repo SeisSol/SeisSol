@@ -308,9 +308,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               GodunovBoundaryConditions.end(),
               [&](auto condition) { return condition == cellInformation[cell].faceTypes[side]; });
 
-          const auto enforceGodunovEa = isAtElasticAcousticInterface(material[cell], side);
-
-          const auto enforceGodunov = enforceGodunovBc || enforceGodunovEa;
+          const auto enforceGodunov = enforceGodunovBc;
 
           const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 
@@ -328,6 +326,14 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           localKrnl.Tinv = matTinvData;
           localKrnl.star(0) = matATtildeData;
           localKrnl.execute();
+
+          if (flux == parameters::NumericalFlux::Rusanov) {
+            seissol::model::getTransposedCoefficientMatrix(
+                seissol::model::getRotatedMaterialCoefficients(nLocalData,
+                                                               material[cell].neighbor[side]),
+                0,
+                matATtilde);
+          }
 
           kernel::computeFluxSolverNeighbor neighKrnl;
           neighKrnl.fluxScale = fluxScale;
