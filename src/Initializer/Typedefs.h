@@ -15,9 +15,9 @@
 #include "CellLocalInformation.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/tensor.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
-#include "generated_code/tensor.h"
 #include <Eigen/Dense>
 #include <complex>
 #include <cstddef>

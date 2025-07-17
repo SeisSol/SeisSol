@@ -10,10 +10,10 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
+#include <GeneratedCode/init.h>
+#include <GeneratedCode/kernel.h>
 #include <algorithm>
 #include <cmath>
-#include <init.h>
-#include <kernel.h>
 namespace seissol::dr::friction_law::cpu {
 
 void NoSpecialization::resampleSlipRate(

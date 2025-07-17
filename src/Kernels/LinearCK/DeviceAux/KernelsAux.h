@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_DEVICEAUX_KERNELSAUX_H_
 
+#include "GeneratedCode/init.h"
 #include "Kernels/Precision.h"
-#include "generated_code/init.h"
 
 namespace seissol::kernels::time::aux {
 void taylorSum(bool integral,

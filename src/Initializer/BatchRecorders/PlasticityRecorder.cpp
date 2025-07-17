@@ -9,11 +9,11 @@
 #include "Recorders.h"
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
+#include <GeneratedCode/tensor.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <cstddef>
-#include <tensor.h>
 #include <vector>
 #include <yateto.h>
 
