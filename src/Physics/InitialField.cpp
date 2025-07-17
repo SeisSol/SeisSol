@@ -560,38 +560,53 @@ void seissol::physics::Ocean::evaluate(double time,
     const auto b = g * kStar / (omega * omega);
     constexpr auto ScalingFactor = 1;
 
-    // Shear stresses are zero for elastic
-    dofsQp(i, 3) = 0.0;
-    dofsQp(i, 4) = 0.0;
-    dofsQp(i, 5) = 0.0;
+    const auto setStresses = [&](double value) {
+      if constexpr (model::MaterialT::Type == model::MaterialType::Elastic) {
+        dofsQp(i, 0) = value;
+        dofsQp(i, 1) = value;
+        dofsQp(i, 2) = value;
+
+        // Shear stresses are zero for elastic
+        dofsQp(i, 3) = 0.0;
+        dofsQp(i, 4) = 0.0;
+        dofsQp(i, 5) = 0.0;
+      } else {
+        dofsQp(i, 0) = value;
+      }
+    };
+
+    constexpr auto UIdx = model::MaterialT::TractionQuantities;
+    constexpr auto VIdx = model::MaterialT::TractionQuantities + 1;
+    constexpr auto WIdx = model::MaterialT::TractionQuantities + 2;
 
     if (mode == 0) {
       // Gravity mode
       const auto pressure = -std::sin(kX * x) * std::sin(kY * y) * std::sin(omega * t) *
                             (std::sinh(kStar * z) + b * std::cosh(kStar * z));
-      dofsQp(i, 0) = ScalingFactor * pressure;
-      dofsQp(i, 1) = ScalingFactor * pressure;
-      dofsQp(i, 2) = ScalingFactor * pressure;
 
-      dofsQp(i, 6) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
-                     std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
-      dofsQp(i, 7) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
-                     std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
-      dofsQp(i, 8) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) * std::sin(kY * y) *
-                     std::cos(omega * t) * (std::cosh(kStar * z) + b * std::sinh(kStar * z));
+      setStresses(ScalingFactor * pressure);
+
+      dofsQp(i, UIdx) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
+                        std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
+      dofsQp(i, VIdx) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
+                        std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
+      dofsQp(i, WIdx) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) *
+                        std::sin(kY * y) * std::cos(omega * t) *
+                        (std::cosh(kStar * z) + b * std::sinh(kStar * z));
     } else {
       // Elastic-acoustic mode
       const auto pressure = -std::sin(kX * x) * std::sin(kY * y) * std::sin(omega * t) *
                             (std::sin(kStar * z) + b * std::cos(kStar * z));
-      dofsQp(i, 0) = ScalingFactor * pressure;
-      dofsQp(i, 1) = ScalingFactor * pressure;
-      dofsQp(i, 2) = ScalingFactor * pressure;
-      dofsQp(i, 6) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
-                     std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));
-      dofsQp(i, 7) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
-                     std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));
-      dofsQp(i, 8) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) * std::sin(kY * y) *
-                     std::cos(omega * t) * (std::cos(kStar * z) - b * std::sin(kStar * z));
+
+      setStresses(ScalingFactor * pressure);
+
+      dofsQp(i, UIdx) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
+                        std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));
+      dofsQp(i, VIdx) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
+                        std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));
+      dofsQp(i, WIdx) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) *
+                        std::sin(kY * y) * std::cos(omega * t) *
+                        (std::cos(kStar * z) - b * std::sin(kStar * z));
     }
   }
 }
