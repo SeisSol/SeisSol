@@ -208,8 +208,11 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
           // Evaluate analytical solution at quad. nodes
           const CellMaterialData& material = materialData[cell];
-          iniFields[sim % iniFields.size()]->evaluate(
-              simulationTime, quadraturePointsXyz, material, analyticalSolution);
+          iniFields[sim % iniFields.size()]->evaluate(simulationTime,
+                                                      quadraturePointsXyz.data(),
+                                                      quadraturePointsXyz.size(),
+                                                      material,
+                                                      analyticalSolution);
         } else {
           for (std::size_t i = 0; i < NumQuadPoints; ++i) {
             for (std::size_t j = 0; j < NumQuantities; ++j) {

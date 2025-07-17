@@ -97,7 +97,8 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData) {
 
 void seissol::physics::Planarwave::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
+    const std::array<double, 3>* points,
+    std::size_t count,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
@@ -108,7 +109,7 @@ void seissol::physics::Planarwave::evaluate(
   for (unsigned v = 0; v < m_varField.size(); ++v) {
     const auto omega = m_lambdaA[m_varField[v]];
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
-      for (size_t i = 0; i < points.size(); ++i) {
+      for (size_t i = 0; i < count; ++i) {
         dofsQP(i, j) +=
             (r(j, m_varField[v]) * m_ampField[v] *
              std::exp(std::complex<double>(0.0, 1.0) *
@@ -129,7 +130,8 @@ seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(
 
 void seissol::physics::SuperimposedPlanarwave::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
+    const std::array<double, 3>* points,
+    std::size_t count,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
@@ -143,10 +145,10 @@ void seissol::physics::SuperimposedPlanarwave::evaluate(
 
   for (int pw = 0; pw < 3; pw++) {
     // evaluate each planarwave
-    m_pw.at(pw).evaluate(time, points, materialData, dofsPW);
+    m_pw.at(pw).evaluate(time, points, count, materialData, dofsPW);
     // and add results together
     for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
-      for (size_t i = 0; i < points.size(); ++i) {
+      for (size_t i = 0; i < count; ++i) {
         dofsQP(i, j) += dofsPW(i, j);
       }
     }
@@ -198,12 +200,13 @@ void seissol::physics::AcousticTravellingWaveITM::init(const CellMaterialData& m
 
 void seissol::physics::AcousticTravellingWaveITM::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
+    const std::array<double, 3>* points,
+    std::size_t count,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
   dofsQP.setZero();
   double pressure = 0.0;
-  for (size_t i = 0; i < points.size(); ++i) {
+  for (size_t i = 0; i < count; ++i) {
     const auto& coordinates = points[i];
     const auto x = coordinates[0];
     const auto t = time;
@@ -265,7 +268,8 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
 
 void seissol::physics::TravellingWave::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
+    const std::array<double, 3>* points,
+    std::size_t count,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   dofsQp.setZero();
@@ -276,7 +280,7 @@ void seissol::physics::TravellingWave::evaluate(
   for (unsigned v = 0; v < m_varField.size(); ++v) {
     const auto omega = m_lambdaA[m_varField[v]];
     for (unsigned j = 0; j < dofsQp.shape(1); ++j) {
-      for (size_t i = 0; i < points.size(); ++i) {
+      for (size_t i = 0; i < count; ++i) {
         auto arg = std::complex<double>(0.0, 1.0) *
                    (omega * time - m_kVec[0] * (points[i][0] - m_origin[0]) -
                     m_kVec[1] * (points[i][1] - m_origin[1]) -
@@ -303,7 +307,8 @@ seissol::physics::PressureInjection::PressureInjection(
 
 void seissol::physics::PressureInjection::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
+    const std::array<double, 3>* points,
+    std::size_t count,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   const auto o1 = m_parameters.origin[0];
@@ -312,7 +317,7 @@ void seissol::physics::PressureInjection::evaluate(
   const auto magnitude = m_parameters.magnitude;
   const auto width = m_parameters.width;
 
-  for (size_t i = 0; i < points.size(); ++i) {
+  for (size_t i = 0; i < count; ++i) {
     const auto& x = points[i];
     const auto x1 = x[0];
     const auto x2 = x[1];
@@ -336,12 +341,13 @@ void seissol::physics::PressureInjection::evaluate(
 
 void seissol::physics::ScholteWave::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
+    const std::array<double, 3>* points,
+    std::size_t count,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   const real omega = 2.0 * std::acos(-1);
 
-  for (size_t i = 0; i < points.size(); ++i) {
+  for (size_t i = 0; i < count; ++i) {
     const auto& x = points[i];
     const bool isAcousticPart =
         std::abs(materialData.local.getMuBar()) < std::numeric_limits<real>::epsilon();
@@ -409,13 +415,14 @@ void seissol::physics::ScholteWave::evaluate(
 
 void seissol::physics::SnellsLaw::evaluate(
     double time,
-    const std::vector<std::array<double, 3>>& points,
+    const std::array<double, 3>* points,
+    std::size_t count,
     const CellMaterialData& materialData,
     yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
   const double pi = std::acos(-1);
   const double omega = 2.0 * pi;
 
-  for (size_t i = 0; i < points.size(); ++i) {
+  for (size_t i = 0; i < count; ++i) {
     const auto& x = points[i];
     const bool isAcousticPart =
         std::abs(materialData.local.getMuBar()) < std::numeric_limits<real>::epsilon();
@@ -515,10 +522,11 @@ seissol::physics::Ocean::Ocean(int mode, double gravitationalAcceleration)
   }
 }
 void seissol::physics::Ocean::evaluate(double time,
-                                       const std::vector<std::array<double, 3>>& points,
+                                       const std::array<double, 3>* points,
+                                       std::size_t count,
                                        const CellMaterialData& materialData,
                                        yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
-  for (size_t i = 0; i < points.size(); ++i) {
+  for (size_t i = 0; i < count; ++i) {
     const auto x = points[i][0];
     const auto y = points[i][1];
     const auto z = points[i][2];

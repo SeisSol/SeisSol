@@ -169,7 +169,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
         const CellMaterialData& materialData = material[cell];
         for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
           auto sub = multisim::simtensor(iniCond, s);
-          iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, materialData, sub);
+          iniFields[s % iniFields.size()]->evaluate(
+              0.0, quadraturePointsXyz.data(), quadraturePointsXyz.size(), materialData, sub);
         }
 
         krnl.Q = dofs[cell];

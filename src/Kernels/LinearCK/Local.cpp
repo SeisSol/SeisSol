@@ -83,8 +83,8 @@ struct ApplyAnalyticalSolution {
       : initConditions(initConditions), localData(data) {}
 
   void operator()(const real* nodes, double time, seissol::init::INodal::view::type& boundaryDofs) {
-    auto nodesVec = std::vector<std::array<double, 3>>{
-        seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension]};
+    constexpr auto NodeCount = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension];
+    alignas(Alignment) std::array<double, 3> nodesVec[NodeCount];
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
 
@@ -98,7 +98,8 @@ struct ApplyAnalyticalSolution {
       }
 
       assert(initConditions != nullptr);
-      initConditions->at(s)->evaluate(time, nodesVec, localData.material(), slicedBoundaryDofs);
+      initConditions->at(s % initConditions->size())
+          ->evaluate(time, nodesVec, NodeCount, localData.material(), slicedBoundaryDofs);
     }
   }
 
