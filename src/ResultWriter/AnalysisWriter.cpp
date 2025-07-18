@@ -33,12 +33,10 @@
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 #include "Geometry/MeshReader.h"
 #include "Initializer/PreProcessorMacros.h"
+#include "Parallel/OpenMP.h"
 #include "Physics/InitialField.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
@@ -135,11 +133,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     auto analyticalL2Local = ErrorArrayT{0.0};
     auto analyticalLInfLocal = ErrorArrayT{-1.0};
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
-    const int numThreads = omp_get_max_threads();
-#else
-    const int numThreads = 1;
-#endif
+    // also functional with an enabled NVHPC_AVOID_OMP
+    const int numThreads = OpenMP::threadCount();
     assert(numThreads > 0);
     // Allocate one array per thread to avoid synchronization.
     auto errsL1Local = std::vector<ErrorArrayT>(numThreads);
@@ -186,11 +181,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
           continue;
         }
         const auto meshId = secondaryInformation[cell].meshId;
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
-        const int curThreadId = omp_get_thread_num();
-#else
-        const int curThreadId = 0;
-#endif
+        const int curThreadId = OpenMP::threadId();
+
         auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
         auto analyticalSolution = yateto::DenseTensorView<2, real>(analyticalSolutionData,
                                                                    {NumQuadPoints, NumQuantities});
@@ -216,8 +208,11 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
           // Evaluate analytical solution at quad. nodes
           const CellMaterialData& material = materialData[cell];
-          iniFields[sim % iniFields.size()]->evaluate(
-              simulationTime, quadraturePointsXyz, material, analyticalSolution);
+          iniFields[sim % iniFields.size()]->evaluate(simulationTime,
+                                                      quadraturePointsXyz.data(),
+                                                      quadraturePointsXyz.size(),
+                                                      material,
+                                                      analyticalSolution);
         } else {
           for (std::size_t i = 0; i < NumQuadPoints; ++i) {
             for (std::size_t j = 0; j < NumQuantities; ++j) {

@@ -9,9 +9,6 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include <Solver/MultipleSimulations.h>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 #include "Memory/MemoryAllocator.h"
 #include "SeisSol.h"
