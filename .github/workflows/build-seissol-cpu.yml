@@ -383,7 +383,7 @@ jobs:
       
       # for now, compare faults only on single-rank setups
       - name: check-fault
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault && matrix.parallel.ranks == 1 }}
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault }}
         run: |
           FAULT_FILE=tpv-fault.xdmf
           EPSILON=0.05

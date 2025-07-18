@@ -39,6 +39,7 @@ class FreeSurfaceIntegrator {
     seissol::initializer::Variable<unsigned> side;
     seissol::initializer::Variable<unsigned> meshId;
     seissol::initializer::Variable<CellBoundaryMapping*> boundaryMapping;
+    seissol::initializer::Variable<unsigned> locationFlag;
 
     void addTo(seissol::initializer::LTSTree& surfaceLtsTree);
   };
@@ -73,6 +74,7 @@ class FreeSurfaceIntegrator {
   std::array<real*, NumComponents> displacements;
 
   std::vector<unsigned int> locationFlags;
+  std::vector<unsigned int> globalIds;
   unsigned totalNumberOfFreeSurfaces;
   unsigned totalNumberOfTriangles{0};
 

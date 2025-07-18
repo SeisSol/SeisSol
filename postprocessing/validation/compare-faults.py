@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+import sys
+
 import numpy as np
 import seissolxdmf as sx
-import sys
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compare two faults.")
@@ -16,11 +17,32 @@ if __name__ == "__main__":
     fault_ref = sx.seissolxdmf(args.fault_ref)
 
     # read mesh
+    preIds = fault.Read1dData("global-id", fault.nElements, isInt=True)
+    ids = np.argsort(preIds)
     geom = fault.ReadGeometry()
-    connect = fault.ReadConnect()
+    connect = fault.ReadConnect()[ids]
+    geom_ref = fault_ref.ReadGeometry()
+    connect_ref = fault_ref.ReadConnect()
+
+    # read reference mesh
+    if "global-id" in fault_ref.ReadAvailableDataFields():
+        # rely on stably-sorting the refined triangles here
+        preIds_ref = fault_ref.Read1dData("global-id", fault.nElements, isInt=True)
+        ids_ref = np.argsort(preIds)
+    else:
+        # if the reference solution has no global IDs, painstakingly compare cell by cell
+        ids_ref = np.empty((fault_ref.nElements,), dtype=np.int64)
+        fullcoords = geom[connect]
+        for i in range(fault_ref.nElements):
+            coords = geom_ref[connect_ref[i, :]]
+            matchId = np.where(np.all(np.abs(fullcoords - coords) < 1e-10, axis=(1, 2)))
+            assert len(matchId[0]) == 1
+            ids_ref[matchId[0][0]] = i
+
+    connect_ref = connect_ref[ids_ref]
+
     # assert both simulations were run on the same mesh
-    assert np.all(np.abs(geom - fault_ref.ReadGeometry()) < 1e-10)
-    assert np.all(connect == fault_ref.ReadConnect())
+    assert np.all(np.abs(geom[connect] - geom_ref[connect_ref]) < 1e-10)
 
     def compute_integral(geom, connect, q):
         triangles = geom[connect, :]
@@ -46,6 +68,8 @@ if __name__ == "__main__":
     quantity_names.remove("partition")
     if "fault-tag" in quantity_names:
         quantity_names.remove("fault-tag")
+    if "global-id" in quantity_names:
+        quantity_names.remove("global-id")
     errors = np.zeros((len(quantity_names)))
 
     last_index = fault.ndt
@@ -60,6 +84,10 @@ if __name__ == "__main__":
             )
             ds_equals_zero = np.where(quantity_ref < 1e-10)
             quantity[ds_equals_zero] = 0.0
+
+        # re-assign data
+        quantity = quantity[ids]
+        quantity_ref = quantity_ref[ids_ref]
 
         # compute error
         ref_norm = l2_norm(quantity_ref)
