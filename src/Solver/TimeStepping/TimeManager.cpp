@@ -102,10 +102,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     const long numberOfDynRupCells = dynRupTree.child(Interior).size() +
                                      dynRupTree.child(Copy).size() + dynRupTree.child(Ghost).size();
 
-    const bool isFirstDynamicRuptureCluster = drClusterOutput == clusterId;
     auto& drScheduler =
         dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(
-            numberOfDynRupCells, isFirstDynamicRuptureCluster));
+            numberOfDynRupCells, clusterLayout.timestepRate(drClusterOutput)));
 
     for (auto type : {Copy, Interior}) {
       const auto offsetMonitoring = type == Interior ? 0 : clusterLayout.globalClusterCount;
