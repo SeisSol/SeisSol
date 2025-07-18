@@ -623,7 +623,10 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
       }
     }
     const auto freeSurfaceCount = *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
-    const auto dirichletCount = *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
+    const auto dirichletCountPre = *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
+
+    // FSG also counts as Dirichlet
+    const auto dirichletCount = std::max(dirichletCountPre, freeSurfaceCount);
 
     layer.setEntrySize(lts.integratedDofsScratch,
                              integratedDofsCounter * tensor::I::size() * sizeof(real));
