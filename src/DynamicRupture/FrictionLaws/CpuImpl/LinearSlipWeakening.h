@@ -179,7 +179,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
 
     real time = this->mFullUpdateTime;
-    for (int i = 0; i <= timeIndex; ++i) {
+    for (unsigned i = 0; i <= timeIndex; ++i) {
       time += this->deltaT[i];
     }
 #pragma omp simd

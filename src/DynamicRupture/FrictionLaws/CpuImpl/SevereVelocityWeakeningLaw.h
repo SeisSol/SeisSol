@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
 
 #include "RateAndState.h"
+#include <DynamicRupture/Misc.h>
 
 namespace seissol::dr::friction_law::cpu {
 template <class TPMethod>
@@ -43,45 +44,42 @@ class SevereVelocityWeakeningLaw
     return localStateVariable;
   }
 
-/**
- * Computes the friction coefficient from the state variable and slip rate
- * \f[\mu = a \cdot \sinh^{-1} \left( \frac{V}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Psi
- * / L)}{a} \right)\right).\f]
- * Note that we need double precision here, since single precision led to NaNs.
- * @param localSlipRateMagnitude \f$ V \f$
- * @param localStateVariable \f$ \Psi \f$
- * @return \f$ \mu \f$
- */
-#pragma omp declare simd
-  double updateMu(unsigned int ltsFace,
-                  unsigned int pointIndex,
-                  double localSlipRateMagnitude,
-                  double localStateVariable) {
-    const double localA = this->a[ltsFace][pointIndex];
-    const double localSl0 = this->sl0[ltsFace][pointIndex];
-    const double c = this->drParameters->rsB * localStateVariable / (localStateVariable + localSl0);
-    return this->drParameters->rsF0 +
-           localA * localSlipRateMagnitude / (localSlipRateMagnitude + this->drParameters->rsSr0) -
-           c;
+  struct MuDetails {
+    std::array<double, misc::NumPaddedPoints> a{};
+    std::array<double, misc::NumPaddedPoints> c{};
+  };
+
+  MuDetails getMuDetails(unsigned ltsFace,
+                         const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
+    MuDetails details{};
+#pragma omp simd
+    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      const double localA = this->a[ltsFace][pointIndex];
+      const double localSl0 = this->sl0[ltsFace][pointIndex];
+      const double c = this->drParameters->rsB *
+                       static_cast<double>(localStateVariable[pointIndex]) /
+                       (static_cast<double>(localStateVariable[pointIndex]) + localSl0);
+      details.a[pointIndex] = localA;
+      details.c[pointIndex] = c;
+    }
+    return details;
   }
 
-/**
- * Computes the derivative of the friction coefficient with respect to the slip rate.
- * \f[\frac{\partial}{\partial V}\mu = \frac{aC}{\sqrt{(VC)^2 +1}} \text{ with } C =
- * \frac{1}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Psi / L)}{a} \right). \f]
- * Note that we need double precision here, since single precision led to NaNs.
- * @param localSlipRateMagnitude \f$ V \f$
- * @param localStateVariable \f$ \Psi \f$
- * @return \f$ \mu \f$
- */
 #pragma omp declare simd
-  double updateMuDerivative(unsigned int ltsFace,
-                            unsigned int pointIndex,
+  double updateMu(unsigned pointIndex, double localSlipRateMagnitude, const MuDetails& details) {
+    return this->drParameters->rsF0 +
+           details.a[pointIndex] * localSlipRateMagnitude /
+               (localSlipRateMagnitude + this->drParameters->rsSr0) -
+           details.c[pointIndex];
+  }
+
+#pragma omp declare simd
+  double updateMuDerivative(unsigned pointIndex,
                             double localSlipRateMagnitude,
-                            double localStateVariable) {
-    const double localA = this->a[ltsFace][pointIndex];
+                            const MuDetails& details) {
+    // note that: d/dx (x/(x+c)) = ((x+c)-x)/(x+c)**2 = c/(x+c)**2
     const double divisor = (localSlipRateMagnitude + this->drParameters->rsSr0);
-    return localA * this->drParameters->rsSr0 / (divisor * divisor);
+    return details.a[pointIndex] * this->drParameters->rsSr0 / (divisor * divisor);
   }
 
   /**

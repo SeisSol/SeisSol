@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 
+#include <DynamicRupture/Misc.h>
 #include <cmath>
 
 #include "RateAndState.h"
@@ -79,6 +80,29 @@ class FastVelocityWeakeningLaw
     return localStateVariable;
   }
 
+  struct MuDetails {
+    std::array<double, misc::NumPaddedPoints> a{};
+    std::array<double, misc::NumPaddedPoints> c{};
+    std::array<double, misc::NumPaddedPoints> ac{};
+  };
+
+  MuDetails getMuDetails(unsigned ltsFace,
+                         const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
+    MuDetails details{};
+#pragma omp simd
+    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      const double localA = this->a[ltsFace][pointIndex];
+      const double c = 0.5 / this->drParameters->rsSr0 *
+                       std::exp(static_cast<double>(localStateVariable[pointIndex]) / localA);
+      assert((std::isfinite(c) || pointIndex >= misc::NumBoundaryGaussPoints) &&
+             "Inf/NaN detected");
+      details.a[pointIndex] = localA;
+      details.c[pointIndex] = c;
+      details.ac[pointIndex] = localA * c;
+    }
+    return details;
+  }
+
 /**
  * Computes the friction coefficient from the state variable and slip rate
  * \f[\mu = a \cdot \sinh^{-1} \left( \frac{V}{2V_0} \cdot \exp
@@ -88,19 +112,9 @@ class FastVelocityWeakeningLaw
  * @return \f$ \mu \f$
  */
 #pragma omp declare simd
-  [[nodiscard]] real updateMu(unsigned int ltsFace,
-                              unsigned int pointIndex,
-                              real localSlipRateMagnitude,
-                              real localStateVariable) const {
-    // mu = a * arcsinh ( V / (2*V_0) * exp (psi / a))
-    const double localA = this->a[ltsFace][pointIndex];
-    // x in asinh(x) for mu calculation
-    const double x = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA) *
-                     localSlipRateMagnitude;
-    const double result = localA * std::asinh(x);
-    assert((std::isfinite(result) || pointIndex >= misc::NumBoundaryGaussPoints) &&
-           "Inf/NaN detected");
-    return result;
+  double updateMu(unsigned pointIndex, double localSlipRateMagnitude, const MuDetails& details) {
+    const double x = details.c[pointIndex] * localSlipRateMagnitude;
+    return details.a[pointIndex] * std::asinh(x);
   }
 
 /**
@@ -112,17 +126,11 @@ class FastVelocityWeakeningLaw
  * @return \f$ \mu \f$
  */
 #pragma omp declare simd
-  [[nodiscard]] real updateMuDerivative(unsigned int ltsFace,
-                                        unsigned int pointIndex,
-                                        real localSlipRateMagnitude,
-                                        real localStateVariable) const {
-    const double localA = this->a[ltsFace][pointIndex];
-    const double c = 0.5 / this->drParameters->rsSr0 * std::exp(localStateVariable / localA);
-    const double result =
-        localA * c / std::sqrt(misc::power<2, double>(localSlipRateMagnitude * c) + 1.0);
-    assert((std::isfinite(result) || pointIndex >= misc::NumBoundaryGaussPoints) &&
-           "Inf/NaN detected");
-    return result;
+  double updateMuDerivative(unsigned pointIndex,
+                            double localSlipRateMagnitude,
+                            const MuDetails& details) {
+    const double x = details.c[pointIndex] * localSlipRateMagnitude;
+    return details.ac[pointIndex] / std::sqrt(x * x + 1.0);
   }
 
   /**
