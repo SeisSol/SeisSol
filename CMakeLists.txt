@@ -82,7 +82,7 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-        "Debug" "Release" "RelWithDebInfo") # MinSizeRel is useless for us
+        "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
 if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
   # Note: hip 4.x has a bug during setting rpath while compiling
