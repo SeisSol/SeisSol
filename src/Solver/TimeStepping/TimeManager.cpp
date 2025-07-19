@@ -25,6 +25,7 @@
 #include <Solver/TimeStepping/AbstractTimeCluster.h>
 #include <Solver/TimeStepping/ActorState.h>
 #include <Solver/TimeStepping/GhostTimeClusterFactory.h>
+#include <Solver/TimeStepping/HaloCommunication.h>
 #include <Solver/TimeStepping/TimeCluster.h>
 #include <algorithm>
 #include <cassert>
@@ -62,7 +63,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
   std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
   // assert non-zero pointers
-  assert(meshStructure != nullptr);
+  const auto haloStructure = solver::getHaloCommunication(clusterLayout, meshStructure);
 
   // store the time stepping
   this->clusterLayout = clusterLayout;
@@ -90,7 +91,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // iterate over local time clusters
   for (std::size_t clusterId = 0; clusterId < clusterLayout.globalClusterCount; ++clusterId) {
     // get memory layout of this cluster
-    auto [meshStructure, globalData] = memoryManager.getMemoryLayout(clusterId);
+    auto globalData = memoryManager.getGlobalData();
 
     // chop off at synchronization time
     const auto timeStepSize = clusterLayout.timestepRate(clusterId);
@@ -172,12 +173,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     const auto persistent = usePersistentMpi(seissolInstance.env());
     for (std::size_t otherClusterId = 0; otherClusterId < clusterLayout.globalClusterCount;
          ++otherClusterId) {
-      const bool hasNeighborRegions =
-          std::any_of(meshStructure->neighboringClusters,
-                      meshStructure->neighboringClusters + meshStructure->numberOfRegions,
-                      [otherClusterId](const auto& neighbor) {
-                        return static_cast<unsigned>(neighbor[1]) == otherClusterId;
-                      });
+      const bool hasNeighborRegions = !haloStructure.at(clusterId).at(otherClusterId).empty();
       if (hasNeighborRegions) {
         assert(otherClusterId + 1 >= clusterId);
         assert(otherClusterId <
@@ -189,7 +185,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                                          otherTimeStepRate,
                                                          clusterId,
                                                          otherClusterId,
-                                                         meshStructure,
+                                                         haloStructure,
                                                          preferredDataTransferMode,
                                                          persistent);
         ghostClusters.push_back(std::move(ghostCluster));
