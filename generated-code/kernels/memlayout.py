@@ -54,7 +54,7 @@ def findCandidates(search_path):
 
     archs = arch.getArchitectures()
     pes = [arch.getCpu(a) for a in archs]
-    gemmgen = ["pspamm", "libxsmm"]
+    gemmgen = ["pspamm", "libxsmm", "tensorforge"]
 
     candidates = dict()
     for c in os.listdir(search_path):
@@ -81,33 +81,29 @@ def findCandidates(search_path):
 
 def guessMemoryLayout(env):
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(script_dir, "..", "config")
 
-    if "gpu" in env["targets"]:  # and int(env["multipleSimulations"])==1:
+    # look at the CPU or GPU configs; dependent on the considered target
+    subfolder = "gpu" if "gpu" in env["targets"] else "cpu"
+    path = os.path.join(script_dir, "..", "config", subfolder)
+
+    values = {
+        "precision": env["arch"][0].lower(),
+        "equations": env["equations"].lower(),
+        "order": int(env["order"]),
+        "pe": arch.getCpu(env["arch"]),
+        "multipleSimulations": int(env["multipleSimulations"]),
+        "gemmgen": set(gg.lower() for gg in env["gemmgen"]),
+    }
+
+    candidates = findCandidates(search_path=path)
+    bestFit = max(candidates.keys(), key=lambda key: candidates[key].score(values))
+    bestScore = candidates[bestFit].score(values)
+
+    if bestScore == 0:
         print(
-            "INFO: Found gpu as a target. "
-            + "Memory layout will fall back to all dense"
+            "WARNING: No suitable memory layout found."
+            + "(Will fall back to all dense.)"
         )
         bestFit = "dense.xml"
-    else:
-        values = {
-            "precision": env["arch"][0].lower(),
-            "equations": env["equations"].lower(),
-            "order": int(env["order"]),
-            "pe": arch.getCpu(env["arch"]),
-            "multipleSimulations": int(env["multipleSimulations"]),
-            "gemmgen": set(gg.lower() for gg in env["gemmgen"]),
-        }
-
-        candidates = findCandidates(search_path=path)
-        bestFit = max(candidates.keys(), key=lambda key: candidates[key].score(values))
-        bestScore = candidates[bestFit].score(values)
-
-        if bestScore == 0:
-            print(
-                "WARNING: No suitable memory layout found."
-                + "(Will fall back to all dense.)"
-            )
-            bestFit = "dense.xml"
     print("Using memory layout {}".format(bestFit))
     return os.path.join(path, bestFit)
