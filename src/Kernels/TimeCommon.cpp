@@ -32,15 +32,15 @@
 #endif
 
 namespace seissol::kernels {
-
 void TimeCommon::computeIntegrals(Time& time,
                                   unsigned short ltsSetup,
                                   const FaceType faceTypes[4],
-                                  const double currentTime[5],
-                                  double timeStepWidth,
+                                  const real* timeCoeffs,
+                                  const real* subtimeCoeffs,
                                   real* const timeDofs[4],
                                   real integrationBuffer[4][tensor::I::size()],
                                   real* timeIntegrated[4]) {
+  // call the more general assembly
   /*
    * assert valid input.
    */
@@ -68,11 +68,9 @@ void TimeCommon::computeIntegrals(Time& time,
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer
       else {
-        time.computeIntegral(currentTime[dofneighbor + 1],
-                             currentTime[0],
-                             currentTime[0] + timeStepWidth,
-                             timeDofs[dofneighbor],
-                             integrationBuffer[dofneighbor]);
+        const auto* coeffs =
+            ((ltsSetup >> (dofneighbor + 4)) % 2) != 0 ? timeCoeffs : subtimeCoeffs;
+        time.evaluate(coeffs, timeDofs[dofneighbor], integrationBuffer[dofneighbor]);
 
         timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
       }
@@ -80,39 +78,9 @@ void TimeCommon::computeIntegrals(Time& time,
   }
 }
 
-void TimeCommon::computeIntegrals(Time& time,
-                                  unsigned short ltsSetup,
-                                  const FaceType faceTypes[4],
-                                  const double timeStepStart,
-                                  const double timeStepWidth,
-                                  real* const timeDofs[4],
-                                  real integrationBuffer[4][tensor::I::size()],
-                                  real* timeIntegrated[4]) {
-  double startTimes[5];
-  startTimes[0] = timeStepStart;
-  startTimes[1] = startTimes[2] = startTimes[3] = startTimes[4] = 0;
-
-  // adjust start times for GTS on derivatives
-  for (std::size_t face = 0; face < Cell::NumFaces; face++) {
-    if (((ltsSetup >> (face + 4)) % 2) != 0) {
-      startTimes[face + 1] = timeStepStart;
-    }
-  }
-
-  // call the more general assembly
-  computeIntegrals(time,
-                   ltsSetup,
-                   faceTypes,
-                   startTimes,
-                   timeStepWidth,
-                   timeDofs,
-                   integrationBuffer,
-                   timeIntegrated);
-}
-
 void TimeCommon::computeBatchedIntegrals(Time& time,
-                                         const double timeStepStart,
-                                         const double timeStepWidth,
+                                         const real* timeCoeffs,
+                                         const real* subtimeCoeffs,
                                          ConditionalPointersToRealsTable& table,
                                          seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
@@ -121,10 +89,8 @@ void TimeCommon::computeBatchedIntegrals(Time& time,
   ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
   if (table.find(key) != table.end()) {
     auto& entry = table[key];
-    time.computeBatchedIntegral(
-        timeStepStart,
-        timeStepStart,
-        timeStepStart + timeStepWidth,
+    time.evaluateBatched(
+        timeCoeffs,
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
         (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
         (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
@@ -136,10 +102,8 @@ void TimeCommon::computeBatchedIntegrals(Time& time,
   key = ConditionalKey(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
   if (table.find(key) != table.end()) {
     auto& entry = table[key];
-    time.computeBatchedIntegral(
-        0.0,
-        timeStepStart,
-        timeStepStart + timeStepWidth,
+    time.evaluateBatched(
+        subtimeCoeffs,
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
         (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
         (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),

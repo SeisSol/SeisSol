@@ -11,6 +11,7 @@
 #include <DataTypes/ConditionalKey.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <array>
@@ -132,7 +133,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       } else {
         dQPtrs[cell] = &derivativesScratch[derivativesAddressCounter];
-        derivativesAddressCounter += yateto::computeFamilySize<tensor::dQ>();
+        derivativesAddressCounter += seissol::kernels::Solver::DerivativesSize;
       }
     }
     // just to be sure that we took all branches while filling in idofsPtrs vector
