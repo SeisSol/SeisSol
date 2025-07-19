@@ -103,7 +103,6 @@ struct LTS {
   Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
   Variable<real* [Cell::NumFaces]> faceDisplacements;
   Bucket<real> buffersDerivatives;
-  Bucket<real> faceDisplacementsBuffer;
 
   Variable<real*> buffersDevice;
   Variable<real*> derivativesDevice;
@@ -186,10 +185,6 @@ struct LTS {
              PagesizeHeap,
              allocationModeWP(AllocationPreset::Timebucket),
              true);
-    tree.add(faceDisplacementsBuffer,
-             LayerMask(),
-             PagesizeHeap,
-             allocationModeWP(AllocationPreset::Timedofs));
 
     tree.add(buffersDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
     tree.add(derivativesDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
