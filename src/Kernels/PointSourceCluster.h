@@ -14,6 +14,7 @@
 #include "Numerical/Functions.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
+#include <Equations/Datastructures.h>
 #include <Memory/MemoryAllocator.h>
 #include <Solver/MultipleSimulations.h>
 #include <init.h>
@@ -142,14 +143,16 @@ SEISSOL_HOSTDEVICE inline void
     real m = 0.0;
     for (unsigned i = 0; i < 3; ++i) {
       for (unsigned j = 0; j < 3; ++j) {
+        // NOTE: the 6 is not related to the number of traction quantities stored
         m += -a * stiffnessTensor[p + 3 * q + 9 * i + 27 * j] * rotatedSlip[i] * tensor[6 + j];
       }
     }
     return m;
   };
 
+  // exeuction here is safe for TractionQuantities == 1 and TractionQuantities == 6
   const real moment[6] = {mom(0, 0), mom(1, 1), mom(2, 2), mom(0, 1), mom(1, 2), mom(0, 2)};
-  for (unsigned t = 0; t < 6; ++t) {
+  for (unsigned t = 0; t < model::MaterialT::TractionQuantities; ++t) {
     for (unsigned k = 0; k < MInvJInvPhisAtSourcesSpan; ++k) {
       dofsAccessor(dofs, k, t, simulationIndex) += mInvJInvPhisAtSources[k] * moment[t];
     }
