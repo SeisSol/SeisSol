@@ -93,7 +93,7 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
   unsigned short l_ltsSetup = 0;
 
   // iterate over the faces
-  for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+  for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
     // continue for boundary conditions
     if (i_faceTypes[l_face] == FaceType::Outflow) {
       continue;
@@ -158,7 +158,7 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
    *   Free surface/dirichlet boundary conditions work on the cells DOFs in the neighboring contribution:
    *   Enable cell local derivatives in this case and mark that the "fake neighbor" provides derivatives.
    */
-  for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+  for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
     // check for special case free-surface/dirichlet requirements
     const bool isSpecialCase = i_faceTypes[l_face] == FaceType::FreeSurface ||
       i_faceTypes[l_face] == FaceType::FreeSurfaceGravity ||
@@ -195,7 +195,7 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
 static void normalizeLtsSetup( unsigned short  i_neighboringLtsSetups[4],
                                unsigned short &io_localLtsSetup ) {
   // iterate over the face neighbors
-  for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+  for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
     // enforce derivatives if this is a "GTS on derivatives" relation
     if( (io_localLtsSetup >> (l_face + 4))%2 && (i_neighboringLtsSetups[l_face] >> 10)%2 == 1 ) {
       io_localLtsSetup |= (1 << l_face);
@@ -345,9 +345,9 @@ inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
     // iterate over copy and interior
     for( unsigned int l_clusterCell = 0; l_clusterCell < l_numberOfClusterCells; l_clusterCell++ ) {
       // cluster ids of the four face neighbors
-      unsigned int l_neighboringClusterIds[4] = {0};
+      unsigned int l_neighboringClusterIds[Cell::NumFaces] = {0};
       // collect cluster ids
-      for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+      for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
         // only continue for valid faces
         if (io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::Regular ||
            io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::Periodic ||
@@ -396,7 +396,7 @@ inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
       l_neighboringSetups[0] = l_neighboringSetups[1] = l_neighboringSetups[2] = l_neighboringSetups[3] = 240;
 
       // collect lts setups
-      for( unsigned int l_face = 0; l_face < 4; l_face++ ) {
+      for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
         // only continue for non-boundary faces
         if( io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::Regular  ||
             io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::Periodic ||

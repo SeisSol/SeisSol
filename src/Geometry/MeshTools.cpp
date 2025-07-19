@@ -8,6 +8,7 @@
 
 #include "MeshTools.h"
 
+#include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
 #include <cassert>
 #include <cmath>
@@ -21,7 +22,7 @@ const int MeshTools::FACE2MISSINGNODE[4] = {3, 2, 1, 0};
 const int MeshTools::NEIGHBORFACENODE2LOCAL[3] = {0, 2, 1};
 
 void MeshTools::center(const Element& e, const std::vector<Vertex>& vertices, VrtxCoords center) {
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     center[i] = .25 * (vertices[e.vertices[0]].coords[i] + vertices[e.vertices[1]].coords[i] +
                        vertices[e.vertices[2]].coords[i] + vertices[e.vertices[3]].coords[i]);
   }
@@ -31,7 +32,7 @@ void MeshTools::center(const Element& e,
                        int face,
                        const std::vector<Vertex>& vertices,
                        VrtxCoords center) {
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     center[i] = (1.0 / 3.0) * (vertices[e.vertices[FACE2NODES[face][0]]].coords[i] +
                                vertices[e.vertices[FACE2NODES[face][1]]].coords[i] +
                                vertices[e.vertices[FACE2NODES[face][2]]].coords[i]);
@@ -67,13 +68,13 @@ void MeshTools::normalAndTangents(const Element& e,
 }
 
 void MeshTools::sub(const VrtxCoords v1, const VrtxCoords v2, VrtxCoords diff) {
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     diff[i] = v1[i] - v2[i];
   }
 }
 
 void MeshTools::mul(const VrtxCoords v, double s, VrtxCoords prod) {
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     prod[i] = v[i] * s;
   }
 }
@@ -139,7 +140,7 @@ void MeshTools::pointOnPlane(const Element& e,
                              VrtxCoords result) {
   const size_t index = e.vertices[FACE2NODES[face][0]];
   assert(index < vertices.size());
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     result[i] = vertices[index].coords[i];
   }
 }
@@ -150,7 +151,8 @@ bool MeshTools::inside(const Element& e, const std::vector<Vertex>& vertices, co
    * The point is inside the tetrahedron if it lies on the backside
    * of each of the 4 planes defined by the normal vectors (and a point
    * on the plane). */
-  for (unsigned face = 0; face < 4; ++face) {
+  static_assert(Cell::NumFaces == 4, "Non-tetrahedral meshes are not supported here yet.");
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     VrtxCoords pp;
     sub(p, vertices[e.vertices[FACE2NODES[face][0]]].coords, pp);
     normal(e, face, vertices, nrm);

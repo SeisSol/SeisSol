@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: cbcab3f832289de2412dd732304588c828b1e8b7
+  precomputed-hash: 6e5d934dddcc7b24f1031a38073c27bc29b73060
 
 jobs:
   seissol-build-test:
@@ -286,7 +286,7 @@ jobs:
           - name: tpv13-fused
             equation: elastic
             multisim: 8
-            energies: false # incomplete, hence disabled
+            energies: true
             receivers: true
             fault: false # incomplete, hence disabled
         precision:

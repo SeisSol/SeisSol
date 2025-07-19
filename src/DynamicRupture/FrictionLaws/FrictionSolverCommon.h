@@ -43,6 +43,7 @@ struct NumPoints {
   using GpuRange = ForLoopRange<0, 1, 1>;
 
   public:
+  // Range::Start is 0, and Range::End is seissol::misc::NumPaddedPoints for CPU
   using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
 };
 
@@ -411,8 +412,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
  * @param[in] dt
  * @param[in] index - device iteration index
  */
-template <RangeType Type = RangeType::CPU,
-          typename MathFunctions = seissol::functions::HostStdFunctions>
+template <RangeType Type = RangeType::CPU>
 // See https://github.com/llvm/llvm-project/issues/60163
 // NOLINTNEXTLINE
 SEISSOL_HOSTDEVICE inline void
@@ -428,8 +428,8 @@ SEISSOL_HOSTDEVICE inline void
                         real dt,
                         unsigned startIndex = 0) {
   if (fullUpdateTime <= t0 + s0 && fullUpdateTime >= s0) {
-    const real gNuc = gaussianNucleationFunction::smoothStepIncrement<real, MathFunctions>(
-        fullUpdateTime - s0, dt, t0);
+    const real gNuc =
+        gaussianNucleationFunction::smoothStepIncrement<real>(fullUpdateTime - s0, dt, t0);
 
     using Range = typename NumPoints<Type>::Range;
 
@@ -574,12 +574,12 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   using namespace dr::misc::quantity_indices;
   for (size_t o = 0; o < ConvergenceOrder; ++o) {
     const auto timeWeight = timeWeights[o];
-
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
     for (size_t index = Range::Start; index < Range::End; index += Range::Step) {
-      const size_t i{startIndex + index};
+
+      const size_t i{startIndex + index}; // startIndex is always 0 for CPU
 
       const real interpolatedSlipRate1 = qIMinus[o][U][i] - qIPlus[o][U][i];
       const real interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];
