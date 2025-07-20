@@ -62,7 +62,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Spacetime::computeAder(double timeStepWidth,
-                            seissol::initializer::Layer::CellRef& data,
+                            LTS::Ref& data,
                             LocalTmp& tmp,
                             real timeIntegrated[tensor::I::size()],
                             real* timeDerivatives,

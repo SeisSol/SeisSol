@@ -30,7 +30,7 @@ class FrictionSolver {
   }
   virtual ~FrictionSolver() = default;
 
-  virtual void evaluate(seissol::initializer::Layer& layerData,
+  virtual void evaluate(DynamicRupture::Layer& layerData,
                         real fullUpdateTime,
                         const double timeWeights[ConvergenceOrder],
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
@@ -44,7 +44,7 @@ class FrictionSolver {
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData, real fullUpdateTime);
+  void copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime);
 
   virtual seissol::initializer::AllocationPlace allocationPlace();
 

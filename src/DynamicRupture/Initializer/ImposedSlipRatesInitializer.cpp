@@ -13,7 +13,6 @@
 #include "Initializer/ParameterDB.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
 #include <Solver/MultipleSimulations.h>
@@ -27,7 +26,7 @@
 #include <vector>
 
 namespace seissol::dr::initializer {
-void ImposedSlipRatesInitializer::initializeFault(seissol::initializer::LTSTree* const dynRupTree) {
+void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Tree* const dynRupTree) {
   logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
             << " points.";
   for (auto& layer : dynRupTree->leaves(Ghost)) {
@@ -97,7 +96,7 @@ void ImposedSlipRatesInitializer::initializeFault(seissol::initializer::LTSTree*
 }
 
 void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
-    seissol::initializer::Layer& layer,
+    DynamicRupture::Layer& layer,
     const std::vector<std::array<real, misc::NumPaddedPoints>>& strikeSlip,
     const std::vector<std::array<real, misc::NumPaddedPoints>>& dipSlip,
     real (*imposedSlipDirection1)[misc::NumPaddedPoints],
@@ -126,21 +125,19 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
   }
 }
 
-void ImposedSlipRatesInitializer::fixInterpolatedSTFParameters(seissol::initializer::Layer& layer) {
+void ImposedSlipRatesInitializer::fixInterpolatedSTFParameters(DynamicRupture::Layer& layer) {
   // do nothing
 }
 
 void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializer::Layer& layer) {
+    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   real(*tauS)[misc::NumPaddedPoints] = layer.var<LTSImposedSlipRatesYoffe::TauS>();
   real(*tauR)[misc::NumPaddedPoints] = layer.var<LTSImposedSlipRatesYoffe::TauR>();
   parameterToStorageMap.insert({"tau_S", reinterpret_cast<real*>(tauS)});
   parameterToStorageMap.insert({"tau_R", reinterpret_cast<real*>(tauR)});
 }
 
-void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(
-    seissol::initializer::Layer& layer) {
+void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(DynamicRupture::Layer& layer) {
   real(*tauS)[misc::NumPaddedPoints] = layer.var<LTSImposedSlipRatesYoffe::TauS>();
   real(*tauR)[misc::NumPaddedPoints] = layer.var<LTSImposedSlipRatesYoffe::TauR>();
   // ensure that tauR is larger than tauS and that tauS and tauR are greater than 0 (the contrary
@@ -154,13 +151,11 @@ void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(
 }
 
 void ImposedSlipRatesGaussianInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializer::Layer& layer) {
+    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   real(*riseTime)[misc::NumPaddedPoints] = layer.var<LTSImposedSlipRatesGaussian::RiseTime>();
   parameterToStorageMap.insert({"rupture_rise_time", reinterpret_cast<real*>(riseTime)});
 }
 
 void ImposedSlipRatesDeltaInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializer::Layer& layer) {}
+    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {}
 } // namespace seissol::dr::initializer

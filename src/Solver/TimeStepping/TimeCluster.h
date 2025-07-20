@@ -94,9 +94,9 @@ class TimeCluster : public AbstractTimeCluster {
   /*
    * element data
    */
-  seissol::initializer::Layer* clusterData;
-  seissol::initializer::Layer* dynRupInteriorData;
-  seissol::initializer::Layer* dynRupCopyData;
+  LTS::Layer* clusterData;
+  DynamicRupture::Layer* dynRupInteriorData;
+  DynamicRupture::Layer* dynRupCopyData;
   dr::friction_law::FrictionSolver* frictionSolver;
   dr::friction_law::FrictionSolver* frictionSolverDevice;
   dr::output::OutputManager* faultOutputManager;
@@ -142,9 +142,9 @@ class TimeCluster : public AbstractTimeCluster {
   /**
    * Computes dynamic rupture.
    **/
-  void computeDynamicRupture(seissol::initializer::Layer& layerData);
+  void computeDynamicRupture(DynamicRupture::Layer& layerData);
 
-  void handleDynamicRupture(seissol::initializer::Layer& layerData);
+  void handleDynamicRupture(DynamicRupture::Layer& layerData);
 
   /**
    * Computes all cell local integration.
@@ -183,7 +183,7 @@ class TimeCluster : public AbstractTimeCluster {
 
 #ifdef ACL_DEVICE
   void computeLocalIntegrationDevice(bool resetBuffers);
-  void computeDynamicRuptureDevice(seissol::initializer::Layer& layerData);
+  void computeDynamicRuptureDevice(DynamicRupture::Layer& layerData);
   void computeNeighboringIntegrationDevice(double subTimeStart);
 #endif
 
@@ -199,7 +199,7 @@ class TimeCluster : public AbstractTimeCluster {
 
   void computeNeighborIntegrationFlops();
 
-  void computeDynamicRuptureFlops(seissol::initializer::Layer& layerData,
+  void computeDynamicRuptureFlops(DynamicRupture::Layer& layerData,
                                   long long& nonZeroFlops,
                                   long long& hardwareFlops);
 
@@ -244,9 +244,9 @@ class TimeCluster : public AbstractTimeCluster {
               bool printProgress,
               DynamicRuptureScheduler* dynamicRuptureScheduler,
               CompoundGlobalData globalData,
-              seissol::initializer::Layer* clusterData,
-              seissol::initializer::Layer* dynRupInteriorData,
-              seissol::initializer::Layer* dynRupCopyData,
+              LTS::Layer* clusterData,
+              DynamicRupture::Layer* dynRupInteriorData,
+              DynamicRupture::Layer* dynRupCopyData,
               seissol::dr::friction_law::FrictionSolver* frictionSolver,
               seissol::dr::friction_law::FrictionSolver* frictionSolverDevice,
               dr::output::OutputManager* faultOutputManager,

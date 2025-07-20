@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 #define SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 
+#include <Memory/Tree/Layer.h>
 #include <memory>
 
 #include "Geometry/MeshReader.h"
@@ -28,7 +29,7 @@ struct SurfaceLTS {
   struct MeshId : public seissol::initializer::Variable<unsigned> {};
   struct BoundaryMapping : public seissol::initializer::Variable<CellBoundaryMapping*> {};
 
-  static void addTo(seissol::initializer::LTSTree& surfaceLtsTree);
+  static void addTo(initializer::LTSTree<>& surfaceLtsTree);
 };
 
 } // namespace seissol
@@ -65,7 +66,7 @@ class FreeSurfaceIntegrator {
       real* projectionMatrixFromFaceRow,
       const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
       const double* weights) const;
-  void initializeSurfaceLTSTree(seissol::initializer::LTSTree* ltsTree);
+  void initializeSurfaceLTSTree(LTS::Tree* ltsTree);
 
   static LocationFlag
       getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
@@ -78,7 +79,7 @@ class FreeSurfaceIntegrator {
   unsigned totalNumberOfFreeSurfaces;
   unsigned totalNumberOfTriangles{0};
 
-  seissol::initializer::LTSTree surfaceLtsTree;
+  initializer::LTSTree<initializer::GenericVarmap> surfaceLtsTree;
   seissol::refinement::TriangleRefiner triRefiner;
 
   explicit FreeSurfaceIntegrator();
@@ -90,9 +91,7 @@ class FreeSurfaceIntegrator {
   FreeSurfaceIntegrator(FreeSurfaceIntegrator&&) = delete;
   auto operator=(FreeSurfaceIntegrator&&) -> FreeSurfaceIntegrator& = delete;
 
-  void initialize(unsigned maxRefinementDepth,
-                  GlobalData* globalData,
-                  seissol::initializer::LTSTree* ltsTree);
+  void initialize(unsigned maxRefinementDepth, GlobalData* globalData, LTS::Tree* ltsTree);
 
   void calculateOutput();
 

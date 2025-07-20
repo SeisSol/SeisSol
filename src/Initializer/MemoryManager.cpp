@@ -54,7 +54,7 @@ void seissol::initializer::MemoryManager::initialize()
 void seissol::initializer::MemoryManager::correctGhostRegionSetups()
 {
   for (unsigned tc = 0; tc < m_ltsTree.numTimeClusters(); ++tc) {
-    Layer& ghost = m_ltsTree.layer(initializer::LayerIdentifier(Ghost, Config(), tc));
+    auto& ghost = m_ltsTree.layer(initializer::LayerIdentifier(Ghost, Config(), tc));
     CellLocalInformation* cellInformation = ghost.var<LTS::CellInformation>();
 
     unsigned int l_offset = 0;
@@ -178,7 +178,7 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
    * ghost layer
    */
   for (unsigned tc = 0; tc < m_ltsTree.numTimeClusters(); ++tc) {
-    Layer& layer = m_ltsTree.layer(initializer::LayerIdentifier(Ghost, Config(), tc));
+    auto& layer = m_ltsTree.layer(initializer::LayerIdentifier(Ghost, Config(), tc));
     real* ghostStart = static_cast<real*>(layer.var<LTS::BuffersDerivatives>(allocationPlace));
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       // set pointer to ghost region
@@ -242,7 +242,7 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
 }
 
 void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    cluster,
-                                                                    Layer&      layer )
+                                                                    LTS::Layer&      layer )
 {
   assert(layer.getIdentifier().halo == Copy || layer.getIdentifier().halo == Interior);
 
@@ -550,7 +550,7 @@ void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
 }
 
 #ifdef ACL_DEVICE
-void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree& ltsTree) {
+void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Tree& ltsTree) {
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 

@@ -29,7 +29,6 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/Eigenvalues.h>
@@ -131,7 +130,7 @@ Eigen::Matrix<T, N, N>
 namespace seissol::initializer {
 
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
-                                 LTSTree* ltsTree,
+                                 LTS::Tree* ltsTree,
                                  Lut* ltsLut,
                                  const ClusterLayout& clusterLayout,
                                  const parameters::ModelParameters& modelParameters) {
@@ -362,7 +361,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 const EasiBoundary* easiBoundary,
-                                LTSTree* ltsTree,
+                                LTS::Tree* ltsTree,
                                 Lut* ltsLut) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -448,9 +447,9 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 }
 
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
-                                      LTSTree* ltsTree,
+                                      LTS::Tree* ltsTree,
                                       Lut* ltsLut,
-                                      LTSTree* dynRupTree,
+                                      DynamicRupture::Tree* dynRupTree,
                                       unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
                                       double etaHack) {

@@ -11,7 +11,6 @@
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include <algorithm>
 #include <limits>
@@ -19,8 +18,7 @@
 
 namespace seissol::dr::initializer {
 
-void LinearSlipWeakeningInitializer::initializeFault(
-    seissol::initializer::LTSTree* const dynRupTree) {
+void LinearSlipWeakeningInitializer::initializeFault(DynamicRupture::Tree* const dynRupTree) {
   BaseDRInitializer::initializeFault(dynRupTree);
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     bool (*dynStressTimePending)[misc::NumPaddedPoints] =
@@ -49,8 +47,7 @@ void LinearSlipWeakeningInitializer::initializeFault(
 }
 
 void LinearSlipWeakeningInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializer::Layer& layer) {
+    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   real(*dC)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::DC>();
   real(*muS)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::MuS>();
   real(*muD)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::MuD>();
@@ -68,7 +65,7 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
 }
 
 void LinearSlipWeakeningBimaterialInitializer::initializeFault(
-    seissol::initializer::LTSTree* const dynRupTree) {
+    DynamicRupture::Tree* const dynRupTree) {
   LinearSlipWeakeningInitializer::initializeFault(dynRupTree);
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     real(*regularizedStrength)[misc::NumPaddedPoints] =

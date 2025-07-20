@@ -137,7 +137,56 @@ struct LTS {
   struct PrevCoefficientsScratch : public initializer::Scratchpad<real> {};
   struct DofsFaceBoundaryNodalScratch : public initializer::Scratchpad<real> {};
 
-  static void addTo(initializer::LTSTree& tree, bool usePlasticity) {
+  struct Integrals : public initializer::Variable<real> {};
+
+  struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
+                                                        DofsAne,
+                                                        Buffers,
+                                                        Derivatives,
+                                                        CellInformation,
+                                                        SecondaryInformation,
+                                                        FaceNeighbors,
+                                                        LocalIntegration,
+                                                        NeighboringIntegration,
+                                                        Material,
+                                                        Plasticity,
+                                                        DRMapping,
+                                                        BoundaryMapping,
+                                                        PStrain,
+                                                        FaceDisplacements,
+                                                        BuffersDerivatives,
+                                                        FaceDisplacementsBuffer,
+                                                        BuffersDevice,
+                                                        DerivativesDevice,
+                                                        FaceNeighborsDevice,
+                                                        FaceDisplacementsDevice,
+                                                        DRMappingDevice,
+                                                        BoundaryMappingDevice,
+                                                        IntegratedDofsScratch,
+                                                        DerivativesScratch,
+                                                        NodalAvgDisplacements,
+                                                        AnalyticScratch,
+                                                        DerivativesExtScratch,
+                                                        DerivativesAneScratch,
+                                                        IDofsAneScratch,
+                                                        DofsExtScratch,
+                                                        FlagScratch,
+                                                        PrevDofsScratch,
+                                                        QEtaNodalScratch,
+                                                        QStressNodalScratch,
+                                                        RotateDisplacementToFaceNormalScratch,
+                                                        RotateDisplacementToGlobalScratch,
+                                                        RotatedFaceDisplacementScratch,
+                                                        DofsFaceNodalScratch,
+                                                        PrevCoefficientsScratch,
+                                                        DofsFaceBoundaryNodalScratch,
+                                                        Integrals> {};
+
+  using Tree = initializer::LTSTree<LTSVarmap>;
+  using Layer = initializer::Layer<LTSVarmap>;
+  using Ref = initializer::Layer<LTSVarmap>::CellRef;
+
+  static void addTo(Tree& tree, bool usePlasticity) {
     using namespace initializer;
     LayerMask plasticityMask;
     if (usePlasticity) {
@@ -213,7 +262,7 @@ struct LTS {
   }
 
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                          initializer::LTSTree* tree) {
+                                          Tree* tree) {
     manager.registerData<Dofs>("dofs", tree);
     if constexpr (kernels::size<tensor::Qane>() > 0) {
       manager.registerData<DofsAne>("dofsAne", tree);

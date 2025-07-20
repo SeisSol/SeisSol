@@ -16,12 +16,13 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
-#include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include <Common/Typedefs.h>
 #include <Config.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -49,9 +50,9 @@ void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshRead
   localRank = MPI::mpi.rank();
 }
 
-void ReceiverBasedOutputBuilder::setLtsData(seissol::initializer::LTSTree* userWpTree,
+void ReceiverBasedOutputBuilder::setLtsData(LTS::Tree* userWpTree,
                                             seissol::initializer::Lut* userWpLut,
-                                            seissol::initializer::LTSTree* userDrTree) {
+                                            DynamicRupture::Tree* userDrTree) {
   wpTree = userWpTree;
   wpLut = userWpLut;
   drTree = userDrTree;

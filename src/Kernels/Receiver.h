@@ -34,15 +34,15 @@ struct Receiver {
   Receiver(unsigned pointId,
            Eigen::Vector3d position,
            const double* elementCoords[4],
-           seissol::initializer::Layer::CellRef dataHost,
-           seissol::initializer::Layer::CellRef dataDevice,
+           LTS::Ref dataHost,
+           LTS::Ref dataDevice,
            size_t reserved);
   unsigned pointId;
   Eigen::Vector3d position;
   basisFunction::SampledBasisFunctions<real> basisFunctions;
   basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
-  seissol::initializer::Layer::CellRef dataHost;
-  seissol::initializer::Layer::CellRef dataDevice;
+  LTS::Ref dataHost;
+  LTS::Ref dataDevice;
   std::vector<real> output;
 };
 

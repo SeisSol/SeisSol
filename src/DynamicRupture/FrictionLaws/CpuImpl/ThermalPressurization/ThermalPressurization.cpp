@@ -9,7 +9,6 @@
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/Layer.h"
 #include <DynamicRupture/FrictionLaws/TPCommon.h>
 #include <array>
 #include <cmath>
@@ -20,7 +19,7 @@ static const tp::GridPoints<misc::NumTpGridPoints> TpGridPoints;
 static const tp::InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFourierCoefficients;
 static const tp::GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
 
-void ThermalPressurization::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
+void ThermalPressurization::copyLtsTreeToLocal(DynamicRupture::Layer& layerData,
                                                real fullUpdateTime) {
   temperature = layerData.var<LTSThermalPressurization::Temperature>();
   pressure = layerData.var<LTSThermalPressurization::Pressure>();

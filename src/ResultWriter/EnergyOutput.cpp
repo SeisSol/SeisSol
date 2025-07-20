@@ -24,7 +24,6 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
 #include <Modules/Modules.h>
@@ -158,9 +157,9 @@ double& EnergiesStorage::totalMomentumZ(size_t sim) {
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    seissol::initializer::LTSTree* newDynRuptTree,
+    DynamicRupture::Tree* newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
-    seissol::initializer::LTSTree* newLtsTree,
+    LTS::Tree* newLtsTree,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {

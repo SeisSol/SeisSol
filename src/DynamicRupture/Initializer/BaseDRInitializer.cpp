@@ -12,7 +12,6 @@
 #include "Initializer/ParameterDB.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
@@ -36,7 +35,7 @@
 #endif
 
 namespace seissol::dr::initializer {
-void BaseDRInitializer::initializeFault(seissol::initializer::LTSTree* const dynRupTree) {
+void BaseDRInitializer::initializeFault(DynamicRupture::Tree* const dynRupTree) {
   logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
             << " points.";
   for (auto& layer : dynRupTree->leaves(Ghost)) {
@@ -153,7 +152,7 @@ void BaseDRInitializer::initializeFault(seissol::initializer::LTSTree* const dyn
   }
 }
 
-std::vector<unsigned> BaseDRInitializer::getFaceIDsInIterator(seissol::initializer::Layer& layer) {
+std::vector<unsigned> BaseDRInitializer::getFaceIDsInIterator(DynamicRupture::Layer& layer) {
   const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
   std::vector<unsigned> faceIDs;
   faceIDs.reserve(layer.size());
@@ -177,7 +176,7 @@ void BaseDRInitializer::queryModel(seissol::initializer::FaultParameterDB& fault
   }
 }
 
-void BaseDRInitializer::rotateTractionToCartesianStress(seissol::initializer::Layer& layer,
+void BaseDRInitializer::rotateTractionToCartesianStress(DynamicRupture::Layer& layer,
                                                         StressTensor& stress) {
   // create rotation kernel
   real faultTractionToCartesianMatrixValues[init::stressRotationMatrix::size()];
@@ -226,7 +225,7 @@ void BaseDRInitializer::rotateTractionToCartesianStress(seissol::initializer::La
   }
 }
 
-void BaseDRInitializer::rotateStressToFaultCS(seissol::initializer::Layer& layer,
+void BaseDRInitializer::rotateStressToFaultCS(DynamicRupture::Layer& layer,
                                               real (*stressInFaultCS)[6][misc::NumPaddedPoints],
                                               std::size_t index,
                                               std::size_t count,
@@ -268,12 +267,11 @@ void BaseDRInitializer::rotateStressToFaultCS(seissol::initializer::Layer& layer
 }
 
 void BaseDRInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializer::Layer& layer) {
+    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   // do nothing for base friction law
 }
 
-void BaseDRInitializer::initializeOtherVariables(seissol::initializer::Layer& layer) {
+void BaseDRInitializer::initializeOtherVariables(DynamicRupture::Layer& layer) {
   // initialize rupture front flag
   bool (*ruptureTimePending)[misc::NumPaddedPoints] =
       layer.var<DynamicRupture::RuptureTimePending>();

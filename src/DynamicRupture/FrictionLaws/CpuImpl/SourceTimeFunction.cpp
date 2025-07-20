@@ -8,14 +8,13 @@
 #include "SourceTimeFunction.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/Layer.h"
 #include "Numerical/DeltaPulse.h"
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Numerical/RegularizedYoffe.h"
 #include <cstddef>
 
 namespace seissol::dr::friction_law::cpu {
-void YoffeSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData, real fullUpdateTime) {
+void YoffeSTF::copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
   onsetTime = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>();
   tauS = layerData.var<LTSImposedSlipRatesYoffe::TauS>();
   tauR = layerData.var<LTSImposedSlipRatesYoffe::TauR>();
@@ -30,7 +29,7 @@ real YoffeSTF::evaluate(real currentTime,
                                             tauR[ltsFace][pointIndex]);
 }
 
-void GaussianSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData, real fullUpdateTime) {
+void GaussianSTF::copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
   onsetTime = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>();
   riseTime = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>();
 }
@@ -44,7 +43,7 @@ real GaussianSTF::evaluate(real currentTime,
   return smoothStepIncrement / timeIncrement;
 }
 
-void DeltaSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData, real fullUpdateTime) {
+void DeltaSTF::copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
   onsetTime = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>();
 }
 

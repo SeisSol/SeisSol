@@ -26,7 +26,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   ~RateAndStateBase() = default;
 
   static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                             seissol::initializer::Layer& layerData,
+                                             DynamicRupture::Layer& layerData,
                                              real fullUpdateTime) {
     data->a = layerData.var<LTSRateAndState::RsA>(seissol::initializer::AllocationPlace::Device);
     data->sl0 =

@@ -9,8 +9,8 @@
 #ifndef SEISSOL_SRC_MEMORY_TREE_LUT_H_
 #define SEISSOL_SRC_MEMORY_TREE_LUT_H_
 
-#include "LTSTree.h"
 #include "Layer.h"
+#include "Memory/Descriptor/LTS.h"
 
 namespace seissol::initializer {
 class Lut;
@@ -42,20 +42,20 @@ class seissol::initializer::Lut {
     LutsForMask() = default;
 
     void createLut(LayerMask mask,
-                   LTSTree* ltsTree,
+                   LTS::Tree* ltsTree,
                    const std::size_t* globalLtsToMesh,
                    std::size_t numberOfMeshIds);
   };
 
   LutsForMask maskedLuts[1U << NumLayers];
-  LTSTree* m_ltsTree{nullptr};
+  LTS::Tree* m_ltsTree{nullptr};
   std::vector<std::size_t> m_meshToClusters;
   std::vector<LayerType> m_meshToLayer;
 
   public:
   Lut();
 
-  void createLuts(LTSTree* ltsTree, std::size_t* ltsToMesh, std::size_t numberOfMeshIds);
+  void createLuts(LTS::Tree* ltsTree, std::size_t* ltsToMesh, std::size_t numberOfMeshIds);
 
   [[nodiscard]] std::size_t meshId(LayerMask mask, std::size_t ltsId) const {
     return maskedLuts[mask.to_ulong()].ltsToMesh[ltsId];

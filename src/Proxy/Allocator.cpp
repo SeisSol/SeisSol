@@ -34,7 +34,7 @@
 #endif
 
 namespace {
-void fakeData(initializer::Layer& layer, FaceType faceTp) {
+void fakeData(LTS::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
   real** buffers = layer.var<LTS::Buffers>();
   real** derivatives = layer.var<LTS::Derivatives>();
@@ -158,7 +158,7 @@ void ProxyData::initDataStructures(bool enableDR) {
 
   ltsTree.layer(layerId).setNumberOfCells(cellCount);
 
-  seissol::initializer::Layer& layer = ltsTree.layer(layerId);
+  LTS::Layer& layer = ltsTree.layer(layerId);
   layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(real) * tensor::I::size() * layer.size());
 
   ltsTree.allocateVariables();
@@ -225,7 +225,7 @@ void ProxyData::initDataStructures(bool enableDR) {
         isDeviceOn() ? initializer::AllocationPlace::Device : initializer::AllocationPlace::Host;
 
     // From dynamic rupture tree
-    seissol::initializer::Layer& interior = dynRupTree.layer(layerId);
+    auto& interior = dynRupTree.layer(layerId);
     real(*imposedStatePlus)[seissol::tensor::QInterpolated::size()] =
         interior.var<DynamicRupture::ImposedStatePlus>(Place);
     real(*fluxSolverPlus)[seissol::tensor::fluxSolver::size()] =
@@ -287,7 +287,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
                         device.api->getDefaultStream());
   device.api->syncDefaultStreamWithHost();
 
-  seissol::initializer::Layer& layer = ltsTree.layer(layerId);
+  LTS::Layer& layer = ltsTree.layer(layerId);
 
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsTree);
   ltsTree.allocateScratchPads();

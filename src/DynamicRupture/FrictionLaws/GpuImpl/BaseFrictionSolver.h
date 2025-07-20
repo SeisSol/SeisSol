@@ -180,7 +180,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
   void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime, real fullUpdateTime);
 
-  void evaluate(seissol::initializer::Layer& layerData,
+  void evaluate(DynamicRupture::Layer& layerData,
                 real fullUpdateTime,
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {

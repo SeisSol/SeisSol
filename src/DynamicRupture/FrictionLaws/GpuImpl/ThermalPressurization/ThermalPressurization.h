@@ -52,7 +52,7 @@ class ThermalPressurization {
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
+                                 DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {
     const auto place = seissol::initializer::AllocationPlace::Device;
     data->temperature = layerData.var<LTSThermalPressurization::Temperature>(place);

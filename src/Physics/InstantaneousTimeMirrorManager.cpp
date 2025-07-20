@@ -13,7 +13,6 @@
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Typedefs.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
 #include <Modules/Module.h>
@@ -27,7 +26,7 @@ namespace seissol::ITM {
 void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           double triggerTime,
                                           seissol::geometry::MeshReader* meshReader,
-                                          initializer::LTSTree* ltsTree,
+                                          LTS::Tree* ltsTree,
                                           initializer::Lut* ltsLut,
                                           const initializer::ClusterLayout* clusterLayout) {
   isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
@@ -218,7 +217,7 @@ void InstantaneousTimeMirrorManager::setClusterVector(
 void initializeTimeMirrorManagers(double scalingFactor,
                                   double triggerTime,
                                   seissol::geometry::MeshReader* meshReader,
-                                  initializer::LTSTree* ltsTree,
+                                  LTS::Tree* ltsTree,
                                   initializer::Lut* ltsLut,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,

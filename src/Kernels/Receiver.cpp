@@ -47,11 +47,10 @@ namespace seissol::kernels {
 Receiver::Receiver(unsigned pointId,
                    Eigen::Vector3d position,
                    const double* elementCoords[4],
-                   seissol::initializer::Layer::CellRef dataHost,
-                   seissol::initializer::Layer::CellRef dataDevice,
+                   LTS::Ref dataHost,
+                   LTS::Ref dataDevice,
                    size_t reserved)
-    : pointId(pointId), position(std::move(position)), dataHost(std::move(dataHost)),
-      dataDevice(std::move(dataDevice)) {
+    : pointId(pointId), position(std::move(position)), dataHost(dataHost), dataDevice(dataDevice) {
   output.reserve(reserved);
 
   auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(

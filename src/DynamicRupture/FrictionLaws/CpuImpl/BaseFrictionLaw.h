@@ -30,7 +30,7 @@ class BaseFrictionLaw : public FrictionSolver {
   /**
    * evaluates the current friction model
    */
-  void evaluate(seissol::initializer::Layer& layerData,
+  void evaluate(DynamicRupture::Layer& layerData,
                 real fullUpdateTime,
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {

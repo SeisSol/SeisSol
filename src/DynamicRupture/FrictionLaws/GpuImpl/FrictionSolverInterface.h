@@ -100,7 +100,7 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
   }
 
   static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
+                                 DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {
     const seissol::initializer::AllocationPlace place =
         seissol::initializer::AllocationPlace::Device;

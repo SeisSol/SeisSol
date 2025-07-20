@@ -24,9 +24,9 @@ class ReceiverOutput {
   public:
   virtual ~ReceiverOutput() = default;
 
-  void setLtsData(seissol::initializer::LTSTree* userWpTree,
+  void setLtsData(LTS::Tree* userWpTree,
                   seissol::initializer::Lut* userWpLut,
-                  seissol::initializer::LTSTree* userDrTree);
+                  DynamicRupture::Tree* userDrTree);
 
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
@@ -38,15 +38,15 @@ class ReceiverOutput {
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
   protected:
-  seissol::initializer::LTSTree* wpTree{nullptr};
+  LTS::Tree* wpTree{nullptr};
   seissol::initializer::Lut* wpLut{nullptr};
-  seissol::initializer::LTSTree* drTree{nullptr};
+  DynamicRupture::Tree* drTree{nullptr};
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
   real* deviceCopyMemory{nullptr};
 
   struct LocalInfo {
-    seissol::initializer::Layer* layer{};
+    DynamicRupture::Layer* layer{};
     size_t ltsId{};
     int nearestGpIndex{};
     int nearestInternalGpIndex{};

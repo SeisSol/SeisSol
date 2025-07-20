@@ -27,7 +27,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
   void allocateAuxiliaryMemory() override { FrictionSolverDetails::allocateAuxiliaryMemory(); }
 
   static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                             seissol::initializer::Layer& layerData,
+                                             DynamicRupture::Layer& layerData,
                                              real fullUpdateTime) {
     Derived::copySpecificLtsDataTreeToLocal(data, layerData, fullUpdateTime);
   }
@@ -136,7 +136,7 @@ class LinearSlipWeakeningLaw
         specialization(drParameters){};
 
   static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                             seissol::initializer::Layer& layerData,
+                                             DynamicRupture::Layer& layerData,
                                              real fullUpdateTime) {
     data->dC =
         layerData.var<LTSLinearSlipWeakening::DC>(seissol::initializer::AllocationPlace::Device);
@@ -225,7 +225,7 @@ class NoSpecialization {
   NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
   static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
+                                 DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {}
 
   SEISSOL_DEVICE static real
@@ -279,7 +279,7 @@ class BiMaterialFault {
   BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters) {};
 
   static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
+                                 DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {
     data->regularizedStrength =
         layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(
@@ -321,7 +321,7 @@ class TPApprox {
   TPApprox(seissol::initializer::parameters::DRParameters* parameters) {};
 
   static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
+                                 DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {}
 
   SEISSOL_DEVICE static real

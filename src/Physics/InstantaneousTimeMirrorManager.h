@@ -31,7 +31,7 @@ class InstantaneousTimeMirrorManager : Module {
   double triggerTime{};
 
   seissol::geometry::MeshReader* meshReader{};
-  initializer::LTSTree* ltsTree{};
+  LTS::Tree* ltsTree{};
   initializer::Lut* ltsLut{};
   const initializer::ClusterLayout* clusterLayout;
 
@@ -45,7 +45,7 @@ class InstantaneousTimeMirrorManager : Module {
       double velocityScalingFactor,
       double triggerTime,
       seissol::geometry::MeshReader* meshReader,
-      initializer::LTSTree* ltsTree,
+      LTS::Tree* ltsTree,
       initializer::Lut* ltsLut,
       const initializer::ClusterLayout* clusterLayout); // An empty timestepping is added. Need to
                                                         // discuss what exactly is to be sent here
@@ -63,7 +63,7 @@ void initializeTimeMirrorManagers(
     double scalingFactor,
     double triggerTime,
     seissol::geometry::MeshReader* meshReader,
-    initializer::LTSTree* ltsTree,
+    LTS::Tree* ltsTree,
     initializer::Lut* ltsLut,
     InstantaneousTimeMirrorManager& increaseManager,
     InstantaneousTimeMirrorManager& decreaseManager,

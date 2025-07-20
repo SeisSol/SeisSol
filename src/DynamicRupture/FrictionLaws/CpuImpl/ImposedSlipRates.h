@@ -19,7 +19,7 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   public:
   using BaseFrictionLaw<ImposedSlipRates>::BaseFrictionLaw;
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData, real fullUpdateTime) {
+  void copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
     imposedSlipDirection1 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>();
     imposedSlipDirection2 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>();
     stf.copyLtsTreeToLocal(layerData, fullUpdateTime);

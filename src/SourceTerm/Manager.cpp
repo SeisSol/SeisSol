@@ -28,7 +28,6 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/MemoryAllocator.h>
-#include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
@@ -156,7 +155,7 @@ void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
 
 auto mapClusterToMesh(ClusterMapping& clusterMapping,
                       const std::size_t* meshIds,
-                      seissol::initializer::LTSTree* ltsTree,
+                      LTS::Tree* ltsTree,
                       seissol::initializer::Lut* ltsLut,
                       seissol::initializer::AllocationPlace place) {
   unsigned clusterSource = 0;
@@ -187,7 +186,7 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
 
 auto mapPointSourcesToClusters(const std::size_t* meshIds,
                                unsigned numberOfSources,
-                               seissol::initializer::LTSTree* ltsTree,
+                               LTS::Tree* ltsTree,
                                seissol::initializer::Lut* ltsLut,
                                seissol::memory::Memkind memkind)
     -> std::unordered_map<LayerType, std::vector<ClusterMapping>> {
@@ -254,7 +253,7 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
 auto makePointSourceCluster(const ClusterMapping& mapping,
                             const PointSources& sources,
                             const std::size_t* meshIds,
-                            seissol::initializer::LTSTree* ltsTree,
+                            LTS::Tree* ltsTree,
                             seissol::initializer::Lut* ltsLut)
     -> seissol::kernels::PointSourceClusterPair {
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
@@ -293,7 +292,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
 
 auto loadSourcesFromFSRM(const char* fileName,
                          const seissol::geometry::MeshReader& mesh,
-                         seissol::initializer::LTSTree* ltsTree,
+                         LTS::Tree* ltsTree,
                          seissol::initializer::Lut* ltsLut,
                          seissol::memory::Memkind memkind)
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
@@ -403,7 +402,7 @@ auto loadSourcesFromFSRM(const char* fileName,
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 auto loadSourcesFromNRF(const char* fileName,
                         const seissol::geometry::MeshReader& mesh,
-                        seissol::initializer::LTSTree* ltsTree,
+                        LTS::Tree* ltsTree,
                         seissol::initializer::Lut* ltsLut,
                         seissol::memory::Memkind memkind)
     -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
@@ -516,7 +515,7 @@ namespace seissol::sourceterm {
 void Manager::loadSources(seissol::initializer::parameters::PointSourceType sourceType,
                           const char* fileName,
                           const seissol::geometry::MeshReader& mesh,
-                          seissol::initializer::LTSTree* ltsTree,
+                          LTS::Tree* ltsTree,
                           seissol::initializer::Lut* ltsLut,
                           time_stepping::TimeManager& timeManager) {
 #ifdef ACL_DEVICE

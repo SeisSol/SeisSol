@@ -24,7 +24,6 @@
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
@@ -116,7 +115,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
                          const GlobalData& globalData,
                          const seissol::geometry::MeshReader& meshReader,
                          seissol::initializer::MemoryManager& memoryManager,
-                         LTSTree& tree) {
+                         LTS::Tree& tree) {
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
@@ -253,7 +252,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const GlobalData& globalData,
                              const seissol::geometry::MeshReader& meshReader,
                              seissol::initializer::MemoryManager& memoryManager,
-                             LTSTree& tree,
+                             LTS::Tree& tree,
                              bool needsTime) {
   const auto& elements = meshReader.getElements();
 

@@ -25,20 +25,20 @@ class EasiBoundary;
  * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
  **/
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
-                                 LTSTree* ltsTree,
+                                 LTS::Tree* ltsTree,
                                  Lut* ltsLut,
                                  const ClusterLayout& clusterLayout,
                                  const parameters::ModelParameters& modelParameters);
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 const EasiBoundary* easiBoundary,
-                                LTSTree* ltsTree,
+                                LTS::Tree* ltsTree,
                                 Lut* ltsLut);
 
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
-                                      LTSTree* ltsTree,
+                                      LTS::Tree* ltsTree,
                                       Lut* ltsLut,
-                                      LTSTree* dynRupTree,
+                                      DynamicRupture::Tree* dynRupTree,
                                       unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
                                       double etaHack);

@@ -93,7 +93,13 @@ struct DynamicRupture {
   struct IdofsPlusOnDevice : public initializer::Scratchpad<real> {};
   struct IdofsMinusOnDevice : public initializer::Scratchpad<real> {};
 
-  virtual void addTo(initializer::LTSTree& tree) {
+  struct DynrupVarmap : public initializer::GenericVarmap {};
+
+  using Tree = initializer::LTSTree<DynrupVarmap>;
+  using Layer = initializer::Layer<DynrupVarmap>;
+  using Ref = initializer::Layer<DynrupVarmap>::CellRef;
+
+  virtual void addTo(Tree& tree) {
     using namespace seissol::initializer;
     const auto mask = LayerMask(Ghost);
     tree.add<TimeDerivativePlus>(mask, Alignment, AllocationMode::HostOnly, true);
@@ -141,7 +147,7 @@ struct DynamicRupture {
   }
 
   virtual void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                           initializer::LTSTree* tree) const {
+                                           Tree* tree) const {
     manager.registerData<InitialStressInFaultCS>("initialStressInFaultCS", tree);
     manager.registerData<InitialPressure>("initialPressure", tree);
     manager.registerData<Mu>("mu", tree);
@@ -169,7 +175,7 @@ struct LTSLinearSlipWeakening : public DynamicRupture {
   explicit LTSLinearSlipWeakening(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
 
-  void addTo(initializer::LTSTree& tree) override {
+  void addTo(Tree& tree) override {
     DynamicRupture::addTo(tree);
     const auto mask = initializer::LayerMask(Ghost);
     tree.add<DC>(mask, Alignment, allocationModeDR(), true);
@@ -186,14 +192,14 @@ struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
   explicit LTSLinearSlipWeakeningBimaterial(const initializer::parameters::DRParameters* parameters)
       : LTSLinearSlipWeakening(parameters) {}
 
-  void addTo(initializer::LTSTree& tree) override {
+  void addTo(Tree& tree) override {
     LTSLinearSlipWeakening::addTo(tree);
     const auto mask = initializer::LayerMask(Ghost);
     tree.add<RegularizedStrength>(mask, Alignment, allocationModeDR());
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   initializer::LTSTree* tree) const override {
+                                   Tree* tree) const override {
     LTSLinearSlipWeakening::registerCheckpointVariables(manager, tree);
     manager.registerData<RegularizedStrength>("regularizedStrength", tree);
   }
@@ -207,7 +213,7 @@ struct LTSRateAndState : public DynamicRupture {
   explicit LTSRateAndState(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
 
-  void addTo(initializer::LTSTree& tree) override {
+  void addTo(Tree& tree) override {
     DynamicRupture::addTo(tree);
     const auto mask = initializer::LayerMask(Ghost);
     tree.add<RsA>(mask, Alignment, allocationModeDR(), true);
@@ -216,7 +222,7 @@ struct LTSRateAndState : public DynamicRupture {
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   initializer::LTSTree* tree) const override {
+                                   Tree* tree) const override {
     DynamicRupture::registerCheckpointVariables(manager, tree);
     manager.registerData<StateVariable>("stateVariable", tree);
   }
@@ -229,7 +235,7 @@ struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
       const initializer::parameters::DRParameters* parameters)
       : LTSRateAndState(parameters) {}
 
-  void addTo(initializer::LTSTree& tree) override {
+  void addTo(Tree& tree) override {
     LTSRateAndState::addTo(tree);
     const auto mask = initializer::LayerMask(Ghost);
     tree.add<RsSrW>(mask, Alignment, allocationModeDR(), true);
@@ -246,7 +252,7 @@ struct LTSThermalPressurization {
   struct HalfWidthShearZone : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct HydraulicDiffusivity : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
 
-  void addTo(initializer::LTSTree& tree) {
+  void addTo(DynamicRupture::Tree& tree) {
     const auto mask = initializer::LayerMask(Ghost);
     tree.add<Temperature>(mask, Alignment, allocationModeDR());
     tree.add<Pressure>(mask, Alignment, allocationModeDR());
@@ -257,7 +263,7 @@ struct LTSThermalPressurization {
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   initializer::LTSTree* tree) const {
+                                   DynamicRupture::Tree* tree) const {
     manager.registerData<Temperature>("temperature", tree);
     manager.registerData<Pressure>("pressure", tree);
     manager.registerData<Theta>("theta", tree);
@@ -271,13 +277,13 @@ struct LTSRateAndStateThermalPressurization : public LTSRateAndState,
       const initializer::parameters::DRParameters* parameters)
       : LTSRateAndState(parameters) {}
 
-  void addTo(initializer::LTSTree& tree) override {
+  void addTo(Tree& tree) override {
     LTSRateAndState::addTo(tree);
     LTSThermalPressurization::addTo(tree);
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   initializer::LTSTree* tree) const override {
+                                   Tree* tree) const override {
     LTSRateAndState::registerCheckpointVariables(manager, tree);
     LTSThermalPressurization::registerCheckpointVariables(manager, tree);
   }
@@ -290,13 +296,13 @@ struct LTSRateAndStateThermalPressurizationFastVelocityWeakening
       const initializer::parameters::DRParameters* parameters)
       : LTSRateAndStateFastVelocityWeakening(parameters) {}
 
-  void addTo(initializer::LTSTree& tree) override {
+  void addTo(Tree& tree) override {
     LTSRateAndStateFastVelocityWeakening::addTo(tree);
     LTSThermalPressurization::addTo(tree);
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   initializer::LTSTree* tree) const override {
+                                   Tree* tree) const override {
     LTSRateAndStateFastVelocityWeakening::registerCheckpointVariables(manager, tree);
     LTSThermalPressurization::registerCheckpointVariables(manager, tree);
   }
@@ -310,7 +316,7 @@ struct LTSImposedSlipRates : public DynamicRupture {
   explicit LTSImposedSlipRates(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
 
-  void addTo(initializer::LTSTree& tree) override {
+  void addTo(Tree& tree) override {
     DynamicRupture::addTo(tree);
     const auto mask = initializer::LayerMask(Ghost);
     tree.add<ImposedSlipDirection1>(mask, Alignment, allocationModeDR(), true);
@@ -326,7 +332,7 @@ struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
   explicit LTSImposedSlipRatesYoffe(const initializer::parameters::DRParameters* parameters)
       : LTSImposedSlipRates(parameters) {}
 
-  void addTo(initializer::LTSTree& tree) override {
+  void addTo(Tree& tree) override {
     LTSImposedSlipRates::addTo(tree);
     const auto mask = initializer::LayerMask(Ghost);
     tree.add<TauS>(mask, Alignment, allocationModeDR(), true);
@@ -340,7 +346,7 @@ struct LTSImposedSlipRatesGaussian : public LTSImposedSlipRates {
   explicit LTSImposedSlipRatesGaussian(const initializer::parameters::DRParameters* parameters)
       : LTSImposedSlipRates(parameters) {}
 
-  void addTo(initializer::LTSTree& tree) override {
+  void addTo(Tree& tree) override {
     LTSImposedSlipRates::addTo(tree);
     const auto mask = initializer::LayerMask(Ghost);
     tree.add<RiseTime>(mask, Alignment, allocationModeDR(), true);

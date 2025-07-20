@@ -16,7 +16,6 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Memory/Tree/Lut.h"
 #include "Numerical/BasisFunction.h"
@@ -37,9 +36,9 @@
 using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
-void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
+void ReceiverOutput::setLtsData(LTS::Tree* userWpTree,
                                 seissol::initializer::Lut* userWpLut,
-                                seissol::initializer::LTSTree* userDrTree) {
+                                DynamicRupture::Tree* userDrTree) {
   wpTree = userWpTree;
   wpLut = userWpLut;
   drTree = userDrTree;

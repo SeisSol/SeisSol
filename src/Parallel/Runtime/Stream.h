@@ -138,9 +138,7 @@ class StreamRuntime {
   }
 
   template <typename F>
-  void runGraph(seissol::initializer::GraphKey computeGraphKey,
-                seissol::initializer::Layer& layer,
-                F&& handler) {
+  void runGraph(seissol::initializer::GraphKey computeGraphKey, LTS::Layer& layer, F&& handler) {
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
     bool needsUpdate = !computeGraphHandle.isInitialized();

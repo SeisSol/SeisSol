@@ -31,9 +31,9 @@ class ReceiverBasedOutputBuilder {
   virtual void build(std::shared_ptr<ReceiverOutputData> outputData) = 0;
 
   void setMeshReader(const seissol::geometry::MeshReader* reader);
-  void setLtsData(seissol::initializer::LTSTree* userWpTree,
+  void setLtsData(LTS::Tree* userWpTree,
                   seissol::initializer::Lut* userWpLut,
-                  seissol::initializer::LTSTree* userDrTree);
+                  DynamicRupture::Tree* userDrTree);
 
   void setVariableList(const std::vector<std::size_t>& variables);
   void setFaceToLtsMap(std::vector<std::size_t>* faceToLtsMap);
@@ -51,9 +51,9 @@ class ReceiverBasedOutputBuilder {
   void assignFusedIndices();
 
   const seissol::geometry::MeshReader* meshReader{};
-  seissol::initializer::LTSTree* wpTree;
+  LTS::Tree* wpTree;
   seissol::initializer::Lut* wpLut;
-  seissol::initializer::LTSTree* drTree;
+  DynamicRupture::Tree* drTree;
   std::shared_ptr<ReceiverOutputData> outputData;
   std::vector<std::size_t> variables;
   std::vector<std::size_t>* faceToLtsMap{nullptr};

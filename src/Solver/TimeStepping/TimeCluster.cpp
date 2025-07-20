@@ -60,9 +60,9 @@ seissol::time_stepping::TimeCluster::TimeCluster(
     bool printProgress,
     DynamicRuptureScheduler* dynamicRuptureScheduler,
     CompoundGlobalData globalData,
-    seissol::initializer::Layer* clusterData,
-    seissol::initializer::Layer* dynRupInteriorData,
-    seissol::initializer::Layer* dynRupCopyData,
+    LTS::Layer* clusterData,
+    DynamicRupture::Layer* dynRupInteriorData,
+    DynamicRupture::Layer* dynRupCopyData,
     seissol::dr::friction_law::FrictionSolver* frictionSolver,
     seissol::dr::friction_law::FrictionSolver* frictionSolverDevice,
     dr::output::OutputManager* faultOutputManager,
@@ -165,8 +165,7 @@ void seissol::time_stepping::TimeCluster::computeSources() {
 #endif
 }
 
-void seissol::time_stepping::TimeCluster::computeDynamicRupture(
-    seissol::initializer::Layer& layerData) {
+void seissol::time_stepping::TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
   if (layerData.size() == 0) {
     return;
   }
@@ -229,7 +228,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRupture(
 
 #ifdef ACL_DEVICE
 void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice(
-    seissol::initializer::Layer& layerData) {
+    DynamicRupture::Layer& layerData) {
   SCOREP_USER_REGION("computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   loopStatistics->begin(regionComputeDynamicRupture);
@@ -278,7 +277,7 @@ void seissol::time_stepping::TimeCluster::computeDynamicRuptureDevice(
 #endif
 
 void seissol::time_stepping::TimeCluster::computeDynamicRuptureFlops(
-    seissol::initializer::Layer& layerData, long long& nonZeroFlops, long long& hardwareFlops) {
+    DynamicRupture::Layer& layerData, long long& nonZeroFlops, long long& hardwareFlops) {
   nonZeroFlops = 0;
   hardwareFlops = 0;
 
@@ -661,7 +660,7 @@ void TimeCluster::predict() {
 #endif
 }
 
-void TimeCluster::handleDynamicRupture(initializer::Layer& layerData) {
+void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
 #ifdef ACL_DEVICE
   if (executor == Executor::Device) {
     computeDynamicRuptureDevice(layerData);

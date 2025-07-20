@@ -22,7 +22,7 @@ class NeighborKernel : public Kernel {
   public:
   ~NeighborKernel() override = default;
 
-  virtual void computeNeighborsIntegral(seissol::initializer::Layer::CellRef& data,
+  virtual void computeNeighborsIntegral(LTS::Ref& data,
                                         const CellDRMapping (&cellDrMapping)[4],
                                         real* timeIntegrated[4],
                                         real* faceNeighborsPrefetch[4]) = 0;

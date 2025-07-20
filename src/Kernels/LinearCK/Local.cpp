@@ -76,8 +76,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 }
 
 struct ApplyAnalyticalSolution {
-  ApplyAnalyticalSolution(seissol::physics::InitialField* initCondition,
-                          seissol::initializer::Layer::CellRef& data)
+  ApplyAnalyticalSolution(seissol::physics::InitialField* initCondition, LTS::Ref& data)
       : initCondition(initCondition), localData(data) {}
 
   void operator()(const real* nodes, double time, seissol::init::INodal::view::type& boundaryDofs) {
@@ -102,11 +101,11 @@ struct ApplyAnalyticalSolution {
 
   private:
   seissol::physics::InitialField* initCondition{};
-  seissol::initializer::Layer::CellRef& localData;
+  LTS::Ref& localData;
 };
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                            seissol::initializer::Layer::CellRef& data,
+                            LTS::Ref& data,
                             LocalTmp& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                             const CellMaterialData* materialData,
@@ -348,7 +347,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 
 void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
                                            ConditionalIndicesTable& indicesTable,
-                                           seissol::initializer::Layer& layer,
+                                           LTS::Layer& layer,
                                            double time,
                                            double timeStepWidth,
                                            seissol::parallel::runtime::StreamRuntime& runtime) {

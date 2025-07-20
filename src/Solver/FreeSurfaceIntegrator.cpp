@@ -36,7 +36,7 @@
 #include <utils/logger.h>
 #include <vector>
 
-void seissol::SurfaceLTS::addTo(seissol::initializer::LTSTree& surfaceLtsTree) {
+void seissol::SurfaceLTS::addTo(initializer::LTSTree<>& surfaceLtsTree) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
   surfaceLtsTree.add<Dofs>(ghostMask, 1, initializer::AllocationMode::HostOnly);
   surfaceLtsTree.add<DisplacementDofs>(ghostMask, 1, initializer::AllocationMode::HostOnly);
@@ -70,7 +70,7 @@ seissol::solver::FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
 
 void seissol::solver::FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
                                                         GlobalData* globalData,
-                                                        seissol::initializer::LTSTree* ltsTree) {
+                                                        LTS::Tree* ltsTree) {
   if (maxRefinementDepth > MaxRefinement) {
     logError()
         << "Free surface integrator: Currently more than 3 levels of refinements are unsupported."
@@ -275,8 +275,7 @@ seissol::solver::FreeSurfaceIntegrator::LocationFlag
   }
 }
 
-void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(
-    seissol::initializer::LTSTree* ltsTree) {
+void seissol::solver::FreeSurfaceIntegrator::initializeSurfaceLTSTree(LTS::Tree* ltsTree) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
 
   surfaceLtsTree.setLayerCount(ltsTree->numTimeClusters(), ltsTree->getConfigs());

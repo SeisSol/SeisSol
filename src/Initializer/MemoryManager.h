@@ -102,12 +102,12 @@ class MemoryManager {
     GlobalData            m_globalDataOnDevice;
 
     //! Memory organization tree
-    LTSTree               m_ltsTree;
+    LTS::Tree               m_ltsTree;
     Lut                   m_ltsLut;
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
-    LTSTree m_dynRupTree;
+    DynamicRupture::Tree m_dynRupTree;
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
     std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
@@ -115,7 +115,7 @@ class MemoryManager {
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
     std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
-    LTSTree m_boundaryTree;
+    Boundary::Tree m_boundaryTree;
 
     EasiBoundary m_easiBoundary;
 
@@ -133,7 +133,7 @@ class MemoryManager {
      * Initializes the face neighbor pointers of the internal state.
      **/
     void initializeFaceNeighbors( unsigned    cluster,
-                                  Layer& layer);
+                                  LTS::Layer& layer);
 
     /**
      * Initializes the pointers of the internal state.
@@ -238,7 +238,7 @@ class MemoryManager {
     std::pair<MeshStructure*, CompoundGlobalData>
     getMemoryLayout(unsigned int i_cluster);
                           
-    inline LTSTree* getLtsTree() {
+    inline LTS::Tree* getLtsTree() {
       return &m_ltsTree;
     }
 
@@ -251,7 +251,7 @@ class MemoryManager {
       return m_ltsLut;
     }
 
-    inline LTSTree* getDynamicRuptureTree() {
+    inline DynamicRupture::Tree* getDynamicRuptureTree() {
       return &m_dynRupTree;
     }
 
@@ -259,7 +259,7 @@ class MemoryManager {
       return m_dynRup.get();
     }
 
-    inline LTSTree* getBoundaryTree() {
+    inline Boundary::Tree* getBoundaryTree() {
       return &m_boundaryTree;
     }
 

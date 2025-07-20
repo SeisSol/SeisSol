@@ -87,7 +87,7 @@ class BaseDRInitializer {
    * @param dynRupTree pointer to the dynamic rupture lts tree
    * not need to store values in the Fortran parts
    */
-  virtual void initializeFault(seissol::initializer::LTSTree* dynRupTree);
+  virtual void initializeFault(DynamicRupture::Tree* dynRupTree);
 
   protected:
   /**
@@ -100,7 +100,7 @@ class BaseDRInitializer {
    */
   virtual void
       addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                              seissol::initializer::Layer& layer);
+                              DynamicRupture::Layer& layer);
 
   /**
    * Finds all faceIDs in one iterator. This is the mapping idInLTSTree -> idInMesh
@@ -108,7 +108,7 @@ class BaseDRInitializer {
    * @param it reference to an LTSTree leaf_iterator
    * @return vector containing all faceIDs which are stored in the leaf_iterator
    */
-  static std::vector<unsigned> getFaceIDsInIterator(seissol::initializer::Layer& layer);
+  static std::vector<unsigned> getFaceIDsInIterator(DynamicRupture::Layer& layer);
 
   /**
    * Initialize all other variables:
@@ -125,7 +125,7 @@ class BaseDRInitializer {
    * @param dynRup pointer to the respective dynamic rupture datastructure
    * @param it reference to an LTSTree leaf_iterator
    */
-  static void initializeOtherVariables(seissol::initializer::Layer& layer);
+  static void initializeOtherVariables(DynamicRupture::Layer& layer);
 
   /**
    * Reads the parameters from the easi file
@@ -152,7 +152,7 @@ class BaseDRInitializer {
    * IN: stores traction in fault strike/dip coordinate system OUT: stores the the stress in
    * cartesian coordinates
    */
-  void rotateTractionToCartesianStress(seissol::initializer::Layer& layer, StressTensor& stress);
+  void rotateTractionToCartesianStress(DynamicRupture::Layer& layer, StressTensor& stress);
 
   /**
    * Rotates the stress tensor to a fault aligned coordinate system and stores it in stressInFaultCS
@@ -162,7 +162,7 @@ class BaseDRInitializer {
    * stress
    * @param stress reference to a StressTensor, stores the stress in cartesian coordinates
    */
-  void rotateStressToFaultCS(seissol::initializer::Layer& layer,
+  void rotateStressToFaultCS(DynamicRupture::Layer& layer,
                              real (*stressInFaultCS)[6][misc::NumPaddedPoints],
                              std::size_t index,
                              std::size_t count,

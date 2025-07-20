@@ -29,7 +29,13 @@ inline auto allocationModeBoundary() {
 struct Boundary {
   struct FaceInformation : public initializer::Variable<BoundaryFaceInformation> {};
 
-  static void addTo(initializer::LTSTree& tree) {
+  struct BoundaryVarmap : public initializer::SpecificVarmap<FaceInformation> {};
+
+  using Tree = initializer::LTSTree<BoundaryVarmap>;
+  using Layer = initializer::Layer<BoundaryVarmap>;
+  using Ref = initializer::Layer<BoundaryVarmap>::CellRef;
+
+  static void addTo(Tree& tree) {
     const auto mask = initializer::LayerMask(Ghost);
     tree.add<FaceInformation>(mask, 1, allocationModeBoundary());
   }

@@ -7,7 +7,7 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "Lut.h"
-#include <Memory/Tree/LTSTree.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <cassert>
 #include <cstring>
@@ -16,7 +16,7 @@
 #include <vector>
 
 void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
-                                                       LTSTree* ltsTree,
+                                                       LTS::Tree* ltsTree,
                                                        const std::size_t* globalLtsToMesh,
                                                        std::size_t numberOfMeshIds) {
   const std::size_t numberOfLtsIds = ltsTree->size(mask);
@@ -70,7 +70,7 @@ void seissol::initializer::Lut::LutsForMask::createLut(LayerMask mask,
 
 seissol::initializer::Lut::Lut() = default;
 
-void seissol::initializer::Lut::createLuts(LTSTree* ltsTree,
+void seissol::initializer::Lut::createLuts(LTS::Tree* ltsTree,
                                            std::size_t* ltsToMesh,
                                            std::size_t numberOfMeshIds) {
   const std::size_t numberOfCells = ltsTree->size();

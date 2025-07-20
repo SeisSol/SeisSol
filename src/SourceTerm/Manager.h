@@ -24,7 +24,7 @@ class Manager {
   static void loadSources(seissol::initializer::parameters::PointSourceType sourceType,
                           const char* fileName,
                           const seissol::geometry::MeshReader& mesh,
-                          seissol::initializer::LTSTree* ltsTree,
+                          LTS::Tree* ltsTree,
                           seissol::initializer::Lut* ltsLut,
                           time_stepping::TimeManager& timeManager);
 };

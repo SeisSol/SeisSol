@@ -23,13 +23,13 @@ class RateAndStateInitializer : public BaseDRInitializer {
   /**
    * Computes initial friction and slip rates
    */
-  void initializeFault(seissol::initializer::LTSTree* dynRupTree) override;
+  void initializeFault(DynamicRupture::Tree* dynRupTree) override;
 
   protected: /**
               * Adds the additional parameters sl0, rs_a
               */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               seissol::initializer::Layer& layer) override;
+                               DynamicRupture::Layer& layer) override;
 
   struct StateAndFriction {
     double stateVariable;
@@ -78,7 +78,7 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
    * Adds the additional parameters rs_srW
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               seissol::initializer::Layer& layer) override;
+                               DynamicRupture::Layer& layer) override;
 
   /**
   \f[ \mathbf{\tau} = \sqrt{\tau_{XY}^2 + \tau_{XZ}^2}; \f]
@@ -119,14 +119,14 @@ class ThermalPressurizationInitializer {
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(seissol::initializer::LTSTree* dynRupTree);
+  void initializeFault(DynamicRupture::Tree* dynRupTree);
 
   protected:
   /**
    * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               seissol::initializer::Layer& layer);
+                               DynamicRupture::Layer& layer);
 
   private:
   std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters;
@@ -146,14 +146,14 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateInitiali
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(seissol::initializer::LTSTree* dynRupTree) override;
+  void initializeFault(DynamicRupture::Tree* dynRupTree) override;
 
   protected:
   /**
    * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               seissol::initializer::Layer& layer) override;
+                               DynamicRupture::Layer& layer) override;
 };
 
 /**
@@ -171,14 +171,14 @@ class RateAndStateFastVelocityThermalPressurizationInitializer
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(seissol::initializer::LTSTree* dynRupTree) override;
+  void initializeFault(DynamicRupture::Tree* dynRupTree) override;
 
   protected:
   /**
    * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               seissol::initializer::Layer& layer) override;
+                               DynamicRupture::Layer& layer) override;
 };
 
 } // namespace seissol::dr::initializer

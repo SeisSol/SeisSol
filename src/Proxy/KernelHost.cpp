@@ -254,7 +254,7 @@ auto ProxyKernelHostNeighborDR::needsDR() const -> bool { return true; }
 
 void ProxyKernelHostGodunovDR::run(ProxyData& data,
                                    seissol::parallel::runtime::StreamRuntime& runtime) const {
-  seissol::initializer::Layer& layerData = data.dynRupTree.layer(data.layerId);
+  auto& layerData = data.dynRupTree.layer(data.layerId);
   DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
   DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
   DREnergyOutput* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
@@ -286,7 +286,7 @@ auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> Per
   ret.hardwareFlop = 0.0;
 
   // iterate over cells
-  seissol::initializer::Layer& interior = data.dynRupTree.layer(data.layerId);
+  auto& interior = data.dynRupTree.layer(data.layerId);
   DRFaceInformation* faceInformation = interior.var<DynamicRupture::FaceInformation>();
   for (unsigned face = 0; face < interior.size(); ++face) {
     long long drNonZeroFlops = 0;

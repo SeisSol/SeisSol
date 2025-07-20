@@ -19,7 +19,7 @@ class NoFault : public BaseFrictionSolver<NoFault> {
       : BaseFrictionSolver<NoFault>(drParameters) {}
 
   static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                             seissol::initializer::Layer& layerData,
+                                             DynamicRupture::Layer& layerData,
                                              real fullUpdateTime) {}
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, unsigned timeIndex) {

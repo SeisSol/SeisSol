@@ -11,7 +11,6 @@
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
@@ -22,7 +21,7 @@
 #include <utils/logger.h>
 
 namespace seissol::dr::initializer {
-void RateAndStateInitializer::initializeFault(seissol::initializer::LTSTree* const dynRupTree) {
+void RateAndStateInitializer::initializeFault(DynamicRupture::Tree* const dynRupTree) {
   BaseDRInitializer::initializeFault(dynRupTree);
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
@@ -93,8 +92,7 @@ RateAndStateInitializer::StateAndFriction
 }
 
 void RateAndStateInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializer::Layer& layer) {
+    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   real(*rsSl0)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::RsSl0>();
   real(*rsA)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::RsA>();
   parameterToStorageMap.insert({"rs_sl0", reinterpret_cast<real*>(rsSl0)});
@@ -127,8 +125,7 @@ RateAndStateInitializer::StateAndFriction
 }
 
 void RateAndStateFastVelocityInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializer::Layer& layer) {
+    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   RateAndStateInitializer::addAdditionalParameters(parameterToStorageMap, layer);
   real(*rsSrW)[misc::NumPaddedPoints] = layer.var<LTSRateAndStateFastVelocityWeakening::RsSrW>();
   parameterToStorageMap.insert({"rs_srW", reinterpret_cast<real*>(rsSrW)});
@@ -138,8 +135,7 @@ ThermalPressurizationInitializer::ThermalPressurizationInitializer(
     const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters)
     : drParameters(drParameters) {}
 
-void ThermalPressurizationInitializer::initializeFault(
-    seissol::initializer::LTSTree* const dynRupTree) {
+void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Tree* const dynRupTree) {
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     real(*temperature)[misc::NumPaddedPoints] = layer.var<LTSThermalPressurization::Temperature>();
     real(*pressure)[misc::NumPaddedPoints] = layer.var<LTSThermalPressurization::Pressure>();
@@ -161,8 +157,7 @@ void ThermalPressurizationInitializer::initializeFault(
 }
 
 void ThermalPressurizationInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializer::Layer& layer) {
+    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   real(*halfWidthShearZone)[misc::NumPaddedPoints] =
       layer.var<LTSThermalPressurization::HalfWidthShearZone>();
   real(*hydraulicDiffusivity)[misc::NumPaddedPoints] =
@@ -180,14 +175,13 @@ RateAndStateThermalPressurizationInitializer::RateAndStateThermalPressurizationI
       ThermalPressurizationInitializer(drParameters) {}
 
 void RateAndStateThermalPressurizationInitializer::initializeFault(
-    seissol::initializer::LTSTree* const dynRupTree) {
+    DynamicRupture::Tree* const dynRupTree) {
   RateAndStateInitializer::initializeFault(dynRupTree);
   ThermalPressurizationInitializer::initializeFault(dynRupTree);
 }
 
 void RateAndStateThermalPressurizationInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializer::Layer& layer) {
+    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   RateAndStateInitializer::addAdditionalParameters(parameterToStorageMap, layer);
   ThermalPressurizationInitializer::addAdditionalParameters(parameterToStorageMap, layer);
 }
@@ -200,14 +194,13 @@ RateAndStateFastVelocityThermalPressurizationInitializer::
       ThermalPressurizationInitializer(drParameters) {}
 
 void RateAndStateFastVelocityThermalPressurizationInitializer::initializeFault(
-    seissol::initializer::LTSTree* const dynRupTree) {
+    DynamicRupture::Tree* const dynRupTree) {
   RateAndStateFastVelocityInitializer::initializeFault(dynRupTree);
   ThermalPressurizationInitializer::initializeFault(dynRupTree);
 }
 
 void RateAndStateFastVelocityThermalPressurizationInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap,
-    seissol::initializer::Layer& layer) {
+    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   RateAndStateFastVelocityInitializer::addAdditionalParameters(parameterToStorageMap, layer);
   ThermalPressurizationInitializer::addAdditionalParameters(parameterToStorageMap, layer);
 }

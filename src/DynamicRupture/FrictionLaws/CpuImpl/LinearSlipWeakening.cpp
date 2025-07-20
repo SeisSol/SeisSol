@@ -9,7 +9,6 @@
 #include "DynamicRupture/Misc.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/Layer.h"
 #include <algorithm>
 #include <cmath>
 #include <init.h>
@@ -25,8 +24,7 @@ void NoSpecialization::resampleSlipRate(
   resampleKrnl.resampledQ = resampledSlipRate;
   resampleKrnl.execute();
 }
-void BiMaterialFault::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                         real fullUpdateTime) {
+void BiMaterialFault::copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
   regularizedStrength = layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
 }
 
