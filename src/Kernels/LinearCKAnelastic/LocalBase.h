@@ -43,10 +43,10 @@ class Local : public LocalKernel {
                                       seissol::parallel::runtime::StreamRuntime& runtime) override;
 
   void flopsIntegral(const FaceType faceTypes[4],
-                     unsigned int& nonZeroFlops,
-                     unsigned int& hardwareFlops) override;
+                     std::uint64_t& nonZeroFlops,
+                     std::uint64_t& hardwareFlops) override;
 
-  unsigned bytesIntegral() override;
+  std::uint64_t bytesIntegral() override;
 
   protected:
   kernel::volumeExt m_volumeKernelPrototype;

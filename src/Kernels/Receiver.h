@@ -110,8 +110,8 @@ class ReceiverCluster {
   seissol::kernels::Spacetime spacetimeKernel;
   seissol::kernels::Time timeKernel;
   std::vector<unsigned> m_quantities;
-  unsigned m_nonZeroFlops{};
-  unsigned m_hardwareFlops{};
+  std::uint64_t m_nonZeroFlops{};
+  std::uint64_t m_hardwareFlops{};
   double m_samplingInterval;
   double m_syncPointInterval;
   std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities;

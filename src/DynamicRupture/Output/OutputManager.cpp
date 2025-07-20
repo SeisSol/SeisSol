@@ -350,7 +350,6 @@ void OutputManager::initPickpointOutput() {
 
   for (size_t i = 0; i < ppFiles.size(); ++i) {
     const auto& receiver = outputData->receiverPoints[i];
-    const size_t globalIndex = receiver.globalReceiverIndex + 1;
 
     const auto& ppfile = ppFiles[i];
 
@@ -495,7 +494,6 @@ void OutputManager::writePickpointOutput(double time, double dt) {
 
 void OutputManager::flushPickpointDataToFile() {
   auto& outputData = ppOutputData;
-  const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
   for (const auto& ppfile : ppFiles) {
     std::stringstream data;

@@ -24,11 +24,11 @@ namespace seissol::kernels::solver::linearckanelastic {
 void Local::setGlobalData(const CompoundGlobalData& global) {
 
 #ifndef NDEBUG
-  for (unsigned stiffness = 0; stiffness < 3; ++stiffness) {
+  for (std::size_t stiffness = 0; stiffness < Cell::Dim; ++stiffness) {
     assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatrices(stiffness))) % Alignment ==
            0);
   }
-  for (unsigned flux = 0; flux < 4; ++flux) {
+  for (std::size_t flux = 0; flux < Cell::NumFaces; ++flux) {
     assert(
         (reinterpret_cast<uintptr_t>(global.onHost->localChangeOfBasisMatricesTransposed(flux))) %
             Alignment ==
@@ -89,7 +89,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 
   volKrnl.execute();
 
-  for (unsigned int face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
     if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
       lfKrnl.AplusT = data.get<LTS::LocalIntegration>().nApNm1[face];
@@ -110,12 +110,12 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 }
 
 void Local::flopsIntegral(const FaceType faceTypes[4],
-                          unsigned int& nonZeroFlops,
-                          unsigned int& hardwareFlops) {
+                          std::uint64_t& nonZeroFlops,
+                          std::uint64_t& hardwareFlops) {
   nonZeroFlops = seissol::kernel::volumeExt::NonZeroFlops;
   hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
 
-  for (unsigned int face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     if (faceTypes[face] != FaceType::DynamicRupture) {
       nonZeroFlops += seissol::kernel::localFluxExt::nonZeroFlops(face);
       hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
@@ -126,8 +126,8 @@ void Local::flopsIntegral(const FaceType faceTypes[4],
   hardwareFlops += seissol::kernel::local::HardwareFlops;
 }
 
-unsigned Local::bytesIntegral() {
-  unsigned reals = 0;
+std::uint64_t Local::bytesIntegral() {
+  std::uint64_t reals = 0;
 
   // star matrices load
   reals += yateto::computeFamilySize<tensor::star>() + tensor::w::size() + tensor::W::size() +
@@ -172,7 +172,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
   }
 
   // Local Flux Integral
-  for (unsigned face = 0; face < 4; ++face) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
 
     if (dataTable.find(key) != dataTable.end()) {

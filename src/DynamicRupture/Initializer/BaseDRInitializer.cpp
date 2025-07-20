@@ -97,7 +97,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Tree* const dynRupTree) 
     std::vector<bool> nucleationStressParameterizedByTraction(drParameters->nucleationCount);
     std::vector<StressTensor> nucleationStresses;
     nucleationStresses.reserve(drParameters->nucleationCount);
-    for (int i = 0; i < drParameters->nucleationCount; ++i) {
+    for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
       nucleationStresses.emplace_back(layer.size());
       nucleationStressParameterizedByTraction[i] =
           addStressesToStorageMap(nucleationStresses[i], i + 1);
@@ -124,7 +124,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Tree* const dynRupTree) 
     auto* initialStressInFaultCS = layer.var<DynamicRupture::InitialStressInFaultCS>();
     rotateStressToFaultCS(layer, initialStressInFaultCS, 0, 1, initialStress);
     // rotate nucleation stress to fault coordinate system
-    for (int i = 0; i < drParameters->nucleationCount; ++i) {
+    for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
       if (nucleationStressParameterizedByTraction[i]) {
         rotateTractionToCartesianStress(layer, nucleationStresses[i]);
       }
@@ -140,7 +140,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Tree* const dynRupTree) 
     for (unsigned int ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       for (unsigned int pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         initialPressure[ltsFace][pointIndex] = initialStress.p[ltsFace][pointIndex];
-        for (int i = 0; i < drParameters->nucleationCount; ++i) {
+        for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
           auto* nucleationPressure = layer.var<DynamicRupture::NucleationPressure>();
           nucleationPressure[ltsFace * drParameters->nucleationCount + i][pointIndex] =
               nucleationStresses[i].p[ltsFace][pointIndex];

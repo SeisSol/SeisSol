@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Recorders.h"
+#include <Common/Constants.h>
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
 #include <Initializer/Typedefs.h>
@@ -44,7 +45,7 @@ void DynamicRuptureRecorder::recordDofsTimeEvaluation() {
     std::vector<real*> idofsMinusPtrs(size, nullptr);
 
     const size_t idofsSize = tensor::Q::size();
-    for (unsigned faceId = 0; faceId < size; ++faceId) {
+    for (std::size_t faceId = 0; faceId < size; ++faceId) {
       timeDerivativePlusPtrs[faceId] = timeDerivativePlus[faceId];
       timeDerivativeMinusPtrs[faceId] = timeDerivativeMinus[faceId];
       idofsPlusPtrs[faceId] = &idofsPlus[faceId * idofsSize];
@@ -87,7 +88,7 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     std::array<std::vector<real*>[*FaceId::Count], *FaceId::Count> tInvTMinusPtr {};
 
     const size_t idofsSize = tensor::Q::size();
-    for (unsigned faceId = 0; faceId < size; ++faceId) {
+    for (std::size_t faceId = 0; faceId < size; ++faceId) {
       const auto plusSide = faceInfo[faceId].plusSide;
       qInterpolatedPlusPtr[plusSide].push_back(&qInterpolatedPlus[faceId][0][0]);
       idofsPlusPtr[plusSide].push_back(&idofsPlus[faceId * idofsSize]);
@@ -100,7 +101,7 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
       tInvTMinusPtr[minusSide][faceRelation].push_back((&godunovData[faceId])->dataTinvT);
     }
 
-    for (unsigned side = 0; side < 4; ++side) {
+    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
       if (!qInterpolatedPlusPtr[side].empty()) {
         const ConditionalKey key(*KernelNames::DrSpaceMap, side);
         (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedPlus,
@@ -108,7 +109,7 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
         (*currentDrTable)[key].set(inner_keys::Dr::Id::IdofsPlus, idofsPlusPtr[side]);
         (*currentDrTable)[key].set(inner_keys::Dr::Id::TinvT, tInvTPlusPtr[side]);
       }
-      for (unsigned faceRelation = 0; faceRelation < 4; ++faceRelation) {
+      for (std::size_t faceRelation = 0; faceRelation < Cell::NumFaces; ++faceRelation) {
         if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
           const ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
           (*currentDrTable)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,

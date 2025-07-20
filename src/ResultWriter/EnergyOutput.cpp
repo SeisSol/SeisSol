@@ -350,7 +350,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #endif
       for (unsigned i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
-          for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
+          for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
             totalFrictionalWork +=
                 drEnergyOutput[i].frictionalEnergy[j * seissol::multisim::NumSimulations + sim];
           }
@@ -367,7 +367,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                                  waveSpeedsMinus[i].sWaveVelocity;
           const double mu = 2.0 * muPlus * muMinus / (muPlus + muMinus);
           double potencyIncrease = 0.0;
-          for (unsigned k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
+          for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
             potencyIncrease +=
                 drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim];
           }
@@ -385,10 +385,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       for (unsigned i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
           for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
-            localMin =
-                std::min(static_cast<double>(drEnergyOutput[i].timeSinceSlipRateBelowThreshold
-                                                 [j * seissol::multisim::NumSimulations + sim]),
-                         localMin);
+            localMin = std::min(
+                static_cast<double>(
+                    drEnergyOutput[i].timeSinceSlipRateBelowThreshold
+                        [static_cast<size_t>(j * seissol::multisim::NumSimulations) + sim]),
+                localMin);
           }
         }
       }
@@ -539,7 +540,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
         const auto* boundaryMappings = boundaryMappingData[cell];
         // Compute gravitational energy
-        for (int face = 0; face < 4; ++face) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           if (cellInformation.faceTypes[face] != FaceType::FreeSurfaceGravity) {
             continue;
           }

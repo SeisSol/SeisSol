@@ -27,6 +27,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <init.h>
@@ -435,7 +436,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     std::array<double, NumDegFr2d> projectedRT{};
     projectedRT.fill(0.0);
 
-    std::array<double, 2 * NumDegFr2d> phiAtPoint{};
+    std::array<double, static_cast<std::size_t>(2 * NumDegFr2d)> phiAtPoint{};
     phiAtPoint.fill(0.0);
 
     auto chiTau2dPoints =

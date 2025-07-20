@@ -9,6 +9,7 @@
 #include "Initializer/CellLocalMatrices.h"
 #include "Modules/Modules.h"
 #include "SeisSol.h"
+#include <Common/Constants.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Typedefs.h>
@@ -86,7 +87,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
         material.local.mu *= velocityScalingFactor * velocityScalingFactor;
 #endif
         material.local.lambda *= velocityScalingFactor * velocityScalingFactor;
-        for (int i = 0; i < 4; i++) {
+        for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
 #ifndef USE_ACOUSTIC
           material.neighbor[i].mu *= velocityScalingFactor * velocityScalingFactor;
 #endif
@@ -104,7 +105,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
         material.local.mu *= velocityScalingFactor;
 #endif
         material.local.rho *= velocityScalingFactor;
-        for (int i = 0; i < 4; i++) {
+        for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
           material.neighbor[i].lambda *= velocityScalingFactor;
 #ifndef USE_ACOUSTIC
           material.neighbor[i].mu *= velocityScalingFactor;
@@ -119,7 +120,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
         auto& material = materials[cell];
         // Refocusing only P-waves
         material.local.lambda *= velocityScalingFactor * velocityScalingFactor;
-        for (int i = 0; i < 4; i++) {
+        for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
           material.neighbor[i].lambda *= velocityScalingFactor * velocityScalingFactor;
         }
       }
@@ -143,7 +144,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
         material.local.mu = velocityScalingFactor * material.local.mu;
 #endif
 
-        for (int i = 0; i < 4; i++) {
+        for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
           // material.neighbor[i].lambda =
           //     -2.0 * velocityScalingFactor * material.neighbor[i].mu +
           //     (material.neighbor[i].lambda + 2.0 * material.neighbor[i].mu) /

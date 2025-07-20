@@ -200,11 +200,11 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
         if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
           // Compute global position of quadrature points.
-          const double* elementCoords[4];
-          for (unsigned v = 0; v < 4; ++v) {
+          const double* elementCoords[Cell::NumVertices];
+          for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
             elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
           }
-          for (unsigned int i = 0; i < NumQuadPoints; ++i) {
+          for (std::size_t i = 0; i < NumQuadPoints; ++i) {
             seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
                                                                    elementCoords[1],
                                                                    elementCoords[2],

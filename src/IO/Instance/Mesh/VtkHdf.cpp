@@ -28,7 +28,7 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
                            std::size_t localElementCount,
                            std::size_t dimension,
                            std::size_t targetDegree)
-    : localElementCount(localElementCount), globalElementCount(localElementCount), name(name),
+    : name(name), localElementCount(localElementCount), globalElementCount(localElementCount),
       pointsPerElement(dimension == 2
                            ? ((targetDegree + 1) * (targetDegree + 2)) / 2
                            : ((targetDegree + 1) * (targetDegree + 2) * (targetDegree + 3)) / 6),

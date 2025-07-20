@@ -119,13 +119,13 @@ void Spacetime::computeAder(double timeStepWidth,
   // Compute integrated displacement over time step if needed.
 }
 
-void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::derivative::NonZeroFlops;
   hardwareFlops = kernel::derivative::HardwareFlops;
 }
 
-unsigned Spacetime::bytesAder() {
-  unsigned reals = 0;
+std::uint64_t Spacetime::bytesAder() {
+  std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
   reals +=
@@ -215,7 +215,7 @@ void Time::computeTaylorExpansion(real time,
   intKrnl.execute();
 }
 
-void Time::flopsTaylorExpansion(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsTaylorExpansion(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   // interate over derivatives
   nonZeroFlops = kernel::derivativeTaylorExpansionEla::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansionEla::HardwareFlops;
@@ -225,7 +225,7 @@ void Time::evaluateAtTime(
     std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
     const real* timeDerivatives,
     real timeEvaluated[tensor::Q::size()]) {}
-void Time::flopsEvaluateAtTime(long long& nonZeroFlops, long long& hardwareFlops) {}
+void Time::flopsEvaluateAtTime(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {}
 
 void Time::computeBatchedIntegral(double expansionPoint,
                                   double integrationStart,

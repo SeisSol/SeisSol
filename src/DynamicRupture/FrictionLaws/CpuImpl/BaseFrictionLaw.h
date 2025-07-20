@@ -83,7 +83,7 @@ class BaseFrictionLaw : public FrictionSolver {
       real updateTime = this->mFullUpdateTime;
       for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
         updateTime += this->deltaT[timeIndex];
-        for (int i = 0; i < this->drParameters->nucleationCount; ++i) {
+        for (unsigned i = 0; i < this->drParameters->nucleationCount; ++i) {
           common::adjustInitialStress(
               initialStressInFaultCS[ltsFace],
               nucleationStressInFaultCS[ltsFace * this->drParameters->nucleationCount + i],
