@@ -212,6 +212,8 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
             order: 6
           - name: tpv5-nuc
             equation: elastic
@@ -219,6 +221,8 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
             order: 6
           - name: tpv5-visco
             equation: viscoelastic2
@@ -226,6 +230,8 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
             order: 6
           #- name: tpv5-poro
           #  equation: poroelastic
@@ -233,6 +239,8 @@ jobs:
           #  energies: false # incomplete, hence disabled
           #  receivers: true
           #  fault: true
+          #  volume: true
+          #  surface: false
           #  order: 6
           - name: tpv6
             equation: elastic
@@ -240,6 +248,8 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
             order: 6
           - name: tpv13
             equation: elastic
@@ -247,6 +257,8 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
             order: 6
           - name: tpv16
             equation: elastic
@@ -254,6 +266,8 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
             order: 6
           - name: tpv101
             equation: elastic
@@ -261,6 +275,8 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
             order: 6
           - name: tpv101-slip
             equation: elastic
@@ -268,6 +284,8 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
             order: 6
           - name: tpv104
             equation: elastic
@@ -275,6 +293,8 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
             order: 6
           - name: tpv105
             equation: elastic
@@ -282,6 +302,8 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
             order: 6
           - name: tpvahsp
             equation: anisotropic
@@ -289,6 +311,8 @@ jobs:
             energies: false
             receivers: true
             fault: false
+            volume: true
+            surface: false
             order: 6
           - name: tpvgaussian
             equation: elastic
@@ -296,6 +320,8 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
             order: 6
           - name: tpvyoffe
             equation: elastic
@@ -303,6 +329,8 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
             order: 6
           - name: tpvloh1-fused
             equation: elastic
@@ -310,6 +338,8 @@ jobs:
             energies: true
             receivers: true
             fault: false # NYI
+            volume: false
+            surface: false
             order: 3
         precision:
           - single
@@ -415,7 +445,23 @@ jobs:
           EPSILON=0.05
 
           cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-faults.py ./output/${FAULT_FILE} ./precomputed/${{matrix.precision}}/${FAULT_FILE} --epsilon ${EPSILON}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${FAULT_FILE} ./precomputed/${{matrix.precision}}/${FAULT_FILE} --epsilon ${EPSILON}
+      - name: check-volume
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.volume }}
+        run: |
+          VOLUME_FILE=tpv.xdmf
+          EPSILON=0.05
+
+          cd precomputed/${{matrix.case.name}}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${VOLUME_FILE} ./precomputed/${{matrix.precision}}/${VOLUME_FILE} --epsilon ${EPSILON}
+      - name: check-surface
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.surface }}
+        run: |
+          SURFACE_FILE=tpv-surface.xdmf
+          EPSILON=0.05
+
+          cd precomputed/${{matrix.case.name}}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${SURFACE_FILE} ./precomputed/${{matrix.precision}}/${SURFACE_FILE} --epsilon ${EPSILON}
       - name: check-receivers
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.receivers }}
         run: |
