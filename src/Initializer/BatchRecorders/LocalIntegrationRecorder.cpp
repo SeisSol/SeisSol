@@ -28,7 +28,7 @@ using namespace device;
 using namespace seissol::initializer;
 using namespace seissol::initializer::recording;
 
-void LocalIntegrationRecorder::record(Layer& layer) {
+void LocalIntegrationRecorder::record(LTS::Layer& layer) {
   setUpContext(layer);
   idofsAddressRegistry.clear();
 
@@ -428,7 +428,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
   }
 }
 
-void LocalIntegrationRecorder::recordAnalyticalBc(Layer& layer) {
+void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
   const auto size = currentLayer->size();
   if (size > 0) {
     std::array<std::vector<real*>, 4> dofsPtrs{};

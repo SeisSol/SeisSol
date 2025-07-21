@@ -254,7 +254,6 @@ void ReceiverWriter::shutdown() {
 }
 
 kernels::ReceiverCluster* ReceiverWriter::receiverCluster(std::size_t id) {
-  assert(layer != Ghost);
   if (id < m_receiverClusters.size()) {
     return &m_receiverClusters[id];
   }

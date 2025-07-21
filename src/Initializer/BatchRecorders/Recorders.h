@@ -12,14 +12,17 @@
 #include "Kernels/Interface.h"
 #include "Memory/Tree/Layer.h"
 #include "utils/logger.h"
+#include <Memory/Descriptor/DynamicRupture.h>
 #include <vector>
 
 namespace seissol::initializer::recording {
+
+template <typename VarmapT>
 class AbstractRecorder {
   public:
   virtual ~AbstractRecorder() = default;
 
-  virtual void record(Layer& layer) = 0;
+  virtual void record(Layer<VarmapT>& layer) = 0;
 
   protected:
   void checkKey(const ConditionalKey& key) {
@@ -29,11 +32,11 @@ class AbstractRecorder {
     }
   }
 
-  void setUpContext(Layer& layer) {
-    currentTable = &(layer.getConditionalTable<inner_keys::Wp>());
-    currentDrTable = &(layer.getConditionalTable<inner_keys::Dr>());
-    currentMaterialTable = &(layer.getConditionalTable<inner_keys::Material>());
-    currentIndicesTable = &(layer.getConditionalTable<inner_keys::Indices>());
+  void setUpContext(Layer<VarmapT>& layer) {
+    currentTable = &(layer.template getConditionalTable<inner_keys::Wp>());
+    currentDrTable = &(layer.template getConditionalTable<inner_keys::Dr>());
+    currentMaterialTable = &(layer.template getConditionalTable<inner_keys::Material>());
+    currentIndicesTable = &(layer.template getConditionalTable<inner_keys::Indices>());
     currentLayer = &(layer);
   }
 
@@ -41,10 +44,11 @@ class AbstractRecorder {
   DrConditionalPointersToRealsTable* currentDrTable{nullptr};
   ConditionalMaterialTable* currentMaterialTable{nullptr};
   ConditionalIndicesTable* currentIndicesTable{nullptr};
-  Layer* currentLayer{nullptr};
+  Layer<VarmapT>* currentLayer{nullptr};
 };
 
-class CompositeRecorder : public AbstractRecorder {
+template <typename VarmapT>
+class CompositeRecorder : public AbstractRecorder<VarmapT> {
   public:
   ~CompositeRecorder() override {
     for (auto* recorder : concreteRecorders) {
@@ -52,13 +56,13 @@ class CompositeRecorder : public AbstractRecorder {
     }
   }
 
-  void record(Layer& layer) override {
+  void record(Layer<VarmapT>& layer) override {
     for (auto* recorder : concreteRecorders) {
       recorder->record(layer);
     }
   }
 
-  void addRecorder(AbstractRecorder* recorder) { concreteRecorders.push_back(recorder); }
+  void addRecorder(AbstractRecorder<VarmapT>* recorder) { concreteRecorders.push_back(recorder); }
 
   void removeRecorder(size_t recorderIndex) {
     if (recorderIndex < concreteRecorders.size()) {
@@ -67,15 +71,15 @@ class CompositeRecorder : public AbstractRecorder {
   }
 
   private:
-  std::vector<AbstractRecorder*> concreteRecorders;
+  std::vector<AbstractRecorder<VarmapT>*> concreteRecorders;
 };
 
-class LocalIntegrationRecorder : public AbstractRecorder {
+class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
-  void record(Layer& layer) override;
+  void record(LTS::Layer& layer) override;
 
   private:
-  void setUpContext(Layer& layer) {
+  void setUpContext(LTS::Layer& layer) {
     integratedDofsAddressCounter = 0;
     derivativesAddressCounter = 0;
     AbstractRecorder::setUpContext(layer);
@@ -84,7 +88,7 @@ class LocalIntegrationRecorder : public AbstractRecorder {
   void recordTimeAndVolumeIntegrals();
   void recordFreeSurfaceGravityBc();
   void recordDirichletBc();
-  void recordAnalyticalBc(Layer& layer);
+  void recordAnalyticalBc(LTS::Layer& layer);
   void recordLocalFluxIntegral();
   void recordDisplacements();
 
@@ -95,12 +99,12 @@ class LocalIntegrationRecorder : public AbstractRecorder {
   size_t derivativesAddressCounter{0};
 };
 
-class NeighIntegrationRecorder : public AbstractRecorder {
+class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
-  void record(Layer& layer) override;
+  void record(LTS::Layer& layer) override;
 
   private:
-  void setUpContext(Layer& layer) {
+  void setUpContext(LTS::Layer& layer) {
     integratedDofsAddressCounter = 0;
     AbstractRecorder::setUpContext(layer);
   }
@@ -110,19 +114,19 @@ class NeighIntegrationRecorder : public AbstractRecorder {
   size_t integratedDofsAddressCounter{0};
 };
 
-class PlasticityRecorder : public AbstractRecorder {
+class PlasticityRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
-  void setUpContext(Layer& layer) { AbstractRecorder::setUpContext(layer); }
+  void setUpContext(LTS::Layer& layer) { AbstractRecorder::setUpContext(layer); }
 
-  void record(Layer& layer) override;
+  void record(LTS::Layer& layer) override;
 };
 
-class DynamicRuptureRecorder : public AbstractRecorder {
+class DynamicRuptureRecorder : public AbstractRecorder<DynamicRupture::DynrupVarmap> {
   public:
-  void record(Layer& layer) override;
+  void record(DynamicRupture::Layer& layer) override;
 
   private:
-  void setUpContext(Layer& layer) { AbstractRecorder::setUpContext(layer); }
+  void setUpContext(DynamicRupture::Layer& layer) { AbstractRecorder::setUpContext(layer); }
   void recordDofsTimeEvaluation();
   void recordSpaceInterpolation();
   std::unordered_map<real*, real*> idofsAddressRegistry;

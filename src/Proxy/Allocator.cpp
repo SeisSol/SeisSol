@@ -288,12 +288,12 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
                         device.api->getDefaultStream());
   device.api->syncDefaultStreamWithHost();
 
-  LTS::Layer& layer = ltsTree.layer(layerId);
+  auto& layer = ltsTree.layer(layerId);
 
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsTree);
   ltsTree.allocateScratchPads();
 
-  seissol::initializer::recording::CompositeRecorder recorder;
+  seissol::initializer::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
   recorder.addRecorder(new seissol::initializer::recording::LocalIntegrationRecorder);
   recorder.addRecorder(new seissol::initializer::recording::NeighIntegrationRecorder);
 
@@ -306,7 +306,7 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
     seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(dynRupTree);
     dynRupTree.allocateScratchPads();
 
-    CompositeRecorder drRecorder;
+    CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
     drRecorder.addRecorder(new DynamicRuptureRecorder);
 
     auto& drLayer = dynRupTree.layer(layerId);

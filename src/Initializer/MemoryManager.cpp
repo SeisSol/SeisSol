@@ -661,7 +661,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
 }
 
 void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(
-    LTSTree &ltsTree) {
+    DynamicRupture::Tree& ltsTree) {
   constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
   for (auto& layer : ltsTree.leaves()) {
     const auto layerSize = layer.size();
@@ -801,7 +801,7 @@ void seissol::initializer::MemoryManager::initializeEasiBoundaryReader(const cha
 
 #ifdef ACL_DEVICE
 void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticity) {
-  recording::CompositeRecorder recorder;
+  recording::CompositeRecorder<LTS::LTSVarmap> recorder;
   recorder.addRecorder(new recording::LocalIntegrationRecorder);
   recorder.addRecorder(new recording::NeighIntegrationRecorder);
 
@@ -813,7 +813,7 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
     recorder.record(layer);
   }
 
-  recording::CompositeRecorder drRecorder;
+  recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
   for (auto& layer : m_dynRupTree.leaves(Ghost)) {
     drRecorder.record(layer);

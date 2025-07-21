@@ -323,12 +323,12 @@ class MemoryManager {
   /**
    * Derives sizes of scratch memory required during computations of Wave Propagation solver
    **/
-  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree &ltsTree);
+  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Tree& ltsTree);
 
   /**
    * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
    **/
-  static void deriveRequiredScratchpadMemoryForDr(LTSTree &ltsTree);
+  static void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Tree& ltsTree);
 #endif
 
   void initializeFrictionLaw();

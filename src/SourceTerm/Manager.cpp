@@ -195,7 +195,7 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
   for (unsigned source = 0; source < numberOfSources; ++source) {
     const unsigned meshId = meshIds[source];
     const unsigned id = ltsLut->id(meshId);
-    assert(layer != Ghost);
+    assert(ltsLut->layer(meshId) != Ghost);
     clusterToPointSources[id].push_back(source);
     clusterToMeshIds[id].push_back(meshId);
   }

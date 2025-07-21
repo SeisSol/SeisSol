@@ -23,7 +23,7 @@ using namespace device;
 using namespace seissol::initializer;
 using namespace seissol::initializer::recording;
 
-void DynamicRuptureRecorder::record(Layer& layer) {
+void DynamicRuptureRecorder::record(DynamicRupture::Layer& layer) {
   setUpContext(layer);
   recordDofsTimeEvaluation();
   recordSpaceInterpolation();
