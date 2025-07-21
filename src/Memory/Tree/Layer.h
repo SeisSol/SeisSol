@@ -313,6 +313,8 @@ class Layer : public Node {
   std::vector<DualMemoryContainer> memoryContainer;
   std::vector<MemoryInfo> memoryInfo;
 
+  std::size_t posId{0};
+
   VarmapT varmap;
 
 #ifdef ACL_DEVICE
@@ -326,6 +328,8 @@ class Layer : public Node {
   public:
   Layer() = default;
   ~Layer() override = default;
+
+  [[nodiscard]] std::size_t id() const { return posId; }
 
   class CellRef {
 public:
@@ -468,7 +472,8 @@ private:
 
   void setNumberOfCells(std::size_t numberOfCells) { numCells = numberOfCells; }
 
-  void fixPointers(const std::vector<MemoryInfo>& info, const VarmapT& varmap) {
+  void fixPointers(std::size_t id, const std::vector<MemoryInfo>& info, const VarmapT& varmap) {
+    posId = id;
     const auto count = info.size();
     memoryContainer.resize(count);
     memoryInfo.resize(count);

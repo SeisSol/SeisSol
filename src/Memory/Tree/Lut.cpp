@@ -110,6 +110,7 @@ void seissol::initializer::Lut::createLuts(LTS::Tree* ltsTree,
 
   m_meshToClusters.resize(numberOfMeshIds);
   m_meshToLayer.resize(numberOfMeshIds);
+  m_meshToId.resize(numberOfMeshIds);
   std::size_t cluster = 0;
   std::size_t curClusterElements = 0;
   for (std::size_t cell = 0; cell < numberOfCells; ++cell) {
@@ -126,10 +127,13 @@ void seissol::initializer::Lut::createLuts(LTS::Tree* ltsTree,
       const auto& layerOffsets = clustersLayerOffset[cluster];
       if (curClusterElements >= layerOffsets.offsetInterior) {
         m_meshToLayer[meshId] = Interior;
+        m_meshToId[meshId] = cluster * 3 + 2;
       } else if (curClusterElements >= layerOffsets.offsetCopy) {
         m_meshToLayer[meshId] = Copy;
+        m_meshToId[meshId] = cluster * 3 + 1;
       } else if (curClusterElements >= layerOffsets.offsetGhost) {
         m_meshToLayer[meshId] = Ghost;
+        m_meshToId[meshId] = cluster * 3 + 0;
       } else {
         throw std::logic_error("Can't tell which layer the meshid belongs.");
       }

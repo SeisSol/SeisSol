@@ -275,6 +275,7 @@ class TimeCluster : public AbstractTimeCluster {
 
   void finalize() override;
 
+  [[nodiscard]] std::size_t layerId() const;
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] LayerType getLayerType() const;

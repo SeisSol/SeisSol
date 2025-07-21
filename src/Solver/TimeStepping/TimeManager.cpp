@@ -32,7 +32,6 @@
 #include <limits>
 #include <memory>
 #include <mpi.h>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -348,21 +347,15 @@ double TimeManager::getTimeTolerance() const {
 }
 
 void TimeManager::setPointSourcesForClusters(
-    std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
-        sourceClusters) {
+    std::vector<seissol::kernels::PointSourceClusterPair> sourceClusters) {
   for (auto& cluster : clusters) {
-    auto layerClusters = sourceClusters.find(cluster->getLayerType());
-    if (layerClusters != sourceClusters.end() &&
-        cluster->getClusterId() < layerClusters->second.size()) {
-      cluster->setPointSources(std::move(layerClusters->second[cluster->getClusterId()]));
-    }
+    cluster->setPointSources(std::move(sourceClusters[cluster->layerId()]));
   }
 }
 
 void TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter) {
   for (auto& cluster : clusters) {
-    cluster->setReceiverCluster(
-        receiverWriter.receiverCluster(cluster->getClusterId(), cluster->getLayerType()));
+    cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->layerId()));
   }
 }
 

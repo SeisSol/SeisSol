@@ -155,8 +155,10 @@ class LTSTree : public LTSInternalNode<VarmapT> {
   void fixate() {
     memoryContainer.resize(memoryInfo.size());
     this->setPostOrderPointers();
+    std::size_t id = 0;
     for (auto& leaf : this->leaves()) {
-      leaf.fixPointers(memoryInfo, varmap);
+      leaf.fixPointers(id, memoryInfo, varmap);
+      ++id;
     }
   }
 

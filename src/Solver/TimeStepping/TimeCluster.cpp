@@ -792,6 +792,8 @@ void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) 
 
 unsigned int TimeCluster::getClusterId() const { return clusterId; }
 
+std::size_t TimeCluster::layerId() const { return clusterData->id(); }
+
 unsigned int TimeCluster::getGlobalClusterId() const { return globalClusterId; }
 
 LayerType TimeCluster::getLayerType() const { return layerType; }

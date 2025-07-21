@@ -51,6 +51,7 @@ class seissol::initializer::Lut {
   LTS::Tree* m_ltsTree{nullptr};
   std::vector<std::size_t> m_meshToClusters;
   std::vector<LayerType> m_meshToLayer;
+  std::vector<std::size_t> m_meshToId;
 
   public:
   Lut();
@@ -86,6 +87,8 @@ class seissol::initializer::Lut {
   [[nodiscard]] std::size_t cluster(std::size_t meshId) const { return m_meshToClusters[meshId]; }
 
   [[nodiscard]] LayerType layer(std::size_t meshId) const { return m_meshToLayer[meshId]; }
+
+  [[nodiscard]] std::size_t id(std::size_t meshId) const { return m_meshToId[meshId]; }
 
   [[nodiscard]] const auto& getMeshToClusterLut() const { return m_meshToClusters; }
 
