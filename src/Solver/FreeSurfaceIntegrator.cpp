@@ -364,9 +364,9 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
                   static_cast<unsigned int>(getLocationFlag(
                       cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
             }
-            ++surfaceCellOffset;
             outputPosition[surfaceCell] = surfaceCellOffset;
             backmap[surfaceCellOffset] = surfaceCellGlobal;
+            ++surfaceCellOffset;
           } else {
             outputPosition[surfaceCell] = std::numeric_limits<std::size_t>::max();
           }
