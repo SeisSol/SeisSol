@@ -111,13 +111,17 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
   };
 
   for (auto& layer : ltsTree->leaves()) {
-    auto* material = layer.var(lts->material);
+    auto* materialData = layer.var(lts->materialData);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      updateMaterial(*material->local);
+      // for now, keep the NOLINTNEXTLINE here (due to polymorphic access)
+      // NOLINTNEXTLINE
+      auto& material = materialData[cell];
+
+      updateMaterial(material);
     }
   }
 }
