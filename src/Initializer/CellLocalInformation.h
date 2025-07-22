@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_INITIALIZER_CELLLOCALINFORMATION_H_
 
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/LtsSetup.h>
 #include <cstddef>
 
 namespace seissol {
@@ -24,7 +25,7 @@ struct CellLocalInformation {
   unsigned int neighborConfigIds[4];
 
   // LTS setup
-  unsigned short ltsSetup;
+  LtsSetup ltsSetup;
 };
 
 // cell local information which is not needed during the main iterations, but only during setup and

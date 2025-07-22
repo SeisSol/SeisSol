@@ -69,7 +69,7 @@ void fakeData(initializer::LTS& lts, initializer::Layer& layer, FaceType faceTp)
       cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
       secondaryInformation[cell].faceNeighborIds[f] = cellDist(rng);
     }
-    cellInformation[cell].ltsSetup = 0;
+    cellInformation[cell].ltsSetup = LtsSetup();
   }
 
 #ifdef _OPENMP

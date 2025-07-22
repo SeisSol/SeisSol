@@ -7,10 +7,11 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_COMMON_H_
-#define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_COMMON_H_
+#ifndef SEISSOSRC_INITIALIZER_TIMESTEPPING_COMMON_H_
+#define SEISSOSRC_INITIALIZER_TIMESTEPPING_COMMON_H_
 
 #include <Initializer/CellLocalInformation.h>
+#include <Initializer/LtsSetup.h>
 #include <cassert>
 #include <mpi.h>
 #include <set>
@@ -18,9 +19,9 @@
 #include "Parallel/MPI.h"
 #include "Initializer/Typedefs.h"
 
-namespace seissol {
-namespace initializer {
-namespace time_stepping {
+
+
+namespace seissol::initializer::time_stepping {
   
 /**
  * Gets the lts setup in relation to the four face neighbors.
@@ -78,76 +79,77 @@ namespace time_stepping {
  *  In Example 5 the buffer is a LTS buffer (reset on request only). GTS buffers are updated in every time step.
  *
  * @return lts setup.
- * @param i_localCluster global id of the cluster to which this cell belongs.
- * @param i_neighboringClusterIds global ids of the clusters the face neighbors belong to (if present).
- * @param i_faceTypes types of the four faces.
- * @param i_faceNeighborIds face neighbor ids.
- * @param i_copy true if the cell is part of the copy layer (only required for correctness in dynamic rupture computations).
+ * @param localCluster global id of the cluster to which this cell belongs.
+ * @param neighboringClusterIds global ids of the clusters the face neighbors belong to (if present).
+ * @param faceTypes types of the four faces.
+ * @param faceNeighborIds face neighbor ids.
+ * @param copy true if the cell is part of the copy layer (only required for correctness in dynamic rupture computations).
  **/
-static unsigned short getLtsSetup(unsigned int i_localClusterId,
-                                  unsigned int i_neighboringClusterIds[4],
-                                  const FaceType i_faceTypes[4],
-                                  const unsigned int i_faceNeighborIds[4], // TODO: Remove, outdated
-                                  bool i_copy = false ) {
+static LtsSetup getLtsSetup(unsigned int localClusterId,
+                                  const unsigned int neighboringClusterIds[4],
+                                  const FaceType faceTypes[4],
+                                  const unsigned int faceNeighborIds[4], // TODO: Remove, outdated
+                                  bool copy = false ) {
   // reset the LTS setup
-  unsigned short l_ltsSetup = 0;
+  LtsSetup ltsSetup{};
 
   // iterate over the faces
-  for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
+  for( std::size_t face = 0; face < Cell::NumFaces; face++ ) {
     // continue for boundary conditions
-    if (i_faceTypes[l_face] == FaceType::Outflow) {
+    if (faceTypes[face] == FaceType::Outflow) {
       continue;
     }
     // fake neighbors are GTS
-    else if(i_faceTypes[l_face] == FaceType::FreeSurface ||
-	    i_faceTypes[l_face] == FaceType::FreeSurfaceGravity ||
-	    i_faceTypes[l_face] == FaceType::Dirichlet ||
-	    i_faceTypes[l_face] == FaceType::Analytical) {
-      l_ltsSetup |= (1 << (l_face+4) );
+    else if(isExternalBoundaryFaceType(faceTypes[face])) {
+      ltsSetup.setNeighborGTS(face, true);
     }
     // dynamic rupture faces are always global time stepping but operate on derivatives
-    else if( i_faceTypes[l_face] == FaceType::DynamicRupture ) {
+    else if( faceTypes[face] == FaceType::DynamicRupture ) {
       // face-neighbor provides GTS derivatives
       // face-neighbor provides derivatives
-      l_ltsSetup |= ( 1 <<  l_face      );
-      l_ltsSetup |= ( 1 << (l_face + 4) );
+      ltsSetup.setNeighborHasDerivatives(face, true);
+      ltsSetup.setNeighborGTS(face, true);
 
       // cell is required to provide derivatives for dynamic rupture
-      l_ltsSetup |= ( 1 << 9 );
+      ltsSetup.setHasDerivatives(true);
 
-      if( i_copy ) { // set the buffer invalid in copy layers
+      if( copy ) { // set the buffer invalid in copy layers
                      // TODO: Minor improvements possible: Non-DR MPI-neighbor for example
-        l_ltsSetup |= ( 1 << 10 );
+        ltsSetup.setCacheBuffers(true);
       }
     }
     // derive the LTS setup based on the cluster ids
     else {
       // neighboring cluster has a larger time step than this cluster
-      if( i_localClusterId < i_neighboringClusterIds[l_face] ) {
+      if( localClusterId < neighboringClusterIds[face] ) {
         // neighbor delivers time derivatives
-        l_ltsSetup |= ( 1 << l_face );
+        ltsSetup.setNeighborHasDerivatives(face, true);
 
         // the cell-local buffer is used in LTS-fashion
-        l_ltsSetup |= ( 1 << 10     );
+        ltsSetup.setCacheBuffers(true);
       }
       // GTS relation
-      else if( i_localClusterId == i_neighboringClusterIds[l_face] ) {
-        l_ltsSetup |= ( 1 << (l_face + 4) );
+      else if( localClusterId == neighboringClusterIds[face] ) {
+        ltsSetup.setNeighborGTS(face, true);
       }
 
       // cell is required to provide derivatives
-      if( i_localClusterId > i_neighboringClusterIds[l_face] ) {
-        l_ltsSetup |= ( 1 << 9 );
+      if( localClusterId > neighboringClusterIds[face] ) {
+        ltsSetup.setHasDerivatives(true);
       }
       // cell is required to provide a buffer
       else {
-        l_ltsSetup |= ( 1 << 8 );
+        ltsSetup.setHasBuffers(true);
       }
     }
 
     // true lts buffer with gts required derivatives
-    if( (l_ltsSetup >> 10)%2 == 1 && (l_ltsSetup >> 4)%16 != 0 ) {
-      l_ltsSetup |= ( 1 << 9 );
+    bool hasGTS = false;
+    for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
+      hasGTS |= ltsSetup.neighborGTS(i);
+    }
+    if(ltsSetup.cacheBuffers() && hasGTS) {
+      ltsSetup.setHasDerivatives(true);
     }
   }
 
@@ -158,21 +160,18 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
    *   Free surface/dirichlet boundary conditions work on the cells DOFs in the neighboring contribution:
    *   Enable cell local derivatives in this case and mark that the "fake neighbor" provides derivatives.
    */
-  for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
+  for( std::size_t face = 0; face < Cell::NumFaces; face++ ) {
     // check for special case free-surface/dirichlet requirements
-    const bool isSpecialCase = i_faceTypes[l_face] == FaceType::FreeSurface ||
-      i_faceTypes[l_face] == FaceType::FreeSurfaceGravity ||
-      i_faceTypes[l_face] == FaceType::Dirichlet ||
-      i_faceTypes[l_face] == FaceType::Analytical;
+    const bool isSpecialCase = isExternalBoundaryFaceType(faceTypes[face]);
     if (isSpecialCase &&       // special case face
-       ( (l_ltsSetup >> 10) % 2 == 1 ||             // lts fashion buffer
-         (l_ltsSetup >> 8 ) % 2 == 0 )         ) {  // no buffer at all
-      l_ltsSetup |= ( 1 << 9 );       // enable derivatives computation
-      l_ltsSetup |= ( 1 << l_face);  // enable derivatives for the fake face neighbor
+       ( ltsSetup.cacheBuffers() ||             // lts fashion buffer
+         !ltsSetup.hasBuffers() )         ) {  // no buffer at all
+      ltsSetup.setHasDerivatives(true);       // enable derivatives computation
+      ltsSetup.setNeighborHasDerivatives(face, true);  // enable derivatives for the fake face neighbor
     }
   }
 
-  return l_ltsSetup;
+  return ltsSetup;
 }
 
 /**
@@ -189,16 +188,16 @@ static unsigned short getLtsSetup(unsigned int i_localClusterId,
  *   Face neighbor 4 is required to deliver true buffers to its second face neighbor.
  *   It follows that the local cell has to operate on the derivatives of face neighbor 4.
  *
- * @param i_neighboringSetups local time stepping setups for the neighboring cells, set to GTS (240) if not defined (e.g. in case of boundary conditions).
- * @param io_localLtsSetup local time stepping setup of the local cell.
+ * @param neighboringSetups local time stepping setups for the neighboring cells, set to GTS (240) if not defined (e.g. in case of boundary conditions).
+ * @param localLtsSetup local time stepping setup of the local cell.
  **/
-static void normalizeLtsSetup( unsigned short  i_neighboringLtsSetups[4],
-                               unsigned short &io_localLtsSetup ) {
+static void normalizeLtsSetup( LtsSetup  neighboringLtsSetups[4],
+                               LtsSetup &localLtsSetup ) {
   // iterate over the face neighbors
-  for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
+  for( unsigned int face = 0; face < Cell::NumFaces; face++ ) {
     // enforce derivatives if this is a "GTS on derivatives" relation
-    if( (io_localLtsSetup >> (l_face + 4))%2 && (i_neighboringLtsSetups[l_face] >> 10)%2 == 1 ) {
-      io_localLtsSetup |= (1 << l_face);
+    if( localLtsSetup.neighborGTS(face) && neighboringLtsSetups[face].cacheBuffers() ) {
+      localLtsSetup.setNeighborHasDerivatives(face, true);
     }
   }
 }
@@ -206,228 +205,215 @@ static void normalizeLtsSetup( unsigned short  i_neighboringLtsSetups[4],
 /**
  * Synchronizes the LTS setups in the ghost layers.
  *
- * @param i_numberOfClusters number of clusters
- * @param io_meshStructure mesh structure.
- * @param io_cellLocalInformation cell local information which lts setup will be written using present face and cluster.
+ * @param numberOfClusters number of clusters
+ * @param meshStructure mesh structure.
+ * @param cellLocalInformation cell local information which lts setup will be written using present face and cluster.
  domain.
  */
-static void synchronizeLtsSetups( unsigned int                 i_numberOfClusters,
-                                  struct MeshStructure        *io_meshStructure,
-                                  struct CellLocalInformation *io_cellLocalInformation ) {
+static void synchronizeLtsSetups( unsigned int                 numberOfClusters,
+                                  struct MeshStructure        *meshStructure,
+                                  struct CellLocalInformation *cellLocalInformation ) {
   // linear lts setups in the ghost regions
   // 0: local cluster
   // 1: ghost region
-  unsigned short **l_sendBuffer    = new unsigned short*[ i_numberOfClusters ];
-  unsigned short **l_receiveBuffer = new unsigned short*[ i_numberOfClusters ];
+  std::vector<std::vector<uint16_t>> sendBuffer(numberOfClusters);
+  std::vector<std::vector<uint16_t>> receiveBuffer(numberOfClusters);
 
   std::vector<MPI_Request> sendRequestsRaw;
   std::vector<MPI_Request> recvRequestsRaw;
   std::vector<MPI_Request*> sendRequests;
   std::vector<MPI_Request*> receiveRequests;
-  for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
-    for( unsigned int l_region = 0; l_region < io_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
+  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
+    for( unsigned int region = 0; region < meshStructure[cluster].numberOfRegions; region++ ) {
       sendRequestsRaw.push_back(MPI_REQUEST_NULL);
       recvRequestsRaw.push_back(MPI_REQUEST_NULL);
     }
   }
   std::size_t point = 0;
-  for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
+  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
     sendRequests.push_back(sendRequestsRaw.data() + point);
     receiveRequests.push_back(recvRequestsRaw.data() + point);
-    point += io_meshStructure[l_cluster].numberOfRegions;
+    point += meshStructure[cluster].numberOfRegions;
   }
 
-  unsigned l_cell = 0;
+  std::size_t cell = 0;
 
-  for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
-    l_sendBuffer[l_cluster]    = new unsigned short[ io_meshStructure[l_cluster].numberOfCopyCells  ];
-    l_receiveBuffer[l_cluster] = new unsigned short[ io_meshStructure[l_cluster].numberOfGhostCells ];
+  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
+    sendBuffer[cluster].resize(meshStructure[cluster].numberOfCopyCells);
+    receiveBuffer[cluster].resize(meshStructure[cluster].numberOfGhostCells);
 
     // jump over ghost layer
-    l_cell += io_meshStructure[l_cluster].numberOfGhostCells;
+    cell += meshStructure[cluster].numberOfGhostCells;
 
     // fill the linear buffer
-    for( unsigned int l_copyCell = 0; l_copyCell < io_meshStructure[l_cluster].numberOfCopyCells; l_copyCell++ ) {
-      l_sendBuffer[l_cluster][l_copyCell] = io_cellLocalInformation[l_cell].ltsSetup;
+    for( unsigned int copyCell = 0; copyCell < meshStructure[cluster].numberOfCopyCells; copyCell++ ) {
+      sendBuffer[cluster][copyCell] = cellLocalInformation[cell].ltsSetup.unwrap();
 
-      l_cell++;
+      cell++;
     }
 
-    unsigned int l_copyRegionOffset  = 0;
-    unsigned int l_ghostRegionOffset = 0;
-    for( unsigned int l_region = 0; l_region < io_meshStructure[l_cluster].numberOfRegions; l_region++ ) {
+    unsigned int copyRegionOffset  = 0;
+    unsigned int ghostRegionOffset = 0;
+    for( unsigned int region = 0; region < meshStructure[cluster].numberOfRegions; region++ ) {
       // post the communication requests
-      MPI_Isend( l_sendBuffer[l_cluster]+l_copyRegionOffset,                    // buffer
-                 io_meshStructure[l_cluster].numberOfCopyRegionCells[l_region], // size
-                 MPI_UNSIGNED_SHORT,                                            // data type
-                 io_meshStructure[l_cluster].neighboringClusters[l_region][0],  // destination
-                 io_meshStructure[l_cluster].sendIdentifiers[l_region],         // message tag
+      MPI_Isend( sendBuffer[cluster].data()+copyRegionOffset,                    // buffer
+                 meshStructure[cluster].numberOfCopyRegionCells[region], // size
+                 MPI_UINT16_T,                                            // data type
+                 meshStructure[cluster].neighboringClusters[region][0],  // destination
+                 meshStructure[cluster].sendIdentifiers[region],         // message tag
                  seissol::MPI::mpi.comm(),                                      // communicator
-                 sendRequests[l_cluster]+l_region );           // mpi request
+                 sendRequests[cluster]+region );           // mpi request
 
-      l_copyRegionOffset += io_meshStructure[l_cluster].numberOfCopyRegionCells[l_region];
+      copyRegionOffset += meshStructure[cluster].numberOfCopyRegionCells[region];
 
-      MPI_Irecv( l_receiveBuffer[l_cluster]+l_ghostRegionOffset,                 // buffer
-                 io_meshStructure[l_cluster].numberOfGhostRegionCells[l_region], // size
-                 MPI_UNSIGNED_SHORT,                                             // data type
-                 io_meshStructure[l_cluster].neighboringClusters[l_region][0],   // source
-                 io_meshStructure[l_cluster].receiveIdentifiers[l_region],       // message tag
+      MPI_Irecv( receiveBuffer[cluster].data()+ghostRegionOffset,                 // buffer
+                 meshStructure[cluster].numberOfGhostRegionCells[region], // size
+                 MPI_UINT16_T,                                             // data type
+                 meshStructure[cluster].neighboringClusters[region][0],   // source
+                 meshStructure[cluster].receiveIdentifiers[region],       // message tag
                  seissol::MPI::mpi.comm(),                                       // communicator
-                 receiveRequests[l_cluster]+l_region );         // mpi request
+                 receiveRequests[cluster]+region );         // mpi request
 
-      l_ghostRegionOffset += io_meshStructure[l_cluster].numberOfGhostRegionCells[l_region];
+      ghostRegionOffset += meshStructure[cluster].numberOfGhostRegionCells[region];
     }
 
     // jump over interior
-    l_cell +=  io_meshStructure[l_cluster].numberOfInteriorCells;
+    cell +=  meshStructure[cluster].numberOfInteriorCells;
   }
 
   // wait for communication
-  for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
-    MPI_Waitall( io_meshStructure[l_cluster].numberOfRegions, // size
-                 sendRequests[l_cluster], // array of requests
+  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
+    MPI_Waitall( meshStructure[cluster].numberOfRegions, // size
+                 sendRequests[cluster], // array of requests
                  MPI_STATUS_IGNORE );                         // mpi status
-    MPI_Waitall( io_meshStructure[l_cluster].numberOfRegions, // size
-                 receiveRequests[l_cluster],    // array of requests
+    MPI_Waitall( meshStructure[cluster].numberOfRegions, // size
+                 receiveRequests[cluster],    // array of requests
                  MPI_STATUS_IGNORE );                         // mpi status
   }
 
   // update ghost cells with received information
-  l_cell = 0;
-  for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
-    for( unsigned int l_ghostCell = 0; l_ghostCell < io_meshStructure[l_cluster].numberOfGhostCells; l_ghostCell++ ) {
-      io_cellLocalInformation[l_cell].ltsSetup = l_receiveBuffer[l_cluster][l_ghostCell];
+  cell = 0;
+  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
+    for( unsigned int ghostCell = 0; ghostCell < meshStructure[cluster].numberOfGhostCells; ghostCell++ ) {
+      cellLocalInformation[cell].ltsSetup = LtsSetup(receiveBuffer[cluster][ghostCell]);
 
       // assert at least derivatives or buffers are offered by the ghost cells
-      assert( ( ( io_cellLocalInformation[l_cell].ltsSetup >> 8 ) % 2 ||
-                ( io_cellLocalInformation[l_cell].ltsSetup >> 9 ) % 2 )
+      assert( ( ( cellLocalInformation[cell].ltsSetup.unwrap() >> 8 ) % 2 ||
+                ( cellLocalInformation[cell].ltsSetup.unwrap() >> 9 ) % 2 )
                 == true );
 
-      l_cell++;
+      cell++;
     }
 
-    // free memory
-    delete[] l_receiveBuffer[l_cluster];
-    delete[] l_sendBuffer[l_cluster];
-
     // jump over copy layer and interior
-    l_cell +=   io_meshStructure[l_cluster].numberOfCopyCells
-              + io_meshStructure[l_cluster].numberOfInteriorCells;
+    cell +=   meshStructure[cluster].numberOfCopyCells
+              + meshStructure[cluster].numberOfInteriorCells;
   }
-
-  delete[] l_sendBuffer;
-  delete[] l_receiveBuffer;
 }
 
 /**
  * Derives the lts setups of all given cells.
  *
- * @param i_numberOfCluster number of clusters.
- * @param io_meshStructure mesh structure.
- * @param io_cellLocalInformation cell local information which lts setup will be written using present face and cluster.
+ * @param numberOfCluster number of clusters.
+ * @param meshStructure mesh structure.
+ * @param cellLocalInformation cell local information which lts setup will be written using present face and cluster.
  *
  * @todo Is inline a good idea? Static does not work!
  **/
-inline void deriveLtsSetups( unsigned int                 i_numberOfClusters,
-                             struct MeshStructure        *io_meshStructure,
-                             struct CellLocalInformation *io_cellLocalInformation,
+inline void deriveLtsSetups( unsigned int                 numberOfClusters,
+                             struct MeshStructure        *meshStructure,
+                             struct CellLocalInformation *cellLocalInformation,
                              struct SecondaryCellLocalInformation *secondaryInformation  ) {
-  unsigned int l_cell = 0;
+  unsigned int cell = 0;
 
   // iterate over time clusters
-  for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
+  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
     // jump over ghost layer which has invalid information for the face neighbors
-    l_cell += io_meshStructure[l_cluster].numberOfGhostCells;
+    cell += meshStructure[cluster].numberOfGhostCells;
 
-    unsigned int l_numberOfClusterCells = io_meshStructure[l_cluster].numberOfCopyCells  +
-                                          io_meshStructure[l_cluster].numberOfInteriorCells;
+    unsigned int numberOfClusterCells = meshStructure[cluster].numberOfCopyCells  +
+                                          meshStructure[cluster].numberOfInteriorCells;
 
     // iterate over copy and interior
-    for( unsigned int l_clusterCell = 0; l_clusterCell < l_numberOfClusterCells; l_clusterCell++ ) {
+    for( unsigned int clusterCell = 0; clusterCell < numberOfClusterCells; clusterCell++ ) {
       // cluster ids of the four face neighbors
-      unsigned int l_neighboringClusterIds[Cell::NumFaces] = {0};
+      unsigned int neighboringClusterIds[Cell::NumFaces] = {0};
       // collect cluster ids
-      for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
+      for( unsigned int face = 0; face < Cell::NumFaces; face++ ) {
         // only continue for valid faces
-        if (io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::Regular ||
-           io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::Periodic ||
-           io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::DynamicRupture) {
+        if (isInternalFaceType(cellLocalInformation[cell].faceTypes[face])) {
 	  // get neighboring cell id
-	  unsigned int l_neighbor = secondaryInformation[l_cell].faceNeighborIds[l_face];
+	  unsigned int neighbor = secondaryInformation[cell].faceNeighborIds[face];
 
           // set the cluster id
-          l_neighboringClusterIds[l_face] = secondaryInformation[l_neighbor].clusterId;
+          neighboringClusterIds[face] = secondaryInformation[neighbor].clusterId;
         }
       }
 
       // set the lts setup for this cell
-      io_cellLocalInformation[l_cell].ltsSetup = getLtsSetup( secondaryInformation[l_cell].clusterId,
-                                                              l_neighboringClusterIds,
-                                                              io_cellLocalInformation[l_cell].faceTypes,
-                                                              secondaryInformation[l_cell].faceNeighborIds,
-                                                              (l_clusterCell < io_meshStructure[l_cluster].numberOfCopyCells) );
+      cellLocalInformation[cell].ltsSetup = LtsSetup(getLtsSetup( secondaryInformation[cell].clusterId,
+                                                              neighboringClusterIds,
+                                                              cellLocalInformation[cell].faceTypes,
+                                                              secondaryInformation[cell].faceNeighborIds,
+                                                              (clusterCell < meshStructure[cluster].numberOfCopyCells) ));
       // assert that the cell operates at least on buffers or derivatives
-      assert( ( ( io_cellLocalInformation[l_cell].ltsSetup >> 8 ) % 2 ||
-                ( io_cellLocalInformation[l_cell].ltsSetup >> 9 ) % 2 )
-                == true );
+      assert (cellLocalInformation[cell].ltsSetup.hasBuffers() || cellLocalInformation[cell].ltsSetup.hasDerivatives());
 
-      l_cell++;
+      cell++;
     }
   }
 
 // exchange ltsSetup of the ghost layer for the normalization step
-  synchronizeLtsSetups( i_numberOfClusters,
-                        io_meshStructure,
-                        io_cellLocalInformation );
+  synchronizeLtsSetups( numberOfClusters,
+                        meshStructure,
+                        cellLocalInformation );
 
   // iterate over cells and normalize the setups
-  l_cell = 0;
-  for( unsigned int l_cluster = 0; l_cluster < i_numberOfClusters; l_cluster++ ) {
+  cell = 0;
+  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
     // jump over ghost layer
-    l_cell += io_meshStructure[l_cluster].numberOfGhostCells;
+    cell += meshStructure[cluster].numberOfGhostCells;
 
-    unsigned int l_numberOfClusterCells = io_meshStructure[l_cluster].numberOfCopyCells  +
-                                          io_meshStructure[l_cluster].numberOfInteriorCells;
+    unsigned int numberOfClusterCells = meshStructure[cluster].numberOfCopyCells  +
+                                          meshStructure[cluster].numberOfInteriorCells;
 
-    for( unsigned int l_clusterCell = 0; l_clusterCell < l_numberOfClusterCells; l_clusterCell++ ) {
-      unsigned short l_neighboringSetups[4];
+    for( unsigned int clusterCell = 0; clusterCell < numberOfClusterCells; clusterCell++ ) {
+      LtsSetup neighboringSetups[4]{};
 
-      // reset to gts
-      l_neighboringSetups[0] = l_neighboringSetups[1] = l_neighboringSetups[2] = l_neighboringSetups[3] = 240;
+      // reset to gts (240)
+      for (int n = 0; n < 4; ++n) {
+        neighboringSetups[n].setNeighborGTS(n, true);
+      }
 
       // collect lts setups
-      for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
+      for( unsigned int face = 0; face < Cell::NumFaces; face++ ) {
         // only continue for non-boundary faces
-        if( io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::Regular  ||
-            io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::Periodic ||
-            io_cellLocalInformation[l_cell].faceTypes[l_face] == FaceType::DynamicRupture ) {
+        if( isInternalFaceType(cellLocalInformation[cell].faceTypes[face]) ) {
           // get neighboring cell id
-          unsigned int l_neighbor = secondaryInformation[l_cell].faceNeighborIds[l_face];
+          unsigned int neighbor = secondaryInformation[cell].faceNeighborIds[face];
 
           // get neighboring setup
-          l_neighboringSetups[l_face] = io_cellLocalInformation[l_neighbor].ltsSetup;
+          neighboringSetups[face] = cellLocalInformation[neighbor].ltsSetup;
         }
       }
 
       // do the normalization
-      normalizeLtsSetup( l_neighboringSetups, io_cellLocalInformation[l_cell].ltsSetup );
+      normalizeLtsSetup( neighboringSetups, cellLocalInformation[cell].ltsSetup );
 
       // assert that the cell operates at least on buffers or derivatives
-      assert( ( ( io_cellLocalInformation[l_cell].ltsSetup >> 8 ) % 2 ||
-                ( io_cellLocalInformation[l_cell].ltsSetup >> 9 ) % 2 )
-                == true );
+      assert (cellLocalInformation[cell].ltsSetup.hasBuffers() || cellLocalInformation[cell].ltsSetup.hasDerivatives());
 
-      l_cell++;
+      cell++;
     }
   }
 
 // get final setup in the ghost layer (after normalization)
-  synchronizeLtsSetups( i_numberOfClusters,
-                        io_meshStructure,
-                        io_cellLocalInformation );
+  synchronizeLtsSetups( numberOfClusters,
+                        meshStructure,
+                        cellLocalInformation );
 }
 
-}}}
+} // namespace seissol::initializer::time_stepping
 
 
-#endif // SEISSOL_SRC_INITIALIZER_TIMESTEPPING_COMMON_H_
+#endif // SEISSOSRC_INITIALIZER_TIMESTEPPING_COMMON_H_

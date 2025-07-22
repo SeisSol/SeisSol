@@ -539,14 +539,14 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       for (unsigned duplicate = 0; duplicate < Lut::MaxDuplicates; ++duplicate) {
         const std::size_t ltsId =
             ltsLut->ltsId(ltsTree->info(lts->cellInformation).mask, derivativesMeshId, duplicate);
-        if (timeDerivative1 == nullptr && (cellInformation[ltsId].ltsSetup >> 9U) % 2 == 1) {
+        if (timeDerivative1 == nullptr && cellInformation[ltsId].ltsSetup.hasDerivatives()) {
           timeDerivative1 = derivatives[ltsLut->ltsId(
               ltsTree->info(lts->derivatives).mask, derivativesMeshId, duplicate)];
           timeDerivative1Device = derivativesDevice[ltsLut->ltsId(
               ltsTree->info(lts->derivatives).mask, derivativesMeshId, duplicate)];
         }
         if (timeDerivative2 == nullptr &&
-            (cellInformation[ltsId].ltsSetup >> derivativesSide) % 2 == 1) {
+            cellInformation[ltsId].ltsSetup.neighborHasDerivatives(derivativesSide)) {
           timeDerivative2 = faceNeighbors[ltsLut->ltsId(ltsTree->info(lts->faceNeighbors).mask,
                                                         derivativesMeshId,
                                                         duplicate)][derivativesSide];

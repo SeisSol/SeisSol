@@ -64,13 +64,12 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                 dataHost.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
 
               const bool isNeighbProvidesDerivatives =
-                  ((dataHost.cellInformation().ltsSetup >> face) % 2) == 1;
+                  dataHost.cellInformation().ltsSetup.neighborHasDerivatives(face);
 
               if (isNeighbProvidesDerivatives) {
                 real* nextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
-                const bool isGtsNeighbor =
-                    ((dataHost.cellInformation().ltsSetup >> (face + 4)) % 2) == 1;
+                const bool isGtsNeighbor = dataHost.cellInformation().ltsSetup.neighborGTS(face);
                 if (isGtsNeighbor) {
 
                   idofsAddressRegistry[neighborBuffer] = nextTempIDofsPtr;

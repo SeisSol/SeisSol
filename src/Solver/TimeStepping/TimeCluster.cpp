@@ -327,10 +327,10 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
     // If we cannot overwrite the buffer, we compute everything in a temporary
     // local buffer and accumulate the results later in the shared buffer.
     const bool buffersProvided =
-        (data.cellInformation().ltsSetup >> 8) % 2 == 1; // buffers are provided
+        data.cellInformation().ltsSetup.hasBuffers(); // buffers are provided
     const bool resetMyBuffers =
         buffersProvided &&
-        ((data.cellInformation().ltsSetup >> 10) % 2 == 0 || resetBuffers); // they should be reset
+        (!data.cellInformation().ltsSetup.cacheBuffers() || resetBuffers); // they should be reset
 
     if (resetMyBuffers) {
       // assert presence of the buffer

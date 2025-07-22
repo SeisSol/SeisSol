@@ -61,6 +61,7 @@ constexpr bool isInternalFaceType(FaceType faceType) {
 }
 
 // Checks if a face type is an external boundary face (i.e. there is only one cell adjacent to it).
+// (note that Outflow is purposefully excluded here)
 constexpr bool isExternalBoundaryFaceType(FaceType faceType) {
   return faceType == FaceType::FreeSurface || faceType == FaceType::FreeSurfaceGravity ||
          faceType == FaceType::Dirichlet || faceType == FaceType::Analytical;

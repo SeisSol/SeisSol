@@ -52,7 +52,7 @@ void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
 
 void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
   // get DOFs from 0th derivatives
-  assert((wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup >> 9) % 2 == 1);
+  assert(wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup.hasDerivatives());
 
   real* derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);

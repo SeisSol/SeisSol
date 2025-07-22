@@ -63,17 +63,17 @@ void seissol::initializer::MemoryManager::correctGhostRegionSetups()
       for( unsigned int l_cell = 0; l_cell < m_meshStructure[tc].numberOfGhostRegionCells[l_region]; l_cell++ ) {
         if( l_cell < m_meshStructure[tc].numberOfGhostRegionDerivatives[l_region] ) {
           // assert the cell provides derivatives
-          assert( (cellInformation[l_offset+l_cell].ltsSetup >> 9)%2 );
+          assert( cellInformation[l_offset+l_cell].ltsSetup.hasDerivatives());
 
           // reset possible buffers
-          cellInformation[l_offset+l_cell].ltsSetup &= ( ~(1 << 8 ) );
-          cellInformation[l_offset+l_cell].ltsSetup &= ( ~(1 << 10) );
+          cellInformation[l_offset+l_cell].ltsSetup.setHasBuffers(false);
+          cellInformation[l_offset+l_cell].ltsSetup.setCacheBuffers(false);
         } else {
           // assert the cell provides buffers
-          assert( (cellInformation[l_offset+l_cell].ltsSetup >> 8)%2 );
+          assert(cellInformation[l_offset+l_cell].ltsSetup.hasBuffers());
 
           // reset possible derivatives
-          cellInformation[l_offset+l_cell].ltsSetup &= ( ~(1 << 9 ) );
+          cellInformation[l_offset+l_cell].ltsSetup.setHasDerivatives(false);
         }
       }
       // update offset with ghost region size
@@ -128,27 +128,27 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
       // iterate over all cells of this clusters ghost layer
       for( unsigned int l_cell = 0; l_cell < m_meshStructure[tc].numberOfGhostRegionCells[l_region]; l_cell++ ) {
         // ensure that either buffers or derivatives are used; not both!
-        bool l_buffer      = ( ghostCellInformation[l_cell+l_ghostOffset].ltsSetup >> 8 ) % 2;
-        bool l_derivatives = ( ghostCellInformation[l_cell+l_ghostOffset].ltsSetup >> 9 ) % 2;
+        bool l_buffer      = ( ghostCellInformation[l_cell+l_ghostOffset].ltsSetup.hasBuffers());
+        bool l_derivatives = ( ghostCellInformation[l_cell+l_ghostOffset].ltsSetup.hasDerivatives());
 
         if( (l_buffer && l_derivatives) || ( l_buffer || l_derivatives ) == false ) logError() << "invalid ghost lts setup" << l_buffer << l_derivatives;
 
         // check if this cell requires a buffer and/or derivatives
-        if( ( ghostCellInformation[l_cell+l_ghostOffset].ltsSetup >> 8 ) % 2 == 1 ) m_numberOfGhostRegionBuffers[    tc][l_region]++;
-        if( ( ghostCellInformation[l_cell+l_ghostOffset].ltsSetup >> 9 ) % 2 == 1 ) m_numberOfGhostRegionDerivatives[tc][l_region]++;
+        if( ( ghostCellInformation[l_cell+l_ghostOffset].ltsSetup.hasBuffers()) ) m_numberOfGhostRegionBuffers[    tc][l_region]++;
+        if( ( ghostCellInformation[l_cell+l_ghostOffset].ltsSetup.hasDerivatives()) ) m_numberOfGhostRegionDerivatives[tc][l_region]++;
       }
       l_ghostOffset += m_meshStructure[tc].numberOfGhostRegionCells[l_region];
 
       // iterate over all cells of this clusters copy layer
       for( unsigned int l_cell = 0; l_cell < m_meshStructure[tc].numberOfCopyRegionCells[l_region]; l_cell++ ) {
         // assert that buffers or derivatives are requested
-        assert( ( ( copyCellInformation[l_cell+l_copyOffset].ltsSetup >> 8 ) % 2 ||
-                  ( copyCellInformation[l_cell+l_copyOffset].ltsSetup >> 9 ) % 2 )
+        assert( ( ( copyCellInformation[l_cell+l_copyOffset].ltsSetup.hasBuffers()) ||
+                  ( copyCellInformation[l_cell+l_copyOffset].ltsSetup.hasDerivatives()) )
                 == true );
 
         // check if this cell requires a buffer and/or derivatives
-        if( ( copyCellInformation[l_cell+l_copyOffset].ltsSetup >> 8 ) % 2 == 1 ) m_numberOfCopyRegionBuffers[    tc][l_region]++;
-        if( ( copyCellInformation[l_cell+l_copyOffset].ltsSetup >> 9 ) % 2 == 1 ) m_numberOfCopyRegionDerivatives[tc][l_region]++;
+        if( ( copyCellInformation[l_cell+l_copyOffset].ltsSetup.hasBuffers()) ) m_numberOfCopyRegionBuffers[    tc][l_region]++;
+        if( ( copyCellInformation[l_cell+l_copyOffset].ltsSetup.hasDerivatives()) ) m_numberOfCopyRegionDerivatives[tc][l_region]++;
       }
       l_copyOffset += m_meshStructure[tc].numberOfCopyRegionCells[l_region];
 
@@ -162,8 +162,8 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
     // iterate over all cells of this clusters interior
     for( unsigned int l_cell = 0; l_cell < m_meshStructure[tc].numberOfInteriorCells; l_cell++ ) {
       // check if this cell requires a buffer and/or derivatives
-      if( ( interiorCellInformation[l_cell].ltsSetup >> 8 ) % 2 == 1 ) m_numberOfInteriorBuffers[    tc]++;
-      if( ( interiorCellInformation[l_cell].ltsSetup >> 9 ) % 2 == 1 ) m_numberOfInteriorDerivatives[tc]++;
+      if( ( interiorCellInformation[l_cell].ltsSetup.hasBuffers()) ) m_numberOfInteriorBuffers[    tc]++;
+      if( ( interiorCellInformation[l_cell].ltsSetup.hasDerivatives()) ) m_numberOfInteriorDerivatives[tc]++;
     }
   }
 }
@@ -266,7 +266,7 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
 	  cellInformation[cell].faceTypes[face] == FaceType::Periodic ||
 	  cellInformation[cell].faceTypes[face] == FaceType::DynamicRupture) {
         // neighboring cell provides derivatives
-        if( (cellInformation[cell].ltsSetup >> face) % 2 ) {
+        if(cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
           faceNeighbors[cell][face] = derivatives[ secondaryInformation[cell].faceNeighborIds[face] ];
 #ifdef ACL_DEVICE
           faceNeighborsDevice[cell][face] = derivativesDevice[ secondaryInformation[cell].faceNeighborIds[face] ];
@@ -286,7 +286,7 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
 	       cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity ||
 	       cellInformation[cell].faceTypes[face] == FaceType::Dirichlet ||
 	       cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
-        if( (cellInformation[cell].ltsSetup >> face) % 2 == 0 ) { // free surface on buffers
+        if( !cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) { // free surface on buffers
           faceNeighbors[cell][face] = layer.var(m_lts.buffers)[cell];
 #ifdef ACL_DEVICE
           faceNeighborsDevice[cell][face] = layer.var(m_lts.buffersDevice)[cell];
@@ -578,7 +578,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
     std::array<std::size_t, 4> dirichletPerFace{};
 
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
+      bool needsScratchMemForDerivatives = !cellInformation[cell].ltsSetup.hasDerivatives();
       if (needsScratchMemForDerivatives) {
         ++derivativesCounter;
       }
@@ -596,7 +596,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
             if (cellInformation[cell].faceTypes[face] != FaceType::Outflow &&
                 cellInformation[cell].faceTypes[face] != FaceType::DynamicRupture) {
 
-              bool isNeighbProvidesDerivatives = ((cellInformation[cell].ltsSetup >> face) % 2) == 1;
+              const bool isNeighbProvidesDerivatives = cellInformation[cell].ltsSetup.neighborHasDerivatives(face);
               if (isNeighbProvidesDerivatives) {
                 ++integratedDofsCounter;
               }

@@ -30,8 +30,8 @@ void seissol::initializer::InternalState::deriveLayerLayout(       unsigned int 
                                           i_numberOfRegionCells[l_cluster][l_region];
 
       for( unsigned int l_cell = l_firstRegionCell; l_cell < l_firstNonRegionCell; l_cell++ ) {
-        if( (i_cellLocalInformation[l_cell].ltsSetup >> 8 ) % 2 == 1 ) o_numberOfBuffers[l_cluster][l_region]++;
-        if( (i_cellLocalInformation[l_cell].ltsSetup >> 9 ) % 2 == 1 ) o_numberOfDerivatives[l_cluster][l_region]++;
+        if( i_cellLocalInformation[l_cell].ltsSetup.hasBuffers() ) o_numberOfBuffers[l_cluster][l_region]++;
+        if( i_cellLocalInformation[l_cell].ltsSetup.hasDerivatives() ) o_numberOfDerivatives[l_cluster][l_region]++;
       }
 
       l_firstRegionCell = l_firstNonRegionCell;
@@ -105,14 +105,14 @@ void seissol::initializer::InternalState::setUpLayerPointers(       unsigned int
     // iterate over this particular region
     for( unsigned int l_cell = l_firstRegionCell; l_cell < l_firstNonRegionCell; l_cell++ ) {
       // set pointers and increase conunters
-      if( (i_cellLocalInformation[l_cell].ltsSetup >> 8 ) % 2 ) {
+      if( i_cellLocalInformation[l_cell].ltsSetup.hasBuffers() ) {
         o_buffers[l_cell] = i_layerMemory + l_offset
                                           + l_bufferCounter * tensor::I::size();
         l_bufferCounter++;
       }
       else o_buffers[l_cell] = NULL;
 
-      if( (i_cellLocalInformation[l_cell].ltsSetup >> 9 ) % 2 ) {
+      if( i_cellLocalInformation[l_cell].ltsSetup.hasDerivatives() ) {
         o_derivatives[l_cell] = i_layerMemory + l_offset 
                                               + i_numberOfBuffers[l_region] * tensor::I::size()
                                               + l_derivativeCounter * yateto::computeFamilySize<tensor::dQ>();
