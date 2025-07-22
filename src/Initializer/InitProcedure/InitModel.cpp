@@ -29,6 +29,7 @@
 #include <Monitoring/Stopwatch.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
 #include <Solver/Estimator.h>
+#include <Solver/TimeStepping/HaloCommunication.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -191,6 +192,7 @@ struct LtsInfo {
   unsigned* ltsMeshToFace = nullptr;
   MeshStructure* meshStructure = nullptr;
   std::optional<ClusterLayout> clusterLayout;
+  solver::HaloCommunication haloCommunication;
 
   // IMPORTANT: DO NOT DEALLOCATE THE ABOVE POINTERS... THEY ARE PASSED ON AND REQUIRED DURING
   // RUNTIME
@@ -307,6 +309,9 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   seissolInstance.getLtsLayout().getMeshStructure(ltsInfo.meshStructure);
   ltsInfo.clusterLayout = seissolInstance.getLtsLayout().clusterLayout();
 
+  ltsInfo.haloCommunication =
+      solver::getHaloCommunication(ltsInfo.clusterLayout.value(), ltsInfo.meshStructure);
+
   seissolInstance.getMemoryManager().initializeFrictionLaw();
 
   unsigned* numberOfDRCopyFaces = nullptr;
@@ -344,10 +349,7 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   delete[] ltsToMesh;
 
   seissol::initializer::time_stepping::deriveLtsSetups(
-      ltsInfo.clusterLayout.value().globalClusterCount,
-      ltsInfo.meshStructure,
-      ltsTree->var(lts->cellInformation),
-      ltsTree->var(lts->secondaryInformation));
+      ltsInfo.clusterLayout.value().globalClusterCount, ltsInfo.meshStructure, *ltsTree, *lts);
 }
 
 void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
@@ -356,7 +358,7 @@ void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   seissolInstance.getMemoryManager().initializeMemoryLayout();
 
   seissolInstance.timeManager().addClusters(ltsInfo.clusterLayout.value(),
-                                            ltsInfo.meshStructure,
+                                            ltsInfo.haloCommunication,
                                             seissolInstance.getMemoryManager(),
                                             seissolParams.model.plasticity);
 

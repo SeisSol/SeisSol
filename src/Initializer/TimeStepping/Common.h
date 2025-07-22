@@ -12,6 +12,8 @@
 
 #include <Initializer/CellLocalInformation.h>
 #include <Initializer/LtsSetup.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/LTSTree.h>
 #include <cassert>
 #include <mpi.h>
 #include <set>
@@ -85,10 +87,9 @@ namespace seissol::initializer::time_stepping {
  * @param faceNeighborIds face neighbor ids.
  * @param copy true if the cell is part of the copy layer (only required for correctness in dynamic rupture computations).
  **/
-static LtsSetup getLtsSetup(unsigned int localClusterId,
-                                  const unsigned int neighboringClusterIds[4],
-                                  const FaceType faceTypes[4],
-                                  const unsigned int faceNeighborIds[4], // TODO: Remove, outdated
+static LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
+  const SecondaryCellLocalInformation& ownSecondary,
+  const std::array<uint64_t, Cell::NumFaces>& neighborClusters,
                                   bool copy = false ) {
   // reset the LTS setup
   LtsSetup ltsSetup{};
@@ -96,15 +97,15 @@ static LtsSetup getLtsSetup(unsigned int localClusterId,
   // iterate over the faces
   for( std::size_t face = 0; face < Cell::NumFaces; face++ ) {
     // continue for boundary conditions
-    if (faceTypes[face] == FaceType::Outflow) {
+    if (ownPrimary.faceTypes[face] == FaceType::Outflow) {
       continue;
     }
     // fake neighbors are GTS
-    else if(isExternalBoundaryFaceType(faceTypes[face])) {
+    else if(isExternalBoundaryFaceType(ownPrimary.faceTypes[face])) {
       ltsSetup.setNeighborGTS(face, true);
     }
     // dynamic rupture faces are always global time stepping but operate on derivatives
-    else if( faceTypes[face] == FaceType::DynamicRupture ) {
+    else if( ownPrimary.faceTypes[face] == FaceType::DynamicRupture ) {
       // face-neighbor provides GTS derivatives
       // face-neighbor provides derivatives
       ltsSetup.setNeighborHasDerivatives(face, true);
@@ -121,7 +122,7 @@ static LtsSetup getLtsSetup(unsigned int localClusterId,
     // derive the LTS setup based on the cluster ids
     else {
       // neighboring cluster has a larger time step than this cluster
-      if( localClusterId < neighboringClusterIds[face] ) {
+      if( ownSecondary.clusterId < neighborClusters[face] ) {
         // neighbor delivers time derivatives
         ltsSetup.setNeighborHasDerivatives(face, true);
 
@@ -129,12 +130,12 @@ static LtsSetup getLtsSetup(unsigned int localClusterId,
         ltsSetup.setCacheBuffers(true);
       }
       // GTS relation
-      else if( localClusterId == neighboringClusterIds[face] ) {
+      else if( ownSecondary.clusterId == neighborClusters[face] ) {
         ltsSetup.setNeighborGTS(face, true);
       }
 
       // cell is required to provide derivatives
-      if( localClusterId > neighboringClusterIds[face] ) {
+      if( ownSecondary.clusterId > neighborClusters[face] ) {
         ltsSetup.setHasDerivatives(true);
       }
       // cell is required to provide a buffer
@@ -162,7 +163,7 @@ static LtsSetup getLtsSetup(unsigned int localClusterId,
    */
   for( std::size_t face = 0; face < Cell::NumFaces; face++ ) {
     // check for special case free-surface/dirichlet requirements
-    const bool isSpecialCase = isExternalBoundaryFaceType(faceTypes[face]);
+    const bool isSpecialCase = isExternalBoundaryFaceType(ownPrimary.faceTypes[face]);
     if (isSpecialCase &&       // special case face
        ( ltsSetup.cacheBuffers() ||             // lts fashion buffer
          !ltsSetup.hasBuffers() )         ) {  // no buffer at all
@@ -191,15 +192,17 @@ static LtsSetup getLtsSetup(unsigned int localClusterId,
  * @param neighboringSetups local time stepping setups for the neighboring cells, set to GTS (240) if not defined (e.g. in case of boundary conditions).
  * @param localLtsSetup local time stepping setup of the local cell.
  **/
-static void normalizeLtsSetup( LtsSetup  neighboringLtsSetups[4],
-                               LtsSetup &localLtsSetup ) {
+static LtsSetup normalizeLtsSetup( const LtsSetup &localLtsSetup,
+                                    const std::array<bool, Cell::NumFaces>&  neighborCache) {
+  LtsSetup output(localLtsSetup);
   // iterate over the face neighbors
-  for( unsigned int face = 0; face < Cell::NumFaces; face++ ) {
+  for( std::size_t face = 0; face < Cell::NumFaces; face++ ) {
     // enforce derivatives if this is a "GTS on derivatives" relation
-    if( localLtsSetup.neighborGTS(face) && neighboringLtsSetups[face].cacheBuffers() ) {
-      localLtsSetup.setNeighborHasDerivatives(face, true);
+    if( localLtsSetup.neighborGTS(face) && neighborCache[face] ) {
+      output.setNeighborHasDerivatives(face, true);
     }
   }
+  return output;
 }
 
 /**
@@ -322,95 +325,71 @@ static void synchronizeLtsSetups( unsigned int                 numberOfClusters,
  **/
 inline void deriveLtsSetups( unsigned int                 numberOfClusters,
                              struct MeshStructure        *meshStructure,
-                             struct CellLocalInformation *cellLocalInformation,
-                             struct SecondaryCellLocalInformation *secondaryInformation  ) {
-  unsigned int cell = 0;
+                            LTSTree& tree, LTS& lts  ) {
+
+  auto* primaryInformationGlobal = tree.var(lts.cellInformation);
+  const auto* secondaryInformationGlobal = tree.var(lts.secondaryInformation);
 
   // iterate over time clusters
-  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
-    // jump over ghost layer which has invalid information for the face neighbors
-    cell += meshStructure[cluster].numberOfGhostCells;
+  for(auto& layer : tree.leaves(Ghost)) {
+    const auto isCopy = layer.getIdentifier().halo == Copy;
+    auto* primaryInformationLocal = layer.var(lts.cellInformation);
+    const auto* secondaryInformationLocal = layer.var(lts.secondaryInformation);
+    for( std::size_t cell = 0; cell < layer.size(); ++cell ) {
+      std::array<uint64_t, Cell::NumFaces> neighborClusters{};
+      for( std::size_t face = 0; face < Cell::NumFaces; face++ ) {
+        // only continue for non-boundary faces
+        if( isInternalFaceType(primaryInformationLocal[cell].faceTypes[face]) ) {
+          // get neighboring cell id
+          const auto neighbor = secondaryInformationLocal[cell].faceNeighborIds[face];
 
-    unsigned int numberOfClusterCells = meshStructure[cluster].numberOfCopyCells  +
-                                          meshStructure[cluster].numberOfInteriorCells;
-
-    // iterate over copy and interior
-    for( unsigned int clusterCell = 0; clusterCell < numberOfClusterCells; clusterCell++ ) {
-      // cluster ids of the four face neighbors
-      unsigned int neighboringClusterIds[Cell::NumFaces] = {0};
-      // collect cluster ids
-      for( unsigned int face = 0; face < Cell::NumFaces; face++ ) {
-        // only continue for valid faces
-        if (isInternalFaceType(cellLocalInformation[cell].faceTypes[face])) {
-	  // get neighboring cell id
-	  unsigned int neighbor = secondaryInformation[cell].faceNeighborIds[face];
-
-          // set the cluster id
-          neighboringClusterIds[face] = secondaryInformation[neighbor].clusterId;
+          // get neighboring setup
+          neighborClusters[face] = secondaryInformationGlobal[neighbor].clusterId;
         }
       }
 
       // set the lts setup for this cell
-      cellLocalInformation[cell].ltsSetup = LtsSetup(getLtsSetup( secondaryInformation[cell].clusterId,
-                                                              neighboringClusterIds,
-                                                              cellLocalInformation[cell].faceTypes,
-                                                              secondaryInformation[cell].faceNeighborIds,
-                                                              (clusterCell < meshStructure[cluster].numberOfCopyCells) ));
+      primaryInformationLocal[cell].ltsSetup = LtsSetup(getLtsSetup( primaryInformationLocal[cell], secondaryInformationLocal[cell],
+                                                              neighborClusters,
+                                                              isCopy ));
       // assert that the cell operates at least on buffers or derivatives
-      assert (cellLocalInformation[cell].ltsSetup.hasBuffers() || cellLocalInformation[cell].ltsSetup.hasDerivatives());
-
-      cell++;
+      assert (primaryInformationLocal[cell].ltsSetup.hasBuffers() || primaryInformationLocal[cell].ltsSetup.hasDerivatives());
     }
   }
 
 // exchange ltsSetup of the ghost layer for the normalization step
   synchronizeLtsSetups( numberOfClusters,
                         meshStructure,
-                        cellLocalInformation );
+                        primaryInformationGlobal );
 
   // iterate over cells and normalize the setups
-  cell = 0;
-  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
-    // jump over ghost layer
-    cell += meshStructure[cluster].numberOfGhostCells;
-
-    unsigned int numberOfClusterCells = meshStructure[cluster].numberOfCopyCells  +
-                                          meshStructure[cluster].numberOfInteriorCells;
-
-    for( unsigned int clusterCell = 0; clusterCell < numberOfClusterCells; clusterCell++ ) {
-      LtsSetup neighboringSetups[4]{};
-
-      // reset to gts (240)
-      for (int n = 0; n < 4; ++n) {
-        neighboringSetups[n].setNeighborGTS(n, true);
-      }
+  for(auto& layer : tree.leaves(Ghost)) {
+    const auto isCopy = layer.getIdentifier().halo == Copy;
+    auto* primaryInformationLocal = layer.var(lts.cellInformation);
+    const auto* secondaryInformationLocal = layer.var(lts.secondaryInformation);
+    for( std::size_t cell = 0; cell < layer.size(); ++cell ) {
+      std::array<bool, Cell::NumFaces> neighborCache{};
 
       // collect lts setups
-      for( unsigned int face = 0; face < Cell::NumFaces; face++ ) {
+      for( std::size_t face = 0; face < Cell::NumFaces; face++ ) {
         // only continue for non-boundary faces
-        if( isInternalFaceType(cellLocalInformation[cell].faceTypes[face]) ) {
-          // get neighboring cell id
-          unsigned int neighbor = secondaryInformation[cell].faceNeighborIds[face];
-
-          // get neighboring setup
-          neighboringSetups[face] = cellLocalInformation[neighbor].ltsSetup;
+        if( isInternalFaceType(primaryInformationLocal[cell].faceTypes[face]) ) {
+          const auto neighbor = secondaryInformationLocal[cell].faceNeighborIds[face];
+          neighborCache[face] = primaryInformationGlobal[neighbor].ltsSetup.cacheBuffers();
         }
       }
 
-      // do the normalization
-      normalizeLtsSetup( neighboringSetups, cellLocalInformation[cell].ltsSetup );
+      primaryInformationLocal[cell].ltsSetup = normalizeLtsSetup(primaryInformationLocal[cell].ltsSetup,  neighborCache );
 
       // assert that the cell operates at least on buffers or derivatives
-      assert (cellLocalInformation[cell].ltsSetup.hasBuffers() || cellLocalInformation[cell].ltsSetup.hasDerivatives());
-
-      cell++;
+      assert (primaryInformationLocal[cell].ltsSetup.hasBuffers() || primaryInformationLocal[cell].ltsSetup.hasDerivatives());
     }
   }
 
 // get final setup in the ghost layer (after normalization)
   synchronizeLtsSetups( numberOfClusters,
                         meshStructure,
-                        cellLocalInformation );
+                        primaryInformationGlobal );
 }
 
 } // namespace seissol::initializer::time_stepping

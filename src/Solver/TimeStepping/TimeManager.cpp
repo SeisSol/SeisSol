@@ -57,13 +57,11 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
 TimeManager::~TimeManager() = default;
 
 void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
-                              MeshStructure* meshStructure,
+                              const solver::HaloCommunication& haloStructure,
                               initializer::MemoryManager& memoryManager,
                               bool usePlasticity) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
   std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
-  // assert non-zero pointers
-  const auto haloStructure = solver::getHaloCommunication(clusterLayout, meshStructure);
 
   // store the time stepping
   this->clusterLayout = clusterLayout;
