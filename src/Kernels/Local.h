@@ -9,11 +9,11 @@
 #ifndef SEISSOL_SRC_KERNELS_LOCAL_H_
 #define SEISSOL_SRC_KERNELS_LOCAL_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Parallel/Runtime/Stream.h"
-#include "generated_code/tensor.h"
 #include <Kernels/Kernel.h>
 #include <Physics/InitialField.h>
 #include <cassert>

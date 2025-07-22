@@ -11,8 +11,8 @@
 #ifndef SEISSOL_SRC_KERNELS_TIME_H_
 #define SEISSOL_SRC_KERNELS_TIME_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
-#include "generated_code/tensor.h"
 #include <Kernels/Kernel.h>
 #include <Numerical/BasisFunction.h>
 #include <Parallel/Runtime/Stream.h>

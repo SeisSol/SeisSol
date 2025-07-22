@@ -17,10 +17,10 @@
 #include "Numerical/Transformation.h"
 #include <Common/Iterator.h>
 #include <Eigen/Dense>
+#include <GeneratedCode/init.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cstddef>
-#include <init.h>
 #include <limits>
 #include <tuple>
 #include <utility>

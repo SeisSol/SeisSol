@@ -6,6 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include <Equations/Datastructures.h>
+#include <GeneratedCode/init.h>
+#include <GeneratedCode/tensor.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
 #include <Model/Common.h>
@@ -15,10 +17,8 @@
 #include <cmath>
 #include <complex>
 #include <cstddef>
-#include <init.h>
 #include <limits>
 #include <math.h>
-#include <tensor.h>
 
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"

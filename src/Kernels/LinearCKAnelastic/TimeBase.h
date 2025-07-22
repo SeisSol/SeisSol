@@ -10,7 +10,7 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIMEBASE_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIMEBASE_H_
 
-#include "generated_code/kernel.h"
+#include "GeneratedCode/kernel.h"
 #include <Kernels/Spacetime.h>
 #include <Kernels/Time.h>
 
