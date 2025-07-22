@@ -46,15 +46,15 @@ class FastVelocityWeakeningLaw
  * @return \f$ \Psi(t) \f$
  */
 #pragma omp declare simd
-  [[nodiscard]] real updateStateVariable(unsigned int pointIndex,
-                                         unsigned int face,
+  [[nodiscard]] real updateStateVariable(std::uint32_t pointIndex,
+                                         std::size_t faceIndex,
                                          real stateVarReference,
                                          real timeIncrement,
                                          real localSlipRate) const {
     const double muW = this->drParameters->muW;
-    const double localSrW = this->srW[face][pointIndex];
-    const double localA = this->a[face][pointIndex];
-    const double localSl0 = this->sl0[face][pointIndex];
+    const double localSrW = this->srW[faceIndex][pointIndex];
+    const double localA = this->a[faceIndex][pointIndex];
+    const double localSl0 = this->sl0[faceIndex][pointIndex];
 
     // low-velocity steady state friction coefficient
     const real lowVelocityFriction =
@@ -86,11 +86,11 @@ class FastVelocityWeakeningLaw
     std::array<double, misc::NumPaddedPoints> ac{};
   };
 
-  MuDetails getMuDetails(unsigned ltsFace,
+  MuDetails getMuDetails(std::size_t ltsFace,
                          const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
     MuDetails details{};
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       const double localA = this->a[ltsFace][pointIndex];
       const double c = 0.5 / this->drParameters->rsSr0 *
                        std::exp(static_cast<double>(localStateVariable[pointIndex]) / localA);
@@ -112,7 +112,8 @@ class FastVelocityWeakeningLaw
  * @return \f$ \mu \f$
  */
 #pragma omp declare simd
-  double updateMu(unsigned pointIndex, double localSlipRateMagnitude, const MuDetails& details) {
+  double
+      updateMu(std::uint32_t pointIndex, double localSlipRateMagnitude, const MuDetails& details) {
     const double x = details.c[pointIndex] * localSlipRateMagnitude;
     return details.a[pointIndex] * std::asinh(x);
   }
@@ -126,7 +127,7 @@ class FastVelocityWeakeningLaw
  * @return \f$ \mu \f$
  */
 #pragma omp declare simd
-  double updateMuDerivative(unsigned pointIndex,
+  double updateMuDerivative(std::uint32_t pointIndex,
                             double localSlipRateMagnitude,
                             const MuDetails& details) {
     const double x = details.c[pointIndex] * localSlipRateMagnitude;
@@ -137,11 +138,11 @@ class FastVelocityWeakeningLaw
    * Resample the state variable.
    */
   void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                        unsigned int ltsFace) const {
+                        std::size_t ltsFace) const {
     std::array<real, misc::NumPaddedPoints> deltaStateVar = {0};
     std::array<real, misc::NumPaddedPoints> resampledDeltaStateVar = {0};
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       deltaStateVar[pointIndex] =
           stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
     }
@@ -152,14 +153,14 @@ class FastVelocityWeakeningLaw
     resampleKrnl.execute();
 
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] =
           this->stateVariable[ltsFace][pointIndex] + resampledDeltaStateVar[pointIndex];
     }
   }
 
   void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                             unsigned ltsFace) const {
+                             std::size_t ltsFace) const {
     [[maybe_unused]] const real tmp = 0.5 / this->drParameters->rsSr0 *
                                       std::exp(localStateVariable[0] / this->a[ltsFace][0]) *
                                       this->slipRateMagnitude[ltsFace][0];

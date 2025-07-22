@@ -27,13 +27,13 @@ class SlowVelocityWeakeningLaw
 
 // Note that we need double precision here, since single precision led to NaNs.
 #pragma omp declare simd
-  double updateStateVariable(int pointIndex,
-                             unsigned int face,
+  double updateStateVariable(std::uint32_t pointIndex,
+                             std::size_t faceIndex,
                              double stateVarReference,
                              double timeIncrement,
                              double localSlipRate) {
     return static_cast<Derived*>(this)->updateStateVariable(
-        pointIndex, face, stateVarReference, timeIncrement, localSlipRate);
+        pointIndex, faceIndex, stateVarReference, timeIncrement, localSlipRate);
   }
 
   struct MuDetails {
@@ -42,11 +42,11 @@ class SlowVelocityWeakeningLaw
     std::array<double, misc::NumPaddedPoints> ac{};
   };
 
-  MuDetails getMuDetails(unsigned ltsFace,
+  MuDetails getMuDetails(std::size_t ltsFace,
                          const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
     MuDetails details{};
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
       const double localA = this->a[ltsFace][pointIndex];
       const double localSl0 = this->sl0[ltsFace][pointIndex];
       const double log1 = std::log(this->drParameters->rsSr0 *
@@ -71,7 +71,8 @@ class SlowVelocityWeakeningLaw
    * @return \f$ \mu \f$
    */
 #pragma omp declare simd
-  double updateMu(unsigned pointIndex, double localSlipRateMagnitude, const MuDetails& details) {
+  double
+      updateMu(std::uint32_t pointIndex, double localSlipRateMagnitude, const MuDetails& details) {
     const double x = localSlipRateMagnitude * details.c[pointIndex];
     return details.a[pointIndex] * std::asinh(x);
   }
@@ -86,7 +87,7 @@ class SlowVelocityWeakeningLaw
    * @return \f$ \mu \f$
    */
 #pragma omp declare simd
-  double updateMuDerivative(unsigned pointIndex,
+  double updateMuDerivative(std::uint32_t pointIndex,
                             double localSlipRateMagnitude,
                             const MuDetails& details) {
     const double x = localSlipRateMagnitude * details.c[pointIndex];
@@ -98,15 +99,15 @@ class SlowVelocityWeakeningLaw
    * member variable.
    */
   void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                        unsigned int ltsFace) const {
+                        std::size_t ltsFace) const {
 #pragma omp simd
-    for (size_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }
 
   void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                             unsigned ltsFace) {
+                             std::size_t ltsFace) {
     [[maybe_unused]] const real tmp =
         0.5 / this->drParameters->rsSr0 *
         std::exp(

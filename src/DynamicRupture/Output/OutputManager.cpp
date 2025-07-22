@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <fstream>
@@ -334,7 +335,7 @@ void OutputManager::initPickpointOutput() {
       allReceiversInOneFilePerRank ? ppOutputData->receiverPoints.size() / multisim::NumSimulations
                                    : 1;
 
-  for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
+  for (std::uint32_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
     for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
       size_t labelCounter = 0;
       auto collectVariableNames =
