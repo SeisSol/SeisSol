@@ -36,7 +36,7 @@ struct DamageMaterial : Material {
   static inline const std::string Text = "damage";
   static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3", "alpha"};
-  static constexpr std::size_t Parameters = 18 + Material::Parameters;
+  static constexpr std::size_t Parameters = 23 + Material::Parameters;
 
   static constexpr bool SupportsDR = false;
   static constexpr bool SupportsLTS = true;
@@ -44,13 +44,20 @@ struct DamageMaterial : Material {
   using LocalSpecificData = DamageLocalData;
   using NeighborSpecificData = DamageNeighborData;
   using Solver = kernels::solver::nonlinearck::Solver;
-
+  
+  // following parameters from tpv5 are not here:, normal gamma, betaalpha, scalingvalue
   double lambda;
   double mu;
-  double gammaR;
+  double gammaR; // gamma in tpv5 parameters
   double Cd;      // damage evolution coefficient
   double lambda0; // original
   double mu0;     // original
+  double xi0;
+  double aB0;
+  double aB1;
+  double aB2;
+  double aB3; // non linear granularities
+
   // store the initial strain for predictor step
   double epsInit_xx;
   double epsInit_yy;

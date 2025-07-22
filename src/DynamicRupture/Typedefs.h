@@ -22,7 +22,20 @@ namespace seissol::dr {
  */
 struct ImpedancesAndEta {
   real zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
+  #ifdef USE_DAMAGE
+    real lambda0P, mu0P, gammaRP, xi0P, rho0P;
+    real lambda0M, mu0M, gammaRM, xi0M, rho0M;
+    real csOcpTZsOZp, csOcpTZsOZpNeig;
+    VrtxCoords faultN, faultT1, faultT2;
+  #endif
 };
+
+#ifdef USE_DAMAGE
+struct DamageParameters{
+  real epsInitxx, epsInityy, epsInitzz, epsInitxy, epsInityz, epsInitxz;
+  real aB0, aB1, aB2, aB3; 
+};
+#endif
 
 /**
  * Stores the impedance matrices for an element and its neighbor for a poroelastic material.

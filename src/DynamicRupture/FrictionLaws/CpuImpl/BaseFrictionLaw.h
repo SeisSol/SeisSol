@@ -54,6 +54,61 @@ class BaseFrictionLaw : public FrictionSolver {
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
       const auto etaPDamp =
           drParameters->etaStop > this->mFullUpdateTime ? drParameters->etaHack : 1.0;
+      
+      #ifdef USE_DAMAGE
+      // convert from strain to stress here
+      //TODO: extract this into a separate function
+        alignas(PagesizeStack) real qStressInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()] = {{0.0}};
+        alignas(PagesizeStack) real qStressInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()] = {{0.0}};
+        using QInterpolatedShapeT = const real(*)[seissol::dr::misc::NumQuantities][seissol::dr::misc::NumPaddedPoints];
+        using QStressInterpolatedShapeT = real(*)[seissol::dr::misc::NumQuantities][seissol::dr::misc::NumPaddedPoints];
+        auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(this->qInterpolatedPlus[ltsFace]);
+        auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(this->qInterpolatedMinus[ltsFace]);
+        auto* qStressIPlus = reinterpret_cast<QStressInterpolatedShapeT>(qStressInterpolatedPlus);
+        auto* qStressIMinus = reinterpret_cast<QStressInterpolatedShapeT>(qStressInterpolatedMinus);
+
+        using namespace seissol::dr::misc::quantity_indices;
+        const unsigned DAM = 9;
+        const unsigned BRE = 10;
+
+        const real epsInitxx = damageParameters->epsInitxx;
+        const real epsInityy = damageParameters->epsInityy;
+        const real epsInitzz = damageParameters->epsInitzz;
+        const real epsInitxy = damageParameters->epsInitxy;
+        const real epsInityz = damageParameters->epsInityz;
+        const real epsInitxz = damageParameters->epsInitxz;
+        const real aB0 = damageParameters->aB0;
+        const real aB1 = damageParameters->aB1;
+        const real aB2 = damageParameters->aB2;
+        const real aB3 = damageParameters->aB3;
+        const real lamda0P = impAndEta[ltsFace].lambda0P;
+        const real mu0P = impAndEta[ltsFace].mu0P;
+        const real rho0P = impAndEta[ltsFace].rho0P;
+        const real lambda0M = impAndEta[ltsFace].lambda0M;
+        const real mu0M = impAndEta[ltsFace].mu0M;
+        const real rho0M = impAndEta[ltsFace].rho0M;
+
+        for(std::size_t o = 0; o < ConvergenceOrder ; o++){
+          for(std::size_t i = 0; i < seissol::dr::misc::NumPaddedPoints; i++){
+            real EspIp = (qIPlus[o][XX][i]+epsInitxx) + (qIPlus[o][YY][i]+epsInityy) + (qIPlus[o][ZZ][i]+epsInitzz);
+            
+            real EspIIp = (qIPlus[o][XX][i]+epsInitxx)*(qIPlus[o][XX][i]+epsInitxx)
+            + (qIPlus[o][YY][i]+epsInityy)*(qIPlus[o][YY][i]+epsInityy)
+            + (qIPlus[o][ZZ][i]+epsInitzz)*(qIPlus[o][ZZ][i]+epsInitzz)
+            + 2*(qIPlus[o][XY][i]+epsInitxy)*(qIPlus[o][XY][i]+epsInitxy)
+            + 2*(qIPlus[o][YZ][i]+epsInityz)*(qIPlus[o][YZ][i]+epsInityz)
+            + 2*(qIPlus[o][XZ][i]+epsInitxz)*(qIPlus[o][XZ][i]+epsInitxz);
+          real alphap = qIPlus[o][DAM][i];
+          real xip;
+          if (EspIIp > 1e-30){
+            xip = EspIp / std::sqrt(EspIIp);
+          } else{
+            xip = 0.0;
+          }
+          }
+        }
+
+      #endif
       common::precomputeStressFromQInterpolated(faultStresses,
                                                 impAndEta[ltsFace],
                                                 impedanceMatrices[ltsFace],

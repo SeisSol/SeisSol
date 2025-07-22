@@ -55,6 +55,9 @@ struct DynamicRupture {
   Variable<DREnergyOutput> drEnergyOutput;
 
   Variable<seissol::dr::ImpedancesAndEta> impAndEta;
+  #ifdef USE_DAMAGE
+  Variable<seissol::dr::DamageParameters> damageParameters;
+  #endif
   Variable<seissol::dr::ImpedanceMatrices> impedanceMatrices;
   // size padded for vectorization
   // CS = coordinate system

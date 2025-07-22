@@ -62,6 +62,9 @@ class FrictionSolver {
   seissol::initializer::parameters::DRParameters* __restrict drParameters;
   ImpedancesAndEta* __restrict impAndEta{};
   ImpedanceMatrices* __restrict impedanceMatrices{};
+  #ifdef USE_DAMAGE
+  DamageParameters* __restrict damageParameters{};
+  #endif
   real mFullUpdateTime{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};

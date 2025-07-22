@@ -530,6 +530,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
     auto* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
     auto* impAndEta = layer.var(dynRup->impAndEta);
     auto* impedanceMatrices = layer.var(dynRup->impedanceMatrices);
+    #ifdef USE_DAMAGE
+    auto* damageParameters = layer.var(dynRup->damageParameters);
+    #endif
 
 #ifdef _OPENMP
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
@@ -670,8 +673,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                             matTinv);
 
       /// Materials
-      seissol::model::Material* plusMaterial = nullptr;
-      seissol::model::Material* minusMaterial = nullptr;
+      seissol::model::MaterialT* plusMaterial = nullptr;
+      seissol::model::MaterialT* minusMaterial = nullptr;
       const std::size_t plusLtsId =
           (fault[meshFace].element >= 0)
               ? ltsLut->ltsId(ltsTree->info(lts->material).mask, fault[meshFace].element)
@@ -703,6 +706,44 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       waveSpeedsPlus[ltsFace].sWaveVelocity = plusMaterial->getSWaveSpeed();
       waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
       waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
+
+      #ifdef USE_DAMAGE
+      impAndEta[ltsFace].lambda0P = plusMaterial->lambda0;
+      impAndEta[ltsFace].mu0P = plusMaterial->mu0;
+      impAndEta[ltsFace].gammaRP = plusMaterial->gammaR;
+      impAndEta[ltsFace].xi0P = plusMaterial->xi0;
+      impAndEta[ltsFace].rho0P = plusMaterial->rho;
+
+      impAndEta[ltsFace].lambda0M = minusMaterial->lambda0;
+      impAndEta[ltsFace].mu0M = minusMaterial->mu0;
+      impAndEta[ltsFace].gammaRM = minusMaterial->gammaR;
+      impAndEta[ltsFace].xi0M = minusMaterial->xi0;
+      impAndEta[ltsFace].rho0M = minusMaterial->rho;
+
+      impAndEta[ltsFace].faultN[0] = fault[meshFace].normal[0];
+      impAndEta[ltsFace].faultT1[0] = fault[meshFace].tangent1[0];
+      impAndEta[ltsFace].faultT2[0] = fault[meshFace].tangent2[0];
+
+      impAndEta[ltsFace].faultN[1] = fault[meshFace].normal[1];
+      impAndEta[ltsFace].faultT1[1] = fault[meshFace].tangent1[1];
+      impAndEta[ltsFace].faultT2[1] = fault[meshFace].tangent2[1];
+
+      impAndEta[ltsFace].faultN[2] = fault[meshFace].normal[2];
+      impAndEta[ltsFace].faultT1[2] = fault[meshFace].tangent1[2];
+      impAndEta[ltsFace].faultT2[2] = fault[meshFace].tangent2[2];
+
+      damageParameters[ltsFace].aB0 = material->local.aB0;
+      damageParameters[ltsFace].aB1 = material->local.aB1;
+      damageParameters[ltsFace].aB2 = material->local.aB2;
+      damageParameters[ltsFace].aB3 = material->local.aB3;
+      damageParameters[ltsFace].epsInitxx = material->local.epsInit_xx;
+      damageParameters[ltsFace].epsInityy = material->local.epsInit_yy;
+      damageParameters[ltsFace].epsInitzz = material->local.epsInit_zz;
+      damageParameters[ltsFace].epsInitxy = material->local.epsInit_xy;
+      damageParameters[ltsFace].epsInityz = material->local.epsInit_yz;
+      damageParameters[ltsFace].epsInitxz = material->local.epsInit_xz;
+
+      #endif
 
       // calculate Impedances Z and eta
       impAndEta[ltsFace].zp =
