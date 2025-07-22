@@ -19,6 +19,7 @@
 #include "Parameters/ModelParameters.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
+#include <Common/Constants.h>
 #include <DynamicRupture/Typedefs.h>
 #include <Equations/Datastructures.h> // IWYU pragma: keep
 #include <Geometry/MeshDefinition.h>
@@ -191,15 +192,15 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
         const auto meshId = secondaryInformation[cell].meshId;
 
-        double x[4];
-        double y[4];
-        double z[4];
+        double x[Cell::NumVertices];
+        double y[Cell::NumVertices];
+        double z[Cell::NumVertices];
         double gradXi[3];
         double gradEta[3];
         double gradZeta[3];
 
         // Iterate over all 4 vertices of the tetrahedron
-        for (int vertex = 0; vertex < 4; ++vertex) {
+        for (std::size_t vertex = 0; vertex < Cell::NumVertices; ++vertex) {
           const VrtxCoords& coords = vertices[elements[meshId].vertices[vertex]].coords;
           x[vertex] = coords[0];
           y[vertex] = coords[1];
@@ -221,7 +222,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
         const double volume = MeshTools::volume(elements[meshId], vertices);
 
-        for (int side = 0; side < 4; ++side) {
+        for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           VrtxCoords normal;
           VrtxCoords tangent1;
           VrtxCoords tangent2;
@@ -257,7 +258,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               [&secondaryInformation, &cellInformation, &cellInformationAll, cell](int side) {
                 const auto hasDRFace = [](const CellLocalInformation& ci) {
                   bool hasAtLeastOneDRFace = false;
-                  for (size_t i = 0; i < 4; ++i) {
+                  for (size_t i = 0; i < Cell::NumFaces; ++i) {
                     if (ci.faceTypes[i] == FaceType::DynamicRupture) {
                       hasAtLeastOneDRFace = true;
                     }
@@ -379,11 +380,11 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 #endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto& element = elements[secondaryInformation[cell].meshId];
-      const double* coords[4];
-      for (int v = 0; v < 4; ++v) {
+      const double* coords[Cell::NumVertices];
+      for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
         coords[v] = vertices[element.vertices[v]].coords;
       }
-      for (int side = 0; side < 4; ++side) {
+      for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
         if (cellInformation[cell].faceTypes[side] != FaceType::FreeSurfaceGravity &&
             cellInformation[cell].faceTypes[side] != FaceType::Dirichlet &&
             cellInformation[cell].faceTypes[side] != FaceType::Analytical) {

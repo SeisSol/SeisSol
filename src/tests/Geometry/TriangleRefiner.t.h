@@ -7,6 +7,7 @@
 
 #include "tests/TestHelper.h"
 #include <array>
+#include <cstddef>
 #include <iomanip>
 #include <iostream>
 
@@ -21,7 +22,7 @@ inline void assertTriangle(seissol::refinement::Triangle& a,
                            double area,
                            double epsilon) {
   REQUIRE(a.area == AbsApprox(area).epsilon(epsilon));
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < 3; i++) {
     REQUIRE(a.x[i][0] == AbsApprox(b[i][0]).epsilon(epsilon));
     REQUIRE(a.x[i][1] == AbsApprox(b[i][1]).epsilon(epsilon));
   }
@@ -41,7 +42,7 @@ TEST_CASE("Triangle Refiner") {
 
     tr.refine(1);
 
-    for (unsigned i = 0; i < 4; i++) {
+    for (std::size_t i = 0; i < 4; i++) {
       assertTriangle(tr.subTris.at(i), expectedTriangles[i], area, Epsilon);
     }
   }
@@ -124,7 +125,7 @@ TEST_CASE("Triangle Refiner") {
 
     tr.refine(3);
 
-    for (unsigned i = 0; i < 64; i++) {
+    for (std::size_t i = 0; i < 64; i++) {
       assertTriangle(tr.subTris.at(i), expectedTriangles[i], area, Epsilon);
     }
   }
