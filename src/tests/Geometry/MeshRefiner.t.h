@@ -6,8 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "tests/TestHelper.h"
+#include <Common/Constants.h>
 #include <Eigen/Dense>
 #include <array>
+#include <cstddef>
 
 #include "Geometry/Refinement/MeshRefiner.h"
 #include "Geometry/Refinement/RefinerUtils.h"
@@ -16,13 +18,13 @@
 namespace seissol::unit_test {
 
 inline void assertPoint(const double* a, const Eigen::Vector3d& b, double epsilon) {
-  for (int i = 0; i < 3; i++) {
+  for (std::size_t i = 0; i < Cell::Dim; i++) {
     REQUIRE(a[i] == AbsApprox(b[i]).epsilon(epsilon));
   }
 }
 
 inline void assertCell(const unsigned int* a, const Eigen::Vector4i& b) {
-  for (int i = 0; i < 4; i++) {
+  for (std::size_t i = 0; i < Cell::NumFaces; i++) {
     REQUIRE(a[i] == b[i]);
   }
 }
@@ -62,10 +64,10 @@ TEST_CASE("Mesh refiner") {
     const seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy4);
     REQUIRE(meshRefiner.getNumCells() == 4);
     REQUIRE(meshRefiner.getNumVertices() == 5);
-    for (unsigned i = 0; i < meshRefiner.getNumVertices(); i++) {
+    for (std::size_t i = 0; i < meshRefiner.getNumVertices(); i++) {
       assertPoint(&meshRefiner.getVertexData()[3 * i], expectedVerticesDivideBy4[i], Epsilon);
     }
-    for (unsigned i = 0; i < meshRefiner.getNumCells(); i++) {
+    for (std::size_t i = 0; i < meshRefiner.getNumCells(); i++) {
       assertCell(&meshRefiner.getCellData()[4 * i], expectedCellsDivideBy4[i]);
     }
   }
@@ -95,10 +97,10 @@ TEST_CASE("Mesh refiner") {
     const seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy8);
     REQUIRE(meshRefiner.getNumCells() == 8);
     REQUIRE(meshRefiner.getNumVertices() == 10);
-    for (unsigned i = 0; i < meshRefiner.getNumVertices(); i++) {
+    for (std::size_t i = 0; i < meshRefiner.getNumVertices(); i++) {
       assertPoint(&meshRefiner.getVertexData()[3 * i], expectedVerticesDivideBy8[i], Epsilon);
     }
-    for (unsigned i = 0; i < meshRefiner.getNumCells(); i++) {
+    for (std::size_t i = 0; i < meshRefiner.getNumCells(); i++) {
       assertCell(&meshRefiner.getCellData()[4 * i], expectedCellsDivideBy8[i]);
     }
   }
@@ -143,10 +145,10 @@ TEST_CASE("Mesh refiner") {
     const seissol::refinement::MeshRefiner<double> meshRefiner(mockReader, refineBy32);
     REQUIRE(meshRefiner.getNumCells() == 32);
     REQUIRE(meshRefiner.getNumVertices() == 18);
-    for (unsigned i = 0; i < meshRefiner.getNumVertices(); i++) {
+    for (std::size_t i = 0; i < meshRefiner.getNumVertices(); i++) {
       assertPoint(&meshRefiner.getVertexData()[3 * i], expectedVerticesDivideBy32[i], Epsilon);
     }
-    for (unsigned i = 0; i < meshRefiner.getNumCells(); i++) {
+    for (std::size_t i = 0; i < meshRefiner.getNumCells(); i++) {
       assertCell(&meshRefiner.getCellData()[4 * i], expectedCellsDivideBy32[i]);
     }
   }

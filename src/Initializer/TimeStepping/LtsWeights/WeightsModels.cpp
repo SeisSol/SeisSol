@@ -10,6 +10,7 @@
 #include "generated_code/init.h"
 #include <Initializer/TimeStepping/LtsWeights/LtsWeights.h>
 #include <cassert>
+#include <cstddef>
 
 namespace seissol::initializer::time_stepping {
 
@@ -18,8 +19,8 @@ void ExponentialWeights::setVertexWeights() {
   const int maxCluster =
       getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
 
-  for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
-    const int factor = ratepow(m_rate, m_clusterIds[cell], maxCluster);
+  for (std::size_t cell = 0; cell < m_cellCosts.size(); ++cell) {
+    const auto factor = ratepow(m_rate, m_clusterIds[cell], maxCluster);
     m_vertexWeights[m_ncon * cell] = factor * m_cellCosts[cell];
   }
 }
@@ -37,8 +38,8 @@ void ExponentialBalancedWeights::setVertexWeights() {
   const int maxCluster =
       getCluster(m_details.globalMaxTimeStep, m_details.globalMinTimeStep, wiggleFactor, m_rate);
 
-  for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
-    const int factor = ratepow(m_rate, m_clusterIds[cell], maxCluster);
+  for (std::size_t cell = 0; cell < m_cellCosts.size(); ++cell) {
+    const auto factor = ratepow(m_rate, m_clusterIds[cell], maxCluster);
     m_vertexWeights[m_ncon * cell] = factor * m_cellCosts[cell];
 
     constexpr int MemoryWeight{1};
@@ -64,7 +65,7 @@ int EncodedBalancedWeights::evaluateNumberOfConstraints() {
 }
 
 void EncodedBalancedWeights::setVertexWeights() {
-  for (unsigned cell = 0; cell < m_cellCosts.size(); ++cell) {
+  for (std::size_t cell = 0; cell < m_cellCosts.size(); ++cell) {
     for (int i = 0; i < m_ncon; ++i) {
       m_vertexWeights[m_ncon * cell + i] = 0;
     }

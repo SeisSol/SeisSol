@@ -37,7 +37,7 @@ class GravitationalFreeSurfaceBc {
   explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
       : gravitationalAcceleration(gravitationalAcceleration) {};
 
-  static std::pair<long long, long long>
+  static std::pair<std::uint64_t, std::uint64_t>
       getFlopsDisplacementFace(unsigned face, [[maybe_unused]] FaceType faceType);
 
   template <typename TimeKrnl, typename MappingKrnl>
