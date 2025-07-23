@@ -790,20 +790,6 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
 #endif
 }
 
-std::pair<MeshStructure *, CompoundGlobalData>
-seissol::initializer::MemoryManager::getMemoryLayout(unsigned int i_cluster) {
-  MeshStructure *meshStructure = m_meshStructure + i_cluster;
-
-  CompoundGlobalData globalData{};
-  globalData.onHost = &m_globalDataOnHost;
-  globalData.onDevice = nullptr;
-  if constexpr (seissol::isDeviceOn()) {
-    globalData.onDevice = &m_globalDataOnDevice;
-  }
-
-  return std::make_pair(meshStructure, globalData);
-}
-
 void seissol::initializer::MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
   const auto fileNameStr = std::string{fileName};
   if (fileNameStr != "") {

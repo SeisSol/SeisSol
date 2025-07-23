@@ -21,14 +21,14 @@ struct ExtVrtxCoords {
 
   template <typename T>
   explicit ExtVrtxCoords(const T& other) {
-    for (int i = 0; i < 3; ++i) {
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
       coords[i] = other[i];
     }
   }
 
   template <typename T>
   ExtVrtxCoords& operator=(const T& other) {
-    for (int i = 0; i < 3; ++i) {
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
       coords[i] = other[i];
     }
     return *this;
@@ -37,18 +37,18 @@ struct ExtVrtxCoords {
   ExtVrtxCoords(std::initializer_list<double> inputCoords) {
     assert(inputCoords.size() == 3 && "ExtVrtxCoords must get initialized with 3 values");
     const auto* begin = inputCoords.begin();
-    for (int i = 0; i < 3; ++i, ++begin) {
+    for (std::size_t i = 0; i < Cell::Dim; ++i, ++begin) {
       coords[i] = *begin;
     }
   }
 
   double& operator[](size_t index) {
-    assert((index < 3) && "ExtVrtxCoords index must be less than 3");
+    assert((index < Cell::Dim) && "ExtVrtxCoords index must be less than 3");
     return coords[index];
   }
 
   double operator[](size_t index) const {
-    assert((index < 3) && "ExtVrtxCoords index must be less than 3");
+    assert((index < Cell::Dim) && "ExtVrtxCoords index must be less than 3");
     return coords[index];
   }
 
@@ -56,7 +56,7 @@ struct ExtVrtxCoords {
     return Eigen::Vector3d(coords[0], coords[1], coords[2]);
   }
 
-  constexpr static int size() { return 3; }
+  constexpr static std::size_t size() { return Cell::Dim; }
 
   VrtxCoords coords = {0.0, 0.0, 0.0};
 };
@@ -80,7 +80,7 @@ struct ExtTriangle {
     return points[index];
   }
 
-  static int size() { return 3; }
+  static std::size_t size() { return 3; }
 
   private:
   std::array<ExtVrtxCoords, 3> points{};
