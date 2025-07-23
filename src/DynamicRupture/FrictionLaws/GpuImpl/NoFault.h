@@ -24,7 +24,7 @@ class NoFault : public BaseFrictionSolver<NoFault> {
                                      const seissol::initializer::DynamicRupture* const dynRup,
                                      real fullUpdateTime) {}
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, unsigned timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {
     // calculate traction
     ctx.tractionResults.traction1[timeIndex] = ctx.faultStresses.traction1[timeIndex];
     ctx.tractionResults.traction2[timeIndex] = ctx.faultStresses.traction2[timeIndex];

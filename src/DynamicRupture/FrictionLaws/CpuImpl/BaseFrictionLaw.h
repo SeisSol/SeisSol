@@ -47,7 +47,7 @@ class BaseFrictionLaw : public FrictionSolver {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (unsigned ltsFace = 0; ltsFace < layerData.size(); ++ltsFace) {
+    for (std::size_t ltsFace = 0; ltsFace < layerData.size(); ++ltsFace) {
       alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
