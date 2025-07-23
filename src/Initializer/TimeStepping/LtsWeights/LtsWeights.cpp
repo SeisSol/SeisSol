@@ -92,11 +92,6 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
   int maxClusterId = *std::max_element(clusterIds.begin(), clusterIds.end());
   MPI_Allreduce(MPI_IN_PLACE, &maxClusterId, 1, MPI_INT, MPI_MAX, MPI::mpi.comm());
 
-  // We only have one cluster for rate = 1 and thus cannot merge.
-  if (rate.empty()) {
-    return maxClusterId;
-  }
-
   // Iteratively merge clusters until we found the first number of clusters that has a cost that is
   // too high
   for (auto curMaxClusterId = maxClusterId; curMaxClusterId >= 0; --curMaxClusterId) {
@@ -106,7 +101,7 @@ int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
     if (cost > maximalAdmissibleCost) {
       // This is the first number of clusters that resulted in an inadmissible cost
       // Hence, it was admissible in the previous iteration
-      return curMaxClusterId + 1;
+      return std::min(maxClusterId, curMaxClusterId + 1);
     }
   }
   return 0;
@@ -126,7 +121,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
               << "does not support LTS. Switching to GTS.";
     continueComputation = false;
   }
-  if (m_rate.empty()) {
+  if (m_rate.empty() || (m_rate.size() == 1 && m_rate[0] == 1)) {
     logInfo() << "GTS has been selected.";
     continueComputation = false;
   }
@@ -378,7 +373,11 @@ std::uint64_t LtsWeights::getCluster(double timestep,
 
   std::uint64_t cluster = 0;
   while (upper <= timestep) {
-    upper *= rate.size() > (cluster + 1) ? rate[cluster + 1] : rate.back();
+    const auto currentRate = rate.size() > (cluster + 1) ? rate[cluster + 1] : rate.back();
+    if (currentRate == 1) {
+      break;
+    }
+    upper *= currentRate;
     ++cluster;
   }
   return cluster;

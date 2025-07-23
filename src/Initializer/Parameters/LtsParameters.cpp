@@ -39,12 +39,28 @@ AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str) {
 
 LtsParameters readLtsParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("discretization");
-  const auto ratestr = reader->readWithDefault<std::string>("clusteredlts", "");
+  const auto ratestr = reader->readWithDefault<std::string>("clusteredlts", "1");
   std::vector<uint64_t> rates;
   auto parts = utils::StringUtils::split(ratestr, ' ');
   for (auto& part : parts) {
     utils::StringUtils::trim(part);
     rates.emplace_back(std::stoull(part));
+
+    if (rates.back() == 0) {
+      logError() << "Invalid LTS rate (0) found in" << ratestr << "after parsing" << rates
+                 << ". Aborting.";
+    }
+  }
+
+  if (rates.empty()) {
+    logWarning() << "No LTS rate given. Assuming GTS.";
+    rates.emplace_back(1);
+  }
+
+  for (std::size_t i = 0; i < rates.size() - 1; ++i) {
+    if (rates[i] == 1) {
+      logError() << "Invalid LTS rate (1) found in" << rates << ". Aborting.";
+    }
   }
 
   const double wiggleFactorMinimum = reader->readWithDefault("ltswigglefactormin", 1.0);
@@ -78,7 +94,7 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
           ltsWeightsType};
 }
 
-LtsParameters::LtsParameters(const std::vector<uint64_t>& rate,
+LtsParameters::LtsParameters(const std::vector<uint64_t>& rates,
                              double wiggleFactorMinimum,
                              double wiggleFactorStepsize,
                              bool wigleFactorEnforceMaximumDifference,
@@ -87,14 +103,19 @@ LtsParameters::LtsParameters(const std::vector<uint64_t>& rate,
                              double allowedPerformanceLossRatioAutoMerge,
                              AutoMergeCostBaseline autoMergeCostBaseline,
                              LtsWeightsTypes ltsWeightsType)
-    : rate(rate), wiggleFactorMinimum(wiggleFactorMinimum),
+    : rate(rates), wiggleFactorMinimum(wiggleFactorMinimum),
       wiggleFactorStepsize(wiggleFactorStepsize),
       wiggleFactorEnforceMaximumDifference(wigleFactorEnforceMaximumDifference),
       maxNumberOfClusters(maxNumberOfClusters), autoMergeClusters(ltsAutoMergeClusters),
       allowedPerformanceLossRatioAutoMerge(allowedPerformanceLossRatioAutoMerge),
       autoMergeCostBaseline(autoMergeCostBaseline), ltsWeightsType(ltsWeightsType) {
+
+  if (rate.empty()) {
+    rate.emplace_back(1);
+  }
+
   const bool isWiggleFactorValid =
-      (rate.empty() && wiggleFactorMinimum == 1.0) ||
+      (rate[0] == 1 && wiggleFactorMinimum == 1.0) ||
       (wiggleFactorMinimum <= 1.0 && wiggleFactorMinimum > (1.0 / rate[0]));
   if (!isWiggleFactorValid) {
     logError() << "Minimal wiggle factor of " << wiggleFactorMinimum << "is not valid for rate"

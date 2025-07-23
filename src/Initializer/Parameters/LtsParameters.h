@@ -64,7 +64,7 @@ class LtsParameters {
 
   LtsParameters() = default;
 
-  LtsParameters(const std::vector<uint64_t>& rate,
+  LtsParameters(const std::vector<uint64_t>& rates,
                 double wiggleFactorMinimum,
                 double wiggleFactorStepsize,
                 bool wigleFactorEnforceMaximumDifference,
