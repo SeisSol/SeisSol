@@ -46,6 +46,7 @@ void FreeSurfaceIntegrator::SurfaceLTS::addTo(seissol::initializer::LTSTree& sur
   surfaceLtsTree.add(side, ghostMask, 1, initializer::AllocationMode::HostOnly);
   surfaceLtsTree.add(meshId, ghostMask, 1, initializer::AllocationMode::HostOnly);
   surfaceLtsTree.add(boundaryMapping, ghostMask, 1, initializer::AllocationMode::HostOnly);
+  surfaceLtsTree.add(locationFlag, ghostMask, 1, initializer::AllocationMode::HostOnly);
 }
 
 FreeSurfaceIntegrator::FreeSurfaceIntegrator() {
@@ -322,6 +323,7 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
     displacements[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
   }
   locationFlags = std::vector<unsigned int>(totalNumberOfTriangles, 0);
+  globalIds.resize(totalNumberOfTriangles);
 
   /// @ yateto_todo
   unsigned surfaceCellOffset = 0; // Counts all surface cells of all layers
@@ -336,6 +338,7 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
     auto* surfaceBoundaryMapping = surfaceLayer.var(surfaceLts.boundaryMapping);
     auto* boundaryMapping = layer.var(lts->boundaryMapping);
     auto* secondaryInformation = layer.var(lts->secondaryInformation);
+    auto* locationFlagLayer = surfaceLayer.var(surfaceLts.locationFlag);
 
     unsigned* side = surfaceLayer.var(surfaceLts.side);
     unsigned* meshId = surfaceLayer.var(surfaceLts.meshId);
@@ -353,11 +356,15 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
             side[surfaceCell] = face;
             meshId[surfaceCell] = secondaryInformation[cell].meshId;
             surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
+            locationFlagLayer[surfaceCell] = static_cast<unsigned int>(getLocationFlag(
+                cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
+
+            const auto globalId = secondaryInformation[cell].globalId * 4 + face;
 
             for (unsigned i = 0; i < numberOfSubTriangles; ++i) {
               locationFlags[surfaceCellOffset * numberOfSubTriangles + i] =
-                  static_cast<unsigned int>(getLocationFlag(
-                      cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
+                  locationFlagLayer[surfaceCell];
+              globalIds[surfaceCellOffset * numberOfSubTriangles + i] = globalId;
             }
             ++surfaceCell;
             ++surfaceCellOffset;
