@@ -319,6 +319,7 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
     displacements[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
   }
   locationFlags = std::vector<unsigned int>(totalNumberOfTriangles, 0);
+  globalIds.resize(totalNumberOfTriangles);
 
   // NOTE: we store also for space tree duplicates here
   // thus, we need a non-duplicate lookup table (backmap)
@@ -339,6 +340,7 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
     auto* surfaceBoundaryMapping = surfaceLayer.var(surfaceLts->boundaryMapping);
     auto* boundaryMapping = layer.var(lts->boundaryMapping);
     auto* secondaryInformation = layer.var(lts->secondaryInformation);
+    auto* locationFlagLayer = surfaceLayer.var(surfaceLts->locationFlag);
 
     auto* side = surfaceLayer.var(surfaceLts->side);
     auto* meshId = surfaceLayer.var(surfaceLts->meshId);
@@ -357,12 +359,16 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
           side[surfaceCell] = face;
           meshId[surfaceCell] = secondaryInformation[cell].meshId;
           surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
+          locationFlagLayer[surfaceCell] = static_cast<unsigned int>(
+              getLocationFlag(cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
+
+          const auto globalId = secondaryInformation[cell].globalId * 4 + face;
 
           if (secondaryInformation[cell].duplicate == 0) {
             for (std::size_t i = 0; i < numberOfSubTriangles; ++i) {
               locationFlags[surfaceCellOffset * numberOfSubTriangles + i] =
-                  static_cast<unsigned int>(getLocationFlag(
-                      cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
+                  locationFlagLayer[surfaceCell];
+              globalIds[surfaceCellOffset * numberOfSubTriangles + i] = globalId;
             }
             outputPosition[surfaceCell] = surfaceCellOffset;
             backmap[surfaceCellOffset] = surfaceCellGlobal;

@@ -222,17 +222,6 @@ class MemoryManager {
       }
       return global;
     }
-
-    /**
-     * Gets the memory layout of a time cluster.
-     *
-     * @param i_cluster local id of the time cluster.
-     * @param o_meshStructure mesh structure.
-     * @param o_globalData global data.
-     * @param o_globalDataCopies several copies of global data
-     **/
-    std::pair<MeshStructure*, CompoundGlobalData>
-    getMemoryLayout(unsigned int i_cluster);
                           
     inline LTSTree* getLtsTree() {
       return &m_ltsTree;

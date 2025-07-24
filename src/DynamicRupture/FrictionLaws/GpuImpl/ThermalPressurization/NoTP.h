@@ -21,7 +21,7 @@ class NoTP {
                                  real fullUpdateTime) {}
 
   SEISSOL_DEVICE static void
-      calcFluidPressure(FrictionLawContext& ctx, int timeIndex, bool saveTmpInTP) {}
+      calcFluidPressure(FrictionLawContext& ctx, uint32_t timeIndex, bool saveTmpInTP) {}
 
   SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& /*unused*/) {
     return static_cast<real>(0.0);
