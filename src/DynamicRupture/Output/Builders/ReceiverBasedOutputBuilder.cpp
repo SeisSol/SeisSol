@@ -196,8 +196,10 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
     for (const auto& [index, arrayIndex] : faceIndices) {
       dataPointers[arrayIndex] = reinterpret_cast<real*>(var) + elementCount * index;
     }
-    outputData->deviceVariables[variable] =
-        std::make_unique<seissol::parallel::DataCollector>(dataPointers, elementCount, useUSM());
+
+    const bool hostAccessible = useUSM() && !outputData->extraRuntime.has_value();
+    outputData->deviceVariables[variable] = std::make_unique<seissol::parallel::DataCollector>(
+        dataPointers, elementCount, hostAccessible);
   }
 #endif
 

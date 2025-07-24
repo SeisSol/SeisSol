@@ -247,8 +247,10 @@ void ReceiverCluster::allocateData() {
       }
       deviceIndices[i] = indexMap.at(currentDofs);
     }
+
+    const bool hostAccessible = useUSM() && !extraRuntime.has_value();
     deviceCollector =
-        std::make_unique<seissol::parallel::DataCollector>(dofs, tensor::Q::size(), useUSM());
+        std::make_unique<seissol::parallel::DataCollector>(dofs, tensor::Q::size(), hostAccessible);
   }
 }
 void ReceiverCluster::freeData() {
