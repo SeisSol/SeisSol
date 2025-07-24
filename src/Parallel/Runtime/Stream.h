@@ -166,6 +166,14 @@ class StreamRuntime {
     return StreamMemoryHandle<T>(count, *this);
   }
 
+  void eventSync(void* event) { device().api->syncStreamWithEvent(streamPtr, event); }
+
+  void* eventRecord() {
+    void* event = nextEvent();
+    device().api->recordEventOnStream(event, streamPtr);
+    return event;
+  }
+
   private:
   bool disposed;
   void* streamPtr;
@@ -198,6 +206,9 @@ class StreamRuntime {
   }
   void wait() {}
   void dispose() {}
+
+  void eventSync(void* event) {}
+  void* eventRecord() { return nullptr; }
 #endif
 };
 

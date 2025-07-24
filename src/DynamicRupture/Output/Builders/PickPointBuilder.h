@@ -13,6 +13,7 @@
 #include "ReceiverBasedOutputBuilder.h"
 
 #include <Common/Iterator.h>
+#include <Parallel/Runtime/Stream.h>
 #include <memory>
 #include <optional>
 
@@ -25,6 +26,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
   void build(std::shared_ptr<ReceiverOutputData> pickPointOutputData) override {
     outputData = pickPointOutputData;
+    outputData->extraRuntime = parallel::runtime::StreamRuntime();
+
     readCoordsFromFile();
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);

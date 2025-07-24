@@ -15,6 +15,7 @@
 #include "Parallel/DataCollector.h"
 #include "generated_code/tensor.h"
 #include <Eigen/Dense>
+#include <Parallel/Runtime/Stream.h>
 #include <array>
 #include <cassert>
 #include <cstring>
@@ -165,6 +166,7 @@ struct ReceiverOutputData {
 
   std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector>> deviceVariables;
   std::vector<std::size_t> deviceIndices;
+  std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 };
 } // namespace seissol::dr
 

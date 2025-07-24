@@ -120,7 +120,11 @@ double ReceiverCluster::calcReceivers(double time,
   }
 
   if (executor == Executor::Device) {
+    // offload work to the extraRuntime stream
+
+    runtime.eventSync(extraRuntime.eventRecord());
     deviceCollector->gatherToHost(runtime.stream());
+    extraRuntime.eventSync(runtime.eventRecord());
   }
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
@@ -215,7 +219,7 @@ double ReceiverCluster::calcReceivers(double time,
         receiverTime += m_samplingInterval;
       }
     };
-    runtime.enqueueLoop(recvCount, receiverHandler);
+    extraRuntime.enqueueLoop(recvCount, receiverHandler);
   }
   return outReceiverTime;
 }

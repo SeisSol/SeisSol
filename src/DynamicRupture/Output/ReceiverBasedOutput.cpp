@@ -22,6 +22,7 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Alignment.h>
+#include <Kernels/Common.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
@@ -77,12 +78,21 @@ void ReceiverOutput::calcFaultOutput(
                            : 0;
   const auto& faultInfos = meshReader->getFault();
 
-#ifdef ACL_DEVICE
-  outputData->deviceDataCollector->gatherToHost(runtime.stream());
-  for (auto& [_, dataCollector] : outputData->deviceVariables) {
-    dataCollector->gatherToHost(runtime.stream());
+  auto& callRuntime =
+      outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+
+  if constexpr (isDeviceOn()) {
+    if (outputData->extraRuntime.has_value()) {
+      callRuntime.eventSync(outputData->extraRuntime->eventRecord());
+    }
+    outputData->deviceDataCollector->gatherToHost(runtime.stream());
+    for (auto& [_, dataCollector] : outputData->deviceVariables) {
+      dataCollector->gatherToHost(runtime.stream());
+    }
+    if (outputData->extraRuntime.has_value()) {
+      outputData->extraRuntime->eventSync(callRuntime.eventRecord());
+    }
   }
-#endif
 
   const auto points = outputData->receiverPoints.size();
   const auto handler = [this, outputData, &faultInfos, outputType, slipRateOutputType, level](
@@ -115,22 +125,20 @@ void ReceiverOutput::calcFaultOutput(
 
     const auto& faultInfo = faultInfos[faceIndex];
 
-#ifdef ACL_DEVICE
-    {
+    if constexpr (isDeviceOn()) {
       real* dofsPlusData = outputData->deviceDataCollector->get(outputData->deviceDataPlus[i]);
       real* dofsMinusData = outputData->deviceDataCollector->get(outputData->deviceDataMinus[i]);
 
       std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
       std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
-    }
-#else
-    getDofs(dofsPlus, faultInfo.element);
-    if (faultInfo.neighborElement >= 0) {
-      getDofs(dofsMinus, faultInfo.neighborElement);
     } else {
-      getNeighborDofs(dofsMinus, faultInfo.element, faultInfo.side);
+      getDofs(dofsPlus, faultInfo.element);
+      if (faultInfo.neighborElement >= 0) {
+        getDofs(dofsMinus, faultInfo.neighborElement);
+      } else {
+        getNeighborDofs(dofsMinus, faultInfo.element, faultInfo.side);
+      }
     }
-#endif
 
     const auto* initStresses = getCellData(local, drDescr->initialStressInFaultCS);
 
@@ -324,7 +332,7 @@ void ReceiverOutput::calcFaultOutput(
     this->outputSpecifics(outputData, local, level, i);
   };
 
-  runtime.enqueueLoop(points, handler);
+  callRuntime.enqueueLoop(points, handler);
 
   if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
     outputData->cachedTime[outputData->currentCacheLevel] = time;
