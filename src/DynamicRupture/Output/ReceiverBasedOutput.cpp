@@ -83,14 +83,14 @@ void ReceiverOutput::calcFaultOutput(
 
   if constexpr (isDeviceOn()) {
     if (outputData->extraRuntime.has_value()) {
-      callRuntime.eventSync(outputData->extraRuntime->eventRecord());
+      runtime.eventSync(outputData->extraRuntime->eventRecord());
     }
     outputData->deviceDataCollector->gatherToHost(runtime.stream());
     for (auto& [_, dataCollector] : outputData->deviceVariables) {
       dataCollector->gatherToHost(runtime.stream());
     }
     if (outputData->extraRuntime.has_value()) {
-      outputData->extraRuntime->eventSync(callRuntime.eventRecord());
+      outputData->extraRuntime->eventSync(runtime.eventRecord());
     }
   }
 

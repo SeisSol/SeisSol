@@ -26,7 +26,9 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
   void build(std::shared_ptr<ReceiverOutputData> pickPointOutputData) override {
     outputData = pickPointOutputData;
-    outputData->extraRuntime.emplace(0);
+
+    // TODO: enable after #1407 has been merged
+    // outputData->extraRuntime.emplace(0);
 
     readCoordsFromFile();
     initReceiverLocations();
