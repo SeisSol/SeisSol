@@ -89,8 +89,12 @@ jobs:
         run: |
           mkdir build && cd build
 
-          # TODO: change to `-Wall -Werror` at some point
-          EXTRA_FLAGS="-Wall"
+          EXTRA_FLAGS="-Wall -Wextra -pedantic -Werror"
+
+          # exceptions to the above
+          EXTRA_FLAGS="${EXTRA_FLAGS} -Wno-unused-parameter"
+          EXTRA_FLAGS="${EXTRA_FLAGS} -Wno-error=unknown-pragmas"
+          EXTRA_FLAGS="${EXTRA_FLAGS} -Wno-error=maybe-uninitialized"
 
           export CFLAGS="${EXTRA_FLAGS} ${CFLAGS}"
           export CXXFLAGS="${EXTRA_FLAGS} ${CXXFLAGS}"
