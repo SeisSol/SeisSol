@@ -31,6 +31,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <init.h>
 #include <limits>
@@ -318,7 +319,7 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
     velocities[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
     displacements[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
   }
-  locationFlags = std::vector<unsigned int>(totalNumberOfTriangles, 0);
+  locationFlags = std::vector<std::uint8_t>(totalNumberOfTriangles, 0);
   globalIds.resize(totalNumberOfTriangles);
 
   // NOTE: we store also for space tree duplicates here
@@ -359,7 +360,7 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(seissol::initializer::LTS* 
           side[surfaceCell] = face;
           meshId[surfaceCell] = secondaryInformation[cell].meshId;
           surfaceBoundaryMapping[surfaceCell] = &boundaryMapping[cell][face];
-          locationFlagLayer[surfaceCell] = static_cast<unsigned int>(
+          locationFlagLayer[surfaceCell] = static_cast<std::uint8_t>(
               getLocationFlag(cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
 
           const auto globalId = secondaryInformation[cell].globalId * 4 + face;

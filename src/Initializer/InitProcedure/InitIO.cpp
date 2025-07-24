@@ -365,9 +365,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
     });
 
-    writer.addCellData<uint32_t>("locationFlag", {}, [=](uint32_t* target, std::size_t index) {
-      target[0] = surfaceLocationFlag[index];
-    });
+    writer.addCellData<std::uint8_t>(
+        "locationFlag", {}, [=](std::uint8_t* target, std::size_t index) {
+          target[0] = surfaceLocationFlag[index];
+        });
 
     writer.addCellData<std::size_t>("global-id", {}, [=](std::size_t* target, std::size_t index) {
       const auto meshId = surfaceMeshIds[index];

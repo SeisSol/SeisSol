@@ -23,7 +23,7 @@ struct SurfaceLTS {
   seissol::initializer::Variable<std::size_t> meshId;
   seissol::initializer::Variable<std::size_t> outputPosition;
   seissol::initializer::Variable<CellBoundaryMapping*> boundaryMapping;
-  seissol::initializer::Variable<unsigned> locationFlag;
+  seissol::initializer::Variable<std::uint8_t> locationFlag;
 
   seissol::initializer::Variable<FaceDisplacementType> displacementDofs;
 

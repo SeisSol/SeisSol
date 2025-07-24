@@ -28,7 +28,7 @@ class FreeSurfaceIntegrator {
   static constexpr std::size_t NumComponents = 3;
 
   private:
-  enum class LocationFlag {
+  enum class LocationFlag : std::uint8_t {
     Elastic = 0,
     Acoustic = 1,
     FreeSurface = 2,
@@ -64,7 +64,7 @@ class FreeSurfaceIntegrator {
   std::array<real*, NumComponents> velocities;
   std::array<real*, NumComponents> displacements;
 
-  std::vector<unsigned int> locationFlags;
+  std::vector<std::uint8_t> locationFlags;
   std::size_t totalNumberOfFreeSurfaces{0};
   std::size_t totalNumberOfTriangles{0};
   std::vector<std::size_t> backmap;
