@@ -118,7 +118,6 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     generator.add(
         "plConvertToNodal",
         QStressNodal["kp"]
-        # <= db.v[aderdg.t("kl")] * QStress["lp"]
         <= db.v["kl"] * QStress["lp"]
         + replicateInitialLoading["k"] * initialLoading["p"],
     )
@@ -127,22 +126,19 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         name_prefix = generate_kernel_name_prefix(target)
         generator.add(
             name=f"{name_prefix}plConvertToNodalNoLoading",
-            ast=QStressNodal["kp"] <= db.v[aderdg.t("kl")] * QStress["lp"],
-            # ast=QStressNodal["kp"] <= db.v["kl"] * QStress["lp"],
+            ast=QStressNodal["kp"] <= db.v["kl"] * QStress["lp"],
             target=target,
         )
 
         generator.add(
             name=f"{name_prefix}plConvertEtaModal2Nodal",
-            ast=QEtaNodal["k"] <= db.v[aderdg.t("kl")] * QEtaModal["l"],
-            # ast=QEtaNodal["k"] <= db.v["kl"] * QEtaModal["l"],
+            ast=QEtaNodal["k"] <= db.v["kl"] * QEtaModal["l"],
             target=target,
         )
 
         generator.add(
             name=f"{name_prefix}plConvertEtaNodal2Modal",
-            ast=QEtaModal["k"] <= db.vInv[aderdg.t("kl")] * QEtaNodal["l"],
-            # ast=QEtaModal["k"] <= db.vInv["kl"] * QEtaNodal["l"],
+            ast=QEtaModal["k"] <= db.vInv["kl"] * QEtaNodal["l"],
             target=target,
         )
 
