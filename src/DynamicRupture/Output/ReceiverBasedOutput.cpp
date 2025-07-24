@@ -12,7 +12,6 @@
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Initializer/PreProcessorMacros.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -23,6 +22,7 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Alignment.h>
+#include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -68,7 +68,8 @@ void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], int meshId, i
 void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-    std::shared_ptr<ReceiverOutputData> outputData,
+    const std::shared_ptr<ReceiverOutputData>& outputData,
+    parallel::runtime::StreamRuntime& runtime,
     double time) {
 
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
@@ -77,18 +78,15 @@ void ReceiverOutput::calcFaultOutput(
   const auto& faultInfos = meshReader->getFault();
 
 #ifdef ACL_DEVICE
-  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  outputData->deviceDataCollector->gatherToHost(stream);
+  outputData->deviceDataCollector->gatherToHost(runtime.stream());
   for (auto& [_, dataCollector] : outputData->deviceVariables) {
-    dataCollector->gatherToHost(stream);
+    dataCollector->gatherToHost(runtime.stream());
   }
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
-#pragma omp parallel for
-#endif
-  for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
+  const auto points = outputData->receiverPoints.size();
+  const auto handler = [this, outputData, &faultInfos, outputType, slipRateOutputType, level](
+                           std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
@@ -324,7 +322,9 @@ void ReceiverOutput::calcFaultOutput(
           sin1 * slip1[local.gpIndex] + cos1 * slip2[local.gpIndex];
     }
     this->outputSpecifics(outputData, local, level, i);
-  }
+  };
+
+  runtime.enqueueLoop(points, handler);
 
   if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
     outputData->cachedTime[outputData->currentCacheLevel] = time;

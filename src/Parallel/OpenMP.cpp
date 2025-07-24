@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "OpenMP.h"
+#include <cstddef>
 
 #ifdef _OPENMP
 #include <omp.h>

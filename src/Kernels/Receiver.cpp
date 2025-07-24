@@ -9,7 +9,6 @@
 #include "Receiver.h"
 #include "Monitoring/FlopCounter.h"
 #include "Numerical/BasisFunction.h"
-#include "Parallel/OpenMP.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
 #include <Alignment.h>
@@ -25,12 +24,10 @@
 #include <Numerical/Transformation.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <init.h>
 #include <memory>
-#include <omp.h>
 #include <string>
 #include <tensor.h>
 #include <utility>

@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <generated_code/init.h>
 #include <generated_code/kernel.h>
+#include <memory>
 #include <tensor.h>
 #include <vector>
 #include <yateto.h>
@@ -88,7 +89,6 @@ struct ApplyAnalyticalSolution {
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
 
-      std::size_t offset = 0;
 #pragma omp simd
       for (std::size_t i = 0; i < seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension];
            ++i) {

@@ -245,20 +245,18 @@ void TimeCluster::computeDynamicRuptureDevice(seissol::initializer::Layer& layer
           dynamicRuptureKernel.batchedSpaceTimeInterpolation(table, streamRuntime);
         });
     device.api->popLastProfilingMark();
+
+    frictionSolverDevice->computeDeltaT(dynamicRuptureKernel.timePoints);
+
+    device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
     if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
       layerData.varSynchronizeTo(
           dynRup->qInterpolatedPlus, initializer::AllocationPlace::Host, streamRuntime.stream());
       layerData.varSynchronizeTo(
           dynRup->qInterpolatedMinus, initializer::AllocationPlace::Host, streamRuntime.stream());
       streamRuntime.wait();
-    }
-
-    device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
-    frictionSolverDevice->computeDeltaT(dynamicRuptureKernel.timePoints);
-    frictionSolverDevice->evaluate(
-        layerData, dynRup, ct.correctionTime, dynamicRuptureKernel.timeWeights, streamRuntime);
-    device.api->popLastProfilingMark();
-    if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
+      frictionSolverDevice->evaluate(
+          layerData, dynRup, ct.correctionTime, dynamicRuptureKernel.timeWeights, streamRuntime);
       layerData.varSynchronizeTo(
           dynRup->fluxSolverMinus, initializer::AllocationPlace::Device, streamRuntime.stream());
       layerData.varSynchronizeTo(
@@ -267,8 +265,11 @@ void TimeCluster::computeDynamicRuptureDevice(seissol::initializer::Layer& layer
           dynRup->imposedStateMinus, initializer::AllocationPlace::Device, streamRuntime.stream());
       layerData.varSynchronizeTo(
           dynRup->imposedStatePlus, initializer::AllocationPlace::Device, streamRuntime.stream());
+    } else {
+      frictionSolverDevice->evaluate(
+          layerData, dynRup, ct.correctionTime, dynamicRuptureKernel.timeWeights, streamRuntime);
     }
-    streamRuntime.wait();
+    device.api->popLastProfilingMark();
   }
   loopStatistics->end(regionComputeDynamicRupture, layerData.size(), profilingId);
 }
@@ -464,8 +465,6 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
         }
       });
 
-  streamRuntime.wait();
-
   loopStatistics->end(regionComputeLocalIntegration, clusterData->size(), profilingId);
   device.api->popLastProfilingMark();
 }
@@ -525,7 +524,6 @@ void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
   }
 
   device.api->popLastProfilingMark();
-  streamRuntime.wait();
   loopStatistics->end(regionComputeNeighboringIntegration, clusterData->size(), profilingId);
 }
 #endif // ACL_DEVICE
@@ -663,9 +661,9 @@ void TimeCluster::predict() {
     auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host
                                               : seissol::initializer::AllocationPlace::Device;
     clusterData->varSynchronizeTo(lts->buffersDerivatives, other, streamRuntime.stream());
-    streamRuntime.wait();
   }
 #endif
+  streamRuntime.wait();
 }
 
 void TimeCluster::handleDynamicRupture(initializer::Layer& layerData) {
@@ -684,7 +682,6 @@ void TimeCluster::handleDynamicRupture(initializer::Layer& layerData) {
     layerData.varSynchronizeTo(dynRup->fluxSolverPlus, other, streamRuntime.stream());
     layerData.varSynchronizeTo(dynRup->imposedStateMinus, other, streamRuntime.stream());
     layerData.varSynchronizeTo(dynRup->imposedStatePlus, other, streamRuntime.stream());
-    streamRuntime.wait();
   }
 #else
   computeDynamicRupture(layerData);
@@ -765,9 +762,12 @@ void TimeCluster::correct() {
   // TODO: Change from iteration based to time based
   if (dynamicRuptureScheduler->isFirstClusterWithDynamicRuptureFaces() &&
       dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
-    faultOutputManager->writePickpointOutput(ct.correctionTime + timeStepSize(), timeStepSize());
+    faultOutputManager->writePickpointOutput(
+        ct.correctionTime + timeStepSize(), timeStepSize(), streamRuntime);
     dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
   }
+
+  streamRuntime.wait();
 
   // TODO(Lukas) Adjust with time step rate? Relevant is maximum cluster is not on this node
   const auto nextCorrectionSteps = ct.nextCorrectionSteps();
