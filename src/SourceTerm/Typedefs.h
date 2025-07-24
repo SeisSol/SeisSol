@@ -30,6 +30,7 @@ namespace seissol::sourceterm {
 enum class PointSourceMode { Nrf, Fsrm };
 
 struct PointSources {
+  // IMPORTANT: we need TensorSize >= 9 for NRF. For FSRM, we need NumQuantities many entries.
   constexpr static unsigned TensorSize =
       (tensor::momentFSRM::Size > 9) ? tensor::momentFSRM::Size : 9;
   PointSourceMode mode = PointSourceMode::Nrf;

@@ -11,17 +11,18 @@
 #include "generated_code/init.h"
 #include "generated_code/kernel.h"
 
+#include <Kernels/Common.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>
+#include <Solver/MultipleSimulations.h>
 #include <SourceTerm/Typedefs.h>
+#include <array>
 #include <memory>
 #include <tensor.h>
 #include <utility>
 
-#ifdef MULTIPLE_SIMULATIONS
-#include <array>
-#endif
+GENERATE_HAS_MEMBER(sourceToMultSim)
 
 namespace seissol::kernels {
 
@@ -84,15 +85,16 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceNRF(unsigned source,
   krnl.mInvJInvPhisAtSources = sources_->mInvJInvPhisAtSources[source].data();
   krnl.stiffnessTensor = sources_->stiffnessTensor[source].data();
   krnl.mSlip = rotatedSlip;
+
+  // NOTE: the 6 is not related to the number of traction quantities stored
   krnl.mNormal = sources_->tensor[source].data() + 6;
   krnl.mArea = -sources_->A[source];
   krnl.momentToNRF = init::momentToNRF::Values;
-#ifdef MULTIPLE_SIMULATIONS
+
   const auto simulationIndex = sources_->simulationIndex[source];
   std::array<real, seissol::multisim::NumSimulations> sourceToMultSim{};
   sourceToMultSim[simulationIndex] = 1.0;
-  krnl.oneSimToMultSim = sourceToMultSim.data();
-#endif
+  set_sourceToMultSim(krnl, sourceToMultSim.data());
   krnl.execute();
 }
 
@@ -113,12 +115,11 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSourceFSRM(unsigned source,
   krnl.mInvJInvPhisAtSources = sources_->mInvJInvPhisAtSources[source].data();
   krnl.momentFSRM = sources_->tensor[source].data();
   krnl.stfIntegral = slip;
-#ifdef MULTIPLE_SIMULATIONS
+
   const auto simulationIndex = sources_->simulationIndex[source];
   std::array<real, seissol::multisim::NumSimulations> sourceToMultSim{};
   sourceToMultSim[simulationIndex] = 1.0;
-  krnl.oneSimToMultSim = sourceToMultSim.data();
-#endif
+  set_sourceToMultSim(krnl, sourceToMultSim.data());
   krnl.execute();
 }
 
