@@ -57,9 +57,7 @@ class ADERDGBase(ABC):
         self.Q = OptionalDimTensor(
             "Q", "s", multipleSimulations, 0, qShape, alignStride=True
         )
-        self.Quninterleaved = OptionalDimTensor(
-            "Quninterleaved", "s", multipleSimulations, 2, qShape, alignStride=False
-        )
+
         self.I = OptionalDimTensor(
             "I", "s", multipleSimulations, 0, qShape, alignStride=True
         )
@@ -264,10 +262,6 @@ class ADERDGBase(ABC):
             <= stiffnessTensor["ijkl"] * direction["j"] * direction["l"]
         )
         generator.add("computeChristoffel", computeChristoffel)
-        uninterleaveDofs = self.Quninterleaved["ij"] <= self.Q["ij"]
-        generator.add("uninterleaveDofs", uninterleaveDofs)
-        interleaveDofs = self.Q["ij"] <= self.Quninterleaved["ij"]
-        generator.add("interleaveDofs", interleaveDofs)
 
     @abstractmethod
     def addLocal(self, generator, targets):
