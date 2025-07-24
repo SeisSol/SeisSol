@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: 6e5d934dddcc7b24f1031a38073c27bc29b73060
+  precomputed-hash: 3892ce5054ab712696717dd88128e7a2b048d3ac
 
 jobs:
   seissol-build-test:
@@ -331,6 +331,15 @@ jobs:
             fault: true
             volume: true
             surface: false
+            order: 6
+          - name: ttpv1
+            equation: elastic
+            multisim: 1
+            energies: true
+            receivers: true
+            fault: true
+            volume: true
+            surface: true
             order: 6
           - name: tpvloh1-fused
             equation: elastic
