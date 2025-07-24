@@ -495,7 +495,10 @@ void OutputManager::writePickpointOutput(double time,
 
       if (isMaxCacheLevel || isCloseToEnd) {
         // we need to wait for all data to be (internally) written to write it out
-        runtime.wait();
+        auto& callRuntime =
+            outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+        callRuntime.wait();
+
         this->flushPickpointDataToFile();
       }
     }

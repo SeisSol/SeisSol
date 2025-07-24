@@ -75,7 +75,7 @@ TimeCluster::TimeCluster(unsigned int clusterId,
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
       // cluster ids
-      usePlasticity(usePlasticity), seissolInstance(seissolInstance),
+      usePlasticity(usePlasticity), seissolInstance(seissolInstance), streamRuntime(4),
       globalDataOnHost(globalData.onHost), globalDataOnDevice(globalData.onDevice),
       clusterData(clusterData),
       // global data

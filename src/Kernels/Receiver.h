@@ -109,7 +109,7 @@ class ReceiverCluster {
   void freeData();
 
   private:
-  parallel::runtime::StreamRuntime extraRuntime;
+  std::optional<parallel::runtime::StreamRuntime> extraRuntime;
   std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
   std::vector<size_t> deviceIndices;
   std::vector<Receiver> m_receivers;

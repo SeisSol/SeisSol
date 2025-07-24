@@ -26,7 +26,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
   }
   void build(std::shared_ptr<ReceiverOutputData> pickPointOutputData) override {
     outputData = pickPointOutputData;
-    outputData->extraRuntime = parallel::runtime::StreamRuntime();
+    outputData->extraRuntime.emplace(0);
 
     readCoordsFromFile();
     initReceiverLocations();

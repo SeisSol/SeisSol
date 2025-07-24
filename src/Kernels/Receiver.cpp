@@ -22,6 +22,7 @@
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
 #include <Numerical/Transformation.h>
+#include <Parallel/Helper.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
 #include <cmath>
@@ -30,16 +31,11 @@
 #include <memory>
 #include <string>
 #include <tensor.h>
+#include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
 #include <yateto.h>
-
-#ifdef ACL_DEVICE
-#include "device.h"
-#include <Parallel/Helper.h>
-#include <unordered_map>
-#endif
 
 namespace seissol::kernels {
 
@@ -93,6 +89,11 @@ void ReceiverCluster::addReceiver(unsigned meshId,
     coords[v] = vertices[elements[meshId].vertices[v]].coords;
   }
 
+  if (!extraRuntime.has_value()) {
+    // use an extra stream if we have receivers
+    extraRuntime.emplace(0);
+  }
+
   // (time + number of quantities) * number of samples until sync point
   const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
   m_receivers.emplace_back(
@@ -120,11 +121,15 @@ double ReceiverCluster::calcReceivers(double time,
   }
 
   if (executor == Executor::Device) {
-    // offload work to the extraRuntime stream
+    // we need to sync with the new data copy (the rest can continue to run asynchronously)
 
-    runtime.eventSync(extraRuntime.eventRecord());
+    if (extraRuntime.has_value()) {
+      runtime.eventSync(extraRuntime->eventRecord());
+    }
     deviceCollector->gatherToHost(runtime.stream());
-    extraRuntime.eventSync(runtime.eventRecord());
+    if (extraRuntime.has_value()) {
+      extraRuntime->eventSync(runtime.eventRecord());
+    }
   }
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
@@ -219,35 +224,36 @@ double ReceiverCluster::calcReceivers(double time,
         receiverTime += m_samplingInterval;
       }
     };
-    extraRuntime.enqueueLoop(recvCount, receiverHandler);
+
+    auto& callRuntime = extraRuntime.has_value() ? extraRuntime.value() : runtime;
+    callRuntime.enqueueLoop(recvCount, receiverHandler);
   }
   return outReceiverTime;
 }
 
 void ReceiverCluster::allocateData() {
-#ifdef ACL_DEVICE
-  // collect all data pointers to transfer. If we have multiple receivers on the same cell, we make
-  // sure to only transfer the related data once (hence, we use the `indexMap` here)
-  deviceIndices.resize(m_receivers.size());
-  std::vector<real*> dofs;
-  std::unordered_map<real*, size_t> indexMap;
-  for (size_t i = 0; i < m_receivers.size(); ++i) {
-    real* currentDofs = m_receivers[i].dataDevice.dofs();
-    if (indexMap.find(currentDofs) == indexMap.end()) {
-      // point to the current array end
-      indexMap[currentDofs] = dofs.size();
-      dofs.push_back(currentDofs);
+  if constexpr (isDeviceOn()) {
+    // collect all data pointers to transfer. If we have multiple receivers on the same cell, we
+    // make sure to only transfer the related data once (hence, we use the `indexMap` here)
+    deviceIndices.resize(m_receivers.size());
+    std::vector<real*> dofs;
+    std::unordered_map<real*, size_t> indexMap;
+    for (size_t i = 0; i < m_receivers.size(); ++i) {
+      real* currentDofs = m_receivers[i].dataDevice.dofs();
+      if (indexMap.find(currentDofs) == indexMap.end()) {
+        // point to the current array end
+        indexMap[currentDofs] = dofs.size();
+        dofs.push_back(currentDofs);
+      }
+      deviceIndices[i] = indexMap.at(currentDofs);
     }
-    deviceIndices[i] = indexMap.at(currentDofs);
+    deviceCollector =
+        std::make_unique<seissol::parallel::DataCollector>(dofs, tensor::Q::size(), useUSM());
   }
-  deviceCollector =
-      std::make_unique<seissol::parallel::DataCollector>(dofs, tensor::Q::size(), useUSM());
-#endif
 }
 void ReceiverCluster::freeData() {
-#ifdef ACL_DEVICE
   deviceCollector.reset(nullptr);
-#endif
+  extraRuntime.reset();
 }
 
 size_t ReceiverCluster::ncols() const {
