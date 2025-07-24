@@ -108,7 +108,8 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         spp={(i,): str(1.0 / 2.0) if i < 3 else "1.0" for i in range(6)},
     )
 
-    yieldFactor = OptionalDimTensor("yieldFactor",
+    yieldFactor = OptionalDimTensor(
+        "yieldFactor",
         aderdg.Q.optName(),
         aderdg.Q.optSize(),
         aderdg.Q.optPos(),

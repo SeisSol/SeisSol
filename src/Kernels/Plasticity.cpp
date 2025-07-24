@@ -204,6 +204,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     m2nEtaKrnl.QEtaNodal = qEtaNodal;
     m2nEtaKrnl.execute();
 
+    // qStressNodal here contains dudtPstrain, and not stresses
     auto qStressNodalView = init::QStressNodal::view::create(qStressNodal);
     const auto numNodes = qStressNodalView.shape(multisim::BasisFunctionDimension);
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
