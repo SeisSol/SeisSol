@@ -84,20 +84,20 @@ struct ApplyAnalyticalSolution {
       : initConditions(initConditions), localData(data) {}
 
   void operator()(const real* nodes, double time, seissol::init::INodal::view::type& boundaryDofs) {
+    assert(initConditions != nullptr);
+
     constexpr auto NodeCount = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension];
     alignas(Alignment) std::array<double, 3> nodesVec[NodeCount];
-    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-      auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
 
 #pragma omp simd
-      for (std::size_t i = 0; i < seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension];
-           ++i) {
-        nodesVec[i][0] = nodes[i * 3 * multisim::NumSimulations + 0];
-        nodesVec[i][1] = nodes[i * 3 * multisim::NumSimulations + 1];
-        nodesVec[i][2] = nodes[i * 3 * multisim::NumSimulations + 2];
-      }
+    for (std::size_t i = 0; i < NodeCount; ++i) {
+      nodesVec[i][0] = nodes[i * 3 + 0];
+      nodesVec[i][1] = nodes[i * 3 + 1];
+      nodesVec[i][2] = nodes[i * 3 + 2];
+    }
 
-      assert(initConditions != nullptr);
+    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+      auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
       initConditions->at(s % initConditions->size())
           ->evaluate(time, nodesVec, NodeCount, localData.material(), slicedBoundaryDofs);
     }

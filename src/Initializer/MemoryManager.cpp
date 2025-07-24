@@ -662,7 +662,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
     layer.setEntrySize(lts.dofsFaceNodalScratch, 
       sizeof(real) * freeSurfaceCount * tensor::INodal::size());
     layer.setEntrySize(lts.prevCoefficientsScratch, 
-      sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[0]);
+      sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
   }
 }
 

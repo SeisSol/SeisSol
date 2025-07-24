@@ -34,6 +34,7 @@
 #include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/Eigenvalues.h>
+#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cassert>
 #include <complex>
@@ -42,9 +43,6 @@
 #include <limits>
 #include <utils/logger.h>
 #include <vector>
-#ifdef ACL_DEVICE
-#include <device.h>
-#endif
 
 namespace {
 
@@ -397,7 +395,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         auto* nodes = boundary[cell][side].nodes;
         assert(nodes != nullptr);
         auto offset = 0;
-        for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[0]; ++i) {
+        for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
+             ++i) {
           double nodeReference[2];
           nodeReference[0] = nodesReference(i, 0);
           nodeReference[1] = nodesReference(i, 1);
