@@ -51,240 +51,194 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
 
-  static_assert(
-      tensor::Q::Shape[seissol::multisim::BasisFunctionDimension] *
-              tensor::Q::Shape[seissol::multisim::BasisFunctionDimension + 1] ==
-          tensor::Quninterleaved::Shape[0] * tensor::Quninterleaved::Shape[1],
-      "Degrees of freedom per simulation should have same size interleaved and uninterleaved.");
+  alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()]{};
+  alignas(Alignment) real qEtaNodal[tensor::QEtaNodal::size()]{};
+  alignas(Alignment) real qEtaModal[tensor::QEtaModal::size()]{};
+  alignas(Alignment) real meanStress[tensor::meanStress::size()]{};
+  alignas(Alignment) real secondInvariant[tensor::secondInvariant::size()]{};
+  alignas(Alignment) real tau[tensor::secondInvariant::size()]{};
+  alignas(Alignment) real taulim[tensor::meanStress::size()]{};
+  alignas(Alignment) real yieldFactor[tensor::yieldFactor::size()]{};
+  alignas(Alignment) real dudtPstrain[tensor::QStress::size()]{};
 
-  static_assert(tensor::pstrain::Shape[seissol::multisim::BasisFunctionDimension] *
-                        tensor::pstrain::Shape[seissol::multisim::BasisFunctionDimension + 1] ==
-                    tensor::pstrainuninterleaved::Shape[0] * tensor::pstrainuninterleaved::Shape[1],
-                "Pstrain per simulation should have same size interleaved and uninterleaved.");
   static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
                 "Second invariant tensor and mean stress tensor must be of the same size().");
   static_assert(tensor::yieldFactor::size() <= tensor::meanStress::size(),
                 "Yield factor tensor must be smaller than mean stress tensor.");
 
-  real degreesOfFreedomUninterleaved[tensor::Quninterleaved::size()]{};
-  kernel::uninterleaveDofs uninterleaveKrnl;
-  uninterleaveKrnl.Q = degreesOfFreedom;
-  uninterleaveKrnl.Quninterleaved = degreesOfFreedomUninterleaved;
-  uninterleaveKrnl.execute();
+  // copy dofs for later comparison, only first dof of stresses required
 
-  real pstrainUninterleaved[tensor::pstrainuninterleaved::size()]{};
-  kernel::uninterleavepstrain uninterleavePstrainKrnl;
-  uninterleavePstrainKrnl.pstrain = pstrain;
-  uninterleavePstrainKrnl.pstrainuninterleaved = pstrainUninterleaved;
-  uninterleavePstrainKrnl.execute();
+  real prevDegreesOfFreedom[tensor::QStress::size()];
+  for (std::size_t q = 0; q < tensor::QStress::size(); ++q) {
+    prevDegreesOfFreedom[q] = degreesOfFreedom[q];
+  }
 
-  std::size_t numberOfTetsWithPlasticYielding = 0; // Number of simulations which yielded plasticity
+  /* Convert modal to nodal and add sigma0.
+   * Stores s_{ij} := sigma_{ij} + sigma0_{ij} for every node.
+   * sigma0 is constant */
+  kernel::plConvertToNodal m2nKrnl;
+  m2nKrnl.v = global->vandermondeMatrix;
+  m2nKrnl.QStress = degreesOfFreedom;
+  m2nKrnl.QStressNodal = qStressNodal;
+  m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
+  m2nKrnl.initialLoading = plasticityData->initialLoading;
+  m2nKrnl.execute();
 
-  std::size_t qSizeNoPadding = tensor::Q::Shape[seissol::multisim::BasisFunctionDimension] *
-                                      tensor::Q::Shape[seissol::multisim::BasisFunctionDimension + 1];
-  
-  std::size_t pstrainSizeNoPadding =
-      tensor::pstrain::Shape[seissol::multisim::BasisFunctionDimension] *
-      tensor::pstrain::Shape[seissol::multisim::BasisFunctionDimension + 1];
+  // Computes m = s_{ii} / 3.0 for every node
+  kernel::plComputeMean cmKrnl;
+  cmKrnl.meanStress = meanStress;
+  cmKrnl.QStressNodal = qStressNodal;
+  cmKrnl.selectBulkAverage = init::selectBulkAverage::Values;
+  cmKrnl.execute();
 
-  for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; sim++) {
-    alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()];
-    alignas(Alignment) real qEtaNodal[tensor::QEtaNodal::size()];
-    alignas(Alignment) real qEtaModal[tensor::QEtaModal::size()];
-    alignas(Alignment) real meanStress[tensor::meanStress::size()];
-    alignas(Alignment) real secondInvariant[tensor::secondInvariant::size()];
-    alignas(Alignment) real tau[tensor::secondInvariant::size()];
-    alignas(Alignment) real taulim[tensor::meanStress::size()];
-    alignas(Alignment) real yieldFactor[tensor::yieldFactor::size()];
-    alignas(Alignment) real dudtPstrain[tensor::QStress::size()];
+  /* Compute s_{ij} := s_{ij} - m delta_{ij},
+   * where delta_{ij} = 1 if i == j else 0.
+   * Thus, s_{ij} contains the deviatoric stresses. */
+  kernel::plSubtractMean smKrnl;
+  smKrnl.meanStress = meanStress;
+  smKrnl.QStressNodal = qStressNodal;
+  smKrnl.selectBulkNegative = init::selectBulkNegative::Values;
+  smKrnl.execute();
 
-    // copy dofs for later comparison, only first dof of stresses required
-    real prevDegreesOfFreedom[tensor::QStress::size()];
-    for (std::size_t q = 0; q < tensor::QStress::size(); ++q) {
-      prevDegreesOfFreedom[q] =
-          degreesOfFreedomUninterleaved[qSizeNoPadding * sim + q]; // sim = 0 in serial case
+  // Compute I_2 = 0.5 s_{ij} s_ji for every node
+  kernel::plComputeSecondInvariant siKrnl;
+  siKrnl.secondInvariant = secondInvariant;
+  siKrnl.QStressNodal = qStressNodal;
+  siKrnl.weightSecondInvariant = init::weightSecondInvariant::Values;
+  siKrnl.execute();
+
+  // tau := sqrt(I_2) for every node
+  for (std::size_t ip = 0; ip < tensor::secondInvariant::size(); ++ip) {
+    tau[ip] = sqrt(secondInvariant[ip]);
+  }
+
+  // Compute tau_c for every node
+  for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
+    taulim[ip] = std::max(static_cast<real>(0.0),
+                          plasticityData->cohesionTimesCosAngularFriction -
+                              meanStress[ip] * plasticityData->sinAngularFriction);
+  }
+
+  bool adjust = false;
+  for (std::size_t ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
+    // Compute yield := (t_c / tau - 1) r for every node,
+    // where r = 1 - exp(-timeStepWidth / tV)
+    if (tau[ip] > taulim[ip]) {
+      adjust = true;
+      yieldFactor[ip] = (taulim[ip] / tau[ip] - 1.0) * oneMinusIntegratingFactor;
+    } else {
+      yieldFactor[ip] = 0.0;
     }
+  }
 
-    /* Convert modal to nodal and add sigma0.
-     * Stores s_{ij} := sigma_{ij} + sigma0_{ij} for every node.
-     * sigma0 is constant */
-    kernel::plConvertToNodal m2nKrnl;
-    m2nKrnl.v = global->vandermondeMatrix;
-    m2nKrnl.QStress =
-        degreesOfFreedomUninterleaved + qSizeNoPadding * sim;
-    m2nKrnl.QStressNodal = qStressNodal;
-    m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
-    m2nKrnl.initialLoading =
-        plasticityData
-            ->initialLoading; // for now, it is constant. If we want to do different loading for
-                              // different simulations, this needs to be changed.
-    m2nKrnl.execute();
+  if (adjust) {
+    /**
+     * Compute sigma_{ij} := sigma_{ij} + yield s_{ij} for every node
+     * and store as modal basis.
+     *
+     * Remark: According to Wollherr et al., the update formula (13) should be
+     *
+     * sigmaNew_{ij} := f^* s_{ij} + m delta_{ij} - sigma0_{ij}
+     *
+     * where f^* = r tau_c / tau + (1 - r) = 1 + yield. Adding 0 to (13) gives
+     *
+     * sigmaNew_{ij} := f^* s_{ij} + m delta_{ij} - sigma0_{ij}
+     *                  + sigma_{ij} + sigma0_{ij} - sigma_{ij} - sigma0_{ij}
+     *                = f^* s_{ij} + sigma_{ij} - s_{ij}
+     *                = sigma_{ij} + (f^* - 1) s_{ij}
+     *                = sigma_{ij} + yield s_{ij}
+     */
+    kernel::plAdjustStresses adjKrnl;
+    adjKrnl.QStress = degreesOfFreedom;
+    adjKrnl.vInv = global->vandermondeMatrixInverse;
+    adjKrnl.QStressNodal = qStressNodal;
+    adjKrnl.yieldFactor = yieldFactor;
+    adjKrnl.execute();
 
-    // Computes m = s_{ii} / 3.0 for every node
-    kernel::plComputeMean cmKrnl;
-    cmKrnl.meanStress = meanStress;
-    cmKrnl.QStressNodal = qStressNodal;
-    cmKrnl.selectBulkAverage = init::selectBulkAverage::Values;
-    cmKrnl.execute();
-
-    /* Compute s_{ij} := s_{ij} - m delta_{ij},
-     * where delta_{ij} = 1 if i == j else 0.
-     * Thus, s_{ij} contains the deviatoric stresses. */
-    kernel::plSubtractMean smKrnl;
-    smKrnl.meanStress = meanStress;
-    smKrnl.QStressNodal = qStressNodal;
-    smKrnl.selectBulkNegative = init::selectBulkNegative::Values;
-    smKrnl.execute();
-
-    // Compute I_2 = 0.5 s_{ij} s_ji for every node
-    kernel::plComputeSecondInvariant siKrnl;
-    siKrnl.secondInvariant = secondInvariant;
-    siKrnl.QStressNodal = qStressNodal;
-    siKrnl.weightSecondInvariant = init::weightSecondInvariant::Values;
-    siKrnl.execute();
-
-    // tau := sqrt(I_2) for every node
-    for (std::size_t ip = 0; ip < tensor::secondInvariant::size(); ++ip) {
-      tau[ip] = sqrt(secondInvariant[ip]);
-    }
-
-    // Compute tau_c for every node
-    for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
-      taulim[ip] = std::max(static_cast<real>(0.0),
-                            plasticityData->cohesionTimesCosAngularFriction -
-                                meanStress[ip] * plasticityData->sinAngularFriction);
-    }
-    bool adjust = false;
-    for (std::size_t ip = 0; ip < tensor::yieldFactor::size(); ++ip) {
-      // Compute yield := (t_c / tau - 1) r for every node,
-      // where r = 1 - exp(-timeStepWidth / tV)
-      if (tau[ip] > taulim[ip]) {
-        adjust = true;
-        yieldFactor[ip] = (taulim[ip] / tau[ip] - 1.0) * oneMinusIntegratingFactor;
-      } else {
-        yieldFactor[ip] = 0.0;
-      }
-    }
-
-    if (adjust) {
-      numberOfTetsWithPlasticYielding++;
+    // calculate plastic strain
+    for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
       /**
-       * Compute sigma_{ij} := sigma_{ij} + yield s_{ij} for every node
-       * and store as modal basis.
+       * Equation (10) from Wollherr et al.:
        *
-       * Remark: According to Wollherr et al., the update formula (13) should be
+       * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu tV)
        *
-       * sigmaNew_{ij} := f^* s_{ij} + m delta_{ij} - sigma0_{ij}
+       * where (11)
        *
-       * where f^* = r tau_c / tau + (1 - r) = 1 + yield. Adding 0 to (13) gives
+       * P_{ij}(sigma) = { tau_c/tau s_{ij} + m delta_{ij}         if     tau >= taulim
+       *                 { sigma_{ij} + sigma0_{ij}                else
        *
-       * sigmaNew_{ij} := f^* s_{ij} + m delta_{ij} - sigma0_{ij}
-       *                  + sigma_{ij} + sigma0_{ij} - sigma_{ij} - sigma0_{ij}
-       *                = f^* s_{ij} + sigma_{ij} - s_{ij}
-       *                = sigma_{ij} + (f^* - 1) s_{ij}
-       *                = sigma_{ij} + yield s_{ij}
+       * Thus,
+       *
+       * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu tV) s_{ij}   if     tau >= taulim
+       *                    { 0                                    else
+       *
+       * Consider tau >= taulim first. We have (1 - tau_c/tau) = -yield / r. Therefore,
+       *
+       * d/dt strain_{ij} = -1 / (2mu tV r) yield s_{ij}
+       *                  = -1 / (2mu tV r) (sigmaNew_{ij} - sigma_{ij})
+       *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu tV r)
+       *
+       * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
        */
-      kernel::plAdjustStresses adjKrnl;
-      adjKrnl.QStress =
-          degreesOfFreedomUninterleaved + qSizeNoPadding * sim;
-      adjKrnl.vInv = global->vandermondeMatrixInverse;
-      adjKrnl.QStressNodal = qStressNodal;
-      adjKrnl.yieldFactor = yieldFactor;
-      adjKrnl.execute();
+      const real factor = plasticityData->mufactor / (tV * oneMinusIntegratingFactor);
+      dudtPstrain[q] = factor * (prevDegreesOfFreedom[q] - degreesOfFreedom[q]);
+      // Integrate with explicit Euler
+      pstrain[q] += timeStepWidth * dudtPstrain[q];
+    }
+    /* Convert modal to nodal */
+    kernel::plConvertToNodalNoLoading m2nKrnlDudtPstrain;
+    m2nKrnlDudtPstrain.v = global->vandermondeMatrix;
+    m2nKrnlDudtPstrain.QStress = dudtPstrain;
+    m2nKrnlDudtPstrain.QStressNodal = qStressNodal;
+    m2nKrnlDudtPstrain.execute();
 
-      // calculate plastic strain
-      for (unsigned q = 0; q < tensor::QStress::size(); ++q) {
-        /**
-         * Equation (10) from Wollherr et al.:
-         *
-         * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu tV)
-         *
-         * where (11)
-         *
-         * P_{ij}(sigma) = { tau_c/tau s_{ij} + m delta_{ij}         if     tau >= taulim
-         *                 { sigma_{ij} + sigma0_{ij}                else
-         *
-         * Thus,
-         *
-         * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu tV) s_{ij}   if     tau >= taulim
-         *                    { 0                                    else
-         *
-         * Consider tau >= taulim first. We have (1 - tau_c/tau) = -yield / r. Therefore,
-         *
-         * d/dt strain_{ij} = -1 / (2mu tV r) yield s_{ij}
-         *                  = -1 / (2mu tV r) (sigmaNew_{ij} - sigma_{ij})
-         *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu tV r)
-         *
-         * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
-         */
-        const real factor = plasticityData->mufactor / (tV * oneMinusIntegratingFactor);
-        dudtPstrain[q] =
-            factor *
-            (prevDegreesOfFreedom[q] -
-             degreesOfFreedomUninterleaved[qSizeNoPadding * sim + q]);
-        // Integrate with explicit Euler
-        pstrainUninterleaved[pstrainSizeNoPadding * sim + q] +=
-            timeStepWidth * dudtPstrain[q];
+    // Sizes:
+    for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
+      qEtaModal[q] = pstrain[tensor::QStress::size() + q];
+    }
+
+    /* Convert modal to nodal */
+    kernel::plConvertEtaModal2Nodal m2nEtaKrnl;
+    m2nEtaKrnl.v = global->vandermondeMatrix;
+    m2nEtaKrnl.QEtaModal = qEtaModal;
+    m2nEtaKrnl.QEtaNodal = qEtaNodal;
+    m2nEtaKrnl.execute();
+
+    auto qStressNodalView = init::QStressNodal::view::create(qStressNodal);
+    const auto numNodes = qStressNodalView.shape(multisim::BasisFunctionDimension);
+    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+      for (std::size_t i = 0; i < numNodes; ++i) {
+        // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
+        // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
+        qEtaNodal[i * multisim::NumSimulations + s] =
+            std::max(static_cast<real>(0.0), qEtaNodal[i * multisim::NumSimulations + s]) +
+            timeStepWidth * sqrt(0.5 * (multisim::multisimWrap(qStressNodalView, s, i, 0) *
+                                            multisim::multisimWrap(qStressNodalView, s, i, 0) +
+                                        multisim::multisimWrap(qStressNodalView, s, i, 1) *
+                                            multisim::multisimWrap(qStressNodalView, s, i, 1) +
+                                        multisim::multisimWrap(qStressNodalView, s, i, 2) *
+                                            multisim::multisimWrap(qStressNodalView, s, i, 2) +
+                                        multisim::multisimWrap(qStressNodalView, s, i, 3) *
+                                            multisim::multisimWrap(qStressNodalView, s, i, 3) +
+                                        multisim::multisimWrap(qStressNodalView, s, i, 4) *
+                                            multisim::multisimWrap(qStressNodalView, s, i, 4) +
+                                        multisim::multisimWrap(qStressNodalView, s, i, 5) *
+                                            multisim::multisimWrap(qStressNodalView, s, i, 5)));
       }
-      /* Convert modal to nodal */
-      kernel::plConvertToNodalNoLoading m2nKrnlDudtPstrain;
-      m2nKrnlDudtPstrain.v = global->vandermondeMatrix;
-      m2nKrnlDudtPstrain.QStress = dudtPstrain;
-      m2nKrnlDudtPstrain.QStressNodal = qStressNodal;
-      m2nKrnlDudtPstrain.execute();
-      // Sizes:
-      for (unsigned q = 0; q < tensor::QEtaModal::size(); ++q) {
-        qEtaModal[q] =
-            pstrainUninterleaved[pstrainSizeNoPadding * sim + q];
-      }
+    }
 
-      /* Convert modal to nodal */
-      kernel::plConvertEtaModal2Nodal m2nEtaKrnl;
-      m2nEtaKrnl.v = global->vandermondeMatrix;
-      m2nEtaKrnl.QEtaModal = qEtaModal;
-      m2nEtaKrnl.QEtaNodal = qEtaNodal;
-      m2nEtaKrnl.execute();
-
-      auto qStressNodalView = init::QStressNodal::view::create(qStressNodal);
-      const auto numNodes = qStressNodalView.shape(0);
-
-      for (size_t i = 0; i < numNodes; ++i) {
-        // Initialize eta to zero
-        qEtaNodal[i] =
-            std::max((real)0.0, qEtaNodal[i]) +
-            timeStepWidth * sqrt(0.5 * (qStressNodalView(i, 0) * qStressNodalView(i, 0) +
-                                        qStressNodalView(i, 1) * qStressNodalView(i, 1) +
-                                        qStressNodalView(i, 2) * qStressNodalView(i, 2) +
-                                        qStressNodalView(i, 3) * qStressNodalView(i, 3) +
-                                        qStressNodalView(i, 4) * qStressNodalView(i, 4) +
-                                        qStressNodalView(i, 5) * qStressNodalView(i, 5)));
-      }
-
-      /* Convert nodal to modal */
-      kernel::plConvertEtaNodal2Modal n2mEtaKrnl;
-      n2mEtaKrnl.vInv = global->vandermondeMatrixInverse;
-      n2mEtaKrnl.QEtaNodal = qEtaNodal;
-      n2mEtaKrnl.QEtaModal = qEtaModal;
-      n2mEtaKrnl.execute();
-
-      for (std::size_t q = 0; q < tensor::QEtaModal::size(); ++q) {
-        pstrainUninterleaved[pstrainSizeNoPadding * sim + q] =
-            qEtaModal[q];
-      }
-    } // if adjust
-  } // for sim
-
-  kernel::interleavepstrain interleavePstrainKrnl;
-  interleavePstrainKrnl.pstrainuninterleaved = pstrainUninterleaved;
-  interleavePstrainKrnl.pstrain = pstrain;
-  interleavePstrainKrnl.execute();
-
-  kernel::interleaveDofs interleaveKrnl;
-  interleaveKrnl.Quninterleaved = degreesOfFreedomUninterleaved;
-  interleaveKrnl.Q = degreesOfFreedom;
-  interleaveKrnl.execute();
-
-  return numberOfTetsWithPlasticYielding;
+    /* Convert nodal to modal */
+    kernel::plConvertEtaNodal2Modal n2mEtaKrnl;
+    n2mEtaKrnl.vInv = global->vandermondeMatrixInverse;
+    n2mEtaKrnl.QEtaNodal = qEtaNodal;
+    n2mEtaKrnl.QEtaModal = qEtaModal;
+    n2mEtaKrnl.execute();
+    for (std::size_t q = 0; q < tensor::QEtaModal::size(); ++q) {
+      pstrain[tensor::QStress::size() + q] = qEtaModal[q];
+    }
+    return 1;
+  }
+  return 0;
 }
 
 void Plasticity::computePlasticityBatched(

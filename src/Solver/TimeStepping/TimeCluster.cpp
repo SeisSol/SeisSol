@@ -823,7 +823,9 @@ void TimeCluster::finalize() {
 
 template <bool UsePlasticity>
 void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStart) {
-  if (clusterData->size() == 0) {
+  std::size_t clusterSize = clusterData->size();
+
+  if (clusterSize == 0) {
     return;
   }
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
@@ -846,9 +848,10 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   real* faceNeighborsPrefetch[4];
 
   const auto tV = seissolInstance.getSeisSolParameters().model.tv;
+  const auto timeStepSize = this->timeStepSize();
 
   const auto oneMinusIntegratingFactor =
-      seissol::kernels::Plasticity::computeRelaxTime(tV, timeStepSize());
+      seissol::kernels::Plasticity::computeRelaxTime(tV, timeStepSize);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) default(none) private(timeIntegrated,                    \
@@ -863,14 +866,15 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                subTimeStart,                                                                       \
                tV) reduction(+ : numberOfTetsWithPlasticYielding)
 #endif
-  for (std::size_t cell = 0; cell < clusterData->size(); cell++) {
+
+  for (std::size_t cell = 0; cell < clusterSize; cell++) {
     auto data = loader.entry(cell);
     seissol::kernels::TimeCommon::computeIntegrals(
         timeKernel,
         data.cellInformation().ltsSetup,
         data.cellInformation().faceTypes,
         subTimeStart,
-        timeStepSize(),
+        timeStepSize,
         faceNeighbors[cell],
 #ifdef _OPENMP
         *reinterpret_cast<real(*)[4][tensor::I::size()]>(
@@ -907,7 +911,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
     if constexpr (UsePlasticity) {
       numberOfTetsWithPlasticYielding +=
           seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
-                                                          timeStepSize(),
+                                                          timeStepSize,
                                                           tV,
                                                           globalDataOnHost,
                                                           &plasticity[cell],
