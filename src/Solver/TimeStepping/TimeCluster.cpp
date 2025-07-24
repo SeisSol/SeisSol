@@ -857,6 +857,8 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
 #pragma omp parallel for schedule(static) default(none) private(timeIntegrated,                    \
                                                                     faceNeighborsPrefetch)         \
     shared(oneMinusIntegratingFactor,                                                              \
+               clusterSize,                                                                        \
+               timeStepSize,                                                                       \
                cellInformation,                                                                    \
                loader,                                                                             \
                faceNeighbors,                                                                      \
