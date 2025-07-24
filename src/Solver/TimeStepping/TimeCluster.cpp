@@ -823,9 +823,10 @@ void TimeCluster::finalize() {
 
 template <bool UsePlasticity>
 void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStart) {
-  std::size_t clusterSize = clusterData->size();
-
-  if (clusterSize == 0) {
+  // we cannot do an auto clusterData = this->clusterData, and an auto timeStep = timeStepSize()
+  // and use them consistenty in the function, because clang-tidy complains about them not having
+  // sharing attributes even thought they do.
+  if (clusterData->size() == 0) {
     return;
   }
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
@@ -848,17 +849,14 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   real* faceNeighborsPrefetch[4];
 
   const auto tV = seissolInstance.getSeisSolParameters().model.tv;
-  const auto timeStepSize = this->timeStepSize();
 
   const auto oneMinusIntegratingFactor =
-      seissol::kernels::Plasticity::computeRelaxTime(tV, timeStepSize);
+      seissol::kernels::Plasticity::computeRelaxTime(tV, timeStepSize());
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) default(none) private(timeIntegrated,                    \
                                                                     faceNeighborsPrefetch)         \
     shared(oneMinusIntegratingFactor,                                                              \
-               clusterSize,                                                                        \
-               timeStepSize,                                                                       \
                cellInformation,                                                                    \
                loader,                                                                             \
                faceNeighbors,                                                                      \
@@ -869,14 +867,14 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                tV) reduction(+ : numberOfTetsWithPlasticYielding)
 #endif
 
-  for (std::size_t cell = 0; cell < clusterSize; cell++) {
+  for (std::size_t cell = 0; cell < clusterData->size(); cell++) {
     auto data = loader.entry(cell);
     seissol::kernels::TimeCommon::computeIntegrals(
         timeKernel,
         data.cellInformation().ltsSetup,
         data.cellInformation().faceTypes,
         subTimeStart,
-        timeStepSize,
+        timeStepSize(),
         faceNeighbors[cell],
 #ifdef _OPENMP
         *reinterpret_cast<real(*)[4][tensor::I::size()]>(
@@ -913,7 +911,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
     if constexpr (UsePlasticity) {
       numberOfTetsWithPlasticYielding +=
           seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
-                                                          timeStepSize,
+                                                          timeStepSize(),
                                                           tV,
                                                           globalDataOnHost,
                                                           &plasticity[cell],
