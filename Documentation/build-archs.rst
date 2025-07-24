@@ -293,7 +293,7 @@ The following architectures are supported:
      - AMD RDNA 3
      - AMD Radeon 7000 series
      - split [#xnack2]_
-   * - ``pvc``
+   * - ``12_60_7`` (``pvc``)
      - ``oneapi``
      - Intel Ponte Vecchio
      - Intel Data Center Max 1550
