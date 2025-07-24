@@ -24,69 +24,76 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     )
     numberOfNodes = aderdg.t(db.v.shape())[0]
 
-    alignStride = False
-
     numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
     sShape = (numberOf3DBasisFunctions, 6)
-
-    pstrainShape = (numberOfNodes, 7)
-    pstrain = OptionalDimTensor('pstrain', 's', aderdg.Q.optSize(), aderdg.Q.optPos(), pstrainShape, alignStride=True)
-    pstrainuninterleaved = OptionalDimTensor(
-        'pstrainuninterleaved',
-        's',
-        aderdg.Q.optSize(),
-        2,
-        pstrainShape,
-        alignStride=False,
-    )
-
-    generator.add('uninterleavepstrain', pstrainuninterleaved['ij'] <= pstrain['ij'])
-    generator.add('interleavepstrain', pstrain['ij'] <= pstrainuninterleaved['ij'])
-
-    QStress = Tensor(
+    QStress = OptionalDimTensor(
         "QStress",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
         sShape,
-        alignStride=alignStride,
+        alignStride=True,
     )
 
     sShape_eta = (numberOf3DBasisFunctions,)
-    QEtaModal = Tensor(
+    QEtaModal = OptionalDimTensor(
         "QEtaModal",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
         sShape_eta,
-        alignStride=alignStride,
+        alignStride=True,
     )
 
     initialLoading = Tensor("initialLoading", (6,))
 
     replicateIniLShape = (numberOfNodes,)
-    replicateInitialLoading = Tensor(
+    replicateIniLSpp = np.ones(
+        aderdg.Q.insertOptDim(replicateIniLShape, (aderdg.Q.optSize(),))
+    )
+    replicateInitialLoading = OptionalDimTensor(
         "replicateInitialLoading",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
         replicateIniLShape,
-        spp=np.ones(replicateIniLShape, ),
-        alignStride=alignStride,
+        spp=replicateIniLSpp,
+        alignStride=True,
     )
 
     iShape = (numberOfNodes, 6)
-    QStressNodal = Tensor(
+    QStressNodal = OptionalDimTensor(
         "QStressNodal",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
         iShape,
-        alignStride=alignStride,
+        alignStride=True,
     )
-    meanStress = Tensor(
+    meanStress = OptionalDimTensor(
         "meanStress",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
         (numberOfNodes,),
-        alignStride=alignStride,
+        alignStride=True,
     )
-    secondInvariant = Tensor(
+    secondInvariant = OptionalDimTensor(
         "secondInvariant",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
         (numberOfNodes,),
-        alignStride=alignStride,
+        alignStride=True,
     )
 
-    QEtaNodal = Tensor(
+    QEtaNodal = OptionalDimTensor(
         "QEtaNodal",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
         (numberOfNodes,),
-        alignStride=alignStride,
+        alignStride=True,
     )
 
     selectBulkAverage = Tensor(
@@ -100,11 +107,18 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         (6,),
         spp={(i,): str(1.0 / 2.0) if i < 3 else "1.0" for i in range(6)},
     )
-    yieldFactor = Tensor("yieldFactor", (numberOfNodes,))
+
+    yieldFactor = OptionalDimTensor("yieldFactor",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (numberOfNodes,),
+    )
 
     generator.add(
         "plConvertToNodal",
         QStressNodal["kp"]
+        # <= db.v[aderdg.t("kl")] * QStress["lp"]
         <= db.v["kl"] * QStress["lp"]
         + replicateInitialLoading["k"] * initialLoading["p"],
     )
@@ -113,19 +127,19 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         name_prefix = generate_kernel_name_prefix(target)
         generator.add(
             name=f"{name_prefix}plConvertToNodalNoLoading",
-            ast=QStressNodal["kp"] <= db.v["kl"] * QStress["lp"],
+            ast=QStressNodal["kp"] <= db.v[aderdg.t("kl")] * QStress["lp"],
             target=target,
         )
 
         generator.add(
             name=f"{name_prefix}plConvertEtaModal2Nodal",
-            ast=QEtaNodal["k"] <= db.v["kl"] * QEtaModal["l"],
+            ast=QEtaNodal["k"] <= db.v[aderdg.t("kl")] * QEtaModal["l"],
             target=target,
         )
 
         generator.add(
             name=f"{name_prefix}plConvertEtaNodal2Modal",
-            ast=QEtaModal["k"] <= db.vInv["kl"] * QEtaNodal["l"],
+            ast=QEtaModal["k"] <= db.vInv[aderdg.t("kl")] * QEtaNodal["l"],
             target=target,
         )
 
@@ -147,7 +161,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         "plAdjustStresses",
         QStress["kp"]
         <= QStress["kp"]
-        + db.vInv["kl"] * QStressNodal["lp"] * yieldFactor["l"],
+        + db.vInv[aderdg.t("kl")] * QStressNodal["lp"] * yieldFactor["l"],
     )
 
     gpu_target = "gpu"
