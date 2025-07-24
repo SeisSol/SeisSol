@@ -128,18 +128,21 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         generator.add(
             name=f"{name_prefix}plConvertToNodalNoLoading",
             ast=QStressNodal["kp"] <= db.v[aderdg.t("kl")] * QStress["lp"],
+            # ast=QStressNodal["kp"] <= db.v["kl"] * QStress["lp"],
             target=target,
         )
 
         generator.add(
             name=f"{name_prefix}plConvertEtaModal2Nodal",
             ast=QEtaNodal["k"] <= db.v[aderdg.t("kl")] * QEtaModal["l"],
+            # ast=QEtaNodal["k"] <= db.v["kl"] * QEtaModal["l"],
             target=target,
         )
 
         generator.add(
             name=f"{name_prefix}plConvertEtaNodal2Modal",
             ast=QEtaModal["k"] <= db.vInv[aderdg.t("kl")] * QEtaNodal["l"],
+            # ast=QEtaModal["k"] <= db.vInv["kl"] * QEtaNodal["l"],
             target=target,
         )
 
@@ -161,7 +164,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         "plAdjustStresses",
         QStress["kp"]
         <= QStress["kp"]
-        + db.vInv[aderdg.t("kl")] * QStressNodal["lp"] * yieldFactor["l"],
+        + db.vInv["kl"] * QStressNodal["lp"] * yieldFactor["l"],
     )
 
     gpu_target = "gpu"
