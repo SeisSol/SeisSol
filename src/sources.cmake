@@ -87,6 +87,7 @@ ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
 
 src/Parallel/OpenMP.cpp
 src/Parallel/Runtime/Stream.cpp
+src/Parallel/DataCollector.cpp
 )
 
 # target_link_options(seissol-common-lib PUBLIC seissol-kernel-lib)

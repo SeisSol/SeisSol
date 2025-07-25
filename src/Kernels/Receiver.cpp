@@ -22,6 +22,7 @@
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
 #include <Numerical/Transformation.h>
+#include <Parallel/DataCollector.h>
 #include <Parallel/Helper.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
@@ -249,8 +250,8 @@ void ReceiverCluster::allocateData() {
     }
 
     const bool hostAccessible = useUSM() && !extraRuntime.has_value();
-    deviceCollector =
-        std::make_unique<seissol::parallel::DataCollector>(dofs, tensor::Q::size(), hostAccessible);
+    deviceCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
+        dofs, tensor::Q::size(), hostAccessible);
   }
 }
 void ReceiverCluster::freeData() {
