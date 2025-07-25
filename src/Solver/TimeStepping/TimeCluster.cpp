@@ -823,6 +823,9 @@ void TimeCluster::finalize() {
 
 template <bool UsePlasticity>
 void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStart) {
+  // we cannot do an auto clusterData = this->clusterData, and an auto timeStep = timeStepSize()
+  // and use them consistenty in the function, because clang-tidy complains about them not having
+  // sharing attributes even thought they do.
   if (clusterData->size() == 0) {
     return;
   }
@@ -837,7 +840,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   auto* pstrain = clusterData->var(lts->pstrain);
 
   // NOLINTNEXTLINE
-  std::size_t numberOTetsWithPlasticYielding = 0;
+  std::size_t numberOfTetsWithPlasticYielding = 0;
 
   kernels::NeighborData::Loader loader;
   loader.load(*lts, *clusterData);
@@ -861,8 +864,9 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                plasticity,                                                                         \
                drMapping,                                                                          \
                subTimeStart,                                                                       \
-               tV) reduction(+ : numberOTetsWithPlasticYielding)
+               tV) reduction(+ : numberOfTetsWithPlasticYielding)
 #endif
+
   for (std::size_t cell = 0; cell < clusterData->size(); cell++) {
     auto data = loader.entry(cell);
     seissol::kernels::TimeCommon::computeIntegrals(
@@ -905,7 +909,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
         data, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
 
     if constexpr (UsePlasticity) {
-      numberOTetsWithPlasticYielding +=
+      numberOfTetsWithPlasticYielding +=
           seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
                                                           timeStepSize(),
                                                           tV,
@@ -921,7 +925,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   }
 
   if constexpr (UsePlasticity) {
-    yieldCells[0] += numberOTetsWithPlasticYielding;
+    yieldCells[0] += numberOfTetsWithPlasticYielding;
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
         clusterData->size() * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
