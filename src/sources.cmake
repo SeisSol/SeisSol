@@ -82,6 +82,8 @@ src/SourceTerm/Manager.cpp
 src/Solver/Simulator.cpp
 src/ResultWriter/AnalysisWriter.cpp
 
+src/Solver/TimeStepping/HaloCommunication.cpp
+
 ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
 ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
 

@@ -261,6 +261,7 @@ void MeshReader::exchangeGhostlayerMetadata() {
   // TODO(David): Once a generic MPI type inference module is ready, replace this part here ...
   // Maybe.
   MPI_Datatype ghostElementType = MPI_DATATYPE_NULL;
+  MPI_Datatype ghostElementTypePre = MPI_DATATYPE_NULL;
 
   // assume that all vertices are stored contiguously
   const int datatypeCount = 6;
@@ -282,7 +283,8 @@ void MeshReader::exchangeGhostlayerMetadata() {
                          datatypeBlocklen.data(),
                          datatypeDisplacement.data(),
                          datatypeDatatype.data(),
-                         &ghostElementType);
+                         &ghostElementTypePre);
+  MPI_Type_create_resized(ghostElementTypePre, 0, sizeof(GhostElementMetadata), &ghostElementType);
   MPI_Type_commit(&ghostElementType);
 
   size_t counter = 0;
