@@ -81,6 +81,8 @@ struct AcousticMaterial : public Material {
   [[nodiscard]] double getSWaveSpeed() const override { return 0.0; }
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
+
+  void setLameParameters(double mu, double lambda) override { this->lambda = lambda; }
 };
 } // namespace seissol::model
 
