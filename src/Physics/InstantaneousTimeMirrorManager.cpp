@@ -15,7 +15,6 @@
 #include <Initializer/Typedefs.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
-#include <Memory/Tree/Lut.h>
 #include <Modules/Module.h>
 #include <cmath>
 #include <cstddef>
@@ -28,7 +27,6 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           double triggerTime,
                                           seissol::geometry::MeshReader* meshReader,
                                           LTS::Tree* ltsTree,
-                                          initializer::Lut* ltsLut,
                                           const initializer::ClusterLayout* clusterLayout) {
   isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
                     // Need this by default as true for it to work.
@@ -36,7 +34,6 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   this->triggerTime = triggerTime;
   this->meshReader = meshReader;
   this->ltsTree = ltsTree;
-  this->ltsLut = ltsLut;
   this->clusterLayout = clusterLayout; // An empty timestepping is added. Need to discuss what
                                        // exactly is to be sent here
   setSyncInterval(triggerTime);
@@ -60,7 +57,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
 
   logInfo() << "Updating CellLocalMatrices";
   initializer::initializeCellLocalMatrices(
-      *meshReader, ltsTree, ltsLut, *clusterLayout, seissolInstance.getSeisSolParameters().model);
+      *meshReader, ltsTree, *clusterLayout, seissolInstance.getSeisSolParameters().model);
   // An empty timestepping is added. Need to discuss what exactly is to be sent here
 
   logInfo() << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor;
@@ -219,7 +216,6 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   double triggerTime,
                                   seissol::geometry::MeshReader* meshReader,
                                   LTS::Tree* ltsTree,
-                                  initializer::Lut* ltsLut,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
                                   seissol::SeisSol& seissolInstance,
@@ -228,7 +224,6 @@ void initializeTimeMirrorManagers(double scalingFactor,
                        triggerTime,
                        meshReader,
                        ltsTree,
-                       ltsLut,
                        clusterLayout); // An empty timestepping is added. Need to discuss what
                                        // exactly is to be sent here
   auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
@@ -239,7 +234,6 @@ void initializeTimeMirrorManagers(double scalingFactor,
                        triggerTime + eps,
                        meshReader,
                        ltsTree,
-                       ltsLut,
                        clusterLayout); // An empty timestepping is added. Need to discuss what
                                        // exactly is to be sent here
 };

@@ -152,9 +152,14 @@ void ProxyData::initGlobalData() {
 }
 
 void ProxyData::initDataStructures(bool enableDR) {
+  const initializer::LTSColorMap map(
+      initializer::TraitLayer<initializer::ConfigVariant>({Config()}),
+      initializer::EnumLayer<std::size_t>({0}),
+      initializer::EnumLayer<HaloType>({HaloType::Interior}));
+
   // init RNG
   LTS::addTo(ltsTree, false); // proxy does not use plasticity
-  ltsTree.setLayerCount(1, {Config()});
+  ltsTree.setLayerCount(map);
   ltsTree.fixate();
 
   ltsTree.layer(layerId).setNumberOfCells(cellCount);
@@ -169,7 +174,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   if (enableDR) {
     DynamicRupture dynRup;
     dynRup.addTo(dynRupTree);
-    dynRupTree.setLayerCount(1, {Config()});
+    dynRupTree.setLayerCount(ltsTree.getColorMap());
     dynRupTree.fixate();
 
     dynRupTree.layer(layerId).setNumberOfCells(4 * cellCount);

@@ -13,9 +13,9 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Lut.h"
 
 #include <DynamicRupture/Misc.h>
+#include <Memory/Tree/Backmap.h>
 #include <memory>
 #include <vector>
 
@@ -24,9 +24,7 @@ class ReceiverOutput {
   public:
   virtual ~ReceiverOutput() = default;
 
-  void setLtsData(LTS::Tree* userWpTree,
-                  seissol::initializer::Lut* userWpLut,
-                  DynamicRupture::Tree* userDrTree);
+  void setLtsData(LTS::Tree* userWpTree, LTS::Backmap* userWpLut, DynamicRupture::Tree* userDrTree);
 
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
@@ -39,7 +37,7 @@ class ReceiverOutput {
 
   protected:
   LTS::Tree* wpTree{nullptr};
-  seissol::initializer::Lut* wpLut{nullptr};
+  LTS::Backmap* wpLut{nullptr};
   DynamicRupture::Tree* drTree{nullptr};
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};

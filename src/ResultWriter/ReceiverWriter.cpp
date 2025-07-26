@@ -14,7 +14,7 @@
 #include <Initializer/PointMapper.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Receiver.h>
-#include <Memory/Tree/Lut.h>
+#include <Memory/Tree/Backmap.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cassert>
@@ -172,7 +172,7 @@ void ReceiverWriter::init(
 }
 
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
-                               const seissol::initializer::Lut& ltsLut,
+                               const LTS::Backmap& backmap,
                                const CompoundGlobalData& global) {
   std::vector<Eigen::Vector3d> points;
   // Only parse if we have a receiver file
@@ -223,7 +223,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   for (std::size_t point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
       const std::size_t meshId = meshIds[point];
-      const auto id = ltsLut.id(meshId);
+      const auto id = backmap.get(meshId).color;
 
       // Make sure that needed empty clusters are initialized.
       for (std::size_t c = m_receiverClusters.size(); c <= id; ++c) {
@@ -236,7 +236,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
       }
 
       writeHeader(point, points[point]);
-      m_receiverClusters[id].addReceiver(meshId, point, points[point], mesh, ltsLut);
+      m_receiverClusters[id].addReceiver(meshId, point, points[point], mesh, backmap);
     }
   }
 }

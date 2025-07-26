@@ -72,9 +72,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
 
   for (std::size_t clusterId = 0; clusterId < clusterLayout.globalClusterCount; ++clusterId) {
-    const auto interiorId = initializer::LayerIdentifier(Interior, Config(), clusterId);
-    const auto copyId = initializer::LayerIdentifier(Copy, Config(), clusterId);
-    const auto ghostId = initializer::LayerIdentifier(Ghost, Config(), clusterId);
+    const auto interiorId = initializer::LayerIdentifier(HaloType::Interior, Config(), clusterId);
+    const auto copyId = initializer::LayerIdentifier(HaloType::Copy, Config(), clusterId);
+    const auto ghostId = initializer::LayerIdentifier(HaloType::Ghost, Config(), clusterId);
 
     const long numberOfDynRupCells =
         memoryManager.getDynamicRuptureTree()->layer(interiorId).size() +
@@ -103,9 +103,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     const auto timeStepRate = clusterLayout.clusterRate(clusterId);
 
     // Dynamic rupture
-    const auto interiorId = initializer::LayerIdentifier(Interior, Config(), clusterId);
-    const auto copyId = initializer::LayerIdentifier(Copy, Config(), clusterId);
-    const auto ghostId = initializer::LayerIdentifier(Ghost, Config(), clusterId);
+    const auto interiorId = initializer::LayerIdentifier(HaloType::Interior, Config(), clusterId);
+    const auto copyId = initializer::LayerIdentifier(HaloType::Copy, Config(), clusterId);
+    const auto ghostId = initializer::LayerIdentifier(HaloType::Ghost, Config(), clusterId);
 
     // Note: We need to include the Ghost part, as we need to compute its DR part as well.
     const long numberOfDynRupCells =

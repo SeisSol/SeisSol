@@ -273,7 +273,7 @@ FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
 void FreeSurfaceIntegrator::initializeSurfaceLTSTree(LTS::Tree* ltsTree) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
 
-  surfaceLtsTree->setLayerCount(ltsTree->numTimeClusters(), ltsTree->getConfigs());
+  surfaceLtsTree->setLayerCount(ltsTree->getColorMap());
   surfaceLtsTree->fixate();
 
   totalNumberOfFreeSurfaces = 0;

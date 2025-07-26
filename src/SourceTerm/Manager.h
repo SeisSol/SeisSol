@@ -10,7 +10,6 @@
 #define SEISSOL_SRC_SOURCETERM_MANAGER_H_
 
 #include "Geometry/MeshReader.h"
-#include "Memory/Tree/Lut.h"
 #include "Solver/TimeStepping/TimeManager.h"
 #include <cstdarg>
 
@@ -25,7 +24,7 @@ class Manager {
                           const char* fileName,
                           const seissol::geometry::MeshReader& mesh,
                           LTS::Tree* ltsTree,
-                          seissol::initializer::Lut* ltsLut,
+                          LTS::Backmap& backmap,
                           time_stepping::TimeManager& timeManager);
 };
 

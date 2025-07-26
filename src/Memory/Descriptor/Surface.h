@@ -38,6 +38,7 @@ struct SurfaceLTS {
   using Tree = initializer::LTSTree<SurfaceVarmap>;
   using Layer = initializer::Layer<SurfaceVarmap>;
   using Ref = initializer::Layer<SurfaceVarmap>::CellRef;
+  using Backmap = initializer::StorageBackmap<1>;
 
   static void addTo(Tree& surfaceLtsTree) {
     const seissol::initializer::LayerMask ghostMask(Ghost);

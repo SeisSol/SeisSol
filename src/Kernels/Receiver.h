@@ -14,7 +14,6 @@
 #include "Kernels/Interface.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Lut.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
@@ -22,6 +21,7 @@
 #include <Common/Executor.h>
 #include <Eigen/Dense>
 #include <Initializer/Typedefs.h>
+#include <Memory/Tree/Backmap.h>
 #include <optional>
 #include <vector>
 
@@ -88,7 +88,7 @@ class ReceiverCluster {
                    unsigned pointId,
                    const Eigen::Vector3d& point,
                    const seissol::geometry::MeshReader& mesh,
-                   const seissol::initializer::Lut& ltsLut);
+                   const LTS::Backmap& backmap);
 
   //! Returns new receiver time
   double calcReceivers(

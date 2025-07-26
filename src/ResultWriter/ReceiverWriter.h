@@ -9,13 +9,13 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 
+#include <Memory/Tree/Backmap.h>
 #include <string_view>
 #include <vector>
 
 #include "Geometry/MeshReader.h"
 #include "Kernels/Receiver.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Lut.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
 #include <Eigen/Dense>
@@ -45,7 +45,7 @@ class ReceiverWriter : public seissol::Module {
             const seissol::initializer::parameters::ReceiverOutputParameters& parameters);
 
   void addPoints(const seissol::geometry::MeshReader& mesh,
-                 const seissol::initializer::Lut& ltsLut,
+                 const LTS::Backmap& backmap,
                  const CompoundGlobalData& global);
 
   kernels::ReceiverCluster* receiverCluster(std::size_t id);

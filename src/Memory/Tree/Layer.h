@@ -13,6 +13,7 @@
 #include "Initializer/DeviceGraph.h"
 #include "Memory/MemoryAllocator.h"
 #include "Node.h"
+#include <Memory/Tree/Colormap.h>
 #include <bitset>
 #include <cstring>
 #include <limits>
@@ -186,19 +187,6 @@ struct Scratchpad : public ScratchpadDescriptor {
   using Type = T;
 };
 
-using ConfigVariant = std::variant<Config>;
-
-struct LayerIdentifier {
-  enum LayerType halo;
-  ConfigVariant config;
-  std::size_t lts;
-
-  LayerIdentifier() = default;
-
-  LayerIdentifier(enum LayerType halo, ConfigVariant config, std::size_t lts)
-      : halo(halo), config(config), lts(lts) {}
-};
-
 using FilterFunction = std::function<bool(const LayerIdentifier&)>;
 using SizeFunction = std::function<std::size_t(const LayerIdentifier&)>;
 
@@ -219,7 +207,7 @@ struct MemoryInfo {
   FilterFunction filterLayer;
 };
 
-template <LayerType... FilteredTypes>
+template <HaloType... FilteredTypes>
 bool layerFilter(const LayerIdentifier& filter) {
   return ((filter.halo == FilteredTypes) || ...);
 }
@@ -425,6 +413,22 @@ private:
   }
 
   template <typename StorageT>
+  const typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
+    const auto index = varmap.template index<StorageT>();
+    assert(memoryContainer.size() > index);
+    return static_cast<typename StorageT::Type*>(memoryContainer[index].get(place));
+  }
+
+  template <typename StorageT, typename ConfigT>
+  const typename StorageT::template VariantType<ConfigT>*
+      var(const ConfigT& /*...*/, AllocationPlace place = AllocationPlace::Host) const {
+    const auto index = varmap.template index<StorageT>();
+    assert(memoryContainer.size() > index);
+    return static_cast<typename StorageT::template VariantType<ConfigT>*>(
+        memoryContainer[index].get(place));
+  }
+
+  template <typename StorageT>
   void varSynchronizeTo(AllocationPlace place, void* stream) {
     const auto index = varmap.template index<StorageT>();
     assert(memoryContainer.size() > index);
@@ -451,6 +455,25 @@ private:
   }
 
   template <typename HandleT>
+  const typename HandleT::Type* var(const HandleT& handle,
+                                    AllocationPlace place = AllocationPlace::Host) const {
+    const auto index = varmap.index(handle);
+    assert(memoryContainer.size() > index);
+    return static_cast<typename HandleT::Type*>(memoryContainer[index].get(place));
+  }
+
+  template <typename HandleT, typename ConfigT>
+  const typename HandleT::template VariantType<ConfigT>*
+      var(const HandleT& handle,
+          const ConfigT& /*...*/,
+          AllocationPlace place = AllocationPlace::Host) const {
+    const auto index = varmap.index(handle);
+    assert(memoryContainer.size() > index);
+    return static_cast<typename HandleT::template VariantType<ConfigT>*>(
+        memoryContainer[index].get(place));
+  }
+
+  template <typename HandleT>
   void varSynchronizeTo(const HandleT& handle, AllocationPlace place, void* stream) {
     const auto index = varmap.index(handle);
     assert(memoryContainer.size() > index);
@@ -459,10 +482,8 @@ private:
 
   /// i-th bit of layerMask shall be set if data is masked on the i-th layer
   [[nodiscard]] bool isMasked(LayerMask layerMask) const {
-    return (LayerMask(identifier.halo) & layerMask).any();
+    return layerMask.test(static_cast<int>(getIdentifier().halo));
   }
-
-  void setLayerType(enum LayerType layerType) { identifier.halo = layerType; }
 
   [[nodiscard]] const LayerIdentifier& getIdentifier() const { return identifier; }
 

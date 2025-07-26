@@ -14,6 +14,8 @@
 #include "Memory/Tree/Layer.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include <Memory/Descriptor/Surface.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
+#include <Memory/Tree/Backmap.h>
 #include <mpi.h>
 
 #include <utils/logger.h>
@@ -23,7 +25,6 @@
 
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Initializer/InputAux.h"
 #include "Memory/Descriptor/Boundary.h"
@@ -104,7 +105,9 @@ class MemoryManager {
 
     //! Memory organization tree
     LTS::Tree               m_ltsTree;
-    Lut                   m_ltsLut;
+    LTS::Backmap backmap;
+
+    std::optional<ClusterLayout> clusterLayout;
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
@@ -224,13 +227,8 @@ class MemoryManager {
       return &m_ltsTree;
     }
 
-    inline Lut* getLtsLut() {
-      return &m_ltsLut;
-    }
-
-    // TODO(David): remove again (this method is merely a temporary construction to transition from C++ to FORTRAN and should be removed in the next refactoring step)
-    inline Lut& getLtsLutUnsafe() {
-      return m_ltsLut;
+    inline LTS::Backmap& getBackmap() {
+      return backmap;
     }
 
     inline DynamicRupture::Tree* getDynamicRuptureTree() {

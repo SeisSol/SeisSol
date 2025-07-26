@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_MEMORY_TREE_LTSTREE_H_
 #define SEISSOL_SRC_MEMORY_TREE_LTSTREE_H_
 
+#include "Backmap.h"
 #include "LTSInternalNode.h"
 #include "Layer.h"
 
@@ -16,6 +17,9 @@
 
 #include "Monitoring/Unit.h"
 #include "utils/logger.h"
+#include <Config.h>
+#include <Memory/Tree/Backmap.h>
+#include <Memory/Tree/Colormap.h>
 #include <type_traits>
 
 namespace seissol::initializer {
@@ -106,7 +110,7 @@ class LTSTree : public LTSInternalNode<VarmapT> {
     const auto bytesLayer = m.bytesLayer;
 
     m.filterLayer = [mask, bytesLayer](const LayerIdentifier& identifier) {
-      return (mask.to_ulong() & identifier.halo) != 0 && bytesLayer(identifier) > 0;
+      return mask.test(static_cast<int>(identifier.halo)) || bytesLayer(identifier) == 0;
     };
 
     while (memoryInfo.size() <= index) {
@@ -115,13 +119,14 @@ class LTSTree : public LTSInternalNode<VarmapT> {
     memoryInfo[index] = m;
   }
 
-  std::size_t timeClusters;
-  std::vector<ConfigVariant> configs;
+  std::optional<LTSColorMap> map;
 
   public:
   LTSTree() { memoryInfo.resize(VarmapT::MinSize); }
 
   ~LTSTree() override = default;
+
+  [[nodiscard]] const LTSColorMap& getColorMap() const { return map.value(); }
 
   void setName(const std::string& name) { this->name = name; }
 
@@ -131,26 +136,14 @@ class LTSTree : public LTSInternalNode<VarmapT> {
     }
   }
 
-  void setLayerCount(std::size_t timeClusters, const std::vector<ConfigVariant>& configs) {
-    const auto layerCount = 3 * timeClusters * configs.size();
+  void setLayerCount(const LTSColorMap& map) {
+    this->map = map;
+    const auto layerCount = map.size();
     this->template setChildren<Layer<VarmapT>>(layerCount);
-    std::vector<LayerType> haloType{Ghost, Copy, Interior};
-    std::size_t counter = 0;
-    for (int halo = 0; halo < 3; ++halo) {
-      for (const auto& config : configs) {
-        for (std::size_t lts = 0; lts < timeClusters; ++lts) {
-          layer(counter).setIdentifier(LayerIdentifier(haloType[halo], config, lts));
-          ++counter;
-        }
-      }
+    for (std::size_t i = 0; i < map.size(); ++i) {
+      layer(i).setIdentifier(map.argument(i));
     }
-    this->timeClusters = timeClusters;
-    this->configs = configs;
   }
-
-  [[nodiscard]] std::size_t numTimeClusters() const { return timeClusters; }
-
-  [[nodiscard]] std::vector<ConfigVariant> getConfigs() const { return configs; }
 
   void fixate() {
     memoryContainer.resize(memoryInfo.size());
@@ -170,40 +163,10 @@ class LTSTree : public LTSInternalNode<VarmapT> {
     return *dynamic_cast<Layer<VarmapT>*>(this->m_children[index].get());
   }
 
-  Layer<VarmapT>& layer(const LayerIdentifier& id) {
-    std::size_t configId = 0;
-    for (std::size_t i = 0; i < configs.size(); ++i) {
-      if (configs[i].index() == id.config.index()) {
-        configId = i;
-        break;
-      }
-    }
-    std::size_t haloId = 0;
-    if (id.halo == Copy) {
-      haloId = 1;
-    }
-    if (id.halo == Interior) {
-      haloId = 2;
-    }
-    return layer(id.lts + numTimeClusters() * (configId + configs.size() * haloId));
-  }
+  Layer<VarmapT>& layer(const LayerIdentifier& id) { return layer(map.value().colorId(id)); }
 
   [[nodiscard]] const Layer<VarmapT>& layer(const LayerIdentifier& id) const {
-    std::size_t configId = 0;
-    for (std::size_t i = 0; i < configs.size(); ++i) {
-      if (configs[i].index() == id.config.index()) {
-        configId = i;
-        break;
-      }
-    }
-    std::size_t haloId = 0;
-    if (id.halo == Copy) {
-      haloId = 1;
-    }
-    if (id.halo == Interior) {
-      haloId = 2;
-    }
-    return layer(id.lts + numTimeClusters() * (configId + configs.size() * haloId));
+    return layer(map.value().colorId(id));
   }
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
@@ -249,6 +212,35 @@ class LTSTree : public LTSInternalNode<VarmapT> {
   [[nodiscard]] const MemoryInfo& info(std::size_t index) const {
     assert(memoryInfo.size() > index);
     return memoryInfo[index];
+  }
+
+  auto lookupRef(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
+    return layer(position.color).cellRef(position.cell, place);
+  }
+
+  template <typename HandleT>
+  auto& lookup(const HandleT& handle,
+               const StoragePosition& position,
+               AllocationPlace place = AllocationPlace::Host) {
+    return layer(position.color).var(handle)[position.cell];
+  }
+
+  template <typename StorageT>
+  auto& lookup(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
+    return layer(position.color).template var<StorageT>()[position.cell];
+  }
+
+  template <typename HandleT>
+  const auto& lookup(const HandleT& handle,
+                     const StoragePosition& position,
+                     AllocationPlace place = AllocationPlace::Host) const {
+    return layer(position.color).var(handle)[position.cell];
+  }
+
+  template <typename StorageT>
+  const auto& lookup(const StoragePosition& position,
+                     AllocationPlace place = AllocationPlace::Host) const {
+    return layer(position.color).template var<StorageT>()[position.cell];
   }
 
   [[nodiscard]] std::size_t getNumberOfVariables() const { return memoryInfo.size(); }

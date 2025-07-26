@@ -17,6 +17,7 @@
 #include "Model/Plasticity.h"
 #include "generated_code/tensor.h"
 #include <Initializer/CellLocalInformation.h>
+#include <Memory/Tree/Backmap.h>
 #include <Parallel/Helper.h>
 
 #ifdef ACL_DEVICE
@@ -184,6 +185,7 @@ struct LTS {
   using Tree = initializer::LTSTree<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
   using Ref = initializer::Layer<LTSVarmap>::CellRef;
+  using Backmap = initializer::StorageBackmap<4>;
 
   static void addTo(Tree& tree, bool usePlasticity) {
     using namespace initializer;

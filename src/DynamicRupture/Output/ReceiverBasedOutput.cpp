@@ -17,7 +17,6 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
-#include "Memory/Tree/Lut.h"
 #include "Numerical/BasisFunction.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
@@ -38,7 +37,7 @@ using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
 void ReceiverOutput::setLtsData(LTS::Tree* userWpTree,
-                                seissol::initializer::Lut* userWpLut,
+                                LTS::Backmap* userWpLut,
                                 DynamicRupture::Tree* userDrTree) {
   wpTree = userWpTree;
   wpLut = userWpLut;
@@ -46,15 +45,19 @@ void ReceiverOutput::setLtsData(LTS::Tree* userWpTree,
 }
 
 void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
+  const auto position = wpLut->get(meshId);
+  auto& layer = wpTree->layer(position.color);
   // get DOFs from 0th derivatives
-  assert((wpLut->lookup<LTS::CellInformation>(meshId).ltsSetup >> 9) % 2 == 1);
+  assert((layer.var<LTS::CellInformation>()[position.cell].ltsSetup >> 9) % 2 == 1);
 
-  real* derivatives = wpLut->lookup<LTS::Derivatives>(meshId);
+  real* derivatives = layer.var<LTS::Derivatives>()[position.cell];
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 }
 
 void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side) {
-  real* derivatives = wpLut->lookup<LTS::FaceNeighbors>(meshId)[side];
+  const auto position = wpLut->get(meshId);
+  auto& layer = wpTree->layer(position.color);
+  auto* derivatives = layer.var<LTS::FaceNeighbors>()[position.cell][side];
   assert(derivatives != nullptr);
 
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);

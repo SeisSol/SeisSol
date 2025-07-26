@@ -16,7 +16,6 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
-#include "Memory/Tree/Lut.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include <Common/Typedefs.h>
@@ -51,7 +50,7 @@ void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshRead
 }
 
 void ReceiverBasedOutputBuilder::setLtsData(LTS::Tree* userWpTree,
-                                            seissol::initializer::Lut* userWpLut,
+                                            LTS::Backmap* userWpLut,
                                             DynamicRupture::Tree* userDrTree) {
   wpTree = userWpTree;
   wpLut = userWpLut;
@@ -166,14 +165,16 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   std::vector<real*> indexPtrs(outputData->cellCount);
 
   for (const auto& [index, arrayIndex] : elementIndices) {
-    indexPtrs[arrayIndex] = wpLut->lookup<LTS::DerivativesDevice>(index);
+    const auto position = wpLut->get(index);
+    indexPtrs[arrayIndex] = wpTree->lookup<LTS::DerivativesDevice>(position);
     assert(indexPtrs[arrayIndex] != nullptr);
   }
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
-    indexPtrs[arrayIndex] =
-        wpLut->lookup<LTS::FaceNeighborsDevice>(neighbor.first)[neighbor.second];
+
+    const auto position = wpLut->get(neighbor.first);
+    indexPtrs[arrayIndex] = wpTree->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
     assert(indexPtrs[arrayIndex] != nullptr);
   }
 

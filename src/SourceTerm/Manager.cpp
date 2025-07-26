@@ -28,8 +28,8 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/MemoryAllocator.h>
+#include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Layer.h>
-#include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
 #include <Solver/MultipleSimulations.h>
@@ -156,7 +156,7 @@ void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
 auto mapClusterToMesh(ClusterMapping& clusterMapping,
                       const std::size_t* meshIds,
                       LTS::Tree* ltsTree,
-                      seissol::initializer::Lut* ltsLut,
+                      LTS::Backmap& backmap,
                       seissol::initializer::AllocationPlace place) {
   unsigned clusterSource = 0;
   unsigned mapping = 0;
@@ -168,15 +168,15 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
       ++next;
     }
 
-    for (std::size_t ltsId = 0, dup = 0;
-         dup < seissol::initializer::Lut::MaxDuplicates &&
-         (ltsId = ltsLut->ltsId(ltsTree->info<LTS::Dofs>().mask, meshId, dup)) !=
-             std::numeric_limits<std::size_t>::max();
-         ++dup) {
-      clusterMapping.cellToSources[mapping].dofs = &ltsTree->var<LTS::Dofs>(place)[ltsId];
-      clusterMapping.cellToSources[mapping].pointSourcesOffset = clusterSource;
-      clusterMapping.cellToSources[mapping].numberOfPointSources = next - clusterSource;
-      ++mapping;
+    for (std::size_t dup = 0; dup < LTS::Backmap::MaxDuplicates; ++dup) {
+      const auto position = backmap.getDup(meshId, dup);
+      if (position.has_value()) {
+        clusterMapping.cellToSources[mapping].dofs =
+            &ltsTree->lookup<LTS::Dofs>(position.value(), place);
+        clusterMapping.cellToSources[mapping].pointSourcesOffset = clusterSource;
+        clusterMapping.cellToSources[mapping].numberOfPointSources = next - clusterSource;
+        ++mapping;
+      }
     }
 
     clusterSource = next;
@@ -187,15 +187,15 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
 auto mapPointSourcesToClusters(const std::size_t* meshIds,
                                unsigned numberOfSources,
                                LTS::Tree* ltsTree,
-                               seissol::initializer::Lut* ltsLut,
+                               LTS::Backmap& backmap,
                                seissol::memory::Memkind memkind) -> std::vector<ClusterMapping> {
   auto clusterToPointSources = std::vector<std::vector<std::size_t>>(ltsTree->numChildren());
   auto clusterToMeshIds = std::vector<std::vector<std::size_t>>(ltsTree->numChildren());
 
   for (unsigned source = 0; source < numberOfSources; ++source) {
     const unsigned meshId = meshIds[source];
-    const unsigned id = ltsLut->id(meshId);
-    assert(ltsLut->layer(meshId) != Ghost);
+    const auto position = backmap.get(meshId);
+    const auto id = position.color;
     clusterToPointSources[id].push_back(source);
     clusterToMeshIds[id].push_back(meshId);
   }
@@ -207,12 +207,13 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
     auto last = std::unique(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
     unsigned numberOfMappings = 0;
     for (auto it = clusterToMeshIds[cluster].begin(); it != last; ++it) {
-      const unsigned meshId = *it;
-      for (unsigned dup = 0; dup < seissol::initializer::Lut::MaxDuplicates &&
-                             ltsLut->ltsId(ltsTree->info<LTS::Dofs>().mask, meshId, dup) !=
-                                 std::numeric_limits<std::size_t>::max();
-           ++dup) {
-        ++numberOfMappings;
+      const auto meshId = *it;
+
+      for (std::size_t dup = 0; dup < LTS::Backmap::MaxDuplicates; ++dup) {
+        const auto position = backmap.getDup(meshId, dup);
+        if (position.has_value()) {
+          ++numberOfMappings;
+        }
       }
     }
 
@@ -229,7 +230,7 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
     mapClusterToMesh(clusterMappings[cluster],
                      meshIds,
                      ltsTree,
-                     ltsLut,
+                     backmap,
                      seissol::initializer::AllocationPlace::Host);
   }
 
@@ -240,8 +241,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
                             const PointSources& sources,
                             const std::size_t* meshIds,
                             LTS::Tree* ltsTree,
-                            seissol::initializer::Lut* ltsLut)
-    -> seissol::kernels::PointSourceClusterPair {
+                            LTS::Backmap& backmap) -> seissol::kernels::PointSourceClusterPair {
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
       std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources>(sources));
 
@@ -258,7 +258,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
       mapClusterToMesh(predeviceClusterMapping,
                        meshIds,
                        ltsTree,
-                       ltsLut,
+                       backmap,
                        seissol::initializer::AllocationPlace::Device);
       auto deviceClusterMapping =
           std::make_shared<ClusterMapping>(predeviceClusterMapping, GpuMemkind);
@@ -279,7 +279,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
 auto loadSourcesFromFSRM(const char* fileName,
                          const seissol::geometry::MeshReader& mesh,
                          LTS::Tree* ltsTree,
-                         seissol::initializer::Lut* ltsLut,
+                         LTS::Backmap& backmap,
                          seissol::memory::Memkind memkind)
     -> std::vector<seissol::kernels::PointSourceClusterPair> {
   // until further rewrite, we'll leave most of the raw pointers/arrays in here.
@@ -308,7 +308,7 @@ auto loadSourcesFromFSRM(const char* fileName,
 
   logInfo() << "Mapping point sources to LTS cells...";
   auto clusterMappings =
-      mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, ltsLut, memkind);
+      mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, backmap, memkind);
   std::vector<seissol::kernels::PointSourceClusterPair> sourceCluster(ltsTree->numChildren());
 
   for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
@@ -348,8 +348,8 @@ auto loadSourcesFromFSRM(const char* fileName,
         sources.tensor[clusterSource][i] *= fsrm.areas[fsrmIndex];
       }
       if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
-        const seissol::model::Material& material =
-            ltsLut->lookup<LTS::Material>(meshIds[sourceIndex] - 1).local;
+        const auto position = backmap.get(meshIds[sourceIndex] - 1);
+        const auto& material = ltsTree->lookup<LTS::Material>(position).local;
         for (unsigned i = 0; i < 3; ++i) {
           sources.tensor[clusterSource][6 + i] /= material.rho;
         }
@@ -369,7 +369,7 @@ auto loadSourcesFromFSRM(const char* fileName,
     }
 
     sourceCluster[cluster] =
-        makePointSourceCluster(clusterMappings[cluster], sources, meshIds.data(), ltsTree, ltsLut);
+        makePointSourceCluster(clusterMappings[cluster], sources, meshIds.data(), ltsTree, backmap);
   }
 
   logInfo() << ".. finished point source initialization.";
@@ -382,7 +382,7 @@ auto loadSourcesFromFSRM(const char* fileName,
 auto loadSourcesFromNRF(const char* fileName,
                         const seissol::geometry::MeshReader& mesh,
                         LTS::Tree* ltsTree,
-                        seissol::initializer::Lut* ltsLut,
+                        LTS::Backmap& backmap,
                         seissol::memory::Memkind memkind)
     -> std::vector<seissol::kernels::PointSourceClusterPair> {
   const int rank = seissol::MPI::mpi.rank();
@@ -422,7 +422,7 @@ auto loadSourcesFromNRF(const char* fileName,
   logInfo() << "Mapping point sources to LTS cells...";
 
   auto clusterMappings =
-      mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, ltsLut, memkind);
+      mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, backmap, memkind);
   std::vector<seissol::kernels::PointSourceClusterPair> sourceCluster(ltsTree->numChildren());
 
   for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
@@ -458,6 +458,7 @@ auto loadSourcesFromNRF(const char* fileName,
       const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
       const unsigned nrfIndex = originalIndex[sourceIndex];
       sources.simulationIndex[clusterSource] = nrfIndex % multisim::NumSimulations;
+      const auto position = backmap.get(meshIds[sourceIndex]);
       transformNRFSourceToInternalSource(nrf.centres[nrfIndex],
                                          meshIds[sourceIndex],
                                          mesh,
@@ -465,13 +466,13 @@ auto loadSourcesFromNRF(const char* fileName,
                                          nrf.sroffsets[nrfIndex],
                                          nrf.sroffsets[nrfIndex + 1],
                                          nrf.sliprates,
-                                         &ltsLut->lookup<LTS::Material>(meshIds[sourceIndex]).local,
+                                         &ltsTree->lookup<LTS::Material>(position).local,
                                          sources,
                                          clusterSource,
                                          memkind);
     }
     sourceCluster[cluster] =
-        makePointSourceCluster(clusterMappings[cluster], sources, meshIds.data(), ltsTree, ltsLut);
+        makePointSourceCluster(clusterMappings[cluster], sources, meshIds.data(), ltsTree, backmap);
   }
 
   logInfo() << ".. finished point source initialization.";
@@ -488,7 +489,7 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
                           const char* fileName,
                           const seissol::geometry::MeshReader& mesh,
                           LTS::Tree* ltsTree,
-                          seissol::initializer::Lut* ltsLut,
+                          LTS::Backmap& backmap,
                           time_stepping::TimeManager& timeManager) {
 #ifdef ACL_DEVICE
   auto memkind = useUSM() ? seissol::memory::DeviceUnifiedMemory : seissol::memory::Standard;
@@ -499,14 +500,14 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
   if (sourceType == seissol::initializer::parameters::PointSourceType::NrfSource) {
     logInfo() << "Reading an NRF source (type 42).";
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-    sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsTree, ltsLut, memkind);
+    sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsTree, backmap, memkind);
 #else
     logError() << "NRF sources (type 42) need SeisSol to be linked with an (active) Netcdf "
                   "library. However, this is not the case for this build.";
 #endif
   } else if (sourceType == seissol::initializer::parameters::PointSourceType::FsrmSource) {
     logInfo() << "Reading an FSRM source (type 50).";
-    sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsTree, ltsLut, memkind);
+    sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsTree, backmap, memkind);
   } else if (sourceType == seissol::initializer::parameters::PointSourceType::None) {
     logInfo() << "No source term specified.";
     sourceClusters = std::vector<seissol::kernels::PointSourceClusterPair>(ltsTree->numChildren());

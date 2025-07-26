@@ -19,8 +19,8 @@
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Layer.h>
-#include <Memory/Tree/Lut.h>
 #include <Numerical/Transformation.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
@@ -84,7 +84,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
                                   unsigned pointId,
                                   const Eigen::Vector3d& point,
                                   const seissol::geometry::MeshReader& mesh,
-                                  const seissol::initializer::Lut& ltsLut) {
+                                  const LTS::Backmap& backmap) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
@@ -95,17 +95,16 @@ void ReceiverCluster::addReceiver(unsigned meshId,
 
   // (time + number of quantities) * number of samples until sync point
   const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
-  const auto& cellInfo = ltsLut.lookup<LTS::SecondaryInformation>(meshId);
-  const initializer::LayerIdentifier identifier(ltsLut.layer(meshId), Config(), cellInfo.clusterId);
+
+  const auto position = backmap.get(meshId);
   auto& ltsTree = *seissolInstance.getMemoryManager().getLtsTree();
   m_receivers.emplace_back(pointId,
                            point,
                            coords,
-                           ltsTree.layer(identifier).cellRef(cellInfo.layerId),
-                           ltsTree.layer(identifier)
-                               .cellRef(cellInfo.layerId,
-                                        isDeviceOn() ? initializer::AllocationPlace::Device
-                                                     : initializer::AllocationPlace::Host),
+                           ltsTree.lookupRef(position),
+                           ltsTree.lookupRef(position,
+                                             isDeviceOn() ? initializer::AllocationPlace::Device
+                                                          : initializer::AllocationPlace::Host),
                            reserved);
 }
 

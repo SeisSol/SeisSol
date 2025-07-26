@@ -19,6 +19,7 @@
 #include "generated_code/tensor.h"
 #include <Initializer/Parameters/DRParameters.h>
 #include <Kernels/Common.h>
+#include <Memory/Tree/Backmap.h>
 
 namespace seissol {
 
@@ -98,6 +99,7 @@ struct DynamicRupture {
   using Tree = initializer::LTSTree<DynrupVarmap>;
   using Layer = initializer::Layer<DynrupVarmap>;
   using Ref = initializer::Layer<DynrupVarmap>::CellRef;
+  using Backmap = initializer::StorageBackmap<1>;
 
   virtual void addTo(Tree& tree) {
     using namespace seissol::initializer;

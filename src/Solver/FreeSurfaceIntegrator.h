@@ -19,7 +19,6 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
 
 namespace seissol::solver {
 class FreeSurfaceIntegrator {

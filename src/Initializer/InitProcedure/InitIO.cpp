@@ -45,13 +45,16 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   {
     auto* tree = seissolInstance.getMemoryManager().getLtsTree();
     std::vector<std::size_t> globalIds(tree->size(seissol::initializer::LayerMask(Ghost)));
-    const auto* ltsToMesh = seissolInstance.getMemoryManager().getLtsLut()->getLtsToMeshLut(
-        seissol::initializer::LayerMask(Ghost));
+    std::size_t offset = 0;
+    for (const auto& layer : tree->leaves(Ghost)) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (std::size_t i = 0; i < globalIds.size(); ++i) {
-      globalIds[i] = seissolInstance.meshReader().getElements()[ltsToMesh[i]].globalId;
+      for (std::size_t i = 0; i < layer.size(); ++i) {
+        const auto meshId = layer.var<LTS::SecondaryInformation>()[i].meshId;
+        globalIds[offset + i] = seissolInstance.meshReader().getElements()[meshId].globalId;
+      }
+      offset += layer.size();
     }
     checkpoint.registerTree("lts", tree, globalIds);
     LTS::registerCheckpointVariables(checkpoint, tree);
@@ -110,7 +113,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
   auto* ltsTree = memoryManager.getLtsTree();
-  auto* ltsLut = memoryManager.getLtsLut();
+  auto* backmap = &memoryManager.getBackmap();
   auto* dynRup = memoryManager.getDynamicRupture();
   auto* dynRupTree = memoryManager.getDynamicRuptureTree();
   auto* globalData = memoryManager.getGlobalDataOnHost();
@@ -132,6 +135,20 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       ltsClusteringData[element.localId] = element.clusterId;
       ltsIdData[element.localId] = element.globalId;
     }
+    auto* tree = seissolInstance.getMemoryManager().getLtsTree();
+    std::vector<std::size_t> meshToLts(tree->size(seissol::initializer::LayerMask(Ghost)));
+    std::size_t offset = 0;
+    for (auto& layer : tree->leaves(Ghost)) {
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+      for (std::size_t i = 0; i < layer.size(); ++i) {
+        const auto meshId = layer.var<LTS::SecondaryInformation>()[i].meshId;
+        meshToLts[offset + i] = meshId;
+      }
+      offset += layer.size();
+    }
+
     // Initialize wave field output
     seissolInstance.waveFieldWriter().init(
         NumQuantities,
@@ -143,7 +160,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         reinterpret_cast<const real*>(ltsTree->var<LTS::Dofs>()),
         reinterpret_cast<const real*>(ltsTree->var<LTS::PStrain>()),
         seissolInstance.postProcessor().getIntegrals(ltsTree),
-        ltsLut->getMeshToLtsLut(ltsTree->info<LTS::Dofs>().mask)[0].data(),
+        meshToLts.data(),
         seissolParams.output.waveFieldParameters,
         seissolParams.output.xdmfWriterBackend,
         backupTimeStamp);
@@ -259,7 +276,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               namewrap(seissol::model::MaterialT::Quantities[quantity], sim),
               {},
               [=](real* target, std::size_t index) {
-                const auto* dofsAllQuantities = ltsLut->lookup<LTS::Dofs>(cellIndices[index]);
+                const auto position = backmap->get(cellIndices[index]);
+                const auto* dofsAllQuantities =
+                    ltsTree->layer(position.color).var<LTS::Dofs>()[position.cell];
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
                 memory::AlignedArray<real, multisim::NumSimulations> simselect;
@@ -281,7 +300,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 namewrap(seissol::model::PlasticityData::Quantities[quantity], sim),
                 {},
                 [=](real* target, std::size_t index) {
-                  const auto* dofsAllQuantities = ltsLut->lookup<LTS::PStrain>(cellIndices[index]);
+                  const auto position = backmap->get(cellIndices[index]);
+                  const auto* dofsAllQuantities =
+                      ltsTree->layer(position.color).var<LTS::PStrain>()[position.cell];
                   const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                   kernel::projectBasisToVtkVolume vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect;
@@ -384,7 +405,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             [=, &freeSurfaceIntegrator](real* target, std::size_t index) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-              const auto* dofsAllQuantities = ltsLut->lookup<LTS::Dofs>(meshId);
+              const auto position = backmap->get(meshId);
+              const auto* dofsAllQuantities = ltsTree->lookup<LTS::Dofs>(position);
               const auto* dofsSingleQuantity =
                   dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
               kernel::projectBasisToVtkFaceFromVolume vtkproj{};
@@ -410,7 +432,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             [=, &freeSurfaceIntegrator](real* target, std::size_t index) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-              const auto* faceDisplacements = ltsLut->lookup<LTS::FaceDisplacements>(meshId);
+              const auto position = backmap->get(meshId);
+              const auto* faceDisplacements = ltsTree->lookup<LTS::FaceDisplacements>(position);
               const auto* faceDisplacementVariable =
                   faceDisplacements[side] + FaceDisplacementPadded * quantity;
               kernel::projectNodalToVtkFace vtkproj{};
@@ -436,7 +459,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     receiverWriter.init(seissolParams.output.prefix,
                         seissolParams.timeStepping.endTime,
                         seissolParams.output.receiverParameters);
-    receiverWriter.addPoints(seissolInstance.meshReader(), *ltsLut, memoryManager.getGlobalData());
+    receiverWriter.addPoints(seissolInstance.meshReader(), *backmap, memoryManager.getGlobalData());
     seissolInstance.timeManager().setReceiverClusters(receiverWriter);
   }
 

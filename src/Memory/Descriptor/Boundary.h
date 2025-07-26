@@ -34,6 +34,7 @@ struct Boundary {
   using Tree = initializer::LTSTree<BoundaryVarmap>;
   using Layer = initializer::Layer<BoundaryVarmap>;
   using Ref = initializer::Layer<BoundaryVarmap>::CellRef;
+  using Backmap = initializer::StorageBackmap<1>;
 
   static void addTo(Tree& tree) {
     const auto mask = initializer::LayerMask(Ghost);

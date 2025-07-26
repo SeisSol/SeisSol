@@ -17,10 +17,10 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
+#include <Memory/Tree/Backmap.h>
 #include <memory>
 #include <vector>
 
@@ -31,9 +31,7 @@ class ReceiverBasedOutputBuilder {
   virtual void build(std::shared_ptr<ReceiverOutputData> outputData) = 0;
 
   void setMeshReader(const seissol::geometry::MeshReader* reader);
-  void setLtsData(LTS::Tree* userWpTree,
-                  seissol::initializer::Lut* userWpLut,
-                  DynamicRupture::Tree* userDrTree);
+  void setLtsData(LTS::Tree* userWpTree, LTS::Backmap* userWpLut, DynamicRupture::Tree* userDrTree);
 
   void setVariableList(const std::vector<std::size_t>& variables);
   void setFaceToLtsMap(std::vector<std::size_t>* faceToLtsMap);
@@ -52,7 +50,7 @@ class ReceiverBasedOutputBuilder {
 
   const seissol::geometry::MeshReader* meshReader{};
   LTS::Tree* wpTree;
-  seissol::initializer::Lut* wpLut;
+  LTS::Backmap* wpLut;
   DynamicRupture::Tree* drTree;
   std::shared_ptr<ReceiverOutputData> outputData;
   std::vector<std::size_t> variables;

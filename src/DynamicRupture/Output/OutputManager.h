@@ -13,6 +13,7 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include <DynamicRupture/Output/DataTypes.h>
+#include <Memory/Tree/Backmap.h>
 #include <memory>
 
 namespace seissol {
@@ -26,9 +27,7 @@ class OutputManager {
   OutputManager() = delete;
   OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance);
   void setInputParam(seissol::geometry::MeshReader& userMesher);
-  void setLtsData(LTS::Tree* userWpTree,
-                  seissol::initializer::Lut* userWpLut,
-                  DynamicRupture::Tree* userDrTree);
+  void setLtsData(LTS::Tree* userWpTree, LTS::Backmap* userWpLut, DynamicRupture::Tree* userDrTree);
   void setBackupTimeStamp(const std::string& stamp) { this->backupTimeStamp = stamp; }
 
   void init();
@@ -61,16 +60,16 @@ class OutputManager {
   std::vector<PickpointFile> ppFiles;
 
   LTS::Tree* wpTree{nullptr};
-  seissol::initializer::Lut* wpLut{nullptr};
+  LTS::Backmap* wpLut{nullptr};
   DynamicRupture::Tree* drTree{nullptr};
 
-  FaceToLtsMapType faceToLtsMap{};
+  FaceToLtsMapType faceToLtsMap;
   std::vector<std::size_t> globalFaceToLtsMap;
   seissol::geometry::MeshReader* meshReader{nullptr};
 
   size_t iterationStep{0};
   static constexpr double timeMargin{1.005};
-  std::string backupTimeStamp{};
+  std::string backupTimeStamp;
 
   std::unique_ptr<ReceiverOutput> impl{nullptr};
 };
