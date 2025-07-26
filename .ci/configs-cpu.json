@@ -1,0 +1,86 @@
+[
+    {
+        "order": 6,
+        "equation": "acoustic",
+        "simulations": 1,
+        "mechanisms": 0,
+        "precision": "single"
+    },
+    {
+        "order": 6,
+        "equation": "anisotropic",
+        "simulations": 1,
+        "mechanisms": 0,
+        "precision": "single"
+    },
+    {
+        "order": 6,
+        "equation": "elastic",
+        "simulations": 8,
+        "mechanisms": 0,
+        "precision": "single"
+    },
+    {
+        "order": 6,
+        "equation": "elastic",
+        "simulations": 1,
+        "mechanisms": 0,
+        "precision": "single"
+    },
+    {
+        "order": 6,
+        "equation": "poroelastic",
+        "simulations": 1,
+        "mechanisms": 0,
+        "precision": "single"
+    },
+    {
+        "order": 6,
+        "equation": "viscoelastic2",
+        "simulations": 1,
+        "mechanisms": 3,
+        "precision": "single"
+    },
+    {
+        "order": 6,
+        "equation": "acoustic",
+        "simulations": 1,
+        "mechanisms": 0,
+        "precision": "double"
+    },
+    {
+        "order": 6,
+        "equation": "anisotropic",
+        "simulations": 1,
+        "mechanisms": 0,
+        "precision": "double"
+    },
+    {
+        "order": 6,
+        "equation": "elastic",
+        "simulations": 8,
+        "mechanisms": 0,
+        "precision": "double"
+    },
+    {
+        "order": 6,
+        "equation": "elastic",
+        "simulations": 1,
+        "mechanisms": 0,
+        "precision": "double"
+    },
+    {
+        "order": 6,
+        "equation": "poroelastic",
+        "simulations": 1,
+        "mechanisms": 0,
+        "precision": "double"
+    },
+    {
+        "order": 6,
+        "equation": "viscoelastic2",
+        "simulations": 1,
+        "mechanisms": 3,
+        "precision": "double"
+    }
+]
