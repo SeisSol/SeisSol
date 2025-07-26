@@ -27,7 +27,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
   if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "22.1.0")
     message(FATAL_ERROR "NVHPC version 22.1.0 or higher is required")
   endif()
-  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "24.7.0")
+  if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "24.5.0")
     message(WARNING "NVHPC version 24.7.0 or higher is recommended")
   endif()
 endif()
@@ -82,7 +82,7 @@ if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Set build type to Release as none was supplied.")
 endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-        "Debug" "Release" "RelWithDebInfo") # MinSizeRel is useless for us
+        "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
 if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
   # Note: hip 4.x has a bug during setting rpath while compiling

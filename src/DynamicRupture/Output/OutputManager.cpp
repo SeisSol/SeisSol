@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <fstream>
@@ -216,6 +217,17 @@ void OutputManager::initElementwiseOutput() {
     }
   });
 
+  writer.addCellData<int>(
+      "fault-tag", {}, true, [=, &receiverPoints](int* target, std::size_t index) {
+        *target = receiverPoints[index].faultTag;
+      });
+
+  writer.addCellData<std::size_t>(
+      "global-id", {}, true, [=, &receiverPoints](std::size_t* target, std::size_t index) {
+        *target =
+            receiverPoints[index].elementGlobalIndex * 4 + receiverPoints[index].localFaceSideId;
+      });
+
   misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
     if (var.isActive) {
       for (int d = 0; d < var.dim(); ++d) {
@@ -304,7 +316,7 @@ void OutputManager::initPickpointOutput() {
       allReceiversInOneFilePerRank ? ppOutputData->receiverPoints.size() / multisim::NumSimulations
                                    : 1;
 
-  for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
+  for (std::uint32_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
     for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
       size_t labelCounter = 0;
       auto collectVariableNames =
