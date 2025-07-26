@@ -22,7 +22,7 @@ namespace seissol::io::writer::file {
 class BinaryFile {
   public:
   explicit BinaryFile(MPI_Comm comm);
-  void openFile(const std::string& name);
+  void openFile(const std::string& name, bool append);
   void writeGlobal(const void* data, std::size_t size);
   void writeDistributed(const void* data, std::size_t size);
   void closeFile();
