@@ -1,0 +1,376 @@
+[
+    {
+        "name": "tpv5",
+        "runs": ["elastic-d-p6", "elastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpv5-nuc",
+        "exe": ["elastic-d-p6", "elastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpv5-visco",
+        "runs": ["viscoelastic2-d-p6", "viscoelastic2-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpv5-poro",
+        "runs": ["poroelastic-d-p6", "poroelastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpv6",
+        "runs": ["elastic-d-p6", "elastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpv13",
+        "runs": ["elastic-d-p6", "elastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpv16",
+        "runs": ["elastic-d-p6", "elastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpv101",
+        "runs": ["elastic-d-p6", "elastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "rs"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpv101-slip",
+        "runs": ["elastic-d-p6", "elastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "rs"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpv104",
+        "runs": ["elastic-d-p6", "elastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "rs"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpv105",
+        "runs": ["elastic-d-p6", "elastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "tp"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpvahsp",
+        "runs": ["anisotropic-d-p6", "anisotropic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpvgaussian",
+        "runs": ["elastic-d-p6", "elastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpvyoffe",
+        "runs": ["elastic-d-p6", "elastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "ttpv1",
+        "runs": ["elastic-d-p6", "elastic-s-p6"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": true
+            },
+            "volume": {
+                "enabled": true
+            },
+            "surface": {
+                "enabled": true
+            }
+        }
+    },
+    {
+        "name": "tpvloh1-fused",
+        "runs": ["elastic-d-p6-f8", "elastic-s-p6-f8"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": false
+            },
+            "volume": {
+                "enabled": false
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    },
+    {
+        "name": "tpv13-fused",
+        "runs": ["elastic-d-p6-f8", "elastic-s-p6-f8"],
+        "compare": {
+            "energies": {
+                "enabled": true
+            },
+            "receivers": {
+                "enabled": true,
+                "type": "lsw"
+            },
+            "fault": {
+                "enabled": false
+            },
+            "volume": {
+                "enabled": false
+            },
+            "surface": {
+                "enabled": false
+            }
+        }
+    }
+]

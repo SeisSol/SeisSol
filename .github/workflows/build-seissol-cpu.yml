@@ -18,48 +18,17 @@ jobs:
     runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
-    env:
-      EXENAME: |
-        ${{
-          format('cpu-{0}-{1}-p{2}{3}',
-            matrix.equation.type,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.order,
-            matrix.equation.multisim != 1 && format('-f{0}', matrix.equation.multisim) || ''
-          )
-        }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
-        order:
-          - 6
         arch:
           - hsw
         build_type:
           - Release
           #- Debug
-        equation:
-          - type: acoustic
-            multisim: 1
-            mechanisms: 0
-          - type: elastic
-            multisim: 1
-            mechanisms: 0
-          - type: poroelastic
-            multisim: 1
-            mechanisms: 0
-          - type: viscoelastic2
-            multisim: 1
-            mechanisms: 3
-          - type: anisotropic
-            multisim: 1
-            mechanisms: 0
-          - type: elastic
-            multisim: 8
-            mechanisms: 0
-        precision:
-          - single
-          - double
         setup:
           - cc: gcc-13
             cxx: g++-13
@@ -87,7 +56,6 @@ jobs:
       - id: build
         name: build-seissol
         run: |
-          mkdir build && cd build
 
           # TODO: change to `-Wall -Werror` at some point
           EXTRA_FLAGS="-Wall"
@@ -108,62 +76,111 @@ jobs:
             TESTING_COMMAND="";
           fi;
 
-          cmake .. -GNinja -DNEW_BINARY_NAMING=ON -DTESTING_COMMAND="${TESTING_COMMAND}" -DCMAKE_INSTALL_PREFIX=/opt/seissol -DTESTING=ON -DASAGI=ON -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }}
-          ninja install
+          apt update
+          apt install -y jq
+          source .ci/configloop.sh
+
+          inner ()
+          {
+            local CONFIG=$2
+
+            ORDER=$(echo "$CONFIG" | jq -rc '.order')
+            EQUATION=$(echo "$CONFIG" | jq -rc '.equation')
+            MECHANISMS=$(echo "$CONFIG" | jq -rc '.mechanisms')
+            PRECISION=$(echo "$CONFIG" | jq -rc '.precision')
+            SIMULATIONS=$(echo "$CONFIG" | jq -rc '.simulations')
+
+            cmake .. \
+              -GNinja \
+              -DNEW_BINARY_NAMING=ON \
+              -DTESTING_COMMAND="${TESTING_COMMAND}" \
+              -DCMAKE_INSTALL_PREFIX=/opt/seissol \
+              -DTESTING=ON \
+              -DTESTING_GENERATED=OFF \
+              -DASAGI=ON \
+              -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+              -DHOST_ARCH=${{matrix.arch}} \
+              -DORDER=$ORDER \
+              -DEQUATIONS=$EQUATION \
+              -DPRECISION=$PRECISION \
+              -DNUMBER_OF_MECHANISMS=$MECHANISMS \
+              -DNUMBER_OF_FUSED_SIMULATIONS=$SIMULATIONS
+
+            ninja install
+          }
+
+          configloop inner ".ci/configs-cpu.json"
 
       - name: test-seissol
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
-          cd build
-          ctest -j --rerun-failed --output-on-failure
+          source .ci/configloop.sh
+
+          inner ()
+          {
+            ctest -j --rerun-failed --output-on-failure
+          }
+
+          configloop inner ".ci/configs-cpu.json"
       
       - name: run-seissol-no-input
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
+          source .ci/configloop.sh
+
           if [ ${{matrix.setup.cc}} = nvc ]; then
             TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
           else
             TESTING_COMMAND="";
           fi
 
-          cd build
-          set +e
-          ${TESTING_COMMAND} ./seissol-${EXENAME}
-          RETVAL_EXE=$?
-          ./proxyseissol-${EXENAME}
-          RETVAL_PROXY=$?
-          set -e
+          inner ()
+          {
+            set +e
+            ${TESTING_COMMAND} ./seissol-cpu-*
+            RETVAL_EXE=$?
+            ./proxyseissol-cpu-*
+            RETVAL_PROXY=$?
+            set -e
 
-          if [ $RETVAL_EXE -ne 133 ]; then
-            echo "Unexpected exit code for SeisSol: ${RETVAL_EXE}"
-            exit 1
-          fi
-          if [ $RETVAL_PROXY -ne 255 ]; then
-            echo "Unexpected exit code for the SeisSol Proxy: ${RETVAL_PROXY}"
-            exit 1
-          fi
+            if [ $RETVAL_EXE -ne 133 ]; then
+              echo "Unexpected exit code for SeisSol: ${RETVAL_EXE}"
+              exit 1
+            fi
+            if [ $RETVAL_PROXY -ne 255 ]; then
+              echo "Unexpected exit code for the SeisSol Proxy: ${RETVAL_PROXY}"
+              exit 1
+            fi
+          }
+
+          configloop inner ".ci/configs-cpu.json"
 
           echo "Success!"
 
       - name: run-proxy
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
-          cd build
+          source .ci/configloop.sh
+          
+          inner ()
+          {
+            ./proxyseissol-cpu-* 100 1 ader
+            ./proxyseissol-cpu-* 100 1 localwoader
+            ./proxyseissol-cpu-* 100 1 local
+            ./proxyseissol-cpu-* 100 1 neigh
+            ./proxyseissol-cpu-* 100 1 all
+            ./proxyseissol-cpu-* 100 1 neigh_dr
+            ./proxyseissol-cpu-* 100 1 godunov_dr
+            ./proxyseissol-cpu-* 100 1 all_dr
+          }
 
-          ./proxyseissol-${EXENAME} 100 1 ader
-          ./proxyseissol-${EXENAME} 100 1 localwoader
-          ./proxyseissol-${EXENAME} 100 1 local
-          ./proxyseissol-${EXENAME} 100 1 neigh
-          ./proxyseissol-${EXENAME} 100 1 all
-          ./proxyseissol-${EXENAME} 100 1 neigh_dr
-          ./proxyseissol-${EXENAME} 100 1 godunov_dr
-          ./proxyseissol-${EXENAME} 100 1 all_dr
+          configloop inner ".ci/configs-cpu.json"
  
       - name: upload-seissol
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.equation.type}}-${{matrix.equation.multisim}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
   seissol-run-test:
@@ -173,169 +190,9 @@ jobs:
     continue-on-error: true
     needs: [seissol-build-test]
     if: ${{ github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
-    env:
-      EXENAME: |
-        ${{
-          format('cpu-{0}-{1}-p{2}{3}',
-            matrix.case.equation,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.order,
-            matrix.case.multisim != 1 && format('-f{0}', matrix.case.multisim) || ''
-          )
-        }}
     strategy:
       fail-fast: false
       matrix:
-        case:
-          - name: tpv5
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv5-nuc
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv5-visco
-            equation: viscoelastic2
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv5-poro
-            equation: poroelastic
-            multisim: 1
-            energies: false # incomplete, hence disabled
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv6
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv13
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv16
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          #- name: tpv33
-          #  equation: elastic
-          #  multisim: 1
-          #  energies: true
-          #  receivers: true
-          #  fault: true
-          #  volume: false
-          #  surface: false
-          - name: tpv101
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv101-slip
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv104
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpv105
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpvahsp
-            equation: anisotropic
-            multisim: 1
-            energies: false
-            receivers: true
-            fault: false
-            volume: true
-            surface: false
-          - name: tpvgaussian
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: tpvyoffe
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: false
-          - name: ttpv1
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: true
-            volume: true
-            surface: true
-          - name: tpvloh1-fused
-            equation: elastic
-            multisim: 8
-            energies: true
-            receivers: true
-            fault: false # NYI
-            volume: false
-            surface: false
-          - name: tpv13-fused
-            equation: elastic
-            multisim: 8
-            energies: true
-            receivers: true
-            fault: false # incomplete, hence disabled
-            volume: false
-            surface: false
-        precision:
-          - single
-          - double
-        order:
-          - 6
         arch:
           - hsw
         build_type:
@@ -393,7 +250,7 @@ jobs:
       - name: get-seissol
         uses: actions/download-artifact@v4
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.arch}}-${{matrix.order}}-${{matrix.case.equation}}-${{matrix.case.multisim}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.cc}}
           path: install
       - name: run-seissol
         id: run
@@ -411,11 +268,29 @@ jobs:
           
           export OMP_NUM_THREADS=${{matrix.parallel.threads}}
           export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
-          export SEISSOL_MINI_NUM_ELEMENTS=100
+          export SEISSOL_MINISEISSOL=OFF
 
-          cd precomputed/${{matrix.case.name}}
-          
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
+          cd precomputed
+
+          inner()
+          {
+            local CONFIG=$2
+
+            NAME=$(echo "$CONFIG" | jq -rc '.name')
+            EQUATION=$(echo "$CONFIG" | jq -rc '.equation')
+            MECHANISMS=$(echo "$CONFIG" | jq -rc '.mechanisms')
+            PRECISION=$(echo "$CONFIG" | jq -rc '.precision')
+            SIMULATIONS=$(echo "$CONFIG" | jq -rc '.simulations')
+
+            cd $NAME
+
+            mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-cpu-${EXENAME}
+
+            cd ..
+          }
+
+          source $GITHUB_WORKSPACE/.ci/configloop.sh
+          testloop inner "$GITHUB_WORKSPACE/.ci/tests.json"
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
