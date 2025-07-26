@@ -16,8 +16,7 @@ namespace seissol::dr::friction_law::gpu {
 class NoTP {
   public:
   static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
+                                 DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {}
 
   SEISSOL_DEVICE static void

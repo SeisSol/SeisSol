@@ -14,6 +14,8 @@
 #include "Memory/Tree/Layer.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include <Memory/Descriptor/Surface.h>
+#include <Initializer/TimeStepping/ClusterLayout.h>
+#include <Memory/Tree/Backmap.h>
 #include <mpi.h>
 
 #include <utils/logger.h>
@@ -23,7 +25,6 @@
 
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Initializer/InputAux.h"
 #include "Memory/Descriptor/Boundary.h"
@@ -103,13 +104,14 @@ class MemoryManager {
     GlobalData            m_globalDataOnDevice;
 
     //! Memory organization tree
-    LTSTree               m_ltsTree;
-    LTS                   m_lts;
-    Lut                   m_ltsLut;
+    LTS::Tree               m_ltsTree;
+    LTS::Backmap backmap;
+
+    std::optional<ClusterLayout> clusterLayout;
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
-    LTSTree m_dynRupTree;
+    DynamicRupture::Tree m_dynRupTree;
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
     std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
@@ -117,11 +119,9 @@ class MemoryManager {
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
     std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
-    LTSTree m_boundaryTree;
-    Boundary m_boundary;
+    Boundary::Tree m_boundaryTree;
 
-    LTSTree surfaceTree;
-    SurfaceLTS surface;
+    SurfaceLTS::Tree surfaceTree;
 
     EasiBoundary m_easiBoundary;
 
@@ -139,7 +139,7 @@ class MemoryManager {
      * Initializes the face neighbor pointers of the internal state.
      **/
     void initializeFaceNeighbors( unsigned    cluster,
-                                  Layer& layer);
+                                  LTS::Layer& layer);
 
     /**
      * Initializes the pointers of the internal state.
@@ -223,45 +223,28 @@ class MemoryManager {
       return global;
     }
                           
-    inline LTSTree* getLtsTree() {
+    inline LTS::Tree* getLtsTree() {
       return &m_ltsTree;
     }
-                          
-    inline LTS* getLts() {
-      return &m_lts;
+
+    inline LTS::Backmap& getBackmap() {
+      return backmap;
     }
 
-    inline Lut* getLtsLut() {
-      return &m_ltsLut;
-    }
-
-    // TODO(David): remove again (this method is merely a temporary construction to transition from C++ to FORTRAN and should be removed in the next refactoring step)
-    inline Lut& getLtsLutUnsafe() {
-      return m_ltsLut;
-    }
-
-    inline LTSTree* getDynamicRuptureTree() {
+    inline DynamicRupture::Tree* getDynamicRuptureTree() {
       return &m_dynRupTree;
     }
-                          
+
     inline DynamicRupture* getDynamicRupture() {
       return m_dynRup.get();
     }
 
-    inline LTSTree* getBoundaryTree() {
+    inline Boundary::Tree* getBoundaryTree() {
       return &m_boundaryTree;
     }
 
-    inline Boundary* getBoundary() {
-      return &m_boundary;
-    }
-
-    LTSTree* getSurfaceTree() {
+    SurfaceLTS::Tree* getSurfaceTree() {
       return &surfaceTree;
-    }
-
-    SurfaceLTS* getSurface() {
-      return &surface;
     }
 
     inline void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
@@ -324,12 +307,12 @@ class MemoryManager {
   /**
    * Derives sizes of scratch memory required during computations of Wave Propagation solver
    **/
-  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree &ltsTree, LTS& lts);
+  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Tree& ltsTree);
 
   /**
    * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
    **/
-  static void deriveRequiredScratchpadMemoryForDr(LTSTree &ltsTree, DynamicRupture& dynRup);
+  static void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Tree& ltsTree);
 #endif
 
   void initializeFrictionLaw();

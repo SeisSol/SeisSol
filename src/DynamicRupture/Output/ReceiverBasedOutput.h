@@ -13,9 +13,9 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Lut.h"
 
 #include <DynamicRupture/Misc.h>
+#include <Memory/Tree/Backmap.h>
 #include <memory>
 #include <vector>
 
@@ -24,11 +24,7 @@ class ReceiverOutput {
   public:
   virtual ~ReceiverOutput() = default;
 
-  void setLtsData(seissol::initializer::LTSTree* userWpTree,
-                  seissol::initializer::LTS* userWpDescr,
-                  seissol::initializer::Lut* userWpLut,
-                  seissol::initializer::LTSTree* userDrTree,
-                  seissol::initializer::DynamicRupture* userDrDescr);
+  void setLtsData(LTS::Tree* userWpTree, LTS::Backmap* userWpLut, DynamicRupture::Tree* userDrTree);
 
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
@@ -40,17 +36,15 @@ class ReceiverOutput {
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
   protected:
-  seissol::initializer::LTS* wpDescr{nullptr};
-  seissol::initializer::LTSTree* wpTree{nullptr};
-  seissol::initializer::Lut* wpLut{nullptr};
-  seissol::initializer::LTSTree* drTree{nullptr};
-  seissol::initializer::DynamicRupture* drDescr{nullptr};
+  LTS::Tree* wpTree{nullptr};
+  LTS::Backmap* wpLut{nullptr};
+  DynamicRupture::Tree* drTree{nullptr};
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
   real* deviceCopyMemory{nullptr};
 
   struct LocalInfo {
-    seissol::initializer::Layer* layer{};
+    DynamicRupture::Layer* layer{};
     size_t ltsId{};
     int nearestGpIndex{};
     int nearestInternalGpIndex{};
@@ -104,6 +98,17 @@ class ReceiverOutput {
           devVar->second->get(local.state->deviceIndices[local.index]));
     } else {
       return local.layer->var(variable)[local.ltsId];
+    }
+  }
+
+  template <typename StorageT>
+  std::remove_extent_t<typename StorageT::Type>* getCellData(const LocalInfo& local) {
+    auto devVar = local.state->deviceVariables.find(drTree->info<StorageT>().index);
+    if (devVar != local.state->deviceVariables.end()) {
+      return reinterpret_cast<std::remove_extent_t<typename StorageT::Type>*>(
+          devVar->second->get(local.state->deviceIndices[local.index]));
+    } else {
+      return local.layer->var<StorageT>()[local.ltsId];
     }
   }
 

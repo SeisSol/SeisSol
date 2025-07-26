@@ -24,7 +24,6 @@
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
@@ -114,8 +113,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
                          const GlobalData& globalData,
                          const seissol::geometry::MeshReader& meshReader,
                          seissol::initializer::MemoryManager& memoryManager,
-                         LTSTree& tree,
-                         LTS const& lts) {
+                         LTS::Tree& tree) {
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
@@ -143,10 +141,10 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
       kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
-      const auto* secondaryInformation = layer.var(lts.secondaryInformation);
-      const auto* material = layer.var(lts.material);
-      auto* dofs = layer.var(lts.dofs);
-      auto* dofsAne = layer.var(lts.dofsAne);
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* material = layer.var<LTS::Material>();
+      auto* dofs = layer.var<LTS::Dofs>();
+      auto* dofsAne = layer.var<LTS::DofsAne>();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
@@ -252,8 +250,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const GlobalData& globalData,
                              const seissol::geometry::MeshReader& meshReader,
                              seissol::initializer::MemoryManager& memoryManager,
-                             LTSTree& tree,
-                             LTS const& lts,
+                             LTS::Tree& tree,
                              bool needsTime) {
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
@@ -280,9 +277,9 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
       kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
 
-      const auto* secondaryInformation = layer.var(lts.secondaryInformation);
-      auto* dofs = layer.var(lts.dofs);
-      auto* dofsAne = layer.var(lts.dofsAne);
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      auto* dofs = layer.var<LTS::Dofs>();
+      auto* dofsAne = layer.var<LTS::DofsAne>();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)

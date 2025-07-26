@@ -18,31 +18,43 @@ namespace seissol {
 struct SurfaceLTS {
   using FaceDisplacementType = real[tensor::faceDisplacement::size()];
 
-  seissol::initializer::Variable<real*> dofs;
-  seissol::initializer::Variable<std::uint8_t> side;
-  seissol::initializer::Variable<std::size_t> meshId;
-  seissol::initializer::Variable<std::size_t> outputPosition;
-  seissol::initializer::Variable<CellBoundaryMapping*> boundaryMapping;
-  seissol::initializer::Variable<std::uint8_t> locationFlag;
+  struct Dofs : public seissol::initializer::Variable<real*> {};
+  struct Side : public seissol::initializer::Variable<std::uint8_t> {};
+  struct MeshId : public seissol::initializer::Variable<std::size_t> {};
+  struct OutputPosition : public seissol::initializer::Variable<std::size_t> {};
+  struct BoundaryMapping : public seissol::initializer::Variable<CellBoundaryMapping*> {};
+  struct LocationFlag : public seissol::initializer::Variable<std::uint8_t> {};
 
-  seissol::initializer::Variable<FaceDisplacementType> displacementDofs;
+  struct DisplacementDofs : public seissol::initializer::Variable<FaceDisplacementType> {};
 
-  void addTo(seissol::initializer::LTSTree& surfaceLtsTree) {
+  struct SurfaceVarmap : public initializer::SpecificVarmap<Dofs,
+                                                            Side,
+                                                            MeshId,
+                                                            OutputPosition,
+                                                            BoundaryMapping,
+                                                            LocationFlag,
+                                                            DisplacementDofs> {};
+
+  using Tree = initializer::LTSTree<SurfaceVarmap>;
+  using Layer = initializer::Layer<SurfaceVarmap>;
+  using Ref = initializer::Layer<SurfaceVarmap>::CellRef;
+  using Backmap = initializer::StorageBackmap<1>;
+
+  static void addTo(Tree& surfaceLtsTree) {
     const seissol::initializer::LayerMask ghostMask(Ghost);
-    surfaceLtsTree.add(dofs, ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add(side, ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add(meshId, ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add(outputPosition, ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add(boundaryMapping, ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add(locationFlag, ghostMask, 1, initializer::AllocationMode::HostOnly);
+    surfaceLtsTree.add<Dofs>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    surfaceLtsTree.add<Side>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    surfaceLtsTree.add<MeshId>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    surfaceLtsTree.add<OutputPosition>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    surfaceLtsTree.add<BoundaryMapping>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    surfaceLtsTree.add<LocationFlag>(ghostMask, 1, initializer::AllocationMode::HostOnly);
 
-    surfaceLtsTree.add(
-        displacementDofs, ghostMask, PagesizeHeap, initializer::allocationModeBoundary());
+    surfaceLtsTree.add<DisplacementDofs>(ghostMask, PagesizeHeap, allocationModeBoundary());
   }
 
-  void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   initializer::LTSTree* tree) const {
-    manager.registerData("displacementDofs", tree, displacementDofs);
+  static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
+                                          Tree* tree) {
+    manager.registerData<DisplacementDofs>("displacementDofs", tree);
   }
 };
 

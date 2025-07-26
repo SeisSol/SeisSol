@@ -15,9 +15,10 @@
 #include "Parallel/Helper.h"
 #include <Kernels/Common.h>
 
-namespace seissol::initializer {
+namespace seissol {
 
 inline auto allocationModeBoundary() {
+  using namespace initializer;
   if constexpr (!isDeviceOn()) {
     return AllocationMode::HostOnly;
   } else {
@@ -26,14 +27,21 @@ inline auto allocationModeBoundary() {
 }
 
 struct Boundary {
-  Variable<BoundaryFaceInformation> faceInformation;
+  struct FaceInformation : public initializer::Variable<BoundaryFaceInformation> {};
 
-  void addTo(LTSTree& tree) {
-    const auto mask = LayerMask(Ghost);
-    tree.add(faceInformation, mask, 1, allocationModeBoundary());
+  struct BoundaryVarmap : public initializer::SpecificVarmap<FaceInformation> {};
+
+  using Tree = initializer::LTSTree<BoundaryVarmap>;
+  using Layer = initializer::Layer<BoundaryVarmap>;
+  using Ref = initializer::Layer<BoundaryVarmap>::CellRef;
+  using Backmap = initializer::StorageBackmap<1>;
+
+  static void addTo(Tree& tree) {
+    const auto mask = initializer::LayerMask(Ghost);
+    tree.add<FaceInformation>(mask, 1, allocationModeBoundary());
   }
 };
 
-} // namespace seissol::initializer
+} // namespace seissol
 
 #endif // SEISSOL_SRC_MEMORY_DESCRIPTOR_BOUNDARY_H_

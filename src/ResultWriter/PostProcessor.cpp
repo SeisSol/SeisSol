@@ -10,16 +10,16 @@
 #include <Alignment.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
-#include <Memory/Tree/LTSTree.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <array>
 
 void seissol::writer::PostProcessor::integrateQuantities(const double timestep,
-                                                         seissol::initializer::Layer& layerData,
+                                                         LTS::Layer& layerData,
                                                          const unsigned int cell,
                                                          const double* const dofs) {
 
-  real* integrals = layerData.var(m_integrals);
+  real* integrals = layerData.var<LTS::Integrals>();
   for (int i = 0; i < m_numberOfVariables; i++) {
     integrals[cell * m_numberOfVariables + i] +=
         dofs[NumAlignedBasisFunctions * m_integerMap[i]] * timestep;
@@ -45,19 +45,18 @@ void seissol::writer::PostProcessor::getIntegrationMask(bool* transferTo) {
   }
 }
 
-void seissol::writer::PostProcessor::allocateMemory(seissol::initializer::LTSTree* ltsTree) {
-  ltsTree->add(m_integrals,
-               seissol::initializer::LayerMask(Ghost),
-               PagesizeHeap,
-               initializer::AllocationMode::HostOnly,
-               false,
-               m_numberOfVariables);
+void seissol::writer::PostProcessor::allocateMemory(LTS::Tree* ltsTree) const {
+  ltsTree->add<LTS::Integrals>(seissol::initializer::LayerMask(Ghost),
+                               PagesizeHeap,
+                               initializer::AllocationMode::HostOnly,
+                               false,
+                               m_numberOfVariables);
 }
 
-const real* seissol::writer::PostProcessor::getIntegrals(seissol::initializer::LTSTree* ltsTree) {
+const real* seissol::writer::PostProcessor::getIntegrals(LTS::Tree* ltsTree) const {
   if (m_numberOfVariables == 0) {
     return nullptr;
   } else {
-    return ltsTree->var(m_integrals);
+    return ltsTree->var<LTS::Integrals>();
   }
 }

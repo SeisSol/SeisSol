@@ -102,8 +102,7 @@ class TimeManager {
    * @param sourceClusters Collection of point sources for clusters
    */
   void setPointSourcesForClusters(
-      std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
-          sourceClusters);
+      std::vector<seissol::kernels::PointSourceClusterPair> sourceClusters);
 
   /**
    * Returns the writer for the receivers

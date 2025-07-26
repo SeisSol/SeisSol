@@ -24,7 +24,6 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
 #include <Modules/Modules.h>
@@ -158,11 +157,9 @@ double& EnergiesStorage::totalMomentumZ(size_t sim) {
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    seissol::initializer::DynamicRupture* newDynRup,
-    seissol::initializer::LTSTree* newDynRuptTree,
+    DynamicRupture::Tree* newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
-    seissol::initializer::LTSTree* newLtsTree,
-    seissol::initializer::LTS* newLts,
+    LTS::Tree* newLtsTree,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
@@ -190,11 +187,9 @@ void EnergyOutput::init(
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
   global = newGlobal;
-  dynRup = newDynRup;
   dynRupTree = newDynRuptTree;
   meshReader = newMeshReader;
   ltsTree = newLtsTree;
-  lts = newLts;
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
@@ -326,16 +321,18 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       };
 #else
       // TODO: for fused simulations, do this once and reuse
-      real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
-      real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
+      real** timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
+      real** timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
       const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
       const auto timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
 #endif
-      DRGodunovData* godunovData = layer.var(dynRup->godunovData);
-      DRFaceInformation* faceInformation = layer.var(dynRup->faceInformation);
-      DREnergyOutput* drEnergyOutput = layer.var(dynRup->drEnergyOutput);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus = layer.var(dynRup->waveSpeedsPlus);
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus = layer.var(dynRup->waveSpeedsMinus);
+      DRGodunovData* godunovData = layer.var<DynamicRupture::GodunovData>();
+      DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+      DREnergyOutput* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
+      seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus =
+          layer.var<DynamicRupture::WaveSpeedsPlus>();
+      seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus =
+          layer.var<DynamicRupture::WaveSpeedsMinus>();
       const auto layerSize = layer.size();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
@@ -425,13 +422,13 @@ void EnergyOutput::computeVolumeEnergies() {
     // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
     // it
     for (auto& layer : ltsTree->leaves(Ghost)) {
-      const auto* secondaryInformation = layer.var(lts->secondaryInformation);
-      const auto* cellInformationData = layer.var(lts->cellInformation);
-      const auto* faceDisplacementsData = layer.var(lts->faceDisplacements);
-      const auto* materialData = layer.var(lts->material);
-      const auto* boundaryMappingData = layer.var(lts->boundaryMapping);
-      const auto* pstrainData = layer.var(lts->pstrain);
-      const auto* dofsData = layer.var(lts->dofs);
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* cellInformationData = layer.var<LTS::CellInformation>();
+      const auto* faceDisplacementsData = layer.var<LTS::FaceDisplacements>();
+      const auto* materialData = layer.var<LTS::Material>();
+      const auto* boundaryMappingData = layer.var<LTS::BoundaryMapping>();
+      const auto* pstrainData = layer.var<LTS::PStrain>();
+      const auto* dofsData = layer.var<LTS::Dofs>();
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal,             \
                                                         totalAcousticEnergyLocal,                  \
@@ -442,7 +439,7 @@ void EnergyOutput::computeVolumeEnergies() {
                                                         totalMomentumYLocal,                       \
                                                         totalMomentumZLocal,                       \
                                                         totalPlasticMoment)                        \
-    shared(elements, vertices, lts, global)
+    shared(elements, vertices, global)
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         if (secondaryInformation[cell].duplicate > 0) {

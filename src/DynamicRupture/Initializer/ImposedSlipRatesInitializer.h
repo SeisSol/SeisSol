@@ -24,8 +24,7 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param dynRupTree pointer to the dynamic rupture lts tree
    * not need to store values in the Fortran parts
    */
-  void initializeFault(const seissol::initializer::DynamicRupture* dynRup,
-                       seissol::initializer::LTSTree* dynRupTree) override;
+  void initializeFault(DynamicRupture::Tree* dynRupTree) override;
 
   /**
    * Add additional parameters to be read from the easi file
@@ -36,16 +35,14 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param it reference to an LTSTree leaf_iterator
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               const seissol::initializer::DynamicRupture* dynRup,
-                               seissol::initializer::Layer& layer) override = 0;
+                               DynamicRupture::Layer& layer) override = 0;
 
   /**
    * Ensure that all parameters are correct.
    * @param dynRup
    * @param it
    */
-  virtual void fixInterpolatedSTFParameters(const seissol::initializer::DynamicRupture* dynRup,
-                                            seissol::initializer::Layer& layer);
+  virtual void fixInterpolatedSTFParameters(DynamicRupture::Layer& layer);
 
   private:
   /**
@@ -57,8 +54,7 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param imposedSlipDirection1: Slip in fault aligned direction 1
    * @param imposedSlipDirection2: Slip in fault aligned direction 2
    */
-  void rotateSlipToFaultCS(const seissol::initializer::DynamicRupture* dynRup,
-                           seissol::initializer::Layer& layer,
+  void rotateSlipToFaultCS(DynamicRupture::Layer& layer,
                            const std::vector<std::array<real, misc::NumPaddedPoints>>& strikeSlip,
                            const std::vector<std::array<real, misc::NumPaddedPoints>>& dipSlip,
                            real (*imposedSlipDirection1)[misc::NumPaddedPoints],
@@ -68,25 +64,21 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
 class ImposedSlipRatesYoffeInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               const seissol::initializer::DynamicRupture* dynRup,
-                               seissol::initializer::Layer& layer) override;
+                               DynamicRupture::Layer& layer) override;
 
-  void fixInterpolatedSTFParameters(const seissol::initializer::DynamicRupture* dynRup,
-                                    seissol::initializer::Layer& layer) override;
+  void fixInterpolatedSTFParameters(DynamicRupture::Layer& layer) override;
 };
 
 class ImposedSlipRatesGaussianInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               const seissol::initializer::DynamicRupture* dynRup,
-                               seissol::initializer::Layer& layer) override;
+                               DynamicRupture::Layer& layer) override;
 };
 
 class ImposedSlipRatesDeltaInitializer : public ImposedSlipRatesInitializer {
   using ImposedSlipRatesInitializer::ImposedSlipRatesInitializer;
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               const seissol::initializer::DynamicRupture* dynRup,
-                               seissol::initializer::Layer& layer) override;
+                               DynamicRupture::Layer& layer) override;
 };
 
 } // namespace seissol::dr::initializer

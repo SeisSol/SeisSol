@@ -14,22 +14,23 @@
 
 namespace seissol::initializer {
 
+template <typename VarmapT>
 class LTSInternalNode : public Node {
   public:
   class LeafIterator : public Iterator {
-    friend class LTSInternalNode;
+    friend class LTSInternalNode<VarmapT>;
 
 public:
     // NOLINTNEXTLINE
     using iterator_category = std::input_iterator_tag;
     // NOLINTNEXTLINE
-    using value_type = Layer;
+    using value_type = Layer<VarmapT>;
     // NOLINTNEXTLINE
     using difference_type = ssize_t;
     // NOLINTNEXTLINE
-    using pointer = Layer*;
+    using pointer = Layer<VarmapT>*;
     // NOLINTNEXTLINE
-    using reference = Layer&;
+    using reference = Layer<VarmapT>&;
 
 private:
     Iterator m_end;
@@ -59,25 +60,25 @@ public:
       return *this;
     }
 
-    Layer& operator*() { return *dynamic_cast<Layer*>(m_node); }
+    Layer<VarmapT>& operator*() { return *dynamic_cast<Layer<VarmapT>*>(m_node); }
 
-    Layer* operator->() { return dynamic_cast<Layer*>(m_node); }
+    Layer<VarmapT>* operator->() { return dynamic_cast<Layer<VarmapT>*>(m_node); }
   };
 
   class ConstLeafIterator : public ConstIterator {
-    friend class LTSInternalNode;
+    friend class LTSInternalNode<VarmapT>;
 
 public:
     // NOLINTNEXTLINE
     using iterator_category = std::input_iterator_tag;
     // NOLINTNEXTLINE
-    using value_type = const Layer;
+    using value_type = const Layer<VarmapT>;
     // NOLINTNEXTLINE
     using difference_type = ssize_t;
     // NOLINTNEXTLINE
-    using pointer = const Layer*;
+    using pointer = const Layer<VarmapT>*;
     // NOLINTNEXTLINE
-    using reference = const Layer&;
+    using reference = const Layer<VarmapT>&;
 
 private:
     ConstIterator m_end;
@@ -107,9 +108,9 @@ public:
       return *this;
     }
 
-    const Layer& operator*() const { return *dynamic_cast<const Layer*>(m_node); }
+    const Layer<VarmapT>& operator*() const { return *dynamic_cast<const Layer<VarmapT>*>(m_node); }
 
-    const Layer* operator->() const { return dynamic_cast<const Layer*>(m_node); }
+    const Layer<VarmapT>* operator->() const { return dynamic_cast<const Layer<VarmapT>*>(m_node); }
   };
 
   LeafIterator beginLeaf(LayerMask layerMask = LayerMask()) {

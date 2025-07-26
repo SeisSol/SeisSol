@@ -28,7 +28,7 @@ class SpacetimeKernel : public Kernel {
   public:
   ~SpacetimeKernel() override = default;
   virtual void computeAder(double timeStepWidth,
-                           LocalData& data,
+                           LTS::Ref& data,
                            LocalTmp& tmp,
                            real timeIntegrated[tensor::I::size()],
                            real* timeDerivativesOrSTP = nullptr,
