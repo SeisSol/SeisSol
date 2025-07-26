@@ -255,6 +255,9 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
   real* prevCoefficientsScratch =
       static_cast<real*>(currentLayer->var<LTS::PrevCoefficientsScratch>(AllocationPlace::Device));
 
+  real* dofsFaceBoundaryNodalScratch = static_cast<real*>(
+      currentLayer->var(currentHandler->dofsFaceBoundaryNodalScratch, AllocationPlace::Device));
+
   if (size > 0) {
     std::array<std::vector<unsigned>, 4> cellIndices{};
     std::array<std::vector<real*>, 4> nodalAvgDisplacementsPtrs{};
@@ -276,6 +279,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
     std::array<std::vector<real*>, 4> dofsFaceNodalPtrs{};
     std::array<std::vector<real*>, 4> prevCoefficientsPtrs{};
     std::array<std::vector<double>, 4> invImpedances{};
+    std::array<std::vector<real*>, 4> dofsFaceBoundaryNodalPtrs{};
 
     std::array<std::size_t, 4> counter{};
 
@@ -315,6 +319,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
               counter[face] * init::displacementRotationMatrix::Size);
           rotatedFaceDisplacementPtrs[face].push_back(
               rotatedFaceDisplacementScratch + counter[face] * init::rotatedFaceDisplacement::Size);
+          dofsFaceBoundaryNodalPtrs[face].push_back(dofsFaceBoundaryNodalScratch +
+                                                    counter[face] * tensor::INodal::size());
           dofsFaceNodalPtrs[face].push_back(dofsFaceNodalScratch +
                                             counter[face] * tensor::INodal::size());
           prevCoefficientsPtrs[face].push_back(prevCoefficientsScratch +
@@ -358,6 +364,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
         (*currentTable)[key].set(inner_keys::Wp::Id::PrevCoefficients, prevCoefficientsPtrs[face]);
         (*currentMaterialTable)[key].set(inner_keys::Material::Id::InvImpedances,
                                          invImpedances[face]);
+        (*currentTable)[key].set(inner_keys::Wp::Id::DofsFaceBoundaryNodal,
+                                 dofsFaceBoundaryNodalPtrs[face]);
       }
     }
   }

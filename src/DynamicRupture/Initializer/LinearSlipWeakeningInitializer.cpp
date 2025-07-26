@@ -13,6 +13,8 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <unordered_map>
 
@@ -30,9 +32,9 @@ void LinearSlipWeakeningInitializer::initializeFault(DynamicRupture::Tree* const
     real(*forcedRuptureTime)[misc::NumPaddedPoints] =
         layer.var<LTSLinearSlipWeakening::ForcedRuptureTime>();
     const bool providesForcedRuptureTime = this->faultProvides("forced_rupture_time");
-    for (unsigned ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      // initialize padded elements for vectorization
-      for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      // initialuint32_t pointIndexts for vectorization
+      for (std::size_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         dynStressTimePending[ltsFace][pointIndex] = true;
         slipRate1[ltsFace][pointIndex] = 0.0;
         slipRate2[ltsFace][pointIndex] = 0.0;
@@ -74,8 +76,8 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(
     real(*cohesion)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::Cohesion>();
     auto* initialStressInFaultCS = layer.var<LTSLinearSlipWeakening::InitialStressInFaultCS>();
 
-    for (unsigned ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         regularizedStrength[ltsFace][pointIndex] =
             -cohesion[ltsFace][pointIndex] -
             mu[ltsFace][pointIndex] *

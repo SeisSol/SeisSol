@@ -13,6 +13,7 @@
 
 #include "Memory/Tree/Layer.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include <Memory/Descriptor/Surface.h>
 #include <mpi.h>
 
 #include <utils/logger.h>
@@ -117,6 +118,8 @@ class MemoryManager {
 
     Boundary::Tree m_boundaryTree;
 
+    SurfaceLTS::Tree surfaceTree;
+
     EasiBoundary m_easiBoundary;
 
     /**
@@ -141,11 +144,6 @@ class MemoryManager {
     void initializeBuffersDerivatives();
 
     /**
-    * Derives the size of the displacement accumulation buffer.
-    */
-    void deriveFaceDisplacementsBucket();
-
-    /**
      * Derives the size of the displacement accumulation buffer.
      */
     void deriveDisplacementsBucket();
@@ -154,11 +152,6 @@ class MemoryManager {
      * Initializes the displacement accumulation buffer.
      */
     void initializeDisplacements();
-
-    /**
-     * Initializes the displacement accumulation buffer.
-     */
-    void initializeFaceDisplacements();
 
     /**
      * Initializes the communication structure.
@@ -226,17 +219,6 @@ class MemoryManager {
       }
       return global;
     }
-
-    /**
-     * Gets the memory layout of a time cluster.
-     *
-     * @param i_cluster local id of the time cluster.
-     * @param o_meshStructure mesh structure.
-     * @param o_globalData global data.
-     * @param o_globalDataCopies several copies of global data
-     **/
-    std::pair<MeshStructure*, CompoundGlobalData>
-    getMemoryLayout(unsigned int i_cluster);
                           
     inline LTS::Tree* getLtsTree() {
       return &m_ltsTree;
@@ -261,6 +243,10 @@ class MemoryManager {
 
     inline Boundary::Tree* getBoundaryTree() {
       return &m_boundaryTree;
+    }
+
+    SurfaceLTS::Tree* getSurfaceTree() {
+      return &surfaceTree;
     }
 
     inline void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {

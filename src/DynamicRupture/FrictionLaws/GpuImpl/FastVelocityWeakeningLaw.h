@@ -73,16 +73,16 @@ class FastVelocityWeakeningLaw
   }
 
   SEISSOL_DEVICE static double
-      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, MuDetails& details) {
+      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, const MuDetails& details) {
     const double x = details.c * localSlipRateMagnitude;
     return details.a * std::asinh(x);
   }
 
   SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext& ctx,
                                                   double localSlipRateMagnitude,
-                                                  MuDetails& details) {
+                                                  const MuDetails& details) {
     const double x = details.c * localSlipRateMagnitude;
-    return details.ac / std::sqrt(std::pow(x, 2) + 1.0);
+    return details.ac / std::sqrt(x * x + 1.0);
   }
 
   SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {

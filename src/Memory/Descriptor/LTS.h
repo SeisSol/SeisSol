@@ -107,7 +107,6 @@ struct LTS {
       : public initializer::Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> {};
   struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
   struct BuffersDerivatives : public initializer::Bucket<real> {};
-  struct FaceDisplacementsBuffer : public initializer::Bucket<real> {};
 
   struct BuffersDevice : public initializer::Variable<real*> {};
   struct DerivativesDevice : public initializer::Variable<real*> {};
@@ -156,7 +155,6 @@ struct LTS {
                                                         PStrain,
                                                         FaceDisplacements,
                                                         BuffersDerivatives,
-                                                        FaceDisplacementsBuffer,
                                                         BuffersDevice,
                                                         DerivativesDevice,
                                                         FaceNeighborsDevice,
@@ -228,8 +226,6 @@ struct LTS {
     // handled differently)
     tree.add<BuffersDerivatives>(
         LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
-    tree.add<FaceDisplacementsBuffer>(
-        LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timedofs));
 
     tree.add<BuffersDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
     tree.add<DerivativesDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);

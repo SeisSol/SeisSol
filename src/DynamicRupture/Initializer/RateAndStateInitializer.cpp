@@ -14,6 +14,7 @@
 #include "Memory/Tree/Layer.h"
 #include <Initializer/Parameters/DRParameters.h>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <string>
@@ -40,8 +41,8 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Tree* const dynRup
         misc::magnitude(drParameters->rsInitialSlipRate1, drParameters->rsInitialSlipRate2);
 
     using namespace dr::misc::quantity_indices;
-    for (unsigned ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         dynStressTimePending[ltsFace][pointIndex] = true;
         slipRate1[ltsFace][pointIndex] = drParameters->rsInitialSlipRate1;
         slipRate2[ltsFace][pointIndex] = drParameters->rsInitialSlipRate2;
@@ -142,8 +143,8 @@ void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Tree* con
     auto* theta = layer.var<LTSThermalPressurization::Theta>();
     auto* sigma = layer.var<LTSThermalPressurization::Sigma>();
 
-    for (unsigned ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
         temperature[ltsFace][pointIndex] = drParameters->initialTemperature;
         pressure[ltsFace][pointIndex] = drParameters->initialPressure;
         for (unsigned tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;

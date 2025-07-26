@@ -28,10 +28,10 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     STF::copyLtsTreeToLocal(data, layerData, fullUpdateTime);
   }
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, unsigned timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {
     const real timeIncrement = ctx.data->deltaT[timeIndex];
     real currentTime = ctx.fullUpdateTime;
-    for (int i = 0; i <= timeIndex; i++) {
+    for (uint32_t i = 0; i <= timeIndex; i++) {
       currentTime += ctx.data->deltaT[i];
     }
 

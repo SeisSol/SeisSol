@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 #define SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 
+#include <Memory/Descriptor/Surface.h>
 #include <Memory/Tree/Layer.h>
 #include <memory>
 
@@ -20,19 +21,6 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Lut.h"
 
-namespace seissol {
-
-struct SurfaceLTS {
-  struct Dofs : public seissol::initializer::Variable<real*> {};
-  struct DisplacementDofs : public seissol::initializer::Variable<real*> {};
-  struct Side : public seissol::initializer::Variable<unsigned> {};
-  struct MeshId : public seissol::initializer::Variable<unsigned> {};
-  struct BoundaryMapping : public seissol::initializer::Variable<CellBoundaryMapping*> {};
-
-  static void addTo(initializer::LTSTree<>& surfaceLtsTree);
-};
-
-} // namespace seissol
 namespace seissol::solver {
 class FreeSurfaceIntegrator {
   public:
@@ -40,7 +28,7 @@ class FreeSurfaceIntegrator {
   static constexpr std::size_t NumComponents = 3;
 
   private:
-  enum class LocationFlag {
+  enum class LocationFlag : std::uint8_t {
     Elastic = 0,
     Acoustic = 1,
     FreeSurface = 2,
@@ -50,8 +38,8 @@ class FreeSurfaceIntegrator {
   real* projectionMatrixMemory{nullptr};
   real* projectionMatrix[4]{};
   real* projectionMatrixFromFace{nullptr};
-  unsigned numberOfSubTriangles{0};
-  unsigned numberOfAlignedSubTriangles{0};
+  std::size_t numberOfSubTriangles{0};
+  std::size_t numberOfAlignedSubTriangles{0};
 
   static constexpr auto PolyDegree = ConvergenceOrder - 1;
   static constexpr auto NumQuadraturePoints = PolyDegree * PolyDegree;
@@ -75,11 +63,13 @@ class FreeSurfaceIntegrator {
   std::array<real*, NumComponents> velocities;
   std::array<real*, NumComponents> displacements;
 
-  std::vector<unsigned int> locationFlags;
-  unsigned totalNumberOfFreeSurfaces;
-  unsigned totalNumberOfTriangles{0};
+  std::vector<std::uint8_t> locationFlags;
+  std::size_t totalNumberOfFreeSurfaces{0};
+  std::size_t totalNumberOfTriangles{0};
+  std::vector<std::size_t> backmap;
+  std::vector<std::size_t> globalIds;
 
-  initializer::LTSTree<initializer::GenericVarmap> surfaceLtsTree;
+  SurfaceLTS::Tree* surfaceLtsTree{nullptr};
   seissol::refinement::TriangleRefiner triRefiner;
 
   explicit FreeSurfaceIntegrator();
@@ -91,9 +81,12 @@ class FreeSurfaceIntegrator {
   FreeSurfaceIntegrator(FreeSurfaceIntegrator&&) = delete;
   auto operator=(FreeSurfaceIntegrator&&) -> FreeSurfaceIntegrator& = delete;
 
-  void initialize(unsigned maxRefinementDepth, GlobalData* globalData, LTS::Tree* ltsTree);
+  void initialize(unsigned maxRefinementDepth,
+                  GlobalData* globalData,
+                  LTS::Tree* ltsTree,
+                  SurfaceLTS::Tree* surfaceltsTree);
 
-  void calculateOutput();
+  void calculateOutput() const;
 
   [[nodiscard]] bool enabled() const { return m_enabled; }
 };
