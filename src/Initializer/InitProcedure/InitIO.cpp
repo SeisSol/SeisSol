@@ -19,6 +19,7 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
+#include <Memory/Descriptor/Surface.h>
 #include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/Plasticity.h>

@@ -39,6 +39,7 @@
 #include <cstddef>
 #include <generated_code/init.h>
 #include <limits>
+#include <optional>
 #include <utils/logger.h>
 #include <vector>
 #ifdef ACL_DEVICE

@@ -24,7 +24,6 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Descriptor/Surface.h>
-#include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <algorithm>
 #include <array>

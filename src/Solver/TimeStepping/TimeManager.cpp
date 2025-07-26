@@ -15,6 +15,7 @@
 #include "SeisSol.h"
 #include "TimeManager.h"
 #include <DynamicRupture/Output/OutputManager.h>
+#include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/Typedefs.h>

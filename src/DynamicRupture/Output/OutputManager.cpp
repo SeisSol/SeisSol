@@ -26,7 +26,6 @@
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Backmap.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>

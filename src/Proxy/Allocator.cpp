@@ -19,6 +19,7 @@
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/GlobalData.h>
 #include <Memory/MemoryAllocator.h>
+#include <Memory/Tree/Colormap.h>
 #include <Memory/Tree/Layer.h>
 #include <Proxy/Constants.h>
 #include <cstddef>
