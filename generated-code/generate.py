@@ -23,6 +23,7 @@ import kernels.plasticity
 import kernels.point
 import kernels.surface_displacement
 import kernels.vtkproject
+import kernels.config
 import yateto
 from yateto import (Generator, GlobalRoutineCache, NamespacedGenerator,
                     gemm_configuration, useArchitectureIdentifiedBy)
@@ -30,6 +31,7 @@ from yateto.ast.cost import (BoundingBoxCostEstimator,
                              FusedGemmsBoundingBoxCostEstimator)
 from yateto.gemm_configuration import GeneratorCollection
 
+from yateto.metagen import MetaGenerator
 
 def main():
 
@@ -126,31 +128,66 @@ def main():
 
     subfolders = []
 
-    equationsSpec = importlib.util.find_spec(
-        f"kernels.equations.{cmdLineArgs.equations}"
-    )
-    if equationsSpec is None:
-        raise RuntimeError("Could not find kernels for " + cmdLineArgs.equations)
-    equations = equationsSpec.loader.load_module()
-
-    equation_class = equations.EQUATION_CLASS
-
     routine_cache = GlobalRoutineCache()
 
     gemmTools = GeneratorCollection(gemm_generators)
 
-    def generate_equation(subfolders, equation, order):
-        precision = "double" if cmdLineArgs.host_arch[0] == "d" else "single"
-        fusedSuffix = "-f"+str(cmdLineArgs.multipleSimulations) if cmdLineArgs.multipleSimulations > 1 else ""
+    metagen = MetaGenerator(['typename'])
+
+    viscomode = "None"
+    if cmdLineArgs.equations == "viscoelastic":
+        viscomode = "QuantityExtension"
+        equations = "Viscoelastic"
+    elif cmdLineArgs.equations == "viscoelastic2":
+        viscomode = "AnelasticTensor"
+        equations = "Viscoelastic"
+    else:
+        viscomode = "None"
+        equations = cmdLineArgs.equations[0].upper() + cmdLineArgs.equations[1:]
+    
+    quadrule = cmdLineArgs.drQuadRule[0].upper() + cmdLineArgs.drQuadRule[1:]
+
+    configs = [
+        {
+            "order": cmdLineArgs.order,
+            "mechanisms": cmdLineArgs.numberOfMechanisms,
+            "equation": equations,
+            "precision": "F64" if cmdLineArgs.host_arch[:1] == "d" else "F32",
+            "viscomode": viscomode,
+            "drquadrule": quadrule,
+            "numsims": cmdLineArgs.multipleSimulations
+        }
+    ]
+    configsTemp = [
+        {
+            "order": cmdLineArgs.order,
+            "mechanisms": cmdLineArgs.numberOfMechanisms,
+            "equation": cmdLineArgs.equations,
+            "precision": "F64" if cmdLineArgs.host_arch[:1] == "d" else "F32",
+            "viscomode": viscomode,
+            "drquadrule": cmdLineArgs.drQuadRule,
+            "numsims": cmdLineArgs.multipleSimulations
+        }
+    ]
+
+    def generate_equation(subfolders, config):
+        equationsSpec = importlib.util.find_spec(
+            f"kernels.equations.{config['equation']}"
+        )
+        if equationsSpec is None:
+            raise RuntimeError("Could not find kernels for " + config['equation'])
+        equations = equationsSpec.loader.load_module()
+
+        equation_class = equations.EQUATION_CLASS
 
         if cmdLineArgs.memLayout == "auto":
             # TODO(Lukas) Don't hardcode this
             env = {
-                "equations": cmdLineArgs.equations,
-                "order": order,
+                "equations": config['equation'],
+                "order": config['order'],
                 "arch": cmdLineArgs.host_arch,
                 "device_arch": cmdLineArgs.device_arch,
-                "multipleSimulations": cmdLineArgs.multipleSimulations,
+                "multipleSimulations": config['numsims'],
                 "targets": targets,
                 "gemmgen": gemm_tool_list,
             }
@@ -168,7 +205,11 @@ def main():
         cmdArgsDict = vars(cmdLineArgs)
         cmdArgsDict["memLayout"] = mem_layout
 
-        adg = equation(**cmdArgsDict)
+        cmdArgsDict["drQuadRule"] = config['drquadrule']
+        cmdArgsDict["multipleSimulations"] = config['numsims']
+        cmdArgsDict["mechanisms"] = config['mechanisms']
+
+        adg = equation_class(**cmdArgsDict)
 
         include_tensors = set()
         generator = Generator(arch)
@@ -214,23 +255,11 @@ def main():
         )
         kernels.point.addKernels(generator, adg)
 
-        outputDirName = f"equation-{adg.name()}-{order}-{precision}{fusedSuffix}"
-        trueOutputDir = os.path.join(cmdLineArgs.outputDir, outputDirName)
-        if not os.path.exists(trueOutputDir):
-            os.mkdir(trueOutputDir)
-
-        subfolders += [outputDirName]
-
-        # Generate code
-        generator.generate(
-            outputDir=trueOutputDir,
-            namespace="seissol",
-            gemm_cfg=gemmTools,
+        metagen.add_generator(['Config'], generator, gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=include_tensors,
             routine_exporters=custom_routine_generators,
-            routine_cache=routine_cache,
-        )
+            routine_cache=routine_cache)
 
     def generate_general(subfolders):
         # we use always use double here,
@@ -268,8 +297,15 @@ def main():
             )
             file.writelines(["// IWYU pragma: end_exports\n"])
 
-    generate_equation(subfolders, equation_class, cmdLineArgs.order)
+    for config in configsTemp:
+        generate_equation(subfolders, config)
     generate_general(subfolders)
+
+    with open(os.path.join(cmdLineArgs.outputDir, "..", "Config.h"), "w") as file:
+        file.write(kernels.config.make_configfile(configs))
+
+    metagen.generate(os.path.join(cmdLineArgs.outputDir, "metagen"), "seissol", ["Config.h"])
+    subfolders += ["metagen"]
 
     routine_cache.generate(cmdLineArgs.outputDir, "seissol")
 

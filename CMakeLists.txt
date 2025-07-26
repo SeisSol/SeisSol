@@ -126,27 +126,6 @@ endif()
 configure_file("src/Alignment.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/src/Alignment.h")
 
-if (EQUATIONS STREQUAL "viscoelastic")
-  set(PARAMETER_MATERIAL "Viscoelastic")
-  set(PARAMETER_VISCOMODE "QuantityExtension")
-elseif (EQUATIONS STREQUAL "viscoelastic2")
-  set(PARAMETER_MATERIAL "Viscoelastic")
-  set(PARAMETER_VISCOMODE "AnelasticTensor")
-else()
-  capitalize(${EQUATIONS} PARAMETER_MATERIAL)
-  set(PARAMETER_VISCOMODE "None")
-endif()
-
-capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
-
-if (PRECISION STREQUAL "single")
-  set(PARAMETER_REALTYPE "F32")
-else()
-  set(PARAMETER_REALTYPE "F64")
-endif()
-
-configure_file("src/Config.h.in"
-               "${CMAKE_CURRENT_BINARY_DIR}/src/Config.h")
 
 # Generate version.h
 include(GetGitRevisionDescription)
