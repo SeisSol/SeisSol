@@ -148,13 +148,13 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   }
 }
 
-void OutputManager::setLtsData(LTS::Storage* userWpTree,
-                               LTS::Backmap* userWpLut,
-                               DynamicRupture::Storage* userDrTree) {
-  wpTree = userWpTree;
-  wpLut = userWpLut;
-  drTree = userDrTree;
-  impl->setLtsData(wpTree, wpLut, drTree);
+void OutputManager::setLtsData(LTS::Storage& userWpTree,
+                               LTS::Backmap& userWpLut,
+                               DynamicRupture::Storage& userDrTree) {
+  wpTree = &userWpTree;
+  wpLut = &userWpLut;
+  drTree = &userDrTree;
+  impl->setLtsData(userWpTree, userWpLut, userDrTree);
   initFaceToLtsMap();
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==

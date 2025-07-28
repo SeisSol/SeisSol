@@ -36,12 +36,12 @@
 using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
-void ReceiverOutput::setLtsData(LTS::Storage* userWpTree,
-                                LTS::Backmap* userWpLut,
-                                DynamicRupture::Storage* userDrTree) {
-  wpTree = userWpTree;
-  wpLut = userWpLut;
-  drTree = userDrTree;
+void ReceiverOutput::setLtsData(LTS::Storage& userWpTree,
+                                LTS::Backmap& userWpLut,
+                                DynamicRupture::Storage& userDrTree) {
+  wpTree = &userWpTree;
+  wpLut = &userWpLut;
+  drTree = &userDrTree;
 }
 
 void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {

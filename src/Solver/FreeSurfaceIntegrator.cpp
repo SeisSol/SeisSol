@@ -63,9 +63,9 @@ FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
 
 void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
                                        GlobalData* globalData,
-                                       LTS::Storage* ltsTree,
-                                       SurfaceLTS::Storage* surfaceltsTree) {
-  this->surfaceLtsTree = surfaceltsTree;
+                                       LTS::Storage& ltsTree,
+                                       SurfaceLTS::Storage& surfaceltsTree) {
+  this->surfaceLtsTree = &surfaceltsTree;
   if (maxRefinementDepth > MaxRefinement) {
     logError()
         << "Free surface integrator: Currently more than 3 levels of refinements are unsupported.";
@@ -269,15 +269,15 @@ FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
   }
 }
 
-void FreeSurfaceIntegrator::initializeSurfaceLTSTree(LTS::Storage* ltsTree) {
+void FreeSurfaceIntegrator::initializeSurfaceLTSTree(LTS::Storage& ltsTree) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
 
-  surfaceLtsTree->setLayerCount(ltsTree->getColorMap());
+  surfaceLtsTree->setLayerCount(ltsTree.getColorMap());
   surfaceLtsTree->fixate();
 
   totalNumberOfFreeSurfaces = 0;
   for (auto [layer, surfaceLayer] :
-       seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree->leaves(ghostMask))) {
+       seissol::common::zip(ltsTree.leaves(ghostMask), surfaceLtsTree->leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* cellMaterialData = layer.var<LTS::Material>();
@@ -323,7 +323,7 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(LTS::Storage* ltsTree) {
   std::size_t surfaceCellOffset = 0; // Counts all surface cells of all layers
   std::size_t surfaceCellGlobal = 0;
   for (auto [layer, surfaceLayer] :
-       seissol::common::zip(ltsTree->leaves(ghostMask), surfaceLtsTree->leaves(ghostMask))) {
+       seissol::common::zip(ltsTree.leaves(ghostMask), surfaceLtsTree->leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
     real*(*faceDisplacements)[4] = layer.var<LTS::FaceDisplacements>();

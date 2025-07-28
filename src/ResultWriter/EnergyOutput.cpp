@@ -157,9 +157,9 @@ double& EnergiesStorage::totalMomentumZ(size_t sim) {
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    DynamicRupture::Storage* newDynRuptTree,
-    seissol::geometry::MeshReader* newMeshReader,
-    LTS::Storage* newLtsTree,
+    const DynamicRupture::Storage& newDynRuptTree,
+    const seissol::geometry::MeshReader& newMeshReader,
+    const LTS::Storage& newLtsTree,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
@@ -187,9 +187,9 @@ void EnergyOutput::init(
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
   global = newGlobal;
-  dynRupTree = newDynRuptTree;
-  meshReader = newMeshReader;
-  ltsTree = newLtsTree;
+  dynRupTree = &newDynRuptTree;
+  meshReader = &newMeshReader;
+  ltsTree = &newLtsTree;
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
@@ -284,7 +284,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #ifdef ACL_DEVICE
     void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 #endif
-    for (auto& layer : dynRupTree->leaves()) {
+    for (const auto& layer : dynRupTree->leaves()) {
       /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
       /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
@@ -313,25 +313,25 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             stream);
         device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
       }
-      const auto timeDerivativePlusPtr = [&](unsigned i) {
+      const auto timeDerivativePlusPtr = [&](std::size_t i) {
         return timeDerivativePlusHost + QSize * i;
       };
-      const auto timeDerivativeMinusPtr = [&](unsigned i) {
+      const auto timeDerivativeMinusPtr = [&](std::size_t i) {
         return timeDerivativeMinusHost + QSize * i;
       };
 #else
       // TODO: for fused simulations, do this once and reuse
-      real** timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
-      real** timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
-      const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
-      const auto timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
+      real* const* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
+      real* const* timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
+      const auto timeDerivativePlusPtr = [&](std::size_t i) { return timeDerivativePlus[i]; };
+      const auto timeDerivativeMinusPtr = [&](std::size_t i) { return timeDerivativeMinus[i]; };
 #endif
-      DRGodunovData* godunovData = layer.var<DynamicRupture::GodunovData>();
-      DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
-      DREnergyOutput* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus =
+      const DRGodunovData* godunovData = layer.var<DynamicRupture::GodunovData>();
+      const DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+      const DREnergyOutput* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
+      const seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus =
           layer.var<DynamicRupture::WaveSpeedsPlus>();
-      seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus =
+      const seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus =
           layer.var<DynamicRupture::WaveSpeedsMinus>();
       const auto layerSize = layer.size();
 
@@ -348,7 +348,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                waveSpeedsMinus,                                                                    \
                sim)
 #endif
-      for (unsigned i = 0; i < layerSize; ++i) {
+      for (std::size_t i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
           for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
             totalFrictionalWork +=
@@ -382,9 +382,9 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
     shared(layerSize, drEnergyOutput, faceInformation, sim)
 #endif
-      for (unsigned i = 0; i < layerSize; ++i) {
+      for (std::size_t i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
-          for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
+          for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
             localMin = std::min(
                 static_cast<double>(
                     drEnergyOutput[i].timeSinceSlipRateBelowThreshold
@@ -421,7 +421,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
     // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
     // it
-    for (auto& layer : ltsTree->leaves(Ghost)) {
+    for (const auto& layer : ltsTree->leaves(Ghost)) {
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* cellInformationData = layer.var<LTS::CellInformation>();
       const auto* faceDisplacementsData = layer.var<LTS::FaceDisplacements>();
@@ -480,7 +480,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
         auto numSub = multisim::simtensor(numericalSolution, sim);
 
-        constexpr int UIdx = model::MaterialT::TractionQuantities;
+        constexpr auto UIdx = model::MaterialT::TractionQuantities;
 
         for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
           const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
@@ -496,7 +496,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
           if (std::abs(material.local.getMuBar()) < 10e-14) {
             // Acoustic
-            constexpr int PIdx = 0;
+            constexpr std::size_t PIdx = 0;
             const auto k = material.local.getLambdaBar();
             const auto p = numSub(qp, PIdx);
             const double curAcousticEnergy = (p * p) / (2 * k);
@@ -581,7 +581,7 @@ void EnergyOutput::computeVolumeEnergies() {
               init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
           auto rotatedFaceDisplacement = multisim::simtensor(rotatedFaceDisplacementFused, sim);
 
-          for (unsigned i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
+          for (std::size_t i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
             // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for
             // derivation.
             const auto displ = rotatedFaceDisplacement(i, 0);

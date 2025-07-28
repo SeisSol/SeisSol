@@ -261,13 +261,13 @@ struct LTS {
   }
 
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                          Storage* tree) {
+                                          Storage& tree) {
     manager.registerData<Dofs>("dofs", tree);
     if constexpr (kernels::size<tensor::Qane>() > 0) {
       manager.registerData<DofsAne>("dofsAne", tree);
     }
     // check plasticity usage over the layer mask (for now)
-    if (tree->info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
+    if (tree.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
       manager.registerData<Plasticity>("pstrain", tree);
     }
   }

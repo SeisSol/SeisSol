@@ -149,7 +149,7 @@ struct DynamicRupture {
   }
 
   virtual void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                           Storage* tree) const {
+                                           Storage& tree) const {
     manager.registerData<InitialStressInFaultCS>("initialStressInFaultCS", tree);
     manager.registerData<InitialPressure>("initialPressure", tree);
     manager.registerData<Mu>("mu", tree);
@@ -201,7 +201,7 @@ struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   Storage* tree) const override {
+                                   Storage& tree) const override {
     LTSLinearSlipWeakening::registerCheckpointVariables(manager, tree);
     manager.registerData<RegularizedStrength>("regularizedStrength", tree);
   }
@@ -224,7 +224,7 @@ struct LTSRateAndState : public DynamicRupture {
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   Storage* tree) const override {
+                                   Storage& tree) const override {
     DynamicRupture::registerCheckpointVariables(manager, tree);
     manager.registerData<StateVariable>("stateVariable", tree);
   }
@@ -265,7 +265,7 @@ struct LTSThermalPressurization {
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   DynamicRupture::Storage* tree) const {
+                                   DynamicRupture::Storage& tree) const {
     manager.registerData<Temperature>("temperature", tree);
     manager.registerData<Pressure>("pressure", tree);
     manager.registerData<Theta>("theta", tree);
@@ -285,7 +285,7 @@ struct LTSRateAndStateThermalPressurization : public LTSRateAndState,
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   Storage* tree) const override {
+                                   Storage& tree) const override {
     LTSRateAndState::registerCheckpointVariables(manager, tree);
     LTSThermalPressurization::registerCheckpointVariables(manager, tree);
   }
@@ -304,7 +304,7 @@ struct LTSRateAndStateThermalPressurizationFastVelocityWeakening
   }
 
   void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                   Storage* tree) const override {
+                                   Storage& tree) const override {
     LTSRateAndStateFastVelocityWeakening::registerCheckpointVariables(manager, tree);
     LTSThermalPressurization::registerCheckpointVariables(manager, tree);
   }

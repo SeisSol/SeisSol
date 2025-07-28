@@ -22,10 +22,10 @@
 #include <utils/logger.h>
 
 namespace seissol::dr::initializer {
-void RateAndStateInitializer::initializeFault(DynamicRupture::Storage* const dynRupTree) {
+void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& dynRupTree) {
   BaseDRInitializer::initializeFault(dynRupTree);
 
-  for (auto& layer : dynRupTree->leaves(Ghost)) {
+  for (auto& layer : dynRupTree.leaves(Ghost)) {
 
     auto* dynStressTimePending = layer.var<LTSRateAndState::DynStressTimePending>();
     real(*slipRate1)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::SlipRate1>();
@@ -136,8 +136,8 @@ ThermalPressurizationInitializer::ThermalPressurizationInitializer(
     const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters)
     : drParameters(drParameters) {}
 
-void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Storage* const dynRupTree) {
-  for (auto& layer : dynRupTree->leaves(Ghost)) {
+void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Storage& dynRupTree) {
+  for (auto& layer : dynRupTree.leaves(Ghost)) {
     real(*temperature)[misc::NumPaddedPoints] = layer.var<LTSThermalPressurization::Temperature>();
     real(*pressure)[misc::NumPaddedPoints] = layer.var<LTSThermalPressurization::Pressure>();
     auto* theta = layer.var<LTSThermalPressurization::Theta>();
@@ -176,7 +176,7 @@ RateAndStateThermalPressurizationInitializer::RateAndStateThermalPressurizationI
       ThermalPressurizationInitializer(drParameters) {}
 
 void RateAndStateThermalPressurizationInitializer::initializeFault(
-    DynamicRupture::Storage* const dynRupTree) {
+    DynamicRupture::Storage& dynRupTree) {
   RateAndStateInitializer::initializeFault(dynRupTree);
   ThermalPressurizationInitializer::initializeFault(dynRupTree);
 }
@@ -195,7 +195,7 @@ RateAndStateFastVelocityThermalPressurizationInitializer::
       ThermalPressurizationInitializer(drParameters) {}
 
 void RateAndStateFastVelocityThermalPressurizationInitializer::initializeFault(
-    DynamicRupture::Storage* const dynRupTree) {
+    DynamicRupture::Storage& dynRupTree) {
   RateAndStateFastVelocityInitializer::initializeFault(dynRupTree);
   ThermalPressurizationInitializer::initializeFault(dynRupTree);
 }

@@ -27,9 +27,9 @@ class OutputManager {
   OutputManager() = delete;
   OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance);
   void setInputParam(seissol::geometry::MeshReader& userMesher);
-  void setLtsData(LTS::Storage* userWpTree,
-                  LTS::Backmap* userWpLut,
-                  DynamicRupture::Storage* userDrTree);
+  void setLtsData(LTS::Storage& userWpTree,
+                  LTS::Backmap& userWpLut,
+                  DynamicRupture::Storage& userDrTree);
   void setBackupTimeStamp(const std::string& stamp) { this->backupTimeStamp = stamp; }
 
   void init();

@@ -57,8 +57,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       }
       offset += layer.size();
     }
-    checkpoint.registerTree("lts", &tree, globalIds);
-    LTS::registerCheckpointVariables(checkpoint, &tree);
+    checkpoint.registerTree("lts", tree, globalIds);
+    LTS::registerCheckpointVariables(checkpoint, tree);
   }
 
   {
@@ -77,8 +77,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       // theorem)
       faceIdentifiers[i] = fault.globalId * 4 + fault.side;
     }
-    checkpoint.registerTree("dynrup", &tree, faceIdentifiers);
-    dynrup.registerCheckpointVariables(checkpoint, &tree);
+    checkpoint.registerTree("dynrup", tree, faceIdentifiers);
+    dynrup.registerCheckpointVariables(checkpoint, tree);
   }
 
   {
@@ -93,8 +93,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       // same as for DR
       faceIdentifiers[i] = meshIds[i] * 4 + static_cast<std::size_t>(sides[i]);
     }
-    checkpoint.registerTree("surface", &tree, faceIdentifiers);
-    SurfaceLTS::registerCheckpointVariables(checkpoint, &tree);
+    checkpoint.registerTree("surface", tree, faceIdentifiers);
+    SurfaceLTS::registerCheckpointVariables(checkpoint, tree);
   }
 
   const auto& checkpointFile = seissolInstance.getCheckpointLoadFile();
@@ -159,7 +159,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         ltsIdData,
         reinterpret_cast<const real*>(ltsTree.var<LTS::Dofs>()),
         reinterpret_cast<const real*>(ltsTree.var<LTS::PStrain>()),
-        seissolInstance.postProcessor().getIntegrals(&ltsTree),
+        seissolInstance.postProcessor().getIntegrals(ltsTree),
         meshToLts.data(),
         seissolParams.output.waveFieldParameters,
         seissolParams.output.xdmfWriterBackend,
@@ -467,9 +467,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     auto& energyOutput = seissolInstance.energyOutput();
 
     energyOutput.init(globalData,
-                      &dynRupTree,
-                      &seissolInstance.meshReader(),
-                      &ltsTree,
+                      dynRupTree,
+                      seissolInstance.meshReader(),
+                      ltsTree,
                       seissolParams.model.plasticity,
                       seissolParams.output.prefix,
                       seissolParams.output.energyParameters);

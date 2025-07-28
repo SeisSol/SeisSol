@@ -27,10 +27,10 @@
 #include <vector>
 
 namespace seissol::dr::initializer {
-void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage* const dynRupTree) {
+void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& dynRupTree) {
   logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
             << " points.";
-  for (auto& layer : dynRupTree->leaves(Ghost)) {
+  for (auto& layer : dynRupTree.leaves(Ghost)) {
 
     // parameters to be read from fault parameters yaml file
     std::unordered_map<std::string, real*> parameterToStorageMap;

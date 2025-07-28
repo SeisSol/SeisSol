@@ -53,7 +53,7 @@ struct SurfaceLTS {
   }
 
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                          Storage* tree) {
+                                          Storage& tree) {
     manager.registerData<DisplacementDofs>("displacementDofs", tree);
   }
 };

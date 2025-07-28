@@ -414,7 +414,7 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct ClusterLayout& cl
 
   // Setup tree variables
   LTS::addTo(m_ltsTree, usePlasticity);
-  seissolInstance.postProcessor().allocateMemory(&m_ltsTree);
+  seissolInstance.postProcessor().allocateMemory(m_ltsTree);
 
   this->clusterLayout = clusterLayout;
 
@@ -559,7 +559,7 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
   if (outputParams.freeSurfaceParameters.enabled && outputParams.freeSurfaceParameters.vtkorder < 0) {
     refinement = outputParams.freeSurfaceParameters.refinement;
   }
-  seissolInstance.freeSurfaceIntegrator().initialize(refinement, &m_globalDataOnHost, &m_ltsTree, &surfaceTree);
+  seissolInstance.freeSurfaceIntegrator().initialize(refinement, &m_globalDataOnHost, m_ltsTree, surfaceTree);
 }
 
 #ifdef ACL_DEVICE
@@ -844,9 +844,9 @@ void seissol::initializer::MemoryManager::initFaultOutputManager(const std::stri
   // TODO: switch m_dynRup to shared or weak pointer
   if (params.isDynamicRuptureEnabled) {
     m_faultOutputManager->setInputParam(seissolInstance.meshReader());
-    m_faultOutputManager->setLtsData(&m_ltsTree,
-                                     &backmap,
-                                     &m_dynRupTree);
+    m_faultOutputManager->setLtsData(m_ltsTree,
+                                     backmap,
+                                     m_dynRupTree);
     m_faultOutputManager->setBackupTimeStamp(backupTimeStamp);
     m_faultOutputManager->init();
 
@@ -858,7 +858,7 @@ void seissol::initializer::MemoryManager::initFrictionData() {
   const auto& params = seissolInstance.getSeisSolParameters().drParameters;
   if (params.isDynamicRuptureEnabled) {
 
-    m_DRInitializer->initializeFault(&m_dynRupTree);
+    m_DRInitializer->initializeFault(m_dynRupTree);
 
 #ifdef ACL_DEVICE
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {

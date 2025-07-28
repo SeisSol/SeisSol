@@ -26,14 +26,14 @@ namespace seissol::ITM {
 void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           double triggerTime,
                                           seissol::geometry::MeshReader* meshReader,
-                                          LTS::Storage* ltsTree,
+                                          LTS::Storage& ltsTree,
                                           const initializer::ClusterLayout* clusterLayout) {
   isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
                     // Need this by default as true for it to work.
   this->velocityScalingFactor = velocityScalingFactor;
   this->triggerTime = triggerTime;
   this->meshReader = meshReader;
-  this->ltsTree = ltsTree;
+  this->ltsTree = &ltsTree;
   this->clusterLayout = clusterLayout; // An empty timestepping is added. Need to discuss what
                                        // exactly is to be sent here
   setSyncInterval(triggerTime);
@@ -215,7 +215,7 @@ void InstantaneousTimeMirrorManager::setClusterVector(
 void initializeTimeMirrorManagers(double scalingFactor,
                                   double triggerTime,
                                   seissol::geometry::MeshReader* meshReader,
-                                  LTS::Storage* ltsTree,
+                                  LTS::Storage& ltsTree,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
                                   seissol::SeisSol& seissolInstance,

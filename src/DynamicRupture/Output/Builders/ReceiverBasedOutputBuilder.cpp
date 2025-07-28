@@ -49,12 +49,12 @@ void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshRead
   localRank = MPI::mpi.rank();
 }
 
-void ReceiverBasedOutputBuilder::setLtsData(LTS::Storage* userWpTree,
-                                            LTS::Backmap* userWpLut,
-                                            DynamicRupture::Storage* userDrTree) {
-  wpTree = userWpTree;
-  wpLut = userWpLut;
-  drTree = userDrTree;
+void ReceiverBasedOutputBuilder::setLtsData(LTS::Storage& userWpTree,
+                                            LTS::Backmap& userWpLut,
+                                            DynamicRupture::Storage& userDrTree) {
+  wpTree = &userWpTree;
+  wpLut = &userWpLut;
+  drTree = &userDrTree;
 }
 
 void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>& variables) {

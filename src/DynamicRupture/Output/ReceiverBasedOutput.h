@@ -24,9 +24,9 @@ class ReceiverOutput {
   public:
   virtual ~ReceiverOutput() = default;
 
-  void setLtsData(LTS::Storage* userWpTree,
-                  LTS::Backmap* userWpLut,
-                  DynamicRupture::Storage* userDrTree);
+  void setLtsData(LTS::Storage& userWpTree,
+                  LTS::Backmap& userWpLut,
+                  DynamicRupture::Storage& userDrTree);
 
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }

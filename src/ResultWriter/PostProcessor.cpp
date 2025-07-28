@@ -45,18 +45,18 @@ void seissol::writer::PostProcessor::getIntegrationMask(bool* transferTo) {
   }
 }
 
-void seissol::writer::PostProcessor::allocateMemory(LTS::Storage* ltsTree) const {
-  ltsTree->add<LTS::Integrals>(seissol::initializer::LayerMask(Ghost),
-                               PagesizeHeap,
-                               initializer::AllocationMode::HostOnly,
-                               false,
-                               m_numberOfVariables);
+void seissol::writer::PostProcessor::allocateMemory(LTS::Storage& ltsTree) const {
+  ltsTree.add<LTS::Integrals>(seissol::initializer::LayerMask(Ghost),
+                              PagesizeHeap,
+                              initializer::AllocationMode::HostOnly,
+                              false,
+                              m_numberOfVariables);
 }
 
-const real* seissol::writer::PostProcessor::getIntegrals(LTS::Storage* ltsTree) const {
+const real* seissol::writer::PostProcessor::getIntegrals(LTS::Storage& ltsTree) const {
   if (m_numberOfVariables == 0) {
     return nullptr;
   } else {
-    return ltsTree->var<LTS::Integrals>();
+    return ltsTree.var<LTS::Integrals>();
   }
 }

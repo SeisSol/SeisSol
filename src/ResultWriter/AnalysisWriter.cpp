@@ -92,8 +92,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
   const auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
-  auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
-  auto* globalData = seissolInstance.getMemoryManager().getGlobalData().onHost;
+  const auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
+  const auto* globalData = seissolInstance.getMemoryManager().getGlobalData().onHost;
 
   const std::vector<Vertex>& vertices = meshReader->getVertices();
   const std::vector<Element>& elements = meshReader->getElements();
@@ -156,7 +156,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
     alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
     alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities];
-    for (auto& layer : ltsTree.leaves(Ghost)) {
+    for (const auto& layer : ltsTree.leaves(Ghost)) {
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* materialData = layer.var<LTS::Material>();
       const auto* dofsData = layer.var<LTS::Dofs>();
