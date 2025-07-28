@@ -12,7 +12,6 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/DeviceGraph.h"
 #include "Memory/MemoryAllocator.h"
-#include "Node.h"
 #include <Memory/Tree/Colormap.h>
 #include <bitset>
 #include <cstring>
@@ -294,7 +293,7 @@ struct SpecificVarmap {
 };
 
 template <typename VarmapT = GenericVarmap>
-class Layer : public Node {
+class Layer {
   private:
   LayerIdentifier identifier;
   std::size_t numCells{0};
@@ -315,7 +314,7 @@ class Layer : public Node {
 
   public:
   Layer() = default;
-  ~Layer() override = default;
+  ~Layer() = default;
 
   [[nodiscard]] std::size_t id() const { return posId; }
 

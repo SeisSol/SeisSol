@@ -10,13 +10,13 @@
 #define SEISSOL_SRC_MEMORY_TREE_LTSTREE_H_
 
 #include "Backmap.h"
-#include "LTSInternalNode.h"
 #include "Layer.h"
 
 #include "Memory/MemoryAllocator.h"
 
 #include "Monitoring/Unit.h"
 #include "utils/logger.h"
+#include <Common/Iterator.h>
 #include <Config.h>
 #include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Colormap.h>
@@ -61,7 +61,7 @@ void initAssign(T& target, const T& value) {
 }
 
 template <typename VarmapT = GenericVarmap>
-class LTSTree : public LTSInternalNode<VarmapT> {
+class LTSTree {
   private:
   std::vector<DualMemoryContainer> memoryContainer;
   std::vector<MemoryInfo> memoryInfo;
@@ -121,10 +121,12 @@ class LTSTree : public LTSInternalNode<VarmapT> {
 
   std::optional<LTSColorMap> map;
 
+  std::vector<Layer<VarmapT>> layers;
+
   public:
   LTSTree() { memoryInfo.resize(VarmapT::MinSize); }
 
-  ~LTSTree() override = default;
+  ~LTSTree() = default;
 
   [[nodiscard]] const LTSColorMap& getColorMap() const { return map.value(); }
 
@@ -139,7 +141,7 @@ class LTSTree : public LTSInternalNode<VarmapT> {
   void setLayerCount(const LTSColorMap& map) {
     this->map = map;
     const auto layerCount = map.size();
-    this->template setChildren<Layer<VarmapT>>(layerCount);
+    layers.resize(layerCount);
     for (std::size_t i = 0; i < map.size(); ++i) {
       layer(i).setIdentifier(map.argument(i));
     }
@@ -147,7 +149,6 @@ class LTSTree : public LTSInternalNode<VarmapT> {
 
   void fixate() {
     memoryContainer.resize(memoryInfo.size());
-    this->setPostOrderPointers();
     std::size_t id = 0;
     for (auto& leaf : this->leaves()) {
       leaf.fixPointers(id, memoryInfo, varmap);
@@ -155,13 +156,9 @@ class LTSTree : public LTSInternalNode<VarmapT> {
     }
   }
 
-  Layer<VarmapT>& layer(std::size_t index) {
-    return *dynamic_cast<Layer<VarmapT>*>(this->m_children[index].get());
-  }
+  Layer<VarmapT>& layer(std::size_t index) { return layers.at(index); }
 
-  [[nodiscard]] const Layer<VarmapT>& layer(std::size_t index) const {
-    return *dynamic_cast<Layer<VarmapT>*>(this->m_children[index].get());
-  }
+  [[nodiscard]] const Layer<VarmapT>& layer(std::size_t index) const { return layers.at(index); }
 
   Layer<VarmapT>& layer(const LayerIdentifier& id) { return layer(map.value().colorId(id)); }
 
@@ -386,6 +383,82 @@ class LTSTree : public LTSInternalNode<VarmapT> {
     }
     return maxClusterSize;
   }
+
+  class IteratorWrapper {
+private:
+    LTSTree<VarmapT>& node;
+    std::function<bool(const Layer<VarmapT>&)> filter;
+
+public:
+    IteratorWrapper(LTSTree<VarmapT>& node, std::function<bool(const Layer<VarmapT>&)> filter)
+        : node(node), filter(filter) {}
+
+    auto begin() {
+      return common::FilteredIterator(node.layers.begin(), node.layers.end(), filter);
+    }
+
+    auto end() { return common::FilteredIterator(node.layers.end(), node.layers.end(), filter); }
+  };
+
+  class IteratorWrapperConst {
+private:
+    const LTSTree<VarmapT>& node;
+    std::function<bool(const Layer<VarmapT>&)> filter;
+
+public:
+    IteratorWrapperConst(const LTSTree<VarmapT>& node,
+                         std::function<bool(const Layer<VarmapT>&)> filter)
+        : node(node), filter(filter) {}
+
+    [[nodiscard]] auto begin() const {
+      return common::FilteredIterator(node.layers.begin(), node.layers.end(), filter);
+    }
+
+    [[nodiscard]] auto end() const {
+      return common::FilteredIterator(node.layers.end(), node.layers.end(), filter);
+    }
+  };
+
+  [[nodiscard]] std::size_t size(LayerMask layerMask = LayerMask()) const {
+    std::size_t numCells = 0;
+    for (const auto& leaf : leaves(layerMask)) {
+      numCells += leaf.size();
+    }
+    return numCells;
+  }
+
+  template <typename F>
+  [[nodiscard]] std::size_t size(F&& filter) const {
+    std::size_t numCells = 0;
+    for (const auto& leaf : leaves(std::forward<F>(filter))) {
+      numCells += leaf.size();
+    }
+    return numCells;
+  }
+
+  template <typename F>
+  IteratorWrapper filter(F&& filter) {
+    return IteratorWrapper(*this, std::forward<F>(filter));
+  }
+
+  template <typename F>
+  [[nodiscard]] IteratorWrapperConst filter(F&& filter) const {
+    return IteratorWrapperConst(*this, std::forward<F>(filter));
+  }
+
+  IteratorWrapper leaves(LayerMask mask = LayerMask()) {
+    return filter([mask](const Layer<VarmapT>& layer) {
+      return !mask.test(static_cast<int>(layer.getIdentifier().halo));
+    });
+  }
+
+  [[nodiscard]] IteratorWrapperConst leaves(LayerMask mask = LayerMask()) const {
+    return filter([mask](const Layer<VarmapT>& layer) {
+      return !mask.test(static_cast<int>(layer.getIdentifier().halo));
+    });
+  }
+
+  [[nodiscard]] std::size_t numChildren() const { return layers.size(); }
 };
 
 } // namespace seissol::initializer
