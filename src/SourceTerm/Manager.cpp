@@ -154,7 +154,7 @@ void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
 
 auto mapClusterToMesh(ClusterMapping& clusterMapping,
                       const std::size_t* meshIds,
-                      LTS::Tree& ltsTree,
+                      LTS::Storage& ltsTree,
                       LTS::Backmap& backmap,
                       seissol::initializer::AllocationPlace place) {
   unsigned clusterSource = 0;
@@ -185,7 +185,7 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
 
 auto mapPointSourcesToClusters(const std::size_t* meshIds,
                                unsigned numberOfSources,
-                               LTS::Tree& ltsTree,
+                               LTS::Storage& ltsTree,
                                LTS::Backmap& backmap,
                                seissol::memory::Memkind memkind) -> std::vector<ClusterMapping> {
   auto clusterToPointSources = std::vector<std::vector<std::size_t>>(ltsTree.numChildren());
@@ -239,7 +239,7 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
 auto makePointSourceCluster(const ClusterMapping& mapping,
                             const PointSources& sources,
                             const std::size_t* meshIds,
-                            LTS::Tree& ltsTree,
+                            LTS::Storage& ltsTree,
                             LTS::Backmap& backmap) -> seissol::kernels::PointSourceClusterPair {
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
       std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources>(sources));
@@ -277,7 +277,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
 
 auto loadSourcesFromFSRM(const char* fileName,
                          const seissol::geometry::MeshReader& mesh,
-                         LTS::Tree& ltsTree,
+                         LTS::Storage& ltsTree,
                          LTS::Backmap& backmap,
                          seissol::memory::Memkind memkind)
     -> std::vector<seissol::kernels::PointSourceClusterPair> {
@@ -380,7 +380,7 @@ auto loadSourcesFromFSRM(const char* fileName,
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 auto loadSourcesFromNRF(const char* fileName,
                         const seissol::geometry::MeshReader& mesh,
-                        LTS::Tree& ltsTree,
+                        LTS::Storage& ltsTree,
                         LTS::Backmap& backmap,
                         seissol::memory::Memkind memkind)
     -> std::vector<seissol::kernels::PointSourceClusterPair> {
@@ -487,7 +487,7 @@ namespace seissol::sourceterm {
 void Manager::loadSources(seissol::initializer::parameters::PointSourceType sourceType,
                           const char* fileName,
                           const seissol::geometry::MeshReader& mesh,
-                          LTS::Tree& ltsTree,
+                          LTS::Storage& ltsTree,
                           LTS::Backmap& backmap,
                           time_stepping::TimeManager& timeManager) {
 #ifdef ACL_DEVICE

@@ -12,10 +12,8 @@
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/Boundary.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Memory/Tree/Backmap.h>
 
@@ -25,18 +23,18 @@ class EasiBoundary;
  * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
  **/
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
-                                 LTS::Tree& ltsTree,
+                                 LTS::Storage& ltsTree,
                                  const ClusterLayout& clusterLayout,
                                  const parameters::ModelParameters& modelParameters);
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 const EasiBoundary* easiBoundary,
-                                LTS::Tree& ltsTree);
+                                LTS::Storage& ltsTree);
 
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
-                                      LTS::Tree& ltsTree,
+                                      LTS::Storage& ltsTree,
                                       const LTS::Backmap& backmap,
-                                      DynamicRupture::Tree& dynRupTree,
+                                      DynamicRupture::Storage& dynRupTree,
                                       unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
                                       double etaHack);

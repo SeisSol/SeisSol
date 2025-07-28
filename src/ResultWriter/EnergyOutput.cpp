@@ -157,9 +157,9 @@ double& EnergiesStorage::totalMomentumZ(size_t sim) {
 
 void EnergyOutput::init(
     GlobalData* newGlobal,
-    DynamicRupture::Tree* newDynRuptTree,
+    DynamicRupture::Storage* newDynRuptTree,
     seissol::geometry::MeshReader* newMeshReader,
-    LTS::Tree* newLtsTree,
+    LTS::Storage* newLtsTree,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {

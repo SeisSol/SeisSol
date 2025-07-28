@@ -18,7 +18,6 @@
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
 
 namespace seissol::solver {
 class FreeSurfaceIntegrator {
@@ -53,7 +52,7 @@ class FreeSurfaceIntegrator {
       real* projectionMatrixFromFaceRow,
       const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
       const double* weights) const;
-  void initializeSurfaceLTSTree(LTS::Tree* ltsTree);
+  void initializeSurfaceLTSTree(LTS::Storage* ltsTree);
 
   static LocationFlag
       getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
@@ -68,7 +67,7 @@ class FreeSurfaceIntegrator {
   std::vector<std::size_t> backmap;
   std::vector<std::size_t> globalIds;
 
-  SurfaceLTS::Tree* surfaceLtsTree{nullptr};
+  SurfaceLTS::Storage* surfaceLtsTree{nullptr};
   seissol::refinement::TriangleRefiner triRefiner;
 
   explicit FreeSurfaceIntegrator();
@@ -82,8 +81,8 @@ class FreeSurfaceIntegrator {
 
   void initialize(unsigned maxRefinementDepth,
                   GlobalData* globalData,
-                  LTS::Tree* ltsTree,
-                  SurfaceLTS::Tree* surfaceltsTree);
+                  LTS::Storage* ltsTree,
+                  SurfaceLTS::Storage* surfaceltsTree);
 
   void calculateOutput() const;
 

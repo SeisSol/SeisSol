@@ -87,7 +87,7 @@ class BaseDRInitializer {
    * @param dynRupTree pointer to the dynamic rupture lts tree
    * not need to store values in the Fortran parts
    */
-  virtual void initializeFault(DynamicRupture::Tree* dynRupTree);
+  virtual void initializeFault(DynamicRupture::Storage* dynRupTree);
 
   protected:
   /**

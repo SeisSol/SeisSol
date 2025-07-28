@@ -31,12 +31,12 @@ struct Boundary {
 
   struct BoundaryVarmap : public initializer::SpecificVarmap<FaceInformation> {};
 
-  using Tree = initializer::LTSTree<BoundaryVarmap>;
+  using Storage = initializer::Storage<BoundaryVarmap>;
   using Layer = initializer::Layer<BoundaryVarmap>;
   using Ref = initializer::Layer<BoundaryVarmap>::CellRef;
   using Backmap = initializer::StorageBackmap<1>;
 
-  static void addTo(Tree& tree) {
+  static void addTo(Storage& tree) {
     const auto mask = initializer::LayerMask(Ghost);
     tree.add<FaceInformation>(mask, 1, allocationModeBoundary());
   }

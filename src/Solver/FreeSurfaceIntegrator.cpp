@@ -63,8 +63,8 @@ FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
 
 void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
                                        GlobalData* globalData,
-                                       LTS::Tree* ltsTree,
-                                       SurfaceLTS::Tree* surfaceltsTree) {
+                                       LTS::Storage* ltsTree,
+                                       SurfaceLTS::Storage* surfaceltsTree) {
   this->surfaceLtsTree = surfaceltsTree;
   if (maxRefinementDepth > MaxRefinement) {
     logError()
@@ -269,7 +269,7 @@ FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
   }
 }
 
-void FreeSurfaceIntegrator::initializeSurfaceLTSTree(LTS::Tree* ltsTree) {
+void FreeSurfaceIntegrator::initializeSurfaceLTSTree(LTS::Storage* ltsTree) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
 
   surfaceLtsTree->setLayerCount(ltsTree->getColorMap());
@@ -348,7 +348,7 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(LTS::Tree* ltsTree) {
                 cellInformation[cell], cellMaterialData[cell], face)) {
           surfaceDofs[surfaceCell] = dofs[cell];
 
-          // NOTE: assign LTSTree data here
+          // NOTE: assign LTS::Storage data here
           faceDisplacements[cell][face] = displacementDofs[surfaceCell];
           faceDisplacementsDevice[cell][face] = displacementDofsDevice[surfaceCell];
 

@@ -182,12 +182,12 @@ struct LTS {
                                                         DofsFaceBoundaryNodalScratch,
                                                         Integrals> {};
 
-  using Tree = initializer::LTSTree<LTSVarmap>;
+  using Storage = initializer::Storage<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
   using Ref = initializer::Layer<LTSVarmap>::CellRef;
   using Backmap = initializer::StorageBackmap<4>;
 
-  static void addTo(Tree& tree, bool usePlasticity) {
+  static void addTo(Storage& tree, bool usePlasticity) {
     using namespace initializer;
     LayerMask plasticityMask;
     if (usePlasticity) {
@@ -261,7 +261,7 @@ struct LTS {
   }
 
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                          Tree* tree) {
+                                          Storage* tree) {
     manager.registerData<Dofs>("dofs", tree);
     if constexpr (kernels::size<tensor::Qane>() > 0) {
       manager.registerData<DofsAne>("dofsAne", tree);

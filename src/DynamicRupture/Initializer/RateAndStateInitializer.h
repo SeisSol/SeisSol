@@ -23,7 +23,7 @@ class RateAndStateInitializer : public BaseDRInitializer {
   /**
    * Computes initial friction and slip rates
    */
-  void initializeFault(DynamicRupture::Tree* dynRupTree) override;
+  void initializeFault(DynamicRupture::Storage* dynRupTree) override;
 
   protected: /**
               * Adds the additional parameters sl0, rs_a
@@ -119,7 +119,7 @@ class ThermalPressurizationInitializer {
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(DynamicRupture::Tree* dynRupTree);
+  void initializeFault(DynamicRupture::Storage* dynRupTree);
 
   protected:
   /**
@@ -146,7 +146,7 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateInitiali
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(DynamicRupture::Tree* dynRupTree) override;
+  void initializeFault(DynamicRupture::Storage* dynRupTree) override;
 
   protected:
   /**
@@ -171,7 +171,7 @@ class RateAndStateFastVelocityThermalPressurizationInitializer
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(DynamicRupture::Tree* dynRupTree) override;
+  void initializeFault(DynamicRupture::Storage* dynRupTree) override;
 
   protected:
   /**

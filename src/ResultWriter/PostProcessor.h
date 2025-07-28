@@ -38,8 +38,8 @@ class PostProcessor {
   void setIntegrationMask(const std::array<bool, 9>& integrationMask);
   [[nodiscard]] int getNumberOfVariables() const;
   void getIntegrationMask(bool* transferTo);
-  void allocateMemory(LTS::Tree* ltsTree) const;
-  const real* getIntegrals(LTS::Tree* ltsTree) const;
+  void allocateMemory(LTS::Storage* ltsTree) const;
+  const real* getIntegrals(LTS::Storage* ltsTree) const;
 };
 
 } // namespace seissol::writer

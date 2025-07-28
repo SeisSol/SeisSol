@@ -17,7 +17,6 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
 
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Module.h"
@@ -60,9 +59,9 @@ struct EnergiesStorage {
 class EnergyOutput : public Module {
   public:
   void init(GlobalData* newGlobal,
-            DynamicRupture::Tree* newDynRuptTree,
+            DynamicRupture::Storage* newDynRuptTree,
             seissol::geometry::MeshReader* newMeshReader,
-            LTS::Tree* newLtsTree,
+            LTS::Storage* newLtsTree,
             bool newIsPlasticityEnabled,
             const std::string& outputFileNamePrefix,
             const seissol::initializer::parameters::EnergyOutputParameters& parameters);
@@ -124,9 +123,9 @@ class EnergyOutput : public Module {
 #endif
 
   const GlobalData* global = nullptr;
-  DynamicRupture::Tree* dynRupTree = nullptr;
+  DynamicRupture::Storage* dynRupTree = nullptr;
   seissol::geometry::MeshReader* meshReader = nullptr;
-  LTS::Tree* ltsTree = nullptr;
+  LTS::Storage* ltsTree = nullptr;
 
   EnergiesStorage energiesStorage{};
   std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold;

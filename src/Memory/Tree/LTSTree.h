@@ -61,7 +61,7 @@ void initAssign(T& target, const T& value) {
 }
 
 template <typename VarmapT = GenericVarmap>
-class LTSTree {
+class Storage {
   private:
   std::vector<DualMemoryContainer> memoryContainer;
   std::vector<MemoryInfo> memoryInfo;
@@ -124,9 +124,9 @@ class LTSTree {
   std::vector<Layer<VarmapT>> layers;
 
   public:
-  LTSTree() { memoryInfo.resize(VarmapT::MinSize); }
+  Storage() { memoryInfo.resize(VarmapT::MinSize); }
 
-  ~LTSTree() = default;
+  ~Storage() = default;
 
   [[nodiscard]] const LTSColorMap& getColorMap() const { return map.value(); }
 
@@ -399,11 +399,11 @@ class LTSTree {
 
   class IteratorWrapper {
 private:
-    LTSTree<VarmapT>& node;
+    Storage<VarmapT>& node;
     std::function<bool(const Layer<VarmapT>&)> filter;
 
 public:
-    IteratorWrapper(LTSTree<VarmapT>& node, std::function<bool(const Layer<VarmapT>&)> filter)
+    IteratorWrapper(Storage<VarmapT>& node, std::function<bool(const Layer<VarmapT>&)> filter)
         : node(node), filter(filter) {}
 
     auto begin() {
@@ -415,11 +415,11 @@ public:
 
   class IteratorWrapperConst {
 private:
-    const LTSTree<VarmapT>& node;
+    const Storage<VarmapT>& node;
     std::function<bool(const Layer<VarmapT>&)> filter;
 
 public:
-    IteratorWrapperConst(const LTSTree<VarmapT>& node,
+    IteratorWrapperConst(const Storage<VarmapT>& node,
                          std::function<bool(const Layer<VarmapT>&)> filter)
         : node(node), filter(filter) {}
 

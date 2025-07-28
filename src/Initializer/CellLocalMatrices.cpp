@@ -132,7 +132,7 @@ Eigen::Matrix<T, N, N>
 namespace seissol::initializer {
 
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
-                                 LTS::Tree& ltsTree,
+                                 LTS::Storage& ltsTree,
                                  const ClusterLayout& clusterLayout,
                                  const parameters::ModelParameters& modelParameters) {
   const std::vector<Element>& elements = meshReader.getElements();
@@ -362,7 +362,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
                                 const EasiBoundary* easiBoundary,
-                                LTS::Tree& ltsTree) {
+                                LTS::Storage& ltsTree) {
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
 
@@ -447,9 +447,9 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 }
 
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
-                                      LTS::Tree& ltsTree,
+                                      LTS::Storage& ltsTree,
                                       const LTS::Backmap& backmap,
-                                      DynamicRupture::Tree& dynRupTree,
+                                      DynamicRupture::Storage& dynRupTree,
                                       unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
                                       double etaHack) {

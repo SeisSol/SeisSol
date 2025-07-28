@@ -36,9 +36,9 @@
 using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
-void ReceiverOutput::setLtsData(LTS::Tree* userWpTree,
+void ReceiverOutput::setLtsData(LTS::Storage* userWpTree,
                                 LTS::Backmap* userWpLut,
-                                DynamicRupture::Tree* userDrTree) {
+                                DynamicRupture::Storage* userDrTree) {
   wpTree = userWpTree;
   wpLut = userWpLut;
   drTree = userDrTree;

@@ -27,7 +27,7 @@
 #include <vector>
 
 namespace seissol::dr::initializer {
-void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Tree* const dynRupTree) {
+void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage* const dynRupTree) {
   logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
             << " points.";
   for (auto& layer : dynRupTree->leaves(Ghost)) {

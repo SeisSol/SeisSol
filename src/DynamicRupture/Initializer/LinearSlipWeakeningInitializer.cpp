@@ -20,7 +20,7 @@
 
 namespace seissol::dr::initializer {
 
-void LinearSlipWeakeningInitializer::initializeFault(DynamicRupture::Tree* const dynRupTree) {
+void LinearSlipWeakeningInitializer::initializeFault(DynamicRupture::Storage* const dynRupTree) {
   BaseDRInitializer::initializeFault(dynRupTree);
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     bool (*dynStressTimePending)[misc::NumPaddedPoints] =
@@ -67,7 +67,7 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
 }
 
 void LinearSlipWeakeningBimaterialInitializer::initializeFault(
-    DynamicRupture::Tree* const dynRupTree) {
+    DynamicRupture::Storage* const dynRupTree) {
   LinearSlipWeakeningInitializer::initializeFault(dynRupTree);
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     real(*regularizedStrength)[misc::NumPaddedPoints] =

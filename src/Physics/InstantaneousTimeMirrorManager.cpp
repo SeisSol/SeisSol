@@ -26,7 +26,7 @@ namespace seissol::ITM {
 void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
                                           double triggerTime,
                                           seissol::geometry::MeshReader* meshReader,
-                                          LTS::Tree* ltsTree,
+                                          LTS::Storage* ltsTree,
                                           const initializer::ClusterLayout* clusterLayout) {
   isEnabled = true; // This is to sync just before and after the ITM. This does not toggle the ITM.
                     // Need this by default as true for it to work.
@@ -215,7 +215,7 @@ void InstantaneousTimeMirrorManager::setClusterVector(
 void initializeTimeMirrorManagers(double scalingFactor,
                                   double triggerTime,
                                   seissol::geometry::MeshReader* meshReader,
-                                  LTS::Tree* ltsTree,
+                                  LTS::Storage* ltsTree,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
                                   seissol::SeisSol& seissolInstance,

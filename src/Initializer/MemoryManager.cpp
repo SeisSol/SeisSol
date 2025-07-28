@@ -563,7 +563,7 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
 }
 
 #ifdef ACL_DEVICE
-void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Tree& ltsTree) {
+void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsTree) {
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
@@ -677,7 +677,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
 }
 
 void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(
-    DynamicRupture::Tree& ltsTree) {
+    DynamicRupture::Storage& ltsTree) {
   constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
   for (auto& layer : ltsTree.leaves()) {
     const auto layerSize = layer.size();

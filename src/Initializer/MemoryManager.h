@@ -24,7 +24,6 @@
 #include "Memory/MemoryAllocator.h"
 
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Initializer/InputAux.h"
 #include "Memory/Descriptor/Boundary.h"
@@ -105,23 +104,23 @@ class MemoryManager {
     GlobalData            m_globalDataOnDevice;
 
     //! Memory organization tree
-    LTS::Tree               m_ltsTree;
+    LTS::Storage               m_ltsTree;
     LTS::Backmap backmap;
 
     std::optional<ClusterLayout> clusterLayout;
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
-    DynamicRupture::Tree m_dynRupTree;
+    DynamicRupture::Storage m_dynRupTree;
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
     std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLawDevice = nullptr;
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
 
-    Boundary::Tree m_boundaryTree;
+    Boundary::Storage m_boundaryTree;
 
-    SurfaceLTS::Tree surfaceTree;
+    SurfaceLTS::Storage surfaceTree;
 
     EasiBoundary m_easiBoundary;
 
@@ -208,7 +207,7 @@ class MemoryManager {
       return global;
     }
                           
-    LTS::Tree& getLtsTree() {
+    LTS::Storage& getLtsTree() {
       return m_ltsTree;
     }
 
@@ -216,7 +215,7 @@ class MemoryManager {
       return backmap;
     }
 
-    DynamicRupture::Tree& getDynamicRuptureTree() {
+    DynamicRupture::Storage& getDynamicRuptureTree() {
       return m_dynRupTree;
     }
 
@@ -224,11 +223,11 @@ class MemoryManager {
       return *m_dynRup;
     }
 
-    Boundary::Tree& getBoundaryTree() {
+    Boundary::Storage& getBoundaryTree() {
       return m_boundaryTree;
     }
 
-    SurfaceLTS::Tree& getSurfaceTree() {
+    SurfaceLTS::Storage& getSurfaceTree() {
       return surfaceTree;
     }
 
@@ -270,12 +269,12 @@ class MemoryManager {
   /**
    * Derives sizes of scratch memory required during computations of Wave Propagation solver
    **/
-  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Tree& ltsTree);
+  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsTree);
 
   /**
    * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
    **/
-  static void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Tree& ltsTree);
+  static void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& ltsTree);
 #endif
 
   void initializeFrictionLaw();

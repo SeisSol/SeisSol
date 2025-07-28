@@ -148,9 +148,9 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   }
 }
 
-void OutputManager::setLtsData(LTS::Tree* userWpTree,
+void OutputManager::setLtsData(LTS::Storage* userWpTree,
                                LTS::Backmap* userWpLut,
-                               DynamicRupture::Tree* userDrTree) {
+                               DynamicRupture::Storage* userDrTree) {
   wpTree = userWpTree;
   wpLut = userWpLut;
   drTree = userDrTree;

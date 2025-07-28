@@ -49,9 +49,9 @@ void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshRead
   localRank = MPI::mpi.rank();
 }
 
-void ReceiverBasedOutputBuilder::setLtsData(LTS::Tree* userWpTree,
+void ReceiverBasedOutputBuilder::setLtsData(LTS::Storage* userWpTree,
                                             LTS::Backmap* userWpLut,
-                                            DynamicRupture::Tree* userDrTree) {
+                                            DynamicRupture::Storage* userDrTree) {
   wpTree = userWpTree;
   wpLut = userWpLut;
   drTree = userDrTree;

@@ -16,7 +16,6 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/MPI.h"
@@ -31,7 +30,9 @@ class ReceiverBasedOutputBuilder {
   virtual void build(std::shared_ptr<ReceiverOutputData> outputData) = 0;
 
   void setMeshReader(const seissol::geometry::MeshReader* reader);
-  void setLtsData(LTS::Tree* userWpTree, LTS::Backmap* userWpLut, DynamicRupture::Tree* userDrTree);
+  void setLtsData(LTS::Storage* userWpTree,
+                  LTS::Backmap* userWpLut,
+                  DynamicRupture::Storage* userDrTree);
 
   void setVariableList(const std::vector<std::size_t>& variables);
   void setFaceToLtsMap(std::vector<std::size_t>* faceToLtsMap);
@@ -49,9 +50,9 @@ class ReceiverBasedOutputBuilder {
   void assignFusedIndices();
 
   const seissol::geometry::MeshReader* meshReader{};
-  LTS::Tree* wpTree;
+  LTS::Storage* wpTree;
   LTS::Backmap* wpLut;
-  DynamicRupture::Tree* drTree;
+  DynamicRupture::Storage* drTree;
   std::shared_ptr<ReceiverOutputData> outputData;
   std::vector<std::size_t> variables;
   std::vector<std::size_t>* faceToLtsMap{nullptr};

@@ -35,12 +35,12 @@ struct SurfaceLTS {
                                                             LocationFlag,
                                                             DisplacementDofs> {};
 
-  using Tree = initializer::LTSTree<SurfaceVarmap>;
+  using Storage = initializer::Storage<SurfaceVarmap>;
   using Layer = initializer::Layer<SurfaceVarmap>;
   using Ref = initializer::Layer<SurfaceVarmap>::CellRef;
   using Backmap = initializer::StorageBackmap<1>;
 
-  static void addTo(Tree& surfaceLtsTree) {
+  static void addTo(Storage& surfaceLtsTree) {
     const seissol::initializer::LayerMask ghostMask(Ghost);
     surfaceLtsTree.add<Dofs>(ghostMask, 1, initializer::AllocationMode::HostOnly);
     surfaceLtsTree.add<Side>(ghostMask, 1, initializer::AllocationMode::HostOnly);
@@ -53,7 +53,7 @@ struct SurfaceLTS {
   }
 
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                          Tree* tree) {
+                                          Storage* tree) {
     manager.registerData<DisplacementDofs>("displacementDofs", tree);
   }
 };

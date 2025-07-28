@@ -22,7 +22,7 @@
 #include <utils/logger.h>
 
 namespace seissol::dr::initializer {
-void RateAndStateInitializer::initializeFault(DynamicRupture::Tree* const dynRupTree) {
+void RateAndStateInitializer::initializeFault(DynamicRupture::Storage* const dynRupTree) {
   BaseDRInitializer::initializeFault(dynRupTree);
 
   for (auto& layer : dynRupTree->leaves(Ghost)) {
@@ -136,7 +136,7 @@ ThermalPressurizationInitializer::ThermalPressurizationInitializer(
     const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters)
     : drParameters(drParameters) {}
 
-void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Tree* const dynRupTree) {
+void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Storage* const dynRupTree) {
   for (auto& layer : dynRupTree->leaves(Ghost)) {
     real(*temperature)[misc::NumPaddedPoints] = layer.var<LTSThermalPressurization::Temperature>();
     real(*pressure)[misc::NumPaddedPoints] = layer.var<LTSThermalPressurization::Pressure>();
@@ -176,7 +176,7 @@ RateAndStateThermalPressurizationInitializer::RateAndStateThermalPressurizationI
       ThermalPressurizationInitializer(drParameters) {}
 
 void RateAndStateThermalPressurizationInitializer::initializeFault(
-    DynamicRupture::Tree* const dynRupTree) {
+    DynamicRupture::Storage* const dynRupTree) {
   RateAndStateInitializer::initializeFault(dynRupTree);
   ThermalPressurizationInitializer::initializeFault(dynRupTree);
 }
@@ -195,7 +195,7 @@ RateAndStateFastVelocityThermalPressurizationInitializer::
       ThermalPressurizationInitializer(drParameters) {}
 
 void RateAndStateFastVelocityThermalPressurizationInitializer::initializeFault(
-    DynamicRupture::Tree* const dynRupTree) {
+    DynamicRupture::Storage* const dynRupTree) {
   RateAndStateFastVelocityInitializer::initializeFault(dynRupTree);
   ThermalPressurizationInitializer::initializeFault(dynRupTree);
 }

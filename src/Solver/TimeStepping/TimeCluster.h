@@ -16,7 +16,6 @@
 
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
 #include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 
