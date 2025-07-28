@@ -256,7 +256,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
       static_cast<real*>(currentLayer->var<LTS::PrevCoefficientsScratch>(AllocationPlace::Device));
 
   real* dofsFaceBoundaryNodalScratch = static_cast<real*>(
-      currentLayer->var(currentHandler->dofsFaceBoundaryNodalScratch, AllocationPlace::Device));
+      currentLayer->var<LTS::DofsFaceBoundaryNodalScratch>(AllocationPlace::Device));
 
   if (size > 0) {
     std::array<std::vector<unsigned>, 4> cellIndices{};
