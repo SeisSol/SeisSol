@@ -29,7 +29,7 @@ class YoffeSTF {
   real evaluate(real currentTime,
                 [[maybe_unused]] real timeIncrement,
                 size_t ltsFace,
-                size_t pointIndex);
+                uint32_t pointIndex);
 };
 
 class GaussianSTF {
@@ -42,7 +42,7 @@ class GaussianSTF {
                           const seissol::initializer::DynamicRupture* dynRup,
                           real fullUpdateTime);
 
-  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);
+  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex);
 };
 
 class DeltaSTF {
@@ -54,7 +54,7 @@ class DeltaSTF {
                           const seissol::initializer::DynamicRupture* dynRup,
                           real fullUpdateTime);
 
-  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, size_t pointIndex);
+  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex);
 };
 
 } // namespace seissol::dr::friction_law::cpu
