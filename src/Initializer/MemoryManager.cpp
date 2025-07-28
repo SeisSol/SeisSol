@@ -421,10 +421,11 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct ClusterLayout& cl
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
     std::iota(clusterMap.begin(), clusterMap.end(), 0);
 
-  LTSColorMap map(initializer::TraitLayer<initializer::ConfigVariant>({Config()}),
-                 initializer::EnumLayer<std::size_t>(clusterMap),
+  LTSColorMap map(
                  initializer::EnumLayer<HaloType>(
-                     {HaloType::Ghost, HaloType::Copy, HaloType::Interior}));
+                     {HaloType::Ghost, HaloType::Copy, HaloType::Interior}),
+                 initializer::EnumLayer<std::size_t>(clusterMap),
+                     initializer::TraitLayer<initializer::ConfigVariant>({Config()}));
 
   m_ltsTree.setLayerCount(map);
 

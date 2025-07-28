@@ -460,14 +460,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
   const auto& fault = meshReader.getFault();
   const auto& elements = meshReader.getElements();
-  auto* drMapping = ltsTree->var<LTS::DRMapping>();
-  auto* drMappingDevice = ltsTree->var<LTS::DRMappingDevice>();
-  auto* material = ltsTree->var<LTS::Material>();
-  auto* derivatives = ltsTree->var<LTS::Derivatives>();
-  auto* faceNeighbors = ltsTree->var<LTS::FaceNeighbors>();
-  auto* derivativesDevice = ltsTree->var<LTS::DerivativesDevice>();
-  auto* faceNeighborsDevice = ltsTree->var<LTS::FaceNeighborsDevice>();
-  auto* cellInformation = ltsTree->var<LTS::CellInformation>();
 
   unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 

@@ -154,9 +154,9 @@ void ProxyData::initGlobalData() {
 
 void ProxyData::initDataStructures(bool enableDR) {
   const initializer::LTSColorMap map(
-      initializer::TraitLayer<initializer::ConfigVariant>({Config()}),
+      initializer::EnumLayer<HaloType>({HaloType::Interior}),
       initializer::EnumLayer<std::size_t>({0}),
-      initializer::EnumLayer<HaloType>({HaloType::Interior}));
+      initializer::TraitLayer<initializer::ConfigVariant>({Config()}));
 
   // init RNG
   LTS::addTo(ltsTree, false); // proxy does not use plasticity

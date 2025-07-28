@@ -193,19 +193,19 @@ struct LayerIdentifier {
   LayerIdentifier(HaloType halo, ConfigVariant config, std::size_t lts)
       : halo(halo), config(config), lts(lts) {}
 
-  [[nodiscard]] std::tuple<ConfigVariant, std::size_t, HaloType> toTuple() const {
-    return {config, lts, halo};
+  [[nodiscard]] std::tuple<HaloType, std::size_t, ConfigVariant> toTuple() const {
+    return {halo, lts, config};
   }
 
-  static LayerIdentifier fromTuple(const std::tuple<ConfigVariant, std::size_t, HaloType>& tuple) {
-    return LayerIdentifier(std::get<2>(tuple), std::get<0>(tuple), std::get<1>(tuple));
+  static LayerIdentifier fromTuple(const std::tuple<HaloType, std::size_t, ConfigVariant>& tuple) {
+    return LayerIdentifier(std::get<0>(tuple), std::get<2>(tuple), std::get<1>(tuple));
   }
 };
 
 using LTSColorMap = ColorMap<LayerIdentifier,
-                             TraitLayer<ConfigVariant>,
+                             EnumLayer<HaloType>,
                              EnumLayer<std::size_t>,
-                             EnumLayer<HaloType>>;
+                             TraitLayer<ConfigVariant>>;
 
 // to get a full layer representation (including Copy, Ghost, Interior), do
 // ColorMap<EnumLayer<SupportedConfigs>, RangeLayer, EnumLayer<LayerType>> to also take into account

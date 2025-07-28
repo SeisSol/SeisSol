@@ -13,6 +13,7 @@
 #include <limits>
 #include <optional>
 #include <utility>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::initializer {
@@ -96,15 +97,15 @@ class StorageBackmap {
     const auto position =
         static_cast<std::size_t>((layerData + index) - zeroPosition) / sizeof(TRef);
     const auto storagePosition = StoragePosition{color, index, position};
-    std::size_t j = 0;
-    for (j = 0; j < MaxDuplicates; ++j) {
+    for (std::size_t j = 0; j < MaxDuplicates; ++j) {
       if (data[cell][j] == StoragePosition::NullPosition) {
         data[cell][j] = storagePosition;
-        break;
+        return j;
       }
     }
-    assert(j < MaxDuplicates);
-    return j;
+    logError() << "Backmap has stored more than" << MaxDuplicates << "duplicates for" << cell
+               << ". Out of capacity.";
+    throw;
   }
 };
 
