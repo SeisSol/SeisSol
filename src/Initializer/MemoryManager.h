@@ -118,7 +118,6 @@ class MemoryManager {
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLawDevice = nullptr;
     std::unique_ptr<dr::output::OutputManager> m_faultOutputManager = nullptr;
-    std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> m_seissolParams = nullptr;
 
     Boundary::Tree m_boundaryTree;
 
@@ -166,12 +165,12 @@ class MemoryManager {
     /**
      * Constructor
      **/
-    MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {};
+    MemoryManager(seissol::SeisSol& instance) : seissolInstance(instance) {}
 
     /**
      * Destructor, memory is freed by managed allocator
      **/
-    ~MemoryManager() {}
+    ~MemoryManager() = default;
     
     /**
      * Initialization function, which allocates memory for the global matrices and initializes them.
@@ -197,21 +196,6 @@ class MemoryManager {
     void initializeMemoryLayout();
 
     /**
-     * Gets global data on the host.
-     **/
-    GlobalData* getGlobalDataOnHost() {
-      return &m_globalDataOnHost;
-    }
-
-    /**
-     * Gets the global data on device.
-     **/
-    GlobalData* getGlobalDataOnDevice() {
-      assert(seissol::isDeviceOn() && "application is not compiled for acceleration device");
-      return &m_globalDataOnDevice;
-    }
-
-    /**
      * Gets the global data on both host and device.
     **/
     CompoundGlobalData getGlobalData() {
@@ -224,23 +208,23 @@ class MemoryManager {
       return global;
     }
                           
-    inline LTS::Tree& getLtsTree() {
+    LTS::Tree& getLtsTree() {
       return m_ltsTree;
     }
 
-    inline LTS::Backmap& getBackmap() {
+    LTS::Backmap& getBackmap() {
       return backmap;
     }
 
-    inline DynamicRupture::Tree& getDynamicRuptureTree() {
+    DynamicRupture::Tree& getDynamicRuptureTree() {
       return m_dynRupTree;
     }
 
-    inline DynamicRupture& getDynamicRupture() {
+    DynamicRupture& getDynamicRupture() {
       return *m_dynRup;
     }
 
-    inline Boundary::Tree& getBoundaryTree() {
+    Boundary::Tree& getBoundaryTree() {
       return m_boundaryTree;
     }
 
@@ -248,58 +232,36 @@ class MemoryManager {
       return surfaceTree;
     }
 
-    inline void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
+    void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
       m_iniConds = std::move(iniConds);
     }
 
-    inline const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
+    const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
       return m_iniConds;
     }
 
-    inline void setLtsToFace(unsigned int* ptr) {
+    void setLtsToFace(unsigned int* ptr) {
       ltsToFace = ptr;
     }
 
-    inline unsigned int* ltsToFaceMap() const {
+    unsigned int* ltsToFaceMap() const {
       return ltsToFace;
     }
 
     void initializeEasiBoundaryReader(const char* fileName);
 
-    inline EasiBoundary* getEasiBoundaryReader() {
+    EasiBoundary* getEasiBoundaryReader() {
       return &m_easiBoundary;
     }
 
-    inline dr::friction_law::FrictionSolver* getFrictionLaw() {
+    dr::friction_law::FrictionSolver* getFrictionLaw() {
         return m_FrictionLaw.get();
     }
-    inline dr::friction_law::FrictionSolver* getFrictionLawDevice() {
+    dr::friction_law::FrictionSolver* getFrictionLawDevice() {
         return m_FrictionLawDevice.get();
     }
-    inline  dr::initializer::BaseDRInitializer* getDRInitializer() {
-        return m_DRInitializer.get();
-    }
-    inline seissol::dr::output::OutputManager* getFaultOutputManager() {
+    seissol::dr::output::OutputManager* getFaultOutputManager() {
         return m_faultOutputManager.get();
-    }
-    inline seissol::initializer::parameters::DRParameters* getDRParameters() {
-        return &(m_seissolParams->drParameters);
-    }
-
-    inline seissol::initializer::parameters::LtsParameters* getLtsParameters() {
-        return &(m_seissolParams->timeStepping.lts);
-    };
-
-    void setInputParams(std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> params) {
-      m_seissolParams = std::move(params);
-    }
-
-    std::string getOutputPrefix() const {
-      return m_seissolParams->output.prefix;
-    }
-
-    bool isLoopStatisticsNetcdfOutputOn() const {
-      return m_seissolParams->output.loopStatisticsNetcdfOutput;
     }
 
 #ifdef ACL_DEVICE

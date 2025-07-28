@@ -111,9 +111,6 @@ bool SeisSol::init(int argc, char* argv[]) {
 
   m_memoryManager->initialize();
 
-  m_memoryManager->setInputParams(
-      std::make_shared<seissol::initializer::parameters::SeisSolParameters>(m_seissolParameters));
-
   return true;
 }
 

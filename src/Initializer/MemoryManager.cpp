@@ -822,7 +822,8 @@ bool seissol::initializer::requiresNodalFlux(FaceType f) {
 }
 
 void seissol::initializer::MemoryManager::initializeFrictionLaw() {
-  const auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(m_seissolParams->drParameters);
+  const auto& params = seissolInstance.getSeisSolParameters().drParameters;
+  const auto drParameters = std::make_shared<seissol::initializer::parameters::DRParameters>(params);
   logInfo() << "Initialize Friction Model";
 
   logInfo() << "Friction law:" << dr::misc::frictionLawName(drParameters->frictionLawType).c_str()
@@ -839,8 +840,9 @@ void seissol::initializer::MemoryManager::initializeFrictionLaw() {
 }
 
 void seissol::initializer::MemoryManager::initFaultOutputManager(const std::string& backupTimeStamp) {
+  const auto& params = seissolInstance.getSeisSolParameters().drParameters;
   // TODO: switch m_dynRup to shared or weak pointer
-  if (m_seissolParams->drParameters.isDynamicRuptureEnabled) {
+  if (params.isDynamicRuptureEnabled) {
     m_faultOutputManager->setInputParam(seissolInstance.meshReader());
     m_faultOutputManager->setLtsData(&m_ltsTree,
                                      &backmap,
@@ -853,7 +855,8 @@ void seissol::initializer::MemoryManager::initFaultOutputManager(const std::stri
 
 
 void seissol::initializer::MemoryManager::initFrictionData() {
-  if (m_seissolParams->drParameters.isDynamicRuptureEnabled) {
+  const auto& params = seissolInstance.getSeisSolParameters().drParameters;
+  if (params.isDynamicRuptureEnabled) {
 
     m_DRInitializer->initializeFault(&m_dynRupTree);
 

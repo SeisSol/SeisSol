@@ -68,7 +68,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // store the time stepping
   this->clusterLayout = clusterLayout;
 
-  auto clusteringWriter = writer::ClusteringWriter(memoryManager.getOutputPrefix());
+  auto clusteringWriter =
+      writer::ClusteringWriter(seissolInstance.getSeisSolParameters().output.prefix);
 
   std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
 

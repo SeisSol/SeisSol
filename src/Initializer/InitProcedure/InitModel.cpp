@@ -217,7 +217,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                                          memoryManager.getBackmap(),
                                                          memoryManager.getDynamicRuptureTree(),
                                                          ltsInfo.ltsMeshToFace,
-                                                         *memoryManager.getGlobalDataOnHost(),
+                                                         *memoryManager.getGlobalData().onHost,
                                                          seissolParams.drParameters.etaHack);
 
   memoryManager.initFrictionData();
