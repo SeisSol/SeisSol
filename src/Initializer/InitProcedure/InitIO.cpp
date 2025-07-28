@@ -44,10 +44,10 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   auto& checkpoint = seissolInstance.getOutputManager().getCheckpointManager();
 
   {
-    auto* tree = seissolInstance.getMemoryManager().getLtsTree();
-    std::vector<std::size_t> globalIds(tree->size(seissol::initializer::LayerMask(Ghost)));
+    auto& tree = seissolInstance.getMemoryManager().getLtsTree();
+    std::vector<std::size_t> globalIds(tree.size(seissol::initializer::LayerMask(Ghost)));
     std::size_t offset = 0;
-    for (const auto& layer : tree->leaves(Ghost)) {
+    for (const auto& layer : tree.leaves(Ghost)) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
@@ -57,15 +57,15 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       }
       offset += layer.size();
     }
-    checkpoint.registerTree("lts", tree, globalIds);
-    LTS::registerCheckpointVariables(checkpoint, tree);
+    checkpoint.registerTree("lts", &tree, globalIds);
+    LTS::registerCheckpointVariables(checkpoint, &tree);
   }
 
   {
-    auto* tree = seissolInstance.getMemoryManager().getDynamicRuptureTree();
-    auto* dynrup = seissolInstance.getMemoryManager().getDynamicRupture();
-    std::vector<std::size_t> faceIdentifiers(tree->size(seissol::initializer::LayerMask(Ghost)));
-    const auto* drFaceInformation = tree->var<DynamicRupture::FaceInformation>();
+    auto& tree = seissolInstance.getMemoryManager().getDynamicRuptureTree();
+    auto& dynrup = seissolInstance.getMemoryManager().getDynamicRupture();
+    std::vector<std::size_t> faceIdentifiers(tree.size(seissol::initializer::LayerMask(Ghost)));
+    const auto* drFaceInformation = tree.var<DynamicRupture::FaceInformation>();
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
@@ -77,15 +77,15 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       // theorem)
       faceIdentifiers[i] = fault.globalId * 4 + fault.side;
     }
-    checkpoint.registerTree("dynrup", tree, faceIdentifiers);
-    dynrup->registerCheckpointVariables(checkpoint, tree);
+    checkpoint.registerTree("dynrup", &tree, faceIdentifiers);
+    dynrup.registerCheckpointVariables(checkpoint, &tree);
   }
 
   {
-    auto* tree = seissolInstance.getMemoryManager().getSurfaceTree();
-    std::vector<std::size_t> faceIdentifiers(tree->size(seissol::initializer::LayerMask(Ghost)));
-    const auto* meshIds = tree->var<SurfaceLTS::MeshId>();
-    const auto* sides = tree->var<SurfaceLTS::Side>();
+    auto& tree = seissolInstance.getMemoryManager().getSurfaceTree();
+    std::vector<std::size_t> faceIdentifiers(tree.size(seissol::initializer::LayerMask(Ghost)));
+    const auto* meshIds = tree.var<SurfaceLTS::MeshId>();
+    const auto* sides = tree.var<SurfaceLTS::Side>();
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
@@ -93,8 +93,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       // same as for DR
       faceIdentifiers[i] = meshIds[i] * 4 + static_cast<std::size_t>(sides[i]);
     }
-    checkpoint.registerTree("surface", tree, faceIdentifiers);
-    SurfaceLTS::registerCheckpointVariables(checkpoint, tree);
+    checkpoint.registerTree("surface", &tree, faceIdentifiers);
+    SurfaceLTS::registerCheckpointVariables(checkpoint, &tree);
   }
 
   const auto& checkpointFile = seissolInstance.getCheckpointLoadFile();
@@ -113,10 +113,10 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   auto& memoryManager = seissolInstance.getMemoryManager();
-  auto* ltsTree = memoryManager.getLtsTree();
-  auto* backmap = &memoryManager.getBackmap();
-  auto* dynRup = memoryManager.getDynamicRupture();
-  auto* dynRupTree = memoryManager.getDynamicRuptureTree();
+  auto& ltsTree = memoryManager.getLtsTree();
+  auto& backmap = memoryManager.getBackmap();
+  auto& dynRup = memoryManager.getDynamicRupture();
+  auto& dynRupTree = memoryManager.getDynamicRuptureTree();
   auto* globalData = memoryManager.getGlobalDataOnHost();
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
@@ -136,10 +136,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       ltsClusteringData[element.localId] = element.clusterId;
       ltsIdData[element.localId] = element.globalId;
     }
-    auto* tree = seissolInstance.getMemoryManager().getLtsTree();
-    std::vector<std::size_t> meshToLts(tree->size(seissol::initializer::LayerMask(Ghost)));
+    std::vector<std::size_t> meshToLts(ltsTree.size(seissol::initializer::LayerMask(Ghost)));
     std::size_t offset = 0;
-    for (auto& layer : tree->leaves(Ghost)) {
+    for (auto& layer : ltsTree.leaves(Ghost)) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
@@ -158,9 +157,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         seissolInstance.meshReader(),
         ltsClusteringData,
         ltsIdData,
-        reinterpret_cast<const real*>(ltsTree->var<LTS::Dofs>()),
-        reinterpret_cast<const real*>(ltsTree->var<LTS::PStrain>()),
-        seissolInstance.postProcessor().getIntegrals(ltsTree),
+        reinterpret_cast<const real*>(ltsTree.var<LTS::Dofs>()),
+        reinterpret_cast<const real*>(ltsTree.var<LTS::PStrain>()),
+        seissolInstance.postProcessor().getIntegrals(&ltsTree),
         meshToLts.data(),
         seissolParams.output.waveFieldParameters,
         seissolParams.output.xdmfWriterBackend,
@@ -276,10 +275,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           writer.addPointData<real>(
               namewrap(seissol::model::MaterialT::Quantities[quantity], sim),
               {},
-              [=](real* target, std::size_t index) {
-                const auto position = backmap->get(cellIndices[index]);
+              [=, &ltsTree, &backmap](real* target, std::size_t index) {
+                const auto position = backmap.get(cellIndices[index]);
                 const auto* dofsAllQuantities =
-                    ltsTree->layer(position.color).var<LTS::Dofs>()[position.cell];
+                    ltsTree.layer(position.color).var<LTS::Dofs>()[position.cell];
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume vtkproj{};
                 memory::AlignedArray<real, multisim::NumSimulations> simselect;
@@ -300,10 +299,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
             writer.addPointData<real>(
                 namewrap(seissol::model::PlasticityData::Quantities[quantity], sim),
                 {},
-                [=](real* target, std::size_t index) {
-                  const auto position = backmap->get(cellIndices[index]);
+                [=, &ltsTree, &backmap](real* target, std::size_t index) {
+                  const auto position = backmap.get(cellIndices[index]);
                   const auto* dofsAllQuantities =
-                      ltsTree->layer(position.color).var<LTS::PStrain>()[position.cell];
+                      ltsTree.layer(position.color).var<LTS::PStrain>()[position.cell];
                   const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                   kernel::projectBasisToVtkVolume vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect;
@@ -403,11 +402,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         writer.addPointData<real>(
             namewrap(quantityLabels[quantity], sim),
             {},
-            [=, &freeSurfaceIntegrator](real* target, std::size_t index) {
+            [=, &freeSurfaceIntegrator, &ltsTree, &backmap](real* target, std::size_t index) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-              const auto position = backmap->get(meshId);
-              const auto* dofsAllQuantities = ltsTree->lookup<LTS::Dofs>(position);
+              const auto position = backmap.get(meshId);
+              const auto* dofsAllQuantities = ltsTree.lookup<LTS::Dofs>(position);
               const auto* dofsSingleQuantity =
                   dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
               kernel::projectBasisToVtkFaceFromVolume vtkproj{};
@@ -430,11 +429,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 quantityLabels[quantity + seissol::solver::FreeSurfaceIntegrator::NumComponents],
                 sim),
             {},
-            [=, &freeSurfaceIntegrator](real* target, std::size_t index) {
+            [=, &freeSurfaceIntegrator, &ltsTree, &backmap](real* target, std::size_t index) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
-              const auto position = backmap->get(meshId);
-              const auto* faceDisplacements = ltsTree->lookup<LTS::FaceDisplacements>(position);
+              const auto position = backmap.get(meshId);
+              const auto* faceDisplacements = ltsTree.lookup<LTS::FaceDisplacements>(position);
               const auto* faceDisplacementVariable =
                   faceDisplacements[side] + FaceDisplacementPadded * quantity;
               kernel::projectNodalToVtkFace vtkproj{};
@@ -460,7 +459,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     receiverWriter.init(seissolParams.output.prefix,
                         seissolParams.timeStepping.endTime,
                         seissolParams.output.receiverParameters);
-    receiverWriter.addPoints(seissolInstance.meshReader(), *backmap, memoryManager.getGlobalData());
+    receiverWriter.addPoints(seissolInstance.meshReader(), backmap, memoryManager.getGlobalData());
     seissolInstance.timeManager().setReceiverClusters(receiverWriter);
   }
 
@@ -468,9 +467,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     auto& energyOutput = seissolInstance.energyOutput();
 
     energyOutput.init(globalData,
-                      dynRupTree,
+                      &dynRupTree,
                       &seissolInstance.meshReader(),
-                      ltsTree,
+                      &ltsTree,
                       seissolParams.model.plasticity,
                       seissolParams.output.prefix,
                       seissolParams.output.energyParameters);

@@ -185,6 +185,19 @@ class LTSTree {
     return static_cast<typename StorageT::Type*>(memoryContainer[index].get(place));
   }
 
+  template <typename HandleT>
+  const typename HandleT::Type* var(const HandleT& handle,
+                                    AllocationPlace place = AllocationPlace::Host) const {
+    return static_cast<typename HandleT::Type*>(varUntyped(varmap.index(handle), place));
+  }
+
+  template <typename StorageT>
+  const typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
+    const auto index = varmap.template index<StorageT>();
+    assert(memoryContainer.size() > index);
+    return static_cast<typename StorageT::Type*>(memoryContainer[index].get(place));
+  }
+
   template <typename StorageT>
   void varSynchronizeTo(AllocationPlace place, void* stream) {
     const auto index = varmap.template index<StorageT>();

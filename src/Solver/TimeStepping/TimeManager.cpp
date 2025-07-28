@@ -78,9 +78,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     const auto ghostId = initializer::LayerIdentifier(HaloType::Ghost, Config(), clusterId);
 
     const long numberOfDynRupCells =
-        memoryManager.getDynamicRuptureTree()->layer(interiorId).size() +
-        memoryManager.getDynamicRuptureTree()->layer(copyId).size() +
-        memoryManager.getDynamicRuptureTree()->layer(ghostId).size();
+        memoryManager.getDynamicRuptureTree().layer(interiorId).size() +
+        memoryManager.getDynamicRuptureTree().layer(copyId).size() +
+        memoryManager.getDynamicRuptureTree().layer(ghostId).size();
 
     if (numberOfDynRupCells > 0) {
       drClusterOutput = clusterId;
@@ -110,9 +110,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
     // Note: We need to include the Ghost part, as we need to compute its DR part as well.
     const long numberOfDynRupCells =
-        memoryManager.getDynamicRuptureTree()->layer(interiorId).size() +
-        memoryManager.getDynamicRuptureTree()->layer(copyId).size() +
-        memoryManager.getDynamicRuptureTree()->layer(ghostId).size();
+        memoryManager.getDynamicRuptureTree().layer(interiorId).size() +
+        memoryManager.getDynamicRuptureTree().layer(copyId).size() +
+        memoryManager.getDynamicRuptureTree().layer(ghostId).size();
 
     const bool isFirstDynamicRuptureCluster = drClusterOutput == clusterId;
     auto& drScheduler =
@@ -126,9 +126,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       const bool printProgress =
           (clusterId == clusterLayout.globalClusterCount - 1) && (type == Interior);
       const auto profilingId = clusterId + offsetMonitoring;
-      auto* layerData = &memoryManager.getLtsTree()->layer(type == Copy ? copyId : interiorId);
-      auto* dynRupInteriorData = &memoryManager.getDynamicRuptureTree()->layer(interiorId);
-      auto* dynRupCopyData = &memoryManager.getDynamicRuptureTree()->layer(copyId);
+      auto* layerData = &memoryManager.getLtsTree().layer(type == Copy ? copyId : interiorId);
+      auto* dynRupInteriorData = &memoryManager.getDynamicRuptureTree().layer(interiorId);
+      auto* dynRupCopyData = &memoryManager.getDynamicRuptureTree().layer(copyId);
       clusters.push_back(
           std::make_unique<TimeCluster>(clusterId,
                                         clusterId,

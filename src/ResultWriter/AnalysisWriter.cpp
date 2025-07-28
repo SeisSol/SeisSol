@@ -92,7 +92,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
   const auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
-  auto& ltsTree = *seissolInstance.getMemoryManager().getLtsTree();
+  auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
   auto* globalData = seissolInstance.getMemoryManager().getGlobalDataOnHost();
 
   const std::vector<Vertex>& vertices = meshReader->getVertices();

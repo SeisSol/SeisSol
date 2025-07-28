@@ -96,7 +96,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
   const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
 
   const auto position = backmap.get(meshId);
-  auto& ltsTree = *seissolInstance.getMemoryManager().getLtsTree();
+  auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
   m_receivers.emplace_back(pointId,
                            point,
                            coords,

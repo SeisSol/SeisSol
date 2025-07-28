@@ -57,7 +57,7 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
 
   logInfo() << "Updating CellLocalMatrices";
   initializer::initializeCellLocalMatrices(
-      *meshReader, ltsTree, *clusterLayout, seissolInstance.getSeisSolParameters().model);
+      *meshReader, *ltsTree, *clusterLayout, seissolInstance.getSeisSolParameters().model);
   // An empty timestepping is added. Need to discuss what exactly is to be sent here
 
   logInfo() << "Updating TimeSteps by a factor of " << 1 / velocityScalingFactor;

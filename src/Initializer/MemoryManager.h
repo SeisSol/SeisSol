@@ -32,6 +32,7 @@
 
 #include "Physics/InitialField.h"
 
+#include <utility>
 #include <vector>
 #include <memory>
 
@@ -223,28 +224,28 @@ class MemoryManager {
       return global;
     }
                           
-    inline LTS::Tree* getLtsTree() {
-      return &m_ltsTree;
+    inline LTS::Tree& getLtsTree() {
+      return m_ltsTree;
     }
 
     inline LTS::Backmap& getBackmap() {
       return backmap;
     }
 
-    inline DynamicRupture::Tree* getDynamicRuptureTree() {
-      return &m_dynRupTree;
+    inline DynamicRupture::Tree& getDynamicRuptureTree() {
+      return m_dynRupTree;
     }
 
-    inline DynamicRupture* getDynamicRupture() {
-      return m_dynRup.get();
+    inline DynamicRupture& getDynamicRupture() {
+      return *m_dynRup;
     }
 
-    inline Boundary::Tree* getBoundaryTree() {
-      return &m_boundaryTree;
+    inline Boundary::Tree& getBoundaryTree() {
+      return m_boundaryTree;
     }
 
-    SurfaceLTS::Tree* getSurfaceTree() {
-      return &surfaceTree;
+    SurfaceLTS::Tree& getSurfaceTree() {
+      return surfaceTree;
     }
 
     inline void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
@@ -290,7 +291,7 @@ class MemoryManager {
     };
 
     void setInputParams(std::shared_ptr<seissol::initializer::parameters::SeisSolParameters> params) {
-      m_seissolParams = params;
+      m_seissolParams = std::move(params);
     }
 
     std::string getOutputPrefix() const {

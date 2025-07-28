@@ -137,7 +137,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   logDebug() << "Setting cell materials in the LTS tree (for interior and copy layers).";
   const auto& elements = meshReader.getElements();
 
-  for (auto& layer : memoryManager.getLtsTree()->leaves(Ghost)) {
+  for (auto& layer : memoryManager.getLtsTree().leaves(Ghost)) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* materialArray = layer.var<LTS::Material>();
@@ -214,7 +214,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
                                                          memoryManager.getLtsTree(),
-                                                         &memoryManager.getBackmap(),
+                                                         memoryManager.getBackmap(),
                                                          memoryManager.getDynamicRuptureTree(),
                                                          ltsInfo.ltsMeshToFace,
                                                          *memoryManager.getGlobalDataOnHost(),
@@ -236,13 +236,13 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
     const double scalingFactor = itmParameters.itmVelocityScalingFactor;
     const double startingTime = itmParameters.itmStartingTime;
 
-    auto* ltsTree = memoryManager.getLtsTree();
+    auto& ltsTree = memoryManager.getLtsTree();
     const auto* timeStepping = &seissolInstance.timeManager().getClusterLayout();
 
     initializeTimeMirrorManagers(scalingFactor,
                                  startingTime,
                                  &meshReader,
-                                 ltsTree,
+                                 &ltsTree,
                                  timeMirrorManagers.first,
                                  timeMirrorManagers.second,
                                  seissolInstance,
@@ -312,13 +312,13 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   delete[] numberOfDRCopyFaces;
   delete[] numberOfDRInteriorFaces;
 
-  const auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
+  auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
 
   std::size_t* ltsToMesh = nullptr;
   std::size_t numberOfMeshCells = 0;
 
-  seissolInstance.getLtsLayout().getCellInformation(ltsTree->var<LTS::CellInformation>(),
-                                                    ltsTree->var<LTS::SecondaryInformation>(),
+  seissolInstance.getLtsLayout().getCellInformation(ltsTree.var<LTS::CellInformation>(),
+                                                    ltsTree.var<LTS::SecondaryInformation>(),
                                                     ltsToMesh,
                                                     numberOfMeshCells);
 
@@ -327,13 +327,13 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   seissol::initializer::time_stepping::deriveLtsSetups(
       ltsInfo.clusterLayout.value().globalClusterCount,
       ltsInfo.meshStructure,
-      ltsTree->var<LTS::CellInformation>(),
-      ltsTree->var<LTS::SecondaryInformation>());
+      ltsTree.var<LTS::CellInformation>(),
+      ltsTree.var<LTS::SecondaryInformation>());
 
   auto& backmap = seissolInstance.getMemoryManager().getBackmap();
   backmap.setSize(numberOfMeshCells);
-  const auto* zero = ltsTree->var<LTS::SecondaryInformation>();
-  for (const auto& layer : ltsTree->leaves(Ghost)) {
+  const auto* zero = ltsTree.var<LTS::SecondaryInformation>();
+  for (const auto& layer : ltsTree.leaves(Ghost)) {
     const auto* zeroLayer = layer.var<LTS::SecondaryInformation>();
     for (std::size_t i = 0; i < layer.size(); ++i) {
       backmap.addElement(layer.id(), zero, zeroLayer, zeroLayer[i].meshId, i);
