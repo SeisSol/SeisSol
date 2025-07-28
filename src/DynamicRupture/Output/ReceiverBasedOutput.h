@@ -24,9 +24,9 @@ class ReceiverOutput {
   public:
   virtual ~ReceiverOutput() = default;
 
-  void setLtsData(LTS::Storage& userWpTree,
-                  LTS::Backmap& userWpLut,
-                  DynamicRupture::Storage& userDrTree);
+  void setLtsData(LTS::Storage& userWpStorage,
+                  LTS::Backmap& userWpBackmap,
+                  DynamicRupture::Storage& userDrStorage);
 
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
@@ -38,9 +38,9 @@ class ReceiverOutput {
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
   protected:
-  LTS::Storage* wpTree{nullptr};
-  LTS::Backmap* wpLut{nullptr};
-  DynamicRupture::Storage* drTree{nullptr};
+  LTS::Storage* wpStorage{nullptr};
+  LTS::Backmap* wpBackmap{nullptr};
+  DynamicRupture::Storage* drStorage{nullptr};
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
   real* deviceCopyMemory{nullptr};
@@ -94,7 +94,7 @@ class ReceiverOutput {
   template <typename T>
   std::remove_extent_t<T>* getCellData(const LocalInfo& local,
                                        const seissol::initializer::Variable<T>& variable) {
-    auto devVar = local.state->deviceVariables.find(drTree->info(variable).index);
+    auto devVar = local.state->deviceVariables.find(drStorage->info(variable).index);
     if (devVar != local.state->deviceVariables.end()) {
       return reinterpret_cast<std::remove_extent_t<T>*>(
           devVar->second->get(local.state->deviceIndices[local.index]));
@@ -105,7 +105,7 @@ class ReceiverOutput {
 
   template <typename StorageT>
   std::remove_extent_t<typename StorageT::Type>* getCellData(const LocalInfo& local) {
-    auto devVar = local.state->deviceVariables.find(drTree->info<StorageT>().index);
+    auto devVar = local.state->deviceVariables.find(drStorage->info<StorageT>().index);
     if (devVar != local.state->deviceVariables.end()) {
       return reinterpret_cast<std::remove_extent_t<typename StorageT::Type>*>(
           devVar->second->get(local.state->deviceIndices[local.index]));

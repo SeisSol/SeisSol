@@ -24,7 +24,7 @@ class FastVelocityWeakeningLaw
   /**
    * Copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
+  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
     this->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>();
   }
 

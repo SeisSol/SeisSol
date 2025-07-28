@@ -113,7 +113,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
                          const GlobalData& globalData,
                          const seissol::geometry::MeshReader& meshReader,
                          seissol::initializer::MemoryManager& memoryManager,
-                         LTS::Storage& tree) {
+                         LTS::Storage& storage) {
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
@@ -124,7 +124,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
   double quadratureWeights[NumQuadPoints];
   seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 
-  for (auto& layer : tree.leaves(Ghost)) {
+  for (auto& layer : storage.leaves(Ghost)) {
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel
     {
@@ -250,7 +250,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const GlobalData& globalData,
                              const seissol::geometry::MeshReader& meshReader,
                              seissol::initializer::MemoryManager& memoryManager,
-                             LTS::Storage& tree,
+                             LTS::Storage& storage,
                              bool needsTime) {
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
@@ -260,7 +260,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
   const auto dataStride = NumQuadPoints * iniFields.size() * model::MaterialT::Quantities.size();
   const auto quantityCount = model::MaterialT::Quantities.size();
 
-  for (auto& layer : tree.leaves(Ghost)) {
+  for (auto& layer : storage.leaves(Ghost)) {
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel
     {

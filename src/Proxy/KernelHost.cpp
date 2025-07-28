@@ -34,7 +34,7 @@
 namespace seissol::proxy {
 void ProxyKernelHostAder::run(ProxyData& data,
                               seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.layer(data.layerId);
+  auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   real** buffers = layer.var<LTS::Buffers>();
   real** derivatives = layer.var<LTS::Derivatives>();
@@ -63,7 +63,7 @@ auto ProxyKernelHostAder::performanceEstimate(ProxyData& data) const -> Performa
   ret.hardwareFlop = 0;
 
   // iterate over cells
-  const auto nrOfCells = data.ltsTree.layer(data.layerId).size();
+  const auto nrOfCells = data.ltsStorage.layer(data.layerId).size();
   for (std::size_t cell = 0; cell < nrOfCells; ++cell) {
     std::uint64_t nonZeroFlops = 0;
     std::uint64_t hardwareFlops = 0;
@@ -81,7 +81,7 @@ auto ProxyKernelHostAder::needsDR() const -> bool { return false; }
 
 void ProxyKernelHostLocalWOAder::run(ProxyData& data,
                                      seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.layer(data.layerId);
+  auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   real** buffers = layer.var<LTS::Buffers>();
 
@@ -108,7 +108,7 @@ auto ProxyKernelHostLocalWOAder::performanceEstimate(ProxyData& data) const -> P
   ret.nonzeroFlop = 0.0;
   ret.hardwareFlop = 0.0;
 
-  auto& layer = data.ltsTree.layer(data.layerId);
+  auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
   for (std::size_t cell = 0; cell < nrOfCells; ++cell) {
@@ -129,7 +129,7 @@ auto ProxyKernelHostLocalWOAder::needsDR() const -> bool { return false; }
 
 void ProxyKernelHostLocal::run(ProxyData& data,
                                seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.layer(data.layerId);
+  auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   real** buffers = layer.var<LTS::Buffers>();
   real** derivatives = layer.var<LTS::Derivatives>();
@@ -156,7 +156,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 
 void ProxyKernelHostNeighbor::run(ProxyData& data,
                                   seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.layer(data.layerId);
+  auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   real*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
   CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
@@ -225,7 +225,7 @@ auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> Perf
   ret.hardwareFlop = 0.0;
 
   // iterate over cells
-  auto& layer = data.ltsTree.layer(data.layerId);
+  auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
   CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
@@ -256,7 +256,7 @@ auto ProxyKernelHostNeighborDR::needsDR() const -> bool { return true; }
 
 void ProxyKernelHostGodunovDR::run(ProxyData& data,
                                    seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layerData = data.dynRupTree.layer(data.layerId);
+  auto& layerData = data.drStorage.layer(data.layerId);
   DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
   DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
   DREnergyOutput* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
@@ -288,7 +288,7 @@ auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> Per
   ret.hardwareFlop = 0.0;
 
   // iterate over cells
-  auto& interior = data.dynRupTree.layer(data.layerId);
+  auto& interior = data.drStorage.layer(data.layerId);
   DRFaceInformation* faceInformation = interior.var<DynamicRupture::FaceInformation>();
   for (std::size_t face = 0; face < interior.size(); ++face) {
     std::uint64_t drNonZeroFlops = 0;

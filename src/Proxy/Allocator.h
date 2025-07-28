@@ -32,8 +32,8 @@ namespace seissol::proxy {
 struct ProxyData {
   std::size_t cellCount;
 
-  LTS::Storage ltsTree;
-  DynamicRupture::Storage dynRupTree;
+  LTS::Storage ltsStorage;
+  DynamicRupture::Storage drStorage;
 
   GlobalData globalDataOnHost;
   GlobalData globalDataOnDevice;

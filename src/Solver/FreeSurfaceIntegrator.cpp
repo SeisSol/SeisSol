@@ -63,9 +63,9 @@ FreeSurfaceIntegrator::~FreeSurfaceIntegrator() {
 
 void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
                                        GlobalData* globalData,
-                                       LTS::Storage& ltsTree,
-                                       SurfaceLTS::Storage& surfaceltsTree) {
-  this->surfaceLtsTree = &surfaceltsTree;
+                                       LTS::Storage& ltsStorage,
+                                       SurfaceLTS::Storage& surfaceStorage) {
+  this->surfaceStorage = &surfaceStorage;
   if (maxRefinementDepth > MaxRefinement) {
     logError()
         << "Free surface integrator: Currently more than 3 levels of refinements are unsupported.";
@@ -75,13 +75,13 @@ void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
 
   logInfo() << "Initializing free surface integrator.";
   initializeProjectionMatrices(maxRefinementDepth);
-  initializeSurfaceLTSTree(ltsTree);
+  initializeSurfaceStorage(ltsStorage);
   logInfo() << "Initializing free surface integrator. Done.";
 }
 
 void FreeSurfaceIntegrator::calculateOutput() const {
   const seissol::initializer::LayerMask ghostMask(Ghost);
-  for (auto& surfaceLayer : surfaceLtsTree->leaves(ghostMask)) {
+  for (auto& surfaceLayer : surfaceStorage->leaves(ghostMask)) {
     real** dofs = surfaceLayer.var<SurfaceLTS::Dofs>();
     auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>();
     auto* side = surfaceLayer.var<SurfaceLTS::Side>();
@@ -269,15 +269,15 @@ FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
   }
 }
 
-void FreeSurfaceIntegrator::initializeSurfaceLTSTree(LTS::Storage& ltsTree) {
+void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
 
-  surfaceLtsTree->setLayerCount(ltsTree.getColorMap());
-  surfaceLtsTree->fixate();
+  surfaceStorage->setLayerCount(ltsStorage.getColorMap());
+  surfaceStorage->fixate();
 
   totalNumberOfFreeSurfaces = 0;
   for (auto [layer, surfaceLayer] :
-       seissol::common::zip(ltsTree.leaves(ghostMask), surfaceLtsTree->leaves(ghostMask))) {
+       seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* cellMaterialData = layer.var<LTS::Material>();
@@ -307,8 +307,8 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(LTS::Storage& ltsTree) {
   totalNumberOfTriangles = totalNumberOfFreeSurfaces * numberOfSubTriangles;
   backmap.resize(totalNumberOfFreeSurfaces);
 
-  surfaceLtsTree->allocateVariables();
-  surfaceLtsTree->touchVariables();
+  surfaceStorage->allocateVariables();
+  surfaceStorage->touchVariables();
 
   for (std::size_t dim = 0; dim < NumComponents; ++dim) {
     velocities[dim] = seissol::memory::allocTyped<real>(totalNumberOfTriangles, Alignment);
@@ -317,13 +317,13 @@ void FreeSurfaceIntegrator::initializeSurfaceLTSTree(LTS::Storage& ltsTree) {
   locationFlags = std::vector<std::uint8_t>(totalNumberOfTriangles, 0);
   globalIds.resize(totalNumberOfTriangles);
 
-  // NOTE: we store also for space tree duplicates here
+  // NOTE: we store also for space storage duplicates here
   // thus, we need a non-duplicate lookup table (backmap)
 
   std::size_t surfaceCellOffset = 0; // Counts all surface cells of all layers
   std::size_t surfaceCellGlobal = 0;
   for (auto [layer, surfaceLayer] :
-       seissol::common::zip(ltsTree.leaves(ghostMask), surfaceLtsTree->leaves(ghostMask))) {
+       seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
     real*(*faceDisplacements)[4] = layer.var<LTS::FaceDisplacements>();

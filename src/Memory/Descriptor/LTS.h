@@ -187,7 +187,7 @@ struct LTS {
   using Ref = initializer::Layer<LTSVarmap>::CellRef;
   using Backmap = initializer::StorageBackmap<4>;
 
-  static void addTo(Storage& tree, bool usePlasticity) {
+  static void addTo(Storage& storage, bool usePlasticity) {
     using namespace initializer;
     LayerMask plasticityMask;
     if (usePlasticity) {
@@ -196,79 +196,84 @@ struct LTS {
       plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
     }
 
-    tree.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+    storage.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
     if (kernels::size<tensor::Qane>() > 0) {
-      tree.add<DofsAne>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
+      storage.add<DofsAne>(
+          LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
     } else {
-      tree.add<DofsAne>(LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
-                        PagesizeHeap,
-                        allocationModeWP(AllocationPreset::Dofs));
+      storage.add<DofsAne>(LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
+                           PagesizeHeap,
+                           allocationModeWP(AllocationPreset::Dofs));
     }
-    tree.add<Buffers>(LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
-    tree.add<Derivatives>(
+    storage.add<Buffers>(
         LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
-    tree.add<CellInformation>(LayerMask(), 1, allocationModeWP(AllocationPreset::Constant), true);
-    tree.add<SecondaryInformation>(LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.add<FaceNeighbors>(
+    storage.add<Derivatives>(
+        LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
+    storage.add<CellInformation>(
+        LayerMask(), 1, allocationModeWP(AllocationPreset::Constant), true);
+    storage.add<SecondaryInformation>(LayerMask(), 1, AllocationMode::HostOnly, true);
+    storage.add<FaceNeighbors>(
         LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
-    tree.add<LocalIntegration>(
+    storage.add<LocalIntegration>(
         LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::ConstantShared), true);
-    tree.add<NeighboringIntegration>(
+    storage.add<NeighboringIntegration>(
         LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::ConstantShared), true);
-    tree.add<Material>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.add<Plasticity>(plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);
-    tree.add<DRMapping>(LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
-    tree.add<BoundaryMapping>(
+    storage.add<Material>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<Plasticity>(
+        plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);
+    storage.add<DRMapping>(LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
+    storage.add<BoundaryMapping>(
         LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::Constant), true);
-    tree.add<PStrain>(
+    storage.add<PStrain>(
         plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::PlasticityData));
-    tree.add<FaceDisplacements>(LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
+    storage.add<FaceDisplacements>(LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
 
     // TODO(David): remove/rename "constant" flag (the data is temporary; and copying it for IO is
     // handled differently)
-    tree.add<BuffersDerivatives>(
+    storage.add<BuffersDerivatives>(
         LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
 
-    tree.add<BuffersDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.add<DerivativesDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
-    tree.add<FaceDisplacementsDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.add<FaceNeighborsDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.add<DRMappingDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
-    tree.add<BoundaryMappingDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<BuffersDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
+    storage.add<DerivativesDevice>(LayerMask(), 1, AllocationMode::HostOnly, true);
+    storage.add<FaceDisplacementsDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<FaceNeighborsDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<DRMappingDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
+    storage.add<BoundaryMappingDevice>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
 
     if constexpr (isDeviceOn()) {
-      tree.add<DerivativesExtScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<DerivativesAneScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<IDofsAneScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<DofsExtScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<IntegratedDofsScratch>(LayerMask(), 1, AllocationMode::HostDeviceSplit);
-      tree.add<DerivativesScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<NodalAvgDisplacements>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<AnalyticScratch>(LayerMask(), 1, AllocationMode::HostDevicePinned);
+      storage.add<DerivativesExtScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<DerivativesAneScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<IDofsAneScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<DofsExtScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<IntegratedDofsScratch>(LayerMask(), 1, AllocationMode::HostDeviceSplit);
+      storage.add<DerivativesScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<NodalAvgDisplacements>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<AnalyticScratch>(LayerMask(), 1, AllocationMode::HostDevicePinned);
 
-      tree.add<FlagScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<PrevDofsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<QEtaNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<QStressNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<FlagScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<PrevDofsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<QEtaNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<QStressNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
 
-      tree.add<RotateDisplacementToFaceNormalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<RotateDisplacementToGlobalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<RotatedFaceDisplacementScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<DofsFaceNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<PrevCoefficientsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
-      tree.add<DofsFaceBoundaryNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<RotateDisplacementToFaceNormalScratch>(
+          LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<RotateDisplacementToGlobalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<RotatedFaceDisplacementScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<DofsFaceNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<PrevCoefficientsScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
+      storage.add<DofsFaceBoundaryNodalScratch>(LayerMask(), 1, AllocationMode::DeviceOnly);
     }
   }
 
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                          Storage& tree) {
-    manager.registerData<Dofs>("dofs", tree);
+                                          Storage& storage) {
+    manager.registerData<Dofs>("dofs", storage);
     if constexpr (kernels::size<tensor::Qane>() > 0) {
-      manager.registerData<DofsAne>("dofsAne", tree);
+      manager.registerData<DofsAne>("dofsAne", storage);
     }
     // check plasticity usage over the layer mask (for now)
-    if (tree.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
-      manager.registerData<Plasticity>("pstrain", tree);
+    if (storage.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
+      manager.registerData<Plasticity>("pstrain", storage);
     }
   }
 };

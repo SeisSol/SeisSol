@@ -27,9 +27,9 @@ class OutputManager {
   OutputManager() = delete;
   OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance);
   void setInputParam(seissol::geometry::MeshReader& userMesher);
-  void setLtsData(LTS::Storage& userWpTree,
-                  LTS::Backmap& userWpLut,
-                  DynamicRupture::Storage& userDrTree);
+  void setLtsData(LTS::Storage& userWpStorage,
+                  LTS::Backmap& userWpBackmap,
+                  DynamicRupture::Storage& userDrStorage);
   void setBackupTimeStamp(const std::string& stamp) { this->backupTimeStamp = stamp; }
 
   void init();
@@ -61,9 +61,9 @@ class OutputManager {
 
   std::vector<PickpointFile> ppFiles;
 
-  LTS::Storage* wpTree{nullptr};
-  LTS::Backmap* wpLut{nullptr};
-  DynamicRupture::Storage* drTree{nullptr};
+  LTS::Storage* wpStorage{nullptr};
+  LTS::Backmap* wpBackmap{nullptr};
+  DynamicRupture::Storage* drStorage{nullptr};
 
   FaceToLtsMapType faceToLtsMap;
   std::vector<std::size_t> globalFaceToLtsMap;

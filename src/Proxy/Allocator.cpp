@@ -159,29 +159,29 @@ void ProxyData::initDataStructures(bool enableDR) {
       initializer::TraitLayer<initializer::ConfigVariant>({Config()}));
 
   // init RNG
-  LTS::addTo(ltsTree, false); // proxy does not use plasticity
-  ltsTree.setLayerCount(map);
-  ltsTree.fixate();
+  LTS::addTo(ltsStorage, false); // proxy does not use plasticity
+  ltsStorage.setLayerCount(map);
+  ltsStorage.fixate();
 
-  ltsTree.layer(layerId).setNumberOfCells(cellCount);
+  ltsStorage.layer(layerId).setNumberOfCells(cellCount);
 
-  LTS::Layer& layer = ltsTree.layer(layerId);
+  LTS::Layer& layer = ltsStorage.layer(layerId);
   layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(real) * tensor::I::size() * layer.size());
 
-  ltsTree.allocateVariables();
-  ltsTree.touchVariables();
-  ltsTree.allocateBuckets();
+  ltsStorage.allocateVariables();
+  ltsStorage.touchVariables();
+  ltsStorage.allocateBuckets();
 
   if (enableDR) {
     DynamicRupture dynRup;
-    dynRup.addTo(dynRupTree);
-    dynRupTree.setLayerCount(ltsTree.getColorMap());
-    dynRupTree.fixate();
+    dynRup.addTo(drStorage);
+    drStorage.setLayerCount(ltsStorage.getColorMap());
+    drStorage.fixate();
 
-    dynRupTree.layer(layerId).setNumberOfCells(4 * cellCount);
+    drStorage.layer(layerId).setNumberOfCells(4 * cellCount);
 
-    dynRupTree.allocateVariables();
-    dynRupTree.touchVariables();
+    drStorage.allocateVariables();
+    drStorage.touchVariables();
 
     fakeDerivativesHost = reinterpret_cast<real*>(
         allocator.allocateMemory(cellCount * yateto::computeFamilySize<tensor::dQ>() * sizeof(real),
@@ -224,15 +224,15 @@ void ProxyData::initDataStructures(bool enableDR) {
   fakeData(layer, (enableDR) ? FaceType::DynamicRupture : FaceType::Regular);
 
   if (enableDR) {
-    // From lts tree
+    // From lts storage
     CellDRMapping(*drMapping)[4] =
-        isDeviceOn() ? ltsTree.var<LTS::DRMappingDevice>() : ltsTree.var<LTS::DRMapping>();
+        isDeviceOn() ? ltsStorage.var<LTS::DRMappingDevice>() : ltsStorage.var<LTS::DRMapping>();
 
     constexpr initializer::AllocationPlace Place =
         isDeviceOn() ? initializer::AllocationPlace::Device : initializer::AllocationPlace::Host;
 
-    // From dynamic rupture tree
-    auto& interior = dynRupTree.layer(layerId);
+    // From dynamic rupture storage
+    auto& interior = drStorage.layer(layerId);
     real(*imposedStatePlus)[seissol::tensor::QInterpolated::size()] =
         interior.var<DynamicRupture::ImposedStatePlus>(Place);
     real(*fluxSolverPlus)[seissol::tensor::fluxSolver::size()] =
@@ -290,14 +290,14 @@ void ProxyData::initDataStructures(bool enableDR) {
 void ProxyData::initDataStructuresOnDevice(bool enableDR) {
 #ifdef ACL_DEVICE
   const auto& device = ::device::DeviceInstance::getInstance();
-  ltsTree.synchronizeTo(seissol::initializer::AllocationPlace::Device,
-                        device.api->getDefaultStream());
+  ltsStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
+                           device.api->getDefaultStream());
   device.api->syncDefaultStreamWithHost();
 
-  auto& layer = ltsTree.layer(layerId);
+  auto& layer = ltsStorage.layer(layerId);
 
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsTree);
-  ltsTree.allocateScratchPads();
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(false, ltsStorage);
+  ltsStorage.allocateScratchPads();
 
   seissol::initializer::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
   recorder.addRecorder(new seissol::initializer::recording::LocalIntegrationRecorder);
@@ -306,16 +306,16 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
   recorder.addRecorder(new seissol::initializer::recording::PlasticityRecorder);
   recorder.record(layer);
   if (enableDR) {
-    dynRupTree.synchronizeTo(seissol::initializer::AllocationPlace::Device,
-                             device.api->getDefaultStream());
+    drStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
+                            device.api->getDefaultStream());
     device.api->syncDefaultStreamWithHost();
-    seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(dynRupTree);
-    dynRupTree.allocateScratchPads();
+    seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage);
+    drStorage.allocateScratchPads();
 
     CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
     drRecorder.addRecorder(new DynamicRuptureRecorder);
 
-    auto& drLayer = dynRupTree.layer(layerId);
+    auto& drLayer = drStorage.layer(layerId);
     drRecorder.record(drLayer);
   }
 #endif // ACL_DEVICE

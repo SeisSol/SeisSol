@@ -159,7 +159,7 @@ void EnergyOutput::init(
     GlobalData* newGlobal,
     const DynamicRupture::Storage& newDynRuptTree,
     const seissol::geometry::MeshReader& newMeshReader,
-    const LTS::Storage& newLtsTree,
+    const LTS::Storage& newStorage,
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
@@ -187,14 +187,14 @@ void EnergyOutput::init(
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
   global = newGlobal;
-  dynRupTree = &newDynRuptTree;
+  drStorage = &newDynRuptTree;
   meshReader = &newMeshReader;
-  ltsTree = &newLtsTree;
+  ltsStorage = &newStorage;
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
 #ifdef ACL_DEVICE
-  const auto maxCells = ltsTree->getMaxClusterSize();
+  const auto maxCells = ltsStorage->getMaxClusterSize();
 
   if (maxCells > 0) {
     constexpr auto QSize = tensor::Q::size();
@@ -284,7 +284,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #ifdef ACL_DEVICE
     void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
 #endif
-    for (const auto& layer : dynRupTree->leaves()) {
+    for (const auto& layer : drStorage->leaves()) {
       /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
       /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
@@ -421,7 +421,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
     // Note: Default(none) is not possible, clang requires data sharing attribute for g, gcc forbids
     // it
-    for (const auto& layer : ltsTree->leaves(Ghost)) {
+    for (const auto& layer : ltsStorage->leaves(Ghost)) {
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* cellInformationData = layer.var<LTS::CellInformation>();
       const auto* faceDisplacementsData = layer.var<LTS::FaceDisplacements>();

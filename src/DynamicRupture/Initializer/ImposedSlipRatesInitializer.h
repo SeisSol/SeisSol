@@ -20,26 +20,23 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
 
   /**
    * Main function to initialize all fault dependent parameters.
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param dynRupTree pointer to the dynamic rupture lts tree
+   * @param drStorage pointer to the dynamic rupture storage
    * not need to store values in the Fortran parts
    */
-  void initializeFault(DynamicRupture::Storage& dynRupTree) override;
+  void initializeFault(DynamicRupture::Storage& drStorage) override;
 
   /**
    * Add additional parameters to be read from the easi file
    * This will be specialized in the derived friction law initializers
    * @param parameterToStorageMap reference to a std::unordered_map<std::string, double*>, which
    * maps the parameter name, to the address in memory, where the parameter shall be stored
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param it reference to an LTSTree leaf_iterator
+   * @param layer reference to an Storage layer
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override = 0;
 
   /**
    * Ensure that all parameters are correct.
-   * @param dynRup
    * @param it
    */
   virtual void fixInterpolatedSTFParameters(DynamicRupture::Layer& layer);
@@ -47,7 +44,6 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
   private:
   /**
    * Rotate slip from strike/dip cooordinate system to the fault aligned coordinate system.
-   * @param dynRup
    * @param it
    * @param strikeSlip: Slip in strike direction
    * @param dipSlip: Slip in dip direction

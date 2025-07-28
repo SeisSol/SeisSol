@@ -83,11 +83,10 @@ class BaseDRInitializer {
    * Main function to initialize all fault dependent parameters.
    * In particular this initializes the initial and nucleation stress and rotates them to the fault
    * aligned coordinate system Furthermore data is copied to the fortran part
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param dynRupTree pointer to the dynamic rupture lts tree
+   * @param drStorage pointer to the dynamic rupture storage
    * not need to store values in the Fortran parts
    */
-  virtual void initializeFault(DynamicRupture::Storage& dynRupTree);
+  virtual void initializeFault(DynamicRupture::Storage& drStorage);
 
   protected:
   /**
@@ -95,17 +94,15 @@ class BaseDRInitializer {
    * This will be specialized in the derived friction law initializers
    * @param parameterToStorageMap reference to a std::unordered_map<std::string, double*>, which
    * maps the parameter name, to the address in memory, where the parameter shall be stored
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param it reference to an LTSTree leaf_iterator
+   * @param layer reference to an Storage layer
    */
   virtual void
       addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
                               DynamicRupture::Layer& layer);
 
   /**
-   * Finds all faceIDs in one iterator. This is the mapping idInLTSTree -> idInMesh
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param it reference to an LTSTree leaf_iterator
+   * Finds all faceIDs in one iterator. This is the mapping idInStorage -> idInMesh
+   * @param layer reference to an Storage layer
    * @return vector containing all faceIDs which are stored in the leaf_iterator
    */
   static std::vector<unsigned> getFaceIDsInIterator(DynamicRupture::Layer& layer);
@@ -122,8 +119,7 @@ class BaseDRInitializer {
    * slipRateMagnitude
    * traction1
    * traction2
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param it reference to an LTSTree leaf_iterator
+   * @param layer reference to an Storage layer
    */
   static void initializeOtherVariables(DynamicRupture::Layer& layer);
 
@@ -146,8 +142,7 @@ class BaseDRInitializer {
   private:
   /**
    * Rotates the fault-aligned traction to cartesian stress coordinates
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param it reference to an LTSTree leaf_iterator
+   * @param layer reference to an Storage layer
    * @param stress reference to a StressTensor
    * IN: stores traction in fault strike/dip coordinate system OUT: stores the the stress in
    * cartesian coordinates
@@ -156,8 +151,7 @@ class BaseDRInitializer {
 
   /**
    * Rotates the stress tensor to a fault aligned coordinate system and stores it in stressInFaultCS
-   * @param dynRup pointer to the respective dynamic rupture datastructure
-   * @param it reference to an LTSTree leaf_iterator
+   * @param layer reference to an Storage layer
    * @param stressInFaultCS pointer to array of size [numCells][6][numPaddedPoints], stores rotated
    * stress
    * @param stress reference to a StressTensor, stores the stress in cartesian coordinates

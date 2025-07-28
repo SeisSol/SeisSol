@@ -20,11 +20,11 @@ class FastVelocityWeakeningLaw
   public:
   using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  static void copyLtsTreeToLocal(FrictionLawData* data,
+  static void copyStorageToLocal(FrictionLawData* data,
                                  DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {}
 
-  static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData,
                                              real fullUpdateTime) {
     data->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(

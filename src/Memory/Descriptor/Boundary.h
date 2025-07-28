@@ -36,9 +36,9 @@ struct Boundary {
   using Ref = initializer::Layer<BoundaryVarmap>::CellRef;
   using Backmap = initializer::StorageBackmap<1>;
 
-  static void addTo(Storage& tree) {
+  static void addTo(Storage& storage) {
     const auto mask = initializer::LayerMask(Ghost);
-    tree.add<FaceInformation>(mask, 1, allocationModeBoundary());
+    storage.add<FaceInformation>(mask, 1, allocationModeBoundary());
   }
 };
 

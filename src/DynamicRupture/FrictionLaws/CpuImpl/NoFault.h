@@ -18,7 +18,7 @@ class NoFault : public BaseFrictionLaw<NoFault> {
   public:
   using BaseFrictionLaw::BaseFrictionLaw;
 
-  void copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {}
 
   static void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                                     TractionResults<Executor::Host>& tractionResults,

@@ -26,10 +26,10 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
 
   void allocateAuxiliaryMemory() override { FrictionSolverDetails::allocateAuxiliaryMemory(); }
 
-  static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData,
                                              real fullUpdateTime) {
-    Derived::copySpecificLtsDataTreeToLocal(data, layerData, fullUpdateTime);
+    Derived::copySpecificStorageDataToLocal(data, layerData, fullUpdateTime);
   }
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {
@@ -134,7 +134,7 @@ class LinearSlipWeakeningLaw
       : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters){};
 
-  static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData,
                                              real fullUpdateTime) {
     data->dC =
@@ -147,7 +147,7 @@ class LinearSlipWeakeningLaw
         seissol::initializer::AllocationPlace::Device);
     data->forcedRuptureTime = layerData.var<LTSLinearSlipWeakening::ForcedRuptureTime>(
         seissol::initializer::AllocationPlace::Device);
-    SpecializationT::copyLtsTreeToLocal(data, layerData, fullUpdateTime);
+    SpecializationT::copyStorageToLocal(data, layerData, fullUpdateTime);
   }
 
   SEISSOL_DEVICE static void calcStrengthHook(FrictionLawContext& ctx, uint32_t timeIndex) {
@@ -222,7 +222,7 @@ class NoSpecialization {
   public:
   NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
-  static void copyLtsTreeToLocal(FrictionLawData* data,
+  static void copyStorageToLocal(FrictionLawData* data,
                                  DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {}
 
@@ -276,7 +276,7 @@ class BiMaterialFault {
   public:
   BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters) {};
 
-  static void copyLtsTreeToLocal(FrictionLawData* data,
+  static void copyStorageToLocal(FrictionLawData* data,
                                  DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {
     data->regularizedStrength =
@@ -318,7 +318,7 @@ class TPApprox {
   public:
   TPApprox(seissol::initializer::parameters::DRParameters* parameters) {};
 
-  static void copyLtsTreeToLocal(FrictionLawData* data,
+  static void copyStorageToLocal(FrictionLawData* data,
                                  DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {}
 

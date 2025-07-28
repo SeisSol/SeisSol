@@ -22,7 +22,7 @@ class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
   std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = LinearSlipWeakening::getOutputVariables();
     baseVector.push_back(
-        drTree->info<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>().index);
+        drStorage->info<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>().index);
     return baseVector;
   }
 };

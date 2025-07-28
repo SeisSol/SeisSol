@@ -22,7 +22,7 @@ namespace seissol::proxy {
 #ifdef ACL_DEVICE
 void ProxyKernelDeviceAder::run(ProxyData& data,
                                 seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.layer(data.layerId);
+  auto& layer = data.ltsStorage.layer(data.layerId);
 
   kernels::LocalTmp tmp(9.81);
 
@@ -41,7 +41,7 @@ void ProxyKernelDeviceAder::run(ProxyData& data,
 
 void ProxyKernelDeviceLocalWOAder::run(ProxyData& data,
                                        seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.layer(data.layerId);
+  auto& layer = data.ltsStorage.layer(data.layerId);
 
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
   auto& materialTable = layer.getConditionalTable<inner_keys::Material>();
@@ -59,7 +59,7 @@ void ProxyKernelDeviceLocalWOAder::run(ProxyData& data,
 
 void ProxyKernelDeviceLocal::run(ProxyData& data,
                                  seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.layer(data.layerId);
+  auto& layer = data.ltsStorage.layer(data.layerId);
 
   kernels::LocalTmp tmp(9.81);
 
@@ -79,7 +79,7 @@ void ProxyKernelDeviceLocal::run(ProxyData& data,
 
 void ProxyKernelDeviceNeighbor::run(ProxyData& data,
                                     seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.ltsTree.layer(data.layerId);
+  auto& layer = data.ltsStorage.layer(data.layerId);
 
   const double timeStepWidth = static_cast<double>(Timestep);
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
@@ -96,7 +96,7 @@ void ProxyKernelDeviceNeighbor::run(ProxyData& data,
 
 void ProxyKernelDeviceGodunovDR::run(ProxyData& data,
                                      seissol::parallel::runtime::StreamRuntime& runtime) const {
-  auto& layer = data.dynRupTree.layer(data.layerId);
+  auto& layer = data.drStorage.layer(data.layerId);
 
   auto& dataTable = layer.getConditionalTable<inner_keys::Dr>();
 

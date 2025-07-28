@@ -61,7 +61,7 @@ class EnergyOutput : public Module {
   void init(GlobalData* newGlobal,
             const DynamicRupture::Storage& newDynRuptTree,
             const seissol::geometry::MeshReader& newMeshReader,
-            const LTS::Storage& newLtsTree,
+            const LTS::Storage& newStorage,
             bool newIsPlasticityEnabled,
             const std::string& outputFileNamePrefix,
             const seissol::initializer::parameters::EnergyOutputParameters& parameters);
@@ -123,9 +123,9 @@ class EnergyOutput : public Module {
 #endif
 
   const GlobalData* global = nullptr;
-  const DynamicRupture::Storage* dynRupTree = nullptr;
+  const DynamicRupture::Storage* drStorage = nullptr;
   const seissol::geometry::MeshReader* meshReader = nullptr;
-  const LTS::Storage* ltsTree = nullptr;
+  const LTS::Storage* ltsStorage = nullptr;
 
   EnergiesStorage energiesStorage{};
   std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold;

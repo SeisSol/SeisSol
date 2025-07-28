@@ -32,7 +32,7 @@ class SevereVelocityWeakeningLaw
     !
   */
 
-  static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData,
                                              real fullUpdateTime) {}
 

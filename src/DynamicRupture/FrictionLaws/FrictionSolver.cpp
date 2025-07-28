@@ -27,7 +27,7 @@ void FrictionSolver::computeDeltaT(const double timePoints[ConvergenceOrder]) {
   sumDt += deltaT[0];
 }
 
-void FrictionSolver::copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
+void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
   const seissol::initializer::AllocationPlace place = allocationPlace();
   impAndEta = layerData.var<DynamicRupture::ImpAndEta>(place);
   impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(place);

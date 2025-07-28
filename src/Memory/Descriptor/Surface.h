@@ -40,21 +40,21 @@ struct SurfaceLTS {
   using Ref = initializer::Layer<SurfaceVarmap>::CellRef;
   using Backmap = initializer::StorageBackmap<1>;
 
-  static void addTo(Storage& surfaceLtsTree) {
+  static void addTo(Storage& storage) {
     const seissol::initializer::LayerMask ghostMask(Ghost);
-    surfaceLtsTree.add<Dofs>(ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add<Side>(ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add<MeshId>(ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add<OutputPosition>(ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add<BoundaryMapping>(ghostMask, 1, initializer::AllocationMode::HostOnly);
-    surfaceLtsTree.add<LocationFlag>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<Dofs>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<Side>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<MeshId>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<OutputPosition>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<BoundaryMapping>(ghostMask, 1, initializer::AllocationMode::HostOnly);
+    storage.add<LocationFlag>(ghostMask, 1, initializer::AllocationMode::HostOnly);
 
-    surfaceLtsTree.add<DisplacementDofs>(ghostMask, PagesizeHeap, allocationModeBoundary());
+    storage.add<DisplacementDofs>(ghostMask, PagesizeHeap, allocationModeBoundary());
   }
 
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                          Storage& tree) {
-    manager.registerData<DisplacementDofs>("displacementDofs", tree);
+                                          Storage& storage) {
+    manager.registerData<DisplacementDofs>("displacementDofs", storage);
   }
 };
 

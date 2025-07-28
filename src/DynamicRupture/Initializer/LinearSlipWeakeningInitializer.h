@@ -21,7 +21,7 @@ class LinearSlipWeakeningInitializer : public BaseDRInitializer {
   /**
    * Computes initial friction and slip rates
    */
-  void initializeFault(DynamicRupture::Storage& dynRupTree) override;
+  void initializeFault(DynamicRupture::Storage& drStorage) override;
 
   protected:
   /**
@@ -40,7 +40,7 @@ class LinearSlipWeakeningBimaterialInitializer : public LinearSlipWeakeningIniti
   /**
    * Computes initial value for the regularized strength
    */
-  void initializeFault(DynamicRupture::Storage& dynRupTree) override;
+  void initializeFault(DynamicRupture::Storage& drStorage) override;
 };
 
 } // namespace seissol::dr::initializer

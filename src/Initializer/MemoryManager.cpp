@@ -55,7 +55,7 @@ void seissol::initializer::MemoryManager::initialize()
 
 void seissol::initializer::MemoryManager::correctGhostRegionSetups()
 {
-  for (auto& ghost : m_ltsTree.leaves(Copy | Interior)) {
+  for (auto& ghost : ltsStorage.leaves(Copy | Interior)) {
     const auto tc = ghost.getIdentifier().lts;
     CellLocalInformation* cellInformation = ghost.var<LTS::CellInformation>();
 
@@ -100,9 +100,9 @@ void seissol::initializer::MemoryManager::deriveLayerLayouts() {
   m_numberOfInteriorDerivatives    = (unsigned int*)  m_memoryAllocator.allocateMemory( clusterLayout.value().globalClusterCount * sizeof( unsigned int  ), 1 );
 
   for (unsigned tc = 0; tc < clusterLayout.value().globalClusterCount; ++tc) {
-    CellLocalInformation* ghostCellInformation    = m_ltsTree.layer(initializer::LayerIdentifier(HaloType::Ghost, Config(), tc)).var<LTS::CellInformation>();
-    CellLocalInformation* copyCellInformation     = m_ltsTree.layer(initializer::LayerIdentifier(HaloType::Copy, Config(), tc)).var<LTS::CellInformation>();
-    CellLocalInformation* interiorCellInformation = m_ltsTree.layer(initializer::LayerIdentifier(HaloType::Interior, Config(), tc)).var<LTS::CellInformation>();
+    CellLocalInformation* ghostCellInformation    = ltsStorage.layer(initializer::LayerIdentifier(HaloType::Ghost, Config(), tc)).var<LTS::CellInformation>();
+    CellLocalInformation* copyCellInformation     = ltsStorage.layer(initializer::LayerIdentifier(HaloType::Copy, Config(), tc)).var<LTS::CellInformation>();
+    CellLocalInformation* interiorCellInformation = ltsStorage.layer(initializer::LayerIdentifier(HaloType::Interior, Config(), tc)).var<LTS::CellInformation>();
 
     m_numberOfGhostBuffers[             tc] = 0;
     m_numberOfGhostRegionBuffers[       tc] = (unsigned int*)  m_memoryAllocator.allocateMemory( m_meshStructure[tc].numberOfRegions * sizeof( unsigned int ), 1 );
@@ -179,7 +179,7 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
   /*
    * ghost layer
    */
-  for (auto& layer : m_ltsTree.leaves(Copy | Interior)) {
+  for (auto& layer : ltsStorage.leaves(Copy | Interior)) {
     const auto tc = layer.getIdentifier().lts;
     real* ghostStart = static_cast<real*>(layer.var<LTS::BuffersDerivatives>(allocationPlace));
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
@@ -202,7 +202,7 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
   /*
    * copy layer
    */
-  for (auto& copy : m_ltsTree.leaves(Interior | Ghost)) {
+  for (auto& copy : ltsStorage.leaves(Interior | Ghost)) {
     const auto tc = copy.getIdentifier().lts;
 #ifdef ACL_DEVICE
     real** buffers = copy.var<LTS::BuffersDevice>();
@@ -250,12 +250,12 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
 
   // iterate over clusters
 
-  real** buffers = m_ltsTree.var<LTS::Buffers>();          // faceNeighborIds are ltsIds and not layer-local
-  real** derivatives = m_ltsTree.var<LTS::Derivatives>();  // faceNeighborIds are ltsIds and not layer-local
+  real** buffers = ltsStorage.var<LTS::Buffers>();          // faceNeighborIds are ltsIds and not layer-local
+  real** derivatives = ltsStorage.var<LTS::Derivatives>();  // faceNeighborIds are ltsIds and not layer-local
   real *(*faceNeighbors)[Cell::NumFaces] = layer.var<LTS::FaceNeighbors>();
 #ifdef ACL_DEVICE
-  real** buffersDevice = m_ltsTree.var<LTS::BuffersDevice>();          // faceNeighborIds are ltsIds and not layer-local
-  real** derivativesDevice = m_ltsTree.var<LTS::DerivativesDevice>();  // faceNeighborIds are ltsIds and not layer-local
+  real** buffersDevice = ltsStorage.var<LTS::BuffersDevice>();          // faceNeighborIds are ltsIds and not layer-local
+  real** derivativesDevice = ltsStorage.var<LTS::DerivativesDevice>();  // faceNeighborIds are ltsIds and not layer-local
   real *(*faceNeighborsDevice)[Cell::NumFaces] = layer.var<LTS::FaceNeighborsDevice>();
 #endif
   auto* cellInformation = layer.var<LTS::CellInformation>();
@@ -319,7 +319,7 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
 
 void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
   // initialize the pointers of the internal state
-  for (auto& layer : m_ltsTree.leaves()) {
+  for (auto& layer : ltsStorage.leaves()) {
     const auto tc = layer.getIdentifier().lts;
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
@@ -402,7 +402,7 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
   }
 }
 
-void seissol::initializer::MemoryManager::fixateLtsTree(struct ClusterLayout& clusterLayout,
+void seissol::initializer::MemoryManager::fixateLtsStorage(struct ClusterLayout& clusterLayout,
                                                          struct MeshStructure* meshStructure,
                                                          unsigned* numberOfDRCopyFaces,
                                                          unsigned* numberOfDRInteriorFaces,
@@ -410,11 +410,11 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct ClusterLayout& cl
   // store mesh structure and the number of time clusters
   m_meshStructure = meshStructure;
 
-  m_ltsTree.setName("cluster");
+  ltsStorage.setName("cluster");
 
-  // Setup tree variables
-  LTS::addTo(m_ltsTree, usePlasticity);
-  seissolInstance.postProcessor().allocateMemory(m_ltsTree);
+  // Setup storage variables
+  LTS::addTo(ltsStorage, usePlasticity);
+  seissolInstance.postProcessor().allocateMemory(ltsStorage);
 
   this->clusterLayout = clusterLayout;
 
@@ -427,13 +427,13 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct ClusterLayout& cl
                  initializer::EnumLayer<std::size_t>(clusterMap),
                      initializer::TraitLayer<initializer::ConfigVariant>({Config()}));
 
-  m_ltsTree.setLayerCount(map);
+  ltsStorage.setLayerCount(map);
 
-  /// From this point, the tree layout, variables, and buckets cannot be changed anymore
-  m_ltsTree.fixate();
+  /// From this point, the storage layout, variables, and buckets cannot be changed anymore
+  ltsStorage.fixate();
 
   // Set number of cells and bucket sizes in ltstre
-  for (auto& layer : m_ltsTree.leaves()) {
+  for (auto& layer : ltsStorage.leaves()) {
     std::size_t count = 0;
     const auto& str = meshStructure[layer.getIdentifier().lts];
     if (layer.getIdentifier().halo == HaloType::Ghost) {
@@ -448,18 +448,18 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct ClusterLayout& cl
     layer.setNumberOfCells(count);
   }
 
-  m_ltsTree.allocateVariables();
-  m_ltsTree.touchVariables();
+  ltsStorage.allocateVariables();
+  ltsStorage.touchVariables();
 
-  m_dynRupTree.setName("dr");
+  drStorage.setName("dr");
 
-  /// Dynamic rupture tree
-  m_dynRup->addTo(m_dynRupTree);
+  /// Dynamic rupture storage
+  m_dynRup->addTo(drStorage);
 
-  m_dynRupTree.setLayerCount(m_ltsTree.getColorMap());
-  m_dynRupTree.fixate();
+  drStorage.setLayerCount(ltsStorage.getColorMap());
+  drStorage.fixate();
 
-  for (auto& layer : m_dynRupTree.leaves()) {
+  for (auto& layer : drStorage.leaves()) {
     std::size_t count = 0;
     if (layer.getIdentifier().halo == HaloType::Copy) {
       count = numberOfDRCopyFaces[layer.getIdentifier().lts];
@@ -470,27 +470,27 @@ void seissol::initializer::MemoryManager::fixateLtsTree(struct ClusterLayout& cl
     layer.setNumberOfCells(count);
   }
 
-  m_dynRupTree.allocateVariables();
-  m_dynRupTree.touchVariables();
+  drStorage.allocateVariables();
+  drStorage.touchVariables();
 
 #ifdef ACL_DEVICE
-  MemoryManager::deriveRequiredScratchpadMemoryForDr(m_dynRupTree);
-  m_dynRupTree.allocateScratchPads();
+  MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage);
+  drStorage.allocateScratchPads();
 #endif
 }
 
-void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
+void seissol::initializer::MemoryManager::fixateBoundaryStorage() {
   seissol::initializer::LayerMask ghostMask(Ghost);
 
   m_boundaryTree.setName("boundary");
 
-  // Boundary face tree
+  // Boundary face storage
   Boundary::addTo(m_boundaryTree);
-  m_boundaryTree.setLayerCount(m_ltsTree.getColorMap());
+  m_boundaryTree.setLayerCount(ltsStorage.getColorMap());
   m_boundaryTree.fixate();
 
-  // Iterate over layers of standard lts tree and face lts tree together.
-  for (auto [layer, boundaryLayer] : seissol::common::zip(m_ltsTree.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
+  // Iterate over layers of standard lts storage and face lts storage together.
+  for (auto [layer, boundaryLayer] : seissol::common::zip(ltsStorage.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
     CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
 
     unsigned numberOfBoundaryFaces = 0;
@@ -510,10 +510,10 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
   m_boundaryTree.allocateVariables();
   m_boundaryTree.touchVariables();
 
-  // The boundary tree is now allocated, now we only need to map from cell lts
+  // The boundary storage is now allocated, now we only need to map from cell lts
   // to face lts.
-  // We do this by, once again, iterating over both trees at the same time.
-  for (auto [layer, boundaryLayer] : seissol::common::zip(m_ltsTree.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
+  // We do this by, once again, iterating over both storages at the same time.
+  for (auto [layer, boundaryLayer] : seissol::common::zip(ltsStorage.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
     auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>();
@@ -551,23 +551,23 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
     }
   }
 
-  surfaceTree.setName("surface");
-  SurfaceLTS::addTo(surfaceTree);
+  surfaceStorage.setName("surface");
+  SurfaceLTS::addTo(surfaceStorage);
 
   int refinement = 0;
   const auto& outputParams = seissolInstance.getSeisSolParameters().output;
   if (outputParams.freeSurfaceParameters.enabled && outputParams.freeSurfaceParameters.vtkorder < 0) {
     refinement = outputParams.freeSurfaceParameters.refinement;
   }
-  seissolInstance.freeSurfaceIntegrator().initialize(refinement, &m_globalDataOnHost, m_ltsTree, surfaceTree);
+  seissolInstance.freeSurfaceIntegrator().initialize(refinement, &m_globalDataOnHost, ltsStorage, surfaceStorage);
 }
 
 #ifdef ACL_DEVICE
-void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsTree) {
+void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage) {
   constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
-  for (auto& layer : ltsTree.leaves(Ghost)) {
+  for (auto& layer : ltsStorage.leaves(Ghost)) {
 
     CellLocalInformation *cellInformation = layer.var<LTS::CellInformation>();
     std::unordered_set<real *> registry{};
@@ -677,9 +677,9 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
 }
 
 void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(
-    DynamicRupture::Storage& ltsTree) {
+    DynamicRupture::Storage& drStorage) {
   constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
-  for (auto& layer : ltsTree.leaves()) {
+  for (auto& layer : drStorage.leaves()) {
     const auto layerSize = layer.size();
     layer.setEntrySize<DynamicRupture::IdofsPlusOnDevice>(idofsSize * layerSize);
     layer.setEntrySize<DynamicRupture::IdofsMinusOnDevice>(idofsSize * layerSize);
@@ -695,7 +695,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
   // derive the layouts of the layers
   deriveLayerLayouts();
 
-  for (auto& layer : m_ltsTree.leaves()) {
+  for (auto& layer : ltsStorage.leaves()) {
     std::size_t size = 0;
 
     const auto tc = layer.getIdentifier().lts;
@@ -720,19 +720,19 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
     layer.setEntrySize<LTS::BuffersDerivatives>(size);
   }
 
-  m_ltsTree.allocateBuckets();
+  ltsStorage.allocateBuckets();
 
   // initialize the internal state
   initializeBuffersDerivatives();
 
   // initialize face neighbors
-  for (auto& layer : m_ltsTree.leaves(Ghost)) {
+  for (auto& layer : ltsStorage.leaves(Ghost)) {
     initializeFaceNeighbors(layer.getIdentifier().lts, layer);
   }
 
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  for (auto& layer : m_ltsTree.leaves()) {
+  for (auto& layer : ltsStorage.leaves()) {
     if (layer.getEntrySize<LTS::BuffersDerivatives>() > 0) {
       void* data = layer.var<LTS::BuffersDerivatives>(seissol::initializer::AllocationPlace::Device);
       device::DeviceInstance::getInstance().algorithms.touchMemory(
@@ -743,7 +743,7 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
   }
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
-  for (auto& layer : m_ltsTree.leaves()) {
+  for (auto& layer : ltsStorage.leaves()) {
     real** buffers = layer.var<LTS::Buffers>();
     real** derivatives = layer.var<LTS::Derivatives>();
     kernels::touchBuffersDerivatives(buffers, derivatives, layer.size());
@@ -753,8 +753,8 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
   initializeCommunicationStructure();
 
 #ifdef ACL_DEVICE
-  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(seissolInstance.getSeisSolParameters().model.plasticity, m_ltsTree);
-  m_ltsTree.allocateScratchPads();
+  seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(seissolInstance.getSeisSolParameters().model.plasticity, ltsStorage);
+  ltsStorage.allocateScratchPads();
 #endif
 }
 
@@ -776,13 +776,13 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
     recorder.addRecorder(new recording::PlasticityRecorder);
   }
 
-  for (auto& layer : m_ltsTree.leaves(Ghost)) {
+  for (auto& layer : ltsStorage.leaves(Ghost)) {
     recorder.record(layer);
   }
 
   recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
   drRecorder.addRecorder(new recording::DynamicRuptureRecorder);
-  for (auto& layer : m_dynRupTree.leaves(Ghost)) {
+  for (auto& layer : drStorage.leaves(Ghost)) {
     drRecorder.record(layer);
   }
 }
@@ -832,7 +832,7 @@ void seissol::initializer::MemoryManager::initializeFrictionLaw() {
 
   const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance);
   auto product = factory->produce();
-  m_dynRup = std::move(product.ltsTree);
+  m_dynRup = std::move(product.storage);
   m_DRInitializer = std::move(product.initializer);
   m_FrictionLaw = std::move(product.frictionLaw);
   m_FrictionLawDevice = std::move(product.frictionLawDevice);
@@ -844,9 +844,9 @@ void seissol::initializer::MemoryManager::initFaultOutputManager(const std::stri
   // TODO: switch m_dynRup to shared or weak pointer
   if (params.isDynamicRuptureEnabled) {
     m_faultOutputManager->setInputParam(seissolInstance.meshReader());
-    m_faultOutputManager->setLtsData(m_ltsTree,
+    m_faultOutputManager->setLtsData(ltsStorage,
                                      backmap,
-                                     m_dynRupTree);
+                                     drStorage);
     m_faultOutputManager->setBackupTimeStamp(backupTimeStamp);
     m_faultOutputManager->init();
 
@@ -858,7 +858,7 @@ void seissol::initializer::MemoryManager::initFrictionData() {
   const auto& params = seissolInstance.getSeisSolParameters().drParameters;
   if (params.isDynamicRuptureEnabled) {
 
-    m_DRInitializer->initializeFault(m_dynRupTree);
+    m_DRInitializer->initializeFault(drStorage);
 
 #ifdef ACL_DEVICE
     if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
@@ -877,10 +877,10 @@ void seissol::initializer::MemoryManager::synchronizeTo(seissol::initializer::Al
     logInfo() << "Synchronizing data... (device->host)";
   }
   const auto& defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  m_ltsTree.synchronizeTo(place, defaultStream);
-  m_dynRupTree.synchronizeTo(place, defaultStream);
+  ltsStorage.synchronizeTo(place, defaultStream);
+  drStorage.synchronizeTo(place, defaultStream);
   m_boundaryTree.synchronizeTo(place, defaultStream);
-  surfaceTree.synchronizeTo(place, defaultStream);
+  surfaceStorage.synchronizeTo(place, defaultStream);
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 }

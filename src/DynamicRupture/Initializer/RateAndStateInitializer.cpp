@@ -22,10 +22,10 @@
 #include <utils/logger.h>
 
 namespace seissol::dr::initializer {
-void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& dynRupTree) {
-  BaseDRInitializer::initializeFault(dynRupTree);
+void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
+  BaseDRInitializer::initializeFault(drStorage);
 
-  for (auto& layer : dynRupTree.leaves(Ghost)) {
+  for (auto& layer : drStorage.leaves(Ghost)) {
 
     auto* dynStressTimePending = layer.var<LTSRateAndState::DynStressTimePending>();
     real(*slipRate1)[misc::NumPaddedPoints] = layer.var<LTSRateAndState::SlipRate1>();
@@ -136,8 +136,8 @@ ThermalPressurizationInitializer::ThermalPressurizationInitializer(
     const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters)
     : drParameters(drParameters) {}
 
-void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Storage& dynRupTree) {
-  for (auto& layer : dynRupTree.leaves(Ghost)) {
+void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
+  for (auto& layer : drStorage.leaves(Ghost)) {
     real(*temperature)[misc::NumPaddedPoints] = layer.var<LTSThermalPressurization::Temperature>();
     real(*pressure)[misc::NumPaddedPoints] = layer.var<LTSThermalPressurization::Pressure>();
     auto* theta = layer.var<LTSThermalPressurization::Theta>();
@@ -176,9 +176,9 @@ RateAndStateThermalPressurizationInitializer::RateAndStateThermalPressurizationI
       ThermalPressurizationInitializer(drParameters) {}
 
 void RateAndStateThermalPressurizationInitializer::initializeFault(
-    DynamicRupture::Storage& dynRupTree) {
-  RateAndStateInitializer::initializeFault(dynRupTree);
-  ThermalPressurizationInitializer::initializeFault(dynRupTree);
+    DynamicRupture::Storage& drStorage) {
+  RateAndStateInitializer::initializeFault(drStorage);
+  ThermalPressurizationInitializer::initializeFault(drStorage);
 }
 
 void RateAndStateThermalPressurizationInitializer::addAdditionalParameters(
@@ -195,9 +195,9 @@ RateAndStateFastVelocityThermalPressurizationInitializer::
       ThermalPressurizationInitializer(drParameters) {}
 
 void RateAndStateFastVelocityThermalPressurizationInitializer::initializeFault(
-    DynamicRupture::Storage& dynRupTree) {
-  RateAndStateFastVelocityInitializer::initializeFault(dynRupTree);
-  ThermalPressurizationInitializer::initializeFault(dynRupTree);
+    DynamicRupture::Storage& drStorage) {
+  RateAndStateFastVelocityInitializer::initializeFault(drStorage);
+  ThermalPressurizationInitializer::initializeFault(drStorage);
 }
 
 void RateAndStateFastVelocityThermalPressurizationInitializer::addAdditionalParameters(

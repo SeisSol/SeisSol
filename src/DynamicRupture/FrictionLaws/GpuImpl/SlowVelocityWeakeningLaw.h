@@ -19,7 +19,7 @@ class SlowVelocityWeakeningLaw
   public:
   using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData,
                                              real fullUpdateTime) {}
 

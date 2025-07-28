@@ -148,13 +148,13 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   }
 }
 
-void OutputManager::setLtsData(LTS::Storage& userWpTree,
-                               LTS::Backmap& userWpLut,
-                               DynamicRupture::Storage& userDrTree) {
-  wpTree = &userWpTree;
-  wpLut = &userWpLut;
-  drTree = &userDrTree;
-  impl->setLtsData(userWpTree, userWpLut, userDrTree);
+void OutputManager::setLtsData(LTS::Storage& userWpStorage,
+                               LTS::Backmap& userWpBackmap,
+                               DynamicRupture::Storage& userDrStorage) {
+  wpStorage = &userWpStorage;
+  wpBackmap = &userWpBackmap;
+  drStorage = &userDrStorage;
+  impl->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
   initFaceToLtsMap();
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
@@ -166,12 +166,12 @@ void OutputManager::setLtsData(LTS::Storage& userWpTree,
                                       seissol::initializer::parameters::OutputType::Elementwise ||
                                   bothEnabled;
   if (pointEnabled) {
-    ppOutputBuilder->setLtsData(userWpTree, userWpLut, userDrTree);
+    ppOutputBuilder->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
     ppOutputBuilder->setVariableList(impl->getOutputVariables());
     ppOutputBuilder->setFaceToLtsMap(&globalFaceToLtsMap);
   }
   if (elementwiseEnabled) {
-    ewOutputBuilder->setLtsData(userWpTree, userWpLut, userDrTree);
+    ewOutputBuilder->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
     ewOutputBuilder->setFaceToLtsMap(&globalFaceToLtsMap);
   }
 }
@@ -454,13 +454,13 @@ void OutputManager::init() {
 }
 
 void OutputManager::initFaceToLtsMap() {
-  if (drTree != nullptr) {
+  if (drStorage != nullptr) {
     const size_t readerFaultSize = meshReader->getFault().size();
-    const size_t ltsFaultSize = drTree->size(Ghost);
+    const size_t ltsFaultSize = drStorage->size(Ghost);
 
     faceToLtsMap.resize(std::max(readerFaultSize, ltsFaultSize));
     globalFaceToLtsMap.resize(faceToLtsMap.size());
-    for (auto& layer : drTree->leaves(Ghost)) {
+    for (auto& layer : drStorage->leaves(Ghost)) {
 
       DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
@@ -468,7 +468,7 @@ void OutputManager::initFaceToLtsMap() {
       }
     }
 
-    DRFaceInformation* faceInformation = drTree->var<DynamicRupture::FaceInformation>();
+    DRFaceInformation* faceInformation = drStorage->var<DynamicRupture::FaceInformation>();
     for (size_t ltsFace = 0; ltsFace < ltsFaultSize; ++ltsFace) {
       globalFaceToLtsMap[faceInformation[ltsFace].meshFace] = ltsFace;
     }

@@ -134,10 +134,10 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     cellMat.initialize(seissolParams.model);
   }
 
-  logDebug() << "Setting cell materials in the LTS tree (for interior and copy layers).";
+  logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
   const auto& elements = meshReader.getElements();
 
-  for (auto& layer : memoryManager.getLtsTree().leaves(Ghost)) {
+  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost)) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* materialArray = layer.var<LTS::Material>();
@@ -202,8 +202,10 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   auto& meshReader = seissolInstance.meshReader();
   auto& memoryManager = seissolInstance.getMemoryManager();
 
-  seissol::initializer::initializeCellLocalMatrices(
-      meshReader, memoryManager.getLtsTree(), ltsInfo.clusterLayout.value(), seissolParams.model);
+  seissol::initializer::initializeCellLocalMatrices(meshReader,
+                                                    memoryManager.getLtsStorage(),
+                                                    ltsInfo.clusterLayout.value(),
+                                                    seissolParams.model);
 
   if (seissolParams.drParameters.etaHack != 1.0) {
     logWarning() << "The \"eta hack\" has been enabled in the timeframe [0,"
@@ -213,9 +215,9 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   }
 
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
-                                                         memoryManager.getLtsTree(),
+                                                         memoryManager.getLtsStorage(),
                                                          memoryManager.getBackmap(),
-                                                         memoryManager.getDynamicRuptureTree(),
+                                                         memoryManager.getDRStorage(),
                                                          ltsInfo.ltsMeshToFace,
                                                          *memoryManager.getGlobalData().onHost,
                                                          seissolParams.drParameters.etaHack);
@@ -223,7 +225,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   memoryManager.initFrictionData();
 
   seissol::initializer::initializeBoundaryMappings(
-      meshReader, memoryManager.getEasiBoundaryReader(), memoryManager.getLtsTree());
+      meshReader, memoryManager.getEasiBoundaryReader(), memoryManager.getLtsStorage());
 
 #ifdef ACL_DEVICE
   memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
@@ -236,13 +238,13 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
     const double scalingFactor = itmParameters.itmVelocityScalingFactor;
     const double startingTime = itmParameters.itmStartingTime;
 
-    auto& ltsTree = memoryManager.getLtsTree();
+    auto& ltsStorage = memoryManager.getLtsStorage();
     const auto* timeStepping = &seissolInstance.timeManager().getClusterLayout();
 
     initializeTimeMirrorManagers(scalingFactor,
                                  startingTime,
                                  &meshReader,
-                                 ltsTree,
+                                 ltsStorage,
                                  timeMirrorManagers.first,
                                  timeMirrorManagers.second,
                                  seissolInstance,
@@ -301,24 +303,24 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   seissolInstance.getLtsLayout().getDynamicRuptureInformation(
       ltsInfo.ltsMeshToFace, numberOfDRCopyFaces, numberOfDRInteriorFaces);
 
-  seissolInstance.getMemoryManager().fixateLtsTree(ltsInfo.clusterLayout.value(),
-                                                   ltsInfo.meshStructure,
-                                                   numberOfDRCopyFaces,
-                                                   numberOfDRInteriorFaces,
-                                                   seissolParams.model.plasticity);
+  seissolInstance.getMemoryManager().fixateLtsStorage(ltsInfo.clusterLayout.value(),
+                                                      ltsInfo.meshStructure,
+                                                      numberOfDRCopyFaces,
+                                                      numberOfDRInteriorFaces,
+                                                      seissolParams.model.plasticity);
 
   seissolInstance.getMemoryManager().setLtsToFace(ltsInfo.ltsMeshToFace);
 
   delete[] numberOfDRCopyFaces;
   delete[] numberOfDRInteriorFaces;
 
-  auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
+  auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
 
   std::size_t* ltsToMesh = nullptr;
   std::size_t numberOfMeshCells = 0;
 
-  seissolInstance.getLtsLayout().getCellInformation(ltsTree.var<LTS::CellInformation>(),
-                                                    ltsTree.var<LTS::SecondaryInformation>(),
+  seissolInstance.getLtsLayout().getCellInformation(ltsStorage.var<LTS::CellInformation>(),
+                                                    ltsStorage.var<LTS::SecondaryInformation>(),
                                                     ltsToMesh,
                                                     numberOfMeshCells);
 
@@ -327,13 +329,13 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   seissol::initializer::time_stepping::deriveLtsSetups(
       ltsInfo.clusterLayout.value().globalClusterCount,
       ltsInfo.meshStructure,
-      ltsTree.var<LTS::CellInformation>(),
-      ltsTree.var<LTS::SecondaryInformation>());
+      ltsStorage.var<LTS::CellInformation>(),
+      ltsStorage.var<LTS::SecondaryInformation>());
 
   auto& backmap = seissolInstance.getMemoryManager().getBackmap();
   backmap.setSize(numberOfMeshCells);
-  const auto* zero = ltsTree.var<LTS::SecondaryInformation>();
-  for (const auto& layer : ltsTree.leaves(Ghost)) {
+  const auto* zero = ltsStorage.var<LTS::SecondaryInformation>();
+  for (const auto& layer : ltsStorage.leaves(Ghost)) {
     const auto* zeroLayer = layer.var<LTS::SecondaryInformation>();
     for (std::size_t i = 0; i < layer.size(); ++i) {
       backmap.addElement(layer.id(), zero, zeroLayer, zeroLayer[i].meshId, i);
@@ -351,7 +353,7 @@ void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                                             seissolInstance.getMemoryManager(),
                                             seissolParams.model.plasticity);
 
-  seissolInstance.getMemoryManager().fixateBoundaryLtsTree();
+  seissolInstance.getMemoryManager().fixateBoundaryStorage();
 }
 
 } // namespace

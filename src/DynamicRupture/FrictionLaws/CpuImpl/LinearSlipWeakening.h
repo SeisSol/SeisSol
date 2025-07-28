@@ -46,13 +46,13 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     this->frictionFunctionHook(stateVariableBuffer, ltsFace);
   }
 
-  void copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
+  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
     this->dC = layerData.var<LTSLinearSlipWeakening::DC>();
     this->muS = layerData.var<LTSLinearSlipWeakening::MuS>();
     this->muD = layerData.var<LTSLinearSlipWeakening::MuD>();
     this->cohesion = layerData.var<LTSLinearSlipWeakening::Cohesion>();
     this->forcedRuptureTime = layerData.var<LTSLinearSlipWeakening::ForcedRuptureTime>();
-    specialization.copyLtsTreeToLocal(layerData, fullUpdateTime);
+    specialization.copyStorageToLocal(layerData, fullUpdateTime);
   }
 
   /**
@@ -222,7 +222,7 @@ class NoSpecialization {
   public:
   explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
-  void copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {};
+  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {};
   /**
    * Resample slip-rate, such that the state increment (slip) lies in the same polynomial space as
    * the degrees of freedom resampleMatrix first projects LocSR on the two-dimensional basis on
@@ -257,7 +257,7 @@ class BiMaterialFault {
   explicit BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters)
       : drParameters(parameters) {};
 
-  void copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime);
   /**
    * Resampling of the sliprate introduces artificial oscillations into the solution, if we use it
    * together with Prakash-Clifton regularization, so for the BiMaterialFault specialization, we
@@ -296,7 +296,7 @@ class TPApprox {
   explicit TPApprox(seissol::initializer::parameters::DRParameters* parameters)
       : drParameters(parameters) {};
 
-  void copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {}
   /**
    * Use a simple copy for now, maybe use proper resampling later
    */

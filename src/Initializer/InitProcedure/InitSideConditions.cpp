@@ -74,7 +74,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
   if (initConditionParams.type ==
       seissol::initializer::parameters::InitializationType::Planarwave) {
     initialConditionDescription = "Planar wave";
-    const auto materialData = memoryManager.getLtsTree().lookup<LTS::Material>(pos);
+    const auto materialData = memoryManager.getLtsStorage().lookup<LTS::Material>(pos);
 
     for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
       const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
@@ -84,7 +84,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
              seissol::initializer::parameters::InitializationType::SuperimposedPlanarwave) {
     initialConditionDescription = "Super-imposed planar wave";
 
-    const auto materialData = memoryManager.getLtsTree().lookup<LTS::Material>(pos);
+    const auto materialData = memoryManager.getLtsStorage().lookup<LTS::Material>(pos);
     for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
       const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
       initConditions.emplace_back(new physics::SuperimposedPlanarwave(materialData, phase));
@@ -99,7 +99,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
     initialConditionDescription = "Travelling wave";
     auto travellingWaveParameters = getTravellingWaveInformation(seissolInstance);
 
-    const auto materialData = memoryManager.getLtsTree().lookup<LTS::Material>(pos);
+    const auto materialData = memoryManager.getLtsStorage().lookup<LTS::Material>(pos);
     initConditions.emplace_back(
         new physics::TravellingWave(materialData, travellingWaveParameters));
   } else if (initConditionParams.type ==
@@ -109,7 +109,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
     auto acousticTravellingWaveParametersITM =
         getAcousticTravellingWaveITMInformation(seissolInstance);
 
-    const auto materialData = memoryManager.getLtsTree().lookup<LTS::Material>(pos);
+    const auto materialData = memoryManager.getLtsStorage().lookup<LTS::Material>(pos);
     initConditions.emplace_back(
         new physics::AcousticTravellingWaveITM(materialData, acousticTravellingWaveParametersITM));
   } else if (initConditionParams.type ==
@@ -166,7 +166,7 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
                                                   *memoryManager.getGlobalData().onHost,
                                                   seissolInstance.meshReader(),
                                                   seissolInstance.getMemoryManager(),
-                                                  memoryManager.getLtsTree(),
+                                                  memoryManager.getLtsStorage(),
                                                   initConditionParams.hasTime);
   } else {
     auto initConditions = buildInitialConditionList(seissolInstance);
@@ -176,7 +176,7 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
                                                 *memoryManager.getGlobalData().onHost,
                                                 seissolInstance.meshReader(),
                                                 seissolInstance.getMemoryManager(),
-                                                memoryManager.getLtsTree());
+                                                memoryManager.getLtsStorage());
     }
     memoryManager.setInitialConditions(std::move(initConditions));
   }
@@ -188,7 +188,7 @@ void initSource(seissol::SeisSol& seissolInstance) {
   seissol::sourceterm::Manager::loadSources(srcparams.type,
                                             srcparams.fileName.c_str(),
                                             seissolInstance.meshReader(),
-                                            memoryManager.getLtsTree(),
+                                            memoryManager.getLtsStorage(),
                                             memoryManager.getBackmap(),
                                             seissolInstance.timeManager());
 }

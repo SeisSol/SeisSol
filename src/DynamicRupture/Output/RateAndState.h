@@ -26,7 +26,7 @@ class RateAndState : public ReceiverOutput {
 
   std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = ReceiverOutput::getOutputVariables();
-    baseVector.push_back(drTree->info<LTSRateAndState::StateVariable>().index);
+    baseVector.push_back(drStorage->info<LTSRateAndState::StateVariable>().index);
     return baseVector;
   }
 };

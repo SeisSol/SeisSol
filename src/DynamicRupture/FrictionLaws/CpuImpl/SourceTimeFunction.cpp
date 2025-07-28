@@ -15,7 +15,7 @@
 #include <cstdint>
 
 namespace seissol::dr::friction_law::cpu {
-void YoffeSTF::copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
+void YoffeSTF::copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
   onsetTime = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>();
   tauS = layerData.var<LTSImposedSlipRatesYoffe::TauS>();
   tauR = layerData.var<LTSImposedSlipRatesYoffe::TauR>();
@@ -30,7 +30,7 @@ real YoffeSTF::evaluate(real currentTime,
                                             tauR[ltsFace][pointIndex]);
 }
 
-void GaussianSTF::copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
+void GaussianSTF::copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
   onsetTime = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>();
   riseTime = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>();
 }
@@ -44,7 +44,7 @@ real GaussianSTF::evaluate(real currentTime,
   return smoothStepIncrement / timeIncrement;
 }
 
-void DeltaSTF::copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
+void DeltaSTF::copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
   onsetTime = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>();
 }
 

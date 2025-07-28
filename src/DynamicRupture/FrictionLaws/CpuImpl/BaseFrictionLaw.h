@@ -39,8 +39,8 @@ class BaseFrictionLaw : public FrictionSolver {
     }
 
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
-    BaseFrictionLaw::copyLtsTreeToLocal(layerData, fullUpdateTime);
-    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, fullUpdateTime);
+    BaseFrictionLaw::copyStorageToLocal(layerData, fullUpdateTime);
+    static_cast<Derived*>(this)->copyStorageToLocal(layerData, fullUpdateTime);
 
     // loop over all dynamic rupture faces, in this LTS layer
 #ifdef _OPENMP

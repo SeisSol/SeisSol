@@ -85,12 +85,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);
   }
 
-  void copyLtsTreeToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
+  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
     a = layerData.var<LTSRateAndState::RsA>();
     sl0 = layerData.var<LTSRateAndState::RsSl0>();
     stateVariable = layerData.var<LTSRateAndState::StateVariable>();
-    static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, fullUpdateTime);
-    tpMethod.copyLtsTreeToLocal(layerData, fullUpdateTime);
+    static_cast<Derived*>(this)->copyStorageToLocal(layerData, fullUpdateTime);
+    tpMethod.copyStorageToLocal(layerData, fullUpdateTime);
   }
 
   /**

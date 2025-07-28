@@ -103,15 +103,15 @@ class MemoryManager {
     GlobalData            m_globalDataOnHost;
     GlobalData            m_globalDataOnDevice;
 
-    //! Memory organization tree
-    LTS::Storage               m_ltsTree;
+    //! Memory organization storage
+    LTS::Storage               ltsStorage;
     LTS::Backmap backmap;
 
     std::optional<ClusterLayout> clusterLayout;
 
     std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
 
-    DynamicRupture::Storage m_dynRupTree;
+    DynamicRupture::Storage drStorage;
     std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
     std::unique_ptr<dr::initializer::BaseDRInitializer> m_DRInitializer = nullptr;
     std::unique_ptr<dr::friction_law::FrictionSolver> m_FrictionLaw = nullptr;
@@ -120,7 +120,7 @@ class MemoryManager {
 
     Boundary::Storage m_boundaryTree;
 
-    SurfaceLTS::Storage surfaceTree;
+    SurfaceLTS::Storage surfaceStorage;
 
     EasiBoundary m_easiBoundary;
 
@@ -177,18 +177,18 @@ class MemoryManager {
     void initialize();
     
     /**
-     * Sets the number of cells in each leaf of the lts tree, fixates the variables, and allocates memory.
-     * Afterwards the tree cannot be changed anymore.
+     * Sets the number of cells in each leaf of the lts storage, fixates the variables, and allocates memory.
+     * Afterwards the storage cannot be changed anymore.
      *
      * @param i_meshStructrue mesh structure.
      **/
-    void fixateLtsTree(struct ClusterLayout& clusterLayout,
+    void fixateLtsStorage(struct ClusterLayout& clusterLayout,
                        struct MeshStructure* meshStructure,
                        unsigned* numberOfDRCopyFaces,
                        unsigned* numberOfDRInteriorFaces,
                        bool usePlasticity);
 
-    void fixateBoundaryLtsTree();
+    void fixateBoundaryStorage();
     /**
      * Set up the internal structure.
      **/
@@ -207,28 +207,24 @@ class MemoryManager {
       return global;
     }
                           
-    LTS::Storage& getLtsTree() {
-      return m_ltsTree;
+    LTS::Storage& getLtsStorage() {
+      return ltsStorage;
     }
 
     LTS::Backmap& getBackmap() {
       return backmap;
     }
 
-    DynamicRupture::Storage& getDynamicRuptureTree() {
-      return m_dynRupTree;
+    DynamicRupture::Storage& getDRStorage() {
+      return drStorage;
     }
 
     DynamicRupture& getDynamicRupture() {
       return *m_dynRup;
     }
 
-    Boundary::Storage& getBoundaryTree() {
-      return m_boundaryTree;
-    }
-
-    SurfaceLTS::Storage& getSurfaceTree() {
-      return surfaceTree;
+    SurfaceLTS::Storage& getSurfaceStorage() {
+      return surfaceStorage;
     }
 
     void setInitialConditions(std::vector<std::unique_ptr<physics::InitialField>>&& iniConds) {
@@ -269,12 +265,12 @@ class MemoryManager {
   /**
    * Derives sizes of scratch memory required during computations of Wave Propagation solver
    **/
-  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsTree);
+  static void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage);
 
   /**
    * Derives sizes of scratch memory required during computations of Dynamic Rupture solver
    **/
-  static void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& ltsTree);
+  static void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage);
 #endif
 
   void initializeFrictionLaw();

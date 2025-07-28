@@ -25,7 +25,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
   ~RateAndStateBase() = default;
 
-  static void copySpecificLtsDataTreeToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData* data,
                                              DynamicRupture::Layer& layerData,
                                              real fullUpdateTime) {
     data->a = layerData.var<LTSRateAndState::RsA>(seissol::initializer::AllocationPlace::Device);
@@ -33,8 +33,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
         layerData.var<LTSRateAndState::RsSl0>(seissol::initializer::AllocationPlace::Device);
     data->stateVariable = layerData.var<LTSRateAndState::StateVariable>(
         seissol::initializer::AllocationPlace::Device);
-    Derived::copySpecificLtsDataTreeToLocal(data, layerData, fullUpdateTime);
-    TPMethod::copyLtsTreeToLocal(data, layerData, fullUpdateTime);
+    Derived::copySpecificStorageDataToLocal(data, layerData, fullUpdateTime);
+    TPMethod::copyStorageToLocal(data, layerData, fullUpdateTime);
   }
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {

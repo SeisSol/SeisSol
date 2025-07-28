@@ -49,12 +49,12 @@ void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshRead
   localRank = MPI::mpi.rank();
 }
 
-void ReceiverBasedOutputBuilder::setLtsData(LTS::Storage& userWpTree,
-                                            LTS::Backmap& userWpLut,
-                                            DynamicRupture::Storage& userDrTree) {
-  wpTree = &userWpTree;
-  wpLut = &userWpLut;
-  drTree = &userDrTree;
+void ReceiverBasedOutputBuilder::setLtsData(LTS::Storage& userWpStorage,
+                                            LTS::Backmap& userWpBackmap,
+                                            DynamicRupture::Storage& userDrStorage) {
+  wpStorage = &userWpStorage;
+  wpBackmap = &userWpBackmap;
+  drStorage = &userDrStorage;
 }
 
 void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>& variables) {
@@ -165,16 +165,16 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   std::vector<real*> indexPtrs(outputData->cellCount);
 
   for (const auto& [index, arrayIndex] : elementIndices) {
-    const auto position = wpLut->get(index);
-    indexPtrs[arrayIndex] = wpTree->lookup<LTS::DerivativesDevice>(position);
+    const auto position = wpBackmap->get(index);
+    indexPtrs[arrayIndex] = wpStorage->lookup<LTS::DerivativesDevice>(position);
     assert(indexPtrs[arrayIndex] != nullptr);
   }
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
 
-    const auto position = wpLut->get(neighbor.first);
-    indexPtrs[arrayIndex] = wpTree->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
+    const auto position = wpBackmap->get(neighbor.first);
+    indexPtrs[arrayIndex] = wpStorage->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
     assert(indexPtrs[arrayIndex] != nullptr);
   }
 
@@ -182,8 +182,8 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       indexPtrs, seissol::tensor::Q::size(), useMPIUSM());
 
   for (const auto& variable : variables) {
-    auto* var = drTree->varUntyped(variable, initializer::AllocationPlace::Device);
-    const std::size_t elementSize = drTree->info(variable).bytes;
+    auto* var = drStorage->varUntyped(variable, initializer::AllocationPlace::Device);
+    const std::size_t elementSize = drStorage->info(variable).bytes;
 
     assert(elementSize % sizeof(real) == 0);
 

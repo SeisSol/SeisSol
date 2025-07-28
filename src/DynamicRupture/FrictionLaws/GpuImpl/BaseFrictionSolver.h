@@ -192,8 +192,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     // TODO: avoid copying the data all the time
     // TODO: allocate FrictionLawData as constant data
 
-    FrictionSolverInterface::copyLtsTreeToLocal(&dataHost, layerData, fullUpdateTime);
-    Derived::copySpecificLtsDataTreeToLocal(&dataHost, layerData, fullUpdateTime);
+    FrictionSolverInterface::copyStorageToLocal(&dataHost, layerData, fullUpdateTime);
+    Derived::copySpecificStorageDataToLocal(&dataHost, layerData, fullUpdateTime);
     this->currLayerSize = layerData.size();
     dataHost.drParameters = *this->drParameters;
 

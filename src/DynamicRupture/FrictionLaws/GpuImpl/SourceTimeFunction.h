@@ -22,7 +22,7 @@ namespace seissol::dr::friction_law::gpu {
 
 class YoffeSTF : public ImposedSlipRates<YoffeSTF> {
   public:
-  static void copyLtsTreeToLocal(FrictionLawData* data,
+  static void copyStorageToLocal(FrictionLawData* data,
                                  DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {
     const auto place = seissol::initializer::AllocationPlace::Device;
@@ -42,7 +42,7 @@ class YoffeSTF : public ImposedSlipRates<YoffeSTF> {
 
 class GaussianSTF : public ImposedSlipRates<GaussianSTF> {
   public:
-  static void copyLtsTreeToLocal(FrictionLawData* data,
+  static void copyStorageToLocal(FrictionLawData* data,
                                  DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {
     const auto place = seissol::initializer::AllocationPlace::Device;
@@ -62,7 +62,7 @@ class GaussianSTF : public ImposedSlipRates<GaussianSTF> {
 
 class DeltaSTF : public ImposedSlipRates<DeltaSTF> {
   public:
-  static void copyLtsTreeToLocal(FrictionLawData* data,
+  static void copyStorageToLocal(FrictionLawData* data,
                                  DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {
     const auto place = seissol::initializer::AllocationPlace::Device;

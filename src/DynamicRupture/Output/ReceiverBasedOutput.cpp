@@ -36,17 +36,17 @@
 using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
-void ReceiverOutput::setLtsData(LTS::Storage& userWpTree,
-                                LTS::Backmap& userWpLut,
-                                DynamicRupture::Storage& userDrTree) {
-  wpTree = &userWpTree;
-  wpLut = &userWpLut;
-  drTree = &userDrTree;
+void ReceiverOutput::setLtsData(LTS::Storage& userWpStorage,
+                                LTS::Backmap& userWpBackmap,
+                                DynamicRupture::Storage& userDrStorage) {
+  wpStorage = &userWpStorage;
+  wpBackmap = &userWpBackmap;
+  drStorage = &userDrStorage;
 }
 
 void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
-  const auto position = wpLut->get(meshId);
-  auto& layer = wpTree->layer(position.color);
+  const auto position = wpBackmap->get(meshId);
+  auto& layer = wpStorage->layer(position.color);
   // get DOFs from 0th derivatives
   assert((layer.var<LTS::CellInformation>()[position.cell].ltsSetup >> 9) % 2 == 1);
 
@@ -55,8 +55,8 @@ void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
 }
 
 void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side) {
-  const auto position = wpLut->get(meshId);
-  auto& layer = wpTree->layer(position.color);
+  const auto position = wpBackmap->get(meshId);
+  auto& layer = wpStorage->layer(position.color);
   auto* derivatives = layer.var<LTS::FaceNeighbors>()[position.cell][side];
   assert(derivatives != nullptr);
 
@@ -487,14 +487,14 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
 }
 
 std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
-  return {drTree->info<DynamicRupture::InitialStressInFaultCS>().index,
-          drTree->info<DynamicRupture::Mu>().index,
-          drTree->info<DynamicRupture::RuptureTime>().index,
-          drTree->info<DynamicRupture::AccumulatedSlipMagnitude>().index,
-          drTree->info<DynamicRupture::PeakSlipRate>().index,
-          drTree->info<DynamicRupture::DynStressTime>().index,
-          drTree->info<DynamicRupture::Slip1>().index,
-          drTree->info<DynamicRupture::Slip2>().index};
+  return {drStorage->info<DynamicRupture::InitialStressInFaultCS>().index,
+          drStorage->info<DynamicRupture::Mu>().index,
+          drStorage->info<DynamicRupture::RuptureTime>().index,
+          drStorage->info<DynamicRupture::AccumulatedSlipMagnitude>().index,
+          drStorage->info<DynamicRupture::PeakSlipRate>().index,
+          drStorage->info<DynamicRupture::DynStressTime>().index,
+          drStorage->info<DynamicRupture::Slip1>().index,
+          drStorage->info<DynamicRupture::Slip2>().index};
 }
 
 } // namespace seissol::dr::output

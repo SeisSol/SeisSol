@@ -52,7 +52,7 @@ class FreeSurfaceIntegrator {
       real* projectionMatrixFromFaceRow,
       const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
       const double* weights) const;
-  void initializeSurfaceLTSTree(LTS::Storage& ltsTree);
+  void initializeSurfaceStorage(LTS::Storage& ltsStorage);
 
   static LocationFlag
       getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
@@ -67,7 +67,7 @@ class FreeSurfaceIntegrator {
   std::vector<std::size_t> backmap;
   std::vector<std::size_t> globalIds;
 
-  SurfaceLTS::Storage* surfaceLtsTree{nullptr};
+  SurfaceLTS::Storage* surfaceStorage{nullptr};
   seissol::refinement::TriangleRefiner triRefiner;
 
   explicit FreeSurfaceIntegrator();
@@ -81,8 +81,8 @@ class FreeSurfaceIntegrator {
 
   void initialize(unsigned maxRefinementDepth,
                   GlobalData* globalData,
-                  LTS::Storage& ltsTree,
-                  SurfaceLTS::Storage& surfaceltsTree);
+                  LTS::Storage& ltsStorage,
+                  SurfaceLTS::Storage& surfaceStorage);
 
   void calculateOutput() const;
 

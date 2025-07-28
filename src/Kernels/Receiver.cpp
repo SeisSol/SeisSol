@@ -96,14 +96,14 @@ void ReceiverCluster::addReceiver(unsigned meshId,
   const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
 
   const auto position = backmap.get(meshId);
-  auto& ltsTree = seissolInstance.getMemoryManager().getLtsTree();
+  auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
   m_receivers.emplace_back(pointId,
                            point,
                            coords,
-                           ltsTree.lookupRef(position),
-                           ltsTree.lookupRef(position,
-                                             isDeviceOn() ? initializer::AllocationPlace::Device
-                                                          : initializer::AllocationPlace::Host),
+                           ltsStorage.lookupRef(position),
+                           ltsStorage.lookupRef(position,
+                                                isDeviceOn() ? initializer::AllocationPlace::Device
+                                                             : initializer::AllocationPlace::Host),
                            reserved);
 }
 

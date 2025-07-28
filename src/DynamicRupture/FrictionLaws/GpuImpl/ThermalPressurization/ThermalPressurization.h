@@ -51,7 +51,7 @@ class ThermalPressurization {
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  static void copyLtsTreeToLocal(FrictionLawData* data,
+  static void copyStorageToLocal(FrictionLawData* data,
                                  DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {
     const auto place = seissol::initializer::AllocationPlace::Device;
@@ -70,7 +70,7 @@ class ThermalPressurization {
 
   /**
    * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face
-   * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree.
+   * bool saveTmpInTP is used to save final values for Theta and Sigma in the storage.
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
   SEISSOL_DEVICE static void
