@@ -27,7 +27,9 @@ def addKernels(generator, aderdg):
         "basisFunctionDerivativesAtPoint", (numberOf3DBasisFunctions, 3)
     )
     timeBasisFunctionsAtPoint = Tensor("timeBasisFunctionsAtPoint", (order,))
-    mInvJInvPhisAtSources = Tensor("mInvJInvPhisAtSources", (numberOf3DBasisFunctions,))
+    mInvJInvPhisAtSources = Tensor(
+        "mInvJInvPhisAtSources", (numberOf3DBasisFunctions,), alignStride=True
+    )
     JInv = Scalar("JInv")
 
     generator.add(
@@ -59,6 +61,34 @@ def addKernels(generator, aderdg):
         * mSlip["i"]
         * mNormal["j"]
     )
+
+    rotateNRF = Tensor("rotateNRF", (3, 3))
+    momentNRFKernel2 = (
+        momentToNRF["tpq"]
+        * mArea
+        * mStiffnessTensor["pqIj"]
+        * mNormal["j"]
+        * rotateNRF["Ii"]
+    )
+
+    tensorNRF = Tensor("tensorNRF", (numberOfQuantities, 3))
+
+    generator.add("transformNRF", tensorNRF["ti"] <= momentNRFKernel2)
+
+    update = Tensor("update", (numberOfQuantities,))
+
+    if aderdg.Q.hasOptDim():
+        generator.add(
+            "addPointSource",
+            aderdg.Q["kt"]
+            <= aderdg.Q["kt"]
+            + mInvJInvPhisAtSources["k"] * update["t"] * aderdg.oneSimToMultSim["s"],
+        )
+    else:
+        generator.add(
+            "addPointSource",
+            aderdg.Q["kt"] <= aderdg.Q["kt"] + mInvJInvPhisAtSources["k"] * update["t"],
+        )
 
     if aderdg.Q.hasOptDim():
         sourceNRF = (

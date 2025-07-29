@@ -22,7 +22,7 @@ PointSourceClusterOnDevice::PointSourceClusterOnDevice(
     std::shared_ptr<sourceterm::PointSources> sources)
     : clusterMapping_(std::move(mapping)), sources_(std::move(sources)) {}
 
-unsigned PointSourceClusterOnDevice::size() const { return sources_->numberOfSources; }
+std::size_t PointSourceClusterOnDevice::size() const { return sources_->numberOfSources; }
 
 void PointSourceClusterOnDevice::addTimeIntegratedPointSources(
     double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {

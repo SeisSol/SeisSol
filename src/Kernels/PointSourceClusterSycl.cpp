@@ -12,6 +12,14 @@
 
 #include <sycl/sycl.hpp>
 
+namespace {
+
+constexpr std::size_t SubBlock = 32;
+constexpr std::size_t Blocksize = 256;
+constexpr auto PerBlock = Blocksize / SubBlock;
+
+} // namespace
+
 namespace seissol::kernels {
 
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
@@ -24,61 +32,40 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
   if (mapping.size() > 0) {
     const auto* __restrict mInvJInvPhisAtSources = sources.mInvJInvPhisAtSources.data();
     const auto* __restrict tensor = sources.tensor.data();
-    const auto* __restrict a = sources.A.data();
-    const auto* __restrict stiffnessTensor = sources.stiffnessTensor.data();
     const auto* __restrict onsetTime = sources.onsetTime.data();
     const auto* __restrict samplingInterval = sources.samplingInterval.data();
-    auto sampleOffsets = memory::AlignedArray<const std::size_t* __restrict, 3>();
-    sampleOffsets[0] = sources.sampleOffsets[0].data();
-    sampleOffsets[1] = sources.sampleOffsets[1].data();
-    sampleOffsets[2] = sources.sampleOffsets[2].data();
-    auto sample = memory::AlignedArray<const real* __restrict, 3>();
-    sample[0] = sources.sample[0].data();
-    sample[1] = sources.sample[1].data();
-    sample[2] = sources.sample[2].data();
-
+    const auto* __restrict sampleRange = sources.sampleRange.data();
+    const auto* __restrict sampleOffsets = sources.sampleOffsets.data();
+    const auto* __restrict sample = sources.sample.data();
     const auto* __restrict simulationIndex = sources.simulationIndex.data();
 
     auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
 
-    sycl::range rng{mapping.size()};
-    if (sources.mode == sourceterm::PointSourceMode::Nrf) {
-      queue->submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::item<1> id) {
-          pointSourceKernelNRF(id[0],
-                               from,
-                               to,
-                               mappingPtr,
-                               mInvJInvPhisAtSources,
-                               simulationIndex,
-                               tensor,
-                               a,
-                               stiffnessTensor,
-                               onsetTime,
-                               samplingInterval,
-                               sampleOffsets,
-                               sample);
-        });
+    const auto elements = mapping.size();
+
+    sycl::nd_range rng{{elements * SubBlock, PerBlock}, {SubBlock, PerBlock}};
+    queue->submit([&](sycl::handler& cgh) {
+      cgh.parallel_for(rng, [=](sycl::nd_item<> id) {
+        const auto block = item.get_group().get_group_id(0) * PerBlock + item.get_local_id(1);
+        const auto thread = item.get_local_id(0);
+
+        if (block < elements) {
+          pointSourceKernelDevice<SubBlock>(thread,
+                                            block,
+                                            from,
+                                            to,
+                                            mappingPtr,
+                                            mInvJInvPhisAtSources,
+                                            simulationIndex,
+                                            tensor,
+                                            onsetTime,
+                                            samplingInterval,
+                                            sampleRange,
+                                            sampleOffsets,
+                                            sample);
+        }
       });
-    } else {
-      queue->submit([&](sycl::handler& cgh) {
-        cgh.parallel_for(rng, [=](sycl::item<1> id) {
-          pointSourceKernelFSRM(id[0],
-                                from,
-                                to,
-                                mappingPtr,
-                                mInvJInvPhisAtSources,
-                                simulationIndex,
-                                tensor,
-                                a,
-                                stiffnessTensor,
-                                onsetTime,
-                                samplingInterval,
-                                sampleOffsets,
-                                sample);
-        });
-      });
-    }
+    });
   }
 }
 
