@@ -8,10 +8,10 @@
 #include "Equations/Datastructures.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
+#include <GeneratedCode/init.h>
+#include <GeneratedCode/tensor.h>
 #include <cstdio>
-#include <init.h>
 #include <sycl/sycl.hpp>
-#include <tensor.h>
 #include <yateto.h>
 
 #include <Solver/MultipleSimulations.h>
