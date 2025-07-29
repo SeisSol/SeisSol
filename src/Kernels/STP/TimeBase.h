@@ -40,9 +40,9 @@ class Spacetime : public SpacetimeKernel {
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) override;
+  void flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
 
-  unsigned bytesAder() override;
+  std::uint64_t bytesAder() override;
 
   private:
   void executeSTP(double timeStepWidth,
@@ -70,7 +70,7 @@ class Time : public TimeKernel {
                        real** timeIntegratedDofs,
                        std::size_t numElements,
                        seissol::parallel::runtime::StreamRuntime& runtime) override;
-  void flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) override;
+  void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
 };
 
 } // namespace seissol::kernels::solver::stp

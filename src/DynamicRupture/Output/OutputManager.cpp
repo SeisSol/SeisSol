@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <fstream>
@@ -208,9 +209,19 @@ void OutputManager::initElementwiseOutput() {
     };
     misc::forEach(ewOutputData->vars, recordPointers);
 
+    std::vector<unsigned> faceIdentifiers(receiverPoints.size());
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
+      faceIdentifiers[i] =
+          receiverPoints[i].elementGlobalIndex * 4 + receiverPoints[i].localFaceSideId;
+    }
+
     seissolInstance.faultWriter().init(cellConnectivity.data(),
                                        vertices.data(),
                                        faultTags.data(),
+                                       faceIdentifiers.data(),
                                        static_cast<unsigned int>(receiverPoints.size()),
                                        static_cast<unsigned int>(3 * receiverPoints.size()),
                                        &intMask[0],
@@ -243,6 +254,16 @@ void OutputManager::initElementwiseOutput() {
         }
       }
     });
+
+    writer.addCellData<int>("fault-tag", {}, [=, &receiverPoints](int* target, std::size_t index) {
+      *target = receiverPoints[index].faultTag;
+    });
+
+    writer.addCellData<std::size_t>(
+        "global-id", {}, [=, &receiverPoints](std::size_t* target, std::size_t index) {
+          *target =
+              receiverPoints[index].elementGlobalIndex * 4 + receiverPoints[index].localFaceSideId;
+        });
 
     misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
       if (var.isActive) {
@@ -334,7 +355,7 @@ void OutputManager::initPickpointOutput() {
       allReceiversInOneFilePerRank ? ppOutputData->receiverPoints.size() / multisim::NumSimulations
                                    : 1;
 
-  for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
+  for (std::uint32_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
     for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
       size_t labelCounter = 0;
       auto collectVariableNames =
@@ -355,7 +376,6 @@ void OutputManager::initPickpointOutput() {
 
   for (size_t i = 0; i < ppFiles.size(); ++i) {
     const auto& receiver = outputData->receiverPoints[i];
-    const size_t globalIndex = receiver.globalReceiverIndex + 1;
 
     const auto& ppfile = ppFiles[i];
 
@@ -500,7 +520,6 @@ void OutputManager::writePickpointOutput(double time, double dt) {
 
 void OutputManager::flushPickpointDataToFile() {
   auto& outputData = ppOutputData;
-  const auto& seissolParameters = seissolInstance.getSeisSolParameters();
 
   for (const auto& ppfile : ppFiles) {
     std::stringstream data;

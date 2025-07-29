@@ -45,8 +45,8 @@ struct FrictionLawArgs {
 };
 
 struct FrictionLawContext {
-  int ltsFace;
-  int pointIndex;
+  std::size_t ltsFace;
+  std::uint32_t pointIndex;
   const FrictionLawData* __restrict data;
   const FrictionLawArgs* __restrict args;
 
@@ -101,12 +101,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     Derived::preHook(ctx);
 
     real updateTime = ctx.args->fullUpdateTime;
-    for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
+    for (uint32_t timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
       const real dt = ctx.args->deltaT[timeIndex];
 
       updateTime += dt;
 
-      for (int i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
+      for (uint32_t i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
         common::adjustInitialStress<GpuRangeType>(
             ctx.data->initialStressInFaultCS[ctx.ltsFace],
             ctx.data->nucleationStressInFaultCS[i][ctx.ltsFace],

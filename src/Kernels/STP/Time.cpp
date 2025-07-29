@@ -151,7 +151,7 @@ void Spacetime::computeAder(const real* coeffs,
   executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
 }
 
-void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlops) {
+void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
   hardwareFlops = 0;
@@ -163,8 +163,8 @@ void Spacetime::flopsAder(unsigned int& nonZeroFlops, unsigned int& hardwareFlop
   hardwareFlops += 3 * init::star::size(0);
 }
 
-unsigned Spacetime::bytesAder() {
-  unsigned reals = 0;
+std::uint64_t Spacetime::bytesAder() {
+  std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
   reals += tensor::Q::size() + 2 * tensor::I::size();
@@ -269,7 +269,7 @@ void Time::evaluateBatched(const real* coeffs,
   logError() << "No GPU implementation provided";
 }
 
-void Time::flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) {
+void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::evaluateDOFSAtTimeSTP::NonZeroFlops;
   hardwareFlops = kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
 }

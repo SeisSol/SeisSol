@@ -21,8 +21,8 @@ class NoTP {
                          std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
                          real deltaT,
                          bool saveTmpInTP,
-                         unsigned int timeIndex,
-                         unsigned int ltsFace) {}
+                         uint32_t timeIndex,
+                         std::size_t ltsFace) {}
 
   [[nodiscard]] static real getFluidPressure(unsigned /*unused*/, unsigned /*unused*/) {
     return 0;

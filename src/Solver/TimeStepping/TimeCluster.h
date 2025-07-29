@@ -120,8 +120,8 @@ class TimeCluster : public AbstractTimeCluster {
     NumComputeParts
   };
 
-  std::array<long long, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero;
-  std::array<long long, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware;
+  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsNonZero;
+  std::array<std::uint64_t, static_cast<int>(ComputePart::NumComputeParts)> accFlopsHardware;
 
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics;
@@ -200,14 +200,14 @@ class TimeCluster : public AbstractTimeCluster {
 
   void computeLocalIntegrationFlops(unsigned numberOfCells,
                                     const CellLocalInformation* cellInformation,
-                                    long long& nonZeroFlops,
-                                    long long& hardwareFlops);
+                                    std::uint64_t& nonZeroFlops,
+                                    std::uint64_t& hardwareFlops);
 
   void computeNeighborIntegrationFlops();
 
   void computeDynamicRuptureFlops(seissol::initializer::Layer& layerData,
-                                  long long& nonZeroFlops,
-                                  long long& hardwareFlops);
+                                  std::uint64_t& nonZeroFlops,
+                                  std::uint64_t& hardwareFlops);
 
   void computeFlops();
 

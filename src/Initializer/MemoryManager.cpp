@@ -251,17 +251,17 @@ void seissol::initializer::MemoryManager::initializeFaceNeighbors( unsigned    c
 
   real** buffers = m_ltsTree.var(m_lts.buffers);          // faceNeighborIds are ltsIds and not layer-local
   real** derivatives = m_ltsTree.var(m_lts.derivatives);  // faceNeighborIds are ltsIds and not layer-local
-  real *(*faceNeighbors)[4] = layer.var(m_lts.faceNeighbors);
+  real *(*faceNeighbors)[Cell::NumFaces] = layer.var(m_lts.faceNeighbors);
 #ifdef ACL_DEVICE
   real** buffersDevice = m_ltsTree.var(m_lts.buffersDevice);          // faceNeighborIds are ltsIds and not layer-local
   real** derivativesDevice = m_ltsTree.var(m_lts.derivativesDevice);  // faceNeighborIds are ltsIds and not layer-local
-  real *(*faceNeighborsDevice)[4] = layer.var(m_lts.faceNeighborsDevice);
+  real *(*faceNeighborsDevice)[Cell::NumFaces] = layer.var(m_lts.faceNeighborsDevice);
 #endif
   auto* cellInformation = layer.var(m_lts.cellInformation);
   auto* secondaryInformation = layer.var(m_lts.secondaryInformation);
 
   for (unsigned cell = 0; cell < layer.size(); ++cell) {
-    for (unsigned face = 0; face < 4; ++face) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (cellInformation[cell].faceTypes[face] == FaceType::Regular ||
 	  cellInformation[cell].faceTypes[face] == FaceType::Periodic ||
 	  cellInformation[cell].faceTypes[face] == FaceType::DynamicRupture) {
@@ -476,7 +476,7 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
     #pragma omp parallel for schedule(static) reduction(+ : numberOfBoundaryFaces)
 #endif // _OPENMP
     for (unsigned cell = 0; cell < layerSize; ++cell) {
-      for (unsigned face = 0; face < 4; ++face) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           ++numberOfBoundaryFaces;
         }
@@ -497,9 +497,9 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
     auto* faceInformation = boundaryLayer.var(m_boundary.faceInformation, AllocationPlace::Host);
     auto* faceInformationDevice = boundaryLayer.var(m_boundary.faceInformation, AllocationPlace::Device);
 
-    auto boundaryFace = 0;
-    for (unsigned cell = 0; cell < layer.size(); ++cell) {
-      for (unsigned face = 0; face < 4; ++face) {
+    std::size_t boundaryFace = 0;
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
           boundaryMapping[cell][face].dataT = faceInformation[boundaryFace].dataT;
@@ -527,35 +527,16 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
       }
     }
   }
-}
 
-void seissol::initializer::MemoryManager::deriveFaceDisplacementsBucket()
-{
-  for (auto& layer : m_ltsTree.leaves(m_ltsTree.info(m_lts.faceDisplacements).mask)) {
-    CellLocalInformation* cellInformation = layer.var(m_lts.cellInformation);
-    real* (*displacements)[4] = layer.var(m_lts.faceDisplacements);
-    CellMaterialData* cellMaterialData = layer.var(m_lts.material);
+  surfaceTree.setName("surface");
+  surface.addTo(surfaceTree);
 
-    unsigned numberOfFaces = 0;
-    for (unsigned cell = 0; cell < layer.size(); ++cell) {
-      for (unsigned int face = 0; face < 4; ++face) {
-        if (requiresDisplacement(cellInformation[cell],
-                                 cellMaterialData[cell],
-                                 face)) {
-          // We add the base address later when the bucket is allocated
-          // +1 is necessary as we want to reserve the nullptr for cell without displacement.
-          // Thanks to this hack, the array contains a constant plus the offset of the current
-          // cell.
-          displacements[cell][face] =
-              reinterpret_cast<real*>(1 + numberOfFaces * tensor::faceDisplacement::size());
-          ++numberOfFaces;
-        } else {
-          displacements[cell][face] = nullptr;
-        }
-      }
-    }
-    layer.setEntrySize(m_lts.faceDisplacementsBuffer, numberOfFaces * 1 * tensor::faceDisplacement::size() * sizeof(real));
+  int refinement = 0;
+  const auto& outputParams = seissolInstance.getSeisSolParameters().output;
+  if (outputParams.freeSurfaceParameters.enabled && outputParams.freeSurfaceParameters.vtkorder < 0) {
+    refinement = outputParams.freeSurfaceParameters.refinement;
   }
+  seissolInstance.freeSurfaceIntegrator().initialize(refinement, &m_globalDataOnHost, &m_lts, &m_ltsTree, &surface, &surfaceTree);
 }
 
 #ifdef ACL_DEVICE
@@ -567,7 +548,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
 
     CellLocalInformation *cellInformation = layer.var(lts.cellInformation);
     std::unordered_set<real *> registry{};
-    real *(*faceNeighbors)[4] = layer.var(lts.faceNeighborsDevice);
+    real *(*faceNeighbors)[Cell::NumFaces] = layer.var(lts.faceNeighborsDevice);
 
     std::size_t derivativesCounter{0};
     std::size_t integratedDofsCounter{0};
@@ -577,7 +558,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
     std::array<std::size_t, 4> freeSurfacePerFace{};
     std::array<std::size_t, 4> dirichletPerFace{};
 
-    for (unsigned cell = 0; cell < layer.size(); ++cell) {
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       bool needsScratchMemForDerivatives = (cellInformation[cell].ltsSetup >> 9) % 2 == 0;
       if (needsScratchMemForDerivatives) {
         ++derivativesCounter;
@@ -585,7 +566,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
       ++integratedDofsCounter;
 
       // include data provided by ghost layers
-      for (int face = 0; face < 4; ++face) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         real *neighborBuffer = faceNeighbors[cell][face];
 
         // check whether a neighbor element idofs has not been counted twice
@@ -623,7 +604,10 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
       }
     }
     const auto freeSurfaceCount = *std::max_element(freeSurfacePerFace.begin(), freeSurfacePerFace.end());
-    const auto dirichletCount = *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
+    const auto dirichletCountPre = *std::max_element(dirichletPerFace.begin(), dirichletPerFace.end());
+
+    // FSG also counts as Dirichlet
+    const auto dirichletCount = std::max(dirichletCountPre, freeSurfaceCount);
 
     layer.setEntrySize(lts.integratedDofsScratch,
                              integratedDofsCounter * tensor::I::size() * sizeof(real));
@@ -681,40 +665,6 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForDr(
 }
 #endif
 
-void seissol::initializer::MemoryManager::initializeFaceDisplacements()
-{
-  for (auto& layer : m_ltsTree.leaves(m_ltsTree.info(m_lts.faceDisplacements).mask)) {
-    if (layer.getEntrySize(m_lts.faceDisplacementsBuffer) == 0) {
-      continue;
-    }
-    real* (*displacements)[4] = layer.var(m_lts.faceDisplacements);
-    real* bucket = static_cast<real*>(layer.var(m_lts.faceDisplacementsBuffer));
-    real* (*displacementsDevice)[4] = layer.var(m_lts.faceDisplacementsDevice);
-    real* bucketDevice = static_cast<real*>(layer.var(m_lts.faceDisplacementsBuffer, seissol::initializer::AllocationPlace::Device));
-
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static) default(none) shared(layer, displacements, bucket, displacementsDevice, bucketDevice)
-#endif // _OPENMP
-    for (unsigned cell = 0; cell < layer.size(); ++cell) {
-      for (unsigned face = 0; face < 4; ++face) {
-        if (displacements[cell][face] != nullptr) {
-          // Remove constant part that was added in deriveDisplacementsBucket.
-          // We then have the pointer offset that needs to be added to the bucket.
-          // The final value of this pointer then points to a valid memory address
-          // somewhere in the bucket.
-          auto offset = (reinterpret_cast<std::intptr_t>(displacements[cell][face]) - 1);
-          displacements[cell][face] = bucket + offset;
-          displacementsDevice[cell][face] = bucketDevice + offset;
-          for (unsigned dof = 0; dof < tensor::faceDisplacement::size(); ++dof) {
-            // zero displacements
-            displacements[cell][face][dof] = static_cast<real>(0.0);
-          }
-        }
-      }
-    }
-  }
-}
-
 void seissol::initializer::MemoryManager::initializeMemoryLayout()
 {
   // correct LTS-information in the ghost layer
@@ -745,8 +695,6 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
     cluster.child<Copy>().setEntrySize(m_lts.buffersDerivatives, l_copySize);
     cluster.child<Interior>().setEntrySize(m_lts.buffersDerivatives, l_interiorSize);
   }
-
-  deriveFaceDisplacementsBucket();
 
   m_ltsTree.allocateBuckets();
 
@@ -782,26 +730,10 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
   // initialize the communication structure
   initializeCommunicationStructure();
 
-  initializeFaceDisplacements();
-
 #ifdef ACL_DEVICE
   seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(seissolInstance.getSeisSolParameters().model.plasticity, m_ltsTree, m_lts);
   m_ltsTree.allocateScratchPads();
 #endif
-}
-
-std::pair<MeshStructure *, CompoundGlobalData>
-seissol::initializer::MemoryManager::getMemoryLayout(unsigned int i_cluster) {
-  MeshStructure *meshStructure = m_meshStructure + i_cluster;
-
-  CompoundGlobalData globalData{};
-  globalData.onHost = &m_globalDataOnHost;
-  globalData.onDevice = nullptr;
-  if constexpr (seissol::isDeviceOn()) {
-    globalData.onDevice = &m_globalDataOnDevice;
-  }
-
-  return std::make_pair(meshStructure, globalData);
 }
 
 void seissol::initializer::MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
@@ -920,6 +852,7 @@ void seissol::initializer::MemoryManager::synchronizeTo(seissol::initializer::Al
   m_ltsTree.synchronizeTo(place, defaultStream);
   m_dynRupTree.synchronizeTo(place, defaultStream);
   m_boundaryTree.synchronizeTo(place, defaultStream);
+  surfaceTree.synchronizeTo(place, defaultStream);
   device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
 #endif
 }

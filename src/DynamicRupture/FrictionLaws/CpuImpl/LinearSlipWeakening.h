@@ -29,8 +29,8 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                              TractionResults<Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::NumPaddedPoints>& strengthBuffer,
-                             unsigned int ltsFace,
-                             unsigned int timeIndex) {
+                             std::size_t ltsFace,
+                             uint32_t timeIndex) {
     // computes fault strength, which is the critical value whether active slip exists.
     this->calcStrengthHook(faultStresses, strengthBuffer, timeIndex, ltsFace);
 
@@ -65,10 +65,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   void calcSlipRateAndTraction(const FaultStresses<Executor::Host>& faultStresses,
                                TractionResults<Executor::Host>& tractionResults,
                                std::array<real, misc::NumPaddedPoints>& strength,
-                               unsigned int timeIndex,
-                               unsigned int ltsFace) {
+                               uint32_t timeIndex,
+                               std::size_t ltsFace) {
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 = this->initialStressInFaultCS[ltsFace][3][pointIndex] +
                                   faultStresses.traction1[timeIndex][pointIndex];
@@ -106,19 +106,19 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     }
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned int ltsFace) {
+  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
   };
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                unsigned int ltsFace) {};
+  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
+  };
 
   /**
    * evaluate friction law: updated mu -> friction law
    * for example see Carsten Uphoff's thesis: Eq. 2.45
    */
   void frictionFunctionHook(std::array<real, misc::NumPaddedPoints>& stateVariable,
-                            unsigned int ltsFace) {
+                            std::size_t ltsFace) {
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       this->mu[ltsFace][pointIndex] =
           muS[ltsFace][pointIndex] -
           (muS[ltsFace][pointIndex] - muD[ltsFace][pointIndex]) * stateVariable[pointIndex];
@@ -134,9 +134,9 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   /**
    * output time when shear stress is equal to the dynamic stress after rupture arrived
    */
-  void saveDynamicStressOutput(unsigned int ltsFace) {
+  void saveDynamicStressOutput(std::size_t ltsFace) {
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       if (this->dynStressTimePending[ltsFace][pointIndex] &&
           std::fabs(this->accumulatedSlipMagnitude[ltsFace][pointIndex]) >=
               dC[ltsFace][pointIndex]) {
@@ -148,10 +148,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
   void calcStrengthHook(const FaultStresses<Executor::Host>& faultStresses,
                         std::array<real, misc::NumPaddedPoints>& strength,
-                        unsigned int timeIndex,
-                        unsigned int ltsFace) {
+                        uint32_t timeIndex,
+                        std::size_t ltsFace) {
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate fault strength (Uphoff eq 2.44) with addition cohesion term
       const real totalNormalStress = this->initialStressInFaultCS[ltsFace][0][pointIndex] +
                                      faultStresses.normalStress[timeIndex][pointIndex] +
@@ -172,17 +172,17 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   }
 
   void calcStateVariableHook(std::array<real, misc::NumPaddedPoints>& stateVariable,
-                             unsigned int timeIndex,
-                             unsigned int ltsFace) {
+                             uint32_t timeIndex,
+                             std::size_t ltsFace) {
     alignas(Alignment) real resampledSlipRate[misc::NumPaddedPoints]{};
     specialization.resampleSlipRate(resampledSlipRate, this->slipRateMagnitude[ltsFace]);
 
     real time = this->mFullUpdateTime;
-    for (int i = 0; i <= timeIndex; ++i) {
+    for (uint32_t i = 0; i <= timeIndex; ++i) {
       time += this->deltaT[i];
     }
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // integrate slip rate to get slip = state variable
 
       const auto update = resampledSlipRate[pointIndex] * this->deltaT[timeIndex];
@@ -238,8 +238,8 @@ class NoSpecialization {
 #pragma omp declare simd
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
-                                unsigned int ltsFace,
-                                unsigned int pointIndex) {
+                                std::size_t ltsFace,
+                                std::uint32_t pointIndex) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
@@ -247,8 +247,8 @@ class NoSpecialization {
   static real strengthHook(real strength,
                            real localSlipRate,
                            real deltaT,
-                           unsigned int ltsFace,
-                           unsigned int pointIndex) {
+                           std::size_t ltsFace,
+                           std::uint32_t pointIndex) {
     return strength;
   };
 };
@@ -276,8 +276,8 @@ class BiMaterialFault {
 #pragma omp declare simd
   static real stateVariableHook(real localAccumulatedSlip,
                                 real localDc,
-                                unsigned int ltsFace,
-                                unsigned int pointIndex) {
+                                std::size_t ltsFace,
+                                std::uint32_t pointIndex) {
     return std::min(std::fabs(localAccumulatedSlip) / localDc, static_cast<real>(1.0));
   }
 
@@ -285,8 +285,8 @@ class BiMaterialFault {
   real strengthHook(real strength,
                     real localSlipRate,
                     real deltaT,
-                    unsigned int ltsFace,
-                    unsigned int pointIndex);
+                    std::size_t ltsFace,
+                    std::uint32_t pointIndex);
 
   protected:
   seissol::initializer::parameters::DRParameters* drParameters;
@@ -314,15 +314,15 @@ class TPApprox {
 #pragma omp declare simd
   real stateVariableHook(real localAccumulatedSlip,
                          real localDc,
-                         unsigned int ltsFace,
-                         unsigned int pointIndex);
+                         std::size_t ltsFace,
+                         std::uint32_t pointIndex);
 
 #pragma omp declare simd
   static real strengthHook(real strength,
                            real localSlipRate,
                            real deltaT,
-                           unsigned int ltsFace,
-                           unsigned int pointIndex) {
+                           std::size_t ltsFace,
+                           std::uint32_t pointIndex) {
     return strength;
   };
 

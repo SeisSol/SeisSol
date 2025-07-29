@@ -34,7 +34,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     Derived::copySpecificLtsDataTreeToLocal(data, layerData, dynRup);
   }
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, unsigned timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {
     // computes fault strength, which is the critical value whether active slip exists.
     Derived::calcStrengthHook(ctx, timeIndex);
     // computes resulting slip rates, traction and slip dependent on current friction
@@ -48,8 +48,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    *  compute the slip rate and the traction from the fault strength and fault stresses
    *  also updates the directional slip1 and slip2
    */
-  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& ctx,
-                                                     unsigned int timeIndex) {
+  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& ctx, uint32_t timeIndex) {
     const auto& devImpAndEta{ctx.data->impAndEta[ctx.ltsFace]};
     const auto deltaT{ctx.args->deltaT[timeIndex]};
 
@@ -153,7 +152,7 @@ class LinearSlipWeakeningLaw
     SpecializationT::copyLtsTreeToLocal(data, layerData, dynRup);
   }
 
-  SEISSOL_DEVICE static void calcStrengthHook(FrictionLawContext& ctx, unsigned int timeIndex) {
+  SEISSOL_DEVICE static void calcStrengthHook(FrictionLawContext& ctx, uint32_t timeIndex) {
 
     const auto deltaT{ctx.args->deltaT[timeIndex]};
 
@@ -181,13 +180,12 @@ class LinearSlipWeakeningLaw
                                       prakashLength);
   }
 
-  SEISSOL_DEVICE static void calcStateVariableHook(FrictionLawContext& ctx,
-                                                   unsigned int timeIndex) {
+  SEISSOL_DEVICE static void calcStateVariableHook(FrictionLawContext& ctx, uint32_t timeIndex) {
     const auto t0{ctx.data->drParameters.t0[0]};
     const auto tpProxyExponent{ctx.data->drParameters.tpProxyExponent};
 
     real tn = ctx.args->fullUpdateTime;
-    for (int i = 0; i <= timeIndex; ++i) {
+    for (uint32_t i = 0; i <= timeIndex; ++i) {
       tn += ctx.args->deltaT[i];
     }
 

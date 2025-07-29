@@ -44,7 +44,7 @@ constexpr std::size_t PaddedMultiple =
 
 template <typename T>
 __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints) __global__
-    void flkernelwrapper(int elements, FrictionLawArgs args) {
+    void flkernelwrapper(std::size_t elements, FrictionLawArgs args) {
   FrictionLawContext ctx{};
 
   ctx.data = args.data;

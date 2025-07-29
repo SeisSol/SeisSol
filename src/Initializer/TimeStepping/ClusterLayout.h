@@ -7,16 +7,18 @@
 #ifndef SEISSOL_SRC_INITIALIZER_TIMESTEPPING_CLUSTERLAYOUT_H_
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_CLUSTERLAYOUT_H_
 
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace seissol::initializer {
 
 struct ClusterLayout {
-  std::vector<std::size_t> rates;
+  std::vector<std::uint64_t> rates;
   double minimumTimestep;
   std::size_t globalClusterCount;
 
-  ClusterLayout(const std::vector<std::size_t>& rates,
+  ClusterLayout(const std::vector<std::uint64_t>& rates,
                 double minimumTimestep,
                 std::size_t globalClusterCount)
       : rates(rates), minimumTimestep(minimumTimestep), globalClusterCount(globalClusterCount) {}
@@ -25,8 +27,8 @@ struct ClusterLayout {
     return clusterRate(id) * minimumTimestep;
   }
 
-  [[nodiscard]] long clusterRate(std::size_t id) const {
-    std::size_t value = 1;
+  [[nodiscard]] std::uint64_t clusterRate(std::size_t id) const {
+    std::uint64_t value = 1;
     for (std::size_t i = 0; i < id; ++i) {
       const auto rate = rates.size() > i ? rates[i] : rates.back();
       value *= rate;

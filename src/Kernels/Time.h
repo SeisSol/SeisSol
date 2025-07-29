@@ -34,7 +34,7 @@ class TimeKernel : public Kernel {
                                real** timeIntegratedDofs,
                                std::size_t numElements,
                                seissol::parallel::runtime::StreamRuntime& runtime) = 0;
-  virtual void flopsEvaluate(long long& nonZeroFlops, long long& hardwareFlops) = 0;
+  virtual void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) = 0;
 };
 
 } // namespace seissol::kernels

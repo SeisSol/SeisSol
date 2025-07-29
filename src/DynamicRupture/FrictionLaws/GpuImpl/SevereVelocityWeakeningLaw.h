@@ -84,7 +84,7 @@ class SevereVelocityWeakeningLaw
   }
 
   SEISSOL_DEVICE static double
-      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, MuDetails& details) {
+      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, const MuDetails& details) {
     return ctx.data->drParameters.rsF0 +
            details.a * localSlipRateMagnitude /
                (localSlipRateMagnitude + ctx.data->drParameters.rsSr0) -
@@ -93,7 +93,7 @@ class SevereVelocityWeakeningLaw
 
   SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext& ctx,
                                                   double localSlipRateMagnitude,
-                                                  MuDetails& details) {
+                                                  const MuDetails& details) {
     // note that: d/dx (x/(x+c)) = ((x+c)-x)/(x+c)**2 = c/(x+c)**2
     const double divisor = (localSlipRateMagnitude + ctx.data->drParameters.rsSr0);
     return details.a * ctx.data->drParameters.rsSr0 / (divisor * divisor);
