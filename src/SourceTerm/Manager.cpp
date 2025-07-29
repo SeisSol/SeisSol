@@ -28,9 +28,8 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/MemoryAllocator.h>
-#include <Memory/Tree/LTSTree.h>
+#include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Layer.h>
-#include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
 #include <Solver/MultipleSimulations.h>
@@ -41,7 +40,6 @@
 #include <array>
 #include <cassert>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -156,9 +154,8 @@ void transformNRFSourceToInternalSource(const Eigen::Vector3d& centre,
 
 auto mapClusterToMesh(ClusterMapping& clusterMapping,
                       const std::size_t* meshIds,
-                      seissol::initializer::LTSTree* ltsTree,
-                      seissol::initializer::LTS* lts,
-                      seissol::initializer::Lut* ltsLut,
+                      LTS::Storage& ltsStorage,
+                      LTS::Backmap& backmap,
                       seissol::initializer::AllocationPlace place) {
   unsigned clusterSource = 0;
   unsigned mapping = 0;
@@ -170,15 +167,15 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
       ++next;
     }
 
-    for (std::size_t ltsId = 0, dup = 0;
-         dup < seissol::initializer::Lut::MaxDuplicates &&
-         (ltsId = ltsLut->ltsId(ltsTree->info(lts->dofs).mask, meshId, dup)) !=
-             std::numeric_limits<std::size_t>::max();
-         ++dup) {
-      clusterMapping.cellToSources[mapping].dofs = &ltsTree->var(lts->dofs, place)[ltsId];
-      clusterMapping.cellToSources[mapping].pointSourcesOffset = clusterSource;
-      clusterMapping.cellToSources[mapping].numberOfPointSources = next - clusterSource;
-      ++mapping;
+    for (std::size_t dup = 0; dup < LTS::Backmap::MaxDuplicates; ++dup) {
+      const auto position = backmap.getDup(meshId, dup);
+      if (position.has_value()) {
+        clusterMapping.cellToSources[mapping].dofs =
+            &ltsStorage.lookup<LTS::Dofs>(position.value(), place);
+        clusterMapping.cellToSources[mapping].pointSourcesOffset = clusterSource;
+        clusterMapping.cellToSources[mapping].numberOfPointSources = next - clusterSource;
+        ++mapping;
+      }
     }
 
     clusterSource = next;
@@ -188,79 +185,62 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
 
 auto mapPointSourcesToClusters(const std::size_t* meshIds,
                                unsigned numberOfSources,
-                               seissol::initializer::LTSTree* ltsTree,
-                               seissol::initializer::LTS* lts,
-                               seissol::initializer::Lut* ltsLut,
-                               seissol::memory::Memkind memkind)
-    -> std::unordered_map<LayerType, std::vector<ClusterMapping>> {
-  auto layerClusterToPointSources =
-      std::unordered_map<LayerType, std::vector<std::vector<std::size_t>>>{};
-  layerClusterToPointSources[Copy].resize(ltsTree->numChildren());
-  layerClusterToPointSources[Interior].resize(ltsTree->numChildren());
-  auto layerClusterToMeshIds =
-      std::unordered_map<LayerType, std::vector<std::vector<std::size_t>>>{};
-  layerClusterToMeshIds[Copy].resize(ltsTree->numChildren());
-  layerClusterToMeshIds[Interior].resize(ltsTree->numChildren());
+                               LTS::Storage& ltsStorage,
+                               LTS::Backmap& backmap,
+                               seissol::memory::Memkind memkind) -> std::vector<ClusterMapping> {
+  auto clusterToPointSources = std::vector<std::vector<std::size_t>>(ltsStorage.numChildren());
+  auto clusterToMeshIds = std::vector<std::vector<std::size_t>>(ltsStorage.numChildren());
 
   for (unsigned source = 0; source < numberOfSources; ++source) {
     const unsigned meshId = meshIds[source];
-    const unsigned cluster = ltsLut->cluster(meshId);
-    const LayerType layer = ltsLut->layer(meshId);
-    assert(layer != Ghost);
-    layerClusterToPointSources[layer][cluster].push_back(source);
-    layerClusterToMeshIds[layer][cluster].push_back(meshId);
+    const auto position = backmap.get(meshId);
+    const auto id = position.color;
+    clusterToPointSources[id].push_back(source);
+    clusterToMeshIds[id].push_back(meshId);
   }
 
-  std::unordered_map<LayerType, std::vector<ClusterMapping>> layeredClusterMapping;
-  for (auto layer : {Copy, Interior}) {
-    layeredClusterMapping[layer].resize(ltsTree->numChildren(), ClusterMapping(memkind));
-    auto& clusterToMeshIds = layerClusterToMeshIds[layer];
-    auto& clusterToPointSources = layerClusterToPointSources[layer];
-    auto& clusterMappings = layeredClusterMapping[layer];
-    for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
-      // Determine number of mappings by counting unique mesh Ids
-      std::sort(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
-      auto last = std::unique(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
-      unsigned numberOfMappings = 0;
-      for (auto it = clusterToMeshIds[cluster].begin(); it != last; ++it) {
-        const unsigned meshId = *it;
-        for (unsigned dup = 0; dup < seissol::initializer::Lut::MaxDuplicates &&
-                               ltsLut->ltsId(ltsTree->info(lts->dofs).mask, meshId, dup) !=
-                                   std::numeric_limits<std::size_t>::max();
-             ++dup) {
+  std::vector<ClusterMapping> clusterMappings(ltsStorage.numChildren(), ClusterMapping(memkind));
+  for (unsigned cluster = 0; cluster < ltsStorage.numChildren(); ++cluster) {
+    // Determine number of mappings by counting unique mesh Ids
+    std::sort(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
+    auto last = std::unique(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
+    unsigned numberOfMappings = 0;
+    for (auto it = clusterToMeshIds[cluster].begin(); it != last; ++it) {
+      const auto meshId = *it;
+
+      for (std::size_t dup = 0; dup < LTS::Backmap::MaxDuplicates; ++dup) {
+        const auto position = backmap.getDup(meshId, dup);
+        if (position.has_value()) {
           ++numberOfMappings;
         }
       }
-
-      clusterMappings[cluster].sources.resize(clusterToPointSources[cluster].size());
-      clusterMappings[cluster].cellToSources.resize(numberOfMappings);
-
-      for (unsigned source = 0; source < clusterToPointSources[cluster].size(); ++source) {
-        clusterMappings[cluster].sources[source] = clusterToPointSources[cluster][source];
-      }
-      std::sort(clusterMappings[cluster].sources.begin(),
-                clusterMappings[cluster].sources.end(),
-                [&](unsigned i, unsigned j) { return meshIds[i] < meshIds[j]; });
-
-      mapClusterToMesh(clusterMappings[cluster],
-                       meshIds,
-                       ltsTree,
-                       lts,
-                       ltsLut,
-                       seissol::initializer::AllocationPlace::Host);
     }
+
+    clusterMappings[cluster].sources.resize(clusterToPointSources[cluster].size());
+    clusterMappings[cluster].cellToSources.resize(numberOfMappings);
+
+    for (unsigned source = 0; source < clusterToPointSources[cluster].size(); ++source) {
+      clusterMappings[cluster].sources[source] = clusterToPointSources[cluster][source];
+    }
+    std::sort(clusterMappings[cluster].sources.begin(),
+              clusterMappings[cluster].sources.end(),
+              [&](unsigned i, unsigned j) { return meshIds[i] < meshIds[j]; });
+
+    mapClusterToMesh(clusterMappings[cluster],
+                     meshIds,
+                     ltsStorage,
+                     backmap,
+                     seissol::initializer::AllocationPlace::Host);
   }
 
-  return layeredClusterMapping;
+  return clusterMappings;
 }
 
 auto makePointSourceCluster(const ClusterMapping& mapping,
                             const PointSources& sources,
                             const std::size_t* meshIds,
-                            seissol::initializer::LTSTree* ltsTree,
-                            seissol::initializer::LTS* lts,
-                            seissol::initializer::Lut* ltsLut)
-    -> seissol::kernels::PointSourceClusterPair {
+                            LTS::Storage& ltsStorage,
+                            LTS::Backmap& backmap) -> seissol::kernels::PointSourceClusterPair {
   auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
       std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources>(sources));
 
@@ -276,9 +256,8 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
       auto predeviceClusterMapping = mapping;
       mapClusterToMesh(predeviceClusterMapping,
                        meshIds,
-                       ltsTree,
-                       lts,
-                       ltsLut,
+                       ltsStorage,
+                       backmap,
                        seissol::initializer::AllocationPlace::Device);
       auto deviceClusterMapping =
           std::make_shared<ClusterMapping>(predeviceClusterMapping, GpuMemkind);
@@ -298,11 +277,10 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
 
 auto loadSourcesFromFSRM(const char* fileName,
                          const seissol::geometry::MeshReader& mesh,
-                         seissol::initializer::LTSTree* ltsTree,
-                         seissol::initializer::LTS* lts,
-                         seissol::initializer::Lut* ltsLut,
+                         LTS::Storage& ltsStorage,
+                         LTS::Backmap& backmap,
                          seissol::memory::Memkind memkind)
-    -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
+    -> std::vector<seissol::kernels::PointSourceClusterPair> {
   // until further rewrite, we'll leave most of the raw pointers/arrays in here.
 
   seissol::sourceterm::FSRMSource fsrm;
@@ -328,92 +306,84 @@ auto loadSourcesFromFSRM(const char* fileName,
   }
 
   logInfo() << "Mapping point sources to LTS cells...";
-  auto layeredClusterMapping =
-      mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, lts, ltsLut, memkind);
-  std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
-      layeredSourceClusters;
+  auto clusterMappings =
+      mapPointSourcesToClusters(meshIds.data(), numSources, ltsStorage, backmap, memkind);
+  std::vector<seissol::kernels::PointSourceClusterPair> sourceCluster(ltsStorage.numChildren());
 
-  for (auto layer : {Interior, Copy}) {
-    auto& sourceCluster = layeredSourceClusters[layer];
-    sourceCluster.resize(ltsTree->numChildren());
-    auto& clusterMappings = layeredClusterMapping[layer];
-    for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
-      auto numberOfSources = clusterMappings[cluster].sources.size();
-      auto sources = PointSources{memkind};
-      sources.mode = PointSourceMode::Fsrm;
-      sources.numberOfSources = numberOfSources;
-      sources.mInvJInvPhisAtSources.resize(numberOfSources);
-      sources.tensor.resize(numberOfSources);
-      sources.onsetTime.resize(numberOfSources);
-      sources.samplingInterval.resize(numberOfSources);
-      sources.sampleOffsets[0].resize(numberOfSources + 1);
-      sources.sampleOffsets[0][0] = 0;
-      sources.sample[0].resize(fsrm.numberOfSamples * numberOfSources);
+  for (unsigned cluster = 0; cluster < ltsStorage.numChildren(); ++cluster) {
+    auto numberOfSources = clusterMappings[cluster].sources.size();
+    auto sources = PointSources{memkind};
+    sources.mode = PointSourceMode::Fsrm;
+    sources.numberOfSources = numberOfSources;
+    sources.mInvJInvPhisAtSources.resize(numberOfSources);
+    sources.tensor.resize(numberOfSources);
+    sources.onsetTime.resize(numberOfSources);
+    sources.samplingInterval.resize(numberOfSources);
+    sources.sampleOffsets[0].resize(numberOfSources + 1);
+    sources.sampleOffsets[0][0] = 0;
+    sources.sample[0].resize(fsrm.numberOfSamples * numberOfSources);
 
-      // only actively used in the case of fused simulations
-      sources.simulationIndex.resize(numberOfSources);
+    // only actively used in the case of fused simulations
+    sources.simulationIndex.resize(numberOfSources);
 
-      for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
-        const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
-        const unsigned fsrmIndex = originalIndex[sourceIndex];
-        sources.simulationIndex[clusterSource] = fsrmIndex % multisim::NumSimulations;
-        computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
-                                     sources.mInvJInvPhisAtSources[clusterSource],
-                                     meshIds[sourceIndex],
-                                     mesh);
-        transformMomentTensor(fsrm.momentTensor,
-                              fsrm.solidVelocityComponent,
-                              fsrm.pressureComponent,
-                              fsrm.fluidVelocityComponent,
-                              fsrm.strikes[fsrmIndex],
-                              fsrm.dips[fsrmIndex],
-                              fsrm.rakes[fsrmIndex],
-                              sources.tensor[clusterSource]);
+    for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
+      const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
+      const unsigned fsrmIndex = originalIndex[sourceIndex];
+      sources.simulationIndex[clusterSource] = fsrmIndex % multisim::NumSimulations;
+      computeMInvJInvPhisAtSources(fsrm.centers[fsrmIndex],
+                                   sources.mInvJInvPhisAtSources[clusterSource],
+                                   meshIds[sourceIndex],
+                                   mesh);
+      transformMomentTensor(fsrm.momentTensor,
+                            fsrm.solidVelocityComponent,
+                            fsrm.pressureComponent,
+                            fsrm.fluidVelocityComponent,
+                            fsrm.strikes[fsrmIndex],
+                            fsrm.dips[fsrmIndex],
+                            fsrm.rakes[fsrmIndex],
+                            sources.tensor[clusterSource]);
 
-        for (unsigned i = 0; i < PointSources::TensorSize; ++i) {
-          sources.tensor[clusterSource][i] *= fsrm.areas[fsrmIndex];
+      for (unsigned i = 0; i < PointSources::TensorSize; ++i) {
+        sources.tensor[clusterSource][i] *= fsrm.areas[fsrmIndex];
+      }
+      if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
+        const auto position = backmap.get(meshIds[sourceIndex] - 1);
+        const auto& material = ltsStorage.lookup<LTS::Material>(position).local;
+        for (unsigned i = 0; i < 3; ++i) {
+          sources.tensor[clusterSource][6 + i] /= material.rho;
         }
-        if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
-          const seissol::model::Material& material =
-              ltsLut->lookup(lts->material, meshIds[sourceIndex] - 1).local;
-          for (unsigned i = 0; i < 3; ++i) {
-            sources.tensor[clusterSource][6 + i] /= material.rho;
-          }
-        } else {
-          logWarning()
-              << "The poroelastic equation does not scale the force components with the "
-                 "density. For the definition of the sources in poroelastic media, we refer "
-                 "to the documentation of SeisSol.";
-        }
-
-        sources.onsetTime[clusterSource] = fsrm.onsets[fsrmIndex];
-        sources.samplingInterval[clusterSource] = fsrm.timestep;
-        std::copy(std::begin(fsrm.timeHistories[fsrmIndex]),
-                  std::end(fsrm.timeHistories[fsrmIndex]),
-                  sources.sample[0].data() + sources.sampleOffsets[0][clusterSource]);
-        sources.sampleOffsets[0][clusterSource + 1] =
-            sources.sampleOffsets[0][clusterSource] + fsrm.timeHistories[fsrmIndex].size();
+      } else {
+        logWarning() << "The poroelastic equation does not scale the force components with the "
+                        "density. For the definition of the sources in poroelastic media, we refer "
+                        "to the documentation of SeisSol.";
       }
 
-      sourceCluster[cluster] = makePointSourceCluster(
-          clusterMappings[cluster], sources, meshIds.data(), ltsTree, lts, ltsLut);
+      sources.onsetTime[clusterSource] = fsrm.onsets[fsrmIndex];
+      sources.samplingInterval[clusterSource] = fsrm.timestep;
+      std::copy(std::begin(fsrm.timeHistories[fsrmIndex]),
+                std::end(fsrm.timeHistories[fsrmIndex]),
+                sources.sample[0].data() + sources.sampleOffsets[0][clusterSource]);
+      sources.sampleOffsets[0][clusterSource + 1] =
+          sources.sampleOffsets[0][clusterSource] + fsrm.timeHistories[fsrmIndex].size();
     }
+
+    sourceCluster[cluster] = makePointSourceCluster(
+        clusterMappings[cluster], sources, meshIds.data(), ltsStorage, backmap);
   }
 
   logInfo() << ".. finished point source initialization.";
 
-  return layeredSourceClusters;
+  return sourceCluster;
 }
 
 // TODO Add support for passive netCDF
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 auto loadSourcesFromNRF(const char* fileName,
                         const seissol::geometry::MeshReader& mesh,
-                        seissol::initializer::LTSTree* ltsTree,
-                        seissol::initializer::LTS* lts,
-                        seissol::initializer::Lut* ltsLut,
+                        LTS::Storage& ltsStorage,
+                        LTS::Backmap& backmap,
                         seissol::memory::Memkind memkind)
-    -> std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>> {
+    -> std::vector<seissol::kernels::PointSourceClusterPair> {
   const int rank = seissol::MPI::mpi.rank();
 
   logInfo() << "Reading" << fileName;
@@ -450,69 +420,63 @@ auto loadSourcesFromNRF(const char* fileName,
 
   logInfo() << "Mapping point sources to LTS cells...";
 
-  auto layeredClusterMapping =
-      mapPointSourcesToClusters(meshIds.data(), numSources, ltsTree, lts, ltsLut, memkind);
-  std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
-      layeredSourceClusters;
+  auto clusterMappings =
+      mapPointSourcesToClusters(meshIds.data(), numSources, ltsStorage, backmap, memkind);
+  std::vector<seissol::kernels::PointSourceClusterPair> sourceCluster(ltsStorage.numChildren());
 
-  for (auto layer : {Interior, Copy}) {
-    auto& sourceCluster = layeredSourceClusters[layer];
-    sourceCluster.resize(ltsTree->numChildren());
-    auto& clusterMappings = layeredClusterMapping[layer];
-    for (unsigned cluster = 0; cluster < ltsTree->numChildren(); ++cluster) {
-      auto numberOfSources = clusterMappings[cluster].sources.size();
-      auto sources = PointSources{memkind};
-      sources.mode = PointSourceMode::Nrf;
-      sources.numberOfSources = numberOfSources;
-      sources.mInvJInvPhisAtSources.resize(numberOfSources);
-      sources.tensor.resize(numberOfSources);
-      sources.A.resize(numberOfSources);
-      sources.stiffnessTensor.resize(numberOfSources);
-      sources.onsetTime.resize(numberOfSources);
-      sources.samplingInterval.resize(numberOfSources);
-      for (auto& so : sources.sampleOffsets) {
-        so.resize(numberOfSources + 1);
-        so[0] = 0;
-      }
+  for (unsigned cluster = 0; cluster < ltsStorage.numChildren(); ++cluster) {
+    auto numberOfSources = clusterMappings[cluster].sources.size();
+    auto sources = PointSources{memkind};
+    sources.mode = PointSourceMode::Nrf;
+    sources.numberOfSources = numberOfSources;
+    sources.mInvJInvPhisAtSources.resize(numberOfSources);
+    sources.tensor.resize(numberOfSources);
+    sources.A.resize(numberOfSources);
+    sources.stiffnessTensor.resize(numberOfSources);
+    sources.onsetTime.resize(numberOfSources);
+    sources.samplingInterval.resize(numberOfSources);
+    for (auto& so : sources.sampleOffsets) {
+      so.resize(numberOfSources + 1);
+      so[0] = 0;
+    }
 
-      // only actively used in the case of fused simulations
-      sources.simulationIndex.resize(numberOfSources);
+    // only actively used in the case of fused simulations
+    sources.simulationIndex.resize(numberOfSources);
 
-      for (std::size_t i = 0; i < Offsets().size(); ++i) {
-        std::size_t sampleSize = 0;
-        for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
-          const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
-          const unsigned nrfIndex = originalIndex[sourceIndex];
-          sampleSize += nrf.sroffsets[nrfIndex + 1][i] - nrf.sroffsets[nrfIndex][i];
-        }
-        sources.sample[i].resize(sampleSize);
-      }
-
+    for (std::size_t i = 0; i < Offsets().size(); ++i) {
+      std::size_t sampleSize = 0;
       for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
         const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const unsigned nrfIndex = originalIndex[sourceIndex];
-        sources.simulationIndex[clusterSource] = nrfIndex % multisim::NumSimulations;
-        transformNRFSourceToInternalSource(
-            nrf.centres[nrfIndex],
-            meshIds[sourceIndex],
-            mesh,
-            nrf.subfaults[nrfIndex],
-            nrf.sroffsets[nrfIndex],
-            nrf.sroffsets[nrfIndex + 1],
-            nrf.sliprates,
-            &ltsLut->lookup(lts->material, meshIds[sourceIndex]).local,
-            sources,
-            clusterSource,
-            memkind);
+        sampleSize += nrf.sroffsets[nrfIndex + 1][i] - nrf.sroffsets[nrfIndex][i];
       }
-      sourceCluster[cluster] = makePointSourceCluster(
-          clusterMappings[cluster], sources, meshIds.data(), ltsTree, lts, ltsLut);
+      sources.sample[i].resize(sampleSize);
     }
+
+    for (unsigned clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
+      const unsigned sourceIndex = clusterMappings[cluster].sources[clusterSource];
+      const unsigned nrfIndex = originalIndex[sourceIndex];
+      sources.simulationIndex[clusterSource] = nrfIndex % multisim::NumSimulations;
+      const auto position = backmap.get(meshIds[sourceIndex]);
+      transformNRFSourceToInternalSource(nrf.centres[nrfIndex],
+                                         meshIds[sourceIndex],
+                                         mesh,
+                                         nrf.subfaults[nrfIndex],
+                                         nrf.sroffsets[nrfIndex],
+                                         nrf.sroffsets[nrfIndex + 1],
+                                         nrf.sliprates,
+                                         &ltsStorage.lookup<LTS::Material>(position).local,
+                                         sources,
+                                         clusterSource,
+                                         memkind);
+    }
+    sourceCluster[cluster] = makePointSourceCluster(
+        clusterMappings[cluster], sources, meshIds.data(), ltsStorage, backmap);
   }
 
   logInfo() << ".. finished point source initialization.";
 
-  return layeredSourceClusters;
+  return sourceCluster;
 }
 #endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
 
@@ -523,30 +487,30 @@ namespace seissol::sourceterm {
 void Manager::loadSources(seissol::initializer::parameters::PointSourceType sourceType,
                           const char* fileName,
                           const seissol::geometry::MeshReader& mesh,
-                          seissol::initializer::LTSTree* ltsTree,
-                          seissol::initializer::LTS* lts,
-                          seissol::initializer::Lut* ltsLut,
+                          LTS::Storage& ltsStorage,
+                          LTS::Backmap& backmap,
                           time_stepping::TimeManager& timeManager) {
 #ifdef ACL_DEVICE
   auto memkind = useUSM() ? seissol::memory::DeviceUnifiedMemory : seissol::memory::Standard;
 #else
   auto memkind = seissol::memory::Standard;
 #endif
-  auto sourceClusters =
-      std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>{};
+  auto sourceClusters = std::vector<seissol::kernels::PointSourceClusterPair>();
   if (sourceType == seissol::initializer::parameters::PointSourceType::NrfSource) {
     logInfo() << "Reading an NRF source (type 42).";
 #if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
-    sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsTree, lts, ltsLut, memkind);
+    sourceClusters = loadSourcesFromNRF(fileName, mesh, ltsStorage, backmap, memkind);
 #else
     logError() << "NRF sources (type 42) need SeisSol to be linked with an (active) Netcdf "
                   "library. However, this is not the case for this build.";
 #endif
   } else if (sourceType == seissol::initializer::parameters::PointSourceType::FsrmSource) {
     logInfo() << "Reading an FSRM source (type 50).";
-    sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsTree, lts, ltsLut, memkind);
+    sourceClusters = loadSourcesFromFSRM(fileName, mesh, ltsStorage, backmap, memkind);
   } else if (sourceType == seissol::initializer::parameters::PointSourceType::None) {
     logInfo() << "No source term specified.";
+    sourceClusters =
+        std::vector<seissol::kernels::PointSourceClusterPair>(ltsStorage.numChildren());
   } else {
     logError() << "The source type" << static_cast<int>(sourceType)
                << "has been defined, but not yet been implemented in SeisSol.";

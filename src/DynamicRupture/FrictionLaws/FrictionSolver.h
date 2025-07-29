@@ -32,8 +32,7 @@ class FrictionSolver {
   }
   virtual ~FrictionSolver() = default;
 
-  virtual void evaluate(seissol::initializer::Layer& layerData,
-                        const seissol::initializer::DynamicRupture* dynRup,
+  virtual void evaluate(DynamicRupture::Layer& layerData,
                         real fullUpdateTime,
                         const double timeWeights[ConvergenceOrder],
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
@@ -47,9 +46,7 @@ class FrictionSolver {
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime);
 
   virtual seissol::initializer::AllocationPlace allocationPlace();
 
@@ -67,8 +64,7 @@ class FrictionSolver {
   real mFullUpdateTime{};
   // CS = coordinate system
   real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
-  real (*__restrict nucleationStressInFaultCS[seissol::initializer::parameters::MaxNucleactions])
-      [6][misc::NumPaddedPoints]{};
+  real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints]{};
   real (*__restrict cohesion)[misc::NumPaddedPoints]{};
   real (*__restrict mu)[misc::NumPaddedPoints]{};
   real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
@@ -88,8 +84,7 @@ class FrictionSolver {
   DREnergyOutput* __restrict energyData{};
   DRGodunovData* __restrict godunovData{};
   real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
-  real (*__restrict nucleationPressure[initializer::parameters::MaxNucleactions])
-      [misc::NumPaddedPoints]{};
+  real (*__restrict nucleationPressure)[misc::NumPaddedPoints]{};
 
   // be careful only for some FLs initialized:
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};

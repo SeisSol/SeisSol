@@ -16,9 +16,7 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
-#include "Memory/Tree/Lut.h"
 #include "Numerical/BasisFunction.h"
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
@@ -38,28 +36,28 @@
 using namespace seissol::dr::misc::quantity_indices;
 
 namespace seissol::dr::output {
-void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
-                                seissol::initializer::LTS* userWpDescr,
-                                seissol::initializer::Lut* userWpLut,
-                                seissol::initializer::LTSTree* userDrTree,
-                                seissol::initializer::DynamicRupture* userDrDescr) {
-  wpTree = userWpTree;
-  wpDescr = userWpDescr;
-  wpLut = userWpLut;
-  drTree = userDrTree;
-  drDescr = userDrDescr;
+void ReceiverOutput::setLtsData(LTS::Storage& userWpStorage,
+                                LTS::Backmap& userWpBackmap,
+                                DynamicRupture::Storage& userDrStorage) {
+  wpStorage = &userWpStorage;
+  wpBackmap = &userWpBackmap;
+  drStorage = &userDrStorage;
 }
 
 void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
+  const auto position = wpBackmap->get(meshId);
+  auto& layer = wpStorage->layer(position.color);
   // get DOFs from 0th derivatives
-  assert(wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup.hasDerivatives());
+  assert(layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasDerivatives());
 
-  real* derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
+  real* derivatives = layer.var<LTS::Derivatives>()[position.cell];
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
 }
 
 void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side) {
-  real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
+  const auto position = wpBackmap->get(meshId);
+  auto& layer = wpStorage->layer(position.color);
+  auto* derivatives = layer.var<LTS::FaceNeighbors>()[position.cell][side];
   assert(derivatives != nullptr);
 
   std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
@@ -112,8 +110,8 @@ void ReceiverOutput::calcFaultOutput(
     local.nearestInternalGpIndex = outputData->receiverPoints[i].nearestInternalGpIndex;
     local.internalGpIndexFused = outputData->receiverPoints[i].internalGpIndexFused;
 
-    local.waveSpeedsPlus = &((local.layer->var(drDescr->waveSpeedsPlus))[local.ltsId]);
-    local.waveSpeedsMinus = &((local.layer->var(drDescr->waveSpeedsMinus))[local.ltsId]);
+    local.waveSpeedsPlus = &((local.layer->var<DynamicRupture::WaveSpeedsPlus>())[local.ltsId]);
+    local.waveSpeedsMinus = &((local.layer->var<DynamicRupture::WaveSpeedsMinus>())[local.ltsId]);
 
     const auto& faultInfo = faultInfos[faceIndex];
 
@@ -134,9 +132,9 @@ void ReceiverOutput::calcFaultOutput(
     }
 #endif
 
-    const auto* initStresses = getCellData(local, drDescr->initialStressInFaultCS);
+    const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(local);
 
-    local.frictionCoefficient = getCellData(local, drDescr->mu)[local.gpIndex];
+    local.frictionCoefficient = getCellData<DynamicRupture::Mu>(local)[local.gpIndex];
     local.stateVariable = this->computeStateVariable(local);
 
     local.iniTraction1 = initStresses[QuantityIndices::XY][local.gpIndex];
@@ -249,7 +247,7 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData->vars);
     if (ruptureTime.isActive) {
-      auto* rt = getCellData(local, drDescr->ruptureTime);
+      auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
       ruptureTime(level, i) = rt[local.gpIndex];
     }
 
@@ -260,7 +258,7 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData->vars);
     if (accumulatedSlip.isActive) {
-      auto* slip = getCellData(local, drDescr->accumulatedSlipMagnitude);
+      auto* slip = getCellData<DynamicRupture::AccumulatedSlipMagnitude>(local);
       accumulatedSlip(level, i) = slip[local.gpIndex];
     }
 
@@ -292,13 +290,13 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData->vars);
     if (peakSlipsRate.isActive) {
-      auto* peakSR = getCellData(local, drDescr->peakSlipRate);
+      auto* peakSR = getCellData<DynamicRupture::PeakSlipRate>(local);
       peakSlipsRate(level, i) = peakSR[local.gpIndex];
     }
 
     auto& dynamicStressTime = std::get<VariableID::DynamicStressTime>(outputData->vars);
     if (dynamicStressTime.isActive) {
-      auto* dynStressTime = getCellData(local, drDescr->dynStressTime);
+      auto* dynStressTime = getCellData<DynamicRupture::DynStressTime>(local);
       dynamicStressTime(level, i) = dynStressTime[local.gpIndex];
     }
 
@@ -314,8 +312,8 @@ void ReceiverOutput::calcFaultOutput(
       double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));
       sin1 = (scalarProd > 0) ? sin1 : -sin1;
 
-      auto* slip1 = getCellData(local, drDescr->slip1);
-      auto* slip2 = getCellData(local, drDescr->slip2);
+      auto* slip1 = getCellData<DynamicRupture::Slip1>(local);
+      auto* slip2 = getCellData<DynamicRupture::Slip2>(local);
 
       slipVectors(DirectionID::Strike, level, i) =
           cos1 * slip1[local.gpIndex] - sin1 * slip2[local.gpIndex];
@@ -333,7 +331,7 @@ void ReceiverOutput::calcFaultOutput(
 }
 
 void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
-  const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
+  const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
   const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
   const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
@@ -396,7 +394,7 @@ void ReceiverOutput::computeSlipRate(LocalInfo& local,
                                      const std::array<real, 6>& rotatedUpdatedStress,
                                      const std::array<real, 6>& rotatedStress) {
 
-  const auto& impAndEta = ((local.layer->var(drDescr->impAndEta))[local.ltsId]);
+  const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
   local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
                                                rotatedStress[QuantityIndices::XY]);
   local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
@@ -425,7 +423,7 @@ void ReceiverOutput::computeSlipRate(LocalInfo& local,
 
 real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d,
                                             const LocalInfo& local) {
-  auto* ruptureTime = getCellData(local, drDescr->ruptureTime);
+  auto* ruptureTime = getCellData<DynamicRupture::RuptureTime>(local);
   real ruptureVelocity = 0.0;
 
   bool needsUpdate{true};
@@ -448,7 +446,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
         init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
     auto weights = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
 
-    auto* rt = getCellData(local, drDescr->ruptureTime);
+    auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
       const real chi = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 0);
       const real tau = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 1);
@@ -489,14 +487,14 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
 }
 
 std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
-  return {drTree->info(drDescr->initialStressInFaultCS).index,
-          drTree->info(drDescr->mu).index,
-          drTree->info(drDescr->ruptureTime).index,
-          drTree->info(drDescr->accumulatedSlipMagnitude).index,
-          drTree->info(drDescr->peakSlipRate).index,
-          drTree->info(drDescr->dynStressTime).index,
-          drTree->info(drDescr->slip1).index,
-          drTree->info(drDescr->slip2).index};
+  return {drStorage->info<DynamicRupture::InitialStressInFaultCS>().index,
+          drStorage->info<DynamicRupture::Mu>().index,
+          drStorage->info<DynamicRupture::RuptureTime>().index,
+          drStorage->info<DynamicRupture::AccumulatedSlipMagnitude>().index,
+          drStorage->info<DynamicRupture::PeakSlipRate>().index,
+          drStorage->info<DynamicRupture::DynStressTime>().index,
+          drStorage->info<DynamicRupture::Slip1>().index,
+          drStorage->info<DynamicRupture::Slip2>().index};
 }
 
 } // namespace seissol::dr::output

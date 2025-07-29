@@ -325,16 +325,16 @@ static void synchronizeLtsSetups( unsigned int                 numberOfClusters,
  **/
 inline void deriveLtsSetups( unsigned int                 numberOfClusters,
                              struct MeshStructure        *meshStructure,
-                            LTSTree& tree, LTS& lts  ) {
+                            LTS::Storage& storage  ) {
 
-  auto* primaryInformationGlobal = tree.var(lts.cellInformation);
-  const auto* secondaryInformationGlobal = tree.var(lts.secondaryInformation);
+  auto* primaryInformationGlobal = storage.var<LTS::CellInformation>();
+  const auto* secondaryInformationGlobal = storage.var<LTS::SecondaryInformation>();
 
   // iterate over time clusters
-  for(auto& layer : tree.leaves(Ghost)) {
-    const auto isCopy = layer.getIdentifier().halo == Copy;
-    auto* primaryInformationLocal = layer.var(lts.cellInformation);
-    const auto* secondaryInformationLocal = layer.var(lts.secondaryInformation);
+  for(auto& layer : storage.leaves(Ghost)) {
+    const auto isCopy = layer.getIdentifier().halo == HaloType::Copy;
+    auto* primaryInformationLocal = layer.var<LTS::CellInformation>();
+    const auto* secondaryInformationLocal = layer.var<LTS::SecondaryInformation>();
     for( std::size_t cell = 0; cell < layer.size(); ++cell ) {
       std::array<uint64_t, Cell::NumFaces> neighborClusters{};
       for( std::size_t face = 0; face < Cell::NumFaces; face++ ) {
@@ -363,10 +363,10 @@ inline void deriveLtsSetups( unsigned int                 numberOfClusters,
                         primaryInformationGlobal );
 
   // iterate over cells and normalize the setups
-  for(auto& layer : tree.leaves(Ghost)) {
-    const auto isCopy = layer.getIdentifier().halo == Copy;
-    auto* primaryInformationLocal = layer.var(lts.cellInformation);
-    const auto* secondaryInformationLocal = layer.var(lts.secondaryInformation);
+  for(auto& layer : storage.leaves(Ghost)) {
+    const auto isCopy = layer.getIdentifier().halo == HaloType::Copy;
+    auto* primaryInformationLocal = layer.var<LTS::CellInformation>();
+    const auto* secondaryInformationLocal = layer.var<LTS::SecondaryInformation>();
     for( std::size_t cell = 0; cell < layer.size(); ++cell ) {
       std::array<bool, Cell::NumFaces> neighborCache{};
 

@@ -26,7 +26,7 @@ class Spacetime : public SpacetimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
   void computeAder(double timeStepWidth,
-                   LocalData& data,
+                   LTS::Ref& data,
                    LocalTmp& tmp,
                    real timeIntegrated[tensor::I::size()],
                    real* timeDerivativesOrSTP = nullptr,
@@ -44,7 +44,7 @@ class Spacetime : public SpacetimeKernel {
 
   private:
   void executeSTP(double timeStepWidth,
-                  LocalData& data,
+                  LTS::Ref& data,
                   real timeIntegrated[tensor::I::size()],
                   real* stp);
 

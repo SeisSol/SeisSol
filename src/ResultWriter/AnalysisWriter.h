@@ -13,7 +13,6 @@
 #include <fstream>
 #include <iostream>
 
-#include "Memory/Tree/Lut.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"

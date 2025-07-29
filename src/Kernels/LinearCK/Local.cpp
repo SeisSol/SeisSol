@@ -76,9 +76,8 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-template <typename LocalDataType>
 struct ApplyAnalyticalSolution {
-  ApplyAnalyticalSolution(seissol::physics::InitialField* initCondition, LocalDataType& data)
+  ApplyAnalyticalSolution(seissol::physics::InitialField* initCondition, LTS::Ref& data)
       : initCondition(initCondition), localData(data) {}
 
   void operator()(const real* nodes, double time, seissol::init::INodal::view::type& boundaryDofs) {
@@ -97,17 +96,17 @@ struct ApplyAnalyticalSolution {
       }
 
       assert(initCondition != nullptr);
-      initCondition->evaluate(time, nodesVec, localData.material(), slicedBoundaryDofs);
+      initCondition->evaluate(time, nodesVec, localData.get<LTS::Material>(), slicedBoundaryDofs);
     }
   }
 
   private:
   seissol::physics::InitialField* initCondition{};
-  LocalDataType& localData;
+  LTS::Ref& localData;
 };
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                            LocalData& data,
+                            LTS::Ref& data,
                             LocalTmp& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                             const CellMaterialData* materialData,
@@ -115,43 +114,43 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
                             double time,
                             double timeStepWidth) {
   assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(data.dofs()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
 
   kernel::volume volKrnl = m_volumeKernelPrototype;
-  volKrnl.Q = data.dofs();
+  volKrnl.Q = data.get<LTS::Dofs>();
   volKrnl.I = timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
-    volKrnl.star(i) = data.localIntegration().starMatrices[i];
+    volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   // Optional source term
-  set_ET(volKrnl, get_ptr_sourceMatrix(data.localIntegration().specific));
+  set_ET(volKrnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
 
   kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
-  lfKrnl.Q = data.dofs();
+  lfKrnl.Q = data.get<LTS::Dofs>();
   lfKrnl.I = timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
-  lfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
+  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
 
   volKrnl.execute();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
-      lfKrnl.AplusT = data.localIntegration().nApNm1[face];
+    if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
+      lfKrnl.AplusT = data.get<LTS::LocalIntegration>().nApNm1[face];
       lfKrnl.execute(face);
     }
 
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
-    nodalLfKrnl.Q = data.dofs();
+    nodalLfKrnl.Q = data.get<LTS::Dofs>();
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
     nodalLfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
-    nodalLfKrnl._prefetch.Q = data.dofs() + tensor::Q::size();
-    nodalLfKrnl.AminusT = data.neighboringIntegration().nAmNm1[face];
+    nodalLfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
+    nodalLfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
 
     // Include some boundary conditions here.
-    switch (data.cellInformation().faceTypes[face]) {
+    switch (data.get<LTS::CellInformation>().faceTypes[face]) {
     case FaceType::FreeSurfaceGravity: {
       assert(cellBoundaryMapping != nullptr);
       assert(materialData != nullptr);
@@ -248,8 +247,6 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
                                    ConditionalMaterialTable& materialTable,
                                    ConditionalIndicesTable& indicesTable,
-                                   kernels::LocalData::Loader& loader,
-                                   LocalTmp& tmp,
                                    double timeStepWidth,
                                    seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
@@ -351,9 +348,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 
 void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
                                            ConditionalIndicesTable& indicesTable,
-                                           kernels::LocalData::Loader& loader,
-                                           seissol::initializer::Layer& layer,
-                                           seissol::initializer::LTS& lts,
+                                           LTS::Layer& layer,
                                            double time,
                                            double timeStepWidth,
                                            seissol::parallel::runtime::StreamRuntime& runtime) {
@@ -367,11 +362,11 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
           indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
       const size_t numElements = cellIds.size();
       auto* analytical =
-          reinterpret_cast<real(*)[tensor::INodal::size()]>(layer.var(lts.analyticScratch));
+          reinterpret_cast<real(*)[tensor::INodal::size()]>(layer.var<LTS::AnalyticScratch>());
 
-      runtime.enqueueOmpFor(numElements, [=, &cellIds](std::size_t index) {
+      runtime.enqueueOmpFor(numElements, [=, &cellIds, &layer](std::size_t index) {
         auto cellId = cellIds.at(index);
-        auto data = loader.entry(cellId);
+        auto data = layer.cellRef(cellId);
 
         alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
@@ -381,7 +376,7 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
 
         dirichletBoundary.evaluateTimeDependent(nullptr,
                                                 face,
-                                                data.boundaryMapping()[face],
+                                                data.get<LTS::BoundaryMapping>()[face],
                                                 m_projectKrnlPrototype,
                                                 applyAnalyticalSolution,
                                                 dofsFaceBoundaryNodal,

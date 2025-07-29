@@ -20,19 +20,15 @@ class FastVelocityWeakeningLaw
   public:
   using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
+  static void copyStorageToLocal(FrictionLawData* data,
+                                 DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {}
 
-  static void
-      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                     seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) {
-    using SelfInitializerType = seissol::initializer::LTSRateAndStateFastVelocityWeakening;
-    const auto* concreteLts = dynamic_cast<const SelfInitializerType*>(dynRup);
-    data->srW = layerData.var(concreteLts->rsSrW, seissol::initializer::AllocationPlace::Device);
+  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+                                             DynamicRupture::Layer& layerData,
+                                             real fullUpdateTime) {
+    data->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(
+        seissol::initializer::AllocationPlace::Device);
   }
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
