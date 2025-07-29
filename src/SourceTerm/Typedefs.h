@@ -20,12 +20,17 @@
 namespace seissol::sourceterm {
 
 /** Models point sources of the form
- *    S(xi, eta, zeta, t) := (1 / |J|) * S(t) * M * delta(xi-xi_s, eta-eta_s, zeta-zeta_s),
- * where S(t) : t -> \mathbb R is the moment time history,
- * M \in \mathbb R^{9} contains entries of the moment tensor,
- * and delta is the 3-dimensional dirac distribution.
+ *    S(xi, eta, zeta, t) := (T @ S(t)) * delta(xi-xi_s, eta-eta_s, zeta-zeta_s),
+ * where S(t) : t -> \mathbb R^n denotes n time series at time t (e.g. moment);
+ * T \in \mathbb R^{q \ times n} denotes a transform from time series to the variables/quantities
+ *(e.g. for elastic q=9) (T usually contains entries of the moment tensor in some form), and delta
+ *is the 3-dimensional dirac distribution (effectively denoting that we only affect a singular point
+ *in space).
  *
- * (The scaling factor (1 / |J|) is due to the coordinate transformation (x,y,z) -> (xi,eta,zeta).)
+ * Note: for FSRM, n=1; for NRF, n=3.
+ *
+ * (usually a scaling factor (1 / |J|) is applied due to the coordinate transformation (x,y,z) ->
+ *(xi,eta,zeta))
  **/
 struct PointSources {
 
@@ -38,12 +43,17 @@ struct PointSources {
 
   seissol::memory::MemkindArray<std::uint32_t> simulationIndex;
 
-  /** NRF: Basis vectors of the fault.
+  /**
+   * A linear transform for the time-integrated input data (referred to as "samples" below).
+   * Effectively of size q * n.
+   *
+   * In particular:
+   * NRF (n=3): Basis vectors of the fault.
    * 0-2: Tan1X-Z   = first fault tangent (main slip direction in most cases)
    * 3-5: Tan2X-Z   = second fault tangent
    * 6-8: NormalX-Z = fault normal
    *
-   * FSRM: Moment tensor */
+   * FSRM (n=1): Moment tensor */
   seissol::memory::MemkindArray<real> tensor;
 
   /// onset time
@@ -52,6 +62,7 @@ struct PointSources {
   /// sampling interval
   seissol::memory::MemkindArray<double> samplingInterval;
 
+  /// offset in the tensor and sample offset vector
   seissol::memory::MemkindArray<std::size_t> sampleRange;
 
   /// offset into slip rate vector
