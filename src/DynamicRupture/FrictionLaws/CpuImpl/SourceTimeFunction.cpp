@@ -17,8 +17,7 @@
 
 namespace seissol::dr::friction_law::cpu {
 void YoffeSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                  const seissol::initializer::DynamicRupture* dynRup,
-                                  real fullUpdateTime) {
+                                  const seissol::initializer::DynamicRupture* dynRup) {
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe*>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);
@@ -36,8 +35,7 @@ real YoffeSTF::evaluate(real currentTime,
 }
 
 void GaussianSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* dynRup,
-                                     real fullUpdateTime) {
+                                     const seissol::initializer::DynamicRupture* dynRup) {
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSImposedSlipRatesGaussian*>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);
@@ -54,8 +52,7 @@ real GaussianSTF::evaluate(real currentTime,
 }
 
 void DeltaSTF::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                                  const seissol::initializer::DynamicRupture* const dynRup,
-                                  real fullUpdateTime) {
+                                  const seissol::initializer::DynamicRupture* const dynRup) {
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta*>(dynRup);
   onsetTime = layerData.var(concreteLts->onsetTime);

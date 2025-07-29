@@ -685,6 +685,7 @@ if (TESTING)
                     "/opt/*"
             LCOV_ARGS --ignore-errors inconsistent
                       --ignore-errors unused
+                      --ignore-errors mismatch
     )
   endif()
 endif()

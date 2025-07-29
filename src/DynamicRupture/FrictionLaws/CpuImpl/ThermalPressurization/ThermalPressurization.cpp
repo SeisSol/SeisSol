@@ -24,8 +24,7 @@ static const tp::GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
 
 void ThermalPressurization::copyLtsTreeToLocal(
     seissol::initializer::Layer& layerData,
-    const seissol::initializer::DynamicRupture* const dynRup,
-    real fullUpdateTime) {
+    const seissol::initializer::DynamicRupture* const dynRup) {
   const auto* concreteLts =
       dynamic_cast<const seissol::initializer::ThermalPressurization*>(dynRup);
   temperature = layerData.var(concreteLts->temperature);
