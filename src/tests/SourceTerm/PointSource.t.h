@@ -32,7 +32,7 @@ TEST_CASE("Transform moment tensor") {
   const double localPressureComponent = 0.0;
   const double localFluidVelocityComponent[3] = {0.0, 0.0, 0.0};
 
-  auto momentTensor = seissol::memory::AlignedArray<real, sourceterm::PointSources::TensorSize>{};
+  auto momentTensor = seissol::memory::AlignedArray<real, tensor::update::Size>{};
 
   seissol::sourceterm::transformMomentTensor(localMomentTensorXY,
                                              localSolidVelocityComponent,
@@ -58,11 +58,6 @@ TEST_CASE("Transform moment tensor") {
     REQUIRE(momentTensor[1] == 0);
     REQUIRE(momentTensor[2] == 0);
     REQUIRE(momentTensor[3] == 0);
-    REQUIRE(momentTensor[4] == 0);
-    REQUIRE(momentTensor[5] == 0);
-    REQUIRE(momentTensor[6] == 0);
-    REQUIRE(momentTensor[7] == 0);
-    REQUIRE(momentTensor[8] == 0);
   }
 
   // strike = dip = rake = pi / 3
@@ -101,11 +96,6 @@ TEST_CASE("Transform moment tensor") {
     REQUIRE(momentTensor[1] == 0);
     REQUIRE(momentTensor[2] == 0);
     REQUIRE(momentTensor[3] == 0);
-    REQUIRE(momentTensor[4] == 0);
-    REQUIRE(momentTensor[5] == 0);
-    REQUIRE(momentTensor[6] == 0);
-    REQUIRE(momentTensor[7] == 0);
-    REQUIRE(momentTensor[8] == 0);
   }
 }
 

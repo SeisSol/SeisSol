@@ -109,7 +109,7 @@ SEISSOL_HOSTDEVICE inline real computeSampleTimeIntegral(double from,
 constexpr std::size_t QSpan = init::Q::Stop[multisim::BasisFunctionDimension] -
                               init::Q::Start[multisim::BasisFunctionDimension];
 constexpr std::size_t QMultiSpan = init::Q::Stop[0] - init::Q::Start[0];
-constexpr std::size_t MomentFsrmSpan = tensor::momentFSRM::Shape[0];
+constexpr std::size_t MomentFsrmSpan = tensor::update::Shape[0];
 constexpr std::size_t MInvJInvPhisAtSourcesSpan = tensor::mInvJInvPhisAtSources::Shape[0];
 
 constexpr std::size_t Quantities = MomentFsrmSpan;

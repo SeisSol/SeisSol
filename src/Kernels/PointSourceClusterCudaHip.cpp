@@ -14,7 +14,7 @@
 #endif
 
 namespace {
-constexpr std::size_t SubBlock = 32;
+constexpr std::size_t SubBlock = 64;
 constexpr std::size_t Blocksize = 256;
 constexpr auto PerBlock = Blocksize / SubBlock;
 

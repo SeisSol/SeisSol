@@ -14,7 +14,7 @@
 
 namespace {
 
-constexpr std::size_t SubBlock = 32;
+constexpr std::size_t SubBlock = 64;
 constexpr std::size_t Blocksize = 256;
 constexpr auto PerBlock = Blocksize / SubBlock;
 
@@ -43,9 +43,9 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
 
     const auto elements = mapping.size();
 
-    sycl::nd_range rng{{elements * SubBlock, PerBlock}, {SubBlock, PerBlock}};
+    sycl::nd_range<2> rng{{elements * SubBlock, PerBlock}, {SubBlock, PerBlock}};
     queue->submit([&](sycl::handler& cgh) {
-      cgh.parallel_for(rng, [=](sycl::nd_item<> id) {
+      cgh.parallel_for(rng, [=](sycl::nd_item<2> item) {
         const auto block = item.get_group().get_group_id(0) * PerBlock + item.get_local_id(1);
         const auto thread = item.get_local_id(0);
 

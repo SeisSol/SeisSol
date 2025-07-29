@@ -19,7 +19,6 @@ def addKernels(generator, aderdg):
     order = aderdg.order
     # Point sources
     mStiffnessTensor = Tensor("stiffnessTensor", (3, 3, 3, 3))
-    mSlip = Tensor("mSlip", (3,))
     mNormal = Tensor("mNormal", (3,))
     mArea = Scalar("mArea")
     basisFunctionsAtPoint = Tensor("basisFunctionsAtPoint", (numberOf3DBasisFunctions,))
@@ -54,16 +53,8 @@ def addKernels(generator, aderdg):
         momentToNRF_spp[0, 0, 0] = 1
     momentToNRF = Tensor("momentToNRF", (numberOfQuantities, 3, 3), spp=momentToNRF_spp)
 
-    momentNRFKernel = (
-        momentToNRF["tpq"]
-        * mArea
-        * mStiffnessTensor["pqij"]
-        * mSlip["i"]
-        * mNormal["j"]
-    )
-
     rotateNRF = Tensor("rotateNRF", (3, 3))
-    momentNRFKernel2 = (
+    momentNRFKernel = (
         momentToNRF["tpq"]
         * mArea
         * mStiffnessTensor["pqIj"]
@@ -73,7 +64,7 @@ def addKernels(generator, aderdg):
 
     tensorNRF = Tensor("tensorNRF", (numberOfQuantities, 3))
 
-    generator.add("transformNRF", tensorNRF["ti"] <= momentNRFKernel2)
+    generator.add("transformNRF", tensorNRF["ti"] <= momentNRFKernel)
 
     update = Tensor("update", (numberOfQuantities,))
 
@@ -89,38 +80,6 @@ def addKernels(generator, aderdg):
             "addPointSource",
             aderdg.Q["kt"] <= aderdg.Q["kt"] + mInvJInvPhisAtSources["k"] * update["t"],
         )
-
-    if aderdg.Q.hasOptDim():
-        sourceNRF = (
-            aderdg.Q["kt"]
-            <= aderdg.Q["kt"]
-            + mInvJInvPhisAtSources["k"] * momentNRFKernel * aderdg.oneSimToMultSim["s"]
-        )
-    else:
-        sourceNRF = (
-            aderdg.Q["kt"]
-            <= aderdg.Q["kt"] + mInvJInvPhisAtSources["k"] * momentNRFKernel
-        )
-    generator.add("sourceNRF", sourceNRF)
-
-    momentFSRM = Tensor("momentFSRM", (numberOfQuantities,))
-    stfIntegral = Scalar("stfIntegral")
-    if aderdg.Q.hasOptDim():
-        sourceFSRM = (
-            aderdg.Q["kp"]
-            <= aderdg.Q["kp"]
-            + stfIntegral
-            * mInvJInvPhisAtSources["k"]
-            * momentFSRM["p"]
-            * aderdg.oneSimToMultSim["s"]
-        )
-    else:
-        sourceFSRM = (
-            aderdg.Q["kp"]
-            <= aderdg.Q["kp"]
-            + stfIntegral * mInvJInvPhisAtSources["k"] * momentFSRM["p"]
-        )
-    generator.add("sourceFSRM", sourceFSRM)
 
     # Receiver output
     QAtPoint = OptionalDimTensor(
