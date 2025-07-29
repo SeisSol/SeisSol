@@ -41,7 +41,7 @@ TEST_CASE("Transform moment tensor") {
                                              strike,
                                              dip,
                                              rake,
-                                             momentTensor);
+                                             momentTensor.data());
 
   // Compare to hand-computed reference solution
   REQUIRE(momentTensor[0] == AbsApprox(-5.0 * std::sqrt(3.0) / 32.0).epsilon(Epsilon));
@@ -79,7 +79,7 @@ TEST_CASE("Transform moment tensor") {
                                              strike,
                                              dip,
                                              rake,
-                                             momentTensor);
+                                             momentTensor.data());
 
   // Compare to hand-computed reference solution
   REQUIRE(momentTensor[0] == AbsApprox(-0.415053502680640).epsilon(Epsilon));

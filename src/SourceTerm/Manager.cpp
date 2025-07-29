@@ -33,6 +33,7 @@
 #include <Memory/Tree/Lut.h>
 #include <Model/CommonDatastructures.h>
 #include <Numerical/BasisFunction.h>
+#include <Parallel/MPI.h>
 #include <Solver/MultipleSimulations.h>
 #include <Solver/TimeStepping/TimeManager.h>
 #include <SourceTerm/NRF.h>
@@ -40,6 +41,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <cstring>
 #include <limits>
 #include <memory>
