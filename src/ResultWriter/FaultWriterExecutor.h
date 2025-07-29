@@ -33,7 +33,14 @@ struct FaultParam {
 
 class FaultWriterExecutor {
   public:
-  enum BufferIds { OutputPrefix = 0, Cells = 1, Vertices = 2, FaultTags = 3, Variables0 = 4 };
+  enum BufferIds {
+    OutputPrefix = 0,
+    Cells = 1,
+    Vertices = 2,
+    FaultTags = 3,
+    GlobalIds = 4,
+    Variables0 = 5
+  };
 
   private:
   xdmfwriter::XdmfWriter<xdmfwriter::TRIANGLE, double, real>* m_xdmfWriter{nullptr};
@@ -77,7 +84,7 @@ class FaultWriterExecutor {
   }
 
   void setFaultTagsData(const unsigned int* faultTags) {
-    m_xdmfWriter->writeExtraIntCellData(faultTags);
+    m_xdmfWriter->writeExtraIntCellData(0, faultTags);
   }
 
   void finalize() {

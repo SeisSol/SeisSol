@@ -753,23 +753,25 @@ void TimeCluster::correct() {
   // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int.
   // Otherwise, this is an interior layer actor, and we need only the FL_Int.
   // We need to avoid computing it twice.
-  if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
-    if (dynamicRuptureScheduler->mayComputeInterior(ct.stepsSinceStart)) {
+  if (dynamicRuptureScheduler->mayComputeInterior(ct.stepsSinceStart)) {
+    if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
       handleDynamicRupture(*dynRupInteriorData);
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(
           accFlopsNonZero[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
       seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(
           accFlopsHardware[static_cast<int>(ComputePart::DRFrictionLawInterior)]);
-      dynamicRuptureScheduler->setLastCorrectionStepsInterior(ct.stepsSinceStart);
     }
-    if (layerType == Copy) {
+    dynamicRuptureScheduler->setLastCorrectionStepsInterior(ct.stepsSinceStart);
+  }
+  if (layerType == Copy) {
+    if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
       handleDynamicRupture(*dynRupCopyData);
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(
           accFlopsNonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
       seissolInstance.flopCounter().incrementHardwareFlopsDynamicRupture(
           accFlopsHardware[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
-      dynamicRuptureScheduler->setLastCorrectionStepsCopy((ct.stepsSinceStart));
     }
+    dynamicRuptureScheduler->setLastCorrectionStepsCopy((ct.stepsSinceStart));
   }
 
 #ifdef ACL_DEVICE
