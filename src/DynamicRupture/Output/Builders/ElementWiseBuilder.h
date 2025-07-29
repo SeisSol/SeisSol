@@ -86,9 +86,12 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           // init global coordinates of the fault face
           ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
-          faultRefiner->refineAndAccumulate(
-              {elementwiseParams.refinement, static_cast<int>(faceIdx), faceSideIdx, elementIdx},
-              std::make_pair(globalFace, referenceTriangle));
+          faultRefiner->refineAndAccumulate({elementwiseParams.refinement,
+                                             static_cast<int>(faceIdx),
+                                             faceSideIdx,
+                                             elementIdx,
+                                             element.globalId},
+                                            std::make_pair(globalFace, referenceTriangle));
         }
       }
 
@@ -165,6 +168,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
             receiverPoint.faultFaceIndex = faceIdx;
             receiverPoint.localFaceSideId = faceSideIdx;
             receiverPoint.elementIndex = element.localId;
+            receiverPoint.elementGlobalIndex = element.globalId;
             receiverPoint.globalReceiverIndex =
                 faceOffset * seissol::init::vtk2d::Shape[order][1] + i;
             receiverPoint.faultTag = fault.tag;

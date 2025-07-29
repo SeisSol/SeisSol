@@ -33,16 +33,16 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
                              TractionResults<Executor::Host>& tractionResults,
                              std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
                              std::array<real, misc::NumPaddedPoints>& strengthBuffer,
-                             unsigned ltsFace,
-                             unsigned timeIndex) {
+                             std::size_t ltsFace,
+                             uint32_t timeIndex) {
     const real timeIncrement = this->deltaT[timeIndex];
     real currentTime = this->mFullUpdateTime;
-    for (unsigned i = 0; i <= timeIndex; i++) {
+    for (uint32_t i = 0; i <= timeIndex; i++) {
       currentTime += this->deltaT[i];
     }
 
 #pragma omp simd
-    for (unsigned pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       const real stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
       this->traction1[ltsFace][pointIndex] =
@@ -70,9 +70,10 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     }
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {}
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, unsigned ltsFace) {}
-  void saveDynamicStressOutput(unsigned int ltsFace) {}
+  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {}
+  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
+  }
+  void saveDynamicStressOutput(std::size_t ltsFace) {}
 
   protected:
   real (*__restrict imposedSlipDirection1)[misc::NumPaddedPoints]{};

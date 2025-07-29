@@ -14,6 +14,9 @@
 #include <GeneratedCode/kernel.h>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+
 namespace seissol::dr::friction_law::cpu {
 
 void NoSpecialization::resampleSlipRate(
@@ -37,8 +40,8 @@ void BiMaterialFault::copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
 real BiMaterialFault::strengthHook(real faultStrength,
                                    real localSlipRate,
                                    real deltaT,
-                                   unsigned int ltsFace,
-                                   unsigned int pointIndex) {
+                                   std::size_t ltsFace,
+                                   std::uint32_t pointIndex) {
   // modify strength according to Prakash-Clifton
   // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
   const real expterm =
@@ -53,8 +56,8 @@ real BiMaterialFault::strengthHook(real faultStrength,
 #pragma omp declare simd
 real TPApprox::stateVariableHook(real localAccumulatedSlip,
                                  real localDc,
-                                 unsigned int ltsFace,
-                                 unsigned int pointIndex) {
+                                 std::size_t ltsFace,
+                                 std::uint32_t pointIndex) {
   const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
   return 1.0 - std::pow(factor, -drParameters->tpProxyExponent);
 }
