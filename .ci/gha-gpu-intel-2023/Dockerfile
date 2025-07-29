@@ -7,13 +7,16 @@
 
 # ## boilerplate
 
-FROM intel/hpckit:2024.2.1-0-devel-ubuntu22.04
+FROM intel/oneapi-hpckit:2023.2-devel-ubuntu22.04
 
 ENV TZ=UTC
 ENV DEBIAN_FRONTEND=noninteractive
 ENV CC=icx
 ENV CXX=icpx
 ENV FC=ifx
+
+RUN wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+RUN echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list
 
 RUN apt-get update -y && apt-get upgrade -y && \
     apt-get install -y --no-install-recommends --fix-missing \
@@ -45,7 +48,8 @@ RUN apt-get update -y && apt-get upgrade -y && \
     python3 python3-dev python3-pip \
     python3-setuptools python3-numpy python3-scipy \
     libeigen3-dev libyaml-cpp-dev ninja-build \
-    numactl libnuma-dev
+    numactl libnuma-dev \
+    jq
 
 # (Par)METIS
 
@@ -77,13 +81,6 @@ RUN wget https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz
 
 # ## input data
 
-# ImpalaJIT
-RUN git clone --depth 1 https://github.com/uphoffc/ImpalaJIT.git gitbuild && \
-    mkdir -p gitbuild/build && cd gitbuild/build && \
-    cmake .. -GNinja && \
-    ninja install && \
-    cd ../.. && rm -rf gitbuild
-
 # ASAGI
 RUN git clone --recursive --depth 1 https://github.com/TUM-I5/ASAGI.git gitbuild && \
 mkdir -p gitbuild/build && cd gitbuild/build && \
@@ -99,7 +96,7 @@ RUN wget https://www.lua.org/ftp/lua-5.3.6.tar.gz && \
     cd .. && rm -rf lua-5.3.6
 
 # easi
-RUN git clone --recursive --depth 1 --branch v1.4.0 https://github.com/SeisSol/easi.git gitbuild && \
+RUN git clone --recursive --depth 1 --branch v1.6.1 https://github.com/SeisSol/easi.git gitbuild && \
     mkdir -p gitbuild/build && cd gitbuild/build && \
     cmake .. -GNinja -DLUA=ON -DIMPALAJIT=ON -DASAGI=ON && \
     ninja install && \
@@ -120,6 +117,10 @@ RUN pip3 install git+https://github.com/SeisSol/PSpaMM.git
 RUN pip3 install git+https://github.com/SeisSol/gemmforge.git
 # FIXME: chainforge does not support SYCL (e.g. tensorforge should)
 # RUN pip3 install git+https://github.com/SeisSol/chainforge.git
+
+RUN pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
+
+RUN pip3 install git+https://github.com/SeisSol/tensorforge.git@develop-freed
 
 # ## setup and cleanup
 

@@ -41,14 +41,18 @@ RUN apt-get update -y && apt-get upgrade -y && \
     software-properties-common \
     python3.10 python3-dev python3-pip \
     python3-setuptools python3-numpy python3-scipy \
-    libeigen3-dev libyaml-cpp-dev libopenmpi-dev libparmetis-dev libmetis-dev ninja-build && \
+    libeigen3-dev libyaml-cpp-dev libopenmpi-dev libparmetis-dev libmetis-dev ninja-build jq && \
     wget -O llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key && \
     apt-key add llvm-snapshot.gpg.key && \
     rm -f llvm-snapshot.gpg.key && \
     add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" && \
     add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" && \
     apt-get -y update && \
-    apt-get -y install clang-19 clang-tidy-19 libomp-19-dev
+    apt-get -y install clang-19 clang-tidy-19 libomp-19-dev flang-19 && \
+    add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" && \
+    add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-20 main" && \
+    apt-get -y update && \
+    apt-get -y install clang-20 clang-tidy-20 libomp-20-dev flang-20
 
 # ## IO
 
@@ -68,13 +72,6 @@ RUN wget https://downloads.unidata.ucar.edu/netcdf-c/4.9.2/netcdf-c-4.9.2.tar.gz
 
 # ## input data
 
-# ImpalaJIT
-RUN git clone --depth 1 https://github.com/uphoffc/ImpalaJIT.git gitbuild && \
-    mkdir -p gitbuild/build && cd gitbuild/build && \
-    cmake .. -GNinja && \
-    ninja install && \
-    cd ../.. && rm -rf gitbuild
-
 # ASAGI
 RUN git clone --recursive --depth 1 https://github.com/TUM-I5/ASAGI.git gitbuild && \
 mkdir -p gitbuild/build && cd gitbuild/build && \
@@ -90,7 +87,7 @@ RUN wget https://www.lua.org/ftp/lua-5.3.6.tar.gz && \
     cd .. && rm -rf lua-5.3.6
 
 # easi
-RUN git clone --recursive --depth 1 --branch v1.4.0 https://github.com/SeisSol/easi.git gitbuild && \
+RUN git clone --recursive --depth 1 --branch v1.6.1 https://github.com/SeisSol/easi.git gitbuild && \
     mkdir -p gitbuild/build && cd gitbuild/build && \
     cmake .. -GNinja -DLUA=ON -DIMPALAJIT=ON -DASAGI=ON && \
     ninja install && \
@@ -106,6 +103,8 @@ RUN git clone --depth 1 --branch 1.17 https://github.com/libxsmm/libxsmm.git git
 
 # PSpaMM
 RUN pip3 install --break-system-packages git+https://github.com/SeisSol/PSpaMM.git
+
+RUN pip3 install --break-system-packages numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
 
 # ## setup and cleanup
 

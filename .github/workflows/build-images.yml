@@ -21,7 +21,9 @@ jobs:
           - gha-cpu
           - gha-gpu-nv
           - gha-gpu-amd
-          - gha-gpu-intel
+          - gha-gpu-intel-icc
+          - gha-gpu-intel-2023
+          - gha-gpu-intel-2025
           - gha-gpu-nvhpc
     steps:
     - name: Checkout repository
