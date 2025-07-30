@@ -123,6 +123,8 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
 
   std::array<double, 81> stiffnessTensor{};
   switch (material->getMaterialType()) {
+  case seissol::model::MaterialType::Acoustic:
+    [[fallthrough]];
   case seissol::model::MaterialType::Anisotropic:
     [[fallthrough]];
   case seissol::model::MaterialType::Poroelastic:
@@ -140,13 +142,13 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
     break;
   }
 
-  std::array<real, 81> stiffnessTensor2{};
-  std::copy(stiffnessTensor.begin(), stiffnessTensor.end(), stiffnessTensor2.begin());
+  std::array<real, 81> stiffnessTensorReal{};
+  std::copy(stiffnessTensor.begin(), stiffnessTensor.end(), stiffnessTensorReal.begin());
 
   kernel::transformNRF transformKernel;
   transformKernel.mArea = -subfault.area;
   transformKernel.mNormal = faultBasis.data() + 6;
-  transformKernel.stiffnessTensor = stiffnessTensor2.data();
+  transformKernel.stiffnessTensor = stiffnessTensorReal.data();
   transformKernel.momentToNRF = init::momentToNRF::Values;
   transformKernel.rotateNRF = faultBasis.data();
   transformKernel.tensorNRF = pointSources.tensor.data() + tensorIndex * tensor::update::Size;
@@ -448,11 +450,8 @@ auto loadSourceFile(const std::string& fileName,
              seissol::MPI::mpi.comm());
 
   const int rank = seissol::MPI::mpi.rank();
-  if (rank == 0) {
-    const int numSourceOutside = points.size() - globalnumSources;
-    if (numSourceOutside > 0) {
-      logError() << points.size() - globalnumSources << " point sources are outside the domain.";
-    }
+  if (rank == 0 && points.size() > globalnumSources) {
+    logError() << (points.size() - globalnumSources) << " point sources are outside the domain.";
   }
 
   logInfo() << "Mapping point sources to LTS cells...";
