@@ -9,6 +9,7 @@
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Memory/Tree/Colormap.h>
+#include <Parallel/MPI.h>
 #include <cstddef>
 #include <unordered_map>
 #include <vector>
@@ -57,9 +58,11 @@ std::vector<ClusterLayout> layoutCells(const std::vector<std::size_t>& color,
           // TODO: access linear ghost ID here
           const auto& element = meshReader.getElements()[cell];
 
-          const auto ghostLinear = toLinear.at({element.neighborRanks[f], element.mpiIndices[f]});
-          const auto colorGhost = ghostColor[ghostLinear];
-          neighborColors.emplace(element.neighborRanks[f], colorGhost);
+          if (element.neighborRanks[f] != MPI::mpi.rank()) {
+            const auto ghostLinear = toLinear.at({element.neighborRanks[f], element.mpiIndices[f]});
+            const auto colorGhost = ghostColor[ghostLinear];
+            neighborColors.emplace(element.neighborRanks[f], colorGhost);
+          }
         }
         for (const auto& neighborColor : neighborColors) {
           byColor[neighborColor].push_back(cell);
@@ -80,7 +83,7 @@ std::vector<ClusterLayout> layoutCells(const std::vector<std::size_t>& color,
         const auto tag = i + color * colormap.size();
         clusters[i].regions.emplace_back(tag, i, color, cells.size(), rank);
       }
-    } else {
+    } else if (colormap.argument(i).halo == HaloType::Ghost) {
       const auto& neighbor = meshReader.getMPINeighbors();
       const auto& ghostlayer = meshReader.getGhostlayerMetadata();
       std::map<std::pair<int, std::size_t>, std::vector<std::size_t>> byColor;
