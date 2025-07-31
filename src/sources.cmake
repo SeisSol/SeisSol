@@ -85,6 +85,8 @@ src/ResultWriter/AnalysisWriter.cpp
 src/Solver/TimeStepping/HaloCommunication.cpp
 src/Initializer/TimeStepping/Halo.cpp
 
+src/Initializer/InitProcedure/Internal/LtsSetup.cpp
+
 ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
 ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
 )

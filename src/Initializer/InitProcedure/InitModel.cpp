@@ -9,7 +9,6 @@
 #include "Initializer/CellLocalMatrices.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/TimeStepping/Common.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
@@ -17,6 +16,7 @@
 #include <Common/Real.h>
 #include <Config.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/InitProcedure/Internal/LtsSetup.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
@@ -319,7 +319,7 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   seissolInstance.getLtsLayout().getCellInformation(ltsStorage.var<LTS::CellInformation>(),
                                                     ltsStorage.var<LTS::SecondaryInformation>());
 
-  seissol::initializer::time_stepping::deriveLtsSetups(ltsInfo.haloStructure, ltsStorage);
+  seissol::initializer::internal::deriveLtsSetups(ltsInfo.haloStructure, ltsStorage);
 
   auto& backmap = seissolInstance.getMemoryManager().getBackmap();
   backmap.setSize(seissolInstance.meshReader().getElements().size());

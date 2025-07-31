@@ -7,25 +7,20 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef SEISSOSRC_INITIALIZER_TIMESTEPPING_COMMON_H_
-#define SEISSOSRC_INITIALIZER_TIMESTEPPING_COMMON_H_
-
+#include "LtsSetup.h"
+#include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>
-#include <Initializer/LtsSetup.h>
 #include <Initializer/TimeStepping/Halo.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/LTSTree.h>
-#include <cassert>
+#include <Memory/Tree/Layer.h>
+#include <array>
+#include <cstddef>
 #include <mpi.h>
-#include <set>
 
-#include "Parallel/MPI.h"
-#include "Initializer/Typedefs.h"
+namespace {
 
+using namespace seissol;
 
-
-namespace seissol::initializer::time_stepping {
-  
 /**
  * Gets the lts setup in relation to the four face neighbors.
  *   Remark: Remember to perform the required normalization step.
@@ -88,7 +83,7 @@ namespace seissol::initializer::time_stepping {
  * @param faceNeighborIds face neighbor ids.
  * @param copy true if the cell is part of the copy layer (only required for correctness in dynamic rupture computations).
  **/
-static LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
+ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
   const SecondaryCellLocalInformation& ownSecondary,
   const std::array<uint64_t, Cell::NumFaces>& neighborClusters,
                                   bool copy = false ) {
@@ -193,7 +188,7 @@ static LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
  * @param neighboringSetups local time stepping setups for the neighboring cells, set to GTS (240) if not defined (e.g. in case of boundary conditions).
  * @param localLtsSetup local time stepping setup of the local cell.
  **/
-static LtsSetup normalizeLtsSetup( const LtsSetup &localLtsSetup,
+ LtsSetup normalizeLtsSetup( const LtsSetup &localLtsSetup,
                                     const std::array<bool, Cell::NumFaces>&  neighborCache) {
   LtsSetup output(localLtsSetup);
   // iterate over the face neighbors
@@ -206,10 +201,14 @@ static LtsSetup normalizeLtsSetup( const LtsSetup &localLtsSetup,
   return output;
 }
 
+} // namespace
+
+namespace seissol::initializer::internal {
+
 /**
  * Derives the lts setups of all given cells.
  **/
-inline void deriveLtsSetups( const HaloStructure& halo,
+void deriveLtsSetups( const HaloStructure& halo,
                             LTS::Storage& storage  ) {
   MPI_Datatype ghostElementType = MPI_DATATYPE_NULL;
   MPI_Datatype ghostElementTypePre = MPI_DATATYPE_NULL;
@@ -292,7 +291,4 @@ inline void deriveLtsSetups( const HaloStructure& halo,
   haloCommunication<LTS::CellInformation>(halo, storage, ghostElementType);
 }
 
-} // namespace seissol::initializer::time_stepping
-
-
-#endif // SEISSOSRC_INITIALIZER_TIMESTEPPING_COMMON_H_
+} // namespace seissol::initializer::internal
