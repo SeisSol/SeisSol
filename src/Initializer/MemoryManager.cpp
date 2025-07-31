@@ -9,6 +9,7 @@
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/Typedefs.h>
 #include <Memory/Tree/Colormap.h>
 #include <Solver/MultipleSimulations.h>
 #ifdef _OPENMP
@@ -155,28 +156,12 @@ void seissol::initializer::MemoryManager::fixateBoundaryStorage() {
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
-          boundaryMapping[cell][face].nodes = faceInformation[boundaryFace].nodes;
-          boundaryMapping[cell][face].dataT = faceInformation[boundaryFace].dataT;
-          boundaryMapping[cell][face].dataTinv = faceInformation[boundaryFace].dataTinv;
-          boundaryMapping[cell][face].easiBoundaryMap = faceInformation[boundaryFace].easiBoundaryMap;
-          boundaryMapping[cell][face].easiBoundaryConstant = faceInformation[boundaryFace].easiBoundaryConstant;
-          boundaryMappingDevice[cell][face].nodes = faceInformationDevice[boundaryFace].nodes;
-          boundaryMappingDevice[cell][face].dataT = faceInformationDevice[boundaryFace].dataT;
-          boundaryMappingDevice[cell][face].dataTinv = faceInformationDevice[boundaryFace].dataTinv;
-          boundaryMappingDevice[cell][face].easiBoundaryMap = faceInformationDevice[boundaryFace].easiBoundaryMap;
-          boundaryMappingDevice[cell][face].easiBoundaryConstant = faceInformationDevice[boundaryFace].easiBoundaryConstant;
+          boundaryMapping[cell][face] = CellBoundaryMapping(faceInformation[boundaryFace]);
+          boundaryMappingDevice[cell][face] = CellBoundaryMapping(faceInformationDevice[boundaryFace]);
           ++boundaryFace;
         } else {
-          boundaryMapping[cell][face].nodes = nullptr;
-          boundaryMapping[cell][face].dataT = nullptr;
-          boundaryMapping[cell][face].dataTinv = nullptr;
-          boundaryMapping[cell][face].easiBoundaryMap = nullptr;
-          boundaryMapping[cell][face].easiBoundaryConstant = nullptr;
-          boundaryMappingDevice[cell][face].nodes = nullptr;
-          boundaryMappingDevice[cell][face].dataT = nullptr;
-          boundaryMappingDevice[cell][face].dataTinv = nullptr;
-          boundaryMappingDevice[cell][face].easiBoundaryMap = nullptr;
-          boundaryMappingDevice[cell][face].easiBoundaryConstant = nullptr;
+          boundaryMapping[cell][face] = CellBoundaryMapping();
+          boundaryMappingDevice[cell][face] = CellBoundaryMapping();
         }
       }
     }

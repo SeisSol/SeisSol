@@ -334,21 +334,27 @@ struct CellDRMapping {
   real* fluxSolver;
 };
 
-struct CellBoundaryMapping {
-  real* nodes;
-  real* dataT;
-  real* dataTinv;
-  real* easiBoundaryConstant;
-  real* easiBoundaryMap;
-};
-
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::nodal::tensor::nodes2D::Shape[0] * 3];
-  real dataT[seissol::tensor::T::size()];
-  real dataTinv[seissol::tensor::Tinv::size()];
-  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
-  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
+  real nodes[seissol::nodal::tensor::nodes2D::Shape[0] * 3]{};
+  real dataT[seissol::tensor::T::size()]{};
+  real dataTinv[seissol::tensor::Tinv::size()]{};
+  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()]{};
+  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()]{};
+};
+
+struct CellBoundaryMapping {
+  real* nodes{nullptr};
+  real* dataT{nullptr};
+  real* dataTinv{nullptr};
+  real* easiBoundaryConstant{nullptr};
+  real* easiBoundaryMap{nullptr};
+
+  CellBoundaryMapping() = default;
+  CellBoundaryMapping(BoundaryFaceInformation& faceInfo)
+      : nodes(faceInfo.nodes), dataT(faceInfo.dataT), dataTinv(faceInfo.dataTinv),
+        easiBoundaryConstant(faceInfo.easiBoundaryConstant),
+        easiBoundaryMap(faceInfo.easiBoundaryMap) {}
 };
 
 struct GravitationSetup {
