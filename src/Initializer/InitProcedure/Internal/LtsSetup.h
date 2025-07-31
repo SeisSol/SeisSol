@@ -10,6 +10,6 @@
 #include <Initializer/TimeStepping/Halo.h>
 #include <Memory/Descriptor/LTS.h>
 namespace seissol::initializer::internal {
-void deriveLtsSetups( const HaloStructure& halo, LTS::Storage& storage  );
+void deriveLtsSetups(const HaloStructure& halo, LTS::Storage& storage);
 } // namespace seissol::initializer::internal
 #endif // SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_LTSSETUP_H_
