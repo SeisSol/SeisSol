@@ -213,30 +213,28 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
   auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
   auto* faceNeighborsDevice = layer.var<LTS::FaceNeighborsDevice>();
 
-  auto* buffers = storage.var<LTS::Buffers>();
-  auto* derivatives = storage.var<LTS::Derivatives>();
-  auto* buffersDevice = storage.var<LTS::BuffersDevice>();
-  auto* derivativesDevice = storage.var<LTS::DerivativesDevice>();
-
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      const auto& faceNeighbor = secondaryCellInformation[cell].faceNeighborIds[face];
-      if (faceNeighbor != std::numeric_limits<unsigned>::max()) {
+      const auto& faceNeighbor = secondaryCellInformation[cell].faceNeighborPositions[face];
+      if (faceNeighbor != StoragePosition::NullPosition) {
         if (cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
-          assert(derivatives[faceNeighbor] != nullptr);
-          faceNeighbors[cell][face] = derivatives[faceNeighbor];
+          faceNeighbors[cell][face] = storage.lookup<LTS::Derivatives>(faceNeighbor);
           if constexpr (isDeviceOn()) {
-            faceNeighborsDevice[cell][face] = derivativesDevice[faceNeighbor];
+            faceNeighborsDevice[cell][face] = storage.lookup<LTS::DerivativesDevice>(faceNeighbor);
           }
         } else {
-          assert(buffers[faceNeighbor] != nullptr);
-          faceNeighbors[cell][face] = buffers[faceNeighbor];
+          faceNeighbors[cell][face] = storage.lookup<LTS::Buffers>(faceNeighbor);
           if constexpr (isDeviceOn()) {
-            faceNeighborsDevice[cell][face] = buffersDevice[faceNeighbor];
+            faceNeighborsDevice[cell][face] = storage.lookup<LTS::BuffersDevice>(faceNeighbor);
           }
+        }
+
+        assert(faceNeighbors[cell][face] != nullptr);
+        if constexpr (isDeviceOn()) {
+          assert(faceNeighborsDevice[cell][face] != nullptr);
         }
       }
     }

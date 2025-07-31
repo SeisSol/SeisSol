@@ -36,7 +36,7 @@ namespace seissol::kernels {
 
 void TimeCommon::computeIntegrals(Time& time,
                                   const LtsSetup& ltsSetup,
-                                  const FaceType faceTypes[4],
+                                  const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                   const double currentTime[5],
                                   double timeStepWidth,
                                   real* const timeDofs[4],
@@ -81,7 +81,7 @@ void TimeCommon::computeIntegrals(Time& time,
 
 void TimeCommon::computeIntegrals(Time& time,
                                   const LtsSetup& ltsSetup,
-                                  const FaceType faceTypes[4],
+                                  const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                   const double timeStepStart,
                                   const double timeStepWidth,
                                   real* const timeDofs[4],

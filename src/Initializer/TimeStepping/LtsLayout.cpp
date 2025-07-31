@@ -727,8 +727,7 @@ void seissol::initializer::time_stepping::LtsLayout::deriveClusteredGhost() {
   delete[] l_requests;
 }
 
-void seissol::initializer::time_stepping::LtsLayout::deriveLayout( TimeClustering i_timeClustering,
-                                                                    unsigned int        i_clusterRate ) {
+void seissol::initializer::time_stepping::LtsLayout::deriveLayout( unsigned int        i_clusterRate ) {
   m_globalTimeStepRates.resize(1);
   m_globalTimeStepRates[0] = i_clusterRate;
   
@@ -894,7 +893,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         secondaryInformation[l_ltsCell].rank = rank;
         secondaryInformation[l_ltsCell].layerId = layerId;
         secondaryInformation[l_ltsCell].configId = 0;
-        std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
+        std::copy_n(m_cells[l_meshId].neighborRanks, Cell::NumFaces, secondaryInformation[l_ltsCell].neighborRanks.begin());
 
         // iterate over faces
         for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
@@ -996,7 +995,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
       secondaryInformation[l_ltsCell].rank = rank;
       secondaryInformation[l_ltsCell].layerId = layerId;
       secondaryInformation[l_ltsCell].configId = 0;
-      std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
+      std::copy_n(m_cells[l_meshId].neighborRanks, Cell::NumFaces, secondaryInformation[l_ltsCell].neighborRanks.begin());
 
       // set mappings
 

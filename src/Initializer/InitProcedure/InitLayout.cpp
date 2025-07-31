@@ -39,8 +39,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const auto& meshReader = seissolInstance.meshReader();
 
-  seissolInstance.getLtsLayout().deriveLayout(TimeClustering::MultiRate,
-                                              seissolParams.timeStepping.lts.getRate());
+  seissolInstance.getLtsLayout().deriveLayout(seissolParams.timeStepping.lts.getRate());
   const auto clusterLayout = seissolInstance.getLtsLayout().clusterLayout();
 
   auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
@@ -89,6 +88,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   }
 
   LTS::addTo(ltsStorage, seissolInstance.getSeisSolParameters().model.plasticity);
+  seissolInstance.postProcessor().allocateMemory(ltsStorage);
+  ltsStorage.setName("cluster");
   ltsStorage.setLayerCount(colorMap);
   ltsStorage.fixate();
   for (auto [i, layer] : common::enumerate(ltsStorage.leaves())) {
@@ -179,10 +180,13 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
             }();
 
             secondaryCellInformation[index].faceNeighborIds[face] = neighbor.global;
+            secondaryCellInformation[index].faceNeighborPositions[face] = neighbor;
             cellInformation[index].neighborConfigIds[face] = 0;
           } else {
             secondaryCellInformation[index].faceNeighborIds[face] =
-                std::numeric_limits<unsigned>::max();
+                std::numeric_limits<std::size_t>::max();
+            secondaryCellInformation[index].faceNeighborPositions[face] =
+                StoragePosition::NullPosition;
             cellInformation[index].neighborConfigIds[face] = -1;
           }
         }

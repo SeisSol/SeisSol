@@ -401,11 +401,9 @@ class seissol::initializer::time_stepping::LtsLayout {
     /**
      * Derives the layout of the LTS scheme.
      *
-     * @param i_timeClustering clustering strategy.
      * @param i_clusterRate cluster rate in the case of a multi-rate scheme.
      **/
-    void deriveLayout( enum TimeClustering i_timeClustering,
-                       unsigned int        i_clusterRate = std::numeric_limits<unsigned int>::max() );
+    void deriveLayout( unsigned int        i_clusterRate = std::numeric_limits<unsigned int>::max() );
 
     [[nodiscard]] ClusterLayout clusterLayout() const;
 

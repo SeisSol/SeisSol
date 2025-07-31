@@ -46,7 +46,7 @@ struct TimeCommon {
    **/
   static void computeIntegrals(Time& time,
                                const LtsSetup& ltsSetup,
-                               const FaceType faceTypes[4],
+                               const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                const double currentTime[5],
                                double timeStepWidth,
                                real* const timeDofs[4],
@@ -71,7 +71,7 @@ struct TimeCommon {
    **/
   static void computeIntegrals(Time& time,
                                const LtsSetup& ltsSetup,
-                               const FaceType faceTypes[4],
+                               const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                double timeStepStart,
                                double timeStepWidth,
                                real* const timeDofs[4],

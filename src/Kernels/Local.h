@@ -57,7 +57,7 @@ class LocalKernel : public Kernel {
                                      double timeStepWidth,
                                      seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void flopsIntegral(const FaceType faceTypes[4],
+  virtual void flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
                              std::uint64_t& nonZeroFlops,
                              std::uint64_t& hardwareFlops) = 0;
 
