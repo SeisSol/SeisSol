@@ -69,7 +69,11 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = sideDist(rng);
       cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
-      secondaryInformation[cell].faceNeighborIds[f] = cellDist(rng);
+
+      const auto neighbor = cellDist(rng);
+      secondaryInformation[cell].faceNeighbors[f].global = neighbor;
+      secondaryInformation[cell].faceNeighbors[f].color = 0;
+      secondaryInformation[cell].faceNeighbors[f].cell = neighbor;
     }
     cellInformation[cell].ltsSetup = LtsSetup();
   }
@@ -86,8 +90,9 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
         break;
       case FaceType::Periodic:
       case FaceType::Regular:
-        faceNeighbors[cell][f] = buffers[secondaryInformation[cell].faceNeighborIds[f]];
-        faceNeighborsDevice[cell][f] = buffersDevice[secondaryInformation[cell].faceNeighborIds[f]];
+        faceNeighbors[cell][f] = buffers[secondaryInformation[cell].faceNeighbors[f].cell];
+        faceNeighborsDevice[cell][f] =
+            buffersDevice[secondaryInformation[cell].faceNeighbors[f].cell];
         break;
       default:
         faceNeighbors[cell][f] = nullptr;

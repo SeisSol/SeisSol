@@ -137,6 +137,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       zeroLayer[i].rank = -1;
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         zeroLayer[i].neighborRanks[face] = -1;
+        zeroLayer[i].faceNeighbors[face] = StoragePosition::NullPosition;
       }
     }
   }
@@ -179,14 +180,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
               }
             }();
 
-            secondaryCellInformation[index].faceNeighborIds[face] = neighbor.global;
-            secondaryCellInformation[index].faceNeighborPositions[face] = neighbor;
+            secondaryCellInformation[index].faceNeighbors[face] = neighbor;
             cellInformation[index].neighborConfigIds[face] = 0;
           } else {
-            secondaryCellInformation[index].faceNeighborIds[face] =
-                std::numeric_limits<std::size_t>::max();
-            secondaryCellInformation[index].faceNeighborPositions[face] =
-                StoragePosition::NullPosition;
+            secondaryCellInformation[index].faceNeighbors[face] = StoragePosition::NullPosition;
             cellInformation[index].neighborConfigIds[face] = -1;
           }
         }
@@ -204,8 +201,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
             meshReader.getMPINeighbors().at(delinear.first).elements[delinear.second];
         secondaryCellInformation[index].rank = delinear.first;
         const auto neighbor = backmap.get(boundaryElement.localElement);
-        secondaryCellInformation[index].faceNeighborIds[boundaryElement.localSide] =
-            neighbor.global;
+
+        secondaryCellInformation[index].faceNeighbors[boundaryElement.localSide] = neighbor;
 
         const int face = boundaryElement.neighborSide;
 

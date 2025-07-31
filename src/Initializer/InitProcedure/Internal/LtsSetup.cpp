@@ -84,7 +84,6 @@ using namespace seissol;
  * @param neighboringClusterIds global ids of the clusters the face neighbors belong to (if
  *present).
  * @param faceTypes types of the four faces.
- * @param faceNeighborIds face neighbor ids.
  * @param copy true if the cell is part of the copy layer (only required for correctness in dynamic
  *rupture computations).
  **/
@@ -251,7 +250,7 @@ void deriveLtsSetups(const HaloStructure& halo, LTS::Storage& storage) {
         // only continue for non-boundary faces
         if (isInternalFaceType(primaryInformationLocal[cell].faceTypes[face])) {
           // get neighboring cell id
-          const auto neighbor = secondaryInformationLocal[cell].faceNeighborIds[face];
+          const auto neighbor = secondaryInformationLocal[cell].faceNeighbors[face].global;
 
           // get neighboring setup
           neighborClusters[face] = secondaryInformationGlobal[neighbor].clusterId;
@@ -284,7 +283,7 @@ void deriveLtsSetups(const HaloStructure& halo, LTS::Storage& storage) {
       for (std::size_t face = 0; face < Cell::NumFaces; face++) {
         // only continue for non-boundary faces
         if (isInternalFaceType(primaryInformationLocal[cell].faceTypes[face])) {
-          const auto neighbor = secondaryInformationLocal[cell].faceNeighborIds[face];
+          const auto neighbor = secondaryInformationLocal[cell].faceNeighbors[face].global;
           neighborCache[face] = primaryInformationGlobal[neighbor].ltsSetup.cacheBuffers();
         }
       }

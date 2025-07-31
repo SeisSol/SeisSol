@@ -929,7 +929,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                                                     l_localNeighboringRegion );
 
             // store value
-            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_ghostOffsets[l_cluster][l_localNeighboringRegion] + l_localGhostId;
+            secondaryInformation[l_ltsCell].faceNeighbors[l_face].global = l_ghostOffsets[l_cluster][l_localNeighboringRegion] + l_localGhostId;
           }
           // else neighboring cell is part of the interior or copy layer
           else if (io_cellLocalInformation[l_ltsCell].faceTypes[l_face] == FaceType::Regular ||
@@ -955,7 +955,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                        l_neighboringCopyRegion,
                                        l_localNeighboringCellId );
 
-              secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_copyOffsets[l_localNeighboringClusterId][l_neighboringCopyRegion] + l_localNeighboringCellId;
+              secondaryInformation[l_ltsCell].faceNeighbors[l_face].global = l_copyOffsets[l_localNeighboringClusterId][l_neighboringCopyRegion] + l_localNeighboringCellId;
             }
             // neighboring cell is part of the interior: search for the position of the neighboring cell in the interior of the cluster
             else {
@@ -967,7 +967,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                            l_localNeighboringCellId );
 
               // store values
-              secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_interiorOffsets[l_localNeighboringClusterId] + l_localNeighboringCellId;
+              secondaryInformation[l_ltsCell].faceNeighbors[l_face].global = l_interiorOffsets[l_localNeighboringClusterId] + l_localNeighboringCellId;
             }
           }
         }
@@ -1029,7 +1029,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                      l_neighboringCopyRegion,
                                      l_localNeighboringCellId );
 
-            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_copyOffsets[l_localNeighboringClusterId][l_neighboringCopyRegion] + l_localNeighboringCellId;
+            secondaryInformation[l_ltsCell].faceNeighbors[l_face].global = l_copyOffsets[l_localNeighboringClusterId][l_neighboringCopyRegion] + l_localNeighboringCellId;
           }
           // neighboring cell is part of the interior: search for the position of the neighboring cell in the interior of the cluster
           else {
@@ -1041,7 +1041,7 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
                                          l_localNeighboringCellId );
 
             // store values
-            secondaryInformation[l_ltsCell].faceNeighborIds[l_face] = l_interiorOffsets[l_localNeighboringClusterId] + l_localNeighboringCellId;
+            secondaryInformation[l_ltsCell].faceNeighbors[l_face].global = l_interiorOffsets[l_localNeighboringClusterId] + l_localNeighboringCellId;
           }
         }
       }
