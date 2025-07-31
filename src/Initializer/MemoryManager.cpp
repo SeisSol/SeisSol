@@ -126,12 +126,12 @@ void MemoryManager::fixateBoundaryStorage() {
        seissol::common::zip(ltsStorage.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
     CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
 
-    unsigned numberOfBoundaryFaces = 0;
+    std::size_t numberOfBoundaryFaces = 0;
     const auto layerSize = layer.size();
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) reduction(+ : numberOfBoundaryFaces)
 #endif // _OPENMP
-    for (unsigned cell = 0; cell < layerSize; ++cell) {
+    for (std::size_t cell = 0; cell < layerSize; ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
           ++numberOfBoundaryFaces;
@@ -345,16 +345,16 @@ void MemoryManager::recordExecutionPaths(bool usePlasticity) {
 }
 #endif // ACL_DEVICE
 
-bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, unsigned int face) {
+bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
   constexpr auto Eps = std::numeric_limits<real>::epsilon();
   return material.neighbor[face].getMuBar() > Eps && material.local.getMuBar() < Eps;
 }
-bool isElasticSideOfElasticAcousticInterface(CellMaterialData& material, unsigned int face) {
+bool isElasticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
   constexpr auto Eps = std::numeric_limits<real>::epsilon();
   return material.local.getMuBar() > Eps && material.neighbor[face].getMuBar() < Eps;
 }
 
-bool isAtElasticAcousticInterface(CellMaterialData& material, unsigned int face) {
+bool isAtElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
   return isAcousticSideOfElasticAcousticInterface(material, face) ||
@@ -363,7 +363,7 @@ bool isAtElasticAcousticInterface(CellMaterialData& material, unsigned int face)
 
 bool requiresDisplacement(CellLocalInformation cellLocalInformation,
                           CellMaterialData& material,
-                          unsigned int face) {
+                          std::size_t face) {
   const auto faceType = cellLocalInformation.faceTypes[face];
   return faceType == FaceType::FreeSurface || faceType == FaceType::FreeSurfaceGravity ||
          isAtElasticAcousticInterface(material, face);

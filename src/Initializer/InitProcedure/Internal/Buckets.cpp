@@ -9,7 +9,6 @@
 #include <Common/Real.h>
 #include <Config.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Initializer/InitProcedure/Internal/MeshLayout.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/TimeStepping/Halo.h>
 #include <Kernels/Common.h>
@@ -83,7 +82,7 @@ std::vector<solver::RemoteCluster>
   const auto bufferSize = typeSize * yateto::computeFamilySize<tensor::dQ>();
   const auto derivativeSize = typeSize * tensor::I::size();
 
-  auto allocate = [&](std::size_t index, bool useDerivatives) {
+  const auto allocate = [&](std::size_t index, bool useDerivatives) {
     const bool hasBuffers = cellInformation[index].ltsSetup.hasBuffers();
     const bool hasDerivatives = cellInformation[index].ltsSetup.hasDerivatives();
 
@@ -96,7 +95,7 @@ std::vector<solver::RemoteCluster>
     }
   };
 
-  auto useBuffersDerivatives = [&](std::size_t index, int rank) {
+  const auto useBuffersDerivatives = [&](std::size_t index, int rank) {
     bool buffers = false;
     bool derivatives = false;
     for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
