@@ -236,9 +236,6 @@ void deriveLtsSetups(const MeshLayout& layout, LTS::Storage& storage) {
   MPI_Type_create_resized(ghostElementTypePre, lb, extent, &ghostElementType);
   MPI_Type_commit(&ghostElementType);
 
-  auto* primaryInformationGlobal = storage.var<LTS::CellInformation>();
-  const auto* secondaryInformationGlobal = storage.var<LTS::SecondaryInformation>();
-
   // iterate over time clusters
   for (auto& layer : storage.leaves(Ghost)) {
     const auto isCopy = layer.getIdentifier().halo == HaloType::Copy;
@@ -250,10 +247,10 @@ void deriveLtsSetups(const MeshLayout& layout, LTS::Storage& storage) {
         // only continue for non-boundary faces
         if (isInternalFaceType(primaryInformationLocal[cell].faceTypes[face])) {
           // get neighboring cell id
-          const auto neighbor = secondaryInformationLocal[cell].faceNeighbors[face].global;
+          const auto& neighbor = secondaryInformationLocal[cell].faceNeighbors[face];
 
           // get neighboring setup
-          neighborClusters[face] = secondaryInformationGlobal[neighbor].clusterId;
+          neighborClusters[face] = storage.lookup<LTS::SecondaryInformation>(neighbor).clusterId;
         }
       }
 
@@ -283,8 +280,9 @@ void deriveLtsSetups(const MeshLayout& layout, LTS::Storage& storage) {
       for (std::size_t face = 0; face < Cell::NumFaces; face++) {
         // only continue for non-boundary faces
         if (isInternalFaceType(primaryInformationLocal[cell].faceTypes[face])) {
-          const auto neighbor = secondaryInformationLocal[cell].faceNeighbors[face].global;
-          neighborCache[face] = primaryInformationGlobal[neighbor].ltsSetup.cacheBuffers();
+          const auto& neighbor = secondaryInformationLocal[cell].faceNeighbors[face];
+          neighborCache[face] =
+              storage.lookup<LTS::CellInformation>(neighbor).ltsSetup.cacheBuffers();
         }
       }
 

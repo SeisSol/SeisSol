@@ -40,6 +40,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const auto& meshReader = seissolInstance.meshReader();
 
+  const auto rank = seissol::MPI::mpi.rank();
+
   const auto clusterLayout =
       ClusterLayout::fromMesh(seissolParams.timeStepping.lts.getRate(),
                               seissolInstance.meshReader(),
@@ -62,8 +64,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   std::vector<std::size_t> colors(meshReader.getElements().size());
   for (std::size_t i = 0; i < colors.size(); ++i) {
     const auto& element = meshReader.getElements()[i];
-    const auto halo =
-        geometry::isCopy(element, MPI::mpi.rank()) ? HaloType::Copy : HaloType::Interior;
+    const auto halo = geometry::isCopy(element, rank) ? HaloType::Copy : HaloType::Interior;
     colors[i] = colorMap.color(halo, element.clusterId, Config());
   }
 
@@ -98,8 +99,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   ltsStorage.setName("cluster");
   ltsStorage.setLayerCount(colorMap);
   ltsStorage.fixate();
-  for (auto [i, layer] : common::enumerate(ltsStorage.leaves())) {
-    layer.setNumberOfCells(meshLayout[i].cellMap.size());
+  for (auto& layer : ltsStorage.leaves()) {
+    layer.setNumberOfCells(meshLayout[layer.id()].cellMap.size());
   }
   ltsStorage.allocateVariables();
   ltsStorage.touchVariables();
@@ -162,7 +163,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         const auto cell = cells[i];
         const auto index = i;
 
-        secondaryCellInformation[index].rank = MPI::mpi.rank();
+        secondaryCellInformation[index].rank = rank;
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           const auto& element = meshReader.getElements()[cell];
           secondaryCellInformation[index].neighborRanks[face] = element.neighborRanks[face];
@@ -171,9 +172,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           cellInformation[index].faceRelations[face][1] = element.sideOrientations[face];
 
           if (element.neighbors[face] != meshReader.getElements().size() ||
-              element.neighborRanks[face] != MPI::mpi.rank()) {
+              element.neighborRanks[face] != rank) {
             const auto& neighbor = [&]() {
-              const bool ghostNeighbor = element.neighborRanks[face] != MPI::mpi.rank();
+              const bool ghostNeighbor = element.neighborRanks[face] != rank;
               if (ghostNeighbor) {
                 const auto rank = element.neighborRanks[face];
                 const auto mpiIndex = element.mpiIndices[face];
@@ -212,7 +213,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
         const auto face = boundaryElement.neighborSide;
 
-        secondaryCellInformation[index].neighborRanks[face] = MPI::mpi.rank();
+        secondaryCellInformation[index].neighborRanks[face] = rank;
         cellInformation[index].neighborConfigIds[face] = neighbor.color;
         cellInformation[index].faceTypes[face] =
             static_cast<FaceType>(elementNeighbor.boundaries[boundaryElement.localSide]);
@@ -243,8 +244,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   drStorage.setLayerCount(ltsStorage.getColorMap());
   drStorage.fixate();
 
-  for (auto [i, layer] : common::enumerate(drStorage.leaves())) {
-    layer.setNumberOfCells(drLayout[i].size());
+  for (auto& layer : drStorage.leaves()) {
+    layer.setNumberOfCells(drLayout[layer.id()].size());
   }
 
   drStorage.allocateVariables();
@@ -254,12 +255,12 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   drBackmap.setSize(meshReader.getFault().size());
 
   const auto* zeroDR = drStorage.var<DynamicRupture::FaceInformation>();
-  for (auto [i, layer] : common::enumerate(drStorage.leaves())) {
-    auto* zeroDRLayer = drStorage.var<DynamicRupture::FaceInformation>();
+  for (auto& layer : drStorage.leaves()) {
+    auto* zeroDRLayer = layer.var<DynamicRupture::FaceInformation>();
     assert(layer.getIdentifier().halo != HaloType::Ghost || layer.size() == 0);
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      zeroDRLayer[cell].meshFace = drLayout[i][cell];
-      drBackmap.addElement(i, zeroDR, zeroDRLayer, drLayout[i][cell], cell);
+      zeroDRLayer[cell].meshFace = drLayout[layer.id()][cell];
+      drBackmap.addElement(layer.id(), zeroDR, zeroDRLayer, drLayout[layer.id()][cell], cell);
     }
   }
 

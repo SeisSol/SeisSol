@@ -252,26 +252,26 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           // must be subtracted.
           const double fluxScale = -2.0 * surface / (6.0 * volume);
 
-          const auto isSpecialBC =
-              [&secondaryInformation, &cellInformation, &cellInformationAll, cell](int side) {
-                const auto hasDRFace = [](const CellLocalInformation& ci) {
-                  bool hasAtLeastOneDRFace = false;
-                  for (size_t i = 0; i < Cell::NumFaces; ++i) {
-                    if (ci.faceTypes[i] == FaceType::DynamicRupture) {
-                      hasAtLeastOneDRFace = true;
-                    }
-                  }
-                  return hasAtLeastOneDRFace;
-                };
-                const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[cell]);
-                const auto neighborID = secondaryInformation[cell].faceNeighbors[side].global;
-                const bool neighborBehindSideHasAtLeastOneDRFace =
-                    hasDRFace(cellInformationAll[neighborID]);
-                const bool adjacentDRFaceExists =
-                    thisCellHasAtLeastOneDRFace || neighborBehindSideHasAtLeastOneDRFace;
-                return (cellInformation[cell].faceTypes[side] == FaceType::Regular) &&
-                       adjacentDRFaceExists;
-              };
+          const auto isSpecialBC = [&](int side) {
+            const auto hasDRFace = [](const CellLocalInformation& ci) {
+              bool hasAtLeastOneDRFace = false;
+              for (size_t i = 0; i < Cell::NumFaces; ++i) {
+                if (ci.faceTypes[i] == FaceType::DynamicRupture) {
+                  hasAtLeastOneDRFace = true;
+                }
+              }
+              return hasAtLeastOneDRFace;
+            };
+            const bool thisCellHasAtLeastOneDRFace = hasDRFace(cellInformation[cell]);
+            const auto& neighborID = secondaryInformation[cell].faceNeighbors[side];
+            const bool neighborBehindSideHasAtLeastOneDRFace =
+                neighborID != StoragePosition::NullPosition &&
+                hasDRFace(ltsStorage.lookup<LTS::CellInformation>(neighborID));
+            const bool adjacentDRFaceExists =
+                thisCellHasAtLeastOneDRFace || neighborBehindSideHasAtLeastOneDRFace;
+            return (cellInformation[cell].faceTypes[side] == FaceType::Regular) &&
+                   adjacentDRFaceExists;
+          };
 
           const auto wavespeedLocal = material[cell].local.getMaxWaveSpeed();
           const auto wavespeedNeighbor = material[cell].neighbor[side].getMaxWaveSpeed();

@@ -63,7 +63,6 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
         const auto cell = clusters[i].cellMap[j];
         std::set<std::pair<int, std::size_t>> neighborColors;
         for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-          // TODO: access linear ghost ID here
           const auto& element = meshReader.getElements()[cell];
 
           if (element.neighborRanks[f] != MPI::mpi.rank()) {
@@ -100,7 +99,6 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
       for (std::size_t j = 0; j < clusters[i].cellMap.size(); ++j) {
         const auto cell = clusters[i].cellMap[j];
         const auto dCell = fromLinear[cell];
-        const auto& metadata = ghostlayer.at(dCell.first)[dCell.second];
         const auto& localInfo = neighbor.at(dCell.first).elements[dCell.second];
         const auto copyColor = color[localInfo.localElement];
         byColor[{dCell.first, copyColor}].emplace_back(cell);

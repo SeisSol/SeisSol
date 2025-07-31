@@ -411,7 +411,9 @@ void OutputManager::initPickpointOutput() {
           // stress info
           std::array<real, 6> rotatedInitialStress{};
           {
-            auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
+            const auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
+
+            assert(layer != nullptr);
 
             const auto* initialStressVar = layer->var<DynamicRupture::InitialStressInFaultCS>();
             const auto* initialStress = initialStressVar[face];
@@ -462,13 +464,13 @@ void OutputManager::initFaceToLtsMap() {
     globalFaceToLtsMap.resize(faceToLtsMap.size());
     for (auto& layer : drStorage->leaves(Ghost)) {
 
-      DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+      const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
       }
     }
 
-    DRFaceInformation* faceInformation = drStorage->var<DynamicRupture::FaceInformation>();
+    const auto* faceInformation = drStorage->var<DynamicRupture::FaceInformation>();
     for (size_t ltsFace = 0; ltsFace < ltsFaultSize; ++ltsFace) {
       globalFaceToLtsMap[faceInformation[ltsFace].meshFace] = ltsFace;
     }

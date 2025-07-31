@@ -53,15 +53,19 @@ class BucketManager {
 };
 
 template <typename T>
-void initBucketItem(T*& data, void* bucket, bool memset) {
+void initBucketItem(T*& data, void* bucket, bool memsetCpu) {
   if (data != nullptr) {
     const auto ddata = reinterpret_cast<uintptr_t>(data);
     const auto offset = ddata - 1;
     auto* bucketPtr = reinterpret_cast<char*>(bucket);
     // this rather strange offset behavior is required by clang-tidy (and the reason makes sense)
     data = reinterpret_cast<T*>(bucketPtr + offset);
-    if (memset) {
+    if (memsetCpu) {
       std::memset(data, 0, sizeof(T));
+    } else {
+#ifdef ACL_DEVICE
+
+#endif
     }
   }
 }
@@ -87,10 +91,10 @@ std::vector<solver::RemoteCluster>
     const bool hasDerivatives = cellInformation[index].ltsSetup.hasDerivatives();
 
     if (useDerivatives) {
-      derivatives[index] = manager.markAllocate(bufferSize, hasDerivatives);
+      derivatives[index] = manager.markAllocate(derivativeSize, hasDerivatives);
       derivativesDevice[index] = derivatives[index];
     } else {
-      buffers[index] = manager.markAllocate(derivativeSize, hasBuffers);
+      buffers[index] = manager.markAllocate(bufferSize, hasBuffers);
       buffersDevice[index] = buffers[index];
     }
   };
@@ -118,6 +122,8 @@ std::vector<solver::RemoteCluster>
   if (regions.empty()) {
     for (std::size_t index = 0; index < layer.size(); ++index) {
       allocate(index, false);
+    }
+    for (std::size_t index = 0; index < layer.size(); ++index) {
       allocate(index, true);
     }
   } else {
@@ -133,6 +139,10 @@ std::vector<solver::RemoteCluster>
         if (buffers) {
           allocate(index, false);
         }
+      }
+      for (std::size_t i = 0; i < region.count; ++i) {
+        const auto index = i + counter;
+        auto [buffers, derivatives] = useBuffersDerivatives(index, region.rank);
         if (derivatives) {
           allocate(index, true);
         }
@@ -158,6 +168,10 @@ std::vector<solver::RemoteCluster>
         if (!buffers) {
           allocate(index, false);
         }
+      }
+      for (std::size_t i = 0; i < region.count; ++i) {
+        auto index = i + counter;
+        auto [buffers, derivatives] = useBuffersDerivatives(index, seissol::MPI::mpi.rank());
         if (!derivatives) {
           allocate(index, true);
         }
