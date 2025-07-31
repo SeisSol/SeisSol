@@ -21,7 +21,6 @@
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Initializer/TimeStepping/Halo.h>
 #include <Kernels/Common.h>
 #include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Layer.h>
@@ -31,7 +30,6 @@
 #include <Monitoring/Stopwatch.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
 #include <Solver/Estimator.h>
-#include <Solver/TimeStepping/HaloCommunication.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -192,8 +190,6 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 struct LtsInfo {
   unsigned* ltsMeshToFace = nullptr;
   std::optional<ClusterLayout> clusterLayout;
-  solver::HaloCommunication haloCommunication;
-  HaloStructure haloStructure;
 
   // IMPORTANT: DO NOT DEALLOCATE THE ABOVE POINTERS... THEY ARE PASSED ON AND REQUIRED DURING
   // RUNTIME
@@ -291,57 +287,15 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
 void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
-  assert(seissolParams.timeStepping.lts.getRate() > 0);
-
-  seissolInstance.getLtsLayout().deriveLayout(TimeClustering::MultiRate,
-                                              seissolParams.timeStepping.lts.getRate());
-
-  MeshStructure* meshStructure = nullptr;
-  seissolInstance.getLtsLayout().getMeshStructure(meshStructure);
   ltsInfo.clusterLayout = seissolInstance.getLtsLayout().clusterLayout();
-  ltsInfo.haloStructure = seissolInstance.getLtsLayout().haloStructure();
-
-  const auto volumeSizes = seissolInstance.getLtsLayout().volumeSizes();
-  const auto faceSizes = seissolInstance.getLtsLayout().drSizes();
-
-  seissolInstance.getMemoryManager().initializeFrictionLaw();
-
-  seissolInstance.getMemoryManager().fixateLtsStorage(
-      ltsInfo.clusterLayout.value(), volumeSizes, faceSizes, seissolParams.model.plasticity);
 
   seissolInstance.getLtsLayout().getDynamicRuptureInformation(ltsInfo.ltsMeshToFace);
-  seissolInstance.getMemoryManager().setLtsToFace(ltsInfo.ltsMeshToFace);
-
-  auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
-
-  seissolInstance.getLtsLayout().getCellInformation(ltsStorage.var<LTS::CellInformation>(),
-                                                    ltsStorage.var<LTS::SecondaryInformation>());
-
-  seissol::initializer::internal::deriveLtsSetups(ltsInfo.haloStructure, ltsStorage);
-
-  auto& backmap = seissolInstance.getMemoryManager().getBackmap();
-  backmap.setSize(seissolInstance.meshReader().getElements().size());
-  const auto* zero = ltsStorage.var<LTS::SecondaryInformation>();
-  for (const auto& layer : ltsStorage.leaves(Ghost)) {
-    const auto* zeroLayer = layer.var<LTS::SecondaryInformation>();
-    for (std::size_t i = 0; i < layer.size(); ++i) {
-      backmap.addElement(layer.id(), zero, zeroLayer, zeroLayer[i].meshId, i);
-    }
-  }
 }
 
 void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
-  ltsInfo.haloCommunication = internal::bucketsAndCommunication(
-      seissolInstance.getMemoryManager().getLtsStorage(), ltsInfo.haloStructure);
-
   seissolInstance.getMemoryManager().initializeMemoryLayout();
-
-  seissolInstance.timeManager().addClusters(ltsInfo.clusterLayout.value(),
-                                            ltsInfo.haloCommunication,
-                                            seissolInstance.getMemoryManager(),
-                                            seissolParams.model.plasticity);
 
   seissolInstance.getMemoryManager().fixateBoundaryStorage();
 }

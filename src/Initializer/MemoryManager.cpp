@@ -55,40 +55,8 @@ void MemoryManager::initialize() {
   }
 }
 
-void MemoryManager::fixateLtsStorage(struct ClusterLayout& clusterLayout,
-                                     const std::vector<std::size_t>& volumeSizes,
-                                     const std::vector<std::size_t>& drSizes,
-                                     bool usePlasticity) {
+void MemoryManager::fixateLtsStorage(const std::vector<std::size_t>& drSizes, bool usePlasticity) {
   // store mesh structure and the number of time clusters
-
-  ltsStorage.setName("cluster");
-
-  // Setup storage variables
-  LTS::addTo(ltsStorage, usePlasticity);
-  seissolInstance.postProcessor().allocateMemory(ltsStorage);
-
-  this->clusterLayout = clusterLayout;
-
-  std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
-  std::iota(clusterMap.begin(), clusterMap.end(), 0);
-
-  LTSColorMap map(
-      initializer::EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),
-      initializer::EnumLayer<std::size_t>(clusterMap),
-      initializer::TraitLayer<initializer::ConfigVariant>({Config()}));
-
-  ltsStorage.setLayerCount(map);
-
-  /// From this point, the storage layout, variables, and buckets cannot be changed anymore
-  ltsStorage.fixate();
-
-  // Set number of cells and bucket sizes in ltstre
-  for (auto [i, layer] : common::enumerate(ltsStorage.leaves())) {
-    layer.setNumberOfCells(volumeSizes[i]);
-  }
-
-  ltsStorage.allocateVariables();
-  ltsStorage.touchVariables();
 
   drStorage.setName("dr");
 

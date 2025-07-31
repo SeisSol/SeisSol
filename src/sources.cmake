@@ -85,9 +85,6 @@ src/ResultWriter/AnalysisWriter.cpp
 src/Solver/TimeStepping/HaloCommunication.cpp
 src/Initializer/TimeStepping/Halo.cpp
 
-src/Initializer/InitProcedure/Internal/Buckets.cpp
-src/Initializer/InitProcedure/Internal/LtsSetup.cpp
-
 ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
 ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
 )
@@ -135,6 +132,11 @@ src/Initializer/InitProcedure/InitSideConditions.cpp
 src/Memory/MemoryAllocator.cpp
 src/Initializer/MemoryManager.cpp
 src/Initializer/ParameterDB.cpp
+
+src/Initializer/InitProcedure/InitLayout.cpp
+src/Initializer/InitProcedure/Internal/Buckets.cpp
+src/Initializer/InitProcedure/Internal/MeshLayout.cpp
+src/Initializer/InitProcedure/Internal/LtsSetup.cpp
 
 src/Initializer/Parameters/CubeGeneratorParameters.cpp
 src/Initializer/Parameters/DRParameters.cpp

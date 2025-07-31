@@ -52,8 +52,6 @@ class MemoryManager {
   //! memory allocator
   seissol::memory::ManagedAllocator m_memoryAllocator;
 
-  unsigned int* ltsToFace;
-
   /*
    * Cross-cluster
    */
@@ -65,9 +63,9 @@ class MemoryManager {
   LTS::Storage ltsStorage;
   LTS::Backmap backmap;
 
-  std::optional<ClusterLayout> clusterLayout;
-
   std::vector<std::unique_ptr<physics::InitialField>> m_iniConds;
+
+  DynamicRupture::Backmap drBackmap;
 
   DynamicRupture::Storage drStorage;
   std::unique_ptr<DynamicRupture> m_dynRup = nullptr;
@@ -104,10 +102,7 @@ class MemoryManager {
    *
    * @param i_meshStructrue mesh structure.
    **/
-  void fixateLtsStorage(struct ClusterLayout& clusterLayout,
-                        const std::vector<std::size_t>& volumeSizes,
-                        const std::vector<std::size_t>& drSizes,
-                        bool usePlasticity);
+  void fixateLtsStorage(const std::vector<std::size_t>& drSizes, bool usePlasticity);
 
   void fixateBoundaryStorage();
   /**
@@ -134,6 +129,8 @@ class MemoryManager {
 
   DynamicRupture::Storage& getDRStorage() { return drStorage; }
 
+  DynamicRupture::Backmap& getDRBackmap() { return drBackmap; }
+
   DynamicRupture& getDynamicRupture() { return *m_dynRup; }
 
   SurfaceLTS::Storage& getSurfaceStorage() { return surfaceStorage; }
@@ -145,10 +142,6 @@ class MemoryManager {
   const std::vector<std::unique_ptr<physics::InitialField>>& getInitialConditions() {
     return m_iniConds;
   }
-
-  void setLtsToFace(unsigned int* ptr) { ltsToFace = ptr; }
-
-  unsigned int* ltsToFaceMap() const { return ltsToFace; }
 
   void initializeEasiBoundaryReader(const char* fileName);
 

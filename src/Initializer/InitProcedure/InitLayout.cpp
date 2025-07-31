@@ -128,7 +128,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     const auto& layout = meshLayout[layer.id()];
     for (const auto [i, cell] : common::enumerate(layout.cellMap)) {
       // TODO: two boundary elements with the same source (relevant for Ghost)
-      auto dup = addToBackmap(cell, i);
+      const auto dup = addToBackmap(cell, i);
 
       zeroLayer[i].meshId = cell;
       zeroLayer[i].configId = layer.getIdentifier().config.index();
@@ -158,7 +158,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         const auto index = i;
 
         secondaryCellInformation[index].rank = MPI::mpi.rank();
-        for (int face = 0; face < 4; ++face) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           const auto& element = meshReader.getElements()[cell];
           secondaryCellInformation[index].neighborRanks[face] = element.neighborRanks[face];
           cellInformation[index].faceTypes[face] = static_cast<FaceType>(element.boundaries[face]);
@@ -201,20 +201,19 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
             meshReader.getMPINeighbors().at(delinear.first).elements[delinear.second];
         secondaryCellInformation[index].rank = delinear.first;
         const auto neighbor = backmap.get(boundaryElement.localElement);
+        const auto& elementNeighbor = meshReader.getElements()[boundaryElement.localElement];
 
         secondaryCellInformation[index].faceNeighbors[boundaryElement.localSide] = neighbor;
 
-        const int face = boundaryElement.neighborSide;
+        const auto face = boundaryElement.neighborSide;
 
         secondaryCellInformation[index].neighborRanks[face] = MPI::mpi.rank();
         cellInformation[index].neighborConfigIds[face] = neighbor.color;
         cellInformation[index].faceTypes[face] =
-            static_cast<FaceType>(meshReader.getElements()[boundaryElement.localElement]
-                                      .boundaries[boundaryElement.localSide]);
+            static_cast<FaceType>(elementNeighbor.boundaries[boundaryElement.localSide]);
         cellInformation[index].faceRelations[face][0] = boundaryElement.localSide;
         cellInformation[index].faceRelations[face][1] =
-            meshReader.getElements()[boundaryElement.localElement]
-                .sideOrientations[boundaryElement.localSide];
+            elementNeighbor.sideOrientations[boundaryElement.localSide];
       }
     }
   }
@@ -235,9 +234,22 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   }
   internal::deriveLtsSetups(halo, ltsStorage);
 
+  // intermediate
+  const auto faceSizes = seissolInstance.getLtsLayout().drSizes();
+
+  seissolInstance.getMemoryManager().initializeFrictionLaw();
+
+  seissolInstance.getMemoryManager().fixateLtsStorage(faceSizes, seissolParams.model.plasticity);
+
   // pass 4: correct LTS setup, again. Do bucket setup, determine communication datastructures
-  // logInfo() << "Setting up data exchange and face displacements (buckets)...";
-  // internal::bucketsAndCommunication(ltsStorage, halo);
+  logInfo() << "Setting up data exchange and face displacements (buckets)...";
+  const auto haloCommunication = internal::bucketsAndCommunication(ltsStorage, halo);
+
+  logInfo() << "Setting up kernel clusters...";
+  seissolInstance.timeManager().addClusters(clusterLayout,
+                                            haloCommunication,
+                                            seissolInstance.getMemoryManager(),
+                                            seissolParams.model.plasticity);
 }
 
 } // namespace
