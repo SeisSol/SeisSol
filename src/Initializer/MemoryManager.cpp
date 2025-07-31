@@ -55,24 +55,7 @@ void MemoryManager::initialize() {
   }
 }
 
-void MemoryManager::fixateLtsStorage(const std::vector<std::size_t>& drSizes, bool usePlasticity) {
-  // store mesh structure and the number of time clusters
-
-  drStorage.setName("dr");
-
-  /// Dynamic rupture storage
-  m_dynRup->addTo(drStorage);
-
-  drStorage.setLayerCount(ltsStorage.getColorMap());
-  drStorage.fixate();
-
-  for (auto [i, layer] : common::enumerate(drStorage.leaves())) {
-    layer.setNumberOfCells(drSizes[i]);
-  }
-
-  drStorage.allocateVariables();
-  drStorage.touchVariables();
-
+void MemoryManager::fixateLtsStorage() {
 #ifdef ACL_DEVICE
   MemoryManager::deriveRequiredScratchpadMemoryForDr(drStorage);
   drStorage.allocateScratchPads();

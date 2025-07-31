@@ -205,18 +205,13 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                  << ") to mitigate quasi-divergent solutions in the "
                     "friction law. The results may not conform to the existing benchmarks.";
   }
-  unsigned int* ltsMeshToFace = nullptr;
-  seissolInstance.getLtsLayout().getDynamicRuptureInformation(ltsMeshToFace);
 
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
                                                          memoryManager.getLtsStorage(),
                                                          memoryManager.getBackmap(),
                                                          memoryManager.getDRStorage(),
-                                                         ltsMeshToFace,
                                                          *memoryManager.getGlobalData().onHost,
                                                          seissolParams.drParameters.etaHack);
-
-  delete[] ltsMeshToFace;
 
   memoryManager.initFrictionData();
 

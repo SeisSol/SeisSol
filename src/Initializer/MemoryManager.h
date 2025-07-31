@@ -104,7 +104,7 @@ class MemoryManager {
    *
    * @param i_meshStructrue mesh structure.
    **/
-  void fixateLtsStorage(const std::vector<std::size_t>& drSizes, bool usePlasticity);
+  void fixateLtsStorage();
 
   void fixateBoundaryStorage();
   /**

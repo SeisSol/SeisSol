@@ -194,10 +194,10 @@ struct CellMaterialData {
 };
 
 struct DRFaceInformation {
-  unsigned meshFace;
-  unsigned plusSide;
-  unsigned minusSide;
-  unsigned faceRelation;
+  std::size_t meshFace;
+  std::uint8_t plusSide;
+  std::uint8_t minusSide;
+  std::uint8_t faceRelation;
   bool plusSideOnThisRank;
 };
 

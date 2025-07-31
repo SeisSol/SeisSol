@@ -16,6 +16,8 @@
 #include <Initializer/ParameterDB.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/TimeStepping/Halo.h>
+#include <Initializer/TimeStepping/LtsLayout.h>
+#include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Colormap.h>
 #include <Memory/Tree/LTSTree.h>
@@ -39,9 +41,11 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const auto& meshReader = seissolInstance.meshReader();
 
-  seissolInstance.getLtsLayout().setMesh(meshReader);
-  seissolInstance.getLtsLayout().deriveLayout(seissolParams.timeStepping.lts.getRate());
-  const auto clusterLayout = seissolInstance.getLtsLayout().clusterLayout();
+  seissol::initializer::time_stepping::LtsLayout ltslayout(seissolParams);
+
+  ltslayout.setMesh(meshReader);
+  ltslayout.deriveLayout(seissolParams.timeStepping.lts.getRate());
+  const auto clusterLayout = ltslayout.clusterLayout();
 
   seissolInstance.getMemoryManager().setClusterLayout(clusterLayout);
 
@@ -224,12 +228,43 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   logInfo() << "Setting up LTS configuration...";
   internal::deriveLtsSetups(meshLayout, ltsStorage);
 
-  // intermediate
-  const auto faceSizes = seissolInstance.getLtsLayout().drSizes();
-
   seissolInstance.getMemoryManager().initializeFrictionLaw();
 
-  seissolInstance.getMemoryManager().fixateLtsStorage(faceSizes, seissolParams.model.plasticity);
+  logInfo() << "Setting up DR...";
+
+  const auto drLayout = internal::layoutDR(colors, colorsGhost, colorMap, meshReader);
+
+  auto& drStorage = seissolInstance.getMemoryManager().getDRStorage();
+
+  drStorage.setName("dr");
+
+  /// Dynamic rupture storage
+  seissolInstance.getMemoryManager().getDynamicRupture().addTo(drStorage);
+
+  drStorage.setLayerCount(ltsStorage.getColorMap());
+  drStorage.fixate();
+
+  for (auto [i, layer] : common::enumerate(drStorage.leaves())) {
+    layer.setNumberOfCells(drLayout[i].size());
+  }
+
+  drStorage.allocateVariables();
+  drStorage.touchVariables();
+
+  auto& drBackmap = seissolInstance.getMemoryManager().getDRBackmap();
+  drBackmap.setSize(meshReader.getFault().size());
+
+  const auto* zeroDR = drStorage.var<DynamicRupture::FaceInformation>();
+  for (auto [i, layer] : common::enumerate(drStorage.leaves())) {
+    auto* zeroDRLayer = drStorage.var<DynamicRupture::FaceInformation>();
+    assert(layer.getIdentifier().halo != HaloType::Ghost || layer.size() == 0);
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      zeroDRLayer[cell].meshFace = drLayout[i][cell];
+      drBackmap.addElement(i, zeroDR, zeroDRLayer, drLayout[i][cell], cell);
+    }
+  }
+
+  seissolInstance.getMemoryManager().fixateLtsStorage();
 
   // pass 4: correct LTS setup, again. Do bucket setup, determine communication datastructures
   logInfo() << "Setting up data exchange and face displacements (buckets)...";

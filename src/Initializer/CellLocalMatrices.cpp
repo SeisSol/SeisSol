@@ -450,7 +450,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage,
-                                      unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
                                       double etaHack) {
   real matTData[tensor::T::size()];
@@ -460,8 +459,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
   const auto& fault = meshReader.getFault();
   const auto& elements = meshReader.getElements();
-
-  unsigned* layerLtsFaceToMeshFace = ltsFaceToMeshFace;
 
   for (auto& layer : drStorage.leaves(Ghost)) {
     auto* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
@@ -491,11 +488,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
     schedule(static)
 #endif
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      const std::size_t meshFace = layerLtsFaceToMeshFace[ltsFace];
+      const std::size_t meshFace = faceInformation[ltsFace].meshFace;
       assert(fault[meshFace].element >= 0 || fault[meshFace].neighborElement >= 0);
 
       /// Face information
-      faceInformation[ltsFace].meshFace = meshFace;
+      // already set: faceInformation[ltsFace].meshFace = meshFace;
       faceInformation[ltsFace].plusSide = fault[meshFace].side;
       faceInformation[ltsFace].minusSide = fault[meshFace].neighborSide;
       if (fault[meshFace].element >= 0) {
@@ -792,8 +789,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       krnl.star(0) = matAMinusData;
       krnl.execute();
     }
-
-    layerLtsFaceToMeshFace += layer.size();
   }
 }
 

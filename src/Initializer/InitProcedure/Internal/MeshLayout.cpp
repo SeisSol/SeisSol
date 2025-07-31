@@ -176,7 +176,7 @@ std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& c
     if (idA.halo == HaloType::Ghost || idB.halo == HaloType::Ghost) {
       return colorAdjust(a, HaloType::Copy);
     } else {
-      return colorAdjust(a, HaloType::Ghost);
+      return colorAdjust(a, HaloType::Interior);
     }
   };
 
