@@ -151,7 +151,6 @@ src/Initializer/Parameters/SeisSolParameters.cpp
 src/Initializer/Parameters/SourceParameters.cpp
 
 src/Initializer/TimeStepping/GlobalTimestep.cpp
-src/Initializer/TimeStepping/LtsLayout.cpp
 
 src/Numerical/ODEInt.cpp
 src/Numerical/ODEVector.cpp

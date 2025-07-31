@@ -16,7 +16,6 @@
 #include <Initializer/ParameterDB.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/TimeStepping/Halo.h>
-#include <Initializer/TimeStepping/LtsLayout.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Colormap.h>
@@ -41,11 +40,11 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const auto& meshReader = seissolInstance.meshReader();
 
-  seissol::initializer::time_stepping::LtsLayout ltslayout(seissolParams);
-
-  ltslayout.setMesh(meshReader);
-  ltslayout.deriveLayout(seissolParams.timeStepping.lts.getRate());
-  const auto clusterLayout = ltslayout.clusterLayout();
+  const auto clusterLayout =
+      ClusterLayout::fromMesh(seissolParams.timeStepping.lts.getRate(),
+                              seissolInstance.meshReader(),
+                              seissolParams.timeStepping.lts.getWiggleFactor(),
+                              true);
 
   seissolInstance.getMemoryManager().setClusterLayout(clusterLayout);
 
