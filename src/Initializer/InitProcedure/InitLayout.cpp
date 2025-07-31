@@ -39,6 +39,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
   const auto& meshReader = seissolInstance.meshReader();
 
+  seissolInstance.getLtsLayout().setMesh(meshReader);
   seissolInstance.getLtsLayout().deriveLayout(seissolParams.timeStepping.lts.getRate());
   const auto clusterLayout = seissolInstance.getLtsLayout().clusterLayout();
 
@@ -107,7 +108,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   backmap.setSize(seissolInstance.meshReader().getElements().size());
   const auto* zero = ltsStorage.var<LTS::SecondaryInformation>();
-  for (auto& layer : ltsStorage.leaves(Ghost)) {
+  for (auto& layer : ltsStorage.leaves()) {
     auto* zeroLayer = layer.var<LTS::SecondaryInformation>();
 
     const auto addToBackmapCopyInterior = [&](auto cell, auto index) {
@@ -117,11 +118,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       return backmapGhost.addElement(layer.id(), zero, zeroLayer, cell, index);
     };
     const auto& addToBackmap = [&](auto cell, auto index) {
-      if (layer.getIdentifier().halo == HaloType::Interior ||
-          layer.getIdentifier().halo == HaloType::Copy) {
-        return addToBackmapCopyInterior(cell, index);
-      } else {
+      if (layer.getIdentifier().halo == HaloType::Ghost) {
         return addToBackmapGhost(cell, index);
+      } else {
+        return addToBackmapCopyInterior(cell, index);
       }
     };
 

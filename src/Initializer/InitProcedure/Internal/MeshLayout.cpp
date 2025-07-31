@@ -6,11 +6,13 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "MeshLayout.h"
 
+#include <Common/Iterator.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Memory/Tree/Colormap.h>
 #include <Parallel/MPI.h>
 #include <cstddef>
+#include <limits>
 #include <unordered_map>
 #include <vector>
 
@@ -116,6 +118,69 @@ std::vector<ClusterLayout> layoutCells(const std::vector<std::size_t>& color,
         clusters[i].regions.emplace_back(tag, i, color, cells.size(), rank);
       }
     }
+  }
+
+  return clusters;
+}
+
+std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& color,
+                                               const std::vector<std::size_t>& ghostColor,
+                                               const LTSColorMap& colormap,
+                                               const geometry::MeshReader& meshReader) {
+  std::vector<std::vector<std::size_t>> clusters(colormap.size());
+
+  std::map<std::pair<int, std::size_t>, std::size_t> toLinear;
+  std::unordered_map<std::size_t, std::pair<int, std::size_t>> fromLinear;
+  std::size_t linearId = 0;
+  for (const auto& [rank, cells] : meshReader.getMPINeighbors()) {
+    for (const auto [i, cell] : common::enumerate(cells.elements)) {
+      toLinear[std::pair<int, std::size_t>{rank, i}] = linearId;
+      fromLinear[linearId] = std::pair<int, std::size_t>{rank, i};
+      ++linearId;
+    }
+  }
+
+  const auto getColor = [&](std::size_t id, std::size_t idOther, std::size_t sideOther) {
+    if (id == std::numeric_limits<std::size_t>::max()) {
+      const auto rank = meshReader.getElements()[idOther].neighborRanks[sideOther];
+      const auto index = meshReader.getElements()[idOther].mpiIndices[sideOther];
+
+      return ghostColor[toLinear.at(std::pair<int, std::size_t>{rank, index})];
+    } else {
+      return color[id];
+    }
+  };
+
+  const auto colorAdjust = [&](std::size_t color, HaloType halo) {
+    auto id = colormap.argument(color);
+    id.halo = halo;
+    return colormap.colorId(id);
+  };
+
+  const auto colorCompare = [&](std::size_t a, std::size_t b) {
+    return colorAdjust(a, HaloType::Interior) == colorAdjust(b, HaloType::Interior);
+  };
+
+  const auto determineColor = [&](std::size_t a, std::size_t b) {
+    auto idA = colormap.argument(a);
+    auto idB = colormap.argument(b);
+
+    if (idA.halo == HaloType::Ghost || idB.halo == HaloType::Ghost) {
+      return colorAdjust(a, HaloType::Copy);
+    } else {
+      return colorAdjust(a, HaloType::Ghost);
+    }
+  };
+
+  for (const auto [i, fault] : common::enumerate(meshReader.getFault())) {
+    const auto plusColor = getColor(fault.element, fault.neighborElement, fault.neighborSide);
+    const auto minusColor = getColor(fault.neighborElement, fault.element, fault.neighborSide);
+
+    if (!colorCompare(plusColor, minusColor)) {
+      logError() << "";
+    }
+
+    clusters[determineColor(plusColor, minusColor)].emplace_back(i);
   }
 
   return clusters;

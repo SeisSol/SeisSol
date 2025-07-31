@@ -27,5 +27,10 @@ std::vector<ClusterLayout> layoutCells(const std::vector<std::size_t>& color,
                                        const LTSColorMap& colormap,
                                        const geometry::MeshReader& meshReader);
 
+std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& color,
+                                               const std::vector<std::size_t>& ghostColor,
+                                               const LTSColorMap& colormap,
+                                               const geometry::MeshReader& meshReader);
+
 } // namespace seissol::initializer::internal
 #endif // SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_MESHLAYOUT_H_

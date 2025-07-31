@@ -17,7 +17,6 @@
 #include <vector>
 
 #include "Initializer/MemoryManager.h"
-#include "Initializer/TimeStepping/LtsLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Monitoring/Stopwatch.h"
