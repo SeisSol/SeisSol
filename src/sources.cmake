@@ -82,6 +82,7 @@ src/SourceTerm/Manager.cpp
 src/Solver/Simulator.cpp
 src/ResultWriter/AnalysisWriter.cpp
 
+src/Initializer/TimeStepping/ClusterLayout.cpp
 src/Solver/TimeStepping/HaloCommunication.cpp
 src/Initializer/TimeStepping/Halo.cpp
 
