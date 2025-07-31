@@ -48,6 +48,12 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
   // * ghost and copy colors are matched to each other
   // * copy cells are duplicated, once per ghost color
 
+  const auto colorAdjust = [&](std::size_t color, HaloType halo) {
+    auto id = colormap.argument(color);
+    id.halo = halo;
+    return colormap.colorId(id);
+  };
+
   // clustered halo
   for (std::size_t i = 0; i < clusters.size(); ++i) {
     if (colormap.argument(i).halo == HaloType::Copy) {
@@ -82,7 +88,8 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
           return meshReader.getElements()[a].globalId < meshReader.getElements()[b].globalId;
         });
         clusters[i].cellMap.insert(clusters[i].cellMap.end(), cellsCopy.begin(), cellsCopy.end());
-        const auto tag = i + color * colormap.size();
+        const auto tag = colorAdjust(i, HaloType::Interior) +
+                         colorAdjust(color, HaloType::Interior) * colormap.size();
         clusters[i].regions.emplace_back(tag, i, color, cells.size(), rank);
       }
     } else if (colormap.argument(i).halo == HaloType::Ghost) {
@@ -114,7 +121,8 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
           return aId < bId;
         });
         clusters[i].cellMap.insert(clusters[i].cellMap.end(), cellsCopy.begin(), cellsCopy.end());
-        const auto tag = i * colormap.size() + color;
+        const auto tag = colorAdjust(i, HaloType::Interior) * colormap.size() +
+                         colorAdjust(color, HaloType::Interior);
         clusters[i].regions.emplace_back(tag, i, color, cells.size(), rank);
       }
     }

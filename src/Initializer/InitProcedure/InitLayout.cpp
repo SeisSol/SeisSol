@@ -43,6 +43,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   seissolInstance.getLtsLayout().deriveLayout(seissolParams.timeStepping.lts.getRate());
   const auto clusterLayout = seissolInstance.getLtsLayout().clusterLayout();
 
+  seissolInstance.getMemoryManager().setClusterLayout(clusterLayout);
+
   auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
   auto& backmap = seissolInstance.getMemoryManager().getBackmap();
 

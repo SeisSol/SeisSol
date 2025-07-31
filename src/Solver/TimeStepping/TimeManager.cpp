@@ -69,18 +69,15 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   auto clusteringWriter =
       writer::ClusteringWriter(seissolInstance.getSeisSolParameters().output.prefix);
 
+  std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
+
+  for (const auto& layer : memoryManager.getDRStorage().leaves()) {
+    drCellsPerCluster[layer.getIdentifier().lts] += layer.size();
+  }
+
   std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
-
-  for (std::size_t clusterId = 0; clusterId < clusterLayout.globalClusterCount; ++clusterId) {
-    const auto interiorId = initializer::LayerIdentifier(HaloType::Interior, Config(), clusterId);
-    const auto copyId = initializer::LayerIdentifier(HaloType::Copy, Config(), clusterId);
-    const auto ghostId = initializer::LayerIdentifier(HaloType::Ghost, Config(), clusterId);
-
-    const long numberOfDynRupCells = memoryManager.getDRStorage().layer(interiorId).size() +
-                                     memoryManager.getDRStorage().layer(copyId).size() +
-                                     memoryManager.getDRStorage().layer(ghostId).size();
-
-    if (numberOfDynRupCells > 0) {
+  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
+    if (drCellsPerCluster[clusterId] > 0) {
       drClusterOutput = clusterId;
       break;
     }

@@ -80,6 +80,8 @@ class MemoryManager {
 
   EasiBoundary m_easiBoundary;
 
+  std::optional<ClusterLayout> layout;
+
   public:
   /**
    * Constructor
@@ -122,6 +124,10 @@ class MemoryManager {
     }
     return global;
   }
+
+  void setClusterLayout(const ClusterLayout& extLayout) { layout.emplace(extLayout); }
+
+  ClusterLayout& clusterLayout() { return layout.value(); }
 
   LTS::Storage& getLtsStorage() { return ltsStorage; }
 

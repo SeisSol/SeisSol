@@ -187,15 +187,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   }
 }
 
-struct LtsInfo {
-  unsigned* ltsMeshToFace = nullptr;
-  std::optional<ClusterLayout> clusterLayout;
-
-  // IMPORTANT: DO NOT DEALLOCATE THE ABOVE POINTERS... THEY ARE PASSED ON AND REQUIRED DURING
-  // RUNTIME
-};
-
-void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
+void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
   // \todo Move this to some common initialization place
@@ -204,7 +196,7 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   seissol::initializer::initializeCellLocalMatrices(meshReader,
                                                     memoryManager.getLtsStorage(),
-                                                    ltsInfo.clusterLayout.value(),
+                                                    memoryManager.clusterLayout(),
                                                     seissolParams.model);
 
   if (seissolParams.drParameters.etaHack != 1.0) {
@@ -213,14 +205,18 @@ void initializeCellMatrices(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
                  << ") to mitigate quasi-divergent solutions in the "
                     "friction law. The results may not conform to the existing benchmarks.";
   }
+  unsigned int* ltsMeshToFace = nullptr;
+  seissolInstance.getLtsLayout().getDynamicRuptureInformation(ltsMeshToFace);
 
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
                                                          memoryManager.getLtsStorage(),
                                                          memoryManager.getBackmap(),
                                                          memoryManager.getDRStorage(),
-                                                         ltsInfo.ltsMeshToFace,
+                                                         ltsMeshToFace,
                                                          *memoryManager.getGlobalData().onHost,
                                                          seissolParams.drParameters.etaHack);
+
+  delete[] ltsMeshToFace;
 
   memoryManager.initFrictionData();
 
@@ -284,15 +280,7 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
   }
 }
 
-void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-
-  ltsInfo.clusterLayout = seissolInstance.getLtsLayout().clusterLayout();
-
-  seissolInstance.getLtsLayout().getDynamicRuptureInformation(ltsInfo.ltsMeshToFace);
-}
-
-void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
+void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
 
   seissolInstance.getMemoryManager().initializeMemoryLayout();
@@ -313,8 +301,6 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   seissol::Stopwatch watch;
   watch.start();
 
-  LtsInfo ltsInfo;
-
   // these four methods need to be called in this order.
   logInfo() << "Model info:";
   logInfo() << "Material:" << MaterialT::Text.c_str();
@@ -329,10 +315,6 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
             << parameters::fluxToString(seissolInstance.getSeisSolParameters().model.fluxNearFault)
                    .c_str();
 
-  // init LTS
-  logInfo() << "Initialize LTS.";
-  initializeClusteredLts(ltsInfo, seissolInstance);
-
   // init cell materials (needs LTS, to place the material in; this part was translated from
   // FORTRAN)
   logInfo() << "Initialize cell material parameters.";
@@ -345,11 +327,11 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
 
   // init memory layout (needs cell material values to initialize e.g. displacements correctly)
   logInfo() << "Initialize Memory layout.";
-  initializeMemoryLayout(ltsInfo, seissolInstance);
+  initializeMemoryLayout(seissolInstance);
 
   // init cell matrices
   logInfo() << "Initialize cell-local matrices.";
-  initializeCellMatrices(ltsInfo, seissolInstance);
+  initializeCellMatrices(seissolInstance);
 
   watch.pause();
   watch.printTime("Model initialized in:");
