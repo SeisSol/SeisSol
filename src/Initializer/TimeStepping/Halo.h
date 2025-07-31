@@ -14,7 +14,7 @@
 #include <vector>
 
 namespace seissol::initializer {
-    
+
 struct RemoteCellRegion {
   std::size_t tag{0};
   std::size_t localId{0};
@@ -22,8 +22,9 @@ struct RemoteCellRegion {
   std::size_t count{0};
   int rank{-1};
 
-  RemoteCellRegion(std::size_t tag, std::size_t localId, std::size_t remoteId, std::size_t count, int rank)
-    :tag(tag), localId(localId), remoteId(remoteId), count(count), rank(rank) {}
+  RemoteCellRegion(
+      std::size_t tag, std::size_t localId, std::size_t remoteId, std::size_t count, int rank)
+      : tag(tag), localId(localId), remoteId(remoteId), count(count), rank(rank) {}
 };
 
 struct HaloStructure {
@@ -40,9 +41,7 @@ void haloCommunication(const HaloStructure& comm,
 }
 
 template <typename StorageT>
-void haloCommunication(const HaloStructure& comm,
-                       LTS::Storage& storage,
-                       MPI_Datatype datatype) {
+void haloCommunication(const HaloStructure& comm, LTS::Storage& storage, MPI_Datatype datatype) {
   haloCommunication(comm, storage.info<StorageT>().index, storage, datatype);
 }
 

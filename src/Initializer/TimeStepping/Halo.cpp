@@ -25,18 +25,18 @@ void haloCommunication(const HaloStructure& comm,
     const auto elemsize = storage.info(varIndex).bytesLayer(layer.getIdentifier());
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
-        for (const auto& remote : comm.ghost[localId]) {
-          MPI_Request request = MPI_REQUEST_NULL;
-          MPI_Irecv(data,
-                    remote.count,
-                    datatype,
-                    remote.rank,
-                    remote.tag,
-                    seissol::MPI::mpi.comm(),
-                    &request);
-          requests.emplace_back(request);
-          data += elemsize * remote.count;
-        }
+      for (const auto& remote : comm.ghost[localId]) {
+        MPI_Request request = MPI_REQUEST_NULL;
+        MPI_Irecv(data,
+                  remote.count,
+                  datatype,
+                  remote.rank,
+                  remote.tag,
+                  seissol::MPI::mpi.comm(),
+                  &request);
+        requests.emplace_back(request);
+        data += elemsize * remote.count;
+      }
     } else if (layer.getIdentifier().halo == HaloType::Copy) {
       for (const auto& remote : comm.copy[localId]) {
         MPI_Request request = MPI_REQUEST_NULL;
