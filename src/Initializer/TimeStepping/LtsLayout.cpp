@@ -17,6 +17,7 @@
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
+#include <Initializer/TimeStepping/Halo.h>
 #include <Monitoring/Unit.h>
 #include <math.h>
 #include <math.h>
@@ -775,9 +776,7 @@ seissol::initializer::ClusterLayout seissol::initializer::time_stepping::LtsLayo
 }
 
 void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLocalInformation* io_cellLocalInformation,
-                                                                          SecondaryCellLocalInformation* secondaryInformation,
-                                                                          std::size_t         *&o_ltsToMesh,
-                                                                          std::size_t          &o_numberOfMeshCells ) {
+                                                                          SecondaryCellLocalInformation* secondaryInformation ) {
 	const int rank = seissol::MPI::mpi.rank();
 
   // total sizes of the communication layers covering all clusters
@@ -833,15 +832,12 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
   }
 
   // set number of mesh and lts cells
-  o_numberOfMeshCells         = m_cells.size();
   unsigned numberOfLtsCells   = l_totalGhostLayerSize + l_totalCopyLayerSize + l_totalInteriorSize;
 
   std::vector<int> duplicate(m_cells.size());
 
 
   // allocate memory
-  // TODO: free sometime somewhere
-  o_ltsToMesh            = new std::size_t[ numberOfLtsCells ];
 
   // current lts cell
   std::size_t l_ltsCell = 0;
@@ -858,10 +854,9 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         unsigned int l_clusterId = m_clusteredCopy[l_cluster][l_region].first[1];
 
         // set mapping invalid
-        o_ltsToMesh[l_ltsCell] = std::numeric_limits<std::size_t>::max();
 
         secondaryInformation[l_ltsCell].clusterId = l_clusterId;
-        secondaryInformation[l_ltsCell].meshId = l_ghostCell;
+        secondaryInformation[l_ltsCell].meshId = std::numeric_limits<unsigned>::max();
         secondaryInformation[l_ltsCell].duplicate = 0;
         secondaryInformation[l_ltsCell].halo = HaloType::Ghost;
 
@@ -888,7 +883,6 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         // store face independent information
 
         // set mappings
-        o_ltsToMesh[l_ltsCell]                   = l_meshId;
 
         secondaryInformation[l_ltsCell].clusterId = l_clusterId;
         secondaryInformation[l_ltsCell].meshId = l_meshId;
@@ -1005,7 +999,6 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
       std::memcpy(secondaryInformation[l_ltsCell].neighborRanks, m_cells[l_meshId].neighborRanks, sizeof(int[4]));
 
       // set mappings
-      o_ltsToMesh[l_ltsCell]                   = l_meshId;
 
       // iterate over faces
       for( unsigned int l_face = 0; l_face < Cell::NumFaces; l_face++ ) {
@@ -1061,30 +1054,23 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
   }
 }
 
-void seissol::initializer::time_stepping::LtsLayout::getDynamicRuptureInformation( unsigned*&  ltsToFace,
-                                                                                    unsigned*&   numberOfDRCopyFaces,
-                                                                                    unsigned*&   numberOfDRInteriorFaces )
+void seissol::initializer::time_stepping::LtsLayout::getDynamicRuptureInformation( unsigned*&  ltsToFace )
 {
   assert( m_dynamicRupturePlainCopy.size() == m_dynamicRupturePlainInterior.size() );
   
-  numberOfDRCopyFaces     = new unsigned[ m_dynamicRupturePlainCopy.size()     ];
-  numberOfDRInteriorFaces = new unsigned[ m_dynamicRupturePlainInterior.size() ];
-  
   unsigned numberOfDRFaces = 0;
   for (unsigned cluster = 0; cluster < m_dynamicRupturePlainCopy.size(); ++cluster) {
-    numberOfDRCopyFaces[cluster]      = m_dynamicRupturePlainCopy[cluster].size();
-    numberOfDRInteriorFaces[cluster]  = m_dynamicRupturePlainInterior[cluster].size();
-    numberOfDRFaces += numberOfDRCopyFaces[cluster] + numberOfDRInteriorFaces[cluster];
+    numberOfDRFaces += m_dynamicRupturePlainCopy[cluster].size() + m_dynamicRupturePlainInterior[cluster].size();
   }
   
   ltsToFace = new unsigned[numberOfDRFaces];
   
   unsigned ltsId = 0;
   for (unsigned cluster = 0; cluster < m_dynamicRupturePlainCopy.size(); ++cluster) {
-    for (std::vector<int>::const_iterator it = m_dynamicRupturePlainCopy[cluster].begin(); it != m_dynamicRupturePlainCopy[cluster].end(); ++it) {
+    for (auto it = m_dynamicRupturePlainCopy[cluster].begin(); it != m_dynamicRupturePlainCopy[cluster].end(); ++it) {
       ltsToFace[ltsId++] = *it;
     }  
-    for (std::vector<int>::const_iterator it = m_dynamicRupturePlainInterior[cluster].begin(); it != m_dynamicRupturePlainInterior[cluster].end(); ++it) {
+    for (auto it = m_dynamicRupturePlainInterior[cluster].begin(); it != m_dynamicRupturePlainInterior[cluster].end(); ++it) {
       ltsToFace[ltsId++] = *it;
     }
   }
@@ -1152,5 +1138,71 @@ void seissol::initializer::time_stepping::LtsLayout::getMeshStructure( MeshStruc
 
     o_meshStructure[l_cluster].numberOfInteriorCells = m_clusteredInterior[l_cluster].size();
   }
+}
+
+
+seissol::initializer::HaloStructure seissol::initializer::time_stepping::LtsLayout::haloStructure() const {
+  HaloStructure structure;
+  structure.copy.resize(m_numberOfGlobalClusters);
+  structure.ghost.resize(m_numberOfGlobalClusters);
+
+  assert(m_numberOfGlobalClusters == m_localClusters.size());
+
+  for( std::size_t i = 0; i < m_numberOfGlobalClusters; ++i ) {
+    assert(m_clusteredCopy[i].size() == m_clusteredGhost[i].size());
+    structure.copy.reserve(m_clusteredCopy[i].size());
+    structure.ghost.reserve(m_clusteredCopy[i].size());
+    for( std::size_t j = 0; j < m_clusteredCopy[i].size(); ++j ) {
+      const auto localClusterId = i;
+      const auto remoteClusterId = m_clusteredCopy[i][j].first[1];
+      const int rank = m_clusteredCopy[i][j].first[0];
+      structure.copy[localClusterId].emplace_back(
+        localClusterId,
+        remoteClusterId,
+        m_clusteredCopy[i][j].second.size(),
+        rank
+      );
+      structure.ghost[localClusterId].emplace_back(
+        localClusterId,
+        remoteClusterId,
+        m_clusteredGhost[i][j].second.size(),
+        rank
+      );
+    }
+  }
+
+  return structure;
+}
+
+std::vector<std::size_t> seissol::initializer::time_stepping::LtsLayout::volumeSizes() const {
+  std::vector<std::size_t> sizes(3 * m_localClusters.size());
+  for( std::size_t i = 0; i < m_localClusters.size(); i++ ) {
+    const std::size_t interior = m_clusteredInterior[i].size();
+    std::size_t copy = 0;
+    std::size_t ghost = 0;
+
+    for( std::size_t j = 0; j < m_clusteredCopy[i].size(); j++ ) {
+      copy += m_clusteredCopy[i][j].second.size();
+      ghost += m_clusteredGhost[i][j].second.size();
+    }
+
+    sizes[0 + i * 3] = ghost;
+    sizes[1 + i * 3] = copy;
+    sizes[2 + i * 3] = interior;
+  }
+  return sizes;
+}
+std::vector<std::size_t> seissol::initializer::time_stepping::LtsLayout::drSizes() const {
+  std::vector<std::size_t> sizes(3 * m_localClusters.size());
+  for( std::size_t i = 0; i < m_localClusters.size(); i++ ) {
+    const std::size_t interior = m_dynamicRupturePlainInterior[i].size();
+    const std::size_t copy = m_dynamicRupturePlainCopy[i].size();
+    const std::size_t ghost = 0;
+
+    sizes[0 + i * 3] = ghost;
+    sizes[1 + i * 3] = copy;
+    sizes[2 + i * 3] = interior;
+  }
+  return sizes;
 }
 

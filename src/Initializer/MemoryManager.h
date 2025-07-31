@@ -184,8 +184,8 @@ class MemoryManager {
      **/
     void fixateLtsStorage(struct ClusterLayout& clusterLayout,
                        struct MeshStructure* meshStructure,
-                       unsigned* numberOfDRCopyFaces,
-                       unsigned* numberOfDRInteriorFaces,
+                       const std::vector<std::size_t>& volumeSizes,
+                       const std::vector<std::size_t>& drSizes,
                        bool usePlasticity);
 
     void fixateBoundaryStorage();

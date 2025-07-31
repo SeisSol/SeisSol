@@ -12,6 +12,7 @@
 
 #include <Initializer/CellLocalInformation.h>
 #include <Initializer/LtsSetup.h>
+#include <Initializer/TimeStepping/Halo.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/LTSTree.h>
 #include <cassert>
@@ -206,126 +207,29 @@ static LtsSetup normalizeLtsSetup( const LtsSetup &localLtsSetup,
 }
 
 /**
- * Synchronizes the LTS setups in the ghost layers.
- *
- * @param numberOfClusters number of clusters
- * @param meshStructure mesh structure.
- * @param cellLocalInformation cell local information which lts setup will be written using present face and cluster.
- domain.
- */
-static void synchronizeLtsSetups( unsigned int                 numberOfClusters,
-                                  struct MeshStructure        *meshStructure,
-                                  struct CellLocalInformation *cellLocalInformation ) {
-  // linear lts setups in the ghost regions
-  // 0: local cluster
-  // 1: ghost region
-  std::vector<std::vector<uint16_t>> sendBuffer(numberOfClusters);
-  std::vector<std::vector<uint16_t>> receiveBuffer(numberOfClusters);
-
-  std::vector<MPI_Request> sendRequestsRaw;
-  std::vector<MPI_Request> recvRequestsRaw;
-  std::vector<MPI_Request*> sendRequests;
-  std::vector<MPI_Request*> receiveRequests;
-  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
-    for( unsigned int region = 0; region < meshStructure[cluster].numberOfRegions; region++ ) {
-      sendRequestsRaw.push_back(MPI_REQUEST_NULL);
-      recvRequestsRaw.push_back(MPI_REQUEST_NULL);
-    }
-  }
-  std::size_t point = 0;
-  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
-    sendRequests.push_back(sendRequestsRaw.data() + point);
-    receiveRequests.push_back(recvRequestsRaw.data() + point);
-    point += meshStructure[cluster].numberOfRegions;
-  }
-
-  std::size_t cell = 0;
-
-  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
-    sendBuffer[cluster].resize(meshStructure[cluster].numberOfCopyCells);
-    receiveBuffer[cluster].resize(meshStructure[cluster].numberOfGhostCells);
-
-    // jump over ghost layer
-    cell += meshStructure[cluster].numberOfGhostCells;
-
-    // fill the linear buffer
-    for( unsigned int copyCell = 0; copyCell < meshStructure[cluster].numberOfCopyCells; copyCell++ ) {
-      sendBuffer[cluster][copyCell] = cellLocalInformation[cell].ltsSetup.unwrap();
-
-      cell++;
-    }
-
-    unsigned int copyRegionOffset  = 0;
-    unsigned int ghostRegionOffset = 0;
-    for( unsigned int region = 0; region < meshStructure[cluster].numberOfRegions; region++ ) {
-      // post the communication requests
-      MPI_Isend( sendBuffer[cluster].data()+copyRegionOffset,                    // buffer
-                 meshStructure[cluster].numberOfCopyRegionCells[region], // size
-                 MPI_UINT16_T,                                            // data type
-                 meshStructure[cluster].neighboringClusters[region][0],  // destination
-                 meshStructure[cluster].sendIdentifiers[region],         // message tag
-                 seissol::MPI::mpi.comm(),                                      // communicator
-                 sendRequests[cluster]+region );           // mpi request
-
-      copyRegionOffset += meshStructure[cluster].numberOfCopyRegionCells[region];
-
-      MPI_Irecv( receiveBuffer[cluster].data()+ghostRegionOffset,                 // buffer
-                 meshStructure[cluster].numberOfGhostRegionCells[region], // size
-                 MPI_UINT16_T,                                             // data type
-                 meshStructure[cluster].neighboringClusters[region][0],   // source
-                 meshStructure[cluster].receiveIdentifiers[region],       // message tag
-                 seissol::MPI::mpi.comm(),                                       // communicator
-                 receiveRequests[cluster]+region );         // mpi request
-
-      ghostRegionOffset += meshStructure[cluster].numberOfGhostRegionCells[region];
-    }
-
-    // jump over interior
-    cell +=  meshStructure[cluster].numberOfInteriorCells;
-  }
-
-  // wait for communication
-  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
-    MPI_Waitall( meshStructure[cluster].numberOfRegions, // size
-                 sendRequests[cluster], // array of requests
-                 MPI_STATUS_IGNORE );                         // mpi status
-    MPI_Waitall( meshStructure[cluster].numberOfRegions, // size
-                 receiveRequests[cluster],    // array of requests
-                 MPI_STATUS_IGNORE );                         // mpi status
-  }
-
-  // update ghost cells with received information
-  cell = 0;
-  for( unsigned int cluster = 0; cluster < numberOfClusters; cluster++ ) {
-    for( unsigned int ghostCell = 0; ghostCell < meshStructure[cluster].numberOfGhostCells; ghostCell++ ) {
-      cellLocalInformation[cell].ltsSetup = LtsSetup(receiveBuffer[cluster][ghostCell]);
-
-      // assert at least derivatives or buffers are offered by the ghost cells
-      assert( ( ( cellLocalInformation[cell].ltsSetup.unwrap() >> 8 ) % 2 ||
-                ( cellLocalInformation[cell].ltsSetup.unwrap() >> 9 ) % 2 )
-                == true );
-
-      cell++;
-    }
-
-    // jump over copy layer and interior
-    cell +=   meshStructure[cluster].numberOfCopyCells
-              + meshStructure[cluster].numberOfInteriorCells;
-  }
-}
-
-/**
  * Derives the lts setups of all given cells.
- *
- * @param numberOfCluster number of clusters.
- * @param meshStructure mesh structure.
- * @param cellLocalInformation cell local information which lts setup will be written using present face and cluster.
- *
- * @todo Is inline a good idea? Static does not work!
  **/
-inline void deriveLtsSetups( unsigned int                 numberOfClusters,
-                             struct MeshStructure        *meshStructure,
+inline void deriveLtsSetups( const HaloStructure& halo,
                             LTS::Storage& storage  ) {
+  MPI_Datatype ghostElementType = MPI_DATATYPE_NULL;
+  MPI_Datatype ghostElementTypePre = MPI_DATATYPE_NULL;
+
+  // cf. partially https://stackoverflow.com/a/33624425
+  const int datatypeCount = 1;
+  const std::vector<int> datatypeBlocklen{1};
+  const std::vector<MPI_Aint> datatypeDisplacement{offsetof(CellLocalInformation, ltsSetup)};
+  const std::vector<MPI_Datatype> datatypeDatatype{MPI_UINT16_T};
+  static_assert(sizeof(uint16_t) == sizeof(LtsSetup));
+
+  MPI_Type_create_struct(datatypeCount,
+                         datatypeBlocklen.data(),
+                         datatypeDisplacement.data(),
+                         datatypeDatatype.data(),
+                         &ghostElementTypePre);
+  MPI_Aint lb = 0;
+  MPI_Aint extent = sizeof(CellLocalInformation);
+  MPI_Type_create_resized(ghostElementTypePre, lb, extent, &ghostElementType);
+  MPI_Type_commit(&ghostElementType);
 
   auto* primaryInformationGlobal = storage.var<LTS::CellInformation>();
   const auto* secondaryInformationGlobal = storage.var<LTS::SecondaryInformation>();
@@ -358,9 +262,7 @@ inline void deriveLtsSetups( unsigned int                 numberOfClusters,
   }
 
 // exchange ltsSetup of the ghost layer for the normalization step
-  synchronizeLtsSetups( numberOfClusters,
-                        meshStructure,
-                        primaryInformationGlobal );
+  haloCommunication<LTS::CellInformation>(halo, storage, ghostElementType);
 
   // iterate over cells and normalize the setups
   for(auto& layer : storage.leaves(Ghost)) {
@@ -387,9 +289,7 @@ inline void deriveLtsSetups( unsigned int                 numberOfClusters,
   }
 
 // get final setup in the ghost layer (after normalization)
-  synchronizeLtsSetups( numberOfClusters,
-                        meshStructure,
-                        primaryInformationGlobal );
+  haloCommunication<LTS::CellInformation>(halo, storage, ghostElementType);
 }
 
 } // namespace seissol::initializer::time_stepping

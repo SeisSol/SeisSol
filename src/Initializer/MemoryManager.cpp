@@ -403,9 +403,9 @@ void seissol::initializer::MemoryManager::initializeBuffersDerivatives() {
 }
 
 void seissol::initializer::MemoryManager::fixateLtsStorage(struct ClusterLayout& clusterLayout,
-                                                         struct MeshStructure* meshStructure,
-                                                         unsigned* numberOfDRCopyFaces,
-                                                         unsigned* numberOfDRInteriorFaces,
+                                                        struct MeshStructure* meshStructure,
+                                                         const std::vector<std::size_t>& volumeSizes,
+                                                         const std::vector<std::size_t>& drSizes,
                                                          bool usePlasticity) {
   // store mesh structure and the number of time clusters
   m_meshStructure = meshStructure;
@@ -433,19 +433,8 @@ void seissol::initializer::MemoryManager::fixateLtsStorage(struct ClusterLayout&
   ltsStorage.fixate();
 
   // Set number of cells and bucket sizes in ltstre
-  for (auto& layer : ltsStorage.leaves()) {
-    std::size_t count = 0;
-    const auto& str = meshStructure[layer.getIdentifier().lts];
-    if (layer.getIdentifier().halo == HaloType::Ghost) {
-      count = str.numberOfGhostCells;
-    }
-    if (layer.getIdentifier().halo == HaloType::Copy) {
-      count = str.numberOfCopyCells;
-    }
-    if (layer.getIdentifier().halo == HaloType::Interior) {
-      count = str.numberOfInteriorCells;
-    }
-    layer.setNumberOfCells(count);
+  for (auto [i, layer] : common::enumerate(ltsStorage.leaves())) {
+    layer.setNumberOfCells(volumeSizes[i]);
   }
 
   ltsStorage.allocateVariables();
@@ -459,15 +448,8 @@ void seissol::initializer::MemoryManager::fixateLtsStorage(struct ClusterLayout&
   drStorage.setLayerCount(ltsStorage.getColorMap());
   drStorage.fixate();
 
-  for (auto& layer : drStorage.leaves()) {
-    std::size_t count = 0;
-    if (layer.getIdentifier().halo == HaloType::Copy) {
-      count = numberOfDRCopyFaces[layer.getIdentifier().lts];
-    }
-    if (layer.getIdentifier().halo == HaloType::Interior) {
-      count = numberOfDRInteriorFaces[layer.getIdentifier().lts];
-    }
-    layer.setNumberOfCells(count);
+  for (auto [i, layer] : common::enumerate(drStorage.leaves())) {
+    layer.setNumberOfCells(drSizes[i]);
   }
 
   drStorage.allocateVariables();

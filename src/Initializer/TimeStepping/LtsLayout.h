@@ -18,6 +18,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 
 #include <Initializer/TimeStepping/ClusterLayout.h>
+#include <Initializer/TimeStepping/Halo.h>
 #include <array>
 #include <cassert>
 #include <limits>
@@ -418,17 +419,12 @@ class seissol::initializer::time_stepping::LtsLayout {
      *  4) cell id in the mesh (reordering for communicatio possible).
      *
      * @param io_cellLocalInformation set to: cell local information of all computational cells.
-     * @param o_ltsToMesh mapping from the global (accross all clusters and layers) lts id to the mesh id.
      * @param o_numberOfMeshCells number of cells in the mesh.
      **/
     void getCellInformation( CellLocalInformation* io_cellLocalInformation,
-                             SecondaryCellLocalInformation* secondaryInformation,
-                             std::size_t         *&o_ltsToMesh,
-                             std::size_t          &o_numberOfMeshCells );
+                             SecondaryCellLocalInformation* secondaryInformation);
 
-    void getDynamicRuptureInformation(  unsigned*&  ltsToFace,
-                                        unsigned*&  numberOfDRCopyFaces,
-                                        unsigned*&  numberOfDRInteriorFaces );
+    void getDynamicRuptureInformation(  unsigned*&  ltsToFace );
 
     /**
      * Get the per cluster mesh structure.
@@ -436,6 +432,11 @@ class seissol::initializer::time_stepping::LtsLayout {
      * @param mesh structure.
      **/
     void getMeshStructure( MeshStructure *&o_meshStructure );
+
+    [[nodiscard]] HaloStructure haloStructure() const;
+
+    [[nodiscard]] std::vector<std::size_t> volumeSizes() const;
+    [[nodiscard]] std::vector<std::size_t> drSizes() const;
 };
 
 

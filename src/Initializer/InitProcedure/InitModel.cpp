@@ -20,6 +20,7 @@
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
+#include <Initializer/TimeStepping/Halo.h>
 #include <Kernels/Common.h>
 #include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Layer.h>
@@ -189,9 +190,9 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
 struct LtsInfo {
   unsigned* ltsMeshToFace = nullptr;
-  MeshStructure* meshStructure = nullptr;
   std::optional<ClusterLayout> clusterLayout;
   solver::HaloCommunication haloCommunication;
+  HaloStructure haloStructure;
 
   // IMPORTANT: DO NOT DEALLOCATE THE ABOVE POINTERS... THEY ARE PASSED ON AND REQUIRED DURING
   // RUNTIME
@@ -294,48 +295,34 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
   seissolInstance.getLtsLayout().deriveLayout(TimeClustering::MultiRate,
                                               seissolParams.timeStepping.lts.getRate());
 
-  seissolInstance.getLtsLayout().getMeshStructure(ltsInfo.meshStructure);
+  MeshStructure* meshStructure = nullptr;
+  seissolInstance.getLtsLayout().getMeshStructure(meshStructure);
   ltsInfo.clusterLayout = seissolInstance.getLtsLayout().clusterLayout();
+  ltsInfo.haloStructure = seissolInstance.getLtsLayout().haloStructure();
 
-  ltsInfo.haloCommunication =
-      solver::getHaloCommunication(ltsInfo.clusterLayout.value(), ltsInfo.meshStructure);
+  const auto volumeSizes = seissolInstance.getLtsLayout().volumeSizes();
+  const auto faceSizes = seissolInstance.getLtsLayout().drSizes();
 
   seissolInstance.getMemoryManager().initializeFrictionLaw();
 
-  unsigned* numberOfDRCopyFaces = nullptr;
-  unsigned* numberOfDRInteriorFaces = nullptr;
-
-  seissolInstance.getLtsLayout().getDynamicRuptureInformation(
-      ltsInfo.ltsMeshToFace, numberOfDRCopyFaces, numberOfDRInteriorFaces);
-
   seissolInstance.getMemoryManager().fixateLtsStorage(ltsInfo.clusterLayout.value(),
-                                                      ltsInfo.meshStructure,
-                                                      numberOfDRCopyFaces,
-                                                      numberOfDRInteriorFaces,
+                                                      meshStructure,
+                                                      volumeSizes,
+                                                      faceSizes,
                                                       seissolParams.model.plasticity);
 
+  seissolInstance.getLtsLayout().getDynamicRuptureInformation(ltsInfo.ltsMeshToFace);
   seissolInstance.getMemoryManager().setLtsToFace(ltsInfo.ltsMeshToFace);
-
-  delete[] numberOfDRCopyFaces;
-  delete[] numberOfDRInteriorFaces;
 
   auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
 
-  std::size_t* ltsToMesh = nullptr;
-  std::size_t numberOfMeshCells = 0;
-
   seissolInstance.getLtsLayout().getCellInformation(ltsStorage.var<LTS::CellInformation>(),
-                                                    ltsStorage.var<LTS::SecondaryInformation>(),
-                                                    ltsToMesh,
-                                                    numberOfMeshCells);
+                                                    ltsStorage.var<LTS::SecondaryInformation>());
 
-  delete[] ltsToMesh;
-
-  seissol::initializer::time_stepping::deriveLtsSetups(
-      ltsInfo.clusterLayout.value().globalClusterCount, ltsInfo.meshStructure, ltsStorage);
+  seissol::initializer::time_stepping::deriveLtsSetups(ltsInfo.haloStructure, ltsStorage);
 
   auto& backmap = seissolInstance.getMemoryManager().getBackmap();
-  backmap.setSize(numberOfMeshCells);
+  backmap.setSize(seissolInstance.meshReader().getElements().size());
   const auto* zero = ltsStorage.var<LTS::SecondaryInformation>();
   for (const auto& layer : ltsStorage.leaves(Ghost)) {
     const auto* zeroLayer = layer.var<LTS::SecondaryInformation>();
@@ -343,6 +330,9 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
       backmap.addElement(layer.id(), zero, zeroLayer, zeroLayer[i].meshId, i);
     }
   }
+
+  ltsInfo.haloCommunication =
+      solver::getHaloCommunication(ltsInfo.clusterLayout.value(), meshStructure);
 }
 
 void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {

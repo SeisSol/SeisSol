@@ -7,54 +7,66 @@
 #ifndef SEISSOL_SRC_INITIALIZER_LTSSETUP_H_
 #define SEISSOL_SRC_INITIALIZER_LTSSETUP_H_
 
+#include <Common/Constants.h>
+#include <cassert>
 #include <cstdint>
 
 namespace seissol {
 
 class LtsSetup {
+private:
+    constexpr static int IndexNeighborHasDerivatives = 0;
+    constexpr static int IndexNeighborHasGTS = Cell::NumFaces;
+    constexpr static int IndexBuffers = Cell::NumFaces * 2;
+    constexpr static int IndexDerivatives = IndexBuffers + 1;
+    constexpr static int IndexCache = IndexDerivatives + 1;
 public:
     LtsSetup() = default;
 
     LtsSetup(uint16_t data) : data(data) {}
 
     constexpr auto setNeighborHasDerivatives(int face, bool derivatives) -> LtsSetup& {
-        return set(face, derivatives);
+        assert(face < Cell::NumFaces);
+        return set(face + IndexNeighborHasDerivatives, derivatives);
     }
 
     [[nodiscard]] constexpr auto neighborHasDerivatives(int face) const -> bool {
-        return test(face);
+        assert(face < Cell::NumFaces);
+        return test(face + IndexNeighborHasDerivatives);
     }
 
     constexpr auto setNeighborGTS(int face, bool gts) -> LtsSetup& {
-        return set(face + 4, gts);
+        assert(face < Cell::NumFaces);
+        return set(face + IndexNeighborHasGTS, gts);
     }
 
     [[nodiscard]] constexpr auto neighborGTS(int face) const -> bool {
-        return test(face + 4);
+        assert(face < Cell::NumFaces);
+        return test(face + IndexNeighborHasGTS);
     }
 
     constexpr auto setHasBuffers(bool val) -> LtsSetup& {
-        return set(8, val);
+        return set(IndexBuffers, val);
     }
 
     [[nodiscard]] constexpr auto hasBuffers() const -> bool {
-        return test(8);
+        return test(IndexBuffers);
     }
 
     constexpr auto setHasDerivatives(bool val) -> LtsSetup& {
-        return set(9, val);
+        return set(IndexDerivatives, val);
     }
 
     [[nodiscard]] constexpr auto hasDerivatives() const -> bool {
-        return test(9);
+        return test(IndexDerivatives);
     }
 
     constexpr auto setCacheBuffers(bool val) -> LtsSetup& {
-        return set(10, val);
+        return set(IndexCache, val);
     }
 
     [[nodiscard]] constexpr auto cacheBuffers() const -> bool {
-        return test(10);
+        return test(IndexCache);
     }
 
     [[nodiscard]] constexpr auto test(int index) const -> bool {
@@ -75,7 +87,7 @@ public:
         return data;
     }
 private:
-    uint16_t data;
+    uint16_t data{0};
 };
 
 } // namespace seissol

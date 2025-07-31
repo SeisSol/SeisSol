@@ -395,6 +395,12 @@ private:
     }
   }
 
+  void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
+    assert(index != std::numeric_limits<std::size_t>::max());
+    assert(memoryContainer.size() > index);
+    return memoryContainer[index].get(place);
+  }
+
   template <typename StorageT>
   typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap.template index<StorageT>();
