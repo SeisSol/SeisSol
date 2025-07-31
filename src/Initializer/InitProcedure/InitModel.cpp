@@ -16,6 +16,7 @@
 #include <Common/Real.h>
 #include <Config.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/InitProcedure/Internal/Buckets.h>
 #include <Initializer/InitProcedure/Internal/LtsSetup.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
@@ -305,11 +306,8 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
 
   seissolInstance.getMemoryManager().initializeFrictionLaw();
 
-  seissolInstance.getMemoryManager().fixateLtsStorage(ltsInfo.clusterLayout.value(),
-                                                      meshStructure,
-                                                      volumeSizes,
-                                                      faceSizes,
-                                                      seissolParams.model.plasticity);
+  seissolInstance.getMemoryManager().fixateLtsStorage(
+      ltsInfo.clusterLayout.value(), volumeSizes, faceSizes, seissolParams.model.plasticity);
 
   seissolInstance.getLtsLayout().getDynamicRuptureInformation(ltsInfo.ltsMeshToFace);
   seissolInstance.getMemoryManager().setLtsToFace(ltsInfo.ltsMeshToFace);
@@ -330,13 +328,13 @@ void initializeClusteredLts(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance)
       backmap.addElement(layer.id(), zero, zeroLayer, zeroLayer[i].meshId, i);
     }
   }
-
-  ltsInfo.haloCommunication =
-      solver::getHaloCommunication(ltsInfo.clusterLayout.value(), meshStructure);
 }
 
 void initializeMemoryLayout(LtsInfo& ltsInfo, seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
+
+  ltsInfo.haloCommunication = internal::bucketsAndCommunication(
+      seissolInstance.getMemoryManager().getLtsStorage(), ltsInfo.haloStructure);
 
   seissolInstance.getMemoryManager().initializeMemoryLayout();
 

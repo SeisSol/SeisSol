@@ -52,49 +52,7 @@ class MemoryManager {
     //! memory allocator
     seissol::memory::ManagedAllocator m_memoryAllocator;
 
-    //! LTS mesh structure
-    struct MeshStructure *m_meshStructure;
-
     unsigned int* ltsToFace;
-
-    /*
-     * Interior
-     */
-    //! number of buffers in the interior per cluster
-    unsigned int *m_numberOfInteriorBuffers;
-
-    //! number of derivatives in the interior per cluster
-    unsigned int *m_numberOfInteriorDerivatives;
-
-    /*
-     * Ghost layer
-     */
-    //! number of buffers in the ghost layer per cluster
-    unsigned int  *m_numberOfGhostBuffers;
-
-    //! number of buffers in the ghost regions per cluster
-    unsigned int **m_numberOfGhostRegionBuffers;
-
-    //! number of derivatives in the ghost layer per cluster
-    unsigned int  *m_numberOfGhostDerivatives;
-
-    //! number of derivatives in the ghost regions per cluster
-    unsigned int **m_numberOfGhostRegionDerivatives;
-
-    /*
-     * Copy Layer
-     */
-    //! number of buffers in the copy layer per cluster
-    unsigned int  *m_numberOfCopyBuffers;
-
-    //! number of buffers in the copy regions per cluster
-    unsigned int **m_numberOfCopyRegionBuffers;
-
-    //! number of derivatives in the copy layer per cluster
-    unsigned int  *m_numberOfCopyDerivatives;
-
-    //! number of derivatives in the copy regionsper cluster
-    unsigned int **m_numberOfCopyRegionDerivatives;
 
     /*
      * Cross-cluster
@@ -124,42 +82,6 @@ class MemoryManager {
 
     EasiBoundary m_easiBoundary;
 
-    /**
-     * Corrects the LTS Setups (buffer or derivatives, never both) in the ghost region
-     **/
-    void correctGhostRegionSetups(); 
-
-    /**
-     * Derives the layouts -- number of buffers and derivatives -- of the layers.
-     **/
-    void deriveLayerLayouts();
-
-    /**
-     * Initializes the face neighbor pointers of the internal state.
-     **/
-    void initializeFaceNeighbors( unsigned    cluster,
-                                  LTS::Layer& layer);
-
-    /**
-     * Initializes the pointers of the internal state.
-     **/
-    void initializeBuffersDerivatives();
-
-    /**
-     * Derives the size of the displacement accumulation buffer.
-     */
-    void deriveDisplacementsBucket();
-
-    /**
-     * Initializes the displacement accumulation buffer.
-     */
-    void initializeDisplacements();
-
-    /**
-     * Initializes the communication structure.
-     **/
-    void initializeCommunicationStructure();
-
   public:
     /**
      * Constructor
@@ -183,7 +105,6 @@ class MemoryManager {
      * @param i_meshStructrue mesh structure.
      **/
     void fixateLtsStorage(struct ClusterLayout& clusterLayout,
-                       struct MeshStructure* meshStructure,
                        const std::vector<std::size_t>& volumeSizes,
                        const std::vector<std::size_t>& drSizes,
                        bool usePlasticity);

@@ -1155,14 +1155,18 @@ seissol::initializer::HaloStructure seissol::initializer::time_stepping::LtsLayo
     for( std::size_t j = 0; j < m_clusteredCopy[i].size(); ++j ) {
       const auto localClusterId = i;
       const auto remoteClusterId = m_clusteredCopy[i][j].first[1];
+      const auto tagCopy = localClusterId + remoteClusterId * static_cast<std::size_t>(m_numberOfGlobalClusters);
+      const auto tagGhost = localClusterId * static_cast<std::size_t>(m_numberOfGlobalClusters) + remoteClusterId;
       const int rank = m_clusteredCopy[i][j].first[0];
       structure.copy[localClusterId].emplace_back(
+        tagCopy,
         localClusterId,
         remoteClusterId,
         m_clusteredCopy[i][j].second.size(),
         rank
       );
       structure.ghost[localClusterId].emplace_back(
+        tagGhost,
         localClusterId,
         remoteClusterId,
         m_clusteredGhost[i][j].second.size(),

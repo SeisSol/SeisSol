@@ -26,13 +26,12 @@ void haloCommunication(const HaloStructure& comm,
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
         for (const auto& remote : comm.ghost[localId]) {
-          const auto tag = localId + remote.remoteId * comm.ghost.size();
           MPI_Request request = MPI_REQUEST_NULL;
           MPI_Irecv(data,
                     remote.count,
                     datatype,
                     remote.rank,
-                    tag,
+                    remote.tag,
                     seissol::MPI::mpi.comm(),
                     &request);
           requests.emplace_back(request);
@@ -40,13 +39,12 @@ void haloCommunication(const HaloStructure& comm,
         }
     } else if (layer.getIdentifier().halo == HaloType::Copy) {
       for (const auto& remote : comm.copy[localId]) {
-        const auto tag = localId * comm.copy.size() + remote.remoteId;
         MPI_Request request = MPI_REQUEST_NULL;
         MPI_Isend(data,
                   remote.count,
                   datatype,
                   remote.rank,
-                  tag,
+                  remote.tag,
                   seissol::MPI::mpi.comm(),
                   &request);
         requests.emplace_back(request);
