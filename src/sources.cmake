@@ -132,7 +132,6 @@ src/Initializer/InitProcedure/InitMesh.cpp
 src/Initializer/InitProcedure/InitModel.cpp
 src/Initializer/InitProcedure/InitIO.cpp
 src/Initializer/InitProcedure/InitSideConditions.cpp
-src/Initializer/InternalState.cpp
 src/Memory/MemoryAllocator.cpp
 src/Initializer/MemoryManager.cpp
 src/Initializer/ParameterDB.cpp

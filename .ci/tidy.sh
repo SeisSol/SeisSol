@@ -60,6 +60,10 @@ format() {
         src/Initializer/TimeStepping/ClusterLayout.h
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
+        src/Initializer/TimeStepping/Halo.h
+        src/Initializer/TimeStepping/Halo.cpp
+        src/Initializer/MemoryManager.h
+        src/Initializer/MemoryManager.cpp
         src/SeisSol.h
         src/SeisSol.cpp
         src/Main.cpp
