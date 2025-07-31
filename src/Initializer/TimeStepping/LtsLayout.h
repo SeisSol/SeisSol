@@ -407,31 +407,7 @@ class seissol::initializer::time_stepping::LtsLayout {
 
     [[nodiscard]] ClusterLayout clusterLayout() const;
 
-    /**
-     * Initializes the data structures required for computation.
-     *
-     * The ordering of the cell local information is:
-     *  1) local cluster.
-     *  2) ghost, copy, interior.
-     *  3) neighboring rank (ghost and copy), neighboring cluster (ghost and copy).
-     *  4) cell id in the mesh (reordering for communicatio possible).
-     *
-     * @param io_cellLocalInformation set to: cell local information of all computational cells.
-     * @param o_numberOfMeshCells number of cells in the mesh.
-     **/
-    void getCellInformation( CellLocalInformation* io_cellLocalInformation,
-                             SecondaryCellLocalInformation* secondaryInformation);
-
     void getDynamicRuptureInformation(  unsigned*&  ltsToFace );
-
-    /**
-     * Get the per cluster mesh structure.
-     *
-     * @param mesh structure.
-     **/
-    void getMeshStructure( MeshStructure *&o_meshStructure );
-
-    [[nodiscard]] HaloStructure haloStructure() const;
 
     [[nodiscard]] std::vector<std::size_t> volumeSizes() const;
     [[nodiscard]] std::vector<std::size_t> drSizes() const;

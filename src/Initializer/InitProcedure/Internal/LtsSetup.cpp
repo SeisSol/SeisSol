@@ -215,7 +215,7 @@ namespace seissol::initializer::internal {
 /**
  * Derives the lts setups of all given cells.
  **/
-void deriveLtsSetups(const HaloStructure& halo, LTS::Storage& storage) {
+void deriveLtsSetups(const MeshLayout& layout, LTS::Storage& storage) {
   MPI_Datatype ghostElementType = MPI_DATATYPE_NULL;
   MPI_Datatype ghostElementTypePre = MPI_DATATYPE_NULL;
 
@@ -269,7 +269,7 @@ void deriveLtsSetups(const HaloStructure& halo, LTS::Storage& storage) {
   }
 
   // exchange ltsSetup of the ghost layer for the normalization step
-  haloCommunication<LTS::CellInformation>(halo, storage, ghostElementType);
+  haloCommunication<LTS::CellInformation>(layout, storage, ghostElementType);
 
   // iterate over cells and normalize the setups
   for (auto& layer : storage.leaves(Ghost)) {
@@ -298,7 +298,7 @@ void deriveLtsSetups(const HaloStructure& halo, LTS::Storage& storage) {
   }
 
   // get final setup in the ghost layer (after normalization)
-  haloCommunication<LTS::CellInformation>(halo, storage, ghostElementType);
+  haloCommunication<LTS::CellInformation>(layout, storage, ghostElementType);
 }
 
 } // namespace seissol::initializer::internal

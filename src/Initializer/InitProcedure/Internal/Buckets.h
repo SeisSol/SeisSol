@@ -15,7 +15,7 @@
 
 namespace seissol::initializer::internal {
 
-solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const HaloStructure& halo);
+solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const MeshLayout& layout);
 
 } // namespace seissol::initializer::internal
 #endif // SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_BUCKETS_H_

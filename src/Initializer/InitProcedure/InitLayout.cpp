@@ -220,19 +220,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   // pass 3: LTS setup
   logInfo() << "Setting up LTS configuration...";
-  auto halo = HaloStructure();
-  halo.copy.resize(clusterLayout.globalClusterCount);
-  halo.ghost.resize(clusterLayout.globalClusterCount);
-  for (const auto [i, layout] : common::enumerate(meshLayout)) {
-    const auto desc = colorMap.argument(i);
-    if (desc.halo == HaloType::Copy) {
-      halo.copy[desc.lts] = layout.regions;
-    }
-    if (desc.halo == HaloType::Ghost) {
-      halo.ghost[desc.lts] = layout.regions;
-    }
-  }
-  internal::deriveLtsSetups(halo, ltsStorage);
+  internal::deriveLtsSetups(meshLayout, ltsStorage);
 
   // intermediate
   const auto faceSizes = seissolInstance.getLtsLayout().drSizes();
@@ -243,7 +231,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   // pass 4: correct LTS setup, again. Do bucket setup, determine communication datastructures
   logInfo() << "Setting up data exchange and face displacements (buckets)...";
-  const auto haloCommunication = internal::bucketsAndCommunication(ltsStorage, halo);
+  const auto haloCommunication = internal::bucketsAndCommunication(ltsStorage, meshLayout);
 
   logInfo() << "Setting up kernel clusters...";
   seissolInstance.timeManager().addClusters(clusterLayout,

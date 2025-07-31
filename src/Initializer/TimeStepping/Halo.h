@@ -27,13 +27,15 @@ struct RemoteCellRegion {
       : tag(tag), localId(localId), remoteId(remoteId), count(count), rank(rank) {}
 };
 
-struct HaloStructure {
-  std::vector<std::vector<RemoteCellRegion>> ghost;
-  std::vector<std::vector<RemoteCellRegion>> copy;
+struct ClusterMap {
+  std::vector<std::size_t> cellMap;
+  std::vector<RemoteCellRegion> regions;
 };
 
+using MeshLayout = std::vector<ClusterMap>;
+
 template <typename HandleT>
-void haloCommunication(const HaloStructure& comm,
+void haloCommunication(const MeshLayout& comm,
                        const HandleT& var,
                        LTS::Storage& storage,
                        MPI_Datatype datatype) {
@@ -41,11 +43,11 @@ void haloCommunication(const HaloStructure& comm,
 }
 
 template <typename StorageT>
-void haloCommunication(const HaloStructure& comm, LTS::Storage& storage, MPI_Datatype datatype) {
+void haloCommunication(const MeshLayout& comm, LTS::Storage& storage, MPI_Datatype datatype) {
   haloCommunication(comm, storage.info<StorageT>().index, storage, datatype);
 }
 
-void haloCommunication(const HaloStructure& comm,
+void haloCommunication(const MeshLayout& comm,
                        std::size_t varIndex,
                        LTS::Storage& storage,
                        MPI_Datatype datatype);

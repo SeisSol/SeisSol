@@ -18,12 +18,12 @@
 
 namespace seissol::initializer::internal {
 
-std::vector<ClusterLayout> layoutCells(const std::vector<std::size_t>& color,
-                                       const std::vector<std::size_t>& ghostColor,
-                                       const LTSColorMap& colormap,
-                                       const geometry::MeshReader& meshReader) {
+std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
+                                    const std::vector<std::size_t>& ghostColor,
+                                    const LTSColorMap& colormap,
+                                    const geometry::MeshReader& meshReader) {
   // add cells to color clusters
-  std::vector<ClusterLayout> clusters(colormap.size());
+  std::vector<ClusterMap> clusters(colormap.size());
 
   // layout interior/copy w/o halo
   for (std::size_t i = 0; i < meshReader.getElements().size(); ++i) {

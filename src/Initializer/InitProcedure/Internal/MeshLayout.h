@@ -17,15 +17,10 @@
 
 namespace seissol::initializer::internal {
 
-struct ClusterLayout {
-  std::vector<std::size_t> cellMap;
-  std::vector<RemoteCellRegion> regions;
-};
-
-std::vector<ClusterLayout> layoutCells(const std::vector<std::size_t>& color,
-                                       const std::vector<std::size_t>& ghostColor,
-                                       const LTSColorMap& colormap,
-                                       const geometry::MeshReader& meshReader);
+std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
+                                    const std::vector<std::size_t>& ghostColor,
+                                    const LTSColorMap& colormap,
+                                    const geometry::MeshReader& meshReader);
 
 std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& color,
                                                const std::vector<std::size_t>& ghostColor,

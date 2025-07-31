@@ -14,18 +14,17 @@
 #include <mpi.h>
 namespace seissol::initializer {
 
-void haloCommunication(const HaloStructure& comm,
+void haloCommunication(const MeshLayout& comm,
                        std::size_t varIndex,
                        LTS::Storage& storage,
                        MPI_Datatype datatype) {
   std::vector<MPI_Request> requests;
   for (auto& layer : storage.leaves(Interior)) {
-    const auto localId = layer.getIdentifier().lts;
     auto* data = reinterpret_cast<uint8_t*>(layer.varUntyped(varIndex));
     const auto elemsize = storage.info(varIndex).bytesLayer(layer.getIdentifier());
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
-      for (const auto& remote : comm.ghost[localId]) {
+      for (const auto& remote : comm[layer.id()].regions) {
         MPI_Request request = MPI_REQUEST_NULL;
         MPI_Irecv(data,
                   remote.count,
@@ -38,7 +37,7 @@ void haloCommunication(const HaloStructure& comm,
         data += elemsize * remote.count;
       }
     } else if (layer.getIdentifier().halo == HaloType::Copy) {
-      for (const auto& remote : comm.copy[localId]) {
+      for (const auto& remote : comm[layer.id()].regions) {
         MPI_Request request = MPI_REQUEST_NULL;
         MPI_Isend(data,
                   remote.count,

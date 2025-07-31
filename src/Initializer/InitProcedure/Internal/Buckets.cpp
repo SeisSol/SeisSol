@@ -243,24 +243,11 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
 } // namespace
 
 namespace seissol::initializer::internal {
-solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage,
-                                                  const HaloStructure& halo) {
+solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const MeshLayout& layout) {
   std::vector<std::vector<solver::RemoteCluster>> commInfo(storage.numChildren());
 
   for (auto& layer : storage.leaves()) {
-    const auto cluster = layer.getIdentifier().lts;
-    // allocate buffers/derivatives
-    if (layer.getIdentifier().halo == HaloType::Ghost) {
-      commInfo[layer.id()] = allocateTransferInfo(layer, halo.ghost[layer.getIdentifier().lts]);
-    }
-    if (layer.getIdentifier().halo == HaloType::Copy) {
-      // TODO: for all regions, setup
-      commInfo[layer.id()] = allocateTransferInfo(layer, halo.copy[layer.getIdentifier().lts]);
-    }
-    if (layer.getIdentifier().halo == HaloType::Interior) {
-      // no transfer regions
-      commInfo[layer.id()] = allocateTransferInfo(layer, {});
-    }
+    commInfo[layer.id()] = allocateTransferInfo(layer, layout[layer.id()].regions);
   }
 
   storage.allocateBuckets();
@@ -293,13 +280,13 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage,
 
   for (const auto& layer : storage.leaves()) {
     if (layer.getIdentifier().halo == HaloType::Copy) {
-      const auto& idInfo = halo.copy[layer.getIdentifier().lts];
+      const auto& idInfo = layout[layer.id()].regions;
       for (std::size_t i = 0; i < idInfo.size(); ++i) {
         copy[idInfo[i].localId][idInfo[i].remoteId].emplace_back(commInfo[layer.id()][i]);
       }
     }
     if (layer.getIdentifier().halo == HaloType::Ghost) {
-      const auto& idInfo = halo.ghost[layer.getIdentifier().lts];
+      const auto& idInfo = layout[layer.id()].regions;
       for (std::size_t i = 0; i < idInfo.size(); ++i) {
         ghost[idInfo[i].localId][idInfo[i].remoteId].emplace_back(commInfo[layer.id()][i]);
       }
