@@ -174,20 +174,21 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
     const auto persistent = usePersistentMpi(seissolInstance.env());
-    for (std::size_t otherClusterId = 0; otherClusterId < clusterLayout.globalClusterCount;
-         ++otherClusterId) {
-      const bool hasNeighborRegions = !haloStructure.at(clusterId).at(otherClusterId).empty();
-      if (hasNeighborRegions) {
-        assert(otherClusterId + 1 >= clusterId);
-        assert(otherClusterId <
+    const auto copyIdId = memoryManager.getLtsStorage().getColorMap().colorId(copyId);
+    for (const auto [i, halo] : common::enumerate(haloStructure.at(copyIdId))) {
+      const bool hasNeighborRegions = !halo.copy.empty() || !halo.ghost.empty();
+      const auto other = memoryManager.getLtsStorage().getColorMap().argument(i);
+      if (hasNeighborRegions && other.halo == HaloType::Ghost) {
+        assert(other.lts + 1 >= clusterId);
+        assert(other.lts <
                std::min(clusterId + 2, static_cast<std::size_t>(clusterLayout.globalClusterCount)));
-        const auto otherTimeStepSize = clusterLayout.timestepRate(otherClusterId);
-        const auto otherTimeStepRate = clusterLayout.clusterRate(otherClusterId);
+        const auto otherTimeStepSize = clusterLayout.timestepRate(other.lts);
+        const auto otherTimeStepRate = clusterLayout.clusterRate(other.lts);
 
         auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
                                                          otherTimeStepRate,
-                                                         clusterId,
-                                                         otherClusterId,
+                                                         copyIdId,
+                                                         i,
                                                          haloStructure,
                                                          preferredDataTransferMode,
                                                          persistent);

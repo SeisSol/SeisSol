@@ -50,9 +50,6 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   seissolInstance.getMemoryManager().setClusterLayout(clusterLayout);
 
-  auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
-  auto& backmap = seissolInstance.getMemoryManager().getBackmap();
-
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
 
@@ -89,11 +86,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   const auto meshLayout = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
 
-  std::vector<std::size_t> wpStructure(colorMap.size());
-  for (std::size_t i = 0; i < wpStructure.size(); ++i) {
-    wpStructure[i] = meshLayout[i].cellMap.size();
-  }
-
+  auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
+  auto& backmap = seissolInstance.getMemoryManager().getBackmap();
   LTS::addTo(ltsStorage, seissolInstance.getSeisSolParameters().model.plasticity);
   seissolInstance.postProcessor().allocateMemory(ltsStorage);
   ltsStorage.setName("cluster");
@@ -140,6 +134,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       zeroLayer[i].configId = layer.getIdentifier().config.index();
       zeroLayer[i].clusterId = layer.getIdentifier().lts;
       zeroLayer[i].duplicate = dup;
+      zeroLayer[i].halo = layer.getIdentifier().halo;
       zeroLayer[i].rank = -1;
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         zeroLayer[i].neighborRanks[face] = -1;
@@ -150,7 +145,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Setting up cell information data...";
   for (auto& layer : ltsStorage.leaves()) {
-    const auto& layout = meshLayout[colorMap.colorId(layer.getIdentifier())];
+    const auto& layout = meshLayout[layer.id()];
     auto* secondaryCellInformation = layer.var<LTS::SecondaryInformation>();
     auto* cellInformation = layer.var<LTS::CellInformation>();
     const auto& cells = layout.cellMap;
@@ -162,10 +157,11 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       for (std::size_t i = 0; i < cells.size(); ++i) {
         const auto cell = cells[i];
         const auto index = i;
+        const auto& element = meshReader.getElements()[cell];
 
         secondaryCellInformation[index].rank = rank;
+        secondaryCellInformation[index].globalId = element.globalId;
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-          const auto& element = meshReader.getElements()[cell];
           secondaryCellInformation[index].neighborRanks[face] = element.neighborRanks[face];
           cellInformation[index].faceTypes[face] = static_cast<FaceType>(element.boundaries[face]);
           cellInformation[index].faceRelations[face][0] = element.neighborSides[face];
@@ -209,9 +205,11 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         const auto neighbor = backmap.get(boundaryElement.localElement);
         const auto& elementNeighbor = meshReader.getElements()[boundaryElement.localElement];
 
+        secondaryCellInformation[index].globalId =
+            meshReader.getGhostlayerMetadata().at(delinear.first)[delinear.second].globalId;
         secondaryCellInformation[index].faceNeighbors[boundaryElement.localSide] = neighbor;
 
-        const auto face = boundaryElement.neighborSide;
+        const auto face = elementNeighbor.neighborSides[boundaryElement.localSide];
 
         secondaryCellInformation[index].neighborRanks[face] = rank;
         cellInformation[index].neighborConfigIds[face] = neighbor.color;

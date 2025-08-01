@@ -95,27 +95,26 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
   LtsSetup ltsSetup{};
 
   // iterate over the faces
-  for (std::size_t face = 0; face < Cell::NumFaces; face++) {
-    // continue for boundary conditions
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     if (ownPrimary.faceTypes[face] == FaceType::Outflow) {
+      // continue for outflow boundary conditions
       continue;
-    }
-    // fake neighbors are GTS
-    else if (isExternalBoundaryFaceType(ownPrimary.faceTypes[face])) {
+    } else if (isExternalBoundaryFaceType(ownPrimary.faceTypes[face])) {
+      // fake neighbors are GTS
       ltsSetup.setNeighborGTS(face, true);
-    }
-    // dynamic rupture faces are always global time stepping but operate on derivatives
-    else if (ownPrimary.faceTypes[face] == FaceType::DynamicRupture) {
-      // face-neighbor provides GTS derivatives
-      // face-neighbor provides derivatives
+    } else if (ownPrimary.faceTypes[face] == FaceType::DynamicRupture) {
+      // dynamic rupture faces are always global time stepping but operate on derivatives
+
+      // face-neighbor provides GTS+derivatives
       ltsSetup.setNeighborHasDerivatives(face, true);
       ltsSetup.setNeighborGTS(face, true);
 
       // cell is required to provide derivatives for dynamic rupture
       ltsSetup.setHasDerivatives(true);
 
-      if (copy) { // set the buffer invalid in copy layers
-                  // TODO: Minor improvements possible: Non-DR MPI-neighbor for example
+      if (copy) {
+        // set the buffer invalid in copy layers
+        // TODO: Minor improvements possible: Non-DR MPI-neighbor for example
         ltsSetup.setCacheBuffers(true);
       }
     }
@@ -128,30 +127,28 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
 
         // the cell-local buffer is used in LTS-fashion
         ltsSetup.setCacheBuffers(true);
-      }
-      // GTS relation
-      else if (ownSecondary.clusterId == neighborClusters[face]) {
+      } else if (ownSecondary.clusterId == neighborClusters[face]) {
+        // GTS relation
         ltsSetup.setNeighborGTS(face, true);
       }
 
-      // cell is required to provide derivatives
       if (ownSecondary.clusterId > neighborClusters[face]) {
+        // cell is required to provide derivatives
         ltsSetup.setHasDerivatives(true);
-      }
-      // cell is required to provide a buffer
-      else {
+      } else {
+        // cell is required to provide a buffer
         ltsSetup.setHasBuffers(true);
       }
     }
+  }
 
-    // true lts buffer with gts required derivatives
-    bool hasGTS = false;
-    for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
-      hasGTS |= ltsSetup.neighborGTS(i);
-    }
-    if (ltsSetup.cacheBuffers() && hasGTS) {
-      ltsSetup.setHasDerivatives(true);
-    }
+  // true lts buffer with gts required derivatives
+  bool hasGTS = false;
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    hasGTS |= ltsSetup.neighborGTS(face);
+  }
+  if (ltsSetup.cacheBuffers() && hasGTS) {
+    ltsSetup.setHasDerivatives(true);
   }
 
   /*
@@ -165,12 +162,13 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
     // check for special case free-surface/dirichlet requirements
     const bool isSpecialCase = isExternalBoundaryFaceType(ownPrimary.faceTypes[face]);
-    if (isSpecialCase &&                // special case face
-        (ltsSetup.cacheBuffers() ||     // lts fashion buffer
-         !ltsSetup.hasBuffers())) {     // no buffer at all
-      ltsSetup.setHasDerivatives(true); // enable derivatives computation
-      ltsSetup.setNeighborHasDerivatives(face,
-                                         true); // enable derivatives for the fake face neighbor
+
+    // need special case face and either LTS buffers, or no buffers at all
+    if (isSpecialCase && (ltsSetup.cacheBuffers() || !ltsSetup.hasBuffers())) {
+
+      // enable derivatives locally as well as for the neighbor
+      ltsSetup.setHasDerivatives(true);
+      ltsSetup.setNeighborHasDerivatives(face, true);
     }
   }
 
@@ -198,6 +196,7 @@ LtsSetup getLtsSetup(const CellLocalInformation& ownPrimary,
 LtsSetup normalizeLtsSetup(const LtsSetup& localLtsSetup,
                            const std::array<bool, Cell::NumFaces>& neighborCache) {
   LtsSetup output(localLtsSetup);
+
   // iterate over the face neighbors
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
     // enforce derivatives if this is a "GTS on derivatives" relation
@@ -259,6 +258,7 @@ void deriveLtsSetups(const MeshLayout& layout, LTS::Storage& storage) {
                                                                     secondaryInformationLocal[cell],
                                                                     neighborClusters,
                                                                     isCopy));
+
       // assert that the cell operates at least on buffers or derivatives
       assert(primaryInformationLocal[cell].ltsSetup.hasBuffers() ||
              primaryInformationLocal[cell].ltsSetup.hasDerivatives());

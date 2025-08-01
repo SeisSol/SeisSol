@@ -31,12 +31,12 @@ using namespace seissol::initializer::internal;
 
 class BucketManager {
   private:
-  std::size_t dataSize = 0;
+  std::size_t dataSize{0};
 
   public:
   real* markAllocate(std::size_t size) {
-    const uintptr_t offset = dataSize;
-    dataSize += size;
+    const uintptr_t offset = this->dataSize;
+    this->dataSize += size;
 
     // the following "hack" was copied from the MemoryManager. Add +1 to pointers to differentiate
     // from nullptr NOLINTNEXTLINE
@@ -153,7 +153,7 @@ std::vector<solver::RemoteCluster>
       // NOLINTNEXTLINE
       auto* startPtr = reinterpret_cast<void*>(startPosition);
 
-      remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.tag, region.rank);
+      remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.rank, region.tag);
 
       for (std::size_t i = 0; i < region.count; ++i) {
         const auto index = i + counter;
@@ -237,16 +237,31 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       const auto& faceNeighbor = secondaryCellInformation[cell].faceNeighbors[face];
-      if (faceNeighbor != StoragePosition::NullPosition) {
-        if (cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
-          faceNeighbors[cell][face] = storage.lookup<LTS::Derivatives>(faceNeighbor);
-          if constexpr (isDeviceOn()) {
-            faceNeighborsDevice[cell][face] = storage.lookup<LTS::DerivativesDevice>(faceNeighbor);
+      if (cellInformation[cell].faceTypes[face] != FaceType::Outflow) {
+        if (faceNeighbor == StoragePosition::NullPosition) {
+          if (cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
+            faceNeighbors[cell][face] = layer.var<LTS::Derivatives>()[cell];
+            if constexpr (isDeviceOn()) {
+              faceNeighborsDevice[cell][face] = layer.var<LTS::DerivativesDevice>()[cell];
+            }
+          } else {
+            faceNeighbors[cell][face] = layer.var<LTS::Buffers>()[cell];
+            if constexpr (isDeviceOn()) {
+              faceNeighborsDevice[cell][face] = layer.var<LTS::BuffersDevice>()[cell];
+            }
           }
         } else {
-          faceNeighbors[cell][face] = storage.lookup<LTS::Buffers>(faceNeighbor);
-          if constexpr (isDeviceOn()) {
-            faceNeighborsDevice[cell][face] = storage.lookup<LTS::BuffersDevice>(faceNeighbor);
+          if (cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
+            faceNeighbors[cell][face] = storage.lookup<LTS::Derivatives>(faceNeighbor);
+            if constexpr (isDeviceOn()) {
+              faceNeighborsDevice[cell][face] =
+                  storage.lookup<LTS::DerivativesDevice>(faceNeighbor);
+            }
+          } else {
+            faceNeighbors[cell][face] = storage.lookup<LTS::Buffers>(faceNeighbor);
+            if constexpr (isDeviceOn()) {
+              faceNeighborsDevice[cell][face] = storage.lookup<LTS::BuffersDevice>(faceNeighbor);
+            }
           }
         }
 
@@ -289,20 +304,17 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
   }
 
   for (const auto& layer : storage.leaves()) {
+    const auto& idInfo = layout[layer.id()].regions;
     if (layer.getIdentifier().halo == HaloType::Copy) {
-      auto ghostId = layer.getIdentifier();
-      ghostId.halo = HaloType::Ghost;
-      const auto& ghostLayer = storage.layer(ghostId);
-
-      const auto& idInfo = layout[layer.id()].regions;
-      const auto& idInfoGhost = layout[ghostLayer.id()].regions;
-
-      // TODO: verify this assertion (or disprove it)
-      assert(idInfo.size() == idInfoGhost.size());
-
       for (std::size_t i = 0; i < idInfo.size(); ++i) {
-        communication[idInfo[i].localId][idInfo[i].remoteId].emplace_back(
-            solver::RemoteClusterPair{commInfo[layer.id()][i], commInfo[ghostLayer.id()][i]});
+        communication[idInfo[i].localId][idInfo[i].remoteId].copy.emplace_back(
+            commInfo[layer.id()][i]);
+      }
+    }
+    if (layer.getIdentifier().halo == HaloType::Ghost) {
+      for (std::size_t i = 0; i < idInfo.size(); ++i) {
+        communication[idInfo[i].remoteId][idInfo[i].localId].ghost.emplace_back(
+            commInfo[layer.id()][i]);
       }
     }
   }
