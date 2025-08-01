@@ -34,20 +34,16 @@ class BucketManager {
   std::size_t dataSize = 0;
 
   public:
-  real* markAllocate(std::size_t size, bool allocate) {
-    if (allocate) {
-      const uintptr_t offset = dataSize;
-      dataSize += size;
+  real* markAllocate(std::size_t size) {
+    const uintptr_t offset = dataSize;
+    dataSize += size;
 
-      // the following "hack" was copied from the MemoryManager. Add +1 to pointers to differentiate
-      // from nullptr NOLINTNEXTLINE
-      return reinterpret_cast<real*>(offset + 1);
-    } else {
-      return nullptr;
-    }
+    // the following "hack" was copied from the MemoryManager. Add +1 to pointers to differentiate
+    // from nullptr NOLINTNEXTLINE
+    return reinterpret_cast<real*>(offset + 1);
   }
 
-  [[nodiscard]] std::size_t position() const { return dataSize + 1; }
+  [[nodiscard]] std::size_t position() const { return dataSize; }
 
   [[nodiscard]] std::size_t size() const { return dataSize; }
 };
@@ -83,19 +79,22 @@ std::vector<solver::RemoteCluster>
   const auto datatype = Config::Precision;
   const auto typeSize = sizeOfRealType(datatype);
 
-  const auto bufferSize = typeSize * yateto::computeFamilySize<tensor::dQ>();
-  const auto derivativeSize = typeSize * tensor::I::size();
+  const auto bufferSize = typeSize * tensor::I::size();
+  const auto derivativeSize = typeSize * yateto::computeFamilySize<tensor::dQ>();
 
   const auto allocate = [&](std::size_t index, bool useDerivatives) {
-    const bool hasBuffers = cellInformation[index].ltsSetup.hasBuffers();
-    const bool hasDerivatives = cellInformation[index].ltsSetup.hasDerivatives();
-
     if (useDerivatives) {
-      derivatives[index] = manager.markAllocate(derivativeSize, hasDerivatives);
-      derivativesDevice[index] = derivatives[index];
+      const bool hasDerivatives = cellInformation[index].ltsSetup.hasDerivatives();
+      if (hasDerivatives) {
+        derivatives[index] = manager.markAllocate(derivativeSize);
+        derivativesDevice[index] = derivatives[index];
+      }
     } else {
-      buffers[index] = manager.markAllocate(bufferSize, hasBuffers);
-      buffersDevice[index] = buffers[index];
+      const bool hasBuffers = cellInformation[index].ltsSetup.hasBuffers();
+      if (hasBuffers) {
+        buffers[index] = manager.markAllocate(bufferSize);
+        buffersDevice[index] = buffers[index];
+      }
     }
   };
 
@@ -156,22 +155,16 @@ std::vector<solver::RemoteCluster>
 
       remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.tag, region.rank);
 
-      counter += region.count;
-    }
-
-    // allocate local (non-transfer) buffers/derivatives
-    counter = 0;
-    for (const auto& region : regions) {
       for (std::size_t i = 0; i < region.count; ++i) {
-        auto index = i + counter;
-        auto [buffers, derivatives] = useBuffersDerivatives(index, seissol::MPI::mpi.rank());
+        const auto index = i + counter;
+        auto [buffers, derivatives] = useBuffersDerivatives(index, region.rank);
         if (!buffers) {
           allocate(index, false);
         }
       }
       for (std::size_t i = 0; i < region.count; ++i) {
-        auto index = i + counter;
-        auto [buffers, derivatives] = useBuffersDerivatives(index, seissol::MPI::mpi.rank());
+        const auto index = i + counter;
+        auto [buffers, derivatives] = useBuffersDerivatives(index, region.rank);
         if (!derivatives) {
           allocate(index, true);
         }
@@ -179,10 +172,11 @@ std::vector<solver::RemoteCluster>
 
       counter += region.count;
     }
+
+    assert(counter == layer.size());
   }
 
-  layer.setEntrySize<LTS::BuffersDerivatives>(manager.size() +
-                                              layer.getEntrySize<LTS::BuffersDerivatives>());
+  layer.setEntrySize<LTS::BuffersDerivatives>(manager.size());
 
   return remoteClusters;
 }
@@ -205,9 +199,19 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
     initBucketItem(buffers[cell], buffersDerivatives, true);
     initBucketItem(derivatives[cell], buffersDerivatives, true);
 
+    assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffers() ||
+           buffers[cell] != nullptr);
+    assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasDerivatives() ||
+           derivatives[cell] != nullptr);
+
     if constexpr (isDeviceOn()) {
       initBucketItem(buffersDevice[cell], buffersDerivativesDevice, false);
       initBucketItem(derivativesDevice[cell], buffersDerivativesDevice, false);
+
+      assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffers() ||
+             buffersDevice[cell] != nullptr);
+      assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasDerivatives() ||
+             derivativesDevice[cell] != nullptr);
     }
   }
 
@@ -269,50 +273,36 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
   for (auto& layer : storage.leaves()) {
     setupBuckets(layer, commInfo[layer.id()]);
   }
-  for (auto& layer : storage.leaves()) {
+  for (auto& layer : storage.leaves(Ghost)) {
     setupFaceNeighbors(storage, layer);
   }
 
-  // TODO: refactor. the following code is far too complicated for what it wants to do.
-  std::vector<std::vector<std::vector<solver::RemoteCluster>>> copy;
-  std::vector<std::vector<std::vector<solver::RemoteCluster>>> ghost;
+#ifdef ACL_DEVICE
+
+#endif
 
   solver::HaloCommunication communication;
 
   communication.resize(storage.numChildren());
-  copy.resize(storage.numChildren());
-  ghost.resize(storage.numChildren());
   for (auto& commGhost : communication) {
-    commGhost.resize(storage.numChildren());
-  }
-  for (auto& commGhost : copy) {
-    commGhost.resize(storage.numChildren());
-  }
-  for (auto& commGhost : ghost) {
     commGhost.resize(storage.numChildren());
   }
 
   for (const auto& layer : storage.leaves()) {
     if (layer.getIdentifier().halo == HaloType::Copy) {
-      const auto& idInfo = layout[layer.id()].regions;
-      for (std::size_t i = 0; i < idInfo.size(); ++i) {
-        copy[idInfo[i].localId][idInfo[i].remoteId].emplace_back(commInfo[layer.id()][i]);
-      }
-    }
-    if (layer.getIdentifier().halo == HaloType::Ghost) {
-      const auto& idInfo = layout[layer.id()].regions;
-      for (std::size_t i = 0; i < idInfo.size(); ++i) {
-        ghost[idInfo[i].localId][idInfo[i].remoteId].emplace_back(commInfo[layer.id()][i]);
-      }
-    }
-  }
+      auto ghostId = layer.getIdentifier();
+      ghostId.halo = HaloType::Ghost;
+      const auto& ghostLayer = storage.layer(ghostId);
 
-  for (std::size_t i = 0; i < storage.numChildren(); ++i) {
-    for (std::size_t j = 0; j < storage.numChildren(); ++j) {
-      assert(copy[i][j].size() == ghost[i][j].size());
-      communication[i][j].reserve(copy[i][j].size());
-      for (std::size_t k = 0; k < copy[i][j].size(); ++k) {
-        communication[i][j].emplace_back(solver::RemoteClusterPair{copy[i][j][k], ghost[i][j][k]});
+      const auto& idInfo = layout[layer.id()].regions;
+      const auto& idInfoGhost = layout[ghostLayer.id()].regions;
+
+      // TODO: verify this assertion (or disprove it)
+      assert(idInfo.size() == idInfoGhost.size());
+
+      for (std::size_t i = 0; i < idInfo.size(); ++i) {
+        communication[idInfo[i].localId][idInfo[i].remoteId].emplace_back(
+            solver::RemoteClusterPair{commInfo[layer.id()][i], commInfo[ghostLayer.id()][i]});
       }
     }
   }

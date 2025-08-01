@@ -11,6 +11,7 @@
 #include <Initializer/BasicTypedefs.h>
 #include <Memory/Tree/Colormap.h>
 #include <Parallel/MPI.h>
+#include <algorithm>
 #include <cstddef>
 #include <limits>
 #include <unordered_map>
@@ -54,6 +55,8 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
     return colormap.colorId(id);
   };
 
+  // TODO: remove duplicate sends
+
   // clustered halo
   for (std::size_t i = 0; i < clusters.size(); ++i) {
     if (colormap.argument(i).halo == HaloType::Copy) {
@@ -61,14 +64,15 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
       std::size_t newCount = 0;
       for (std::size_t j = 0; j < clusters[i].cellMap.size(); ++j) {
         const auto cell = clusters[i].cellMap[j];
-        std::set<std::pair<int, std::size_t>> neighborColors;
+        // std::set<std::pair<int, std::size_t>> neighborColors;
+        std::vector<std::pair<int, std::size_t>> neighborColors;
         for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
           const auto& element = meshReader.getElements()[cell];
 
-          if (element.neighborRanks[f] != MPI::mpi.rank()) {
+          if (element.neighborRanks[f] != seissol::MPI::mpi.rank()) {
             const auto ghostLinear = toLinear.at({element.neighborRanks[f], element.mpiIndices[f]});
             const auto colorGhost = ghostColor[ghostLinear];
-            neighborColors.emplace(element.neighborRanks[f], colorGhost);
+            neighborColors.emplace_back(element.neighborRanks[f], colorGhost);
           }
         }
         for (const auto& neighborColor : neighborColors) {
@@ -94,15 +98,27 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
     } else if (colormap.argument(i).halo == HaloType::Ghost) {
       const auto& neighbor = meshReader.getMPINeighbors();
       const auto& ghostlayer = meshReader.getGhostlayerMetadata();
+
+      const auto globalId = [&](std::size_t id) {
+        const auto& dId = fromLinear[id];
+        return ghostlayer.at(dId.first)[dId.second].globalId;
+      };
+
       std::map<std::pair<int, std::size_t>, std::vector<std::size_t>> byColor;
+      std::map<std::pair<int, std::size_t>, std::unordered_set<std::size_t>> byId;
       std::size_t newCount = 0;
       for (std::size_t j = 0; j < clusters[i].cellMap.size(); ++j) {
         const auto cell = clusters[i].cellMap[j];
         const auto dCell = fromLinear[cell];
         const auto& localInfo = neighbor.at(dCell.first).elements[dCell.second];
         const auto copyColor = color[localInfo.localElement];
-        byColor[{dCell.first, copyColor}].emplace_back(cell);
-        newCount += 1;
+
+        if (byId[{dCell.first, copyColor}].find(globalId(cell)) ==
+            byId[{dCell.first, copyColor}].end()) {
+          // byId[{dCell.first, copyColor}].emplace(globalId(cell));
+          byColor[{dCell.first, copyColor}].emplace_back(cell);
+          newCount += 1;
+        }
       }
 
       clusters[i].cellMap.clear();
@@ -112,15 +128,11 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
 
         std::vector cellsCopy(cells.begin(), cells.end());
         std::sort(cellsCopy.begin(), cellsCopy.end(), [&](const auto& a, const auto& b) {
-          const auto& dA = fromLinear[a];
-          const auto& dB = fromLinear[b];
-          const auto aId = ghostlayer.at(dA.first)[dA.second].globalId;
-          const auto bId = ghostlayer.at(dB.first)[dB.second].globalId;
-          return aId < bId;
+          return globalId(a) < globalId(b);
         });
         clusters[i].cellMap.insert(clusters[i].cellMap.end(), cellsCopy.begin(), cellsCopy.end());
-        const auto tag = colorAdjust(i, HaloType::Interior) * colormap.size() +
-                         colorAdjust(color, HaloType::Interior);
+        const auto tag = colorAdjust(i, HaloType::Interior) +
+                         colorAdjust(color, HaloType::Interior) * colormap.size();
         clusters[i].regions.emplace_back(tag, i, color, cells.size(), rank);
       }
     }
@@ -146,8 +158,8 @@ std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& c
     }
   }
 
-  const auto getColor = [&](std::size_t id, std::size_t idOther, std::size_t sideOther) {
-    if (id == std::numeric_limits<std::size_t>::max()) {
+  const auto getColor = [&](int id, int idOther, std::size_t sideOther) {
+    if (id < 0) {
       const auto rank = meshReader.getElements()[idOther].neighborRanks[sideOther];
       const auto index = meshReader.getElements()[idOther].mpiIndices[sideOther];
 
@@ -180,7 +192,7 @@ std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& c
 
   for (const auto [i, fault] : common::enumerate(meshReader.getFault())) {
     const auto plusColor = getColor(fault.element, fault.neighborElement, fault.neighborSide);
-    const auto minusColor = getColor(fault.neighborElement, fault.element, fault.neighborSide);
+    const auto minusColor = getColor(fault.neighborElement, fault.element, fault.side);
 
     if (!colorCompare(plusColor, minusColor)) {
       logError() << "";
