@@ -50,3 +50,25 @@ using Cfg = Config0;
 
 #endif
 """
+
+
+def make_configincludefile(configs):
+    configincludes = "\n".join(f"_H_(Config{i});" for i, _ in enumerate(configs))
+
+    return f"""
+#ifndef SEISSOL_CONFIGINCLUDE_H_
+#define SEISSOL_CONFIGINCLUDE_H_
+
+// Config instantiation file.
+// Needed due to C++ not allowing to define templates in source files.
+// I know, I'm not a fan of it as well.
+
+// Usage: define _H_(x) in our source file with the wanted value,
+// then include this file
+
+{configincludes}
+
+#undef _H_
+
+#endif
+"""

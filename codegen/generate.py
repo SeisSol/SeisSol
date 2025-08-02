@@ -27,13 +27,21 @@ import kernels.surface_displacement
 import kernels.vtkproject
 import kernels.config
 import yateto
-from yateto import (Generator, GlobalRoutineCache, NamespacedGenerator,
-                    gemm_configuration, deriveArchitecture, HostArchDefinition, DeviceArchDefinition, fixArchitectureGlobal)
-from yateto.ast.cost import (BoundingBoxCostEstimator,
-                             FusedGemmsBoundingBoxCostEstimator)
+from yateto import (
+    Generator,
+    GlobalRoutineCache,
+    NamespacedGenerator,
+    gemm_configuration,
+    deriveArchitecture,
+    HostArchDefinition,
+    DeviceArchDefinition,
+    fixArchitectureGlobal,
+)
+from yateto.ast.cost import BoundingBoxCostEstimator, FusedGemmsBoundingBoxCostEstimator
 from yateto.gemm_configuration import GeneratorCollection
 
 from yateto.metagen import MetaGenerator
+
 
 def main():
 
@@ -46,7 +54,7 @@ def main():
     cmdLineParser.add_argument("--device_arch", default=None)
     cmdLineParser.add_argument("--device_vendor", default=None)
     cmdLineParser.add_argument("--order", type=int)
-    cmdLineParser.add_argument("--precision", type=str, choices=['s', 'd'])
+    cmdLineParser.add_argument("--precision", type=str, choices=["s", "d"])
     cmdLineParser.add_argument("--numberOfMechanisms", type=int)
     cmdLineParser.add_argument("--vectorsize", default=None, type=Union[None, int])
     cmdLineParser.add_argument("--memLayout")
@@ -70,12 +78,20 @@ def main():
     gpu_platforms = ["cuda", "hip", "hipsycl", "acpp", "oneapi"]
     targets = ["gpu", "cpu"] if cmdLineArgs.device_backend in gpu_platforms else ["cpu"]
 
-    host_arch = HostArchDefinition(cmdLineArgs.host_arch, cmdLineArgs.precision, cmdLineArgs.vectorsize, None)
+    host_arch = HostArchDefinition(
+        cmdLineArgs.host_arch, cmdLineArgs.precision, cmdLineArgs.vectorsize, None
+    )
     device_arch = None
 
     if cmdLineArgs.device_backend != "none":
-        device_arch = DeviceArchDefinition(cmdLineArgs.device_arch, cmdLineArgs.device_vendor, cmdLineArgs.device_backend, cmdLineArgs.precision, cmdLineArgs.vectorsize)
-    
+        device_arch = DeviceArchDefinition(
+            cmdLineArgs.device_arch,
+            cmdLineArgs.device_vendor,
+            cmdLineArgs.device_backend,
+            cmdLineArgs.precision,
+            cmdLineArgs.vectorsize,
+        )
+
     arch = deriveArchitecture(host_arch, device_arch)
     fixArchitectureGlobal(arch)
 
@@ -137,7 +153,7 @@ def main():
 
     gemmTools = GeneratorCollection(gemm_generators)
 
-    metagen = MetaGenerator(['typename'])
+    metagen = MetaGenerator(["typename"])
 
     viscomode = "None"
     if cmdLineArgs.equations == "viscoelastic":
@@ -149,7 +165,7 @@ def main():
     else:
         viscomode = "None"
         equations = cmdLineArgs.equations[0].upper() + cmdLineArgs.equations[1:]
-    
+
     quadrule = cmdLineArgs.drQuadRule[0].upper() + cmdLineArgs.drQuadRule[1:]
 
     configs = [
@@ -160,7 +176,7 @@ def main():
             "precision": "F64" if cmdLineArgs.host_arch[:1] == "d" else "F32",
             "viscomode": viscomode,
             "drquadrule": quadrule,
-            "numsims": cmdLineArgs.multipleSimulations
+            "numsims": cmdLineArgs.multipleSimulations,
         }
     ]
     configsTemp = [
@@ -171,7 +187,7 @@ def main():
             "precision": "F64" if cmdLineArgs.host_arch[:1] == "d" else "F32",
             "viscomode": viscomode,
             "drquadrule": cmdLineArgs.drQuadRule,
-            "numsims": cmdLineArgs.multipleSimulations
+            "numsims": cmdLineArgs.multipleSimulations,
         }
     ]
 
@@ -180,7 +196,7 @@ def main():
             f"kernels.equations.{config['equation']}"
         )
         if equationsSpec is None:
-            raise RuntimeError("Could not find kernels for " + config['equation'])
+            raise RuntimeError("Could not find kernels for " + config["equation"])
         equations = equationsSpec.loader.load_module()
 
         equation_class = equations.EQUATION_CLASS
@@ -188,11 +204,11 @@ def main():
         if cmdLineArgs.memLayout == "auto":
             # TODO(Lukas) Don't hardcode this
             env = {
-                "equations": config['equation'],
-                "order": config['order'],
+                "equations": config["equation"],
+                "order": config["order"],
                 "arch": cmdLineArgs.host_arch,
                 "device_arch": cmdLineArgs.device_arch,
-                "multipleSimulations": config['numsims'],
+                "multipleSimulations": config["numsims"],
                 "targets": targets,
                 "gemmgen": gemm_tool_list,
             }
@@ -210,9 +226,9 @@ def main():
         cmdArgsDict = vars(cmdLineArgs)
         cmdArgsDict["memLayout"] = mem_layout
 
-        cmdArgsDict["drQuadRule"] = config['drquadrule']
-        cmdArgsDict["multipleSimulations"] = config['numsims']
-        cmdArgsDict["mechanisms"] = config['mechanisms']
+        cmdArgsDict["drQuadRule"] = config["drquadrule"]
+        cmdArgsDict["multipleSimulations"] = config["numsims"]
+        cmdArgsDict["mechanisms"] = config["mechanisms"]
 
         adg = equation_class(**cmdArgsDict)
 
@@ -260,16 +276,22 @@ def main():
         )
         kernels.point.addKernels(generator, adg)
 
-        metagen.add_generator(['Config'], generator, gemm_cfg=gemmTools,
+        metagen.add_generator(
+            ["Config"],
+            generator,
+            gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
             include_tensors=include_tensors,
             routine_exporters=custom_routine_generators,
-            routine_cache=routine_cache)
+            routine_cache=routine_cache,
+        )
 
     def generate_general(subfolders):
         # we use always use double here,
         # since these kernels are only used in the initialization
-        new_host_arch = HostArchDefinition(host_arch.archname, 'd', host_arch.alignment, host_arch.prefetch)
+        new_host_arch = HostArchDefinition(
+            host_arch.archname, "d", host_arch.alignment, host_arch.prefetch
+        )
         arch = deriveArchitecture(new_host_arch, None)
         fixArchitectureGlobal(arch)
 
@@ -311,7 +333,14 @@ def main():
     with open(os.path.join(cmdLineArgs.outputDir, "..", "Config.h"), "w") as file:
         file.write(kernels.config.make_configfile(configs))
 
-    metagen.generate(os.path.join(cmdLineArgs.outputDir, "metagen"), "seissol", ["Config.h"])
+    with open(
+        os.path.join(cmdLineArgs.outputDir, "..", "ConfigInclude.h"), "w"
+    ) as file:
+        file.write(kernels.config.make_configincludefile(configs))
+
+    metagen.generate(
+        os.path.join(cmdLineArgs.outputDir, "metagen"), "seissol", ["Config.h"]
+    )
     subfolders += ["metagen"]
 
     routine_cache.generate(cmdLineArgs.outputDir, "seissol")

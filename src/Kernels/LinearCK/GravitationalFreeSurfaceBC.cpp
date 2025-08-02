@@ -52,6 +52,7 @@ std::pair<std::uint64_t, std::uint64_t>
   return {nonZeroFlops, hardwareFlops};
 }
 
-template class GravitationalFreeSurfaceBc<Config0>;
+#define _H_(cfg) template class GravitationalFreeSurfaceBc<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol
