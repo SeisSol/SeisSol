@@ -82,14 +82,14 @@ void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
 void FreeSurfaceIntegrator::calculateOutput() const {
   const seissol::initializer::LayerMask ghostMask(Ghost);
   for (auto& surfaceLayer : surfaceStorage->leaves(ghostMask)) {
-    real** dofs = surfaceLayer.var<SurfaceLTS::Dofs>();
-    auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>();
+    surfaceLayer.wrap([&](auto cfg) {
+    real** dofs = surfaceLayer.var<SurfaceLTS::Dofs>(cfg);
+    auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>(cfg);
     auto* side = surfaceLayer.var<SurfaceLTS::Side>();
     auto* outputPosition = surfaceLayer.var<SurfaceLTS::OutputPosition>();
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
-#pragma omp parallel for schedule(static) default(none)                                            \
-    shared(surfaceLayer, dofs, displacementDofs, side, outputPosition)
+#pragma omp parallel for schedule(static)
 #endif // _OPENMP
     for (std::size_t face = 0; face < surfaceLayer.size(); ++face) {
       if (outputPosition[face] != std::numeric_limits<std::size_t>::max()) {
@@ -129,6 +129,7 @@ void FreeSurfaceIntegrator::calculateOutput() const {
         addOutput(displacements);
       }
     }
+  });
   }
 }
 
@@ -324,14 +325,15 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   std::size_t surfaceCellGlobal = 0;
   for (auto [layer, surfaceLayer] :
        seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
+    surfaceLayer.wrap([&](auto cfg) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
-    real(*dofs)[tensor::Q<Cfg>::size()] = layer.var<LTS::Dofs>();
-    real*(*faceDisplacements)[4] = layer.var<LTS::FaceDisplacements>();
-    real*(*faceDisplacementsDevice)[4] = layer.var<LTS::FaceDisplacementsDevice>();
-    real** surfaceDofs = surfaceLayer.var<SurfaceLTS::Dofs>();
-    auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>();
+    auto* dofs = layer.var<LTS::Dofs>();
+    auto* faceDisplacements = layer.var<LTS::FaceDisplacements>();
+    auto* faceDisplacementsDevice = layer.var<LTS::FaceDisplacementsDevice>();
+    auto** surfaceDofs = surfaceLayer.var<SurfaceLTS::Dofs>(cfg);
+    auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>(cfg);
     auto* displacementDofsDevice =
-        surfaceLayer.var<SurfaceLTS::DisplacementDofs>(initializer::AllocationPlace::Device);
+        surfaceLayer.var<SurfaceLTS::DisplacementDofs>(cfg, initializer::AllocationPlace::Device);
     auto* cellMaterialData = layer.var<LTS::Material>();
     auto* surfaceBoundaryMapping = surfaceLayer.var<SurfaceLTS::BoundaryMapping>();
     auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
@@ -377,6 +379,7 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
         }
       }
     }
+  });
   }
 }
 
