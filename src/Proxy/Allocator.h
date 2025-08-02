@@ -13,6 +13,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/GlobalData.h"
 #include "Memory/Tree/LTSTree.h"
+#include <Config.h>
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
@@ -40,6 +41,8 @@ struct ProxyData {
 
   real* fakeDerivatives = nullptr;
   real* fakeDerivativesHost = nullptr;
+
+  typename kernels::Solver::TimeBasis<real> timeBasis{Config::ConvergenceOrder};
 
   kernels::Spacetime spacetimeKernel;
   kernels::Time timeKernel;

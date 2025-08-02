@@ -12,6 +12,7 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMECLUSTER_H_
 
 #include <list>
+#include <memory>
 #include <mpi.h>
 
 #include "Initializer/Typedefs.h"
@@ -51,6 +52,7 @@ class TimeCluster : public AbstractTimeCluster {
   private:
   // Last correction time of the neighboring cluster with higher dt
   double lastSubTime;
+  double neighborTimestep;
 
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
   void handleAdvancedCorrectionTimeMessage(const NeighborCluster& neighborCluster) override;
@@ -96,8 +98,10 @@ class TimeCluster : public AbstractTimeCluster {
   LTS::Layer* clusterData;
   DynamicRupture::Layer* dynRupInteriorData;
   DynamicRupture::Layer* dynRupCopyData;
-  dr::friction_law::FrictionSolver* frictionSolver;
-  dr::friction_law::FrictionSolver* frictionSolverDevice;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolver;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverDevice;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopy;
+  std::unique_ptr<dr::friction_law::FrictionSolver> frictionSolverCopyDevice;
   dr::output::OutputManager* faultOutputManager;
 
   seissol::kernels::PointSourceClusterPair sourceCluster;
@@ -246,8 +250,8 @@ class TimeCluster : public AbstractTimeCluster {
               LTS::Layer* clusterData,
               DynamicRupture::Layer* dynRupInteriorData,
               DynamicRupture::Layer* dynRupCopyData,
-              seissol::dr::friction_law::FrictionSolver* frictionSolver,
-              seissol::dr::friction_law::FrictionSolver* frictionSolverDevice,
+              seissol::dr::friction_law::FrictionSolver* frictionSolverTemplate,
+              seissol::dr::friction_law::FrictionSolver* frictionSolverTemplateDevice,
               dr::output::OutputManager* faultOutputManager,
               seissol::SeisSol& seissolInstance,
               LoopStatistics* loopStatistics,

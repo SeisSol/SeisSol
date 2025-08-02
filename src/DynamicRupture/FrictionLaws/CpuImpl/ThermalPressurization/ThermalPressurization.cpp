@@ -21,8 +21,7 @@ static const tp::GridPoints<misc::NumTpGridPoints> TpGridPoints;
 static const tp::InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFourierCoefficients;
 static const tp::GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
 
-void ThermalPressurization::copyStorageToLocal(DynamicRupture::Layer& layerData,
-                                               real fullUpdateTime) {
+void ThermalPressurization::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   temperature = layerData.var<LTSThermalPressurization::Temperature>();
   pressure = layerData.var<LTSThermalPressurization::Pressure>();
   theta = layerData.var<LTSThermalPressurization::Theta>();

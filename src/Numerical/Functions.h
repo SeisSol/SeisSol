@@ -122,6 +122,8 @@ double TetraDubinerP(const std::array<unsigned, 3>& i, const std::array<double, 
 std::array<double, 3> gradTetraDubinerP(const std::array<unsigned, 3>& i,
                                         const std::array<double, 3>& xi);
 
+double shiftedLegendre(int n, double x, int d);
+
 /**
  * @brief Templated Dubiner basis for D=1,2,3.
  *
@@ -139,6 +141,10 @@ double DubinerP(const std::array<unsigned, D>& i, const std::array<double, D>& x
 template <std::size_t D>
 std::array<double, D> gradDubinerP(const std::array<unsigned, D>& i,
                                    const std::array<double, D>& xi);
+
+template <std::size_t D>
+std::array<double, D> antigradDubinerP(const std::array<unsigned, D>& i,
+                                       const std::array<double, D>& xi);
 
 } // namespace seissol::functions
 

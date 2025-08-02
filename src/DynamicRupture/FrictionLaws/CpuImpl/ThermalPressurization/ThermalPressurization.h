@@ -52,7 +52,7 @@ class ThermalPressurization {
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData);
 
   /**
    * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face

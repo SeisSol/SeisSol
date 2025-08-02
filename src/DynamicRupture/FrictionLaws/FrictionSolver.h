@@ -11,6 +11,7 @@
 #include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
+#include <vector>
 
 namespace seissol::dr::friction_law {
 /**
@@ -32,8 +33,16 @@ class FrictionSolver {
   }
   virtual ~FrictionSolver() = default;
 
-  virtual void evaluate(DynamicRupture::Layer& layerData,
-                        real fullUpdateTime,
+  struct FrictionTime {
+    real sumDt;
+    std::vector<real> deltaT;
+  };
+
+  virtual void setupLayer(DynamicRupture::Layer& layerData,
+                          seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+
+  virtual void evaluate(real fullUpdateTime,
+                        const FrictionTime& frictionTime,
                         const double timeWeights[ConvergenceOrder],
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
@@ -41,14 +50,18 @@ class FrictionSolver {
    * compute the DeltaT from the current timePoints call this function before evaluate
    * to set the correct DeltaT
    */
-  void computeDeltaT(const double timePoints[ConvergenceOrder]);
+  static FrictionTime computeDeltaT(const std::vector<double>& timePoints);
 
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData);
+
+  virtual void allocateAuxiliaryMemory(GlobalData* globalData) {}
 
   virtual seissol::initializer::AllocationPlace allocationPlace();
+
+  virtual std::unique_ptr<FrictionSolver> clone() = 0;
 
   protected:
   /**

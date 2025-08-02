@@ -19,10 +19,10 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
   public:
   using BaseFrictionLaw<ImposedSlipRates>::BaseFrictionLaw;
 
-  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {
     imposedSlipDirection1 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>();
     imposedSlipDirection2 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>();
-    stf.copyStorageToLocal(layerData, fullUpdateTime);
+    stf.copyStorageToLocal(layerData);
   }
 
   void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,

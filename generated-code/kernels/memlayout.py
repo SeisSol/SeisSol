@@ -13,8 +13,9 @@ import kernels.arch as arch
 
 
 class Candidate(object):
-    """A Candidate measures if a memory layout is suitable
-    for a build configuration. If a build configuration
+    """Measures if a memory layout is suitable for a build configuration.
+
+    If a build configuration
     shares an attribute with a Candidate, the Candidate
     gets a higher score.
     The scoring system is chosen such that the best
@@ -51,7 +52,6 @@ class Candidate(object):
 
 def findCandidates(search_path):
     """Determine Candidate attributes from file name."""
-
     archs = arch.getArchitectures()
     pes = [arch.getCpu(a) for a in archs]
     gemmgen = ["pspamm", "libxsmm"]
