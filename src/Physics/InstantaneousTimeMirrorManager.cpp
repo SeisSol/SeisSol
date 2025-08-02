@@ -101,7 +101,8 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
   };
 
   for (auto& layer : ltsStorage->leaves(Ghost)) {
-    auto* materialData = layer.var<LTS::MaterialData>();
+    layer.wrap([&](auto cfg) {
+      auto* materialData = layer.var<LTS::MaterialData>(cfg);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -113,6 +114,7 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
 
       updateMaterial(material);
     }
+  });
   }
 }
 

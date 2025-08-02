@@ -59,7 +59,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
                             LTS::Ref& data,
-                            LocalTmp& tmp,
+                            LocalTmp<Cfg>& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                             const CellMaterialData* materialData,
                             const CellBoundaryMapping (*cellBoundaryMapping)[4],

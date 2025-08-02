@@ -52,9 +52,12 @@ void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated<C
 
 namespace seissol::kernels {
 
+template<typename Cfg>
 class DirichletBoundary {
   public:
-  DirichletBoundary() { quadrature::GaussLegendre(quadPoints, quadWeights, ConvergenceOrder); }
+  using real = Real<Cfg>;
+
+  DirichletBoundary() { quadrature::GaussLegendre(quadPoints, quadWeights, Cfg::ConvergenceOrder); }
 
   template <typename Func, typename MappingKrnl>
   void evaluate(const real* dofsVolumeInteriorModal,
@@ -152,9 +155,9 @@ class DirichletBoundary {
     assert(boundaryMapping.nodes != nullptr);
 
     // Compute quad points/weights for interval [t, t+dt]
-    double timePoints[ConvergenceOrder];
-    double timeWeights[ConvergenceOrder];
-    for (unsigned point = 0; point < ConvergenceOrder; ++point) {
+    double timePoints[Cfg::ConvergenceOrder];
+    double timeWeights[Cfg::ConvergenceOrder];
+    for (unsigned point = 0; point < Cfg::ConvergenceOrder; ++point) {
       timePoints[point] = (timeStepWidth * quadPoints[point] + 2 * startTime + timeStepWidth) / 2;
       timeWeights[point] = 0.5 * timeStepWidth * quadWeights[point];
     }
@@ -170,7 +173,7 @@ class DirichletBoundary {
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).
 
-    for (unsigned i = 0; i < ConvergenceOrder; ++i) {
+    for (unsigned i = 0; i < Cfg::ConvergenceOrder; ++i) {
       boundaryDofsTmp.setZero();
       std::forward<Func>(evaluateBoundaryCondition)(
           boundaryMapping.nodes, timePoints[i], boundaryDofsTmp);
@@ -181,8 +184,8 @@ class DirichletBoundary {
   }
 
   private:
-  double quadPoints[ConvergenceOrder];
-  double quadWeights[ConvergenceOrder];
+  double quadPoints[Cfg::ConvergenceOrder];
+  double quadWeights[Cfg::ConvergenceOrder];
 };
 
 } // namespace seissol::kernels

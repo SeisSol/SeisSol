@@ -46,11 +46,12 @@
 
 namespace {
 
-void setStarMatrix(const real* matAT,
-                   const real* matBT,
-                   const real* matCT,
+template<typename Cfg>
+void setStarMatrix(const Real<Cfg>* matAT,
+                   const Real<Cfg>* matBT,
+                   const Real<Cfg>* matCT,
                    const double grad[3],
-                   real* starMatrix) {
+                   Real<Cfg>* starMatrix) {
   for (std::size_t idx = 0; idx < seissol::tensor::star<Cfg>::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
   }
@@ -99,15 +100,15 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
 }
 
 constexpr int N = tensor::Zminus<Cfg>::Shape[0];
-template <typename T>
+template <typename T, typename MaterialT>
 Eigen::Matrix<T, N, N>
     extractMatrix(eigenvalues::Eigenpair<std::complex<double>,
-                                         seissol::model::MaterialT::NumQuantities> eigenpair) {
+                                         MaterialT::NumQuantities> eigenpair) {
   std::vector<int> tractionIndices;
   std::vector<int> velocityIndices;
   std::vector<int> columnIndices;
 
-  if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+  if constexpr (MaterialT::Type == model::MaterialType::Poroelastic) {
     tractionIndices = {0, 3, 5, 9};
     velocityIndices = {6, 7, 8, 10};
     columnIndices = {0, 1, 2, 3};
@@ -147,26 +148,33 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
   const auto* cellInformationAll = ltsStorage.var<LTS::CellInformation>();
   for (auto& layer : ltsStorage.leaves(Ghost)) {
+    layer.wrap([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    using MaterialT = model::MaterialTT<Cfg>;
+
+    // NOLINTNEXTLINE
+    using real = Real<Cfg>;
+
     auto* material = layer.var<LTS::Material>();
-    auto* materialData = layer.var<LTS::MaterialData>();
-    auto* localIntegration = layer.var<LTS::LocalIntegration>();
-    auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
+    auto* materialData = layer.var<LTS::MaterialData>(cfg);
+    auto* localIntegration = layer.var<LTS::LocalIntegration>(cfg);
+    auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>(cfg);
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
 #ifdef _OPENMP
 #pragma omp parallel
-    {
 #endif
+    {
       real matATData[tensor::star<Cfg>::size(0)];
       real matATtildeData[tensor::star<Cfg>::size(0)];
       real matBTData[tensor::star<Cfg>::size(1)];
       real matCTData[tensor::star<Cfg>::size(2)];
-      auto matAT = init::star<Cfg>::view<0>::create(matATData);
+      auto matAT = init::star<Cfg>::template view<0>::create(matATData);
       // matAT with elastic parameters in local coordinate system, used for flux kernel
-      auto matATtilde = init::star<Cfg>::view<0>::create(matATtildeData);
-      auto matBT = init::star<Cfg>::view<0>::create(matBTData);
-      auto matCT = init::star<Cfg>::view<0>::create(matCTData);
+      auto matATtilde = init::star<Cfg>::template view<0>::create(matATtildeData);
+      auto matBT = init::star<Cfg>::template view<0>::create(matBTData);
+      auto matCT = init::star<Cfg>::template view<0>::create(matCTData);
 
       real matTData[seissol::tensor::T<Cfg>::size()];
       real matTinvData[seissol::tensor::Tinv<Cfg>::size()];
@@ -213,11 +221,11 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 1, matBT);
         seissol::model::getTransposedCoefficientMatrix(materialLocal, 2, matCT);
-        setStarMatrix(
+        setStarMatrix<Cfg>(
             matATData, matBTData, matCTData, gradXi, localIntegration[cell].starMatrices[0]);
-        setStarMatrix(
+        setStarMatrix<Cfg>(
             matATData, matBTData, matCTData, gradEta, localIntegration[cell].starMatrices[1]);
-        setStarMatrix(
+        setStarMatrix<Cfg>(
             matATData, matBTData, matCTData, gradZeta, localIntegration[cell].starMatrices[2]);
 
         const double volume = MeshTools::volume(elements[meshId], vertices);
@@ -238,7 +246,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           seissol::model::getTransposedGodunovState(
               seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
               seissol::model::getRotatedMaterialCoefficients(
-                  nLocalData, *dynamic_cast<model::MaterialT*>(material[cell].neighbor[side])),
+                  nLocalData, *dynamic_cast<MaterialT*>(material[cell].neighbor[side])),
               cellInformation[cell].faceTypes[side],
               qGodLocal,
               qGodNeighbor);
@@ -356,9 +364,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         seissol::model::initializeSpecificNeighborData(materialLocal,
                                                        &neighboringIntegration[cell].specific);
       }
-#ifdef _OPENMP
     }
-#endif
+  });
   }
 }
 
@@ -455,15 +462,23 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       DynamicRupture::Storage& drStorage,
                                       const GlobalData& global,
                                       double etaHack) {
-  real matTData[tensor::T<Cfg>::size()];
-  real matTinvData[tensor::Tinv<Cfg>::size()];
-  real matAPlusData[tensor::star<Cfg>::size(0)];
-  real matAMinusData[tensor::star<Cfg>::size(0)];
 
   const auto& fault = meshReader.getFault();
   const auto& elements = meshReader.getElements();
 
   for (auto& layer : drStorage.leaves(Ghost)) {
+    layer.wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using MaterialT = model::MaterialTT<Cfg>;
+
+      // NOLINTNEXTLINE
+      using real = Real<Cfg>;
+
+    real matTData[tensor::T<Cfg>::size()];
+    real matTinvData[tensor::Tinv<Cfg>::size()];
+    real matAPlusData[tensor::star<Cfg>::size(0)];
+    real matAMinusData[tensor::star<Cfg>::size(0)];
+
     auto* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
     auto* timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
     auto* timeDerivativePlusDevice = layer.var<DynamicRupture::TimeDerivativePlusDevice>();
@@ -531,8 +546,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           const auto position = positionOpt.value();
           const auto& cellInformation = ltsStorage.lookup<LTS::CellInformation>(position);
           if (timeDerivative1 == nullptr && cellInformation.ltsSetup.hasDerivatives()) {
-            timeDerivative1 = ltsStorage.lookup<LTS::Derivatives>(position);
-            timeDerivative1Device = ltsStorage.lookup<LTS::DerivativesDevice>(position);
+            timeDerivative1 = ltsStorage.lookup<LTS::Derivatives>(cfg, position);
+            timeDerivative1Device = ltsStorage.lookup<LTS::DerivativesDevice>(cfg, position);
           }
           if (timeDerivative2 == nullptr &&
               cellInformation.ltsSetup.neighborHasDerivatives(derivativesSide)) {
@@ -620,8 +635,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                             matTinv);
 
       /// Materials
-      const seissol::model::Material* plusMaterial = nullptr;
-      const seissol::model::Material* minusMaterial = nullptr;
+      const MaterialT* plusMaterial = nullptr;
+      const MaterialT* minusMaterial = nullptr;
       const auto plusLtsId = (fault[meshFace].element >= 0)
                                  ? backmap.getDup(fault[meshFace].element, 0)
                                  : std::optional<StoragePosition>();
@@ -633,18 +648,18 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       if (plusLtsId.has_value()) {
         const auto& cellMaterialData = ltsStorage.lookup<LTS::Material>(plusLtsId.value());
-        plusMaterial = cellMaterialData.local;
-        minusMaterial = cellMaterialData.neighbor[faceInformation[ltsFace].plusSide];
+        plusMaterial = dynamic_cast<const MaterialT*>(cellMaterialData.local);
+        minusMaterial = dynamic_cast<const MaterialT*>(cellMaterialData.neighbor[faceInformation[ltsFace].plusSide]);
       } else {
         assert(minusLtsId.has_value());
         const auto& cellMaterialData = ltsStorage.lookup<LTS::Material>(minusLtsId.value());
-        plusMaterial = cellMaterialData.neighbor[faceInformation[ltsFace].minusSide];
-        minusMaterial = cellMaterialData.local;
+        plusMaterial = dynamic_cast<const MaterialT*>(cellMaterialData.neighbor[faceInformation[ltsFace].minusSide]);
+        minusMaterial = dynamic_cast<const MaterialT*>(cellMaterialData.local);
       }
 
       /// Wave speeds and Coefficient Matrices
-      auto matAPlus = init::star<Cfg>::view<0>::create(matAPlusData);
-      auto matAMinus = init::star<Cfg>::view<0>::create(matAMinusData);
+      auto matAPlus = init::star<Cfg>::template view<0>::create(matAPlusData);
+      auto matAMinus = init::star<Cfg>::template view<0>::create(matAMinusData);
 
       waveSpeedsPlus[ltsFace].density = plusMaterial->getDensity();
       waveSpeedsMinus[ltsFace].density = minusMaterial->getDensity();
@@ -676,17 +691,15 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       switch (plusMaterial->getMaterialType()) {
       case seissol::model::MaterialType::Poroelastic: {
-        auto plusEigenpair = seissol::model::getEigenDecomposition(
-            *dynamic_cast<const model::MaterialT*>(plusMaterial));
-        auto minusEigenpair = seissol::model::getEigenDecomposition(
-            *dynamic_cast<const model::MaterialT*>(minusMaterial));
+        auto plusEigenpair = seissol::model::getEigenDecomposition(*plusMaterial);
+        auto minusEigenpair = seissol::model::getEigenDecomposition(*minusMaterial);
 
         // The impedance matrices are diagonal in the (visco)elastic case, so we only store
         // the values Zp, Zs. In the poroelastic case, the fluid pressure and normal component
         // of the traction depend on each other, so we need a more complicated matrix structure.
-        const Eigen::Matrix<double, N, N> impedanceMatrix = extractMatrix<double>(plusEigenpair);
+        const Eigen::Matrix<double, N, N> impedanceMatrix = extractMatrix<double, MaterialT>(plusEigenpair);
         const Eigen::Matrix<double, N, N> impedanceNeigMatrix =
-            extractMatrix<double>(minusEigenpair);
+            extractMatrix<double, MaterialT>(minusEigenpair);
         const Eigen::Matrix<double, N, N> etaMatrix =
             (impedanceMatrix + impedanceNeigMatrix).inverse();
 
@@ -702,18 +715,16 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         break;
       }
       default: {
-        if constexpr (!model::MaterialT::SupportsDR) {
+        if constexpr (!MaterialT::SupportsDR) {
           logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
                         "(built with:"
-                     << model::MaterialT::Text << ")";
+                     << MaterialT::Text << ")";
         }
         break;
       }
       }
-      seissol::model::getTransposedCoefficientMatrix(
-          *dynamic_cast<const model::MaterialT*>(plusMaterial), 0, matAPlus);
-      seissol::model::getTransposedCoefficientMatrix(
-          *dynamic_cast<const model::MaterialT*>(minusMaterial), 0, matAMinus);
+      seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
+      seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
 
       /// Traction matrices for "average" traction
       auto tractionPlusMatrix =
@@ -792,6 +803,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       krnl.star(0) = matAMinusData;
       krnl.execute();
     }
+  });
   }
 }
 

@@ -21,6 +21,7 @@
 #include <Eigen/Dense>
 
 namespace seissol {
+template<typename>
 struct LocalIntegrationData;
 struct GlobalData;
 class SeisSol;

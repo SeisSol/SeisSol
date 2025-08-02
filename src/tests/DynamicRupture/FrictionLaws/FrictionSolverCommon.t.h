@@ -19,22 +19,24 @@ using namespace seissol;
 using namespace seissol::dr;
 
 TEST_CASE("Friction Solver Common") {
-  FaultStresses<Executor::Host> faultStresses{};
-  TractionResults<Executor::Host> tractionResults{};
+  using real = Real<Cfg>;
+
+  FaultStresses<Cfg, Executor::Host> faultStresses{};
+  TractionResults<Cfg, Executor::Host> tractionResults{};
   ImpedancesAndEta impAndEta;
-  alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
+  alignas(Alignment) real qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
   alignas(Alignment)
-      real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
+      real qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
   alignas(Alignment) real imposedStatePlus[tensor::QInterpolated<Cfg>::size()] = {};
   alignas(Alignment) real imposedStateMinus[tensor::QInterpolated<Cfg>::size()] = {};
-  double timeWeights[ConvergenceOrder];
+  double timeWeights[Cfg::ConvergenceOrder];
   std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
   constexpr real Epsilon = 1e6 * std::numeric_limits<real>::epsilon();
 
-  using QInterpolatedShapeT = real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+  using QInterpolatedShapeT = real(*)[misc::NumQuantities][misc::NumPaddedPoints<Cfg>];
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
-  using ImposedStateShapeT = real(*)[misc::NumPaddedPoints];
+  using ImposedStateShapeT = real(*)[misc::NumPaddedPoints<Cfg>];
   auto* iSPlus = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
   auto* iSMinus = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
@@ -68,9 +70,9 @@ TEST_CASE("Friction Solver Common") {
   auto t1 = [](size_t o, size_t p) { return static_cast<real>(o + p); };
   auto t2 = [](size_t o, size_t p) { return static_cast<real>(2 * (o + p)); };
 
-  for (size_t o = 0; o < ConvergenceOrder; o++) {
-    for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
-      for (size_t q = 0; q < misc::NumQuantities; q++) {
+  for (size_t o = 0; o < Cfg::ConvergenceOrder; o++) {
+    for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
+      for (size_t q = 0; q < misc::NumQuantities<Cfg>; q++) {
         qIPlus[o][q][p] = qP(o, q, p);
         qIMinus[o][q][p] = qM(o, q, p);
       }
@@ -80,13 +82,13 @@ TEST_CASE("Friction Solver Common") {
   }
 
   SUBCASE("Precompute Stress") {
-    friction_law::common::precomputeStressFromQInterpolated(
+    friction_law::common::precomputeStressFromQInterpolated<Cfg>(
         faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus, 1.0);
 
     // Assure that qInterpolatedPlus and qInterpolatedMinus are const.
-    for (size_t o = 0; o < ConvergenceOrder; o++) {
-      for (size_t q = 0; q < misc::NumQuantities; q++) {
-        for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+    for (size_t o = 0; o < Cfg::ConvergenceOrder; o++) {
+      for (size_t q = 0; q < misc::NumQuantities<Cfg>; q++) {
+        for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
           REQUIRE(qIPlus[o][q][p] == qP(o, q, p));
           REQUIRE(qIMinus[o][q][p] == qM(o, q, p));
         }
@@ -94,8 +96,8 @@ TEST_CASE("Friction Solver Common") {
     }
 
     // Assure that faultstresses were computed correctly
-    for (size_t o = 0; o < ConvergenceOrder; o++) {
-      for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+    for (size_t o = 0; o < Cfg::ConvergenceOrder; o++) {
+      for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
         const real expectedNormalStress =
             impAndEta.etaP * (qM(o, 6, p) - qP(o, 6, p) + impAndEta.invZp * qP(o, 0, p) +
                               impAndEta.invZpNeig * qM(o, 0, p));
@@ -114,7 +116,7 @@ TEST_CASE("Friction Solver Common") {
   }
 
   SUBCASE("Postcompute Imposed State") {
-    friction_law::common::postcomputeImposedStateFromNewStress(faultStresses,
+    friction_law::common::postcomputeImposedStateFromNewStress<Cfg>(faultStresses,
                                                                tractionResults,
                                                                impAndEta,
                                                                impMats,
@@ -123,7 +125,7 @@ TEST_CASE("Friction Solver Common") {
                                                                qInterpolatedPlus,
                                                                qInterpolatedMinus,
                                                                timeWeights);
-    for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+    for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
       // index 0: Minus side
       // index 1: Plus side
       real expectedNormalStress[2]{};
@@ -132,7 +134,7 @@ TEST_CASE("Friction Solver Common") {
       real expectedU[2]{};
       real expectedV[2]{};
       real expectedW[2]{};
-      for (size_t o = 0; o < ConvergenceOrder; o++) {
+      for (size_t o = 0; o < Cfg::ConvergenceOrder; o++) {
         expectedNormalStress[0] += timeWeights[o] * faultStresses.normalStress[o][p];
         expectedTraction1[0] += timeWeights[o] * t1(o, p);
         expectedTraction2[0] += timeWeights[o] * t2(o, p);

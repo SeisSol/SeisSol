@@ -34,7 +34,7 @@ class Local : public LocalKernel {
   void setGlobalData(const CompoundGlobalData& global) override;
   void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
                        LTS::Ref& data,
-                       LocalTmp& tmp,
+                       LocalTmp<Cfg>& tmp,
                        const CellMaterialData* materialData,
                        const CellBoundaryMapping (*cellBoundaryMapping)[4],
                        double time,
@@ -67,7 +67,7 @@ class Local : public LocalKernel {
   kernel::projectToNodalBoundary<Cfg> m_projectKrnlPrototype;
   kernel::projectToNodalBoundaryRotated<Cfg> m_projectRotatedKrnlPrototype;
 
-  kernels::DirichletBoundary dirichletBoundary;
+  kernels::DirichletBoundary<Cfg> dirichletBoundary;
 
 #ifdef ACL_DEVICE
   kernel::gpu_volume<Cfg> deviceVolumeKernelPrototype;

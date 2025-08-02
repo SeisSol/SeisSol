@@ -20,16 +20,16 @@ class NoFault : public BaseFrictionLaw<NoFault> {
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
-  static void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
-                                    TractionResults<Executor::Host>& tractionResults,
-                                    std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                                    std::array<real, misc::NumPaddedPoints>& strengthBuffer,
+  static void updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,
+                                    TractionResults<Cfg, Executor::Host>& tractionResults,
+                                    std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+                                    std::array<real, misc::NumPaddedPoints<Cfg>>& strengthBuffer,
                                     std::size_t ltsFace,
                                     uint32_t timeIndex);
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
+  void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer, std::size_t ltsFace) {
   };
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
+  void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer, std::size_t ltsFace) {
   };
   void saveDynamicStressOutput(std::size_t ltsFace) {};
 };

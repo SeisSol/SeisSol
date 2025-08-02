@@ -30,7 +30,7 @@ class YoffeSTF : public ImposedSlipRates<YoffeSTF> {
   }
 
   SEISSOL_DEVICE static real
-      evaluateSTF(FrictionLawContext& ctx, real currentTime, [[maybe_unused]] real timeIncrement) {
+      evaluateSTF(FrictionLawContext<Cfg>& ctx, real currentTime, [[maybe_unused]] real timeIncrement) {
     return regularizedYoffe::regularizedYoffe(currentTime -
                                                   ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
                                               ctx.data->tauS[ctx.ltsFace][ctx.pointIndex],
@@ -47,7 +47,7 @@ class GaussianSTF : public ImposedSlipRates<GaussianSTF> {
   }
 
   SEISSOL_DEVICE static real
-      evaluateSTF(FrictionLawContext& ctx, real currentTime, real timeIncrement) {
+      evaluateSTF(FrictionLawContext<Cfg>& ctx, real currentTime, real timeIncrement) {
     const real smoothStepIncrement = gaussianNucleationFunction::smoothStepIncrement(
         currentTime - ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
         timeIncrement,
@@ -64,7 +64,7 @@ class DeltaSTF : public ImposedSlipRates<DeltaSTF> {
   }
 
   SEISSOL_DEVICE static real
-      evaluateSTF(FrictionLawContext& ctx, real currentTime, real timeIncrement) {
+      evaluateSTF(FrictionLawContext<Cfg>& ctx, real currentTime, real timeIncrement) {
     return deltaPulse::deltaPulse(currentTime - ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
                                   timeIncrement);
   }

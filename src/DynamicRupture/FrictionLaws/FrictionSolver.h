@@ -34,16 +34,16 @@ class FrictionSolver {
   virtual ~FrictionSolver() = default;
 
   struct FrictionTime {
-    real sumDt;
-    std::vector<real> deltaT;
+    double sumDt;
+    std::vector<double> deltaT;
   };
 
   virtual void setupLayer(DynamicRupture::Layer& layerData,
                           seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void evaluate(real fullUpdateTime,
+  virtual void evaluate(double fullUpdateTime,
                         const FrictionTime& frictionTime,
-                        const double timeWeights[ConvergenceOrder],
+                        const double timeWeights[Cfg::ConvergenceOrder],
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   /**
@@ -68,43 +68,43 @@ class FrictionSolver {
    * Adjust initial stress by adding nucleation stress * nucleation function
    * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
    */
-  real deltaT[ConvergenceOrder] = {};
+  real deltaT[Cfg::ConvergenceOrder] = {};
   real sumDt{};
 
   seissol::initializer::parameters::DRParameters* __restrict drParameters;
-  ImpedancesAndEta* __restrict impAndEta{};
-  ImpedanceMatrices* __restrict impedanceMatrices{};
+  ImpedancesAndEta<Real<Cfg>>* __restrict impAndEta{};
+  ImpedanceMatrices<Cfg>* __restrict impedanceMatrices{};
   real mFullUpdateTime{};
   // CS = coordinate system
-  real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints]{};
-  real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints]{};
-  real (*__restrict cohesion)[misc::NumPaddedPoints]{};
-  real (*__restrict mu)[misc::NumPaddedPoints]{};
-  real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints]{};
-  real (*__restrict slip1)[misc::NumPaddedPoints]{};
-  real (*__restrict slip2)[misc::NumPaddedPoints]{};
-  real (*__restrict slipRateMagnitude)[misc::NumPaddedPoints]{};
-  real (*__restrict slipRate1)[misc::NumPaddedPoints]{};
-  real (*__restrict slipRate2)[misc::NumPaddedPoints]{};
-  real (*__restrict ruptureTime)[misc::NumPaddedPoints]{};
-  bool (*__restrict ruptureTimePending)[misc::NumPaddedPoints]{};
-  real (*__restrict peakSlipRate)[misc::NumPaddedPoints]{};
-  real (*__restrict traction1)[misc::NumPaddedPoints]{};
-  real (*__restrict traction2)[misc::NumPaddedPoints]{};
+  real (*__restrict initialStressInFaultCS)[6][misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict nucleationStressInFaultCS)[6][misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict cohesion)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict mu)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict accumulatedSlipMagnitude)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict slip1)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict slip2)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict slipRateMagnitude)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict slipRate1)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict slipRate2)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict ruptureTime)[misc::NumPaddedPoints<Cfg>]{};
+  bool (*__restrict ruptureTimePending)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict peakSlipRate)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict traction1)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict traction2)[misc::NumPaddedPoints<Cfg>]{};
   real (*__restrict imposedStatePlus)[tensor::QInterpolated<Cfg>::size()]{};
   real (*__restrict imposedStateMinus)[tensor::QInterpolated<Cfg>::size()]{};
-  real spaceWeights[misc::NumPaddedPoints]{};
-  DREnergyOutput* __restrict energyData{};
-  DRGodunovData* __restrict godunovData{};
-  real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
-  real (*__restrict nucleationPressure)[misc::NumPaddedPoints]{};
+  real spaceWeights[misc::NumPaddedPoints<Cfg>]{};
+  DREnergyOutput<Cfg>* __restrict energyData{};
+  DRGodunovData<Cfg>* __restrict godunovData{};
+  real (*__restrict initialPressure)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict nucleationPressure)[misc::NumPaddedPoints<Cfg>]{};
 
   // be careful only for some FLs initialized:
-  real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
-  bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints]{};
+  real (*__restrict dynStressTime)[misc::NumPaddedPoints<Cfg>]{};
+  bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints<Cfg>]{};
 
-  real (*__restrict qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
-  real (*__restrict qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
+  real (*__restrict qInterpolatedPlus)[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
+  real (*__restrict qInterpolatedMinus)[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
 };
 } // namespace seissol::dr::friction_law
 

@@ -23,13 +23,13 @@
 
 namespace seissol::model {
 
-template <typename Tview>
+template <typename Cfg, typename Tview>
 static void calcZinv(yateto::DenseTensorView<2, real, unsigned>& Zinv,
                      Tview& sourceMatrix,
                      size_t quantity,
                      real timeStepWidth) {
-  using Matrix = Eigen::Matrix<real, ConvergenceOrder, ConvergenceOrder>;
-  using Vector = Eigen::Matrix<real, ConvergenceOrder, 1>;
+  using Matrix = Eigen::Matrix<real, Cfg::ConvergenceOrder, Cfg::ConvergenceOrder>;
+  using Vector = Eigen::Matrix<real, Cfg::ConvergenceOrder, 1>;
 
   Matrix Z(init::Z<Cfg>::Values);
   // sourceMatrix[i,i] = 0 for i < 10
@@ -40,11 +40,11 @@ static void calcZinv(yateto::DenseTensorView<2, real, unsigned>& Zinv,
   }
 
   auto solver = Z.colPivHouseholderQr();
-  for (std::size_t col = 0; col < ConvergenceOrder; col++) {
+  for (std::size_t col = 0; col < Cfg::ConvergenceOrder; col++) {
     Vector rhs = Vector::Zero();
     rhs(col) = 1.0;
     auto ZinvCol = solver.solve(rhs);
-    for (std::size_t row = 0; row < ConvergenceOrder; row++) {
+    for (std::size_t row = 0; row < Cfg::ConvergenceOrder; row++) {
       // save as transposed
       Zinv(col, row) = ZinvCol(row);
     }
@@ -55,11 +55,11 @@ static void calcZinv(yateto::DenseTensorView<2, real, unsigned>& Zinv,
 template <size_t iStart, size_t iEnd, typename Tview>
 struct zInvInitializerForLoop {
   zInvInitializerForLoop(
-      real ZinvData[PoroElasticMaterial::NumQuantities][ConvergenceOrder * ConvergenceOrder],
+      Real<Cfg> ZinvData[PoroElasticMaterial::NumQuantities][Cfg::ConvergenceOrder * Cfg::ConvergenceOrder],
       Tview& sourceMatrix,
-      real timeStepWidth) {
+      Real<Cfg> timeStepWidth) {
     auto Zinv = init::Zinv<Cfg>::view<iStart>::create(ZinvData[iStart]);
-    calcZinv(Zinv, sourceMatrix, iStart, timeStepWidth);
+    calcZinv<Cfg>(Zinv, sourceMatrix, iStart, timeStepWidth);
     if constexpr (iStart < iEnd - 1) {
       zInvInitializerForLoop<iStart + 1, iEnd, Tview>(ZinvData, sourceMatrix, timeStepWidth);
     }

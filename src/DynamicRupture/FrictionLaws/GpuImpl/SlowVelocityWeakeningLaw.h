@@ -27,7 +27,7 @@ class SlowVelocityWeakeningLaw
   }
 
   // Note that we need double precision here, since single precision led to NaNs.
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& ctx, double timeIncrement) {
     Derived::updateStateVariable(ctx, timeIncrement);
   }
 
@@ -37,7 +37,7 @@ class SlowVelocityWeakeningLaw
     double ac{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& ctx, double localStateVariable) {
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const double log1 = std::log(ctx.data->drParameters.rsSr0 * localStateVariable / localSl0);
@@ -48,12 +48,12 @@ class SlowVelocityWeakeningLaw
   }
 
   SEISSOL_DEVICE static double
-      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, const MuDetails& details) {
+      updateMu(FrictionLawContext<Cfg>& ctx, double localSlipRateMagnitude, const MuDetails& details) {
     const double x = localSlipRateMagnitude * details.c;
     return details.a * std::asinh(x);
   }
 
-  SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext<Cfg>& ctx,
                                                   double localSlipRateMagnitude,
                                                   const MuDetails& details) {
     const double x = localSlipRateMagnitude * details.c;
@@ -64,7 +64,7 @@ class SlowVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws,
    * we just copy the buffer into the member variable.
    */
-  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext<Cfg>& ctx) {
     ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
   }
 

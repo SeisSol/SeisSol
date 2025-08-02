@@ -15,9 +15,9 @@ class NoTP {
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
-  void calcFluidPressure(std::array<real, misc::NumPaddedPoints>& normalStress,
-                         real (*mu)[misc::NumPaddedPoints],
-                         std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+  void calcFluidPressure(std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                         real (*mu)[misc::NumPaddedPoints<Cfg>],
+                         std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
                          real deltaT,
                          bool saveTmpInTP,
                          uint32_t timeIndex,

@@ -17,9 +17,9 @@
 namespace seissol::dr::friction_law::cpu {
 class YoffeSTF {
   private:
-  real (*__restrict onsetTime)[misc::NumPaddedPoints];
-  real (*__restrict tauS)[misc::NumPaddedPoints];
-  real (*__restrict tauR)[misc::NumPaddedPoints];
+  real (*__restrict onsetTime)[misc::NumPaddedPoints<Cfg>];
+  real (*__restrict tauS)[misc::NumPaddedPoints<Cfg>];
+  real (*__restrict tauR)[misc::NumPaddedPoints<Cfg>];
 
   public:
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
@@ -32,8 +32,8 @@ class YoffeSTF {
 
 class GaussianSTF {
   private:
-  real (*__restrict onsetTime)[misc::NumPaddedPoints];
-  real (*__restrict riseTime)[misc::NumPaddedPoints];
+  real (*__restrict onsetTime)[misc::NumPaddedPoints<Cfg>];
+  real (*__restrict riseTime)[misc::NumPaddedPoints<Cfg>];
 
   public:
   void copyStorageToLocal(DynamicRupture::Layer& layerData);
@@ -43,7 +43,7 @@ class GaussianSTF {
 
 class DeltaSTF {
   private:
-  real (*__restrict onsetTime)[misc::NumPaddedPoints];
+  real (*__restrict onsetTime)[misc::NumPaddedPoints<Cfg>];
 
   public:
   void copyStorageToLocal(DynamicRupture::Layer& layerData);

@@ -62,7 +62,7 @@ class ThermalPressurization {
         layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(place);
   }
 
-  SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext<Cfg>& ctx) {
     return ctx.data->pressure[ctx.ltsFace][ctx.pointIndex];
   }
 
@@ -72,7 +72,7 @@ class ThermalPressurization {
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
   SEISSOL_DEVICE static void
-      calcFluidPressure(FrictionLawContext& ctx, uint32_t timeIndex, bool saveTmpInTP) {
+      calcFluidPressure(FrictionLawContext<Cfg>& ctx, uint32_t timeIndex, bool saveTmpInTP) {
     real temperatureUpdate = 0.0;
     real pressureUpdate = 0.0;
 

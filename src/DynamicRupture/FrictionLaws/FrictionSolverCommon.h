@@ -39,11 +39,11 @@ enum class RangeType { CPU, GPU };
 template <RangeType Type>
 struct NumPoints {
   private:
-  using CpuRange = ForLoopRange<0, dr::misc::NumPaddedPoints, 1>;
+  using CpuRange = ForLoopRange<0, dr::misc::NumPaddedPoints<Cfg>, 1>;
   using GpuRange = ForLoopRange<0, 1, 1>;
 
   public:
-  // Range::Start is 0, and Range::End is seissol::misc::NumPaddedPoints for CPU
+  // Range::Start is 0, and Range::End is seissol::misc::NumPaddedPoints<Cfg> for CPU
   using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
 };
 
@@ -51,7 +51,7 @@ template <RangeType Type>
 struct QInterpolated {
   private:
   using CpuRange = ForLoopRange<0, tensor::QInterpolated<Cfg>::size(), 1>;
-  using GpuRange = ForLoopRange<0, tensor::QInterpolated<Cfg>::size(), misc::NumPaddedPoints>;
+  using GpuRange = ForLoopRange<0, tensor::QInterpolated<Cfg>::size(), misc::NumPaddedPoints<Cfg>>;
 
   public:
   using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
@@ -75,22 +75,26 @@ struct VariableIndexing;
 
 template <>
 struct VariableIndexing<Executor::Host> {
-  static constexpr real&
-      index(real (&data)[ConvergenceOrder][misc::NumPaddedPoints], int o, int i) {
+  template<typename T>
+  static constexpr T&
+      index(T (&data)[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>], int o, int i) {
     return data[o][i];
   }
 
-  static constexpr real
-      index(const real (&data)[ConvergenceOrder][misc::NumPaddedPoints], int o, int i) {
+  template<typename T>
+  static constexpr T
+      index(const T (&data)[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>], int o, int i) {
     return data[o][i];
   }
 };
 
 template <>
 struct VariableIndexing<Executor::Device> {
-  static constexpr real& index(real (&data)[ConvergenceOrder], int o, int i) { return data[o]; }
+  template<typename T>
+  static constexpr T& index(T (&data)[Cfg::ConvergenceOrder], int o, int i) { return data[o]; }
 
-  static constexpr real index(const real (&data)[ConvergenceOrder], int o, int i) {
+  template<typename T>
+  static constexpr T index(const T (&data)[Cfg::ConvergenceOrder], int o, int i) {
     return data[o];
   }
 };
@@ -98,12 +102,13 @@ struct VariableIndexing<Executor::Device> {
 /**
  * Asserts whether all relevant arrays are properly aligned
  */
+template<typename Cfg>
 inline void checkAlignmentPreCompute(
-    const real qIPlus[ConvergenceOrder][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
-    const real qIMinus[ConvergenceOrder][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
-    const FaultStresses<Executor::Host>& faultStresses) {
+    const Real<Cfg> qIPlus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>][dr::misc::NumPaddedPoints<Cfg>],
+    const Real<Cfg> qIMinus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>][dr::misc::NumPaddedPoints<Cfg>],
+    const FaultStresses<Cfg, Executor::Host>& faultStresses) {
   using namespace dr::misc::quantity_indices;
-  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+  for (unsigned o = 0; o < Cfg::ConvergenceOrder; ++o) {
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % Alignment == 0);
@@ -139,14 +144,14 @@ inline void checkAlignmentPreCompute(
  * @param[in] qInterpolatedPlus a plus side dofs interpolated at time sub-intervals
  * @param[in] qInterpolatedMinus a minus side dofs interpolated at time sub-intervals
  */
-template <RangeType Type = RangeType::CPU>
+template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
-    FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
-    const ImpedancesAndEta& impAndEta,
-    const ImpedanceMatrices& impedanceMatrices,
-    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
-    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
-    real etaPDamp,
+    FaultStresses<Cfg, RangeExecutor<Type>::Exec>& faultStresses,
+    const ImpedancesAndEta<Real<Cfg>>& impAndEta,
+    const ImpedanceMatrices<Cfg>& impedanceMatrices,
+    const Real<Cfg> qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
+    const Real<Cfg> qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
+    Real<Cfg> etaPDamp,
     unsigned startLoopIndex = 0) {
   static_assert(tensor::QInterpolated<Cfg>::Shape[seissol::multisim::BasisFunctionDimension] ==
                     tensor::resample<Cfg>::Shape[0],
@@ -160,7 +165,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
   const auto invZpNeig = impAndEta.invZpNeig;
   const auto invZsNeig = impAndEta.invZsNeig;
 
-  using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+  using QInterpolatedShapeT = const Real<Cfg>(*)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
   const auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   const auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
@@ -170,7 +175,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
   checkAlignmentPreCompute(qIPlus, qIMinus, faultStresses);
 #endif
 
-  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+  for (unsigned o = 0; o < Cfg::ConvergenceOrder; ++o) {
     using Range = typename NumPoints<Type>::Range;
 
 #ifndef ACL_DEVICE
@@ -201,16 +206,16 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
   krnl.Zminus = impedanceMatrices.impedanceNeig;
   krnl.eta = impedanceMatrices.eta;
 
-  alignas(Alignment) real thetaBuffer[tensor::theta<Cfg>::size()] = {};
+  alignas(Alignment) Real<Cfg> thetaBuffer[tensor::theta<Cfg>::size()]{};
   krnl.theta = thetaBuffer;
   auto thetaView = init::theta<Cfg>::view::create(thetaBuffer);
 
-  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+  for (unsigned o = 0; o < Cfg::ConvergenceOrder; ++o) {
     krnl.Qplus = qInterpolatedPlus[o];
     krnl.Qminus = qInterpolatedMinus[o];
     krnl.execute();
 
-    for (unsigned i = 0; i < misc::NumPaddedPoints; ++i) {
+    for (unsigned i = 0; i < misc::NumPaddedPoints<Cfg>; ++i) {
       faultStresses.normalStress[o][i] = thetaView(i, 0);
       faultStresses.traction1[o][i] = thetaView(i, 1);
       faultStresses.traction2[o][i] = thetaView(i, 2);
@@ -223,13 +228,14 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 /**
  * Asserts whether all relevant arrays are properly aligned
  */
+template<typename Cfg>
 inline void checkAlignmentPostCompute(
-    const real qIPlus[ConvergenceOrder][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
-    const real qIMinus[ConvergenceOrder][dr::misc::NumQuantities][dr::misc::NumPaddedPoints],
-    const real imposedStateP[ConvergenceOrder][dr::misc::NumPaddedPoints],
-    const real imposedStateM[ConvergenceOrder][dr::misc::NumPaddedPoints],
-    const FaultStresses<Executor::Host>& faultStresses,
-    const TractionResults<Executor::Host>& tractionResults) {
+    const Real<Cfg> qIPlus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>][dr::misc::NumPaddedPoints<Cfg>],
+    const Real<Cfg> qIMinus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>][dr::misc::NumPaddedPoints<Cfg>],
+    const Real<Cfg> imposedStateP[Cfg::ConvergenceOrder][dr::misc::NumPaddedPoints<Cfg>],
+    const Real<Cfg> imposedStateM[Cfg::ConvergenceOrder][dr::misc::NumPaddedPoints<Cfg>],
+    const FaultStresses<Cfg, Executor::Host>& faultStresses,
+    const TractionResults<Cfg, Executor::Host>& tractionResults) {
   using namespace dr::misc::quantity_indices;
 
   assert(reinterpret_cast<uintptr_t>(imposedStateP[U]) % Alignment == 0);
@@ -246,7 +252,7 @@ inline void checkAlignmentPostCompute(
   assert(reinterpret_cast<uintptr_t>(imposedStateM[T1]) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(imposedStateM[T2]) % Alignment == 0);
 
-  for (size_t o = 0; o < ConvergenceOrder; ++o) {
+  for (size_t o = 0; o < Cfg::ConvergenceOrder; ++o) {
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][U]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][V]) % Alignment == 0);
     assert(reinterpret_cast<uintptr_t>(qIPlus[o][W]) % Alignment == 0);
@@ -281,17 +287,17 @@ inline void checkAlignmentPostCompute(
  * @param[out] imposedStatePlus
  * @param[out] imposedStateMinus
  */
-template <RangeType Type = RangeType::CPU>
+template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
-    const FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
-    const TractionResults<RangeExecutor<Type>::Exec>& tractionResults,
-    const ImpedancesAndEta& impAndEta,
-    const ImpedanceMatrices& impedanceMatrices,
-    real imposedStatePlus[tensor::QInterpolated<Cfg>::size()],
-    real imposedStateMinus[tensor::QInterpolated<Cfg>::size()],
-    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
-    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
-    const double timeWeights[ConvergenceOrder],
+    const FaultStresses<Cfg, RangeExecutor<Type>::Exec>& faultStresses,
+    const TractionResults<Cfg, RangeExecutor<Type>::Exec>& tractionResults,
+    const ImpedancesAndEta<Real<Cfg>>& impAndEta,
+    const ImpedanceMatrices<Cfg>& impedanceMatrices,
+    Real<Cfg> imposedStatePlus[tensor::QInterpolated<Cfg>::size()],
+    Real<Cfg> imposedStateMinus[tensor::QInterpolated<Cfg>::size()],
+    const Real<Cfg> qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
+    const Real<Cfg> qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
+    const double timeWeights[Cfg::ConvergenceOrder],
     unsigned startIndex = 0) {
 
   // set imposed state to zero
@@ -299,8 +305,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   for (auto index = QInterpolatedRange::Start; index < QInterpolatedRange::End;
        index += QInterpolatedRange::Step) {
     auto i{startIndex + index};
-    imposedStatePlus[i] = static_cast<real>(0.0);
-    imposedStateMinus[i] = static_cast<real>(0.0);
+    imposedStatePlus[i] = static_cast<Real<Cfg>>(0.0);
+    imposedStateMinus[i] = static_cast<Real<Cfg>>(0.0);
   }
 #ifndef USE_POROELASTIC
   const auto invZs = impAndEta.invZs;
@@ -308,11 +314,11 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   const auto invZsNeig = impAndEta.invZsNeig;
   const auto invZpNeig = impAndEta.invZpNeig;
 
-  using ImposedStateShapeT = real(*)[misc::NumPaddedPoints];
+  using ImposedStateShapeT = Real<Cfg>(*)[misc::NumPaddedPoints<Cfg>];
   auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
   auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
-  using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+  using QInterpolatedShapeT = const Real<Cfg>(*)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
   const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
@@ -323,7 +329,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
       qIPlus, qIMinus, imposedStateP, imposedStateM, faultStresses, tractionResults);
 #endif
 
-  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+  for (unsigned o = 0; o < Cfg::ConvergenceOrder; ++o) {
     auto weight = timeWeights[o];
 
     using NumPointsRange = typename NumPoints<Type>::Range;
@@ -377,15 +383,15 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   krnlP.Zplus = impedanceMatrices.impedance;
   krnlP.imposedState = imposedStatePlus;
 
-  alignas(Alignment) real thetaBuffer[tensor::theta<Cfg>::size()] = {};
+  alignas(Alignment) Real<Cfg> thetaBuffer[tensor::theta<Cfg>::size()] = {};
   auto thetaView = init::theta<Cfg>::view::create(thetaBuffer);
   krnlM.theta = thetaBuffer;
   krnlP.theta = thetaBuffer;
 
-  for (unsigned o = 0; o < ConvergenceOrder; ++o) {
+  for (unsigned o = 0; o < Cfg::ConvergenceOrder; ++o) {
     auto weight = timeWeights[o];
     // copy values to yateto dataformat
-    for (unsigned i = 0; i < misc::NumPaddedPoints; ++i) {
+    for (unsigned i = 0; i < misc::NumPaddedPoints<Cfg>; ++i) {
       thetaView(i, 0) = faultStresses.normalStress[o][i];
       thetaView(i, 1) = tractionResults.traction1[o][i];
       thetaView(i, 2) = tractionResults.traction2[o][i];
@@ -412,24 +418,24 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
  * @param[in] dt
  * @param[in] index - device iteration index
  */
-template <RangeType Type = RangeType::CPU>
+template <typename Cfg, RangeType Type = RangeType::CPU>
 // See https://github.com/llvm/llvm-project/issues/60163
 // NOLINTNEXTLINE
 SEISSOL_HOSTDEVICE inline void
-    adjustInitialStress(real initialStressInFaultCS[6][misc::NumPaddedPoints],
-                        const real nucleationStressInFaultCS[6][misc::NumPaddedPoints],
+    adjustInitialStress(Real<Cfg> initialStressInFaultCS[6][misc::NumPaddedPoints<Cfg>],
+                        const Real<Cfg> nucleationStressInFaultCS[6][misc::NumPaddedPoints<Cfg>],
                         // See https://github.com/llvm/llvm-project/issues/60163
                         // NOLINTNEXTLINE
-                        real initialPressure[misc::NumPaddedPoints],
-                        const real nucleationPressure[misc::NumPaddedPoints],
-                        real fullUpdateTime,
-                        real t0,
-                        real s0,
-                        real dt,
+                        Real<Cfg> initialPressure[misc::NumPaddedPoints<Cfg>],
+                        const Real<Cfg> nucleationPressure[misc::NumPaddedPoints<Cfg>],
+                        Real<Cfg> fullUpdateTime,
+                        Real<Cfg> t0,
+                        Real<Cfg> s0,
+                        Real<Cfg> dt,
                         unsigned startIndex = 0) {
   if (fullUpdateTime <= t0 + s0 && fullUpdateTime >= s0) {
-    const real gNuc =
-        gaussianNucleationFunction::smoothStepIncrement<real>(fullUpdateTime - s0, dt, t0);
+    const auto gNuc =
+        gaussianNucleationFunction::smoothStepIncrement<Real<Cfg>>(fullUpdateTime - s0, dt, t0);
 
     using Range = typename NumPoints<Type>::Range;
 
@@ -455,16 +461,16 @@ SEISSOL_HOSTDEVICE inline void
  * param[in] slipRateMagnitude
  * param[in] fullUpdateTime
  */
-template <RangeType Type = RangeType::CPU>
+template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
     // See https://github.com/llvm/llvm-project/issues/60163
     // NOLINTNEXTLINE
-    saveRuptureFrontOutput(bool ruptureTimePending[misc::NumPaddedPoints],
+    saveRuptureFrontOutput(bool ruptureTimePending[misc::NumPaddedPoints<Cfg>],
                            // See https://github.com/llvm/llvm-project/issues/60163
                            // NOLINTNEXTLINE
-                           real ruptureTime[misc::NumPaddedPoints],
-                           const real slipRateMagnitude[misc::NumPaddedPoints],
-                           real fullUpdateTime,
+                           Real<Cfg> ruptureTime[misc::NumPaddedPoints<Cfg>],
+                           const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
+                           Real<Cfg> fullUpdateTime,
                            unsigned startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
@@ -474,7 +480,7 @@ SEISSOL_HOSTDEVICE inline void
 #endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto pointIndex{startIndex + index};
-    constexpr real RuptureFrontThreshold = 0.001;
+    constexpr Real<Cfg> RuptureFrontThreshold = 0.001;
     if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > RuptureFrontThreshold) {
       ruptureTime[pointIndex] = fullUpdateTime;
       ruptureTimePending[pointIndex] = false;
@@ -488,12 +494,12 @@ SEISSOL_HOSTDEVICE inline void
  * param[in] slipRateMagnitude
  * param[in, out] peakSlipRate
  */
-template <RangeType Type = RangeType::CPU>
+template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
-    savePeakSlipRateOutput(const real slipRateMagnitude[misc::NumPaddedPoints],
+    savePeakSlipRateOutput(const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
                            // See https://github.com/llvm/llvm-project/issues/60163
                            // NOLINTNEXTLINE
-                           real peakSlipRate[misc::NumPaddedPoints],
+                           Real<Cfg> peakSlipRate[misc::NumPaddedPoints<Cfg>],
                            unsigned startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
@@ -514,15 +520,15 @@ SEISSOL_HOSTDEVICE inline void
  * param[in, out] timeSinceSlipRateBelowThreshold
  * param[in] sumDt
  */
-template <RangeType Type = RangeType::CPU>
+template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
-    updateTimeSinceSlipRateBelowThreshold(const real slipRateMagnitude[misc::NumPaddedPoints],
-                                          const bool ruptureTimePending[misc::NumPaddedPoints],
+    updateTimeSinceSlipRateBelowThreshold(const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
+                                          const bool ruptureTimePending[misc::NumPaddedPoints<Cfg>],
                                           // See https://github.com/llvm/llvm-project/issues/60163
                                           // NOLINTNEXTLINE
-                                          DREnergyOutput& energyData,
-                                          const real sumDt,
-                                          const real slipRateThreshold,
+                                          DREnergyOutput<Cfg>& energyData,
+                                          const Real<Cfg> sumDt,
+                                          const Real<Cfg> slipRateThreshold,
                                           unsigned startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
@@ -540,29 +546,29 @@ SEISSOL_HOSTDEVICE inline void
         timeSinceSlipRateBelowThreshold[pointIndex] = 0;
       }
     } else {
-      timeSinceSlipRateBelowThreshold[pointIndex] = std::numeric_limits<real>::max();
+      timeSinceSlipRateBelowThreshold[pointIndex] = std::numeric_limits<Real<Cfg>>::max();
     }
   }
 }
-template <RangeType Type = RangeType::CPU>
+template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
-    DREnergyOutput& energyData,
-    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
-    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
-    const ImpedancesAndEta& impAndEta,
-    const double timeWeights[ConvergenceOrder],
-    const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],
-    const DRGodunovData& godunovData,
-    const real slipRateMagnitude[misc::NumPaddedPoints],
+    DREnergyOutput<Cfg>& energyData,
+    const Real<Cfg> qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
+    const Real<Cfg> qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
+    const ImpedancesAndEta<Real<Cfg>>& impAndEta,
+    const double timeWeights[Cfg::ConvergenceOrder],
+    const Real<Cfg> spaceWeights[seissol::kernels::NumSpaceQuadraturePoints<Cfg>],
+    const DRGodunovData<Cfg>& godunovData,
+    const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
     const bool energiesFromAcrossFaultVelocities,
     size_t startIndex = 0) {
 
-  auto* slip = reinterpret_cast<real(*)[misc::NumPaddedPoints]>(energyData.slip);
+  auto* slip = reinterpret_cast<Real<Cfg>(*)[misc::NumPaddedPoints<Cfg>]>(energyData.slip);
   auto* accumulatedSlip = energyData.accumulatedSlip;
   auto* frictionalEnergy = energyData.frictionalEnergy;
   const double doubledSurfaceArea = godunovData.doubledSurfaceArea;
 
-  using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+  using QInterpolatedShapeT = const Real<Cfg>(*)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
   const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
@@ -572,7 +578,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   using Range = typename NumPoints<Type>::Range;
 
   using namespace dr::misc::quantity_indices;
-  for (size_t o = 0; o < ConvergenceOrder; ++o) {
+  for (size_t o = 0; o < Cfg::ConvergenceOrder; ++o) {
     const auto timeWeight = timeWeights[o];
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -581,12 +587,12 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
 
       const size_t i{startIndex + index}; // startIndex is always 0 for CPU
 
-      const real interpolatedSlipRate1 = qIMinus[o][U][i] - qIPlus[o][U][i];
-      const real interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];
-      const real interpolatedSlipRate3 = qIMinus[o][W][i] - qIPlus[o][W][i];
+      const auto interpolatedSlipRate1 = qIMinus[o][U][i] - qIPlus[o][U][i];
+      const auto interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];
+      const auto interpolatedSlipRate3 = qIMinus[o][W][i] - qIPlus[o][W][i];
 
       if (energiesFromAcrossFaultVelocities) {
-        const real interpolatedSlipRateMagnitude =
+        const auto interpolatedSlipRateMagnitude =
             misc::magnitude(interpolatedSlipRate1, interpolatedSlipRate2, interpolatedSlipRate3);
 
         accumulatedSlip[i] += timeWeight * interpolatedSlipRateMagnitude;
@@ -604,8 +610,8 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
       slip[1][i] += timeWeight * interpolatedSlipRate2;
       slip[2][i] += timeWeight * interpolatedSlipRate3;
 
-      const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
-      const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
+      const auto interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
+      const auto interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
 
       const auto spaceWeight = spaceWeights[i / multisim::NumSimulations];
 

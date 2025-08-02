@@ -55,7 +55,7 @@ class BaseDRInitializer {
       xz.resize(size);
       p.resize(size);
     }
-    using VectorOfArraysT = std::vector<std::array<real, misc::NumPaddedPoints>>;
+    using VectorOfArraysT = std::vector<std::array<real, misc::NumPaddedPoints<Cfg>>>;
     VectorOfArraysT xx;
     VectorOfArraysT yy;
     VectorOfArraysT zz;
@@ -152,12 +152,12 @@ class BaseDRInitializer {
   /**
    * Rotates the stress tensor to a fault aligned coordinate system and stores it in stressInFaultCS
    * @param layer reference to an Storage layer
-   * @param stressInFaultCS pointer to array of size [numCells][6][numPaddedPoints], stores rotated
+   * @param stressInFaultCS pointer to array of size [numCells][6][NumPaddedPoints<Cfg>], stores rotated
    * stress
    * @param stress reference to a StressTensor, stores the stress in cartesian coordinates
    */
   void rotateStressToFaultCS(DynamicRupture::Layer& layer,
-                             real (*stressInFaultCS)[6][misc::NumPaddedPoints],
+                             real (*stressInFaultCS)[6][misc::NumPaddedPoints<Cfg>],
                              std::size_t index,
                              std::size_t count,
                              const StressTensor& stress);

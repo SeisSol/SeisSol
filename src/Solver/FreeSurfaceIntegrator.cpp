@@ -208,7 +208,7 @@ void FreeSurfaceIntegrator::computeSubTriangleAverages(
     const std::array<std::array<double, 3>, NumQuadraturePoints>& bfPoints,
     const double* weights) const {
   unsigned nbf = 0;
-  for (unsigned d = 0; d < ConvergenceOrder; ++d) {
+  for (unsigned d = 0; d < Cfg::ConvergenceOrder; ++d) {
     for (unsigned k = 0; k <= d; ++k) {
       for (unsigned j = 0; j <= d - k; ++j) {
         const unsigned i = d - k - j;
@@ -236,7 +236,7 @@ void FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces(
     const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
     const double* weights) const {
   unsigned nbf = 0;
-  for (unsigned d = 0; d < ConvergenceOrder; ++d) {
+  for (unsigned d = 0; d < Cfg::ConvergenceOrder; ++d) {
     for (unsigned j = 0; j <= d; ++j) {
       // Compute subtriangle average via quadrature
       double average = 0.0;

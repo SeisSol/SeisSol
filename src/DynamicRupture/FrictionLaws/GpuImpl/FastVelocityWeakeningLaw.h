@@ -28,7 +28,7 @@ class FastVelocityWeakeningLaw
         seissol::initializer::AllocationPlace::Device);
   }
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& ctx, double timeIncrement) {
     const double muW{ctx.data->drParameters.muW};
 
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
@@ -63,29 +63,29 @@ class FastVelocityWeakeningLaw
     double ac{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& ctx, double localStateVariable) {
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const double c = 0.5 / ctx.data->drParameters.rsSr0 * std::exp(localStateVariable / localA);
     return MuDetails{localA, c, localA * c};
   }
 
   SEISSOL_DEVICE static double
-      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, const MuDetails& details) {
+      updateMu(FrictionLawContext<Cfg>& ctx, double localSlipRateMagnitude, const MuDetails& details) {
     const double x = details.c * localSlipRateMagnitude;
     return details.a * std::asinh(x);
   }
 
-  SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext<Cfg>& ctx,
                                                   double localSlipRateMagnitude,
                                                   const MuDetails& details) {
     const double x = details.c * localSlipRateMagnitude;
     return details.ac / std::sqrt(x * x + 1.0);
   }
 
-  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext<Cfg>& ctx) {
     constexpr auto Dim0 = misc::dimSize<init::resample<Cfg>, 0>();
     constexpr auto Dim1 = misc::dimSize<init::resample<Cfg>, 1>();
-    static_assert(Dim0 == misc::NumPaddedPointsSingleSim);
+    static_assert(Dim0 == misc::NumPaddedPointsSingleSim<Cfg>);
     static_assert(Dim0 >= Dim1);
 
     const auto localStateVariable = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];

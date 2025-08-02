@@ -96,14 +96,6 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   const std::vector<Vertex>& vertices = meshReader->getVertices();
   const std::vector<Element>& elements = meshReader->getElements();
 
-  constexpr auto NumQuantities =
-      tensor::Q<Cfg>::Shape[sizeof(tensor::Q<Cfg>::Shape) / sizeof(tensor::Q<Cfg>::Shape[0]) - 1];
-
-  // Initialize quadrature nodes and weights.
-  // TODO(Lukas) Increase quadrature order later.
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
-  constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
-
   std::vector<double> data;
 
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
@@ -114,9 +106,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         seissolInstance.getSeisSolParameters().initialization.hasTime);
   }
 
-  double quadraturePoints[NumQuadPoints][3];
-  double quadratureWeights[NumQuadPoints];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
+  const auto NumQuantities = 13;
 
   for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
     logInfo() << "Analysis for simulation" << sim << ": absolute, relative";
@@ -145,13 +135,30 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     auto analyticalsL2Local = std::vector<ErrorArrayT>(numThreads);
     auto analyticalsLInfLocal = std::vector<ErrorArrayT>(numThreads, {-1});
 
+    for (const auto& layer : ltsStorage.leaves(Ghost)) {
+      layer.wrap([&](auto cfg) {
+        using Cfg = decltype(cfg);
+        using real = Real<Cfg>;
+
+      constexpr auto NumQuantities =
+          tensor::Q<Cfg>::Shape[sizeof(tensor::Q<Cfg>::Shape) / sizeof(tensor::Q<Cfg>::Shape[0]) - 1];
+
+      // Initialize quadrature nodes and weights.
+      // TODO(Lukas) Increase quadrature order later.
+      constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
+      constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
+
+      double quadraturePoints[NumQuadPoints][3];
+      double quadratureWeights[NumQuadPoints];
+      seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
+
     // Note: We iterate over mesh cells by id to avoid
     // cells that are duplicates.
     std::vector<std::array<double, 3>> quadraturePointsXyz(NumQuadPoints);
 
     alignas(Alignment) real numericalSolutionData[tensor::dofsQP<Cfg>::size()];
     alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities];
-    for (const auto& layer : ltsStorage.leaves(Ghost)) {
+
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* materialData = layer.var<LTS::Material>();
       const auto* dofsData = layer.var<LTS::Dofs>();
@@ -250,6 +257,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
           }
         }
       }
+    });
     }
 
     for (int i = 0; i < numThreads; ++i) {

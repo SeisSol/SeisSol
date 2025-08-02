@@ -49,12 +49,12 @@ void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
 void DynamicRupture::spaceTimeInterpolation(
     const DRFaceInformation& faceInfo,
     const GlobalData* global,
-    const DRGodunovData* godunovData,
-    DREnergyOutput* drEnergyOutput,
+    const DRGodunovData<Cfg>* godunovData,
+    DREnergyOutput<Cfg>* drEnergyOutput,
     const real* timeDerivativePlus,
     const real* timeDerivativeMinus,
-    real qInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated<Cfg>::size()],
-    real qInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated<Cfg>::size()],
+    real qInterpolatedPlus[Cfg::ConvergenceOrder][seissol::tensor::QInterpolated<Cfg>::size()],
+    real qInterpolatedMinus[Cfg::ConvergenceOrder][seissol::tensor::QInterpolated<Cfg>::size()],
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch,
     const real* coeffs) {
@@ -74,16 +74,16 @@ void DynamicRupture::spaceTimeInterpolation(
   alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q<Cfg>::size()];
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg> krnl = m_krnlPrototype;
-  for (std::size_t timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
+  for (std::size_t timeInterval = 0; timeInterval < Cfg::ConvergenceOrder; ++timeInterval) {
     m_timeKernel.evaluate(
-        &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
+        &coeffs[timeInterval * Cfg::ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
     m_timeKernel.evaluate(
-        &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
+        &coeffs[timeInterval * Cfg::ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
 
-    const real* plusPrefetch = (timeInterval < ConvergenceOrder - 1)
+    const real* plusPrefetch = (timeInterval < Cfg::ConvergenceOrder - 1)
                                    ? &qInterpolatedPlus[timeInterval + 1][0]
                                    : timeDerivativePlusPrefetch;
-    const real* minusPrefetch = (timeInterval < ConvergenceOrder - 1)
+    const real* minusPrefetch = (timeInterval < Cfg::ConvergenceOrder - 1)
                                     ? &qInterpolatedMinus[timeInterval + 1][0]
                                     : timeDerivativeMinusPrefetch;
 
@@ -110,7 +110,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
   real** degreesOfFreedomPlus{nullptr};
   real** degreesOfFreedomMinus{nullptr};
 
-  for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
+  for (unsigned timeInterval = 0; timeInterval < Cfg::ConvergenceOrder; ++timeInterval) {
     ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
     if (table.find(timeIntegrationKey) != table.end()) {
       auto& entry = table[timeIntegrationKey];
@@ -120,7 +120,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
       degreesOfFreedomPlus = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr();
 
-      m_timeKernel.evaluateBatched(&coeffs[timeInterval * ConvergenceOrder],
+      m_timeKernel.evaluateBatched(&coeffs[timeInterval * Cfg::ConvergenceOrder],
                                    const_cast<const real**>(timeDerivativePlus),
                                    degreesOfFreedomPlus,
                                    maxNumElements,
@@ -129,7 +129,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
       real** timeDerivativeMinus =
           (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
       degreesOfFreedomMinus = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr();
-      m_timeKernel.evaluateBatched(&coeffs[timeInterval * ConvergenceOrder],
+      m_timeKernel.evaluateBatched(&coeffs[timeInterval * Cfg::ConvergenceOrder],
                                    const_cast<const real**>(timeDerivativeMinus),
                                    degreesOfFreedomMinus,
                                    maxNumElements,
@@ -218,8 +218,8 @@ void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
   hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::hardwareFlops(
       faceInfo.minusSide, faceInfo.faceRelation);
 
-  nonZeroFlops *= ConvergenceOrder;
-  hardwareFlops *= ConvergenceOrder;
+  nonZeroFlops *= Cfg::ConvergenceOrder;
+  hardwareFlops *= Cfg::ConvergenceOrder;
 }
 
 } // namespace seissol::kernels

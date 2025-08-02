@@ -65,7 +65,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 void Spacetime::computeAder(const real* coeffs,
                             double timeStepWidth,
                             LTS::Ref& data,
-                            LocalTmp& tmp,
+                            LocalTmp<Cfg>& tmp,
                             real timeIntegrated[tensor::I<Cfg>::size()],
                             real* timeDerivatives,
                             bool updateDisplacement) {
@@ -99,7 +99,7 @@ void Spacetime::computeAder(const real* coeffs,
 
   krnl.I = timeIntegrated;
   // powers in the taylor-series expansion
-  for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
+  for (std::size_t der = 0; der < Cfg::ConvergenceOrder; ++der) {
     krnl.power(der) = coeffs[der];
   }
 
@@ -138,7 +138,7 @@ void Spacetime::computeAder(const real* coeffs,
 
 void Spacetime::computeBatchedAder(const real* coeffs,
                                    double timeStepWidth,
-                                   LocalTmp& tmp,
+                                   LocalTmp<Cfg>& tmp,
                                    ConditionalPointersToRealsTable& dataTable,
                                    ConditionalMaterialTable& materialTable,
                                    bool updateDisplacement,
@@ -177,7 +177,7 @@ void Spacetime::computeBatchedAder(const real* coeffs,
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
     auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
 
-    for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
+    for (std::size_t der = 0; der < Cfg::ConvergenceOrder; ++der) {
       derivativesKrnl.power(der) = coeffs[der];
     }
     derivativesKrnl.linearAllocator.initialize(tmpMem.get());

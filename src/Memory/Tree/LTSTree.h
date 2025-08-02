@@ -258,6 +258,41 @@ class Storage {
     return layer(position.color).template var<StorageT>()[position.cell];
   }
 
+  template <typename StorageT, typename Config>
+  const auto& lookup(const Config& config,
+                     const StoragePosition& position,
+                     AllocationPlace place = AllocationPlace::Host) {
+    assert(position != StoragePosition::NullPosition);
+    return layer(position.color).template var<StorageT>(config)[position.cell];
+  }
+
+  template <typename StorageT, typename Config>
+  const auto& lookup(const Config& config,
+                     const StoragePosition& position,
+                     AllocationPlace place = AllocationPlace::Host) const {
+    assert(position != StoragePosition::NullPosition);
+    return layer(position.color).template var<StorageT>(config)[position.cell];
+  }
+
+  template <typename StorageT, typename F>
+  void lookupWrap(const StoragePosition& position, F&& handler, AllocationPlace place = AllocationPlace::Host) {
+    assert(position != StoragePosition::NullPosition);
+    auto& llayer = layer(position.color);
+    llayer.wrap([&, handler = std::forward<F>(handler)](auto cfg) {
+      handler(llayer.template var<StorageT>(cfg)[position.cell]);
+    });
+  }
+
+  template <typename StorageT, typename F>
+  void lookupWrap(const StoragePosition& position, F&& handler,
+                     AllocationPlace place = AllocationPlace::Host) const {
+    assert(position != StoragePosition::NullPosition);
+    auto& llayer = layer(position.color);
+    llayer.wrap([&, handler = std::forward<F>(handler)](auto cfg) {
+      handler(llayer.template var<StorageT>(cfg)[position.cell]);
+    });
+  }
+
   [[nodiscard]] std::size_t getNumberOfVariables() const { return memoryInfo.size(); }
 
   template <typename StorageT>

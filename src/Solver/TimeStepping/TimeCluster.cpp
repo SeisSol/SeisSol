@@ -189,16 +189,16 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
 
   loopStatistics->begin(regionComputeDynamicRupture);
 
-  DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
-  DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
-  DREnergyOutput* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
-  real** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
-  real** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
+  auto* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
+  auto* godunovData = layerData.var<DynamicRupture::GodunovData>();
+  auto* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
+  auto** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
+  auto** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
   auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>();
   auto* qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>();
 
   const auto [timePoints, timeWeights] =
-      seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timeStepSize());
+      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timeStepSize());
   const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timeStepSize());
   const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
@@ -259,7 +259,7 @@ void TimeCluster::computeDynamicRuptureDevice(DynamicRupture::Layer& layerData) 
     auto& table = layerData.getConditionalTable<inner_keys::Dr>();
 
     const auto [timePoints, timeWeights] =
-        seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timeStepSize());
+        seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timeStepSize());
     const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, stepSizeWidth);
     const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
@@ -332,7 +332,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   real** derivatives = clusterData->var<LTS::Derivatives>();
   CellMaterialData* materialData = clusterData->var<LTS::Material>();
 
-  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
+  kernels::LocalTmp<Cfg> tmp(seissolInstance.getGravitationSetup().acceleration);
 
   const auto timeStepWidth = timeStepSize();
   const auto timeBasis = seissol::kernels::timeBasis();
@@ -419,7 +419,7 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
   auto& materialTable = clusterData->getConditionalTable<inner_keys::Material>();
   auto& indicesTable = clusterData->getConditionalTable<inner_keys::Indices>();
 
-  kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
+  kernels::LocalTmp<Cfg> tmp(seissolInstance.getGravitationSetup().acceleration);
 
   const double timeStepWidth = timeStepSize();
   const auto timeBasis = seissol::kernels::timeBasis();
@@ -578,7 +578,7 @@ void TimeCluster::computeLocalIntegrationFlops() {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       if (cellInformation->faceTypes[face] == FaceType::FreeSurfaceGravity) {
         const auto [nonZeroFlopsDisplacement, hardwareFlopsDisplacement] =
-            GravitationalFreeSurfaceBc::getFlopsDisplacementFace(
+            GravitationalFreeSurfaceBc<Cfg>::getFlopsDisplacementFace(
                 face, cellInformation[cell].faceTypes[face]);
         flopsNonZero += nonZeroFlopsDisplacement;
         flopsHardware += hardwareFlopsDisplacement;

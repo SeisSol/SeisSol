@@ -37,7 +37,7 @@
 
 namespace seissol::dr::initializer {
 void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
-  logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
+  logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints<Cfg>
             << " points.";
   for (auto& layer : drStorage.leaves(Ghost)) {
     // parameters to be read from fault parameters yaml file
@@ -61,7 +61,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
             parameterToStorageMap.insert({identifiers[2], getRawData(initialStress.xz)});
             // set the rest to zero
             for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-              for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+              for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
                 initialStress.yy[ltsFace][pointIndex] = 0.0;
                 initialStress.zz[ltsFace][pointIndex] = 0.0;
                 initialStress.yz[ltsFace][pointIndex] = 0.0;
@@ -83,7 +83,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
             }
           } else {
             for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-              for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+              for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
                 initialStress.p[ltsFace][pointIndex] = 0.0;
               }
             }
@@ -139,7 +139,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
 
     auto* initialPressure = layer.var<DynamicRupture::InitialPressure>();
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
         initialPressure[ltsFace][pointIndex] = initialStress.p[ltsFace][pointIndex];
         for (unsigned i = 0; i < drParameters->nucleationCount; ++i) {
           auto* nucleationPressure = layer.var<DynamicRupture::NucleationPressure>();
@@ -201,7 +201,7 @@ void BaseDRInitializer::rotateTractionToCartesianStress(DynamicRupture::Layer& l
         fault.normal, strike, dip, faultTractionToCartesianMatrixView, 0, 0);
 
     using namespace dr::misc::quantity_indices;
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       const real initialTraction[init::initialStress<Cfg>::size()] = {stress.xx[ltsFace][pointIndex],
                                                                  stress.yy[ltsFace][pointIndex],
                                                                  stress.zz[ltsFace][pointIndex],
@@ -227,7 +227,7 @@ void BaseDRInitializer::rotateTractionToCartesianStress(DynamicRupture::Layer& l
 }
 
 void BaseDRInitializer::rotateStressToFaultCS(DynamicRupture::Layer& layer,
-                                              real (*stressInFaultCS)[6][misc::NumPaddedPoints],
+                                              real (*stressInFaultCS)[6][misc::NumPaddedPoints<Cfg>],
                                               std::size_t index,
                                               std::size_t count,
                                               const StressTensor& stress) {
@@ -248,7 +248,7 @@ void BaseDRInitializer::rotateStressToFaultCS(DynamicRupture::Layer& layer,
     seissol::transformations::inverseSymmetricTensor2RotationMatrix(
         fault.normal, fault.tangent1, fault.tangent2, cartesianToFaultCSMatrixView, 0, 0);
 
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       const real initialStress[init::initialStress<Cfg>::size()] = {stress.xx[ltsFace][pointIndex],
                                                                stress.yy[ltsFace][pointIndex],
                                                                stress.zz[ltsFace][pointIndex],
@@ -274,28 +274,28 @@ void BaseDRInitializer::addAdditionalParameters(
 
 void BaseDRInitializer::initializeOtherVariables(DynamicRupture::Layer& layer) {
   // initialize rupture front flag
-  bool (*ruptureTimePending)[misc::NumPaddedPoints] =
+  bool (*ruptureTimePending)[misc::NumPaddedPoints<Cfg>] =
       layer.var<DynamicRupture::RuptureTimePending>();
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       ruptureTimePending[ltsFace][pointIndex] = true;
     }
   }
 
   // initialize all other variables to zero
-  real(*peakSlipRate)[misc::NumPaddedPoints] = layer.var<DynamicRupture::PeakSlipRate>();
-  real(*ruptureTime)[misc::NumPaddedPoints] = layer.var<DynamicRupture::RuptureTime>();
-  real(*dynStressTime)[misc::NumPaddedPoints] = layer.var<DynamicRupture::DynStressTime>();
-  real(*accumulatedSlipMagnitude)[misc::NumPaddedPoints] =
+  real(*peakSlipRate)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::PeakSlipRate>();
+  real(*ruptureTime)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::RuptureTime>();
+  real(*dynStressTime)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::DynStressTime>();
+  real(*accumulatedSlipMagnitude)[misc::NumPaddedPoints<Cfg>] =
       layer.var<DynamicRupture::AccumulatedSlipMagnitude>();
-  real(*slip1)[misc::NumPaddedPoints] = layer.var<DynamicRupture::Slip1>();
-  real(*slip2)[misc::NumPaddedPoints] = layer.var<DynamicRupture::Slip2>();
-  real(*slipRateMagnitude)[misc::NumPaddedPoints] = layer.var<DynamicRupture::SlipRateMagnitude>();
-  real(*traction1)[misc::NumPaddedPoints] = layer.var<DynamicRupture::Traction1>();
-  real(*traction2)[misc::NumPaddedPoints] = layer.var<DynamicRupture::Traction2>();
+  real(*slip1)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::Slip1>();
+  real(*slip2)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::Slip2>();
+  real(*slipRateMagnitude)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::SlipRateMagnitude>();
+  real(*traction1)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::Traction1>();
+  real(*traction2)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::Traction2>();
 
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       peakSlipRate[ltsFace][pointIndex] = 0;
       ruptureTime[ltsFace][pointIndex] = 0;
       dynStressTime[ltsFace][pointIndex] = 0;

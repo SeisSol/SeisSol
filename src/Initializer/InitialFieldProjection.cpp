@@ -117,18 +117,20 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
-  constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
-
-  double quadraturePoints[NumQuadPoints][Cell::Dim];
-  double quadratureWeights[NumQuadPoints];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
-
   for (auto& layer : storage.leaves(Ghost)) {
+    layer.wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+
+      constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
+      constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
+
+      double quadraturePoints[NumQuadPoints][Cell::Dim];
+      double quadratureWeights[NumQuadPoints];
+      seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel
-    {
 #endif
+    {
       alignas(Alignment) real iniCondData[tensor::iniCond<Cfg>::size()] = {};
       auto iniCond = init::iniCond<Cfg>::view::create(iniCondData);
 
@@ -177,9 +179,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
         }
         krnl.execute();
       }
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
     }
-#endif
+  });
   }
 }
 
@@ -190,7 +191,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
+  constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
   const int dimensions = needsTime ? (Cell::Dim + 1) : Cell::Dim;
@@ -253,7 +254,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              seissol::initializer::MemoryManager& memoryManager,
                              LTS::Storage& storage,
                              bool needsTime) {
-  constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
+  constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
   const auto data = projectEasiFields(iniFields, 0, meshReader, needsTime);

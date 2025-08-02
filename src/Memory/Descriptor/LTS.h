@@ -89,30 +89,62 @@ struct LTS {
       }
     }
   }
-  struct Dofs : public initializer::Variable<real[tensor::Q<Cfg>::size()]> {};
+  struct Dofs : public initializer::Variable<real[tensor::Q<Cfg>::size()]> {
+    template<typename Cfg>
+    using VariantType = Real<Cfg>[tensor::Q<Cfg>::size()];
+  };
   // size is zero if Qane is not defined
   struct DofsAne
       : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane<Cfg>>())]> {
+    template<typename Cfg>
+    using VariantType = Real<Cfg>[zeroLengthArrayHandler(kernels::size<tensor::Qane<Cfg>>())];
   };
-  struct Buffers : public initializer::Variable<real*> {};
-  struct Derivatives : public initializer::Variable<real*> {};
+  struct Buffers : public initializer::Variable<real*> {
+    template<typename Cfg>
+    using VariantType = Real<Cfg>*;
+  };
+  struct Derivatives : public initializer::Variable<real*> {
+    template<typename Cfg>
+    using VariantType = Real<Cfg>*;
+  };
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
   struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
   struct FaceNeighbors : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
-  struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
-  struct MaterialData : public initializer::Variable<model::MaterialT> {};
+  struct LocalIntegration : public initializer::Variable<LocalIntegrationData<Cfg>> {
+    template<typename Cfg>
+    using VariantType = LocalIntegrationData<Cfg>;
+  };
+  struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData<Cfg>> {
+    template<typename Cfg>
+    using VariantType = NeighboringIntegrationData<Cfg>;
+  };
+  struct MaterialData : public initializer::Variable<void> {
+    template<typename Cfg>
+    using VariantType = model::MaterialTT<Cfg>;
+  };
   struct Material : public initializer::Variable<CellMaterialData> {};
   struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
   struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
   struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
   struct PStrain
-      : public initializer::Variable<real[tensor::QStress<Cfg>::size() + tensor::QEtaModal<Cfg>::size()]> {};
+      : public initializer::Variable<real[tensor::QStress<Cfg>::size() + tensor::QEtaModal<Cfg>::size()]> {
+    template<typename Cfg>
+    using VariantType = Real<Cfg>[tensor::QStress<Cfg>::size() + tensor::QEtaModal<Cfg>::size()];
+  };
   struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct BuffersDerivatives : public initializer::Bucket<real> {};
+  struct BuffersDerivatives : public initializer::Bucket<void> {
+    template<typename Cfg>
+    using VariantType = Real<Cfg>;
+  };
 
-  struct BuffersDevice : public initializer::Variable<real*> {};
-  struct DerivativesDevice : public initializer::Variable<real*> {};
+  struct BuffersDevice : public initializer::Variable<real*> {
+    template<typename Cfg>
+    using VariantType = Real<Cfg>*;
+  };
+  struct DerivativesDevice : public initializer::Variable<real*> {
+    template<typename Cfg>
+    using VariantType = Real<Cfg>*;
+  };
   struct FaceNeighborsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
   struct FaceDisplacementsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
   struct DRMappingDevice : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};

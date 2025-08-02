@@ -435,14 +435,14 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
   real ruptureVelocity = 0.0;
 
   bool needsUpdate{true};
-  for (size_t point = 0; point < misc::NumBoundaryGaussPoints; ++point) {
+  for (size_t point = 0; point < misc::NumBoundaryGaussPoints<Cfg>; ++point) {
     if (ruptureTime[point] == 0.0) {
       needsUpdate = false;
     }
   }
 
   if (needsUpdate) {
-    constexpr int NumPoly = ConvergenceOrder - 1;
+    constexpr int NumPoly = Cfg::ConvergenceOrder - 1;
     constexpr int NumDegFr2d = (NumPoly + 1) * (NumPoly + 2) / 2;
     std::array<double, NumDegFr2d> projectedRT{};
     projectedRT.fill(0.0);
@@ -455,7 +455,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     auto weights = init::quadweights<Cfg>::view::create(const_cast<real*>(init::quadweights<Cfg>::Values));
 
     auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
-    for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
+    for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints<Cfg>; ++jBndGP) {
       const real chi = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 0);
       const real tau = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 1);
 

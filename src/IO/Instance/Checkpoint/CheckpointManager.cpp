@@ -88,7 +88,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
         writer::instructions::Hdf5Location(filename, {"checkpoint"}),
         "__order",
-        writer::WriteInline::create(ConvergenceOrder)));
+        writer::WriteInline::create(Cfg::ConvergenceOrder)));
     return writer;
   };
 }
@@ -104,7 +104,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   reader.openFile(file);
   reader.openGroup("checkpoint");
   const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
-  if (convergenceOrderRead != ConvergenceOrder) {
+  if (convergenceOrderRead != Cfg::ConvergenceOrder) {
     logError() << "Convergence order does not match. Read:" << convergenceOrderRead;
   }
   for (auto& [_, ckpTree] : dataRegistry) {

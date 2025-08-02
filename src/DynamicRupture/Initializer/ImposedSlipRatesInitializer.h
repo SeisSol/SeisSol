@@ -51,10 +51,10 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
    * @param imposedSlipDirection2: Slip in fault aligned direction 2
    */
   void rotateSlipToFaultCS(DynamicRupture::Layer& layer,
-                           const std::vector<std::array<real, misc::NumPaddedPoints>>& strikeSlip,
-                           const std::vector<std::array<real, misc::NumPaddedPoints>>& dipSlip,
-                           real (*imposedSlipDirection1)[misc::NumPaddedPoints],
-                           real (*imposedSlipDirection2)[misc::NumPaddedPoints]);
+                           const std::vector<std::array<real, misc::NumPaddedPoints<Cfg>>>& strikeSlip,
+                           const std::vector<std::array<real, misc::NumPaddedPoints<Cfg>>>& dipSlip,
+                           real (*imposedSlipDirection1)[misc::NumPaddedPoints<Cfg>],
+                           real (*imposedSlipDirection2)[misc::NumPaddedPoints<Cfg>]);
 };
 
 class ImposedSlipRatesYoffeInitializer : public ImposedSlipRatesInitializer {

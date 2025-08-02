@@ -28,14 +28,14 @@ namespace seissol::unit_test {
 class SpaceTimePredictorTestFixture {
   protected:
   constexpr static auto N =
-      seissol::model::MaterialT::NumQuantities * NumBasisFunctions * ConvergenceOrder;
+      seissol::model::MaterialTT<Cfg>::NumQuantities * NumBasisFunctions<Cfg> * Cfg::ConvergenceOrder;
   constexpr static const double Epsilon = std::numeric_limits<real>::epsilon();
   constexpr static const double Dt = 1.05109e-06;
   real starMatrices0[tensor::star<Cfg>::size(0)];
   real starMatrices1[tensor::star<Cfg>::size(1)];
   real starMatrices2[tensor::star<Cfg>::size(2)];
   real sourceMatrix[tensor::ET<Cfg>::size()];
-  real zMatrix[seissol::model::MaterialT::NumQuantities][tensor::Zinv<Cfg>::size(0)];
+  real zMatrix[seissol::model::MaterialTT<Cfg>::NumQuantities][tensor::Zinv<Cfg>::size(0)];
 
   void setStarMatrix(
       const real* at, const real* bt, const real* ct, const double grad[3], real* starMatrix) {
@@ -128,7 +128,7 @@ class SpaceTimePredictorTestFixture {
   }
 
   void prepareKernel(seissol::kernel::spaceTimePredictor<Cfg>& krnlPrototype) {
-    for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
+    for (std::size_t n = 0; n < Cfg::ConvergenceOrder; ++n) {
       if (n > 0) {
         for (int d = 0; d < 3; ++d) {
           krnlPrototype.kDivMTSub(d, n) =

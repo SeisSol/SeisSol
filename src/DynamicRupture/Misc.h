@@ -37,12 +37,17 @@ constexpr size_t leadDim() noexcept {
 /**
  * Number of gauss points padded to match the vector register length.
  */
+template<typename Cfg>
 static constexpr inline size_t NumPaddedPoints =
     multisim::MultisimEnabled
         ? dimSize<init::QInterpolated<Cfg>, 0>() * dimSize<init::QInterpolated<Cfg>, 1>()
         : leadDim<init::QInterpolated<Cfg>>();
+
+template<typename Cfg>
 static constexpr inline size_t NumPaddedPointsSingleSim =
     dimSize<init::QInterpolated<Cfg>, multisim::BasisFunctionDimension>();
+  
+template<typename Cfg>
 static constexpr inline size_t NumQuantities =
     misc::dimSize<init::QInterpolated<Cfg>, multisim::BasisFunctionDimension + 1>();
 
@@ -56,6 +61,7 @@ static constexpr double TpMaxWaveNumber = 10.0;
 /**
  * Number of gauss points on an element surface.
  */
+template<typename Cfg>
 static constexpr unsigned int NumBoundaryGaussPoints =
     init::QInterpolated<Cfg>::Shape[multisim::BasisFunctionDimension];
 

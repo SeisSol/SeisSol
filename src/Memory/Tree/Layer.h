@@ -617,7 +617,7 @@ private:
   }
 
   template <typename F>
-  void wrap(F&& function) {
+  void wrap(F&& function) const {
     std::visit(std::forward<F>(function), identifier.config);
   }
 

@@ -31,15 +31,15 @@ void ThermalPressurization::copyStorageToLocal(DynamicRupture::Layer& layerData)
 }
 
 void ThermalPressurization::calcFluidPressure(
-    const std::array<real, misc::NumPaddedPoints>& normalStress,
-    const real (*mu)[misc::NumPaddedPoints],
-    const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+    const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+    const real (*mu)[misc::NumPaddedPoints<Cfg>],
+    const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
     real deltaT,
     bool saveTPinLTS,
     uint32_t timeIndex,
     std::size_t ltsFace) {
 #pragma omp simd
-  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
     real temperatureUpdate = 0.0;
     real pressureUpdate = 0.0;
 

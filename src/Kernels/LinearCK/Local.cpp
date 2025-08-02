@@ -109,7 +109,7 @@ struct ApplyAnalyticalSolution {
 
 void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
                             LTS::Ref& data,
-                            LocalTmp& tmp,
+                            LocalTmp<Cfg>& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                             const CellMaterialData* materialData,
                             const CellBoundaryMapping (*cellBoundaryMapping)[4],
@@ -440,9 +440,9 @@ void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
       break;
     case FaceType::Analytical:
       nonZeroFlops += seissol::kernel::localFluxNodal<Cfg>::nonZeroFlops(face) +
-                      ConvergenceOrder * seissol::kernel::updateINodal<Cfg>::NonZeroFlops;
+                      Cfg::ConvergenceOrder * seissol::kernel::updateINodal<Cfg>::NonZeroFlops;
       hardwareFlops += seissol::kernel::localFluxNodal<Cfg>::hardwareFlops(face) +
-                       ConvergenceOrder * seissol::kernel::updateINodal<Cfg>::HardwareFlops;
+                       Cfg::ConvergenceOrder * seissol::kernel::updateINodal<Cfg>::HardwareFlops;
       break;
     default:
       break;

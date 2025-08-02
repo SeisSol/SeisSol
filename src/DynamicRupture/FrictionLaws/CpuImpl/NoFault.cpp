@@ -15,13 +15,13 @@
 #include <cstdint>
 
 namespace seissol::dr::friction_law::cpu {
-void NoFault::updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
-                                    TractionResults<Executor::Host>& tractionResults,
-                                    std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                                    std::array<real, misc::NumPaddedPoints>& strengthBuffer,
+void NoFault::updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,
+                                    TractionResults<Cfg, Executor::Host>& tractionResults,
+                                    std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+                                    std::array<real, misc::NumPaddedPoints<Cfg>>& strengthBuffer,
                                     std::size_t ltsFace,
                                     uint32_t timeIndex) {
-  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
     tractionResults.traction1[timeIndex][pointIndex] =
         faultStresses.traction1[timeIndex][pointIndex];
     tractionResults.traction2[timeIndex][pointIndex] =

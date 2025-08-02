@@ -45,7 +45,6 @@ class ReceiverOutput {
   DynamicRupture::Storage* drStorage{nullptr};
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
-  real* deviceCopyMemory{nullptr};
 
   struct LocalInfo {
     DynamicRupture::Layer* layer{};

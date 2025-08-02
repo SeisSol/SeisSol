@@ -18,12 +18,14 @@ template<typename> class Iane;
 } // namespace seissol::tensor
 
 namespace seissol::kernels {
+
+template<typename Cfg>
 struct LocalTmp {
-  alignas(Alignment) real
+  alignas(Alignment) Real<Cfg>
       timeIntegratedAne[zeroLengthArrayHandler(kernels::size<tensor::Iane<Cfg>>())]{};
   alignas(Alignment)
-      std::array<real, tensor::averageNormalDisplacement<Cfg>::size()> nodalAvgDisplacements[4];
-  GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
+      std::array<Real<Cfg>, tensor::averageNormalDisplacement<Cfg>::size()> nodalAvgDisplacements[Cell::NumFaces];
+  GravitationalFreeSurfaceBc<Cfg> gravitationalFreeSurfaceBc;
   LocalTmp(double graviationalAcceleration)
       : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
 };

@@ -32,7 +32,7 @@ inline auto allocationModeDR() {
   }
 }
 
-// NOTE: for the sake of GPU performance, make sure that NumPaddedPoints is always last.
+// NOTE: for the sake of GPU performance, make sure that NumPaddedPoints<Cfg> is always last.
 
 struct DynamicRupture {
   public:
@@ -48,48 +48,48 @@ struct DynamicRupture {
   struct TimeDerivativeMinusDevice : public initializer::Variable<real*> {};
   struct ImposedStatePlus : public initializer::Variable<real[tensor::QInterpolated<Cfg>::size()]> {};
   struct ImposedStateMinus : public initializer::Variable<real[tensor::QInterpolated<Cfg>::size()]> {};
-  struct GodunovData : public initializer::Variable<DRGodunovData> {};
+  struct GodunovData : public initializer::Variable<DRGodunovData<Cfg>> {};
   struct FluxSolverPlus : public initializer::Variable<real[tensor::fluxSolver<Cfg>::size()]> {};
   struct FluxSolverMinus : public initializer::Variable<real[tensor::fluxSolver<Cfg>::size()]> {};
   struct FaceInformation : public initializer::Variable<DRFaceInformation> {};
   struct WaveSpeedsPlus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
   struct WaveSpeedsMinus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
-  struct DREnergyOutputVar : public initializer::Variable<DREnergyOutput> {};
+  struct DREnergyOutputVar : public initializer::Variable<DREnergyOutput<Cfg>> {};
 
-  struct ImpAndEta : public initializer::Variable<seissol::dr::ImpedancesAndEta> {};
-  struct ImpedanceMatrices : public initializer::Variable<seissol::dr::ImpedanceMatrices> {};
+  struct ImpAndEta : public initializer::Variable<seissol::dr::ImpedancesAndEta<Real<Cfg>>> {};
+  struct ImpedanceMatrices : public initializer::Variable<seissol::dr::ImpedanceMatrices<Cfg>> {};
   // size padded for vectorization
   // CS = coordinate system
-  struct InitialStressInFaultCS : public initializer::Variable<real[6][dr::misc::NumPaddedPoints]> {
+  struct InitialStressInFaultCS : public initializer::Variable<real[6][dr::misc::NumPaddedPoints<Cfg>]> {
   };
   struct NucleationStressInFaultCS
-      : public initializer::Variable<real[6][dr::misc::NumPaddedPoints]> {};
+      : public initializer::Variable<real[6][dr::misc::NumPaddedPoints<Cfg>]> {};
   // will be always zero, if not using poroelasticity
-  struct InitialPressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct NucleationPressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct Mu : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct AccumulatedSlipMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
+  struct InitialPressure : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct NucleationPressure : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct Mu : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct AccumulatedSlipMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {
   };
-  struct Slip1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
+  struct Slip1 : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {
   }; // slip at given fault node along local direction 1
-  struct Slip2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
+  struct Slip2 : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {
   }; // slip at given fault node along local direction 2
-  struct SlipRateMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct SlipRate1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
+  struct SlipRateMagnitude : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct SlipRate1 : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {
   }; // slip rate at given fault node along local direction 1
-  struct SlipRate2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {
+  struct SlipRate2 : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {
   }; // slip rate at given fault node along local direction 2
-  struct RuptureTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct DynStressTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct RuptureTimePending : public initializer::Variable<bool[dr::misc::NumPaddedPoints]> {};
-  struct DynStressTimePending : public initializer::Variable<bool[dr::misc::NumPaddedPoints]> {};
-  struct PeakSlipRate : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct Traction1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct Traction2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct RuptureTime : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct DynStressTime : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct RuptureTimePending : public initializer::Variable<bool[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct DynStressTimePending : public initializer::Variable<bool[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct PeakSlipRate : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct Traction1 : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct Traction2 : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
   struct QInterpolatedPlus
-      : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]> {};
+      : public initializer::Variable<real[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]> {};
   struct QInterpolatedMinus
-      : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]> {};
+      : public initializer::Variable<real[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]> {};
 
   struct IdofsPlusOnDevice : public initializer::Scratchpad<real> {};
   struct IdofsMinusOnDevice : public initializer::Scratchpad<real> {};
@@ -169,11 +169,11 @@ struct DynamicRupture {
 };
 
 struct LTSLinearSlipWeakening : public DynamicRupture {
-  struct DC : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct MuS : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct MuD : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct Cohesion : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct ForcedRuptureTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct DC : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct MuS : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct MuD : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct Cohesion : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct ForcedRuptureTime : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
 
   explicit LTSLinearSlipWeakening(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
@@ -190,7 +190,7 @@ struct LTSLinearSlipWeakening : public DynamicRupture {
 };
 
 struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
-  struct RegularizedStrength : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct RegularizedStrength : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
 
   explicit LTSLinearSlipWeakeningBimaterial(const initializer::parameters::DRParameters* parameters)
       : LTSLinearSlipWeakening(parameters) {}
@@ -209,9 +209,9 @@ struct LTSLinearSlipWeakeningBimaterial : public LTSLinearSlipWeakening {
 };
 
 struct LTSRateAndState : public DynamicRupture {
-  struct RsA : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct RsSl0 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct StateVariable : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct RsA : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct RsSl0 : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct StateVariable : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
 
   explicit LTSRateAndState(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
@@ -232,7 +232,7 @@ struct LTSRateAndState : public DynamicRupture {
 };
 
 struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
-  struct RsSrW : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct RsSrW : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
 
   explicit LTSRateAndStateFastVelocityWeakening(
       const initializer::parameters::DRParameters* parameters)
@@ -246,14 +246,14 @@ struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
 };
 
 struct LTSThermalPressurization {
-  struct Temperature : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct Pressure : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct Temperature : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct Pressure : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
   struct Theta : public initializer::Variable<
-                     real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> {};
+                     real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints<Cfg>]> {};
   struct Sigma : public initializer::Variable<
-                     real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints]> {};
-  struct HalfWidthShearZone : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct HydraulicDiffusivity : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+                     real[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct HalfWidthShearZone : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct HydraulicDiffusivity : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
 
   void addTo(DynamicRupture::Storage& storage) {
     const auto mask = initializer::LayerMask(Ghost);
@@ -312,9 +312,9 @@ struct LTSRateAndStateThermalPressurizationFastVelocityWeakening
 };
 
 struct LTSImposedSlipRates : public DynamicRupture {
-  struct ImposedSlipDirection1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct ImposedSlipDirection2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct OnsetTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct ImposedSlipDirection1 : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct ImposedSlipDirection2 : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct OnsetTime : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
 
   explicit LTSImposedSlipRates(const initializer::parameters::DRParameters* parameters)
       : DynamicRupture(parameters) {}
@@ -329,8 +329,8 @@ struct LTSImposedSlipRates : public DynamicRupture {
 };
 
 struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
-  struct TauS : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
-  struct TauR : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct TauS : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
+  struct TauR : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
 
   explicit LTSImposedSlipRatesYoffe(const initializer::parameters::DRParameters* parameters)
       : LTSImposedSlipRates(parameters) {}
@@ -344,7 +344,7 @@ struct LTSImposedSlipRatesYoffe : public LTSImposedSlipRates {
 };
 
 struct LTSImposedSlipRatesGaussian : public LTSImposedSlipRates {
-  struct RiseTime : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
+  struct RiseTime : public initializer::Variable<real[dr::misc::NumPaddedPoints<Cfg>]> {};
 
   explicit LTSImposedSlipRatesGaussian(const initializer::parameters::DRParameters* parameters)
       : LTSImposedSlipRates(parameters) {}

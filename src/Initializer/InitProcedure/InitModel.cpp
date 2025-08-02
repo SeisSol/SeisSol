@@ -20,6 +20,7 @@
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Kernels/Common.h>
+#include <Memory/Tree/Colormap.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
@@ -37,6 +38,7 @@
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
+#include <variant>
 #include <vector>
 
 #include "InitModel.h"
@@ -146,15 +148,17 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         const auto& localSecondaryInformation = secondaryInformation[cell];
         const auto meshId = localSecondaryInformation.meshId;
 
-        // explicitly use polymorphic pointer arithmetic here
-        // NOLINTNEXTLINE
-        auto& materialData = materialDataArray[cell];
-
         auto neighborRank = localSecondaryInformation.rank;
         auto neighborRankIdx = localSecondaryInformation.meshId;
         auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
         const auto& localMaterial = materialsDBGhost[materialGhostIdx];
-        initAssign(materialData, localMaterial);
+
+        layer.wrap([&](auto cfg) {
+          // NOLINTNEXTLINE
+          auto& materialData = layer.var<LTS::MaterialData>(cfg)[cell];
+
+          initAssign(materialData, localMaterial);
+        });
       }
     } else {
       auto* materialArray = layer.var<LTS::Material>();
@@ -171,22 +175,24 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         const auto& localMaterial = materialsDB[meshId];
         const auto& localCellInformation = cellInformation[cell];
 
-        // explicitly use polymorphic pointer arithmetic here
-        // NOLINTNEXTLINE
-        auto& materialData = materialDataArray[cell];
-        initAssign(materialData, localMaterial);
-        material.local = &materialData;
+        layer.wrap([&](auto cfg) {
+          // NOLINTNEXTLINE
+          auto& materialData = layer.var<LTS::MaterialData>(cfg)[cell];
+
+          initAssign(materialData, localMaterial);
+
+          material.local = &materialData;
+        });
 
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           if (isInternalFaceType(localCellInformation.faceTypes[side])) {
             // use the neighbor face material info in case that we are not at a boundary
             const auto globalNeighborIndex = localSecondaryInformation.faceNeighbors[side];
 
-            // explicitly use polymorphic pointer arithmetic here
-            // NOLINTNEXTLINE
-            auto* materialNeighbor =
-                &memoryManager.getLtsStorage().lookup<LTS::MaterialData>(globalNeighborIndex);
-            material.neighbor[side] = materialNeighbor;
+            memoryManager.getLtsStorage().lookupWrap<LTS::MaterialData>(globalNeighborIndex,
+              [&](auto& materialNeighbor) {
+                material.neighbor[side] = &materialNeighbor;
+              });
           } else {
             // otherwise, use the material from the own cell
             material.neighbor[side] = material.local;
@@ -311,11 +317,19 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   watch.start();
 
   // these four methods need to be called in this order.
-  logInfo() << "Model info:";
-  logInfo() << "Material:" << MaterialT::Text.c_str();
-  logInfo() << "Order:" << ConvergenceOrder;
-  logInfo() << "Precision:"
-            << (Config::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
+  logInfo() << "Model infos:";
+  for (std::size_t i = 0; i < std::variant_size_v<ConfigVariant>; ++i) {
+    logInfo() << "Model" << i;
+    std::visit([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      logInfo() << "Material:" << model::MaterialTT<Cfg>::Text.c_str();
+      logInfo() << "Order:" << Cfg::ConvergenceOrder;
+      logInfo() << "Precision:"
+                << (Cfg::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
+    }, ConfigVariant(Config()));
+  }
+
+  logInfo() << "Other model settings:";
   logInfo() << "Plasticity:"
             << (seissolInstance.getSeisSolParameters().model.plasticity ? "on" : "off");
   logInfo() << "Flux:"

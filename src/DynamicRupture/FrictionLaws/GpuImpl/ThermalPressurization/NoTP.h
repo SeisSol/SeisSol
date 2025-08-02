@@ -18,9 +18,9 @@ class NoTP {
   static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
 
   SEISSOL_DEVICE static void
-      calcFluidPressure(FrictionLawContext& ctx, uint32_t timeIndex, bool saveTmpInTP) {}
+      calcFluidPressure(FrictionLawContext<Cfg>& ctx, uint32_t timeIndex, bool saveTmpInTP) {}
 
-  SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& /*unused*/) {
+  SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext<Cfg>& /*unused*/) {
     return static_cast<real>(0.0);
   };
 };

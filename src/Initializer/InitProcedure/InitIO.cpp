@@ -151,7 +151,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     // Initialize wave field output
     seissolInstance.waveFieldWriter().init(
         NumQuantities,
-        ConvergenceOrder,
+        Cfg::ConvergenceOrder,
         NumAlignedBasisFunctions,
         seissolInstance.meshReader(),
         ltsClusteringData,
@@ -284,8 +284,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 vtkproj.simselect = simselect.data();
                 vtkproj.qb = dofsSingleQuantity;
                 vtkproj.xv(order) = target;
-                vtkproj.collvv(ConvergenceOrder, order) =
-                    init::collvv<Cfg>::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
+                vtkproj.collvv(Cfg::ConvergenceOrder, order) =
+                    init::collvv<Cfg>::Values[Cfg::ConvergenceOrder + (Cfg::ConvergenceOrder + 1) * order];
                 vtkproj.execute(order);
               });
         }
@@ -307,8 +307,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   vtkproj.simselect = simselect.data();
                   vtkproj.qb = dofsSingleQuantity;
                   vtkproj.xv(order) = target;
-                  vtkproj.collvv(ConvergenceOrder, order) =
-                      init::collvv<Cfg>::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
+                  vtkproj.collvv(Cfg::ConvergenceOrder, order) =
+                      init::collvv<Cfg>::Values[Cfg::ConvergenceOrder + (Cfg::ConvergenceOrder + 1) * order];
                   vtkproj.execute(order);
                 });
           }
@@ -412,9 +412,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               vtkproj.simselect = simselect.data();
               vtkproj.qb = dofsSingleQuantity;
               vtkproj.xf(order) = target;
-              vtkproj.collvf(ConvergenceOrder, order, side) =
-                  init::collvf<Cfg>::Values[ConvergenceOrder +
-                                       (ConvergenceOrder + 1) * (order + 9 * side)];
+              vtkproj.collvf(Cfg::ConvergenceOrder, order, side) =
+                  init::collvf<Cfg>::Values[Cfg::ConvergenceOrder +
+                                       (Cfg::ConvergenceOrder + 1) * (order + 9 * side)];
               vtkproj.execute(order, side);
             });
       }
@@ -440,8 +440,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               vtkproj.pn = faceDisplacementVariable;
               vtkproj.MV2nTo2m = nodal::init::MV2nTo2m<Cfg>::Values;
               vtkproj.xf(order) = target;
-              vtkproj.collff(ConvergenceOrder, order) =
-                  init::collff<Cfg>::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
+              vtkproj.collff(Cfg::ConvergenceOrder, order) =
+                  init::collff<Cfg>::Values[Cfg::ConvergenceOrder + (Cfg::ConvergenceOrder + 1) * order];
               vtkproj.execute(order);
             });
       }

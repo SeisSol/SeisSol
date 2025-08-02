@@ -358,7 +358,7 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
 
 void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
   auto& geoPoints = outputData->receiverPoints;
-  constexpr int NumPoly = ConvergenceOrder - 1;
+  constexpr int NumPoly = Cfg::ConvergenceOrder - 1;
 
   for (auto& geoPoint : geoPoints) {
     assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");

@@ -37,7 +37,7 @@ class LocalKernel : public Kernel {
 
   virtual void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
                                LTS::Ref& data,
-                               LocalTmp& tmp,
+                               LocalTmp<Cfg>& tmp,
                                const CellMaterialData* materialData,
                                const CellBoundaryMapping (*cellBoundaryMapping)[4],
                                double time,

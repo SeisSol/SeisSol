@@ -86,7 +86,7 @@ void computeMInvJInvPhisAtSources(
   const auto xiEtaZeta = transformations::tetrahedronGlobalToReference(
       coords[0], coords[1], coords[2], coords[3], centre);
   const auto basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
-      ConvergenceOrder, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
+      Cfg::ConvergenceOrder, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
   const double volume = MeshTools::volume(elements[meshId], vertices);
   const double jInv = 1.0 / (6.0 * volume);

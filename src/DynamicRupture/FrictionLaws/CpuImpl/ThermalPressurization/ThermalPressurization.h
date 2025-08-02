@@ -59,9 +59,9 @@ class ThermalPressurization {
    * bool saveTmpInTP is used to save final values for Theta and Sigma in the storage
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
-  void calcFluidPressure(const std::array<real, misc::NumPaddedPoints>& normalStress,
-                         const real (*mu)[misc::NumPaddedPoints],
-                         const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+  void calcFluidPressure(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                         const real (*mu)[misc::NumPaddedPoints<Cfg>],
+                         const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
                          real deltaT,
                          bool saveTPinLTS,
                          uint32_t timeIndex,
@@ -72,12 +72,12 @@ class ThermalPressurization {
   }
 
   protected:
-  real (*__restrict temperature)[misc::NumPaddedPoints]{};
-  real (*__restrict pressure)[misc::NumPaddedPoints]{};
-  real (*__restrict theta)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
-  real (*__restrict sigma)[misc::NumTpGridPoints][misc::NumPaddedPoints]{};
-  real (*__restrict halfWidthShearZone)[misc::NumPaddedPoints]{};
-  real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints]{};
+  real (*__restrict temperature)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict pressure)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict theta)[misc::NumTpGridPoints][misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict sigma)[misc::NumTpGridPoints][misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict halfWidthShearZone)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints<Cfg>]{};
 
   private:
   seissol::initializer::parameters::DRParameters* drParameters;

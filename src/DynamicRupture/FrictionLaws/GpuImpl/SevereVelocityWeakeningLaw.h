@@ -36,7 +36,7 @@ class SevereVelocityWeakeningLaw
                                              DynamicRupture::Layer& layerData) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& ctx, double timeIncrement) {
     const double muW{ctx.data->drParameters.muW};
 
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
@@ -73,7 +73,7 @@ class SevereVelocityWeakeningLaw
     double c{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& ctx, double localStateVariable) {
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& ctx, double localStateVariable) {
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const double c =
@@ -82,14 +82,14 @@ class SevereVelocityWeakeningLaw
   }
 
   SEISSOL_DEVICE static double
-      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, const MuDetails& details) {
+      updateMu(FrictionLawContext<Cfg>& ctx, double localSlipRateMagnitude, const MuDetails& details) {
     return ctx.data->drParameters.rsF0 +
            details.a * localSlipRateMagnitude /
                (localSlipRateMagnitude + ctx.data->drParameters.rsSr0) -
            details.c;
   }
 
-  SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext& ctx,
+  SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext<Cfg>& ctx,
                                                   double localSlipRateMagnitude,
                                                   const MuDetails& details) {
     // note that: d/dx (x/(x+c)) = ((x+c)-x)/(x+c)**2 = c/(x+c)**2
@@ -98,7 +98,7 @@ class SevereVelocityWeakeningLaw
   }
 
   // no resampling
-  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext<Cfg>& ctx) {
     ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
   }
 

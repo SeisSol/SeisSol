@@ -39,7 +39,7 @@ class FreeSurfaceIntegrator {
   std::size_t numberOfSubTriangles{0};
   std::size_t numberOfAlignedSubTriangles{0};
 
-  static constexpr auto PolyDegree = ConvergenceOrder - 1;
+  static constexpr auto PolyDegree = Cfg::ConvergenceOrder - 1;
   static constexpr auto NumQuadraturePoints = PolyDegree * PolyDegree;
   bool m_enabled{false};
 

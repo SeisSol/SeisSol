@@ -142,7 +142,7 @@ double ReceiverCluster::calcReceivers(double time,
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint<Cfg>::size()];
       alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize];
 
-      kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
+      kernels::LocalTmp<Cfg> tmp(seissolInstance.getGravitationSetup().acceleration);
 
       kernel::evaluateDOFSAtPoint<Cfg> krnl;
       krnl.QAtPoint = timeEvaluatedAtPoint;

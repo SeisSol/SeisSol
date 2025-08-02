@@ -48,7 +48,7 @@ void ProxyKernelHostAder::run(ProxyData& data,
 #endif
   {
     LIKWID_MARKER_START("ader");
-    kernels::LocalTmp tmp(9.81);
+    kernels::LocalTmp<Cfg> tmp(9.81);
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
@@ -93,7 +93,7 @@ void ProxyKernelHostLocalWOAder::run(ProxyData& data,
 #endif
   {
     LIKWID_MARKER_START("localwoader");
-    kernels::LocalTmp tmp(9.81);
+    kernels::LocalTmp<Cfg> tmp(9.81);
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
@@ -142,7 +142,7 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 #endif
   {
     LIKWID_MARKER_START("local");
-    kernels::LocalTmp tmp(9.81);
+    kernels::LocalTmp<Cfg> tmp(9.81);
 #ifdef _OPENMP
 #pragma omp for schedule(static)
 #endif
@@ -260,15 +260,15 @@ auto ProxyKernelHostNeighborDR::needsDR() const -> bool { return true; }
 void ProxyKernelHostGodunovDR::run(ProxyData& data,
                                    seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layerData = data.drStorage.layer(data.layerId);
-  DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
-  DRGodunovData* godunovData = layerData.var<DynamicRupture::GodunovData>();
-  DREnergyOutput* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
-  real** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
-  real** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
-  alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
-  alignas(Alignment) real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
+  auto* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
+  auto* godunovData = layerData.var<DynamicRupture::GodunovData>();
+  auto* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
+  auto** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
+  auto** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
+  alignas(Alignment) real qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
+  alignas(Alignment) real qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
   const auto [timePoints, timeWeights] =
-      seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, Timestep);
+      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
   const auto coeffsCollocate = seissol::kernels::timeBasis().collocate(timePoints, Timestep);
 
 #ifdef _OPENMP

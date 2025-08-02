@@ -25,10 +25,10 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     stf.copyStorageToLocal(layerData);
   }
 
-  void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
-                             TractionResults<Executor::Host>& tractionResults,
-                             std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
-                             std::array<real, misc::NumPaddedPoints>& strengthBuffer,
+  void updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,
+                             TractionResults<Cfg, Executor::Host>& tractionResults,
+                             std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+                             std::array<real, misc::NumPaddedPoints<Cfg>>& strengthBuffer,
                              std::size_t ltsFace,
                              uint32_t timeIndex) {
     const real timeIncrement = this->deltaT[timeIndex];
@@ -38,7 +38,7 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     }
 
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       const real stfEvaluated = stf.evaluate(currentTime, timeIncrement, ltsFace, pointIndex);
 
       this->traction1[ltsFace][pointIndex] =
@@ -66,14 +66,14 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     }
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {}
-  void postHook(std::array<real, misc::NumPaddedPoints>& stateVariableBuffer, std::size_t ltsFace) {
+  void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer, std::size_t ltsFace) {}
+  void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer, std::size_t ltsFace) {
   }
   void saveDynamicStressOutput(std::size_t ltsFace) {}
 
   protected:
-  real (*__restrict imposedSlipDirection1)[misc::NumPaddedPoints]{};
-  real (*__restrict imposedSlipDirection2)[misc::NumPaddedPoints]{};
+  real (*__restrict imposedSlipDirection1)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict imposedSlipDirection2)[misc::NumPaddedPoints<Cfg>]{};
   STF stf{};
 };
 

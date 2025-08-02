@@ -27,8 +27,8 @@ namespace seissol::dr::friction_law::gpu {
 
 template <typename T>
 void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
-                                           real fullUpdateTime,
-                                           const double timeWeights[ConvergenceOrder],
+                                           double fullUpdateTime,
+                                           const double timeWeights[Cfg::ConvergenceOrder],
                                            const FrictionTime& frictionTime) {
   auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
 
@@ -39,15 +39,15 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   args.tpInverseFourierCoefficients = devTpInverseFourierCoefficients;
   args.tpGridPoints = devTpGridPoints;
   args.heatSource = devHeatSource;
-  std::copy_n(timeWeights, ConvergenceOrder, args.timeWeights);
-  std::copy_n(frictionTime.deltaT.data(), ConvergenceOrder, args.deltaT);
+  std::copy_n(timeWeights, Cfg::ConvergenceOrder, args.timeWeights);
+  std::copy_n(frictionTime.deltaT.data(), Cfg::ConvergenceOrder, args.deltaT);
   args.sumDt = frictionTime.sumDt;
   args.fullUpdateTime = fullUpdateTime;
 
-  sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints}, {misc::NumPaddedPoints}};
+  sycl::nd_range rng{{this->currLayerSize * misc::NumPaddedPoints<Cfg>}, {misc::NumPaddedPoints<Cfg>}};
   queue->submit([&](sycl::handler& cgh) {
     // NOLINTNEXTLINE
-    sycl::local_accessor<real> sharedMemory(misc::NumPaddedPoints, cgh);
+    sycl::local_accessor<real> sharedMemory(misc::NumPaddedPoints<Cfg>, cgh);
 
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       FrictionLawContext ctx{};

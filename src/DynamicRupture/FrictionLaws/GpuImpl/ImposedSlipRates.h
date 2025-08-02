@@ -27,7 +27,7 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     STF::copyStorageToLocal(data, layerData);
   }
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& ctx, uint32_t timeIndex) {
     const real timeIncrement = ctx.args->deltaT[timeIndex];
     real currentTime = ctx.args->fullUpdateTime;
     for (uint32_t i = 0; i <= timeIndex; i++) {
@@ -65,9 +65,9 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     ctx.tractionResults.traction2[timeIndex] = ctx.data->traction2[ctx.ltsFace][ctx.pointIndex];
   }
 
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx) {}
-  SEISSOL_DEVICE static void preHook(FrictionLawContext& ctx) {}
-  SEISSOL_DEVICE static void postHook(FrictionLawContext& ctx) {}
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& ctx) {}
+  SEISSOL_DEVICE static void preHook(FrictionLawContext<Cfg>& ctx) {}
+  SEISSOL_DEVICE static void postHook(FrictionLawContext<Cfg>& ctx) {}
 };
 
 } // namespace seissol::dr::friction_law::gpu

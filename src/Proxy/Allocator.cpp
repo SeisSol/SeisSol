@@ -38,23 +38,26 @@
 #endif
 
 namespace {
-void fakeData(LTS::Layer& layer, FaceType faceTp) {
+template<typename Cfg>
+void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
+  using real = Real<Cfg>;
+
   real(*dofs)[tensor::Q<Cfg>::size()] = layer.var<LTS::Dofs>();
-  real** buffers = layer.var<LTS::Buffers>();
-  real** derivatives = layer.var<LTS::Derivatives>();
+  real** buffers = layer.var<LTS::Buffers>(cfg);
+  real** derivatives = layer.var<LTS::Derivatives>(cfg);
   real*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
-  auto* localIntegration = layer.var<LTS::LocalIntegration>();
-  auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
+  auto* localIntegration = layer.var<LTS::LocalIntegration>(cfg);
+  auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>(cfg);
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
   real* bucket =
-      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Host));
+      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(cfg, initializer::AllocationPlace::Host));
 
-  real** buffersDevice = layer.var<LTS::BuffersDevice>();
-  real** derivativesDevice = layer.var<LTS::DerivativesDevice>();
+  real** buffersDevice = layer.var<LTS::BuffersDevice>(cfg);
+  real** derivativesDevice = layer.var<LTS::DerivativesDevice>(cfg);
   real*(*faceNeighborsDevice)[4] = layer.var<LTS::FaceNeighborsDevice>();
   real* bucketDevice =
-      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(initializer::AllocationPlace::Device));
+      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(cfg, initializer::AllocationPlace::Device));
 
   std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
@@ -106,10 +109,10 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q<Cfg>::size() * layer.size(), false);
   kernels::fillWithStuff(bucket, tensor::I<Cfg>::size() * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
-                         sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
+                         sizeof(LocalIntegrationData<Cfg>) / sizeof(real) * layer.size(),
                          false);
   kernels::fillWithStuff(reinterpret_cast<real*>(neighboringIntegration),
-                         sizeof(NeighboringIntegrationData) / sizeof(real) * layer.size(),
+                         sizeof(NeighboringIntegrationData<Cfg>) / sizeof(real) * layer.size(),
                          false);
 
 #ifdef USE_POROELASTIC
@@ -171,7 +174,12 @@ void ProxyData::initDataStructures(bool enableDR) {
   ltsStorage.layer(layerId).setNumberOfCells(cellCount);
 
   LTS::Layer& layer = ltsStorage.layer(layerId);
-  layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(real) * tensor::I<Cfg>::size() * layer.size());
+
+  layer.wrap([&](auto cfg) {
+    using Cfg = decltype(cfg);
+
+    layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(Real<Cfg>) * tensor::I<Cfg>::size() * layer.size());
+  });
 
   ltsStorage.allocateVariables();
   ltsStorage.touchVariables();
@@ -187,7 +195,15 @@ void ProxyData::initDataStructures(bool enableDR) {
 
     drStorage.allocateVariables();
     drStorage.touchVariables();
+  }
 
+  layer.wrap([&](auto cfg) {
+    using Cfg = decltype(cfg);
+
+    // NOLINTNEXTLINE
+    using real = Real<Cfg>;
+
+  if (enableDR) {
     fakeDerivativesHost = reinterpret_cast<real*>(allocator.allocateMemory(
         cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
         PagesizeHeap,
@@ -222,7 +238,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   }
 
   /* cell information and integration data*/
-  fakeData(layer, (enableDR) ? FaceType::DynamicRupture : FaceType::Regular);
+  fakeData(cfg, layer, (enableDR) ? FaceType::DynamicRupture : FaceType::Regular);
 
   if (enableDR) {
     // From lts storage
@@ -286,6 +302,7 @@ void ProxyData::initDataStructures(bool enableDR) {
       faceInformation[face].faceRelation = orientationDist(rng);
     }
   }
+});
 }
 
 void ProxyData::initDataStructuresOnDevice(bool enableDR) {

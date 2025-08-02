@@ -176,9 +176,9 @@ void taylorSum(
                     seissol::model::MaterialT::NumQuantities,
                     real,
                     real,
-                    ConvergenceOrder,
-                    ConvergenceOrder>(
-      count, target, source, coeffs, stream, std::make_index_sequence<ConvergenceOrder>());
+                    Cfg::ConvergenceOrder,
+                    Cfg::ConvergenceOrder>(
+      count, target, source, coeffs, stream, std::make_index_sequence<Cfg::ConvergenceOrder>());
 }
 } // namespace seissol::kernels::time::aux
 #endif

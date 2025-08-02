@@ -33,7 +33,7 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::stp {
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
+  for (std::size_t n = 0; n < Cfg::ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
         m_krnlPrototype.kDivMTSub(d, n) = init::kDivMTSub<Cfg>::Values[tensor::kDivMTSub<Cfg>::index(d, n)];
@@ -52,7 +52,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 
 #ifdef ACL_DEVICE
   // TODO: adjust pointers
-  for (std::size_t n = 0; n < ConvergenceOrder; ++n) {
+  for (std::size_t n = 0; n < Cfg::ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
         deviceKrnlPrototype.kDivMTSub(d, n) =
@@ -114,7 +114,7 @@ void Spacetime::executeSTP(double timeStepWidth,
   if (timeStepWidth != data.get<LTS::LocalIntegration>().specific.typicalTimeStepWidth) {
     auto sourceMatrix =
         init::ET<Cfg>::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
-    real ZinvData[seissol::model::MaterialT::NumQuantities][ConvergenceOrder * ConvergenceOrder];
+    real ZinvData[seissol::model::MaterialT::NumQuantities][Cfg::ConvergenceOrder * Cfg::ConvergenceOrder];
     model::zInvInitializerForLoop<0,
                                   seissol::model::MaterialT::NumQuantities,
                                   decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
@@ -134,7 +134,7 @@ void Spacetime::executeSTP(double timeStepWidth,
 void Spacetime::computeAder(const real* coeffs,
                             double timeStepWidth,
                             LTS::Ref& data,
-                            LocalTmp& tmp,
+                            LocalTmp<Cfg>& tmp,
                             real timeIntegrated[tensor::I<Cfg>::size()],
                             real* timeDerivatives,
                             bool updateDisplacement) {
@@ -182,7 +182,7 @@ std::uint64_t Spacetime::bytesAder() {
 
 void Spacetime::computeBatchedAder(const real* coeffs,
                                    double timeStepWidth,
-                                   LocalTmp& tmp,
+                                   LocalTmp<Cfg>& tmp,
                                    ConditionalPointersToRealsTable& dataTable,
                                    ConditionalMaterialTable& materialTable,
                                    bool updateDisplacement,

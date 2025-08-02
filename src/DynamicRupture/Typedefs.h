@@ -21,24 +21,26 @@ namespace seissol::dr {
  * Stores the P and S wave impedances for an element and its neighbor as well as the eta values from
  * Carsten Uphoff's dissertation equation (4.51)
  */
+template <typename RealT>
 struct ImpedancesAndEta {
-  real zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
+  RealT zp, zs, zpNeig, zsNeig, etaP, etaS, invEtaS, invZp, invZs, invZpNeig, invZsNeig;
 };
 
 /**
  * Stores the impedance matrices for an element and its neighbor for a poroelastic material.
  * This generalizes equation (4.51) from Carsten's thesis
  */
+template<typename Cfg>
 struct ImpedanceMatrices {
-  alignas(Alignment) real impedance[tensor::Zplus<Cfg>::size()] = {};
-  alignas(Alignment) real impedanceNeig[tensor::Zminus<Cfg>::size()] = {};
-  alignas(Alignment) real eta[tensor::eta<Cfg>::size()] = {};
+  alignas(Alignment) Real<Cfg> impedance[tensor::Zplus<Cfg>::size()] = {};
+  alignas(Alignment) Real<Cfg> impedanceNeig[tensor::Zminus<Cfg>::size()] = {};
+  alignas(Alignment) Real<Cfg> eta[tensor::eta<Cfg>::size()] = {};
 };
 
-template <Executor Executor>
+template <typename Cfg, Executor Executor>
 struct FaultStresses;
 
-template <Executor Executor>
+template <typename Cfg, Executor Executor>
 struct TractionResults;
 
 /**
@@ -46,22 +48,22 @@ struct TractionResults;
  * normalStress in direction of the face normal, traction1, traction2 in the direction of the
  * respective tangential vectors
  */
-template <>
-struct FaultStresses<Executor::Host> {
-  alignas(Alignment) real normalStress[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction1[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction2[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real fluidPressure[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
+template <typename Cfg>
+struct FaultStresses<Cfg, Executor::Host> {
+  alignas(Alignment) Real<Cfg> normalStress[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
+  alignas(Alignment) Real<Cfg> traction1[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
+  alignas(Alignment) Real<Cfg> traction2[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
+  alignas(Alignment) Real<Cfg> fluidPressure[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
 };
 
 /**
  * Struct that contains all traction results
  * traction1, traction2 in the direction of the respective tangential vectors
  */
-template <>
-struct TractionResults<Executor::Host> {
-  alignas(Alignment) real traction1[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
-  alignas(Alignment) real traction2[ConvergenceOrder][misc::NumPaddedPoints] = {{}};
+template <typename Cfg>
+struct TractionResults<Cfg, Executor::Host> {
+  alignas(Alignment) Real<Cfg> traction1[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
+  alignas(Alignment) Real<Cfg> traction2[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
 };
 
 /**
@@ -69,22 +71,22 @@ struct TractionResults<Executor::Host> {
  * normalStress in direction of the face normal, traction1, traction2 in the direction of the
  * respective tangential vectors
  */
-template <>
-struct FaultStresses<Executor::Device> {
-  real normalStress[ConvergenceOrder] = {{}};
-  real traction1[ConvergenceOrder] = {{}};
-  real traction2[ConvergenceOrder] = {{}};
-  real fluidPressure[ConvergenceOrder] = {{}};
+template <typename Cfg>
+struct FaultStresses<Cfg, Executor::Device> {
+  Real<Cfg> normalStress[Cfg::ConvergenceOrder] = {{}};
+  Real<Cfg> traction1[Cfg::ConvergenceOrder] = {{}};
+  Real<Cfg> traction2[Cfg::ConvergenceOrder] = {{}};
+  Real<Cfg> fluidPressure[Cfg::ConvergenceOrder] = {{}};
 };
 
 /**
  * Struct that contains all traction results
  * traction1, traction2 in the direction of the respective tangential vectors
  */
-template <>
-struct TractionResults<Executor::Device> {
-  real traction1[ConvergenceOrder] = {{}};
-  real traction2[ConvergenceOrder] = {{}};
+template <typename Cfg>
+struct TractionResults<Cfg, Executor::Device> {
+  Real<Cfg> traction1[Cfg::ConvergenceOrder] = {{}};
+  Real<Cfg> traction2[Cfg::ConvergenceOrder] = {{}};
 };
 
 } // namespace seissol::dr

@@ -23,18 +23,18 @@ namespace seissol::dr::initializer {
 void LinearSlipWeakeningInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   BaseDRInitializer::initializeFault(drStorage);
   for (auto& layer : drStorage.leaves(Ghost)) {
-    bool (*dynStressTimePending)[misc::NumPaddedPoints] =
+    bool (*dynStressTimePending)[misc::NumPaddedPoints<Cfg>] =
         layer.var<LTSLinearSlipWeakening::DynStressTimePending>();
-    real(*slipRate1)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::SlipRate1>();
-    real(*slipRate2)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::SlipRate2>();
-    real(*mu)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::Mu>();
-    real(*muS)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::MuS>();
-    real(*forcedRuptureTime)[misc::NumPaddedPoints] =
+    real(*slipRate1)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::SlipRate1>();
+    real(*slipRate2)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::SlipRate2>();
+    real(*mu)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::Mu>();
+    real(*muS)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::MuS>();
+    real(*forcedRuptureTime)[misc::NumPaddedPoints<Cfg>] =
         layer.var<LTSLinearSlipWeakening::ForcedRuptureTime>();
     const bool providesForcedRuptureTime = this->faultProvides("forced_rupture_time");
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
       // initialuint32_t pointIndexts for vectorization
-      for (std::size_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      for (std::size_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
         dynStressTimePending[ltsFace][pointIndex] = true;
         slipRate1[ltsFace][pointIndex] = 0.0;
         slipRate2[ltsFace][pointIndex] = 0.0;
@@ -50,16 +50,16 @@ void LinearSlipWeakeningInitializer::initializeFault(DynamicRupture::Storage& dr
 
 void LinearSlipWeakeningInitializer::addAdditionalParameters(
     std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
-  real(*dC)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::DC>();
-  real(*muS)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::MuS>();
-  real(*muD)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::MuD>();
-  real(*cohesion)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::Cohesion>();
+  real(*dC)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::DC>();
+  real(*muS)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::MuS>();
+  real(*muD)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::MuD>();
+  real(*cohesion)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::Cohesion>();
   parameterToStorageMap.insert({"d_c", reinterpret_cast<real*>(dC)});
   parameterToStorageMap.insert({"mu_s", reinterpret_cast<real*>(muS)});
   parameterToStorageMap.insert({"mu_d", reinterpret_cast<real*>(muD)});
   parameterToStorageMap.insert({"cohesion", reinterpret_cast<real*>(cohesion)});
   if (this->faultProvides("forced_rupture_time")) {
-    real(*forcedRuptureTime)[misc::NumPaddedPoints] =
+    real(*forcedRuptureTime)[misc::NumPaddedPoints<Cfg>] =
         layer.var<LTSLinearSlipWeakening::ForcedRuptureTime>();
     parameterToStorageMap.insert(
         {"forced_rupture_time", reinterpret_cast<real*>(forcedRuptureTime)});
@@ -69,14 +69,14 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
 void LinearSlipWeakeningBimaterialInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   LinearSlipWeakeningInitializer::initializeFault(drStorage);
   for (auto& layer : drStorage.leaves(Ghost)) {
-    real(*regularizedStrength)[misc::NumPaddedPoints] =
+    real(*regularizedStrength)[misc::NumPaddedPoints<Cfg>] =
         layer.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
-    real(*mu)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::Mu>();
-    real(*cohesion)[misc::NumPaddedPoints] = layer.var<LTSLinearSlipWeakening::Cohesion>();
+    real(*mu)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::Mu>();
+    real(*cohesion)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::Cohesion>();
     auto* initialStressInFaultCS = layer.var<LTSLinearSlipWeakening::InitialStressInFaultCS>();
 
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
         regularizedStrength[ltsFace][pointIndex] =
             -cohesion[ltsFace][pointIndex] -
             mu[ltsFace][pointIndex] *

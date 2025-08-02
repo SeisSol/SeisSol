@@ -34,12 +34,12 @@ class DynamicRupture : public Kernel {
   void spaceTimeInterpolation(
       const DRFaceInformation& faceInfo,
       const GlobalData* global,
-      const DRGodunovData* godunovData,
-      DREnergyOutput* drEnergyOutput,
+      const DRGodunovData<Cfg>* godunovData,
+      DREnergyOutput<Cfg>* drEnergyOutput,
       const real* timeDerivativePlus,
       const real* timeDerivativeMinus,
-      real qInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated<Cfg>::size()],
-      real qInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated<Cfg>::size()],
+      real qInterpolatedPlus[Cfg::ConvergenceOrder][seissol::tensor::QInterpolated<Cfg>::size()],
+      real qInterpolatedMinus[Cfg::ConvergenceOrder][seissol::tensor::QInterpolated<Cfg>::size()],
       const real* timeDerivativePlusPrefetch,
       const real* timeDerivativeMinusPrefetch,
       const real* coeffs);

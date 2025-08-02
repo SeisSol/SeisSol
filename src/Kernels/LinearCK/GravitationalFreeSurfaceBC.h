@@ -31,9 +31,13 @@
 
 namespace seissol {
 
+template<typename Cfg>
 class GravitationalFreeSurfaceBc {
   private:
   const double gravitationalAcceleration;
+
+  // NOLINTNEXTLINE
+  using real = Real<Cfg>;
 
   public:
   explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
@@ -68,7 +72,7 @@ class GravitationalFreeSurfaceBc {
           << "The Free Surface Gravity BC kernel does not work with multiple simulations yet.";
     } else {
       constexpr int PIdx = 0;
-      constexpr int UIdx = model::MaterialT::TractionQuantities;
+      constexpr int UIdx = model::MaterialTT<Cfg>::TractionQuantities;
 
       // Prepare kernel that projects volume data to face and rotates it to face-nodal basis.
       assert(boundaryMapping.nodes != nullptr);
@@ -143,7 +147,7 @@ class GravitationalFreeSurfaceBc {
       const double z = std::sqrt(materialData.local->getLambdaBar() * rho);
 
       // Note: Probably need to increase ConvergenceOrderby 1 here!
-      for (std::size_t order = 1; order < ConvergenceOrder + 1; ++order) {
+      for (std::size_t order = 1; order < Cfg::ConvergenceOrder + 1; ++order) {
         dofsFaceNodal.setZero();
 
         projectKernel.execute(order - 1, faceIdx);
@@ -266,7 +270,7 @@ class GravitationalFreeSurfaceBc {
 
       auto** derivativesPtrs =
           dataTable[key].get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
-      for (std::size_t order = 1; order < ConvergenceOrder + 1; ++order) {
+      for (std::size_t order = 1; order < Cfg::ConvergenceOrder + 1; ++order) {
 
         factorEvaluated *= deltaT / (1.0 * order);
         factorInt *= deltaTInt / (order + 1.0);

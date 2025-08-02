@@ -66,17 +66,18 @@ void initBucketItem(T*& data, void* bucket, bool memsetCpu) {
   }
 }
 
+template<typename Cfg>
 std::vector<solver::RemoteCluster>
-    allocateTransferInfo(LTS::Layer& layer, const std::vector<RemoteCellRegion>& regions) {
-  auto* buffers = layer.var<LTS::Buffers>();
-  auto* derivatives = layer.var<LTS::Derivatives>();
-  auto* buffersDevice = layer.var<LTS::BuffersDevice>();
-  auto* derivativesDevice = layer.var<LTS::DerivativesDevice>();
+    allocateTransferInfo(Cfg cfg, LTS::Layer& layer, const std::vector<RemoteCellRegion>& regions) {
+  auto* buffers = layer.var<LTS::Buffers>(cfg);
+  auto* derivatives = layer.var<LTS::Derivatives>(cfg);
+  auto* buffersDevice = layer.var<LTS::BuffersDevice>(cfg);
+  auto* derivativesDevice = layer.var<LTS::DerivativesDevice>(cfg);
   const auto* cellInformation = layer.var<LTS::CellInformation>();
   const auto* secondaryCellInformation = layer.var<LTS::SecondaryInformation>();
   BucketManager manager;
 
-  const auto datatype = Config::Precision;
+  const auto datatype = Cfg::Precision;
   const auto typeSize = sizeOfRealType(datatype);
 
   const auto bufferSize = typeSize * tensor::I<Cfg>::size();
@@ -186,16 +187,17 @@ std::vector<solver::RemoteCluster>
   return remoteClusters;
 }
 
-void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
-  auto* buffers = layer.var<LTS::Buffers>();
-  auto* derivatives = layer.var<LTS::Derivatives>();
+template<typename Cfg>
+void setupBuckets(Cfg cfg, LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
+  auto* buffers = layer.var<LTS::Buffers>(cfg);
+  auto* derivatives = layer.var<LTS::Derivatives>(cfg);
 
-  auto* buffersDerivatives = layer.var<LTS::BuffersDerivatives>();
+  auto* buffersDerivatives = layer.var<LTS::BuffersDerivatives>(cfg);
 
-  auto* buffersDevice = layer.var<LTS::BuffersDevice>();
-  auto* derivativesDevice = layer.var<LTS::DerivativesDevice>();
+  auto* buffersDevice = layer.var<LTS::BuffersDevice>(cfg);
+  auto* derivativesDevice = layer.var<LTS::DerivativesDevice>(cfg);
 
-  auto* buffersDerivativesDevice = layer.var<LTS::BuffersDerivatives>(AllocationPlace::Device);
+  auto* buffersDerivativesDevice = layer.var<LTS::BuffersDerivatives>(cfg, AllocationPlace::Device);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -229,7 +231,8 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   }
 }
 
-void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
+template<typename Cfg>
+void setupFaceNeighbors(Cfg cfg, LTS::Storage& storage, LTS::Layer& layer) {
   const auto* cellInformation = layer.var<LTS::CellInformation>();
   const auto* secondaryCellInformation = layer.var<LTS::SecondaryInformation>();
 
@@ -245,14 +248,14 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
       if (cellInformation[cell].faceTypes[face] != FaceType::Outflow) {
         if (faceNeighbor == StoragePosition::NullPosition) {
           if (cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
-            faceNeighbors[cell][face] = layer.var<LTS::Derivatives>()[cell];
+            faceNeighbors[cell][face] = layer.var<LTS::Derivatives>(cfg)[cell];
             if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] = layer.var<LTS::DerivativesDevice>()[cell];
+              faceNeighborsDevice[cell][face] = layer.var<LTS::DerivativesDevice>(cfg)[cell];
             }
           } else {
-            faceNeighbors[cell][face] = layer.var<LTS::Buffers>()[cell];
+            faceNeighbors[cell][face] = layer.var<LTS::Buffers>(cfg)[cell];
             if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] = layer.var<LTS::BuffersDevice>()[cell];
+              faceNeighborsDevice[cell][face] = layer.var<LTS::BuffersDevice>(cfg)[cell];
             }
           }
         } else {
@@ -285,16 +288,22 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
   std::vector<std::vector<solver::RemoteCluster>> commInfo(storage.numChildren());
 
   for (auto& layer : storage.leaves()) {
-    commInfo[layer.id()] = allocateTransferInfo(layer, layout[layer.id()].regions);
+    layer.wrap([&](auto cfg) {
+      commInfo[layer.id()] = allocateTransferInfo(cfg, layer, layout[layer.id()].regions);
+    });
   }
 
   storage.allocateBuckets();
 
   for (auto& layer : storage.leaves()) {
-    setupBuckets(layer, commInfo[layer.id()]);
+    layer.wrap([&](auto cfg) {
+      setupBuckets(cfg, layer, commInfo[layer.id()]);
+    });
   }
   for (auto& layer : storage.leaves(Ghost)) {
-    setupFaceNeighbors(storage, layer);
+    layer.wrap([&](auto cfg) {
+      setupFaceNeighbors(cfg, storage, layer);
+    });
   }
 
 #ifdef ACL_DEVICE

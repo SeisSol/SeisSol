@@ -116,10 +116,10 @@ class EnergyOutput : public Module {
   std::ofstream out;
 
 #ifdef ACL_DEVICE
-  real* timeDerivativePlusHost = nullptr;
-  real* timeDerivativeMinusHost = nullptr;
-  real* timeDerivativePlusHostMapped = nullptr;
-  real* timeDerivativeMinusHostMapped = nullptr;
+  void* timeDerivativePlusHost = nullptr;
+  void* timeDerivativeMinusHost = nullptr;
+  void* timeDerivativePlusHostMapped = nullptr;
+  void* timeDerivativeMinusHostMapped = nullptr;
 #endif
 
   const GlobalData* global = nullptr;

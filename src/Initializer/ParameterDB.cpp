@@ -139,7 +139,7 @@ ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellTo
     : m_cellToVertex(cellToVertex) {
   double quadraturePoints[NumQuadpoints][3];
   double quadratureWeights[NumQuadpoints];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, ConvergenceOrder);
+  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, Cfg::ConvergenceOrder);
 
   std::copy(
       std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
@@ -206,7 +206,7 @@ easi::Query FaultGPGenerator::generate() const {
   const std::vector<Element>& elements = m_meshReader.getElements();
   auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
 
-  constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim;
+  constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim<Cfg>;
   auto pointsView = init::quadpoints<Cfg>::view::create(const_cast<real*>(init::quadpoints<Cfg>::Values));
   easi::Query query(NumPoints * m_faceIDs.size(), Cell::Dim);
   unsigned q = 0;
@@ -233,7 +233,7 @@ easi::Query FaultGPGenerator::generate() const {
       double localPoints[2] = {seissol::multisim::multisimTranspose(pointsView, n, 0),
                                seissol::multisim::multisimTranspose(pointsView, n, 1)};
       // padded points are in the middle of the tetrahedron
-      if (n >= dr::misc::NumBoundaryGaussPoints) {
+      if (n >= dr::misc::NumBoundaryGaussPoints<Cfg>) {
         localPoints[0] = 1.0 / 3.0;
         localPoints[1] = 1.0 / 3.0;
       }

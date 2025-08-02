@@ -44,9 +44,9 @@ class BaseFrictionLaw : public FrictionSolver {
   /**
    * evaluates the current friction model
    */
-  void evaluate(real fullUpdateTime,
+  void evaluate(double fullUpdateTime,
                 const FrictionTime& frictionTime,
-                const double timeWeights[ConvergenceOrder],
+                const double timeWeights[Cfg::ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     if (this->currLayerSize == 0) {
       return;
@@ -62,13 +62,13 @@ class BaseFrictionLaw : public FrictionSolver {
 #pragma omp parallel for schedule(static)
 #endif
     for (std::size_t ltsFace = 0; ltsFace < this->currLayerSize; ++ltsFace) {
-      alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
+      alignas(Alignment) FaultStresses<Cfg, Executor::Host> faultStresses{};
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
       const auto etaPDamp =
           drParameters->etaStop > this->mFullUpdateTime ? drParameters->etaHack : 1.0;
-      common::precomputeStressFromQInterpolated(faultStresses,
+      common::precomputeStressFromQInterpolated<Cfg>(faultStresses,
                                                 impAndEta[ltsFace],
                                                 impedanceMatrices[ltsFace],
                                                 qInterpolatedPlus[ltsFace],
@@ -81,8 +81,8 @@ class BaseFrictionLaw : public FrictionSolver {
           myRegionHandle, "computeDynamicRupturePreHook", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePreHook");
       // define some temporary variables
-      std::array<real, misc::NumPaddedPoints> stateVariableBuffer{0};
-      std::array<real, misc::NumPaddedPoints> strengthBuffer{0};
+      std::array<real, misc::NumPaddedPoints<Cfg>> stateVariableBuffer{0};
+      std::array<real, misc::NumPaddedPoints<Cfg>> strengthBuffer{0};
 
       static_cast<Derived*>(this)->preHook(stateVariableBuffer, ltsFace);
       LIKWID_MARKER_STOP("computeDynamicRupturePreHook");
@@ -92,14 +92,14 @@ class BaseFrictionLaw : public FrictionSolver {
                                "computeDynamicRuptureUpdateFrictionAndSlip",
                                SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRuptureUpdateFrictionAndSlip");
-      TractionResults<Executor::Host> tractionResults = {};
+      TractionResults<Cfg, Executor::Host> tractionResults = {};
 
       // loop over sub time steps (i.e. quadrature points in time)
       real updateTime = this->mFullUpdateTime;
-      for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
+      for (std::size_t timeIndex = 0; timeIndex < Cfg::ConvergenceOrder; timeIndex++) {
         updateTime += this->deltaT[timeIndex];
         for (unsigned i = 0; i < this->drParameters->nucleationCount; ++i) {
-          common::adjustInitialStress(
+          common::adjustInitialStress<Cfg>(
               initialStressInFaultCS[ltsFace],
               nucleationStressInFaultCS[ltsFace * this->drParameters->nucleationCount + i],
               initialPressure[ltsFace],
@@ -125,14 +125,14 @@ class BaseFrictionLaw : public FrictionSolver {
       LIKWID_MARKER_START("computeDynamicRupturePostHook");
       static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
 
-      common::saveRuptureFrontOutput(ruptureTimePending[ltsFace],
+      common::saveRuptureFrontOutput<Cfg>(ruptureTimePending[ltsFace],
                                      ruptureTime[ltsFace],
                                      slipRateMagnitude[ltsFace],
                                      mFullUpdateTime);
 
       static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace);
 
-      common::savePeakSlipRateOutput(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
+      common::savePeakSlipRateOutput<Cfg>(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
       LIKWID_MARKER_STOP("computeDynamicRupturePostHook");
       SCOREP_USER_REGION_END(myRegionHandle)
 
@@ -140,7 +140,7 @@ class BaseFrictionLaw : public FrictionSolver {
                                "computeDynamicRupturePostcomputeImposedState",
                                SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePostcomputeImposedState");
-      common::postcomputeImposedStateFromNewStress(faultStresses,
+      common::postcomputeImposedStateFromNewStress<Cfg>(faultStresses,
                                                    tractionResults,
                                                    impAndEta[ltsFace],
                                                    impedanceMatrices[ltsFace],
@@ -155,14 +155,14 @@ class BaseFrictionLaw : public FrictionSolver {
       if (this->drParameters->isFrictionEnergyRequired) {
 
         if (this->drParameters->isCheckAbortCriteraEnabled) {
-          common::updateTimeSinceSlipRateBelowThreshold(
+          common::updateTimeSinceSlipRateBelowThreshold<Cfg>(
               slipRateMagnitude[ltsFace],
               ruptureTimePending[ltsFace],
               energyData[ltsFace],
               this->sumDt,
               this->drParameters->terminatorSlipRateThreshold);
         }
-        common::computeFrictionEnergy(energyData[ltsFace],
+        common::computeFrictionEnergy<Cfg>(energyData[ltsFace],
                                       qInterpolatedPlus[ltsFace],
                                       qInterpolatedMinus[ltsFace],
                                       impAndEta[ltsFace],

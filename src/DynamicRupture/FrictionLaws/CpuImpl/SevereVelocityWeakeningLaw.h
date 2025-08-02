@@ -43,15 +43,15 @@ class SevereVelocityWeakeningLaw
   }
 
   struct MuDetails {
-    std::array<double, misc::NumPaddedPoints> a{};
-    std::array<double, misc::NumPaddedPoints> c{};
+    std::array<double, misc::NumPaddedPoints<Cfg>> a{};
+    std::array<double, misc::NumPaddedPoints<Cfg>> c{};
   };
 
   MuDetails getMuDetails(std::size_t ltsFace,
-                         const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
+                         const std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable) {
     MuDetails details{};
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       const double localA = this->a[ltsFace][pointIndex];
       const double localSl0 = this->sl0[ltsFace][pointIndex];
       const double c = this->drParameters->rsB *
@@ -85,15 +85,15 @@ class SevereVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the
    * member variable.
    */
-  void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
                         std::size_t ltsFace) const {
 #pragma omp simd
-    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       this->stateVariable[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }
 
-  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
+  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable,
                              std::size_t ltsFace) {}
 };
 } // namespace seissol::dr::friction_law::cpu

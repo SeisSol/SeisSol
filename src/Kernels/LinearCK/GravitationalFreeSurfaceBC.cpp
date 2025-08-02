@@ -17,8 +17,9 @@
 
 namespace seissol {
 
+template<typename Cfg>
 std::pair<std::uint64_t, std::uint64_t>
-    GravitationalFreeSurfaceBc::getFlopsDisplacementFace(unsigned int face, FaceType faceType) {
+    GravitationalFreeSurfaceBc<Cfg>::getFlopsDisplacementFace(unsigned int face, FaceType faceType) {
   std::uint64_t hardwareFlops = 0;
   std::uint64_t nonZeroFlops = 0;
 
@@ -31,7 +32,7 @@ std::pair<std::uint64_t, std::uint64_t>
   nonZeroFlops += 1 * NumberOfNodes;
 
   // Before adjusting the range of the loop, check range of loop in computation!
-  for (std::size_t order = 1; order < ConvergenceOrder + 1; ++order) {
+  for (std::size_t order = 1; order < Cfg::ConvergenceOrder + 1; ++order) {
     constexpr auto FlopsPerQuadpoint = 4 + // Computing coefficient
                                        6 + // Updating displacement
                                        2;  // Updating integral of displacement
@@ -50,4 +51,7 @@ std::pair<std::uint64_t, std::uint64_t>
 
   return {nonZeroFlops, hardwareFlops};
 }
+
+template class GravitationalFreeSurfaceBc<Config0>;
+
 } // namespace seissol
