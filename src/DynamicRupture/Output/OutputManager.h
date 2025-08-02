@@ -35,8 +35,9 @@ class OutputManager {
 
   void init();
   void initFaceToLtsMap();
-  void writePickpointOutput(double time, double dt, parallel::runtime::StreamRuntime& runtime);
-  void flushPickpointDataToFile();
+  void writePickpointOutput(double time, double dt);
+  void writePickpointOutput(int64_t clusterId, double time, double dt, parallel::runtime::StreamRuntime& runtime);
+  void flushPickpointDataToFile(int64_t clusterId);
   void updateElementwiseOutput();
 
   private:
@@ -51,7 +52,7 @@ class OutputManager {
   std::unique_ptr<PickPointBuilder> ppOutputBuilder{nullptr};
 
   std::shared_ptr<ReceiverOutputData> ewOutputData{nullptr};
-  std::shared_ptr<ReceiverOutputData> ppOutputData{nullptr};
+  std::unordered_map<int64_t, std::shared_ptr<ReceiverOutputData>> ppOutputData;
 
   struct PickpointFile {
     std::string fileName;
@@ -60,7 +61,7 @@ class OutputManager {
     std::vector<std::size_t> indices;
   };
 
-  std::vector<PickpointFile> ppFiles;
+  std::unordered_map<int64_t, std::vector<PickpointFile>> ppFiles;
 
   LTS::Storage* wpStorage{nullptr};
   LTS::Backmap* wpBackmap{nullptr};
