@@ -167,7 +167,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
         const CellMaterialData& materialData = material[cell];
         for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
           auto sub = multisim::simtensor(iniCond, s);
-          iniFields[s % iniFields.size()]->evaluate(0.0, quadraturePointsXyz, materialData, sub);
+          iniFields[s % iniFields.size()]->evaluate(
+              0.0, quadraturePointsXyz.data(), quadraturePointsXyz.size(), materialData, sub);
         }
 
         krnl.Q = dofs[cell];
@@ -263,8 +264,8 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
   for (auto& layer : storage.leaves(Ghost)) {
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel
-    {
 #endif
+    {
       alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
       auto iniCond = init::iniCond::view::create(iniCondData);
 
@@ -303,9 +304,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
         }
         krnl.execute();
       }
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
     }
-#endif
   }
 }
 

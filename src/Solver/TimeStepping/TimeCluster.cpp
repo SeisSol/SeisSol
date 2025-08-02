@@ -15,6 +15,7 @@
 #include "Kernels/TimeCommon.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
+#include "Parallel/OpenMP.h"
 #include "SeisSol.h"
 #include "generated_code/kernel.h"
 #include <Alignment.h>
@@ -51,10 +52,6 @@
 #include <utils/logger.h>
 #include <vector>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
 namespace seissol::time_stepping {
 
 TimeCluster::TimeCluster(unsigned int clusterId,
@@ -79,7 +76,7 @@ TimeCluster::TimeCluster(unsigned int clusterId,
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
       // cluster ids
-      usePlasticity(usePlasticity), seissolInstance(seissolInstance),
+      usePlasticity(usePlasticity), seissolInstance(seissolInstance), streamRuntime(4),
       globalDataOnHost(globalData.onHost), globalDataOnDevice(globalData.onDevice),
       clusterData(clusterData),
       // global data
@@ -144,7 +141,7 @@ void TimeCluster::writeReceivers() {
 
   if (receiverCluster != nullptr) {
     receiverTime = receiverCluster->calcReceivers(
-        receiverTime, ct.correctionTime, timeStepSize(), executor, nullptr);
+        receiverTime, ct.correctionTime, timeStepSize(), executor, streamRuntime);
   }
 }
 
@@ -272,20 +269,18 @@ void TimeCluster::computeDynamicRuptureDevice(DynamicRupture::Layer& layerData) 
               table, pointsCollocate.data(), streamRuntime);
         });
     device.api->popLastProfilingMark();
+
+    auto& solver =
+        &layerData == dynRupInteriorData ? frictionSolverDevice : frictionSolverCopyDevice;
+
+    device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
     if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
       layerData.varSynchronizeTo<DynamicRupture::QInterpolatedPlus>(
           initializer::AllocationPlace::Host, streamRuntime.stream());
       layerData.varSynchronizeTo<DynamicRupture::QInterpolatedMinus>(
           initializer::AllocationPlace::Host, streamRuntime.stream());
       streamRuntime.wait();
-    }
-
-    device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
-    auto& solver =
-        &layerData == dynRupInteriorData ? frictionSolverDevice : frictionSolverCopyDevice;
-    solver->evaluate(ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
-    device.api->popLastProfilingMark();
-    if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
+      solver->evaluate(ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
       layerData.varSynchronizeTo<DynamicRupture::FluxSolverMinus>(
           initializer::AllocationPlace::Device, streamRuntime.stream());
       layerData.varSynchronizeTo<DynamicRupture::FluxSolverPlus>(
@@ -294,8 +289,10 @@ void TimeCluster::computeDynamicRuptureDevice(DynamicRupture::Layer& layerData) 
           initializer::AllocationPlace::Device, streamRuntime.stream());
       layerData.varSynchronizeTo<DynamicRupture::ImposedStatePlus>(
           initializer::AllocationPlace::Device, streamRuntime.stream());
+    } else {
+      solver->evaluate(ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
     }
-    streamRuntime.wait();
+    device.api->popLastProfilingMark();
   }
   loopStatistics->end(regionComputeDynamicRupture, layerData.size(), profilingId);
 }
@@ -493,8 +490,6 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
         }
       });
 
-  streamRuntime.wait();
-
   loopStatistics->end(regionComputeLocalIntegration, clusterData->size(), profilingId);
   device.api->popLastProfilingMark();
 }
@@ -559,7 +554,6 @@ void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
   }
 
   device.api->popLastProfilingMark();
-  streamRuntime.wait();
   loopStatistics->end(regionComputeNeighboringIntegration, clusterData->size(), profilingId);
 }
 #endif // ACL_DEVICE
@@ -697,9 +691,9 @@ void TimeCluster::predict() {
     auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host
                                               : seissol::initializer::AllocationPlace::Device;
     clusterData->varSynchronizeTo<LTS::BuffersDerivatives>(other, streamRuntime.stream());
-    streamRuntime.wait();
   }
 #endif
+  streamRuntime.wait();
 }
 
 void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
@@ -718,7 +712,6 @@ void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
     layerData.varSynchronizeTo<DynamicRupture::FluxSolverPlus>(other, streamRuntime.stream());
     layerData.varSynchronizeTo<DynamicRupture::ImposedStateMinus>(other, streamRuntime.stream());
     layerData.varSynchronizeTo<DynamicRupture::ImposedStatePlus>(other, streamRuntime.stream());
-    streamRuntime.wait();
   }
 #else
   computeDynamicRupture(layerData);
@@ -801,9 +794,12 @@ void TimeCluster::correct() {
   // TODO: Change from iteration based to time based
   if (dynamicRuptureScheduler->isFirstClusterWithDynamicRuptureFaces() &&
       dynamicRuptureScheduler->mayComputeFaultOutput(ct.stepsSinceStart)) {
-    faultOutputManager->writePickpointOutput(ct.correctionTime + timeStepSize(), timeStepSize());
+    faultOutputManager->writePickpointOutput(
+        ct.correctionTime + timeStepSize(), timeStepSize(), streamRuntime);
     dynamicRuptureScheduler->setLastFaultOutput(ct.stepsSinceStart);
   }
+
+  streamRuntime.wait();
 
   // TODO(Lukas) Adjust with time step rate? Relevant is maximum cluster is not on this node
   const auto nextCorrectionSteps = ct.nextCorrectionSteps();
@@ -911,11 +907,6 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   for (std::size_t cell = 0; cell < clusterData->size(); cell++) {
     auto data = clusterData->cellRef(cell);
 
-#ifdef _OPENMP
-    const std::size_t threadId = omp_get_thread_num();
-#else
-    const std::size_t threadId = 0;
-#endif
     seissol::kernels::TimeCommon::computeIntegrals(
         timeKernel,
         data.get<LTS::CellInformation>().ltsSetup,
@@ -924,7 +915,8 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
         subtimeCoeffs.data(),
         faceNeighbors[cell],
         *reinterpret_cast<real(*)[4][tensor::I::size()]>(
-            &(globalDataOnHost->integrationBufferLTS[threadId * 4 * tensor::I::size()])),
+            &(globalDataOnHost->integrationBufferLTS[OpenMP::threadId() * 4 *
+                                                     static_cast<size_t>(tensor::I::size())])),
         timeIntegrated);
 
     faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)

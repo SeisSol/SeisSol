@@ -12,7 +12,6 @@
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Initializer/PreProcessorMacros.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -21,6 +20,8 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Alignment.h>
+#include <Kernels/Common.h>
+#include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -66,7 +67,8 @@ void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], int meshId, i
 void ReceiverOutput::calcFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-    std::shared_ptr<ReceiverOutputData> outputData,
+    const std::shared_ptr<ReceiverOutputData>& outputData,
+    parallel::runtime::StreamRuntime& runtime,
     double time) {
 
   const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
@@ -74,19 +76,25 @@ void ReceiverOutput::calcFaultOutput(
                            : 0;
   const auto& faultInfos = meshReader->getFault();
 
-#ifdef ACL_DEVICE
-  void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-  outputData->deviceDataCollector->gatherToHost(stream);
-  for (auto& [_, dataCollector] : outputData->deviceVariables) {
-    dataCollector->gatherToHost(stream);
-  }
-  device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
-#endif
+  auto& callRuntime =
+      outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
 
-#if defined(_OPENMP) && !NVHPC_AVOID_OMP
-#pragma omp parallel for
-#endif
-  for (size_t i = 0; i < outputData->receiverPoints.size(); ++i) {
+  if constexpr (isDeviceOn()) {
+    if (outputData->extraRuntime.has_value()) {
+      runtime.eventSync(outputData->extraRuntime->eventRecord());
+    }
+    outputData->deviceDataCollector->gatherToHost(runtime.stream());
+    for (auto& [_, dataCollector] : outputData->deviceVariables) {
+      dataCollector->gatherToHost(runtime.stream());
+    }
+    if (outputData->extraRuntime.has_value()) {
+      outputData->extraRuntime->eventSync(runtime.eventRecord());
+    }
+  }
+
+  const auto points = outputData->receiverPoints.size();
+  const auto handler = [this, outputData, &faultInfos, outputType, slipRateOutputType, level](
+                           std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
@@ -115,22 +123,20 @@ void ReceiverOutput::calcFaultOutput(
 
     const auto& faultInfo = faultInfos[faceIndex];
 
-#ifdef ACL_DEVICE
-    {
+    if constexpr (isDeviceOn()) {
       real* dofsPlusData = outputData->deviceDataCollector->get(outputData->deviceDataPlus[i]);
       real* dofsMinusData = outputData->deviceDataCollector->get(outputData->deviceDataMinus[i]);
 
       std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
       std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
-    }
-#else
-    getDofs(dofsPlus, faultInfo.element);
-    if (faultInfo.neighborElement >= 0) {
-      getDofs(dofsMinus, faultInfo.neighborElement);
     } else {
-      getNeighborDofs(dofsMinus, faultInfo.element, faultInfo.side);
+      getDofs(dofsPlus, faultInfo.element);
+      if (faultInfo.neighborElement >= 0) {
+        getDofs(dofsMinus, faultInfo.neighborElement);
+      } else {
+        getNeighborDofs(dofsMinus, faultInfo.element, faultInfo.side);
+      }
     }
-#endif
 
     const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(local);
 
@@ -322,7 +328,9 @@ void ReceiverOutput::calcFaultOutput(
           sin1 * slip1[local.gpIndex] + cos1 * slip2[local.gpIndex];
     }
     this->outputSpecifics(outputData, local, level, i);
-  }
+  };
+
+  callRuntime.enqueueLoop(points, handler);
 
   if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
     outputData->cachedTime[outputData->currentCacheLevel] = time;

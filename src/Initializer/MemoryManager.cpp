@@ -11,9 +11,6 @@
 #include <Initializer/BasicTypedefs.h>
 #include <Memory/Tree/Colormap.h>
 #include <Solver/MultipleSimulations.h>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 #include "Memory/MemoryAllocator.h"
 #include "SeisSol.h"
@@ -672,7 +669,7 @@ void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bo
     layer.setEntrySize<LTS::DofsFaceNodalScratch>(
       sizeof(real) * freeSurfaceCount * tensor::INodal::size());
     layer.setEntrySize<LTS::PrevCoefficientsScratch>(
-      sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[0]);
+      sizeof(real) * freeSurfaceCount * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
   }
 }
 

@@ -16,6 +16,7 @@
 
 #include <DynamicRupture/Misc.h>
 #include <Memory/Tree/Backmap.h>
+#include <Parallel/Runtime/Stream.h>
 #include <memory>
 #include <vector>
 
@@ -32,7 +33,8 @@ class ReceiverOutput {
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-                       std::shared_ptr<ReceiverOutputData> outputData,
+                       const std::shared_ptr<ReceiverOutputData>& outputData,
+                       parallel::runtime::StreamRuntime& runtime,
                        double time = 0.0);
 
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
@@ -130,7 +132,7 @@ class ReceiverOutput {
                               const std::array<double, 3>& tangent2,
                               const std::array<double, 3>& strike,
                               const std::array<double, 3>& dip);
-  virtual void outputSpecifics(std::shared_ptr<ReceiverOutputData>& data,
+  virtual void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& data,
                                const LocalInfo& local,
                                size_t outputSpecifics,
                                size_t receiverIdx) {}
