@@ -21,7 +21,7 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
   protected:
   std::size_t globalClusterId;
   std::size_t otherGlobalClusterId;
-  std::vector<solver::RemoteClusterPair> meshStructure;
+  solver::RemoteClusterPair meshStructure;
   std::vector<MPI_Request> sendRequests;
   std::vector<MPI_Request> recvRequests;
   std::list<unsigned int> sendQueue;

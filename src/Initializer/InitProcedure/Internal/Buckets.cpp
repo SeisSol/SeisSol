@@ -101,10 +101,13 @@ std::vector<solver::RemoteCluster>
   const auto useBuffersDerivatives = [&](std::size_t index, int rank) {
     bool buffers = false;
     bool derivatives = false;
+
+    // TODO: optimize away again
     for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
       if ((secondaryCellInformation[index].rank == rank &&
            secondaryCellInformation[index].neighborRanks[j] >= 0) ||
-          secondaryCellInformation[index].neighborRanks[j] == rank) {
+          (secondaryCellInformation[index].neighborRanks[j] == rank &&
+           secondaryCellInformation[index].rank == seissol::MPI::mpi.rank())) {
         if (cellInformation[index].ltsSetup.neighborHasDerivatives(j)) {
           derivatives = true;
         } else {
@@ -112,6 +115,8 @@ std::vector<solver::RemoteCluster>
         }
       }
     }
+    buffers = true;
+    derivatives = true;
     return std::pair<bool, bool>{buffers, derivatives};
   };
 
@@ -299,22 +304,30 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
   solver::HaloCommunication communication;
 
   communication.resize(storage.numChildren());
-  for (auto& commGhost : communication) {
-    commGhost.resize(storage.numChildren());
+  for (auto& comm : communication) {
+    comm.resize(storage.numChildren());
   }
+
+  const auto colorAdjust = [&](std::size_t color, HaloType halo) {
+    auto id = storage.getColorMap().argument(color);
+    id.halo = halo;
+    return storage.getColorMap().colorId(id);
+  };
 
   for (const auto& layer : storage.leaves()) {
     const auto& idInfo = layout[layer.id()].regions;
     if (layer.getIdentifier().halo == HaloType::Copy) {
       for (std::size_t i = 0; i < idInfo.size(); ++i) {
-        communication[idInfo[i].localId][idInfo[i].remoteId].copy.emplace_back(
-            commInfo[layer.id()][i]);
+        const auto localId = colorAdjust(idInfo[i].localId, HaloType::Copy);
+        const auto remoteId = colorAdjust(idInfo[i].remoteId, HaloType::Ghost);
+        communication[localId][remoteId].copy.emplace_back(commInfo[layer.id()][i]);
       }
     }
     if (layer.getIdentifier().halo == HaloType::Ghost) {
       for (std::size_t i = 0; i < idInfo.size(); ++i) {
-        communication[idInfo[i].remoteId][idInfo[i].localId].ghost.emplace_back(
-            commInfo[layer.id()][i]);
+        const auto localId = colorAdjust(idInfo[i].remoteId, HaloType::Copy);
+        const auto remoteId = colorAdjust(idInfo[i].localId, HaloType::Ghost);
+        communication[localId][remoteId].ghost.emplace_back(commInfo[layer.id()][i]);
       }
     }
   }

@@ -105,8 +105,9 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
       globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId),
       meshStructure(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId)),
-      sendRequests(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).size()),
-      recvRequests(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).size()) {}
+      sendRequests(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).copy.size()),
+      recvRequests(
+          meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).ghost.size()) {}
 
 void AbstractGhostTimeCluster::reset() {
   AbstractTimeCluster::reset();

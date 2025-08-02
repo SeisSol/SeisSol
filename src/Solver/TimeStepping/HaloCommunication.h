@@ -27,11 +27,11 @@ struct RemoteCluster {
 };
 
 struct RemoteClusterPair {
-  RemoteCluster copy;
-  RemoteCluster ghost;
+  std::vector<RemoteCluster> copy;
+  std::vector<RemoteCluster> ghost;
 };
 
-using HaloCommunication = std::vector<std::vector<std::vector<RemoteClusterPair>>>;
+using HaloCommunication = std::vector<std::vector<RemoteClusterPair>>;
 } // namespace seissol::solver
 
 #endif // SEISSOL_SRC_SOLVER_TIMESTEPPING_HALOCOMMUNICATION_H_
