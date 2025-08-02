@@ -133,4 +133,8 @@ void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinc
   }
 }
 
+std::string AbstractGhostTimeCluster::description() const {
+  return "comm-" + std::to_string(globalClusterId) + "-" + std::to_string(otherGlobalClusterId);
+}
+
 } // namespace seissol::time_stepping

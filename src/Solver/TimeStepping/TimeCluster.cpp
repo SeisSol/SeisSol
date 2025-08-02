@@ -942,4 +942,10 @@ void TimeCluster::finishPhase() {
   yieldCells[0] = 0;
 }
 
+std::string TimeCluster::description() const {
+  const auto identifier = clusterData->getIdentifier();
+  const std::string haloStr = identifier.halo == HaloType::Interior ? "interior" : "copy";
+  return "compute-" + haloStr;
+}
+
 } // namespace seissol::time_stepping

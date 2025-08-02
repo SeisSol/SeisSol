@@ -285,6 +285,8 @@ class TimeCluster : public AbstractTimeCluster {
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 
   void finishPhase() override;
+
+  [[nodiscard]] std::string description() const override;
 };
 
 } // namespace seissol::time_stepping

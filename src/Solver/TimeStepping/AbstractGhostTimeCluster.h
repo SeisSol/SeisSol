@@ -11,6 +11,7 @@
 #include "AbstractTimeCluster.h"
 #include "Initializer/Typedefs.h"
 #include <list>
+#include <string>
 
 #include "Parallel/MPI.h"
 
@@ -55,6 +56,8 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
 
   void reset() override;
   ActResult act() override;
+
+  [[nodiscard]] std::string description() const override;
 };
 } // namespace seissol::time_stepping
 
