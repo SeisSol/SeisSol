@@ -499,7 +499,10 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
   return (isFirstStep || isOutputIteration || isCloseToTimeOut);
 }
 
-void OutputManager::writePickpointOutput(int64_t clusterId, double time, double dt, parallel::runtime::StreamRuntime& runtime) {
+void OutputManager::writePickpointOutput(int64_t clusterId,
+                                         double time,
+                                         double dt,
+                                         parallel::runtime::StreamRuntime& runtime) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {

@@ -36,7 +36,10 @@ class OutputManager {
   void init();
   void initFaceToLtsMap();
   void writePickpointOutput(double time, double dt);
-  void writePickpointOutput(int64_t clusterId, double time, double dt, parallel::runtime::StreamRuntime& runtime);
+  void writePickpointOutput(int64_t clusterId,
+                            double time,
+                            double dt,
+                            parallel::runtime::StreamRuntime& runtime);
   void flushPickpointDataToFile(int64_t clusterId);
   void updateElementwiseOutput();
 

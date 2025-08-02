@@ -13,8 +13,8 @@
 #include "ReceiverBasedOutputBuilder.h"
 
 #include <Common/Iterator.h>
-#include <Parallel/Runtime/Stream.h>
 #include <DynamicRupture/Output/DataTypes.h>
+#include <Parallel/Runtime/Stream.h>
 #include <memory>
 #include <optional>
 
@@ -33,7 +33,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
       singleClusterOutputData->clusterId = id;
       outputData = singleClusterOutputData;
       outputData->extraRuntime.emplace(0);
-      
+
       assignNearestGaussianPoints(outputData->receiverPoints);
       assignNearestInternalGaussianPoints();
       assignFusedIndices();
