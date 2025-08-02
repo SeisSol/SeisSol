@@ -14,9 +14,9 @@
 #include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
 #include <Equations/Datastructures.h>
+#include <GeneratedCode/init.h>
 #include <Memory/MemoryAllocator.h>
 #include <Solver/MultipleSimulations.h>
-#include <init.h>
 
 #include <algorithm>
 #include <cmath>

@@ -20,6 +20,7 @@
 #include "Numerical/Transformation.h"
 #include <Common/Typedefs.h>
 #include <Config.h>
+#include <GeneratedCode/init.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Solver/MultipleSimulations.h>
@@ -28,7 +29,6 @@
 #include <cassert>
 #include <cstddef>
 #include <functional>
-#include <init.h>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -38,9 +38,9 @@
 #ifdef ACL_DEVICE
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
+#include <GeneratedCode/tensor.h>
 #include <Memory/Tree/Layer.h>
 #include <memory>
-#include <tensor.h>
 #endif
 
 namespace seissol::dr::output {

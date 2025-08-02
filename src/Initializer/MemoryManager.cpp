@@ -33,7 +33,7 @@
 
 #include "Common/Iterator.h"
 
-#include "generated_code/tensor.h"
+#include "GeneratedCode/tensor.h"
 
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"

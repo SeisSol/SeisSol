@@ -13,9 +13,9 @@
 #include "Common/Constants.h"
 #include "Config.h"
 #include "Equations/elastic/Model/Datastructures.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/tensor.h"
 #include <Common/Typedefs.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Kernels/LinearCK/Solver.h>

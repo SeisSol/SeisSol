@@ -25,6 +25,8 @@
 #include "Memory/Tree/Layer.h"
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
+#include <GeneratedCode/init.h>
+#include <GeneratedCode/kernel.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
@@ -35,10 +37,8 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
-#include <init.h>
 #include <iomanip>
 #include <ios>
-#include <kernel.h>
 #include <memory>
 #include <numeric>
 #include <ostream>
