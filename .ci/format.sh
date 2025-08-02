@@ -13,36 +13,15 @@
 # $ cd $SEISSOL_SOURCE_DIR/.ci; sh format.sh `which clang-format` ../
 
 format() {
+    # add all directories with source files here
     # don't use a directory with whitespace
     local allowlist_dir="
         app
-        src/Common
-        src/DynamicRupture
-        src/Equations
-        src/Geometry
-        src/Initializer
-        src/IO
-        src/Kernels
-        src/Memory
-        src/Modules
-        src/Monitoring
-        src/Model
-        src/Numerical
-        src/Parallel
-        src/Physics
-        src/Proxy
-        src/Reader
-        src/ResultWriter
-        src/Solver
-        src/SourceTerm
-        src/tests
+        src
         "
 
-    # NOTE: once the files of a directory are (almost) fully covered, consider moving it to allowlist_dir instead
-    local allowlist_file="
-        src/SeisSol.h
-        src/SeisSol.cpp
-        "
+    # files outside the source directories
+    local allowlist_file=""
 
 
     local SEISSOL_SOURCE_DIR="${2}"
