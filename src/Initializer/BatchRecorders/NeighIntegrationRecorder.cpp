@@ -10,6 +10,7 @@
 #include "utils/logger.h"
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
+#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
@@ -18,7 +19,6 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <tensor.h>
 #include <vector>
 #include <yateto.h>
 
@@ -26,11 +26,8 @@ using namespace device;
 using namespace seissol::initializer;
 using namespace seissol::initializer::recording;
 
-void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
-  kernels::NeighborData::Loader loader, loaderHost;
-  loader.load(handler, layer, AllocationPlace::Device);
-  loaderHost.load(handler, layer, AllocationPlace::Host);
-  setUpContext(handler, layer, loader, loaderHost);
+void NeighIntegrationRecorder::record(LTS::Layer& layer) {
+  setUpContext(layer);
   idofsAddressRegistry.clear();
 
   recordDofsTimeEvaluation();
@@ -38,9 +35,9 @@ void NeighIntegrationRecorder::record(LTS& handler, Layer& layer) {
 }
 
 void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
-  real*(*faceNeighborsDevice)[4] = currentLayer->var(currentHandler->faceNeighborsDevice);
-  real* integratedDofsScratch = static_cast<real*>(
-      currentLayer->var(currentHandler->integratedDofsScratch, AllocationPlace::Device));
+  real*(*faceNeighborsDevice)[4] = currentLayer->var<LTS::FaceNeighborsDevice>();
+  real* integratedDofsScratch =
+      static_cast<real*>(currentLayer->var<LTS::IntegratedDofsScratch>(AllocationPlace::Device));
 
   const auto size = currentLayer->size();
   if (size > 0) {
@@ -50,7 +47,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
     std::vector<real*> gtsIDofsPtrs{};
 
     for (std::size_t cell = 0; cell < size; ++cell) {
-      auto dataHost = currentLoaderHost->entry(cell);
+      auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
 
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         real* neighborBuffer = faceNeighborsDevice[cell][face];
@@ -60,17 +57,17 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
 
           // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
           if (neighborBuffer != nullptr) {
-            if (dataHost.cellInformation().faceTypes[face] != FaceType::Outflow &&
-                dataHost.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
+            if (dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::Outflow &&
+                dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
 
               const bool isNeighbProvidesDerivatives =
-                  ((dataHost.cellInformation().ltsSetup >> face) % 2) == 1;
+                  dataHost.get<LTS::CellInformation>().ltsSetup.neighborHasDerivatives(face);
 
               if (isNeighbProvidesDerivatives) {
                 real* nextTempIDofsPtr = &integratedDofsScratch[integratedDofsAddressCounter];
 
                 const bool isGtsNeighbor =
-                    ((dataHost.cellInformation().ltsSetup >> (face + 4)) % 2) == 1;
+                    dataHost.get<LTS::CellInformation>().ltsSetup.neighborGTS(face);
                 if (isGtsNeighbor) {
 
                   idofsAddressRegistry[neighborBuffer] = nextTempIDofsPtr;
@@ -109,7 +106,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
 }
 
 void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
-  real*(*faceNeighborsDevice)[4] = currentLayer->var(currentHandler->faceNeighborsDevice);
+  real*(*faceNeighborsDevice)[4] = currentLayer->var<LTS::FaceNeighborsDevice>();
 
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
@@ -122,19 +119,19 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
 
-  CellDRMapping(*drMappingDevice)[4] = currentLayer->var(currentHandler->drMappingDevice);
+  CellDRMapping(*drMappingDevice)[4] = currentLayer->var<LTS::DRMappingDevice>();
 
 #ifdef USE_VISCOELASTIC2
-  auto* dofsExt = currentLayer->var(currentHandler->dofsExtScratch, AllocationPlace::Device);
+  auto* dofsExt = currentLayer->var<LTS::DofsExtScratch>(AllocationPlace::Device);
 #endif
 
   const auto size = currentLayer->size();
   for (std::size_t cell = 0; cell < size; ++cell) {
-    auto data = currentLoader->entry(cell);
-    auto dataHost = currentLoaderHost->entry(cell);
+    auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
+    auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
 
     for (std::size_t face = 0; face < Cell::NumFaces; face++) {
-      switch (dataHost.cellInformation().faceTypes[face]) {
+      switch (dataHost.get<LTS::CellInformation>().faceTypes[face]) {
       case FaceType::Regular:
         [[fallthrough]];
       case FaceType::Periodic: {
@@ -143,18 +140,19 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         real* neighborBufferPtr = faceNeighborsDevice[cell][face];
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighborBufferPtr != nullptr) {
-          const auto faceRelation = dataHost.cellInformation().faceRelations[face][1] +
-                                    3 * dataHost.cellInformation().faceRelations[face][0] +
-                                    12 * face;
+          const auto faceRelation =
+              dataHost.get<LTS::CellInformation>().faceRelations[face][1] +
+              3 * dataHost.get<LTS::CellInformation>().faceRelations[face][0] + 12 * face;
 
           assert((*FaceRelations::Count) > faceRelation &&
                  "incorrect face relation count has been detected");
 
-          regularPeriodicDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs()));
+          regularPeriodicDofs[face][faceRelation].push_back(
+              static_cast<real*>(data.get<LTS::Dofs>()));
           regularPeriodicIDofs[face][faceRelation].push_back(
               idofsAddressRegistry[neighborBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
-              reinterpret_cast<real*>(&data.neighboringIntegration()));
+              reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
 #ifdef USE_VISCOELASTIC2
           regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
                                                        tensor::Qext::size() * cell);
@@ -170,7 +168,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
             drMappingDevice[cell][face].side + 4 * drMappingDevice[cell][face].faceRelation;
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");
-        drDofs[face][faceRelation].push_back(static_cast<real*>(data.dofs()));
+        drDofs[face][faceRelation].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
         drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
         drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
 #ifdef USE_VISCOELASTIC2
@@ -193,7 +191,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
       }
       default: {
         logError() << "unknown boundary condition type: "
-                   << static_cast<int>(dataHost.cellInformation().faceTypes[face]);
+                   << static_cast<int>(dataHost.get<LTS::CellInformation>().faceTypes[face]);
       }
       }
     }

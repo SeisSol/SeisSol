@@ -42,7 +42,6 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
   void prefetchGhostRegion(std::size_t region);
 
   private:
-  std::size_t numberOfRegions{};
   std::vector<void*> duplicatedCopyRegions;
   std::vector<void*> duplicatedGhostRegions;
 

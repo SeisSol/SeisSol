@@ -14,6 +14,8 @@
 #include <Equations/elastic/Model/Datastructures.h>
 #include <Equations/poroelastic/Model/Datastructures.h>
 #include <Equations/viscoelastic2/Model/Datastructures.h>
+#include <GeneratedCode/init.h>
+#include <GeneratedCode/tensor.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
 #include <Kernels/Precision.h>
@@ -24,11 +26,9 @@
 #include <cassert>
 #include <cstddef>
 #include <easi/Query.h>
-#include <init.h>
 #include <iterator>
 #include <memory>
 #include <set>
-#include <tensor.h>
 #include <utility>
 #include <vector>
 #ifdef USE_HDF
@@ -38,7 +38,7 @@
 
 #include "PUML/Downward.h"
 
-#include "generated_code/kernel.h"
+#include "GeneratedCode/kernel.h"
 #endif
 #include "ParameterDB.h"
 #include <algorithm>

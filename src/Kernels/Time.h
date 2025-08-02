@@ -11,12 +11,13 @@
 #ifndef SEISSOL_SRC_KERNELS_TIME_H_
 #define SEISSOL_SRC_KERNELS_TIME_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
-#include "generated_code/tensor.h"
 #include <Kernels/Kernel.h>
 #include <Numerical/BasisFunction.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
+#include <cstddef>
 #include <memory>
 
 namespace seissol::kernels {
@@ -25,40 +26,15 @@ class TimeKernel : public Kernel {
   public:
   ~TimeKernel() override = default;
 
-  virtual void evaluateAtTime(
-      std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
-      const real* timeDerivatives,
-      real timeEvaluated[tensor::Q::size()]) = 0;
-  virtual void flopsEvaluateAtTime(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) = 0;
-
-  virtual void computeIntegral(double expansionPoint,
-                               double integrationStart,
-                               double integrationEnd,
-                               const real* timeDerivatives,
-                               real timeIntegrated[tensor::I::size()]) = 0;
-
-  virtual void computeBatchedIntegral(double expansionPoint,
-                                      double integrationStart,
-                                      double integrationEnd,
-                                      const real** timeDerivatives,
-                                      real** timeIntegratedDofs,
-                                      unsigned numElements,
-                                      seissol::parallel::runtime::StreamRuntime& runtime) = 0;
-
-  virtual void computeTaylorExpansion(real time,
-                                      real expansionPoint,
-                                      const real* timeDerivatives,
-                                      real timeEvaluated[tensor::Q::size()]) = 0;
-
-  virtual void
-      computeBatchedTaylorExpansion(real time,
-                                    real expansionPoint,
-                                    real** timeDerivatives,
-                                    real** timeEvaluated,
-                                    size_t numElements,
-                                    seissol::parallel::runtime::StreamRuntime& runtime) = 0;
-
-  virtual void flopsTaylorExpansion(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) = 0;
+  virtual void evaluate(const real* coeffs,
+                        const real* timeDerivatives,
+                        real timeEvaluated[tensor::I::size()]) = 0;
+  virtual void evaluateBatched(const real* coeffs,
+                               const real** timeDerivatives,
+                               real** timeIntegratedDofs,
+                               std::size_t numElements,
+                               seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+  virtual void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) = 0;
 };
 
 } // namespace seissol::kernels

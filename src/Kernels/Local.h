@@ -9,11 +9,11 @@
 #ifndef SEISSOL_SRC_KERNELS_LOCAL_H_
 #define SEISSOL_SRC_KERNELS_LOCAL_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
 #include "Parallel/Runtime/Stream.h"
-#include "generated_code/tensor.h"
 #include <Kernels/Kernel.h>
 #include <Physics/InitialField.h>
 #include <cassert>
@@ -36,7 +36,7 @@ class LocalKernel : public Kernel {
   }
 
   virtual void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
-                               LocalData& data,
+                               LTS::Ref& data,
                                LocalTmp& tmp,
                                const CellMaterialData* materialData,
                                const CellBoundaryMapping (*cellBoundaryMapping)[4],
@@ -46,22 +46,18 @@ class LocalKernel : public Kernel {
   virtual void computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
                                       ConditionalMaterialTable& materialTable,
                                       ConditionalIndicesTable& indicesTable,
-                                      kernels::LocalData::Loader& loader,
-                                      LocalTmp& tmp,
                                       double timeStepWidth,
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   virtual void
       evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
                                      ConditionalIndicesTable& indicesTable,
-                                     kernels::LocalData::Loader& loader,
-                                     seissol::initializer::Layer& layer,
-                                     seissol::initializer::LTS& lts,
+                                     LTS::Layer& layer,
                                      double time,
                                      double timeStepWidth,
                                      seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
-  virtual void flopsIntegral(const FaceType faceTypes[4],
+  virtual void flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
                              std::uint64_t& nonZeroFlops,
                              std::uint64_t& hardwareFlops) = 0;
 

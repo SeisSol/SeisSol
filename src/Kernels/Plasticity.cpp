@@ -9,10 +9,11 @@
 
 #include "Plasticity.h"
 
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include <Alignment.h>
 #include <DataTypes/ConditionalTable.h>
+#include <GeneratedCode/tensor.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Model/Plasticity.h>
@@ -21,7 +22,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
-#include <tensor.h>
 
 #include "utils/logger.h"
 

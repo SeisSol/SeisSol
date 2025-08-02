@@ -13,10 +13,12 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/GlobalData.h"
 #include "Memory/Tree/LTSTree.h"
+#include <Config.h>
 #include <Kernels/DynamicRupture.h>
 #include <Kernels/Local.h>
 #include <Kernels/Neighbor.h>
 #include <Kernels/Solver.h>
+#include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <unordered_set>
 #include <yateto.h>
@@ -31,16 +33,16 @@ namespace seissol::proxy {
 struct ProxyData {
   std::size_t cellCount;
 
-  seissol::initializer::LTSTree ltsTree;
-  seissol::initializer::LTS lts;
-  seissol::initializer::LTSTree dynRupTree;
-  seissol::initializer::DynamicRupture dynRup;
+  LTS::Storage ltsStorage;
+  DynamicRupture::Storage drStorage;
 
   GlobalData globalDataOnHost;
   GlobalData globalDataOnDevice;
 
   real* fakeDerivatives = nullptr;
   real* fakeDerivativesHost = nullptr;
+
+  typename kernels::Solver::TimeBasis<real> timeBasis{Config::ConvergenceOrder};
 
   kernels::Spacetime spacetimeKernel;
   kernels::Time timeKernel;
@@ -51,6 +53,8 @@ struct ProxyData {
   seissol::memory::ManagedAllocator allocator;
 
   ProxyData(std::size_t cellCount, bool enableDR);
+
+  initializer::LayerIdentifier layerId{HaloType::Interior, Config(), 0};
 
   // TODO: check copyability (probably not)
 

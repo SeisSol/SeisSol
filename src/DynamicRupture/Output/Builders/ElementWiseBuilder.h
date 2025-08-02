@@ -14,7 +14,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.h"
-#include <init.h>
+#include <GeneratedCode/init.h>
 
 namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
@@ -23,8 +23,8 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   void setParams(const seissol::initializer::parameters::ElementwiseFaultParameters& params) {
     elementwiseParams = params;
   }
-  void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) override {
-    outputData = elementwiseOutputData;
+  void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) {
+    outputData = std::move(elementwiseOutputData);
     initReceiverLocations();
     assignNearestGaussianPoints(outputData->receiverPoints);
     assignNearestInternalGaussianPoints();

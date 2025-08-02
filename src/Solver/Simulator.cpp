@@ -17,6 +17,7 @@
 #include "SeisSol.h"
 #include "TimeStepping/TimeManager.h"
 #include <Memory/Tree/Layer.h>
+#include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cassert>
 #include <optional>
@@ -139,9 +140,11 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   Modules::callHook<ModuleHook::SimulationEnd>();
 
+  const auto& outputParams = seissolInstance.getSeisSolParameters().output;
+
   const auto& memoryManager = seissolInstance.getMemoryManager();
-  const bool isLoopStatisticsNetcdfOutputOn = memoryManager.isLoopStatisticsNetcdfOutputOn();
-  const auto& outputPrefix = memoryManager.getOutputPrefix();
+  const bool isLoopStatisticsNetcdfOutputOn = outputParams.loopStatisticsNetcdfOutput;
+  const auto& outputPrefix = outputParams.prefix;
   seissolInstance.timeManager().printComputationTime(outputPrefix, isLoopStatisticsNetcdfOutputOn);
 
   seissolInstance.analysisWriter().printAnalysis(currentTime);

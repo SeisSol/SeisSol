@@ -15,8 +15,6 @@
 #include <IO/Writer/Instructions/Data.h>
 #include <IO/Writer/Instructions/Hdf5.h>
 #include <IO/Writer/Writer.h>
-#include <Memory/Tree/LTSTree.h>
-#include <Memory/Tree/Layer.h>
 #include <Parallel/MPI.h>
 #include <cassert>
 #include <cstddef>
@@ -40,7 +38,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
     writer::Writer writer;
     const auto filename = prefix + std::string("-checkpoint-") + std::to_string(counter) + ".h5";
     for (const auto& [_, ckpTree] : dataRegistry) {
-      const std::size_t cells = ckpTree.tree->size(Ghost);
+      const std::size_t cells = ckpTree.cells;
       assert(cells == ckpTree.ids.size());
       std::size_t totalCells = 0;
       MPI_Allreduce(&cells,

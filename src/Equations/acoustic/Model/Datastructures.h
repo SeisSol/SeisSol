@@ -11,9 +11,9 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include "Model/CommonDatastructures.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
 #include <Kernels/LinearCK/Solver.h>
 #include <array>
 #include <cmath>
@@ -81,6 +81,8 @@ struct AcousticMaterial : public Material {
   [[nodiscard]] double getSWaveSpeed() const override { return 0.0; }
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
+
+  void setLameParameters(double mu, double lambda) override { this->lambda = lambda; }
 };
 } // namespace seissol::model
 

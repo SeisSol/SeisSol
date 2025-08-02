@@ -23,10 +23,7 @@
 #include <mpi.h>
 #include <vector>
 
-#ifdef USE_NETCDF
 #include "Geometry/CubeGenerator.h"
-#include "Geometry/NetcdfReader.h"
-#endif // USE_NETCDF
 #if defined(USE_HDF)
 #include "Geometry/PUMLReader.h"
 #include <hdf5.h>
@@ -71,13 +68,11 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.exchangeGhostlayerMetadata();
 
   logInfo() << "Extracting fault information.";
-  auto* drParameters = seissolInstance.getMemoryManager().getDRParameters();
-  const VrtxCoords center{drParameters->referencePoint[0],
-                          drParameters->referencePoint[1],
-                          drParameters->referencePoint[2]};
-  meshReader.extractFaultInformation(center, drParameters->refPointMethod);
-
-  seissolInstance.getLtsLayout().setMesh(meshReader);
+  const auto& drParameters = seissolInstance.getSeisSolParameters().drParameters;
+  const VrtxCoords center{drParameters.referencePoint[0],
+                          drParameters.referencePoint[1],
+                          drParameters.referencePoint[2]};
+  meshReader.extractFaultInformation(center, drParameters.refPointMethod);
 
   double maxPointValue[3]{-INFINITY, -INFINITY, -INFINITY};
   double minPointValue[3]{INFINITY, INFINITY, INFINITY};
@@ -253,7 +248,6 @@ size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
 
 void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters& seissolParams,
                        seissol::SeisSol& seissolInstance) {
-#if USE_NETCDF
   // unpack seissolParams
   const auto cubeParameters = seissolParams.cubeGenerator;
 
@@ -263,10 +257,6 @@ void readCubeGenerator(const seissol::initializer::parameters::SeisSolParameters
 
   seissolInstance.setMeshReader(
       new seissol::geometry::CubeGenerator(commRank, commSize, realMeshFileName, cubeParameters));
-#else
-  logError() << "Tried using CubeGenerator to read a Netcdf mesh, however this build of SeisSol is "
-                "not linked to Netcdf.";
-#endif
 }
 
 } // namespace
@@ -290,36 +280,7 @@ void seissol::initializer::initprocedure::initMesh(seissol::SeisSol& seissolInst
   seissol::Stopwatch watch;
   watch.start();
 
-  const std::string realMeshFileName = seissolParams.mesh.meshFileName;
-  [[maybe_unused]] bool addNC = true;
-  if (realMeshFileName.size() >= 3) {
-    const auto lastCharacters = realMeshFileName.substr(realMeshFileName.size() - 3);
-    addNC = lastCharacters != ".nc";
-  }
-
   switch (meshFormat) {
-  case seissol::initializer::parameters::MeshFormat::Netcdf: {
-#if USE_NETCDF
-    const auto realMeshFileNameNetcdf = [&]() {
-      if (addNC) {
-        const auto newRealMeshFileName = realMeshFileName + ".nc";
-        logInfo() << "The Netcdf file extension \".nc\" has been appended. Updated mesh file name:"
-                  << newRealMeshFileName;
-        return newRealMeshFileName;
-      } else {
-        // (suppress preference for return move)
-        // NOLINTNEXTLINE
-        return realMeshFileName;
-      }
-    }();
-    seissolInstance.setMeshReader(
-        new seissol::geometry::NetcdfReader(commRank, commSize, realMeshFileNameNetcdf.c_str()));
-#else
-    logError()
-        << "Tried to load a Netcdf mesh, however this build of SeisSol is not linked to Netcdf.";
-#endif
-    break;
-  }
   case seissol::initializer::parameters::MeshFormat::PUML: {
     readMeshPUML(seissolParams, seissolInstance);
     break;
