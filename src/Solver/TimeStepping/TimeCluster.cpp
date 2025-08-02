@@ -536,7 +536,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
     streamRuntime.runGraph(plasticityGraphKey,
                            *clusterData,
                            [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-                             seissol::kernels::Plasticity::computePlasticityBatched(
+                             seissol::kernels::Plasticity<Cfg>::computePlasticityBatched(
                                  timeStepWidth,
                                  seissolInstance.getSeisSolParameters().model.tv,
                                  globalDataOnDevice,
@@ -631,7 +631,7 @@ void TimeCluster::computeFlops() {
   computeDynamicRuptureFlops(*dynRupCopyData,
                              accFlopsNonZero[static_cast<int>(ComputePart::DRFrictionLawCopy)],
                              accFlopsHardware[static_cast<int>(ComputePart::DRFrictionLawCopy)]);
-  seissol::kernels::Plasticity::flopsPlasticity(
+  seissol::kernels::Plasticity<Cfg>::flopsPlasticity(
       accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)],
       accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)],
       accFlopsNonZero[static_cast<int>(ComputePart::PlasticityYield)],
@@ -892,7 +892,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
 
   const auto timestep = timeStepSize();
   const auto oneMinusIntegratingFactor =
-      seissol::kernels::Plasticity::computeRelaxTime(tV, timeStepSize());
+      seissol::kernels::Plasticity<Cfg>::computeRelaxTime(tV, timeStepSize());
 
   const auto timeBasis = seissol::kernels::timeBasis();
   const auto timeCoeffs = timeBasis.integrate(0, timestep, timestep);
@@ -954,7 +954,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
 
     if constexpr (UsePlasticity) {
       numberOTetsWithPlasticYielding +=
-          seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
+          seissol::kernels::Plasticity<Cfg>::computePlasticity(oneMinusIntegratingFactor,
                                                           timeStepSize(),
                                                           tV,
                                                           globalDataOnHost,

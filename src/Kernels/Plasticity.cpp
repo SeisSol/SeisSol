@@ -39,7 +39,8 @@ using namespace device;
 #endif
 
 namespace seissol::kernels {
-std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
+template<typename Cfg>
+std::size_t Plasticity<Cfg>::computePlasticity(double oneMinusIntegratingFactor,
                                           double timeStepWidth,
                                           double tV,
                                           const GlobalData* global,
@@ -245,7 +246,8 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   return 0;
 }
 
-void Plasticity::computePlasticityBatched(
+template<typename Cfg>
+void Plasticity<Cfg>::computePlasticityBatched(
     double timeStepWidth,
     double tV,
     const GlobalData* global,
@@ -391,7 +393,8 @@ void Plasticity::computePlasticityBatched(
 #endif // ACL_DEVICE
 }
 
-void Plasticity::flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
+template<typename Cfg>
+void Plasticity<Cfg>::flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
                                  std::uint64_t& hardwareFlopsCheck,
                                  std::uint64_t& nonZeroFlopsYield,
                                  std::uint64_t& hardwareFlopsYield) {
@@ -427,4 +430,8 @@ void Plasticity::flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
   nonZeroFlopsYield += kernel::plAdjustStresses<Cfg>::NonZeroFlops;
   hardwareFlopsYield += kernel::plAdjustStresses<Cfg>::HardwareFlops;
 }
+
+#define _H_(cfg) template class Plasticity<cfg>;
+#include "ConfigInclude.h"
+
 } // namespace seissol::kernels
