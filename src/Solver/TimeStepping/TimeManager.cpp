@@ -94,6 +94,10 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                 MPI_MIN,
                 MPI::mpi.comm());
 
+  const auto drOutputTimestep = drClusterOutput == std::numeric_limits<std::size_t>::max()
+                                    ? std::numeric_limits<double>::infinity()
+                                    : clusterLayout.timestepRate(drClusterOutput);
+
   // iterate over local time clusters
   for (std::size_t clusterId = 0; clusterId < clusterLayout.globalClusterCount; ++clusterId) {
     // get memory layout of this cluster
@@ -113,9 +117,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                      memoryManager.getDRStorage().layer(copyId).size() +
                                      memoryManager.getDRStorage().layer(ghostId).size();
 
-    auto& drScheduler =
-        dynamicRuptureSchedulers.emplace_back(std::make_unique<DynamicRuptureScheduler>(
-            numberOfDynRupCells, clusterLayout.timestepRate(drClusterOutput)));
+    auto& drScheduler = dynamicRuptureSchedulers.emplace_back(
+        std::make_unique<DynamicRuptureScheduler>(numberOfDynRupCells, drOutputTimestep));
 
     for (auto type : {Copy, Interior}) {
       const auto offsetMonitoring = type == Interior ? 0 : clusterLayout.globalClusterCount;
