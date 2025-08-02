@@ -350,7 +350,7 @@ auto loadSourcesFromFSRM(const char* fileName,
         const auto position = backmap.get(meshIds[sourceIndex] - 1);
         const auto& material = ltsStorage.lookup<LTS::Material>(position).local;
         for (unsigned i = 0; i < 3; ++i) {
-          sources.tensor[clusterSource][6 + i] /= material.rho;
+          sources.tensor[clusterSource][6 + i] /= material->getDensity();
         }
       } else {
         logWarning() << "The poroelastic equation does not scale the force components with the "
@@ -465,7 +465,7 @@ auto loadSourcesFromNRF(const char* fileName,
                                          nrf.sroffsets[nrfIndex],
                                          nrf.sroffsets[nrfIndex + 1],
                                          nrf.sliprates,
-                                         &ltsStorage.lookup<LTS::Material>(position).local,
+                                         ltsStorage.lookup<LTS::Material>(position).local,
                                          sources,
                                          clusterSource,
                                          memkind);

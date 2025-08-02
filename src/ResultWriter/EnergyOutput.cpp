@@ -448,7 +448,7 @@ void EnergyOutput::computeVolumeEnergies() {
         }
         const auto elementId = secondaryInformation[cell].meshId;
         const double volume = MeshTools::volume(elements[elementId], vertices);
-        const CellMaterialData& material = materialData[cell];
+        const auto& material = *materialData[cell].local;
         const auto& cellInformation = cellInformationData[cell];
         const auto& faceDisplacements = faceDisplacementsData[cell];
 
@@ -484,7 +484,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
         for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
           const auto curWeight = jacobiDet * quadratureWeightsTet[qp];
-          const auto rho = material.local.rho;
+          const auto rho = material.getDensity();
 
           const auto u = numSub(qp, UIdx + 0);
           const auto v = numSub(qp, UIdx + 1);
@@ -494,10 +494,10 @@ void EnergyOutput::computeVolumeEnergies() {
           const double curMomentumY = rho * v;
           const double curMomentumZ = rho * w;
 
-          if (std::abs(material.local.getMuBar()) < 10e-14) {
+          if (std::abs(material.getMuBar()) < 10e-14) {
             // Acoustic
             constexpr std::size_t PIdx = 0;
-            const auto k = material.local.getLambdaBar();
+            const auto k = material.getLambdaBar();
             const auto p = numSub(qp, PIdx);
             const double curAcousticEnergy = (p * p) / (2 * k);
             totalAcousticEnergyLocal += curWeight * curAcousticEnergy;
@@ -516,8 +516,8 @@ void EnergyOutput::computeVolumeEnergies() {
 
             auto getStress = [&](int i, int j) { return numSub(qp, getStressIndex(i, j)); };
 
-            const auto lambda = material.local.getLambdaBar();
-            const auto mu = material.local.getMuBar();
+            const auto lambda = material.getLambdaBar();
+            const auto mu = material.getMuBar();
             const auto sumUniaxialStresses = getStress(0, 0) + getStress(1, 1) + getStress(2, 2);
             auto computeStrain = [&](int i, int j) {
               double strain = 0.0;
@@ -573,7 +573,7 @@ void EnergyOutput::computeVolumeEnergies() {
 
           // Perform quadrature
           const auto surface = MeshTools::surface(elements[elementId], face, vertices);
-          const auto rho = material.local.rho;
+          const auto rho = material.getDensity();
 
           static_assert(NumQuadraturePointsTri == init::rotatedFaceDisplacementAtQuadratureNodes::
                                                       Shape[multisim::BasisFunctionDimension]);
@@ -594,7 +594,7 @@ void EnergyOutput::computeVolumeEnergies() {
         if (isPlasticityEnabled) {
           // plastic moment
           const real* pstrainCell = pstrainData[cell];
-          const double mu = material.local.getMuBar();
+          const double mu = material.getMuBar();
           totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size() + sim];
         }
       }

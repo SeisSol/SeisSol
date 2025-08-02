@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::model {
@@ -181,4 +182,10 @@ double AnisotropicMaterial::getSWaveSpeed() const {
 }
 
 MaterialType AnisotropicMaterial::getMaterialType() const { return MaterialType::Anisotropic; }
+
+void AnisotropicMaterial::setLameParameters(double mu, double lambda) {
+  // no idea.
+  logError() << "Setting the Lamé parameters for anisotropic materials is not yet implemented.";
+}
+
 } // namespace seissol::model
