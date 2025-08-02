@@ -62,8 +62,8 @@ GENERATE_HAS_MEMBER(Values)
 GENERATE_HAS_MEMBER(Qane)
 
 namespace seissol::init {
-class selectAneFull;
-class selectElaFull;
+template<typename> class selectAneFull;
+template<typename> class selectElaFull;
 } // namespace seissol::init
 
 #ifndef USE_ASAGI
@@ -129,17 +129,17 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 #pragma omp parallel
     {
 #endif
-      alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
-      auto iniCond = init::iniCond::view::create(iniCondData);
+      alignas(Alignment) real iniCondData[tensor::iniCond<Cfg>::size()] = {};
+      auto iniCond = init::iniCond<Cfg>::view::create(iniCondData);
 
       std::vector<std::array<double, Cell::Dim>> quadraturePointsXyz;
       quadraturePointsXyz.resize(NumQuadPoints);
 
-      kernel::projectIniCond krnl;
+      kernel::projectIniCond<Cfg> krnl;
       krnl.projectQP = globalData.projectQPMatrix;
       krnl.iniCond = iniCondData;
-      kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
-      kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
+      kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull<Cfg>>());
+      kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull<Cfg>>());
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* material = layer.var<LTS::Material>();
@@ -172,7 +172,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
         }
 
         krnl.Q = dofs[cell];
-        if constexpr (kernels::HasSize<tensor::Qane>::Value) {
+        if constexpr (kernels::HasSize<tensor::Qane<Cfg>>::Value) {
           kernels::set_Qane(krnl, dofsAne[cell]);
         }
         krnl.execute();
@@ -266,17 +266,17 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
 #pragma omp parallel
 #endif
     {
-      alignas(Alignment) real iniCondData[tensor::iniCond::size()] = {};
-      auto iniCond = init::iniCond::view::create(iniCondData);
+      alignas(Alignment) real iniCondData[tensor::iniCond<Cfg>::size()] = {};
+      auto iniCond = init::iniCond<Cfg>::view::create(iniCondData);
 
       std::vector<std::array<double, 3>> quadraturePointsXyz;
       quadraturePointsXyz.resize(NumQuadPoints);
 
-      kernel::projectIniCond krnl;
+      kernel::projectIniCond<Cfg> krnl;
       krnl.projectQP = globalData.projectQPMatrix;
       krnl.iniCond = iniCondData;
-      kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull>());
-      kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull>());
+      kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull<Cfg>>());
+      kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull<Cfg>>());
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       auto* dofs = layer.var<LTS::Dofs>();
@@ -299,7 +299,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
         }
 
         krnl.Q = dofs[cell];
-        if constexpr (kernels::HasSize<tensor::Qane>::Value) {
+        if constexpr (kernels::HasSize<tensor::Qane<Cfg>>::Value) {
           kernels::set_Qane(krnl, dofsAne[cell]);
         }
         krnl.execute();

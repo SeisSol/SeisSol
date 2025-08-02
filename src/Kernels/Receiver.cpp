@@ -137,23 +137,23 @@ double ReceiverCluster::calcReceivers(double time,
     const std::size_t recvCount = m_receivers.size();
     const auto receiverHandler = [this, timeBasis, timeStepWidth, time, expansionPoint, executor](
                                      std::size_t i) {
-      alignas(Alignment) real timeEvaluated[tensor::Q::size()];
-      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
-      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+      alignas(Alignment) real timeEvaluated[tensor::Q<Cfg>::size()];
+      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint<Cfg>::size()];
+      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint<Cfg>::size()];
       alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize];
 
       kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
-      kernel::evaluateDOFSAtPoint krnl;
+      kernel::evaluateDOFSAtPoint<Cfg> krnl;
       krnl.QAtPoint = timeEvaluatedAtPoint;
       krnl.Q = timeEvaluated;
-      kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
+      kernel::evaluateDerivativeDOFSAtPoint<Cfg> derivativeKrnl;
       derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
       derivativeKrnl.Q = timeEvaluated;
 
-      auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
+      auto qAtPoint = init::QAtPoint<Cfg>::view::create(timeEvaluatedAtPoint);
       auto qDerivativeAtPoint =
-          init::QDerivativeAtPoint::view::create(timeEvaluatedDerivativesAtPoint);
+          init::QDerivativeAtPoint<Cfg>::view::create(timeEvaluatedDerivativesAtPoint);
 
       auto& receiver = m_receivers[i];
       krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
@@ -236,7 +236,7 @@ void ReceiverCluster::allocateData() {
 
     const bool hostAccessible = useUSM() && !extraRuntime.has_value();
     deviceCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
-        dofs, tensor::Q::size(), hostAccessible);
+        dofs, tensor::Q<Cfg>::size(), hostAccessible);
   }
 }
 void ReceiverCluster::freeData() {
@@ -256,8 +256,8 @@ size_t ReceiverCluster::ncols() const {
 std::vector<std::string> ReceiverRotation::quantities() const { return {"rot1", "rot2", "rot3"}; }
 void ReceiverRotation::compute(size_t sim,
                                std::vector<real>& output,
-                               seissol::init::QAtPoint::view::type& qAtPoint,
-                               seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
+                               seissol::init::QAtPoint<Cfg>::view::type& qAtPoint,
+                               seissol::init::QDerivativeAtPoint<Cfg>::view::type& qDerivativeAtPoint) {
   output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
                    seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 2));
   output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 2) -
@@ -271,8 +271,8 @@ std::vector<std::string> ReceiverStrain::quantities() const {
 }
 void ReceiverStrain::compute(size_t sim,
                              std::vector<real>& output,
-                             seissol::init::QAtPoint::view::type& qAtPoint,
-                             seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
+                             seissol::init::QAtPoint<Cfg>::view::type& qAtPoint,
+                             seissol::init::QDerivativeAtPoint<Cfg>::view::type& qDerivativeAtPoint) {
   // actually 9 quantities; 3 removed due to symmetry
 
   output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 0));

@@ -33,7 +33,7 @@ class Plasticity {
                                        double tV,
                                        const GlobalData* global,
                                        const seissol::model::PlasticityData* plasticityData,
-                                       real degreesOfFreedom[tensor::Q::size()],
+                                       real degreesOfFreedom[tensor::Q<Cfg>::size()],
                                        real* pstrain);
 
   static void

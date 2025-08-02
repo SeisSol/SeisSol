@@ -54,7 +54,7 @@ std::size_t PointSourceClusterOnHost::size() const { return sources_->numberOfSo
 void PointSourceClusterOnHost::addTimeIntegratedPointSource(std::size_t source,
                                                             double from,
                                                             double to,
-                                                            real dofs[tensor::Q::size()]) {
+                                                            real dofs[tensor::Q<Cfg>::size()]) {
   std::array<real, Quantities> update{};
   const auto base = sources_->sampleRange[source];
   const auto localSamples = sources_->sampleRange[source + 1] - base;
@@ -77,7 +77,7 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSource(std::size_t source,
     }
   }
 
-  kernel::addPointSource krnl;
+  kernel::addPointSource<Cfg> krnl;
   krnl.update = update.data();
   krnl.Q = dofs;
   krnl.mInvJInvPhisAtSources = sources_->mInvJInvPhisAtSources[source].data();

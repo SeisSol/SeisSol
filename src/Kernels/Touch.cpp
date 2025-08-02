@@ -28,7 +28,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
     // touch buffers
     real* buffer = buffers[cell];
     if (buffer != nullptr) {
-      for (std::size_t dof = 0; dof < tensor::Q::size(); ++dof) {
+      for (std::size_t dof = 0; dof < tensor::Q<Cfg>::size(); ++dof) {
         // zero time integration buffers
         buffer[dof] = static_cast<real>(0);
       }

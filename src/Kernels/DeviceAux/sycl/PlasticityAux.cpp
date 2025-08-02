@@ -42,7 +42,7 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
                              const double oneMinusIntegratingFactor,
                              const size_t numElements,
                              void* queuePtr) {
-  constexpr unsigned NumNodes = tensor::QStressNodal::Shape[multisim::BasisFunctionDimension];
+  constexpr unsigned NumNodes = tensor::QStressNodal<Cfg>::Shape[multisim::BasisFunctionDimension];
   auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
   auto rng = getrange(NumNodes, numElements);
 
@@ -56,7 +56,7 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
       real* elementTensors = nodalStressTensors[wid];
       real localStresses[NumStressComponents];
 
-      constexpr auto elementTensorsColumn = leadDim<init::QStressNodal>();
+      constexpr auto elementTensorsColumn = leadDim<init::QStressNodal<Cfg>>();
 #pragma unroll
       for (int i = 0; i < NumStressComponents; ++i) {
         localStresses[i] = elementTensors[tid + elementTensorsColumn * i];
@@ -122,7 +122,7 @@ void computePstrains(real** pstrains,
                      unsigned* isAdjustableVector,
                      size_t numElements,
                      void* queuePtr) {
-  constexpr unsigned numNodes = tensor::Q::Shape[multisim::BasisFunctionDimension];
+  constexpr unsigned numNodes = tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension];
   auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
   auto rng = getrange(numNodes, numElements);
 
@@ -140,11 +140,11 @@ void computePstrains(real** pstrains,
 
 #pragma unroll
         for (int i = 0; i < NumStressComponents; ++i) {
-          int q = lid + i * leadDim<init::Q>();
+          int q = lid + i * leadDim<init::Q<Cfg>>();
           real factor = localData->mufactor / (T_v * oneMinusIntegratingFactor);
           real nodeDuDtPstrain = factor * (localPrevDofs[q] - localDofs[q]);
 
-          static_assert(leadDim<init::QStress>() == leadDim<init::Q>());
+          static_assert(leadDim<init::QStress<Cfg>>() == leadDim<init::Q<Cfg>>());
           localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
           localDuDtPstrain[q] = nodeDuDtPstrain;
         }
@@ -160,7 +160,7 @@ void updateQEtaNodal(real** QEtaNodalPtrs,
                      size_t numElements,
                      void* queuePtr) {
   auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
-  auto rng = getrange(tensor::QStressNodal::Shape[multisim::BasisFunctionDimension], numElements);
+  auto rng = getrange(tensor::QStressNodal<Cfg>::Shape[multisim::BasisFunctionDimension], numElements);
 
   queue->submit([&](sycl::handler& cgh) {
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -172,7 +172,7 @@ void updateQEtaNodal(real** QEtaNodalPtrs,
         real* localQStressNodal = QStressNodalPtrs[wid];
         real factor{0.0};
 
-        constexpr auto ld = leadDim<init::QStressNodal>();
+        constexpr auto ld = leadDim<init::QStressNodal<Cfg>>();
 #pragma unroll
         for (int i = 0; i < NumStressComponents; ++i) {
           factor += localQStressNodal[lid + i * ld] * localQStressNodal[lid + i * ld];

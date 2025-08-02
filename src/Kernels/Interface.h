@@ -14,15 +14,15 @@
 #include <Common/Constants.h>
 
 namespace seissol::tensor {
-class Iane;
+template<typename> class Iane;
 } // namespace seissol::tensor
 
 namespace seissol::kernels {
 struct LocalTmp {
   alignas(Alignment) real
-      timeIntegratedAne[zeroLengthArrayHandler(kernels::size<tensor::Iane>())]{};
+      timeIntegratedAne[zeroLengthArrayHandler(kernels::size<tensor::Iane<Cfg>>())]{};
   alignas(Alignment)
-      std::array<real, tensor::averageNormalDisplacement::size()> nodalAvgDisplacements[4];
+      std::array<real, tensor::averageNormalDisplacement<Cfg>::size()> nodalAvgDisplacements[4];
   GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
   LocalTmp(double graviationalAcceleration)
       : gravitationalFreeSurfaceBc(graviationalAcceleration) {};

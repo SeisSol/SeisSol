@@ -166,8 +166,8 @@ struct MaterialSetup<ElasticMaterial> {
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,
                                     const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
+                                    init::T<Cfg>::view::type& matT,
+                                    init::Tinv<Cfg>::view::type& matTinv) {
     matT.setZero();
     matTinv.setZero();
 

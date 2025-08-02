@@ -93,11 +93,11 @@ void FreeSurfaceIntegrator::calculateOutput() const {
 #endif // _OPENMP
     for (std::size_t face = 0; face < surfaceLayer.size(); ++face) {
       if (outputPosition[face] != std::numeric_limits<std::size_t>::max()) {
-        alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs::size(MaxRefinement)];
+        alignas(Alignment) real subTriangleDofs[tensor::subTriangleDofs<Cfg>::size(MaxRefinement)];
 
-        kernel::subTriangleVelocity vkrnl;
+        kernel::subTriangleVelocity<Cfg> vkrnl;
         vkrnl.Q = dofs[face];
-        vkrnl.selectVelocity = init::selectVelocity::Values;
+        vkrnl.selectVelocity = init::selectVelocity<Cfg>::Values;
         vkrnl.subTriangleProjection(triRefiner.maxDepth) = projectionMatrix[side[face]];
         vkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
         vkrnl.execute(triRefiner.maxDepth);
@@ -119,9 +119,9 @@ void FreeSurfaceIntegrator::calculateOutput() const {
 
         addOutput(velocities);
 
-        kernel::subTriangleDisplacement dkrnl;
+        kernel::subTriangleDisplacement<Cfg> dkrnl;
         dkrnl.faceDisplacement = displacementDofs[face];
-        dkrnl.MV2nTo2m = nodal::init::MV2nTo2m::Values;
+        dkrnl.MV2nTo2m = nodal::init::MV2nTo2m<Cfg>::Values;
         dkrnl.subTriangleProjectionFromFace(triRefiner.maxDepth) = projectionMatrixFromFace;
         dkrnl.subTriangleDofs(triRefiner.maxDepth) = subTriangleDofs;
         dkrnl.execute(triRefiner.maxDepth);
@@ -137,21 +137,21 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
   triRefiner.refine(maxRefinementDepth);
 
   const auto projectionMatrixNCols =
-      tensor::subTriangleProjection::Shape[tensor::subTriangleProjection::index(maxRefinementDepth)]
+      tensor::subTriangleProjection<Cfg>::Shape[tensor::subTriangleProjection<Cfg>::index(maxRefinementDepth)]
                                           [1];
 
   numberOfSubTriangles = triRefiner.subTris.size();
   numberOfAlignedSubTriangles =
-      tensor::subTriangleProjection::size(maxRefinementDepth) / projectionMatrixNCols;
+      tensor::subTriangleProjection<Cfg>::size(maxRefinementDepth) / projectionMatrixNCols;
 
   assert(numberOfAlignedSubTriangles * projectionMatrixNCols ==
-         tensor::subTriangleProjection::size(maxRefinementDepth));
+         tensor::subTriangleProjection<Cfg>::size(maxRefinementDepth));
   assert(numberOfSubTriangles == (1U << (2U * maxRefinementDepth)));
 
   const auto projectionMatrixNumberOfReals =
-      4 * tensor::subTriangleProjection::size(maxRefinementDepth);
+      4 * tensor::subTriangleProjection<Cfg>::size(maxRefinementDepth);
   const auto projectionMatrixFromFaceMemoryNumberOfReals =
-      tensor::subTriangleProjectionFromFace::size(maxRefinementDepth);
+      tensor::subTriangleProjectionFromFace<Cfg>::size(maxRefinementDepth);
 
   projectionMatrixMemory =
       seissol::memory::allocTyped<real>(projectionMatrixNumberOfReals, Alignment);
@@ -164,7 +164,7 @@ void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementD
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     projectionMatrix[face] =
         projectionMatrixMemory +
-        static_cast<size_t>(face * tensor::subTriangleProjection::size(maxRefinementDepth));
+        static_cast<size_t>(face * tensor::subTriangleProjection<Cfg>::size(maxRefinementDepth));
   }
 
   // Triangle quadrature points and weights
@@ -325,7 +325,7 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   for (auto [layer, surfaceLayer] :
        seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
-    real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
+    real(*dofs)[tensor::Q<Cfg>::size()] = layer.var<LTS::Dofs>();
     real*(*faceDisplacements)[4] = layer.var<LTS::FaceDisplacements>();
     real*(*faceDisplacementsDevice)[4] = layer.var<LTS::FaceDisplacementsDevice>();
     real** surfaceDofs = surfaceLayer.var<SurfaceLTS::Dofs>();

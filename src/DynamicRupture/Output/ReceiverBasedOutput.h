@@ -83,9 +83,9 @@ class ReceiverOutput {
     real slipRateDip{};
 
     real
-        faceAlignedValuesPlus[tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
+        faceAlignedValuesPlus[tensor::QAtPoint<Cfg>::Shape[seissol::multisim::BasisFunctionDimension]]{};
     real faceAlignedValuesMinus
-        [tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension]]{};
+        [tensor::QAtPoint<Cfg>::Shape[seissol::multisim::BasisFunctionDimension]]{};
 
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};
@@ -116,8 +116,8 @@ class ReceiverOutput {
     }
   }
 
-  void getDofs(real dofs[tensor::Q::size()], int meshId);
-  void getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side);
+  void getDofs(real dofs[tensor::Q<Cfg>::size()], int meshId);
+  void getNeighborDofs(real dofs[tensor::Q<Cfg>::size()], int meshId, int side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }

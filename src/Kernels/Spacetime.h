@@ -31,7 +31,7 @@ class SpacetimeKernel : public Kernel {
                            double timeStepWidth,
                            LTS::Ref& data,
                            LocalTmp& tmp,
-                           real timeIntegrated[tensor::I::size()],
+                           real timeIntegrated[tensor::I<Cfg>::size()],
                            real* timeDerivativesOrSTP = nullptr,
                            bool updateDisplacement = false) = 0;
   virtual void computeBatchedAder(const real* coeffs,

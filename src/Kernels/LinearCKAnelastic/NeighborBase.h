@@ -38,14 +38,14 @@ class Neighbor : public NeighborKernel {
   std::uint64_t bytesNeighborsIntegral() override;
 
   protected:
-  kernel::neighborFluxExt m_nfKrnlPrototype;
-  kernel::neighbor m_nKrnlPrototype;
-  dynamicRupture::kernel::nodalFlux m_drKrnlPrototype;
+  kernel::neighborFluxExt<Cfg> m_nfKrnlPrototype;
+  kernel::neighbor<Cfg> m_nKrnlPrototype;
+  dynamicRupture::kernel::nodalFlux<Cfg> m_drKrnlPrototype;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_neighborFluxExt deviceNfKrnlPrototype;
-  kernel::gpu_neighbor deviceNKrnlPrototype;
-  dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype;
+  kernel::gpu_neighborFluxExt<Cfg> deviceNfKrnlPrototype;
+  kernel::gpu_neighbor<Cfg> deviceNKrnlPrototype;
+  dynamicRupture::kernel::gpu_nodalFlux<Cfg> deviceDrKrnlPrototype;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

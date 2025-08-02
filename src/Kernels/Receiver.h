@@ -52,8 +52,8 @@ struct DerivedReceiverQuantity {
   [[nodiscard]] virtual std::vector<std::string> quantities() const = 0;
   virtual void compute(size_t sim,
                        std::vector<real>&,
-                       seissol::init::QAtPoint::view::type&,
-                       seissol::init::QDerivativeAtPoint::view::type&) = 0;
+                       seissol::init::QAtPoint<Cfg>::view::type&,
+                       seissol::init::QDerivativeAtPoint<Cfg>::view::type&) = 0;
 };
 
 struct ReceiverRotation : public DerivedReceiverQuantity {
@@ -61,8 +61,8 @@ struct ReceiverRotation : public DerivedReceiverQuantity {
   [[nodiscard]] std::vector<std::string> quantities() const override;
   void compute(size_t sim,
                std::vector<real>& /*output*/,
-               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
-               seissol::init::QDerivativeAtPoint::view::type& /*qDerivativeAtPoint*/) override;
+               seissol::init::QAtPoint<Cfg>::view::type& /*qAtPoint*/,
+               seissol::init::QDerivativeAtPoint<Cfg>::view::type& /*qDerivativeAtPoint*/) override;
 };
 
 struct ReceiverStrain : public DerivedReceiverQuantity {
@@ -70,8 +70,8 @@ struct ReceiverStrain : public DerivedReceiverQuantity {
   [[nodiscard]] std::vector<std::string> quantities() const override;
   void compute(size_t sim,
                std::vector<real>& /*output*/,
-               seissol::init::QAtPoint::view::type& /*qAtPoint*/,
-               seissol::init::QDerivativeAtPoint::view::type& /*qDerivativeAtPoint*/) override;
+               seissol::init::QAtPoint<Cfg>::view::type& /*qAtPoint*/,
+               seissol::init::QDerivativeAtPoint<Cfg>::view::type& /*qDerivativeAtPoint*/) override;
 };
 
 class ReceiverCluster {

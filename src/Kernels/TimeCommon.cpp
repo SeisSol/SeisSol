@@ -40,7 +40,7 @@ void TimeCommon::computeIntegrals(Time& time,
                                   const real* timeCoeffs,
                                   const real* subtimeCoeffs,
                                   real* const timeDofs[4],
-                                  real integrationBuffer[4][tensor::I::size()],
+                                  real integrationBuffer[4][tensor::I<Cfg>::size()],
                                   real* timeIntegrated[4]) {
   // call the more general assembly
   /*

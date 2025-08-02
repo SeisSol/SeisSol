@@ -14,12 +14,12 @@
 namespace seissol::model {
 
 struct ViscoElasticLocalData {
-  real E[tensor::E::size()];
-  real w[tensor::w::size()];
-  real W[tensor::W::size()];
+  real E[tensor::E<Cfg>::size()];
+  real w[tensor::w<Cfg>::size()];
+  real W[tensor::W<Cfg>::size()];
 };
 struct ViscoElasticNeighborData {
-  real w[tensor::w::size()];
+  real w[tensor::w<Cfg>::size()];
 };
 } // namespace seissol::model
 

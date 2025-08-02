@@ -82,10 +82,10 @@ struct ApplyAnalyticalSolution {
                           LTS::Ref& data)
       : initConditions(initConditions), localData(data) {}
 
-  void operator()(const real* nodes, double time, seissol::init::INodal::view::type& boundaryDofs) {
+  void operator()(const real* nodes, double time, seissol::init::INodal<Cfg>::view::type& boundaryDofs) {
     assert(initConditions != nullptr);
 
-    constexpr auto NodeCount = seissol::tensor::INodal::Shape[multisim::BasisFunctionDimension];
+    constexpr auto NodeCount = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension];
     alignas(Alignment) std::array<double, 3> nodesVec[NodeCount];
 
 #pragma omp simd
@@ -107,7 +107,7 @@ struct ApplyAnalyticalSolution {
   LTS::Ref& localData;
 };
 
-void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
                             LTS::Ref& data,
                             LocalTmp& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
@@ -118,21 +118,21 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
 
-  kernel::volume volKrnl = m_volumeKernelPrototype;
+  kernel::volume<Cfg> volKrnl = m_volumeKernelPrototype;
   volKrnl.Q = data.get<LTS::Dofs>();
   volKrnl.I = timeIntegratedDegreesOfFreedom;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
     volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   // Optional source term
   set_ET(volKrnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
 
-  kernel::localFlux lfKrnl = m_localFluxKernelPrototype;
+  kernel::localFlux<Cfg> lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Q = data.get<LTS::Dofs>();
   lfKrnl.I = timeIntegratedDegreesOfFreedom;
-  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
-  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
+  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I<Cfg>::size();
+  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q<Cfg>::size();
 
   volKrnl.execute();
 
@@ -143,12 +143,12 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       lfKrnl.execute(face);
     }
 
-    alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+    alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
     nodalLfKrnl.Q = data.get<LTS::Dofs>();
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
-    nodalLfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
-    nodalLfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
+    nodalLfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I<Cfg>::size();
+    nodalLfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q<Cfg>::size();
     nodalLfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
 
     // Include some boundary conditions here.
@@ -157,18 +157,18 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       assert(cellBoundaryMapping != nullptr);
       assert(materialData != nullptr);
       auto* displ = tmp.nodalAvgDisplacements[face].data();
-      auto displacement = init::averageNormalDisplacement::view::create(displ);
+      auto displacement = init::averageNormalDisplacement<Cfg>::view::create(displ);
       // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
       const auto localG = gravitationalAcceleration;
       auto applyFreeSurfaceBc =
           [&displacement, &materialData, &localG](const real*, // nodes are unused
-                                                  init::INodal::view::type& boundaryDofs) {
+                                                  init::INodal<Cfg>::view::type& boundaryDofs) {
             for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
               auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
               auto slicedDisplacement = multisim::simtensor(displacement, s);
 
               for (unsigned int i = 0;
-                   i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
+                   i < nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension];
                    ++i) {
                 const double rho = materialData->local->getDensity();
                 assert(localG > 0);
@@ -198,11 +198,11 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
       auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
-                                   const real* nodes, init::INodal::view::type& boundaryDofs) {
-        seissol::kernel::createEasiBoundaryGhostCells easiBoundaryKernel;
+                                   const real* nodes, init::INodal<Cfg>::view::type& boundaryDofs) {
+        seissol::kernel::createEasiBoundaryGhostCells<Cfg> easiBoundaryKernel;
         easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
         easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
-        easiBoundaryKernel.easiIdentMap = init::easiIdentMap::Values;
+        easiBoundaryKernel.easiIdentMap = init::easiIdentMap<Cfg>::Values;
         easiBoundaryKernel.INodal = boundaryDofs.data();
         easiBoundaryKernel.execute();
       };
@@ -253,8 +253,8 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 #ifdef ACL_DEVICE
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-  kernel::gpu_volume volKrnl = deviceVolumeKernelPrototype;
-  kernel::gpu_localFlux localFluxKrnl = deviceLocalFluxKernelPrototype;
+  kernel::gpu_volume<Cfg> volKrnl = deviceVolumeKernelPrototype;
+  kernel::gpu_localFlux<Cfg> localFluxKrnl = deviceLocalFluxKernelPrototype;
 
   const auto maxTmpMem = yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl);
 
@@ -272,7 +272,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
     volKrnl.I =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
-    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
       volKrnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
@@ -363,13 +363,13 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
           indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
       const size_t numElements = cellIds.size();
       auto* analytical =
-          reinterpret_cast<real(*)[tensor::INodal::size()]>(layer.var<LTS::AnalyticScratch>());
+          reinterpret_cast<real(*)[tensor::INodal<Cfg>::size()]>(layer.var<LTS::AnalyticScratch>());
 
       runtime.enqueueLoop(numElements, [=, &cellIds, &layer](std::size_t index) {
         auto cellId = cellIds.at(index);
         auto data = layer.cellRef(cellId);
 
-        alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
+        alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
 
         assert(initConds != nullptr);
         ApplyAnalyticalSolution applyAnalyticalSolution(initConds, data);
@@ -410,15 +410,15 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
 void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
                           std::uint64_t& nonZeroFlops,
                           std::uint64_t& hardwareFlops) {
-  nonZeroFlops = seissol::kernel::volume::NonZeroFlops;
-  hardwareFlops = seissol::kernel::volume::HardwareFlops;
+  nonZeroFlops = seissol::kernel::volume<Cfg>::NonZeroFlops;
+  hardwareFlops = seissol::kernel::volume<Cfg>::HardwareFlops;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
     if (faceTypes[face] != FaceType::DynamicRupture) {
-      nonZeroFlops += seissol::kernel::localFlux::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFlux::hardwareFlops(face);
+      nonZeroFlops += seissol::kernel::localFlux<Cfg>::nonZeroFlops(face);
+      hardwareFlops += seissol::kernel::localFlux<Cfg>::hardwareFlops(face);
     }
 
     // Take boundary condition flops into account.
@@ -427,22 +427,22 @@ void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
     // The (probably incorrect) assumption is that they are negligible.
     switch (faceTypes[face]) {
     case FaceType::FreeSurfaceGravity:
-      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-                      seissol::kernel::projectToNodalBoundary::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-                       seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+      nonZeroFlops += seissol::kernel::localFluxNodal<Cfg>::nonZeroFlops(face) +
+                      seissol::kernel::projectToNodalBoundary<Cfg>::nonZeroFlops(face);
+      hardwareFlops += seissol::kernel::localFluxNodal<Cfg>::hardwareFlops(face) +
+                       seissol::kernel::projectToNodalBoundary<Cfg>::hardwareFlops(face);
       break;
     case FaceType::Dirichlet:
-      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-                      seissol::kernel::projectToNodalBoundaryRotated::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-                       seissol::kernel::projectToNodalBoundary::hardwareFlops(face);
+      nonZeroFlops += seissol::kernel::localFluxNodal<Cfg>::nonZeroFlops(face) +
+                      seissol::kernel::projectToNodalBoundaryRotated<Cfg>::nonZeroFlops(face);
+      hardwareFlops += seissol::kernel::localFluxNodal<Cfg>::hardwareFlops(face) +
+                       seissol::kernel::projectToNodalBoundary<Cfg>::hardwareFlops(face);
       break;
     case FaceType::Analytical:
-      nonZeroFlops += seissol::kernel::localFluxNodal::nonZeroFlops(face) +
-                      ConvergenceOrder * seissol::kernel::updateINodal::NonZeroFlops;
-      hardwareFlops += seissol::kernel::localFluxNodal::hardwareFlops(face) +
-                       ConvergenceOrder * seissol::kernel::updateINodal::HardwareFlops;
+      nonZeroFlops += seissol::kernel::localFluxNodal<Cfg>::nonZeroFlops(face) +
+                      ConvergenceOrder * seissol::kernel::updateINodal<Cfg>::NonZeroFlops;
+      hardwareFlops += seissol::kernel::localFluxNodal<Cfg>::hardwareFlops(face) +
+                       ConvergenceOrder * seissol::kernel::updateINodal<Cfg>::HardwareFlops;
       break;
     default:
       break;
@@ -454,12 +454,12 @@ std::uint64_t Local::bytesIntegral() {
   std::uint64_t reals = 0;
 
   // star matrices load
-  reals += yateto::computeFamilySize<tensor::star>();
+  reals += yateto::computeFamilySize<tensor::star<Cfg>>();
   // flux solvers
-  reals += static_cast<std::uint64_t>(4 * tensor::AplusT::size());
+  reals += static_cast<std::uint64_t>(4 * tensor::AplusT<Cfg>::size());
 
   // DOFs write
-  reals += tensor::Q::size();
+  reals += tensor::Q<Cfg>::size();
 
   return reals * sizeof(real);
 }

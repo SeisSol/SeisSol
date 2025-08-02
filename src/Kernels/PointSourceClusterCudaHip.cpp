@@ -26,7 +26,7 @@ __launch_bounds__(Blocksize) __global__ void launchKernel(
     double to,
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
     const seissol::memory::
-        AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
+        AlignedArray<real, tensor::mInvJInvPhisAtSources<Cfg>::size()>* __restrict mInvJInvPhisAtSources,
     const std::uint32_t* __restrict simulationIndex,
     const real* __restrict tensor,
     const double* __restrict onsetTime,

@@ -230,8 +230,8 @@ class NoSpecialization {
 
     // perform matrix vector multiplication
 
-    constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
-    constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
+    constexpr auto Dim0 = misc::dimSize<init::resample<Cfg>, 0>();
+    constexpr auto Dim1 = misc::dimSize<init::resample<Cfg>, 1>();
     static_assert(Dim0 == misc::NumPaddedPointsSingleSim);
     static_assert(Dim0 >= Dim1);
 

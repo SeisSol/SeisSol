@@ -106,11 +106,11 @@ SEISSOL_HOSTDEVICE inline real computeSampleTimeIntegral(double from,
 }
 
 // workaround for NVHPC (using constexpr arrays directly caused errors in 24.01)
-constexpr std::size_t QSpan = init::Q::Stop[multisim::BasisFunctionDimension] -
-                              init::Q::Start[multisim::BasisFunctionDimension];
-constexpr std::size_t QMultiSpan = init::Q::Stop[0] - init::Q::Start[0];
-constexpr std::size_t MomentFsrmSpan = tensor::update::Shape[0];
-constexpr std::size_t MInvJInvPhisAtSourcesSpan = tensor::mInvJInvPhisAtSources::Shape[0];
+constexpr std::size_t QSpan = init::Q<Cfg>::Stop[multisim::BasisFunctionDimension] -
+                              init::Q<Cfg>::Start[multisim::BasisFunctionDimension];
+constexpr std::size_t QMultiSpan = init::Q<Cfg>::Stop[0] - init::Q<Cfg>::Start[0];
+constexpr std::size_t MomentFsrmSpan = tensor::update<Cfg>::Shape[0];
+constexpr std::size_t MInvJInvPhisAtSourcesSpan = tensor::mInvJInvPhisAtSources<Cfg>::Shape[0];
 
 constexpr std::size_t Quantities = MomentFsrmSpan;
 
@@ -131,7 +131,7 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelDevice(
     double to,
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
     const seissol::memory::
-        AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>* __restrict mInvJInvPhisAtSources,
+        AlignedArray<real, tensor::mInvJInvPhisAtSources<Cfg>::size()>* __restrict mInvJInvPhisAtSources,
     const std::uint32_t* __restrict simulationIndex,
     const real* __restrict tensor,
     const double* __restrict onsetTime,

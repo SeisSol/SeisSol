@@ -75,8 +75,8 @@ struct MultisimHelperWrapper {
     return packed<Rank - 1>([&](auto... args) { return tensor.subtensor(sim, args...); },
                             ::yateto::slice<>());
   }
-  constexpr static size_t MultisimStart = init::QAtPoint::Start[0];
-  constexpr static size_t MultisimEnd = init::QAtPoint::Stop[0];
+  constexpr static size_t MultisimStart = init::QAtPoint<Cfg>::Start[0];
+  constexpr static size_t MultisimEnd = init::QAtPoint<Cfg>::Stop[0];
   constexpr static bool MultisimEnabled = true;
 };
 

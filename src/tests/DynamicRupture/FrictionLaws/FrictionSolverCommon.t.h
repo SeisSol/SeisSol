@@ -22,11 +22,11 @@ TEST_CASE("Friction Solver Common") {
   FaultStresses<Executor::Host> faultStresses{};
   TractionResults<Executor::Host> tractionResults{};
   ImpedancesAndEta impAndEta;
-  alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()] = {{}};
+  alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
   alignas(Alignment)
-      real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()] = {{}};
-  alignas(Alignment) real imposedStatePlus[tensor::QInterpolated::size()] = {};
-  alignas(Alignment) real imposedStateMinus[tensor::QInterpolated::size()] = {};
+      real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
+  alignas(Alignment) real imposedStatePlus[tensor::QInterpolated<Cfg>::size()] = {};
+  alignas(Alignment) real imposedStateMinus[tensor::QInterpolated<Cfg>::size()] = {};
   double timeWeights[ConvergenceOrder];
   std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
   constexpr real Epsilon = 1e6 * std::numeric_limits<real>::epsilon();
@@ -50,15 +50,15 @@ TEST_CASE("Friction Solver Common") {
   impAndEta.invZsNeig = 1.0 / impAndEta.zsNeig;
 
   ImpedanceMatrices impMats;
-  auto etaView = init::eta::view::create(impMats.eta);
+  auto etaView = init::eta<Cfg>::view::create(impMats.eta);
   etaView(0, 0) = impAndEta.etaP;
   etaView(1, 1) = impAndEta.etaS;
   etaView(2, 2) = impAndEta.etaS;
-  auto impedanceView = init::Zplus::view::create(impMats.impedance);
+  auto impedanceView = init::Zplus<Cfg>::view::create(impMats.impedance);
   impedanceView(0, 0) = impAndEta.invZp;
   impedanceView(1, 1) = impAndEta.invZs;
   impedanceView(2, 2) = impAndEta.invZs;
-  auto impedanceNeigView = init::Zminus::view::create(impMats.impedanceNeig);
+  auto impedanceNeigView = init::Zminus<Cfg>::view::create(impMats.impedanceNeig);
   impedanceNeigView(0, 0) = impAndEta.invZpNeig;
   impedanceNeigView(1, 1) = impAndEta.invZsNeig;
   impedanceNeigView(2, 2) = impAndEta.invZsNeig;

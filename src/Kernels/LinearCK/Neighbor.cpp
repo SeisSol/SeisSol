@@ -75,7 +75,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
       assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
       assert(data.get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
              data.get<LTS::CellInformation>().faceRelations[face][1] < 3);
-      kernel::neighboringFlux nfKrnl = m_nfKrnlPrototype;
+      kernel::neighboringFlux<Cfg> nfKrnl = m_nfKrnlPrototype;
       nfKrnl.Q = data.get<LTS::Dofs>();
       nfKrnl.I = timeIntegrated[face];
       nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
@@ -89,7 +89,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
       // No neighboring cell contribution, interior bc.
       assert(reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov) % Alignment == 0);
 
-      dynamicRupture::kernel::nodalFlux drKrnl = m_drKrnlPrototype;
+      dynamicRupture::kernel::nodalFlux<Cfg> drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
       drKrnl.Q = data.get<LTS::Dofs>();
@@ -108,8 +108,8 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
 void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
                                                seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-  kernel::gpu_neighboringFlux neighFluxKrnl = deviceNfKrnlPrototype;
-  dynamicRupture::kernel::gpu_nodalFlux drKrnl = deviceDrKrnlPrototype;
+  kernel::gpu_neighboringFlux<Cfg> neighFluxKrnl = deviceNfKrnlPrototype;
+  dynamicRupture::kernel::gpu_nodalFlux<Cfg> drKrnl = deviceDrKrnlPrototype;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     runtime.envMany(
@@ -201,15 +201,15 @@ void Neighbor::flopsNeighborsIntegral(
     case FaceType::Periodic:
       // regular neighbor
       assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] < 3);
-      nonZeroFlops += kernel::neighboringFlux::nonZeroFlops(
+      nonZeroFlops += kernel::neighboringFlux<Cfg>::nonZeroFlops(
           neighboringIndices[face][1], neighboringIndices[face][0], face);
-      hardwareFlops += kernel::neighboringFlux::hardwareFlops(
+      hardwareFlops += kernel::neighboringFlux<Cfg>::hardwareFlops(
           neighboringIndices[face][1], neighboringIndices[face][0], face);
       break;
     case FaceType::DynamicRupture:
-      drNonZeroFlops += dynamicRupture::kernel::nodalFlux::nonZeroFlops(
+      drNonZeroFlops += dynamicRupture::kernel::nodalFlux<Cfg>::nonZeroFlops(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);
-      drHardwareFlops += dynamicRupture::kernel::nodalFlux::hardwareFlops(
+      drHardwareFlops += dynamicRupture::kernel::nodalFlux<Cfg>::hardwareFlops(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       break;
     default:
@@ -223,9 +223,9 @@ std::uint64_t Neighbor::bytesNeighborsIntegral() {
   std::uint64_t reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write
-  reals += 4 * tensor::I::size() + 2 * tensor::Q::size();
+  reals += 4 * tensor::I<Cfg>::size() + 2 * tensor::Q<Cfg>::size();
   // flux solvers load
-  reals += static_cast<std::uint64_t>(4 * tensor::AminusT::size());
+  reals += static_cast<std::uint64_t>(4 * tensor::AminusT<Cfg>::size());
 
   return reals * sizeof(real);
 }

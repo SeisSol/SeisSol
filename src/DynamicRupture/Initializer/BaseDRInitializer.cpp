@@ -180,10 +180,10 @@ void BaseDRInitializer::queryModel(seissol::initializer::FaultParameterDB& fault
 void BaseDRInitializer::rotateTractionToCartesianStress(DynamicRupture::Layer& layer,
                                                         StressTensor& stress) {
   // create rotation kernel
-  real faultTractionToCartesianMatrixValues[init::stressRotationMatrix::size()];
+  real faultTractionToCartesianMatrixValues[init::stressRotationMatrix<Cfg>::size()];
   auto faultTractionToCartesianMatrixView =
-      init::stressRotationMatrix::view::create(faultTractionToCartesianMatrixValues);
-  dynamicRupture::kernel::rotateStress faultTractionToCartesianRotationKernel;
+      init::stressRotationMatrix<Cfg>::view::create(faultTractionToCartesianMatrixValues);
+  dynamicRupture::kernel::rotateStress<Cfg> faultTractionToCartesianRotationKernel;
   faultTractionToCartesianRotationKernel.stressRotationMatrix =
       faultTractionToCartesianMatrixValues;
 
@@ -202,7 +202,7 @@ void BaseDRInitializer::rotateTractionToCartesianStress(DynamicRupture::Layer& l
 
     using namespace dr::misc::quantity_indices;
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-      const real initialTraction[init::initialStress::size()] = {stress.xx[ltsFace][pointIndex],
+      const real initialTraction[init::initialStress<Cfg>::size()] = {stress.xx[ltsFace][pointIndex],
                                                                  stress.yy[ltsFace][pointIndex],
                                                                  stress.zz[ltsFace][pointIndex],
                                                                  stress.xy[ltsFace][pointIndex],
@@ -212,7 +212,7 @@ void BaseDRInitializer::rotateTractionToCartesianStress(DynamicRupture::Layer& l
       assert(std::abs(initialTraction[ZZ]) < 1e-15);
       assert(std::abs(initialTraction[YZ]) < 1e-15);
 
-      real cartesianStress[init::initialStress::size()]{};
+      real cartesianStress[init::initialStress<Cfg>::size()]{};
       faultTractionToCartesianRotationKernel.initialStress = initialTraction;
       faultTractionToCartesianRotationKernel.rotatedStress = cartesianStress;
       faultTractionToCartesianRotationKernel.execute();
@@ -232,10 +232,10 @@ void BaseDRInitializer::rotateStressToFaultCS(DynamicRupture::Layer& layer,
                                               std::size_t count,
                                               const StressTensor& stress) {
   // create rotation kernel
-  real cartesianToFaultCSMatrixValues[init::stressRotationMatrix::size()];
+  real cartesianToFaultCSMatrixValues[init::stressRotationMatrix<Cfg>::size()];
   auto cartesianToFaultCSMatrixView =
-      init::stressRotationMatrix::view::create(cartesianToFaultCSMatrixValues);
-  dynamicRupture::kernel::rotateStress cartesianToFaultCSRotationKernel;
+      init::stressRotationMatrix<Cfg>::view::create(cartesianToFaultCSMatrixValues);
+  dynamicRupture::kernel::rotateStress<Cfg> cartesianToFaultCSRotationKernel;
   cartesianToFaultCSRotationKernel.stressRotationMatrix = cartesianToFaultCSMatrixValues;
 
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
@@ -249,13 +249,13 @@ void BaseDRInitializer::rotateStressToFaultCS(DynamicRupture::Layer& layer,
         fault.normal, fault.tangent1, fault.tangent2, cartesianToFaultCSMatrixView, 0, 0);
 
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-      const real initialStress[init::initialStress::size()] = {stress.xx[ltsFace][pointIndex],
+      const real initialStress[init::initialStress<Cfg>::size()] = {stress.xx[ltsFace][pointIndex],
                                                                stress.yy[ltsFace][pointIndex],
                                                                stress.zz[ltsFace][pointIndex],
                                                                stress.xy[ltsFace][pointIndex],
                                                                stress.yz[ltsFace][pointIndex],
                                                                stress.xz[ltsFace][pointIndex]};
-      real rotatedStress[init::initialStress::size()]{};
+      real rotatedStress[init::initialStress<Cfg>::size()]{};
       cartesianToFaultCSRotationKernel.initialStress = initialStress;
       cartesianToFaultCSRotationKernel.rotatedStress = rotatedStress;
       cartesianToFaultCSRotationKernel.execute();

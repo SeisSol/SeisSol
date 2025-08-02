@@ -28,7 +28,7 @@ class TimeKernel : public Kernel {
 
   virtual void evaluate(const real* coeffs,
                         const real* timeDerivatives,
-                        real timeEvaluated[tensor::I::size()]) = 0;
+                        real timeEvaluated[tensor::I<Cfg>::size()]) = 0;
   virtual void evaluateBatched(const real* coeffs,
                                const real** timeDerivatives,
                                real** timeIntegratedDofs,

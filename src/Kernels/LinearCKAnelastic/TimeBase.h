@@ -22,7 +22,7 @@ class Spacetime : public SpacetimeKernel {
                    double timeStepWidth,
                    LTS::Ref& data,
                    LocalTmp& tmp,
-                   real timeIntegrated[tensor::I::size()],
+                   real timeIntegrated[tensor::I<Cfg>::size()],
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
@@ -38,10 +38,10 @@ class Spacetime : public SpacetimeKernel {
   std::uint64_t bytesAder() override;
 
   protected:
-  kernel::derivative m_krnlPrototype;
+  kernel::derivative<Cfg> m_krnlPrototype;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_derivative deviceKrnlPrototype;
+  kernel::gpu_derivative<Cfg> deviceKrnlPrototype;
 #endif
 };
 
@@ -50,7 +50,7 @@ class Time : public TimeKernel {
   void setGlobalData(const CompoundGlobalData& global) override;
   void evaluate(const real* coeffs,
                 const real* timeDerivatives,
-                real timeEvaluated[tensor::I::size()]) override;
+                real timeEvaluated[tensor::I<Cfg>::size()]) override;
   void evaluateBatched(const real* coeffs,
                        const real** timeDerivatives,
                        real** timeIntegratedDofs,

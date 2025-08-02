@@ -92,8 +92,8 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   static void getTransposedGodunovState(const MaterialT& local,
                                         const MaterialT& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& QgodLocal,
-                                        init::QgodNeighbor::view::type& QgodNeighbor) {
+                                        init::QgodLocal<Cfg>::view::type& QgodLocal,
+                                        init::QgodNeighbor<Cfg>::view::type& QgodNeighbor) {
     seissol::model::getTransposedGodunovState(dynamic_cast<const ElasticMaterial&>(local),
                                               dynamic_cast<const ElasticMaterial&>(neighbor),
                                               faceType,
@@ -104,7 +104,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
                                           ViscoElasticLocalData* localData) {
-    auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
+    auto sourceMatrix = init::ET<Cfg>::view::create(localData->sourceMatrix);
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
   }
 
@@ -114,8 +114,8 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,
                                     const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
+                                    init::T<Cfg>::view::type& matT,
+                                    init::Tinv<Cfg>::view::type& matTinv) {
     seissol::model::getFaceRotationMatrix<ElasticMaterial>(
         normal, tangent1, tangent2, matT, matTinv);
 

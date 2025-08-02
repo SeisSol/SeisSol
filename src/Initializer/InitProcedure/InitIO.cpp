@@ -120,7 +120,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
   constexpr auto NumQuantities =
-      tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+      tensor::Q<Cfg>::Shape[sizeof(tensor::Q<Cfg>::Shape) / sizeof(tensor::Q<Cfg>::Shape[0]) - 1];
   // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
   // numberOfQuantities. But the compile-time parameter
   // seissol::model::MaterialT::NumQuantities contains it nonetheless.
@@ -167,10 +167,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
   // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
   constexpr auto QDofSizePadded =
-      tensor::Q::Size / tensor::Q::Shape[multisim::BasisFunctionDimension + 1];
+      tensor::Q<Cfg>::Size / tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
   constexpr auto FaceDisplacementPadded =
-      tensor::faceDisplacement::Size /
-      tensor::faceDisplacement::Shape[multisim::BasisFunctionDimension + 1];
+      tensor::faceDisplacement<Cfg>::Size /
+      tensor::faceDisplacement<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
 
   const auto namewrap = [](const std::string& name, std::size_t sim) {
     if constexpr (multisim::MultisimEnabled) {
@@ -245,10 +245,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           vertexArray[element.vertices[3]].coords,
           zero,
           &target[0]);
-      for (std::size_t i = 1; i < tensor::vtk3d::Shape[order][1]; ++i) {
-        double point[3] = {init::vtk3d::Values[order][i * 3 - 3 + 0],
-                           init::vtk3d::Values[order][i * 3 - 3 + 1],
-                           init::vtk3d::Values[order][i * 3 - 3 + 2]};
+      for (std::size_t i = 1; i < tensor::vtk3d<Cfg>::Shape[order][1]; ++i) {
+        double point[3] = {init::vtk3d<Cfg>::Values[order][i * 3 - 3 + 0],
+                           init::vtk3d<Cfg>::Values[order][i * 3 - 3 + 1],
+                           init::vtk3d<Cfg>::Values[order][i * 3 - 3 + 2]};
         seissol::transformations::tetrahedronReferenceToGlobal(
             vertexArray[element.vertices[0]].coords,
             vertexArray[element.vertices[1]].coords,
@@ -278,14 +278,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 const auto position = backmap.get(cellIndices[index]);
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-                kernel::projectBasisToVtkVolume vtkproj{};
+                kernel::projectBasisToVtkVolume<Cfg> vtkproj{};
                 memory::AlignedArray<real, multisim::NumSimulations> simselect;
                 simselect[sim] = 1;
                 vtkproj.simselect = simselect.data();
                 vtkproj.qb = dofsSingleQuantity;
                 vtkproj.xv(order) = target;
                 vtkproj.collvv(ConvergenceOrder, order) =
-                    init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
+                    init::collvv<Cfg>::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
                 vtkproj.execute(order);
               });
         }
@@ -301,14 +301,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   const auto position = backmap.get(cellIndices[index]);
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
                   const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-                  kernel::projectBasisToVtkVolume vtkproj{};
+                  kernel::projectBasisToVtkVolume<Cfg> vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect;
                   simselect[sim] = 1;
                   vtkproj.simselect = simselect.data();
                   vtkproj.qb = dofsSingleQuantity;
                   vtkproj.xv(order) = target;
                   vtkproj.collvv(ConvergenceOrder, order) =
-                      init::collvv::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
+                      init::collvv<Cfg>::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
                   vtkproj.execute(order);
                 });
           }
@@ -366,9 +366,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           vertexArray[element.vertices[3]].coords,
           xez,
           &target[0]);
-      for (std::size_t i = 1; i < tensor::vtk2d::Shape[order][1]; ++i) {
-        double point[2] = {init::vtk2d::Values[order][i * 2 - 2 + 0],
-                           init::vtk2d::Values[order][i * 2 - 2 + 1]};
+      for (std::size_t i = 1; i < tensor::vtk2d<Cfg>::Shape[order][1]; ++i) {
+        double point[2] = {init::vtk2d<Cfg>::Values[order][i * 2 - 2 + 0],
+                           init::vtk2d<Cfg>::Values[order][i * 2 - 2 + 1]};
         seissol::transformations::chiTau2XiEtaZeta(side, point, xez);
         seissol::transformations::tetrahedronReferenceToGlobal(
             vertexArray[element.vertices[0]].coords,
@@ -406,14 +406,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
               const auto* dofsSingleQuantity =
                   dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
-              kernel::projectBasisToVtkFaceFromVolume vtkproj{};
+              kernel::projectBasisToVtkFaceFromVolume<Cfg> vtkproj{};
               memory::AlignedArray<real, multisim::NumSimulations> simselect;
               simselect[sim] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.qb = dofsSingleQuantity;
               vtkproj.xf(order) = target;
               vtkproj.collvf(ConvergenceOrder, order, side) =
-                  init::collvf::Values[ConvergenceOrder +
+                  init::collvf<Cfg>::Values[ConvergenceOrder +
                                        (ConvergenceOrder + 1) * (order + 9 * side)];
               vtkproj.execute(order, side);
             });
@@ -433,15 +433,15 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               const auto* faceDisplacements = ltsStorage.lookup<LTS::FaceDisplacements>(position);
               const auto* faceDisplacementVariable =
                   faceDisplacements[side] + FaceDisplacementPadded * quantity;
-              kernel::projectNodalToVtkFace vtkproj{};
+              kernel::projectNodalToVtkFace<Cfg> vtkproj{};
               memory::AlignedArray<real, multisim::NumSimulations> simselect;
               simselect[sim] = 1;
               vtkproj.simselect = simselect.data();
               vtkproj.pn = faceDisplacementVariable;
-              vtkproj.MV2nTo2m = nodal::init::MV2nTo2m::Values;
+              vtkproj.MV2nTo2m = nodal::init::MV2nTo2m<Cfg>::Values;
               vtkproj.xf(order) = target;
               vtkproj.collff(ConvergenceOrder, order) =
-                  init::collff::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
+                  init::collff<Cfg>::Values[ConvergenceOrder + (ConvergenceOrder + 1) * order];
               vtkproj.execute(order);
             });
       }

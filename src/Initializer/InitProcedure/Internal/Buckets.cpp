@@ -79,7 +79,7 @@ std::vector<solver::RemoteCluster>
   const auto datatype = Config::Precision;
   const auto typeSize = sizeOfRealType(datatype);
 
-  const auto bufferSize = typeSize * tensor::I::size();
+  const auto bufferSize = typeSize * tensor::I<Cfg>::size();
   const auto derivativeSize = typeSize * kernels::Solver::DerivativesSize;
 
   const auto allocate = [&](std::size_t index, bool useDerivatives) {

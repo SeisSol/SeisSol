@@ -21,7 +21,7 @@ class Neighbor;
 } // namespace seissol::kernels::solver::linearck
 
 namespace seissol::tensor {
-class spaceTimePredictor;
+template<typename> class spaceTimePredictor;
 } // namespace seissol::tensor
 
 namespace seissol::kernels::solver::stp {
@@ -38,7 +38,7 @@ struct Solver {
   template <typename RealT>
   using TimeBasis = seissol::numerical::LegendreBasis<RealT>;
 
-  static constexpr std::size_t DerivativesSize = kernels::size<tensor::spaceTimePredictor>();
+  static constexpr std::size_t DerivativesSize = kernels::size<tensor::spaceTimePredictor<Cfg>>();
 };
 
 } // namespace seissol::kernels::solver::stp

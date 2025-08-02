@@ -193,7 +193,7 @@ class SampledBasisFunctionDerivatives {
   SampledBasisFunctionDerivatives(unsigned int order, T xi, T eta, T zeta)
       : m_data(3 * basisFunctionsForOrder(order)) {
     BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
-    auto dataView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
+    auto dataView = init::basisFunctionDerivativesAtPoint<Cfg>::view::create(m_data.data());
 
     unsigned int i = 0;
     for (unsigned int ord = 0; ord < order; ord++) {
@@ -235,10 +235,10 @@ class SampledBasisFunctionDerivatives {
         xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);
     std::vector<T> oldData = m_data;
 
-    auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
-    auto newView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
-    for (size_t i = 0; i < init::basisFunctionDerivativesAtPoint::Shape[0]; ++i) {
-      for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint::Shape[1];
+    auto oldView = init::basisFunctionDerivativesAtPoint<Cfg>::view::create(oldData.data());
+    auto newView = init::basisFunctionDerivativesAtPoint<Cfg>::view::create(m_data.data());
+    for (size_t i = 0; i < init::basisFunctionDerivativesAtPoint<Cfg>::Shape[0]; ++i) {
+      for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint<Cfg>::Shape[1];
            ++direction) {
         // dpsi / di = dphi / dxi * dxi / di + dphi / deta * deta / di + dphi / dzeta * dzeta / di
         newView(i, direction) = oldView(i, 0) * gradXi[direction] +

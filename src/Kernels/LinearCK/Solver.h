@@ -32,7 +32,7 @@ struct Solver {
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
 
-  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ<Cfg>>();
 };
 
 } // namespace seissol::kernels::solver::linearck

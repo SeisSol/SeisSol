@@ -64,20 +64,20 @@ std::array<real, multisim::NumSimulations>
                       const real* degreesOfFreedomMinus,
                       const DRFaceInformation& faceInfo,
                       const DRGodunovData& godunovData,
-                      const real slip[seissol::tensor::slipInterpolated::size()],
+                      const real slip[seissol::tensor::slipInterpolated<Cfg>::size()],
                       const GlobalData* global) {
   real points[seissol::kernels::NumSpaceQuadraturePoints][2];
   alignas(Alignment) real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints];
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, ConvergenceOrder + 1);
 
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
+  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg> krnl;
   krnl.V3mTo2n = global->faceToNodalMatrices;
 
-  alignas(PagesizeStack) real qInterpolatedPlus[tensor::QInterpolatedPlus::size()];
-  alignas(PagesizeStack) real qInterpolatedMinus[tensor::QInterpolatedMinus::size()];
-  alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated::size()];
-  alignas(Alignment) real qPlus[tensor::Q::size()];
-  alignas(Alignment) real qMinus[tensor::Q::size()];
+  alignas(PagesizeStack) real qInterpolatedPlus[tensor::QInterpolatedPlus<Cfg>::size()];
+  alignas(PagesizeStack) real qInterpolatedMinus[tensor::QInterpolatedMinus<Cfg>::size()];
+  alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated<Cfg>::size()];
+  alignas(Alignment) real qPlus[tensor::Q<Cfg>::size()];
+  alignas(Alignment) real qMinus[tensor::Q<Cfg>::size()];
 
   // needed to counter potential mis-alignment
   std::memcpy(qPlus, degreesOfFreedomPlus, sizeof(qPlus));
@@ -95,7 +95,7 @@ std::array<real, multisim::NumSimulations>
   krnl._prefetch.QInterpolated = qInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
 
-  dynamicRupture::kernel::computeTractionInterpolated trKrnl;
+  dynamicRupture::kernel::computeTractionInterpolated<Cfg> trKrnl;
   trKrnl.tractionPlusMatrix = godunovData.tractionPlusMatrix;
   trKrnl.tractionMinusMatrix = godunovData.tractionMinusMatrix;
   trKrnl.QInterpolatedPlus = qInterpolatedPlus;
@@ -103,9 +103,9 @@ std::array<real, multisim::NumSimulations>
   trKrnl.tractionInterpolated = tractionInterpolated;
   trKrnl.execute();
 
-  alignas(Alignment) real staticFrictionalWork[tensor::staticFrictionalWork::size()]{};
+  alignas(Alignment) real staticFrictionalWork[tensor::staticFrictionalWork<Cfg>::size()]{};
 
-  dynamicRupture::kernel::accumulateStaticFrictionalWork feKrnl;
+  dynamicRupture::kernel::accumulateStaticFrictionalWork<Cfg> feKrnl;
   feKrnl.slipInterpolated = slip;
   feKrnl.tractionInterpolated = tractionInterpolated;
   feKrnl.spaceWeights = spaceWeights;
@@ -197,7 +197,7 @@ void EnergyOutput::init(
   const auto maxCells = ltsStorage->getMaxClusterSize();
 
   if (maxCells > 0) {
-    constexpr auto QSize = tensor::Q::size();
+    constexpr auto QSize = tensor::Q<Cfg>::size();
     timeDerivativePlusHost = reinterpret_cast<real*>(
         device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * QSize * sizeof(real)));
     timeDerivativeMinusHost = reinterpret_cast<real*>(
@@ -288,7 +288,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
       /// (We'd need to send the dofs over the network in order to fix this.)
 #ifdef ACL_DEVICE
-      constexpr auto QSize = tensor::Q::size();
+      constexpr auto QSize = tensor::Q<Cfg>::size();
       const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
       auto& table = layer.getConditionalTable<inner_keys::Dr>();
       if (table.find(timeIntegrationKey) != table.end()) {
@@ -469,10 +469,10 @@ void EnergyOutput::computeVolumeEnergies() {
         // Needed to weight the integral.
         const auto jacobiDet = 6 * volume;
 
-        alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
-        auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
+        alignas(Alignment) real numericalSolutionData[tensor::dofsQP<Cfg>::size()];
+        auto numericalSolution = init::dofsQP<Cfg>::view::create(numericalSolutionData);
         // Evaluate numerical solution at quad. nodes
-        kernel::evalAtQP krnl;
+        kernel::evalAtQP<Cfg> krnl;
         krnl.evalAtQP = global->evalAtQPMatrix;
         krnl.dofsQP = numericalSolutionData;
         krnl.Q = dofsData[cell];
@@ -548,12 +548,12 @@ void EnergyOutput::computeVolumeEnergies() {
           // Displacements are stored in face-aligned coordinate system.
           // We need to rotate it to the global coordinate system.
           const auto& boundaryMapping = boundaryMappings[face];
-          auto tinv = init::Tinv::view::create(boundaryMapping.dataTinv);
+          auto tinv = init::Tinv<Cfg>::view::create(boundaryMapping.dataTinv);
           alignas(Alignment)
-              real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix::Size];
+              real rotateDisplacementToFaceNormalData[init::displacementRotationMatrix<Cfg>::Size];
 
           auto rotateDisplacementToFaceNormal =
-              init::displacementRotationMatrix::view::create(rotateDisplacementToFaceNormalData);
+              init::displacementRotationMatrix<Cfg>::view::create(rotateDisplacementToFaceNormalData);
           for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
               rotateDisplacementToFaceNormal(i, j) = tinv(i + UIdx, j + UIdx);
@@ -561,12 +561,12 @@ void EnergyOutput::computeVolumeEnergies() {
           }
 
           alignas(Alignment)
-              std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes::Size>
+              std::array<real, tensor::rotatedFaceDisplacementAtQuadratureNodes<Cfg>::Size>
                   displQuadData{};
           const auto* curFaceDisplacementsData = faceDisplacements[face];
-          seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes evalKrnl;
+          seissol::kernel::rotateFaceDisplacementsAndEvaluateAtQuadratureNodes<Cfg> evalKrnl;
           evalKrnl.rotatedFaceDisplacement = curFaceDisplacementsData;
-          evalKrnl.V2nTo2JacobiQuad = init::V2nTo2JacobiQuad::Values;
+          evalKrnl.V2nTo2JacobiQuad = init::V2nTo2JacobiQuad<Cfg>::Values;
           evalKrnl.rotatedFaceDisplacementAtQuadratureNodes = displQuadData.data();
           evalKrnl.displacementRotationMatrix = rotateDisplacementToFaceNormalData;
           evalKrnl.execute();
@@ -575,10 +575,10 @@ void EnergyOutput::computeVolumeEnergies() {
           const auto surface = MeshTools::surface(elements[elementId], face, vertices);
           const auto rho = material.getDensity();
 
-          static_assert(NumQuadraturePointsTri == init::rotatedFaceDisplacementAtQuadratureNodes::
+          static_assert(NumQuadraturePointsTri == init::rotatedFaceDisplacementAtQuadratureNodes<Cfg>::
                                                       Shape[multisim::BasisFunctionDimension]);
           auto rotatedFaceDisplacementFused =
-              init::rotatedFaceDisplacementAtQuadratureNodes::view::create(displQuadData.data());
+              init::rotatedFaceDisplacementAtQuadratureNodes<Cfg>::view::create(displQuadData.data());
           auto rotatedFaceDisplacement = multisim::simtensor(rotatedFaceDisplacementFused, sim);
 
           for (std::size_t i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
@@ -595,7 +595,7 @@ void EnergyOutput::computeVolumeEnergies() {
           // plastic moment
           const real* pstrainCell = pstrainData[cell];
           const double mu = material.getMuBar();
-          totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress::size() + sim];
+          totalPlasticMoment += mu * volume * pstrainCell[tensor::QStress<Cfg>::size() + sim];
         }
       }
     }

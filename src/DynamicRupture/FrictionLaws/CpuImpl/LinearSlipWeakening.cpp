@@ -22,8 +22,8 @@ namespace seissol::dr::friction_law::cpu {
 void NoSpecialization::resampleSlipRate(
     real (&resampledSlipRate)[dr::misc::NumPaddedPoints],
     const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints]) {
-  dynamicRupture::kernel::resampleParameter resampleKrnl;
-  resampleKrnl.resample = init::resample::Values;
+  dynamicRupture::kernel::resampleParameter<Cfg> resampleKrnl;
+  resampleKrnl.resample = init::resample<Cfg>::Values;
   resampleKrnl.originalQ = slipRateMagnitude;
   resampleKrnl.resampledQ = resampledSlipRate;
   resampleKrnl.execute();

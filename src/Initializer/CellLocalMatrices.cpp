@@ -51,15 +51,15 @@ void setStarMatrix(const real* matAT,
                    const real* matCT,
                    const double grad[3],
                    real* starMatrix) {
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(0); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star<Cfg>::size(0); ++idx) {
     starMatrix[idx] = grad[0] * matAT[idx];
   }
 
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(1); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star<Cfg>::size(1); ++idx) {
     starMatrix[idx] += grad[1] * matBT[idx];
   }
 
-  for (std::size_t idx = 0; idx < seissol::tensor::star::size(2); ++idx) {
+  for (std::size_t idx = 0; idx < seissol::tensor::star<Cfg>::size(2); ++idx) {
     starMatrix[idx] += grad[2] * matCT[idx];
   }
 }
@@ -98,7 +98,7 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
   }
 }
 
-constexpr int N = tensor::Zminus::Shape[0];
+constexpr int N = tensor::Zminus<Cfg>::Shape[0];
 template <typename T>
 Eigen::Matrix<T, N, N>
     extractMatrix(eigenvalues::Eigenpair<std::complex<double>,
@@ -136,9 +136,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
 
-  static_assert(seissol::tensor::AplusT::Shape[0] == seissol::tensor::AminusT::Shape[0],
+  static_assert(seissol::tensor::AplusT<Cfg>::Shape[0] == seissol::tensor::AminusT<Cfg>::Shape[0],
                 "Shape mismatch for flux matrices");
-  static_assert(seissol::tensor::AplusT::Shape[1] == seissol::tensor::AminusT::Shape[1],
+  static_assert(seissol::tensor::AplusT<Cfg>::Shape[1] == seissol::tensor::AminusT<Cfg>::Shape[1],
                 "Shape mismatch for flux matrices");
 
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::Material>().mask);
@@ -158,28 +158,28 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 #pragma omp parallel
     {
 #endif
-      real matATData[tensor::star::size(0)];
-      real matATtildeData[tensor::star::size(0)];
-      real matBTData[tensor::star::size(1)];
-      real matCTData[tensor::star::size(2)];
-      auto matAT = init::star::view<0>::create(matATData);
+      real matATData[tensor::star<Cfg>::size(0)];
+      real matATtildeData[tensor::star<Cfg>::size(0)];
+      real matBTData[tensor::star<Cfg>::size(1)];
+      real matCTData[tensor::star<Cfg>::size(2)];
+      auto matAT = init::star<Cfg>::view<0>::create(matATData);
       // matAT with elastic parameters in local coordinate system, used for flux kernel
-      auto matATtilde = init::star::view<0>::create(matATtildeData);
-      auto matBT = init::star::view<0>::create(matBTData);
-      auto matCT = init::star::view<0>::create(matCTData);
+      auto matATtilde = init::star<Cfg>::view<0>::create(matATtildeData);
+      auto matBT = init::star<Cfg>::view<0>::create(matBTData);
+      auto matCT = init::star<Cfg>::view<0>::create(matCTData);
 
-      real matTData[seissol::tensor::T::size()];
-      real matTinvData[seissol::tensor::Tinv::size()];
-      auto matT = init::T::view::create(matTData);
-      auto matTinv = init::Tinv::view::create(matTinvData);
+      real matTData[seissol::tensor::T<Cfg>::size()];
+      real matTinvData[seissol::tensor::Tinv<Cfg>::size()];
+      auto matT = init::T<Cfg>::view::create(matTData);
+      auto matTinv = init::Tinv<Cfg>::view::create(matTinvData);
 
-      real qGodLocalData[tensor::QgodLocal::size()];
-      real qGodNeighborData[tensor::QgodNeighbor::size()];
-      auto qGodLocal = init::QgodLocal::view::create(qGodLocalData);
-      auto qGodNeighbor = init::QgodNeighbor::view::create(qGodNeighborData);
+      real qGodLocalData[tensor::QgodLocal<Cfg>::size()];
+      real qGodNeighborData[tensor::QgodNeighbor<Cfg>::size()];
+      auto qGodLocal = init::QgodLocal<Cfg>::view::create(qGodLocalData);
+      auto qGodNeighbor = init::QgodNeighbor<Cfg>::view::create(qGodNeighborData);
 
-      real rusanovPlusNull[tensor::QcorrLocal::size()]{};
-      real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
+      real rusanovPlusNull[tensor::QcorrLocal<Cfg>::size()]{};
+      real rusanovMinusNull[tensor::QcorrNeighbor<Cfg>::size()]{};
 
 #ifdef _OPENMP
 #pragma omp for schedule(static)
@@ -279,13 +279,13 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           const auto wavespeedNeighbor = material[cell].neighbor[side]->getMaxWaveSpeed();
           const auto wavespeed = std::max(wavespeedLocal, wavespeedNeighbor);
 
-          real centralFluxData[tensor::QgodLocal::size()]{};
-          real rusanovPlusData[tensor::QcorrLocal::size()]{};
-          real rusanovMinusData[tensor::QcorrNeighbor::size()]{};
-          auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
-          auto rusanovPlusView = init::QcorrLocal::view::create(rusanovPlusData);
-          auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
-          for (size_t i = 0; i < std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]);
+          real centralFluxData[tensor::QgodLocal<Cfg>::size()]{};
+          real rusanovPlusData[tensor::QcorrLocal<Cfg>::size()]{};
+          real rusanovMinusData[tensor::QcorrNeighbor<Cfg>::size()]{};
+          auto centralFluxView = init::QgodLocal<Cfg>::view::create(centralFluxData);
+          auto rusanovPlusView = init::QcorrLocal<Cfg>::view::create(rusanovPlusData);
+          auto rusanovMinusView = init::QcorrNeighbor<Cfg>::view::create(rusanovMinusData);
+          for (size_t i = 0; i < std::min(tensor::QgodLocal<Cfg>::Shape[0], tensor::QgodLocal<Cfg>::Shape[1]);
                i++) {
             centralFluxView(i, i) = 0.5;
             rusanovPlusView(i, i) = wavespeed * 0.5;
@@ -314,7 +314,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
           const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 
-          kernel::computeFluxSolverLocal localKrnl;
+          kernel::computeFluxSolverLocal<Cfg> localKrnl;
           localKrnl.fluxScale = fluxScale;
           localKrnl.AplusT = localIntegration[cell].nApNm1[side];
           if (flux == parameters::NumericalFlux::Rusanov) {
@@ -329,7 +329,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           localKrnl.star(0) = matATtildeData;
           localKrnl.execute();
 
-          kernel::computeFluxSolverNeighbor neighKrnl;
+          kernel::computeFluxSolverNeighbor<Cfg> neighKrnl;
           neighKrnl.fluxScale = fluxScale;
           neighKrnl.AminusT = neighboringIntegration[cell].nAmNm1[side];
           if (flux == parameters::NumericalFlux::Rusanov) {
@@ -345,7 +345,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet ||
               cellInformation[cell].faceTypes[side] == FaceType::FreeSurfaceGravity) {
             // already rotated
-            neighKrnl.Tinv = init::identityT::Values;
+            neighKrnl.Tinv = init::identityT<Cfg>::Values;
           }
           neighKrnl.execute();
         }
@@ -389,13 +389,13 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
           continue;
         }
         // Compute nodal points in global coordinates for each side.
-        real nodesReferenceData[nodal::tensor::nodes2D::Size];
-        std::copy_n(nodal::init::nodes2D::Values, nodal::tensor::nodes2D::Size, nodesReferenceData);
-        auto nodesReference = nodal::init::nodes2D::view::create(nodesReferenceData);
+        real nodesReferenceData[nodal::tensor::nodes2D<Cfg>::Size];
+        std::copy_n(nodal::init::nodes2D<Cfg>::Values, nodal::tensor::nodes2D<Cfg>::Size, nodesReferenceData);
+        auto nodesReference = nodal::init::nodes2D<Cfg>::view::create(nodesReferenceData);
         auto* nodes = boundary[cell][side].nodes;
         assert(nodes != nullptr);
         auto offset = 0;
-        for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
+        for (std::size_t i = 0; i < nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension];
              ++i) {
           double nodeReference[2];
           nodeReference[0] = nodesReference(i, 0);
@@ -416,8 +416,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         real* matTinvData = boundary[cell][side].dataTinv;
         assert(matTData != nullptr);
         assert(matTinvData != nullptr);
-        auto matT = init::T::view::create(matTData);
-        auto matTinv = init::Tinv::view::create(matTinvData);
+        auto matT = init::T<Cfg>::view::create(matTData);
+        auto matTinv = init::Tinv<Cfg>::view::create(matTinvData);
 
         VrtxCoords normal;
         VrtxCoords tangent1;
@@ -438,10 +438,10 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         } else {
           // Boundary should not be evaluated
           std::fill_n(easiBoundaryMap,
-                      seissol::tensor::easiBoundaryMap::size(),
+                      seissol::tensor::easiBoundaryMap<Cfg>::size(),
                       std::numeric_limits<real>::signaling_NaN());
           std::fill_n(easiBoundaryConstant,
-                      seissol::tensor::easiBoundaryConstant::size(),
+                      seissol::tensor::easiBoundaryConstant<Cfg>::size(),
                       std::numeric_limits<real>::signaling_NaN());
         }
       }
@@ -455,10 +455,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       DynamicRupture::Storage& drStorage,
                                       const GlobalData& global,
                                       double etaHack) {
-  real matTData[tensor::T::size()];
-  real matTinvData[tensor::Tinv::size()];
-  real matAPlusData[tensor::star::size(0)];
-  real matAMinusData[tensor::star::size(0)];
+  real matTData[tensor::T<Cfg>::size()];
+  real matTinvData[tensor::Tinv<Cfg>::size()];
+  real matAPlusData[tensor::star<Cfg>::size(0)];
+  real matAMinusData[tensor::star<Cfg>::size(0)];
 
   const auto& fault = meshReader.getFault();
   const auto& elements = meshReader.getElements();
@@ -611,8 +611,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
 
       /// Transformation matrix
-      auto matT = init::T::view::create(matTData);
-      auto matTinv = init::Tinv::view::create(matTinvData);
+      auto matT = init::T<Cfg>::view::create(matTData);
+      auto matTinv = init::Tinv<Cfg>::view::create(matTinvData);
       seissol::model::getFaceRotationMatrix(fault[meshFace].normal,
                                             fault[meshFace].tangent1,
                                             fault[meshFace].tangent2,
@@ -643,8 +643,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
 
       /// Wave speeds and Coefficient Matrices
-      auto matAPlus = init::star::view<0>::create(matAPlusData);
-      auto matAMinus = init::star::view<0>::create(matAMinusData);
+      auto matAPlus = init::star<Cfg>::view<0>::create(matAPlusData);
+      auto matAMinus = init::star<Cfg>::view<0>::create(matAMinusData);
 
       waveSpeedsPlus[ltsFace].density = plusMaterial->getDensity();
       waveSpeedsMinus[ltsFace].density = minusMaterial->getDensity();
@@ -690,10 +690,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         const Eigen::Matrix<double, N, N> etaMatrix =
             (impedanceMatrix + impedanceNeigMatrix).inverse();
 
-        auto impedanceView = init::Zplus::view::create(impedanceMatrices[ltsFace].impedance);
+        auto impedanceView = init::Zplus<Cfg>::view::create(impedanceMatrices[ltsFace].impedance);
         auto impedanceNeigView =
-            init::Zminus::view::create(impedanceMatrices[ltsFace].impedanceNeig);
-        auto etaView = init::eta::view::create(impedanceMatrices[ltsFace].eta);
+            init::Zminus<Cfg>::view::create(impedanceMatrices[ltsFace].impedanceNeig);
+        auto etaView = init::eta<Cfg>::view::create(impedanceMatrices[ltsFace].eta);
 
         copyEigenToYateto(impedanceMatrix, impedanceView);
         copyEigenToYateto(impedanceNeigMatrix, impedanceNeigView);
@@ -717,9 +717,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       /// Traction matrices for "average" traction
       auto tractionPlusMatrix =
-          init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
+          init::tractionPlusMatrix<Cfg>::view::create(godunovData[ltsFace].tractionPlusMatrix);
       auto tractionMinusMatrix =
-          init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
+          init::tractionMinusMatrix<Cfg>::view::create(godunovData[ltsFace].tractionMinusMatrix);
       const double cZpP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].pWaveVelocity;
       const double cZsP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].sWaveVelocity;
       const double cZpM = minusMaterial->getDensity() * waveSpeedsMinus[ltsFace].pWaveVelocity;
@@ -738,7 +738,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       tractionMinusMatrix(5, 2) = etaS / cZsM;
 
       /// Transpose matTinv
-      dynamicRupture::kernel::transposeTinv ttKrnl;
+      dynamicRupture::kernel::transposeTinv<Cfg> ttKrnl;
       ttKrnl.Tinv = matTinvData;
       ttKrnl.TinvT = godunovData[ltsFace].dataTinvT;
       ttKrnl.execute();
@@ -774,12 +774,12 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       }
       godunovData[ltsFace].doubledSurfaceArea = 2.0 * surfaceArea;
 
-      dynamicRupture::kernel::rotateFluxMatrix krnl;
+      dynamicRupture::kernel::rotateFluxMatrix<Cfg> krnl;
       krnl.T = matTData;
 
-      real(*fluxSolverPlusHost)[tensor::fluxSolver::size()] =
+      real(*fluxSolverPlusHost)[tensor::fluxSolver<Cfg>::size()] =
           layer.var<DynamicRupture::FluxSolverPlus>();
-      real(*fluxSolverMinusHost)[tensor::fluxSolver::size()] =
+      real(*fluxSolverMinusHost)[tensor::fluxSolver<Cfg>::size()] =
           layer.var<DynamicRupture::FluxSolverMinus>();
 
       krnl.fluxSolver = fluxSolverPlusHost[ltsFace];

@@ -17,7 +17,7 @@
 
 namespace seissol::unit_test {
 template <typename T>
-void test_matrix(init::QgodLocal::view::type& qgodLocal, const T& solution, double epsilon) {
+void test_matrix(init::QgodLocal<Cfg>::view::type& qgodLocal, const T& solution, double epsilon) {
   // compute the Frobenius norms squared: ||QgodLocal - solution||^2 and ||solution||^2
   double frobDiffSquared = 0.0;
   double frobASquared = 0.0;
@@ -32,7 +32,7 @@ void test_matrix(init::QgodLocal::view::type& qgodLocal, const T& solution, doub
   REQUIRE(std::abs(frobDiffSquared) < epsilon * frobASquared * epsilon * frobASquared);
 }
 
-inline void test_nan(init::QgodLocal::view::type& qgodNeighbor) {
+inline void test_nan(init::QgodLocal<Cfg>::view::type& qgodNeighbor) {
   for (unsigned int i = 0; i < qgodNeighbor.shape(0); i++) {
     for (unsigned int j = 0; j < qgodNeighbor.shape(1); j++) {
       REQUIRE(std::isnan(qgodNeighbor(i, j)));
@@ -45,10 +45,10 @@ TEST_CASE("Godunov state is correct" *
           doctest::skip(std::is_same_v<model::MaterialT, model::AcousticMaterial>)) {
   constexpr real Epsilon = 1e2 * std::numeric_limits<real>::epsilon();
 
-  real localData[tensor::QgodLocal::size()];
-  real neighborData[tensor::QgodLocal::size()];
-  init::QgodLocal::view::type qgodLocal = init::QgodLocal::view::create(localData);
-  init::QgodNeighbor::view::type qgodNeighbor = init::QgodNeighbor::view::create(neighborData);
+  real localData[tensor::QgodLocal<Cfg>::size()];
+  real neighborData[tensor::QgodLocal<Cfg>::size()];
+  init::QgodLocal<Cfg>::view::type qgodLocal = init::QgodLocal<Cfg>::view::create(localData);
+  init::QgodNeighbor<Cfg>::view::type qgodNeighbor = init::QgodNeighbor<Cfg>::view::create(neighborData);
   qgodLocal.setZero();
   qgodNeighbor.setZero();
 

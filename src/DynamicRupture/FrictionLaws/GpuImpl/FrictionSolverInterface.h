@@ -36,8 +36,8 @@ struct FrictionLawData {
   real (*__restrict peakSlipRate)[misc::NumPaddedPoints]{};
   real (*__restrict traction1)[misc::NumPaddedPoints]{};
   real (*__restrict traction2)[misc::NumPaddedPoints]{};
-  real (*__restrict imposedStatePlus)[tensor::QInterpolated::size()]{};
-  real (*__restrict imposedStateMinus)[tensor::QInterpolated::size()]{};
+  real (*__restrict imposedStatePlus)[tensor::QInterpolated<Cfg>::size()]{};
+  real (*__restrict imposedStateMinus)[tensor::QInterpolated<Cfg>::size()]{};
   DREnergyOutput* __restrict energyData{};
   const DRGodunovData* __restrict godunovData{};
   real (*__restrict initialPressure)[misc::NumPaddedPoints]{};
@@ -47,8 +47,8 @@ struct FrictionLawData {
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
   bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints]{};
 
-  const real (*__restrict qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
-  const real (*__restrict qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
+  const real (*__restrict qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
+  const real (*__restrict qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
 
   // LSW
   const real (*__restrict dC)[misc::NumPaddedPoints];

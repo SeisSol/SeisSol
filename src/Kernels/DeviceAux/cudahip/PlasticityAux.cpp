@@ -80,7 +80,7 @@ __global__ void kernel_adjustDeviatoricTensors(real** nodalStressTensors,
   real* elementTensors = nodalStressTensors[blockIdx.x];
   real localStresses[NumStressComponents];
 
-  constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal>();
+  constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal<Cfg>>();
 #pragma unroll
   for (int i = 0; i < NumStressComponents; ++i) {
     localStresses[i] = elementTensors[linearidx() + ElementTensorsColumn * i];
@@ -141,7 +141,7 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
                              const double oneMinusIntegratingFactor,
                              const size_t numElements,
                              void* streamPtr) {
-  constexpr unsigned NumNodes = tensor::QStressNodal::Shape[multisim::BasisFunctionDimension];
+  constexpr unsigned NumNodes = tensor::QStressNodal<Cfg>::Shape[multisim::BasisFunctionDimension];
   const auto block = getblock(NumNodes);
   const dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(streamPtr);
@@ -168,11 +168,11 @@ __global__ void kernel_computePstrains(real** pstrains,
 
 #pragma unroll
     for (int i = 0; i < NumStressComponents; ++i) {
-      const int q = linearidx() + i * leadDim<init::Q>();
+      const int q = linearidx() + i * leadDim<init::Q<Cfg>>();
       const real factor = localData->mufactor / (tV * oneMinusIntegratingFactor);
       const real nodeDuDtPstrain = factor * (localPrevDofs[q] - localDofs[q]);
 
-      static_assert(leadDim<init::QStress>() == leadDim<init::Q>(), "");
+      static_assert(leadDim<init::QStress<Cfg>>() == leadDim<init::Q<Cfg>>(), "");
       localPstrain[q] += timeStepWidth * nodeDuDtPstrain;
       localDuDtPstrain[q] = nodeDuDtPstrain;
     }
@@ -190,7 +190,7 @@ void computePstrains(real** pstrains,
                      unsigned* isAdjustableVector,
                      size_t numElements,
                      void* streamPtr) {
-  constexpr unsigned NumNodes = tensor::Q::Shape[multisim::BasisFunctionDimension];
+  constexpr unsigned NumNodes = tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension];
   const dim3 block = getblock(NumNodes);
   const dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(streamPtr);
@@ -216,7 +216,7 @@ __global__ void kernel_updateQEtaNodal(real** qEtaNodalPtrs,
     real* localQStressNodal = qStressNodalPtrs[blockIdx.x];
     real factor{0.0};
 
-    constexpr auto Ld = leadDim<init::QStressNodal>();
+    constexpr auto Ld = leadDim<init::QStressNodal<Cfg>>();
 #pragma unroll
     for (int i = 0; i < NumStressComponents; ++i) {
       factor += localQStressNodal[tid + i * Ld] * localQStressNodal[tid + i * Ld];
@@ -233,7 +233,7 @@ void updateQEtaNodal(real** qEtaNodalPtrs,
                      unsigned* isAdjustableVector,
                      size_t numElements,
                      void* streamPtr) {
-  const dim3 block = getblock(tensor::QStressNodal::Shape[multisim::BasisFunctionDimension]);
+  const dim3 block = getblock(tensor::QStressNodal<Cfg>::Shape[multisim::BasisFunctionDimension]);
   const dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(streamPtr);
   kernel_updateQEtaNodal<<<grid, block, 0, stream>>>(

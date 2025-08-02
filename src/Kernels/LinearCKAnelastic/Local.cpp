@@ -41,8 +41,8 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
-  m_localKernelPrototype.selectEla = init::selectEla::Values;
-  m_localKernelPrototype.selectAne = init::selectAne::Values;
+  m_localKernelPrototype.selectEla = init::selectEla<Cfg>::Values;
+  m_localKernelPrototype.selectAne = init::selectAne<Cfg>::Values;
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
@@ -57,7 +57,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
                             LTS::Ref& data,
                             LocalTmp& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
@@ -72,20 +72,20 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
   assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
 #endif
 
-  alignas(Alignment) real Qext[tensor::Qext::size()];
+  alignas(Alignment) real Qext[tensor::Qext<Cfg>::size()];
 
-  kernel::volumeExt volKrnl = m_volumeKernelPrototype;
+  kernel::volumeExt<Cfg> volKrnl = m_volumeKernelPrototype;
   volKrnl.Qext = Qext;
   volKrnl.I = timeIntegratedDegreesOfFreedom;
-  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+  for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
     volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
   }
 
-  kernel::localFluxExt lfKrnl = m_localFluxKernelPrototype;
+  kernel::localFluxExt<Cfg> lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Qext = Qext;
   lfKrnl.I = timeIntegratedDegreesOfFreedom;
-  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I::size();
-  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
+  lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I<Cfg>::size();
+  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q<Cfg>::size();
 
   volKrnl.execute();
 
@@ -97,7 +97,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
     }
   }
 
-  kernel::local lKrnl = m_localKernelPrototype;
+  kernel::local<Cfg> lKrnl = m_localKernelPrototype;
   lKrnl.E = data.get<LTS::LocalIntegration>().specific.E;
   lKrnl.Iane = tmp.timeIntegratedAne;
   lKrnl.Q = data.get<LTS::Dofs>();
@@ -112,31 +112,31 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size(
 void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
                           std::uint64_t& nonZeroFlops,
                           std::uint64_t& hardwareFlops) {
-  nonZeroFlops = seissol::kernel::volumeExt::NonZeroFlops;
-  hardwareFlops = seissol::kernel::volumeExt::HardwareFlops;
+  nonZeroFlops = seissol::kernel::volumeExt<Cfg>::NonZeroFlops;
+  hardwareFlops = seissol::kernel::volumeExt<Cfg>::HardwareFlops;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     if (faceTypes[face] != FaceType::DynamicRupture) {
-      nonZeroFlops += seissol::kernel::localFluxExt::nonZeroFlops(face);
-      hardwareFlops += seissol::kernel::localFluxExt::hardwareFlops(face);
+      nonZeroFlops += seissol::kernel::localFluxExt<Cfg>::nonZeroFlops(face);
+      hardwareFlops += seissol::kernel::localFluxExt<Cfg>::hardwareFlops(face);
     }
   }
 
-  nonZeroFlops += seissol::kernel::local::NonZeroFlops;
-  hardwareFlops += seissol::kernel::local::HardwareFlops;
+  nonZeroFlops += seissol::kernel::local<Cfg>::NonZeroFlops;
+  hardwareFlops += seissol::kernel::local<Cfg>::HardwareFlops;
 }
 
 std::uint64_t Local::bytesIntegral() {
   std::uint64_t reals = 0;
 
   // star matrices load
-  reals += yateto::computeFamilySize<tensor::star>() + tensor::w::size() + tensor::W::size() +
-           tensor::E::size();
+  reals += yateto::computeFamilySize<tensor::star<Cfg>>() + tensor::w<Cfg>::size() + tensor::W<Cfg>::size() +
+           tensor::E<Cfg>::size();
   // flux solvers
-  reals += 4 * tensor::AplusT::size();
+  reals += 4 * tensor::AplusT<Cfg>::size();
 
   // DOFs write
-  reals += tensor::Q::size() + tensor::Qane::size();
+  reals += tensor::Q<Cfg>::size() + tensor::Qane<Cfg>::size();
 
   return reals * sizeof(real);
 }
@@ -149,9 +149,9 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 #ifdef ACL_DEVICE
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-  kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype;
-  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype;
-  kernel::gpu_local localKrnl = deviceLocalKernelPrototype;
+  kernel::gpu_volumeExt<Cfg> volKrnl = deviceVolumeKernelPrototype;
+  kernel::gpu_localFluxExt<Cfg> localFluxKrnl = deviceLocalFluxKernelPrototype;
+  kernel::gpu_local<Cfg> localKrnl = deviceLocalKernelPrototype;
 
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
@@ -162,7 +162,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
     volKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
-    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
       volKrnl.star(i) = const_cast<const real**>(
           (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
       volKrnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);

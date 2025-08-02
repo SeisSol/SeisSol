@@ -323,7 +323,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   loopStatistics->begin(regionComputeLocalIntegration);
 
   // local integration buffer
-  alignas(Alignment) real integrationBuffer[tensor::I::size()];
+  alignas(Alignment) real integrationBuffer[tensor::I<Cfg>::size()];
 
   // pointer for the call of the ADER-function
   real* bufferPointer = nullptr;
@@ -383,10 +383,10 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
       // Note: Displacement for freeSurfaceGravity is computed in Time.cpp
       if (curFaceDisplacements != nullptr &&
           data.get<LTS::CellInformation>().faceTypes[face] != FaceType::FreeSurfaceGravity) {
-        kernel::addVelocity addVelocityKrnl;
+        kernel::addVelocity<Cfg> addVelocityKrnl;
 
         addVelocityKrnl.V3mTo2nFace = globalDataOnHost->v3mTo2nFace;
-        addVelocityKrnl.selectVelocity = init::selectVelocity::Values;
+        addVelocityKrnl.selectVelocity = init::selectVelocity<Cfg>::Values;
         addVelocityKrnl.faceDisplacement = data.get<LTS::FaceDisplacements>()[face];
         addVelocityKrnl.I = bufferPointer;
         addVelocityKrnl.execute(face);
@@ -399,7 +399,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
     if (!resetMyBuffers && buffersProvided) {
       assert(buffers[cell] != nullptr);
 
-      for (std::size_t dof = 0; dof < tensor::I::size(); ++dof) {
+      for (std::size_t dof = 0; dof < tensor::I<Cfg>::size(); ++dof) {
         buffers[cell][dof] += integrationBuffer[dof];
       }
     }
@@ -451,7 +451,7 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
             // NOTE: integrated velocities have been computed implicitly, i.e
             // it is 6th, 7the and 8th columns of integrated dofs
 
-            kernel::gpu_addVelocity displacementKrnl;
+            kernel::gpu_addVelocity<Cfg> displacementKrnl;
             displacementKrnl.faceDisplacement =
                 entry.get(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
             displacementKrnl.integratedVelocities = const_cast<const real**>(
@@ -475,7 +475,7 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
                 const_cast<const real**>(
                     (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
                 (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
-                tensor::I::Size,
+                tensor::I<Cfg>::Size,
                 (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
                 streamRuntime.stream());
           } else {
@@ -483,7 +483,7 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
                 const_cast<const real**>(
                     (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
                 (entry.get(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
-                tensor::I::Size,
+                tensor::I<Cfg>::Size,
                 (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
                 streamRuntime.stream());
           }
@@ -924,9 +924,9 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
         timeCoeffs.data(),
         subtimeCoeffs.data(),
         faceNeighbors[cell],
-        *reinterpret_cast<real(*)[4][tensor::I::size()]>(
+        *reinterpret_cast<real(*)[4][tensor::I<Cfg>::size()]>(
             &(globalDataOnHost->integrationBufferLTS[OpenMP::threadId() * 4 *
-                                                     static_cast<size_t>(tensor::I::size())])),
+                                                     static_cast<size_t>(tensor::I<Cfg>::size())])),
         timeIntegrated);
 
     faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)

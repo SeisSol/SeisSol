@@ -87,7 +87,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
           ltsBuffers.push_back(buffers[cell]);
 
           idofsAddressRegistry[cell] = nextIdofPtr;
-          integratedDofsAddressCounter += tensor::I::size();
+          integratedDofsAddressCounter += tensor::I<Cfg>::size();
         } else {
           // gts buffers have to be always overridden
           idofsPtrs.push_back(buffers[cell]);
@@ -96,7 +96,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       } else {
         idofsPtrs.push_back(nextIdofPtr);
         idofsAddressRegistry[cell] = nextIdofPtr;
-        integratedDofsAddressCounter += tensor::I::size();
+        integratedDofsAddressCounter += tensor::I<Cfg>::size();
       }
 
       // stars
@@ -106,18 +106,18 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       dofsAnePtrs[cell] = dofsAne[cell];
 
       auto* idofsAne = currentLayer->var<LTS::IDofsAneScratch>(AllocationPlace::Device);
-      idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + tensor::Iane::size() * cell;
+      idofsAnePtrs[cell] = static_cast<real*>(idofsAne) + tensor::Iane<Cfg>::size() * cell;
 
       auto* derivativesExt = currentLayer->var<LTS::DerivativesExtScratch>(AllocationPlace::Device);
       derivativesExtPtrs[cell] = static_cast<real*>(derivativesExt) +
-                                 (tensor::dQext::size(1) + tensor::dQext::size(2)) * cell;
+                                 (tensor::dQext<Cfg>::size(1) + tensor::dQext<Cfg>::size(2)) * cell;
 
       auto* derivativesAne = currentLayer->var<LTS::DerivativesAneScratch>(AllocationPlace::Device);
       derivativesAnePtrs[cell] = static_cast<real*>(derivativesAne) +
-                                 (tensor::dQane::size(1) + tensor::dQane::size(2)) * cell;
+                                 (tensor::dQane<Cfg>::size(1) + tensor::dQane<Cfg>::size(2)) * cell;
 
       auto* dofsExt = currentLayer->var<LTS::DofsExtScratch>(AllocationPlace::Device);
-      dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + tensor::Qext::size() * cell;
+      dofsExtPtrs[cell] = static_cast<real*>(dofsExt) + tensor::Qext<Cfg>::size() * cell;
 #endif
 
       // derivatives
@@ -183,7 +183,7 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
         localPtrs.push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
 #ifdef USE_VISCOELASTIC2
         auto* dofsExt = currentLayer->var<LTS::DofsExtScratch>(AllocationPlace::Device);
-        dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + tensor::Qext::size() * cell);
+        dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + tensor::Qext<Cfg>::size() * cell);
 #endif
       }
     }
@@ -217,7 +217,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
           dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::FreeSurfaceGravity;
 
       if (isRequired && notFreeSurfaceGravity) {
-        auto iview = init::I::view::create(idofsAddressRegistry[cell]);
+        auto iview = init::I<Cfg>::view::create(idofsAddressRegistry[cell]);
         // NOTE: velocity components are between 6th and 8th columns
         constexpr unsigned FirstVelocityComponent{6};
         iVelocitiesPtrs[face].push_back(
@@ -239,7 +239,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
 
 void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
   const auto size = currentLayer->size();
-  constexpr size_t NodalAvgDisplacementsSize = tensor::averageNormalDisplacement::size();
+  constexpr size_t NodalAvgDisplacementsSize = tensor::averageNormalDisplacement<Cfg>::size();
 
   real* nodalAvgDisplacements =
       static_cast<real*>(currentLayer->var<LTS::NodalAvgDisplacements>(AllocationPlace::Device));
@@ -313,19 +313,19 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
           rotateDisplacementToFaceNormalPtrs[face].push_back(
               rotateDisplacementToFaceNormalScratch +
-              counter[face] * init::displacementRotationMatrix::Size);
+              counter[face] * init::displacementRotationMatrix<Cfg>::Size);
           rotateDisplacementToGlobalPtrs[face].push_back(
               rotateDisplacementToGlobalScratch +
-              counter[face] * init::displacementRotationMatrix::Size);
+              counter[face] * init::displacementRotationMatrix<Cfg>::Size);
           rotatedFaceDisplacementPtrs[face].push_back(
-              rotatedFaceDisplacementScratch + counter[face] * init::rotatedFaceDisplacement::Size);
+              rotatedFaceDisplacementScratch + counter[face] * init::rotatedFaceDisplacement<Cfg>::Size);
           dofsFaceBoundaryNodalPtrs[face].push_back(dofsFaceBoundaryNodalScratch +
-                                                    counter[face] * tensor::INodal::size());
+                                                    counter[face] * tensor::INodal<Cfg>::size());
           dofsFaceNodalPtrs[face].push_back(dofsFaceNodalScratch +
-                                            counter[face] * tensor::INodal::size());
+                                            counter[face] * tensor::INodal<Cfg>::size());
           prevCoefficientsPtrs[face].push_back(
               prevCoefficientsScratch +
-              counter[face] * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+              counter[face] * nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension]);
           invImpedances[face].push_back(0);
 
           ++counter[face];
@@ -410,7 +410,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
               dataHost.get<LTS::BoundaryMappingDevice>()[face].easiBoundaryConstant);
 
           dofsFaceBoundaryNodalPtrs[face].push_back(dofsFaceBoundaryNodalScratch +
-                                                    counter[face] * tensor::INodal::size());
+                                                    counter[face] * tensor::INodal<Cfg>::size());
           ++counter[face];
         }
       }
@@ -458,7 +458,7 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
           dofsPtrs[face].push_back(data.get<LTS::Dofs>());
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
-          analytical[face].push_back(analyticScratch + cell * tensor::INodal::size());
+          analytical[face].push_back(analyticScratch + cell * tensor::INodal<Cfg>::size());
         }
       }
     }

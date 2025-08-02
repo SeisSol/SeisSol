@@ -97,7 +97,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   const std::vector<Element>& elements = meshReader->getElements();
 
   constexpr auto NumQuantities =
-      tensor::Q::Shape[sizeof(tensor::Q::Shape) / sizeof(tensor::Q::Shape[0]) - 1];
+      tensor::Q<Cfg>::Shape[sizeof(tensor::Q<Cfg>::Shape) / sizeof(tensor::Q<Cfg>::Shape[0]) - 1];
 
   // Initialize quadrature nodes and weights.
   // TODO(Lukas) Increase quadrature order later.
@@ -149,7 +149,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     // cells that are duplicates.
     std::vector<std::array<double, 3>> quadraturePointsXyz(NumQuadPoints);
 
-    alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
+    alignas(Alignment) real numericalSolutionData[tensor::dofsQP<Cfg>::size()];
     alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities];
     for (const auto& layer : ltsStorage.leaves(Ghost)) {
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
@@ -182,7 +182,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         const auto meshId = secondaryInformation[cell].meshId;
         const int curThreadId = OpenMP::threadId();
 
-        auto numericalSolution = init::dofsQP::view::create(numericalSolutionData);
+        auto numericalSolution = init::dofsQP<Cfg>::view::create(numericalSolutionData);
         auto analyticalSolution = yateto::DenseTensorView<2, real>(analyticalSolutionData,
                                                                    {NumQuadPoints, NumQuantities});
 
@@ -224,7 +224,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
 
         // Evaluate numerical solution at quad. nodes
-        kernel::evalAtQP krnl;
+        kernel::evalAtQP<Cfg> krnl;
         krnl.evalAtQP = globalData->evalAtQPMatrix;
         krnl.dofsQP = numericalSolutionData;
         krnl.Q = dofsData[cell];

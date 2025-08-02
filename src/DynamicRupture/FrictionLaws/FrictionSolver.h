@@ -25,10 +25,10 @@ class FrictionSolver {
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
   explicit FrictionSolver(seissol::initializer::parameters::DRParameters* userDRParameters)
       : drParameters(userDRParameters) {
-    std::copy(&init::quadweights::Values
-                  [init::quadweights::Start[seissol::multisim::BasisFunctionDimension]],
-              &init::quadweights::Values
-                  [init::quadweights::Stop[seissol::multisim::BasisFunctionDimension]],
+    std::copy(&init::quadweights<Cfg>::Values
+                  [init::quadweights<Cfg>::Start[seissol::multisim::BasisFunctionDimension]],
+              &init::quadweights<Cfg>::Values
+                  [init::quadweights<Cfg>::Stop[seissol::multisim::BasisFunctionDimension]],
               &spaceWeights[0]);
   }
   virtual ~FrictionSolver() = default;
@@ -91,8 +91,8 @@ class FrictionSolver {
   real (*__restrict peakSlipRate)[misc::NumPaddedPoints]{};
   real (*__restrict traction1)[misc::NumPaddedPoints]{};
   real (*__restrict traction2)[misc::NumPaddedPoints]{};
-  real (*__restrict imposedStatePlus)[tensor::QInterpolated::size()]{};
-  real (*__restrict imposedStateMinus)[tensor::QInterpolated::size()]{};
+  real (*__restrict imposedStatePlus)[tensor::QInterpolated<Cfg>::size()]{};
+  real (*__restrict imposedStateMinus)[tensor::QInterpolated<Cfg>::size()]{};
   real spaceWeights[misc::NumPaddedPoints]{};
   DREnergyOutput* __restrict energyData{};
   DRGodunovData* __restrict godunovData{};
@@ -103,8 +103,8 @@ class FrictionSolver {
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
   bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints]{};
 
-  real (*__restrict qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
-  real (*__restrict qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
+  real (*__restrict qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
+  real (*__restrict qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
 };
 } // namespace seissol::dr::friction_law
 

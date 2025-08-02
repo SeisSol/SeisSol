@@ -13,7 +13,7 @@
 namespace seissol::model {
 
 struct ViscoElasticLocalData {
-  real sourceMatrix[seissol::tensor::ET::size()];
+  real sourceMatrix[seissol::tensor::ET<Cfg>::size()];
 };
 struct ViscoElasticNeighborData {};
 } // namespace seissol::model

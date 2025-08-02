@@ -53,8 +53,8 @@ void DynamicRupture::spaceTimeInterpolation(
     DREnergyOutput* drEnergyOutput,
     const real* timeDerivativePlus,
     const real* timeDerivativeMinus,
-    real qInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
-    real qInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
+    real qInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated<Cfg>::size()],
+    real qInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated<Cfg>::size()],
     const real* timeDerivativePlusPrefetch,
     const real* timeDerivativeMinusPrefetch,
     const real* coeffs) {
@@ -66,14 +66,14 @@ void DynamicRupture::spaceTimeInterpolation(
   assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Alignment == 0);
-  static_assert(tensor::Q::size() == tensor::I::size(),
+  static_assert(tensor::Q<Cfg>::size() == tensor::I<Cfg>::size(),
                 "The tensors Q and I need to match in size");
 #endif
 
-  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
-  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
+  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q<Cfg>::size()];
+  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q<Cfg>::size()];
 
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
+  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg> krnl = m_krnlPrototype;
   for (std::size_t timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
     m_timeKernel.evaluate(
         &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
@@ -157,7 +157,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 
           krnl.QInterpolated =
               (entry.get(inner_keys::Dr::Id::QInterpolatedPlus))->getDeviceDataPtr();
-          krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
+          krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated<Cfg>::size();
           krnl.Q = const_cast<const real**>(
               (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr());
           krnl.TinvT =
@@ -182,7 +182,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 
           krnl.QInterpolated =
               (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
-          krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated::size();
+          krnl.extraOffset_QInterpolated = timeInterval * tensor::QInterpolated<Cfg>::size();
           krnl.Q = const_cast<const real**>(
               (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr());
           krnl.TinvT =
@@ -208,14 +208,14 @@ void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
   nonZeroFlops *= 2;
   hardwareFlops *= 2;
 
-  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(
+  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::nonZeroFlops(
       faceInfo.plusSide, 0);
-  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(
+  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::hardwareFlops(
       faceInfo.plusSide, 0);
 
-  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::nonZeroFlops(
+  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::nonZeroFlops(
       faceInfo.minusSide, faceInfo.faceRelation);
-  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::hardwareFlops(
+  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::hardwareFlops(
       faceInfo.minusSide, faceInfo.faceRelation);
 
   nonZeroFlops *= ConvergenceOrder;

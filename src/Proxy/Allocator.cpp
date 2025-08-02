@@ -39,7 +39,7 @@
 
 namespace {
 void fakeData(LTS::Layer& layer, FaceType faceTp) {
-  real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
+  real(*dofs)[tensor::Q<Cfg>::size()] = layer.var<LTS::Dofs>();
   real** buffers = layer.var<LTS::Buffers>();
   real** derivatives = layer.var<LTS::Derivatives>();
   real*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
@@ -62,9 +62,9 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   std::uniform_int_distribution<std::size_t> cellDist(0, layer.size() - 1);
 
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    buffers[cell] = bucket + cell * tensor::I::size();
+    buffers[cell] = bucket + cell * tensor::I<Cfg>::size();
     derivatives[cell] = nullptr;
-    buffersDevice[cell] = bucketDevice + cell * tensor::I::size();
+    buffersDevice[cell] = bucketDevice + cell * tensor::I<Cfg>::size();
     derivativesDevice[cell] = nullptr;
 
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
@@ -103,8 +103,8 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
     }
   }
 
-  kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
-  kernels::fillWithStuff(bucket, tensor::I::size() * layer.size(), false);
+  kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q<Cfg>::size() * layer.size(), false);
+  kernels::fillWithStuff(bucket, tensor::I<Cfg>::size() * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
                          sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
                          false);
@@ -171,7 +171,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   ltsStorage.layer(layerId).setNumberOfCells(cellCount);
 
   LTS::Layer& layer = ltsStorage.layer(layerId);
-  layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(real) * tensor::I::size() * layer.size());
+  layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(real) * tensor::I<Cfg>::size() * layer.size());
 
   ltsStorage.allocateVariables();
   ltsStorage.touchVariables();
@@ -234,9 +234,9 @@ void ProxyData::initDataStructures(bool enableDR) {
 
     // From dynamic rupture storage
     auto& interior = drStorage.layer(layerId);
-    real(*imposedStatePlus)[seissol::tensor::QInterpolated::size()] =
+    real(*imposedStatePlus)[seissol::tensor::QInterpolated<Cfg>::size()] =
         interior.var<DynamicRupture::ImposedStatePlus>(Place);
-    real(*fluxSolverPlus)[seissol::tensor::fluxSolver::size()] =
+    real(*fluxSolverPlus)[seissol::tensor::fluxSolver<Cfg>::size()] =
         interior.var<DynamicRupture::FluxSolverPlus>(Place);
     real** timeDerivativeHostPlus = interior.var<DynamicRupture::TimeDerivativePlus>();
     real** timeDerivativeHostMinus = interior.var<DynamicRupture::TimeDerivativeMinus>();

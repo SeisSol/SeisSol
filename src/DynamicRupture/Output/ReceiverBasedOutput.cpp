@@ -45,23 +45,23 @@ void ReceiverOutput::setLtsData(LTS::Storage& userWpStorage,
   drStorage = &userDrStorage;
 }
 
-void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
+void ReceiverOutput::getDofs(real dofs[tensor::Q<Cfg>::size()], int meshId) {
   const auto position = wpBackmap->get(meshId);
   auto& layer = wpStorage->layer(position.color);
   // get DOFs from 0th derivatives
   assert(layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasDerivatives());
 
   real* derivatives = layer.var<LTS::Derivatives>()[position.cell];
-  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+  std::copy(&derivatives[0], &derivatives[tensor::dQ<Cfg>::Size[0]], &dofs[0]);
 }
 
-void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side) {
+void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q<Cfg>::size()], int meshId, int side) {
   const auto position = wpBackmap->get(meshId);
   auto& layer = wpStorage->layer(position.color);
   auto* derivatives = layer.var<LTS::FaceNeighbors>()[position.cell][side];
   assert(derivatives != nullptr);
 
-  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+  std::copy(&derivatives[0], &derivatives[tensor::dQ<Cfg>::Size[0]], &dofs[0]);
 }
 
 void ReceiverOutput::calcFaultOutput(
@@ -96,8 +96,8 @@ void ReceiverOutput::calcFaultOutput(
   const auto handler = [this, outputData, &faultInfos, outputType, slipRateOutputType, level](
                            std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
-    alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
-    alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
+    alignas(Alignment) real dofsPlus[tensor::Q<Cfg>::size()]{};
+    alignas(Alignment) real dofsMinus[tensor::Q<Cfg>::size()]{};
 
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");
@@ -157,11 +157,11 @@ void ReceiverOutput::calcFaultOutput(
     auto* phiPlusSide = outputData->basisFunctions[i].plusSide.data();
     auto* phiMinusSide = outputData->basisFunctions[i].minusSide.data();
 
-    seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
+    seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint<Cfg> kernel;
     kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
 
-    real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
-    real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
+    real faceAlignedValuesPlus[tensor::QAtPoint<Cfg>::size()]{};
+    real faceAlignedValuesMinus[tensor::QAtPoint<Cfg>::size()]{};
 
     // TODO: do these operations only once per simulation
     kernel.Q = dofsPlus;
@@ -174,7 +174,7 @@ void ReceiverOutput::calcFaultOutput(
     kernel.QAtPoint = faceAlignedValuesMinus;
     kernel.execute();
 
-    for (size_t j = 0; j < tensor::QAtPoint::Shape[seissol::multisim::BasisFunctionDimension];
+    for (size_t j = 0; j < tensor::QAtPoint<Cfg>::Shape[seissol::multisim::BasisFunctionDimension];
          ++j) {
       local.faceAlignedValuesPlus[j] =
           faceAlignedValuesPlus[j * seissol::multisim::NumSimulations + local.fusedIndex];
@@ -186,7 +186,7 @@ void ReceiverOutput::calcFaultOutput(
     const real strength = this->computeLocalStrength(local);
     seissol::dr::output::ReceiverOutput::updateLocalTractions(local, strength);
 
-    seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
+    seissol::dynamicRupture::kernel::rotateInitStress<Cfg> alignAlongDipAndStrikeKernel;
     alignAlongDipAndStrikeKernel.stressRotationMatrix =
         outputData->stressGlbToDipStrikeAligned[i].data();
     alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
@@ -270,8 +270,8 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& totalTractions = std::get<VariableID::TotalTractions>(outputData->vars);
     if (totalTractions.isActive) {
-      std::array<real, tensor::initialStress::size()> unrotatedInitStress{};
-      std::array<real, tensor::rotatedStress::size()> rotatedInitStress{};
+      std::array<real, tensor::initialStress<Cfg>::size()> unrotatedInitStress{};
+      std::array<real, tensor::rotatedStress<Cfg>::size()> rotatedInitStress{};
       for (std::size_t stressVar = 0; stressVar < unrotatedInitStress.size(); ++stressVar) {
         unrotatedInitStress[stressVar] = initStresses[stressVar][local.gpIndex];
       }
@@ -451,8 +451,8 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     phiAtPoint.fill(0.0);
 
     auto chiTau2dPoints =
-        init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
-    auto weights = init::quadweights::view::create(const_cast<real*>(init::quadweights::Values));
+        init::quadpoints<Cfg>::view::create(const_cast<real*>(init::quadpoints<Cfg>::Values));
+    auto weights = init::quadweights<Cfg>::view::create(const_cast<real*>(init::quadweights<Cfg>::Values));
 
     auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints; ++jBndGP) {
@@ -467,7 +467,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
       }
     }
     auto m2inv =
-        seissol::init::M2inv::view::create(const_cast<real*>(seissol::init::M2inv::Values));
+        seissol::init::M2inv<Cfg>::view::create(const_cast<real*>(seissol::init::M2inv<Cfg>::Values));
     for (size_t d = 0; d < NumDegFr2d; ++d) {
       projectedRT[d] *= m2inv(d, d);
     }

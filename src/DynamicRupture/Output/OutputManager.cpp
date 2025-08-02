@@ -242,15 +242,15 @@ void OutputManager::initElementwiseOutput() {
 
     io::instance::mesh::VtkHdfWriter writer("fault-elementwise",
                                             receiverPoints.size() /
-                                                seissol::init::vtk2d::Shape[order][1],
+                                                seissol::init::vtk2d<Cfg>::Shape[order][1],
                                             2,
                                             order);
 
     writer.addPointProjector([=](double* target, std::size_t index) {
-      for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
+      for (std::size_t i = 0; i < seissol::init::vtk2d<Cfg>::Shape[order][1]; ++i) {
         for (int j = 0; j < 3; ++j) {
           target[i * 3 + j] =
-              receiverPoints[seissol::init::vtk2d::Shape[order][1] * index + i].global.coords[j];
+              receiverPoints[seissol::init::vtk2d<Cfg>::Shape[order][1] * index + i].global.coords[j];
         }
       }
     });
@@ -274,8 +274,8 @@ void OutputManager::initElementwiseOutput() {
                                     [=](real* target, std::size_t index) {
                                       std::memcpy(
                                           target,
-                                          data + seissol::init::vtk2d::Shape[order][1] * index,
-                                          sizeof(real) * seissol::init::vtk2d::Shape[order][1]);
+                                          data + seissol::init::vtk2d<Cfg>::Shape[order][1] * index,
+                                          sizeof(real) * seissol::init::vtk2d<Cfg>::Shape[order][1]);
                                     });
         }
       }
@@ -429,7 +429,7 @@ void OutputManager::initPickpointOutput() {
                 unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.gpIndex];
               }
 
-              seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
+              seissol::dynamicRupture::kernel::rotateInitStress<Cfg> alignAlongDipAndStrikeKernel;
               alignAlongDipAndStrikeKernel.stressRotationMatrix =
                   outputData->stressGlbToDipStrikeAligned[i].data();
               alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =

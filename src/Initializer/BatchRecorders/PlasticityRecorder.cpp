@@ -48,12 +48,12 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
       auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
       dofsPtrs[cell] = static_cast<real*>(data.get<LTS::Dofs>());
       qstressNodalPtrs[cell] = &scratchMem[nodalStressTensorCounter];
-      nodalStressTensorCounter += tensor::QStressNodal::size();
+      nodalStressTensorCounter += tensor::QStressNodal<Cfg>::size();
       pstransPtrs[cell] = static_cast<real*>(pstrains[cell]);
       initialLoadPtrs[cell] = static_cast<real*>(data.get<LTS::Plasticity>().initialLoading);
-      qEtaNodalPtrs[cell] = qEtaNodalScratch + cell * tensor::QEtaNodal::size();
-      qStressNodalPtrs[cell] = qStressNodalScratch + cell * tensor::QStressNodal::size();
-      prevDofsPtrs[cell] = prevDofsScratch + cell * tensor::Q::size();
+      qEtaNodalPtrs[cell] = qEtaNodalScratch + cell * tensor::QEtaNodal<Cfg>::size();
+      qStressNodalPtrs[cell] = qStressNodalScratch + cell * tensor::QStressNodal<Cfg>::size();
+      prevDofsPtrs[cell] = prevDofsScratch + cell * tensor::Q<Cfg>::size();
     }
 
     const ConditionalKey key(*KernelNames::Plasticity);

@@ -46,11 +46,11 @@ struct DynamicRupture {
   struct TimeDerivativeMinus : public initializer::Variable<real*> {};
   struct TimeDerivativePlusDevice : public initializer::Variable<real*> {};
   struct TimeDerivativeMinusDevice : public initializer::Variable<real*> {};
-  struct ImposedStatePlus : public initializer::Variable<real[tensor::QInterpolated::size()]> {};
-  struct ImposedStateMinus : public initializer::Variable<real[tensor::QInterpolated::size()]> {};
+  struct ImposedStatePlus : public initializer::Variable<real[tensor::QInterpolated<Cfg>::size()]> {};
+  struct ImposedStateMinus : public initializer::Variable<real[tensor::QInterpolated<Cfg>::size()]> {};
   struct GodunovData : public initializer::Variable<DRGodunovData> {};
-  struct FluxSolverPlus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
-  struct FluxSolverMinus : public initializer::Variable<real[tensor::fluxSolver::size()]> {};
+  struct FluxSolverPlus : public initializer::Variable<real[tensor::fluxSolver<Cfg>::size()]> {};
+  struct FluxSolverMinus : public initializer::Variable<real[tensor::fluxSolver<Cfg>::size()]> {};
   struct FaceInformation : public initializer::Variable<DRFaceInformation> {};
   struct WaveSpeedsPlus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
   struct WaveSpeedsMinus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
@@ -87,9 +87,9 @@ struct DynamicRupture {
   struct Traction1 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct Traction2 : public initializer::Variable<real[dr::misc::NumPaddedPoints]> {};
   struct QInterpolatedPlus
-      : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> {};
+      : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]> {};
   struct QInterpolatedMinus
-      : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> {};
+      : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]> {};
 
   struct IdofsPlusOnDevice : public initializer::Scratchpad<real> {};
   struct IdofsMinusOnDevice : public initializer::Scratchpad<real> {};

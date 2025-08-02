@@ -39,12 +39,12 @@ constexpr size_t leadDim() noexcept {
  */
 static constexpr inline size_t NumPaddedPoints =
     multisim::MultisimEnabled
-        ? dimSize<init::QInterpolated, 0>() * dimSize<init::QInterpolated, 1>()
-        : leadDim<init::QInterpolated>();
+        ? dimSize<init::QInterpolated<Cfg>, 0>() * dimSize<init::QInterpolated<Cfg>, 1>()
+        : leadDim<init::QInterpolated<Cfg>>();
 static constexpr inline size_t NumPaddedPointsSingleSim =
-    dimSize<init::QInterpolated, multisim::BasisFunctionDimension>();
+    dimSize<init::QInterpolated<Cfg>, multisim::BasisFunctionDimension>();
 static constexpr inline size_t NumQuantities =
-    misc::dimSize<init::QInterpolated, multisim::BasisFunctionDimension + 1>();
+    misc::dimSize<init::QInterpolated<Cfg>, multisim::BasisFunctionDimension + 1>();
 
 /**
  * Constants for Thermal Pressurization
@@ -57,7 +57,7 @@ static constexpr double TpMaxWaveNumber = 10.0;
  * Number of gauss points on an element surface.
  */
 static constexpr unsigned int NumBoundaryGaussPoints =
-    init::QInterpolated::Shape[multisim::BasisFunctionDimension];
+    init::QInterpolated<Cfg>::Shape[multisim::BasisFunctionDimension];
 
 template <class TupleT, class F, std::size_t... I>
 constexpr F forEachImpl(TupleT&& tuple, F&& functor, std::index_sequence<I...> /*unused*/) {

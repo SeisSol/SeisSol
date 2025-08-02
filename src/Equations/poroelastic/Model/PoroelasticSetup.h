@@ -31,7 +31,7 @@ static void calcZinv(yateto::DenseTensorView<2, real, unsigned>& Zinv,
   using Matrix = Eigen::Matrix<real, ConvergenceOrder, ConvergenceOrder>;
   using Vector = Eigen::Matrix<real, ConvergenceOrder, 1>;
 
-  Matrix Z(init::Z::Values);
+  Matrix Z(init::Z<Cfg>::Values);
   // sourceMatrix[i,i] = 0 for i < 10
   // This is specific to poroelasticity, so change this for another equation
   // We need this check, because otherwise the lookup sourceMatrix(quantity, quantity) fails
@@ -58,7 +58,7 @@ struct zInvInitializerForLoop {
       real ZinvData[PoroElasticMaterial::NumQuantities][ConvergenceOrder * ConvergenceOrder],
       Tview& sourceMatrix,
       real timeStepWidth) {
-    auto Zinv = init::Zinv::view<iStart>::create(ZinvData[iStart]);
+    auto Zinv = init::Zinv<Cfg>::view<iStart>::create(ZinvData[iStart]);
     calcZinv(Zinv, sourceMatrix, iStart, timeStepWidth);
     if constexpr (iStart < iEnd - 1) {
       zInvInitializerForLoop<iStart + 1, iEnd, Tview>(ZinvData, sourceMatrix, timeStepWidth);
@@ -276,8 +276,8 @@ struct MaterialSetup<PoroElasticMaterial> {
   static void getTransposedGodunovState(const PoroElasticMaterial& local,
                                         const PoroElasticMaterial& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& QgodLocal,
-                                        init::QgodNeighbor::view::type& QgodNeighbor) {
+                                        init::QgodLocal<Cfg>::view::type& QgodLocal,
+                                        init::QgodNeighbor<Cfg>::view::type& QgodNeighbor) {
     // Will be used to check, whether numbers are (numerically) zero
     constexpr auto ZeroThreshold = 1e-7;
     using CMatrix = Eigen::Matrix<std::complex<double>,
@@ -336,7 +336,7 @@ struct MaterialSetup<PoroElasticMaterial> {
   static void initializeSpecificLocalData(const PoroElasticMaterial& material,
                                           double timeStepWidth,
                                           PoroelasticLocalData* localData) {
-    auto sourceMatrix = init::ET::view::create(localData->sourceMatrix);
+    auto sourceMatrix = init::ET<Cfg>::view::create(localData->sourceMatrix);
     sourceMatrix.setZero();
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
 
@@ -356,8 +356,8 @@ struct MaterialSetup<PoroElasticMaterial> {
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,
                                     const VrtxCoords tangent2,
-                                    init::T::view::type& matT,
-                                    init::Tinv::view::type& matTinv) {
+                                    init::T<Cfg>::view::type& matT,
+                                    init::Tinv<Cfg>::view::type& matTinv) {
     ::seissol::model::getFaceRotationMatrix<ElasticMaterial>(
         normal, tangent1, tangent2, matT, matTinv);
     // pressure

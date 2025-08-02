@@ -103,8 +103,8 @@ template <typename MaterialT = seissol::model::MaterialT>
 void getFaceRotationMatrix(const Eigen::Vector3d& normal,
                            const Eigen::Vector3d& tangent1,
                            const Eigen::Vector3d& tangent2,
-                           init::T::view::type& matT,
-                           init::Tinv::view::type& matTinv) {
+                           init::T<Cfg>::view::type& matT,
+                           init::Tinv<Cfg>::view::type& matTinv) {
   const VrtxCoords n = {normal(0), normal(1), normal(2)};
   const VrtxCoords s = {tangent1(0), tangent1(1), tangent1(2)};
   const VrtxCoords t = {tangent2(0), tangent2(1), tangent2(2)};
@@ -115,8 +115,8 @@ template <typename MaterialT = seissol::model::MaterialT>
 void getFaceRotationMatrix(const VrtxCoords normal,
                            const VrtxCoords tangent1,
                            const VrtxCoords tangent2,
-                           init::T::view::type& matT,
-                           init::Tinv::view::type& matTinv) {
+                           init::T<Cfg>::view::type& matT,
+                           init::Tinv<Cfg>::view::type& matTinv) {
   MaterialSetup<MaterialT>::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
 }
 

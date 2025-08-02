@@ -72,7 +72,7 @@ using namespace seissol::sourceterm;
  */
 void computeMInvJInvPhisAtSources(
     const Eigen::Vector3d& centre,
-    seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources::size()>&
+    seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources<Cfg>::size()>&
         mInvJInvPhisAtSources,
     std::size_t meshId,
     const seissol::geometry::MeshReader& mesh) {
@@ -91,9 +91,9 @@ void computeMInvJInvPhisAtSources(
   const double volume = MeshTools::volume(elements[meshId], vertices);
   const double jInv = 1.0 / (6.0 * volume);
 
-  kernel::computeMInvJInvPhisAtSources krnl;
+  kernel::computeMInvJInvPhisAtSources<Cfg> krnl;
   krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.m_data.data();
-  krnl.M3inv = init::M3inv::Values;
+  krnl.M3inv = init::M3inv<Cfg>::Values;
   krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources.data();
   krnl.JInv = jInv;
   krnl.execute();
@@ -143,13 +143,13 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
   std::array<real, 81> stiffnessTensorReal{};
   std::copy(stiffnessTensor.begin(), stiffnessTensor.end(), stiffnessTensorReal.begin());
 
-  kernel::transformNRF transformKernel;
+  kernel::transformNRF<Cfg> transformKernel;
   transformKernel.mArea = -subfault.area;
   transformKernel.mNormal = faultBasis.data() + 6;
   transformKernel.stiffnessTensor = stiffnessTensorReal.data();
-  transformKernel.momentToNRF = init::momentToNRF::Values;
+  transformKernel.momentToNRF = init::momentToNRF<Cfg>::Values;
   transformKernel.rotateNRF = faultBasis.data();
-  transformKernel.tensorNRF = pointSources.tensor.data() + tensorIndex * tensor::update::Size;
+  transformKernel.tensorNRF = pointSources.tensor.data() + tensorIndex * tensor::update<Cfg>::Size;
 
   transformKernel.execute();
 
@@ -225,7 +225,7 @@ struct FsrmFile : public SourceFile {
                  memory::Memkind memkind) {
     const std::size_t fsrmIndex = originalIndex[sourceIndex];
 
-    auto* tensor = sources.tensor.data() + sources.sampleRange[index] * tensor::update::Size;
+    auto* tensor = sources.tensor.data() + sources.sampleRange[index] * tensor::update<Cfg>::Size;
     transformMomentTensor(fsrm.momentTensor,
                           fsrm.solidVelocityComponent,
                           fsrm.pressureComponent,
@@ -235,7 +235,7 @@ struct FsrmFile : public SourceFile {
                           fsrm.rakes[fsrmIndex],
                           tensor);
 
-    for (std::size_t i = 0; i < tensor::update::Size; ++i) {
+    for (std::size_t i = 0; i < tensor::update<Cfg>::Size; ++i) {
       tensor[i] *= fsrm.areas[fsrmIndex];
     }
     if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
@@ -453,7 +453,7 @@ auto loadSourceFile(const char* fileName,
       sampleCount += file.sampleCount(sourceIndex);
     }
 
-    sources.tensor.resize(dataSourceCount * tensor::update::Size);
+    sources.tensor.resize(dataSourceCount * tensor::update<Cfg>::Size);
     sources.onsetTime.resize(numberOfSources);
     sources.samplingInterval.resize(numberOfSources);
     sources.sampleOffsets.resize(dataSourceCount + 1);

@@ -32,7 +32,7 @@ namespace seissol::kernels::solver::linearck {
 class Local : public LocalKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I::size()],
+  void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
                        LTS::Ref& data,
                        LocalTmp& tmp,
                        const CellMaterialData* materialData,
@@ -60,20 +60,20 @@ class Local : public LocalKernel {
   std::uint64_t bytesIntegral() override;
 
   protected:
-  kernel::volume m_volumeKernelPrototype;
-  kernel::localFlux m_localFluxKernelPrototype;
-  kernel::localFluxNodal m_nodalLfKrnlPrototype;
+  kernel::volume<Cfg> m_volumeKernelPrototype;
+  kernel::localFlux<Cfg> m_localFluxKernelPrototype;
+  kernel::localFluxNodal<Cfg> m_nodalLfKrnlPrototype;
 
-  kernel::projectToNodalBoundary m_projectKrnlPrototype;
-  kernel::projectToNodalBoundaryRotated m_projectRotatedKrnlPrototype;
+  kernel::projectToNodalBoundary<Cfg> m_projectKrnlPrototype;
+  kernel::projectToNodalBoundaryRotated<Cfg> m_projectRotatedKrnlPrototype;
 
   kernels::DirichletBoundary dirichletBoundary;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volume deviceVolumeKernelPrototype;
-  kernel::gpu_localFlux deviceLocalFluxKernelPrototype;
-  kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype;
-  kernel::gpu_projectToNodalBoundaryRotated deviceProjectRotatedKrnlPrototype;
+  kernel::gpu_volume<Cfg> deviceVolumeKernelPrototype;
+  kernel::gpu_localFlux<Cfg> deviceLocalFluxKernelPrototype;
+  kernel::gpu_localFluxNodal<Cfg> deviceNodalLfKrnlPrototype;
+  kernel::gpu_projectToNodalBoundaryRotated<Cfg> deviceProjectRotatedKrnlPrototype;
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
 };

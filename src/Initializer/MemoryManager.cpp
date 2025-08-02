@@ -131,7 +131,7 @@ void MemoryManager::fixateBoundaryStorage() {
 #ifdef ACL_DEVICE
 void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage) {
   constexpr size_t totalDerivativesSize = kernels::Solver::DerivativesSize;
-  constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
+  constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement<Cfg>::size();
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {
 
@@ -201,50 +201,50 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     // FSG also counts as Dirichlet
     const auto dirichletCount = std::max(dirichletCountPre, freeSurfaceCount);
 
-    layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter * tensor::I::size() *
+    layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter * tensor::I<Cfg>::size() *
                                                    sizeof(real));
     layer.setEntrySize<LTS::DerivativesScratch>(derivativesCounter * totalDerivativesSize *
                                                 sizeof(real));
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
                                                    nodalDisplacementsSize * sizeof(real));
 #ifdef USE_VISCOELASTIC2
-    layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * tensor::Iane::size() * sizeof(real));
+    layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * tensor::Iane<Cfg>::size() * sizeof(real));
     layer.setEntrySize<LTS::DerivativesExtScratch>(
-        layer.size() * (tensor::dQext::size(1) + tensor::dQext::size(2)) * sizeof(real));
+        layer.size() * (tensor::dQext<Cfg>::size(1) + tensor::dQext<Cfg>::size(2)) * sizeof(real));
     layer.setEntrySize<LTS::DerivativesAneScratch>(
-        layer.size() * (tensor::dQane::size(1) + tensor::dQane::size(2)) * sizeof(real));
-    layer.setEntrySize<LTS::DofsExtScratch>(layer.size() * tensor::Qext::size() * sizeof(real));
+        layer.size() * (tensor::dQane<Cfg>::size(1) + tensor::dQane<Cfg>::size(2)) * sizeof(real));
+    layer.setEntrySize<LTS::DofsExtScratch>(layer.size() * tensor::Qext<Cfg>::size() * sizeof(real));
 #endif
-    layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal::size() *
+    layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal<Cfg>::size() *
                                              sizeof(real));
     if (plasticity) {
       layer.setEntrySize<LTS::FlagScratch>(layer.size() * sizeof(unsigned));
-      layer.setEntrySize<LTS::PrevDofsScratch>(layer.size() * tensor::Q::Size * sizeof(real));
-      layer.setEntrySize<LTS::QEtaNodalScratch>(layer.size() * tensor::QEtaNodal::Size *
+      layer.setEntrySize<LTS::PrevDofsScratch>(layer.size() * tensor::Q<Cfg>::Size * sizeof(real));
+      layer.setEntrySize<LTS::QEtaNodalScratch>(layer.size() * tensor::QEtaNodal<Cfg>::Size *
                                                 sizeof(real));
-      layer.setEntrySize<LTS::QStressNodalScratch>(layer.size() * tensor::QStressNodal::Size *
+      layer.setEntrySize<LTS::QStressNodalScratch>(layer.size() * tensor::QStressNodal<Cfg>::Size *
                                                    sizeof(real));
     }
 
     layer.setEntrySize<LTS::DofsFaceBoundaryNodalScratch>(sizeof(real) * dirichletCount *
-                                                          tensor::INodal::size());
+                                                          tensor::INodal<Cfg>::size());
 
     layer.setEntrySize<LTS::RotateDisplacementToFaceNormalScratch>(
-        sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
+        sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix<Cfg>::Size);
     layer.setEntrySize<LTS::RotateDisplacementToGlobalScratch>(
-        sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix::Size);
+        sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix<Cfg>::Size);
     layer.setEntrySize<LTS::RotatedFaceDisplacementScratch>(sizeof(real) * freeSurfaceCount *
-                                                            init::rotatedFaceDisplacement::Size);
+                                                            init::rotatedFaceDisplacement<Cfg>::Size);
     layer.setEntrySize<LTS::DofsFaceNodalScratch>(sizeof(real) * freeSurfaceCount *
-                                                  tensor::INodal::size());
+                                                  tensor::INodal<Cfg>::size());
     layer.setEntrySize<LTS::PrevCoefficientsScratch>(
         sizeof(real) * freeSurfaceCount *
-        nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+        nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension]);
   }
 }
 
 void MemoryManager::deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage) {
-  constexpr size_t idofsSize = tensor::Q::size() * sizeof(real);
+  constexpr size_t idofsSize = tensor::Q<Cfg>::size() * sizeof(real);
   for (auto& layer : drStorage.leaves()) {
     const auto layerSize = layer.size();
     layer.setEntrySize<DynamicRupture::IdofsPlusOnDevice>(idofsSize * layerSize);

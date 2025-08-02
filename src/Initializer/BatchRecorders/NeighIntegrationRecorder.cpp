@@ -79,7 +79,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
                   ltsIDofsPtrs.push_back(nextTempIDofsPtr);
                   ltsDerivativesPtrs.push_back(neighborBuffer);
                 }
-                integratedDofsAddressCounter += tensor::I::size();
+                integratedDofsAddressCounter += tensor::I<Cfg>::size();
               } else {
                 idofsAddressRegistry[neighborBuffer] = neighborBuffer;
               }
@@ -155,7 +155,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
 #ifdef USE_VISCOELASTIC2
           regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                       tensor::Qext::size() * cell);
+                                                       tensor::Qext<Cfg>::size() * cell);
 #endif
         }
         break;
@@ -173,7 +173,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
 #ifdef USE_VISCOELASTIC2
         drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                tensor::Qext::size() * cell);
+                                                tensor::Qext<Cfg>::size() * cell);
 #endif
         break;
       }

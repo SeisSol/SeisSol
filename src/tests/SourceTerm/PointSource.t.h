@@ -32,7 +32,7 @@ TEST_CASE("Transform moment tensor") {
   const double localPressureComponent = 0.0;
   const double localFluidVelocityComponent[3] = {0.0, 0.0, 0.0};
 
-  auto momentTensor = seissol::memory::AlignedArray<real, tensor::update::Size>{};
+  auto momentTensor = seissol::memory::AlignedArray<real, tensor::update<Cfg>::Size>{};
 
   seissol::sourceterm::transformMomentTensor(localMomentTensorXY,
                                              localSolidVelocityComponent,

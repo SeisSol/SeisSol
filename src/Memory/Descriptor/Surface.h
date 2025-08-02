@@ -16,7 +16,7 @@
 namespace seissol {
 
 struct SurfaceLTS {
-  using FaceDisplacementType = real[tensor::faceDisplacement::size()];
+  using FaceDisplacementType = real[tensor::faceDisplacement<Cfg>::size()];
 
   struct Dofs : public seissol::initializer::Variable<real*> {};
   struct Side : public seissol::initializer::Variable<std::uint8_t> {};

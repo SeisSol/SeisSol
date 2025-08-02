@@ -50,8 +50,8 @@ struct NumPoints {
 template <RangeType Type>
 struct QInterpolated {
   private:
-  using CpuRange = ForLoopRange<0, tensor::QInterpolated::size(), 1>;
-  using GpuRange = ForLoopRange<0, tensor::QInterpolated::size(), misc::NumPaddedPoints>;
+  using CpuRange = ForLoopRange<0, tensor::QInterpolated<Cfg>::size(), 1>;
+  using GpuRange = ForLoopRange<0, tensor::QInterpolated<Cfg>::size(), misc::NumPaddedPoints>;
 
   public:
   using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
@@ -144,12 +144,12 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     FaultStresses<RangeExecutor<Type>::Exec>& faultStresses,
     const ImpedancesAndEta& impAndEta,
     const ImpedanceMatrices& impedanceMatrices,
-    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
+    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
     real etaPDamp,
     unsigned startLoopIndex = 0) {
-  static_assert(tensor::QInterpolated::Shape[seissol::multisim::BasisFunctionDimension] ==
-                    tensor::resample::Shape[0],
+  static_assert(tensor::QInterpolated<Cfg>::Shape[seissol::multisim::BasisFunctionDimension] ==
+                    tensor::resample<Cfg>::Shape[0],
                 "Different number of quadrature points?");
 
 #ifndef USE_POROELASTIC
@@ -192,18 +192,18 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
     }
   }
 #else
-  seissol::dynamicRupture::kernel::computeTheta krnl;
-  krnl.extractVelocities = init::extractVelocities::Values;
-  krnl.extractTractions = init::extractTractions::Values;
+  seissol::dynamicRupture::kernel::computeTheta<Cfg> krnl;
+  krnl.extractVelocities = init::extractVelocities<Cfg>::Values;
+  krnl.extractTractions = init::extractTractions<Cfg>::Values;
 
   // Compute Theta from eq (4.53) in Carsten's thesis
   krnl.Zplus = impedanceMatrices.impedance;
   krnl.Zminus = impedanceMatrices.impedanceNeig;
   krnl.eta = impedanceMatrices.eta;
 
-  alignas(Alignment) real thetaBuffer[tensor::theta::size()] = {};
+  alignas(Alignment) real thetaBuffer[tensor::theta<Cfg>::size()] = {};
   krnl.theta = thetaBuffer;
-  auto thetaView = init::theta::view::create(thetaBuffer);
+  auto thetaView = init::theta<Cfg>::view::create(thetaBuffer);
 
   for (unsigned o = 0; o < ConvergenceOrder; ++o) {
     krnl.Qplus = qInterpolatedPlus[o];
@@ -287,10 +287,10 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     const TractionResults<RangeExecutor<Type>::Exec>& tractionResults,
     const ImpedancesAndEta& impAndEta,
     const ImpedanceMatrices& impedanceMatrices,
-    real imposedStatePlus[tensor::QInterpolated::size()],
-    real imposedStateMinus[tensor::QInterpolated::size()],
-    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
+    real imposedStatePlus[tensor::QInterpolated<Cfg>::size()],
+    real imposedStateMinus[tensor::QInterpolated<Cfg>::size()],
+    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
+    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
     const double timeWeights[ConvergenceOrder],
     unsigned startIndex = 0) {
 
@@ -361,24 +361,24 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   }
 #else
   // setup kernel
-  seissol::dynamicRupture::kernel::computeImposedStateM krnlM;
-  krnlM.extractVelocities = init::extractVelocities::Values;
-  krnlM.extractTractions = init::extractTractions::Values;
-  krnlM.mapToVelocities = init::mapToVelocities::Values;
-  krnlM.mapToTractions = init::mapToTractions::Values;
+  seissol::dynamicRupture::kernel::computeImposedStateM<Cfg> krnlM;
+  krnlM.extractVelocities = init::extractVelocities<Cfg>::Values;
+  krnlM.extractTractions = init::extractTractions<Cfg>::Values;
+  krnlM.mapToVelocities = init::mapToVelocities<Cfg>::Values;
+  krnlM.mapToTractions = init::mapToTractions<Cfg>::Values;
   krnlM.Zminus = impedanceMatrices.impedanceNeig;
   krnlM.imposedState = imposedStateMinus;
 
-  seissol::dynamicRupture::kernel::computeImposedStateP krnlP;
-  krnlP.extractVelocities = init::extractVelocities::Values;
-  krnlP.extractTractions = init::extractTractions::Values;
-  krnlP.mapToVelocities = init::mapToVelocities::Values;
-  krnlP.mapToTractions = init::mapToTractions::Values;
+  seissol::dynamicRupture::kernel::computeImposedStateP<Cfg> krnlP;
+  krnlP.extractVelocities = init::extractVelocities<Cfg>::Values;
+  krnlP.extractTractions = init::extractTractions<Cfg>::Values;
+  krnlP.mapToVelocities = init::mapToVelocities<Cfg>::Values;
+  krnlP.mapToTractions = init::mapToTractions<Cfg>::Values;
   krnlP.Zplus = impedanceMatrices.impedance;
   krnlP.imposedState = imposedStatePlus;
 
-  alignas(Alignment) real thetaBuffer[tensor::theta::size()] = {};
-  auto thetaView = init::theta::view::create(thetaBuffer);
+  alignas(Alignment) real thetaBuffer[tensor::theta<Cfg>::size()] = {};
+  auto thetaView = init::theta<Cfg>::view::create(thetaBuffer);
   krnlM.theta = thetaBuffer;
   krnlP.theta = thetaBuffer;
 
@@ -547,8 +547,8 @@ SEISSOL_HOSTDEVICE inline void
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     DREnergyOutput& energyData,
-    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()],
-    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()],
+    const real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
+    const real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
     const ImpedancesAndEta& impAndEta,
     const double timeWeights[ConvergenceOrder],
     const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],

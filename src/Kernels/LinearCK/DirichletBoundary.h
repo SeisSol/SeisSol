@@ -41,7 +41,7 @@ void addRotationToProjectKernel(MappingKrnl& projectKernel,
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 template <>
-void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated& projectKernel,
+void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated<Cfg>& projectKernel,
                                 const seissol::CellBoundaryMapping& boundaryMapping) {
   assert(boundaryMapping.dataTinv != nullptr);
   projectKernel.Tinv = boundaryMapping.dataTinv;
@@ -69,10 +69,10 @@ class DirichletBoundary {
     projectKrnl.INodal = dofsFaceBoundaryNodal;
     projectKrnl.execute(faceIdx);
 
-    auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
+    auto boundaryDofs = init::INodal<Cfg>::view::create(dofsFaceBoundaryNodal);
 
-    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
-                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
+    static_assert(nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension] ==
+                      tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension],
                   "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
@@ -143,10 +143,10 @@ class DirichletBoundary {
                              double startTime,
                              double timeStepWidth) const {
     // TODO(Lukas) Implement functions which depend on the interior values...
-    auto boundaryDofs = init::INodal::view::create(dofsFaceBoundaryNodal);
+    auto boundaryDofs = init::INodal<Cfg>::view::create(dofsFaceBoundaryNodal);
 
-    static_assert(nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] ==
-                      tensor::INodal::Shape[multisim::BasisFunctionDimension],
+    static_assert(nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension] ==
+                      tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension],
                   "Need evaluation at all nodes!");
 
     assert(boundaryMapping.nodes != nullptr);
@@ -159,13 +159,13 @@ class DirichletBoundary {
       timeWeights[point] = 0.5 * timeStepWidth * quadWeights[point];
     }
 
-    alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal::size()];
-    auto boundaryDofsTmp = init::INodal::view::create(dofsFaceBoundaryNodalTmp);
+    alignas(Alignment) real dofsFaceBoundaryNodalTmp[tensor::INodal<Cfg>::size()];
+    auto boundaryDofsTmp = init::INodal<Cfg>::view::create(dofsFaceBoundaryNodalTmp);
 
     boundaryDofs.setZero();
     boundaryDofsTmp.setZero();
 
-    auto updateKernel = kernel::updateINodal{};
+    auto updateKernel = kernel::updateINodal<Cfg>{};
     updateKernel.INodal = dofsFaceBoundaryNodal;
     updateKernel.INodalUpdate = dofsFaceBoundaryNodalTmp;
     // Evaluate boundary conditions at precomputed nodes (in global coordinates).

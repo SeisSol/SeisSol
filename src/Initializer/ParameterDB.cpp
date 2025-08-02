@@ -207,7 +207,7 @@ easi::Query FaultGPGenerator::generate() const {
   auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
 
   constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim;
-  auto pointsView = init::quadpoints::view::create(const_cast<real*>(init::quadpoints::Values));
+  auto pointsView = init::quadpoints<Cfg>::view::create(const_cast<real*>(init::quadpoints<Cfg>::Values));
   easi::Query query(NumPoints * m_faceIDs.size(), Cell::Dim);
   unsigned q = 0;
   // loop over all fault elements which are managed by this generator
@@ -545,13 +545,13 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
   if (model == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
-  if (tensor::INodal::Shape[1] != 9) {
+  if (tensor::INodal<Cfg>::Shape[1] != 9) {
     logError() << "easi-provided boundary data is only supported for elastic material at the "
                   "moment currently.";
   }
   assert(mapTermsData != nullptr);
   assert(constantTermsData != nullptr);
-  constexpr auto NumNodes = tensor::INodal::Shape[0];
+  constexpr auto NumNodes = tensor::INodal<Cfg>::Shape[0];
   auto query = easi::Query{NumNodes, 3};
   size_t offset{0};
   for (unsigned i = 0; i < NumNodes; ++i) {
@@ -573,10 +573,10 @@ void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTe
   // Note that easi only supports
 
   // Constant terms stores all terms of the vector b
-  auto constantTerms = init::easiBoundaryConstant::view::create((constantTermsData));
+  auto constantTerms = init::easiBoundaryConstant<Cfg>::view::create((constantTermsData));
 
   // Map terms stores all terms of the linear map A
-  auto mapTerms = init::easiBoundaryMap::view::create(mapTermsData);
+  auto mapTerms = init::easiBoundaryMap<Cfg>::view::create(mapTermsData);
 
   easi::ArraysAdapter<real> adapter{};
 

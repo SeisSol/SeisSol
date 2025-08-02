@@ -179,7 +179,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   }
 
   outputData->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
-      indexPtrs, seissol::tensor::Q::size(), useMPIUSM());
+      indexPtrs, seissol::tensor::Q<Cfg>::size(), useMPIUSM());
 
   for (const auto& variable : variables) {
     auto* var = drStorage->varUntyped(variable, initializer::AllocationPlace::Device);
@@ -287,9 +287,9 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
     }
     {
       auto faceAlignedToGlb =
-          init::T::view::create(outputData->faceAlignedToGlbData[receiverId].data());
+          init::T<Cfg>::view::create(outputData->faceAlignedToGlbData[receiverId].data());
       auto glbToFaceAligned =
-          init::Tinv::view::create(outputData->glbToFaceAlignedData[receiverId].data());
+          init::Tinv<Cfg>::view::create(outputData->glbToFaceAlignedData[receiverId].data());
 
       seissol::model::getFaceRotationMatrix(
           faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);

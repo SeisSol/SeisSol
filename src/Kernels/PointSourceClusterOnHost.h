@@ -27,7 +27,7 @@ class PointSourceClusterOnHost : public PointSourceCluster {
   void addTimeIntegratedPointSource(std::size_t source,
                                     double from,
                                     double to,
-                                    real dofs[tensor::Q::size()]);
+                                    real dofs[tensor::Q<Cfg>::size()]);
 
   std::shared_ptr<sourceterm::ClusterMapping> clusterMapping_;
   std::shared_ptr<sourceterm::PointSources> sources_;

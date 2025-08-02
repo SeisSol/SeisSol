@@ -29,7 +29,7 @@ class Spacetime : public SpacetimeKernel {
                    double timeStepWidth,
                    LTS::Ref& data,
                    LocalTmp& tmp,
-                   real timeIntegrated[tensor::I::size()],
+                   real timeIntegrated[tensor::I<Cfg>::size()],
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
   void computeBatchedAder(const real* coeffs,
@@ -47,15 +47,15 @@ class Spacetime : public SpacetimeKernel {
   private:
   void executeSTP(double timeStepWidth,
                   LTS::Ref& data,
-                  real timeIntegrated[tensor::I::size()],
+                  real timeIntegrated[tensor::I<Cfg>::size()],
                   real* stp);
 
-  kernel::spaceTimePredictor m_krnlPrototype;
-  kernel::projectDerivativeToNodalBoundaryRotated projectDerivativeToNodalBoundaryRotated;
+  kernel::spaceTimePredictor<Cfg> m_krnlPrototype;
+  kernel::projectDerivativeToNodalBoundaryRotated<Cfg> projectDerivativeToNodalBoundaryRotated;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_spaceTimePredictor deviceKrnlPrototype;
-  kernel::gpu_projectDerivativeToNodalBoundaryRotated deviceDerivativeToNodalBoundaryRotated;
+  kernel::gpu_spaceTimePredictor<Cfg> deviceKrnlPrototype;
+  kernel::gpu_projectDerivativeToNodalBoundaryRotated<Cfg> deviceDerivativeToNodalBoundaryRotated;
 #endif
 };
 
@@ -64,7 +64,7 @@ class Time : public TimeKernel {
   void setGlobalData(const CompoundGlobalData& global) override;
   void evaluate(const real* coeffs,
                 const real* timeDerivatives,
-                real timeEvaluated[tensor::I::size()]) override;
+                real timeEvaluated[tensor::I<Cfg>::size()]) override;
   void evaluateBatched(const real* coeffs,
                        const real** timeDerivatives,
                        real** timeIntegratedDofs,

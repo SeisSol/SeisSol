@@ -141,8 +141,8 @@ class FastVelocityWeakeningLaw
       deltaStateVar[pointIndex] =
           stateVariableBuffer[pointIndex] - this->stateVariable[ltsFace][pointIndex];
     }
-    dynamicRupture::kernel::resampleParameter resampleKrnl;
-    resampleKrnl.resample = init::resample::Values;
+    dynamicRupture::kernel::resampleParameter<Cfg> resampleKrnl;
+    resampleKrnl.resample = init::resample<Cfg>::Values;
     resampleKrnl.originalQ = deltaStateVar.data();
     resampleKrnl.resampledQ = resampledDeltaStateVar.data();
     resampleKrnl.execute();

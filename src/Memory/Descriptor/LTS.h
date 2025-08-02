@@ -26,7 +26,7 @@
 #endif
 
 namespace seissol::tensor {
-class Qane;
+template<typename> class Qane;
 } // namespace seissol::tensor
 
 namespace seissol {
@@ -89,10 +89,10 @@ struct LTS {
       }
     }
   }
-  struct Dofs : public initializer::Variable<real[tensor::Q::size()]> {};
+  struct Dofs : public initializer::Variable<real[tensor::Q<Cfg>::size()]> {};
   // size is zero if Qane is not defined
   struct DofsAne
-      : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane>())]> {
+      : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane<Cfg>>())]> {
   };
   struct Buffers : public initializer::Variable<real*> {};
   struct Derivatives : public initializer::Variable<real*> {};
@@ -107,7 +107,7 @@ struct LTS {
   struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
   struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
   struct PStrain
-      : public initializer::Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> {};
+      : public initializer::Variable<real[tensor::QStress<Cfg>::size() + tensor::QEtaModal<Cfg>::size()]> {};
   struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
   struct BuffersDerivatives : public initializer::Bucket<real> {};
 
@@ -200,7 +200,7 @@ struct LTS {
     }
 
     storage.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
-    if (kernels::size<tensor::Qane>() > 0) {
+    if (kernels::size<tensor::Qane<Cfg>>() > 0) {
       storage.add<DofsAne>(
           LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
     } else {
@@ -272,7 +272,7 @@ struct LTS {
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
                                           Storage& storage) {
     manager.registerData<Dofs>("dofs", storage);
-    if constexpr (kernels::size<tensor::Qane>() > 0) {
+    if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
       manager.registerData<DofsAne>("dofsAne", storage);
     }
     // check plasticity usage over the layer mask (for now)

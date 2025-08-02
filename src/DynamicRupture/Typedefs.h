@@ -13,6 +13,7 @@
 #include "Kernels/Precision.h"
 #include <Alignment.h>
 #include <Common/Executor.h>
+#include <GeneratedCode/tensor.h>
 
 namespace seissol::dr {
 
@@ -29,9 +30,9 @@ struct ImpedancesAndEta {
  * This generalizes equation (4.51) from Carsten's thesis
  */
 struct ImpedanceMatrices {
-  alignas(Alignment) real impedance[tensor::Zplus::size()] = {};
-  alignas(Alignment) real impedanceNeig[tensor::Zminus::size()] = {};
-  alignas(Alignment) real eta[tensor::eta::size()] = {};
+  alignas(Alignment) real impedance[tensor::Zplus<Cfg>::size()] = {};
+  alignas(Alignment) real impedanceNeig[tensor::Zminus<Cfg>::size()] = {};
+  alignas(Alignment) real eta[tensor::eta<Cfg>::size()] = {};
 };
 
 template <Executor Executor>

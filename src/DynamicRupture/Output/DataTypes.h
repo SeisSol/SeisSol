@@ -144,12 +144,12 @@ struct ReceiverOutputData {
   output::DrVarsT vars;
   std::vector<PlusMinusBasisFunctions> basisFunctions;
   std::vector<ReceiverPoint> receiverPoints;
-  std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>>
+  std::vector<std::array<real, seissol::tensor::stressRotationMatrix<Cfg>::size()>>
       stressGlbToDipStrikeAligned;
-  std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>>
+  std::vector<std::array<real, seissol::tensor::stressRotationMatrix<Cfg>::size()>>
       stressFaceAlignedToGlb;
-  std::vector<std::array<real, seissol::tensor::T::size()>> faceAlignedToGlbData;
-  std::vector<std::array<real, seissol::tensor::Tinv::size()>> glbToFaceAlignedData;
+  std::vector<std::array<real, seissol::tensor::T<Cfg>::size()>> faceAlignedToGlbData;
+  std::vector<std::array<real, seissol::tensor::Tinv<Cfg>::size()>> glbToFaceAlignedData;
   std::vector<Eigen::Matrix<real, 2, 2>, Eigen::aligned_allocator<Eigen::Matrix<real, 2, 2>>>
       jacobianT2d;
 

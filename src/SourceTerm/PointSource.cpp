@@ -61,13 +61,13 @@ void seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3
     }
   }
 
-  std::fill(forceComponents, forceComponents + tensor::update::Size, 0);
+  std::fill(forceComponents, forceComponents + tensor::update<Cfg>::Size, 0);
   // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u,
   // v, w, p, u_f, v_f, w_f)
 
   // TODO: prettify the code
   forceComponents[0] = m[0][0];
-  if constexpr (tensor::update::Size == 4) {
+  if constexpr (tensor::update<Cfg>::Size == 4) {
     forceComponents[1] = f[0];
     forceComponents[2] = f[1];
     forceComponents[3] = f[2];
@@ -80,7 +80,7 @@ void seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3
     forceComponents[6] = f[0];
     forceComponents[7] = f[1];
     forceComponents[8] = f[2];
-    if constexpr (tensor::update::Size >= 13) {
+    if constexpr (tensor::update<Cfg>::Size >= 13) {
       forceComponents[9] = localPressureComponent;
       forceComponents[10] = f[3];
       forceComponents[11] = f[4];

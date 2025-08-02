@@ -120,7 +120,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         }
       }
 
-      outputData->receiverPoints.resize(faceCount * seissol::init::vtk2d::Shape[order][1]);
+      outputData->receiverPoints.resize(faceCount * seissol::init::vtk2d<Cfg>::Shape[order][1]);
       std::size_t faceOffset = 0;
 
       // iterate through each fault side
@@ -149,12 +149,12 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           // init global coordinates of the fault face
           ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
-          for (std::size_t i = 0; i < seissol::init::vtk2d::Shape[order][1]; ++i) {
+          for (std::size_t i = 0; i < seissol::init::vtk2d<Cfg>::Shape[order][1]; ++i) {
             auto& receiverPoint =
-                outputData->receiverPoints[faceOffset * seissol::init::vtk2d::Shape[order][1] + i];
+                outputData->receiverPoints[faceOffset * seissol::init::vtk2d<Cfg>::Shape[order][1] + i];
             real nullpoint[2] = {0, 0};
             const real* prepoint =
-                i > 0 ? (seissol::init::vtk2d::Values[order] + (i - 1) * 2) : nullpoint;
+                i > 0 ? (seissol::init::vtk2d<Cfg>::Values[order] + (i - 1) * 2) : nullpoint;
             double point[2] = {prepoint[0], prepoint[1]};
             transformations::chiTau2XiEtaZeta(faceSideIdx, point, receiverPoint.reference.coords);
             transformations::tetrahedronReferenceToGlobal(vertices[0],
@@ -170,7 +170,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
             receiverPoint.elementIndex = element.localId;
             receiverPoint.elementGlobalIndex = element.globalId;
             receiverPoint.globalReceiverIndex =
-                faceOffset * seissol::init::vtk2d::Shape[order][1] + i;
+                faceOffset * seissol::init::vtk2d<Cfg>::Shape[order][1] + i;
             receiverPoint.faultTag = fault.tag;
           }
 
