@@ -350,9 +350,9 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
     // If we cannot overwrite the buffer, we compute everything in a temporary
     // local buffer and accumulate the results later in the shared buffer.
     const bool buffersProvided =
-        (data.get<LTS::CellInformation>().ltsSetup >> 8) % 2 == 1; // buffers are provided
+        data.get<LTS::CellInformation>().ltsSetup.hasBuffers(); // buffers are provided
     const bool resetMyBuffers =
-        buffersProvided && ((data.get<LTS::CellInformation>().ltsSetup >> 10) % 2 == 0 ||
+        buffersProvided && (!data.get<LTS::CellInformation>().ltsSetup.cacheBuffers() ||
                             resetBuffers); // they should be reset
 
     if (resetMyBuffers) {
@@ -1001,6 +1001,12 @@ void TimeCluster::finishPhase() {
   seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
       cells * accFlopsHardware[static_cast<int>(ComputePart::PlasticityYield)]);
   yieldCells[0] = 0;
+}
+
+std::string TimeCluster::description() const {
+  const auto identifier = clusterData->getIdentifier();
+  const std::string haloStr = identifier.halo == HaloType::Interior ? "interior" : "copy";
+  return "compute-" + haloStr;
 }
 
 } // namespace seissol::time_stepping

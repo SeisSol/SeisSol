@@ -20,6 +20,7 @@
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -178,13 +179,14 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
 #endif
 }
 
-void Neighbor::flopsNeighborsIntegral(const FaceType faceTypes[4],
-                                      const int neighboringIndices[4][2],
-                                      const CellDRMapping (&cellDrMapping)[4],
-                                      std::uint64_t& nonZeroFlops,
-                                      std::uint64_t& hardwareFlops,
-                                      std::uint64_t& drNonZeroFlops,
-                                      std::uint64_t& drHardwareFlops) {
+void Neighbor::flopsNeighborsIntegral(
+    const std::array<FaceType, Cell::NumFaces>& faceTypes,
+    const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
+    const CellDRMapping (&cellDrMapping)[4],
+    std::uint64_t& nonZeroFlops,
+    std::uint64_t& hardwareFlops,
+    std::uint64_t& drNonZeroFlops,
+    std::uint64_t& drHardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
   hardwareFlops = 0;

@@ -30,88 +30,6 @@ namespace kernels {
 constexpr std::size_t NumSpaceQuadraturePoints = (ConvergenceOrder + 1) * (ConvergenceOrder + 1);
 } // namespace kernels
 
-struct MeshStructure {
-  /*
-   * Number of regions in the ghost and copy layer.
-   * This is equivalent to the number of ranks in a MPI setting.
-   */
-  unsigned int numberOfRegions;
-
-  /*
-   * Region-specific neighboring clusters
-   * [0]: rank
-   * [1]: global time cluster id
-   */
-  int (*neighboringClusters)[2];
-
-  /*
-   * Total number of ghost cells.
-   */
-  unsigned int numberOfGhostCells;
-
-  /*
-   * Number of ghost cells in each region of the ghost layer.
-   */
-  unsigned int* numberOfGhostRegionCells;
-
-  /*
-   * Number of cells with derivatives in each region of the ghost layer.
-   */
-  unsigned int* numberOfGhostRegionDerivatives;
-
-  /*
-   * Pointers to the memory chunks of the ghost regions.
-   */
-  real** ghostRegions;
-
-  /*
-   * Sizes of the ghost regions (in reals).
-   */
-  unsigned int* ghostRegionSizes;
-
-  /*
-   * Total number of copy cells.
-   */
-  unsigned int numberOfCopyCells;
-
-  /*
-   * Number of copy cells in each region of the copy layer.
-   */
-  unsigned int* numberOfCopyRegionCells;
-
-  /*
-   * Number of cells with communicating derivatives in each region of the ghost layer.
-   */
-  unsigned int* numberOfCommunicatedCopyRegionDerivatives;
-
-  /*
-   * Pointers to the memory chunks of the copy regions.
-   *   Remark: For the cells in the copy layer more information will be stored (in general).
-   *           The pointers only point to communcation related chunks.
-   */
-  real** copyRegions;
-
-  /*
-   * Sizes of the copy regions (in reals).
-   */
-  unsigned int* copyRegionSizes;
-
-  /*
-   * Total number of interior cells without MPI-face-neighbors.
-   */
-  unsigned int numberOfInteriorCells;
-
-  /*
-   * Message identifiers for the sends.
-   */
-  int* sendIdentifiers;
-
-  /*
-   * Message identifiers for the receives.
-   */
-  int* receiveIdentifiers;
-};
-
 struct GlobalData {
   /**
    * Addresses of the global change of basis matrices (multiplied by the inverse diagonal mass
@@ -283,10 +201,10 @@ struct CellMaterialData {
 };
 
 struct DRFaceInformation {
-  unsigned meshFace;
-  unsigned plusSide;
-  unsigned minusSide;
-  unsigned faceRelation;
+  std::size_t meshFace;
+  std::uint8_t plusSide;
+  std::uint8_t minusSide;
+  std::uint8_t faceRelation;
   bool plusSideOnThisRank;
 };
 
@@ -341,21 +259,27 @@ struct CellDRMapping {
   real* fluxSolver;
 };
 
-struct CellBoundaryMapping {
-  real* nodes;
-  real* dataT;
-  real* dataTinv;
-  real* easiBoundaryConstant;
-  real* easiBoundaryMap;
-};
-
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3];
-  real dataT[seissol::tensor::T::size()];
-  real dataTinv[seissol::tensor::Tinv::size()];
-  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()];
-  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()];
+  real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3]{};
+  real dataT[seissol::tensor::T::size()]{};
+  real dataTinv[seissol::tensor::Tinv::size()]{};
+  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()]{};
+  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()]{};
+};
+
+struct CellBoundaryMapping {
+  real* nodes{nullptr};
+  real* dataT{nullptr};
+  real* dataTinv{nullptr};
+  real* easiBoundaryConstant{nullptr};
+  real* easiBoundaryMap{nullptr};
+
+  CellBoundaryMapping() = default;
+  CellBoundaryMapping(BoundaryFaceInformation& faceInfo)
+      : nodes(faceInfo.nodes), dataT(faceInfo.dataT), dataTinv(faceInfo.dataTinv),
+        easiBoundaryConstant(faceInfo.easiBoundaryConstant),
+        easiBoundaryMap(faceInfo.easiBoundaryMap) {}
 };
 
 struct GravitationSetup {

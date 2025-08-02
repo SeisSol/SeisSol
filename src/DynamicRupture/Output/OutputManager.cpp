@@ -32,6 +32,7 @@
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -473,13 +474,13 @@ void OutputManager::initFaceToLtsMap() {
     globalFaceToLtsMap.resize(faceToLtsMap.size());
     for (auto& layer : drStorage->leaves(Ghost)) {
 
-      DRFaceInformation* faceInformation = layer.var<DynamicRupture::FaceInformation>();
+      const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
       for (size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
         faceToLtsMap[faceInformation[ltsFace].meshFace] = std::make_pair(&layer, ltsFace);
       }
     }
 
-    DRFaceInformation* faceInformation = drStorage->var<DynamicRupture::FaceInformation>();
+    const auto* faceInformation = drStorage->var<DynamicRupture::FaceInformation>();
     for (size_t ltsFace = 0; ltsFace < ltsFaultSize; ++ltsFace) {
       globalFaceToLtsMap[faceInformation[ltsFace].meshFace] = ltsFace;
     }

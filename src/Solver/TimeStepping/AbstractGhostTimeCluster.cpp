@@ -16,6 +16,7 @@
 #include <chrono>
 #include <list>
 #include <mpi.h>
+#include <string>
 #include <utils/logger.h>
 
 namespace seissol::time_stepping {
@@ -105,8 +106,9 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
       globalClusterId(globalTimeClusterId), otherGlobalClusterId(otherGlobalTimeClusterId),
       meshStructure(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId)),
-      sendRequests(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).size()),
-      recvRequests(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).size()) {}
+      sendRequests(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).copy.size()),
+      recvRequests(
+          meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).ghost.size()) {}
 
 void AbstractGhostTimeCluster::reset() {
   AbstractTimeCluster::reset();
@@ -130,6 +132,10 @@ void AbstractGhostTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinc
                << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
                << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync;
   }
+}
+
+std::string AbstractGhostTimeCluster::description() const {
+  return "comm-" + std::to_string(globalClusterId) + "-" + std::to_string(otherGlobalClusterId);
 }
 
 } // namespace seissol::time_stepping

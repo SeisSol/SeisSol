@@ -14,11 +14,11 @@
 #include "ResultWriter/ClusteringWriter.h"
 #include "SeisSol.h"
 #include "TimeManager.h"
+#include <Common/Iterator.h>
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Initializer/Typedefs.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Memory/Tree/Layer.h>
 #include <ResultWriter/ReceiverWriter.h>
@@ -57,13 +57,11 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
 TimeManager::~TimeManager() = default;
 
 void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
-                              MeshStructure* meshStructure,
+                              const solver::HaloCommunication& haloStructure,
                               initializer::MemoryManager& memoryManager,
                               bool usePlasticity) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
   std::vector<std::unique_ptr<AbstractGhostTimeCluster>> ghostClusters;
-  // assert non-zero pointers
-  const auto haloStructure = solver::getHaloCommunication(clusterLayout, meshStructure);
 
   // store the time stepping
   this->clusterLayout = clusterLayout;
@@ -71,18 +69,15 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   auto clusteringWriter =
       writer::ClusteringWriter(seissolInstance.getSeisSolParameters().output.prefix);
 
+  std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
+
+  for (const auto& layer : memoryManager.getDRStorage().leaves()) {
+    drCellsPerCluster[layer.getIdentifier().lts] += layer.size();
+  }
+
   std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
-
-  for (std::size_t clusterId = 0; clusterId < clusterLayout.globalClusterCount; ++clusterId) {
-    const auto interiorId = initializer::LayerIdentifier(HaloType::Interior, Config(), clusterId);
-    const auto copyId = initializer::LayerIdentifier(HaloType::Copy, Config(), clusterId);
-    const auto ghostId = initializer::LayerIdentifier(HaloType::Ghost, Config(), clusterId);
-
-    const long numberOfDynRupCells = memoryManager.getDRStorage().layer(interiorId).size() +
-                                     memoryManager.getDRStorage().layer(copyId).size() +
-                                     memoryManager.getDRStorage().layer(ghostId).size();
-
-    if (numberOfDynRupCells > 0) {
+  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
+    if (drCellsPerCluster[clusterId] > 0) {
       drClusterOutput = clusterId;
       break;
     }
@@ -181,20 +176,26 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     // Create ghost time clusters for MPI
     const auto preferredDataTransferMode = MPI::mpi.getPreferredDataTransferMode();
     const auto persistent = usePersistentMpi(seissolInstance.env());
-    for (std::size_t otherClusterId = 0; otherClusterId < clusterLayout.globalClusterCount;
-         ++otherClusterId) {
-      const bool hasNeighborRegions = !haloStructure.at(clusterId).at(otherClusterId).empty();
+
+    const auto copyIdId = memoryManager.getLtsStorage().getColorMap().colorId(copyId);
+    for (const auto [i, halo] : common::enumerate(haloStructure.at(copyIdId))) {
+
+      const bool hasNeighborRegions = !halo.copy.empty() || !halo.ghost.empty();
+      const auto other = memoryManager.getLtsStorage().getColorMap().argument(i);
+
       if (hasNeighborRegions) {
-        assert(otherClusterId + 1 >= clusterId);
-        assert(otherClusterId <
-               std::min(clusterId + 2, static_cast<std::size_t>(clusterLayout.globalClusterCount)));
-        const auto otherTimeStepSize = clusterLayout.timestepRate(otherClusterId);
-        const auto otherTimeStepRate = clusterLayout.clusterRate(otherClusterId);
+
+        assert(other.halo == HaloType::Ghost);
+        assert(other.lts + 1 >= clusterId);
+        assert(other.lts < std::min(clusterId + 2, clusterLayout.globalClusterCount));
+
+        const auto otherTimeStepSize = clusterLayout.timestepRate(other.lts);
+        const auto otherTimeStepRate = clusterLayout.clusterRate(other.lts);
 
         auto ghostCluster = GhostTimeClusterFactory::get(otherTimeStepSize,
                                                          otherTimeStepRate,
-                                                         clusterId,
-                                                         otherClusterId,
+                                                         copyIdId,
+                                                         i,
                                                          haloStructure,
                                                          preferredDataTransferMode,
                                                          persistent);
