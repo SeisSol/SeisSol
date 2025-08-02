@@ -84,13 +84,6 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
-if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
-  # Note: hip 4.x has a bug during setting rpath while compiling
-  #       device code for nvidia gpus. This scenario is used in
-  #       SeisSol's GPU CI pipeline.
-  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
-endif()
-
 # LTO
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
@@ -200,6 +193,12 @@ else()
   set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
 endif()
 
+if (OVERRIDE_VECTORSIZE GREATER 0)
+  set(OVERRIDE_VECTORSIZE_PARAM "--vectorsize ${OVERRIDE_VECTORSIZE}")
+else()
+  set(OVERRIDE_VECTORSIZE_PARAM "")
+endif()
+
 find_package(GemmTools REQUIRED)
 
 add_custom_command(
@@ -208,10 +207,12 @@ add_custom_command(
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/codegen/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode
-     "--host_arch" ${HOST_ARCH_STR}
+     "--host_arch" ${HOST_ARCH}
      "--device_codegen" ${DEVICE_CODEGEN}
-     "--device_arch" ${DEVICE_ARCH_STR}
+     "--device_arch" ${DEVICE_ARCH}
      "--device_backend" ${DEVICE_BACKEND}
+     "--device_vendor" ${DEVICE_VENDOR}
+     "--precision" ${PRECISION_PREFIX}
      "--order" ${ORDER}
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
@@ -222,6 +223,7 @@ add_custom_command(
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
+     ${OVERRIDE_VECTORSIZE_PARAM}
      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/codegen
      DEPENDS
         build-time-make-directory
@@ -470,10 +472,10 @@ endif()
 
 if (NOT NEW_BINARY_NAMING)
   # adjust prefix name of executables
-  if ("${DEVICE_ARCH_STR}" STREQUAL "none")
-    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
+  if ("${DEVICE_ARCH}" STREQUAL "none")
+    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${PRECISION_PREFIX}${HOST_ARCH}_${ORDER}_${EQUATIONS}")
   else()
-    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
+    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${PRECISION_PREFIX}${DEVICE_ARCH}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
   endif()
 
   if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
