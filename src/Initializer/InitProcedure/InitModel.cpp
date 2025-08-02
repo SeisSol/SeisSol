@@ -16,13 +16,10 @@
 #include <Common/Real.h>
 #include <Config.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Initializer/InitProcedure/Internal/Buckets.h>
-#include <Initializer/InitProcedure/Internal/LtsSetup.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Kernels/Common.h>
-#include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
 #include <Model/Plasticity.h>
@@ -34,7 +31,6 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utils/env.h>

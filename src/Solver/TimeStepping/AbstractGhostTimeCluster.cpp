@@ -16,6 +16,7 @@
 #include <chrono>
 #include <list>
 #include <mpi.h>
+#include <string>
 #include <utils/logger.h>
 
 namespace seissol::time_stepping {

@@ -14,6 +14,7 @@
 #include <PUML/TypeInference.h>
 #include <PUML/Upward.h>
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

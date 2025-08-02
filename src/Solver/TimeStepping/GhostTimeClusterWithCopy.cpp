@@ -114,11 +114,11 @@ void GhostTimeClusterWithCopy<CommType>::sendCopyLayer() {
         if (persistent) {
           MPI_Start(sendRequests.data() + (*region));
         } else {
-          MPI_Isend(this->meshStructure[*region].copy.data,
-                    static_cast<int>(this->meshStructure[*region].copy.size),
-                    MPI::precisionToMpiType(this->meshStructure[*region].copy.datatype),
-                    this->meshStructure[*region].copy.rank,
-                    this->meshStructure[*region].copy.tag,
+          MPI_Isend(this->meshStructure.copy[*region].data,
+                    static_cast<int>(this->meshStructure.copy[*region].size),
+                    MPI::precisionToMpiType(this->meshStructure.copy[*region].datatype),
+                    this->meshStructure.copy[*region].rank,
+                    this->meshStructure.copy[*region].tag,
                     seissol::MPI::mpi.comm(),
                     sendRequests.data() + (*region));
         }

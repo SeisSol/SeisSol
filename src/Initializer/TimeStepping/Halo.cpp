@@ -8,10 +8,13 @@
 #include "Halo.h"
 
 #include <Initializer/BasicTypedefs.h>
-#include <Memory/Tree/LTSTree.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <Parallel/MPI.h>
+#include <cstddef>
+#include <cstdint>
 #include <mpi.h>
+#include <vector>
 namespace seissol::initializer {
 
 void haloCommunication(const MeshLayout& comm,

@@ -6,21 +6,20 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Buckets.h"
 #include "Parallel/MPI.h"
+#include <Common/Constants.h>
 #include <Common/Real.h>
 #include <Config.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Initializer/MemoryManager.h>
 #include <Initializer/TimeStepping/Halo.h>
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Solver/TimeStepping/HaloCommunication.h>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <limits>
+#include <generated_code/tensor.h>
 #include <utility>
 #include <vector>
 #include <yateto/InitTools.h>

@@ -29,6 +29,7 @@
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

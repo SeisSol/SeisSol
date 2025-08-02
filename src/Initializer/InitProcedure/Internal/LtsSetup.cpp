@@ -8,14 +8,19 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "LtsSetup.h"
+#include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>
+#include <Initializer/LtsSetup.h>
 #include <Initializer/TimeStepping/Halo.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <array>
+#include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <mpi.h>
+#include <vector>
 
 namespace {
 
@@ -230,8 +235,8 @@ void deriveLtsSetups(const MeshLayout& layout, LTS::Storage& storage) {
                          datatypeDisplacement.data(),
                          datatypeDatatype.data(),
                          &ghostElementTypePre);
-  MPI_Aint lb = 0;
-  MPI_Aint extent = sizeof(CellLocalInformation);
+  const MPI_Aint lb = 0;
+  const MPI_Aint extent = sizeof(CellLocalInformation);
   MPI_Type_create_resized(ghostElementTypePre, lb, extent, &ghostElementType);
   MPI_Type_commit(&ghostElementType);
 

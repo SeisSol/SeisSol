@@ -19,6 +19,7 @@
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

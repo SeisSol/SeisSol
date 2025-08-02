@@ -6,15 +6,20 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "MeshLayout.h"
 
+#include <Common/Constants.h>
 #include <Common/Iterator.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/TimeStepping/Halo.h>
 #include <Memory/Tree/Colormap.h>
 #include <Parallel/MPI.h>
 #include <algorithm>
 #include <cstddef>
-#include <limits>
+#include <map>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <utils/logger.h>
 #include <vector>
 
 namespace seissol::initializer::internal {

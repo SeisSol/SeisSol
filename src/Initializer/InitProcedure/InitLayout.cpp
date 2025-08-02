@@ -7,27 +7,25 @@
 #include "InitLayout.h"
 #include "Internal/MeshLayout.h"
 #include "SeisSol.h"
+#include <Common/Constants.h>
 #include <Common/Iterator.h>
-#include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/InitProcedure/Internal/Buckets.h>
 #include <Initializer/InitProcedure/Internal/LtsSetup.h>
-#include <Initializer/ParameterDB.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Initializer/TimeStepping/Halo.h>
 #include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Backmap.h>
 #include <Memory/Tree/Colormap.h>
 #include <Memory/Tree/LTSTree.h>
-#include <Model/CommonDatastructures.h>
-#include <Model/Plasticity.h>
 #include <Parallel/MPI.h>
-#include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
-#include <limits>
-#include <mpi.h>
+#include <map>
+#include <numeric>
 #include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
@@ -53,7 +51,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
 
-  LTSColorMap colorMap(
+  const LTSColorMap colorMap(
       initializer::EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),
       initializer::EnumLayer<std::size_t>(clusterMap),
       initializer::TraitLayer<initializer::ConfigVariant>({Config()}));

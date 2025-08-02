@@ -14,11 +14,11 @@
 #include "ResultWriter/ClusteringWriter.h"
 #include "SeisSol.h"
 #include "TimeManager.h"
+#include <Common/Iterator.h>
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
-#include <Initializer/Typedefs.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Memory/Tree/Layer.h>
 #include <ResultWriter/ReceiverWriter.h>

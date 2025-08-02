@@ -15,6 +15,7 @@
 #include <Kernels/Precision.h>
 #include <Kernels/Solver.h>
 #include <Parallel/Runtime/Stream.h>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <stdint.h>
