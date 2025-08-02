@@ -13,7 +13,7 @@ struct Config{id} {{
     static constexpr std::size_t RelaxationMechanisms = {mechanisms};
     static constexpr model::MaterialType MaterialType = model::MaterialType::{equation};
     static constexpr RealType Precision = RealType::{precision};
-    static constexpr ViscoImplementation ViscoMode = ViscoMode::{viscomode};
+    static constexpr ViscoImplementation ViscoMode = ViscoImplementation::{viscomode};
     static constexpr DRQuadRuleType DRQuadRule = DRQuadRuleType::{drquadrule};
     static constexpr std::size_t NumSimulations = {numsims};
 }};
@@ -44,6 +44,7 @@ using ConfigVariant = std::variant<{confignames}>;
 
 // for now
 using Config = Config0;
+using Cfg = Config0;
 
 }} // namespace seissol
 
