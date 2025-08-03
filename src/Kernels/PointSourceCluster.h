@@ -47,12 +47,13 @@ struct PointSourceClusterPair {
  * @param sample Pointer to sample
  * @param sampleSize Size of the sample
  */
-SEISSOL_HOSTDEVICE inline real computeSampleTimeIntegral(double from,
-                                                         double to,
-                                                         const double onsetTime,
-                                                         const double samplingInterval,
-                                                         const real* __restrict sample,
-                                                         ssize_t sampleSize) {
+template <typename RealT>
+SEISSOL_HOSTDEVICE inline RealT computeSampleTimeIntegral(double from,
+                                                          double to,
+                                                          const double onsetTime,
+                                                          const double samplingInterval,
+                                                          const RealT* __restrict sample,
+                                                          ssize_t sampleSize) {
   const auto integrate = [&samplingInterval, &sample](ssize_t index, double tFrom, double tTo) {
     /* We have f(t) = S0 (t1 - t) / dt + S1 (t - t0) / dt, hence
      * int f(t) dt =  S0 (t1 t - 0.5 t^2) / dt + S1 (0.5 t^2 - t0 t) / dt + const, thus
@@ -96,7 +97,7 @@ SEISSOL_HOSTDEVICE inline real computeSampleTimeIntegral(double from,
     return integrate(fromIndex, from, to);
   }
 
-  real integral = 0.0;
+  RealT integral = 0.0;
   integral += integrate(fromIndex, from, (fromIndex + 1) * samplingInterval);
   for (auto j = fromIndex + 1; j < toIndex - 1; ++j) {
     integral += 0.5 * samplingInterval * (sample[j] + sample[j + 1]);
@@ -114,8 +115,9 @@ constexpr std::size_t MInvJInvPhisAtSourcesSpan = tensor::mInvJInvPhisAtSources<
 
 constexpr std::size_t Quantities = MomentFsrmSpan;
 
+template <typename RealT>
 SEISSOL_HOSTDEVICE constexpr auto&
-    dofsAccessor(real* __restrict dofs, std::uint32_t k, std::uint32_t t, std::uint32_t f) {
+    dofsAccessor(RealT* __restrict dofs, std::uint32_t k, std::uint32_t t, std::uint32_t f) {
   if constexpr (seissol::multisim::MultisimEnabled) {
     return dofs[(k + t * QSpan) * QMultiSpan + f];
   } else {
@@ -123,34 +125,35 @@ SEISSOL_HOSTDEVICE constexpr auto&
   }
 }
 
-template <std::uint32_t Block>
+template <typename Cfg, std::uint32_t Block>
 SEISSOL_HOSTDEVICE inline void pointSourceKernelDevice(
     std::uint32_t thread,
     std::size_t index,
     double from,
     double to,
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
-    const seissol::memory::
-        AlignedArray<real, tensor::mInvJInvPhisAtSources<Cfg>::size()>* __restrict mInvJInvPhisAtSources,
+    const seissol::memory::AlignedArray<
+        Real<Cfg>,
+        tensor::mInvJInvPhisAtSources<Cfg>::size()>* __restrict mInvJInvPhisAtSources,
     const std::uint32_t* __restrict simulationIndex,
-    const real* __restrict tensor,
+    const Real<Cfg>* __restrict tensor,
     const double* __restrict onsetTime,
     const double* __restrict samplingInterval,
     const std::size_t* __restrict sampleRange,
     const std::size_t* __restrict sampleOffsets,
-    const real* __restrict sample) {
+    const Real<Cfg>* __restrict sample) {
   const auto startSource = mappingPtr[index].pointSourcesOffset;
   const auto endSource =
       mappingPtr[index].pointSourcesOffset + mappingPtr[index].numberOfPointSources;
 
-  auto* __restrict dofs = *mappingPtr[index].dofs;
+  auto* __restrict dofs = reinterpret_cast<Real<Cfg>*>(mappingPtr[index].dofs);
   for (std::size_t source = startSource; source < endSource; ++source) {
     const auto base = sampleRange[source];
     const std::uint32_t localSamples = sampleRange[source + 1] - base;
 
     const auto* __restrict tensorLocal = tensor + base * Quantities;
 
-    std::array<real, Quantities> update{};
+    std::array<Real<Cfg>, Quantities> update{};
 
 #pragma unroll 3
     for (std::uint32_t i = 0; i < localSamples; ++i) {
@@ -175,8 +178,9 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelDevice(
   }
 }
 
+template <typename Cfg>
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
-                       sourceterm::PointSources& sources,
+                       sourceterm::PointSources<Cfg>& sources,
                        double from,
                        double to,
                        seissol::parallel::runtime::StreamRuntime& runtime);

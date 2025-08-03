@@ -22,8 +22,9 @@ constexpr auto PerBlock = Blocksize / SubBlock;
 
 namespace seissol::kernels {
 
+template <typename Cfg>
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
-                       sourceterm::PointSources& sources,
+                       sourceterm::PointSources<Cfg>& sources,
                        double from,
                        double to,
                        seissol::parallel::runtime::StreamRuntime& runtime) {
@@ -50,23 +51,31 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
         const auto thread = item.get_local_id(0);
 
         if (block < elements) {
-          pointSourceKernelDevice<SubBlock>(thread,
-                                            block,
-                                            from,
-                                            to,
-                                            mappingPtr,
-                                            mInvJInvPhisAtSources,
-                                            simulationIndex,
-                                            tensor,
-                                            onsetTime,
-                                            samplingInterval,
-                                            sampleRange,
-                                            sampleOffsets,
-                                            sample);
+          pointSourceKernelDevice<Cfg, SubBlock>(thread,
+                                                 block,
+                                                 from,
+                                                 to,
+                                                 mappingPtr,
+                                                 mInvJInvPhisAtSources,
+                                                 simulationIndex,
+                                                 tensor,
+                                                 onsetTime,
+                                                 samplingInterval,
+                                                 sampleRange,
+                                                 sampleOffsets,
+                                                 sample);
         }
       });
     });
   }
 }
+
+#define _H_(cfg)                                                                                   \
+  template void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,                      \
+                                  sourceterm::PointSources<cfg>& sources,                          \
+                                  double from,                                                     \
+                                  double to,                                                       \
+                                  seissol::parallel::runtime::StreamRuntime& runtime);
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels

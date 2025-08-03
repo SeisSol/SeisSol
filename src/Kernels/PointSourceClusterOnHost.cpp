@@ -27,12 +27,14 @@ GENERATE_HAS_MEMBER(sourceToMultSim)
 
 namespace seissol::kernels {
 
-PointSourceClusterOnHost::PointSourceClusterOnHost(
+template <typename Cfg>
+PointSourceClusterOnHost<Cfg>::PointSourceClusterOnHost(
     std::shared_ptr<sourceterm::ClusterMapping> mapping,
-    std::shared_ptr<sourceterm::PointSources> sources)
+    std::shared_ptr<sourceterm::PointSources<Cfg>> sources)
     : clusterMapping_(std::move(mapping)), sources_(std::move(sources)) {}
 
-void PointSourceClusterOnHost::addTimeIntegratedPointSources(
+template <typename Cfg>
+void PointSourceClusterOnHost<Cfg>::addTimeIntegratedPointSources(
     double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {
   auto& mapping = clusterMapping_->cellToSources;
   if (mapping.size() > 0) {
@@ -43,18 +45,23 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSources(
       const auto startSource = mapping[m].pointSourcesOffset;
       const auto endSource = mapping[m].pointSourcesOffset + mapping[m].numberOfPointSources;
       for (auto source = startSource; source < endSource; ++source) {
-        addTimeIntegratedPointSource(source, from, to, *mapping[m].dofs);
+        addTimeIntegratedPointSource(
+            source, from, to, reinterpret_cast<Real<Cfg>*>(mapping[m].dofs));
       }
     }
   }
 }
 
-std::size_t PointSourceClusterOnHost::size() const { return sources_->numberOfSources; }
+template <typename Cfg>
+std::size_t PointSourceClusterOnHost<Cfg>::size() const {
+  return sources_->numberOfSources;
+}
 
-void PointSourceClusterOnHost::addTimeIntegratedPointSource(std::size_t source,
-                                                            double from,
-                                                            double to,
-                                                            real dofs[tensor::Q<Cfg>::size()]) {
+template <typename Cfg>
+void PointSourceClusterOnHost<Cfg>::addTimeIntegratedPointSource(std::size_t source,
+                                                                 double from,
+                                                                 double to,
+                                                                 Real<Cfg>* dofs) {
   std::array<real, Quantities> update{};
   const auto base = sources_->sampleRange[source];
   const auto localSamples = sources_->sampleRange[source + 1] - base;
@@ -88,5 +95,8 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSource(std::size_t source,
   set_sourceToMultSim(krnl, sourceToMultSim.data());
   krnl.execute();
 }
+
+#define _H_(cfg) template class PointSourceClusterOnHost<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels

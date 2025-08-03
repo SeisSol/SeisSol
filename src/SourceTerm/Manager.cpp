@@ -70,9 +70,10 @@ using namespace seissol::sourceterm;
  * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
  * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
  */
+template <typename Cfg>
 void computeMInvJInvPhisAtSources(
     const Eigen::Vector3d& centre,
-    seissol::memory::AlignedArray<real, tensor::mInvJInvPhisAtSources<Cfg>::size()>&
+    seissol::memory::AlignedArray<Real<Cfg>, tensor::mInvJInvPhisAtSources<Cfg>::size()>&
         mInvJInvPhisAtSources,
     std::size_t meshId,
     const seissol::geometry::MeshReader& mesh) {
@@ -85,7 +86,7 @@ void computeMInvJInvPhisAtSources(
   }
   const auto xiEtaZeta = transformations::tetrahedronGlobalToReference(
       coords[0], coords[1], coords[2], coords[3], centre);
-  const auto basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<real>(
+  const auto basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<Real<Cfg>>(
       Cfg::ConvergenceOrder, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
   const double volume = MeshTools::volume(elements[meshId], vertices);
@@ -99,16 +100,17 @@ void computeMInvJInvPhisAtSources(
   krnl.execute();
 }
 
+template <typename Cfg>
 void transformNRFSourceToInternalSource(const Subfault& subfault,
                                         const Offsets& offsets,
                                         const Offsets& nextOffsets,
                                         const std::array<std::vector<double>, 3>& sliprates,
                                         const seissol::model::Material* material,
-                                        PointSources& pointSources,
+                                        PointSources<Cfg>& pointSources,
                                         std::size_t index,
                                         std::size_t tensorIndex,
                                         seissol::memory::Memkind memkind) {
-  std::array<real, 9> faultBasis{};
+  std::array<Real<Cfg>, 9> faultBasis{};
   faultBasis[0] = subfault.tan1(0);
   faultBasis[1] = subfault.tan1(1);
   faultBasis[2] = subfault.tan1(2);
@@ -140,7 +142,7 @@ void transformNRFSourceToInternalSource(const Subfault& subfault,
     break;
   }
 
-  std::array<real, 81> stiffnessTensorReal{};
+  std::array<Real<Cfg>, 81> stiffnessTensorReal{};
   std::copy(stiffnessTensor.begin(), stiffnessTensor.end(), stiffnessTensorReal.begin());
 
   kernel::transformNRF<Cfg> transformKernel;
@@ -187,21 +189,22 @@ struct NrfFile : public SourceFile {
     return sampleSize;
   }
 
-  void transform(PointSources& sources,
+  template <typename Cfg>
+  void transform(PointSources<Cfg>& sources,
                  std::size_t sourceIndex,
                  std::size_t index,
                  const seissol::model::Material& material,
                  memory::Memkind memkind) {
     const std::size_t nrfIndex = originalIndex[sourceIndex];
-    transformNRFSourceToInternalSource(nrf.subfaults[nrfIndex],
-                                       nrf.sroffsets[nrfIndex],
-                                       nrf.sroffsets[nrfIndex + 1],
-                                       nrf.sliprates,
-                                       &material,
-                                       sources,
-                                       index,
-                                       sources.sampleRange[index],
-                                       memkind);
+    transformNRFSourceToInternalSource<Cfg>(nrf.subfaults[nrfIndex],
+                                            nrf.sroffsets[nrfIndex],
+                                            nrf.sroffsets[nrfIndex + 1],
+                                            nrf.sliprates,
+                                            &material,
+                                            sources,
+                                            index,
+                                            sources.sampleRange[index],
+                                            memkind);
   }
 };
 #endif // defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
@@ -218,7 +221,8 @@ struct FsrmFile : public SourceFile {
     return fsrm.numberOfSamples;
   }
 
-  void transform(PointSources& sources,
+  template <typename Cfg>
+  void transform(PointSources<Cfg>& sources,
                  std::size_t sourceIndex,
                  std::size_t index,
                  const seissol::model::Material& material,
@@ -233,14 +237,15 @@ struct FsrmFile : public SourceFile {
                           fsrm.strikes[fsrmIndex],
                           fsrm.dips[fsrmIndex],
                           fsrm.rakes[fsrmIndex],
-                          tensor);
+                          tensor,
+                          model::MaterialTT<Cfg>::Type);
 
     for (std::size_t i = 0; i < tensor::update<Cfg>::Size; ++i) {
       tensor[i] *= fsrm.areas[fsrmIndex];
     }
-    if (model::MaterialT::Type != model::MaterialType::Poroelastic) {
+    if (model::MaterialTT<Cfg>::Type != model::MaterialType::Poroelastic) {
       for (std::size_t i = 0; i < Cell::Dim; ++i) {
-        tensor[model::MaterialT::TractionQuantities + i] /= material.rho;
+        tensor[model::MaterialTT<Cfg>::TractionQuantities + i] /= material.rho;
       }
     } else {
       logWarning() << "The poroelastic equation does not scale the force components with the "
@@ -342,19 +347,20 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
   return clusterMappings;
 }
 
+template <typename Cfg>
 auto makePointSourceCluster(const ClusterMapping& mapping,
-                            const PointSources& sources,
+                            const PointSources<Cfg>& sources,
                             const std::size_t* meshIds,
                             LTS::Storage& ltsStorage,
                             LTS::Backmap& backmap) -> seissol::kernels::PointSourceClusterPair {
-  auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>>(
-      std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources>(sources));
+  auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources<Cfg>>>(
+      std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources<Cfg>>(sources));
 
 #if defined(ACL_DEVICE)
-  using GpuImpl = seissol::kernels::PointSourceClusterOnDevice;
+  using GpuImpl = seissol::kernels::PointSourceClusterOnDevice<Cfg>;
 
   auto deviceData =
-      [&]() -> std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources>> {
+      [&]() -> std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources<Cfg>>> {
     if (useUSM()) {
       return hostData;
     } else {
@@ -367,17 +373,17 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
                        seissol::initializer::AllocationPlace::Device);
       auto deviceClusterMapping =
           std::make_shared<ClusterMapping>(predeviceClusterMapping, GpuMemkind);
-      auto devicePointSources = std::make_shared<PointSources>(sources, GpuMemkind);
+      auto devicePointSources = std::make_shared<PointSources<Cfg>>(sources, GpuMemkind);
       return {deviceClusterMapping, devicePointSources};
     }
   }();
 #else
-  using GpuImpl = seissol::kernels::PointSourceClusterOnHost;
+  using GpuImpl = seissol::kernels::PointSourceClusterOnHost<Cfg>;
   auto deviceData = hostData;
 #endif
 
   return seissol::kernels::PointSourceClusterPair{
-      std::make_unique<kernels::PointSourceClusterOnHost>(hostData.first, hostData.second),
+      std::make_unique<kernels::PointSourceClusterOnHost<Cfg>>(hostData.first, hostData.second),
       std::make_unique<GpuImpl>(deviceData.first, deviceData.second)};
 }
 
@@ -438,54 +444,58 @@ auto loadSourceFile(const char* fileName,
   std::vector<seissol::kernels::PointSourceClusterPair> sourceCluster(ltsStorage.numChildren());
 
   for (std::size_t cluster = 0; cluster < ltsStorage.numChildren(); ++cluster) {
-    auto numberOfSources = clusterMappings[cluster].sources.size();
+    const auto numberOfSources = clusterMappings[cluster].sources.size();
 
-    auto sources = PointSources{memkind};
-    sources.numberOfSources = numberOfSources;
-    sources.mInvJInvPhisAtSources.resize(numberOfSources);
+    ltsStorage.layer(cluster).wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
 
-    std::size_t dataSourceCount = 0;
-    std::size_t sampleCount = 0;
+      auto sources = PointSources<Cfg>{memkind};
+      sources.numberOfSources = numberOfSources;
+      sources.mInvJInvPhisAtSources.resize(numberOfSources);
 
-    for (std::size_t i = 0; i < numberOfSources; ++i) {
-      const auto sourceIndex = clusterMappings[cluster].sources[i];
-      dataSourceCount += file.dataSources(sourceIndex);
-      sampleCount += file.sampleCount(sourceIndex);
-    }
+      std::size_t dataSourceCount = 0;
+      std::size_t sampleCount = 0;
 
-    sources.tensor.resize(dataSourceCount * tensor::update<Cfg>::Size);
-    sources.onsetTime.resize(numberOfSources);
-    sources.samplingInterval.resize(numberOfSources);
-    sources.sampleOffsets.resize(dataSourceCount + 1);
-    sources.sampleOffsets[0] = 0;
-    sources.sample.resize(sampleCount);
+      for (std::size_t i = 0; i < numberOfSources; ++i) {
+        const auto sourceIndex = clusterMappings[cluster].sources[i];
+        dataSourceCount += file.dataSources(sourceIndex);
+        sampleCount += file.sampleCount(sourceIndex);
+      }
 
-    sources.sampleRange.resize(numberOfSources + 1);
-    sources.sampleRange[0] = 0;
-    for (std::size_t i = 0; i < numberOfSources; ++i) {
-      const auto sourceIndex = clusterMappings[cluster].sources[i];
-      sources.sampleRange[i + 1] = sources.sampleRange[i] + file.dataSources(sourceIndex);
-    }
+      sources.tensor.resize(dataSourceCount * tensor::update<Cfg>::Size);
+      sources.onsetTime.resize(numberOfSources);
+      sources.samplingInterval.resize(numberOfSources);
+      sources.sampleOffsets.resize(dataSourceCount + 1);
+      sources.sampleOffsets[0] = 0;
+      sources.sample.resize(sampleCount);
 
-    sources.simulationIndex.resize(numberOfSources);
+      sources.sampleRange.resize(numberOfSources + 1);
+      sources.sampleRange[0] = 0;
+      for (std::size_t i = 0; i < numberOfSources; ++i) {
+        const auto sourceIndex = clusterMappings[cluster].sources[i];
+        sources.sampleRange[i + 1] = sources.sampleRange[i] + file.dataSources(sourceIndex);
+      }
 
-    for (std::size_t clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
-      const std::size_t sourceIndex = clusterMappings[cluster].sources[clusterSource];
-      const auto fileIndex = originalIndex[sourceIndex];
+      sources.simulationIndex.resize(numberOfSources);
 
-      sources.simulationIndex[clusterSource] = fileIndex % multisim::NumSimulations;
-      computeMInvJInvPhisAtSources(points[fileIndex],
-                                   sources.mInvJInvPhisAtSources[clusterSource],
-                                   meshIds[sourceIndex],
-                                   mesh);
+      for (std::size_t clusterSource = 0; clusterSource < numberOfSources; ++clusterSource) {
+        const std::size_t sourceIndex = clusterMappings[cluster].sources[clusterSource];
+        const auto fileIndex = originalIndex[sourceIndex];
 
-      const auto position = backmap.get(meshIds[sourceIndex]);
-      const auto& material = *ltsStorage.lookup<LTS::Material>(position).local;
-      file.transform(sources, sourceIndex, clusterSource, material, memkind);
-    }
+        sources.simulationIndex[clusterSource] = fileIndex % multisim::NumSimulations;
+        computeMInvJInvPhisAtSources<Cfg>(points[fileIndex],
+                                          sources.mInvJInvPhisAtSources[clusterSource],
+                                          meshIds[sourceIndex],
+                                          mesh);
 
-    sourceCluster[cluster] = makePointSourceCluster(
-        clusterMappings[cluster], sources, meshIds.data(), ltsStorage, backmap);
+        const auto position = backmap.get(meshIds[sourceIndex]);
+        const auto& material = *ltsStorage.lookup<LTS::Material>(position).local;
+        file.template transform<Cfg>(sources, sourceIndex, clusterSource, material, memkind);
+      }
+
+      sourceCluster[cluster] = makePointSourceCluster<Cfg>(
+          clusterMappings[cluster], sources, meshIds.data(), ltsStorage, backmap);
+    });
   }
 
   logInfo() << ".. finished point source initialization.";

@@ -32,7 +32,9 @@ namespace seissol::sourceterm {
  * (usually a scaling factor (1 / |J|) is applied due to the coordinate transformation (x,y,z) ->
  *(xi,eta,zeta))
  **/
+template <typename Cfg>
 struct PointSources {
+  using real = Real<Cfg>;
 
   /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is
    * the l-th basis function and xi_s, eta_s, and zeta_s are the space position
@@ -93,7 +95,7 @@ struct PointSources {
 
 struct CellToPointSourcesMapping {
   //! Pointer to DOFs
-  real (*dofs)[tensor::Q<Cfg>::size()]{};
+  void* dofs{nullptr};
   //! First point source that has an effect on the cell
   std::size_t pointSourcesOffset{0};
   /** The point sources buffer is ordered by cells, hence the point sources
