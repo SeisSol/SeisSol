@@ -51,7 +51,8 @@ GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::linearck {
 
-void Local::setGlobalData(const CompoundGlobalData& global) {
+  template<typename Cfg>
+void Local<Cfg>::setGlobalData(const CompoundGlobalData& global) {
   m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
   m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
   m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
@@ -77,12 +78,13 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
+template<typename Cfg>
 struct ApplyAnalyticalSolution {
   ApplyAnalyticalSolution(const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
                           LTS::Ref& data)
       : initConditions(initConditions), localData(data) {}
 
-  void operator()(const real* nodes, double time, seissol::init::INodal<Cfg>::view::type& boundaryDofs) {
+  void operator()(const real* nodes, double time, typename seissol::init::INodal<Cfg>::view::type& boundaryDofs) {
     assert(initConditions != nullptr);
 
     constexpr auto NodeCount = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension];
@@ -107,7 +109,8 @@ struct ApplyAnalyticalSolution {
   LTS::Ref& localData;
 };
 
-void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
+template<typename Cfg>
+void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
                             LTS::Ref& data,
                             LocalTmp<Cfg>& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
@@ -159,10 +162,10 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::
       auto* displ = tmp.nodalAvgDisplacements[face].data();
       auto displacement = init::averageNormalDisplacement<Cfg>::view::create(displ);
       // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
-      const auto localG = gravitationalAcceleration;
+      const auto localG = this->gravitationalAcceleration;
       auto applyFreeSurfaceBc =
-          [&displacement, &materialData, &localG](const real*, // nodes are unused
-                                                  init::INodal<Cfg>::view::type& boundaryDofs) {
+          [&](const real*, // nodes are unused
+              typename init::INodal<Cfg>::view::type& boundaryDofs) {
             for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
               auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
               auto slicedDisplacement = multisim::simtensor(displacement, s);
@@ -198,7 +201,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
       auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
-                                   const real* nodes, init::INodal<Cfg>::view::type& boundaryDofs) {
+                                   const real* nodes, typename init::INodal<Cfg>::view::type& boundaryDofs) {
         seissol::kernel::createEasiBoundaryGhostCells<Cfg> easiBoundaryKernel;
         easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
         easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
@@ -224,8 +227,8 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::
     }
     case FaceType::Analytical: {
       assert(cellBoundaryMapping != nullptr);
-      assert(initConds != nullptr);
-      ApplyAnalyticalSolution applyAnalyticalSolution(initConds, data);
+      assert(this->initConds != nullptr);
+      ApplyAnalyticalSolution<Cfg> applyAnalyticalSolution(this->initConds, data);
 
       dirichletBoundary.evaluateTimeDependent(timeIntegratedDegreesOfFreedom,
                                               face,
@@ -245,7 +248,8 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::
   }
 }
 
-void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
+template<typename Cfg>
+void Local<Cfg>::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
                                    ConditionalMaterialTable& materialTable,
                                    ConditionalIndicesTable& indicesTable,
                                    double timeStepWidth,
@@ -347,7 +351,8 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 #endif
 }
 
-void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
+template<typename Cfg>
+void Local<Cfg>::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
                                            ConditionalIndicesTable& indicesTable,
                                            LTS::Layer& layer,
                                            double time,
@@ -371,8 +376,8 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
 
         alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
 
-        assert(initConds != nullptr);
-        ApplyAnalyticalSolution applyAnalyticalSolution(initConds, data);
+        assert(this->initConds != nullptr);
+        ApplyAnalyticalSolution<Cfg> applyAnalyticalSolution(this->initConds, data);
 
         dirichletBoundary.evaluateTimeDependent(nullptr,
                                                 face,
@@ -407,7 +412,8 @@ void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& data
 #endif // ACL_DEVICE
 }
 
-void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
+template<typename Cfg>
+void Local<Cfg>::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
                           std::uint64_t& nonZeroFlops,
                           std::uint64_t& hardwareFlops) {
   nonZeroFlops = seissol::kernel::volume<Cfg>::NonZeroFlops;
@@ -450,7 +456,8 @@ void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
   }
 }
 
-std::uint64_t Local::bytesIntegral() {
+template<typename Cfg>
+std::uint64_t Local<Cfg>::bytesIntegral() {
   std::uint64_t reals = 0;
 
   // star matrices load
@@ -463,5 +470,8 @@ std::uint64_t Local::bytesIntegral() {
 
   return reals * sizeof(real);
 }
+
+#define _H_(cfg) template class Local<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels::solver::linearck

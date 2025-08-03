@@ -22,8 +22,11 @@
 
 namespace seissol::kernels {
 
+template<typename Cfg>
 class TimeKernel : public Kernel {
   public:
+  using real = Real<Cfg>;
+
   ~TimeKernel() override = default;
 
   virtual void evaluate(const real* coeffs,

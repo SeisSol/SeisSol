@@ -130,7 +130,7 @@ void MemoryManager::fixateBoundaryStorage() {
 
 #ifdef ACL_DEVICE
 void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage) {
-  constexpr size_t totalDerivativesSize = kernels::Solver::DerivativesSize;
+  constexpr size_t totalDerivativesSize = kernels::Solver<Cfg>::DerivativesSize;
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement<Cfg>::size();
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {

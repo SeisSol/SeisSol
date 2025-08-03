@@ -88,10 +88,10 @@ void ProxyKernelDeviceNeighbor::run(ProxyData& data,
   const double timeStepWidth = static_cast<double>(Timestep);
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
 
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto timeCoeffs = timeBasis.integrate(0, Timestep, Timestep);
 
-  seissol::kernels::TimeCommon::computeBatchedIntegrals(
+  seissol::kernels::TimeCommon<Cfg>::computeBatchedIntegrals(
       data.timeKernel, timeCoeffs.data(), timeCoeffs.data(), dataTable, runtime);
 
   ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
@@ -109,7 +109,7 @@ void ProxyKernelDeviceGodunovDR::run(ProxyData& data,
 
   const auto [timePoints, timeWeights] =
       seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
-  const auto coeffsCollocate = seissol::kernels::timeBasis().collocate(timePoints, Timestep);
+  const auto coeffsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, Timestep);
 
   ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
   auto computeGraphKey = initializer::GraphKey(graphType, 0.0);

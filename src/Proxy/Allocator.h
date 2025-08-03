@@ -42,13 +42,13 @@ struct ProxyData {
   real* fakeDerivatives = nullptr;
   real* fakeDerivativesHost = nullptr;
 
-  typename kernels::Solver::TimeBasis<real> timeBasis{Config::ConvergenceOrder};
+  typename kernels::Solver<Config>::TimeBasis<real> timeBasis{Config::ConvergenceOrder};
 
-  kernels::Spacetime spacetimeKernel;
-  kernels::Time timeKernel;
-  kernels::Local localKernel;
-  kernels::Neighbor neighborKernel;
-  kernels::DynamicRupture dynRupKernel;
+  kernels::Spacetime<Cfg> spacetimeKernel;
+  kernels::Time<Cfg> timeKernel;
+  kernels::Local<Cfg> localKernel;
+  kernels::Neighbor<Cfg> neighborKernel;
+  kernels::DynamicRupture<Cfg> dynRupKernel;
 
   seissol::memory::ManagedAllocator allocator;
 

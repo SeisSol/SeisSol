@@ -20,12 +20,15 @@
 
 namespace seissol::kernels {
 
+template<typename Cfg>
 class LocalKernel : public Kernel {
   protected:
   double gravitationalAcceleration{9.81};
   const std::vector<std::unique_ptr<physics::InitialField>>* initConds;
 
   public:
+  using real = Real<Cfg>;
+
   ~LocalKernel() override = default;
   void setGravitationalAcceleration(double g) { gravitationalAcceleration = g; }
   void setInitConds(decltype(initConds) initConds) { this->initConds = initConds; }

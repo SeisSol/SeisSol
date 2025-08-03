@@ -24,8 +24,11 @@
 
 namespace seissol::kernels {
 
+template<typename Cfg>
 class SpacetimeKernel : public Kernel {
   public:
+  using real = Real<Cfg>;
+
   ~SpacetimeKernel() override = default;
   virtual void computeAder(const real* coeffs,
                            double timeStepWidth,

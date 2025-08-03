@@ -112,8 +112,8 @@ class ReceiverCluster {
   std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector{nullptr};
   std::vector<size_t> deviceIndices;
   std::vector<Receiver> m_receivers;
-  seissol::kernels::Spacetime spacetimeKernel;
-  seissol::kernels::Time timeKernel;
+  seissol::kernels::Spacetime<Cfg> spacetimeKernel;
+  seissol::kernels::Time<Cfg> timeKernel;
   std::vector<unsigned> m_quantities;
   std::uint64_t m_nonZeroFlops{};
   std::uint64_t m_hardwareFlops{};

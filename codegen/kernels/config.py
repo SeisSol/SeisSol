@@ -56,8 +56,7 @@ def make_configincludefile(configs):
     configincludes = "\n".join(f"_H_(Config{i});" for i, _ in enumerate(configs))
 
     return f"""
-#ifndef SEISSOL_CONFIGINCLUDE_H_
-#define SEISSOL_CONFIGINCLUDE_H_
+// (include guard knowlingly omitted)
 
 // Config instantiation file.
 // Needed due to C++ not allowing to define templates in source files.
@@ -69,6 +68,4 @@ def make_configincludefile(configs):
 {configincludes}
 
 #undef _H_
-
-#endif
 """

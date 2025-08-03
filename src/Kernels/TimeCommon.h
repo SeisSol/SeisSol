@@ -16,6 +16,8 @@
 #include <Initializer/LtsSetup.h>
 
 namespace seissol::kernels {
+
+template<typename Cfg>
 struct TimeCommon {
   /**
    * Either copies pointers to the DOFs in the time buffer or integrates the DOFs via time
@@ -45,7 +47,7 @@ struct TimeCommon {
    * @param timeIntegrated pointers to the time integrated DOFs of the four neighboring cells
    *(either local integration buffer or integration buffer of input).
    **/
-  static void computeIntegrals(Time& time,
+  static void computeIntegrals(Time<Cfg>& time,
                                const LtsSetup& ltsSetup,
                                const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                const real* timeCoeffs,
@@ -54,7 +56,7 @@ struct TimeCommon {
                                real integrationBuffer[4][tensor::I<Cfg>::size()],
                                real* timeIntegrated[4]);
 
-  static void computeBatchedIntegrals(Time& time,
+  static void computeBatchedIntegrals(Time<Cfg>& time,
                                       const real* timeCoeffs,
                                       const real* subtimeCoeffs,
                                       ConditionalPointersToRealsTable& table,

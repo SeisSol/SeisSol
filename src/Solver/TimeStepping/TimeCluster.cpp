@@ -199,7 +199,7 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
 
   const auto [timePoints, timeWeights] =
       seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timeStepSize());
-  const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timeStepSize());
+  const auto pointsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, timeStepSize());
   const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
 #pragma omp parallel
@@ -260,7 +260,7 @@ void TimeCluster::computeDynamicRuptureDevice(DynamicRupture::Layer& layerData) 
 
     const auto [timePoints, timeWeights] =
         seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timeStepSize());
-    const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, stepSizeWidth);
+    const auto pointsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, stepSizeWidth);
     const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
     streamRuntime.runGraph(
@@ -335,7 +335,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   kernels::LocalTmp<Cfg> tmp(seissolInstance.getGravitationSetup().acceleration);
 
   const auto timeStepWidth = timeStepSize();
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
 #ifdef _OPENMP
@@ -422,7 +422,7 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
   kernels::LocalTmp<Cfg> tmp(seissolInstance.getGravitationSetup().acceleration);
 
   const double timeStepWidth = timeStepSize();
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
   ComputeGraphType graphType =
@@ -511,12 +511,12 @@ void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
   const double timeStepWidth = timeStepSize();
   auto& table = clusterData->getConditionalTable<inner_keys::Wp>();
 
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto timeCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
   const auto subtimeCoeffs =
       timeBasis.integrate(subTimeStart, timeStepWidth + subTimeStart, neighborTimestep);
 
-  seissol::kernels::TimeCommon::computeBatchedIntegrals(
+  seissol::kernels::TimeCommon<Cfg>::computeBatchedIntegrals(
       timeKernel, timeCoeffs.data(), subtimeCoeffs.data(), table, streamRuntime);
 
   ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
@@ -894,7 +894,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   const auto oneMinusIntegratingFactor =
       seissol::kernels::Plasticity<Cfg>::computeRelaxTime(tV, timeStepSize());
 
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto timeCoeffs = timeBasis.integrate(0, timestep, timestep);
   const auto subtimeCoeffs =
       timeBasis.integrate(subTimeStart, timestep + subTimeStart, neighborTimestep);
@@ -917,7 +917,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   for (std::size_t cell = 0; cell < clusterData->size(); cell++) {
     auto data = clusterData->cellRef(cell);
 
-    seissol::kernels::TimeCommon::computeIntegrals(
+    seissol::kernels::TimeCommon<Cfg>::computeIntegrals(
         timeKernel,
         data.get<LTS::CellInformation>().ltsSetup,
         data.get<LTS::CellInformation>().faceTypes,

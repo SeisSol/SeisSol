@@ -24,7 +24,8 @@ struct GlobalData;
 
 namespace seissol::kernels::solver::linearck {
 
-class Neighbor : public NeighborKernel {
+template<typename Cfg>
+class Neighbor : public NeighborKernel<Cfg> {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
 

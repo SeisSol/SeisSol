@@ -18,8 +18,11 @@
 
 namespace seissol::kernels {
 
+template<typename Cfg>
 class NeighborKernel : public Kernel {
   public:
+  using real = Real<Cfg>;
+
   ~NeighborKernel() override = default;
 
   virtual void computeNeighborsIntegral(LTS::Ref& data,

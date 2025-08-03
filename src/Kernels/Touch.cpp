@@ -37,7 +37,7 @@ void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned number
     // touch derivatives
     real* derivative = derivatives[cell];
     if (derivative != nullptr) {
-      for (std::size_t dof = 0; dof < seissol::kernels::Solver::DerivativesSize; ++dof) {
+      for (std::size_t dof = 0; dof < seissol::kernels::Solver<Cfg>::DerivativesSize; ++dof) {
         derivative[dof] = static_cast<real>(0);
       }
     }

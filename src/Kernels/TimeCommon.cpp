@@ -34,7 +34,9 @@
 #endif
 
 namespace seissol::kernels {
-void TimeCommon::computeIntegrals(Time& time,
+
+template<typename Cfg>
+void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
                                   const LtsSetup& ltsSetup,
                                   const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                   const real* timeCoeffs,
@@ -77,7 +79,8 @@ void TimeCommon::computeIntegrals(Time& time,
   }
 }
 
-void TimeCommon::computeBatchedIntegrals(Time& time,
+template<typename Cfg>
+void TimeCommon<Cfg>::computeBatchedIntegrals(Time<Cfg>& time,
                                          const real* timeCoeffs,
                                          const real* subtimeCoeffs,
                                          ConditionalPointersToRealsTable& table,
@@ -112,5 +115,8 @@ void TimeCommon::computeBatchedIntegrals(Time& time,
   logError() << "No GPU implementation provided";
 #endif
 }
+
+#define _H_(cfg) template class TimeCommon<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels

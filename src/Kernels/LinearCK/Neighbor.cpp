@@ -37,7 +37,9 @@
 #endif
 
 namespace seissol::kernels::solver::linearck {
-void Neighbor::setGlobalData(const CompoundGlobalData& global) {
+
+template<typename Cfg>
+void Neighbor<Cfg>::setGlobalData(const CompoundGlobalData& global) {
 
   m_nfKrnlPrototype.rDivM = global.onHost->changeOfBasisMatrices;
   m_nfKrnlPrototype.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
@@ -59,7 +61,8 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
+template<typename Cfg>
+void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref& data,
                                         const CellDRMapping (&cellDrMapping)[4],
                                         real* timeIntegrated[4],
                                         real* faceNeighborsPrefetch[4]) {
@@ -105,7 +108,8 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref& data,
   }
 }
 
-void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
+template<typename Cfg>
+void Neighbor<Cfg>::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
                                                seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux<Cfg> neighFluxKrnl = deviceNfKrnlPrototype;
@@ -179,7 +183,8 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
 #endif
 }
 
-void Neighbor::flopsNeighborsIntegral(
+template<typename Cfg>
+void Neighbor<Cfg>::flopsNeighborsIntegral(
     const std::array<FaceType, Cell::NumFaces>& faceTypes,
     const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
     const CellDRMapping (&cellDrMapping)[4],
@@ -219,7 +224,8 @@ void Neighbor::flopsNeighborsIntegral(
   }
 }
 
-std::uint64_t Neighbor::bytesNeighborsIntegral() {
+template<typename Cfg>
+std::uint64_t Neighbor<Cfg>::bytesNeighborsIntegral() {
   std::uint64_t reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write
@@ -229,5 +235,8 @@ std::uint64_t Neighbor::bytesNeighborsIntegral() {
 
   return reals * sizeof(real);
 }
+
+#define _H_(cfg) template class Neighbor<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels::solver::linearck

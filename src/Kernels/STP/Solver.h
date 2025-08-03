@@ -16,7 +16,9 @@ class LegendreBasis;
 } // namespace seissol::numerical
 
 namespace seissol::kernels::solver::linearck {
+template<typename>
 class Local;
+template<typename>
 class Neighbor;
 } // namespace seissol::kernels::solver::linearck
 
@@ -30,10 +32,14 @@ class Spacetime;
 class Time;
 
 struct Solver {
+  template<typename Cfg>
   using SpacetimeKernelT = Spacetime;
+  template<typename Cfg>
   using TimeKernelT = Time;
-  using LocalKernelT = linearck::Local;
-  using NeighborKernelT = linearck::Neighbor;
+  template<typename Cfg>
+  using LocalKernelT = linearck::Local<Cfg>;
+  template<typename Cfg>
+  using NeighborKernelT = linearck::Neighbor<Cfg>;
 
   template <typename RealT>
   using TimeBasis = seissol::numerical::LegendreBasis<RealT>;

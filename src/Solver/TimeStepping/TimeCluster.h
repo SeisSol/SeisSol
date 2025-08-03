@@ -68,17 +68,17 @@ class TimeCluster : public AbstractTimeCluster {
   /*
    * integrators
    */
-  kernels::Spacetime spacetimeKernel;
+  kernels::Spacetime<Cfg> spacetimeKernel;
   //! time kernel
-  kernels::Time timeKernel;
+  kernels::Time<Cfg> timeKernel;
 
   //! local kernel
-  kernels::Local localKernel;
+  kernels::Local<Cfg> localKernel;
 
   //! neighbor kernel
-  kernels::Neighbor neighborKernel;
+  kernels::Neighbor<Cfg> neighborKernel;
 
-  kernels::DynamicRupture dynamicRuptureKernel;
+  kernels::DynamicRupture<Cfg> dynamicRuptureKernel;
 
   seissol::parallel::runtime::StreamRuntime streamRuntime;
 

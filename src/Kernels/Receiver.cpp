@@ -131,7 +131,7 @@ double ReceiverCluster::calcReceivers(double time,
     }
   }
 
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     const std::size_t recvCount = m_receivers.size();
@@ -140,7 +140,7 @@ double ReceiverCluster::calcReceivers(double time,
       alignas(Alignment) real timeEvaluated[tensor::Q<Cfg>::size()];
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint<Cfg>::size()];
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint<Cfg>::size()];
-      alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize];
+      alignas(PagesizeStack) real timeDerivatives[Solver<Cfg>::DerivativesSize];
 
       kernels::LocalTmp<Cfg> tmp(seissolInstance.getGravitationSetup().acceleration);
 

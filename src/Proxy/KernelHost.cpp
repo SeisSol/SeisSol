@@ -167,7 +167,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
   real* timeIntegrated[4];
   real* faceNeighborsPrefetch[4];
 
-  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto timeCoeffs = timeBasis.integrate(0, Timestep, Timestep);
 
   // note: we use GTS here, in all cases
@@ -182,7 +182,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
 #endif
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef(cell);
-      seissol::kernels::TimeCommon::computeIntegrals(
+      seissol::kernels::TimeCommon<Cfg>::computeIntegrals(
           data.timeKernel,
           cellInformation[cell].ltsSetup,
           cellInformation[cell].faceTypes,
@@ -269,7 +269,7 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
   alignas(Alignment) real qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
   const auto [timePoints, timeWeights] =
       seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
-  const auto coeffsCollocate = seissol::kernels::timeBasis().collocate(timePoints, Timestep);
+  const auto coeffsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, Timestep);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) private(qInterpolatedPlus, qInterpolatedMinus)

@@ -50,7 +50,9 @@ GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::linearck {
-void Spacetime::setGlobalData(const CompoundGlobalData& global) {
+
+template<typename Cfg>
+void Spacetime<Cfg>::setGlobalData(const CompoundGlobalData& global) {
   m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
   projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onHost->v3mTo2nFace;
 
@@ -62,7 +64,8 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Spacetime::computeAder(const real* coeffs,
+template<typename Cfg>
+void Spacetime<Cfg>::computeAder(const real* coeffs,
                             double timeStepWidth,
                             LTS::Ref& data,
                             LocalTmp<Cfg>& tmp,
@@ -136,7 +139,8 @@ void Spacetime::computeAder(const real* coeffs,
   }
 }
 
-void Spacetime::computeBatchedAder(const real* coeffs,
+template<typename Cfg>
+void Spacetime<Cfg>::computeBatchedAder(const real* coeffs,
                                    double timeStepWidth,
                                    LocalTmp<Cfg>& tmp,
                                    ConditionalPointersToRealsTable& dataTable,
@@ -203,12 +207,14 @@ void Spacetime::computeBatchedAder(const real* coeffs,
 #endif
 }
 
-void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
+template<typename Cfg>
+void Spacetime<Cfg>::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::derivative<Cfg>::NonZeroFlops;
   hardwareFlops = kernel::derivative<Cfg>::HardwareFlops;
 }
 
-std::uint64_t Spacetime::bytesAder() {
+template<typename Cfg>
+std::uint64_t Spacetime<Cfg>::bytesAder() {
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -221,7 +227,8 @@ std::uint64_t Spacetime::bytesAder() {
   return reals * sizeof(real);
 }
 
-void Time::evaluate(const real* coeffs,
+template<typename Cfg>
+void Time<Cfg>::evaluate(const real* coeffs,
                     const real* timeDerivatives,
                     real timeEvaluated[tensor::Q<Cfg>::size()]) {
   /*
@@ -241,7 +248,8 @@ void Time::evaluate(const real* coeffs,
   krnl.execute();
 }
 
-void Time::evaluateBatched(const real* coeffs,
+template<typename Cfg>
+void Time<Cfg>::evaluateBatched(const real* coeffs,
                            const real** timeDerivatives,
                            real** timeIntegratedDofs,
                            std::size_t numElements,
@@ -275,11 +283,19 @@ void Time::evaluateBatched(const real* coeffs,
 #endif
 }
 
-void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
+template<typename Cfg>
+void Time<Cfg>::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::derivativeTaylorExpansion<Cfg>::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansion<Cfg>::HardwareFlops;
 }
 
-void Time::setGlobalData(const CompoundGlobalData& global) {}
+template<typename Cfg>
+void Time<Cfg>::setGlobalData(const CompoundGlobalData& global) {}
+
+#define _H_(cfg) template class Spacetime<cfg>;
+#include "ConfigInclude.h"
+
+#define _H_(cfg) template class Time<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels::solver::linearck

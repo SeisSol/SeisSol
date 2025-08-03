@@ -36,7 +36,8 @@
 
 namespace seissol::kernels {
 
-void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
+template<typename Cfg>
+void DynamicRupture<Cfg>::setGlobalData(const CompoundGlobalData& global) {
   m_krnlPrototype.V3mTo2n = global.onHost->faceToNodalMatrices;
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -46,7 +47,8 @@ void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
   m_timeKernel.setGlobalData(global);
 }
 
-void DynamicRupture::spaceTimeInterpolation(
+template<typename Cfg>
+void DynamicRupture<Cfg>::spaceTimeInterpolation(
     const DRFaceInformation& faceInfo,
     const GlobalData* global,
     const DRGodunovData<Cfg>* godunovData,
@@ -101,7 +103,8 @@ void DynamicRupture::spaceTimeInterpolation(
   }
 }
 
-void DynamicRupture::batchedSpaceTimeInterpolation(
+template<typename Cfg>
+void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
     DrConditionalPointersToRealsTable& table,
     const real* coeffs,
     seissol::parallel::runtime::StreamRuntime& runtime) {
@@ -199,7 +202,8 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 #endif
 }
 
-void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
+template<typename Cfg>
+void DynamicRupture<Cfg>::flopsGodunovState(const DRFaceInformation& faceInfo,
                                        std::uint64_t& nonZeroFlops,
                                        std::uint64_t& hardwareFlops) {
   m_timeKernel.flopsEvaluate(nonZeroFlops, hardwareFlops);
@@ -221,5 +225,8 @@ void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
   nonZeroFlops *= Cfg::ConvergenceOrder;
   hardwareFlops *= Cfg::ConvergenceOrder;
 }
+
+#define _H_(cfg) template class DynamicRupture<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels
