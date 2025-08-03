@@ -115,7 +115,7 @@ class WaveFieldWriterExecutor {
       varNames->emplace_back(quantity);
       varNamesLowRes->emplace_back("low_" + quantity);
     }
-    for (const auto& quantity : seissol::model::PlasticityData::Quantities) {
+    for (const auto& quantity : seissol::model::PlasticityData<Real<Cfg>>::Quantities) {
       varNames->emplace_back(quantity);
       varNamesLowRes->emplace_back("low_" + quantity);
     }
@@ -124,7 +124,7 @@ class WaveFieldWriterExecutor {
     for (unsigned int i = 0; i < m_numVariables; i++) {
       if (m_outputFlags[i]) {
         assert(i < seissol::model::MaterialT::Quantities.size() +
-                       seissol::model::PlasticityData::Quantities.size());
+                       seissol::model::PlasticityData<Real<Cfg>>::Quantities.size());
         variables.push_back(varNames->at(i).c_str());
       }
     }

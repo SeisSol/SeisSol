@@ -123,7 +123,10 @@ struct LTS {
     using VariantType = model::MaterialTT<Cfg>;
   };
   struct Material : public initializer::Variable<CellMaterialData> {};
-  struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
+  struct Plasticity : public initializer::Variable<seissol::model::PlasticityData<Real<Cfg>>> {
+    template<typename Cfg>
+    using VariantType = seissol::model::PlasticityData<Real<Cfg>>;
+  };
   struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
   struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
   struct PStrain

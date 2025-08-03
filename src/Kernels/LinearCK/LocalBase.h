@@ -32,6 +32,8 @@ namespace seissol::kernels::solver::linearck {
 template<typename Cfg>
 class Local : public LocalKernel<Cfg> {
   public:
+  using real = Real<Cfg>;
+
   void setGlobalData(const CompoundGlobalData& global) override;
   void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
                        LTS::Ref& data,

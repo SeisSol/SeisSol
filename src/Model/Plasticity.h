@@ -15,12 +15,13 @@
 
 namespace seissol::model {
 // plasticity information per cell
+template<typename RealT>
 struct PlasticityData {
   // initial loading (stress tensor)
-  real initialLoading[6];
-  real cohesionTimesCosAngularFriction;
-  real sinAngularFriction;
-  real mufactor;
+  RealT initialLoading[6];
+  RealT cohesionTimesCosAngularFriction;
+  RealT sinAngularFriction;
+  RealT mufactor;
 
   PlasticityData(const Plasticity& plasticity, const Material* material) {
     initialLoading[0] = plasticity.sXX;

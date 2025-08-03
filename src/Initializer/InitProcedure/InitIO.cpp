@@ -291,11 +291,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         }
       }
       if (seissolParams.model.plasticity) {
-        for (std::size_t quantity = 0; quantity < seissol::model::PlasticityData::Quantities.size();
+        for (std::size_t quantity = 0; quantity < seissol::model::PlasticityData<Cfg>::Quantities.size();
              ++quantity) {
           if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
             writer.addPointData<real>(
-                namewrap(seissol::model::PlasticityData::Quantities[quantity], sim),
+                namewrap(seissol::model::PlasticityData<Cfg>::Quantities[quantity], sim),
                 {},
                 [=, &ltsStorage, &backmap](real* target, std::size_t index) {
                   const auto position = backmap.get(cellIndices[index]);

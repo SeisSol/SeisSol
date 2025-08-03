@@ -24,12 +24,12 @@
 namespace seissol::model {
 
 template <typename Cfg, typename Tview>
-static void calcZinv(yateto::DenseTensorView<2, real, unsigned>& Zinv,
+static void calcZinv(yateto::DenseTensorView<2, Real<Cfg>, unsigned>& Zinv,
                      Tview& sourceMatrix,
                      size_t quantity,
-                     real timeStepWidth) {
-  using Matrix = Eigen::Matrix<real, Cfg::ConvergenceOrder, Cfg::ConvergenceOrder>;
-  using Vector = Eigen::Matrix<real, Cfg::ConvergenceOrder, 1>;
+                     Real<Cfg> timeStepWidth) {
+  using Matrix = Eigen::Matrix<Real<Cfg>, Cfg::ConvergenceOrder, Cfg::ConvergenceOrder>;
+  using Vector = Eigen::Matrix<Real<Cfg>, Cfg::ConvergenceOrder, 1>;
 
   Matrix Z(init::Z<Cfg>::Values);
   // sourceMatrix[i,i] = 0 for i < 10
@@ -52,16 +52,16 @@ static void calcZinv(yateto::DenseTensorView<2, real, unsigned>& Zinv,
 }
 
 // constexpr for loop since we need to instatiate the view templates
-template <size_t iStart, size_t iEnd, typename Tview>
+template <typename Cfg, size_t iStart, size_t iEnd, typename Tview>
 struct zInvInitializerForLoop {
   zInvInitializerForLoop(
       Real<Cfg> ZinvData[PoroElasticMaterial::NumQuantities][Cfg::ConvergenceOrder * Cfg::ConvergenceOrder],
       Tview& sourceMatrix,
       Real<Cfg> timeStepWidth) {
-    auto Zinv = init::Zinv<Cfg>::view<iStart>::create(ZinvData[iStart]);
+    auto Zinv = init::Zinv<Cfg>::template view<iStart>::create(ZinvData[iStart]);
     calcZinv<Cfg>(Zinv, sourceMatrix, iStart, timeStepWidth);
-    if constexpr (iStart < iEnd - 1) {
-      zInvInitializerForLoop<iStart + 1, iEnd, Tview>(ZinvData, sourceMatrix, timeStepWidth);
+    if constexpr (iStart + 1 < iEnd) {
+      zInvInitializerForLoop<Cfg, iStart + 1, iEnd, Tview>(ZinvData, sourceMatrix, timeStepWidth);
     }
   };
 };
@@ -340,7 +340,7 @@ struct MaterialSetup<PoroElasticMaterial> {
     sourceMatrix.setZero();
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
 
-    zInvInitializerForLoop<0, PoroElasticMaterial::NumQuantities, decltype(sourceMatrix)>(
+    zInvInitializerForLoop<Cfg, 0, PoroElasticMaterial::NumQuantities, decltype(sourceMatrix)>(
         localData->Zinv, sourceMatrix, timeStepWidth);
     std::fill(localData->G, localData->G + PoroElasticMaterial::NumQuantities, 0.0);
     localData->G[10] = sourceMatrix(10, 6);

@@ -41,7 +41,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
     }
     m_krnlPrototype.selectModes(n) = init::selectModes<Cfg>::Values[tensor::selectModes<Cfg>::index(n)];
   }
-  for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
+  for (std::size_t k = 0; k < seissol::model::MaterialTT<Cfg>::NumQuantities; k++) {
     m_krnlPrototype.selectQuantity(k) =
         init::selectQuantity<Cfg>::Values[tensor::selectQuantity<Cfg>::index(k)];
     m_krnlPrototype.selectQuantityG(k) =
@@ -61,7 +61,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
     }
     deviceKrnlPrototype.selectModes(n) = init::selectModes<Cfg>::Values[tensor::selectModes<Cfg>::index(n)];
   }
-  for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
+  for (std::size_t k = 0; k < seissol::model::MaterialTT<Cfg>::NumQuantities; k++) {
     deviceKrnlPrototype.selectQuantity(k) =
         init::selectQuantity<Cfg>::Values[tensor::selectQuantity<Cfg>::index(k)];
     deviceKrnlPrototype.selectQuantityG(k) =
@@ -114,17 +114,17 @@ void Spacetime::executeSTP(double timeStepWidth,
   if (timeStepWidth != data.get<LTS::LocalIntegration>().specific.typicalTimeStepWidth) {
     auto sourceMatrix =
         init::ET<Cfg>::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
-    real ZinvData[seissol::model::MaterialT::NumQuantities][Cfg::ConvergenceOrder * Cfg::ConvergenceOrder];
-    model::zInvInitializerForLoop<0,
-                                  seissol::model::MaterialT::NumQuantities,
+    real ZinvData[seissol::model::MaterialTT<Cfg>::NumQuantities][Cfg::ConvergenceOrder * Cfg::ConvergenceOrder];
+    model::zInvInitializerForLoop<Cfg, 0,
+                                  seissol::model::MaterialTT<Cfg>::NumQuantities,
                                   decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
-    for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
+    for (std::size_t i = 0; i < seissol::model::MaterialTT<Cfg>::NumQuantities; i++) {
       krnl.Zinv(i) = ZinvData[i];
     }
     // krnl.execute has to be run here: ZinvData is only allocated locally
     krnl.execute();
   } else {
-    for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
+    for (std::size_t i = 0; i < seissol::model::MaterialTT<Cfg>::NumQuantities; i++) {
       krnl.Zinv(i) = data.get<LTS::LocalIntegration>().specific.Zinv[i];
     }
     krnl.execute();

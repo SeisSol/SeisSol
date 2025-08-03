@@ -162,8 +162,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       }
     } else {
       auto* materialArray = layer.var<LTS::Material>();
-      auto* plasticityArray =
-          seissolParams.model.plasticity ? layer.var<LTS::Plasticity>() : nullptr;
+
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
@@ -201,10 +200,15 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
         // if enabled, set up the plasticity as well
         if (seissolParams.model.plasticity) {
-          auto& plasticity = plasticityArray[cell];
           const auto& localPlasticity = plasticityDB[meshId];
 
-          initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, material.local));
+          layer.wrap([&](auto cfg) {
+            using Cfg = decltype(cfg);
+
+            auto& plasticity = layer.var<LTS::Plasticity>(cfg);
+
+            initAssign(plasticity, seissol::model::PlasticityData<Real<Cfg>>(localPlasticity, material.local));
+          });
         }
       }
     }
