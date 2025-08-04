@@ -42,6 +42,7 @@ struct GhostElementMetadata {
   GlobalElemId globalId;
   int clusterId;
   double timestep;
+  int configId;
 };
 
 class MeshReader {

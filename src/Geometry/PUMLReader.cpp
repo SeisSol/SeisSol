@@ -278,6 +278,7 @@ void PUMLReader::getMesh(const PUML::TETPUML& puml) {
     m_elements[i].localId = i;
     m_elements[i].clusterId = clusterIds[i];
     m_elements[i].timestep = timestep[i];
+    m_elements[i].configId = 0;
 
     // Vertices
     PUML::Downward::vertices(

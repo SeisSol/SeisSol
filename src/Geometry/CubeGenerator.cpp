@@ -1460,6 +1460,7 @@ void CubeGenerator::cubeGenerator(const std::array<std::size_t, 4> numCubes,
 
   for (int i = 0; i < sizes[0]; i++) {
     m_elements[i].localId = i;
+    m_elements[i].configId = 0;
 
     memcpy(m_elements[i].vertices, &elemVerticesCast[i], sizeof(ElemVertices));
     memcpy(m_elements[i].neighbors, &elemNeighborsCast[i], sizeof(ElemNeighbors));

@@ -44,7 +44,7 @@ std::size_t Plasticity<Cfg>::computePlasticity(double oneMinusIntegratingFactor,
                                           double timeStepWidth,
                                           double tV,
                                           const GlobalData* global,
-                                          const seissol::model::PlasticityData<Cfg>* plasticityData,
+                                          const seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
                                           real degreesOfFreedom[tensor::Q<Cfg>::size()],
                                           real* pstrain) {
   if constexpr (multisim::MultisimEnabled) {
@@ -252,7 +252,7 @@ void Plasticity<Cfg>::computePlasticityBatched(
     double tV,
     const GlobalData* global,
     initializer::recording::ConditionalPointersToRealsTable& table,
-    seissol::model::PlasticityData<Cfg>* plasticityData,
+    seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
     std::size_t* yieldCounter,
     unsigned* isAdjustableVector,
     seissol::parallel::runtime::StreamRuntime& runtime) {

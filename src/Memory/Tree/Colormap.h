@@ -181,8 +181,6 @@ class ColorMap {
   using Type = typename NestedLayerSets::Type;
 };
 
-using ConfigVariant = std::variant<Config>;
-
 struct LayerIdentifier {
   HaloType halo;
   ConfigVariant config;

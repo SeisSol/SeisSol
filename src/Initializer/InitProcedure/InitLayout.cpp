@@ -7,6 +7,7 @@
 #include "InitLayout.h"
 #include "Internal/MeshLayout.h"
 #include "SeisSol.h"
+#include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <Common/Iterator.h>
 #include <Geometry/MeshReader.h>
@@ -51,16 +52,18 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
 
+  std::vector<ConfigVariant> configVariants{Config()};
+
   const LTSColorMap colorMap(
       initializer::EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),
       initializer::EnumLayer<std::size_t>(clusterMap),
-      initializer::TraitLayer<initializer::ConfigVariant>({Config()}));
+      initializer::TraitLayer<ConfigVariant>(configVariants));
 
   std::vector<std::size_t> colors(meshReader.getElements().size());
   for (std::size_t i = 0; i < colors.size(); ++i) {
     const auto& element = meshReader.getElements()[i];
     const auto halo = geometry::isCopy(element, rank) ? HaloType::Copy : HaloType::Interior;
-    colors[i] = colorMap.color(halo, element.clusterId, Config());
+    colors[i] = colorMap.color(halo, element.clusterId, ConfigVariantList[element.configId]);
   }
 
   std::size_t ghostSize = 0;
@@ -75,7 +78,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   for (const auto& [rank, _] : meshReader.getMPINeighbors()) {
     for (const auto [i, element] : common::enumerate(meshReader.getGhostlayerMetadata().at(rank))) {
       const auto halo = HaloType::Ghost;
-      colorsGhost[linearId] = colorMap.color(halo, element.clusterId, Config());
+      colorsGhost[linearId] = colorMap.color(halo, element.clusterId, ConfigVariantList[element.configId]);
       toLinear[std::pair<int, std::size_t>(rank, i)] = linearId;
       fromLinear[linearId] = std::pair<int, std::size_t>(rank, i);
       ++linearId;
@@ -210,7 +213,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         const auto face = elementNeighbor.neighborSides[boundaryElement.localSide];
 
         secondaryCellInformation[index].neighborRanks[face] = rank;
-        cellInformation[index].neighborConfigIds[face] = neighbor.color;
+        cellInformation[index].neighborConfigIds[face] = elementNeighbor.configId;
         cellInformation[index].faceTypes[face] =
             static_cast<FaceType>(elementNeighbor.boundaries[boundaryElement.localSide]);
         cellInformation[index].faceRelations[face][0] = boundaryElement.localSide;

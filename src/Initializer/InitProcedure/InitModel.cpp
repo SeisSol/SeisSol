@@ -12,6 +12,7 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
+#include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <Common/Real.h>
 #include <Config.h>
@@ -205,7 +206,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
           layer.wrap([&](auto cfg) {
             using Cfg = decltype(cfg);
 
-            auto& plasticity = layer.var<LTS::Plasticity>(cfg);
+            auto& plasticity = layer.var<LTS::Plasticity>(cfg)[cell];
 
             initAssign(plasticity, seissol::model::PlasticityData<Real<Cfg>>(localPlasticity, material.local));
           });
@@ -330,7 +331,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
       logInfo() << "Order:" << Cfg::ConvergenceOrder;
       logInfo() << "Precision:"
                 << (Cfg::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
-    }, ConfigVariant(Config()));
+    }, ConfigVariantList[i]);
   }
 
   logInfo() << "Other model settings:";

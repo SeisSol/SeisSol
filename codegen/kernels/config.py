@@ -53,7 +53,7 @@ using Cfg = Config0;
 
 
 def make_configincludefile(configs):
-    configincludes = "\n".join(f"_H_(Config{i});" for i, _ in enumerate(configs))
+    configincludes = "\n".join(f"_H_(Config{i})" for i, _ in enumerate(configs))
 
     return f"""
 // (include guard knowlingly omitted)
