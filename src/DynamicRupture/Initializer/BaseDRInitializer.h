@@ -42,29 +42,6 @@ class BaseDRInitializer {
    */
   enum class Parametrization { Traction, Cartesian };
 
-  /**
-   * Stores the initialStresses.
-   */
-  struct StressTensor {
-    explicit StressTensor(size_t size) {
-      xx.resize(size);
-      yy.resize(size);
-      zz.resize(size);
-      xy.resize(size);
-      yz.resize(size);
-      xz.resize(size);
-      p.resize(size);
-    }
-    using VectorOfArraysT = std::vector<std::array<real, misc::NumPaddedPoints<Cfg>>>;
-    VectorOfArraysT xx;
-    VectorOfArraysT yy;
-    VectorOfArraysT zz;
-    VectorOfArraysT xy;
-    VectorOfArraysT yz;
-    VectorOfArraysT xz;
-    VectorOfArraysT p;
-  };
-
   public:
   /**
    * @param drParameters reference to the DRParameters, which contain all information from the
@@ -74,8 +51,9 @@ class BaseDRInitializer {
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
       seissol::SeisSol& seissolInstance)
       : seissolInstance(seissolInstance), drParameters(drParameters),
-        faultParameterNames(
-            seissol::initializer::FaultParameterDB::faultProvides(drParameters->faultFileName)) {};
+        faultParameterNames(seissol::initializer::FaultParameterDB<double>::faultProvides(
+            drParameters->faultFileName)) {};
+  // (NOTE: the FaultParameterDB type didn't matter in the last line)
 
   virtual ~BaseDRInitializer() = default;
 
@@ -97,7 +75,7 @@ class BaseDRInitializer {
    * @param layer reference to an Storage layer
    */
   virtual void
-      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+      addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                               DynamicRupture::Layer& layer);
 
   /**
@@ -105,7 +83,7 @@ class BaseDRInitializer {
    * @param layer reference to an Storage layer
    * @return vector containing all faceIDs which are stored in the leaf_iterator
    */
-  static std::vector<unsigned> getFaceIDsInIterator(DynamicRupture::Layer& layer);
+  static std::vector<std::size_t> getFaceIDsInIterator(DynamicRupture::Layer& layer);
 
   /**
    * Initialize all other variables:
@@ -128,9 +106,11 @@ class BaseDRInitializer {
    * @param faultParameterDB reference to a FaultParameterDB, which manages easi
    * @param faceIDs faceIDs of the cells which are to be read
    */
-  void queryModel(seissol::initializer::FaultParameterDB& faultParameterDB,
-                  const std::vector<unsigned>& faceIDs,
-                  std::size_t simid);
+  template <typename T>
+  void queryModel(seissol::initializer::FaultParameterDB<T>& faultParameterDB,
+                  const std::vector<std::size_t>& faceIDs,
+                  std::size_t simid,
+                  std::size_t configId);
 
   /**
    * Evaluates, whether the FaultParameterDB provides a certain parameter.
@@ -140,28 +120,6 @@ class BaseDRInitializer {
   bool faultProvides(const std::string& parameter);
 
   private:
-  /**
-   * Rotates the fault-aligned traction to cartesian stress coordinates
-   * @param layer reference to an Storage layer
-   * @param stress reference to a StressTensor
-   * IN: stores traction in fault strike/dip coordinate system OUT: stores the the stress in
-   * cartesian coordinates
-   */
-  void rotateTractionToCartesianStress(DynamicRupture::Layer& layer, StressTensor& stress);
-
-  /**
-   * Rotates the stress tensor to a fault aligned coordinate system and stores it in stressInFaultCS
-   * @param layer reference to an Storage layer
-   * @param stressInFaultCS pointer to array of size [numCells][6][NumPaddedPoints<Cfg>], stores rotated
-   * stress
-   * @param stress reference to a StressTensor, stores the stress in cartesian coordinates
-   */
-  void rotateStressToFaultCS(DynamicRupture::Layer& layer,
-                             real (*stressInFaultCS)[6][misc::NumPaddedPoints<Cfg>],
-                             std::size_t index,
-                             std::size_t count,
-                             const StressTensor& stress);
-
   /**
    * Checks how the initial stress (nucleation stress) is characterized. The user can either provide
    * the traction "T_n", "T_s, "T_d" ("Tnuc_n", "Tnuc_s", "Tnuc_d") or the full stress tensor

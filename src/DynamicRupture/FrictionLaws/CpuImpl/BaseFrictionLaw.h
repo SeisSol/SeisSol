@@ -22,13 +22,13 @@ namespace seissol::dr::friction_law::cpu {
  * Actual friction law is plugged in via CRTP.
  */
 template <typename Derived>
-class BaseFrictionLaw : public FrictionSolver {
+class BaseFrictionLaw : public FrictionSolverImpl {
   private:
   size_t currLayerSize{};
 
   public:
   explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
-      : FrictionSolver(drParameters) {}
+      : FrictionSolverImpl(drParameters) {}
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));

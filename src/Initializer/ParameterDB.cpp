@@ -172,64 +172,38 @@ easi::Query ElementAverageGenerator::generate() const {
   return query;
 }
 
-easi::Query FaultBarycenterGenerator::generate() const {
-  const std::vector<Fault>& fault = m_meshReader.getFault();
-  const std::vector<Element>& elements = m_meshReader.getElements();
-  const std::vector<Vertex>& vertices = m_meshReader.getVertices();
-
-  easi::Query query(m_numberOfPoints * fault.size(), Cell::Dim);
-  unsigned q = 0;
-  for (const Fault& f : fault) {
-    int element = 0;
-    int side = 0;
-    if (f.element >= 0) {
-      element = f.element;
-      side = f.side;
-    } else {
-      element = f.neighborElement;
-      side = f.neighborSide;
-    }
-
-    double barycenter[3] = {0.0, 0.0, 0.0};
-    MeshTools::center(elements[element], side, vertices, barycenter);
-    for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
-      for (unsigned dim = 0; dim < Cell::Dim; ++dim) {
-        query.x(q, dim) = barycenter[dim];
-      }
-      query.group(q) = elements[element].faultTags[side];
-    }
-  }
-  return query;
-}
-
 easi::Query FaultGPGenerator::generate() const {
   const std::vector<Fault>& fault = m_meshReader.getFault();
   const std::vector<Element>& elements = m_meshReader.getElements();
   auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
 
-  std::size_t numPoints = 0;
-  for (const auto faultId : m_faceIDs) {
-    const Fault& f = fault.at(faultId);
-    int element = 0;
-    int side = 0;
-    int sideOrientation = 0;
-    if (f.element >= 0) {
-      element = f.element;
-      side = f.side;
-      sideOrientation = -1;
-    } else {
-      element = f.neighborElement;
-      side = f.neighborSide;
-      sideOrientation = elements[f.neighborElement].sideOrientations[f.neighborSide];
-    }
-    
-    std::visit([&](auto cfg){
-      using Cfg = decltype(cfg);
-      numPoints += dr::misc::NumPaddedPointsSingleSim<Cfg>;
-    }, ConfigVariantList[elements[element].configId]);
-  }
+  std::vector<std::array<double, 2>> quadpoints;
+  std::visit(
+      [&](auto cfg) {
+        using Cfg = decltype(cfg);
 
-  easi::Query query(numPoints, Cell::Dim);
+        quadpoints.resize(dr::misc::NumPaddedPointsSingleSim<Cfg>);
+
+        auto pointsView = init::quadpoints<Cfg>::view::create(
+            const_cast<Real<Cfg>*>(init::quadpoints<Cfg>::Values));
+        for (std::size_t n = 0; n < dr::misc::NumPaddedPointsSingleSim<Cfg>; ++n) {
+          double localPoints[2] = {seissol::multisim::multisimTranspose(pointsView, n, 0),
+                                   seissol::multisim::multisimTranspose(pointsView, n, 1)};
+          // padded points are in the middle of the tetrahedron
+          if (n >= dr::misc::NumBoundaryGaussPoints<Cfg>) {
+            localPoints[0] = 1.0 / 3.0;
+            localPoints[1] = 1.0 / 3.0;
+          }
+
+          quadpoints[n][0] = localPoints[0];
+          quadpoints[n][1] = localPoints[1];
+        }
+      },
+      ConfigVariantList[configId]);
+
+  std::size_t numPoints = 0;
+
+  easi::Query query(m_faceIDs.size() * quadpoints.size(), Cell::Dim);
 
   std::size_t q = 0;
   // loop over all fault elements which are managed by this generator
@@ -251,30 +225,18 @@ easi::Query FaultGPGenerator::generate() const {
 
     auto coords = cellToVertex.elementCoordinates(element);
 
-    constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim<Cfg>;
+    for (std::size_t n = 0; n < quadpoints.size(); ++n, ++q) {
+      double xiEtaZeta[3];
 
-    std::visit([&](auto cfg){
-      using Cfg = decltype(cfg);
-      auto pointsView = init::quadpoints<Cfg>::view::create(const_cast<Real<Cfg>*>(init::quadpoints<Cfg>::Values));
-      for (std::size_t n = 0; n < NumPoints; ++n, ++q) {
-        double xiEtaZeta[3];
-        double localPoints[2] = {seissol::multisim::multisimTranspose(pointsView, n, 0),
-                                seissol::multisim::multisimTranspose(pointsView, n, 1)};
-        // padded points are in the middle of the tetrahedron
-        if (n >= dr::misc::NumBoundaryGaussPoints<Cfg>) {
-          localPoints[0] = 1.0 / 3.0;
-          localPoints[1] = 1.0 / 3.0;
-        }
-
-        seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
-        Eigen::Vector3d xyz = seissol::transformations::tetrahedronReferenceToGlobal(
-            coords[0], coords[1], coords[2], coords[3], xiEtaZeta);
-        for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
-          query.x(q, dim) = xyz(dim);
-        }
-        query.group(q) = elements[element].faultTags[side];
+      seissol::transformations::chiTau2XiEtaZeta(
+          side, quadpoints[n].data(), xiEtaZeta, sideOrientation);
+      Eigen::Vector3d xyz = seissol::transformations::tetrahedronReferenceToGlobal(
+          coords[0], coords[1], coords[2], coords[3], xiEtaZeta);
+      for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
+        query.x(q, dim) = xyz(dim);
       }
-    }, ConfigVariantList[elements[element].configId]);
+      query.group(q) = elements[element].faultTags[side];
+    }
   }
   return query;
 }
@@ -535,21 +497,24 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
   delete model;
 }
 
-void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) {
+template <typename T>
+void FaultParameterDB<T>::evaluateModel(const std::string& fileName,
+                                        const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
 
-  easi::ArraysAdapter<real> adapter;
-  for (auto& kv : m_parameters) {
+  easi::ArraysAdapter<T> adapter;
+  for (auto& kv : this->m_parameters) {
     adapter.addBindingPoint(
-        kv.first, kv.second.first + simid, kv.second.second * multisim::NumSimulations);
+        kv.first, kv.second.first + this->simid, kv.second.second * this->simCount);
   }
   model->evaluate(query, adapter);
 
   delete model;
 }
 
-std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileName) {
+template <typename T>
+std::set<std::string> FaultParameterDB<T>::faultProvides(const std::string& fileName) {
   if (fileName.empty()) {
     return {};
   }
@@ -558,6 +523,9 @@ std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileNam
   delete model;
   return supplied;
 }
+
+template class FaultParameterDB<float>;
+template class FaultParameterDB<double>;
 
 EasiBoundary::EasiBoundary(const std::string& fileName) : model(loadEasiModel(fileName)) {}
 

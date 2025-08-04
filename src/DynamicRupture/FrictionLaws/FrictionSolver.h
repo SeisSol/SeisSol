@@ -23,14 +23,7 @@ namespace seissol::dr::friction_law {
 class FrictionSolver {
   public:
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
-  explicit FrictionSolver(seissol::initializer::parameters::DRParameters* userDRParameters)
-      : drParameters(userDRParameters) {
-    std::copy(&init::quadweights<Cfg>::Values
-                  [init::quadweights<Cfg>::Start[seissol::multisim::BasisFunctionDimension]],
-              &init::quadweights<Cfg>::Values
-                  [init::quadweights<Cfg>::Stop[seissol::multisim::BasisFunctionDimension]],
-              &spaceWeights[0]);
-  }
+  FrictionSolver() = default;
   virtual ~FrictionSolver() = default;
 
   struct FrictionTime {
@@ -55,13 +48,30 @@ class FrictionSolver {
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyStorageToLocal(DynamicRupture::Layer& layerData);
+  virtual void copyStorageToLocal(DynamicRupture::Layer& layerData) = 0;
 
   virtual void allocateAuxiliaryMemory(GlobalData* globalData) {}
 
-  virtual seissol::initializer::AllocationPlace allocationPlace();
+  virtual seissol::initializer::AllocationPlace allocationPlace() = 0;
 
   virtual std::unique_ptr<FrictionSolver> clone() = 0;
+};
+
+class FrictionSolverImpl : public FrictionSolver {
+  public:
+  explicit FrictionSolverImpl(seissol::initializer::parameters::DRParameters* userDRParameters)
+      : drParameters(userDRParameters) {
+    std::copy(
+        &init::quadweights<
+            Cfg>::Values[init::quadweights<Cfg>::Start[seissol::multisim::BasisFunctionDimension]],
+        &init::quadweights<
+            Cfg>::Values[init::quadweights<Cfg>::Stop[seissol::multisim::BasisFunctionDimension]],
+        &spaceWeights[0]);
+  }
+
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) override;
+
+  seissol::initializer::AllocationPlace allocationPlace() override;
 
   protected:
   /**
@@ -104,8 +114,24 @@ class FrictionSolver {
   bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints<Cfg>]{};
 
   real (*__restrict qInterpolatedPlus)[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
-  real (*__restrict qInterpolatedMinus)[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
+  real (*__restrict qInterpolatedMinus)[Cfg::ConvergenceOrder]
+                                       [tensor::QInterpolated<Cfg>::size()]{};
 };
+
+using FrictionSolverFactory = std::function<std::unique_ptr<FrictionSolver>(ConfigVariant)>;
+
+template <typename T, typename... Args>
+FrictionSolverFactory makeFrictionSolverFactory(Args... args) {
+  return [=](ConfigVariant variant) {
+    return std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          return std::make_unique<T>(args...);
+        },
+        variant);
+  };
+}
+
 } // namespace seissol::dr::friction_law
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVER_H_

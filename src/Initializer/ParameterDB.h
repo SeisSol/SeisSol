@@ -99,27 +99,18 @@ class ElementAverageGenerator : public QueryGenerator {
   std::array<std::array<double, 3>, NumQuadpoints> m_quadraturePoints{};
 };
 
-class FaultBarycenterGenerator : public QueryGenerator {
-  public:
-  FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader, unsigned numberOfPoints)
-      : m_meshReader(meshReader), m_numberOfPoints(numberOfPoints) {}
-  [[nodiscard]] easi::Query generate() const override;
-
-  private:
-  const seissol::geometry::MeshReader& m_meshReader;
-  unsigned m_numberOfPoints;
-};
-
 class FaultGPGenerator : public QueryGenerator {
   public:
   FaultGPGenerator(const seissol::geometry::MeshReader& meshReader,
-                   const std::vector<unsigned>& faceIDs)
-      : m_meshReader(meshReader), m_faceIDs(faceIDs) {}
+                   const std::vector<std::size_t>& faceIDs,
+                   std::size_t configId)
+      : m_meshReader(meshReader), m_faceIDs(faceIDs), configId(configId) {}
   [[nodiscard]] easi::Query generate() const override;
 
   private:
   const seissol::geometry::MeshReader& m_meshReader;
-  const std::vector<unsigned>& m_faceIDs;
+  const std::vector<std::size_t>& m_faceIDs;
+  std::size_t configId;
 };
 
 class ParameterDB {
@@ -143,11 +134,13 @@ class MaterialParameterDB : ParameterDB {
   std::vector<T>* m_materials{};
 };
 
+template <typename T>
 class FaultParameterDB : ParameterDB {
   public:
-  explicit FaultParameterDB(std::size_t simulation) : simid(simulation) {}
+  explicit FaultParameterDB(std::size_t simulation, std::size_t simCount)
+      : simid(simulation), simCount(simCount) {}
   ~FaultParameterDB() override = default;
-  void addParameter(const std::string& parameter, real* memory, unsigned stride = 1) {
+  void addParameter(const std::string& parameter, T* memory, unsigned stride = 1) {
     m_parameters[parameter] = std::make_pair(memory, stride);
   }
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
@@ -155,7 +148,8 @@ class FaultParameterDB : ParameterDB {
 
   private:
   std::size_t simid;
-  std::unordered_map<std::string, std::pair<real*, unsigned>> m_parameters;
+  std::size_t simCount;
+  std::unordered_map<std::string, std::pair<T*, unsigned>> m_parameters;
 };
 
 class EasiBoundary {

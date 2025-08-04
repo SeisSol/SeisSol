@@ -33,12 +33,13 @@ FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<dou
   return {sumDt, deltaT};
 }
 
-void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+void FrictionSolverImpl::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   const seissol::initializer::AllocationPlace place = allocationPlace();
   impAndEta = layerData.var<DynamicRupture::ImpAndEta>(Cfg(), place);
   impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(Cfg(), place);
   initialStressInFaultCS = layerData.var<DynamicRupture::InitialStressInFaultCS>(Cfg(), place);
-  nucleationStressInFaultCS = layerData.var<DynamicRupture::NucleationStressInFaultCS>(Cfg(), place);
+  nucleationStressInFaultCS =
+      layerData.var<DynamicRupture::NucleationStressInFaultCS>(Cfg(), place);
   mu = layerData.var<DynamicRupture::Mu>(Cfg(), place);
   accumulatedSlipMagnitude = layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(Cfg(), place);
   slip1 = layerData.var<DynamicRupture::Slip1>(Cfg(), place);
@@ -62,7 +63,7 @@ void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   initialPressure = layerData.var<DynamicRupture::InitialPressure>(Cfg(), place);
   nucleationPressure = layerData.var<DynamicRupture::NucleationPressure>(Cfg(), place);
 }
-seissol::initializer::AllocationPlace FrictionSolver::allocationPlace() {
+seissol::initializer::AllocationPlace FrictionSolverImpl::allocationPlace() {
   return seissol::initializer::AllocationPlace::Host;
 }
 

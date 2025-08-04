@@ -86,10 +86,10 @@ struct FrictionLawData {
   const real (*__restrict riseTime)[misc::NumPaddedPoints<Cfg>];
 };
 
-class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver {
+class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolverImpl {
   public:
   explicit FrictionSolverInterface(seissol::initializer::parameters::DRParameters* drParameters)
-      : seissol::dr::friction_law::FrictionSolver(drParameters) {}
+      : seissol::dr::friction_law::FrictionSolverImpl(drParameters) {}
   ~FrictionSolverInterface() override = default;
 
   seissol::initializer::AllocationPlace allocationPlace() override {

@@ -28,7 +28,7 @@ class RateAndStateInitializer : public BaseDRInitializer {
   protected: /**
               * Adds the additional parameters sl0, rs_a
               */
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+  void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
 
   struct StateAndFriction {
@@ -77,7 +77,7 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
   /**
    * Adds the additional parameters rs_srW
    */
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+  void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
 
   /**
@@ -125,7 +125,7 @@ class ThermalPressurizationInitializer {
   /**
    * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
    */
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+  void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer);
 
   private:
@@ -152,7 +152,7 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateInitiali
   /**
    * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
    */
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+  void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
 };
 
@@ -177,7 +177,7 @@ class RateAndStateFastVelocityThermalPressurizationInitializer
   /**
    * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
    */
-  void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+  void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
 };
 
