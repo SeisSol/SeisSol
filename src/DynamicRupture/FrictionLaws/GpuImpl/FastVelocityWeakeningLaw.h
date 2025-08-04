@@ -14,11 +14,11 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-template <typename TPMethod>
+template <typename Cfg, typename TPMethod>
 class FastVelocityWeakeningLaw
-    : public RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod> {
+    : public RateAndStateBase<Cfg, FastVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
 
@@ -28,7 +28,8 @@ class FastVelocityWeakeningLaw
         seissol::initializer::AllocationPlace::Device);
   }
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& ctx, double timeIncrement) {
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& ctx,
+                                                 double timeIncrement) {
     const double muW{ctx.data->drParameters.muW};
 
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
@@ -63,14 +64,16 @@ class FastVelocityWeakeningLaw
     double ac{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& ctx, double localStateVariable) {
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& ctx,
+                                               double localStateVariable) {
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const double c = 0.5 / ctx.data->drParameters.rsSr0 * std::exp(localStateVariable / localA);
     return MuDetails{localA, c, localA * c};
   }
 
-  SEISSOL_DEVICE static double
-      updateMu(FrictionLawContext<Cfg>& ctx, double localSlipRateMagnitude, const MuDetails& details) {
+  SEISSOL_DEVICE static double updateMu(FrictionLawContext<Cfg>& ctx,
+                                        double localSlipRateMagnitude,
+                                        const MuDetails& details) {
     const double x = details.c * localSlipRateMagnitude;
     return details.a * std::asinh(x);
   }

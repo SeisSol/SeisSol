@@ -20,8 +20,10 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-class YoffeSTF : public ImposedSlipRates<YoffeSTF> {
+template <typename Cfg>
+class YoffeSTF : public ImposedSlipRates<Cfg, YoffeSTF<Cfg>> {
   public:
+  using real = Real<Cfg>;
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
     data->onsetTime = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>(Cfg(), place);
@@ -29,8 +31,9 @@ class YoffeSTF : public ImposedSlipRates<YoffeSTF> {
     data->tauR = layerData.var<LTSImposedSlipRatesYoffe::TauR>(Cfg(), place);
   }
 
-  SEISSOL_DEVICE static real
-      evaluateSTF(FrictionLawContext<Cfg>& ctx, real currentTime, [[maybe_unused]] real timeIncrement) {
+  SEISSOL_DEVICE static real evaluateSTF(FrictionLawContext<Cfg>& ctx,
+                                         real currentTime,
+                                         [[maybe_unused]] real timeIncrement) {
     return regularizedYoffe::regularizedYoffe(currentTime -
                                                   ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
                                               ctx.data->tauS[ctx.ltsFace][ctx.pointIndex],
@@ -38,8 +41,10 @@ class YoffeSTF : public ImposedSlipRates<YoffeSTF> {
   }
 };
 
-class GaussianSTF : public ImposedSlipRates<GaussianSTF> {
+template <typename Cfg>
+class GaussianSTF : public ImposedSlipRates<Cfg, GaussianSTF<Cfg>> {
   public:
+  using real = Real<Cfg>;
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
     data->onsetTime = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>(Cfg(), place);
@@ -56,8 +61,10 @@ class GaussianSTF : public ImposedSlipRates<GaussianSTF> {
   }
 };
 
-class DeltaSTF : public ImposedSlipRates<DeltaSTF> {
+template <typename Cfg>
+class DeltaSTF : public ImposedSlipRates<Cfg, DeltaSTF<Cfg>> {
   public:
+  using real = Real<Cfg>;
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
     data->onsetTime = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>(Cfg(), place);

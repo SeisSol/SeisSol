@@ -33,7 +33,8 @@ FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<dou
   return {sumDt, deltaT};
 }
 
-void FrictionSolverImpl::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+template <typename Cfg>
+void FrictionSolverImpl<Cfg>::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   const seissol::initializer::AllocationPlace place = allocationPlace();
   impAndEta = layerData.var<DynamicRupture::ImpAndEta>(Cfg(), place);
   impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(Cfg(), place);
@@ -63,8 +64,13 @@ void FrictionSolverImpl::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   initialPressure = layerData.var<DynamicRupture::InitialPressure>(Cfg(), place);
   nucleationPressure = layerData.var<DynamicRupture::NucleationPressure>(Cfg(), place);
 }
-seissol::initializer::AllocationPlace FrictionSolverImpl::allocationPlace() {
+
+template <typename Cfg>
+seissol::initializer::AllocationPlace FrictionSolverImpl<Cfg>::allocationPlace() {
   return seissol::initializer::AllocationPlace::Host;
 }
+
+#define _H_(cfg) template class FrictionSolverImpl<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::dr::friction_law

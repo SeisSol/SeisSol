@@ -18,11 +18,13 @@ namespace seissol::dr::friction_law::gpu {
  * Abstract Class implementing the general structure of linear slip weakening friction laws.
  * specific implementation is done by overriding and implementing the hook functions (via CRTP).
  */
-template <typename Derived>
-class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBase<Derived>> {
+template <typename Cfg, typename Derived>
+class LinearSlipWeakeningBase
+    : public BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>> {
   public:
+  using real = Real<Cfg>;
   LinearSlipWeakeningBase<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
-      : BaseFrictionSolver<LinearSlipWeakeningBase<Derived>>(drParameters){};
+      : BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>>(drParameters){};
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
@@ -33,7 +35,8 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     Derived::copySpecificStorageDataToLocal(data, layerData);
   }
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& ctx,
+                                                   uint32_t timeIndex) {
     // computes fault strength, which is the critical value whether active slip exists.
     Derived::calcStrengthHook(ctx, timeIndex);
     // computes resulting slip rates, traction and slip dependent on current friction
@@ -47,7 +50,8 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
    *  compute the slip rate and the traction from the fault strength and fault stresses
    *  also updates the directional slip1 and slip2
    */
-  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext<Cfg>& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext<Cfg>& ctx,
+                                                     uint32_t timeIndex) {
     const auto& devImpAndEta{ctx.data->impAndEta[ctx.ltsFace]};
     const auto deltaT{ctx.args->deltaT[timeIndex]};
 
@@ -178,7 +182,8 @@ class LinearSlipWeakeningLaw
                                       prakashLength);
   }
 
-  SEISSOL_DEVICE static void calcStateVariableHook(FrictionLawContext<Cfg>& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void calcStateVariableHook(FrictionLawContext<Cfg>& ctx,
+                                                   uint32_t timeIndex) {
     const auto t0{ctx.data->drParameters.t0[0]};
     const auto tpProxyExponent{ctx.data->drParameters.tpProxyExponent};
 

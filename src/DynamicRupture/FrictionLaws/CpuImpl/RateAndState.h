@@ -16,11 +16,13 @@ namespace seissol::dr::friction_law::cpu {
  * General implementation of a rate and state solver
  * Methods are inherited via CRTP and must be implemented in the child class.
  */
-template <class Derived, class TPMethod>
-class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>> {
+template <typename Cfg, class Derived, class TPMethod>
+class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>> {
   public:
+  using real = Real<Cfg>;
   explicit RateAndStateBase(seissol::initializer::parameters::DRParameters* drParameters)
-      : BaseFrictionLaw<RateAndStateBase<Derived, TPMethod>>::BaseFrictionLaw(drParameters),
+      : BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>>::BaseFrictionLaw(
+            drParameters),
         tpMethod(TPMethod(drParameters)) {}
 
   std::unique_ptr<FrictionSolver> clone() override {
@@ -42,7 +44,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         std::move(initialVariables.absoluteShearTraction);
     std::array<real, misc::NumPaddedPoints<Cfg>> localSlipRate =
         std::move(initialVariables.localSlipRate);
-    std::array<real, misc::NumPaddedPoints<Cfg>> normalStress = std::move(initialVariables.normalStress);
+    std::array<real, misc::NumPaddedPoints<Cfg>> normalStress =
+        std::move(initialVariables.normalStress);
     const std::array<real, misc::NumPaddedPoints<Cfg>> stateVarReference =
         std::move(initialVariables.stateVarReference);
     // compute slip rates by solving non-linear system of equations
@@ -77,7 +80,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                   ltsFace);
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer, std::size_t ltsFace) {
+  void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+               std::size_t ltsFace) {
 // copy state variable from last time step
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
@@ -85,7 +89,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
   }
 
-  void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer, std::size_t ltsFace) {
+  void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+                std::size_t ltsFace) {
     static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);
   }
 
@@ -196,15 +201,16 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
     }
   }
 
-  void calcSlipRateAndTraction(const std::array<real, misc::NumPaddedPoints<Cfg>>& stateVarReference,
-                               const std::array<real, misc::NumPaddedPoints<Cfg>>& localSlipRate,
-                               std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable,
-                               const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
-                               const std::array<real, misc::NumPaddedPoints<Cfg>>& absoluteTraction,
-                               const FaultStresses<Cfg, Executor::Host>& faultStresses,
-                               TractionResults<Cfg, Executor::Host>& tractionResults,
-                               uint32_t timeIndex,
-                               std::size_t ltsFace) {
+  void
+      calcSlipRateAndTraction(const std::array<real, misc::NumPaddedPoints<Cfg>>& stateVarReference,
+                              const std::array<real, misc::NumPaddedPoints<Cfg>>& localSlipRate,
+                              std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable,
+                              const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                              const std::array<real, misc::NumPaddedPoints<Cfg>>& absoluteTraction,
+                              const FaultStresses<Cfg, Executor::Host>& faultStresses,
+                              TractionResults<Cfg, Executor::Host>& tractionResults,
+                              uint32_t timeIndex,
+                              std::size_t ltsFace) {
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
@@ -285,11 +291,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * @param absoluteShearStress \f$\Theta\f$
    * @param slipRateTest \f$\hat{s}\f$
    */
-  bool invertSlipRateIterative(std::size_t ltsFace,
-                               const std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable,
-                               const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
-                               const std::array<real, misc::NumPaddedPoints<Cfg>>& absoluteShearStress,
-                               std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateTest) {
+  bool invertSlipRateIterative(
+      std::size_t ltsFace,
+      const std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable,
+      const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+      const std::array<real, misc::NumPaddedPoints<Cfg>>& absoluteShearStress,
+      std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateTest) {
     // Note that we need double precision here, since single precision led to NaNs.
     double muF[misc::NumPaddedPoints<Cfg>];
     double dMuF[misc::NumPaddedPoints<Cfg>];
@@ -338,7 +345,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                          1.0;
         // newton update
         const real tmp3 = g[pointIndex] / dG[pointIndex];
-        slipRateTest[pointIndex] = std::max(rs::almostZero<Real<Cfg>>(), slipRateTest[pointIndex] - tmp3);
+        slipRateTest[pointIndex] =
+            std::max(rs::almostZero<Real<Cfg>>(), slipRateTest[pointIndex] - tmp3);
       }
     }
     return false;

@@ -19,13 +19,16 @@
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 
 namespace seissol::dr::friction_law::gpu {
-FrictionSolverDetails::FrictionSolverDetails(
+template <typename Cfg>
+FrictionSolverDetails<Cfg>::FrictionSolverDetails(
     seissol::initializer::parameters::DRParameters* drParameters)
-    : FrictionSolverInterface(drParameters) {}
+    : FrictionSolverInterface<Cfg>(drParameters) {}
 
-FrictionSolverDetails::~FrictionSolverDetails() = default;
+template <typename Cfg>
+FrictionSolverDetails<Cfg>::~FrictionSolverDetails() = default;
 
-void FrictionSolverDetails::allocateAuxiliaryMemory(GlobalData* globalData) {
+template <typename Cfg>
+void FrictionSolverDetails<Cfg>::allocateAuxiliaryMemory(GlobalData* globalData) {
   {
     data = seissol::memory::allocTyped<FrictionLawData<Cfg>>(1, 1, memory::DeviceGlobalMemory);
   }
@@ -36,4 +39,8 @@ void FrictionSolverDetails::allocateAuxiliaryMemory(GlobalData* globalData) {
   devHeatSource = globalData->heatSource;
   devTpGridPoints = globalData->tpGridPoints;
 }
+
+#define _H_(cfg) template class FrictionSolverDetails<cfg>;
+#include "ConfigInclude.h"
+
 } // namespace seissol::dr::friction_law::gpu

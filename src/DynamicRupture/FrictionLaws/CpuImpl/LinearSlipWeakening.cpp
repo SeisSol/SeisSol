@@ -19,7 +19,8 @@
 
 namespace seissol::dr::friction_law::cpu {
 
-void NoSpecialization::resampleSlipRate(
+template <typename Cfg>
+void NoSpecialization<Cfg>::resampleSlipRate(
     real (&resampledSlipRate)[dr::misc::NumPaddedPoints<Cfg>],
     const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Cfg>]) {
   dynamicRupture::kernel::resampleParameter<Cfg> resampleKrnl;
@@ -28,16 +29,19 @@ void NoSpecialization::resampleSlipRate(
   resampleKrnl.resampledQ = resampledSlipRate;
   resampleKrnl.execute();
 }
-void BiMaterialFault::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+
+template <typename Cfg>
+void BiMaterialFault<Cfg>::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   regularizedStrength = layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(Cfg());
 }
 
 #pragma omp declare simd
-real BiMaterialFault::strengthHook(real faultStrength,
-                                   real localSlipRate,
-                                   real deltaT,
-                                   std::size_t ltsFace,
-                                   std::uint32_t pointIndex) {
+template <typename Cfg>
+Real<Cfg> BiMaterialFault<Cfg>::strengthHook(real faultStrength,
+                                             real localSlipRate,
+                                             real deltaT,
+                                             std::size_t ltsFace,
+                                             std::uint32_t pointIndex) {
   // modify strength according to Prakash-Clifton
   // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
   const real expterm =
@@ -50,12 +54,20 @@ real BiMaterialFault::strengthHook(real faultStrength,
 }
 
 #pragma omp declare simd
-real TPApprox::stateVariableHook(real localAccumulatedSlip,
-                                 real localDc,
-                                 std::size_t ltsFace,
-                                 std::uint32_t pointIndex) {
+template <typename Cfg>
+Real<Cfg> TPApprox<Cfg>::stateVariableHook(real localAccumulatedSlip,
+                                           real localDc,
+                                           std::size_t ltsFace,
+                                           std::uint32_t pointIndex) {
   const real factor = (1.0 + std::fabs(localAccumulatedSlip) / localDc);
   return 1.0 - std::pow(factor, -drParameters->tpProxyExponent);
 }
+
+#define _H_(cfg) template class NoSpecialization<cfg>;
+#include "ConfigInclude.h"
+#define _H_(cfg) template class BiMaterialFault<cfg>;
+#include "ConfigInclude.h"
+#define _H_(cfg) template class TPApprox<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::dr::friction_law::cpu

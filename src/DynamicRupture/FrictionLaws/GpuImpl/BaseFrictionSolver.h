@@ -25,7 +25,7 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-template<typename RealT>
+template <typename RealT>
 struct InitialVariables {
   RealT absoluteShearTraction{};
   RealT localSlipRate{};
@@ -33,7 +33,7 @@ struct InitialVariables {
   RealT stateVarReference{};
 };
 
-template<typename Cfg>
+template <typename Cfg>
 struct FrictionLawArgs {
   const FrictionLawData<Cfg>* __restrict data{nullptr};
   const Real<Cfg>* __restrict spaceWeights{nullptr};
@@ -48,7 +48,7 @@ struct FrictionLawArgs {
   Real<Cfg> sumDt;
 };
 
-template<typename Cfg>
+template <typename Cfg>
 struct FrictionLawContext {
   std::size_t ltsFace;
   std::uint32_t pointIndex;
@@ -66,27 +66,32 @@ struct FrictionLawContext {
 };
 
 #ifdef __CUDACC__
-template<typename Cfg>
-SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext<Cfg>& ctx) { __syncthreads(); }
+template <typename Cfg>
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext<Cfg>& ctx) {
+  __syncthreads();
+}
 #elif defined(__HIP__)
-template<typename Cfg>
-SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext<Cfg>& ctx) { __syncthreads(); }
+template <typename Cfg>
+SEISSOL_DEVICE inline void deviceBarrier(FrictionLawContext<Cfg>& ctx) {
+  __syncthreads();
+}
 #elif defined(SEISSOL_KERNELS_SYCL)
-template<typename Cfg>
+template <typename Cfg>
 inline void deviceBarrier(FrictionLawContext<Cfg>& ctx) {
   reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->barrier(sycl::access::fence_space::local_space);
 }
 #else
-template<typename Cfg>
+template <typename Cfg>
 inline void deviceBarrier(FrictionLawContext<Cfg>& ctx) {}
 #endif
 
-template <typename Derived>
-class BaseFrictionSolver : public FrictionSolverDetails {
+template <typename Cfg, typename Derived>
+class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
   public:
-  explicit BaseFrictionSolver<Derived>(seissol::initializer::parameters::DRParameters* drParameters)
-      : FrictionSolverDetails(drParameters) {}
-  ~BaseFrictionSolver<Derived>() override = default;
+  using real = Real<Cfg>;
+  explicit BaseFrictionSolver(seissol::initializer::parameters::DRParameters* drParameters)
+      : FrictionSolverDetails<Cfg>(drParameters) {}
+  ~BaseFrictionSolver() override = default;
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
@@ -135,10 +140,10 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     Derived::postHook(ctx);
 
     common::saveRuptureFrontOutput<Cfg, GpuRangeType>(ctx.data->ruptureTimePending[ctx.ltsFace],
-                                                 ctx.data->ruptureTime[ctx.ltsFace],
-                                                 ctx.data->slipRateMagnitude[ctx.ltsFace],
-                                                 ctx.args->fullUpdateTime,
-                                                 ctx.pointIndex);
+                                                      ctx.data->ruptureTime[ctx.ltsFace],
+                                                      ctx.data->slipRateMagnitude[ctx.ltsFace],
+                                                      ctx.args->fullUpdateTime,
+                                                      ctx.pointIndex);
 
     Derived::saveDynamicStressOutput(ctx);
 
@@ -151,8 +156,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         ctx.data->drParameters.energiesFromAcrossFaultVelocities};
 
     common::savePeakSlipRateOutput<Cfg, GpuRangeType>(ctx.data->slipRateMagnitude[ctx.ltsFace],
-                                                 ctx.data->peakSlipRate[ctx.ltsFace],
-                                                 ctx.pointIndex);
+                                                      ctx.data->peakSlipRate[ctx.ltsFace],
+                                                      ctx.pointIndex);
 
     common::postcomputeImposedStateFromNewStress<Cfg, GpuRangeType>(
         ctx.faultStresses,
@@ -179,35 +184,35 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       }
 
       common::computeFrictionEnergy<Cfg, GpuRangeType>(ctx.data->energyData[ctx.ltsFace],
-                                                  ctx.data->qInterpolatedPlus[ctx.ltsFace],
-                                                  ctx.data->qInterpolatedMinus[ctx.ltsFace],
-                                                  ctx.data->impAndEta[ctx.ltsFace],
-                                                  ctx.args->timeWeights,
-                                                  ctx.args->spaceWeights,
-                                                  ctx.data->godunovData[ctx.ltsFace],
-                                                  ctx.data->slipRateMagnitude[ctx.ltsFace],
-                                                  energiesFromAcrossFaultVelocities,
-                                                  ctx.pointIndex);
+                                                       ctx.data->qInterpolatedPlus[ctx.ltsFace],
+                                                       ctx.data->qInterpolatedMinus[ctx.ltsFace],
+                                                       ctx.data->impAndEta[ctx.ltsFace],
+                                                       ctx.args->timeWeights,
+                                                       ctx.args->spaceWeights,
+                                                       ctx.data->godunovData[ctx.ltsFace],
+                                                       ctx.data->slipRateMagnitude[ctx.ltsFace],
+                                                       energiesFromAcrossFaultVelocities,
+                                                       ctx.pointIndex);
     }
   }
 
   void setupLayer(DynamicRupture::Layer& layerData,
                   seissol::parallel::runtime::StreamRuntime& runtime) override {
     this->currLayerSize = layerData.size();
-    FrictionSolverInterface::copyStorageToLocal(&dataHost, layerData);
-    Derived::copySpecificStorageDataToLocal(&dataHost, layerData);
-    dataHost.drParameters = *this->drParameters;
+    FrictionSolverInterface<Cfg>::copyStorageToLocal(&this->dataHost, layerData);
+    Derived::copySpecificStorageDataToLocal(&this->dataHost, layerData);
+    this->dataHost.drParameters = *this->drParameters;
     device::DeviceInstance::getInstance().api->copyToAsync(
-        data, &dataHost, sizeof(FrictionLawData<Cfg>), runtime.stream());
+        this->data, &this->dataHost, sizeof(FrictionLawData<Cfg>), runtime.stream());
   }
 
   void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
                       double fullUpdateTime,
                       const double* timeWeights,
-                      const FrictionTime& frictionTime);
+                      const FrictionSolver::FrictionTime& frictionTime);
 
   void evaluate(double fullUpdateTime,
-                const FrictionTime& frictionTime,
+                const FrictionSolver::FrictionTime& frictionTime,
                 const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     if (this->currLayerSize == 0) {

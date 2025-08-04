@@ -30,7 +30,7 @@ struct ImpedancesAndEta {
  * Stores the impedance matrices for an element and its neighbor for a poroelastic material.
  * This generalizes equation (4.51) from Carsten's thesis
  */
-template<typename Cfg>
+template <typename Cfg>
 struct ImpedanceMatrices {
   alignas(Alignment) Real<Cfg> impedance[tensor::Zplus<Cfg>::size()] = {};
   alignas(Alignment) Real<Cfg> impedanceNeig[tensor::Zminus<Cfg>::size()] = {};
@@ -50,10 +50,12 @@ struct TractionResults;
  */
 template <typename Cfg>
 struct FaultStresses<Cfg, Executor::Host> {
-  alignas(Alignment) Real<Cfg> normalStress[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
+  alignas(Alignment) Real<Cfg> normalStress[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {
+      {}};
   alignas(Alignment) Real<Cfg> traction1[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
   alignas(Alignment) Real<Cfg> traction2[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
-  alignas(Alignment) Real<Cfg> fluidPressure[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {{}};
+  alignas(Alignment) Real<Cfg> fluidPressure[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>] = {
+      {}};
 };
 
 /**

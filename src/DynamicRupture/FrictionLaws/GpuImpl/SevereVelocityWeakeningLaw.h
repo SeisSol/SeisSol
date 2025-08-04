@@ -13,11 +13,12 @@
 #include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
 
 namespace seissol::dr::friction_law::gpu {
-template <class TPMethod>
+template <typename Cfg, class TPMethod>
 class SevereVelocityWeakeningLaw
-    : public RateAndStateBase<SevereVelocityWeakeningLaw<TPMethod>, TPMethod> {
+    : public RateAndStateBase<Cfg, SevereVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<SevereVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using real = Real<Cfg>;
+  using RateAndStateBase<Cfg, SevereVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   /*
     ! friction develops as                    mu = mu_s + a V/(V+Vc) - b SV/(SV + Dc)
@@ -36,7 +37,8 @@ class SevereVelocityWeakeningLaw
                                              DynamicRupture::Layer& layerData) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& ctx, double timeIncrement) {
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& ctx,
+                                                 double timeIncrement) {
     const double muW{ctx.data->drParameters.muW};
 
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
@@ -73,7 +75,8 @@ class SevereVelocityWeakeningLaw
     double c{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& ctx, double localStateVariable) {
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& ctx,
+                                               double localStateVariable) {
     const double localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const double c =
@@ -81,8 +84,9 @@ class SevereVelocityWeakeningLaw
     return MuDetails{localA, c};
   }
 
-  SEISSOL_DEVICE static double
-      updateMu(FrictionLawContext<Cfg>& ctx, double localSlipRateMagnitude, const MuDetails& details) {
+  SEISSOL_DEVICE static double updateMu(FrictionLawContext<Cfg>& ctx,
+                                        double localSlipRateMagnitude,
+                                        const MuDetails& details) {
     return ctx.data->drParameters.rsF0 +
            details.a * localSlipRateMagnitude /
                (localSlipRateMagnitude + ctx.data->drParameters.rsSr0) -

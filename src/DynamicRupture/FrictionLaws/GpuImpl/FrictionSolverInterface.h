@@ -16,7 +16,7 @@
 // which, in its turn, is not supposed to know anything about SYCL
 namespace seissol::dr::friction_law::gpu {
 
-template<typename Cfg>
+template <typename Cfg>
 struct FrictionLawData {
   seissol::initializer::parameters::DRParameters drParameters;
 
@@ -49,8 +49,10 @@ struct FrictionLawData {
   real (*__restrict dynStressTime)[misc::NumPaddedPoints<Cfg>]{};
   bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints<Cfg>]{};
 
-  const real (*__restrict qInterpolatedPlus)[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
-  const real (*__restrict qInterpolatedMinus)[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()]{};
+  const real (*__restrict qInterpolatedPlus)[Cfg::ConvergenceOrder]
+                                            [tensor::QInterpolated<Cfg>::size()]{};
+  const real (*__restrict qInterpolatedMinus)[Cfg::ConvergenceOrder]
+                                             [tensor::QInterpolated<Cfg>::size()]{};
 
   // LSW
   const real (*__restrict dC)[misc::NumPaddedPoints<Cfg>];
@@ -86,10 +88,11 @@ struct FrictionLawData {
   const real (*__restrict riseTime)[misc::NumPaddedPoints<Cfg>];
 };
 
-class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolverImpl {
+template <typename Cfg>
+class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolverImpl<Cfg> {
   public:
   explicit FrictionSolverInterface(seissol::initializer::parameters::DRParameters* drParameters)
-      : seissol::dr::friction_law::FrictionSolverImpl(drParameters) {}
+      : seissol::dr::friction_law::FrictionSolverImpl<Cfg>(drParameters) {}
   ~FrictionSolverInterface() override = default;
 
   seissol::initializer::AllocationPlace allocationPlace() override {
@@ -101,11 +104,13 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
         seissol::initializer::AllocationPlace::Device;
     data->impAndEta = layerData.var<DynamicRupture::ImpAndEta>(Cfg(), place);
     data->impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(Cfg(), place);
-    data->initialStressInFaultCS = layerData.var<DynamicRupture::InitialStressInFaultCS>(Cfg(), place);
+    data->initialStressInFaultCS =
+        layerData.var<DynamicRupture::InitialStressInFaultCS>(Cfg(), place);
     data->nucleationStressInFaultCS =
         layerData.var<DynamicRupture::NucleationStressInFaultCS>(Cfg(), place);
     data->mu = layerData.var<DynamicRupture::Mu>(Cfg(), place);
-    data->accumulatedSlipMagnitude = layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(Cfg(), place);
+    data->accumulatedSlipMagnitude =
+        layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(Cfg(), place);
     data->slip1 = layerData.var<DynamicRupture::Slip1>(Cfg(), place);
     data->slip2 = layerData.var<DynamicRupture::Slip2>(Cfg(), place);
     data->slipRateMagnitude = layerData.var<DynamicRupture::SlipRateMagnitude>(Cfg(), place);

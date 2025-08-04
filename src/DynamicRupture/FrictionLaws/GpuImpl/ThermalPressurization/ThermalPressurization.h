@@ -46,8 +46,10 @@ namespace seissol::dr::friction_law::gpu {
  * We then compute the pressure and temperature update with an inverse Fourier transform from
  * \f$\Pi, \Theta\f$.
  */
+template <typename Cfg>
 class ThermalPressurization {
   public:
+  using real = Real<Cfg>;
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
@@ -57,7 +59,8 @@ class ThermalPressurization {
     data->pressure = layerData.var<LTSThermalPressurization::Pressure>(Cfg(), place);
     data->theta = layerData.var<LTSThermalPressurization::Theta>(Cfg(), place);
     data->sigma = layerData.var<LTSThermalPressurization::Sigma>(Cfg(), place);
-    data->halfWidthShearZone = layerData.var<LTSThermalPressurization::HalfWidthShearZone>(Cfg(), place);
+    data->halfWidthShearZone =
+        layerData.var<LTSThermalPressurization::HalfWidthShearZone>(Cfg(), place);
     data->hydraulicDiffusivity =
         layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(Cfg(), place);
   }

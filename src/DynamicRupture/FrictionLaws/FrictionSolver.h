@@ -57,6 +57,7 @@ class FrictionSolver {
   virtual std::unique_ptr<FrictionSolver> clone() = 0;
 };
 
+template <typename Cfg>
 class FrictionSolverImpl : public FrictionSolver {
   public:
   explicit FrictionSolverImpl(seissol::initializer::parameters::DRParameters* userDRParameters)
@@ -120,13 +121,13 @@ class FrictionSolverImpl : public FrictionSolver {
 
 using FrictionSolverFactory = std::function<std::unique_ptr<FrictionSolver>(ConfigVariant)>;
 
-template <typename T, typename... Args>
+template <template <typename> typename T, typename... Args>
 FrictionSolverFactory makeFrictionSolverFactory(Args... args) {
   return [=](ConfigVariant variant) {
     return std::visit(
         [&](auto cfg) {
           using Cfg = decltype(cfg);
-          return std::make_unique<T>(args...);
+          return std::make_unique<T<Cfg>>(args...);
         },
         variant);
   };

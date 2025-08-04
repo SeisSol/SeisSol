@@ -14,10 +14,11 @@ namespace seissol::dr::friction_law::gpu {
 /**
  * Slip rates are set fixed values
  */
-template <typename STF>
-class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
+template <typename Cfg, typename STF>
+class ImposedSlipRates : public BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, STF>> {
   public:
-  using BaseFrictionSolver<ImposedSlipRates>::BaseFrictionSolver;
+  using real = Real<Cfg>;
+  using BaseFrictionSolver<Cfg, ImposedSlipRates>::BaseFrictionSolver;
 
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
@@ -27,7 +28,8 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     STF::copyStorageToLocal(data, layerData);
   }
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& ctx,
+                                                   uint32_t timeIndex) {
     const real timeIncrement = ctx.args->deltaT[timeIndex];
     real currentTime = ctx.args->fullUpdateTime;
     for (uint32_t i = 0; i <= timeIndex; i++) {

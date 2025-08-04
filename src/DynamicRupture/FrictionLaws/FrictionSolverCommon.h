@@ -75,13 +75,13 @@ struct VariableIndexing;
 
 template <>
 struct VariableIndexing<Executor::Host> {
-  template<typename T>
+  template <typename T>
   static constexpr T&
       index(T (&data)[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>], int o, int i) {
     return data[o][i];
   }
 
-  template<typename T>
+  template <typename T>
   static constexpr T
       index(const T (&data)[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>], int o, int i) {
     return data[o][i];
@@ -90,10 +90,12 @@ struct VariableIndexing<Executor::Host> {
 
 template <>
 struct VariableIndexing<Executor::Device> {
-  template<typename T>
-  static constexpr T& index(T (&data)[Cfg::ConvergenceOrder], int o, int i) { return data[o]; }
+  template <typename T>
+  static constexpr T& index(T (&data)[Cfg::ConvergenceOrder], int o, int i) {
+    return data[o];
+  }
 
-  template<typename T>
+  template <typename T>
   static constexpr T index(const T (&data)[Cfg::ConvergenceOrder], int o, int i) {
     return data[o];
   }
@@ -102,10 +104,12 @@ struct VariableIndexing<Executor::Device> {
 /**
  * Asserts whether all relevant arrays are properly aligned
  */
-template<typename Cfg>
+template <typename Cfg>
 inline void checkAlignmentPreCompute(
-    const Real<Cfg> qIPlus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>][dr::misc::NumPaddedPoints<Cfg>],
-    const Real<Cfg> qIMinus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>][dr::misc::NumPaddedPoints<Cfg>],
+    const Real<Cfg> qIPlus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>]
+                          [dr::misc::NumPaddedPoints<Cfg>],
+    const Real<Cfg> qIMinus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>]
+                           [dr::misc::NumPaddedPoints<Cfg>],
     const FaultStresses<Cfg, Executor::Host>& faultStresses) {
   using namespace dr::misc::quantity_indices;
   for (unsigned o = 0; o < Cfg::ConvergenceOrder; ++o) {
@@ -165,7 +169,8 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
   const auto invZpNeig = impAndEta.invZpNeig;
   const auto invZsNeig = impAndEta.invZsNeig;
 
-  using QInterpolatedShapeT = const Real<Cfg>(*)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
+  using QInterpolatedShapeT =
+      const Real<Cfg>(*)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
   const auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   const auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
 
@@ -228,10 +233,12 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 /**
  * Asserts whether all relevant arrays are properly aligned
  */
-template<typename Cfg>
+template <typename Cfg>
 inline void checkAlignmentPostCompute(
-    const Real<Cfg> qIPlus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>][dr::misc::NumPaddedPoints<Cfg>],
-    const Real<Cfg> qIMinus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>][dr::misc::NumPaddedPoints<Cfg>],
+    const Real<Cfg> qIPlus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>]
+                          [dr::misc::NumPaddedPoints<Cfg>],
+    const Real<Cfg> qIMinus[Cfg::ConvergenceOrder][dr::misc::NumQuantities<Cfg>]
+                           [dr::misc::NumPaddedPoints<Cfg>],
     const Real<Cfg> imposedStateP[Cfg::ConvergenceOrder][dr::misc::NumPaddedPoints<Cfg>],
     const Real<Cfg> imposedStateM[Cfg::ConvergenceOrder][dr::misc::NumPaddedPoints<Cfg>],
     const FaultStresses<Cfg, Executor::Host>& faultStresses,
@@ -318,7 +325,8 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
   auto* imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
   auto* imposedStateM = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
-  using QInterpolatedShapeT = const Real<Cfg>(*)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
+  using QInterpolatedShapeT =
+      const Real<Cfg>(*)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
   const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
@@ -521,15 +529,15 @@ SEISSOL_HOSTDEVICE inline void
  * param[in] sumDt
  */
 template <typename Cfg, RangeType Type = RangeType::CPU>
-SEISSOL_HOSTDEVICE inline void
-    updateTimeSinceSlipRateBelowThreshold(const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
-                                          const bool ruptureTimePending[misc::NumPaddedPoints<Cfg>],
-                                          // See https://github.com/llvm/llvm-project/issues/60163
-                                          // NOLINTNEXTLINE
-                                          DREnergyOutput<Cfg>& energyData,
-                                          const Real<Cfg> sumDt,
-                                          const Real<Cfg> slipRateThreshold,
-                                          unsigned startIndex = 0) {
+SEISSOL_HOSTDEVICE inline void updateTimeSinceSlipRateBelowThreshold(
+    const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
+    const bool ruptureTimePending[misc::NumPaddedPoints<Cfg>],
+    // See https://github.com/llvm/llvm-project/issues/60163
+    // NOLINTNEXTLINE
+    DREnergyOutput<Cfg>& energyData,
+    const Real<Cfg> sumDt,
+    const Real<Cfg> slipRateThreshold,
+    unsigned startIndex = 0) {
 
   using Range = typename NumPoints<Type>::Range;
   auto* timeSinceSlipRateBelowThreshold = energyData.timeSinceSlipRateBelowThreshold;
@@ -568,7 +576,8 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   auto* frictionalEnergy = energyData.frictionalEnergy;
   const double doubledSurfaceArea = godunovData.doubledSurfaceArea;
 
-  using QInterpolatedShapeT = const Real<Cfg>(*)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
+  using QInterpolatedShapeT =
+      const Real<Cfg>(*)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
   const auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   const auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 

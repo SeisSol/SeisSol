@@ -13,15 +13,18 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-class NoFault : public BaseFrictionSolver<NoFault> {
+template <typename Cfg>
+class NoFault : public BaseFrictionSolver<Cfg, NoFault<Cfg>> {
   public:
+  using real = Real<Cfg>;
   NoFault(seissol::initializer::parameters::DRParameters* drParameters)
-      : BaseFrictionSolver<NoFault>(drParameters) {}
+      : BaseFrictionSolver<Cfg, NoFault<Cfg>>(drParameters) {}
 
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {}
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& ctx,
+                                                   uint32_t timeIndex) {
     // calculate traction
     ctx.tractionResults.traction1[timeIndex] = ctx.faultStresses.traction1[timeIndex];
     ctx.tractionResults.traction2[timeIndex] = ctx.faultStresses.traction2[timeIndex];

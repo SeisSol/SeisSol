@@ -15,12 +15,14 @@
 #include <cstdint>
 
 namespace seissol::dr::friction_law::cpu {
-void NoFault::updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,
-                                    TractionResults<Cfg, Executor::Host>& tractionResults,
-                                    std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
-                                    std::array<real, misc::NumPaddedPoints<Cfg>>& strengthBuffer,
-                                    std::size_t ltsFace,
-                                    uint32_t timeIndex) {
+template <typename Cfg>
+void NoFault<Cfg>::updateFrictionAndSlip(
+    const FaultStresses<Cfg, Executor::Host>& faultStresses,
+    TractionResults<Cfg, Executor::Host>& tractionResults,
+    std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+    std::array<real, misc::NumPaddedPoints<Cfg>>& strengthBuffer,
+    std::size_t ltsFace,
+    uint32_t timeIndex) {
   for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
     tractionResults.traction1[timeIndex][pointIndex] =
         faultStresses.traction1[timeIndex][pointIndex];
@@ -28,4 +30,8 @@ void NoFault::updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& fa
         faultStresses.traction2[timeIndex][pointIndex];
   }
 }
+
+#define _H_(cfg) template class NoFault<cfg>;
+#include "ConfigInclude.h"
+
 } // namespace seissol::dr::friction_law::cpu

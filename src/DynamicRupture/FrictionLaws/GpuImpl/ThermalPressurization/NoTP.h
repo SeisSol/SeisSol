@@ -13,8 +13,10 @@
 #include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
 
 namespace seissol::dr::friction_law::gpu {
+template <typename Cfg>
 class NoTP {
   public:
+  using real = Real<Cfg>;
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
 
   SEISSOL_DEVICE static void

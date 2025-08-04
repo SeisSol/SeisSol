@@ -9,8 +9,11 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 
 namespace seissol::dr::friction_law::cpu {
+template <typename Cfg>
 class NoTP {
   public:
+  using real = Real<Cfg>;
+
   explicit NoTP(seissol::initializer::parameters::DRParameters* drParameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}

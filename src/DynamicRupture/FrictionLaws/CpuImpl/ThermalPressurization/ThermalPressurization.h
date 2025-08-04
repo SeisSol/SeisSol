@@ -44,8 +44,11 @@ namespace seissol::dr::friction_law::cpu {
  * We then compute the pressure and temperature update with an inverse Fourier transform from
  * \f$\Pi, \Theta\f$.
  */
+template <typename Cfg>
 class ThermalPressurization {
   public:
+  using real = Real<Cfg>;
+
   explicit ThermalPressurization(seissol::initializer::parameters::DRParameters* drParameters)
       : drParameters(drParameters) {};
 

@@ -14,7 +14,8 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-class FrictionSolverDetails : public FrictionSolverInterface {
+template <typename Cfg>
+class FrictionSolverDetails : public FrictionSolverInterface<Cfg> {
   public:
   explicit FrictionSolverDetails(seissol::initializer::parameters::DRParameters* drParameters);
   ~FrictionSolverDetails() override;

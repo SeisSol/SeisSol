@@ -18,11 +18,13 @@ namespace seissol::dr::friction_law::cpu {
  * Abstract Class implementing the general structure of linear slip weakening friction laws.
  * specific implementation is done by overriding and implementing the hook functions (via CRTP).
  */
-template <class SpecializationT>
-class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>> {
+template <typename Cfg, class SpecializationT>
+class LinearSlipWeakeningLaw
+    : public BaseFrictionLaw<Cfg, LinearSlipWeakeningLaw<Cfg, SpecializationT>> {
   public:
+  using real = Real<Cfg>;
   explicit LinearSlipWeakeningLaw(seissol::initializer::parameters::DRParameters* drParameters)
-      : BaseFrictionLaw<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
+      : BaseFrictionLaw<Cfg, LinearSlipWeakeningLaw<Cfg, SpecializationT>>(drParameters),
         specialization(drParameters) {}
 
   void updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,
@@ -103,10 +105,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
     }
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer, std::size_t ltsFace) {
-  };
-  void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer, std::size_t ltsFace) {
-  };
+  void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+               std::size_t ltsFace) {};
+  void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+                std::size_t ltsFace) {};
 
   /**
    * evaluate friction law: updated mu -> friction law
@@ -218,8 +220,10 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
   SpecializationT specialization;
 };
 
+template <typename Cfg>
 class NoSpecialization {
   public:
+  using real = Real<Cfg>;
   explicit NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {};
@@ -252,8 +256,10 @@ class NoSpecialization {
 /**
  * Law for bimaterial faults, implements strength regularization (according to Prakash-Clifton)
  */
+template <typename Cfg>
 class BiMaterialFault {
   public:
+  using real = Real<Cfg>;
   explicit BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters)
       : drParameters(parameters) {};
 
@@ -291,8 +297,10 @@ class BiMaterialFault {
 /**
  * Modified LSW friction as discussed in github issue #1058
  */
+template <typename Cfg>
 class TPApprox {
   public:
+  using real = Real<Cfg>;
   explicit TPApprox(seissol::initializer::parameters::DRParameters* parameters)
       : drParameters(parameters) {};
 

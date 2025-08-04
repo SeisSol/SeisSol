@@ -21,14 +21,15 @@ namespace seissol::dr::friction_law::cpu {
  * Base class, has implementations of methods that are used by each friction law
  * Actual friction law is plugged in via CRTP.
  */
-template <typename Derived>
-class BaseFrictionLaw : public FrictionSolverImpl {
+template <typename Cfg, typename Derived>
+class BaseFrictionLaw : public FrictionSolverImpl<Cfg> {
   private:
   size_t currLayerSize{};
 
   public:
+  using real = Real<Cfg>;
   explicit BaseFrictionLaw(seissol::initializer::parameters::DRParameters* drParameters)
-      : FrictionSolverImpl(drParameters) {}
+      : FrictionSolverImpl<Cfg>(drParameters) {}
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
@@ -45,7 +46,7 @@ class BaseFrictionLaw : public FrictionSolverImpl {
    * evaluates the current friction model
    */
   void evaluate(double fullUpdateTime,
-                const FrictionTime& frictionTime,
+                const FrictionSolver::FrictionTime& frictionTime,
                 const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     if (this->currLayerSize == 0) {
@@ -67,13 +68,13 @@ class BaseFrictionLaw : public FrictionSolverImpl {
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
       const auto etaPDamp =
-          drParameters->etaStop > this->mFullUpdateTime ? drParameters->etaHack : 1.0;
+          this->drParameters->etaStop > this->mFullUpdateTime ? this->drParameters->etaHack : 1.0;
       common::precomputeStressFromQInterpolated<Cfg>(faultStresses,
-                                                impAndEta[ltsFace],
-                                                impedanceMatrices[ltsFace],
-                                                qInterpolatedPlus[ltsFace],
-                                                qInterpolatedMinus[ltsFace],
-                                                etaPDamp);
+                                                     this->impAndEta[ltsFace],
+                                                     this->impedanceMatrices[ltsFace],
+                                                     this->qInterpolatedPlus[ltsFace],
+                                                     this->qInterpolatedMinus[ltsFace],
+                                                     etaPDamp);
       LIKWID_MARKER_STOP("computeDynamicRupturePrecomputeStress");
       SCOREP_USER_REGION_END(myRegionHandle)
 
@@ -100,10 +101,10 @@ class BaseFrictionLaw : public FrictionSolverImpl {
         updateTime += this->deltaT[timeIndex];
         for (unsigned i = 0; i < this->drParameters->nucleationCount; ++i) {
           common::adjustInitialStress<Cfg>(
-              initialStressInFaultCS[ltsFace],
-              nucleationStressInFaultCS[ltsFace * this->drParameters->nucleationCount + i],
-              initialPressure[ltsFace],
-              nucleationPressure[ltsFace * this->drParameters->nucleationCount + i],
+              this->initialStressInFaultCS[ltsFace],
+              this->nucleationStressInFaultCS[ltsFace * this->drParameters->nucleationCount + i],
+              this->initialPressure[ltsFace],
+              this->nucleationPressure[ltsFace * this->drParameters->nucleationCount + i],
               updateTime,
               this->drParameters->t0[i],
               this->drParameters->s0[i],
@@ -125,14 +126,15 @@ class BaseFrictionLaw : public FrictionSolverImpl {
       LIKWID_MARKER_START("computeDynamicRupturePostHook");
       static_cast<Derived*>(this)->postHook(stateVariableBuffer, ltsFace);
 
-      common::saveRuptureFrontOutput<Cfg>(ruptureTimePending[ltsFace],
-                                     ruptureTime[ltsFace],
-                                     slipRateMagnitude[ltsFace],
-                                     mFullUpdateTime);
+      common::saveRuptureFrontOutput<Cfg>(this->ruptureTimePending[ltsFace],
+                                          this->ruptureTime[ltsFace],
+                                          this->slipRateMagnitude[ltsFace],
+                                          this->mFullUpdateTime);
 
       static_cast<Derived*>(this)->saveDynamicStressOutput(ltsFace);
 
-      common::savePeakSlipRateOutput<Cfg>(slipRateMagnitude[ltsFace], peakSlipRate[ltsFace]);
+      common::savePeakSlipRateOutput<Cfg>(this->slipRateMagnitude[ltsFace],
+                                          this->peakSlipRate[ltsFace]);
       LIKWID_MARKER_STOP("computeDynamicRupturePostHook");
       SCOREP_USER_REGION_END(myRegionHandle)
 
@@ -141,14 +143,14 @@ class BaseFrictionLaw : public FrictionSolverImpl {
                                SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePostcomputeImposedState");
       common::postcomputeImposedStateFromNewStress<Cfg>(faultStresses,
-                                                   tractionResults,
-                                                   impAndEta[ltsFace],
-                                                   impedanceMatrices[ltsFace],
-                                                   imposedStatePlus[ltsFace],
-                                                   imposedStateMinus[ltsFace],
-                                                   qInterpolatedPlus[ltsFace],
-                                                   qInterpolatedMinus[ltsFace],
-                                                   timeWeights);
+                                                        tractionResults,
+                                                        this->impAndEta[ltsFace],
+                                                        this->impedanceMatrices[ltsFace],
+                                                        this->imposedStatePlus[ltsFace],
+                                                        this->imposedStateMinus[ltsFace],
+                                                        this->qInterpolatedPlus[ltsFace],
+                                                        this->qInterpolatedMinus[ltsFace],
+                                                        timeWeights);
       LIKWID_MARKER_STOP("computeDynamicRupturePostcomputeImposedState");
       SCOREP_USER_REGION_END(myRegionHandle)
 
@@ -156,21 +158,21 @@ class BaseFrictionLaw : public FrictionSolverImpl {
 
         if (this->drParameters->isCheckAbortCriteraEnabled) {
           common::updateTimeSinceSlipRateBelowThreshold<Cfg>(
-              slipRateMagnitude[ltsFace],
-              ruptureTimePending[ltsFace],
-              energyData[ltsFace],
+              this->slipRateMagnitude[ltsFace],
+              this->ruptureTimePending[ltsFace],
+              this->energyData[ltsFace],
               this->sumDt,
               this->drParameters->terminatorSlipRateThreshold);
         }
-        common::computeFrictionEnergy<Cfg>(energyData[ltsFace],
-                                      qInterpolatedPlus[ltsFace],
-                                      qInterpolatedMinus[ltsFace],
-                                      impAndEta[ltsFace],
-                                      timeWeights,
-                                      spaceWeights,
-                                      godunovData[ltsFace],
-                                      slipRateMagnitude[ltsFace],
-                                      this->drParameters->energiesFromAcrossFaultVelocities);
+        common::computeFrictionEnergy<Cfg>(this->energyData[ltsFace],
+                                           this->qInterpolatedPlus[ltsFace],
+                                           this->qInterpolatedMinus[ltsFace],
+                                           this->impAndEta[ltsFace],
+                                           timeWeights,
+                                           this->spaceWeights,
+                                           this->godunovData[ltsFace],
+                                           this->slipRateMagnitude[ltsFace],
+                                           this->drParameters->energiesFromAcrossFaultVelocities);
       }
     }
   }

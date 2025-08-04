@@ -21,7 +21,8 @@ static const tp::GridPoints<misc::NumTpGridPoints> TpGridPoints;
 static const tp::InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFourierCoefficients;
 static const tp::GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
 
-void ThermalPressurization::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+template <typename Cfg>
+void ThermalPressurization<Cfg>::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   temperature = layerData.var<LTSThermalPressurization::Temperature>(Cfg());
   pressure = layerData.var<LTSThermalPressurization::Pressure>(Cfg());
   theta = layerData.var<LTSThermalPressurization::Theta>(Cfg());
@@ -30,7 +31,8 @@ void ThermalPressurization::copyStorageToLocal(DynamicRupture::Layer& layerData)
   hydraulicDiffusivity = layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(Cfg());
 }
 
-void ThermalPressurization::calcFluidPressure(
+template <typename Cfg>
+void ThermalPressurization<Cfg>::calcFluidPressure(
     const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
     const real (*mu)[misc::NumPaddedPoints<Cfg>],
     const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
@@ -103,5 +105,8 @@ void ThermalPressurization::calcFluidPressure(
     pressure[ltsFace][pointIndex] = -pressureUpdate + drParameters->initialPressure;
   }
 }
+
+#define _H_(cfg) template class ThermalPressurization<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::dr::friction_law::cpu

@@ -14,10 +14,11 @@ namespace seissol::dr::friction_law::cpu {
 /**
  * Slip rates are set fixed values
  */
-template <typename STF>
-class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
+template <typename Cfg, typename STF>
+class ImposedSlipRates : public BaseFrictionLaw<Cfg, ImposedSlipRates<Cfg, STF>> {
   public:
-  using BaseFrictionLaw<ImposedSlipRates>::BaseFrictionLaw;
+  using real = Real<Cfg>;
+  using BaseFrictionLaw<Cfg, ImposedSlipRates<Cfg, STF>>::BaseFrictionLaw;
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {
     imposedSlipDirection1 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(Cfg());
@@ -66,9 +67,10 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
     }
   }
 
-  void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer, std::size_t ltsFace) {}
-  void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer, std::size_t ltsFace) {
-  }
+  void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+               std::size_t ltsFace) {}
+  void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
+                std::size_t ltsFace) {}
   void saveDynamicStressOutput(std::size_t ltsFace) {}
 
   protected:
