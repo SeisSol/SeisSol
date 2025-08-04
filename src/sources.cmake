@@ -111,15 +111,10 @@ target_sources(seissol-lib PRIVATE
 src/Solver/Estimator.cpp
 
 src/ResultWriter/EnergyOutput.cpp
-src/ResultWriter/FreeSurfaceWriter.cpp
-src/ResultWriter/FreeSurfaceWriterExecutor.cpp
 src/ResultWriter/MiniSeisSolWriter.cpp
 src/ResultWriter/PostProcessor.cpp
 src/ResultWriter/ReceiverWriter.cpp
 src/ResultWriter/ThreadsPinningWriter.cpp
-src/ResultWriter/WaveFieldWriter.cpp
-src/ResultWriter/FaultWriter.cpp
-src/ResultWriter/FaultWriterExecutor.cpp
 
 src/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.cpp
 src/DynamicRupture/Output/FaultRefiner/FaultRefiners.cpp

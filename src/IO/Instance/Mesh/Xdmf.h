@@ -1,37 +1,43 @@
-// SPDX-FileCopyrightText: 2024 SeisSol Group
+// SPDX-FileCopyrightText: 2025 SeisSol Group
 //
 // SPDX-License-Identifier: BSD-3-Clause
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
-#define SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
+#ifndef SEISSOL_SRC_IO_INSTANCE_MESH_XDMF_H_
+#define SEISSOL_SRC_IO_INSTANCE_MESH_XDMF_H_
 
-#include "utils/logger.h"
-#include <IO/Datatype/Datatype.h>
-#include <IO/Datatype/Inference.h>
-#include <IO/Datatype/MPIType.h>
 #include <IO/Instance/Geometry/Typedefs.h>
-#include <IO/Writer/Instructions/Data.h>
-#include <IO/Writer/Instructions/Hdf5.h>
+#include <IO/Writer/Instructions/Binary.h>
 #include <IO/Writer/Instructions/Instruction.h>
 #include <IO/Writer/Writer.h>
-#include <Initializer/MemoryManager.h>
 #include <functional>
 #include <memory>
-
 namespace seissol::io::instance::mesh {
-class VtkHdfWriter {
+
+class XdmfWriter {
   public:
-  VtkHdfWriter(const std::string& name,
-               std::size_t localElementCount,
-               geometry::Shape shape,
-               std::size_t targetDegree);
+  struct WriteResult {
+    std::string name;
+    std::string type;
+    std::shared_ptr<datatype::Datatype> datatype;
+    std::string format;
+    std::vector<std::size_t> offset;
+    std::vector<std::size_t> dimensions;
+    std::string location;
+    std::shared_ptr<writer::instructions::WriteInstruction> instruction;
+  };
+
+  XdmfWriter(const std::string& name,
+             std::size_t localElementCount,
+             geometry::Shape shape,
+             std::size_t targetDegree);
 
   void addData(const std::string& name,
-               const std::optional<std::string>& group,
+               const std::string& type,
                bool isConst,
+               std::size_t localCount,
                const std::shared_ptr<writer::DataSource>& data);
 
   template <typename F>
@@ -42,7 +48,7 @@ class VtkHdfWriter {
                                                            std::vector<std::size_t>{3},
                                                            std::forward<F>(projector));
 
-    addData("Points", std::optional<std::string>(), true, data);
+    addData("XYZ", "Geometry", true, localPointCount, data);
   }
 
   template <typename T, typename F>
@@ -52,7 +58,7 @@ class VtkHdfWriter {
                     F&& pointMapper) {
     const auto data = writer::GeneratedBuffer::createElementwise<T>(
         localElementCount, pointsPerElement, dimensions, std::forward<F>(pointMapper));
-    addData(name, PointDataName, isConst, data);
+    addData(name, "AttributeNode", isConst, localPointCount, data);
   }
 
   template <typename T, typename F>
@@ -62,16 +68,7 @@ class VtkHdfWriter {
                    F&& cellMapper) {
     const auto data = writer::GeneratedBuffer::createElementwise<T>(
         localElementCount, 1, dimensions, std::forward<F>(cellMapper));
-    addData(name, CellDataName, isConst, data);
-  }
-
-  template <typename T>
-  void addFieldData(const std::string& name,
-                    const std::vector<std::size_t>& dimensions,
-                    bool isConst,
-                    const std::vector<T>& data) {
-    const auto datasource = writer::WriteInline::createArray(dimensions, data);
-    addData(name, FieldDataName, isConst, datasource);
+    addData(name, "AttributeCell", isConst, localElementCount, data);
   }
 
   void addHook(const std::function<void(std::size_t, double)>& hook);
@@ -80,6 +77,8 @@ class VtkHdfWriter {
 
   private:
   std::string name;
+  std::string type;
+  bool binary{true};
   std::size_t localElementCount;
   std::size_t globalElementCount;
   std::size_t elementOffset{0};
@@ -87,23 +86,12 @@ class VtkHdfWriter {
   std::size_t globalPointCount;
   std::size_t pointOffset;
   std::size_t pointsPerElement;
+  std::size_t datasetCount{0};
   std::vector<std::function<void(std::size_t, double)>> hooks;
-  std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
-      const std::string&, double)>>
-      instructionsConst;
-  std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
-      const std::string&, const std::string&)>>
-      instructionsConstLink;
-  std::vector<std::function<std::shared_ptr<writer::instructions::WriteInstruction>(
-      const std::string&, double)>>
-      instructions;
-  std::size_t type;
-  std::size_t targetDegree;
-  const static inline std::string GroupName = "VTKHDF";
-  const static inline std::string FieldDataName = "FieldData";
-  const static inline std::string CellDataName = "CellData";
-  const static inline std::string PointDataName = "PointData";
+  std::vector<std::function<WriteResult(const std::string&, std::size_t)>> instructionsConst;
+  std::vector<std::function<WriteResult(const std::string&, std::size_t)>> instructions;
 };
+
 } // namespace seissol::io::instance::mesh
 
-#endif // SEISSOL_SRC_IO_INSTANCE_MESH_VTKHDF_H_
+#endif // SEISSOL_SRC_IO_INSTANCE_MESH_XDMF_H_

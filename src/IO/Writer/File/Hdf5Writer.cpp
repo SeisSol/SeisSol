@@ -258,6 +258,18 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   _eh(H5Dclose(h5data));
   _eh(H5Pclose(h5dxlist));
 }
+
+void Hdf5File::writeLinkExternal(const std::string& name,
+                                 const std::string& targetFile,
+                                 const std::string& targetPath) {
+  _eh(H5Lcreate_external(targetFile.c_str(),
+                         targetPath.c_str(),
+                         handles.top(),
+                         name.c_str(),
+                         H5P_DEFAULT,
+                         H5P_DEFAULT));
+}
+
 void Hdf5File::closeDataset() {
   _eh(H5Dclose(handles.top()));
   handles.pop();
@@ -314,6 +326,29 @@ void Hdf5Writer::writeData(const async::ExecInfo& info, const instructions::Hdf5
     file.closeDataset();
   }
   for (const auto& _ [[maybe_unused]] : write.location.groups()) {
+    file.closeGroup();
+  }
+}
+
+void Hdf5Writer::writeLinkExternal(const async::ExecInfo& info,
+                                   const instructions::Hdf5LinkExternalWrite& write) {
+  Hdf5File file(comm);
+  if (openFiles.find(write.location.file()) == openFiles.end()) {
+    file.openFile(write.location.file());
+    openFiles.insert({write.location.file(), file});
+  }
+  file = openFiles.at(write.location.file());
+  for (const auto& groupname : write.location.groups()) {
+    file.openGroup(groupname);
+  }
+  if (write.location.dataset().has_value()) {
+    file.openDataset(write.location.dataset().value());
+  }
+  file.writeLinkExternal(write.name, write.remote.file(), write.remote.infilePath());
+  if (write.location.dataset().has_value()) {
+    file.closeDataset();
+  }
+  for (auto _ [[maybe_unused]] : write.location.groups()) {
     file.closeGroup();
   }
 }

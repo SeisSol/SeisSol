@@ -5,9 +5,6 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-[submodule "submodules/xdmfwriter"]
-	path = submodules/xdmfwriter
-	url = ../../TUM-I5/XdmfWriter.git
 [submodule "submodules/utils"]
 	path = submodules/utils
 	url = ../../TUM-I5/utils.git

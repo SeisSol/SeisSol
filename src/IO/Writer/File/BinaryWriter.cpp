@@ -18,12 +18,9 @@
 namespace seissol::io::writer::file {
 
 BinaryFile::BinaryFile(MPI_Comm comm) : comm(comm) {}
-void BinaryFile::openFile(const std::string& name) {
-  MPI_File_open(comm,
-                name.c_str(),
-                MPI_MODE_CREATE | MPI_MODE_WRONLY | MPI_MODE_APPEND,
-                MPI_INFO_NULL,
-                &file);
+void BinaryFile::openFile(const std::string& name, bool append) {
+  const auto mode = append ? MPI_MODE_APPEND : 0;
+  MPI_File_open(comm, name.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY | mode, MPI_INFO_NULL, &file);
 }
 void BinaryFile::writeGlobal(const void* data, std::size_t size) {
   int rank = 0;
@@ -44,7 +41,7 @@ BinaryWriter::BinaryWriter(MPI_Comm comm) : comm(comm) {}
 void BinaryWriter::write(const async::ExecInfo& info, const instructions::BinaryWrite& write) {
   if (openFiles.find(write.filename) == openFiles.end()) {
     openFiles[write.filename] = std::make_unique<BinaryFile>(BinaryFile(comm));
-    openFiles[write.filename]->openFile(write.filename);
+    openFiles[write.filename]->openFile(write.filename, write.append);
   }
 
   const void* dataPointer = write.dataSource->getPointer(info);

@@ -20,10 +20,13 @@ struct BinaryWrite : public WriteInstruction {
   ~BinaryWrite() override = default;
   std::string filename;
   std::shared_ptr<writer::DataSource> dataSource;
+  bool append;
 
   YAML::Node serialize() override;
 
-  BinaryWrite(const std::string& filename, std::shared_ptr<writer::DataSource> dataSource);
+  BinaryWrite(const std::string& filename,
+              std::shared_ptr<writer::DataSource> dataSource,
+              bool append);
 
   explicit BinaryWrite(YAML::Node node);
 
