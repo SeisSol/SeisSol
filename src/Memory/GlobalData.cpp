@@ -86,7 +86,8 @@ MemoryProperties OnHost<Cfg>::getProperties() {
 template <typename Cfg>
 void OnHost<Cfg>::negateStiffnessMatrix(GlobalDataCfg<Cfg>& globalData) {
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
-    Real<Cfg>* matrix = const_cast<Real<Cfg>*>(globalData.stiffnessMatricesTransposed(transposedStiffness));
+    Real<Cfg>* matrix =
+        const_cast<Real<Cfg>*>(globalData.stiffnessMatricesTransposed(transposedStiffness));
     for (unsigned i = 0; i < init::kDivMT<Cfg>::size(transposedStiffness); ++i) {
       matrix[i] *= -1.0;
     }
@@ -155,8 +156,8 @@ void OnDevice<Cfg>::initSpecificGlobalData(GlobalDataCfg<Cfg>& globalData,
 #ifdef ACL_DEVICE
   const size_t size = yateto::alignedUpper(tensor::replicateInitialLoadingM<Cfg>::size(),
                                            yateto::alignedReals<Real<Cfg>>(alignment));
-  Real<Cfg>* plasticityStressReplication =
-      static_cast<Real<Cfg>*>(allocator.allocateMemory(size * sizeof(Real<Cfg>), alignment, memkind));
+  Real<Cfg>* plasticityStressReplication = static_cast<Real<Cfg>*>(
+      allocator.allocateMemory(size * sizeof(Real<Cfg>), alignment, memkind));
 
   copyManager.template copyTensorToMemAndSetPtr<init::replicateInitialLoadingM<Cfg>>(
       plasticityStressReplication, globalData.replicateStresses, alignment);
@@ -164,7 +165,9 @@ void OnDevice<Cfg>::initSpecificGlobalData(GlobalDataCfg<Cfg>& globalData,
 }
 
 template <typename Cfg>
-Real<Cfg>* OnDevice<Cfg>::DeviceCopyPolicy::copy(const Real<Cfg>* first, const Real<Cfg>* last, Real<Cfg>*& mem) {
+Real<Cfg>* OnDevice<Cfg>::DeviceCopyPolicy::copy(const Real<Cfg>* first,
+                                                 const Real<Cfg>* last,
+                                                 Real<Cfg>*& mem) {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const std::size_t bytes = (last - first) * sizeof(Real<Cfg>);
@@ -227,12 +230,12 @@ void GlobalDataInitializer<Cfg, MatrixManipPolicyT>::init(GlobalDataCfg<Cfg>& gl
                                               yateto::alignedReals<Real<Cfg>>(prop.alignment));
   globalMatrixMemSize += yateto::alignedUpper(tensor::quadweights<Cfg>::size(),
                                               yateto::alignedReals<Real<Cfg>>(prop.alignment));
-  globalMatrixMemSize +=
-      yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<Real<Cfg>>(prop.alignment));
-  globalMatrixMemSize +=
-      yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<Real<Cfg>>(prop.alignment));
-  globalMatrixMemSize +=
-      yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<Real<Cfg>>(prop.alignment));
+  globalMatrixMemSize += yateto::alignedUpper(dr::misc::NumTpGridPoints,
+                                              yateto::alignedReals<Real<Cfg>>(prop.alignment));
+  globalMatrixMemSize += yateto::alignedUpper(dr::misc::NumTpGridPoints,
+                                              yateto::alignedReals<Real<Cfg>>(prop.alignment));
+  globalMatrixMemSize += yateto::alignedUpper(dr::misc::NumTpGridPoints,
+                                              yateto::alignedReals<Real<Cfg>>(prop.alignment));
 
   Real<Cfg>* globalMatrixMem = static_cast<Real<Cfg>*>(memoryAllocator.allocateMemory(
       globalMatrixMemSize * sizeof(Real<Cfg>), prop.pagesizeHeap, memkind));
@@ -283,41 +286,43 @@ void GlobalDataInitializer<Cfg, MatrixManipPolicyT>::init(GlobalDataCfg<Cfg>& gl
   // a bit more manual
   {
     const auto data =
-        seissol::dr::friction_law::tp::InverseFourierCoefficients<dr::misc::NumTpGridPoints, Real<Cfg>>();
+        seissol::dr::friction_law::tp::InverseFourierCoefficients<dr::misc::NumTpGridPoints,
+                                                                  Real<Cfg>>();
     globalData.tpInverseFourierCoefficients = globalMatrixMemPtr;
-    globalMatrixMemPtr +=
-        yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<Real<Cfg>>(prop.alignment));
+    globalMatrixMemPtr += yateto::alignedUpper(dr::misc::NumTpGridPoints,
+                                               yateto::alignedReals<Real<Cfg>>(prop.alignment));
     seissol::memory::memcopyTyped<Real<Cfg>>(globalData.tpInverseFourierCoefficients,
-                                        data.data().data(),
-                                        dr::misc::NumTpGridPoints,
-                                        memkind,
-                                        memory::Standard);
+                                             data.data().data(),
+                                             dr::misc::NumTpGridPoints,
+                                             memkind,
+                                             memory::Standard);
   }
 
   {
-    const auto data = seissol::dr::friction_law::tp::GridPoints<dr::misc::NumTpGridPoints, Real<Cfg>>();
+    const auto data =
+        seissol::dr::friction_law::tp::GridPoints<dr::misc::NumTpGridPoints, Real<Cfg>>();
     globalData.tpGridPoints = globalMatrixMemPtr;
-    globalMatrixMemPtr +=
-        yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<Real<Cfg>>(prop.alignment));
+    globalMatrixMemPtr += yateto::alignedUpper(dr::misc::NumTpGridPoints,
+                                               yateto::alignedReals<Real<Cfg>>(prop.alignment));
     seissol::memory::memcopyTyped<Real<Cfg>>(globalData.tpGridPoints,
-                                        data.data().data(),
-                                        dr::misc::NumTpGridPoints,
-                                        memkind,
-                                        memory::Standard);
+                                             data.data().data(),
+                                             dr::misc::NumTpGridPoints,
+                                             memkind,
+                                             memory::Standard);
   }
 
   {
     const auto data =
         seissol::dr::friction_law::tp::GaussianHeatSource<dr::misc::NumTpGridPoints, Real<Cfg>>();
     globalData.heatSource = globalMatrixMemPtr;
-    globalMatrixMemPtr +=
-        yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<Real<Cfg>>(prop.alignment));
+    globalMatrixMemPtr += yateto::alignedUpper(dr::misc::NumTpGridPoints,
+                                               yateto::alignedReals<Real<Cfg>>(prop.alignment));
 
     seissol::memory::memcopyTyped<Real<Cfg>>(globalData.heatSource,
-                                        data.data().data(),
-                                        dr::misc::NumTpGridPoints,
-                                        memkind,
-                                        memory::Standard);
+                                             data.data().data(),
+                                             dr::misc::NumTpGridPoints,
+                                             memkind,
+                                             memory::Standard);
   }
 
   assert(globalMatrixMemPtr == globalMatrixMem + globalMatrixMemSize);
@@ -329,8 +334,8 @@ void GlobalDataInitializer<Cfg, MatrixManipPolicyT>::init(GlobalDataCfg<Cfg>& gl
   unsigned drGlobalMatrixMemSize = 0;
   drGlobalMatrixMemSize += yateto::computeFamilySize<init::V3mTo2nTWDivM<Cfg>>(
       yateto::alignedReals<Real<Cfg>>(prop.alignment));
-  drGlobalMatrixMemSize +=
-      yateto::computeFamilySize<init::V3mTo2n<Cfg>>(yateto::alignedReals<Real<Cfg>>(prop.alignment));
+  drGlobalMatrixMemSize += yateto::computeFamilySize<init::V3mTo2n<Cfg>>(
+      yateto::alignedReals<Real<Cfg>>(prop.alignment));
 
   Real<Cfg>* drGlobalMatrixMem = static_cast<Real<Cfg>*>(memoryAllocator.allocateMemory(
       drGlobalMatrixMemSize * sizeof(Real<Cfg>), prop.pagesizeHeap, memkind));
@@ -347,8 +352,8 @@ void GlobalDataInitializer<Cfg, MatrixManipPolicyT>::init(GlobalDataCfg<Cfg>& gl
   unsigned plasticityGlobalMatrixMemSize = 0;
   plasticityGlobalMatrixMemSize +=
       yateto::alignedUpper(tensor::v<Cfg>::size(), yateto::alignedReals<Real<Cfg>>(prop.alignment));
-  plasticityGlobalMatrixMemSize +=
-      yateto::alignedUpper(tensor::vInv<Cfg>::size(), yateto::alignedReals<Real<Cfg>>(prop.alignment));
+  plasticityGlobalMatrixMemSize += yateto::alignedUpper(
+      tensor::vInv<Cfg>::size(), yateto::alignedReals<Real<Cfg>>(prop.alignment));
 
   Real<Cfg>* plasticityGlobalMatrixMem = static_cast<Real<Cfg>*>(memoryAllocator.allocateMemory(
       plasticityGlobalMatrixMemSize * sizeof(Real<Cfg>), prop.pagesizeHeap, memkind));

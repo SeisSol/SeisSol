@@ -14,6 +14,7 @@
 #include "IO/Writer/Writer.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
+#include <Alignment.h>
 #include <Common/Constants.h>
 #include <GeneratedCode/kernel.h>
 #include <GeneratedCode/tensor.h>
@@ -231,23 +232,32 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       for (std::size_t quantity = 0; quantity < seissol::model::MaterialTT<Cfg>::Quantities.size();
            ++quantity) {
         if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
-          writer.addGeometryOutput<real>(
+          writer.addGeometryOutput<float>(
               namewrap(seissol::model::MaterialTT<Cfg>::Quantities[quantity], sim),
               {},
-              [=, &ltsStorage, &backmap](real* target, std::size_t index) {
+              false,
+              [=, &ltsStorage, &backmap](float* target, std::size_t index) {
                 const auto position = backmap.get(cellIndices[index]);
-                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(Cfg(), position);
-                const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-                kernel::projectBasisToVtkVolume<Cfg> vtkproj{};
-                memory::AlignedArray<real, multisim::NumSimulations> simselect;
-                simselect[sim] = 1;
-                vtkproj.simselect = simselect.data();
-                vtkproj.qb = dofsSingleQuantity;
-                vtkproj.xv(order) = target;
-                vtkproj.collvv(Cfg::ConvergenceOrder, order) =
-                    init::collvv<Cfg>::Values[Cfg::ConvergenceOrder +
-                                              (Cfg::ConvergenceOrder + 1) * order];
-                vtkproj.execute(order);
+                ltsStorage.layer(position.color).wrap([&](auto cfg) {
+                  using Cfg = decltype(cfg);
+                  const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(Cfg(), position);
+                  const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
+                  kernel::projectBasisToVtkVolume<Cfg> vtkproj{};
+                  memory::AlignedArray<Real<Cfg>, multisim::NumSimulations> simselect;
+                  simselect[sim] = 1;
+
+                  alignas(Alignment) Real<Cfg> pretarget[tensor::xv<Cfg>::size(order)];
+
+                  vtkproj.simselect = simselect.data();
+                  vtkproj.qb = dofsSingleQuantity;
+                  vtkproj.xv(order) = pretarget;
+                  vtkproj.collvv(Cfg::ConvergenceOrder, order) =
+                      init::collvv<Cfg>::Values[Cfg::ConvergenceOrder +
+                                                (Cfg::ConvergenceOrder + 1) * order];
+                  vtkproj.execute(order);
+
+                  std::copy_n(pretarget, tensor::xv<Cfg>::size(order), target);
+                });
               });
         }
       }
@@ -256,24 +266,32 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
              quantity < seissol::model::PlasticityData<Real<Cfg>>::Quantities.size();
              ++quantity) {
           if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
-            writer.addGeometryOutput<real>(
+            writer.addGeometryOutput<float>(
                 namewrap(seissol::model::PlasticityData<Real<Cfg>>::Quantities[quantity], sim),
                 {},
                 false,
-                [=, &ltsStorage, &backmap](real* target, std::size_t index) {
+                [=, &ltsStorage, &backmap](float* target, std::size_t index) {
                   const auto position = backmap.get(cellIndices[index]);
-                  const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(Cfg(), position);
-                  const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
-                  kernel::projectBasisToVtkVolume<Cfg> vtkproj{};
-                  memory::AlignedArray<real, multisim::NumSimulations> simselect;
-                  simselect[sim] = 1;
-                  vtkproj.simselect = simselect.data();
-                  vtkproj.qb = dofsSingleQuantity;
-                  vtkproj.xv(order) = target;
-                  vtkproj.collvv(Cfg::ConvergenceOrder, order) =
-                      init::collvv<Cfg>::Values[Cfg::ConvergenceOrder +
-                                                (Cfg::ConvergenceOrder + 1) * order];
-                  vtkproj.execute(order);
+                  ltsStorage.layer(position.color).wrap([&](auto cfg) {
+                    using Cfg = decltype(cfg);
+                    const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(cfg, position);
+                    const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
+                    kernel::projectBasisToVtkVolume<Cfg> vtkproj{};
+                    memory::AlignedArray<Real<Cfg>, multisim::NumSimulations> simselect;
+                    simselect[sim] = 1;
+
+                    alignas(Alignment) Real<Cfg> pretarget[tensor::xv<Cfg>::size(order)];
+
+                    vtkproj.simselect = simselect.data();
+                    vtkproj.qb = dofsSingleQuantity;
+                    vtkproj.xv(order) = pretarget;
+                    vtkproj.collvv(Cfg::ConvergenceOrder, order) =
+                        init::collvv<Cfg>::Values[Cfg::ConvergenceOrder +
+                                                  (Cfg::ConvergenceOrder + 1) * order];
+                    vtkproj.execute(order);
+
+                    std::copy_n(pretarget, tensor::xv<Cfg>::size(order), target);
+                  });
                 });
           }
         }
@@ -295,10 +313,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     auto* surfaceMeshIds = freeSurfaceIntegrator.surfaceStorage->var<SurfaceLTS::MeshId>();
     auto* surfaceMeshSides = freeSurfaceIntegrator.surfaceStorage->var<SurfaceLTS::Side>();
     auto* surfaceLocationFlag =
-        freeSurfaceIntegrator.surfaceLtsTree->var<SurfaceLTS::LocationFlag>();
+        freeSurfaceIntegrator.surfaceStorage->var<SurfaceLTS::LocationFlag>();
     auto writer =
         io::instance::geometry::GeometryWriter("free-surface",
-                                               freeSurfaceIntegrator.surfaceLtsTree->size(),
+                                               freeSurfaceIntegrator.surfaceStorage->size(),
                                                io::instance::geometry::Shape::Triangle,
                                                order);
     writer.addPointProjector([=, &freeSurfaceIntegrator](double* target, std::size_t index) {
@@ -351,57 +369,75 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       for (std::size_t quantity = 0;
            quantity < seissol::solver::FreeSurfaceIntegrator::NumComponents;
            ++quantity) {
-        writer.addGeometryOutput<real>(
+        writer.addGeometryOutput<float>(
             namewrap(quantityLabels[quantity], sim),
             {},
             false,
-            [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
+            [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](float* target, std::size_t index) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
               const auto position = backmap.get(meshId);
-              const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(Cfg(), position);
-              const auto* dofsSingleQuantity =
-                  dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
-              kernel::projectBasisToVtkFaceFromVolume<Cfg> vtkproj{};
-              memory::AlignedArray<real, multisim::NumSimulations> simselect;
-              simselect[sim] = 1;
-              vtkproj.simselect = simselect.data();
-              vtkproj.qb = dofsSingleQuantity;
-              vtkproj.xf(order) = target;
-              vtkproj.collvf(Cfg::ConvergenceOrder, order, side) =
-                  init::collvf<Cfg>::Values[Cfg::ConvergenceOrder +
-                                            (Cfg::ConvergenceOrder + 1) * (order + 9 * side)];
-              vtkproj.execute(order, side);
+
+              ltsStorage.layer(position.color).wrap([&](auto cfg) {
+                using Cfg = decltype(cfg);
+                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(cfg, position);
+                const auto* dofsSingleQuantity =
+                    dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
+                kernel::projectBasisToVtkFaceFromVolume<Cfg> vtkproj{};
+                memory::AlignedArray<Real<Cfg>, multisim::NumSimulations> simselect;
+                simselect[sim] = 1;
+
+                alignas(Alignment) Real<Cfg> pretarget[tensor::xf<Cfg>::size(order)];
+
+                vtkproj.simselect = simselect.data();
+                vtkproj.qb = dofsSingleQuantity;
+                vtkproj.xf(order) = pretarget;
+                vtkproj.collvf(Cfg::ConvergenceOrder, order, side) =
+                    init::collvf<Cfg>::Values[Cfg::ConvergenceOrder +
+                                              (Cfg::ConvergenceOrder + 1) * (order + 9 * side)];
+                vtkproj.execute(order, side);
+
+                std::copy_n(pretarget, tensor::xf<Cfg>::size(order), target);
+              });
             });
       }
       for (std::size_t quantity = 0;
            quantity < seissol::solver::FreeSurfaceIntegrator::NumComponents;
            ++quantity) {
-        writer.addGeometryOutput<real>(
+        writer.addGeometryOutput<float>(
             namewrap(
                 quantityLabels[quantity + seissol::solver::FreeSurfaceIntegrator::NumComponents],
                 sim),
             {},
             false,
-            [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](real* target, std::size_t index) {
+            [=, &freeSurfaceIntegrator, &ltsStorage, &backmap](float* target, std::size_t index) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
               const auto position = backmap.get(meshId);
-              const auto* faceDisplacements =
-                  ltsStorage.lookup<LTS::FaceDisplacements>(Cfg(), position);
-              const auto* faceDisplacementVariable =
-                  faceDisplacements[side] + FaceDisplacementPadded * quantity;
-              kernel::projectNodalToVtkFace<Cfg> vtkproj{};
-              memory::AlignedArray<real, multisim::NumSimulations> simselect;
-              simselect[sim] = 1;
-              vtkproj.simselect = simselect.data();
-              vtkproj.pn = faceDisplacementVariable;
-              vtkproj.MV2nTo2m = nodal::init::MV2nTo2m<Cfg>::Values;
-              vtkproj.xf(order) = target;
-              vtkproj.collff(Cfg::ConvergenceOrder, order) =
-                  init::collff<Cfg>::Values[Cfg::ConvergenceOrder +
-                                            (Cfg::ConvergenceOrder + 1) * order];
-              vtkproj.execute(order);
+
+              ltsStorage.layer(position.color).wrap([&](auto cfg) {
+                using Cfg = decltype(cfg);
+                const auto* faceDisplacements =
+                    ltsStorage.lookup<LTS::FaceDisplacements>(Cfg(), position);
+                const auto* faceDisplacementVariable =
+                    faceDisplacements[side] + FaceDisplacementPadded * quantity;
+                kernel::projectNodalToVtkFace<Cfg> vtkproj{};
+                memory::AlignedArray<Real<Cfg>, multisim::NumSimulations> simselect;
+                simselect[sim] = 1;
+
+                alignas(Alignment) Real<Cfg> pretarget[tensor::xf<Cfg>::size(order)];
+
+                vtkproj.simselect = simselect.data();
+                vtkproj.pn = faceDisplacementVariable;
+                vtkproj.MV2nTo2m = nodal::init::MV2nTo2m<Cfg>::Values;
+                vtkproj.xf(order) = pretarget;
+                vtkproj.collff(Cfg::ConvergenceOrder, order) =
+                    init::collff<Cfg>::Values[Cfg::ConvergenceOrder +
+                                              (Cfg::ConvergenceOrder + 1) * order];
+                vtkproj.execute(order);
+
+                std::copy_n(pretarget, tensor::xf<Cfg>::size(order), target);
+              });
             });
       }
     }

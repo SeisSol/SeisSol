@@ -55,12 +55,11 @@ seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
 
 void seissol::physics::AcousticTravellingWaveITM::init(const CellMaterialData& materialData) {}
 
-void seissol::physics::AcousticTravellingWaveITM::evaluate(
-    double time,
-    const std::array<double, 3>* points,
-    std::size_t count,
-    const CellMaterialData& materialData,
-    TensorWrapper& dofsQP) const {
+void seissol::physics::AcousticTravellingWaveITM::evaluate(double time,
+                                                           const std::array<double, 3>* points,
+                                                           std::size_t count,
+                                                           const CellMaterialData& materialData,
+                                                           TensorWrapper dofsQP) const {
   dofsQP.setZero();
   double pressure = 0.0;
   for (size_t i = 0; i < count; ++i) {
@@ -135,12 +134,11 @@ seissol::physics::PressureInjection::PressureInjection(
             << o3 << "), magnitude = " << magnitude << ", width = " << width << ".";
 }
 
-void seissol::physics::PressureInjection::evaluate(
-    double time,
-    const std::array<double, 3>* points,
-    std::size_t count,
-    const CellMaterialData& materialData,
-    TensorWrapper& dofsQp) const {
+void seissol::physics::PressureInjection::evaluate(double time,
+                                                   const std::array<double, 3>* points,
+                                                   std::size_t count,
+                                                   const CellMaterialData& materialData,
+                                                   TensorWrapper dofsQp) const {
   const auto o1 = m_parameters.origin[0];
   const auto o2 = m_parameters.origin[1];
   const auto o3 = m_parameters.origin[2];
@@ -169,12 +167,11 @@ void seissol::physics::PressureInjection::evaluate(
   }
 }
 
-void seissol::physics::ScholteWave::evaluate(
-    double time,
-    const std::array<double, 3>* points,
-    std::size_t count,
-    const CellMaterialData& materialData,
-    TensorWrapper& dofsQp) const {
+void seissol::physics::ScholteWave::evaluate(double time,
+                                             const std::array<double, 3>* points,
+                                             std::size_t count,
+                                             const CellMaterialData& materialData,
+                                             TensorWrapper dofsQp) const {
   const double omega = 2.0 * std::acos(-1);
 
   for (size_t i = 0; i < count; ++i) {
@@ -243,12 +240,11 @@ void seissol::physics::ScholteWave::evaluate(
   }
 }
 
-void seissol::physics::SnellsLaw::evaluate(
-    double time,
-    const std::array<double, 3>* points,
-    std::size_t count,
-    const CellMaterialData& materialData,
-    TensorWrapper& dofsQp) const {
+void seissol::physics::SnellsLaw::evaluate(double time,
+                                           const std::array<double, 3>* points,
+                                           std::size_t count,
+                                           const CellMaterialData& materialData,
+                                           TensorWrapper dofsQp) const {
   const double pi = std::acos(-1);
   const double omega = 2.0 * pi;
 
@@ -355,7 +351,7 @@ void seissol::physics::Ocean::evaluate(double time,
                                        const std::array<double, 3>* points,
                                        std::size_t count,
                                        const CellMaterialData& materialData,
-                                       TensorWrapper& dofsQp) const {
+                                       TensorWrapper dofsQp) const {
   for (size_t i = 0; i < count; ++i) {
     const auto x = points[i][0];
     const auto y = points[i][1];

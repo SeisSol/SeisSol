@@ -13,7 +13,8 @@
 
 namespace seissol::dr::output {
 class LinearSlipWeakeningBimaterial : public ReceiverOutputImpl<LinearSlipWeakeningBimaterial> {
-  template<typename Cfg>
+  public:
+  template <typename Cfg>
   Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
     const auto* const regularizedStrengths =
         getCellData<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(Cfg(), local);

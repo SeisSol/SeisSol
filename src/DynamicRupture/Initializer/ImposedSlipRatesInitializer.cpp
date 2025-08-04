@@ -40,10 +40,10 @@ using namespace seissol::dr;
 template <typename Cfg>
 void rotateSlipToFaultCS(
     DynamicRupture::Layer& layer,
-    const std::vector<std::array<real, misc::NumPaddedPoints<Cfg>>>& strikeSlip,
-    const std::vector<std::array<real, misc::NumPaddedPoints<Cfg>>>& dipSlip,
-    real (*imposedSlipDirection1)[misc::NumPaddedPoints<Cfg>],
-    real (*imposedSlipDirection2)[misc::NumPaddedPoints<Cfg>],
+    const std::vector<std::array<Real<Cfg>, misc::NumPaddedPoints<Cfg>>>& strikeSlip,
+    const std::vector<std::array<Real<Cfg>, misc::NumPaddedPoints<Cfg>>>& dipSlip,
+    Real<Cfg> (*imposedSlipDirection1)[misc::NumPaddedPoints<Cfg>],
+    Real<Cfg> (*imposedSlipDirection2)[misc::NumPaddedPoints<Cfg>],
     const geometry::MeshReader& meshReader) {
   using real = Real<Cfg>;
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {

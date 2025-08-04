@@ -12,10 +12,11 @@
 
 namespace seissol::dr::output {
 class LinearSlipWeakening : public ReceiverOutputImpl<LinearSlipWeakening> {
-  protected:
-  template<typename Cfg>
+  public:
+  template <typename Cfg>
   Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
-    const auto* const cohesions = local.layer->template var<LTSLinearSlipWeakening::Cohesion>(Cfg());
+    const auto* const cohesions =
+        local.layer->template var<LTSLinearSlipWeakening::Cohesion>(Cfg());
     const auto cohesion = cohesions[local.ltsId][local.gpIndex];
 
     const auto effectiveNormalStress =

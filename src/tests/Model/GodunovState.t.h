@@ -48,7 +48,8 @@ TEST_CASE("Godunov state is correct" *
   real localData[tensor::QgodLocal<Cfg>::size()];
   real neighborData[tensor::QgodLocal<Cfg>::size()];
   init::QgodLocal<Cfg>::view::type qgodLocal = init::QgodLocal<Cfg>::view::create(localData);
-  init::QgodNeighbor<Cfg>::view::type qgodNeighbor = init::QgodNeighbor<Cfg>::view::create(neighborData);
+  init::QgodNeighbor<Cfg>::view::type qgodNeighbor =
+      init::QgodNeighbor<Cfg>::view::create(neighborData);
   qgodLocal.setZero();
   qgodNeighbor.setZero();
 

@@ -12,50 +12,60 @@
 #include "Kernel.h"
 namespace seissol::proxy {
 
+template <typename Cfg>
 class ProxyKernelHostAder : public ProxyKernel {
   public:
-  void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
-  auto performanceEstimate(ProxyData& data) const -> PerformanceEstimate override;
+  void run(ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const override;
+  auto performanceEstimate(ProxyData& predata) const -> PerformanceEstimate override;
   [[nodiscard]] auto needsDR() const -> bool override;
 };
 
+template <typename Cfg>
 class ProxyKernelHostLocalWOAder : public ProxyKernel {
   public:
-  void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
-  auto performanceEstimate(ProxyData& data) const -> PerformanceEstimate override;
+  void run(ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const override;
+  auto performanceEstimate(ProxyData& predata) const -> PerformanceEstimate override;
   [[nodiscard]] auto needsDR() const -> bool override;
 };
 
+template <typename Cfg>
 class ProxyKernelHostLocal
-    : public CompoundKernel<ProxyKernelHostAder, ProxyKernelHostLocalWOAder> {
+    : public CompoundKernel<ProxyKernelHostAder<Cfg>, ProxyKernelHostLocalWOAder<Cfg>> {
   public:
-  void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
+  void run(ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const override;
 };
 
+template <typename Cfg>
 class ProxyKernelHostNeighbor : public ProxyKernel {
   public:
-  void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
-  auto performanceEstimate(ProxyData& data) const -> PerformanceEstimate override;
+  void run(ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const override;
+  auto performanceEstimate(ProxyData& predata) const -> PerformanceEstimate override;
   [[nodiscard]] auto needsDR() const -> bool override;
 };
 
-class ProxyKernelHostNeighborDR : public ProxyKernelHostNeighbor {
+template <typename Cfg>
+class ProxyKernelHostNeighborDR : public ProxyKernelHostNeighbor<Cfg> {
   public:
   [[nodiscard]] auto needsDR() const -> bool override;
 };
 
+template <typename Cfg>
 class ProxyKernelHostGodunovDR : public ProxyKernel {
   public:
-  void run(ProxyData& data, seissol::parallel::runtime::StreamRuntime& runtime) const override;
-  auto performanceEstimate(ProxyData& data) const -> PerformanceEstimate override;
+  void run(ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const override;
+  auto performanceEstimate(ProxyData& predata) const -> PerformanceEstimate override;
   [[nodiscard]] auto needsDR() const -> bool override;
 };
 
-using ProxyKernelHostAll = CompoundKernel<ProxyKernelHostLocal, ProxyKernelHostNeighbor>;
-using ProxyKernelHostAllDR =
-    CompoundKernel<ProxyKernelHostLocal, ProxyKernelHostGodunovDR, ProxyKernelHostNeighborDR>;
+template <typename Cfg>
+using ProxyKernelHostAll = CompoundKernel<ProxyKernelHostLocal<Cfg>, ProxyKernelHostNeighbor<Cfg>>;
 
-std::shared_ptr<ProxyKernel> getProxyKernelHost(Kernel kernel);
+template <typename Cfg>
+using ProxyKernelHostAllDR = CompoundKernel<ProxyKernelHostLocal<Cfg>,
+                                            ProxyKernelHostGodunovDR<Cfg>,
+                                            ProxyKernelHostNeighborDR<Cfg>>;
+
+std::shared_ptr<ProxyKernel> getProxyKernelHost(Kernel kernel, ConfigVariant variant);
 
 } // namespace seissol::proxy
 

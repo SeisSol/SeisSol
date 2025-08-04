@@ -450,7 +450,8 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
           assert(easiBoundaryMap != nullptr);
           assert(easiBoundaryConstant != nullptr);
           if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
-            std::get<std::optional<EasiBoundary<Cfg>>>(easiBoundary)->query(nodes, easiBoundaryMap, easiBoundaryConstant);
+            std::get<std::optional<EasiBoundary<Cfg>>>(easiBoundary)
+                ->query(nodes, easiBoundaryMap, easiBoundaryConstant);
           } else {
             // Boundary should not be evaluated
             std::fill_n(easiBoundaryMap,

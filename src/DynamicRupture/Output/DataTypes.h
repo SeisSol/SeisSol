@@ -137,16 +137,17 @@ using FaceToLtsMapType = std::vector<std::pair<DynamicRupture::Layer*, size_t>>;
 } // namespace seissol::dr::output
 
 namespace seissol::dr {
-template<typename RealT>
+template <typename RealT>
 struct PlusMinusBasisFunctions {
   std::vector<RealT> plusSide;
   std::vector<RealT> minusSide;
 };
 
-template<typename Cfg>
+template <typename Cfg>
 struct TransformData {
   PlusMinusBasisFunctions<Real<Cfg>> basisFunctions;
-  std::array<Real<Cfg>, seissol::tensor::stressRotationMatrix<Cfg>::size()> stressGlbToDipStrikeAligned;
+  std::array<Real<Cfg>, seissol::tensor::stressRotationMatrix<Cfg>::size()>
+      stressGlbToDipStrikeAligned;
   std::array<Real<Cfg>, seissol::tensor::stressRotationMatrix<Cfg>::size()> stressFaceAlignedToGlb;
   std::array<Real<Cfg>, seissol::tensor::T<Cfg>::size()> faceAlignedToGlbData;
   std::array<Real<Cfg>, seissol::tensor::Tinv<Cfg>::size()> glbToFaceAlignedData;
@@ -173,7 +174,8 @@ struct ReceiverOutputData {
   std::vector<std::size_t> deviceDataMinus;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector<Real<Cfg>>>> deviceVariables;
+  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector<Real<Cfg>>>>
+      deviceVariables;
   std::vector<std::size_t> deviceIndices;
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 };

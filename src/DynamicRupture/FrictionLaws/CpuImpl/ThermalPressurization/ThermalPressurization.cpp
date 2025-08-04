@@ -17,10 +17,11 @@
 
 namespace seissol::dr::friction_law::cpu {
 
-template<typename RealT>
+template <typename RealT>
 struct TpData {
   static const inline tp::GridPoints<misc::NumTpGridPoints, RealT> TpGridPoints{};
-  static const inline tp::InverseFourierCoefficients<misc::NumTpGridPoints, RealT> TpInverseFourierCoefficients{};
+  static const inline tp::InverseFourierCoefficients<misc::NumTpGridPoints, RealT>
+      TpInverseFourierCoefficients{};
   static const inline tp::GaussianHeatSource<misc::NumTpGridPoints, RealT> HeatSource{};
 };
 
@@ -58,8 +59,8 @@ void ThermalPressurization<Cfg>::calcFluidPressure(
          ++tpGridPointIndex) {
       // Gaussian shear zone in spectral domain, normalized by w
       // \hat{l} / w
-      const real squaredNormalizedTpGrid =
-          misc::power<2>(TpData<real>::TpGridPoints[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex]);
+      const real squaredNormalizedTpGrid = misc::power<2>(
+          TpData<real>::TpGridPoints[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex]);
 
       // This is exp(-A dt) in Noda & Lapusta (2010) equation (10)
       const real thetaTpGrid = drParameters->thermalDiffusivity * squaredNormalizedTpGrid;
@@ -91,7 +92,8 @@ void ThermalPressurization<Cfg>::calcFluidPressure(
       // Recover temperature and altered pressure using inverse Fourier transformation from the new
       // contribution
       const real scaledInverseFourierCoefficient =
-          TpData<real>::TpInverseFourierCoefficients[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex];
+          TpData<real>::TpInverseFourierCoefficients[tpGridPointIndex] /
+          halfWidthShearZone[ltsFace][pointIndex];
       temperatureUpdate += scaledInverseFourierCoefficient * thetaNew;
       pressureUpdate += scaledInverseFourierCoefficient * sigmaNew;
 

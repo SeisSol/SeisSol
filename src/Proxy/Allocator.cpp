@@ -35,10 +35,8 @@
 #include <Initializer/MemoryManager.h>
 #endif
 
-#include "Proxy/Constants.h"
-
 namespace {
-template<typename Cfg>
+template <typename Cfg>
 void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
   using real = Real<Cfg>;
 
@@ -50,14 +48,14 @@ void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>(cfg);
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-  real* bucket =
-      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(cfg, initializer::AllocationPlace::Host));
+  real* bucket = static_cast<real*>(
+      layer.var<LTS::BuffersDerivatives>(cfg, initializer::AllocationPlace::Host));
 
   real** buffersDevice = layer.var<LTS::BuffersDevice>(cfg);
   real** derivativesDevice = layer.var<LTS::DerivativesDevice>(cfg);
   void*(*faceNeighborsDevice)[4] = layer.var<LTS::FaceNeighborsDevice>();
-  real* bucketDevice =
-      static_cast<real*>(layer.var<LTS::BuffersDerivatives>(cfg, initializer::AllocationPlace::Device));
+  real* bucketDevice = static_cast<real*>(
+      layer.var<LTS::BuffersDerivatives>(cfg, initializer::AllocationPlace::Device));
 
   std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
@@ -106,7 +104,8 @@ void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
     }
   }
 
-  kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q<Cfg>::size() * layer.size(), false);
+  kernels::fillWithStuff(
+      reinterpret_cast<real*>(dofs), tensor::Q<Cfg>::size() * layer.size(), false);
   kernels::fillWithStuff(bucket, tensor::I<Cfg>::size() * layer.size(), false);
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
                          sizeof(LocalIntegrationData<Cfg>) / sizeof(real) * layer.size(),
@@ -115,7 +114,7 @@ void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
                          sizeof(NeighboringIntegrationData<Cfg>) / sizeof(real) * layer.size(),
                          false);
 
-  if constexpr(model::MaterialTT<Cfg>::Type == model::MaterialType::Poroelastic) {
+  if constexpr (model::MaterialTT<Cfg>::Type == model::MaterialType::Poroelastic) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
@@ -135,13 +134,15 @@ void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
 
 namespace seissol::proxy {
 
-ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
+template <typename Cfg>
+ProxyDataImpl<Cfg>::ProxyDataImpl(std::size_t cellCount, bool enableDR) : cellCount(cellCount) {
   initGlobalData();
   initDataStructures(enableDR);
   initDataStructuresOnDevice(enableDR);
 }
 
-void ProxyData::initGlobalData() {
+template <typename Cfg>
+void ProxyDataImpl<Cfg>::initGlobalData() {
   globalData.init(0);
 
   spacetimeKernel.setGlobalData(globalData);
@@ -151,11 +152,13 @@ void ProxyData::initGlobalData() {
   dynRupKernel.setGlobalData(globalData);
 }
 
-void ProxyData::initDataStructures(bool enableDR) {
-  const initializer::LTSColorMap map(
-      initializer::EnumLayer<HaloType>({HaloType::Interior}),
-      initializer::EnumLayer<std::size_t>({0}),
-      initializer::TraitLayer<ConfigVariant>({Config()}));
+template <typename Cfg>
+void ProxyDataImpl<Cfg>::initDataStructures(bool enableDR) {
+  const initializer::LTSColorMap map(initializer::EnumLayer<HaloType>({HaloType::Interior}),
+                                     initializer::EnumLayer<std::size_t>({0}),
+                                     initializer::TraitLayer<ConfigVariant>({Cfg()}));
+
+  Cfg cfg;
 
   // init RNG
   LTS::addTo(ltsStorage, false); // proxy does not use plasticity
@@ -166,11 +169,8 @@ void ProxyData::initDataStructures(bool enableDR) {
 
   LTS::Layer& layer = ltsStorage.layer(layerId);
 
-  layer.wrap([&](auto cfg) {
-    using Cfg = decltype(cfg);
-
-    layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(Real<Cfg>) * tensor::I<Cfg>::size() * layer.size());
-  });
+  layer.setEntrySize<LTS::BuffersDerivatives>(sizeof(Real<Cfg>) * tensor::I<Cfg>::size() *
+                                              layer.size());
 
   ltsStorage.allocateVariables();
   ltsStorage.touchVariables();
@@ -188,11 +188,8 @@ void ProxyData::initDataStructures(bool enableDR) {
     drStorage.touchVariables();
   }
 
-  layer.wrap([&](auto cfg) {
-    using Cfg = decltype(cfg);
-
-    // NOLINTNEXTLINE
-    using real = Real<Cfg>;
+  // NOLINTNEXTLINE
+  using real = Real<Cfg>;
 
   if (enableDR) {
     fakeDerivativesHost = reinterpret_cast<real*>(allocator.allocateMemory(
@@ -293,10 +290,10 @@ void ProxyData::initDataStructures(bool enableDR) {
       faceInformation[face].faceRelation = orientationDist(rng);
     }
   }
-});
 }
 
-void ProxyData::initDataStructuresOnDevice(bool enableDR) {
+template <typename Cfg>
+void ProxyDataImpl<Cfg>::initDataStructuresOnDevice(bool enableDR) {
 #ifdef ACL_DEVICE
   const auto& device = ::device::DeviceInstance::getInstance();
   ltsStorage.synchronizeTo(seissol::initializer::AllocationPlace::Device,
@@ -328,6 +325,16 @@ void ProxyData::initDataStructuresOnDevice(bool enableDR) {
     drRecorder.record(drLayer);
   }
 #endif // ACL_DEVICE
+}
+
+std::shared_ptr<ProxyData>
+    ProxyData::get(ConfigVariant variant, std::size_t cellCount, bool enableDR) {
+  return std::visit(
+      [&](auto cfg) -> std::shared_ptr<ProxyData> {
+        using Cfg = decltype(cfg);
+        return std::make_shared<ProxyDataImpl<Cfg>>(cellCount, enableDR);
+      },
+      variant);
 }
 
 } // namespace seissol::proxy

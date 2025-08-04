@@ -31,6 +31,12 @@
 namespace seissol::proxy {
 
 struct ProxyData {
+  static std::shared_ptr<ProxyData>
+      get(ConfigVariant variant, std::size_t cellCount, bool enableDR);
+};
+
+template <typename Cfg>
+struct ProxyDataImpl : public ProxyData {
   std::size_t cellCount;
 
   LTS::Storage ltsStorage;
@@ -38,10 +44,10 @@ struct ProxyData {
 
   GlobalData globalData;
 
-  real* fakeDerivatives = nullptr;
-  real* fakeDerivativesHost = nullptr;
+  Real<Cfg>* fakeDerivatives = nullptr;
+  Real<Cfg>* fakeDerivativesHost = nullptr;
 
-  typename kernels::Solver<Config>::TimeBasis<real> timeBasis{Config::ConvergenceOrder};
+  typename kernels::Solver<Config>::TimeBasis<Real<Cfg>> timeBasis{Config::ConvergenceOrder};
 
   kernels::Spacetime<Cfg> spacetimeKernel;
   kernels::Time<Cfg> timeKernel;
@@ -51,9 +57,9 @@ struct ProxyData {
 
   seissol::memory::ManagedAllocator allocator;
 
-  ProxyData(std::size_t cellCount, bool enableDR);
+  ProxyDataImpl(std::size_t cellCount, bool enableDR);
 
-  initializer::LayerIdentifier layerId{HaloType::Interior, Config(), 0};
+  initializer::LayerIdentifier layerId{HaloType::Interior, Cfg(), 0};
 
   // TODO: check copyability (probably not)
 

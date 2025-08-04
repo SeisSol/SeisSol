@@ -42,16 +42,16 @@ template <typename Cfg>
 using Solver = typename model::MaterialTT<Cfg>::Solver;
 
 template <typename Cfg>
-using Time = typename Solver<Cfg>::TimeKernelT<Cfg>;
+using Time = typename Solver<Cfg>::template TimeKernelT<Cfg>;
 
 template <typename Cfg>
-using Spacetime = typename Solver<Cfg>::SpacetimeKernelT<Cfg>;
+using Spacetime = typename Solver<Cfg>::template SpacetimeKernelT<Cfg>;
 
 template <typename Cfg>
-using Local = typename Solver<Cfg>::LocalKernelT<Cfg>;
+using Local = typename Solver<Cfg>::template LocalKernelT<Cfg>;
 
 template <typename Cfg>
-using Neighbor = typename Solver<Cfg>::NeighborKernelT<Cfg>;
+using Neighbor = typename Solver<Cfg>::template NeighborKernelT<Cfg>;
 
 template <typename Cfg>
 using TimeBasisT = typename Solver<Cfg>::template TimeBasis<Real<Cfg>>;

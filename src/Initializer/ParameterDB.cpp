@@ -582,23 +582,27 @@ std::set<std::string> FaultParameterDB<T>::faultProvides(const std::string& file
 template class FaultParameterDB<float>;
 template class FaultParameterDB<double>;
 
-template<typename Cfg>
+template <typename Cfg>
 EasiBoundary<Cfg>::EasiBoundary(const std::string& fileName) : model(loadEasiModel(fileName)) {}
 
-template<typename Cfg>
+template <typename Cfg>
 EasiBoundary<Cfg>::EasiBoundary(EasiBoundary<Cfg>&& other) noexcept : model(other.model) {}
 
-template<typename Cfg>
+template <typename Cfg>
 EasiBoundary<Cfg>& EasiBoundary<Cfg>::operator=(EasiBoundary&& other) noexcept {
   std::swap(model, other.model);
   return *this;
 }
 
-template<typename Cfg>
-EasiBoundary<Cfg>::~EasiBoundary() { delete model; }
+template <typename Cfg>
+EasiBoundary<Cfg>::~EasiBoundary() {
+  delete model;
+}
 
-template<typename Cfg>
-void EasiBoundary<Cfg>::query(const real* nodes, real* mapTermsData, real* constantTermsData) const {
+template <typename Cfg>
+void EasiBoundary<Cfg>::query(const real* nodes,
+                              real* mapTermsData,
+                              real* constantTermsData) const {
   if (model == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
@@ -692,7 +696,7 @@ struct QueryAllMaterials {
     std::vector<bool> keepNow(ctvArray.size);
     std::vector<std::size_t> indices;
     for (std::size_t i = 0; i < ctvArray.size; ++i) {
-      keepNow[i] = true;//ctvArray.elementGroups(i) == 0;
+      keepNow[i] = true; // ctvArray.elementGroups(i) == 0;
       if (keepNow[i]) {
         indices.emplace_back(i);
       }

@@ -9,6 +9,7 @@
 #include "Allocator.h"
 #include "Common.h"
 #include "Kernel.h"
+#include <Config.h>
 #include <Parallel/Runtime/Stream.h>
 #include <memory>
 
@@ -20,8 +21,10 @@
 
 namespace seissol::proxy {
 #ifdef ACL_DEVICE
-void ProxyKernelDeviceAder::run(ProxyData& data,
-                                seissol::parallel::runtime::StreamRuntime& runtime) const {
+template <typename Cfg>
+void ProxyKernelDeviceAder<Cfg>::run(ProxyData& predata,
+                                     seissol::parallel::runtime::StreamRuntime& runtime) const {
+  auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.ltsStorage.layer(data.layerId);
 
   kernels::<Cfg>tmp(9.81);
@@ -41,8 +44,10 @@ void ProxyKernelDeviceAder::run(ProxyData& data,
   });
 }
 
-void ProxyKernelDeviceLocalWOAder::run(ProxyData& data,
-                                       seissol::parallel::runtime::StreamRuntime& runtime) const {
+template <typename Cfg>
+void ProxyKernelDeviceLocalWOAder<Cfg>::run(
+    ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const {
+  auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.ltsStorage.layer(data.layerId);
 
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
@@ -59,8 +64,10 @@ void ProxyKernelDeviceLocalWOAder::run(ProxyData& data,
   });
 }
 
-void ProxyKernelDeviceLocal::run(ProxyData& data,
-                                 seissol::parallel::runtime::StreamRuntime& runtime) const {
+template <typename Cfg>
+void ProxyKernelDeviceLocal<Cfg>::run(ProxyData& predata,
+                                      seissol::parallel::runtime::StreamRuntime& runtime) const {
+  auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.ltsStorage.layer(data.layerId);
 
   kernels::LocalTmp<Cfg> tmp(9.81);
@@ -81,8 +88,10 @@ void ProxyKernelDeviceLocal::run(ProxyData& data,
   });
 }
 
-void ProxyKernelDeviceNeighbor::run(ProxyData& data,
-                                    seissol::parallel::runtime::StreamRuntime& runtime) const {
+template <typename Cfg>
+void ProxyKernelDeviceNeighbor<Cfg>::run(ProxyData& predata,
+                                         seissol::parallel::runtime::StreamRuntime& runtime) const {
+  auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.ltsStorage.layer(data.layerId);
 
   const double timeStepWidth = static_cast<double>(Timestep);
@@ -101,8 +110,10 @@ void ProxyKernelDeviceNeighbor::run(ProxyData& data,
   });
 }
 
-void ProxyKernelDeviceGodunovDR::run(ProxyData& data,
-                                     seissol::parallel::runtime::StreamRuntime& runtime) const {
+template <typename Cfg>
+void ProxyKernelDeviceGodunovDR<Cfg>::run(
+    ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const {
+  auto& data = static_cast<ProxyDataImpl<Cfg>&>(predata);
   auto& layer = data.drStorage.layer(data.layerId);
 
   auto& dataTable = layer.getConditionalTable<inner_keys::Dr>();
@@ -118,43 +129,57 @@ void ProxyKernelDeviceGodunovDR::run(ProxyData& data,
   });
 }
 #else
-void ProxyKernelDeviceAder::run(ProxyData& data,
-                                seissol::parallel::runtime::StreamRuntime& runtime) const {}
-
-void ProxyKernelDeviceLocalWOAder::run(ProxyData& data,
-                                       seissol::parallel::runtime::StreamRuntime& runtime) const {}
-
-void ProxyKernelDeviceLocal::run(ProxyData& data,
-                                 seissol::parallel::runtime::StreamRuntime& runtime) const {}
-
-void ProxyKernelDeviceNeighbor::run(ProxyData& data,
-                                    seissol::parallel::runtime::StreamRuntime& runtime) const {}
-
-void ProxyKernelDeviceGodunovDR::run(ProxyData& data,
+template <typename Cfg>
+void ProxyKernelDeviceAder<Cfg>::run(ProxyData& predata,
                                      seissol::parallel::runtime::StreamRuntime& runtime) const {}
+
+template <typename Cfg>
+void ProxyKernelDeviceLocalWOAder<Cfg>::run(
+    ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const {}
+
+template <typename Cfg>
+void ProxyKernelDeviceLocal<Cfg>::run(ProxyData& predata,
+                                      seissol::parallel::runtime::StreamRuntime& runtime) const {}
+
+template <typename Cfg>
+void ProxyKernelDeviceNeighbor<Cfg>::run(ProxyData& predata,
+                                         seissol::parallel::runtime::StreamRuntime& runtime) const {
+}
+
+template <typename Cfg>
+void ProxyKernelDeviceGodunovDR<Cfg>::run(
+    ProxyData& predata, seissol::parallel::runtime::StreamRuntime& runtime) const {}
 #endif
 
-auto ProxyKernelDeviceNeighborDR::needsDR() const -> bool { return true; }
+template <typename Cfg>
+auto ProxyKernelDeviceNeighborDR<Cfg>::needsDR() const -> bool {
+  return true;
+}
 
-std::shared_ptr<ProxyKernel> getProxyKernelDevice(Kernel kernel) {
-  switch (kernel) {
-  case Kernel::All:
-    return std::make_shared<ProxyKernelDeviceAll>();
-  case Kernel::AllDR:
-    return std::make_shared<ProxyKernelDeviceAllDR>();
-  case Kernel::Ader:
-    return std::make_shared<ProxyKernelDeviceAder>();
-  case Kernel::LocalWOAder:
-    return std::make_shared<ProxyKernelDeviceLocalWOAder>();
-  case Kernel::Local:
-    return std::make_shared<ProxyKernelDeviceLocal>();
-  case Kernel::Neighbor:
-    return std::make_shared<ProxyKernelDeviceNeighbor>();
-  case Kernel::NeighborDR:
-    return std::make_shared<ProxyKernelDeviceNeighborDR>();
-  case Kernel::GodunovDR:
-    return std::make_shared<ProxyKernelDeviceGodunovDR>();
-  }
-  throw;
+std::shared_ptr<ProxyKernel> getProxyKernelDevice(Kernel kernel, ConfigVariant variant) {
+  return std::visit(
+      [&](auto cfg) -> std::shared_ptr<ProxyKernel> {
+        using Cfg = decltype(cfg);
+        switch (kernel) {
+        case Kernel::All:
+          return std::make_shared<ProxyKernelDeviceAll<Cfg>>();
+        case Kernel::AllDR:
+          return std::make_shared<ProxyKernelDeviceAllDR<Cfg>>();
+        case Kernel::Ader:
+          return std::make_shared<ProxyKernelDeviceAder<Cfg>>();
+        case Kernel::LocalWOAder:
+          return std::make_shared<ProxyKernelDeviceLocalWOAder<Cfg>>();
+        case Kernel::Local:
+          return std::make_shared<ProxyKernelDeviceLocal<Cfg>>();
+        case Kernel::Neighbor:
+          return std::make_shared<ProxyKernelDeviceNeighbor<Cfg>>();
+        case Kernel::NeighborDR:
+          return std::make_shared<ProxyKernelDeviceNeighborDR<Cfg>>();
+        case Kernel::GodunovDR:
+          return std::make_shared<ProxyKernelDeviceGodunovDR<Cfg>>();
+        }
+        throw;
+      },
+      variant);
 }
 } // namespace seissol::proxy

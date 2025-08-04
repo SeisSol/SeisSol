@@ -15,7 +15,7 @@
 
 namespace seissol {
 // NOLINTNEXTLINE
-using real = RealT<Config::Precision>;
+// using real = RealT<Config::Precision>;
 
 // NOLINTNEXTLINE
 template <typename Config>

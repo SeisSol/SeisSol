@@ -200,9 +200,11 @@ void OutputManager::initElementwiseOutput() {
 
   auto order = seissolParameters.output.elementwiseParameters.vtkorder;
 
-  const auto pointCount =
-      order > 1 ? seissol::init::vtk2d::Shape[order][1] : seissol::init::vtk2d::Shape[1][1];
-  const auto dataCount = order > 1 ? seissol::init::vtk2d::Shape[order][1] : 1;
+  // explicitly take the first config here
+  using Cfg0 = Config0;
+  const auto pointCount = order > 1 ? seissol::init::vtk2d<Cfg0>::Shape[order][1]
+                                    : seissol::init::vtk2d<Cfg0>::Shape[1][1];
+  const auto dataCount = order > 1 ? seissol::init::vtk2d<Cfg0>::Shape[order][1] : 1;
 
   io::instance::geometry::GeometryWriter writer("fault-elementwise",
                                                 receiverPoints.size() / pointCount,
@@ -232,13 +234,12 @@ void OutputManager::initElementwiseOutput() {
     if (var.isActive) {
       for (int d = 0; d < var.dim(); ++d) {
         auto* data = var.data[d];
-        writer.addGeometryOutput<real>(
-            VariableLabels[i][d],
-            std::vector<std::size_t>(),
-            false,
-            [=](real* target, std::size_t index) {
-              std::memcpy(target, data + dataCount * index, sizeof(real) * dataCount);
-            });
+        writer.addGeometryOutput<float>(VariableLabels[i][d],
+                                        std::vector<std::size_t>(),
+                                        false,
+                                        [=](float* target, std::size_t index) {
+                                          std::copy_n(data + dataCount * index, dataCount, target);
+                                        });
       }
     }
   });
@@ -320,7 +321,8 @@ void OutputManager::initPickpointOutput() {
 
     for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
       for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
-        auto collectVariableNames = [&baseHeader, &simIndex, &pointIndex, suffix](auto& var, int) {
+        auto collectVariableNames = [&baseHeader, &simIndex, &pointIndex, suffix](auto& var,
+                                                                                  int index) {
           if (var.isActive) {
             for (int dim = 0; dim < var.dim(); ++dim) {
               baseHeader << " ,\"" << VariableLabels[index][dim]

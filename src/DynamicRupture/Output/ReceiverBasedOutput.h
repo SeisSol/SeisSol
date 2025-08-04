@@ -31,15 +31,16 @@ class ReceiverOutput {
 
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
-  virtual void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
-                       seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-                       const std::shared_ptr<ReceiverOutputData>& outputData,
-                       parallel::runtime::StreamRuntime& runtime,
-                       double time = 0.0) = 0;
+  virtual void
+      calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
+                      seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                      const std::shared_ptr<ReceiverOutputData>& outputData,
+                      parallel::runtime::StreamRuntime& runtime,
+                      double time = 0.0) = 0;
 
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const = 0;
 
-protected:
+  protected:
   LTS::Storage* wpStorage{nullptr};
   LTS::Backmap* wpBackmap{nullptr};
   DynamicRupture::Storage* drStorage{nullptr};
@@ -47,7 +48,7 @@ protected:
   FaceToLtsMapType* faceToLtsMap{nullptr};
 };
 
-template<typename Derived>
+template <typename Derived>
 class ReceiverOutputImpl : public ReceiverOutput {
   public:
   void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
@@ -59,8 +60,7 @@ class ReceiverOutputImpl : public ReceiverOutput {
   [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override;
 
   protected:
-
-  template<typename Cfg>
+  template <typename Cfg>
   struct LocalInfo {
     using real = Real<Cfg>;
 
@@ -121,60 +121,58 @@ class ReceiverOutputImpl : public ReceiverOutput {
     }
   }
 
-  template<typename Cfg>
+  template <typename Cfg>
   void getDofs(Real<Cfg> dofs[tensor::Q<Cfg>::size()], int meshId);
 
-  template<typename Cfg>
+  template <typename Cfg>
   void getNeighborDofs(Real<Cfg> dofs[tensor::Q<Cfg>::size()], int meshId, int side);
 
-  template<typename Cfg>
+  template <typename Cfg>
   void computeLocalStresses(LocalInfo<Cfg>& local);
 
-  template<typename Cfg>
+  template <typename Cfg>
   static void updateLocalTractions(LocalInfo<Cfg>& local, Real<Cfg> strength);
 
-  template<typename Cfg>
-  Real<Cfg> computeRuptureVelocity(Eigen::Matrix<Real<Cfg>, 2, 2>& jacobiT2d, const LocalInfo<Cfg>& local);
+  template <typename Cfg>
+  Real<Cfg> computeRuptureVelocity(const Eigen::Matrix<Real<Cfg>, 2, 2>& jacobiT2d,
+                                   const LocalInfo<Cfg>& local);
 
-  template<typename Cfg>
+  template <typename Cfg>
   void computeSlipRate(LocalInfo<Cfg>& local,
-                               const std::array<Real<Cfg>, 6>& /*rotatedUpdatedStress*/,
-                               const std::array<Real<Cfg>, 6>& /*rotatedStress*/);
-  
-  template<typename Cfg>
+                       const std::array<Real<Cfg>, 6>& /*rotatedUpdatedStress*/,
+                       const std::array<Real<Cfg>, 6>& /*rotatedStress*/);
+
+  template <typename Cfg>
   static void computeSlipRate(LocalInfo<Cfg>& local,
                               const std::array<double, 3>& tangent1,
                               const std::array<double, 3>& tangent2,
                               const std::array<double, 3>& strike,
                               const std::array<double, 3>& dip);
-  
-template<typename Cfg>
+
+  template <typename Cfg>
   Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
     return 0;
   }
 
-  template<typename Cfg>
+  template <typename Cfg>
   Real<Cfg> computeFluidPressure(LocalInfo<Cfg>& local) {
     return 0;
   }
 
-  template<typename Cfg>
+  template <typename Cfg>
   Real<Cfg> computeStateVariable(LocalInfo<Cfg>& local) {
     return 0;
   }
-  
-  template<typename Cfg>
+
+  template <typename Cfg>
   void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& data,
-                        const LocalInfo<Cfg>& local,
-                        size_t outputSpecifics,
-                        size_t receiverIdx) {
-    
-  }
-  
-  template<typename Cfg>
+                       const LocalInfo<Cfg>& local,
+                       size_t outputSpecifics,
+                       size_t receiverIdx) {}
+
+  template <typename Cfg>
   void adjustRotatedUpdatedStress(std::array<Real<Cfg>, 6>& rotatedUpdatedStress,
-                                          const std::array<Real<Cfg>, 6>& rotatedStress) {
-  }
+                                  const std::array<Real<Cfg>, 6>& rotatedStress) {}
 };
 } // namespace seissol::dr::output
 

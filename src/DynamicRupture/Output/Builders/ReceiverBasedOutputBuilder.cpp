@@ -163,11 +163,14 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
         }
       }
 
-      std::visit([&](auto cfg) {
-        using Cfg = decltype(cfg);
-        std::get<TransformData<Cfg>>(outputData->transformData[foundPoints]).basisFunctions =
-          getPlusMinusBasisFunctions<Real<Cfg>>(point.global.coords, elemCoords, neighborElemCoords, cfg);
-      }, ConfigVariantList[configId]);
+      std::visit(
+          [&](auto cfg) {
+            using Cfg = decltype(cfg);
+            std::get<TransformData<Cfg>>(outputData->transformData[foundPoints]).basisFunctions =
+                getPlusMinusBasisFunctions<Real<Cfg>>(
+                    point.global.coords, elemCoords, neighborElemCoords, cfg);
+          },
+          ConfigVariantList[configId]);
     }
   }
 
@@ -278,41 +281,46 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
   // init Rotation Matrices
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
     const auto configId = 0;
-    std::visit([&](auto cfg) {
-      using Cfg = decltype(cfg);
-      using real = Real<Cfg>;
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          using real = Real<Cfg>;
 
-      auto& transformData = std::get<TransformData<Cfg>>(outputData->transformData[receiverId]);
+          auto& transformData = std::get<TransformData<Cfg>>(outputData->transformData[receiverId]);
 
-      using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
-      const auto& faceNormal = outputData->faultDirections[receiverId].faceNormal;
-      const auto& strike = outputData->faultDirections[receiverId].strike;
-      const auto& dip = outputData->faultDirections[receiverId].dip;
-      const auto& tangent1 = outputData->faultDirections[receiverId].tangent1;
-      const auto& tangent2 = outputData->faultDirections[receiverId].tangent2;
+          using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
+          const auto& faceNormal = outputData->faultDirections[receiverId].faceNormal;
+          const auto& strike = outputData->faultDirections[receiverId].strike;
+          const auto& dip = outputData->faultDirections[receiverId].dip;
+          const auto& tangent1 = outputData->faultDirections[receiverId].tangent1;
+          const auto& tangent2 = outputData->faultDirections[receiverId].tangent2;
 
-      {
-        auto* memorySpace = transformData.stressGlbToDipStrikeAligned.data();
-        RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-        inverseSymmetricTensor2RotationMatrix(
-            faceNormal.data(), strike.data(), dip.data(), rotationMatrixView, 0, 0);
-      }
-      {
-        auto* memorySpace = transformData.stressFaceAlignedToGlb.data();
-        RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-        symmetricTensor2RotationMatrix(
-            faceNormal.data(), tangent1.data(), tangent2.data(), rotationMatrixView, 0, 0);
-      }
-      {
-        auto faceAlignedToGlb =
-            init::T<Cfg>::view::create(transformData.faceAlignedToGlbData.data());
-        auto glbToFaceAligned =
-            init::Tinv<Cfg>::view::create(transformData.glbToFaceAlignedData.data());
+          {
+            auto* memorySpace = transformData.stressGlbToDipStrikeAligned.data();
+            RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
+            inverseSymmetricTensor2RotationMatrix(
+                faceNormal.data(), strike.data(), dip.data(), rotationMatrixView, 0, 0);
+          }
+          {
+            auto* memorySpace = transformData.stressFaceAlignedToGlb.data();
+            RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
+            symmetricTensor2RotationMatrix(
+                faceNormal.data(), tangent1.data(), tangent2.data(), rotationMatrixView, 0, 0);
+          }
+          {
+            auto faceAlignedToGlb =
+                init::T<Cfg>::view::create(transformData.faceAlignedToGlbData.data());
+            auto glbToFaceAligned =
+                init::Tinv<Cfg>::view::create(transformData.glbToFaceAlignedData.data());
 
-        seissol::model::getFaceRotationMatrix<model::MaterialTT<Cfg>>(
-            faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);
-      }
-    }, ConfigVariantList[configId]);
+            seissol::model::getFaceRotationMatrix<model::MaterialTT<Cfg>>(faceNormal.data(),
+                                                                          tangent1.data(),
+                                                                          tangent2.data(),
+                                                                          faceAlignedToGlb,
+                                                                          glbToFaceAligned);
+          }
+        },
+        ConfigVariantList[configId]);
   }
 }
 
@@ -369,17 +377,20 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     const auto* tangent2 = faultInfo[faultIndex].tangent2;
 
     const auto configId = 0;
-    std::visit([&](auto cfg) {
-      using Cfg = decltype(cfg);
-      using real = Real<Cfg>;
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          using real = Real<Cfg>;
 
-      Eigen::Matrix<real, 2, 2> matrix;
-      matrix(0, 0) = MeshTools::dot(tangent1, xab);
-      matrix(0, 1) = MeshTools::dot(tangent2, xab);
-      matrix(1, 0) = MeshTools::dot(tangent1, xac);
-      matrix(1, 1) = MeshTools::dot(tangent2, xac);
-      std::get<TransformData<Cfg>>(outputData->transformData[receiverId]).jacobianT2d = matrix.inverse();
-    }, ConfigVariantList[configId]);
+          Eigen::Matrix<real, 2, 2> matrix;
+          matrix(0, 0) = MeshTools::dot(tangent1, xab);
+          matrix(0, 1) = MeshTools::dot(tangent2, xab);
+          matrix(1, 0) = MeshTools::dot(tangent1, xac);
+          matrix(1, 1) = MeshTools::dot(tangent2, xac);
+          std::get<TransformData<Cfg>>(outputData->transformData[receiverId]).jacobianT2d =
+              matrix.inverse();
+        },
+        ConfigVariantList[configId]);
   }
 }
 

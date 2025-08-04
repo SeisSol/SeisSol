@@ -14,11 +14,11 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include <Initializer/ParameterDB.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Memory/Tree/Backmap.h>
 
 namespace seissol::initializer {
-class EasiBoundaryT;
 /**
  * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
  **/

@@ -57,11 +57,11 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
                                   const ExtTriangle& face,
                                   const VrtxCoords faceNormal);
 
-template<typename RealT>
+template <typename RealT>
 PlusMinusBasisFunctions<RealT> getPlusMinusBasisFunctions(const VrtxCoords point,
-                                                   const VrtxCoords* plusElementCoords[4],
-                                                   const VrtxCoords* minusElementCoords[4],
-                                                  ConfigVariant config);
+                                                          const VrtxCoords* plusElementCoords[4],
+                                                          const VrtxCoords* minusElementCoords[4],
+                                                          ConfigVariant config);
 
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints);
 

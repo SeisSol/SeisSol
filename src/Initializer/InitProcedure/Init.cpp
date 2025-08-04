@@ -66,7 +66,7 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
   // initialization procedure
   seissol::initializer::initprocedure::initMesh(seissolInstance);
   seissol::initializer::initprocedure::initLayout(seissolInstance);
-  //seissol::initializer::initprocedure::initModel(seissolInstance);
+  // seissol::initializer::initprocedure::initModel(seissolInstance);
   seissol::initializer::initprocedure::initSideConditions(seissolInstance);
   seissol::initializer::initprocedure::initIO(seissolInstance);
 

@@ -124,7 +124,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
   std::size_t ltsUnsupported = 0;
   std::string unsupportedExample;
   for (std::size_t i = 0; i < mesh.cells().size(); ++i) {
-    const auto config = 0;//groups[i];
+    const auto config = 0; // groups[i];
 
     std::visit(
         [&](auto cfg) {

@@ -13,11 +13,13 @@
 namespace seissol::dr::output {
 
 class ImposedSlipRates : public ReceiverOutputImpl<ImposedSlipRates> {
-  protected:
-  template<typename Cfg>
-  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) { return 0.0; }
+  public:
+  template <typename Cfg>
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
+    return 0.0;
+  }
 
-  template<typename Cfg>
+  template <typename Cfg>
   void adjustRotatedUpdatedStress(std::array<Real<Cfg>, 6>& rotatedUpdatedStress,
                                   const std::array<Real<Cfg>, 6>& rotatedStress) {
     // we plot the Stress from Godunov state, because we want

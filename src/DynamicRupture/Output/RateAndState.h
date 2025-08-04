@@ -12,7 +12,8 @@
 
 namespace seissol::dr::output {
 struct RateAndState : public ReceiverOutputImpl<RateAndState> {
-  template<typename Cfg>
+  public:
+  template <typename Cfg>
   Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
@@ -20,12 +21,12 @@ struct RateAndState : public ReceiverOutputImpl<RateAndState> {
            std::min(effectiveNormalStress, static_cast<Real<Cfg>>(0.0));
   }
 
-  template<typename Cfg>
+  template <typename Cfg>
   Real<Cfg> computeStateVariable(LocalInfo<Cfg>& local) {
     return getCellData<LTSRateAndState::StateVariable>(Cfg(), local)[local.gpIndex];
   }
 
-  template<typename Cfg>
+  template <typename Cfg>
   [[nodiscard]] std::vector<std::size_t> getOutputVariables() const {
     auto baseVector = ReceiverOutputImpl::getOutputVariables();
     baseVector.push_back(drStorage->info<LTSRateAndState::StateVariable>().index);

@@ -266,10 +266,13 @@ void MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
   const auto fileNameStr = std::string{fileName};
   if (!fileNameStr.empty()) {
     for (std::size_t i = 0; i < ConfigVariantList.size(); ++i) {
-      std::visit([&](auto cfg) {
-        using Cfg = decltype(cfg);
-        std::get<std::optional<EasiBoundary<Cfg>>>(m_easiBoundary) = EasiBoundary<Cfg>(fileNameStr);
-      }, ConfigVariantList[i]);
+      std::visit(
+          [&](auto cfg) {
+            using Cfg = decltype(cfg);
+            std::get<std::optional<EasiBoundary<Cfg>>>(m_easiBoundary) =
+                EasiBoundary<Cfg>(fileNameStr);
+          },
+          ConfigVariantList[i]);
     }
   }
 }

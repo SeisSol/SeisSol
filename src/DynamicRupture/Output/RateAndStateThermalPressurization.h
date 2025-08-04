@@ -13,8 +13,10 @@
 #include <Memory/Descriptor/DynamicRupture.h>
 
 namespace seissol::dr::output {
-struct RateAndStateThermalPressurization : public ReceiverOutputImpl<RateAndStateThermalPressurization> {
-  template<typename Cfg>
+struct RateAndStateThermalPressurization
+    : public ReceiverOutputImpl<RateAndStateThermalPressurization> {
+  public:
+  template <typename Cfg>
   Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
@@ -22,24 +24,27 @@ struct RateAndStateThermalPressurization : public ReceiverOutputImpl<RateAndStat
            std::min(effectiveNormalStress, static_cast<Real<Cfg>>(0.0));
   }
 
-  template<typename Cfg>
+  template <typename Cfg>
   Real<Cfg> computeStateVariable(LocalInfo<Cfg>& local) {
     return getCellData<LTSRateAndState::StateVariable>(Cfg(), local)[local.gpIndex];
   }
-  
-  template<typename Cfg>
+
+  template <typename Cfg>
   Real<Cfg> computeFluidPressure(LocalInfo<Cfg>& local) {
-    const auto* const pressure = ReceiverOutputImpl::getCellData<LTSThermalPressurization::Pressure>(Cfg(), local);
+    const auto* const pressure =
+        ReceiverOutputImpl::getCellData<LTSThermalPressurization::Pressure>(Cfg(), local);
     return pressure[local.gpIndex];
   }
 
+  template <typename Cfg>
   void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& outputData,
                        const LocalInfo<Cfg>& local,
                        size_t cacheLevel,
                        size_t receiverIdx) {
     auto& tpVariables = std::get<VariableID::ThermalPressurizationVariables>(outputData->vars);
     if (tpVariables.isActive) {
-      const auto* const temperature = getCellData<LTSThermalPressurization::Temperature>(Cfg(), local);
+      const auto* const temperature =
+          getCellData<LTSThermalPressurization::Temperature>(Cfg(), local);
       tpVariables(TPID::Temperature, cacheLevel, receiverIdx) = temperature[local.gpIndex];
 
       const auto* const pressure = getCellData<LTSThermalPressurization::Pressure>(Cfg(), local);

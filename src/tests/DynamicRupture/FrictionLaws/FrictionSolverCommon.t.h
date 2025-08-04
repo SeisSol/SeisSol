@@ -24,7 +24,8 @@ TEST_CASE("Friction Solver Common") {
   FaultStresses<Cfg, Executor::Host> faultStresses{};
   TractionResults<Cfg, Executor::Host> tractionResults{};
   ImpedancesAndEta impAndEta;
-  alignas(Alignment) real qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
+  alignas(Alignment)
+      real qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
   alignas(Alignment)
       real qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
   alignas(Alignment) real imposedStatePlus[tensor::QInterpolated<Cfg>::size()] = {};
@@ -117,14 +118,14 @@ TEST_CASE("Friction Solver Common") {
 
   SUBCASE("Postcompute Imposed State") {
     friction_law::common::postcomputeImposedStateFromNewStress<Cfg>(faultStresses,
-                                                               tractionResults,
-                                                               impAndEta,
-                                                               impMats,
-                                                               imposedStatePlus,
-                                                               imposedStateMinus,
-                                                               qInterpolatedPlus,
-                                                               qInterpolatedMinus,
-                                                               timeWeights);
+                                                                    tractionResults,
+                                                                    impAndEta,
+                                                                    impMats,
+                                                                    imposedStatePlus,
+                                                                    imposedStateMinus,
+                                                                    qInterpolatedPlus,
+                                                                    qInterpolatedMinus,
+                                                                    timeWeights);
     for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
       // index 0: Minus side
       // index 1: Plus side

@@ -27,8 +27,8 @@ namespace seissol::unit_test {
 
 class SpaceTimePredictorTestFixture {
   protected:
-  constexpr static auto N =
-      seissol::model::MaterialTT<Cfg>::NumQuantities * NumBasisFunctions<Cfg> * Cfg::ConvergenceOrder;
+  constexpr static auto N = seissol::model::MaterialTT<Cfg>::NumQuantities *
+                            NumBasisFunctions<Cfg> * Cfg::ConvergenceOrder;
   constexpr static const double Epsilon = std::numeric_limits<real>::epsilon();
   constexpr static const double Dt = 1.05109e-06;
   real starMatrices0[tensor::star<Cfg>::size(0)];
@@ -140,7 +140,8 @@ class SpaceTimePredictorTestFixture {
     }
     for (std::size_t k = 0; k < seissol::model::MaterialT::NumQuantities; k++) {
       krnlPrototype.selectQuantity(k) =
-          seissol::init::selectQuantity<Cfg>::Values[seissol::tensor::selectQuantity<Cfg>::index(k)];
+          seissol::init::selectQuantity<Cfg>::Values[seissol::tensor::selectQuantity<Cfg>::index(
+              k)];
       krnlPrototype.selectQuantityG(k) =
           init::selectQuantityG<Cfg>::Values[tensor::selectQuantityG<Cfg>::index(k)];
     }
@@ -156,7 +157,8 @@ class SpaceTimePredictorTestFixture {
 
   void prepareRHS(seissol::kernel::stpTestRhs<Cfg>& krnlPrototype) {
     for (size_t i = 0; i < 3; i++) {
-      krnlPrototype.kDivMT(i) = seissol::init::kDivMT<Cfg>::Values[seissol::init::kDivMT<Cfg>::index(i)];
+      krnlPrototype.kDivMT(i) =
+          seissol::init::kDivMT<Cfg>::Values[seissol::init::kDivMT<Cfg>::index(i)];
     }
     krnlPrototype.wHat = seissol::init::wHat<Cfg>::Values;
   }

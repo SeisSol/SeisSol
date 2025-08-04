@@ -20,7 +20,7 @@
 
 namespace seissol::kernels {
 
-template<typename RealT>
+template <typename RealT>
 void touchBuffersDerivatives(RealT** buffers, RealT** derivatives, unsigned numberOfCells) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
@@ -45,10 +45,11 @@ void touchBuffersDerivatives(RealT** buffers, RealT** derivatives, unsigned numb
   }
 }
 
-template void touchBuffersDerivatives(double** buffers, double** derivatives, unsigned numberOfCells);
+template void
+    touchBuffersDerivatives(double** buffers, double** derivatives, unsigned numberOfCells);
 template void touchBuffersDerivatives(float** buffers, float** derivatives, unsigned numberOfCells);
 
-template<typename RealT>
+template <typename RealT>
 void fillWithStuff(RealT* buffer, unsigned nValues, [[maybe_unused]] bool onDevice) {
   // No RealT point for these numbers. Should be just something != 0 and != NaN and != Inf
   const auto stuff = [](unsigned n) {
