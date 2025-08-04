@@ -35,7 +35,7 @@ class PostProcessor {
   [[nodiscard]] int getNumberOfVariables() const;
   void getIntegrationMask(bool* transferTo);
   void allocateMemory(LTS::Storage& ltsStorage) const;
-  const real* getIntegrals(LTS::Storage& ltsStorage) const;
+  const double* getIntegrals(LTS::Storage& ltsStorage) const;
 };
 
 } // namespace seissol::writer

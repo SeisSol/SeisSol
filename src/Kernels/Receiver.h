@@ -54,7 +54,7 @@ struct DerivedReceiverQuantity {
   virtual ~DerivedReceiverQuantity() = default;
   [[nodiscard]] virtual std::vector<std::string> quantities() const = 0;
   virtual void compute(size_t sim,
-                       std::vector<real>&,
+                       std::vector<Real<Cfg>>&,
                        typename seissol::init::QAtPoint<Cfg>::view::type&,
                        typename seissol::init::QDerivativeAtPoint<Cfg>::view::type&) = 0;
 };
@@ -67,7 +67,7 @@ struct ReceiverRotation : public DerivedReceiverQuantity<Cfg> {
   }
   void compute(
       size_t sim,
-      std::vector<real>& output,
+      std::vector<Real<Cfg>>& output,
       typename seissol::init::QAtPoint<Cfg>::view::type& qAtPoint,
       typename seissol::init::QDerivativeAtPoint<Cfg>::view::type& qDerivativeAtPoint) override {
     output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
@@ -87,7 +87,7 @@ struct ReceiverStrain : public DerivedReceiverQuantity<Cfg> {
   }
   void compute(
       size_t sim,
-      std::vector<real>& output,
+      std::vector<Real<Cfg>>& output,
       typename seissol::init::QAtPoint<Cfg>::view::type& qAtPoint,
       typename seissol::init::QDerivativeAtPoint<Cfg>::view::type& qDerivativeAtPoint) override {
     // actually 9 quantities; 3 removed due to symmetry

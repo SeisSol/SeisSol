@@ -34,13 +34,11 @@ ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle);
 ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2);
 
 struct TriangleQuadratureData {
-  static constexpr size_t Size{
-      tensor::quadweights<Cfg>::Shape[seissol::multisim::BasisFunctionDimension]};
-  std::array<double, 2 * Size> points{};
-  std::array<double, Size> weights{};
+  std::vector<double> points;
+  std::vector<double> weights;
 };
 
-TriangleQuadratureData generateTriangleQuadrature(unsigned polyDegree);
+TriangleQuadratureData generateTriangleQuadrature(ConfigVariant variant);
 
 void assignNearestGaussianPoints(ReceiverPoints& geoPoints);
 
@@ -59,16 +57,18 @@ double getDistanceFromPointToFace(const ExtVrtxCoords& point,
                                   const ExtTriangle& face,
                                   const VrtxCoords faceNormal);
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords point,
+template<typename RealT>
+PlusMinusBasisFunctions<RealT> getPlusMinusBasisFunctions(const VrtxCoords point,
                                                    const VrtxCoords* plusElementCoords[4],
-                                                   const VrtxCoords* minusElementCoords[4]);
+                                                   const VrtxCoords* minusElementCoords[4],
+                                                  ConfigVariant config);
 
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints);
 
 std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints);
 std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints);
 
-real computeTriangleArea(ExtTriangle& triangle);
+double computeTriangleArea(ExtTriangle& triangle);
 
 template <int Size>
 std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& boolMask) {

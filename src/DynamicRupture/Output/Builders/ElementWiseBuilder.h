@@ -14,6 +14,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.h"
+#include <Common/ConfigHelper.h>
 #include <GeneratedCode/init.h>
 
 namespace seissol::dr::output {
@@ -108,7 +109,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
       const auto& elementsInfo = meshReader->getElements();
       const auto& verticesInfo = meshReader->getVertices();
 
-      std::size_t faceCount = 0;
+      std::size_t pointCount = 0;
       for (size_t faceIdx = 0; faceIdx < numFaultElements; ++faceIdx) {
 
         // get a global element ID for the current fault face
@@ -116,11 +117,13 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         const auto elementIdx = fault.element;
 
         if (elementIdx >= 0) {
-          ++faceCount;
+          std::visit([&](auto cfg) {
+          pointCount += seissol::init::vtk2d<Cfg>::Shape[order][1];
+          }, ConfigVariantList[elementsInfo[elementIdx].configId]);
         }
       }
 
-      outputData->receiverPoints.resize(faceCount * seissol::init::vtk2d<Cfg>::Shape[order][1]);
+      outputData->receiverPoints.resize(pointCount);
       std::size_t faceOffset = 0;
 
       // iterate through each fault side
@@ -149,33 +152,37 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
           // init global coordinates of the fault face
           ExtTriangle globalFace = getGlobalTriangle(faceSideIdx, element, verticesInfo);
 
-          for (std::size_t i = 0; i < seissol::init::vtk2d<Cfg>::Shape[order][1]; ++i) {
-            auto& receiverPoint =
-                outputData
-                    ->receiverPoints[faceOffset * seissol::init::vtk2d<Cfg>::Shape[order][1] + i];
-            real nullpoint[2] = {0, 0};
-            const real* prepoint =
-                i > 0 ? (seissol::init::vtk2d<Cfg>::Values[order] + (i - 1) * 2) : nullpoint;
-            double point[2] = {prepoint[0], prepoint[1]};
-            transformations::chiTau2XiEtaZeta(faceSideIdx, point, receiverPoint.reference.coords);
-            transformations::tetrahedronReferenceToGlobal(vertices[0],
-                                                          vertices[1],
-                                                          vertices[2],
-                                                          vertices[3],
-                                                          receiverPoint.reference.coords,
-                                                          receiverPoint.global.coords);
-            receiverPoint.globalTriangle = globalFace;
-            receiverPoint.isInside = true;
-            receiverPoint.faultFaceIndex = faceIdx;
-            receiverPoint.localFaceSideId = faceSideIdx;
-            receiverPoint.elementIndex = element.localId;
-            receiverPoint.elementGlobalIndex = element.globalId;
-            receiverPoint.globalReceiverIndex =
-                faceOffset * seissol::init::vtk2d<Cfg>::Shape[order][1] + i;
-            receiverPoint.faultTag = fault.tag;
-          }
+          std::visit([&](auto cfg) {
+            using Cfg = decltype(cfg);
+            using real = Real<Cfg>;
 
-          ++faceOffset;
+            for (std::size_t i = 0; i < seissol::init::vtk2d<Cfg>::Shape[order][1]; ++i) {
+              auto& receiverPoint =
+                  outputData
+                      ->receiverPoints[faceOffset + i];
+              real nullpoint[2] = {0, 0};
+              const real* prepoint =
+                  i > 0 ? (seissol::init::vtk2d<Cfg>::Values[order] + (i - 1) * 2) : nullpoint;
+              double point[2] = {prepoint[0], prepoint[1]};
+              transformations::chiTau2XiEtaZeta(faceSideIdx, point, receiverPoint.reference.coords);
+              transformations::tetrahedronReferenceToGlobal(vertices[0],
+                                                            vertices[1],
+                                                            vertices[2],
+                                                            vertices[3],
+                                                            receiverPoint.reference.coords,
+                                                            receiverPoint.global.coords);
+              receiverPoint.globalTriangle = globalFace;
+              receiverPoint.isInside = true;
+              receiverPoint.faultFaceIndex = faceIdx;
+              receiverPoint.localFaceSideId = faceSideIdx;
+              receiverPoint.elementIndex = element.localId;
+              receiverPoint.elementGlobalIndex = element.globalId;
+              receiverPoint.globalReceiverIndex = faceOffset + i;
+              receiverPoint.faultTag = fault.tag;
+            }
+
+            faceOffset += seissol::init::vtk2d<Cfg>::Shape[order][1];
+          }, ConfigVariantList[element.configId]);
         }
       }
     }

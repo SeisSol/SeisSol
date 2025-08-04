@@ -144,7 +144,7 @@ class MemoryManager {
 
   void initializeEasiBoundaryReader(const char* fileName);
 
-  EasiBoundary* getEasiBoundaryReader() { return &m_easiBoundary; }
+  EasiBoundaryT& getEasiBoundaryReader() { return m_easiBoundary; }
 
   dr::friction_law::FrictionSolverFactory& getFrictionLaw() { return m_FrictionLaw; }
   dr::friction_law::FrictionSolverFactory& getFrictionLawDevice() { return m_FrictionLawDevice; }

@@ -38,25 +38,25 @@ namespace seissol::kernels {
 
 // some typename shortcuts
 
-template<typename Cfg>
+template <typename Cfg>
 using Solver = typename model::MaterialTT<Cfg>::Solver;
 
-template<typename Cfg>
+template <typename Cfg>
 using Time = typename Solver<Cfg>::TimeKernelT<Cfg>;
 
-template<typename Cfg>
+template <typename Cfg>
 using Spacetime = typename Solver<Cfg>::SpacetimeKernelT<Cfg>;
 
-template<typename Cfg>
+template <typename Cfg>
 using Local = typename Solver<Cfg>::LocalKernelT<Cfg>;
 
-template<typename Cfg>
+template <typename Cfg>
 using Neighbor = typename Solver<Cfg>::NeighborKernelT<Cfg>;
 
-template<typename Cfg>
+template <typename Cfg>
 using TimeBasisT = typename Solver<Cfg>::template TimeBasis<Real<Cfg>>;
 
-template<typename Cfg>
+template <typename Cfg>
 inline TimeBasisT<Cfg> timeBasis() {
   return TimeBasisT<Cfg>(Cfg::ConvergenceOrder);
 }

@@ -14,6 +14,8 @@
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/DataCollector.h"
+#include <Common/Templating.h>
+#include <Config.h>
 #include <Eigen/Dense>
 #include <Parallel/Runtime/Stream.h>
 #include <array>
@@ -25,7 +27,7 @@
 #include <vector>
 
 namespace seissol::dr::output {
-template <std::size_t DIM>
+template <std::size_t DIM, typename RealT>
 struct VarT {
   VarT() = default;
   ~VarT() { releaseData(); }
@@ -37,13 +39,13 @@ struct VarT {
   VarT(VarT&&) = default;
   auto operator=(VarT&&) -> VarT& = default;
 
-  real* operator[](std::size_t dim) {
+  RealT* operator[](std::size_t dim) {
     assert(dim < DIM && "access is out of the DIM. bounds");
     assert(data[dim] != nullptr && "data has not been initialized yet");
     return data[dim];
   }
 
-  real& operator()(std::size_t dim, size_t level, size_t index) {
+  RealT& operator()(std::size_t dim, size_t level, size_t index) {
     assert(dim < DIM && "access is out of DIM. bounds");
     assert(level < maxCacheLevel && "access is out of cache bounds");
     assert(index < size && "access is out of size bounds");
@@ -51,7 +53,7 @@ struct VarT {
     return data[dim][index + level * size];
   }
 
-  real& operator()(size_t level, size_t index) {
+  RealT& operator()(size_t level, size_t index) {
     static_assert(DIM == 1, "access of the overload is allowed only for 1 dim variables");
     return this->operator()(0, level, index);
   }
@@ -64,8 +66,8 @@ struct VarT {
     if (isActive) {
       for (std::size_t dim = 0; dim < DIM; ++dim) {
         assert(data[dim] == nullptr && "double allocation is not allowed");
-        data[dim] = new real[size * maxCacheLevel];
-        std::memset(static_cast<void*>(data[dim]), 0, size * maxCacheLevel * sizeof(real));
+        data[dim] = new RealT[size * maxCacheLevel];
+        std::memset(static_cast<void*>(data[dim]), 0, size * maxCacheLevel * sizeof(RealT));
       }
     } else {
       for (std::size_t dim = 0; dim < DIM; ++dim) {
@@ -83,15 +85,15 @@ struct VarT {
     }
   }
 
-  std::array<real*, DIM> data{};
+  std::array<RealT*, DIM> data{};
   bool isActive{false};
   size_t size{};
   size_t maxCacheLevel{1};
 };
 
-using Var1D = VarT<1>;
-using Var2D = VarT<2>;
-using Var3D = VarT<3>;
+using Var1D = VarT<1, double>;
+using Var2D = VarT<2, double>;
+using Var3D = VarT<3, double>;
 
 // Description is given in `enum VariableID`
 using DrVarsT =
@@ -135,23 +137,29 @@ using FaceToLtsMapType = std::vector<std::pair<DynamicRupture::Layer*, size_t>>;
 } // namespace seissol::dr::output
 
 namespace seissol::dr {
+template<typename RealT>
 struct PlusMinusBasisFunctions {
-  std::vector<real> plusSide;
-  std::vector<real> minusSide;
+  std::vector<RealT> plusSide;
+  std::vector<RealT> minusSide;
 };
+
+template<typename Cfg>
+struct TransformData {
+  PlusMinusBasisFunctions<Real<Cfg>> basisFunctions;
+  std::array<Real<Cfg>, seissol::tensor::stressRotationMatrix<Cfg>::size()> stressGlbToDipStrikeAligned;
+  std::array<Real<Cfg>, seissol::tensor::stressRotationMatrix<Cfg>::size()> stressFaceAlignedToGlb;
+  std::array<Real<Cfg>, seissol::tensor::T<Cfg>::size()> faceAlignedToGlbData;
+  std::array<Real<Cfg>, seissol::tensor::Tinv<Cfg>::size()> glbToFaceAlignedData;
+  Eigen::Matrix<Real<Cfg>, 2, 2> jacobianT2d;
+};
+
+using TransformDataVariant = TransformVariadicT<TransformData, ConfigVariant>;
 
 struct ReceiverOutputData {
   output::DrVarsT vars;
-  std::vector<PlusMinusBasisFunctions> basisFunctions;
+
+  std::vector<TransformDataVariant, Eigen::aligned_allocator<TransformDataVariant>> transformData;
   std::vector<ReceiverPoint> receiverPoints;
-  std::vector<std::array<real, seissol::tensor::stressRotationMatrix<Cfg>::size()>>
-      stressGlbToDipStrikeAligned;
-  std::vector<std::array<real, seissol::tensor::stressRotationMatrix<Cfg>::size()>>
-      stressFaceAlignedToGlb;
-  std::vector<std::array<real, seissol::tensor::T<Cfg>::size()>> faceAlignedToGlbData;
-  std::vector<std::array<real, seissol::tensor::Tinv<Cfg>::size()>> glbToFaceAlignedData;
-  std::vector<Eigen::Matrix<real, 2, 2>, Eigen::aligned_allocator<Eigen::Matrix<real, 2, 2>>>
-      jacobianT2d;
 
   std::vector<FaultDirections> faultDirections;
   std::vector<double> cachedTime;
@@ -160,12 +168,12 @@ struct ReceiverOutputData {
   bool isActive{false};
   std::optional<int64_t> clusterId;
 
-  std::unique_ptr<parallel::DataCollector<real>> deviceDataCollector;
+  std::unique_ptr<parallel::DataCollector<Real<Cfg>>> deviceDataCollector;
   std::vector<std::size_t> deviceDataPlus;
   std::vector<std::size_t> deviceDataMinus;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector<real>>> deviceVariables;
+  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector<Real<Cfg>>>> deviceVariables;
   std::vector<std::size_t> deviceIndices;
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 };

@@ -89,7 +89,7 @@ struct ApplyAnalyticalSolution {
                           LTS::Ref<Cfg>& data)
       : initConditions(initConditions), localData(data) {}
 
-  void operator()(const real* nodes,
+  void operator()(const Real<Cfg>* nodes,
                   double time,
                   typename seissol::init::INodal<Cfg>::view::type& boundaryDofs) {
     assert(initConditions != nullptr);

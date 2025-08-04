@@ -74,6 +74,7 @@ template <typename Cfg>
 void rotateTractionToCartesianStress(DynamicRupture::Layer& layer,
                                      StressTensor<Cfg>& stress,
                                      const geometry::MeshReader& meshReader) {
+  using real = Real<Cfg>;
   // create rotation kernel
   real faultTractionToCartesianMatrixValues[init::stressRotationMatrix<Cfg>::size()];
   auto faultTractionToCartesianMatrixView =
@@ -81,7 +82,6 @@ void rotateTractionToCartesianStress(DynamicRupture::Layer& layer,
   dynamicRupture::kernel::rotateStress<Cfg> faultTractionToCartesianRotationKernel;
   faultTractionToCartesianRotationKernel.stressRotationMatrix =
       faultTractionToCartesianMatrixValues;
-  using real = Real<Cfg>;
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
     const auto meshFace = static_cast<int>(drFaceInformation[ltsFace].meshFace);

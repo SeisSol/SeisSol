@@ -45,26 +45,31 @@ void ReceiverOutput::setLtsData(LTS::Storage& userWpStorage,
   drStorage = &userDrStorage;
 }
 
-void ReceiverOutput::getDofs(real dofs[tensor::Q<Cfg>::size()], int meshId) {
+template<typename Derived>
+template<typename Cfg>
+void ReceiverOutputImpl<Derived>::getDofs(Real<Cfg> dofs[tensor::Q<Cfg>::size()], int meshId) {
   const auto position = wpBackmap->get(meshId);
   auto& layer = wpStorage->layer(position.color);
   // get DOFs from 0th derivatives
   assert(layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasDerivatives());
 
-  real* derivatives = layer.var<LTS::Derivatives>(Cfg())[position.cell];
+  Real<Cfg>* derivatives = layer.var<LTS::Derivatives>(Cfg())[position.cell];
   std::copy(&derivatives[0], &derivatives[tensor::dQ<Cfg>::Size[0]], &dofs[0]);
 }
 
-void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q<Cfg>::size()], int meshId, int side) {
+template<typename Derived>
+template<typename Cfg>
+void ReceiverOutputImpl<Derived>::getNeighborDofs(Real<Cfg> dofs[tensor::Q<Cfg>::size()], int meshId, int side) {
   const auto position = wpBackmap->get(meshId);
   auto& layer = wpStorage->layer(position.color);
-  auto* derivatives = reinterpret_cast<real*>(layer.var<LTS::FaceNeighbors>()[position.cell][side]);
+  auto* derivatives = reinterpret_cast<Real<Cfg>*>(layer.var<LTS::FaceNeighbors>()[position.cell][side]);
   assert(derivatives != nullptr);
 
   std::copy(&derivatives[0], &derivatives[tensor::dQ<Cfg>::Size[0]], &dofs[0]);
 }
 
-void ReceiverOutput::calcFaultOutput(
+template<typename Derived>
+void ReceiverOutputImpl<Derived>::calcFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
@@ -96,17 +101,23 @@ void ReceiverOutput::calcFaultOutput(
   const auto handler = [this, outputData, &faultInfos, outputType, slipRateOutputType, level](
                            std::size_t i) {
     // TODO: query the dofs, only once per simulation; once per face
-    alignas(Alignment) real dofsPlus[tensor::Q<Cfg>::size()]{};
-    alignas(Alignment) real dofsMinus[tensor::Q<Cfg>::size()]{};
 
     assert(outputData->receiverPoints[i].isInside == true &&
            "a receiver is not within any tetrahedron adjacent to a fault");
 
     const auto faceIndex = outputData->receiverPoints[i].faultFaceIndex;
     assert(faceIndex != -1 && "receiver is not initialized");
-    LocalInfo local{};
 
     auto [layer, ltsId] = (*faceToLtsMap)[faceIndex];
+    layer->wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using real = Real<Cfg>;
+
+    LocalInfo local{};
+
+    alignas(Alignment) real dofsPlus[tensor::Q<Cfg>::size()]{};
+    alignas(Alignment) real dofsMinus[tensor::Q<Cfg>::size()]{};
+
     local.layer = layer;
     local.ltsId = ltsId;
     local.index = i;
@@ -118,8 +129,8 @@ void ReceiverOutput::calcFaultOutput(
     local.nearestInternalGpIndex = outputData->receiverPoints[i].nearestInternalGpIndex;
     local.internalGpIndexFused = outputData->receiverPoints[i].internalGpIndexFused;
 
-    local.waveSpeedsPlus = &((local.layer->var<DynamicRupture::WaveSpeedsPlus>())[local.ltsId]);
-    local.waveSpeedsMinus = &((local.layer->var<DynamicRupture::WaveSpeedsMinus>())[local.ltsId]);
+    local.waveSpeedsPlus = &((local.layer->template var<DynamicRupture::WaveSpeedsPlus>())[local.ltsId]);
+    local.waveSpeedsMinus = &((local.layer->template var<DynamicRupture::WaveSpeedsMinus>())[local.ltsId]);
 
     const auto& faultInfo = faultInfos[faceIndex];
 
@@ -138,15 +149,15 @@ void ReceiverOutput::calcFaultOutput(
       }
     }
 
-    const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(local);
+    const auto* initStresses = getCellData<DynamicRupture::InitialStressInFaultCS>(cfg, local);
 
-    local.frictionCoefficient = getCellData<DynamicRupture::Mu>(local)[local.gpIndex];
-    local.stateVariable = this->computeStateVariable(local);
+    local.frictionCoefficient = getCellData<DynamicRupture::Mu>(cfg, local)[local.gpIndex];
+    local.stateVariable = Derived::template computeStateVariable<Cfg>(local);
 
     local.iniTraction1 = initStresses[QuantityIndices::XY][local.gpIndex];
     local.iniTraction2 = initStresses[QuantityIndices::XZ][local.gpIndex];
     local.iniNormalTraction = initStresses[QuantityIndices::XX][local.gpIndex];
-    local.fluidPressure = this->computeFluidPressure(local);
+    local.fluidPressure = Derived::template computeFluidPressure<Cfg>(local);
 
     const auto& normal = outputData->faultDirections[i].faceNormal;
     const auto& tangent1 = outputData->faultDirections[i].tangent1;
@@ -154,11 +165,13 @@ void ReceiverOutput::calcFaultOutput(
     const auto& strike = outputData->faultDirections[i].strike;
     const auto& dip = outputData->faultDirections[i].dip;
 
-    auto* phiPlusSide = outputData->basisFunctions[i].plusSide.data();
-    auto* phiMinusSide = outputData->basisFunctions[i].minusSide.data();
+    const auto& transformData = std::get<TransformData<Cfg>>(outputData->transformData);
+
+    auto* phiPlusSide = transformData.basisFunctions[i].plusSide.data();
+    auto* phiMinusSide = transformData.basisFunctions[i].minusSide.data();
 
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint<Cfg> kernel;
-    kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
+    kernel.Tinv = transformData.glbToFaceAlignedData[i].data();
 
     real faceAlignedValuesPlus[tensor::QAtPoint<Cfg>::size()]{};
     real faceAlignedValuesMinus[tensor::QAtPoint<Cfg>::size()]{};
@@ -182,15 +195,15 @@ void ReceiverOutput::calcFaultOutput(
           faceAlignedValuesMinus[j * seissol::multisim::NumSimulations + local.fusedIndex];
     }
 
-    this->computeLocalStresses(local);
-    const real strength = this->computeLocalStrength(local);
-    seissol::dr::output::ReceiverOutput::updateLocalTractions(local, strength);
+    this->computeLocalStresses<Cfg>(local);
+    const real strength = Derived::template computeLocalStrength<Cfg>(local);
+    seissol::dr::output::ReceiverOutputImpl<Derived>::updateLocalTractions<Cfg>(local, strength);
 
     seissol::dynamicRupture::kernel::rotateInitStress<Cfg> alignAlongDipAndStrikeKernel;
     alignAlongDipAndStrikeKernel.stressRotationMatrix =
-        outputData->stressGlbToDipStrikeAligned[i].data();
+        transformData.stressGlbToDipStrikeAligned[i].data();
     alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-        outputData->stressFaceAlignedToGlb[i].data();
+        transformData.stressFaceAlignedToGlb[i].data();
 
     std::array<real, 6> updatedStress{};
     updatedStress[QuantityIndices::XX] = local.transientNormalTraction;
@@ -220,16 +233,16 @@ void ReceiverOutput::calcFaultOutput(
 
     switch (slipRateOutputType) {
     case seissol::initializer::parameters::SlipRateOutputType::TractionsAndFailure: {
-      this->computeSlipRate(local, rotatedUpdatedStress, rotatedStress);
+      this->computeSlipRate<Cfg>(local, rotatedUpdatedStress, rotatedStress);
       break;
     }
     case seissol::initializer::parameters::SlipRateOutputType::VelocityDifference: {
-      seissol::dr::output::ReceiverOutput::computeSlipRate(local, tangent1, tangent2, strike, dip);
+      this->computeSlipRate<Cfg>(local, tangent1, tangent2, strike, dip);
       break;
     }
     }
 
-    adjustRotatedUpdatedStress(rotatedUpdatedStress, rotatedStress);
+    Derived::template adjustRotatedUpdatedStress<Cfg>(rotatedUpdatedStress, rotatedStress);
 
     auto& slipRate = std::get<VariableID::SlipRate>(outputData->vars);
     if (slipRate.isActive) {
@@ -253,7 +266,7 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData->vars);
     if (ruptureTime.isActive) {
-      auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
+      auto* rt = getCellData<DynamicRupture::RuptureTime>(cfg, local);
       ruptureTime(level, i) = rt[local.gpIndex];
     }
 
@@ -264,7 +277,7 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData->vars);
     if (accumulatedSlip.isActive) {
-      auto* slip = getCellData<DynamicRupture::AccumulatedSlipMagnitude>(local);
+      auto* slip = getCellData<DynamicRupture::AccumulatedSlipMagnitude>(cfg, local);
       accumulatedSlip(level, i) = slip[local.gpIndex];
     }
 
@@ -290,19 +303,19 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& ruptureVelocity = std::get<VariableID::RuptureVelocity>(outputData->vars);
     if (ruptureVelocity.isActive) {
-      auto& jacobiT2d = outputData->jacobianT2d[i];
-      ruptureVelocity(level, i) = this->computeRuptureVelocity(jacobiT2d, local);
+      auto& jacobiT2d = transformData.jacobianT2d[i];
+      ruptureVelocity(level, i) = this->computeRuptureVelocity<Cfg>(jacobiT2d, local);
     }
 
     auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData->vars);
     if (peakSlipsRate.isActive) {
-      auto* peakSR = getCellData<DynamicRupture::PeakSlipRate>(local);
+      auto* peakSR = getCellData<DynamicRupture::PeakSlipRate>(cfg, local);
       peakSlipsRate(level, i) = peakSR[local.gpIndex];
     }
 
     auto& dynamicStressTime = std::get<VariableID::DynamicStressTime>(outputData->vars);
     if (dynamicStressTime.isActive) {
-      auto* dynStressTime = getCellData<DynamicRupture::DynStressTime>(local);
+      auto* dynStressTime = getCellData<DynamicRupture::DynStressTime>(cfg, local);
       dynamicStressTime(level, i) = dynStressTime[local.gpIndex];
     }
 
@@ -318,8 +331,8 @@ void ReceiverOutput::calcFaultOutput(
       double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));
       sin1 = (scalarProd > 0) ? sin1 : -sin1;
 
-      auto* slip1 = getCellData<DynamicRupture::Slip1>(local);
-      auto* slip2 = getCellData<DynamicRupture::Slip2>(local);
+      auto* slip1 = getCellData<DynamicRupture::Slip1>(cfg, local);
+      auto* slip2 = getCellData<DynamicRupture::Slip2>(cfg, local);
 
       slipVectors(DirectionID::Strike, level, i) =
           cos1 * slip1[local.gpIndex] - sin1 * slip2[local.gpIndex];
@@ -327,7 +340,8 @@ void ReceiverOutput::calcFaultOutput(
       slipVectors(DirectionID::Dip, level, i) =
           sin1 * slip1[local.gpIndex] + cos1 * slip2[local.gpIndex];
     }
-    this->outputSpecifics(outputData, local, level, i);
+    Derived::template outputSpecifics<Cfg>(outputData, local, level, i);
+  });
   };
 
   callRuntime.enqueueLoop(points, handler);
@@ -338,8 +352,12 @@ void ReceiverOutput::calcFaultOutput(
   }
 }
 
-void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
-  const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
+template<typename Derived>
+template<typename Cfg>
+void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
+  using real = Real<Cfg>;
+
+  const auto& impAndEta = ((local.layer->template var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
   const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
   const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
@@ -378,7 +396,9 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
   local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ];
 }
 
-void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength) {
+template<typename Derived>
+template<typename Cfg>
+void ReceiverOutputImpl<Derived>::updateLocalTractions(LocalInfo<Cfg>& local, Real<Cfg> strength) {
   const auto component1 = local.iniTraction1 + local.faceAlignedStress12;
   const auto component2 = local.iniTraction2 + local.faceAlignedStress13;
   const auto tracEla = misc::magnitude(component1, component2);
@@ -398,22 +418,27 @@ void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength) {
   }
 }
 
-void ReceiverOutput::computeSlipRate(LocalInfo& local,
-                                     const std::array<real, 6>& rotatedUpdatedStress,
-                                     const std::array<real, 6>& rotatedStress) {
+template<typename Derived>
+template<typename Cfg>
+void ReceiverOutputImpl<Derived>::computeSlipRate(LocalInfo<Cfg>& local,
+                                     const std::array<Real<Cfg>, 6>& rotatedUpdatedStress,
+                                     const std::array<Real<Cfg>, 6>& rotatedStress) {
 
-  const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
+  const auto& impAndEta = ((local.layer->template var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
   local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
                                                rotatedStress[QuantityIndices::XY]);
   local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
                                             rotatedStress[QuantityIndices::XZ]);
 }
 
-void ReceiverOutput::computeSlipRate(LocalInfo& local,
+template<typename Derived>
+template<typename Cfg>
+void ReceiverOutputImpl<Derived>::computeSlipRate(LocalInfo<Cfg>& local,
                                      const std::array<double, 3>& tangent1,
                                      const std::array<double, 3>& tangent2,
                                      const std::array<double, 3>& strike,
                                      const std::array<double, 3>& dip) {
+  using real = Real<Cfg>;
   local.slipRateStrike = static_cast<real>(0.0);
   local.slipRateDip = static_cast<real>(0.0);
 
@@ -429,9 +454,12 @@ void ReceiverOutput::computeSlipRate(LocalInfo& local,
   }
 }
 
-real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d,
-                                            const LocalInfo& local) {
-  auto* ruptureTime = getCellData<DynamicRupture::RuptureTime>(local);
+template<typename Derived>
+template<typename Cfg>
+Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(Eigen::Matrix<Real<Cfg>, 2, 2>& jacobiT2d,
+                                            const LocalInfo<Cfg>& local) {
+  using real = Real<Cfg>;
+  auto* ruptureTime = getCellData<DynamicRupture::RuptureTime>(Cfg(), local);
   real ruptureVelocity = 0.0;
 
   bool needsUpdate{true};
@@ -455,7 +483,7 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
     auto weights =
         init::quadweights<Cfg>::view::create(const_cast<real*>(init::quadweights<Cfg>::Values));
 
-    auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
+    auto* rt = getCellData<DynamicRupture::RuptureTime>(Cfg(), local);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints<Cfg>; ++jBndGP) {
       const real chi = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 0);
       const real tau = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 1);
@@ -495,7 +523,8 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
   return ruptureVelocity;
 }
 
-std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
+template<typename Derived>
+std::vector<std::size_t> ReceiverOutputImpl<Derived>::getOutputVariables() const {
   return {drStorage->info<DynamicRupture::InitialStressInFaultCS>().index,
           drStorage->info<DynamicRupture::Mu>().index,
           drStorage->info<DynamicRupture::RuptureTime>().index,

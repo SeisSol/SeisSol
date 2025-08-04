@@ -18,6 +18,7 @@
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+#include <Common/ConfigHelper.h>
 #include <Common/Typedefs.h>
 #include <Config.h>
 #include <GeneratedCode/init.h>
@@ -97,9 +98,15 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       elementIndicesGhost;
   std::size_t foundPoints = 0;
 
+  if (outputData->transformData.empty()) {
+    outputData->transformData.resize(outputData->receiverPoints.size());
+  }
+
   constexpr size_t NumVertices{4};
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
+      std::size_t configId = 0;
+
       if (faceIndices.find(faceToLtsMap->at(point.faultFaceIndex)) == faceIndices.end()) {
         const auto faceIndex = faceIndices.size();
         faceIndices[faceToLtsMap->at(point.faultFaceIndex)] = faceIndex;
@@ -108,6 +115,8 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       ++foundPoints;
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
+
+      configId = element.configId;
 
       if (elementIndices.find(elementIndex) == elementIndices.end()) {
         const auto index = elementIndices.size();
@@ -154,8 +163,11 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
         }
       }
 
-      outputData->basisFunctions.emplace_back(
-          getPlusMinusBasisFunctions(point.global.coords, elemCoords, neighborElemCoords));
+      std::visit([&](auto cfg) {
+        using Cfg = decltype(cfg);
+        std::get<TransformData<Cfg>>(outputData->transformData[foundPoints]).basisFunctions =
+          getPlusMinusBasisFunctions<Real<Cfg>>(point.global.coords, elemCoords, neighborElemCoords, cfg);
+      }, ConfigVariantList[configId]);
     }
   }
 
@@ -255,45 +267,52 @@ void ReceiverBasedOutputBuilder::initFaultDirections() {
 
 void ReceiverBasedOutputBuilder::initRotationMatrices() {
   using namespace seissol::transformations;
-  using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
 
   // allocate Rotation Matrices
   // Note: several receiver can share the same rotation matrix
   const size_t nReceiverPoints = outputData->receiverPoints.size();
-  outputData->stressGlbToDipStrikeAligned.resize(nReceiverPoints);
-  outputData->stressFaceAlignedToGlb.resize(nReceiverPoints);
-  outputData->faceAlignedToGlbData.resize(nReceiverPoints);
-  outputData->glbToFaceAlignedData.resize(nReceiverPoints);
+  if (outputData->transformData.empty()) {
+    outputData->transformData.resize(nReceiverPoints);
+  }
 
   // init Rotation Matrices
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const auto& faceNormal = outputData->faultDirections[receiverId].faceNormal;
-    const auto& strike = outputData->faultDirections[receiverId].strike;
-    const auto& dip = outputData->faultDirections[receiverId].dip;
-    const auto& tangent1 = outputData->faultDirections[receiverId].tangent1;
-    const auto& tangent2 = outputData->faultDirections[receiverId].tangent2;
+    const auto configId = 0;
+    std::visit([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using real = Real<Cfg>;
 
-    {
-      auto* memorySpace = outputData->stressGlbToDipStrikeAligned[receiverId].data();
-      RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-      inverseSymmetricTensor2RotationMatrix(
-          faceNormal.data(), strike.data(), dip.data(), rotationMatrixView, 0, 0);
-    }
-    {
-      auto* memorySpace = outputData->stressFaceAlignedToGlb[receiverId].data();
-      RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-      symmetricTensor2RotationMatrix(
-          faceNormal.data(), tangent1.data(), tangent2.data(), rotationMatrixView, 0, 0);
-    }
-    {
-      auto faceAlignedToGlb =
-          init::T<Cfg>::view::create(outputData->faceAlignedToGlbData[receiverId].data());
-      auto glbToFaceAligned =
-          init::Tinv<Cfg>::view::create(outputData->glbToFaceAlignedData[receiverId].data());
+      auto& transformData = std::get<TransformData<Cfg>>(outputData->transformData[receiverId]);
 
-      seissol::model::getFaceRotationMatrix<model::MaterialTT<Cfg>>(
-          faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);
-    }
+      using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
+      const auto& faceNormal = outputData->faultDirections[receiverId].faceNormal;
+      const auto& strike = outputData->faultDirections[receiverId].strike;
+      const auto& dip = outputData->faultDirections[receiverId].dip;
+      const auto& tangent1 = outputData->faultDirections[receiverId].tangent1;
+      const auto& tangent2 = outputData->faultDirections[receiverId].tangent2;
+
+      {
+        auto* memorySpace = transformData.stressGlbToDipStrikeAligned.data();
+        RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
+        inverseSymmetricTensor2RotationMatrix(
+            faceNormal.data(), strike.data(), dip.data(), rotationMatrixView, 0, 0);
+      }
+      {
+        auto* memorySpace = transformData.stressFaceAlignedToGlb.data();
+        RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
+        symmetricTensor2RotationMatrix(
+            faceNormal.data(), tangent1.data(), tangent2.data(), rotationMatrixView, 0, 0);
+      }
+      {
+        auto faceAlignedToGlb =
+            init::T<Cfg>::view::create(transformData.faceAlignedToGlbData.data());
+        auto glbToFaceAligned =
+            init::Tinv<Cfg>::view::create(transformData.glbToFaceAlignedData.data());
+
+        seissol::model::getFaceRotationMatrix<model::MaterialTT<Cfg>>(
+            faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);
+      }
+    }, ConfigVariantList[configId]);
   }
 }
 
@@ -317,7 +336,9 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
   const auto& elementsInfo = meshReader->getElements();
 
   const size_t nReceiverPoints = outputData->receiverPoints.size();
-  outputData->jacobianT2d.resize(nReceiverPoints);
+  if (outputData->transformData.empty()) {
+    outputData->transformData.resize(nReceiverPoints);
+  }
 
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
     const auto side = outputData->receiverPoints[receiverId].localFaceSideId;
@@ -347,12 +368,18 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     const auto* tangent1 = faultInfo[faultIndex].tangent1;
     const auto* tangent2 = faultInfo[faultIndex].tangent2;
 
-    Eigen::Matrix<real, 2, 2> matrix;
-    matrix(0, 0) = MeshTools::dot(tangent1, xab);
-    matrix(0, 1) = MeshTools::dot(tangent2, xab);
-    matrix(1, 0) = MeshTools::dot(tangent1, xac);
-    matrix(1, 1) = MeshTools::dot(tangent2, xac);
-    outputData->jacobianT2d[receiverId] = matrix.inverse();
+    const auto configId = 0;
+    std::visit([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using real = Real<Cfg>;
+
+      Eigen::Matrix<real, 2, 2> matrix;
+      matrix(0, 0) = MeshTools::dot(tangent1, xab);
+      matrix(0, 1) = MeshTools::dot(tangent2, xab);
+      matrix(1, 0) = MeshTools::dot(tangent1, xac);
+      matrix(1, 1) = MeshTools::dot(tangent2, xac);
+      std::get<TransformData<Cfg>>(outputData->transformData[receiverId]).jacobianT2d = matrix.inverse();
+    }, ConfigVariantList[configId]);
   }
 }
 
@@ -362,7 +389,7 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
 
   for (auto& geoPoint : geoPoints) {
     assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
-    if constexpr (Config::DRQuadRule == DRQuadRuleType::Stroud) {
+    if constexpr (Cfg::DRQuadRule == DRQuadRuleType::Stroud) {
       geoPoint.nearestInternalGpIndex =
           getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
     } else {

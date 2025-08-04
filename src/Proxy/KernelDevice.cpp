@@ -24,7 +24,7 @@ void ProxyKernelDeviceAder::run(ProxyData& data,
                                 seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layer = data.ltsStorage.layer(data.layerId);
 
-  kernels::<Cfg> tmp(9.81);
+  kernels::<Cfg>tmp(9.81);
 
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
   auto& materialTable = layer.getConditionalTable<inner_keys::Material>();

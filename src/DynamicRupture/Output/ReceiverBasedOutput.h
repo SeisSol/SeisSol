@@ -31,22 +31,39 @@ class ReceiverOutput {
 
   void setMeshReader(seissol::geometry::MeshReader* userMeshReader) { meshReader = userMeshReader; }
   void setFaceToLtsMap(FaceToLtsMapType* map) { faceToLtsMap = map; }
-  void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
+  virtual void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        const std::shared_ptr<ReceiverOutputData>& outputData,
                        parallel::runtime::StreamRuntime& runtime,
-                       double time = 0.0);
+                       double time = 0.0) = 0;
 
-  [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
+  [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const = 0;
 
-  protected:
+protected:
   LTS::Storage* wpStorage{nullptr};
   LTS::Backmap* wpBackmap{nullptr};
   DynamicRupture::Storage* drStorage{nullptr};
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
+};
 
+template<typename Derived>
+class ReceiverOutputImpl : public ReceiverOutput {
+  public:
+  void calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
+                       seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                       const std::shared_ptr<ReceiverOutputData>& outputData,
+                       parallel::runtime::StreamRuntime& runtime,
+                       double time = 0.0) override;
+
+  [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override;
+
+  protected:
+
+  template<typename Cfg>
   struct LocalInfo {
+    using real = Real<Cfg>;
+
     DynamicRupture::Layer* layer{};
     size_t ltsId{};
     int nearestGpIndex{};
@@ -92,40 +109,72 @@ class ReceiverOutput {
     ReceiverOutputData* state{};
   };
 
-  template <typename StorageT>
+  template <typename StorageT, typename Cfg>
   std::remove_extent_t<typename StorageT::template VariantType<Cfg>>*
-      getCellData(const LocalInfo& local) {
+      getCellData(Cfg cfg, const LocalInfo<Cfg>& local) {
     auto devVar = local.state->deviceVariables.find(drStorage->info<StorageT>().index);
     if (devVar != local.state->deviceVariables.end()) {
       return reinterpret_cast<std::remove_extent_t<typename StorageT::template VariantType<Cfg>>*>(
           devVar->second->get(local.state->deviceIndices[local.index]));
     } else {
-      return local.layer->var<StorageT>(Cfg())[local.ltsId];
+      return local.layer->template var<StorageT>(cfg)[local.ltsId];
     }
   }
 
-  void getDofs(real dofs[tensor::Q<Cfg>::size()], int meshId);
-  void getNeighborDofs(real dofs[tensor::Q<Cfg>::size()], int meshId, int side);
-  void computeLocalStresses(LocalInfo& local);
-  virtual real computeLocalStrength(LocalInfo& local) = 0;
-  virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }
-  virtual real computeStateVariable(LocalInfo& local) { return 0.0; }
-  static void updateLocalTractions(LocalInfo& local, real strength);
-  real computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d, const LocalInfo& local);
-  virtual void computeSlipRate(LocalInfo& local,
-                               const std::array<real, 6>& /*rotatedUpdatedStress*/,
-                               const std::array<real, 6>& /*rotatedStress*/);
-  static void computeSlipRate(LocalInfo& local,
+  template<typename Cfg>
+  void getDofs(Real<Cfg> dofs[tensor::Q<Cfg>::size()], int meshId);
+
+  template<typename Cfg>
+  void getNeighborDofs(Real<Cfg> dofs[tensor::Q<Cfg>::size()], int meshId, int side);
+
+  template<typename Cfg>
+  void computeLocalStresses(LocalInfo<Cfg>& local);
+
+  template<typename Cfg>
+  static void updateLocalTractions(LocalInfo<Cfg>& local, Real<Cfg> strength);
+
+  template<typename Cfg>
+  Real<Cfg> computeRuptureVelocity(Eigen::Matrix<Real<Cfg>, 2, 2>& jacobiT2d, const LocalInfo<Cfg>& local);
+
+  template<typename Cfg>
+  void computeSlipRate(LocalInfo<Cfg>& local,
+                               const std::array<Real<Cfg>, 6>& /*rotatedUpdatedStress*/,
+                               const std::array<Real<Cfg>, 6>& /*rotatedStress*/);
+  
+  template<typename Cfg>
+  static void computeSlipRate(LocalInfo<Cfg>& local,
                               const std::array<double, 3>& tangent1,
                               const std::array<double, 3>& tangent2,
                               const std::array<double, 3>& strike,
                               const std::array<double, 3>& dip);
-  virtual void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& data,
-                               const LocalInfo& local,
-                               size_t outputSpecifics,
-                               size_t receiverIdx) {}
-  virtual void adjustRotatedUpdatedStress(std::array<real, 6>& rotatedUpdatedStress,
-                                          const std::array<real, 6>& rotatedStress) {};
+  
+template<typename Cfg>
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
+    return 0;
+  }
+
+  template<typename Cfg>
+  Real<Cfg> computeFluidPressure(LocalInfo<Cfg>& local) {
+    return 0;
+  }
+
+  template<typename Cfg>
+  Real<Cfg> computeStateVariable(LocalInfo<Cfg>& local) {
+    return 0;
+  }
+  
+  template<typename Cfg>
+  void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& data,
+                        const LocalInfo<Cfg>& local,
+                        size_t outputSpecifics,
+                        size_t receiverIdx) {
+    
+  }
+  
+  template<typename Cfg>
+  void adjustRotatedUpdatedStress(std::array<Real<Cfg>, 6>& rotatedUpdatedStress,
+                                          const std::array<Real<Cfg>, 6>& rotatedStress) {
+  }
 };
 } // namespace seissol::dr::output
 

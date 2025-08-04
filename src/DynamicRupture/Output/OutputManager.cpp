@@ -417,36 +417,44 @@ void OutputManager::initPickpointOutput() {
             }
 
             // stress info
-            std::array<real, 6> rotatedInitialStress{};
-            {
-              auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
+            auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
+            layer->wrap([&](auto cfg) {
+              using Cfg = decltype(cfg);
+              using real = Real<Cfg>;
 
-              const auto* initialStressVar =
-                  layer->var<DynamicRupture::InitialStressInFaultCS>(Cfg());
-              const auto* initialStress = initialStressVar[face];
-              std::array<real, 6> unrotatedInitialStress{};
-              for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
-                   ++stressVar) {
-                unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.gpIndex];
+              std::array<real, 6> rotatedInitialStress{};
+              {
+                auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
+
+                const auto* initialStressVar =
+                    layer->var<DynamicRupture::InitialStressInFaultCS>(Cfg());
+                const auto* initialStress = initialStressVar[face];
+                std::array<real, 6> unrotatedInitialStress{};
+                for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();
+                    ++stressVar) {
+                  unrotatedInitialStress[stressVar] = initialStress[stressVar][receiver.gpIndex];
+                }
+
+                const auto& transformData = std::get<TransformData<Cfg>>(outputData->transformData[i]);
+
+                seissol::dynamicRupture::kernel::rotateInitStress<Cfg> alignAlongDipAndStrikeKernel;
+                alignAlongDipAndStrikeKernel.stressRotationMatrix =
+                    transformData.stressGlbToDipStrikeAligned.data();
+                alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
+                    transformData.stressFaceAlignedToGlb.data();
+
+                alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
+                alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
+                alignAlongDipAndStrikeKernel.execute();
               }
 
-              seissol::dynamicRupture::kernel::rotateInitStress<Cfg> alignAlongDipAndStrikeKernel;
-              alignAlongDipAndStrikeKernel.stressRotationMatrix =
-                  outputData->stressGlbToDipStrikeAligned[i].data();
-              alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix =
-                  outputData->stressFaceAlignedToGlb[i].data();
-
-              alignAlongDipAndStrikeKernel.initialStress = unrotatedInitialStress.data();
-              alignAlongDipAndStrikeKernel.rotatedStress = rotatedInitialStress.data();
-              alignAlongDipAndStrikeKernel.execute();
-            }
-
-            file << "# P_0" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[0])
-                 << '\n';
-            file << "# T_s" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[3])
-                 << '\n';
-            file << "# T_d" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[5])
-                 << '\n';
+              file << "# P_0" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[0])
+                  << '\n';
+              file << "# T_s" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[3])
+                  << '\n';
+              file << "# T_d" << simIndex + 1 << "\t" << makeFormatted(rotatedInitialStress[5])
+                  << '\n';
+            });
           }
         } else {
           logError() << "cannot open " << ppfile.fileName;

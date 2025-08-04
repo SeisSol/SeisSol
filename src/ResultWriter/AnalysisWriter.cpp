@@ -54,7 +54,7 @@ void CsvAnalysisWriter::writeHeader() {
 
 void CsvAnalysisWriter::addObservation(std::string_view variable,
                                        std::string_view normType,
-                                       real error) {
+                                       double error) {
   if (isEnabled) {
     out << variable << "," << normType << "," << error << "\n";
   }
