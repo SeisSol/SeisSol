@@ -434,10 +434,10 @@ struct MaterialAverager<ElasticMaterial> {
 template <std::size_t Mechanisms>
 struct MaterialAverager<ViscoElasticMaterialParametrized<Mechanisms>> {
   static constexpr bool Implemented = true;
-  static ViscoElasticMaterialParametrized<Mechanisms>
-      computeAveragedMaterial(std::size_t elementIdx,
-                              const std::vector<double>& quadratureWeights,
-                              const std::vector<ViscoElasticMaterialParametrized<Mechanisms>>& materialsFromQuery) {
+  static ViscoElasticMaterialParametrized<Mechanisms> computeAveragedMaterial(
+      std::size_t elementIdx,
+      const std::vector<double>& quadratureWeights,
+      const std::vector<ViscoElasticMaterialParametrized<Mechanisms>>& materialsFromQuery) {
     double muMeanInv = 0.0;
     double rhoMean = 0.0;
     double vERatioMean = 0.0;
@@ -475,8 +475,9 @@ struct MaterialAverager<ViscoElasticMaterialParametrized<Mechanisms>> {
   }
 };
 
-template<typename T>
-void FaultParameterDB<T>::evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) {
+template <typename T>
+void FaultParameterDB<T>::evaluateModel(const std::string& fileName,
+                                        const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
 
