@@ -60,7 +60,7 @@ void Spacetime::computeAder(const real* coeffs,
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>())) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0 ||
          timeDerivatives == NULL);
@@ -76,9 +76,9 @@ void Spacetime::computeAder(const real* coeffs,
 
   kernel::derivative<Cfg> krnl = m_krnlPrototype;
 
-  krnl.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
+  krnl.dQ(0) = const_cast<real*>(data.template get<LTS::Dofs>());
   if (timeDerivatives != nullptr) {
-    streamstore(tensor::dQ<Cfg>::size(0), data.get<LTS::Dofs>(), timeDerivatives);
+    streamstore(tensor::dQ<Cfg>::size(0), data.template get<LTS::Dofs>(), timeDerivatives);
     real* derOut = timeDerivatives;
     for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
       derOut += tensor::dQ<Cfg>::size(i - 1);
@@ -90,7 +90,7 @@ void Spacetime::computeAder(const real* coeffs,
     }
   }
 
-  krnl.dQane(0) = const_cast<real*>(data.get<LTS::DofsAne>());
+  krnl.dQane(0) = const_cast<real*>(data.template get<LTS::DofsAne>());
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
     krnl.dQane(i) = temporaryBufferAne[i % 2];
     krnl.dQext(i) = temporaryBufferExt[i % 2];
@@ -100,11 +100,11 @@ void Spacetime::computeAder(const real* coeffs,
   krnl.Iane = tmp.timeIntegratedAne;
 
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
-    krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
+    krnl.star(i) = data.template get<LTS::LocalIntegration>().starMatrices[i];
   }
-  krnl.w = data.get<LTS::LocalIntegration>().specific.w;
-  krnl.W = data.get<LTS::LocalIntegration>().specific.W;
-  krnl.E = data.get<LTS::LocalIntegration>().specific.E;
+  krnl.w = data.template get<LTS::LocalIntegration>().specific.w;
+  krnl.W = data.template get<LTS::LocalIntegration>().specific.W;
+  krnl.E = data.template get<LTS::LocalIntegration>().specific.E;
 
   // powers in the taylor-series expansion
   for (std::size_t der = 0; der < Cfg::ConvergenceOrder; ++der) {

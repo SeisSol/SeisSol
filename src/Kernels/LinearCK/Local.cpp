@@ -100,7 +100,7 @@ struct ApplyAnalyticalSolution {
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
       initConditions->at(s % initConditions->size())
-          ->evaluate(time, nodesVec, NodeCount, localData.get<LTS::Material>(), slicedBoundaryDofs);
+          ->evaluate(time, nodesVec, NodeCount, localData.template get<LTS::Material>(), slicedBoundaryDofs);
     }
   }
 
@@ -119,43 +119,43 @@ void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<C
                             double time,
                             double timeStepWidth) {
   assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
-  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>()) % Alignment == 0);
 
   kernel::volume<Cfg> volKrnl = m_volumeKernelPrototype;
-  volKrnl.Q = data.get<LTS::Dofs>();
+  volKrnl.Q = data.template get<LTS::Dofs>();
   volKrnl.I = timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
-    volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
+    volKrnl.star(i) = data.template get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   // Optional source term
-  set_ET(volKrnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
+  set_ET(volKrnl, get_ptr_sourceMatrix(data.template get<LTS::LocalIntegration>().specific));
 
   kernel::localFlux<Cfg> lfKrnl = m_localFluxKernelPrototype;
-  lfKrnl.Q = data.get<LTS::Dofs>();
+  lfKrnl.Q = data.template get<LTS::Dofs>();
   lfKrnl.I = timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I<Cfg>::size();
-  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q<Cfg>::size();
+  lfKrnl._prefetch.Q = data.template get<LTS::Dofs>() + tensor::Q<Cfg>::size();
 
   volKrnl.execute();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
-      lfKrnl.AplusT = data.get<LTS::LocalIntegration>().nApNm1[face];
+    if (data.template get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
+      lfKrnl.AplusT = data.template get<LTS::LocalIntegration>().nApNm1[face];
       lfKrnl.execute(face);
     }
 
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
     auto nodalLfKrnl = m_nodalLfKrnlPrototype;
-    nodalLfKrnl.Q = data.get<LTS::Dofs>();
+    nodalLfKrnl.Q = data.template get<LTS::Dofs>();
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
     nodalLfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I<Cfg>::size();
-    nodalLfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q<Cfg>::size();
-    nodalLfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+    nodalLfKrnl._prefetch.Q = data.template get<LTS::Dofs>() + tensor::Q<Cfg>::size();
+    nodalLfKrnl.AminusT = data.template get<LTS::NeighboringIntegration>().nAmNm1[face];
 
     // Include some boundary conditions here.
-    switch (data.get<LTS::CellInformation>().faceTypes[face]) {
+    switch (data.template get<LTS::CellInformation>().faceTypes[face]) {
     case FaceType::FreeSurfaceGravity: {
       assert(cellBoundaryMapping != nullptr);
       assert(materialData != nullptr);
@@ -381,7 +381,7 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable&
 
         dirichletBoundary.evaluateTimeDependent(nullptr,
                                                 face,
-                                                data.get<LTS::BoundaryMapping>()[face],
+                                                data.template get<LTS::BoundaryMapping>()[face],
                                                 m_projectKrnlPrototype,
                                                 applyAnalyticalSolution,
                                                 dofsFaceBoundaryNodal,

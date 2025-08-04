@@ -69,7 +69,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::
 #ifndef NDEBUG
   assert((reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(tmp.timeIntegratedAne)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>())) % Alignment == 0);
 #endif
 
   alignas(Alignment) real Qext[tensor::Qext<Cfg>::size()];
@@ -78,33 +78,33 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::
   volKrnl.Qext = Qext;
   volKrnl.I = timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
-    volKrnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
+    volKrnl.star(i) = data.template get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   kernel::localFluxExt<Cfg> lfKrnl = m_localFluxKernelPrototype;
   lfKrnl.Qext = Qext;
   lfKrnl.I = timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I<Cfg>::size();
-  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q<Cfg>::size();
+  lfKrnl._prefetch.Q = data.template get<LTS::Dofs>() + tensor::Q<Cfg>::size();
 
   volKrnl.execute();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // no element local contribution in the case of dynamic rupture boundary conditions
-    if (data.get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
-      lfKrnl.AplusT = data.get<LTS::LocalIntegration>().nApNm1[face];
+    if (data.template get<LTS::CellInformation>().faceTypes[face] != FaceType::DynamicRupture) {
+      lfKrnl.AplusT = data.template get<LTS::LocalIntegration>().nApNm1[face];
       lfKrnl.execute(face);
     }
   }
 
   kernel::local<Cfg> lKrnl = m_localKernelPrototype;
-  lKrnl.E = data.get<LTS::LocalIntegration>().specific.E;
+  lKrnl.E = data.template get<LTS::LocalIntegration>().specific.E;
   lKrnl.Iane = tmp.timeIntegratedAne;
-  lKrnl.Q = data.get<LTS::Dofs>();
-  lKrnl.Qane = data.get<LTS::DofsAne>();
+  lKrnl.Q = data.template get<LTS::Dofs>();
+  lKrnl.Qane = data.template get<LTS::DofsAne>();
   lKrnl.Qext = Qext;
-  lKrnl.W = data.get<LTS::LocalIntegration>().specific.W;
-  lKrnl.w = data.get<LTS::LocalIntegration>().specific.w;
+  lKrnl.W = data.template get<LTS::LocalIntegration>().specific.W;
+  lKrnl.w = data.template get<LTS::LocalIntegration>().specific.w;
 
   lKrnl.execute();
 }

@@ -73,15 +73,15 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
                             real* timeDerivatives,
                             bool updateDisplacement) {
 
-  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>()) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
   assert(timeDerivatives == nullptr ||
          reinterpret_cast<uintptr_t>(timeDerivatives) % Alignment == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
   updateDisplacement &=
-      std::any_of(std::begin(data.get<LTS::CellInformation>().faceTypes),
-                  std::end(data.get<LTS::CellInformation>().faceTypes),
+      std::any_of(std::begin(data.template get<LTS::CellInformation>().faceTypes),
+                  std::end(data.template get<LTS::CellInformation>().faceTypes),
                   [](const FaceType f) { return f == FaceType::FreeSurfaceGravity; });
 
   alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize];
@@ -89,13 +89,13 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
 
   kernel::derivative<Cfg> krnl = m_krnlPrototype;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
-    krnl.star(i) = data.get<LTS::LocalIntegration>().starMatrices[i];
+    krnl.star(i) = data.template get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   // Optional source term
-  set_ET(krnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
+  set_ET(krnl, get_ptr_sourceMatrix(data.template get<LTS::LocalIntegration>().specific));
 
-  krnl.dQ(0) = const_cast<real*>(data.get<LTS::Dofs>());
+  krnl.dQ(0) = const_cast<real*>(data.template get<LTS::Dofs>());
   for (unsigned i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
     krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
   }
@@ -108,11 +108,11 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
 
   if (updateDisplacement) {
     // First derivative if needed later in kernel
-    std::copy_n(data.get<LTS::Dofs>(), tensor::dQ<Cfg>::size(0), derivativesBuffer);
+    std::copy_n(data.template get<LTS::Dofs>(), tensor::dQ<Cfg>::size(0), derivativesBuffer);
   } else if (timeDerivatives != nullptr) {
     // First derivative is not needed here but later
     // Hence stream it out
-    streamstore(tensor::dQ<Cfg>::size(0), data.get<LTS::Dofs>(), derivativesBuffer);
+    streamstore(tensor::dQ<Cfg>::size(0), data.template get<LTS::Dofs>(), derivativesBuffer);
   }
 
   krnl.execute();
@@ -122,18 +122,18 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (std::size_t face = 0; face < 4; ++face) {
-      if (data.get<LTS::FaceDisplacements>()[face] != nullptr &&
-          data.get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
+      if (data.template get<LTS::FaceDisplacements>()[face] != nullptr &&
+          data.template get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
                     projectDerivativeToNodalBoundaryRotated,
-                    data.get<LTS::BoundaryMapping>()[face],
-                    data.get<LTS::FaceDisplacements>()[face],
+                    data.template get<LTS::BoundaryMapping>()[face],
+                    data.template get<LTS::FaceDisplacements>()[face],
                     tmp.nodalAvgDisplacements[face].data(),
                     *this,
                     derivativesBuffer,
                     timeStepWidth,
-                    data.get<LTS::Material>(),
-                    data.get<LTS::CellInformation>().faceTypes[face]);
+                    data.template get<LTS::Material>(),
+                    data.template get<LTS::CellInformation>().faceTypes[face]);
       }
     }
   }

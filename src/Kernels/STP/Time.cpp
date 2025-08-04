@@ -90,19 +90,19 @@ void Spacetime::executeSTP(double timeStepWidth,
   real B_values[init::star<Cfg>::size(1)];
   real C_values[init::star<Cfg>::size(2)];
   for (std::size_t i = 0; i < init::star<Cfg>::size(0); i++) {
-    A_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[0][i];
-    B_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[1][i];
-    C_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[2][i];
+    A_values[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[0][i];
+    B_values[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[1][i];
+    C_values[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[2][i];
   }
   krnl.star(0) = A_values;
   krnl.star(1) = B_values;
   krnl.star(2) = C_values;
 
-  krnl.Gk = data.get<LTS::LocalIntegration>().specific.G[10] * timeStepWidth;
-  krnl.Gl = data.get<LTS::LocalIntegration>().specific.G[11] * timeStepWidth;
-  krnl.Gm = data.get<LTS::LocalIntegration>().specific.G[12] * timeStepWidth;
+  krnl.Gk = data.template get<LTS::LocalIntegration>().specific.G[10] * timeStepWidth;
+  krnl.Gl = data.template get<LTS::LocalIntegration>().specific.G[11] * timeStepWidth;
+  krnl.Gm = data.template get<LTS::LocalIntegration>().specific.G[12] * timeStepWidth;
 
-  krnl.Q = const_cast<real*>(data.get<LTS::Dofs>());
+  krnl.Q = const_cast<real*>(data.template get<LTS::Dofs>());
   krnl.I = timeIntegrated;
   krnl.timestep = timeStepWidth;
   krnl.spaceTimePredictor = stp;
@@ -111,9 +111,9 @@ void Spacetime::executeSTP(double timeStepWidth,
   // The matrix Zinv depends on the timestep
   // If the timestep is not as expected e.g. when approaching a sync point
   // we have to recalculate it
-  if (timeStepWidth != data.get<LTS::LocalIntegration>().specific.typicalTimeStepWidth) {
+  if (timeStepWidth != data.template get<LTS::LocalIntegration>().specific.typicalTimeStepWidth) {
     auto sourceMatrix =
-        init::ET<Cfg>::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
+        init::ET<Cfg>::view::create(data.template get<LTS::LocalIntegration>().specific.sourceMatrix);
     real ZinvData[seissol::model::MaterialTT<Cfg>::NumQuantities][Cfg::ConvergenceOrder * Cfg::ConvergenceOrder];
     model::zInvInitializerForLoop<Cfg, 0,
                                   seissol::model::MaterialTT<Cfg>::NumQuantities,
@@ -125,7 +125,7 @@ void Spacetime::executeSTP(double timeStepWidth,
     krnl.execute();
   } else {
     for (std::size_t i = 0; i < seissol::model::MaterialTT<Cfg>::NumQuantities; i++) {
-      krnl.Zinv(i) = data.get<LTS::LocalIntegration>().specific.Zinv[i];
+      krnl.Zinv(i) = data.template get<LTS::LocalIntegration>().specific.Zinv[i];
     }
     krnl.execute();
   }
@@ -141,7 +141,7 @@ void Spacetime::computeAder(const real* coeffs,
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
+  assert((reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>())) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0 ||
          timeDerivatives == NULL);

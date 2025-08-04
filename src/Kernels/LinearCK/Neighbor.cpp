@@ -66,25 +66,25 @@ void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
                                         const CellDRMapping (&cellDrMapping)[4],
                                         real* timeIntegrated[4],
                                         real* faceNeighborsPrefetch[4]) {
-  assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Alignment == 0);
+  assert(reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>()) % Alignment == 0);
 
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
-    switch (data.get<LTS::CellInformation>().faceTypes[face]) {
+    switch (data.template get<LTS::CellInformation>().faceTypes[face]) {
     case FaceType::Regular:
       // Fallthrough intended
     case FaceType::Periodic: {
       // Standard neighboring flux
       // Compute the neighboring elements flux matrix id.
       assert(reinterpret_cast<uintptr_t>(timeIntegrated[face]) % Alignment == 0);
-      assert(data.get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
-             data.get<LTS::CellInformation>().faceRelations[face][1] < 3);
+      assert(data.template get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
+             data.template get<LTS::CellInformation>().faceRelations[face][1] < 3);
       kernel::neighboringFlux<Cfg> nfKrnl = m_nfKrnlPrototype;
-      nfKrnl.Q = data.get<LTS::Dofs>();
+      nfKrnl.Q = data.template get<LTS::Dofs>();
       nfKrnl.I = timeIntegrated[face];
-      nfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+      nfKrnl.AminusT = data.template get<LTS::NeighboringIntegration>().nAmNm1[face];
       nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
-      nfKrnl.execute(data.get<LTS::CellInformation>().faceRelations[face][1],
-                     data.get<LTS::CellInformation>().faceRelations[face][0],
+      nfKrnl.execute(data.template get<LTS::CellInformation>().faceRelations[face][1],
+                     data.template get<LTS::CellInformation>().faceRelations[face][0],
                      face);
       break;
     }
@@ -95,7 +95,7 @@ void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
       dynamicRupture::kernel::nodalFlux<Cfg> drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
-      drKrnl.Q = data.get<LTS::Dofs>();
+      drKrnl.Q = data.template get<LTS::Dofs>();
       drKrnl._prefetch.I = faceNeighborsPrefetch[face];
       drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       break;
