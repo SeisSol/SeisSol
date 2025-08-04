@@ -17,7 +17,9 @@
 #include <memory>
 
 namespace seissol::kernels::solver::linearckanelastic {
-class Local : public LocalKernel {
+
+template<typename Cfg>
+class Local : public LocalKernel<Cfg> {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
 

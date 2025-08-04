@@ -28,14 +28,16 @@ template<typename> class spaceTimePredictor;
 
 namespace seissol::kernels::solver::stp {
 
+template <typename>
 class Spacetime;
+template <typename>
 class Time;
 
 struct Solver {
   template<typename Cfg>
-  using SpacetimeKernelT = Spacetime;
+  using SpacetimeKernelT = Spacetime<Cfg>;
   template<typename Cfg>
-  using TimeKernelT = Time;
+  using TimeKernelT = Time<Cfg>;
   template<typename Cfg>
   using LocalKernelT = linearck::Local<Cfg>;
   template<typename Cfg>

@@ -18,16 +18,20 @@ class MonomialBasis;
 
 namespace seissol::kernels::solver::linearckanelastic {
 
+template <typename>
 class Spacetime;
+template <typename>
 class Time;
+template <typename>
 class Local;
+template <typename>
 class Neighbor;
 
 struct Solver {
-  using SpacetimeKernelT = Spacetime;
-  using TimeKernelT = Time;
-  using LocalKernelT = Local;
-  using NeighborKernelT = Neighbor;
+  using SpacetimeKernelT = Spacetime<Cfg>;
+  using TimeKernelT = Time<Cfg>;
+  using LocalKernelT = Local<Cfg>;
+  using NeighborKernelT = Neighbor<Cfg>;
 
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;

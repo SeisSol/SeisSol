@@ -14,6 +14,7 @@
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Common/Executor.h>
+#include <Equations/Datastructures.h>
 #include <GeneratedCode/init.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/Typedefs.h>
@@ -39,12 +40,13 @@
 
 namespace seissol::kernels {
 
-Receiver::Receiver(unsigned pointId,
-                   Eigen::Vector3d position,
-                   const double* elementCoords[4],
-                   LTS::Ref<Cfg> dataHost,
-                   LTS::Ref<Cfg> dataDevice,
-                   size_t reserved)
+template <typename Cfg>
+Receiver<Cfg>::Receiver(std::size_t pointId,
+                        Eigen::Vector3d position,
+                        const double* elementCoords[4],
+                        LTS::Ref<Cfg> dataHost,
+                        LTS::Ref<Cfg> dataDevice,
+                        size_t reserved)
     : pointId(pointId), position(std::move(position)), dataHost(dataHost), dataDevice(dataDevice) {
   output.reserve(reserved);
 
@@ -57,15 +59,17 @@ Receiver::Receiver(unsigned pointId,
   basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
 }
 
-ReceiverCluster::ReceiverCluster(seissol::SeisSol& seissolInstance)
+template <typename Cfg>
+ReceiverClusterImpl<Cfg>::ReceiverClusterImpl(seissol::SeisSol& seissolInstance)
     : m_samplingInterval(1.0e99), m_syncPointInterval(0.0), seissolInstance(seissolInstance) {}
 
-ReceiverCluster::ReceiverCluster(
+template <typename Cfg>
+ReceiverClusterImpl<Cfg>::ReceiverClusterImpl(
     const CompoundGlobalData& global,
-    const std::vector<unsigned>& quantities,
+    const std::vector<std::size_t>& quantities,
     double samplingInterval,
     double syncPointInterval,
-    const std::vector<std::shared_ptr<DerivedReceiverQuantity>>& derivedQuantities,
+    const std::vector<std::shared_ptr<DerivedReceiverQuantity<Cfg>>>& derivedQuantities,
     seissol::SeisSol& seissolInstance)
     : m_quantities(quantities), m_samplingInterval(samplingInterval),
       m_syncPointInterval(syncPointInterval), derivedQuantities(derivedQuantities),
@@ -75,11 +79,12 @@ ReceiverCluster::ReceiverCluster(
   spacetimeKernel.flopsAder(m_nonZeroFlops, m_hardwareFlops);
 }
 
-void ReceiverCluster::addReceiver(unsigned meshId,
-                                  unsigned pointId,
-                                  const Eigen::Vector3d& point,
-                                  const seissol::geometry::MeshReader& mesh,
-                                  const LTS::Backmap& backmap) {
+template <typename Cfg>
+void ReceiverClusterImpl<Cfg>::addReceiver(std::size_t meshId,
+                                           std::size_t pointId,
+                                           const Eigen::Vector3d& point,
+                                           const seissol::geometry::MeshReader& mesh,
+                                           const LTS::Backmap& backmap) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
@@ -103,16 +108,18 @@ void ReceiverCluster::addReceiver(unsigned meshId,
                            coords,
                            ltsStorage.lookupRef<Cfg>(position),
                            ltsStorage.lookupRef<Cfg>(position,
-                                                isDeviceOn() ? initializer::AllocationPlace::Device
-                                                             : initializer::AllocationPlace::Host),
+                                                     isDeviceOn()
+                                                         ? initializer::AllocationPlace::Device
+                                                         : initializer::AllocationPlace::Host),
                            reserved);
 }
 
-double ReceiverCluster::calcReceivers(double time,
-                                      double expansionPoint,
-                                      double timeStepWidth,
-                                      Executor executor,
-                                      parallel::runtime::StreamRuntime& runtime) {
+template <typename Cfg>
+double ReceiverClusterImpl<Cfg>::calcReceivers(double time,
+                                               double expansionPoint,
+                                               double timeStepWidth,
+                                               Executor executor,
+                                               parallel::runtime::StreamRuntime& runtime) {
 
   double outReceiverTime = time;
   while (outReceiverTime < expansionPoint + timeStepWidth) {
@@ -134,12 +141,13 @@ double ReceiverCluster::calcReceivers(double time,
   const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
-    const std::size_t recvCount = m_receivers.size();
+    const std::size_t recvCount = this->m_receivers.size();
     const auto receiverHandler = [this, timeBasis, timeStepWidth, time, expansionPoint, executor](
                                      std::size_t i) {
       alignas(Alignment) real timeEvaluated[tensor::Q<Cfg>::size()];
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint<Cfg>::size()];
-      alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint<Cfg>::size()];
+      alignas(Alignment)
+          real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint<Cfg>::size()];
       alignas(PagesizeStack) real timeDerivatives[Solver<Cfg>::DerivativesSize];
 
       kernels::LocalTmp<Cfg> tmp(seissolInstance.getGravitationSetup().acceleration);
@@ -164,8 +172,8 @@ double ReceiverCluster::calcReceivers(double time,
       auto tmpReceiverData{receiver.dataHost};
 
       if (executor == Executor::Device) {
-        tmpReceiverData.setPointer<LTS::Dofs>(
-            reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
+        tmpReceiverData.template setPointer<LTS::Dofs>(
+            reinterpret_cast<decltype(tmpReceiverData.template getPointer<LTS::Dofs>())>(
                 deviceCollector->get(deviceIndices[i])));
       }
 
@@ -217,7 +225,8 @@ double ReceiverCluster::calcReceivers(double time,
   return outReceiverTime;
 }
 
-void ReceiverCluster::allocateData() {
+template <typename Cfg>
+void ReceiverClusterImpl<Cfg>::allocateData() {
   if constexpr (isDeviceOn()) {
     // collect all data pointers to transfer. If we have multiple receivers on the same cell, we
     // make sure to only transfer the related data once (hence, we use the `indexMap` here)
@@ -225,7 +234,7 @@ void ReceiverCluster::allocateData() {
     std::vector<real*> dofs;
     std::unordered_map<real*, size_t> indexMap;
     for (size_t i = 0; i < m_receivers.size(); ++i) {
-      real* currentDofs = m_receivers[i].dataDevice.get<LTS::Dofs>();
+      real* currentDofs = m_receivers[i].dataDevice.template get<LTS::Dofs>(Cfg());
       if (indexMap.find(currentDofs) == indexMap.end()) {
         // point to the current array end
         indexMap[currentDofs] = dofs.size();
@@ -239,12 +248,15 @@ void ReceiverCluster::allocateData() {
         dofs, tensor::Q<Cfg>::size(), hostAccessible);
   }
 }
-void ReceiverCluster::freeData() {
+
+template <typename Cfg>
+void ReceiverClusterImpl<Cfg>::freeData() {
   deviceCollector.reset(nullptr);
   extraRuntime.reset();
 }
 
-size_t ReceiverCluster::ncols() const {
+template <typename Cfg>
+size_t ReceiverClusterImpl<Cfg>::ncols() const {
   size_t ncols = m_quantities.size();
   for (const auto& derived : derivedQuantities) {
     ncols += derived->quantities().size();
@@ -253,40 +265,32 @@ size_t ReceiverCluster::ncols() const {
   return 1 + ncols;
 }
 
-std::vector<std::string> ReceiverRotation::quantities() const { return {"rot1", "rot2", "rot3"}; }
-void ReceiverRotation::compute(size_t sim,
-                               std::vector<real>& output,
-                               seissol::init::QAtPoint<Cfg>::view::type& qAtPoint,
-                               seissol::init::QDerivativeAtPoint<Cfg>::view::type& qDerivativeAtPoint) {
-  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
-                   seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 2));
-  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 2) -
-                   seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 0));
-  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 0) -
-                   seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 1));
+template <typename Cfg>
+std::vector<std::string> ReceiverClusterImpl<Cfg>::header() const {
+  std::vector<std::string> names;
+  for (const auto& index : m_quantities) {
+    names.emplace_back(model::MaterialTT<Cfg>::Quantities[index]);
+  }
+  for (const auto& derived : derivedQuantities) {
+    auto derivedNames = derived->quantities();
+    names.insert(names.end(), derivedNames.begin(), derivedNames.end());
+  }
+
+  if constexpr (seissol::multisim::MultisimEnabled) {
+    std::vector<std::string> fusedNames;
+    fusedNames.reserve(seissol::multisim::NumSimulations * names.size());
+    for (std::size_t sim = seissol::multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
+      for (const auto& name : names) {
+        fusedNames.emplace_back(name + std::to_string(sim));
+      }
+    }
+    return fusedNames;
+  } else {
+    return names;
+  }
 }
 
-std::vector<std::string> ReceiverStrain::quantities() const {
-  return {"epsxx", "epsxy", "epsxz", "epsyy", "epsyz", "epszz"};
-}
-void ReceiverStrain::compute(size_t sim,
-                             std::vector<real>& output,
-                             seissol::init::QAtPoint<Cfg>::view::type& qAtPoint,
-                             seissol::init::QDerivativeAtPoint<Cfg>::view::type& qDerivativeAtPoint) {
-  // actually 9 quantities; 3 removed due to symmetry
-
-  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 0));
-  output.push_back((seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 1) +
-                    seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 0)) /
-                   2);
-  output.push_back((seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 2) +
-                    seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 0)) /
-                   2);
-  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 1));
-  output.push_back((seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 2) +
-                    seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 1)) /
-                   2);
-  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 2));
-}
+#define _H_(cfg) template class ReceiverClusterImpl<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels

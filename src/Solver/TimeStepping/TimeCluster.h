@@ -55,7 +55,7 @@ class TimeClusterInterface : public AbstractTimeCluster {
 
   virtual std::vector<NeighborCluster>* getNeighborClusters() = 0;
 
-  virtual std::size_t layerId() const = 0;
+  [[nodiscard]] virtual std::size_t layerId() const = 0;
 
   TimeClusterInterface(double maxTimeStepSize, long timeStepRate, Executor executor)
       : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor) {}

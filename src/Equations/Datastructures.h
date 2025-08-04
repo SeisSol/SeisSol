@@ -65,7 +65,7 @@ struct MaterialTypeSelector<MaterialType::Poroelastic> {
   using Type = PoroElasticMaterial;
 };
 
-template<typename Config>
+template <typename Config>
 using MaterialTT = typename MaterialTypeSelector<Config::MaterialType>::Type;
 
 using MaterialT = typename MaterialTypeSelector<Config::MaterialType>::Type;

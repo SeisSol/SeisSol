@@ -21,7 +21,7 @@
 #include <Eigen/Dense>
 
 namespace seissol {
-template<typename>
+template <typename>
 struct LocalIntegrationData;
 struct GlobalData;
 class SeisSol;
@@ -58,13 +58,14 @@ class ReceiverWriter : public seissol::Module {
   void shutdown() override;
 
   private:
-  [[nodiscard]] std::string fileName(unsigned pointId) const;
-  void writeHeader(unsigned pointId, const Eigen::Vector3d& point);
+  [[nodiscard]] std::string fileName(std::size_t pointId) const;
+  void writeHeader(std::size_t pointId,
+                   const Eigen::Vector3d& point,
+                   const std::vector<std::string>& names);
 
   std::string m_receiverFileName;
   std::string m_fileNamePrefix;
   double m_samplingInterval;
-  std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity>> derivedQuantities;
   // Map needed because LayerType enum casts weirdly to int.
   std::vector<std::shared_ptr<kernels::ReceiverCluster>> m_receiverClusters;
   Stopwatch m_stopwatch;
