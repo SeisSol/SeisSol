@@ -45,11 +45,30 @@ class ReceiverCluster;
 
 namespace seissol::time_stepping {
 
+class TimeClusterInterface : public AbstractTimeCluster {
+  public:
+  virtual void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) = 0;
+
+  virtual void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
+
+  virtual void setFaultOutputManager(dr::output::OutputManager* outputManager) = 0;
+
+  virtual std::vector<NeighborCluster>* getNeighborClusters() = 0;
+
+  virtual std::size_t layerId() const = 0;
+
+  TimeClusterInterface(double maxTimeStepSize, long timeStepRate, Executor executor)
+      : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor) {}
+};
+
 /**
  * Time cluster, which represents a collection of elements having the same time step width.
  **/
-class TimeCluster : public AbstractTimeCluster {
+template <typename Cfg>
+class TimeCluster : public TimeClusterInterface {
   private:
+  using real = Real<Cfg>;
+
   // Last correction time of the neighboring cluster with higher dt
   double lastSubTime;
   double neighborTimestep;
@@ -264,13 +283,13 @@ class TimeCluster : public AbstractTimeCluster {
    *
    * @param sourceCluster Contains point sources for cluster
    */
-  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster);
+  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) override;
 
-  void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) {
+  void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) override {
     this->receiverCluster = receiverCluster;
   }
 
-  void setFaultOutputManager(dr::output::OutputManager* outputManager) {
+  void setFaultOutputManager(dr::output::OutputManager* outputManager) override {
     faultOutputManager = outputManager;
   }
 
@@ -278,13 +297,13 @@ class TimeCluster : public AbstractTimeCluster {
 
   void finalize() override;
 
-  [[nodiscard]] std::size_t layerId() const;
+  [[nodiscard]] std::size_t layerId() const override;
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] LayerType getLayerType() const;
   void setTime(double time) override;
 
-  std::vector<NeighborCluster>* getNeighborClusters();
+  std::vector<NeighborCluster>* getNeighborClusters() override;
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 

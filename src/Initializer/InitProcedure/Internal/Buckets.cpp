@@ -34,13 +34,14 @@ class BucketManager {
   std::size_t dataSize{0};
 
   public:
-  real* markAllocate(std::size_t size) {
+  template<typename T>
+  T* markAllocate(std::size_t size) {
     const uintptr_t offset = this->dataSize;
     this->dataSize += size;
 
     // the following "hack" was copied from the MemoryManager. Add +1 to pointers to differentiate
     // from nullptr NOLINTNEXTLINE
-    return reinterpret_cast<real*>(offset + 1);
+    return reinterpret_cast<T*>(offset + 1);
   }
 
   [[nodiscard]] std::size_t position() const { return dataSize; }
@@ -87,13 +88,13 @@ std::vector<solver::RemoteCluster>
     if (useDerivatives) {
       const bool hasDerivatives = cellInformation[index].ltsSetup.hasDerivatives();
       if (hasDerivatives) {
-        derivatives[index] = manager.markAllocate(derivativeSize);
+        derivatives[index] = manager.markAllocate<Real<Cfg>>(derivativeSize);
         derivativesDevice[index] = derivatives[index];
       }
     } else {
       const bool hasBuffers = cellInformation[index].ltsSetup.hasBuffers();
       if (hasBuffers) {
-        buffers[index] = manager.markAllocate(bufferSize);
+        buffers[index] = manager.markAllocate<Real<Cfg>>(bufferSize);
         buffersDevice[index] = buffers[index];
       }
     }
