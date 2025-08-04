@@ -36,7 +36,8 @@ class Component;
 } // namespace easi
 
 namespace seissol::initializer {
-constexpr auto NumQuadpoints = Cfg::ConvergenceOrder * Cfg::ConvergenceOrder * Cfg::ConvergenceOrder;
+constexpr std::size_t AveragingOrder = 4;
+constexpr auto NumQuadpoints = AveragingOrder * AveragingOrder * AveragingOrder;
 
 class QueryGenerator;
 

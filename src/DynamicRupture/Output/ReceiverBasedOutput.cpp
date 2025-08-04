@@ -339,7 +339,7 @@ void ReceiverOutput::calcFaultOutput(
 }
 
 void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
-  const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
+  const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
   const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
   const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
@@ -402,7 +402,7 @@ void ReceiverOutput::computeSlipRate(LocalInfo& local,
                                      const std::array<real, 6>& rotatedUpdatedStress,
                                      const std::array<real, 6>& rotatedStress) {
 
-  const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
+  const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
   local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
                                                rotatedStress[QuantityIndices::XY]);
   local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -

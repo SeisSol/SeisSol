@@ -16,9 +16,9 @@
 
 namespace seissol::dr::friction_law::cpu {
 void YoffeSTF::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  onsetTime = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>();
-  tauS = layerData.var<LTSImposedSlipRatesYoffe::TauS>();
-  tauR = layerData.var<LTSImposedSlipRatesYoffe::TauR>();
+  onsetTime = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>(Cfg());
+  tauS = layerData.var<LTSImposedSlipRatesYoffe::TauS>(Cfg());
+  tauR = layerData.var<LTSImposedSlipRatesYoffe::TauR>(Cfg());
 }
 
 real YoffeSTF::evaluate(real currentTime,
@@ -31,8 +31,8 @@ real YoffeSTF::evaluate(real currentTime,
 }
 
 void GaussianSTF::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  onsetTime = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>();
-  riseTime = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>();
+  onsetTime = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>(Cfg());
+  riseTime = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>(Cfg());
 }
 
 real GaussianSTF::evaluate(real currentTime,
@@ -45,7 +45,7 @@ real GaussianSTF::evaluate(real currentTime,
 }
 
 void DeltaSTF::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  onsetTime = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>();
+  onsetTime = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>(Cfg());
 }
 
 real DeltaSTF::evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex) {

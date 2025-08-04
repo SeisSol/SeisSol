@@ -18,7 +18,7 @@ class NoFault : public BaseFrictionSolver<NoFault> {
   NoFault(seissol::initializer::parameters::DRParameters* drParameters)
       : BaseFrictionSolver<NoFault>(drParameters) {}
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {}
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& ctx, uint32_t timeIndex) {

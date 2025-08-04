@@ -421,7 +421,7 @@ void OutputManager::initPickpointOutput() {
             {
               auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
-              const auto* initialStressVar = layer->var<DynamicRupture::InitialStressInFaultCS>();
+              const auto* initialStressVar = layer->var<DynamicRupture::InitialStressInFaultCS>(Cfg());
               const auto* initialStress = initialStressVar[face];
               std::array<real, 6> unrotatedInitialStress{};
               for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();

@@ -30,7 +30,7 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   real* devTpGridPoints{nullptr};
   real* devHeatSource{nullptr};
 
-  FrictionLawData* data{nullptr};
+  FrictionLawData<Cfg>* data{nullptr};
 };
 } // namespace seissol::dr::friction_law::gpu
 

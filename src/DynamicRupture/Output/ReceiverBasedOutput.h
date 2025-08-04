@@ -92,26 +92,14 @@ class ReceiverOutput {
     ReceiverOutputData* state{};
   };
 
-  template <typename T>
-  std::remove_extent_t<T>* getCellData(const LocalInfo& local,
-                                       const seissol::initializer::Variable<T>& variable) {
-    auto devVar = local.state->deviceVariables.find(drStorage->info(variable).index);
-    if (devVar != local.state->deviceVariables.end()) {
-      return reinterpret_cast<std::remove_extent_t<T>*>(
-          devVar->second->get(local.state->deviceIndices[local.index]));
-    } else {
-      return local.layer->var(variable)[local.ltsId];
-    }
-  }
-
   template <typename StorageT>
-  std::remove_extent_t<typename StorageT::Type>* getCellData(const LocalInfo& local) {
+  std::remove_extent_t<typename StorageT::template VariantType<Cfg>>* getCellData(const LocalInfo& local) {
     auto devVar = local.state->deviceVariables.find(drStorage->info<StorageT>().index);
     if (devVar != local.state->deviceVariables.end()) {
-      return reinterpret_cast<std::remove_extent_t<typename StorageT::Type>*>(
+      return reinterpret_cast<std::remove_extent_t<typename StorageT::template VariantType<Cfg>>*>(
           devVar->second->get(local.state->deviceIndices[local.index]));
     } else {
-      return local.layer->var<StorageT>()[local.ltsId];
+      return local.layer->var<StorageT>(Cfg())[local.ltsId];
     }
   }
 

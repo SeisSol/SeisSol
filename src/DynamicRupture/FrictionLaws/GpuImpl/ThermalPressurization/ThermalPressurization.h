@@ -51,15 +51,15 @@ class ThermalPressurization {
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->temperature = layerData.var<LTSThermalPressurization::Temperature>(place);
-    data->pressure = layerData.var<LTSThermalPressurization::Pressure>(place);
-    data->theta = layerData.var<LTSThermalPressurization::Theta>(place);
-    data->sigma = layerData.var<LTSThermalPressurization::Sigma>(place);
-    data->halfWidthShearZone = layerData.var<LTSThermalPressurization::HalfWidthShearZone>(place);
+    data->temperature = layerData.var<LTSThermalPressurization::Temperature>(Cfg(), place);
+    data->pressure = layerData.var<LTSThermalPressurization::Pressure>(Cfg(), place);
+    data->theta = layerData.var<LTSThermalPressurization::Theta>(Cfg(), place);
+    data->sigma = layerData.var<LTSThermalPressurization::Sigma>(Cfg(), place);
+    data->halfWidthShearZone = layerData.var<LTSThermalPressurization::HalfWidthShearZone>(Cfg(), place);
     data->hydraulicDiffusivity =
-        layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(place);
+        layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(Cfg(), place);
   }
 
   SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext<Cfg>& ctx) {

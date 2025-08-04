@@ -7,6 +7,7 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
+#include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
 #include <Equations/acoustic/Model/Datastructures.h>
@@ -139,7 +140,7 @@ ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellTo
     : m_cellToVertex(cellToVertex) {
   double quadraturePoints[NumQuadpoints][3];
   double quadratureWeights[NumQuadpoints];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, Cfg::ConvergenceOrder);
+  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, AveragingOrder);
 
   std::copy(
       std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
@@ -206,13 +207,34 @@ easi::Query FaultGPGenerator::generate() const {
   const std::vector<Element>& elements = m_meshReader.getElements();
   auto cellToVertex = CellToVertexArray::fromMeshReader(m_meshReader);
 
-  constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim<Cfg>;
-  auto pointsView = init::quadpoints<Cfg>::view::create(const_cast<real*>(init::quadpoints<Cfg>::Values));
-  easi::Query query(NumPoints * m_faceIDs.size(), Cell::Dim);
-  unsigned q = 0;
+  std::size_t numPoints = 0;
+  for (const auto faultId : m_faceIDs) {
+    const Fault& f = fault.at(faultId);
+    int element = 0;
+    int side = 0;
+    int sideOrientation = 0;
+    if (f.element >= 0) {
+      element = f.element;
+      side = f.side;
+      sideOrientation = -1;
+    } else {
+      element = f.neighborElement;
+      side = f.neighborSide;
+      sideOrientation = elements[f.neighborElement].sideOrientations[f.neighborSide];
+    }
+    
+    std::visit([&](auto cfg){
+      using Cfg = decltype(cfg);
+      numPoints += dr::misc::NumPaddedPointsSingleSim<Cfg>;
+    }, ConfigVariantList[elements[element].configId]);
+  }
+
+  easi::Query query(numPoints, Cell::Dim);
+
+  std::size_t q = 0;
   // loop over all fault elements which are managed by this generator
   // note: we have one generator per LTS layer
-  for (const unsigned faultId : m_faceIDs) {
+  for (const auto faultId : m_faceIDs) {
     const Fault& f = fault.at(faultId);
     int element = 0;
     int side = 0;
@@ -228,24 +250,31 @@ easi::Query FaultGPGenerator::generate() const {
     }
 
     auto coords = cellToVertex.elementCoordinates(element);
-    for (unsigned n = 0; n < NumPoints; ++n, ++q) {
-      double xiEtaZeta[3];
-      double localPoints[2] = {seissol::multisim::multisimTranspose(pointsView, n, 0),
-                               seissol::multisim::multisimTranspose(pointsView, n, 1)};
-      // padded points are in the middle of the tetrahedron
-      if (n >= dr::misc::NumBoundaryGaussPoints<Cfg>) {
-        localPoints[0] = 1.0 / 3.0;
-        localPoints[1] = 1.0 / 3.0;
-      }
 
-      seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
-      Eigen::Vector3d xyz = seissol::transformations::tetrahedronReferenceToGlobal(
-          coords[0], coords[1], coords[2], coords[3], xiEtaZeta);
-      for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(q, dim) = xyz(dim);
+    constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim<Cfg>;
+
+    std::visit([&](auto cfg){
+      using Cfg = decltype(cfg);
+      auto pointsView = init::quadpoints<Cfg>::view::create(const_cast<Real<Cfg>*>(init::quadpoints<Cfg>::Values));
+      for (std::size_t n = 0; n < NumPoints; ++n, ++q) {
+        double xiEtaZeta[3];
+        double localPoints[2] = {seissol::multisim::multisimTranspose(pointsView, n, 0),
+                                seissol::multisim::multisimTranspose(pointsView, n, 1)};
+        // padded points are in the middle of the tetrahedron
+        if (n >= dr::misc::NumBoundaryGaussPoints<Cfg>) {
+          localPoints[0] = 1.0 / 3.0;
+          localPoints[1] = 1.0 / 3.0;
+        }
+
+        seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
+        Eigen::Vector3d xyz = seissol::transformations::tetrahedronReferenceToGlobal(
+            coords[0], coords[1], coords[2], coords[3], xiEtaZeta);
+        for (std::size_t dim = 0; dim < Cell::Dim; ++dim) {
+          query.x(q, dim) = xyz(dim);
+        }
+        query.group(q) = elements[element].faultTags[side];
       }
-      query.group(q) = elements[element].faultTags[side];
-    }
+    }, ConfigVariantList[elements[element].configId]);
   }
   return query;
 }

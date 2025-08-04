@@ -22,12 +22,12 @@ static const tp::InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFour
 static const tp::GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
 
 void ThermalPressurization::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  temperature = layerData.var<LTSThermalPressurization::Temperature>();
-  pressure = layerData.var<LTSThermalPressurization::Pressure>();
-  theta = layerData.var<LTSThermalPressurization::Theta>();
-  sigma = layerData.var<LTSThermalPressurization::Sigma>();
-  halfWidthShearZone = layerData.var<LTSThermalPressurization::HalfWidthShearZone>();
-  hydraulicDiffusivity = layerData.var<LTSThermalPressurization::HydraulicDiffusivity>();
+  temperature = layerData.var<LTSThermalPressurization::Temperature>(Cfg());
+  pressure = layerData.var<LTSThermalPressurization::Pressure>(Cfg());
+  theta = layerData.var<LTSThermalPressurization::Theta>(Cfg());
+  sigma = layerData.var<LTSThermalPressurization::Sigma>(Cfg());
+  halfWidthShearZone = layerData.var<LTSThermalPressurization::HalfWidthShearZone>(Cfg());
+  hydraulicDiffusivity = layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(Cfg());
 }
 
 void ThermalPressurization::calcFluidPressure(

@@ -297,7 +297,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     Real<Cfg> imposedStateMinus[tensor::QInterpolated<Cfg>::size()],
     const Real<Cfg> qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
     const Real<Cfg> qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
-    const double timeWeights[Cfg::ConvergenceOrder],
+    const double* timeWeights,
     unsigned startIndex = 0) {
 
   // set imposed state to zero
@@ -556,7 +556,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     const Real<Cfg> qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
     const Real<Cfg> qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()],
     const ImpedancesAndEta<Real<Cfg>>& impAndEta,
-    const double timeWeights[Cfg::ConvergenceOrder],
+    const double* timeWeights,
     const Real<Cfg> spaceWeights[seissol::kernels::NumSpaceQuadraturePoints<Cfg>],
     const DRGodunovData<Cfg>& godunovData,
     const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],

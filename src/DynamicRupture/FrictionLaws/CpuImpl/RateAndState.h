@@ -90,9 +90,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {
-    a = layerData.var<LTSRateAndState::RsA>();
-    sl0 = layerData.var<LTSRateAndState::RsSl0>();
-    stateVariable = layerData.var<LTSRateAndState::StateVariable>();
+    a = layerData.var<LTSRateAndState::RsA>(Cfg());
+    sl0 = layerData.var<LTSRateAndState::RsSl0>(Cfg());
+    stateVariable = layerData.var<LTSRateAndState::StateVariable>(Cfg());
     static_cast<Derived*>(this)->copyStorageToLocal(layerData);
     tpMethod.copyStorageToLocal(layerData);
   }

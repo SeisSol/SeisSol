@@ -28,7 +28,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     return std::make_unique<Derived>(*static_cast<Derived*>(this));
   }
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
     Derived::copySpecificStorageDataToLocal(data, layerData);
   }
@@ -135,7 +135,7 @@ class LinearSlipWeakeningLaw
       : LinearSlipWeakeningBase<LinearSlipWeakeningLaw<SpecializationT>>(drParameters),
         specialization(drParameters){};
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
     data->dC =
         layerData.var<LTSLinearSlipWeakening::DC>(seissol::initializer::AllocationPlace::Device);
@@ -222,7 +222,7 @@ class NoSpecialization {
   public:
   NoSpecialization(seissol::initializer::parameters::DRParameters* parameters) {};
 
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
 
   SEISSOL_DEVICE static real
       resampleSlipRate(FrictionLawContext<Cfg>& ctx,
@@ -274,7 +274,7 @@ class BiMaterialFault {
   public:
   BiMaterialFault(seissol::initializer::parameters::DRParameters* parameters) {};
 
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     data->regularizedStrength =
         layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(
             seissol::initializer::AllocationPlace::Device);
@@ -314,7 +314,7 @@ class TPApprox {
   public:
   TPApprox(seissol::initializer::parameters::DRParameters* parameters) {};
 
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
 
   SEISSOL_DEVICE static real
       resampleSlipRate(FrictionLawContext<Cfg>& ctx,

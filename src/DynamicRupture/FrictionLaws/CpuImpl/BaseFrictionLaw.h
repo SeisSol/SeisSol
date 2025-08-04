@@ -46,7 +46,7 @@ class BaseFrictionLaw : public FrictionSolver {
    */
   void evaluate(double fullUpdateTime,
                 const FrictionTime& frictionTime,
-                const double timeWeights[Cfg::ConvergenceOrder],
+                const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     if (this->currLayerSize == 0) {
       return;

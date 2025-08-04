@@ -261,10 +261,10 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
                                    seissol::parallel::runtime::StreamRuntime& runtime) const {
   auto& layerData = data.drStorage.layer(data.layerId);
   auto* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
-  auto* godunovData = layerData.var<DynamicRupture::GodunovData>();
-  auto* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
-  auto** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
-  auto** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
+  auto* godunovData = layerData.var<DynamicRupture::GodunovData>(Cfg());
+  auto* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>(Cfg());
+  auto** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>(Cfg());
+  auto** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>(Cfg());
   alignas(Alignment) real qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
   alignas(Alignment) real qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
   const auto [timePoints, timeWeights] =

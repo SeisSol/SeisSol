@@ -28,7 +28,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename T>
 void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
                                            double fullUpdateTime,
-                                           const double timeWeights[Cfg::ConvergenceOrder],
+                                           const double* timeWeights,
                                            const FrictionTime& frictionTime) {
   auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
 

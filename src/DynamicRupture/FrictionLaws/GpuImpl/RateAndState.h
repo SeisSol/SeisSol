@@ -29,12 +29,12 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
   ~RateAndStateBase() = default;
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
-    data->a = layerData.var<LTSRateAndState::RsA>(seissol::initializer::AllocationPlace::Device);
+    data->a = layerData.var<LTSRateAndState::RsA>(Cfg(), seissol::initializer::AllocationPlace::Device);
     data->sl0 =
-        layerData.var<LTSRateAndState::RsSl0>(seissol::initializer::AllocationPlace::Device);
-    data->stateVariable = layerData.var<LTSRateAndState::StateVariable>(
+        layerData.var<LTSRateAndState::RsSl0>(Cfg(), seissol::initializer::AllocationPlace::Device);
+    data->stateVariable = layerData.var<LTSRateAndState::StateVariable>(Cfg(), 
         seissol::initializer::AllocationPlace::Device);
     Derived::copySpecificStorageDataToLocal(data, layerData);
     TPMethod::copyStorageToLocal(data, layerData);

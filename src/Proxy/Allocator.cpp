@@ -164,7 +164,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   const initializer::LTSColorMap map(
       initializer::EnumLayer<HaloType>({HaloType::Interior}),
       initializer::EnumLayer<std::size_t>({0}),
-      initializer::TraitLayer<initializer::ConfigVariant>({Config()}));
+      initializer::TraitLayer<ConfigVariant>({Config()}));
 
   // init RNG
   LTS::addTo(ltsStorage, false); // proxy does not use plasticity
@@ -251,17 +251,17 @@ void ProxyData::initDataStructures(bool enableDR) {
     // From dynamic rupture storage
     auto& interior = drStorage.layer(layerId);
     real(*imposedStatePlus)[seissol::tensor::QInterpolated<Cfg>::size()] =
-        interior.var<DynamicRupture::ImposedStatePlus>(Place);
+        interior.var<DynamicRupture::ImposedStatePlus>(cfg, Place);
     real(*fluxSolverPlus)[seissol::tensor::fluxSolver<Cfg>::size()] =
-        interior.var<DynamicRupture::FluxSolverPlus>(Place);
-    real** timeDerivativeHostPlus = interior.var<DynamicRupture::TimeDerivativePlus>();
-    real** timeDerivativeHostMinus = interior.var<DynamicRupture::TimeDerivativeMinus>();
+        interior.var<DynamicRupture::FluxSolverPlus>(cfg, Place);
+    real** timeDerivativeHostPlus = interior.var<DynamicRupture::TimeDerivativePlus>(cfg);
+    real** timeDerivativeHostMinus = interior.var<DynamicRupture::TimeDerivativeMinus>(cfg);
     real** timeDerivativePlus = isDeviceOn()
-                                    ? interior.var<DynamicRupture::TimeDerivativePlusDevice>()
-                                    : interior.var<DynamicRupture::TimeDerivativePlus>();
+                                    ? interior.var<DynamicRupture::TimeDerivativePlusDevice>(cfg)
+                                    : interior.var<DynamicRupture::TimeDerivativePlus>(cfg);
     real** timeDerivativeMinus = isDeviceOn()
-                                     ? interior.var<DynamicRupture::TimeDerivativeMinusDevice>()
-                                     : interior.var<DynamicRupture::TimeDerivativeMinus>();
+                                     ? interior.var<DynamicRupture::TimeDerivativeMinusDevice>(cfg)
+                                     : interior.var<DynamicRupture::TimeDerivativeMinus>(cfg);
     DRFaceInformation* faceInformation = interior.var<DynamicRupture::FaceInformation>();
 
     std::mt19937 rng(cellCount);

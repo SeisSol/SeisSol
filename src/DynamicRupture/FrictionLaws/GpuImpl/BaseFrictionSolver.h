@@ -35,7 +35,7 @@ struct InitialVariables {
 
 template<typename Cfg>
 struct FrictionLawArgs {
-  const FrictionLawData* __restrict data{nullptr};
+  const FrictionLawData<Cfg>* __restrict data{nullptr};
   const Real<Cfg>* __restrict spaceWeights{nullptr};
   const Real<Cfg>* __restrict resampleMatrix{nullptr};
   const Real<Cfg>* __restrict tpInverseFourierCoefficients{nullptr};
@@ -43,7 +43,7 @@ struct FrictionLawArgs {
   const Real<Cfg>* __restrict heatSource{nullptr};
 
   Real<Cfg> fullUpdateTime;
-  double timeWeights[Cfg::ConvergenceOrder];
+  double* timeWeights;
   Real<Cfg> deltaT[Cfg::ConvergenceOrder];
   Real<Cfg> sumDt;
 };
@@ -52,7 +52,7 @@ template<typename Cfg>
 struct FrictionLawContext {
   std::size_t ltsFace;
   std::uint32_t pointIndex;
-  const FrictionLawData* __restrict data;
+  const FrictionLawData<Cfg>* __restrict data;
   const FrictionLawArgs<Cfg>* __restrict args;
 
   Real<Cfg>* __restrict sharedMemory;
@@ -198,17 +198,17 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     Derived::copySpecificStorageDataToLocal(&dataHost, layerData);
     dataHost.drParameters = *this->drParameters;
     device::DeviceInstance::getInstance().api->copyToAsync(
-        data, &dataHost, sizeof(FrictionLawData), runtime.stream());
+        data, &dataHost, sizeof(FrictionLawData<Cfg>), runtime.stream());
   }
 
   void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime,
                       double fullUpdateTime,
-                      const double timeWeights[Cfg::ConvergenceOrder],
+                      const double* timeWeights,
                       const FrictionTime& frictionTime);
 
   void evaluate(double fullUpdateTime,
                 const FrictionTime& frictionTime,
-                const double timeWeights[Cfg::ConvergenceOrder],
+                const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     if (this->currLayerSize == 0) {
       return;

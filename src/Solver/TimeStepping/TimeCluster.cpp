@@ -190,12 +190,12 @@ void TimeCluster::computeDynamicRupture(DynamicRupture::Layer& layerData) {
   loopStatistics->begin(regionComputeDynamicRupture);
 
   auto* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
-  auto* godunovData = layerData.var<DynamicRupture::GodunovData>();
-  auto* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>();
-  auto** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>();
-  auto** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>();
-  auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>();
-  auto* qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>();
+  auto* godunovData = layerData.var<DynamicRupture::GodunovData>(Cfg());
+  auto* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>(Cfg());
+  auto** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>(Cfg());
+  auto** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>(Cfg());
+  auto* qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(Cfg());
+  auto* qInterpolatedMinus = layerData.var<DynamicRupture::QInterpolatedMinus>(Cfg());
 
   const auto [timePoints, timeWeights] =
       seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timeStepSize());

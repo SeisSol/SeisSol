@@ -15,7 +15,7 @@
 namespace seissol::dr::friction_law::gpu {
 class NoTP {
   public:
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
 
   SEISSOL_DEVICE static void
       calcFluidPressure(FrictionLawContext<Cfg>& ctx, uint32_t timeIndex, bool saveTmpInTP) {}

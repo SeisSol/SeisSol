@@ -29,7 +29,7 @@ void NoSpecialization::resampleSlipRate(
   resampleKrnl.execute();
 }
 void BiMaterialFault::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  regularizedStrength = layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
+  regularizedStrength = layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(Cfg());
 }
 
 #pragma omp declare simd

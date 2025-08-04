@@ -324,14 +324,14 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       };
 #else
       // TODO: for fused simulations, do this once and reuse
-      real* const* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>();
-      real* const* timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
+      real* const* timeDerivativePlus = layer.var<DynamicRupture::TimeDerivativePlus>(cfg);
+      real* const* timeDerivativeMinus = layer.var<DynamicRupture::TimeDerivativeMinus>(cfg);
       const auto timeDerivativePlusPtr = [&](std::size_t i) { return timeDerivativePlus[i]; };
       const auto timeDerivativeMinusPtr = [&](std::size_t i) { return timeDerivativeMinus[i]; };
 #endif
-      const auto* godunovData = layer.var<DynamicRupture::GodunovData>();
+      const auto* godunovData = layer.var<DynamicRupture::GodunovData>(cfg);
       const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
-      const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>();
+      const auto* drEnergyOutput = layer.var<DynamicRupture::DREnergyOutputVar>(cfg);
       const seissol::model::IsotropicWaveSpeeds* waveSpeedsPlus =
           layer.var<DynamicRupture::WaveSpeedsPlus>();
       const seissol::model::IsotropicWaveSpeeds* waveSpeedsMinus =
