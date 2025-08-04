@@ -45,7 +45,7 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
     std::vector<real*> prevDofsPtrs(size, nullptr);
 
     for (unsigned cell = 0; cell < size; ++cell) {
-      auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
+      auto data = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Device);
       dofsPtrs[cell] = static_cast<real*>(data.get<LTS::Dofs>());
       qstressNodalPtrs[cell] = &scratchMem[nodalStressTensorCounter];
       nodalStressTensorCounter += tensor::QStressNodal<Cfg>::size();

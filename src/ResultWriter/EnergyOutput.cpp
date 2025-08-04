@@ -426,11 +426,11 @@ void EnergyOutput::computeVolumeEnergies() {
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* cellInformationData = layer.var<LTS::CellInformation>();
-      const auto* faceDisplacementsData = layer.var<LTS::FaceDisplacements>();
+      const auto* faceDisplacementsData = layer.var<LTS::FaceDisplacements>(cfg);
       const auto* materialData = layer.var<LTS::Material>();
       const auto* boundaryMappingData = layer.var<LTS::BoundaryMapping>();
-      const auto* pstrainData = layer.var<LTS::PStrain>();
-      const auto* dofsData = layer.var<LTS::Dofs>();
+      const auto* pstrainData = layer.var<LTS::PStrain>(cfg);
+      const auto* dofsData = layer.var<LTS::Dofs>(cfg);
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static) reduction(+ : totalGravitationalEnergyLocal,             \
                                                         totalAcousticEnergyLocal,                  \

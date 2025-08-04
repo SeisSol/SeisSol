@@ -145,8 +145,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* material = layer.var<LTS::Material>();
-      auto* dofs = layer.var<LTS::Dofs>();
-      auto* dofsAne = layer.var<LTS::DofsAne>();
+      auto* dofs = layer.var<LTS::Dofs>(cfg);
+      auto* dofsAne = layer.var<LTS::DofsAne>(cfg);
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
@@ -263,6 +263,8 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
   const auto quantityCount = model::MaterialT::Quantities.size();
 
   for (auto& layer : storage.leaves(Ghost)) {
+    layer.wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel
 #endif
@@ -280,8 +282,8 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull<Cfg>>());
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-      auto* dofs = layer.var<LTS::Dofs>();
-      auto* dofsAne = layer.var<LTS::DofsAne>();
+      auto* dofs = layer.var<LTS::Dofs>(cfg);
+      auto* dofsAne = layer.var<LTS::DofsAne>(cfg);
 
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
@@ -306,6 +308,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
         krnl.execute();
       }
     }
+  });
   }
 }
 

@@ -25,7 +25,7 @@ class NeighborKernel : public Kernel {
 
   ~NeighborKernel() override = default;
 
-  virtual void computeNeighborsIntegral(LTS::Ref& data,
+  virtual void computeNeighborsIntegral(LTS::Ref<Cfg>& data,
                                         const CellDRMapping (&cellDrMapping)[4],
                                         real* timeIntegrated[4],
                                         real* faceNeighborsPrefetch[4]) = 0;

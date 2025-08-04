@@ -67,7 +67,7 @@ void Spacetime<Cfg>::setGlobalData(const CompoundGlobalData& global) {
 template<typename Cfg>
 void Spacetime<Cfg>::computeAder(const real* coeffs,
                             double timeStepWidth,
-                            LTS::Ref& data,
+                            LTS::Ref<Cfg>& data,
                             LocalTmp<Cfg>& tmp,
                             real timeIntegrated[tensor::I<Cfg>::size()],
                             real* timeDerivatives,

@@ -161,7 +161,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
       const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       const auto* materialData = layer.var<LTS::Material>();
-      const auto* dofsData = layer.var<LTS::Dofs>();
+      const auto* dofsData = layer.var<LTS::Dofs>(cfg);
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
       // Note: Adding default(none) leads error when using gcc-8
 #pragma omp parallel for shared(elements,                                                          \

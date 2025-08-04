@@ -73,7 +73,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Spacetime::executeSTP(double timeStepWidth,
-                           LTS::Ref& data,
+                           LTS::Ref<Cfg>& data,
                            real timeIntegrated[tensor::I<Cfg>::size()],
                            real* stp)
 
@@ -133,7 +133,7 @@ void Spacetime::executeSTP(double timeStepWidth,
 
 void Spacetime::computeAder(const real* coeffs,
                             double timeStepWidth,
-                            LTS::Ref& data,
+                            LTS::Ref<Cfg>& data,
                             LocalTmp<Cfg>& tmp,
                             real timeIntegrated[tensor::I<Cfg>::size()],
                             real* timeDerivatives,

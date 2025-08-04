@@ -89,32 +89,31 @@ struct LTS {
       }
     }
   }
-  struct Dofs : public initializer::Variable<real[tensor::Q<Cfg>::size()]> {
+  struct Dofs : public initializer::Variable<void> {
     template<typename Cfg>
     using VariantType = Real<Cfg>[tensor::Q<Cfg>::size()];
   };
   // size is zero if Qane is not defined
-  struct DofsAne
-      : public initializer::Variable<real[zeroLengthArrayHandler(kernels::size<tensor::Qane<Cfg>>())]> {
+  struct DofsAne : public initializer::Variable<void> {
     template<typename Cfg>
     using VariantType = Real<Cfg>[zeroLengthArrayHandler(kernels::size<tensor::Qane<Cfg>>())];
   };
-  struct Buffers : public initializer::Variable<real*> {
+  struct Buffers : public initializer::Variable<void> {
     template<typename Cfg>
     using VariantType = Real<Cfg>*;
   };
-  struct Derivatives : public initializer::Variable<real*> {
+  struct Derivatives : public initializer::Variable<void> {
     template<typename Cfg>
     using VariantType = Real<Cfg>*;
   };
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
   struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
-  struct FaceNeighbors : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct LocalIntegration : public initializer::Variable<LocalIntegrationData<Cfg>> {
+  struct FaceNeighbors : public initializer::Variable<void* [Cell::NumFaces]> {};
+  struct LocalIntegration : public initializer::Variable<void> {
     template<typename Cfg>
     using VariantType = LocalIntegrationData<Cfg>;
   };
-  struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData<Cfg>> {
+  struct NeighboringIntegration : public initializer::Variable<void> {
     template<typename Cfg>
     using VariantType = NeighboringIntegrationData<Cfg>;
   };
@@ -129,53 +128,63 @@ struct LTS {
   };
   struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
   struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
-  struct PStrain
-      : public initializer::Variable<real[tensor::QStress<Cfg>::size() + tensor::QEtaModal<Cfg>::size()]> {
+  struct PStrain : public initializer::Variable<void> {
     template<typename Cfg>
     using VariantType = Real<Cfg>[tensor::QStress<Cfg>::size() + tensor::QEtaModal<Cfg>::size()];
   };
-  struct FaceDisplacements : public initializer::Variable<real* [Cell::NumFaces]> {};
+  struct FaceDisplacements : public initializer::Variable<void> {
+    template<typename Cfg>
+    using VariantType = Real<Cfg>* [Cell::NumFaces];
+  };
   struct BuffersDerivatives : public initializer::Bucket<void> {
     template<typename Cfg>
     using VariantType = Real<Cfg>;
   };
 
-  struct BuffersDevice : public initializer::Variable<real*> {
+  struct BuffersDevice : public initializer::Variable<void> {
     template<typename Cfg>
     using VariantType = Real<Cfg>*;
   };
-  struct DerivativesDevice : public initializer::Variable<real*> {
+  struct DerivativesDevice : public initializer::Variable<void> {
     template<typename Cfg>
     using VariantType = Real<Cfg>*;
   };
-  struct FaceNeighborsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
-  struct FaceDisplacementsDevice : public initializer::Variable<real* [Cell::NumFaces]> {};
+  struct FaceNeighborsDevice : public initializer::Variable<void* [Cell::NumFaces]> {};
+  struct FaceDisplacementsDevice : public initializer::Variable<void> {
+    template<typename Cfg>
+    using VariantType = Real<Cfg>* [Cell::NumFaces];
+  };
   struct DRMappingDevice : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
   struct BoundaryMappingDevice : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {
   };
 
-  struct IntegratedDofsScratch : public initializer::Scratchpad<real> {};
-  struct DerivativesScratch : public initializer::Scratchpad<real> {};
-  struct NodalAvgDisplacements : public initializer::Scratchpad<real> {};
-  struct AnalyticScratch : public initializer::Scratchpad<real> {};
-  struct DerivativesExtScratch : public initializer::Scratchpad<real> {};
-  struct DerivativesAneScratch : public initializer::Scratchpad<real> {};
-  struct IDofsAneScratch : public initializer::Scratchpad<real> {};
-  struct DofsExtScratch : public initializer::Scratchpad<real> {};
+  struct ScratchBase : public initializer::Scratchpad<void> {
+    template<typename Cfg>
+    using VariantType = Real<Cfg>;
+  };
+
+  struct IntegratedDofsScratch : public ScratchBase {};
+  struct DerivativesScratch : public ScratchBase {};
+  struct NodalAvgDisplacements : public ScratchBase {};
+  struct AnalyticScratch : public ScratchBase {};
+  struct DerivativesExtScratch : public ScratchBase {};
+  struct DerivativesAneScratch : public ScratchBase {};
+  struct IDofsAneScratch : public ScratchBase {};
+  struct DofsExtScratch : public ScratchBase {};
 
   struct FlagScratch : public initializer::Scratchpad<unsigned> {};
-  struct PrevDofsScratch : public initializer::Scratchpad<real> {};
-  struct QEtaNodalScratch : public initializer::Scratchpad<real> {};
-  struct QStressNodalScratch : public initializer::Scratchpad<real> {};
+  struct PrevDofsScratch : public ScratchBase {};
+  struct QEtaNodalScratch : public ScratchBase {};
+  struct QStressNodalScratch : public ScratchBase {};
 
-  struct RotateDisplacementToFaceNormalScratch : public initializer::Scratchpad<real> {};
-  struct RotateDisplacementToGlobalScratch : public initializer::Scratchpad<real> {};
-  struct RotatedFaceDisplacementScratch : public initializer::Scratchpad<real> {};
-  struct DofsFaceNodalScratch : public initializer::Scratchpad<real> {};
-  struct PrevCoefficientsScratch : public initializer::Scratchpad<real> {};
-  struct DofsFaceBoundaryNodalScratch : public initializer::Scratchpad<real> {};
+  struct RotateDisplacementToFaceNormalScratch : public ScratchBase {};
+  struct RotateDisplacementToGlobalScratch : public ScratchBase {};
+  struct RotatedFaceDisplacementScratch : public ScratchBase {};
+  struct DofsFaceNodalScratch : public ScratchBase {};
+  struct PrevCoefficientsScratch : public ScratchBase {};
+  struct DofsFaceBoundaryNodalScratch : public ScratchBase {};
 
-  struct Integrals : public initializer::Variable<real> {};
+  struct Integrals : public initializer::VariantVariable<Real> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsAne,
@@ -222,7 +231,8 @@ struct LTS {
 
   using Storage = initializer::Storage<LTSVarmap>;
   using Layer = initializer::Layer<LTSVarmap>;
-  using Ref = initializer::Layer<LTSVarmap>::CellRef;
+  template<typename Config>
+  using Ref = initializer::Layer<LTSVarmap>::CellRef<Config>;
   using Backmap = initializer::StorageBackmap<4>;
 
   static void addTo(Storage& storage, bool usePlasticity) {

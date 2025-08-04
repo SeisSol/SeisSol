@@ -35,15 +35,15 @@ struct Receiver {
   Receiver(unsigned pointId,
            Eigen::Vector3d position,
            const double* elementCoords[4],
-           LTS::Ref dataHost,
-           LTS::Ref dataDevice,
+           LTS::Ref<Cfg> dataHost,
+           LTS::Ref<Cfg> dataDevice,
            size_t reserved);
   unsigned pointId;
   Eigen::Vector3d position;
   basisFunction::SampledBasisFunctions<real> basisFunctions;
   basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
-  LTS::Ref dataHost;
-  LTS::Ref dataDevice;
+  LTS::Ref<Cfg> dataHost;
+  LTS::Ref<Cfg> dataDevice;
   std::vector<real> output;
 };
 

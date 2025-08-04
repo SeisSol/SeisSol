@@ -42,10 +42,10 @@ template<typename Cfg>
 void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
   using real = Real<Cfg>;
 
-  real(*dofs)[tensor::Q<Cfg>::size()] = layer.var<LTS::Dofs>();
+  real(*dofs)[tensor::Q<Cfg>::size()] = layer.var<LTS::Dofs>(cfg);
   real** buffers = layer.var<LTS::Buffers>(cfg);
   real** derivatives = layer.var<LTS::Derivatives>(cfg);
-  real*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
+  void*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
   auto* localIntegration = layer.var<LTS::LocalIntegration>(cfg);
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>(cfg);
   auto* cellInformation = layer.var<LTS::CellInformation>();
@@ -55,7 +55,7 @@ void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
 
   real** buffersDevice = layer.var<LTS::BuffersDevice>(cfg);
   real** derivativesDevice = layer.var<LTS::DerivativesDevice>(cfg);
-  real*(*faceNeighborsDevice)[4] = layer.var<LTS::FaceNeighborsDevice>();
+  void*(*faceNeighborsDevice)[4] = layer.var<LTS::FaceNeighborsDevice>();
   real* bucketDevice =
       static_cast<real*>(layer.var<LTS::BuffersDerivatives>(cfg, initializer::AllocationPlace::Device));
 

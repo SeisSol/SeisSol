@@ -81,7 +81,7 @@ void Local<Cfg>::setGlobalData(const CompoundGlobalData& global) {
 template<typename Cfg>
 struct ApplyAnalyticalSolution {
   ApplyAnalyticalSolution(const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
-                          LTS::Ref& data)
+                          LTS::Ref<Cfg>& data)
       : initConditions(initConditions), localData(data) {}
 
   void operator()(const real* nodes, double time, typename seissol::init::INodal<Cfg>::view::type& boundaryDofs) {
@@ -106,12 +106,12 @@ struct ApplyAnalyticalSolution {
 
   private:
   const std::vector<std::unique_ptr<physics::InitialField>>* initConditions;
-  LTS::Ref& localData;
+  LTS::Ref<Cfg>& localData;
 };
 
 template<typename Cfg>
 void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
-                            LTS::Ref& data,
+                            LTS::Ref<Cfg>& data,
                             LocalTmp<Cfg>& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                             const CellMaterialData* materialData,
@@ -372,7 +372,7 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable&
 
       runtime.enqueueLoop(numElements, [=, &cellIds, &layer](std::size_t index) {
         auto cellId = cellIds.at(index);
-        auto data = layer.cellRef(cellId);
+        auto data = layer.cellRef<Cfg>(cellId);
 
         alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
 

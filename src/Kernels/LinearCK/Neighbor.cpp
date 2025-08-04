@@ -62,7 +62,7 @@ void Neighbor<Cfg>::setGlobalData(const CompoundGlobalData& global) {
 }
 
 template<typename Cfg>
-void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref& data,
+void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
                                         const CellDRMapping (&cellDrMapping)[4],
                                         real* timeIntegrated[4],
                                         real* faceNeighborsPrefetch[4]) {

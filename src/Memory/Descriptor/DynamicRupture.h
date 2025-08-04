@@ -151,7 +151,8 @@ template<typename Cfg>
 
   using Storage = initializer::Storage<DynrupVarmap>;
   using Layer = initializer::Layer<DynrupVarmap>;
-  using Ref = initializer::Layer<DynrupVarmap>::CellRef;
+  template<typename Config>
+  using Ref = initializer::Layer<DynrupVarmap>::CellRef<Config>;
   using Backmap = initializer::StorageBackmap<1>;
 
   virtual void addTo(Storage& storage) {

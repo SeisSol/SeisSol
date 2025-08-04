@@ -42,8 +42,8 @@ namespace seissol::kernels {
 Receiver::Receiver(unsigned pointId,
                    Eigen::Vector3d position,
                    const double* elementCoords[4],
-                   LTS::Ref dataHost,
-                   LTS::Ref dataDevice,
+                   LTS::Ref<Cfg> dataHost,
+                   LTS::Ref<Cfg> dataDevice,
                    size_t reserved)
     : pointId(pointId), position(std::move(position)), dataHost(dataHost), dataDevice(dataDevice) {
   output.reserve(reserved);
@@ -101,8 +101,8 @@ void ReceiverCluster::addReceiver(unsigned meshId,
   m_receivers.emplace_back(pointId,
                            point,
                            coords,
-                           ltsStorage.lookupRef(position),
-                           ltsStorage.lookupRef(position,
+                           ltsStorage.lookupRef<Cfg>(position),
+                           ltsStorage.lookupRef<Cfg>(position,
                                                 isDeviceOn() ? initializer::AllocationPlace::Device
                                                              : initializer::AllocationPlace::Host),
                            reserved);

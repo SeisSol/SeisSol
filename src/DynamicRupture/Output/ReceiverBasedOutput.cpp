@@ -51,14 +51,14 @@ void ReceiverOutput::getDofs(real dofs[tensor::Q<Cfg>::size()], int meshId) {
   // get DOFs from 0th derivatives
   assert(layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasDerivatives());
 
-  real* derivatives = layer.var<LTS::Derivatives>()[position.cell];
+  real* derivatives = layer.var<LTS::Derivatives>(Cfg())[position.cell];
   std::copy(&derivatives[0], &derivatives[tensor::dQ<Cfg>::Size[0]], &dofs[0]);
 }
 
 void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q<Cfg>::size()], int meshId, int side) {
   const auto position = wpBackmap->get(meshId);
   auto& layer = wpStorage->layer(position.color);
-  auto* derivatives = layer.var<LTS::FaceNeighbors>()[position.cell][side];
+  auto* derivatives = reinterpret_cast<real*>(layer.var<LTS::FaceNeighbors>()[position.cell][side]);
   assert(derivatives != nullptr);
 
   std::copy(&derivatives[0], &derivatives[tensor::dQ<Cfg>::Size[0]], &dofs[0]);

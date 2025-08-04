@@ -18,12 +18,13 @@ void seissol::writer::PostProcessor::integrateQuantities(const double timestep,
                                                          LTS::Layer& layerData,
                                                          const unsigned int cell,
                                                          const double* const dofs) {
-
-  real* integrals = layerData.var<LTS::Integrals>();
-  for (int i = 0; i < m_numberOfVariables; i++) {
-    integrals[cell * m_numberOfVariables + i] +=
-        dofs[NumAlignedBasisFunctions * m_integerMap[i]] * timestep;
-  }
+  layerData.wrap([&](auto cfg) {
+    auto* integrals = layerData.var<LTS::Integrals>(cfg);
+    for (int i = 0; i < m_numberOfVariables; i++) {
+      integrals[cell * m_numberOfVariables + i] +=
+          dofs[NumAlignedBasisFunctions * m_integerMap[i]] * timestep;
+    }
+  });
 }
 
 void seissol::writer::PostProcessor::setIntegrationMask(
@@ -57,6 +58,6 @@ const real* seissol::writer::PostProcessor::getIntegrals(LTS::Storage& ltsStorag
   if (m_numberOfVariables == 0) {
     return nullptr;
   } else {
-    return ltsStorage.var<LTS::Integrals>();
+    return nullptr; //currently disabled: ltsStorage.var<LTS::Integrals>();
   }
 }

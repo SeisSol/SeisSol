@@ -47,7 +47,7 @@ void NeighIntegrationRecorder::recordDofsTimeEvaluation() {
     std::vector<real*> gtsIDofsPtrs{};
 
     for (std::size_t cell = 0; cell < size; ++cell) {
-      auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
+      auto dataHost = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Host);
 
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
         real* neighborBuffer = faceNeighborsDevice[cell][face];
@@ -127,8 +127,8 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
 
   const auto size = currentLayer->size();
   for (std::size_t cell = 0; cell < size; ++cell) {
-    auto data = currentLayer->cellRef(cell, AllocationPlace::Device);
-    auto dataHost = currentLayer->cellRef(cell, AllocationPlace::Host);
+    auto data = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Device);
+    auto dataHost = currentLayer->cellRef<Cfg>(cell, AllocationPlace::Host);
 
     for (std::size_t face = 0; face < Cell::NumFaces; face++) {
       switch (dataHost.get<LTS::CellInformation>().faceTypes[face]) {

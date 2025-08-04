@@ -276,7 +276,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               {},
               [=, &ltsStorage, &backmap](real* target, std::size_t index) {
                 const auto position = backmap.get(cellIndices[index]);
-                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
+                const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(Cfg(), position);
                 const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                 kernel::projectBasisToVtkVolume<Cfg> vtkproj{};
                 memory::AlignedArray<real, multisim::NumSimulations> simselect;
@@ -299,7 +299,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 {},
                 [=, &ltsStorage, &backmap](real* target, std::size_t index) {
                   const auto position = backmap.get(cellIndices[index]);
-                  const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(position);
+                  const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(Cfg(), position);
                   const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                   kernel::projectBasisToVtkVolume<Cfg> vtkproj{};
                   memory::AlignedArray<real, multisim::NumSimulations> simselect;
@@ -403,7 +403,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
               const auto position = backmap.get(meshId);
-              const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(position);
+              const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(Cfg(), position);
               const auto* dofsSingleQuantity =
                   dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
               kernel::projectBasisToVtkFaceFromVolume<Cfg> vtkproj{};
@@ -430,7 +430,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
               const auto position = backmap.get(meshId);
-              const auto* faceDisplacements = ltsStorage.lookup<LTS::FaceDisplacements>(position);
+              const auto* faceDisplacements = ltsStorage.lookup<LTS::FaceDisplacements>(Cfg(), position);
               const auto* faceDisplacementVariable =
                   faceDisplacements[side] + FaceDisplacementPadded * quantity;
               kernel::projectNodalToVtkFace<Cfg> vtkproj{};

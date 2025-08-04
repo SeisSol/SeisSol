@@ -260,15 +260,15 @@ void setupFaceNeighbors(Cfg cfg, LTS::Storage& storage, LTS::Layer& layer) {
           }
         } else {
           if (cellInformation[cell].ltsSetup.neighborHasDerivatives(face)) {
-            faceNeighbors[cell][face] = storage.lookup<LTS::Derivatives>(faceNeighbor);
+            faceNeighbors[cell][face] = storage.lookup<LTS::Derivatives>(cfg, faceNeighbor);
             if constexpr (isDeviceOn()) {
               faceNeighborsDevice[cell][face] =
-                  storage.lookup<LTS::DerivativesDevice>(faceNeighbor);
+                  storage.lookup<LTS::DerivativesDevice>(cfg, faceNeighbor);
             }
           } else {
-            faceNeighbors[cell][face] = storage.lookup<LTS::Buffers>(faceNeighbor);
+            faceNeighbors[cell][face] = storage.lookup<LTS::Buffers>(cfg, faceNeighbor);
             if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] = storage.lookup<LTS::BuffersDevice>(faceNeighbor);
+              faceNeighborsDevice[cell][face] = storage.lookup<LTS::BuffersDevice>(cfg, faceNeighbor);
             }
           }
         }

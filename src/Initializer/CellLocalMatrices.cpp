@@ -551,9 +551,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           }
           if (timeDerivative2 == nullptr &&
               cellInformation.ltsSetup.neighborHasDerivatives(derivativesSide)) {
-            timeDerivative2 = ltsStorage.lookup<LTS::FaceNeighbors>(position)[derivativesSide];
+            timeDerivative2 = reinterpret_cast<real*>(ltsStorage.lookup<LTS::FaceNeighbors>(position)[derivativesSide]);
             timeDerivative2Device =
-                ltsStorage.lookup<LTS::FaceNeighborsDevice>(position)[derivativesSide];
+                reinterpret_cast<real*>(ltsStorage.lookup<LTS::FaceNeighborsDevice>(position)[derivativesSide]);
           }
         }
       }

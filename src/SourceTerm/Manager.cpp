@@ -263,6 +263,7 @@ struct FsrmFile : public SourceFile {
   }
 };
 
+template<typename Cfg>
 auto mapClusterToMesh(ClusterMapping& clusterMapping,
                       const std::size_t* meshIds,
                       LTS::Storage& ltsStorage,
@@ -282,7 +283,7 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
       const auto position = backmap.getDup(meshId, dup);
       if (position.has_value()) {
         clusterMapping.cellToSources[mapping].dofs =
-            &ltsStorage.lookup<LTS::Dofs>(position.value(), place);
+            &ltsStorage.lookup<LTS::Dofs>(Cfg(), position.value(), place);
         clusterMapping.cellToSources[mapping].pointSourcesOffset = clusterSource;
         clusterMapping.cellToSources[mapping].numberOfPointSources = next - clusterSource;
         ++mapping;
@@ -337,7 +338,7 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
               clusterMappings[cluster].sources.end(),
               [&](std::size_t i, std::size_t j) { return meshIds[i] < meshIds[j]; });
 
-    mapClusterToMesh(clusterMappings[cluster],
+    mapClusterToMesh<Cfg>(clusterMappings[cluster],
                      meshIds,
                      ltsStorage,
                      backmap,
@@ -366,7 +367,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
     } else {
       constexpr auto GpuMemkind = seissol::memory::Memkind::DeviceGlobalMemory;
       auto predeviceClusterMapping = mapping;
-      mapClusterToMesh(predeviceClusterMapping,
+      mapClusterToMesh<Cfg>(predeviceClusterMapping,
                        meshIds,
                        ltsStorage,
                        backmap,
