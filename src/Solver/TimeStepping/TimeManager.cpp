@@ -96,7 +96,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // iterate over local time clusters
   for (std::size_t clusterId = 0; clusterId < clusterLayout.globalClusterCount; ++clusterId) {
     // get memory layout of this cluster
-    auto globalData = memoryManager.getGlobalData();
+    const auto& globalData = memoryManager.getGlobalData();
 
     // chop off at synchronization time
     const auto timeStepSize = clusterLayout.timestepRate(clusterId);

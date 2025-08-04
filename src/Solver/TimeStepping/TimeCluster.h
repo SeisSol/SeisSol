@@ -105,8 +105,7 @@ class TimeCluster : public TimeClusterInterface {
    * global data
    */
   //! global data structures
-  GlobalData* globalDataOnHost{nullptr};
-  GlobalData* globalDataOnDevice{nullptr};
+  const GlobalData* globalData{nullptr};
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
 #endif
@@ -265,7 +264,7 @@ class TimeCluster : public TimeClusterInterface {
               long timeStepRate,
               bool printProgress,
               DynamicRuptureScheduler* dynamicRuptureScheduler,
-              CompoundGlobalData globalData,
+              const GlobalData& globalData,
               LTS::Layer* clusterData,
               DynamicRupture::Layer* dynRupInteriorData,
               DynamicRupture::Layer* dynRupCopyData,

@@ -15,6 +15,7 @@
 #include "Memory/Tree/Layer.h"
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Memory/Descriptor/Surface.h>
+#include <Memory/GlobalData.h>
 #include <Memory/Tree/Backmap.h>
 #include <mpi.h>
 
@@ -56,8 +57,7 @@ class MemoryManager {
    * Cross-cluster
    */
   //! global data
-  GlobalData m_globalDataOnHost;
-  GlobalData m_globalDataOnDevice;
+  GlobalData global;
 
   //! Memory organization storage
   LTS::Storage ltsStorage;
@@ -115,15 +115,7 @@ class MemoryManager {
   /**
    * Gets the global data on both host and device.
    **/
-  CompoundGlobalData getGlobalData() {
-    CompoundGlobalData global{};
-    global.onHost = &m_globalDataOnHost;
-    global.onDevice = nullptr;
-    if constexpr (seissol::isDeviceOn()) {
-      global.onDevice = &m_globalDataOnDevice;
-    }
-    return global;
-  }
+  GlobalData& getGlobalData() { return global; }
 
   void setClusterLayout(const ClusterLayout& extLayout) { layout.emplace(extLayout); }
 

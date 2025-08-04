@@ -52,7 +52,7 @@ void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated<C
 
 namespace seissol::kernels {
 
-template<typename Cfg>
+template <typename Cfg>
 class DirichletBoundary {
   public:
   using real = Real<Cfg>;

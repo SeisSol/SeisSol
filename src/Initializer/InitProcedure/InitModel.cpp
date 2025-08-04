@@ -224,9 +224,7 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
                                                          memoryManager.getLtsStorage(),
                                                          memoryManager.getBackmap(),
-                                                         memoryManager.getDRStorage(),
-                                                         *memoryManager.getGlobalData().onHost,
-                                                         seissolParams.drParameters.etaHack);
+                                                         memoryManager.getDRStorage());
 
   memoryManager.initFrictionData();
 

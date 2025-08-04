@@ -29,12 +29,12 @@ struct GlobalData;
 
 namespace seissol::kernels::solver::linearck {
 
-template<typename Cfg>
+template <typename Cfg>
 class Local : public LocalKernel<Cfg> {
   public:
   using real = Real<Cfg>;
 
-  void setGlobalData(const CompoundGlobalData& global) override;
+  void setGlobalData(const GlobalData& global) override;
   void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
                        LTS::Ref<Cfg>& data,
                        LocalTmp<Cfg>& tmp,

@@ -249,8 +249,8 @@ void OutputManager::initElementwiseOutput() {
     writer.addPointProjector([=](double* target, std::size_t index) {
       for (std::size_t i = 0; i < seissol::init::vtk2d<Cfg>::Shape[order][1]; ++i) {
         for (int j = 0; j < 3; ++j) {
-          target[i * 3 + j] =
-              receiverPoints[seissol::init::vtk2d<Cfg>::Shape[order][1] * index + i].global.coords[j];
+          target[i * 3 + j] = receiverPoints[seissol::init::vtk2d<Cfg>::Shape[order][1] * index + i]
+                                  .global.coords[j];
         }
       }
     });
@@ -269,14 +269,14 @@ void OutputManager::initElementwiseOutput() {
       if (var.isActive) {
         for (int d = 0; d < var.dim(); ++d) {
           auto* data = var.data[d];
-          writer.addPointData<real>(VariableLabels[i][d],
-                                    std::vector<std::size_t>(),
-                                    [=](real* target, std::size_t index) {
-                                      std::memcpy(
-                                          target,
-                                          data + seissol::init::vtk2d<Cfg>::Shape[order][1] * index,
-                                          sizeof(real) * seissol::init::vtk2d<Cfg>::Shape[order][1]);
-                                    });
+          writer.addPointData<real>(
+              VariableLabels[i][d],
+              std::vector<std::size_t>(),
+              [=](real* target, std::size_t index) {
+                std::memcpy(target,
+                            data + seissol::init::vtk2d<Cfg>::Shape[order][1] * index,
+                            sizeof(real) * seissol::init::vtk2d<Cfg>::Shape[order][1]);
+              });
         }
       }
     });
@@ -421,7 +421,8 @@ void OutputManager::initPickpointOutput() {
             {
               auto [layer, face] = faceToLtsMap.at(receiver.faultFaceIndex);
 
-              const auto* initialStressVar = layer->var<DynamicRupture::InitialStressInFaultCS>(Cfg());
+              const auto* initialStressVar =
+                  layer->var<DynamicRupture::InitialStressInFaultCS>(Cfg());
               const auto* initialStress = initialStressVar[face];
               std::array<real, 6> unrotatedInitialStress{};
               for (std::size_t stressVar = 0; stressVar < unrotatedInitialStress.size();

@@ -20,53 +20,57 @@
 
 #include "GeneratedCode/init.h"
 
+#include "Memory/GlobalData.h"
+
 namespace seissol::kernels::solver::linearckanelastic {
 
-void Neighbor::setGlobalData(const CompoundGlobalData& global) {
+void Neighbor::setGlobalData(const GlobalData& global) {
 #ifndef NDEBUG
   for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(neighbor))) %
+    assert((reinterpret_cast<uintptr_t>(global.get<Cfg>().changeOfBasisMatrices(neighbor))) %
                Alignment ==
            0);
     assert((reinterpret_cast<uintptr_t>(
-               global.onHost->localChangeOfBasisMatricesTransposed(neighbor))) %
+               global.get<Cfg>().localChangeOfBasisMatricesTransposed(neighbor))) %
                Alignment ==
            0);
     assert((reinterpret_cast<uintptr_t>(
-               global.onHost->neighborChangeOfBasisMatricesTransposed(neighbor))) %
+               global.get<Cfg>().neighborChangeOfBasisMatricesTransposed(neighbor))) %
                Alignment ==
            0);
   }
 
   for (int h = 0; h < 3; ++h) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->neighborFluxMatrices(h))) % Alignment == 0);
+    assert((reinterpret_cast<uintptr_t>(global.get<Cfg>().neighborFluxMatrices(h))) % Alignment ==
+           0);
   }
 
   for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
     for (int h = 0; h < 3; ++h) {
-      assert((reinterpret_cast<uintptr_t>(global.onHost->nodalFluxMatrices(i, h))) % Alignment ==
+      assert((reinterpret_cast<uintptr_t>(global.get<Cfg>().nodalFluxMatrices(i, h))) % Alignment ==
              0);
     }
   }
 #endif
-  m_nfKrnlPrototype.rDivM = global.onHost->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global.onHost->neighborFluxMatrices;
-  m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
+  m_nfKrnlPrototype.rDivM = global.get<Cfg>().changeOfBasisMatrices;
+  m_nfKrnlPrototype.rT = global.get<Cfg>().neighborChangeOfBasisMatricesTransposed;
+  m_nfKrnlPrototype.fP = global.get<Cfg>().neighborFluxMatrices;
+  m_drKrnlPrototype.V3mTo2nTWDivM = global.get<Cfg>().nodalFluxMatrices;
   m_nKrnlPrototype.selectEla = init::selectEla<Cfg>::Values;
   m_nKrnlPrototype.selectAne = init::selectAne<Cfg>::Values;
 
 #ifdef ACL_DEVICE
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
+  deviceNfKrnlPrototype.minusFluxMatrices = global.get<Cfg, Executor::Device>().minusFluxMatrices;
 #else
-  deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
+  deviceNfKrnlPrototype.rDivM = global.get<Cfg, Executor::Device>().changeOfBasisMatrices;
+  deviceNfKrnlPrototype.rT =
+      global.get<Cfg, Executor::Device>().neighborChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype.fP = global.get<Cfg, Executor::Device>().neighborFluxMatrices;
 #endif
-  deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
-  deviceNKrnlPrototype.selectEla = global.onDevice->selectEla;
-  deviceNKrnlPrototype.selectAne = global.onDevice->selectAne;
+  deviceDrKrnlPrototype.V3mTo2nTWDivM = global.get<Cfg, Executor::Device>().nodalFluxMatrices;
+  deviceNKrnlPrototype.selectEla = global.get<Cfg, Executor::Device>().selectEla;
+  deviceNKrnlPrototype.selectAne = global.get<Cfg, Executor::Device>().selectAne;
 #endif
 }
 
@@ -111,7 +115,8 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
                        data.template get<LTS::CellInformation>().faceRelations[face][0],
                        face);
       }
-    } else if (data.template get<LTS::CellInformation>().faceTypes[face] == FaceType::DynamicRupture) {
+    } else if (data.template get<LTS::CellInformation>().faceTypes[face] ==
+               FaceType::DynamicRupture) {
       assert((reinterpret_cast<uintptr_t>(cellDrMapping[face].godunov)) % Alignment == 0);
 
       dynamicRupture::kernel::nodalFlux<Cfg> drKrnl = m_drKrnlPrototype;
@@ -231,7 +236,8 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
                   SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
 
               neighFluxKrnl.streamPtr = stream;
-              (neighFluxKrnl.*seissol::kernel::gpu_neighborFluxExt<Cfg>::ExecutePtrs[faceRelation])();
+              (neighFluxKrnl.*
+               seissol::kernel::gpu_neighborFluxExt<Cfg>::ExecutePtrs[faceRelation])();
             }
           } else {
             // Dynamic Rupture
@@ -253,7 +259,8 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
               drKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
               drKrnl.streamPtr = stream;
-              (drKrnl.*seissol::dynamicRupture::kernel::gpu_nodalFlux<Cfg>::ExecutePtrs[faceRelation])();
+              (drKrnl.*
+               seissol::dynamicRupture::kernel::gpu_nodalFlux<Cfg>::ExecutePtrs[faceRelation])();
             }
           }
         });

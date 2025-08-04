@@ -24,7 +24,7 @@
 
 namespace seissol::kernels {
 
-template<typename Cfg>
+template <typename Cfg>
 class SpacetimeKernel : public Kernel {
   public:
   using real = Real<Cfg>;

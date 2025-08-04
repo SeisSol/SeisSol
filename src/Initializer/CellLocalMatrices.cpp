@@ -463,9 +463,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,
                                       LTS::Storage& ltsStorage,
                                       const LTS::Backmap& backmap,
-                                      DynamicRupture::Storage& drStorage,
-                                      const GlobalData& global,
-                                      double etaHack) {
+                                      DynamicRupture::Storage& drStorage) {
 
   const auto& fault = meshReader.getFault();
   const auto& elements = meshReader.getElements();

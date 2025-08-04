@@ -36,36 +36,39 @@
 #include "Alignment.h"
 #endif
 
+#include "Memory/GlobalData.h"
+
 namespace seissol::kernels::solver::linearck {
 
-template<typename Cfg>
-void Neighbor<Cfg>::setGlobalData(const CompoundGlobalData& global) {
+template <typename Cfg>
+void Neighbor<Cfg>::setGlobalData(const GlobalData& global) {
 
-  m_nfKrnlPrototype.rDivM = global.onHost->changeOfBasisMatrices;
-  m_nfKrnlPrototype.rT = global.onHost->neighborChangeOfBasisMatricesTransposed;
-  m_nfKrnlPrototype.fP = global.onHost->neighborFluxMatrices;
-  m_drKrnlPrototype.V3mTo2nTWDivM = global.onHost->nodalFluxMatrices;
+  m_nfKrnlPrototype.rDivM = global.get<Cfg>().changeOfBasisMatrices;
+  m_nfKrnlPrototype.rT = global.get<Cfg>().neighborChangeOfBasisMatricesTransposed;
+  m_nfKrnlPrototype.fP = global.get<Cfg>().neighborFluxMatrices;
+  m_drKrnlPrototype.V3mTo2nTWDivM = global.get<Cfg>().nodalFluxMatrices;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
 
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;
+  deviceNfKrnlPrototype.minusFluxMatrices = global.get<Cfg, Executor::Device>().minusFluxMatrices;
 #else
-  deviceNfKrnlPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceNfKrnlPrototype.rT = global.onDevice->neighborChangeOfBasisMatricesTransposed;
-  deviceNfKrnlPrototype.fP = global.onDevice->neighborFluxMatrices;
+  deviceNfKrnlPrototype.rDivM = global.get<Cfg, Executor::Device>().changeOfBasisMatrices;
+  deviceNfKrnlPrototype.rT =
+      global.get<Cfg, Executor::Device>().neighborChangeOfBasisMatricesTransposed;
+  deviceNfKrnlPrototype.fP = global.get<Cfg, Executor::Device>().neighborFluxMatrices;
 #endif
-  deviceDrKrnlPrototype.V3mTo2nTWDivM = global.onDevice->nodalFluxMatrices;
+  deviceDrKrnlPrototype.V3mTo2nTWDivM = global.get<Cfg, Executor::Device>().nodalFluxMatrices;
 #endif
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
-                                        const CellDRMapping<Cfg> (&cellDrMapping)[4],
-                                        real* timeIntegrated[4],
-                                        real* faceNeighborsPrefetch[4]) {
+                                             const CellDRMapping<Cfg> (&cellDrMapping)[4],
+                                             real* timeIntegrated[4],
+                                             real* faceNeighborsPrefetch[4]) {
   assert(reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>()) % Alignment == 0);
 
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
@@ -108,9 +111,9 @@ void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
   }
 }
 
-template<typename Cfg>
-void Neighbor<Cfg>::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
-                                               seissol::parallel::runtime::StreamRuntime& runtime) {
+template <typename Cfg>
+void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
+    ConditionalPointersToRealsTable& table, seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux<Cfg> neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux<Cfg> drKrnl = deviceDrKrnlPrototype;
@@ -183,7 +186,7 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTa
 #endif
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void Neighbor<Cfg>::flopsNeighborsIntegral(
     const std::array<FaceType, Cell::NumFaces>& faceTypes,
     const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
@@ -224,7 +227,7 @@ void Neighbor<Cfg>::flopsNeighborsIntegral(
   }
 }
 
-template<typename Cfg>
+template <typename Cfg>
 std::uint64_t Neighbor<Cfg>::bytesNeighborsIntegral() {
   std::uint64_t reals = 0;
 

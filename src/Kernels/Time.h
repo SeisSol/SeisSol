@@ -22,7 +22,7 @@
 
 namespace seissol::kernels {
 
-template<typename Cfg>
+template <typename Cfg>
 class TimeKernel : public Kernel {
   public:
   using real = Real<Cfg>;

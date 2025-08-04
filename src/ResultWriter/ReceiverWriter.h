@@ -47,7 +47,7 @@ class ReceiverWriter : public seissol::Module {
 
   void addPoints(const seissol::geometry::MeshReader& mesh,
                  const LTS::Backmap& backmap,
-                 const CompoundGlobalData& global);
+                 const GlobalData& global);
 
   kernels::ReceiverCluster* receiverCluster(std::size_t id);
   //

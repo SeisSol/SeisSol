@@ -139,7 +139,7 @@ class ReceiverClusterImpl : public ReceiverCluster {
   explicit ReceiverClusterImpl(seissol::SeisSol& seissolInstance);
 
   ReceiverClusterImpl(
-      const CompoundGlobalData& global,
+      const GlobalData& global,
       const std::vector<std::size_t>& quantities,
       double samplingInterval,
       double syncPointInterval,

@@ -15,6 +15,7 @@
 #include "Initializer/Typedefs.h"
 #include "Model/Plasticity.h"
 #include "Parallel/Runtime/Stream.h"
+#include <Memory/GlobalData.h>
 #include <cmath>
 #include <limits>
 
@@ -35,7 +36,7 @@ class Plasticity {
       computePlasticity(double oneMinusIntegratingFactor,
                         double timeStepWidth,
                         double tV,
-                        const GlobalData* global,
+                        const GlobalData& global,
                         const seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
                         real degreesOfFreedom[tensor::Q<Cfg>::size()],
                         real* pstrain);
@@ -43,7 +44,7 @@ class Plasticity {
   static void
       computePlasticityBatched(double timeStepWidth,
                                double tV,
-                               const GlobalData* global,
+                               const GlobalData& global,
                                initializer::recording::ConditionalPointersToRealsTable& table,
                                seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
                                std::size_t* yieldCounter,

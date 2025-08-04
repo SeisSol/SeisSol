@@ -249,8 +249,10 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
   auto rng = getrange(workGroupSize, numElements);
 
   constexpr auto ldINodalDim = linearDim<seissol::init::INodal<Cfg>>();
-  constexpr auto INodalDim0 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension + 0];
-  constexpr auto INodalDim1 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
+  constexpr auto INodalDim0 =
+      seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension + 0];
+  constexpr auto INodalDim1 =
+      seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
 
   constexpr auto ldConstantDim = linearDim<seissol::init::easiBoundaryConstant<Cfg>>();
   constexpr auto ConstantDim0 =
@@ -351,7 +353,8 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
 
       constexpr auto ldTinv = yateto::leadDim<seissol::init::Tinv<Cfg>>();
       constexpr auto ldT = yateto::leadDim<seissol::init::T<Cfg>>();
-      constexpr auto ldDisplacement = yateto::leadDim<seissol::init::displacementRotationMatrix<Cfg>>();
+      constexpr auto ldDisplacement =
+          yateto::leadDim<seissol::init::displacementRotationMatrix<Cfg>>();
 
       const int i = item.get_local_id(0) % 3;
       const int j = item.get_local_id(0) / 3;

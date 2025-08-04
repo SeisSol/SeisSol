@@ -12,13 +12,14 @@
 
 #include "GeneratedCode/kernel.h"
 #include <Kernels/Neighbor.h>
+#include <Memory/GlobalData.h>
 
 namespace seissol::kernels::solver::linearckanelastic {
 
-template<typename Cfg>
+template <typename Cfg>
 class Neighbor : public NeighborKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  void setGlobalData(const GlobalData& global) override;
 
   void computeNeighborsIntegral(LTS::Ref<Cfg>& data,
                                 const CellDRMapping<Cfg> (&cellDrMapping)[4],

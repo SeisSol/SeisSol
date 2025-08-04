@@ -32,7 +32,9 @@ constexpr std::size_t NumSpaceQuadraturePoints =
     (Config::ConvergenceOrder + 1) * (Config::ConvergenceOrder + 1);
 } // namespace kernels
 
-struct GlobalData {
+template <typename Cfg>
+struct GlobalDataCfg {
+  using real = Real<Cfg>;
   /**
    * Addresses of the global change of basis matrices (multiplied by the inverse diagonal mass
    *matrix):
@@ -42,7 +44,7 @@ struct GlobalData {
    *    2: \f$ M^{-1} R^3 \f$
    *    3: \f$ M^{-1} R^4 \f$
    **/
-  seissol::tensor::rDivM<Cfg>::Container<const real*> changeOfBasisMatrices;
+  typename seissol::tensor::rDivM<Cfg>::template Container<const real*> changeOfBasisMatrices;
 
   /**
    * Addresses of the transposed global change of basis matrices left-multiplied with the local flux
@@ -53,7 +55,8 @@ struct GlobalData {
    *    2: \f$ F^- ( R^3 )^T \f$
    *    3: \f$ F^- ( R^4 )^T \f$
    **/
-  seissol::tensor::fMrT<Cfg>::Container<const real*> localChangeOfBasisMatricesTransposed;
+  typename seissol::tensor::fMrT<Cfg>::template Container<const real*>
+      localChangeOfBasisMatricesTransposed;
 
   /**
    * Addresses of the transposed global change of basis matrices:
@@ -63,7 +66,8 @@ struct GlobalData {
    *    2: \f$ ( R^3 )^T \f$
    *    3: \f$ ( R^4 )^T \f$
    **/
-  seissol::tensor::rT<Cfg>::Container<const real*> neighborChangeOfBasisMatricesTransposed;
+  typename seissol::tensor::rT<Cfg>::template Container<const real*>
+      neighborChangeOfBasisMatricesTransposed;
 
   /**
    * Addresses of the global flux matrices:
@@ -72,7 +76,7 @@ struct GlobalData {
    *    1: \f$ F^{+,2} \f$
    *    2: \f$ F^{+,3} \f$
    **/
-  seissol::tensor::fP<Cfg>::Container<const real*> neighborFluxMatrices;
+  typename seissol::tensor::fP<Cfg>::template Container<const real*> neighborFluxMatrices;
 
   /**
    * Addresses of the global stiffness matrices (multiplied by the inverse diagonal mass matrix):
@@ -84,7 +88,7 @@ struct GlobalData {
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks
    *(except for the additional flux matrix).
    **/
-  seissol::tensor::kDivM<Cfg>::Container<const real*> stiffnessMatrices;
+  typename seissol::tensor::kDivM<Cfg>::template Container<const real*> stiffnessMatrices;
 
   /**
    * Addresses of the transposed global stiffness matrices (multiplied by the inverse diagonal mass
@@ -97,7 +101,8 @@ struct GlobalData {
    *   Remark: The ordering of the pointers is identical to the ordering of the memory chunks
    *(except for the additional flux matrix).
    **/
-  seissol::tensor::kDivMT<Cfg>::Container<const real*> stiffnessMatricesTransposed;
+  typename seissol::tensor::kDivMT<Cfg>::template Container<const real*>
+      stiffnessMatricesTransposed;
 
   /**
    * Address of the (thread-local) local time stepping integration buffers used in the neighbor
@@ -119,10 +124,11 @@ struct GlobalData {
    *    [..]
    *    15: \f$ P^{-,4,3} \f$
    **/
-  seissol::tensor::V3mTo2nTWDivM<Cfg>::Container<const real*> nodalFluxMatrices;
+  typename seissol::tensor::V3mTo2nTWDivM<Cfg>::template Container<const real*> nodalFluxMatrices;
 
-  seissol::nodal::tensor::V3mTo2nFace<Cfg>::Container<const real*> v3mTo2nFace;
-  seissol::tensor::project2nFaceTo3m<Cfg>::Container<const real*> project2nFaceTo3m;
+  typename seissol::nodal::tensor::V3mTo2nFace<Cfg>::template Container<const real*> v3mTo2nFace;
+  typename seissol::tensor::project2nFaceTo3m<Cfg>::template Container<const real*>
+      project2nFaceTo3m;
 
   /**
    * Addresses of the global face to nodal matrices
@@ -140,11 +146,12 @@ struct GlobalData {
    **/
 
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
-  seissol::tensor::plusFluxMatrices<Cfg>::Container<real const*> plusFluxMatrices;
-  seissol::tensor::minusFluxMatrices<Cfg>::Container<const real*> minusFluxMatrices;
+  typename seissol::tensor::plusFluxMatrices<Cfg>::template Container<real const*> plusFluxMatrices;
+  typename seissol::tensor::minusFluxMatrices<Cfg>::template Container<const real*>
+      minusFluxMatrices;
 #endif // ACL_DEVICE
 
-  seissol::tensor::V3mTo2n<Cfg>::Container<real const*> faceToNodalMatrices;
+  typename seissol::tensor::V3mTo2n<Cfg>::template Container<real const*> faceToNodalMatrices;
 
   //! Modal basis to quadrature points
   real* evalAtQPMatrix{nullptr};
@@ -168,11 +175,6 @@ struct GlobalData {
   real* tpInverseFourierCoefficients{nullptr};
   real* tpGridPoints{nullptr};
   real* heatSource{nullptr};
-};
-
-struct CompoundGlobalData {
-  GlobalData* onHost{nullptr};
-  GlobalData* onDevice{nullptr};
 };
 
 // data for the cell local integration
@@ -258,7 +260,7 @@ struct DREnergyOutput {
   }
 };
 
-template<typename Cfg>
+template <typename Cfg>
 struct CellDRMapping {
   unsigned side;
   unsigned faceRelation;
@@ -269,14 +271,15 @@ struct CellDRMapping {
 template <typename Cfg>
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  Real<Cfg> nodes[seissol::nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension] * 3]{};
+  Real<Cfg>
+      nodes[seissol::nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension] * 3]{};
   Real<Cfg> dataT[seissol::tensor::T<Cfg>::size()]{};
   Real<Cfg> dataTinv[seissol::tensor::Tinv<Cfg>::size()]{};
   Real<Cfg> easiBoundaryConstant[seissol::tensor::easiBoundaryConstant<Cfg>::size()]{};
   Real<Cfg> easiBoundaryMap[seissol::tensor::easiBoundaryMap<Cfg>::size()]{};
 };
 
-template<typename Cfg>
+template <typename Cfg>
 struct CellBoundaryMapping {
   Real<Cfg>* nodes{nullptr};
   Real<Cfg>* dataT{nullptr};

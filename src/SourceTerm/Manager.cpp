@@ -263,7 +263,7 @@ struct FsrmFile : public SourceFile {
   }
 };
 
-template<typename Cfg>
+template <typename Cfg>
 auto mapClusterToMesh(ClusterMapping& clusterMapping,
                       const std::size_t* meshIds,
                       LTS::Storage& ltsStorage,
@@ -339,10 +339,10 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
               [&](std::size_t i, std::size_t j) { return meshIds[i] < meshIds[j]; });
 
     mapClusterToMesh<Cfg>(clusterMappings[cluster],
-                     meshIds,
-                     ltsStorage,
-                     backmap,
-                     seissol::initializer::AllocationPlace::Host);
+                          meshIds,
+                          ltsStorage,
+                          backmap,
+                          seissol::initializer::AllocationPlace::Host);
   }
 
   return clusterMappings;
@@ -368,10 +368,10 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
       constexpr auto GpuMemkind = seissol::memory::Memkind::DeviceGlobalMemory;
       auto predeviceClusterMapping = mapping;
       mapClusterToMesh<Cfg>(predeviceClusterMapping,
-                       meshIds,
-                       ltsStorage,
-                       backmap,
-                       seissol::initializer::AllocationPlace::Device);
+                            meshIds,
+                            ltsStorage,
+                            backmap,
+                            seissol::initializer::AllocationPlace::Device);
       auto deviceClusterMapping =
           std::make_shared<ClusterMapping>(predeviceClusterMapping, GpuMemkind);
       auto devicePointSources = std::make_shared<PointSources<Cfg>>(sources, GpuMemkind);

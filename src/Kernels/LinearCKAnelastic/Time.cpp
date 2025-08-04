@@ -26,27 +26,32 @@ extern long long libxsmm_num_total_flops;
 #include "GeneratedCode/init.h"
 #include "Kernels/MemoryOps.h"
 
+#include "Memory/GlobalData.h"
+
 namespace seissol::kernels::solver::linearckanelastic {
 
-void Time::setGlobalData(const CompoundGlobalData& global) {}
+void Time::setGlobalData(const GlobalData& global) {}
 
-void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(0))) % Alignment ==
+void Spacetime::setGlobalData(const GlobalData& global) {
+  assert((reinterpret_cast<uintptr_t>(global.get<Cfg>().stiffnessMatricesTransposed(0))) %
+             Alignment ==
          0);
-  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(1))) % Alignment ==
+  assert((reinterpret_cast<uintptr_t>(global.get<Cfg>().stiffnessMatricesTransposed(1))) %
+             Alignment ==
          0);
-  assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatricesTransposed(2))) % Alignment ==
+  assert((reinterpret_cast<uintptr_t>(global.get<Cfg>().stiffnessMatricesTransposed(2))) %
+             Alignment ==
          0);
 
-  m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
+  m_krnlPrototype.kDivMT = global.get<Cfg>().stiffnessMatricesTransposed;
   m_krnlPrototype.selectAne = init::selectAne<Cfg>::Values;
   m_krnlPrototype.selectEla = init::selectEla<Cfg>::Values;
 
 #ifdef ACL_DEVICE
-  deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
+  deviceKrnlPrototype.kDivMT = global.get<Cfg, Executor::Device>().stiffnessMatricesTransposed;
   // the selectAne/selectEla are inlined
-  deviceKrnlPrototype.selectAne = global.onDevice->selectAne;
-  deviceKrnlPrototype.selectEla = global.onDevice->selectEla;
+  deviceKrnlPrototype.selectAne = global.get<Cfg, Executor::Device>().selectAne;
+  deviceKrnlPrototype.selectEla = global.get<Cfg, Executor::Device>().selectEla;
 #endif
 }
 
@@ -126,11 +131,11 @@ std::uint64_t Spacetime::bytesAder() {
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
-  reals +=
-      tensor::Q<Cfg>::size() + tensor::Qane<Cfg>::size() + 2 * tensor::I<Cfg>::size() + 2 * tensor::Iane<Cfg>::size();
+  reals += tensor::Q<Cfg>::size() + tensor::Qane<Cfg>::size() + 2 * tensor::I<Cfg>::size() +
+           2 * tensor::Iane<Cfg>::size();
   // star matrices, source matrix
-  reals += yateto::computeFamilySize<tensor::star<Cfg>>() + tensor::w<Cfg>::size() + tensor::W<Cfg>::size() +
-           tensor::E<Cfg>::size();
+  reals += yateto::computeFamilySize<tensor::star<Cfg>>() + tensor::w<Cfg>::size() +
+           tensor::W<Cfg>::size() + tensor::E<Cfg>::size();
 
   /// \todo incorporate derivatives
 
@@ -146,7 +151,8 @@ void Time::evaluate(const real* coeffs,
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
 
-  static_assert(tensor::I<Cfg>::size() == tensor::Q<Cfg>::size(), "Sizes of tensors I and Q must match");
+  static_assert(tensor::I<Cfg>::size() == tensor::Q<Cfg>::size(),
+                "Sizes of tensors I and Q must match");
 
   kernel::derivativeTaylorExpansionEla<Cfg> krnl;
   krnl.I = timeEvaluated;
@@ -173,7 +179,8 @@ void Time::evaluateBatched(const real* coeffs,
 #ifdef ACL_DEVICE
   assert(timeDerivatives != nullptr);
   assert(timeIntegratedDofs != nullptr);
-  static_assert(tensor::I<Cfg>::size() == tensor::Q<Cfg>::size(), "Sizes of tensors I and Q must match");
+  static_assert(tensor::I<Cfg>::size() == tensor::Q<Cfg>::size(),
+                "Sizes of tensors I and Q must match");
   static_assert(kernel::gpu_derivativeTaylorExpansionEla<Cfg>::TmpMaxMemRequiredInBytes == 0);
 
   kernel::gpu_derivativeTaylorExpansionEla<Cfg> krnl;

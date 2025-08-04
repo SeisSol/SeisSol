@@ -19,41 +19,47 @@
 
 #include <yateto.h>
 
+#include "Memory/GlobalData.h"
+
 namespace seissol::kernels::solver::linearckanelastic {
 
-void Local::setGlobalData(const CompoundGlobalData& global) {
+void Local::setGlobalData(const GlobalData& global) {
 
 #ifndef NDEBUG
   for (std::size_t stiffness = 0; stiffness < Cell::Dim; ++stiffness) {
-    assert((reinterpret_cast<uintptr_t>(global.onHost->stiffnessMatrices(stiffness))) % Alignment ==
+    assert((reinterpret_cast<uintptr_t>(global.get<Cfg>().stiffnessMatrices(stiffness))) %
+               Alignment ==
            0);
   }
   for (std::size_t flux = 0; flux < Cell::NumFaces; ++flux) {
-    assert(
-        (reinterpret_cast<uintptr_t>(global.onHost->localChangeOfBasisMatricesTransposed(flux))) %
-            Alignment ==
-        0);
-    assert((reinterpret_cast<uintptr_t>(global.onHost->changeOfBasisMatrices(flux))) % Alignment ==
+    assert((reinterpret_cast<uintptr_t>(
+               global.get<Cfg>().localChangeOfBasisMatricesTransposed(flux))) %
+               Alignment ==
+           0);
+    assert((reinterpret_cast<uintptr_t>(global.get<Cfg>().changeOfBasisMatrices(flux))) %
+               Alignment ==
            0);
   }
 #endif
 
-  m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
-  m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
-  m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
+  m_volumeKernelPrototype.kDivM = global.get<Cfg>().stiffnessMatrices;
+  m_localFluxKernelPrototype.rDivM = global.get<Cfg>().changeOfBasisMatrices;
+  m_localFluxKernelPrototype.fMrT = global.get<Cfg>().localChangeOfBasisMatricesTransposed;
   m_localKernelPrototype.selectEla = init::selectEla<Cfg>::Values;
   m_localKernelPrototype.selectAne = init::selectAne<Cfg>::Values;
 
 #ifdef ACL_DEVICE
-  deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
+  deviceVolumeKernelPrototype.kDivM = global.get<Cfg, Executor::Device>().stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceLocalFluxKernelPrototype.plusFluxMatrices =
+      global.get<Cfg, Executor::Device>().plusFluxMatrices;
 #else
-  deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceLocalFluxKernelPrototype.rDivM = global.get<Cfg, Executor::Device>().changeOfBasisMatrices;
+  deviceLocalFluxKernelPrototype.fMrT =
+      global.get<Cfg, Executor::Device>().localChangeOfBasisMatricesTransposed;
 #endif
-  deviceLocalKernelPrototype.selectEla = global.onDevice->selectEla;
-  deviceLocalKernelPrototype.selectAne = global.onDevice->selectAne;
+  deviceLocalKernelPrototype.selectEla = global.get<Cfg, Executor::Device>().selectEla;
+  deviceLocalKernelPrototype.selectAne = global.get<Cfg, Executor::Device>().selectAne;
 #endif
 }
 
@@ -130,8 +136,8 @@ std::uint64_t Local::bytesIntegral() {
   std::uint64_t reals = 0;
 
   // star matrices load
-  reals += yateto::computeFamilySize<tensor::star<Cfg>>() + tensor::w<Cfg>::size() + tensor::W<Cfg>::size() +
-           tensor::E<Cfg>::size();
+  reals += yateto::computeFamilySize<tensor::star<Cfg>>() + tensor::w<Cfg>::size() +
+           tensor::W<Cfg>::size() + tensor::E<Cfg>::size();
   // flux solvers
   reals += 4 * tensor::AplusT<Cfg>::size();
 

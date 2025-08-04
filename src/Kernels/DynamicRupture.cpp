@@ -14,6 +14,7 @@
 #include <GeneratedCode/tensor.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
+#include <Memory/GlobalData.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
 #include <cstring>
@@ -36,21 +37,20 @@
 
 namespace seissol::kernels {
 
-template<typename Cfg>
-void DynamicRupture<Cfg>::setGlobalData(const CompoundGlobalData& global) {
-  m_krnlPrototype.V3mTo2n = global.onHost->faceToNodalMatrices;
+template <typename Cfg>
+void DynamicRupture<Cfg>::setGlobalData(const GlobalData& global) {
+  m_krnlPrototype.V3mTo2n = global.get<Cfg>().faceToNodalMatrices;
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  m_gpuKrnlPrototype.V3mTo2n = global.onDevice->faceToNodalMatrices;
+  m_gpuKrnlPrototype.V3mTo2n = global.get<Cfg, Executor::Device>().faceToNodalMatrices;
 #endif
 
   m_timeKernel.setGlobalData(global);
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void DynamicRupture<Cfg>::spaceTimeInterpolation(
     const DRFaceInformation& faceInfo,
-    const GlobalData* global,
     const DRGodunovData<Cfg>* godunovData,
     DREnergyOutput<Cfg>* drEnergyOutput,
     const real* timeDerivativePlus,
@@ -103,7 +103,7 @@ void DynamicRupture<Cfg>::spaceTimeInterpolation(
   }
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
     DrConditionalPointersToRealsTable& table,
     const real* coeffs,
@@ -202,25 +202,29 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
 #endif
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void DynamicRupture<Cfg>::flopsGodunovState(const DRFaceInformation& faceInfo,
-                                       std::uint64_t& nonZeroFlops,
-                                       std::uint64_t& hardwareFlops) {
+                                            std::uint64_t& nonZeroFlops,
+                                            std::uint64_t& hardwareFlops) {
   m_timeKernel.flopsEvaluate(nonZeroFlops, hardwareFlops);
 
   // 2x evaluateTaylorExpansion
   nonZeroFlops *= 2;
   hardwareFlops *= 2;
 
-  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::nonZeroFlops(
-      faceInfo.plusSide, 0);
-  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::hardwareFlops(
-      faceInfo.plusSide, 0);
+  nonZeroFlops +=
+      dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::nonZeroFlops(
+          faceInfo.plusSide, 0);
+  hardwareFlops +=
+      dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::hardwareFlops(
+          faceInfo.plusSide, 0);
 
-  nonZeroFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::nonZeroFlops(
-      faceInfo.minusSide, faceInfo.faceRelation);
-  hardwareFlops += dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::hardwareFlops(
-      faceInfo.minusSide, faceInfo.faceRelation);
+  nonZeroFlops +=
+      dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::nonZeroFlops(
+          faceInfo.minusSide, faceInfo.faceRelation);
+  hardwareFlops +=
+      dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg>::hardwareFlops(
+          faceInfo.minusSide, faceInfo.faceRelation);
 
   nonZeroFlops *= Cfg::ConvergenceOrder;
   hardwareFlops *= Cfg::ConvergenceOrder;

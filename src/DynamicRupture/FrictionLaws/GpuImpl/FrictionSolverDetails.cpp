@@ -12,6 +12,8 @@
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
 #include <GeneratedCode/init.h>
+#include <Initializer/Typedefs.h>
+#include <Memory/GlobalData.h>
 #include <cstddef>
 
 #include "Memory/MemoryAllocator.h"
@@ -28,16 +30,18 @@ template <typename Cfg>
 FrictionSolverDetails<Cfg>::~FrictionSolverDetails() = default;
 
 template <typename Cfg>
-void FrictionSolverDetails<Cfg>::allocateAuxiliaryMemory(GlobalData* globalData) {
+void FrictionSolverDetails<Cfg>::allocateAuxiliaryMemory(const GlobalData& globalData) {
   {
     data = seissol::memory::allocTyped<FrictionLawData<Cfg>>(1, 1, memory::DeviceGlobalMemory);
   }
 
-  resampleMatrix = globalData->resampleMatrix;
-  devSpaceWeights = globalData->spaceWeights;
-  devTpInverseFourierCoefficients = globalData->tpInverseFourierCoefficients;
-  devHeatSource = globalData->heatSource;
-  devTpGridPoints = globalData->tpGridPoints;
+  const auto& global = globalData.get<Cfg, Executor::Device>();
+
+  resampleMatrix = global.resampleMatrix;
+  devSpaceWeights = global.spaceWeights;
+  devTpInverseFourierCoefficients = global.tpInverseFourierCoefficients;
+  devHeatSource = global.heatSource;
+  devTpGridPoints = global.tpGridPoints;
 }
 
 #define _H_(cfg) template class FrictionSolverDetails<cfg>;

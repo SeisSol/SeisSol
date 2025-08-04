@@ -17,7 +17,7 @@ namespace seissol {
 
 struct SurfaceLTS {
   struct Dofs : public seissol::initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = Real<Cfg>*;
   };
 
@@ -25,13 +25,13 @@ struct SurfaceLTS {
   struct MeshId : public seissol::initializer::Variable<std::size_t> {};
   struct OutputPosition : public seissol::initializer::Variable<std::size_t> {};
   struct BoundaryMapping : public seissol::initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = CellBoundaryMapping<Cfg>*;
   };
   struct LocationFlag : public seissol::initializer::Variable<std::uint8_t> {};
 
   struct DisplacementDofs : public seissol::initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = Real<Cfg>[tensor::faceDisplacement<Cfg>::size()];
   };
 
@@ -45,7 +45,7 @@ struct SurfaceLTS {
 
   using Storage = initializer::Storage<SurfaceVarmap>;
   using Layer = initializer::Layer<SurfaceVarmap>;
-  template<typename Config>
+  template <typename Config>
   using Ref = initializer::Layer<SurfaceVarmap>::CellRef<Config>;
   using Backmap = initializer::StorageBackmap<1>;
 

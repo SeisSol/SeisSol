@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 #define SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 
+#include <Memory/GlobalData.h>
 #include <array>
 #include <fstream>
 #include <iostream>
@@ -58,7 +59,7 @@ struct EnergiesStorage {
 
 class EnergyOutput : public Module {
   public:
-  void init(GlobalData* newGlobal,
+  void init(const GlobalData& newGlobal,
             const DynamicRupture::Storage& newDynRuptTree,
             const seissol::geometry::MeshReader& newMeshReader,
             const LTS::Storage& newStorage,

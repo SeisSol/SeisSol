@@ -65,7 +65,7 @@ TimeCluster<Cfg>::TimeCluster(
     long timeStepRate,
     bool printProgress,
     DynamicRuptureScheduler* dynamicRuptureScheduler,
-    CompoundGlobalData globalData,
+    const GlobalData& globalData,
     LTS::Layer* clusterData,
     DynamicRupture::Layer* dynRupInteriorData,
     DynamicRupture::Layer* dynRupCopyData,
@@ -79,8 +79,7 @@ TimeCluster<Cfg>::TimeCluster(
           maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
       // cluster ids
       usePlasticity(usePlasticity), seissolInstance(seissolInstance), streamRuntime(4),
-      globalDataOnHost(globalData.onHost), globalDataOnDevice(globalData.onDevice),
-      clusterData(clusterData),
+      globalData(&globalData), clusterData(clusterData),
       // global data
       dynRupInteriorData(dynRupInteriorData), dynRupCopyData(dynRupCopyData),
       frictionSolver(frictionSolverTemplate(ConfigVariant(Cfg()))),
@@ -97,10 +96,7 @@ TimeCluster<Cfg>::TimeCluster(
       dynamicRuptureScheduler(dynamicRuptureScheduler) {
   // assert all pointers are valid
   assert(clusterData != nullptr);
-  assert(globalDataOnHost != nullptr);
-  if constexpr (seissol::isDeviceOn()) {
-    assert(globalDataOnDevice != nullptr);
-  }
+  assert(globalData != nullptr);
 
   // set timings to zero
   receiverTime = 0;
@@ -113,10 +109,10 @@ TimeCluster<Cfg>::TimeCluster(
   neighborKernel.setGlobalData(globalData);
   dynamicRuptureKernel.setGlobalData(globalData);
 
-  frictionSolver->allocateAuxiliaryMemory(globalDataOnHost);
-  frictionSolverDevice->allocateAuxiliaryMemory(globalDataOnDevice);
-  frictionSolverCopy->allocateAuxiliaryMemory(globalDataOnHost);
-  frictionSolverCopyDevice->allocateAuxiliaryMemory(globalDataOnDevice);
+  frictionSolver->allocateAuxiliaryMemory(globalData);
+  frictionSolverDevice->allocateAuxiliaryMemory(globalData);
+  frictionSolverCopy->allocateAuxiliaryMemory(globalData);
+  frictionSolverCopyDevice->allocateAuxiliaryMemory(globalData);
 
   frictionSolver->setupLayer(*dynRupInteriorData, streamRuntime);
   frictionSolverDevice->setupLayer(*dynRupInteriorData, streamRuntime);
@@ -222,7 +218,6 @@ void TimeCluster<Cfg>::computeDynamicRupture(DynamicRupture::Layer& layerData) {
   for (std::size_t face = 0; face < layerData.size(); ++face) {
     const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
     dynamicRuptureKernel.spaceTimeInterpolation(faceInformation[face],
-                                                globalDataOnHost,
                                                 &godunovData[face],
                                                 &drEnergyOutput[face],
                                                 timeDerivativePlus[face],
@@ -400,7 +395,7 @@ void TimeCluster<Cfg>::computeLocalIntegration(bool resetBuffers) {
               FaceType::FreeSurfaceGravity) {
         kernel::addVelocity<Cfg> addVelocityKrnl;
 
-        addVelocityKrnl.V3mTo2nFace = globalDataOnHost->v3mTo2nFace;
+        addVelocityKrnl.V3mTo2nFace = globalData->get<Cfg>().v3mTo2nFace;
         addVelocityKrnl.selectVelocity = init::selectVelocity<Cfg>::Values;
         addVelocityKrnl.faceDisplacement = data.template get<LTS::FaceDisplacements>()[face];
         addVelocityKrnl.I = bufferPointer;
@@ -975,8 +970,9 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationImplementation(double subTim
         subtimeCoeffs.data(),
         faceNeighborsCell,
         *reinterpret_cast<real(*)[4][tensor::I<Cfg>::size()]>(
-            &(globalDataOnHost->integrationBufferLTS[OpenMP::threadId() * 4 *
-                                                     static_cast<size_t>(tensor::I<Cfg>::size())])),
+            &(globalData->get<Cfg>()
+                  .integrationBufferLTS[OpenMP::threadId() * 4 *
+                                        static_cast<size_t>(tensor::I<Cfg>::size())])),
         timeIntegrated);
 
     faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)
@@ -1007,7 +1003,7 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationImplementation(double subTim
           seissol::kernels::Plasticity<Cfg>::computePlasticity(oneMinusIntegratingFactor,
                                                                timeStepSize(),
                                                                tV,
-                                                               globalDataOnHost,
+                                                               *globalData,
                                                                &plasticity[cell],
                                                                data.template get<LTS::Dofs>(),
                                                                pstrain[cell]);

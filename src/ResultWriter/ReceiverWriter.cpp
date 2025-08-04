@@ -161,7 +161,7 @@ void ReceiverWriter::init(
 
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
                                const LTS::Backmap& backmap,
-                               const CompoundGlobalData& global) {
+                               const GlobalData& global) {
   std::vector<Eigen::Vector3d> points;
   // Only parse if we have a receiver file
   if (!m_receiverFileName.empty()) {

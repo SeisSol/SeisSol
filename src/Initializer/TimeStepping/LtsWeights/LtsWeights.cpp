@@ -126,17 +126,24 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
   for (std::size_t i = 0; i < mesh.cells().size(); ++i) {
     const auto config = groups[i];
 
-    std::visit([&](auto cfg) {
-      using Cfg = decltype(cfg);
-      if constexpr (!model::MaterialTT<Cfg>::SupportsLTS) {
-        ++ltsUnsupported;
-        
-        unsupportedExample = model::MaterialTT<Cfg>::Text;
-      }
-    }, ConfigVariantList[config]);
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          if constexpr (!model::MaterialTT<Cfg>::SupportsLTS) {
+            ++ltsUnsupported;
+
+            unsupportedExample = model::MaterialTT<Cfg>::Text;
+          }
+        },
+        ConfigVariantList[config]);
   }
 
-  MPI_Allreduce(MPI_IN_PLACE, &ltsUnsupported, 1, seissol::MPI::castToMpiType<std::size_t>(), MPI_SUM, seissol::MPI::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE,
+                &ltsUnsupported,
+                1,
+                seissol::MPI::castToMpiType<std::size_t>(),
+                MPI_SUM,
+                seissol::MPI::mpi.comm());
 
   if (ltsUnsupported > 0) {
     logInfo() << "Materials without LTS support found; e.g." << unsupportedExample

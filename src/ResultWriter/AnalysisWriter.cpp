@@ -91,7 +91,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
   const auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
-  const auto* globalData = seissolInstance.getMemoryManager().getGlobalData().onHost;
+  const auto& globalData = seissolInstance.getMemoryManager().getGlobalData();
 
   const std::vector<Vertex>& vertices = meshReader->getVertices();
   const std::vector<Element>& elements = meshReader->getElements();
@@ -232,7 +232,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
         // Evaluate numerical solution at quad. nodes
         kernel::evalAtQP<Cfg> krnl;
-        krnl.evalAtQP = globalData->evalAtQPMatrix;
+        krnl.evalAtQP = globalData.get<Cfg>().evalAtQPMatrix;
         krnl.dofsQP = numericalSolutionData;
         krnl.Q = dofsData[cell];
         krnl.execute();

@@ -34,7 +34,7 @@ struct Boundary {
   using Storage = initializer::Storage<BoundaryVarmap>;
   using Layer = initializer::Layer<BoundaryVarmap>;
 
-  template<typename Config>
+  template <typename Config>
   using Ref = initializer::Layer<BoundaryVarmap>::CellRef<Config>;
   using Backmap = initializer::StorageBackmap<1>;
 

@@ -18,10 +18,10 @@
 
 namespace seissol::kernels::solver::linearckanelastic {
 
-template<typename Cfg>
+template <typename Cfg>
 class Local : public LocalKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  void setGlobalData(const GlobalData& global) override;
 
   void computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
                        LTS::Ref<Cfg>& data,

@@ -81,8 +81,8 @@ class ReceiverOutput {
     real slipRateStrike{};
     real slipRateDip{};
 
-    real
-        faceAlignedValuesPlus[tensor::QAtPoint<Cfg>::Shape[seissol::multisim::BasisFunctionDimension]]{};
+    real faceAlignedValuesPlus
+        [tensor::QAtPoint<Cfg>::Shape[seissol::multisim::BasisFunctionDimension]]{};
     real faceAlignedValuesMinus
         [tensor::QAtPoint<Cfg>::Shape[seissol::multisim::BasisFunctionDimension]]{};
 
@@ -93,7 +93,8 @@ class ReceiverOutput {
   };
 
   template <typename StorageT>
-  std::remove_extent_t<typename StorageT::template VariantType<Cfg>>* getCellData(const LocalInfo& local) {
+  std::remove_extent_t<typename StorageT::template VariantType<Cfg>>*
+      getCellData(const LocalInfo& local) {
     auto devVar = local.state->deviceVariables.find(drStorage->info<StorageT>().index);
     if (devVar != local.state->deviceVariables.end()) {
       return reinterpret_cast<std::remove_extent_t<typename StorageT::template VariantType<Cfg>>*>(

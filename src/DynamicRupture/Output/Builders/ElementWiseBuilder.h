@@ -151,7 +151,8 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
 
           for (std::size_t i = 0; i < seissol::init::vtk2d<Cfg>::Shape[order][1]; ++i) {
             auto& receiverPoint =
-                outputData->receiverPoints[faceOffset * seissol::init::vtk2d<Cfg>::Shape[order][1] + i];
+                outputData
+                    ->receiverPoints[faceOffset * seissol::init::vtk2d<Cfg>::Shape[order][1] + i];
             real nullpoint[2] = {0, 0};
             const real* prepoint =
                 i > 0 ? (seissol::init::vtk2d<Cfg>::Values[order] + (i - 1) * 2) : nullpoint;

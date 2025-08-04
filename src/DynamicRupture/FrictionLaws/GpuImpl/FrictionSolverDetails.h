@@ -10,7 +10,7 @@
 
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/Misc.h"
-#include <yaml-cpp/yaml.h>
+#include <Memory/GlobalData.h>
 
 namespace seissol::dr::friction_law::gpu {
 
@@ -20,7 +20,7 @@ class FrictionSolverDetails : public FrictionSolverInterface<Cfg> {
   explicit FrictionSolverDetails(seissol::initializer::parameters::DRParameters* drParameters);
   ~FrictionSolverDetails() override;
 
-  void allocateAuxiliaryMemory(GlobalData* globalData) override;
+  void allocateAuxiliaryMemory(const GlobalData& globalData) override;
 
   protected:
   size_t currLayerSize{};

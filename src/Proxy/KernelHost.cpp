@@ -193,7 +193,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
           timeCoeffs.data(),
           faceNeighborsCell,
           *reinterpret_cast<real(*)[4][tensor::I<Cfg>::size()]>(
-              &data.globalDataOnHost
+              &data.globalData.get<Cfg>()
                    .integrationBufferLTS[OpenMP::threadId() *
                                          static_cast<size_t>(tensor::I<Cfg>::size()) * 4]),
           timeIntegrated);
@@ -268,8 +268,10 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
   auto* drEnergyOutput = layerData.var<DynamicRupture::DREnergyOutputVar>(Cfg());
   auto** timeDerivativePlus = layerData.var<DynamicRupture::TimeDerivativePlus>(Cfg());
   auto** timeDerivativeMinus = layerData.var<DynamicRupture::TimeDerivativeMinus>(Cfg());
-  alignas(Alignment) real qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
-  alignas(Alignment) real qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
+  alignas(Alignment)
+      real qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
+  alignas(Alignment)
+      real qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
   const auto [timePoints, timeWeights] =
       seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
   const auto coeffsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, Timestep);
@@ -280,7 +282,6 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
   for (std::size_t face = 0; face < layerData.size(); ++face) {
     const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
     data.dynRupKernel.spaceTimeInterpolation(faceInformation[face],
-                                             &data.globalDataOnHost,
                                              &godunovData[face],
                                              &drEnergyOutput[face],
                                              timeDerivativePlus[face],

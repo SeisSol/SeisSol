@@ -18,7 +18,7 @@
 
 namespace seissol::kernels {
 
-template<typename Cfg>
+template <typename Cfg>
 class NeighborKernel : public Kernel {
   public:
   using real = Real<Cfg>;

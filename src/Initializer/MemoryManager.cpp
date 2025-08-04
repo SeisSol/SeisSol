@@ -41,11 +41,7 @@ namespace seissol::initializer {
 
 void MemoryManager::initialize() {
   // initialize global matrices
-  GlobalDataInitializerOnHost::init(m_globalDataOnHost, m_memoryAllocator, memory::Standard);
-  if constexpr (seissol::isDeviceOn()) {
-    GlobalDataInitializerOnDevice::init(
-        m_globalDataOnDevice, m_memoryAllocator, memory::DeviceGlobalMemory);
-  }
+  global.init(0);
 }
 
 void MemoryManager::fixateLtsStorage() {
@@ -127,8 +123,7 @@ void MemoryManager::fixateBoundaryStorage() {
       outputParams.freeSurfaceParameters.vtkorder < 0) {
     refinement = outputParams.freeSurfaceParameters.refinement;
   }
-  seissolInstance.freeSurfaceIntegrator().initialize(
-      refinement, &m_globalDataOnHost, ltsStorage, surfaceStorage);
+  seissolInstance.freeSurfaceIntegrator().initialize(refinement, ltsStorage, surfaceStorage);
 }
 
 #ifdef ACL_DEVICE

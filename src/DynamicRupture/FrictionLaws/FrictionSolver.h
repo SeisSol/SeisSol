@@ -11,6 +11,8 @@
 #include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
+#include <Initializer/Typedefs.h>
+#include <Memory/GlobalData.h>
 #include <vector>
 
 namespace seissol::dr::friction_law {
@@ -50,7 +52,7 @@ class FrictionSolver {
    */
   virtual void copyStorageToLocal(DynamicRupture::Layer& layerData) = 0;
 
-  virtual void allocateAuxiliaryMemory(GlobalData* globalData) {}
+  virtual void allocateAuxiliaryMemory(const GlobalData& globalData) {}
 
   virtual seissol::initializer::AllocationPlace allocationPlace() = 0;
 

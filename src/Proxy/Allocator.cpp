@@ -142,17 +142,8 @@ ProxyData::ProxyData(std::size_t cellCount, bool enableDR) : cellCount(cellCount
 }
 
 void ProxyData::initGlobalData() {
-  seissol::initializer::GlobalDataInitializerOnHost::init(
-      globalDataOnHost, allocator, seissol::memory::Standard);
+  globalData.init(0);
 
-  CompoundGlobalData globalData{};
-  globalData.onHost = &globalDataOnHost;
-  globalData.onDevice = nullptr;
-  if constexpr (seissol::isDeviceOn()) {
-    seissol::initializer::GlobalDataInitializerOnDevice::init(
-        globalDataOnDevice, allocator, seissol::memory::DeviceGlobalMemory);
-    globalData.onDevice = &globalDataOnDevice;
-  }
   spacetimeKernel.setGlobalData(globalData);
   timeKernel.setGlobalData(globalData);
   localKernel.setGlobalData(globalData);

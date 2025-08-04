@@ -12,7 +12,7 @@
 
 namespace seissol {
 
-const std::array<ConfigVariant, std::variant_size_v<ConfigVariant>> ConfigVariantList {
+const std::array<ConfigVariant, std::variant_size_v<ConfigVariant>> ConfigVariantList{
 #define _H_(cfg) cfg(),
 #include "ConfigInclude.h"
 };

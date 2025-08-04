@@ -297,8 +297,10 @@ __global__ void kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
   const int elementId = blockIdx.x;
 
   constexpr auto ldINodalDim = linearDim<seissol::init::INodal<Cfg>>();
-  constexpr auto iNodalDim0 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension + 0];
-  constexpr auto iNodalDim1 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
+  constexpr auto iNodalDim0 =
+      seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension + 0];
+  constexpr auto iNodalDim1 =
+      seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
   __shared__ __align__(8) real resultTerm[iNodalDim1][iNodalDim0][multisim::NumSimulations];
 
   constexpr auto ldConstantDim = linearDim<seissol::init::easiBoundaryConstant<Cfg>>();
@@ -394,7 +396,8 @@ __global__ void kernelextractRotationMatrices(real** displacementToFaceNormalPtr
 
     constexpr auto ldTinv = yateto::leadDim<seissol::init::Tinv<Cfg>>();
     constexpr auto ldT = yateto::leadDim<seissol::init::T<Cfg>>();
-    constexpr auto ldDisplacement = yateto::leadDim<seissol::init::displacementRotationMatrix<Cfg>>();
+    constexpr auto ldDisplacement =
+        yateto::leadDim<seissol::init::displacementRotationMatrix<Cfg>>();
 
     const int i = threadIdx.x;
     const int j = threadIdx.y;

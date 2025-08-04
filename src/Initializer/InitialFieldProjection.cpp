@@ -121,6 +121,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
     layer.wrap([&](auto cfg) {
       using Cfg = decltype(cfg);
 
+      const auto& global = globalData.get<Cfg>();
+
       constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
       constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
@@ -138,7 +140,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
       quadraturePointsXyz.resize(NumQuadPoints);
 
       kernel::projectIniCond<Cfg> krnl;
-      krnl.projectQP = globalData.projectQPMatrix;
+      krnl.projectQP = global.projectQPMatrix;
       krnl.iniCond = iniCondData;
       kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull<Cfg>>());
       kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull<Cfg>>());
@@ -264,6 +266,8 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       const auto dataStride = NumQuadPoints * iniFields.size() * model::MaterialTT<Cfg>::Quantities.size();
       const auto quantityCount = model::MaterialTT<Cfg>::Quantities.size();
 
+      const auto& global = globalData.get<Cfg>();
+
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel
 #endif
@@ -275,7 +279,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
       quadraturePointsXyz.resize(NumQuadPoints);
 
       kernel::projectIniCond<Cfg> krnl;
-      krnl.projectQP = globalData.projectQPMatrix;
+      krnl.projectQP = global.projectQPMatrix;
       krnl.iniCond = iniCondData;
       kernels::set_selectAneFull(krnl, kernels::get_static_ptr_Values<init::selectAneFull<Cfg>>());
       kernels::set_selectElaFull(krnl, kernels::get_static_ptr_Values<init::selectElaFull<Cfg>>());

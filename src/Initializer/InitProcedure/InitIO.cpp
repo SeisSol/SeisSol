@@ -116,7 +116,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   auto& backmap = memoryManager.getBackmap();
   auto& dynRup = memoryManager.getDynamicRupture();
   auto& drStorage = memoryManager.getDRStorage();
-  auto* globalData = memoryManager.getGlobalData().onHost;
+  const auto& globalData = memoryManager.getGlobalData();
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
   constexpr auto NumQuantities =

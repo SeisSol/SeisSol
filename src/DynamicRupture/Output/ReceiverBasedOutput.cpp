@@ -452,7 +452,8 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
 
     auto chiTau2dPoints =
         init::quadpoints<Cfg>::view::create(const_cast<real*>(init::quadpoints<Cfg>::Values));
-    auto weights = init::quadweights<Cfg>::view::create(const_cast<real*>(init::quadweights<Cfg>::Values));
+    auto weights =
+        init::quadweights<Cfg>::view::create(const_cast<real*>(init::quadweights<Cfg>::Values));
 
     auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints<Cfg>; ++jBndGP) {
@@ -466,8 +467,8 @@ real ReceiverOutput::computeRuptureVelocity(Eigen::Matrix<real, 2, 2>& jacobiT2d
             seissol::multisim::multisimWrap(weights, 0, jBndGP) * rt[jBndGP] * phiAtPoint[d];
       }
     }
-    auto m2inv =
-        seissol::init::M2inv<Cfg>::view::create(const_cast<real*>(seissol::init::M2inv<Cfg>::Values));
+    auto m2inv = seissol::init::M2inv<Cfg>::view::create(
+        const_cast<real*>(seissol::init::M2inv<Cfg>::Values));
     for (size_t d = 0; d < NumDegFr2d; ++d) {
       projectedRT[d] *= m2inv(d, d);
     }

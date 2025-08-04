@@ -46,32 +46,35 @@
 #include "Common/Offset.h"
 #endif
 
+#include "Memory/GlobalData.h"
+
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::linearck {
 
-template<typename Cfg>
-void Spacetime<Cfg>::setGlobalData(const CompoundGlobalData& global) {
-  m_krnlPrototype.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onHost->v3mTo2nFace;
+template <typename Cfg>
+void Spacetime<Cfg>::setGlobalData(const GlobalData& global) {
+  m_krnlPrototype.kDivMT = global.get<Cfg>().stiffnessMatricesTransposed;
+  projectDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.get<Cfg>().v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
-  deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceKrnlPrototype.kDivMT = global.get<Cfg, Executor::Device>().stiffnessMatricesTransposed;
+  deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace =
+      global.get<Cfg, Executor::Device>().v3mTo2nFace;
 #endif
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void Spacetime<Cfg>::computeAder(const real* coeffs,
-                            double timeStepWidth,
-                            LTS::Ref<Cfg>& data,
-                            LocalTmp<Cfg>& tmp,
-                            real timeIntegrated[tensor::I<Cfg>::size()],
-                            real* timeDerivatives,
-                            bool updateDisplacement) {
+                                 double timeStepWidth,
+                                 LTS::Ref<Cfg>& data,
+                                 LocalTmp<Cfg>& tmp,
+                                 real timeIntegrated[tensor::I<Cfg>::size()],
+                                 real* timeDerivatives,
+                                 bool updateDisplacement) {
 
   assert(reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>()) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(timeIntegrated) % Alignment == 0);
@@ -123,7 +126,8 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
     auto& bc = tmp.gravitationalFreeSurfaceBc;
     for (std::size_t face = 0; face < 4; ++face) {
       if (data.template get<LTS::FaceDisplacements>()[face] != nullptr &&
-          data.template get<LTS::CellInformation>().faceTypes[face] == FaceType::FreeSurfaceGravity) {
+          data.template get<LTS::CellInformation>().faceTypes[face] ==
+              FaceType::FreeSurfaceGravity) {
         bc.evaluate(face,
                     projectDerivativeToNodalBoundaryRotated,
                     data.template get<LTS::BoundaryMapping>()[face],
@@ -139,14 +143,14 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
   }
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void Spacetime<Cfg>::computeBatchedAder(const real* coeffs,
-                                   double timeStepWidth,
-                                   LocalTmp<Cfg>& tmp,
-                                   ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
-                                   bool updateDisplacement,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+                                        double timeStepWidth,
+                                        LocalTmp<Cfg>& tmp,
+                                        ConditionalPointersToRealsTable& dataTable,
+                                        ConditionalMaterialTable& materialTable,
+                                        bool updateDisplacement,
+                                        seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernel::gpu_derivative<Cfg> derivativesKrnl = deviceKrnlPrototype;
 
@@ -207,13 +211,13 @@ void Spacetime<Cfg>::computeBatchedAder(const real* coeffs,
 #endif
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void Spacetime<Cfg>::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::derivative<Cfg>::NonZeroFlops;
   hardwareFlops = kernel::derivative<Cfg>::HardwareFlops;
 }
 
-template<typename Cfg>
+template <typename Cfg>
 std::uint64_t Spacetime<Cfg>::bytesAder() {
   std::uint64_t reals = 0;
 
@@ -227,17 +231,18 @@ std::uint64_t Spacetime<Cfg>::bytesAder() {
   return reals * sizeof(real);
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void Time<Cfg>::evaluate(const real* coeffs,
-                    const real* timeDerivatives,
-                    real timeEvaluated[tensor::Q<Cfg>::size()]) {
+                         const real* timeDerivatives,
+                         real timeEvaluated[tensor::Q<Cfg>::size()]) {
   /*
    * assert alignments.
    */
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0);
   assert((reinterpret_cast<uintptr_t>(timeEvaluated)) % Alignment == 0);
 
-  static_assert(tensor::I<Cfg>::size() == tensor::Q<Cfg>::size(), "Sizes of tensors I and Q must match");
+  static_assert(tensor::I<Cfg>::size() == tensor::Q<Cfg>::size(),
+                "Sizes of tensors I and Q must match");
 
   kernel::derivativeTaylorExpansion<Cfg> krnl;
   krnl.I = timeEvaluated;
@@ -248,16 +253,17 @@ void Time<Cfg>::evaluate(const real* coeffs,
   krnl.execute();
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void Time<Cfg>::evaluateBatched(const real* coeffs,
-                           const real** timeDerivatives,
-                           real** timeIntegratedDofs,
-                           std::size_t numElements,
-                           seissol::parallel::runtime::StreamRuntime& runtime) {
+                                const real** timeDerivatives,
+                                real** timeIntegratedDofs,
+                                std::size_t numElements,
+                                seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   assert(timeDerivatives != nullptr);
   assert(timeIntegratedDofs != nullptr);
-  static_assert(tensor::I<Cfg>::size() == tensor::Q<Cfg>::size(), "Sizes of tensors I and Q must match");
+  static_assert(tensor::I<Cfg>::size() == tensor::Q<Cfg>::size(),
+                "Sizes of tensors I and Q must match");
   static_assert(kernel::gpu_derivativeTaylorExpansion<Cfg>::TmpMaxMemRequiredInBytes == 0);
 
 #ifndef DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS
@@ -283,14 +289,14 @@ void Time<Cfg>::evaluateBatched(const real* coeffs,
 #endif
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void Time<Cfg>::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::derivativeTaylorExpansion<Cfg>::NonZeroFlops;
   hardwareFlops = kernel::derivativeTaylorExpansion<Cfg>::HardwareFlops;
 }
 
-template<typename Cfg>
-void Time<Cfg>::setGlobalData(const CompoundGlobalData& global) {}
+template <typename Cfg>
+void Time<Cfg>::setGlobalData(const GlobalData& global) {}
 
 #define _H_(cfg) template class Spacetime<cfg>;
 #include "ConfigInclude.h"

@@ -34,7 +34,7 @@ class BucketManager {
   std::size_t dataSize{0};
 
   public:
-  template<typename T>
+  template <typename T>
   T* markAllocate(std::size_t size) {
     const uintptr_t offset = this->dataSize;
     this->dataSize += size;
@@ -67,7 +67,7 @@ void initBucketItem(T*& data, void* bucket, bool memsetCpu) {
   }
 }
 
-template<typename Cfg>
+template <typename Cfg>
 std::vector<solver::RemoteCluster>
     allocateTransferInfo(Cfg cfg, LTS::Layer& layer, const std::vector<RemoteCellRegion>& regions) {
   auto* buffers = layer.var<LTS::Buffers>(cfg);
@@ -188,7 +188,7 @@ std::vector<solver::RemoteCluster>
   return remoteClusters;
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void setupBuckets(Cfg cfg, LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   auto* buffers = layer.var<LTS::Buffers>(cfg);
   auto* derivatives = layer.var<LTS::Derivatives>(cfg);
@@ -232,7 +232,7 @@ void setupBuckets(Cfg cfg, LTS::Layer& layer, std::vector<solver::RemoteCluster>
   }
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void setupFaceNeighbors(Cfg cfg, LTS::Storage& storage, LTS::Layer& layer) {
   const auto* cellInformation = layer.var<LTS::CellInformation>();
   const auto* secondaryCellInformation = layer.var<LTS::SecondaryInformation>();
@@ -269,7 +269,8 @@ void setupFaceNeighbors(Cfg cfg, LTS::Storage& storage, LTS::Layer& layer) {
           } else {
             faceNeighbors[cell][face] = storage.lookup<LTS::Buffers>(cfg, faceNeighbor);
             if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] = storage.lookup<LTS::BuffersDevice>(cfg, faceNeighbor);
+              faceNeighborsDevice[cell][face] =
+                  storage.lookup<LTS::BuffersDevice>(cfg, faceNeighbor);
             }
           }
         }
@@ -297,14 +298,10 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
   storage.allocateBuckets();
 
   for (auto& layer : storage.leaves()) {
-    layer.wrap([&](auto cfg) {
-      setupBuckets(cfg, layer, commInfo[layer.id()]);
-    });
+    layer.wrap([&](auto cfg) { setupBuckets(cfg, layer, commInfo[layer.id()]); });
   }
   for (auto& layer : storage.leaves(Ghost)) {
-    layer.wrap([&](auto cfg) {
-      setupFaceNeighbors(cfg, storage, layer);
-    });
+    layer.wrap([&](auto cfg) { setupFaceNeighbors(cfg, storage, layer); });
   }
 
 #ifdef ACL_DEVICE

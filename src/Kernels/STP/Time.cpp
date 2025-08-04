@@ -27,12 +27,14 @@ extern long long libxsmm_num_total_flops;
 
 #include <yateto.h>
 
+#include "Memory/GlobalData.h"
+
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::stp {
 
-void Spacetime::setGlobalData(const CompoundGlobalData& global) {
+void Spacetime::setGlobalData(const GlobalData& global) {
   for (std::size_t n = 0; n < Cfg::ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
@@ -274,6 +276,6 @@ void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlo
   hardwareFlops = kernel::evaluateDOFSAtTimeSTP<Cfg>::HardwareFlops;
 }
 
-void Time::setGlobalData(const CompoundGlobalData& global) {}
+void Time::setGlobalData(const GlobalData& global) {}
 
 } // namespace seissol::kernels::solver::stp

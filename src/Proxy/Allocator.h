@@ -36,8 +36,7 @@ struct ProxyData {
   LTS::Storage ltsStorage;
   DynamicRupture::Storage drStorage;
 
-  GlobalData globalDataOnHost;
-  GlobalData globalDataOnDevice;
+  GlobalData globalData;
 
   real* fakeDerivatives = nullptr;
   real* fakeDerivativesHost = nullptr;

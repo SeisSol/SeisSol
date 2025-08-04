@@ -77,7 +77,7 @@ std::array<Real<Cfg>, multisim::NumSimulations>
   seissol::quadrature::TriangleQuadrature(points, spaceWeights, Cfg::ConvergenceOrder + 1);
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints<Cfg> krnl;
-  krnl.V3mTo2n = global->faceToNodalMatrices;
+  krnl.V3mTo2n = global->get<Cfg>().faceToNodalMatrices;
 
   alignas(PagesizeStack) real qInterpolatedPlus[tensor::QInterpolatedPlus<Cfg>::size()];
   alignas(PagesizeStack) real qInterpolatedMinus[tensor::QInterpolatedMinus<Cfg>::size()];
@@ -162,7 +162,7 @@ double& EnergiesStorage::totalMomentumZ(size_t sim) {
 }
 
 void EnergyOutput::init(
-    GlobalData* newGlobal,
+    const GlobalData& newGlobal,
     const DynamicRupture::Storage& newDynRuptTree,
     const seissol::geometry::MeshReader& newMeshReader,
     const LTS::Storage& newStorage,
@@ -202,7 +202,7 @@ void EnergyOutput::init(
   computeVolumeEnergiesEveryOutput = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName = outputFileNamePrefix + "-energy.csv";
 
-  global = newGlobal;
+  global = &newGlobal;
   drStorage = &newDynRuptTree;
   meshReader = &newMeshReader;
   ltsStorage = &newStorage;
@@ -487,7 +487,7 @@ void EnergyOutput::computeVolumeEnergies() {
         auto numericalSolution = init::dofsQP<Cfg>::view::create(numericalSolutionData);
         // Evaluate numerical solution at quad. nodes
         kernel::evalAtQP<Cfg> krnl;
-        krnl.evalAtQP = global->evalAtQPMatrix;
+        krnl.evalAtQP = global->get<Cfg>().evalAtQPMatrix;
         krnl.dofsQP = numericalSolutionData;
         krnl.Q = dofsData[cell];
         krnl.execute();

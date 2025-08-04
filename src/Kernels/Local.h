@@ -20,7 +20,7 @@
 
 namespace seissol::kernels {
 
-template<typename Cfg>
+template <typename Cfg>
 class LocalKernel : public Kernel {
   protected:
   double gravitationalAcceleration{9.81};

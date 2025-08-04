@@ -65,7 +65,7 @@ ReceiverClusterImpl<Cfg>::ReceiverClusterImpl(seissol::SeisSol& seissolInstance)
 
 template <typename Cfg>
 ReceiverClusterImpl<Cfg>::ReceiverClusterImpl(
-    const CompoundGlobalData& global,
+    const GlobalData& global,
     const std::vector<std::size_t>& quantities,
     double samplingInterval,
     double syncPointInterval,

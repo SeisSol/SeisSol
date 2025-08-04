@@ -41,6 +41,8 @@
 
 #include "Kernels/Common.h"
 
+#include "Memory/GlobalData.h"
+
 #include "utils/logger.h"
 
 #ifdef ACL_DEVICE
@@ -51,43 +53,49 @@ GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 namespace seissol::kernels::solver::linearck {
 
-  template<typename Cfg>
-void Local<Cfg>::setGlobalData(const CompoundGlobalData& global) {
-  m_volumeKernelPrototype.kDivM = global.onHost->stiffnessMatrices;
-  m_localFluxKernelPrototype.rDivM = global.onHost->changeOfBasisMatrices;
-  m_localFluxKernelPrototype.fMrT = global.onHost->localChangeOfBasisMatricesTransposed;
+template <typename Cfg>
+void Local<Cfg>::setGlobalData(const GlobalData& global) {
+  m_volumeKernelPrototype.kDivM = global.get<Cfg>().stiffnessMatrices;
+  m_localFluxKernelPrototype.rDivM = global.get<Cfg>().changeOfBasisMatrices;
+  m_localFluxKernelPrototype.fMrT = global.get<Cfg>().localChangeOfBasisMatricesTransposed;
 
-  m_nodalLfKrnlPrototype.project2nFaceTo3m = global.onHost->project2nFaceTo3m;
+  m_nodalLfKrnlPrototype.project2nFaceTo3m = global.get<Cfg>().project2nFaceTo3m;
 
-  m_projectKrnlPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
-  m_projectRotatedKrnlPrototype.V3mTo2nFace = global.onHost->v3mTo2nFace;
+  m_projectKrnlPrototype.V3mTo2nFace = global.get<Cfg>().v3mTo2nFace;
+  m_projectRotatedKrnlPrototype.V3mTo2nFace = global.get<Cfg>().v3mTo2nFace;
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
   const auto deviceAlignment = device.api->getGlobMemAlignment();
 
-  deviceVolumeKernelPrototype.kDivM = global.onDevice->stiffnessMatrices;
+  deviceVolumeKernelPrototype.kDivM = global.get<Cfg, Executor::Device>().stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
-  deviceLocalFluxKernelPrototype.plusFluxMatrices = global.onDevice->plusFluxMatrices;
+  deviceLocalFluxKernelPrototype.plusFluxMatrices =
+      global.get<Cfg, Executor::Device>().plusFluxMatrices;
 #else
-  deviceLocalFluxKernelPrototype.rDivM = global.onDevice->changeOfBasisMatrices;
-  deviceLocalFluxKernelPrototype.fMrT = global.onDevice->localChangeOfBasisMatricesTransposed;
+  deviceLocalFluxKernelPrototype.rDivM = global.get<Cfg, Executor::Device>().changeOfBasisMatrices;
+  deviceLocalFluxKernelPrototype.fMrT =
+      global.get<Cfg, Executor::Device>().localChangeOfBasisMatricesTransposed;
 #endif
-  deviceNodalLfKrnlPrototype.project2nFaceTo3m = global.onDevice->project2nFaceTo3m;
-  deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.onDevice->v3mTo2nFace;
+  deviceNodalLfKrnlPrototype.project2nFaceTo3m =
+      global.get<Cfg, Executor::Device>().project2nFaceTo3m;
+  deviceProjectRotatedKrnlPrototype.V3mTo2nFace = global.get<Cfg, Executor::Device>().v3mTo2nFace;
 #endif
 }
 
-template<typename Cfg>
+template <typename Cfg>
 struct ApplyAnalyticalSolution {
   ApplyAnalyticalSolution(const std::vector<std::unique_ptr<physics::InitialField>>* initConditions,
                           LTS::Ref<Cfg>& data)
       : initConditions(initConditions), localData(data) {}
 
-  void operator()(const real* nodes, double time, typename seissol::init::INodal<Cfg>::view::type& boundaryDofs) {
+  void operator()(const real* nodes,
+                  double time,
+                  typename seissol::init::INodal<Cfg>::view::type& boundaryDofs) {
     assert(initConditions != nullptr);
 
-    constexpr auto NodeCount = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension];
+    constexpr auto NodeCount =
+        seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension];
     alignas(Alignment) std::array<double, 3> nodesVec[NodeCount];
 
 #pragma omp simd
@@ -100,7 +108,11 @@ struct ApplyAnalyticalSolution {
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
       initConditions->at(s % initConditions->size())
-          ->evaluate(time, nodesVec, NodeCount, localData.template get<LTS::Material>(), slicedBoundaryDofs);
+          ->evaluate(time,
+                     nodesVec,
+                     NodeCount,
+                     localData.template get<LTS::Material>(),
+                     slicedBoundaryDofs);
     }
   }
 
@@ -109,15 +121,15 @@ struct ApplyAnalyticalSolution {
   LTS::Ref<Cfg>& localData;
 };
 
-template<typename Cfg>
+template <typename Cfg>
 void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
-                            LTS::Ref<Cfg>& data,
-                            LocalTmp<Cfg>& tmp,
-                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-                            const CellMaterialData* materialData,
-                            const CellBoundaryMapping<Cfg> (*cellBoundaryMapping)[4],
-                            double time,
-                            double timeStepWidth) {
+                                 LTS::Ref<Cfg>& data,
+                                 LocalTmp<Cfg>& tmp,
+                                 // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
+                                 const CellMaterialData* materialData,
+                                 const CellBoundaryMapping<Cfg> (*cellBoundaryMapping)[4],
+                                 double time,
+                                 double timeStepWidth) {
   assert(reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>()) % Alignment == 0);
 
@@ -163,26 +175,25 @@ void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<C
       auto displacement = init::averageNormalDisplacement<Cfg>::view::create(displ);
       // lambdas can't catch gravitationalAcceleration directly, so have to make a copy here.
       const auto localG = this->gravitationalAcceleration;
-      auto applyFreeSurfaceBc =
-          [&](const real*, // nodes are unused
-              typename init::INodal<Cfg>::view::type& boundaryDofs) {
-            for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-              auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
-              auto slicedDisplacement = multisim::simtensor(displacement, s);
+      auto applyFreeSurfaceBc = [&](const real*, // nodes are unused
+                                    typename init::INodal<Cfg>::view::type& boundaryDofs) {
+        for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+          auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
+          auto slicedDisplacement = multisim::simtensor(displacement, s);
 
-              for (unsigned int i = 0;
-                   i < nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension];
-                   ++i) {
-                const double rho = materialData->local->getDensity();
-                assert(localG > 0);
-                const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);
+          for (unsigned int i = 0;
+               i < nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension];
+               ++i) {
+            const double rho = materialData->local->getDensity();
+            assert(localG > 0);
+            const double pressureAtBnd = -1 * rho * localG * slicedDisplacement(i);
 
-                slicedBoundaryDofs(i, 0) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 0);
-                slicedBoundaryDofs(i, 1) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 1);
-                slicedBoundaryDofs(i, 2) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 2);
-              }
-            }
-          };
+            slicedBoundaryDofs(i, 0) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 0);
+            slicedBoundaryDofs(i, 1) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 1);
+            slicedBoundaryDofs(i, 2) = 2 * pressureAtBnd - slicedBoundaryDofs(i, 2);
+          }
+        }
+      };
 
       dirichletBoundary.evaluate(timeIntegratedDegreesOfFreedom,
                                  face,
@@ -201,7 +212,8 @@ void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<C
       assert(easiBoundaryConstant != nullptr);
       assert(easiBoundaryMap != nullptr);
       auto applyEasiBoundary = [easiBoundaryMap, easiBoundaryConstant](
-                                   const real* nodes, typename init::INodal<Cfg>::view::type& boundaryDofs) {
+                                   const real* nodes,
+                                   typename init::INodal<Cfg>::view::type& boundaryDofs) {
         seissol::kernel::createEasiBoundaryGhostCells<Cfg> easiBoundaryKernel;
         easiBoundaryKernel.easiBoundaryMap = easiBoundaryMap;
         easiBoundaryKernel.easiBoundaryConstant = easiBoundaryConstant;
@@ -248,12 +260,12 @@ void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<C
   }
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void Local<Cfg>::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
-                                   ConditionalIndicesTable& indicesTable,
-                                   double timeStepWidth,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+                                        ConditionalMaterialTable& materialTable,
+                                        ConditionalIndicesTable& indicesTable,
+                                        double timeStepWidth,
+                                        seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
@@ -351,13 +363,14 @@ void Local<Cfg>::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTab
 #endif
 }
 
-template<typename Cfg>
-void Local<Cfg>::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
-                                           ConditionalIndicesTable& indicesTable,
-                                           LTS::Layer& layer,
-                                           double time,
-                                           double timeStepWidth,
-                                           seissol::parallel::runtime::StreamRuntime& runtime) {
+template <typename Cfg>
+void Local<Cfg>::evaluateBatchedTimeDependentBc(
+    ConditionalPointersToRealsTable& dataTable,
+    ConditionalIndicesTable& indicesTable,
+    LTS::Layer& layer,
+    double time,
+    double timeStepWidth,
+    seissol::parallel::runtime::StreamRuntime& runtime) {
 
 #ifdef ACL_DEVICE
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
@@ -412,10 +425,10 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable&
 #endif // ACL_DEVICE
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void Local<Cfg>::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                          std::uint64_t& nonZeroFlops,
-                          std::uint64_t& hardwareFlops) {
+                               std::uint64_t& nonZeroFlops,
+                               std::uint64_t& hardwareFlops) {
   nonZeroFlops = seissol::kernel::volume<Cfg>::NonZeroFlops;
   hardwareFlops = seissol::kernel::volume<Cfg>::HardwareFlops;
 
@@ -456,7 +469,7 @@ void Local<Cfg>::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceT
   }
 }
 
-template<typename Cfg>
+template <typename Cfg>
 std::uint64_t Local<Cfg>::bytesIntegral() {
   std::uint64_t reals = 0;
 

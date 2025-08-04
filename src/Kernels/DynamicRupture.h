@@ -17,7 +17,7 @@
 
 namespace seissol::kernels {
 
-template<typename Cfg>
+template <typename Cfg>
 class DynamicRupture : public Kernel {
   private:
   using real = Real<Cfg>;
@@ -32,11 +32,10 @@ class DynamicRupture : public Kernel {
   public:
   DynamicRupture() = default;
 
-  void setGlobalData(const CompoundGlobalData& global) override;
+  void setGlobalData(const GlobalData& global) override;
 
   void spaceTimeInterpolation(
       const DRFaceInformation& faceInfo,
-      const GlobalData* global,
       const DRGodunovData<Cfg>* godunovData,
       DREnergyOutput<Cfg>* drEnergyOutput,
       const real* timeDerivativePlus,

@@ -9,10 +9,12 @@
 #include "GlobalData.h"
 #include "GeneratedCode/init.h"
 #include "Parallel/OpenMP.h"
+#include <Common/ConfigHelper.h>
 #include <DynamicRupture/FrictionLaws/TPCommon.h>
 #include <DynamicRupture/Misc.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/Typedefs.h>
+#include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Memory/MemoryAllocator.h>
 #include <cassert>
@@ -20,13 +22,68 @@
 #include <yateto.h>
 
 namespace seissol::initializer {
+/*
+ * \class MemoryProperties
+ *
+ * \brief An auxiliary data structure for a policy-based design
+ *
+ * Attributes are initialized with CPU memory properties by default.
+ * See, an example of a policy-based design in GlobalData.cpp
+ * */
+struct MemoryProperties {
+  size_t alignment{Alignment};
+  size_t pagesizeHeap{PagesizeHeap};
+  size_t pagesizeStack{PagesizeStack};
+};
+
 namespace matrixmanip {
-MemoryProperties OnHost::getProperties() {
+template <typename Cfg>
+struct OnHost {
+  using CopyManagerT = typename yateto::DefaultCopyManager<real>;
+  static MemoryProperties getProperties();
+  static void negateStiffnessMatrix(GlobalDataCfg<Cfg>& globalData);
+  static void initSpecificGlobalData(GlobalDataCfg<Cfg>& globalData,
+                                     memory::ManagedAllocator& allocator,
+                                     CopyManagerT& copyManager,
+                                     size_t alignment,
+                                     seissol::memory::Memkind memkind);
+};
+
+template <typename Cfg>
+struct OnDevice {
+  struct DeviceCopyPolicy {
+    static real* copy(const real* first, const real* last, real*& mem);
+  };
+  using CopyManagerT = typename yateto::CopyManager<real, DeviceCopyPolicy>;
+  static MemoryProperties getProperties();
+  static void negateStiffnessMatrix(GlobalDataCfg<Cfg>& globalData);
+  static void initSpecificGlobalData(GlobalDataCfg<Cfg>& globalData,
+                                     memory::ManagedAllocator& allocator,
+                                     CopyManagerT& copyManager,
+                                     size_t alignment,
+                                     seissol::memory::Memkind memkind);
+};
+} // namespace matrixmanip
+
+// Generalized Global data initializers of SeisSol.
+template <typename Cfg, typename MatrixManipPolicyT>
+struct GlobalDataInitializer {
+  static void init(GlobalDataCfg<Cfg>& globalData,
+                   memory::ManagedAllocator& memoryAllocator,
+                   enum memory::Memkind memkind);
+};
+} // namespace seissol::initializer
+
+namespace seissol::initializer {
+namespace matrixmanip {
+template <typename Cfg>
+MemoryProperties OnHost<Cfg>::getProperties() {
   // returns MemoryProperties initialized with default values i.e., CPU memory properties
   return {};
 }
 
-void OnHost::negateStiffnessMatrix(GlobalData& globalData) {
+template <typename Cfg>
+void OnHost<Cfg>::negateStiffnessMatrix(GlobalDataCfg<Cfg>& globalData) {
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
     real* matrix = const_cast<real*>(globalData.stiffnessMatricesTransposed(transposedStiffness));
     for (unsigned i = 0; i < init::kDivMT<Cfg>::size(transposedStiffness); ++i) {
@@ -35,11 +92,12 @@ void OnHost::negateStiffnessMatrix(GlobalData& globalData) {
   }
 }
 
-void OnHost::initSpecificGlobalData(GlobalData& globalData,
-                                    memory::ManagedAllocator& allocator,
-                                    CopyManagerT& copyManager,
-                                    size_t alignment,
-                                    seissol::memory::Memkind memkind) {
+template <typename Cfg>
+void OnHost<Cfg>::initSpecificGlobalData(GlobalDataCfg<Cfg>& globalData,
+                                         memory::ManagedAllocator& allocator,
+                                         CopyManagerT& copyManager,
+                                         size_t alignment,
+                                         seissol::memory::Memkind memkind) {
   // thread-local LTS integration buffers
   const auto numThreads = OpenMP::threadCount();
   const auto allocSize = 4 * static_cast<std::size_t>(tensor::I<Cfg>::size());
@@ -60,7 +118,8 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
   globalData.integrationBufferLTS = integrationBufferLTS;
 }
 
-MemoryProperties OnDevice::getProperties() {
+template <typename Cfg>
+MemoryProperties OnDevice<Cfg>::getProperties() {
   MemoryProperties prop{};
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
@@ -71,7 +130,8 @@ MemoryProperties OnDevice::getProperties() {
   return prop;
 }
 
-void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
+template <typename Cfg>
+void OnDevice<Cfg>::negateStiffnessMatrix(GlobalDataCfg<Cfg>& globalData) {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   for (unsigned transposedStiffness = 0; transposedStiffness < 3; ++transposedStiffness) {
@@ -84,11 +144,13 @@ void OnDevice::negateStiffnessMatrix(GlobalData& globalData) {
   }
 #endif // ACL_DEVICE
 }
-void OnDevice::initSpecificGlobalData(GlobalData& globalData,
-                                      memory::ManagedAllocator& allocator,
-                                      CopyManagerT& copyManager,
-                                      size_t alignment,
-                                      seissol::memory::Memkind memkind) {
+
+template <typename Cfg>
+void OnDevice<Cfg>::initSpecificGlobalData(GlobalDataCfg<Cfg>& globalData,
+                                           memory::ManagedAllocator& allocator,
+                                           CopyManagerT& copyManager,
+                                           size_t alignment,
+                                           seissol::memory::Memkind memkind) {
 #ifdef ACL_DEVICE
   const size_t size = yateto::alignedUpper(tensor::replicateInitialLoadingM<Cfg>::size(),
                                            yateto::alignedReals<real>(alignment));
@@ -100,7 +162,8 @@ void OnDevice::initSpecificGlobalData(GlobalData& globalData,
 #endif // ACL_DEVICE
 }
 
-real* OnDevice::DeviceCopyPolicy::copy(const real* first, const real* last, real*& mem) {
+template <typename Cfg>
+real* OnDevice<Cfg>::DeviceCopyPolicy::copy(const real* first, const real* last, real*& mem) {
 #ifdef ACL_DEVICE
   device::DeviceInstance& device = device::DeviceInstance::getInstance();
   const std::size_t bytes = (last - first) * sizeof(real);
@@ -114,10 +177,10 @@ real* OnDevice::DeviceCopyPolicy::copy(const real* first, const real* last, real
 
 } // namespace matrixmanip
 
-template <typename MatrixManipPolicyT>
-void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
-                                                     memory::ManagedAllocator& memoryAllocator,
-                                                     enum seissol::memory::Memkind memkind) {
+template <typename Cfg, typename MatrixManipPolicyT>
+void GlobalDataInitializer<Cfg, MatrixManipPolicyT>::init(GlobalDataCfg<Cfg>& globalData,
+                                                          memory::ManagedAllocator& memoryAllocator,
+                                                          enum seissol::memory::Memkind memkind) {
   const MemoryProperties prop = MatrixManipPolicyT::getProperties();
 
   // We ensure that global matrices always start at an aligned memory address,
@@ -140,29 +203,29 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
   globalMatrixMemSize += yateto::computeFamilySize<init::project2nFaceTo3m<Cfg>>(
       yateto::alignedReals<real>(prop.alignment));
 
-  globalMatrixMemSize +=
-      yateto::alignedUpper(tensor::evalAtQP<Cfg>::size(), yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize +=
-      yateto::alignedUpper(tensor::projectQP<Cfg>::size(), yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize += yateto::alignedUpper(tensor::evalAtQP<Cfg>::size(),
+                                              yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize += yateto::alignedUpper(tensor::projectQP<Cfg>::size(),
+                                              yateto::alignedReals<real>(prop.alignment));
 
 #ifdef USE_VISCOELASTIC2
-  globalMatrixMemSize +=
-      yateto::alignedUpper(tensor::selectAne<Cfg>::size(), yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize +=
-      yateto::alignedUpper(tensor::selectEla<Cfg>::size(), yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize += yateto::alignedUpper(tensor::selectAne<Cfg>::size(),
+                                              yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize += yateto::alignedUpper(tensor::selectEla<Cfg>::size(),
+                                              yateto::alignedReals<real>(prop.alignment));
 #endif
 
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
-  globalMatrixMemSize +=
-      yateto::computeFamilySize<init::plusFluxMatrices<Cfg>>(yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize += yateto::computeFamilySize<init::plusFluxMatrices<Cfg>>(
+      yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize += yateto::computeFamilySize<init::minusFluxMatrices<Cfg>>(
       yateto::alignedReals<real>(prop.alignment));
 #endif // ACL_DEVICE
 
-  globalMatrixMemSize +=
-      yateto::alignedUpper(tensor::resample<Cfg>::size(), yateto::alignedReals<real>(prop.alignment));
-  globalMatrixMemSize +=
-      yateto::alignedUpper(tensor::quadweights<Cfg>::size(), yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize += yateto::alignedUpper(tensor::resample<Cfg>::size(),
+                                              yateto::alignedReals<real>(prop.alignment));
+  globalMatrixMemSize += yateto::alignedUpper(tensor::quadweights<Cfg>::size(),
+                                              yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
       yateto::alignedUpper(dr::misc::NumTpGridPoints, yateto::alignedReals<real>(prop.alignment));
   globalMatrixMemSize +=
@@ -263,8 +326,8 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
 
   // Dynamic Rupture global matrices
   unsigned drGlobalMatrixMemSize = 0;
-  drGlobalMatrixMemSize +=
-      yateto::computeFamilySize<init::V3mTo2nTWDivM<Cfg>>(yateto::alignedReals<real>(prop.alignment));
+  drGlobalMatrixMemSize += yateto::computeFamilySize<init::V3mTo2nTWDivM<Cfg>>(
+      yateto::alignedReals<real>(prop.alignment));
   drGlobalMatrixMemSize +=
       yateto::computeFamilySize<init::V3mTo2n<Cfg>>(yateto::alignedReals<real>(prop.alignment));
 
@@ -301,14 +364,28 @@ void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
       globalData, memoryAllocator, copyManager, prop.pagesizeStack, memkind);
 }
 
-template void
-    GlobalDataInitializer<matrixmanip::OnHost>::init(GlobalData& globalData,
-                                                     memory::ManagedAllocator& memoryAllocator,
-                                                     enum memory::Memkind memkind);
-
-template void
-    GlobalDataInitializer<matrixmanip::OnDevice>::init(GlobalData& globalData,
-                                                       memory::ManagedAllocator& memoryAllocator,
-                                                       enum memory::Memkind memkind);
-
 } // namespace seissol::initializer
+
+namespace seissol {
+
+void GlobalData::init(std::size_t configId) {
+  std::visit(
+      [&](auto cfg) {
+        using Cfg = decltype(cfg);
+
+        GlobalDataCfg<Cfg> host{};
+        initializer::GlobalDataInitializer<Cfg, initializer::matrixmanip::OnHost<Cfg>>::init(
+            host, allocator, memkindHost);
+        std::get<std::optional<GlobalDataCfg<Cfg>>>(onHost) = host;
+
+        if constexpr (isDeviceOn()) {
+          GlobalDataCfg<Cfg> device{};
+          initializer::GlobalDataInitializer<Cfg, initializer::matrixmanip::OnDevice<Cfg>>::init(
+              device, allocator, memkindDevice);
+          std::get<std::optional<GlobalDataCfg<Cfg>>>(onDevice) = device;
+        }
+      },
+      ConfigVariantList[configId]);
+}
+
+} // namespace seissol

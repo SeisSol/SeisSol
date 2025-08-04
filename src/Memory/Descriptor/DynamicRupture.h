@@ -34,10 +34,10 @@ inline auto allocationModeDR() {
 
 // NOTE: for the sake of GPU performance, make sure that NumPaddedPoints<Cfg> is always last.
 
-template<typename Cfg>
+template <typename Cfg>
 using DrDataArray = Real<Cfg>[dr::misc::NumPaddedPoints<Cfg>];
 
-template<typename Cfg>
+template <typename Cfg>
 using RealPtr = Real<Cfg>*;
 
 struct DynamicRupture {
@@ -53,58 +53,56 @@ struct DynamicRupture {
   struct TimeDerivativePlusDevice : public initializer::VariantVariable<RealPtr> {};
   struct TimeDerivativeMinusDevice : public initializer::VariantVariable<RealPtr> {};
   struct ImposedStatePlus : public initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = Real<Cfg>[tensor::QInterpolated<Cfg>::size()];
   };
   struct ImposedStateMinus : public initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = Real<Cfg>[tensor::QInterpolated<Cfg>::size()];
   };
   struct GodunovData : public initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = DRGodunovData<Cfg>;
   };
   struct FluxSolverPlus : public initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = Real<Cfg>[tensor::fluxSolver<Cfg>::size()];
   };
   struct FluxSolverMinus : public initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = Real<Cfg>[tensor::fluxSolver<Cfg>::size()];
   };
   struct FaceInformation : public initializer::Variable<DRFaceInformation> {};
   struct WaveSpeedsPlus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
   struct WaveSpeedsMinus : public initializer::Variable<model::IsotropicWaveSpeeds> {};
   struct DREnergyOutputVar : public initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = DREnergyOutput<Cfg>;
   };
 
   struct ImpAndEta : public initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = seissol::dr::ImpedancesAndEta<Real<Cfg>>;
   };
   struct ImpedanceMatrices : public initializer::Variable<seissol::dr::ImpedanceMatrices<Cfg>> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = seissol::dr::ImpedanceMatrices<Cfg>;
   };
   // size padded for vectorization
   // CS = coordinate system
   struct InitialStressInFaultCS : public initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = Real<Cfg>[6][dr::misc::NumPaddedPoints<Cfg>];
   };
-  struct NucleationStressInFaultCS
-      : public initializer::Variable<void> {
-        template<typename Cfg>
+  struct NucleationStressInFaultCS : public initializer::Variable<void> {
+    template <typename Cfg>
     using VariantType = Real<Cfg>[6][dr::misc::NumPaddedPoints<Cfg>];
-      };
+  };
   // will be always zero, if not using poroelasticity
   struct InitialPressure : public initializer::VariantVariable<DrDataArray> {};
   struct NucleationPressure : public initializer::VariantVariable<DrDataArray> {};
   struct Mu : public initializer::VariantVariable<DrDataArray> {};
-  struct AccumulatedSlipMagnitude : public initializer::VariantVariable<DrDataArray> {
-  };
+  struct AccumulatedSlipMagnitude : public initializer::VariantVariable<DrDataArray> {};
   struct Slip1 : public initializer::VariantVariable<DrDataArray> {
   }; // slip at given fault node along local direction 1
   struct Slip2 : public initializer::VariantVariable<DrDataArray> {
@@ -117,33 +115,31 @@ struct DynamicRupture {
   struct RuptureTime : public initializer::VariantVariable<DrDataArray> {};
   struct DynStressTime : public initializer::VariantVariable<DrDataArray> {};
   struct RuptureTimePending : public initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = bool[dr::misc::NumPaddedPoints<Cfg>];
   };
   struct DynStressTimePending : public initializer::Variable<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = bool[dr::misc::NumPaddedPoints<Cfg>];
   };
   struct PeakSlipRate : public initializer::VariantVariable<DrDataArray> {};
   struct Traction1 : public initializer::VariantVariable<DrDataArray> {};
   struct Traction2 : public initializer::VariantVariable<DrDataArray> {};
-  struct QInterpolatedPlus
-      : public initializer::Variable<void> {
-template<typename Cfg>
+  struct QInterpolatedPlus : public initializer::Variable<void> {
+    template <typename Cfg>
     using VariantType = Real<Cfg>[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
-      };
-  struct QInterpolatedMinus
-      : public initializer::Variable<void> {
-template<typename Cfg>
+  };
+  struct QInterpolatedMinus : public initializer::Variable<void> {
+    template <typename Cfg>
     using VariantType = Real<Cfg>[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
-      };
+  };
 
   struct IdofsPlusOnDevice : public initializer::Scratchpad<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = Real<Cfg>;
   };
   struct IdofsMinusOnDevice : public initializer::Scratchpad<void> {
-    template<typename Cfg>
+    template <typename Cfg>
     using VariantType = Real<Cfg>;
   };
 
@@ -151,7 +147,7 @@ template<typename Cfg>
 
   using Storage = initializer::Storage<DynrupVarmap>;
   using Layer = initializer::Layer<DynrupVarmap>;
-  template<typename Config>
+  template <typename Config>
   using Ref = initializer::Layer<DynrupVarmap>::CellRef<Config>;
   using Backmap = initializer::StorageBackmap<1>;
 
@@ -223,7 +219,7 @@ template<typename Cfg>
 };
 
 struct LTSLinearSlipWeakening : public DynamicRupture {
-  struct DC : public initializer::VariantVariable<DrDataArray> { };
+  struct DC : public initializer::VariantVariable<DrDataArray> {};
   struct MuS : public initializer::VariantVariable<DrDataArray> {};
   struct MuD : public initializer::VariantVariable<DrDataArray> {};
   struct Cohesion : public initializer::VariantVariable<DrDataArray> {};
@@ -302,16 +298,16 @@ struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
 struct LTSThermalPressurization {
   struct Temperature : public initializer::VariantVariable<DrDataArray> {};
   struct Pressure : public initializer::VariantVariable<DrDataArray> {};
-  struct Theta : public initializer::Variable<
-                     void> {
-template<typename Cfg>
-    using VariantType = Real<Cfg>[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints<Cfg>];
-                     };
-  struct Sigma : public initializer::Variable<
-                     void> {
-template<typename Cfg>
-    using VariantType = Real<Cfg>[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints<Cfg>];
-                     };
+  struct Theta : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType =
+        Real<Cfg>[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints<Cfg>];
+  };
+  struct Sigma : public initializer::Variable<void> {
+    template <typename Cfg>
+    using VariantType =
+        Real<Cfg>[seissol::dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints<Cfg>];
+  };
   struct HalfWidthShearZone : public initializer::VariantVariable<DrDataArray> {};
   struct HydraulicDiffusivity : public initializer::VariantVariable<DrDataArray> {};
 
