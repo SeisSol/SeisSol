@@ -47,6 +47,11 @@ struct AcousticMaterial : public Material {
 
   double lambda;
 
+  static inline const std::unordered_map<std::string, double AcousticMaterial::*> ParameterMap{
+      {"rho", &AcousticMaterial::rho},
+      {"lambda", &AcousticMaterial::lambda},
+  };
+
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
   [[nodiscard]] double getMuBar() const override { return 0.0; }

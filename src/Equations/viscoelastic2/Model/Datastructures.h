@@ -65,6 +65,13 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   double Qp;
   double Qs;
 
+  static inline const std::unordered_map<std::string, double ViscoElasticMaterialParametrized::*>
+      ParameterMap{{"rho", &ViscoElasticMaterialParametrized::rho},
+                   {"lambda", &ViscoElasticMaterialParametrized::lambda},
+                   {"mu", &ViscoElasticMaterialParametrized::mu},
+                   {"Qp", &ViscoElasticMaterialParametrized::Qp},
+                   {"Qs", &ViscoElasticMaterialParametrized::Qs}};
+
   ViscoElasticMaterialParametrized() = default;
   ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)
       : ElasticMaterial(materialValues) {

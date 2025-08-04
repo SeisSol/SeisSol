@@ -59,6 +59,19 @@ struct PoroElasticMaterial : public ElasticMaterial {
   double rhoFluid;
   double viscosity;
 
+  static inline const std::unordered_map<std::string, double PoroElasticMaterial::*> ParameterMap{
+      {"rho", &PoroElasticMaterial::rho},
+      {"lambda", &PoroElasticMaterial::lambda},
+      {"mu", &PoroElasticMaterial::mu},
+      {"bulk_solid", &PoroElasticMaterial::bulkSolid},
+      {"porosity", &PoroElasticMaterial::porosity},
+      {"permeability", &PoroElasticMaterial::permeability},
+      {"tortuosity", &PoroElasticMaterial::tortuosity},
+      {"bulk_fluid", &PoroElasticMaterial::bulkFluid},
+      {"rho_fluid", &PoroElasticMaterial::rhoFluid},
+      {"viscosity", &PoroElasticMaterial::viscosity},
+  };
+
   PoroElasticMaterial() = default;
 
   explicit PoroElasticMaterial(const std::vector<double>& materialValues)

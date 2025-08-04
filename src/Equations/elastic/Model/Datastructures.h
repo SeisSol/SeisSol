@@ -18,6 +18,7 @@
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace seissol::model {
@@ -45,6 +46,11 @@ struct ElasticMaterial : Material {
 
   double lambda;
   double mu;
+
+  static inline const std::unordered_map<std::string, double ElasticMaterial::*> ParameterMap{
+      {"rho", &ElasticMaterial::rho},
+      {"lambda", &ElasticMaterial::lambda},
+      {"mu", &ElasticMaterial::mu}};
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
