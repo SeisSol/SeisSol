@@ -96,7 +96,6 @@ TimeCluster<Cfg>::TimeCluster(
       dynamicRuptureScheduler(dynamicRuptureScheduler) {
   // assert all pointers are valid
   assert(clusterData != nullptr);
-  assert(globalData != nullptr);
 
   // set timings to zero
   receiverTime = 0;

@@ -202,11 +202,11 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
-  const auto plasticityMask = convertStringToVector<bool>(plasticityMaskString, false);
+  const auto plasticityMask = convertStringToVector<bool>(plasticityMaskString, {});
 
   const auto integrationMaskString =
       reader->readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
-  const auto integrationMask = convertStringToVector<bool>(integrationMaskString, false);
+  const auto integrationMask = convertStringToVector<bool>(integrationMaskString, {});
 
   const auto groupsRaw = reader->readWithDefault("outputgroups", std::vector<int>());
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());

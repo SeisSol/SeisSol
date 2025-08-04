@@ -12,6 +12,8 @@
 #include <Common/Iterator.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/CellLocalMatrices.h>
+#include <Initializer/InitProcedure/InitModel.h>
 #include <Initializer/InitProcedure/Internal/Buckets.h>
 #include <Initializer/InitProcedure/Internal/LtsSetup.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
@@ -34,6 +36,60 @@
 
 namespace {
 using namespace seissol::initializer;
+
+void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
+  const auto& seissolParams = seissolInstance.getSeisSolParameters();
+
+  // \todo Move this to some common initialization place
+  auto& meshReader = seissolInstance.meshReader();
+  auto& memoryManager = seissolInstance.getMemoryManager();
+
+  seissol::initializer::initializeCellLocalMatrices(meshReader,
+                                                    memoryManager.getLtsStorage(),
+                                                    memoryManager.clusterLayout(),
+                                                    seissolParams.model);
+
+  if (seissolParams.drParameters.etaHack != 1.0) {
+    logWarning() << "The \"eta hack\" has been enabled in the timeframe [0,"
+                 << seissolParams.drParameters.etaStop
+                 << ") to mitigate quasi-divergent solutions in the "
+                    "friction law. The results may not conform to the existing benchmarks.";
+  }
+
+  seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
+                                                         memoryManager.getLtsStorage(),
+                                                         memoryManager.getBackmap(),
+                                                         memoryManager.getDRStorage());
+
+  memoryManager.initFrictionData();
+
+  seissol::initializer::initializeBoundaryMappings(
+      meshReader, memoryManager.getEasiBoundaryReader(), memoryManager.getLtsStorage());
+
+#ifdef ACL_DEVICE
+  memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
+#endif
+
+  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
+
+  if (itmParameters.itmEnabled) {
+    auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
+    const double scalingFactor = itmParameters.itmVelocityScalingFactor;
+    const double startingTime = itmParameters.itmStartingTime;
+
+    auto& ltsStorage = memoryManager.getLtsStorage();
+    const auto* timeStepping = &seissolInstance.timeManager().getClusterLayout();
+
+    initializeTimeMirrorManagers(scalingFactor,
+                                 startingTime,
+                                 &meshReader,
+                                 ltsStorage,
+                                 timeMirrorManagers.first,
+                                 timeMirrorManagers.second,
+                                 seissolInstance,
+                                 timeStepping);
+  }
+}
 
 void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
@@ -266,9 +322,19 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   seissolInstance.getMemoryManager().fixateLtsStorage();
 
+  seissol::initializer::initprocedure::initModel(seissolInstance);
+
   // pass 4: correct LTS setup, again. Do bucket setup, determine communication datastructures
   logInfo() << "Setting up data exchange and face displacements (buckets)...";
   const auto haloCommunication = internal::bucketsAndCommunication(ltsStorage, meshLayout);
+
+  logInfo() << "Finish setting up the DR etc.";
+  seissolInstance.getMemoryManager().initializeMemoryLayout();
+
+  seissolInstance.getMemoryManager().fixateBoundaryStorage();
+
+  logInfo() << "Initializing cell materials...";
+  initializeCellMatrices(seissolInstance);
 
   logInfo() << "Setting up kernel clusters...";
   seissolInstance.timeManager().addClusters(clusterLayout,

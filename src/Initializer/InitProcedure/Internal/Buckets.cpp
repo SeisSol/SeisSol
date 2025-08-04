@@ -58,7 +58,7 @@ void initBucketItem(T*& data, void* bucket, bool memsetCpu) {
     // this rather strange offset behavior is required by clang-tidy (and the reason makes sense)
     data = reinterpret_cast<T*>(bucketPtr + offset);
     if (memsetCpu) {
-      std::memset(data, 0, sizeof(T));
+      // std::memset(data, 0, sizeof(T));
     } else {
 #ifdef ACL_DEVICE
 

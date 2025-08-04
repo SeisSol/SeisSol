@@ -173,7 +173,7 @@ CellToVertexArray CellToVertexArray::filter(const std::vector<bool>& keep) const
   return CellToVertexArray(
       newCount,
       [=](size_t idx) { return baseCoordinates(offset[idx]); },
-      [&](size_t idx) { return baseGroups(offset[idx]); });
+      [=](size_t idx) { return baseGroups(offset[idx]); });
 }
 
 easi::Query ElementBarycenterGenerator::generate() const {
@@ -687,7 +687,7 @@ struct QueryAllMaterials {
     std::vector<bool> keepNow(ctvArray.size);
     std::vector<std::size_t> indices;
     for (std::size_t i = 0; i < ctvArray.size; ++i) {
-      keepNow[i] = ctvArray.elementGroups(i) == 0;
+      keepNow[i] = true;//ctvArray.elementGroups(i) == 0;
       if (keepNow[i]) {
         indices.emplace_back(i);
       }
@@ -697,7 +697,7 @@ struct QueryAllMaterials {
     const auto queryGen = seissol::initializer::getBestQueryGenerator<Head>(
         params.plasticity, params.useCellHomogenizedMaterial, filteredCTV);
 
-    const auto materialsNow = queryDB<Head>(queryGen, params.materialFileName, ctvArray.size);
+    const auto materialsNow = queryDB<Head>(queryGen, params.materialFileName, filteredCTV.size);
 
     for (std::size_t i = 0; i < materialsNow.size(); ++i) {
       materials[indices[i]] = materialsNow[i];

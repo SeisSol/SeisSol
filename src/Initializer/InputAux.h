@@ -106,7 +106,7 @@ std::vector<T> convertStringToVector(const std::string& inputString,
     if (inputString.at(i) == delimiter) {
       // either we have a word, or two subsequent delimiters
       if (s == State::Word || !skipEmpty) {
-        result.at(wordCount) = convert(begin, i);
+        result.emplace_back(convert(begin, i));
         ++wordCount;
       }
 
@@ -121,7 +121,7 @@ std::vector<T> convertStringToVector(const std::string& inputString,
   // handle rest. Note that if a line ends with a delimiter, we consider the last element to be an
   // empty one again.
   if (s == State::Word || !skipEmpty) {
-    result.at(wordCount) = convert(begin, inputString.size());
+    result.emplace_back(convert(begin, inputString.size()));
     ++wordCount;
   }
 

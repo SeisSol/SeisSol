@@ -22,7 +22,7 @@
 
 namespace seissol::kernels::solver::stp {
 
-template<typename Cfg>
+template <typename Cfg>
 class Spacetime : public SpacetimeKernel<Cfg> {
   public:
   void setGlobalData(const GlobalData& global) override;
@@ -60,7 +60,7 @@ class Spacetime : public SpacetimeKernel<Cfg> {
 #endif
 };
 
-template<typename Cfg>
+template <typename Cfg>
 class Time : public TimeKernel<Cfg> {
   public:
   void setGlobalData(const GlobalData& global) override;

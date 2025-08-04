@@ -202,60 +202,6 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   }
 }
 
-void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-
-  // \todo Move this to some common initialization place
-  auto& meshReader = seissolInstance.meshReader();
-  auto& memoryManager = seissolInstance.getMemoryManager();
-
-  seissol::initializer::initializeCellLocalMatrices(meshReader,
-                                                    memoryManager.getLtsStorage(),
-                                                    memoryManager.clusterLayout(),
-                                                    seissolParams.model);
-
-  if (seissolParams.drParameters.etaHack != 1.0) {
-    logWarning() << "The \"eta hack\" has been enabled in the timeframe [0,"
-                 << seissolParams.drParameters.etaStop
-                 << ") to mitigate quasi-divergent solutions in the "
-                    "friction law. The results may not conform to the existing benchmarks.";
-  }
-
-  seissol::initializer::initializeDynamicRuptureMatrices(meshReader,
-                                                         memoryManager.getLtsStorage(),
-                                                         memoryManager.getBackmap(),
-                                                         memoryManager.getDRStorage());
-
-  memoryManager.initFrictionData();
-
-  seissol::initializer::initializeBoundaryMappings(
-      meshReader, memoryManager.getEasiBoundaryReader(), memoryManager.getLtsStorage());
-
-#ifdef ACL_DEVICE
-  memoryManager.recordExecutionPaths(seissolParams.model.plasticity);
-#endif
-
-  auto itmParameters = seissolInstance.getSeisSolParameters().model.itmParameters;
-
-  if (itmParameters.itmEnabled) {
-    auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
-    const double scalingFactor = itmParameters.itmVelocityScalingFactor;
-    const double startingTime = itmParameters.itmStartingTime;
-
-    auto& ltsStorage = memoryManager.getLtsStorage();
-    const auto* timeStepping = &seissolInstance.timeManager().getClusterLayout();
-
-    initializeTimeMirrorManagers(scalingFactor,
-                                 startingTime,
-                                 &meshReader,
-                                 ltsStorage,
-                                 timeMirrorManagers.first,
-                                 timeMirrorManagers.second,
-                                 seissolInstance,
-                                 timeStepping);
-  }
-}
-
 void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
   if constexpr (isDeviceOn()) {
     const auto hdswitch = seissolInstance.env().get<std::string>("DEVICE_HOST_SWITCH", "none");
@@ -282,14 +228,6 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
                       "yet. Expect incorrect results.";
     }
   }
-}
-
-void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-
-  seissolInstance.getMemoryManager().initializeMemoryLayout();
-
-  seissolInstance.getMemoryManager().fixateBoundaryStorage();
 }
 
 } // namespace
@@ -338,14 +276,6 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
     logInfo() << "Determine Host-Device switchpoint";
     hostDeviceCoexecution(seissolInstance);
   }
-
-  // init memory layout (needs cell material values to initialize e.g. displacements correctly)
-  logInfo() << "Initialize Memory layout.";
-  initializeMemoryLayout(seissolInstance);
-
-  // init cell matrices
-  logInfo() << "Initialize cell-local matrices.";
-  initializeCellMatrices(seissolInstance);
 
   watch.pause();
   watch.printTime("Model initialized in:");

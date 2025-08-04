@@ -38,10 +38,12 @@ void Spacetime::setGlobalData(const GlobalData& global) {
   for (std::size_t n = 0; n < Cfg::ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
-        m_krnlPrototype.kDivMTSub(d, n) = init::kDivMTSub<Cfg>::Values[tensor::kDivMTSub<Cfg>::index(d, n)];
+        m_krnlPrototype.kDivMTSub(d, n) =
+            init::kDivMTSub<Cfg>::Values[tensor::kDivMTSub<Cfg>::index(d, n)];
       }
     }
-    m_krnlPrototype.selectModes(n) = init::selectModes<Cfg>::Values[tensor::selectModes<Cfg>::index(n)];
+    m_krnlPrototype.selectModes(n) =
+        init::selectModes<Cfg>::Values[tensor::selectModes<Cfg>::index(n)];
   }
   for (std::size_t k = 0; k < seissol::model::MaterialTT<Cfg>::NumQuantities; k++) {
     m_krnlPrototype.selectQuantity(k) =
@@ -61,7 +63,8 @@ void Spacetime::setGlobalData(const GlobalData& global) {
             init::kDivMTSub<Cfg>::Values[tensor::kDivMTSub<Cfg>::index(d, n)];
       }
     }
-    deviceKrnlPrototype.selectModes(n) = init::selectModes<Cfg>::Values[tensor::selectModes<Cfg>::index(n)];
+    deviceKrnlPrototype.selectModes(n) =
+        init::selectModes<Cfg>::Values[tensor::selectModes<Cfg>::index(n)];
   }
   for (std::size_t k = 0; k < seissol::model::MaterialTT<Cfg>::NumQuantities; k++) {
     deviceKrnlPrototype.selectQuantity(k) =
@@ -114,10 +117,12 @@ void Spacetime::executeSTP(double timeStepWidth,
   // If the timestep is not as expected e.g. when approaching a sync point
   // we have to recalculate it
   if (timeStepWidth != data.template get<LTS::LocalIntegration>().specific.typicalTimeStepWidth) {
-    auto sourceMatrix =
-        init::ET<Cfg>::view::create(data.template get<LTS::LocalIntegration>().specific.sourceMatrix);
-    real ZinvData[seissol::model::MaterialTT<Cfg>::NumQuantities][Cfg::ConvergenceOrder * Cfg::ConvergenceOrder];
-    model::zInvInitializerForLoop<Cfg, 0,
+    auto sourceMatrix = init::ET<Cfg>::view::create(
+        data.template get<LTS::LocalIntegration>().specific.sourceMatrix);
+    real ZinvData[seissol::model::MaterialTT<Cfg>::NumQuantities]
+                 [Cfg::ConvergenceOrder * Cfg::ConvergenceOrder];
+    model::zInvInitializerForLoop<Cfg,
+                                  0,
                                   seissol::model::MaterialTT<Cfg>::NumQuantities,
                                   decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
     for (std::size_t i = 0; i < seissol::model::MaterialTT<Cfg>::NumQuantities; i++) {
