@@ -29,6 +29,7 @@
 #include <easi/Query.h>
 #include <iterator>
 #include <memory>
+#include <numeric>
 #include <set>
 #include <utility>
 #include <vector>
@@ -298,228 +299,44 @@ easi::Query FaultGPGenerator::generate() const {
 
 using namespace seissol::model;
 
-template <>
-void MaterialParameterDB<ElasticMaterial>::addBindingPoints(
-    easi::ArrayOfStructsAdapter<ElasticMaterial>& adapter) {
-  adapter.addBindingPoint("rho", &ElasticMaterial::rho);
-  adapter.addBindingPoint("mu", &ElasticMaterial::mu);
-  adapter.addBindingPoint("lambda", &ElasticMaterial::lambda);
-}
-
-template <>
-void MaterialParameterDB<AcousticMaterial>::addBindingPoints(
-    easi::ArrayOfStructsAdapter<AcousticMaterial>& adapter) {
-  adapter.addBindingPoint("rho", &AcousticMaterial::rho);
-  adapter.addBindingPoint("lambda", &AcousticMaterial::lambda);
-}
-
-template <>
-void MaterialParameterDB<ViscoElasticMaterial>::addBindingPoints(
-    easi::ArrayOfStructsAdapter<ViscoElasticMaterial>& adapter) {
-  adapter.addBindingPoint("rho", &ViscoElasticMaterial::rho);
-  adapter.addBindingPoint("mu", &ViscoElasticMaterial::mu);
-  adapter.addBindingPoint("lambda", &ViscoElasticMaterial::lambda);
-  adapter.addBindingPoint("Qp", &ViscoElasticMaterial::Qp);
-  adapter.addBindingPoint("Qs", &ViscoElasticMaterial::Qs);
-}
-
-template <>
-void MaterialParameterDB<PoroElasticMaterial>::addBindingPoints(
-    easi::ArrayOfStructsAdapter<PoroElasticMaterial>& adapter) {
-  adapter.addBindingPoint("bulk_solid", &PoroElasticMaterial::bulkSolid);
-  adapter.addBindingPoint("rho", &PoroElasticMaterial::rho);
-  adapter.addBindingPoint("lambda", &PoroElasticMaterial::lambda);
-  adapter.addBindingPoint("mu", &PoroElasticMaterial::mu);
-  adapter.addBindingPoint("porosity", &PoroElasticMaterial::porosity);
-  adapter.addBindingPoint("permeability", &PoroElasticMaterial::permeability);
-  adapter.addBindingPoint("tortuosity", &PoroElasticMaterial::tortuosity);
-  adapter.addBindingPoint("bulk_fluid", &PoroElasticMaterial::bulkFluid);
-  adapter.addBindingPoint("rho_fluid", &PoroElasticMaterial::rhoFluid);
-  adapter.addBindingPoint("viscosity", &PoroElasticMaterial::viscosity);
-}
-
-template <>
-void MaterialParameterDB<Plasticity>::addBindingPoints(
-    easi::ArrayOfStructsAdapter<Plasticity>& adapter) {
-  adapter.addBindingPoint("bulkFriction", &Plasticity::bulkFriction);
-  adapter.addBindingPoint("plastCo", &Plasticity::plastCo);
-  adapter.addBindingPoint("s_xx", &Plasticity::sXX);
-  adapter.addBindingPoint("s_yy", &Plasticity::sYY);
-  adapter.addBindingPoint("s_zz", &Plasticity::sZZ);
-  adapter.addBindingPoint("s_xy", &Plasticity::sXY);
-  adapter.addBindingPoint("s_yz", &Plasticity::sYZ);
-  adapter.addBindingPoint("s_xz", &Plasticity::sXZ);
-}
-
-template <>
-void MaterialParameterDB<AnisotropicMaterial>::addBindingPoints(
-    easi::ArrayOfStructsAdapter<AnisotropicMaterial>& adapter) {
-  adapter.addBindingPoint("rho", &AnisotropicMaterial::rho);
-  adapter.addBindingPoint("c11", &AnisotropicMaterial::c11);
-  adapter.addBindingPoint("c12", &AnisotropicMaterial::c12);
-  adapter.addBindingPoint("c13", &AnisotropicMaterial::c13);
-  adapter.addBindingPoint("c14", &AnisotropicMaterial::c14);
-  adapter.addBindingPoint("c15", &AnisotropicMaterial::c15);
-  adapter.addBindingPoint("c16", &AnisotropicMaterial::c16);
-  adapter.addBindingPoint("c22", &AnisotropicMaterial::c22);
-  adapter.addBindingPoint("c23", &AnisotropicMaterial::c23);
-  adapter.addBindingPoint("c24", &AnisotropicMaterial::c24);
-  adapter.addBindingPoint("c25", &AnisotropicMaterial::c25);
-  adapter.addBindingPoint("c26", &AnisotropicMaterial::c26);
-  adapter.addBindingPoint("c33", &AnisotropicMaterial::c33);
-  adapter.addBindingPoint("c34", &AnisotropicMaterial::c34);
-  adapter.addBindingPoint("c35", &AnisotropicMaterial::c35);
-  adapter.addBindingPoint("c36", &AnisotropicMaterial::c36);
-  adapter.addBindingPoint("c44", &AnisotropicMaterial::c44);
-  adapter.addBindingPoint("c45", &AnisotropicMaterial::c45);
-  adapter.addBindingPoint("c46", &AnisotropicMaterial::c46);
-  adapter.addBindingPoint("c55", &AnisotropicMaterial::c55);
-  adapter.addBindingPoint("c56", &AnisotropicMaterial::c56);
-  adapter.addBindingPoint("c66", &AnisotropicMaterial::c66);
-}
-
 template <class T>
 void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
                                            const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
+  auto suppliedParameters = model->suppliedParameters();
+  for (const auto& [name, pointer] : T::ParameterMap) {
+  }
+
   easi::Query query = queryGen.generate();
-  const unsigned numPoints = query.numPoints();
+  const std::size_t numPoints = query.numPoints();
 
   std::vector<T> materialsFromQuery(numPoints);
   easi::ArrayOfStructsAdapter<T> adapter(materialsFromQuery.data());
-  MaterialParameterDB<T>().addBindingPoints(adapter);
+  for (const auto& [name, pointer] : T::ParameterMap) {
+    adapter.addBindingPoint(name, pointer);
+  }
   model->evaluate(query, adapter);
 
   // Only use homogenization when ElementAverageGenerator has been supplied
   if (const auto* gen = dynamic_cast<const ElementAverageGenerator*>(&queryGen)) {
-    const unsigned numElems = numPoints / NumQuadpoints;
-    const std::array<double, NumQuadpoints> quadratureWeights{gen->getQuadratureWeights()};
+    const std::size_t numElems = numPoints / NumQuadpoints;
+    const std::vector<double> quadratureWeights(gen->getQuadratureWeights().begin(),
+                                                gen->getQuadratureWeights().end());
 
 // Compute homogenized material parameters for every element in a specialization for the
 // particular material
-#pragma omp parallel for
-    for (unsigned elementIdx = 0; elementIdx < numElems; ++elementIdx) {
-      m_materials->at(elementIdx) =
-          this->computeAveragedMaterial(elementIdx, quadratureWeights, materialsFromQuery);
+#pragma omp parallel for schedule(static)
+    for (std::size_t elementIdx = 0; elementIdx < numElems; ++elementIdx) {
+      m_materials->at(elementIdx) = MaterialAverager<T>::computeAveragedMaterial(
+          elementIdx, quadratureWeights, materialsFromQuery);
     }
   } else {
     // Usual behavior without homogenization
-    for (unsigned i = 0; i < numPoints; ++i) {
+    for (std::size_t i = 0; i < numPoints; ++i) {
       m_materials->at(i) = T(materialsFromQuery[i]);
     }
   }
   delete model;
-}
-
-// Computes the averaged material, assuming that materialsFromQuery, stores
-// NUM_QUADPOINTS material samples per mesh element.
-// We assume that materialsFromQuery[i * NUM_QUADPOINTS, ..., (i+1)*NUM_QUADPOINTS-1]
-// stores samples from element i.
-// Fallback variant: if no specialization is implemented return materialsFromQuery[i*NUM_QUADPOINTS]
-// Note: this base variant should actually never be called, but only the specializations!
-// The specializations should implement proper averaging.
-template <class T>
-T MaterialParameterDB<T>::computeAveragedMaterial(
-    unsigned elementIdx,
-    const std::array<double, NumQuadpoints>& quadratureWeights,
-    const std::vector<T>& materialsFromQuery) {
-  logWarning() << "You want me to compute an average material for a generic type. In general, this "
-                  "function should never be called, but always a proper specialization!";
-  const unsigned globalPointIdx = NumQuadpoints * elementIdx;
-  return T(materialsFromQuery[globalPointIdx]);
-}
-
-template <>
-ElasticMaterial MaterialParameterDB<ElasticMaterial>::computeAveragedMaterial(
-    unsigned elementIdx,
-    const std::array<double, NumQuadpoints>& quadratureWeights,
-    const std::vector<ElasticMaterial>& materialsFromQuery) {
-  double muMeanInv = 0.0;
-  double rhoMean = 0.0;
-  // Average of v / E with v: Poisson's ratio, E: Young's modulus
-  double vERatioMean = 0.0;
-
-  // Acoustic material has zero mu. This is a special case because the harmonic mean of a set
-  // of numbers that includes zero is defined as zero.
-  // Hence: If part of the element is acoustic, the entire element is considered to be acoustic!
-  bool isAcoustic = false;
-
-  // Average of the bulk modulus, used for acoustic material
-  double kMeanInv = 0.0;
-
-  for (unsigned quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
-    // Divide by volume of reference tetrahedron (1/6)
-    const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
-    const unsigned globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
-    const auto& elementMaterial = materialsFromQuery[globalPointIdx];
-    isAcoustic |= elementMaterial.mu == 0.0;
-    if (!isAcoustic) {
-      muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
-    }
-    rhoMean += elementMaterial.rho * quadWeight;
-    vERatioMean +=
-        elementMaterial.lambda /
-        (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
-        quadWeight;
-    kMeanInv += 1.0 / (elementMaterial.lambda + (2.0 / 3.0) * elementMaterial.mu) * quadWeight;
-  }
-
-  ElasticMaterial result{};
-  result.rho = rhoMean;
-
-  // Harmonic average is used for mu/K, so take the reciprocal
-  if (isAcoustic) {
-    result.lambda = 1.0 / kMeanInv;
-    result.mu = 0.0;
-  } else {
-    const auto muMean = 1.0 / muMeanInv;
-    // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
-    result.lambda = (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
-    result.mu = muMean;
-  }
-
-  return result;
-}
-
-template <>
-ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedMaterial(
-    unsigned elementIdx,
-    const std::array<double, NumQuadpoints>& quadratureWeights,
-    const std::vector<ViscoElasticMaterial>& materialsFromQuery) {
-  double muMeanInv = 0.0;
-  double rhoMean = 0.0;
-  double vERatioMean = 0.0;
-  double qpMean = 0.0;
-  double qsMean = 0.0;
-
-  for (unsigned quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
-    const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
-    const unsigned globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
-    const auto& elementMaterial = materialsFromQuery[globalPointIdx];
-    muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
-    rhoMean += elementMaterial.rho * quadWeight;
-    vERatioMean +=
-        elementMaterial.lambda /
-        (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
-        quadWeight;
-    qpMean += elementMaterial.Qp * quadWeight;
-    qsMean += elementMaterial.Qs * quadWeight;
-  }
-
-  // Harmonic average is used for mu, so take the reciprocal
-  const double muMean = 1.0 / muMeanInv;
-  // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
-  const double lambdaMean =
-      (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
-
-  ViscoElasticMaterial result{};
-  result.rho = rhoMean;
-  result.mu = muMean;
-  result.lambda = lambdaMean;
-  result.Qp = qpMean;
-  result.Qs = qsMean;
-
-  return result;
 }
 
 template <>
@@ -535,26 +352,131 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
   // assume isotropic behavior and calculate the parameters accordingly
   if (suppliedParameters.find("mu") != suppliedParameters.end() &&
       suppliedParameters.find("lambda") != suppliedParameters.end()) {
-    std::vector<ElasticMaterial> elasticMaterials(query.numPoints());
-    easi::ArrayOfStructsAdapter<ElasticMaterial> adapter(elasticMaterials.data());
-    MaterialParameterDB<ElasticMaterial>().addBindingPoints(adapter);
-    const unsigned numPoints = query.numPoints();
-    model->evaluate(query, adapter);
+    MaterialParameterDB<ElasticMaterial> edb;
+    std::vector<ElasticMaterial> preMaterials(m_materials->size());
+    edb.setMaterialVector(&preMaterials);
+    edb.evaluateModel(fileName, queryGen);
 
-    for (unsigned i = 0; i < numPoints; i++) {
-      m_materials->at(i) = AnisotropicMaterial(elasticMaterials[i]);
+    for (std::size_t i = 0; i < m_materials->size(); i++) {
+      m_materials->at(i) = AnisotropicMaterial(preMaterials[i]);
     }
   } else {
     easi::ArrayOfStructsAdapter<AnisotropicMaterial> arrayOfStructsAdapter(m_materials->data());
-    addBindingPoints(arrayOfStructsAdapter);
+    for (const auto& [name, pointer] : AnisotropicMaterial::ParameterMap) {
+      arrayOfStructsAdapter.addBindingPoint(name, pointer);
+    }
     model->evaluate(query, arrayOfStructsAdapter);
   }
   delete model;
 }
 
-template <typename T>
-void FaultParameterDB<T>::evaluateModel(const std::string& fileName,
-                                        const QueryGenerator& queryGen) {
+// Computes the averaged material, assuming that materialsFromQuery, stores
+// NUM_QUADPOINTS material samples per mesh element.
+// We assume that materialsFromQuery[i * NUM_QUADPOINTS, ..., (i+1)*NUM_QUADPOINTS-1]
+// stores samples from element i.
+
+template <>
+struct MaterialAverager<ElasticMaterial> {
+  static constexpr bool Implemented = true;
+  static ElasticMaterial
+      computeAveragedMaterial(std::size_t elementIdx,
+                              const std::vector<double>& quadratureWeights,
+                              const std::vector<ElasticMaterial>& materialsFromQuery) {
+    double muMeanInv = 0.0;
+    double rhoMean = 0.0;
+    // Average of v / E with v: Poisson's ratio, E: Young's modulus
+    double vERatioMean = 0.0;
+
+    // Acoustic material has zero mu. This is a special case because the harmonic mean of a set
+    // of numbers that includes zero is defined as zero.
+    // Hence: If part of the element is acoustic, the entire element is considered to be acoustic!
+    bool isAcoustic = false;
+
+    // Average of the bulk modulus, used for acoustic material
+    double kMeanInv = 0.0;
+
+    for (unsigned quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
+      // Divide by volume of reference tetrahedron (1/6)
+      const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
+      const unsigned globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
+      const auto& elementMaterial = materialsFromQuery[globalPointIdx];
+      isAcoustic |= elementMaterial.mu == 0.0;
+      if (!isAcoustic) {
+        muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
+      }
+      rhoMean += elementMaterial.rho * quadWeight;
+      vERatioMean +=
+          elementMaterial.lambda /
+          (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
+          quadWeight;
+      kMeanInv += 1.0 / (elementMaterial.lambda + (2.0 / 3.0) * elementMaterial.mu) * quadWeight;
+    }
+
+    ElasticMaterial result{};
+    result.rho = rhoMean;
+
+    // Harmonic average is used for mu/K, so take the reciprocal
+    if (isAcoustic) {
+      result.lambda = 1.0 / kMeanInv;
+      result.mu = 0.0;
+    } else {
+      const auto muMean = 1.0 / muMeanInv;
+      // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
+      result.lambda =
+          (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
+      result.mu = muMean;
+    }
+
+    return result;
+  }
+};
+
+template <std::size_t Mechanisms>
+struct MaterialAverager<ViscoElasticMaterialParametrized<Mechanisms>> {
+  static constexpr bool Implemented = true;
+  static ViscoElasticMaterialParametrized<Mechanisms>
+      computeAveragedMaterial(std::size_t elementIdx,
+                              const std::vector<double>& quadratureWeights,
+                              const std::vector<ViscoElasticMaterialParametrized<Mechanisms>>& materialsFromQuery) {
+    double muMeanInv = 0.0;
+    double rhoMean = 0.0;
+    double vERatioMean = 0.0;
+    double qpMean = 0.0;
+    double qsMean = 0.0;
+
+    for (unsigned quadPointIdx = 0; quadPointIdx < NumQuadpoints; ++quadPointIdx) {
+      const double quadWeight = 6.0 * quadratureWeights[quadPointIdx];
+      const unsigned globalPointIdx = NumQuadpoints * elementIdx + quadPointIdx;
+      const auto& elementMaterial = materialsFromQuery[globalPointIdx];
+      muMeanInv += 1.0 / elementMaterial.mu * quadWeight;
+      rhoMean += elementMaterial.rho * quadWeight;
+      vERatioMean +=
+          elementMaterial.lambda /
+          (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
+          quadWeight;
+      qpMean += elementMaterial.Qp * quadWeight;
+      qsMean += elementMaterial.Qs * quadWeight;
+    }
+
+    // Harmonic average is used for mu, so take the reciprocal
+    const double muMean = 1.0 / muMeanInv;
+    // Derive lambda from averaged mu and (Poisson ratio / elastic modulus)
+    const double lambdaMean =
+        (4.0 * std::pow(muMean, 2) * vERatioMean) / (1.0 - 6.0 * muMean * vERatioMean);
+
+    ViscoElasticMaterialParametrized<Mechanisms> result{};
+    result.rho = rhoMean;
+    result.mu = muMean;
+    result.lambda = lambdaMean;
+    result.Qp = qpMean;
+    result.Qs = qsMean;
+
+    return result;
+  }
+};
+
+template<typename T>
+void FaultParameterDB<T>::evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) {
   easi::Component* model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
 

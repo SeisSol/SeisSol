@@ -121,15 +121,19 @@ class ParameterDB {
   static easi::Component* loadModel(const std::string& fileName);
 };
 
+template <typename T>
+struct MaterialAverager {
+  static constexpr bool Implemented = false;
+  static T computeAveragedMaterial(std::size_t elementIdx,
+                                   const std::vector<double>& quadratureWeights,
+                                   const std::vector<T>& materialsFromQuery) {}
+};
+
 template <class T>
 class MaterialParameterDB : ParameterDB {
   public:
-  T computeAveragedMaterial(unsigned elementIdx,
-                            const std::array<double, NumQuadpoints>& quadratureWeights,
-                            const std::vector<T>& materialsFromQuery);
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
   void setMaterialVector(std::vector<T>* materials) { m_materials = materials; }
-  void addBindingPoints(easi::ArrayOfStructsAdapter<T>& adapter) {};
 
   private:
   std::vector<T>* m_materials{};

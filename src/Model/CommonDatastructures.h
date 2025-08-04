@@ -87,6 +87,17 @@ struct Plasticity {
   double sXY;
   double sYZ;
   double sXZ;
+
+  static inline const std::unordered_map<std::string, double Plasticity::*> ParameterMap{
+      {"bulkFriction", &Plasticity::bulkFriction},
+      {"plastCo", &Plasticity::plastCo},
+      {"s_xx", &Plasticity::sXX},
+      {"s_yy", &Plasticity::sYY},
+      {"s_zz", &Plasticity::sZZ},
+      {"s_xy", &Plasticity::sXY},
+      {"s_yz", &Plasticity::sYZ},
+      {"s_xz", &Plasticity::sXZ},
+  };
 };
 
 struct IsotropicWaveSpeeds {
