@@ -224,31 +224,16 @@ class Storage {
     return memoryInfo[index];
   }
 
+  template<typename Config>
   auto lookupRef(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
     assert(position != StoragePosition::NullPosition);
-    return layer(position.color).cellRef(position.cell, place);
-  }
-
-  template <typename HandleT>
-  auto& lookup(const HandleT& handle,
-               const StoragePosition& position,
-               AllocationPlace place = AllocationPlace::Host) {
-    assert(position != StoragePosition::NullPosition);
-    return layer(position.color).var(handle)[position.cell];
+    return layer(position.color).template cellRef<Config>(position.cell, place);
   }
 
   template <typename StorageT>
   auto& lookup(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
     assert(position != StoragePosition::NullPosition);
     return layer(position.color).template var<StorageT>()[position.cell];
-  }
-
-  template <typename HandleT>
-  const auto& lookup(const HandleT& handle,
-                     const StoragePosition& position,
-                     AllocationPlace place = AllocationPlace::Host) const {
-    assert(position != StoragePosition::NullPosition);
-    return layer(position.color).var(handle)[position.cell];
   }
 
   template <typename StorageT>
@@ -259,7 +244,7 @@ class Storage {
   }
 
   template <typename StorageT, typename Config>
-  const auto& lookup(const Config& config,
+  auto& lookup(const Config& config,
                      const StoragePosition& position,
                      AllocationPlace place = AllocationPlace::Host) {
     assert(position != StoragePosition::NullPosition);

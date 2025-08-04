@@ -318,6 +318,7 @@ class Layer {
 
   [[nodiscard]] std::size_t id() const { return posId; }
 
+  template<typename Config>
   class CellRef {
 public:
     CellRef(std::size_t id,
@@ -337,56 +338,52 @@ public:
       }
     }
 
-    template <typename HandleT>
-    typename HandleT::Type& get(const HandleT& handle) {
-      return *reinterpret_cast<typename HandleT::Type*>(pointers[varmap.index(handle)]);
-    }
-
-    template <typename HandleT>
-    const typename HandleT::Type& get(const HandleT& handle) const {
-      return *reinterpret_cast<const typename HandleT::Type*>(pointers[varmap.index(handle)]);
-    }
+    template <typename StorageT, typename = void>
+    struct StorageTypePre;
 
     template <typename StorageT>
-    typename StorageT::Type& get() {
-      return *reinterpret_cast<typename StorageT::Type*>(
+    struct StorageTypePre<StorageT, std::enable_if_t<std::is_same_v<typename StorageT::Type, void>>> {
+      using Type = typename StorageT::template VariantType<Config>;
+    };
+
+    template <typename StorageT>
+    struct StorageTypePre<StorageT, std::enable_if_t<!std::is_same_v<typename StorageT::Type, void>>> {
+      using Type = typename StorageT::Type;
+    };
+
+    template <typename StorageT>
+    using StorageType = typename StorageTypePre<StorageT>::Type;
+
+    template <typename StorageT>
+    StorageType<StorageT>& get() {
+      return *reinterpret_cast<StorageType<StorageT>*>(
           pointers[varmap.template index<StorageT>()]);
     }
 
     template <typename StorageT>
-    const typename StorageT::Type& get() const {
-      return *reinterpret_cast<const typename StorageT::Type*>(
+    const StorageType<StorageT>& get() const {
+      return *reinterpret_cast<const StorageType<StorageT>*>(
           pointers[varmap.template index<StorageT>()]);
     }
 
-    template <typename HandleT>
-    void setPointer(const HandleT& handle, typename HandleT::Type* value) {
-      pointers[varmap.index(handle)] = reinterpret_cast<void*>(value);
-    }
-
-    template <typename HandleT>
-    typename HandleT::Type* getPointer(const HandleT& handle) {
-      return reinterpret_cast<typename HandleT::Type*>(pointers[varmap.index(handle)]);
-    }
-
     template <typename StorageT>
-    void setPointer(typename StorageT::Type* value) {
+    void setPointer(StorageType<StorageT>* value) {
       pointers[varmap.template index<StorageT>()] = reinterpret_cast<void*>(value);
     }
 
     template <typename StorageT>
-    typename StorageT::Type* getPointer() {
-      return reinterpret_cast<typename StorageT::Type*>(
+    StorageType<StorageT>* getPointer() {
+      return reinterpret_cast<StorageType<StorageT>*>(
           pointers[varmap.template index<StorageT>()]);
     }
-
 private:
     VarmapT varmap;
     typename VarmapT::PointerContainerT pointers;
   };
 
-  CellRef cellRef(std::size_t id, AllocationPlace place = AllocationPlace::Host) {
-    return CellRef(id, varmap, *this, place);
+  template<typename Config>
+  CellRef<Config> cellRef(std::size_t id, AllocationPlace place = AllocationPlace::Host) {
+    return CellRef<Config>(id, varmap, *this, place);
   }
 
   void synchronizeTo(AllocationPlace place, void* stream) {
