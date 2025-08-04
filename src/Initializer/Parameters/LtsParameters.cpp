@@ -185,27 +185,7 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader) {
   const double cfl = reader->readWithDefault("cfl", 0.5);
   double maxTimestepWidth = std::numeric_limits<double>::max();
 
-  constexpr auto IsAnelastic = seissol::model::MaterialT::Mechanisms > 0;
-
-  if constexpr (IsAnelastic) {
-    auto* modelReader = baseReader->readSubNode("equations");
-    const auto freqCentral = modelReader->readIfRequired<double>("freqcentral", IsAnelastic);
-    const auto freqRatio = modelReader->readIfRequired<double>("freqratio", IsAnelastic);
-    const double maxTimestepWidthDefault = 0.25 / (freqCentral * std::sqrt(freqRatio));
-    maxTimestepWidth = reader->readWithDefault("fixtimestep", maxTimestepWidthDefault);
-    if (maxTimestepWidth > maxTimestepWidthDefault) {
-      logWarning()
-          << "The given maximum timestep width (fixtimestep) is set to" << maxTimestepWidth
-          << "which is larger than the recommended value of" << maxTimestepWidthDefault
-          << "for visco-elastic material (as specified in the documentation). Please be aware"
-             "that a too large maximum timestep width may cause the solution to become unstable.";
-    } else {
-      logInfo() << "Maximum timestep width (fixtimestep) given as" << maxTimestepWidth
-                << "(less or equal to reference timestep" << maxTimestepWidthDefault << ")";
-    }
-  } else {
-    maxTimestepWidth = reader->readWithDefault("fixtimestep", 5000.0);
-  }
+  maxTimestepWidth = reader->readWithDefault("fixtimestep", 5000.0);
 
   auto* timeReader = baseReader->readSubNode("abortcriteria");
   const double endTime = timeReader->readWithDefault("endtime", 15.0);

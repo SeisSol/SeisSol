@@ -195,7 +195,8 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
         };
         // fault can be either initialized by traction or by cartesian stress
         // this method reads either the nucleation stress or the initial stress
-        auto [identifiers, parametrization] = this->stressIdentifiers(readNucleation);
+        auto [identifiers, parametrization] =
+            this->stressIdentifiers(readNucleation, model::MaterialTT<Cfg>::Type);
         const bool isFaultParameterizedByTraction = parametrization == Parametrization::Traction;
         if (isFaultParameterizedByTraction) {
           // only read traction in normal, strike and dip direction
@@ -219,7 +220,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
           parameterToStorageMap.insert({identifiers[4], getRawData(initialStress.yz)});
           parameterToStorageMap.insert({identifiers[5], getRawData(initialStress.xz)});
         }
-        if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+        if constexpr (model::MaterialTT<Cfg>::Type == model::MaterialType::Poroelastic) {
           if (isFaultParameterizedByTraction) {
             parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.p)});
           } else {
@@ -370,7 +371,7 @@ bool BaseDRInitializer::faultProvides(const std::string& parameter) {
 }
 
 std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
-    BaseDRInitializer::stressIdentifiers(int readNucleation) {
+    BaseDRInitializer::stressIdentifiers(int readNucleation, model::MaterialType materialType) {
   std::vector<std::string> tractionNames;
   std::vector<std::string> cartesianNames;
 
@@ -392,7 +393,7 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     tractionNames = {"T_n", "T_s", "T_d"};
     cartesianNames = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
   }
-  if (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+  if (materialType == model::MaterialType::Poroelastic) {
     if (readNucleation > 0) {
       tractionNames.emplace_back(insertIndex("nuc", "p"));
       cartesianNames.emplace_back(insertIndex("nuc", "p"));

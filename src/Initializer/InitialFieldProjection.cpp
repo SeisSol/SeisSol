@@ -229,15 +229,15 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
     }
   }
 
-  std::vector<double> data(NumQuadPoints * iniFields.size() * model::MaterialT::Quantities.size() *
+  std::vector<double> data(NumQuadPoints * iniFields.size() * model::MaterialTT<Cfg>::Quantities.size() *
                            elements.size());
-  const auto dataPointStride = iniFields.size() * model::MaterialT::Quantities.size();
+  const auto dataPointStride = iniFields.size() * model::MaterialTT<Cfg>::Quantities.size();
   {
     auto models = EasiLoader(needsTime, iniFields);
     for (std::size_t i = 0; i < iniFields.size(); ++i) {
       auto adapter = easi::ArraysAdapter();
-      for (std::size_t j = 0; j < model::MaterialT::Quantities.size(); ++j) {
-        const auto& quantity = model::MaterialT::Quantities.at(j);
+      for (std::size_t j = 0; j < model::MaterialTT<Cfg>::Quantities.size(); ++j) {
+        const auto& quantity = model::MaterialTT<Cfg>::Quantities.at(j);
         const std::size_t bindOffset = i + j * iniFields.size();
         adapter.addBindingPoint(quantity, data.data() + bindOffset, dataPointStride);
       }
@@ -254,17 +254,16 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              seissol::initializer::MemoryManager& memoryManager,
                              LTS::Storage& storage,
                              bool needsTime) {
-  constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
-  constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
-
   const auto data = projectEasiFields(iniFields, 0, meshReader, needsTime);
-
-  const auto dataStride = NumQuadPoints * iniFields.size() * model::MaterialT::Quantities.size();
-  const auto quantityCount = model::MaterialT::Quantities.size();
 
   for (auto& layer : storage.leaves(Ghost)) {
     layer.wrap([&](auto cfg) {
       using Cfg = decltype(cfg);
+      constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
+      constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
+      const auto dataStride = NumQuadPoints * iniFields.size() * model::MaterialTT<Cfg>::Quantities.size();
+      const auto quantityCount = model::MaterialTT<Cfg>::Quantities.size();
+
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
 #pragma omp parallel
 #endif

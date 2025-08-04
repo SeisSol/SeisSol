@@ -256,7 +256,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               matATtilde);
 
           // Calculate transposed T instead
-          seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
+          seissol::model::getFaceRotationMatrix<MaterialT>(normal, tangent1, tangent2, matT, matTinv);
 
           // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
           // must be subtracted.
@@ -376,6 +376,9 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
   const std::vector<Vertex>& vertices = meshReader.getVertices();
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {
+    layer.wrap([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    using MaterialT = model::MaterialTT<Cfg>;
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* boundary = layer.var<LTS::BoundaryMapping>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
@@ -433,7 +436,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         MeshTools::normalize(normal, normal);
         MeshTools::normalize(tangent1, tangent1);
         MeshTools::normalize(tangent2, tangent2);
-        seissol::model::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
+        seissol::model::getFaceRotationMatrix<MaterialT>(normal, tangent1, tangent2, matT, matTinv);
 
         // Evaluate easi boundary condition matrices if needed
         real* easiBoundaryMap = boundary[cell][side].easiBoundaryMap;
@@ -453,6 +456,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         }
       }
     }
+  });
   }
 }
 
@@ -628,7 +632,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       /// Transformation matrix
       auto matT = init::T<Cfg>::view::create(matTData);
       auto matTinv = init::Tinv<Cfg>::view::create(matTinvData);
-      seissol::model::getFaceRotationMatrix(fault[meshFace].normal,
+      seissol::model::getFaceRotationMatrix<MaterialT>(fault[meshFace].normal,
                                             fault[meshFace].tangent1,
                                             fault[meshFace].tangent2,
                                             matT,

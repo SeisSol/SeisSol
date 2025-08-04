@@ -15,7 +15,7 @@
 
 namespace seissol::model {
 // plasticity information per cell
-template<typename RealT>
+template <typename RealT>
 struct PlasticityData {
   // initial loading (stress tensor)
   RealT initialLoading[6];

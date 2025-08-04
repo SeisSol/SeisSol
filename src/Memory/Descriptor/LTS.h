@@ -45,7 +45,7 @@ struct LTS {
   };
 
   static auto allocationModeWP(AllocationPreset preset,
-                               int convergenceOrder = seissol::ConvergenceOrder) {
+                               int convergenceOrder = 6) {
     using namespace seissol::initializer;
     if constexpr (!isDeviceOn()) {
       switch (preset) {

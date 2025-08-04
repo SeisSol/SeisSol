@@ -20,22 +20,18 @@ namespace seissol::writer {
 
 class PostProcessor {
   private:
-  bool m_integrationMask[9]{};
+  std::vector<bool> m_integrationMask;
   int m_numberOfVariables{0};
   std::vector<int> m_integerMap;
 
   public:
-  PostProcessor() : m_integerMap(0L) {
-    for (size_t i = 0; i < 9; i++) {
-      m_integrationMask[i] = false;
-    }
-  }
+  PostProcessor() = default;
   virtual ~PostProcessor() = default;
   void integrateQuantities(double timestep,
                            LTS::Layer& layerData,
                            unsigned int cell,
                            const double* dofs);
-  void setIntegrationMask(const std::array<bool, 9>& integrationMask);
+  void setIntegrationMask(const std::vector<bool>& integrationMask);
   [[nodiscard]] int getNumberOfVariables() const;
   void getIntegrationMask(bool* transferTo);
   void allocateMemory(LTS::Storage& ltsStorage) const;

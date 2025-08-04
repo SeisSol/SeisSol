@@ -11,6 +11,7 @@
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Config.h>
+#include <Equations/Datastructures.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
@@ -24,6 +25,7 @@
 #include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/Colormap.h>
 #include <Memory/Tree/Layer.h>
+#include <Model/CommonDatastructures.h>
 #include <Proxy/Constants.h>
 #include <cstddef>
 #include <random>
@@ -33,9 +35,7 @@
 #include <Initializer/MemoryManager.h>
 #endif
 
-#ifdef USE_POROELASTIC
 #include "Proxy/Constants.h"
-#endif
 
 namespace {
 template<typename Cfg>
@@ -115,14 +115,14 @@ void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
                          sizeof(NeighboringIntegrationData<Cfg>) / sizeof(real) * layer.size(),
                          false);
 
-#ifdef USE_POROELASTIC
+  if constexpr(model::MaterialTT<Cfg>::Type == model::MaterialType::Poroelastic) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    localIntegration[cell].specific.typicalTimeStepWidth = seissol::proxy::Timestep;
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      localIntegration[cell].specific.typicalTimeStepWidth = seissol::proxy::Timestep;
+    }
   }
-#endif
 
 #ifdef ACL_DEVICE
   const auto& device = device::DeviceInstance::getInstance();

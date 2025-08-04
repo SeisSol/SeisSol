@@ -57,6 +57,7 @@ class PressureInjection : public InitialField {
 };
 
 // A planar wave travelling in direction kVec
+template<typename MaterialT>
 class Planarwave : public InitialField {
   public:
   // Choose phase in [0, 2*pi]
@@ -80,9 +81,9 @@ class Planarwave : public InitialField {
   std::vector<std::complex<double>> m_ampField;
   const double m_phase;
   const Eigen::Vector3d m_kVec;
-  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities> m_lambdaA;
+  std::array<std::complex<double>, MaterialT::NumQuantities> m_lambdaA;
   std::array<std::complex<double>,
-             seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
+             MaterialT::NumQuantities * MaterialT::NumQuantities>
       m_eigenvectors;
 
   private:
@@ -90,6 +91,7 @@ class Planarwave : public InitialField {
 };
 
 // superimpose three planar waves travelling into different directions
+template<typename MaterialT>
 class SuperimposedPlanarwave : public InitialField {
   public:
   //! Choose phase in [0, 2*pi]
@@ -104,11 +106,12 @@ class SuperimposedPlanarwave : public InitialField {
   private:
   const std::array<Eigen::Vector3d, 3> m_kVec;
   const double m_phase;
-  std::array<Planarwave, 3> m_pw;
+  std::array<Planarwave<MaterialT>, 3> m_pw;
 };
 
 // A part of a planar wave travelling in one direction
-class TravellingWave : public Planarwave {
+template<typename MaterialT>
+class TravellingWave : public Planarwave<MaterialT> {
   public:
   TravellingWave(const CellMaterialData& materialData,
                  const TravellingWaveParameters& travellingWaveParameters);

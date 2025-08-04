@@ -25,8 +25,10 @@ double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
                                                              {NumQuantities, NumQuantities});
 
   // TODO: remove this if constexpr guard (needs multi-equation build support)
-  if constexpr (seissol::model::MaterialT::Type == seissol::model::MaterialType::Poroelastic) {
-    seissol::model::getTransposedCoefficientMatrix(*this, 0, at);
+  if constexpr (seissol::model::MaterialTT<Cfg>::Type ==
+                seissol::model::MaterialType::Poroelastic) {
+    seissol::model::getTransposedCoefficientMatrix<seissol::model::PoroElasticMaterial>(
+        *this, 0, at);
   }
 
   seissol::eigenvalues::computeEigenvalues(atValues, eigendecomposition);

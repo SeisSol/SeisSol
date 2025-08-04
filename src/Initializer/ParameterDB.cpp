@@ -121,6 +121,61 @@ CellToVertexArray CellToVertexArray::fromVectors(
       [&](size_t i) { return groups[i]; });
 }
 
+CellToVertexArray CellToVertexArray::join(std::vector<CellToVertexArray> arrays) {
+  std::size_t totalSize = 0;
+  std::vector<std::size_t> sizes(arrays.size());
+  std::vector<std::size_t> offsets(arrays.size());
+  for (std::size_t i = 0; i < arrays.size(); ++i) {
+    offsets[i] = totalSize;
+    totalSize += arrays[i].size;
+    sizes[i] = totalSize;
+  }
+  return CellToVertexArray(
+      totalSize,
+      [=](size_t idx) {
+        for (std::size_t i = 0; i < sizes.size(); ++i) {
+          if (idx < sizes[i]) {
+            return arrays[i].elementCoordinates(idx - offsets[i]);
+          }
+        }
+        throw std::out_of_range(std::to_string(idx) + " vs " + std::to_string(totalSize));
+      },
+      [=](size_t idx) {
+        for (std::size_t i = 0; i < sizes.size(); ++i) {
+          if (idx < sizes[i]) {
+            return arrays[i].elementGroups(idx - offsets[i]);
+          }
+        }
+        throw std::out_of_range(std::to_string(idx) + " vs " + std::to_string(totalSize));
+      });
+}
+
+CellToVertexArray CellToVertexArray::filter(const std::vector<bool>& keep) const {
+  assert(keep.size() == this->size);
+
+  std::size_t newCount = 0;
+  for (std::size_t i = 0; i < keep.size(); ++i) {
+    newCount += keep[i] ? 1 : 0;
+  }
+
+  std::vector<std::size_t> offset(newCount);
+  std::size_t newCount2 = 0;
+  for (std::size_t i = 0; i < keep.size(); ++i) {
+    if (keep[i]) {
+      offset[newCount2] = i;
+      ++newCount2;
+    }
+  }
+
+  const auto baseCoordinates = this->elementCoordinates;
+  const auto baseGroups = this->elementGroups;
+
+  return CellToVertexArray(
+      newCount,
+      [=](size_t idx) { return baseCoordinates(offset[idx]); },
+      [&](size_t idx) { return baseGroups(offset[idx]); });
+}
+
 easi::Query ElementBarycenterGenerator::generate() const {
   easi::Query query(m_cellToVertex.size, Cell::Dim);
 
@@ -623,35 +678,53 @@ easi::Component* loadEasiModel(const std::string& fileName) {
   return parser.parse(fileName);
 }
 
-std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
-                                                      bool useCellHomogenizedMaterial,
-                                                      const CellToVertexArray& cellToVertex) {
-  std::shared_ptr<QueryGenerator> queryGen;
-  if (!useCellHomogenizedMaterial) {
-    queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
-  } else {
-    if (MaterialT::Type != MaterialType::Viscoelastic && MaterialT::Type != MaterialType::Elastic) {
-      logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
-                   << " materials. Falling back to "
-                      "material properties sampled from the element barycenters instead.";
-      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
-    } else if (plasticity) {
-      logWarning()
-          << "Material Averaging is not implemented for plastic materials. Falling back to "
-             "material properties sampled from the element barycenters instead.";
-      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
-    } else {
-      queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex);
+template <typename... Materials>
+struct QueryAllMaterials {
+  template <typename Head, typename... Rest>
+  static void queryFirst(const parameters::ModelParameters& params,
+                         std::vector<MaterialVariant>& materials,
+                         const seissol::initializer::CellToVertexArray& ctvArray) {
+    std::vector<bool> keepNow(ctvArray.size);
+    std::vector<std::size_t> indices;
+    for (std::size_t i = 0; i < ctvArray.size; ++i) {
+      keepNow[i] = ctvArray.elementGroups(i) == 0;
+      if (keepNow[i]) {
+        indices.emplace_back(i);
+      }
+    }
+    const auto filteredCTV = ctvArray.filter(keepNow);
+
+    const auto queryGen = seissol::initializer::getBestQueryGenerator<Head>(
+        params.plasticity, params.useCellHomogenizedMaterial, filteredCTV);
+
+    const auto materialsNow = queryDB<Head>(queryGen, params.materialFileName, ctvArray.size);
+
+    for (std::size_t i = 0; i < materialsNow.size(); ++i) {
+      materials[indices[i]] = materialsNow[i];
+    }
+
+    if constexpr (sizeof...(Rest) > 0) {
+      queryFirst<Rest...>(params, materials, ctvArray);
     }
   }
-  return queryGen;
-}
 
-template class MaterialParameterDB<seissol::model::AnisotropicMaterial>;
-template class MaterialParameterDB<seissol::model::ElasticMaterial>;
-template class MaterialParameterDB<seissol::model::AcousticMaterial>;
-template class MaterialParameterDB<seissol::model::ViscoElasticMaterial>;
-template class MaterialParameterDB<seissol::model::PoroElasticMaterial>;
+  static std::vector<MaterialVariant>
+      query(const parameters::ModelParameters& params,
+            const seissol::initializer::CellToVertexArray& ctvArray) {
+    std::vector<MaterialVariant> materials(ctvArray.size);
+    queryFirst<Materials...>(params, materials, ctvArray);
+    return materials;
+  }
+};
+
+using MaterialVariantQuery = ChangeVariadicT<QueryAllMaterials, MaterialVariant>;
+
 template class MaterialParameterDB<seissol::model::Plasticity>;
+
+std::vector<MaterialVariant>
+    queryMaterials(const parameters::ModelParameters& params,
+                   const seissol::initializer::CellToVertexArray& ctvArray) {
+  return MaterialVariantQuery::query(params, ctvArray);
+}
 
 } // namespace seissol::initializer

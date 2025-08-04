@@ -23,6 +23,7 @@
 #include <Physics/Attenuation.h>
 #include <array>
 #include <cstddef>
+#include <limits>
 #include <string>
 
 namespace seissol::model {
@@ -97,9 +98,16 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 
+  // for now, keep per material entry
+  double maxTimestep{std::numeric_limits<double>::infinity()};
+
   void initialize(const initializer::parameters::ModelParameters& parameters) override {
+    maxTimestep = 0.25 / (parameters.freqCentral * std::sqrt(parameters.freqRatio));
+
     physics::fitAttenuation<Mechanisms>(*this, parameters.freqCentral, parameters.freqRatio);
   }
+
+  [[nodiscard]] double maximumTimestep() const override { return maxTimestep; }
 };
 
 using ViscoElasticMaterial = ViscoElasticMaterialParametrized<Config::RelaxationMechanisms>;

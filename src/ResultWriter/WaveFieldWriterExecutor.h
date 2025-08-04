@@ -111,7 +111,7 @@ class WaveFieldWriterExecutor {
 
     varNames = std::make_shared<std::vector<std::string>>();
     varNamesLowRes = std::make_shared<std::vector<std::string>>();
-    for (const auto& quantity : seissol::model::MaterialT::Quantities) {
+    for (const auto& quantity : seissol::model::MaterialTT<Cfg>::Quantities) {
       varNames->emplace_back(quantity);
       varNamesLowRes->emplace_back("low_" + quantity);
     }
@@ -123,7 +123,7 @@ class WaveFieldWriterExecutor {
     std::vector<const char*> variables;
     for (unsigned int i = 0; i < m_numVariables; i++) {
       if (m_outputFlags[i]) {
-        assert(i < seissol::model::MaterialT::Quantities.size() +
+        assert(i < seissol::model::MaterialTT<Cfg>::Quantities.size() +
                        seissol::model::PlasticityData<Real<Cfg>>::Quantities.size());
         variables.push_back(varNames->at(i).c_str());
       }

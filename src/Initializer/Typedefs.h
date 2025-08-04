@@ -27,8 +27,9 @@
 namespace seissol {
 
 namespace kernels {
-template<typename Config>
-constexpr std::size_t NumSpaceQuadraturePoints = (Config::ConvergenceOrder + 1) * (Config::ConvergenceOrder + 1);
+template <typename Config>
+constexpr std::size_t NumSpaceQuadraturePoints =
+    (Config::ConvergenceOrder + 1) * (Config::ConvergenceOrder + 1);
 } // namespace kernels
 
 struct GlobalData {
@@ -175,7 +176,7 @@ struct CompoundGlobalData {
 };
 
 // data for the cell local integration
-template<typename Cfg>
+template <typename Cfg>
 struct LocalIntegrationData {
   // star matrices
   Real<Cfg> starMatrices[Cell::Dim][seissol::tensor::star<Cfg>::size(0)];
@@ -188,7 +189,7 @@ struct LocalIntegrationData {
 };
 
 // data for the neighboring boundary integration
-template<typename Cfg>
+template <typename Cfg>
 struct NeighboringIntegrationData {
   // flux solver for the contribution of the neighboring elements
   Real<Cfg> nAmNm1[Cell::NumFaces][seissol::tensor::AminusT<Cfg>::size()];
@@ -211,7 +212,7 @@ struct DRFaceInformation {
   bool plusSideOnThisRank;
 };
 
-template<typename Cfg>
+template <typename Cfg>
 struct DRGodunovData {
   Real<Cfg> dataTinvT[seissol::tensor::TinvT<Cfg>::size()];
   Real<Cfg> tractionPlusMatrix[seissol::tensor::tractionPlusMatrix<Cfg>::size()];
@@ -228,7 +229,7 @@ struct DRGodunovData {
   double doubledSurfaceArea;
 };
 
-template<typename Cfg>
+template <typename Cfg>
 struct DREnergyOutput {
   Real<Cfg> slip[seissol::tensor::slipInterpolated<Cfg>::size()];
   Real<Cfg> accumulatedSlip[seissol::dr::misc::NumPaddedPoints<Cfg>];
@@ -264,7 +265,7 @@ struct CellDRMapping {
   real* fluxSolver;
 };
 
-template<typename Cfg>
+template <typename Cfg>
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
   real nodes[seissol::nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension] * 3]{};

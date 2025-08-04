@@ -224,7 +224,7 @@ class Storage {
     return memoryInfo[index];
   }
 
-  template<typename Config>
+  template <typename Config>
   auto lookupRef(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
     assert(position != StoragePosition::NullPosition);
     return layer(position.color).template cellRef<Config>(position.cell, place);
@@ -245,8 +245,8 @@ class Storage {
 
   template <typename StorageT, typename Config>
   auto& lookup(const Config& config,
-                     const StoragePosition& position,
-                     AllocationPlace place = AllocationPlace::Host) {
+               const StoragePosition& position,
+               AllocationPlace place = AllocationPlace::Host) {
     assert(position != StoragePosition::NullPosition);
     return layer(position.color).template var<StorageT>(config)[position.cell];
   }
@@ -260,7 +260,9 @@ class Storage {
   }
 
   template <typename StorageT, typename F>
-  void lookupWrap(const StoragePosition& position, F&& handler, AllocationPlace place = AllocationPlace::Host) {
+  void lookupWrap(const StoragePosition& position,
+                  F&& handler,
+                  AllocationPlace place = AllocationPlace::Host) {
     assert(position != StoragePosition::NullPosition);
     auto& llayer = layer(position.color);
     llayer.wrap([&, handler = std::forward<F>(handler)](auto cfg) {
@@ -269,8 +271,9 @@ class Storage {
   }
 
   template <typename StorageT, typename F>
-  void lookupWrap(const StoragePosition& position, F&& handler,
-                     AllocationPlace place = AllocationPlace::Host) const {
+  void lookupWrap(const StoragePosition& position,
+                  F&& handler,
+                  AllocationPlace place = AllocationPlace::Host) const {
     assert(position != StoragePosition::NullPosition);
     auto& llayer = layer(position.color);
     llayer.wrap([&, handler = std::forward<F>(handler)](auto cfg) {

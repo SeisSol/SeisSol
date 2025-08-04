@@ -10,6 +10,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
+#include <Common/Templating.h>
 #include <memory>
 #include <set>
 #include <string>
@@ -62,12 +63,12 @@ struct CellToVertexArray {
   static CellToVertexArray
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
                   const std::vector<int>& groups);
+  static CellToVertexArray join(std::vector<CellToVertexArray> arrays);
+
+  [[nodiscard]] CellToVertexArray filter(const std::vector<bool>& keep) const;
 };
 
 easi::Component* loadEasiModel(const std::string& fileName);
-std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
-                                                      bool useCellHomogenizedMaterial,
-                                                      const CellToVertexArray& cellToVertex);
 
 class QueryGenerator {
   public:
@@ -169,6 +170,50 @@ class EasiBoundary {
   private:
   easi::Component* model;
 };
+
+template <typename MaterialT>
+std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,
+                                                      bool useCellHomogenizedMaterial,
+                                                      const CellToVertexArray& cellToVertex) {
+  std::shared_ptr<QueryGenerator> queryGen;
+  if (!useCellHomogenizedMaterial) {
+    queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
+  } else {
+    if (MaterialT::Type != model::MaterialType::Viscoelastic &&
+        MaterialT::Type != model::MaterialType::Elastic) {
+      logWarning() << "Material Averaging is not implemented for " << MaterialT::Text
+                   << " materials. Falling back to "
+                      "material properties sampled from the element barycenters instead.";
+      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
+    } else if (plasticity) {
+      logWarning()
+          << "Material Averaging is not implemented for plastic materials. Falling back to "
+             "material properties sampled from the element barycenters instead.";
+      queryGen = std::make_shared<ElementBarycenterGenerator>(cellToVertex);
+    } else {
+      queryGen = std::make_shared<ElementAverageGenerator>(cellToVertex);
+    }
+  }
+  return queryGen;
+}
+
+using MaterialVariant =
+    RemoveDuplicateVariadicT<TransformVariadicT<model::MaterialTT, ConfigVariant>>;
+
+template <typename T>
+std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerator>& queryGen,
+                       const std::string& fileName,
+                       size_t size) {
+  std::vector<T> vectorDB(size);
+  seissol::initializer::MaterialParameterDB<T> parameterDB;
+  parameterDB.setMaterialVector(&vectorDB);
+  parameterDB.evaluateModel(fileName, *queryGen);
+  return vectorDB;
+}
+
+std::vector<MaterialVariant>
+    queryMaterials(const parameters::ModelParameters& params,
+                   const seissol::initializer::CellToVertexArray& ctvArray);
 
 } // namespace seissol::initializer
 

@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_
 
+#include <Model/CommonDatastructures.h>
 #include <yaml-cpp/yaml.h>
 
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
@@ -130,7 +131,8 @@ class BaseDRInitializer {
    * to false, check identifiers for the initial stress
    * @return vector of strings, with the identifiers for the initial stress.
    */
-  std::pair<std::vector<std::string>, Parametrization> stressIdentifiers(int readNucleation);
+  std::pair<std::vector<std::string>, Parametrization>
+      stressIdentifiers(int readNucleation, model::MaterialType materialType);
 };
 
 } // namespace dr::initializer

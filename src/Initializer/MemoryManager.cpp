@@ -208,12 +208,14 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
                                                    nodalDisplacementsSize * sizeof(real));
 #ifdef USE_VISCOELASTIC2
-    layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * tensor::Iane<Cfg>::size() * sizeof(real));
+    layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * tensor::Iane<Cfg>::size() *
+                                             sizeof(real));
     layer.setEntrySize<LTS::DerivativesExtScratch>(
         layer.size() * (tensor::dQext<Cfg>::size(1) + tensor::dQext<Cfg>::size(2)) * sizeof(real));
     layer.setEntrySize<LTS::DerivativesAneScratch>(
         layer.size() * (tensor::dQane<Cfg>::size(1) + tensor::dQane<Cfg>::size(2)) * sizeof(real));
-    layer.setEntrySize<LTS::DofsExtScratch>(layer.size() * tensor::Qext<Cfg>::size() * sizeof(real));
+    layer.setEntrySize<LTS::DofsExtScratch>(layer.size() * tensor::Qext<Cfg>::size() *
+                                            sizeof(real));
 #endif
     layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal<Cfg>::size() *
                                              sizeof(real));
@@ -233,8 +235,8 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
         sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix<Cfg>::Size);
     layer.setEntrySize<LTS::RotateDisplacementToGlobalScratch>(
         sizeof(real) * freeSurfaceCount * init::displacementRotationMatrix<Cfg>::Size);
-    layer.setEntrySize<LTS::RotatedFaceDisplacementScratch>(sizeof(real) * freeSurfaceCount *
-                                                            init::rotatedFaceDisplacement<Cfg>::Size);
+    layer.setEntrySize<LTS::RotatedFaceDisplacementScratch>(
+        sizeof(real) * freeSurfaceCount * init::rotatedFaceDisplacement<Cfg>::Size);
     layer.setEntrySize<LTS::DofsFaceNodalScratch>(sizeof(real) * freeSurfaceCount *
                                                   tensor::INodal<Cfg>::size());
     layer.setEntrySize<LTS::PrevCoefficientsScratch>(

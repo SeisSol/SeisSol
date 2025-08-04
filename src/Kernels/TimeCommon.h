@@ -17,7 +17,7 @@
 
 namespace seissol::kernels {
 
-template<typename Cfg>
+template <typename Cfg>
 struct TimeCommon {
   /**
    * Either copies pointers to the DOFs in the time buffer or integrates the DOFs via time

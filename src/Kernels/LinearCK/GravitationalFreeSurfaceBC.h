@@ -31,7 +31,7 @@
 
 namespace seissol {
 
-template<typename Cfg>
+template <typename Cfg>
 class GravitationalFreeSurfaceBc {
   private:
   const double gravitationalAcceleration;

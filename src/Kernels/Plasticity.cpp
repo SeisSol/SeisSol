@@ -39,14 +39,15 @@ using namespace device;
 #endif
 
 namespace seissol::kernels {
-template<typename Cfg>
-std::size_t Plasticity<Cfg>::computePlasticity(double oneMinusIntegratingFactor,
-                                          double timeStepWidth,
-                                          double tV,
-                                          const GlobalData* global,
-                                          const seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
-                                          real degreesOfFreedom[tensor::Q<Cfg>::size()],
-                                          real* pstrain) {
+template <typename Cfg>
+std::size_t Plasticity<Cfg>::computePlasticity(
+    double oneMinusIntegratingFactor,
+    double timeStepWidth,
+    double tV,
+    const GlobalData* global,
+    const seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
+    real degreesOfFreedom[tensor::Q<Cfg>::size()],
+    real* pstrain) {
   if constexpr (multisim::MultisimEnabled) {
     // TODO: really still the case?
     logError() << "Plasticity does not work with multiple simulations";
@@ -246,7 +247,7 @@ std::size_t Plasticity<Cfg>::computePlasticity(double oneMinusIntegratingFactor,
   return 0;
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void Plasticity<Cfg>::computePlasticityBatched(
     double timeStepWidth,
     double tV,
@@ -393,11 +394,11 @@ void Plasticity<Cfg>::computePlasticityBatched(
 #endif // ACL_DEVICE
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void Plasticity<Cfg>::flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
-                                 std::uint64_t& hardwareFlopsCheck,
-                                 std::uint64_t& nonZeroFlopsYield,
-                                 std::uint64_t& hardwareFlopsYield) {
+                                      std::uint64_t& hardwareFlopsCheck,
+                                      std::uint64_t& nonZeroFlopsYield,
+                                      std::uint64_t& hardwareFlopsYield) {
   // reset flops
   nonZeroFlopsCheck = 0;
   hardwareFlopsCheck = 0;

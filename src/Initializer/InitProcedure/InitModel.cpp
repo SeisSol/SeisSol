@@ -15,6 +15,7 @@
 #include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <Common/Real.h>
+#include <Common/Templating.h>
 #include <Config.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
@@ -53,19 +54,7 @@ using namespace seissol::initializer;
 
 namespace {
 
-using MaterialT = seissol::model::MaterialT;
 using Plasticity = seissol::model::Plasticity;
-
-template <typename T>
-std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerator>& queryGen,
-                       const std::string& fileName,
-                       size_t size) {
-  std::vector<T> vectorDB(size);
-  seissol::initializer::MaterialParameterDB<T> parameterDB;
-  parameterDB.setMaterialVector(&vectorDB);
-  parameterDB.evaluateModel(fileName, *queryGen);
-  return vectorDB;
-}
 
 void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
@@ -92,45 +81,33 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     }
   }
 
-  // just a helper function for better readability
-  const auto getBestQueryGenerator = [&](const seissol::initializer::CellToVertexArray& ctvArray) {
-    return seissol::initializer::getBestQueryGenerator(
-        seissolParams.model.plasticity, seissolParams.model.useCellHomogenizedMaterial, ctvArray);
-  };
+  const auto ghostOffset = meshReader.getElements().size();
 
-  // material retrieval for copy+interior layers
-  const auto queryGen =
-      getBestQueryGenerator(seissol::initializer::CellToVertexArray::fromMeshReader(meshReader));
-  auto materialsDB = queryDB<MaterialT>(
-      queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
+  const auto meshArray = seissol::initializer::CellToVertexArray::fromMeshReader(meshReader);
+
+  const auto meshHaloArray = seissol::initializer::CellToVertexArray::join(
+      {meshArray,
+       seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups)});
+
+  // material retrieval for ghost+copy+interior layers
+  auto materials = queryMaterials(seissolParams.model, meshHaloArray);
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+  for (size_t i = 0; i < materials.size(); ++i) {
+    auto& cellMat = materials[i];
+    std::visit([&](auto& mat) { mat.initialize(seissolParams.model); }, cellMat);
+  }
 
   // plasticity (if needed)
   std::vector<Plasticity> plasticityDB;
   if (seissolParams.model.plasticity) {
     // plasticity information is only needed on all interior+copy cells.
+    const auto queryGen = seissol::initializer::getBestQueryGenerator<Plasticity>(
+        seissolParams.model.plasticity, seissolParams.model.useCellHomogenizedMaterial, meshArray);
     plasticityDB = queryDB<Plasticity>(
         queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
-  }
-
-  // material retrieval for ghost layers
-  auto queryGenGhost = getBestQueryGenerator(
-      seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups));
-  auto materialsDBGhost =
-      queryDB<MaterialT>(queryGenGhost, seissolParams.model.materialFileName, ghostVertices.size());
-
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif
-  for (size_t i = 0; i < materialsDB.size(); ++i) {
-    auto& cellMat = materialsDB[i];
-    cellMat.initialize(seissolParams.model);
-  }
-#ifdef _OPENMP
-#pragma omp parallel for schedule(static)
-#endif
-  for (size_t i = 0; i < materialsDBGhost.size(); ++i) {
-    auto& cellMat = materialsDBGhost[i];
-    cellMat.initialize(seissolParams.model);
   }
 
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
@@ -152,11 +129,16 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         auto neighborRank = localSecondaryInformation.rank;
         auto neighborRankIdx = localSecondaryInformation.meshId;
         auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
-        const auto& localMaterial = materialsDBGhost[materialGhostIdx];
 
         layer.wrap([&](auto cfg) {
           // NOLINTNEXTLINE
           auto& materialData = layer.var<LTS::MaterialData>(cfg)[cell];
+
+          using Cfg = decltype(cfg);
+          using MaterialT = model::MaterialTT<Cfg>;
+
+          const auto& localMaterial =
+              std::get<MaterialT>(materials[ghostOffset + materialGhostIdx]);
 
           initAssign(materialData, localMaterial);
         });
@@ -172,12 +154,16 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         const auto& localSecondaryInformation = secondaryInformation[cell];
         const auto meshId = localSecondaryInformation.meshId;
         auto& material = materialArray[cell];
-        const auto& localMaterial = materialsDB[meshId];
         const auto& localCellInformation = cellInformation[cell];
 
         layer.wrap([&](auto cfg) {
           // NOLINTNEXTLINE
           auto& materialData = layer.var<LTS::MaterialData>(cfg)[cell];
+
+          using Cfg = decltype(cfg);
+          using MaterialT = model::MaterialTT<Cfg>;
+
+          const auto& localMaterial = std::get<MaterialT>(materials[meshId]);
 
           initAssign(materialData, localMaterial);
 
@@ -189,10 +175,9 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
             // use the neighbor face material info in case that we are not at a boundary
             const auto globalNeighborIndex = localSecondaryInformation.faceNeighbors[side];
 
-            memoryManager.getLtsStorage().lookupWrap<LTS::MaterialData>(globalNeighborIndex,
-              [&](auto& materialNeighbor) {
-                material.neighbor[side] = &materialNeighbor;
-              });
+            memoryManager.getLtsStorage().lookupWrap<LTS::MaterialData>(
+                globalNeighborIndex,
+                [&](auto& materialNeighbor) { material.neighbor[side] = &materialNeighbor; });
           } else {
             // otherwise, use the material from the own cell
             material.neighbor[side] = material.local;
@@ -208,7 +193,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
             auto& plasticity = layer.var<LTS::Plasticity>(cfg)[cell];
 
-            initAssign(plasticity, seissol::model::PlasticityData<Real<Cfg>>(localPlasticity, material.local));
+            initAssign(plasticity,
+                       seissol::model::PlasticityData<Real<Cfg>>(localPlasticity, material.local));
           });
         }
       }
@@ -325,13 +311,15 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   logInfo() << "Model infos:";
   for (std::size_t i = 0; i < std::variant_size_v<ConfigVariant>; ++i) {
     logInfo() << "Model" << i;
-    std::visit([&](auto cfg) {
-      using Cfg = decltype(cfg);
-      logInfo() << "Material:" << model::MaterialTT<Cfg>::Text.c_str();
-      logInfo() << "Order:" << Cfg::ConvergenceOrder;
-      logInfo() << "Precision:"
-                << (Cfg::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
-    }, ConfigVariantList[i]);
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          logInfo() << "Material:" << model::MaterialTT<Cfg>::Text.c_str();
+          logInfo() << "Order:" << Cfg::ConvergenceOrder;
+          logInfo() << "Precision:"
+                    << (Cfg::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
+        },
+        ConfigVariantList[i]);
   }
 
   logInfo() << "Other model settings:";

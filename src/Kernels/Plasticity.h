@@ -20,7 +20,7 @@
 
 namespace seissol::kernels {
 
-template<typename Cfg>
+template <typename Cfg>
 class Plasticity {
   public:
   using real = Real<Cfg>;
@@ -31,13 +31,14 @@ class Plasticity {
 
   /** Returns 1 if there was plastic yielding otherwise 0.
    */
-  static std::size_t computePlasticity(double oneMinusIntegratingFactor,
-                                       double timeStepWidth,
-                                       double tV,
-                                       const GlobalData* global,
-                                       const seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
-                                       real degreesOfFreedom[tensor::Q<Cfg>::size()],
-                                       real* pstrain);
+  static std::size_t
+      computePlasticity(double oneMinusIntegratingFactor,
+                        double timeStepWidth,
+                        double tV,
+                        const GlobalData* global,
+                        const seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
+                        real degreesOfFreedom[tensor::Q<Cfg>::size()],
+                        real* pstrain);
 
   static void
       computePlasticityBatched(double timeStepWidth,

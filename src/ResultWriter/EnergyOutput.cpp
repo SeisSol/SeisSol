@@ -12,6 +12,7 @@
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include <Alignment.h>
+#include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
 #include <GeneratedCode/init.h>
@@ -54,10 +55,11 @@
 #endif
 
 namespace {
+template<typename MaterialT>
 constexpr bool VolumeEnergyApproximation =
-    model::MaterialT::Type != model::MaterialType::Elastic &&
-    model::MaterialT::Type != model::MaterialType::Viscoelastic &&
-    model::MaterialT::Type != model::MaterialType::Acoustic;
+    MaterialT::Type != model::MaterialType::Elastic &&
+    MaterialT::Type != model::MaterialType::Viscoelastic &&
+    MaterialT::Type != model::MaterialType::Acoustic;
 
 template<typename Cfg>
 std::array<Real<Cfg>, multisim::NumSimulations>
@@ -175,9 +177,19 @@ void EnergyOutput::init(
   const auto rank = MPI::mpi.rank();
   logInfo() << "Initializing energy output.";
 
-  if constexpr (VolumeEnergyApproximation) {
-    logWarning() << "The volume energies printed for the given equation system"
-                 << model::MaterialT::Text << "are, by now, only an isotropic approximation.";
+  approxElements = 0;
+  for (const auto& element : newMeshReader.getElements()) {
+    std::visit([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      if constexpr (VolumeEnergyApproximation<model::MaterialTT<Cfg>>) {
+        approxElements += 1;
+      }
+    }, ConfigVariantList[element.configId]);
+  }
+  MPI_Allreduce(MPI_IN_PLACE, &approxElements, 1, seissol::MPI::castToMpiType<std::size_t>(), MPI_SUM, seissol::MPI::mpi.comm());
+
+  if (approxElements > 0) {
+    logWarning() << "The volume energies printed for the given equation system are, by now, only an isotropic approximation.";
   }
 
   energyOutputInterval = parameters.interval;
@@ -641,7 +653,7 @@ void EnergyOutput::printEnergies() {
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
     const std::string fusedPrefix =
         multisim::MultisimEnabled ? "[" + std::to_string(sim) + "]" : "";
-    const std::string approxPrefix = VolumeEnergyApproximation ? "[approximated]" : "";
+    const std::string approxPrefix = approxElements > 0 ? "[approximated]" : "";
     const auto totalAcousticEnergy =
         energiesStorage.acousticKineticEnergy(sim) + energiesStorage.acousticEnergy(sim);
     const auto totalElasticEnergy =

@@ -10,6 +10,7 @@
 #include "LtsWeights.h"
 
 #include "Geometry/PUMLReader.h"
+#include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
 #include <Initializer/BasicTypedefs.h>
@@ -23,6 +24,7 @@
 #include <limits>
 #include <map>
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
@@ -117,9 +119,28 @@ LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissol
 
 void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
   bool continueComputation = true;
-  if (!model::MaterialT::SupportsLTS) {
-    logInfo() << "The material" << model::MaterialT::Text
-              << "does not support LTS. Switching to GTS.";
+  const auto* groups = reinterpret_cast<const int*>(mesh.cellData(0));
+
+  std::size_t ltsUnsupported = 0;
+  std::string unsupportedExample;
+  for (std::size_t i = 0; i < mesh.cells().size(); ++i) {
+    const auto config = groups[i];
+
+    std::visit([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      if constexpr (!model::MaterialTT<Cfg>::SupportsLTS) {
+        ++ltsUnsupported;
+        
+        unsupportedExample = model::MaterialTT<Cfg>::Text;
+      }
+    }, ConfigVariantList[config]);
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE, &ltsUnsupported, 1, seissol::MPI::castToMpiType<std::size_t>(), MPI_SUM, seissol::MPI::mpi.comm());
+
+  if (ltsUnsupported > 0) {
+    logInfo() << "Materials without LTS support found; e.g." << unsupportedExample
+              << "Switching to GTS.";
     continueComputation = false;
   }
   if (m_rate.empty() || (m_rate.size() == 1 && m_rate[0] == 1)) {

@@ -68,8 +68,6 @@ struct MaterialTypeSelector<MaterialType::Poroelastic> {
 template <typename Config>
 using MaterialTT = typename MaterialTypeSelector<Config::MaterialType>::Type;
 
-using MaterialT = typename MaterialTypeSelector<Config::MaterialType>::Type;
-
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_

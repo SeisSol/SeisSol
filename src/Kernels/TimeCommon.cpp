@@ -35,15 +35,15 @@
 
 namespace seissol::kernels {
 
-template<typename Cfg>
+template <typename Cfg>
 void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
-                                  const LtsSetup& ltsSetup,
-                                  const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                                  const real* timeCoeffs,
-                                  const real* subtimeCoeffs,
-                                  real* const timeDofs[4],
-                                  real integrationBuffer[4][tensor::I<Cfg>::size()],
-                                  real* timeIntegrated[4]) {
+                                       const LtsSetup& ltsSetup,
+                                       const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                                       const real* timeCoeffs,
+                                       const real* subtimeCoeffs,
+                                       real* const timeDofs[4],
+                                       real integrationBuffer[4][tensor::I<Cfg>::size()],
+                                       real* timeIntegrated[4]) {
   // call the more general assembly
   /*
    * assert valid input.
@@ -79,12 +79,12 @@ void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
   }
 }
 
-template<typename Cfg>
+template <typename Cfg>
 void TimeCommon<Cfg>::computeBatchedIntegrals(Time<Cfg>& time,
-                                         const real* timeCoeffs,
-                                         const real* subtimeCoeffs,
-                                         ConditionalPointersToRealsTable& table,
-                                         seissol::parallel::runtime::StreamRuntime& runtime) {
+                                              const real* timeCoeffs,
+                                              const real* subtimeCoeffs,
+                                              ConditionalPointersToRealsTable& table,
+                                              seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   // Compute time integrated dofs using neighbors derivatives using the GTS relation,
   // i.e. the expansion point is around 'timeStepStart'

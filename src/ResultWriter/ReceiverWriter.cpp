@@ -176,10 +176,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   std::vector<short> contained(numberOfPoints);
   std::vector<std::size_t> meshIds(numberOfPoints);
 
-  // We want to plot all quantities except for the memory variables
-  std::vector<std::size_t> quantities(seissol::model::MaterialT::Quantities.size());
-  std::iota(quantities.begin(), quantities.end(), 0);
-
   logInfo() << "Finding meshIds for receivers...";
   initializer::findMeshIds(
       points.data(), mesh, numberOfPoints, contained.data(), meshIds.data(), 1e-3);
@@ -219,6 +215,10 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
       for (std::size_t c = m_receiverClusters.size(); c <= id; ++c) {
         seissolInstance.getMemoryManager().getLtsStorage().layer(c).wrap([&](auto cfg) {
           using Cfg = decltype(cfg);
+
+          // We want to plot all quantities except for the memory variables
+          std::vector<std::size_t> quantities(seissol::model::MaterialTT<Cfg>::Quantities.size());
+          std::iota(quantities.begin(), quantities.end(), 0);
 
           std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity<Cfg>>> derivedQuantities;
 

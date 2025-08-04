@@ -160,7 +160,8 @@ void updateQEtaNodal(real** QEtaNodalPtrs,
                      size_t numElements,
                      void* queuePtr) {
   auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
-  auto rng = getrange(tensor::QStressNodal<Cfg>::Shape[multisim::BasisFunctionDimension], numElements);
+  auto rng =
+      getrange(tensor::QStressNodal<Cfg>::Shape[multisim::BasisFunctionDimension], numElements);
 
   queue->submit([&](sycl::handler& cgh) {
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {

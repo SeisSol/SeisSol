@@ -17,7 +17,15 @@
 #include <vector>
 
 namespace seissol::model {
-enum class MaterialType { Solid, Acoustic, Elastic, Viscoelastic, Anisotropic, Poroelastic };
+enum class MaterialType {
+  Solid,
+  Acoustic,
+  Elastic,
+  Viscoelastic,
+  Anisotropic,
+  Poroelastic,
+  Plastic
+};
 
 // the local solvers. CK is the default for elastic, acoustic etc.
 // viscoelastic uses CauchyKovalevskiAnelastic (maybe all other materials may be extended to use
@@ -68,6 +76,9 @@ struct Material {
 
 struct Plasticity {
   static const inline std::string Text = "plasticity";
+  static constexpr MaterialType Type = MaterialType::Plastic;
+  static constexpr std::size_t Parameters = 7;
+
   double bulkFriction;
   double plastCo;
   double sXX;

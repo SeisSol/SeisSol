@@ -19,17 +19,18 @@ void seissol::writer::PostProcessor::integrateQuantities(const double timestep,
                                                          const unsigned int cell,
                                                          const double* const dofs) {
   layerData.wrap([&](auto cfg) {
+    using Cfg = decltype(cfg);
     auto* integrals = layerData.var<LTS::Integrals>(cfg);
     for (int i = 0; i < m_numberOfVariables; i++) {
       integrals[cell * m_numberOfVariables + i] +=
-          dofs[NumAlignedBasisFunctions * m_integerMap[i]] * timestep;
+          dofs[seissol::kernels::getNumberOfAlignedBasisFunctions<Real<Cfg>>(Cfg::ConvergenceOrder) * m_integerMap[i]] * timestep;
     }
   });
 }
 
 void seissol::writer::PostProcessor::setIntegrationMask(
-    const std::array<bool, 9>& integrationMask) {
-  for (int i = 0; i < 9; i++) {
+    const std::vector<bool>& integrationMask) {
+  for (int i = 0; i < integrationMask.size(); i++) {
     m_integrationMask[i] = integrationMask[i];
     if (m_integrationMask[i]) {
       m_integerMap.push_back(i);
@@ -41,7 +42,7 @@ void seissol::writer::PostProcessor::setIntegrationMask(
 int seissol::writer::PostProcessor::getNumberOfVariables() const { return m_numberOfVariables; }
 
 void seissol::writer::PostProcessor::getIntegrationMask(bool* transferTo) {
-  for (int i = 0; i < 9; i++) {
+  for (int i = 0; i < m_integrationMask.size(); i++) {
     transferTo[i] = m_integrationMask[i];
   }
 }

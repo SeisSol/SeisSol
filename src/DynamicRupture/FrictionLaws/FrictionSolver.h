@@ -60,6 +60,8 @@ class FrictionSolver {
 template <typename Cfg>
 class FrictionSolverImpl : public FrictionSolver {
   public:
+  using real = Real<Cfg>;
+
   explicit FrictionSolverImpl(seissol::initializer::parameters::DRParameters* userDRParameters)
       : drParameters(userDRParameters) {
     std::copy(

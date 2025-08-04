@@ -318,7 +318,7 @@ class Layer {
 
   [[nodiscard]] std::size_t id() const { return posId; }
 
-  template<typename Config>
+  template <typename Config>
   class CellRef {
 public:
     CellRef(std::size_t id,
@@ -342,12 +342,14 @@ public:
     struct StorageTypePre;
 
     template <typename StorageT>
-    struct StorageTypePre<StorageT, std::enable_if_t<std::is_same_v<typename StorageT::Type, void>>> {
+    struct StorageTypePre<StorageT,
+                          std::enable_if_t<std::is_same_v<typename StorageT::Type, void>>> {
       using Type = typename StorageT::template VariantType<Config>;
     };
 
     template <typename StorageT>
-    struct StorageTypePre<StorageT, std::enable_if_t<!std::is_same_v<typename StorageT::Type, void>>> {
+    struct StorageTypePre<StorageT,
+                          std::enable_if_t<!std::is_same_v<typename StorageT::Type, void>>> {
       using Type = typename StorageT::Type;
     };
 
@@ -356,8 +358,7 @@ public:
 
     template <typename StorageT>
     StorageType<StorageT>& get() {
-      return *reinterpret_cast<StorageType<StorageT>*>(
-          pointers[varmap.template index<StorageT>()]);
+      return *reinterpret_cast<StorageType<StorageT>*>(pointers[varmap.template index<StorageT>()]);
     }
 
     template <typename StorageT>
@@ -373,15 +374,15 @@ public:
 
     template <typename StorageT>
     StorageType<StorageT>* getPointer() {
-      return reinterpret_cast<StorageType<StorageT>*>(
-          pointers[varmap.template index<StorageT>()]);
+      return reinterpret_cast<StorageType<StorageT>*>(pointers[varmap.template index<StorageT>()]);
     }
+
 private:
     VarmapT varmap;
     typename VarmapT::PointerContainerT pointers;
   };
 
-  template<typename Config>
+  template <typename Config>
   CellRef<Config> cellRef(std::size_t id, AllocationPlace place = AllocationPlace::Host) {
     return CellRef<Config>(id, varmap, *this, place);
   }

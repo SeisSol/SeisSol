@@ -78,7 +78,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   for (const auto& [rank, _] : meshReader.getMPINeighbors()) {
     for (const auto [i, element] : common::enumerate(meshReader.getGhostlayerMetadata().at(rank))) {
       const auto halo = HaloType::Ghost;
-      colorsGhost[linearId] = colorMap.color(halo, element.clusterId, ConfigVariantList[element.configId]);
+      colorsGhost[linearId] =
+          colorMap.color(halo, element.clusterId, ConfigVariantList[element.configId]);
       toLinear[std::pair<int, std::size_t>(rank, i)] = linearId;
       fromLinear[linearId] = std::pair<int, std::size_t>(rank, i);
       ++linearId;

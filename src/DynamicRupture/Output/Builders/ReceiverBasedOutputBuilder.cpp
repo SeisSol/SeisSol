@@ -291,7 +291,7 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
       auto glbToFaceAligned =
           init::Tinv<Cfg>::view::create(outputData->glbToFaceAlignedData[receiverId].data());
 
-      seissol::model::getFaceRotationMatrix(
+      seissol::model::getFaceRotationMatrix<model::MaterialTT<Cfg>>(
           faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);
     }
   }

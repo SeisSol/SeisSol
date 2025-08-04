@@ -198,18 +198,15 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader) {
 
   const auto outputMaskString =
       reader->readOrFail<std::string>("ioutputmask", "No output mask given.");
-  const std::array<bool, seissol::model::MaterialT::NumQuantities> outputMask =
-      convertStringToArray<bool, seissol::model::MaterialT::NumQuantities>(outputMaskString, false);
+  const auto outputMask = convertStringToVector<bool>(outputMaskString, {});
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
-  const std::array<bool, 7> plasticityMask =
-      convertStringToArray<bool, 7>(plasticityMaskString, false);
+  const auto plasticityMask = convertStringToVector<bool>(plasticityMaskString, false);
 
   const auto integrationMaskString =
       reader->readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
-  const std::array<bool, 9> integrationMask =
-      convertStringToArray<bool, 9>(integrationMaskString, false);
+  const auto integrationMask = convertStringToVector<bool>(integrationMaskString, false);
 
   const auto groupsRaw = reader->readWithDefault("outputgroups", std::vector<int>());
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());

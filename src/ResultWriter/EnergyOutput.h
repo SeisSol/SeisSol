@@ -134,6 +134,8 @@ class EnergyOutput : public Module {
   double energyOutputInterval{};
   double terminatorMomentRateThreshold{};
   std::array<double, multisim::NumSimulations> seismicMomentPrevious;
+
+  std::size_t approxElements;
 };
 
 } // namespace writer

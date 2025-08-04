@@ -317,8 +317,9 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           rotateDisplacementToGlobalPtrs[face].push_back(
               rotateDisplacementToGlobalScratch +
               counter[face] * init::displacementRotationMatrix<Cfg>::Size);
-          rotatedFaceDisplacementPtrs[face].push_back(
-              rotatedFaceDisplacementScratch + counter[face] * init::rotatedFaceDisplacement<Cfg>::Size);
+          rotatedFaceDisplacementPtrs[face].push_back(rotatedFaceDisplacementScratch +
+                                                      counter[face] *
+                                                          init::rotatedFaceDisplacement<Cfg>::Size);
           dofsFaceBoundaryNodalPtrs[face].push_back(dofsFaceBoundaryNodalScratch +
                                                     counter[face] * tensor::INodal<Cfg>::size());
           dofsFaceNodalPtrs[face].push_back(dofsFaceNodalScratch +

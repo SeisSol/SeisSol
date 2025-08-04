@@ -53,9 +53,9 @@ Receiver<Cfg>::Receiver(std::size_t pointId,
   auto xiEtaZeta = seissol::transformations::tetrahedronGlobalToReference(
       elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], this->position);
   basisFunctions = basisFunction::SampledBasisFunctions<real>(
-      ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+      Cfg::ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(
-      ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
+      Cfg::ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
 }
 
