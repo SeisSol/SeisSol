@@ -73,8 +73,7 @@ void rotateSlipToFaultCS(
 
 namespace seissol::dr::initializer {
 void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
-  logInfo() << "Initializing Fault, using a quadrature rule with "
-            << misc::NumBoundaryGaussPoints<Cfg> << " points.";
+  logInfo() << "Initializing Fault...";
   for (auto& layer : drStorage.leaves(Ghost)) {
     layer.wrap([&](auto cfg) {
       using Cfg = decltype(cfg);

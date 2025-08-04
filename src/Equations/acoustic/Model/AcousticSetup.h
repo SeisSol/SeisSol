@@ -17,13 +17,13 @@
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 #include <Equations/acoustic/Model/Datastructures.h>
-#include <Equations/acoustic/Model/IntegrationData.h>
 
 namespace seissol::model {
 using Matrix44 = Eigen::Matrix<double, 4, 4>;
 
-template <>
-struct MaterialSetup<AcousticMaterial> {
+template <typename Cfg>
+struct MaterialSetup<Cfg, std::enable_if_t<Cfg::MaterialType == MaterialType::Acoustic>> {
+  using MaterialT = model::MaterialTT<Cfg>;
   template <typename T>
   static void getTransposedCoefficientMatrix(const AcousticMaterial& material, unsigned dim, T& M) {
     M.setZero();
@@ -103,16 +103,15 @@ struct MaterialSetup<AcousticMaterial> {
   }
   static void initializeSpecificLocalData(const AcousticMaterial& material,
                                           double timeStepWidth,
-                                          AcousticLocalData* localData) {}
+                                          void* localData) {}
 
-  static void initializeSpecificNeighborData(const AcousticMaterial& material,
-                                             AcousticNeighborData* localData) {}
+  static void initializeSpecificNeighborData(const AcousticMaterial& material, void* localData) {}
 
   static void getPlaneWaveOperator(const AcousticMaterial& material,
                                    const double n[3],
                                    std::complex<double> mdata[AcousticMaterial::NumQuantities *
                                                               AcousticMaterial::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
+    getElasticPlaneWaveOperator<Cfg>(material, n, mdata);
   }
   template <typename T>
   static void getTransposedSourceCoefficientTensor(const AcousticMaterial& material,
@@ -121,8 +120,8 @@ struct MaterialSetup<AcousticMaterial> {
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,
                                     const VrtxCoords tangent2,
-                                    init::T<Cfg>::view::type& matT,
-                                    init::Tinv<Cfg>::view::type& matTinv) {
+                                    typename init::T<Cfg>::view::type& matT,
+                                    typename init::Tinv<Cfg>::view::type& matTinv) {
     matT.setZero();
     matTinv.setZero();
 

@@ -263,7 +263,6 @@ struct FsrmFile : public SourceFile {
   }
 };
 
-template <typename Cfg>
 auto mapClusterToMesh(ClusterMapping& clusterMapping,
                       const std::size_t* meshIds,
                       LTS::Storage& ltsStorage,
@@ -282,8 +281,10 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
     for (std::size_t dup = 0; dup < LTS::Backmap::MaxDuplicates; ++dup) {
       const auto position = backmap.getDup(meshId, dup);
       if (position.has_value()) {
-        clusterMapping.cellToSources[mapping].dofs =
-            &ltsStorage.lookup<LTS::Dofs>(Cfg(), position.value(), place);
+        ltsStorage.lookupWrap<LTS::Dofs>(
+            position.value(),
+            [&](auto& value) { clusterMapping.cellToSources[mapping].dofs = &value; },
+            place);
         clusterMapping.cellToSources[mapping].pointSourcesOffset = clusterSource;
         clusterMapping.cellToSources[mapping].numberOfPointSources = next - clusterSource;
         ++mapping;
@@ -338,11 +339,11 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
               clusterMappings[cluster].sources.end(),
               [&](std::size_t i, std::size_t j) { return meshIds[i] < meshIds[j]; });
 
-    mapClusterToMesh<Cfg>(clusterMappings[cluster],
-                          meshIds,
-                          ltsStorage,
-                          backmap,
-                          seissol::initializer::AllocationPlace::Host);
+    mapClusterToMesh(clusterMappings[cluster],
+                     meshIds,
+                     ltsStorage,
+                     backmap,
+                     seissol::initializer::AllocationPlace::Host);
   }
 
   return clusterMappings;
@@ -367,11 +368,11 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
     } else {
       constexpr auto GpuMemkind = seissol::memory::Memkind::DeviceGlobalMemory;
       auto predeviceClusterMapping = mapping;
-      mapClusterToMesh<Cfg>(predeviceClusterMapping,
-                            meshIds,
-                            ltsStorage,
-                            backmap,
-                            seissol::initializer::AllocationPlace::Device);
+      mapClusterToMesh(predeviceClusterMapping,
+                       meshIds,
+                       ltsStorage,
+                       backmap,
+                       seissol::initializer::AllocationPlace::Device);
       auto deviceClusterMapping =
           std::make_shared<ClusterMapping>(predeviceClusterMapping, GpuMemkind);
       auto devicePointSources = std::make_shared<PointSources<Cfg>>(sources, GpuMemkind);

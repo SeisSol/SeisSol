@@ -26,6 +26,7 @@
 #include <Memory/Descriptor/Surface.h>
 #include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/Layer.h>
+#include <Model/Datastructures.h>
 #include <Model/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Solver/MultipleSimulations.h>
@@ -121,19 +122,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& globalData = memoryManager.getGlobalData();
   const auto& backupTimeStamp = seissolInstance.getBackupTimeStamp();
 
-  constexpr auto NumQuantities =
-      tensor::Q<Cfg>::Shape[sizeof(tensor::Q<Cfg>::Shape) / sizeof(tensor::Q<Cfg>::Shape[0]) - 1];
-  constexpr auto QDofSizePadded =
-      tensor::Q<Cfg>::Size / tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
-
   // TODO(David): handle attenuation properly here. We'll probably not want it to be contained in
   // numberOfQuantities. But the compile-time parameter
   // seissol::model::MaterialT::NumQuantities contains it nonetheless.
 
   // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
-  constexpr auto FaceDisplacementPadded =
-      tensor::faceDisplacement<Cfg>::Size /
-      tensor::faceDisplacement<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
 
   const auto namewrap = [](const std::string& name, std::size_t sim) {
     if constexpr (multisim::MultisimEnabled) {
@@ -191,6 +184,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         "wavefield", celllist.size(), io::instance::geometry::Shape::Tetrahedron, order);
 
     writer.addPointProjector([=](double* target, std::size_t index) {
+      // fix some config
+      using Cfg0 = Config0;
+
       const auto& element = meshReader.getElements()[cellIndices[index]];
       const auto& vertexArray = meshReader.getVertices();
 
@@ -205,10 +201,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           vertexArray[element.vertices[3]].coords,
           zero,
           &target[0]);
-      for (std::size_t i = 1; i < tensor::vtk3d<Cfg>::Shape[trueOrder][1]; ++i) {
-        double point[3] = {init::vtk3d<Cfg>::Values[trueOrder][i * 3 - 3 + 0],
-                           init::vtk3d<Cfg>::Values[trueOrder][i * 3 - 3 + 1],
-                           init::vtk3d<Cfg>::Values[trueOrder][i * 3 - 3 + 2]};
+      for (std::size_t i = 1; i < tensor::vtk3d<Cfg0>::Shape[trueOrder][1]; ++i) {
+        double point[3] = {init::vtk3d<Cfg0>::Values[trueOrder][i * 3 - 3 + 0],
+                           init::vtk3d<Cfg0>::Values[trueOrder][i * 3 - 3 + 1],
+                           init::vtk3d<Cfg0>::Values[trueOrder][i * 3 - 3 + 2]};
         seissol::transformations::tetrahedronReferenceToGlobal(
             vertexArray[element.vertices[0]].coords,
             vertexArray[element.vertices[1]].coords,
@@ -229,17 +225,20 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         });
 
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
-      for (std::size_t quantity = 0; quantity < seissol::model::MaterialTT<Cfg>::Quantities.size();
+      for (std::size_t quantity = 0; quantity < seissol::model::ElasticMaterial::Quantities.size();
            ++quantity) {
         if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
           writer.addGeometryOutput<float>(
-              namewrap(seissol::model::MaterialTT<Cfg>::Quantities[quantity], sim),
+              namewrap(seissol::model::ElasticMaterial::Quantities[quantity], sim),
               {},
               false,
               [=, &ltsStorage, &backmap](float* target, std::size_t index) {
                 const auto position = backmap.get(cellIndices[index]);
                 ltsStorage.layer(position.color).wrap([&](auto cfg) {
                   using Cfg = decltype(cfg);
+                  constexpr auto QDofSizePadded =
+                      tensor::Q<Cfg>::Size /
+                      tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(Cfg(), position);
                   const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                   kernel::projectBasisToVtkVolume<Cfg> vtkproj{};
@@ -263,17 +262,20 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       }
       if (seissolParams.model.plasticity) {
         for (std::size_t quantity = 0;
-             quantity < seissol::model::PlasticityData<Real<Cfg>>::Quantities.size();
+             quantity < seissol::model::PlasticityData<double>::Quantities.size();
              ++quantity) {
           if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
             writer.addGeometryOutput<float>(
-                namewrap(seissol::model::PlasticityData<Real<Cfg>>::Quantities[quantity], sim),
+                namewrap(seissol::model::PlasticityData<double>::Quantities[quantity], sim),
                 {},
                 false,
                 [=, &ltsStorage, &backmap](float* target, std::size_t index) {
                   const auto position = backmap.get(cellIndices[index]);
                   ltsStorage.layer(position.color).wrap([&](auto cfg) {
                     using Cfg = decltype(cfg);
+                    constexpr auto QDofSizePadded =
+                        tensor::Q<Cfg>::Size /
+                        tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
                     const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(cfg, position);
                     const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                     kernel::projectBasisToVtkVolume<Cfg> vtkproj{};
@@ -320,6 +322,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                                                io::instance::geometry::Shape::Triangle,
                                                order);
     writer.addPointProjector([=, &freeSurfaceIntegrator](double* target, std::size_t index) {
+      // fix some config
+      using Cfg0 = Config0;
+
       auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
       auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
       const auto& element = meshReader.getElements()[meshId];
@@ -338,9 +343,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           vertexArray[element.vertices[3]].coords,
           xez,
           &target[0]);
-      for (std::size_t i = 1; i < tensor::vtk2d<Cfg>::Shape[trueOrder][1]; ++i) {
-        double point[2] = {init::vtk2d<Cfg>::Values[trueOrder][i * 2 - 2 + 0],
-                           init::vtk2d<Cfg>::Values[trueOrder][i * 2 - 2 + 1]};
+      for (std::size_t i = 1; i < tensor::vtk2d<Cfg0>::Shape[trueOrder][1]; ++i) {
+        double point[2] = {init::vtk2d<Cfg0>::Values[trueOrder][i * 2 - 2 + 0],
+                           init::vtk2d<Cfg0>::Values[trueOrder][i * 2 - 2 + 1]};
         seissol::transformations::chiTau2XiEtaZeta(side, point, xez);
         seissol::transformations::tetrahedronReferenceToGlobal(
             vertexArray[element.vertices[0]].coords,
@@ -380,6 +385,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
               ltsStorage.layer(position.color).wrap([&](auto cfg) {
                 using Cfg = decltype(cfg);
+                constexpr auto QDofSizePadded =
+                    tensor::Q<Cfg>::Size /
+                    tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(cfg, position);
                 const auto* dofsSingleQuantity =
                     dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
@@ -417,6 +425,10 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
               ltsStorage.layer(position.color).wrap([&](auto cfg) {
                 using Cfg = decltype(cfg);
+                constexpr auto FaceDisplacementPadded =
+                    tensor::faceDisplacement<Cfg>::Size /
+                    tensor::faceDisplacement<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
+
                 const auto* faceDisplacements =
                     ltsStorage.lookup<LTS::FaceDisplacements>(Cfg(), position);
                 const auto* faceDisplacementVariable =

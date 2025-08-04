@@ -47,6 +47,7 @@ struct Solver {
   template <typename RealT>
   using TimeBasis = seissol::numerical::LegendreBasis<RealT>;
 
+  template <typename Cfg>
   static constexpr std::size_t DerivativesSize = kernels::size<tensor::spaceTimePredictor<Cfg>>();
 };
 

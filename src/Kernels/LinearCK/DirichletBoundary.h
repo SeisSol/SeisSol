@@ -29,18 +29,12 @@
 #endif
 
 namespace {
-// Helper functions, needed because C++ doesnt allow partial func. template specialisation
-template <typename Cfg, typename MappingKrnl>
-void addRotationToProjectKernel(MappingKrnl& projectKernel,
-                                const seissol::CellBoundaryMapping<Cfg>& boundaryMapping) {
-  // do nothing
-}
 
 //
 // GCC warns that the method below is unused. This is not correct.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
-template <>
+template <typename Cfg>
 void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated<Cfg>& projectKernel,
                                 const seissol::CellBoundaryMapping<Cfg>& boundaryMapping) {
   assert(boundaryMapping.dataTinv != nullptr);
@@ -67,7 +61,7 @@ class DirichletBoundary {
                 Func&& evaluateBoundaryCondition,
                 real* dofsFaceBoundaryNodal) const {
     auto projectKrnl = std::forward<MappingKrnl>(projectKernelPrototype);
-    addRotationToProjectKernel(projectKrnl, boundaryMapping);
+    addRotationToProjectKernel<Cfg>(projectKrnl, boundaryMapping);
     projectKrnl.I = dofsVolumeInteriorModal;
     projectKrnl.INodal = dofsFaceBoundaryNodal;
     projectKrnl.execute(faceIdx);

@@ -107,21 +107,26 @@ SEISSOL_HOSTDEVICE inline RealT computeSampleTimeIntegral(double from,
 }
 
 // workaround for NVHPC (using constexpr arrays directly caused errors in 24.01)
+template <typename Cfg>
 constexpr std::size_t QSpan = init::Q<Cfg>::Stop[multisim::BasisFunctionDimension] -
                               init::Q<Cfg>::Start[multisim::BasisFunctionDimension];
+template <typename Cfg>
 constexpr std::size_t QMultiSpan = init::Q<Cfg>::Stop[0] - init::Q<Cfg>::Start[0];
+template <typename Cfg>
 constexpr std::size_t MomentFsrmSpan = tensor::update<Cfg>::Shape[0];
+template <typename Cfg>
 constexpr std::size_t MInvJInvPhisAtSourcesSpan = tensor::mInvJInvPhisAtSources<Cfg>::Shape[0];
 
-constexpr std::size_t Quantities = MomentFsrmSpan;
+template <typename Cfg>
+constexpr std::size_t Quantities = MomentFsrmSpan<Cfg>;
 
-template <typename RealT>
+template <typename Cfg>
 SEISSOL_HOSTDEVICE constexpr auto&
-    dofsAccessor(RealT* __restrict dofs, std::uint32_t k, std::uint32_t t, std::uint32_t f) {
+    dofsAccessor(Real<Cfg>* __restrict dofs, std::uint32_t k, std::uint32_t t, std::uint32_t f) {
   if constexpr (seissol::multisim::MultisimEnabled) {
-    return dofs[(k + t * QSpan) * QMultiSpan + f];
+    return dofs[(k + t * QSpan<Cfg>)*QMultiSpan<Cfg> + f];
   } else {
-    return dofs[k + t * QSpan];
+    return dofs[k + t * QSpan<Cfg>];
   }
 }
 
@@ -151,9 +156,9 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelDevice(
     const auto base = sampleRange[source];
     const std::uint32_t localSamples = sampleRange[source + 1] - base;
 
-    const auto* __restrict tensorLocal = tensor + base * Quantities;
+    const auto* __restrict tensorLocal = tensor + base * Quantities<Cfg>;
 
-    std::array<Real<Cfg>, Quantities> update{};
+    std::array<Real<Cfg>, Quantities<Cfg>> update{};
 
 #pragma unroll 3
     for (std::uint32_t i = 0; i < localSamples; ++i) {
@@ -163,15 +168,15 @@ SEISSOL_HOSTDEVICE inline void pointSourceKernelDevice(
           from, to, onsetTime[source], samplingInterval[source], sample + o0, o1 - o0);
 
 #pragma unroll
-      for (std::uint32_t t = 0; t < Quantities; ++t) {
-        update[t] += slip * tensorLocal[t + i * Quantities];
+      for (std::uint32_t t = 0; t < Quantities<Cfg>; ++t) {
+        update[t] += slip * tensorLocal[t + i * Quantities<Cfg>];
       }
     }
 
 #pragma unroll
-    for (std::uint32_t t = 0; t < Quantities; ++t) {
-      for (std::uint32_t k = thread; k < MInvJInvPhisAtSourcesSpan; k += Block) {
-        dofsAccessor(dofs, k, t, simulationIndex[source]) +=
+    for (std::uint32_t t = 0; t < Quantities<Cfg>; ++t) {
+      for (std::uint32_t k = thread; k < MInvJInvPhisAtSourcesSpan<Cfg>; k += Block) {
+        dofsAccessor<Cfg>(dofs, k, t, simulationIndex[source]) +=
             mInvJInvPhisAtSources[source][k] * update[t];
       }
     }

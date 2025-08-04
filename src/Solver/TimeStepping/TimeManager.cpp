@@ -14,7 +14,9 @@
 #include "ResultWriter/ClusteringWriter.h"
 #include "SeisSol.h"
 #include "TimeManager.h"
+#include <Common/ConfigHelper.h>
 #include <Common/Iterator.h>
+#include <Config.h>
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
@@ -94,6 +96,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                     ? std::numeric_limits<double>::infinity()
                                     : clusterLayout.timestepRate(drClusterOutput);
 
+  ConfigVariant config = ConfigVariantList[0];
+
   // iterate over local time clusters
   for (std::size_t clusterId = 0; clusterId < clusterLayout.globalClusterCount; ++clusterId) {
     // get memory layout of this cluster
@@ -104,9 +108,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     const auto timeStepRate = clusterLayout.clusterRate(clusterId);
 
     // Dynamic rupture
-    const auto interiorId = initializer::LayerIdentifier(HaloType::Interior, Config(), clusterId);
-    const auto copyId = initializer::LayerIdentifier(HaloType::Copy, Config(), clusterId);
-    const auto ghostId = initializer::LayerIdentifier(HaloType::Ghost, Config(), clusterId);
+    const auto interiorId = initializer::LayerIdentifier(HaloType::Interior, config, clusterId);
+    const auto copyId = initializer::LayerIdentifier(HaloType::Copy, config, clusterId);
+    const auto ghostId = initializer::LayerIdentifier(HaloType::Ghost, config, clusterId);
 
     // Note: We need to include the Ghost part, as we need to compute its DR part as well.
     const long numberOfDynRupCells = memoryManager.getDRStorage().layer(interiorId).size() +
@@ -126,26 +130,31 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       auto* layerData = &memoryManager.getLtsStorage().layer(type == Copy ? copyId : interiorId);
       auto* dynRupInteriorData = &memoryManager.getDRStorage().layer(interiorId);
       auto* dynRupCopyData = &memoryManager.getDRStorage().layer(copyId);
-      clusters.push_back(
-          std::make_unique<TimeCluster<Cfg>>(clusterId,
-                                             clusterId,
-                                             profilingId,
-                                             usePlasticity,
-                                             type,
-                                             timeStepSize,
-                                             timeStepRate,
-                                             printProgress,
-                                             drScheduler.get(),
-                                             globalData,
-                                             layerData,
-                                             dynRupInteriorData,
-                                             dynRupCopyData,
-                                             memoryManager.getFrictionLaw(),
-                                             memoryManager.getFrictionLawDevice(),
-                                             memoryManager.getFaultOutputManager(),
-                                             seissolInstance,
-                                             &loopStatistics,
-                                             &actorStateStatisticsManager.addCluster(profilingId)));
+      std::visit(
+          [&](auto cfg) {
+            using Cfg = decltype(cfg);
+            clusters.push_back(std::make_unique<TimeCluster<Cfg>>(
+                clusterId,
+                clusterId,
+                profilingId,
+                usePlasticity,
+                type,
+                timeStepSize,
+                timeStepRate,
+                printProgress,
+                drScheduler.get(),
+                globalData,
+                layerData,
+                dynRupInteriorData,
+                dynRupCopyData,
+                memoryManager.getFrictionLaw(),
+                memoryManager.getFrictionLawDevice(),
+                memoryManager.getFaultOutputManager(),
+                seissolInstance,
+                &loopStatistics,
+                &actorStateStatisticsManager.addCluster(profilingId)));
+          },
+          config);
 
       const auto clusterSize = layerData->size();
       const auto dynRupSize = type == Copy ? dynRupCopyData->size() : dynRupInteriorData->size();

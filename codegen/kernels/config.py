@@ -42,10 +42,6 @@ namespace seissol {{
 
 using ConfigVariant = std::variant<{confignames}>;
 
-// for now
-using Config = Config0;
-using Cfg = Config0;
-
 }} // namespace seissol
 
 #endif

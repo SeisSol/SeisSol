@@ -128,7 +128,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       } else {
         dQPtrs[cell] = &derivativesScratch[derivativesAddressCounter];
-        derivativesAddressCounter += seissol::kernels::Solver<Cfg>::DerivativesSize;
+        derivativesAddressCounter += seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg>;
       }
     }
     // just to be sure that we took all branches while filling in idofsPtrs vector

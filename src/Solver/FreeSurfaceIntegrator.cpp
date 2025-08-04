@@ -137,122 +137,123 @@ void FreeSurfaceIntegrator::calculateOutput() const {
 
 void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementDepth) {
   // Sub triangles
-  triRefiner.refine(maxRefinementDepth);
+  /*  triRefiner.refine(maxRefinementDepth);
 
-  const auto projectionMatrixNCols =
-      tensor::subTriangleProjection<Cfg>::Shape[tensor::subTriangleProjection<Cfg>::index(
-          maxRefinementDepth)][1];
+    const auto projectionMatrixNCols =
+        tensor::subTriangleProjection<Cfg>::Shape[tensor::subTriangleProjection<Cfg>::index(
+            maxRefinementDepth)][1];
 
-  numberOfSubTriangles = triRefiner.subTris.size();
-  numberOfAlignedSubTriangles =
-      tensor::subTriangleProjection<Cfg>::size(maxRefinementDepth) / projectionMatrixNCols;
+    numberOfSubTriangles = triRefiner.subTris.size();
+    numberOfAlignedSubTriangles =
+        tensor::subTriangleProjection<Cfg>::size(maxRefinementDepth) / projectionMatrixNCols;
 
-  assert(numberOfAlignedSubTriangles * projectionMatrixNCols ==
-         tensor::subTriangleProjection<Cfg>::size(maxRefinementDepth));
-  assert(numberOfSubTriangles == (1U << (2U * maxRefinementDepth)));
+    assert(numberOfAlignedSubTriangles * projectionMatrixNCols ==
+           tensor::subTriangleProjection<Cfg>::size(maxRefinementDepth));
+    assert(numberOfSubTriangles == (1U << (2U * maxRefinementDepth)));
 
-  const auto projectionMatrixNumberOfReals =
-      4 * tensor::subTriangleProjection<Cfg>::size(maxRefinementDepth);
-  const auto projectionMatrixFromFaceMemoryNumberOfReals =
-      tensor::subTriangleProjectionFromFace<Cfg>::size(maxRefinementDepth);
+    const auto projectionMatrixNumberOfReals =
+        4 * tensor::subTriangleProjection<Cfg>::size(maxRefinementDepth);
+    const auto projectionMatrixFromFaceMemoryNumberOfReals =
+        tensor::subTriangleProjectionFromFace<Cfg>::size(maxRefinementDepth);
 
-  projectionMatrixMemory =
-      seissol::memory::allocTyped<double>(projectionMatrixNumberOfReals, Alignment);
-  projectionMatrixFromFace =
-      seissol::memory::allocTyped<double>(projectionMatrixFromFaceMemoryNumberOfReals, Alignment);
+    projectionMatrixMemory =
+        seissol::memory::allocTyped<double>(projectionMatrixNumberOfReals, Alignment);
+    projectionMatrixFromFace =
+        seissol::memory::allocTyped<double>(projectionMatrixFromFaceMemoryNumberOfReals, Alignment);
 
-  std::fill_n(projectionMatrixMemory, 0, projectionMatrixNumberOfReals);
-  std::fill_n(projectionMatrixFromFace, 0, projectionMatrixFromFaceMemoryNumberOfReals);
+    std::fill_n(projectionMatrixMemory, 0, projectionMatrixNumberOfReals);
+    std::fill_n(projectionMatrixFromFace, 0, projectionMatrixFromFaceMemoryNumberOfReals);
 
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    projectionMatrix[face] =
-        projectionMatrixMemory +
-        static_cast<size_t>(face * tensor::subTriangleProjection<Cfg>::size(maxRefinementDepth));
-  }
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      projectionMatrix[face] =
+          projectionMatrixMemory +
+          static_cast<size_t>(face * tensor::subTriangleProjection<Cfg>::size(maxRefinementDepth));
+    }
 
-  // Triangle quadrature points and weights
-  auto* points = new double[NumQuadraturePoints][2];
-  auto* weights = new double[NumQuadraturePoints];
-  // TODO(SW): Use the same quadrature rule, which is used for Dynamic Rupture
-  seissol::quadrature::TriangleQuadrature(points, weights, PolyDegree);
+    // Triangle quadrature points and weights
+    auto* points = new double[NumQuadraturePoints][2];
+    auto* weights = new double[NumQuadraturePoints];
+    // TODO(SW): Use the same quadrature rule, which is used for Dynamic Rupture
+    seissol::quadrature::TriangleQuadrature(points, weights, PolyDegree);
 
-  auto points3D =
-      std::array<std::array<double, 3>, NumQuadraturePoints>{}; // Points for eval of 3D basis
-  auto points2D =
-      std::array<std::array<double, 2>, NumQuadraturePoints>{}; // Points for eval of 2D basis
+    auto points3D =
+        std::array<std::array<double, 3>, NumQuadraturePoints>{}; // Points for eval of 3D basis
+    auto points2D =
+        std::array<std::array<double, 2>, NumQuadraturePoints>{}; // Points for eval of 2D basis
 
-  // Compute projection matrices
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    for (std::size_t tri = 0; tri < numberOfSubTriangles; ++tri) {
-      for (std::size_t qp = 0; qp < NumQuadraturePoints; ++qp) {
-        const seissol::refinement::Triangle& subTri = triRefiner.subTris[tri];
-        const auto chiTau = std::array<double, 2>{
-            points[qp][0] * (subTri.x[1][0] - subTri.x[0][0]) +
-                points[qp][1] * (subTri.x[2][0] - subTri.x[0][0]) + subTri.x[0][0],
-            points[qp][0] * (subTri.x[1][1] - subTri.x[0][1]) +
-                points[qp][1] * (subTri.x[2][1] - subTri.x[0][1]) + subTri.x[0][1]};
-        seissol::transformations::chiTau2XiEtaZeta(face, chiTau.data(), points3D[qp].data());
-        points2D[qp] = chiTau;
-      }
-      computeSubTriangleAverages(projectionMatrix[face] + tri, points3D, weights);
-      if (face == 0) {
-        computeSubTriangleAveragesFromFaces(projectionMatrixFromFace + tri, points2D, weights);
+    // Compute projection matrices
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      for (std::size_t tri = 0; tri < numberOfSubTriangles; ++tri) {
+        for (std::size_t qp = 0; qp < NumQuadraturePoints; ++qp) {
+          const seissol::refinement::Triangle& subTri = triRefiner.subTris[tri];
+          const auto chiTau = std::array<double, 2>{
+              points[qp][0] * (subTri.x[1][0] - subTri.x[0][0]) +
+                  points[qp][1] * (subTri.x[2][0] - subTri.x[0][0]) + subTri.x[0][0],
+              points[qp][0] * (subTri.x[1][1] - subTri.x[0][1]) +
+                  points[qp][1] * (subTri.x[2][1] - subTri.x[0][1]) + subTri.x[0][1]};
+          seissol::transformations::chiTau2XiEtaZeta(face, chiTau.data(), points3D[qp].data());
+          points2D[qp] = chiTau;
+        }
+        computeSubTriangleAverages(projectionMatrix[face] + tri, points3D, weights);
+        if (face == 0) {
+          computeSubTriangleAveragesFromFaces(projectionMatrixFromFace + tri, points2D, weights);
+        }
       }
     }
-  }
 
-  delete[] points;
-  delete[] weights;
+    delete[] points;
+    delete[] weights;*/
 }
 
 void FreeSurfaceIntegrator::computeSubTriangleAverages(
     double* projectionMatrixRow,
     const std::array<std::array<double, 3>, NumQuadraturePoints>& bfPoints,
-    const double* weights) const {
-  unsigned nbf = 0;
-  for (unsigned d = 0; d < Cfg::ConvergenceOrder; ++d) {
-    for (unsigned k = 0; k <= d; ++k) {
-      for (unsigned j = 0; j <= d - k; ++j) {
-        const unsigned i = d - k - j;
+    const double* weights) const { /*
+   unsigned nbf = 0;
+   for (unsigned d = 0; d < Cfg::ConvergenceOrder; ++d) {
+     for (unsigned k = 0; k <= d; ++k) {
+       for (unsigned j = 0; j <= d - k; ++j) {
+         const unsigned i = d - k - j;
 
-        // Compute subtriangle average via quadrature
-        double average = 0.0;
-        for (unsigned qp = 0; qp < NumQuadraturePoints; ++qp) {
-          average +=
-              weights[qp] * seissol::functions::TetraDubinerP(
-                                {i, j, k}, {bfPoints[qp][0], bfPoints[qp][1], bfPoints[qp][2]});
-        }
-        // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
-        average *= 2.0;
+         // Compute subtriangle average via quadrature
+         double average = 0.0;
+         for (unsigned qp = 0; qp < NumQuadraturePoints; ++qp) {
+           average +=
+               weights[qp] * seissol::functions::TetraDubinerP(
+                                 {i, j, k}, {bfPoints[qp][0], bfPoints[qp][1], bfPoints[qp][2]});
+         }
+         // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
+         average *= 2.0;
 
-        projectionMatrixRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles)] = average;
+         projectionMatrixRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles)] = average;
 
-        ++nbf;
-      }
-    }
-  }
+         ++nbf;
+       }
+     }
+   }*/
 }
 
 void FreeSurfaceIntegrator::computeSubTriangleAveragesFromFaces(
     double* projectionMatrixFromFaceRow,
     const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
-    const double* weights) const {
-  unsigned nbf = 0;
-  for (unsigned d = 0; d < Cfg::ConvergenceOrder; ++d) {
-    for (unsigned j = 0; j <= d; ++j) {
-      // Compute subtriangle average via quadrature
-      double average = 0.0;
-      for (unsigned qp = 0; qp < NumQuadraturePoints; ++qp) {
-        average += weights[qp] *
-                   seissol::functions::TriDubinerP({d - j, j}, {bfPoints[qp][0], bfPoints[qp][1]});
-      }
-      // We have a factor J / area. As J = 2*area we have to multiply the average by 2.
-      average *= 2.0;
+    const double* weights)
+    const { /*
+unsigned nbf = 0;
+for (unsigned d = 0; d < Cfg::ConvergenceOrder; ++d) {
+for (unsigned j = 0; j <= d; ++j) {
+// Compute subtriangle average via quadrature
+double average = 0.0;
+for (unsigned qp = 0; qp < NumQuadraturePoints; ++qp) {
+average += weights[qp] *
+seissol::functions::TriDubinerP({d - j, j}, {bfPoints[qp][0], bfPoints[qp][1]});
+}
+// We have a factor J / area. As J = 2*area we have to multiply the average by 2.
+average *= 2.0;
 
-      projectionMatrixFromFaceRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles)] = average;
-      ++nbf;
-    }
-  }
+projectionMatrixFromFaceRow[static_cast<size_t>(nbf * numberOfAlignedSubTriangles)] = average;
+++nbf;
+}
+}*/
 }
 
 FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(

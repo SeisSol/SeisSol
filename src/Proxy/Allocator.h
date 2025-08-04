@@ -47,7 +47,7 @@ struct ProxyDataImpl : public ProxyData {
   Real<Cfg>* fakeDerivatives = nullptr;
   Real<Cfg>* fakeDerivativesHost = nullptr;
 
-  typename kernels::Solver<Config>::TimeBasis<Real<Cfg>> timeBasis{Config::ConvergenceOrder};
+  typename kernels::Solver<Cfg>::template TimeBasis<Real<Cfg>> timeBasis{Cfg::ConvergenceOrder};
 
   kernels::Spacetime<Cfg> spacetimeKernel;
   kernels::Time<Cfg> timeKernel;

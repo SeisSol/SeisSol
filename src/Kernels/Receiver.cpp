@@ -54,7 +54,7 @@ Receiver<Cfg>::Receiver(std::size_t pointId,
       elementCoords[0], elementCoords[1], elementCoords[2], elementCoords[3], this->position);
   basisFunctions = basisFunction::SampledBasisFunctions<real>(
       Cfg::ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
-  basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<real>(
+  basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<Cfg>(
       Cfg::ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives.transformToGlobalCoordinates(elementCoords);
 }
@@ -148,7 +148,7 @@ double ReceiverClusterImpl<Cfg>::calcReceivers(double time,
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint<Cfg>::size()];
       alignas(Alignment)
           real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint<Cfg>::size()];
-      alignas(PagesizeStack) real timeDerivatives[Solver<Cfg>::DerivativesSize];
+      alignas(PagesizeStack) real timeDerivatives[Solver<Cfg>::template DerivativesSize<Cfg>];
 
       kernels::LocalTmp<Cfg> tmp(seissolInstance.getGravitationSetup().acceleration);
 

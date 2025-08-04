@@ -15,12 +15,26 @@
 #include "Numerical/Transformation.h"
 
 #include "GeneratedCode/init.h"
+#include <Common/Typedefs.h>
 #include <yateto.h>
 
+namespace seissol::tensor {
+template <typename>
+class ET;
+}
+
+namespace seissol::init {
+template <typename>
+class ET;
+}
+
 namespace seissol::model {
-template <std::size_t N>
-struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
-  using MaterialT = ViscoElasticMaterialParametrized<N>;
+template <typename Cfg>
+struct MaterialSetup<
+    Cfg,
+    std::enable_if_t<Cfg::MaterialType == MaterialType::Viscoelastic &&
+                     Cfg::ViscoImplementation == ViscoImplementation::QuantityExtension>> {
+  using MaterialT = model::MaterialTT<Cfg>;
 
   template <typename T>
   static void
@@ -89,11 +103,12 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
     }
   }
 
-  static void getTransposedGodunovState(const MaterialT& local,
-                                        const MaterialT& neighbor,
-                                        FaceType faceType,
-                                        init::QgodLocal<Cfg>::view::type& QgodLocal,
-                                        init::QgodNeighbor<Cfg>::view::type& QgodNeighbor) {
+  static void
+      getTransposedGodunovState(const MaterialT& local,
+                                const MaterialT& neighbor,
+                                FaceType faceType,
+                                typename init::QgodLocal<Cfg>::view::type& QgodLocal,
+                                typename init::QgodNeighbor<Cfg>::view::type& QgodNeighbor) {
     seissol::model::getTransposedGodunovState(dynamic_cast<const ElasticMaterial&>(local),
                                               dynamic_cast<const ElasticMaterial&>(neighbor),
                                               faceType,
@@ -114,10 +129,9 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,
                                     const VrtxCoords tangent2,
-                                    init::T<Cfg>::view::type& matT,
-                                    init::Tinv<Cfg>::view::type& matTinv) {
-    seissol::model::getFaceRotationMatrix<ElasticMaterial>(
-        normal, tangent1, tangent2, matT, matTinv);
+                                    typename init::T<Cfg>::view::type& matT,
+                                    typename init::Tinv<Cfg>::view::type& matTinv) {
+    seissol::model::getFaceRotationMatrixElastic(normal, tangent1, tangent2, matT, matTinv);
 
     for (unsigned mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       const unsigned origin =
@@ -138,7 +152,7 @@ struct MaterialSetup<ViscoElasticMaterialParametrized<N>> {
       const MaterialT& material,
       const double n[3],
       std::complex<double> mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
-    getElasticPlaneWaveOperator(material, n, mdata);
+    getElasticPlaneWaveOperator<Cfg>(material, n, mdata);
   }
 };
 } // namespace seissol::model

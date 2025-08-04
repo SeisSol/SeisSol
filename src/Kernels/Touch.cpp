@@ -20,34 +20,36 @@
 
 namespace seissol::kernels {
 
-template <typename RealT>
-void touchBuffersDerivatives(RealT** buffers, RealT** derivatives, unsigned numberOfCells) {
+template <typename Cfg>
+void touchBuffersDerivatives(Real<Cfg>** buffers, Real<Cfg>** derivatives, unsigned numberOfCells) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t cell = 0; cell < numberOfCells; ++cell) {
     // touch buffers
-    RealT* buffer = buffers[cell];
+    Real<Cfg>* buffer = buffers[cell];
     if (buffer != nullptr) {
       for (std::size_t dof = 0; dof < tensor::Q<Cfg>::size(); ++dof) {
         // zero time integration buffers
-        buffer[dof] = static_cast<RealT>(0);
+        buffer[dof] = static_cast<Real<Cfg>>(0);
       }
     }
 
     // touch derivatives
-    RealT* derivative = derivatives[cell];
+    Real<Cfg>* derivative = derivatives[cell];
     if (derivative != nullptr) {
-      for (std::size_t dof = 0; dof < seissol::kernels::Solver<Cfg>::DerivativesSize; ++dof) {
-        derivative[dof] = static_cast<RealT>(0);
+      for (std::size_t dof = 0; dof < seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg>;
+           ++dof) {
+        derivative[dof] = static_cast<Real<Cfg>>(0);
       }
     }
   }
 }
 
-template void
-    touchBuffersDerivatives(double** buffers, double** derivatives, unsigned numberOfCells);
-template void touchBuffersDerivatives(float** buffers, float** derivatives, unsigned numberOfCells);
+#define _H_(cfg)                                                                                   \
+  template void touchBuffersDerivatives<cfg>(                                                      \
+      Real<cfg> * *buffers, Real<cfg> * *derivatives, unsigned numberOfCells);
+#include "ConfigInclude.h"
 
 template <typename RealT>
 void fillWithStuff(RealT* buffer, unsigned nValues, [[maybe_unused]] bool onDevice) {

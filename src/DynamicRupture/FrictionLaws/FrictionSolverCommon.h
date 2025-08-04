@@ -38,7 +38,7 @@ struct ForLoopRange {
 
 enum class RangeType { CPU, GPU };
 
-template <RangeType Type>
+template <RangeType Type, typename Cfg>
 struct NumPoints {
   private:
   using CpuRange = ForLoopRange<0, dr::misc::NumPaddedPoints<Cfg>, 1>;
@@ -49,7 +49,7 @@ struct NumPoints {
   using Range = std::conditional_t<Type == RangeType::CPU, CpuRange, GpuRange>;
 };
 
-template <RangeType Type>
+template <RangeType Type, typename Cfg>
 struct QInterpolated {
   private:
   using CpuRange = ForLoopRange<0, tensor::QInterpolated<Cfg>::size(), 1>;
@@ -72,11 +72,11 @@ struct RangeExecutor<RangeType::GPU> {
   static constexpr Executor Exec = Executor::Device;
 };
 
-template <Executor Executor>
+template <typename Cfg, Executor Executor>
 struct VariableIndexing;
 
-template <>
-struct VariableIndexing<Executor::Host> {
+template <typename Cfg>
+struct VariableIndexing<Cfg, Executor::Host> {
   template <typename T>
   static constexpr T&
       index(T (&data)[Cfg::ConvergenceOrder][misc::NumPaddedPoints<Cfg>], int o, int i) {
@@ -90,8 +90,8 @@ struct VariableIndexing<Executor::Host> {
   }
 };
 
-template <>
-struct VariableIndexing<Executor::Device> {
+template <typename Cfg>
+struct VariableIndexing<Cfg, Executor::Device> {
   template <typename T>
   static constexpr T& index(T (&data)[Cfg::ConvergenceOrder], int o, int i) {
     return data[o];
@@ -183,22 +183,22 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 #endif
 
     for (unsigned o = 0; o < Cfg::ConvergenceOrder; ++o) {
-      using Range = typename NumPoints<Type>::Range;
+      using Range = typename NumPoints<Type, Cfg>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
       for (auto index = Range::Start; index < Range::End; index += Range::Step) {
         auto i{startLoopIndex + index};
-        VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i) =
+        VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i) =
             etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
                     qIMinus[o][N][i] * invZpNeig);
 
-        VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.traction1, o, i) =
+        VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.traction1, o, i) =
             etaS * (qIMinus[o][V][i] - qIPlus[o][V][i] + qIPlus[o][T1][i] * invZs +
                     qIMinus[o][T1][i] * invZsNeig);
 
-        VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.traction2, o, i) =
+        VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.traction2, o, i) =
             etaS * (qIMinus[o][W][i] - qIPlus[o][W][i] + qIPlus[o][T2][i] * invZs +
                     qIMinus[o][T2][i] * invZsNeig);
       }
@@ -310,7 +310,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     unsigned startIndex = 0) {
 
   // set imposed state to zero
-  using QInterpolatedRange = typename QInterpolated<Type>::Range;
+  using QInterpolatedRange = typename QInterpolated<Type, Cfg>::Range;
   for (auto index = QInterpolatedRange::Start; index < QInterpolatedRange::End;
        index += QInterpolatedRange::Step) {
     auto i{startIndex + index};
@@ -342,7 +342,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     for (unsigned o = 0; o < Cfg::ConvergenceOrder; ++o) {
       auto weight = timeWeights[o];
 
-      using NumPointsRange = typename NumPoints<Type>::Range;
+      using NumPointsRange = typename NumPoints<Type, Cfg>::Range;
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
@@ -350,12 +350,12 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
            index += NumPointsRange::Step) {
         auto i{startIndex + index};
 
-        const auto normalStress =
-            VariableIndexing<RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, o, i);
-        const auto traction1 =
-            VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.traction1, o, i);
-        const auto traction2 =
-            VariableIndexing<RangeExecutor<Type>::Exec>::index(tractionResults.traction2, o, i);
+        const auto normalStress = VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(
+            faultStresses.normalStress, o, i);
+        const auto traction1 = VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(
+            tractionResults.traction1, o, i);
+        const auto traction2 = VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(
+            tractionResults.traction2, o, i);
 
         imposedStateM[N][i] += weight * normalStress;
         imposedStateM[T1][i] += weight * traction1;
@@ -448,7 +448,7 @@ SEISSOL_HOSTDEVICE inline void
     const auto gNuc =
         gaussianNucleationFunction::smoothStepIncrement<Real<Cfg>>(fullUpdateTime - s0, dt, t0);
 
-    using Range = typename NumPoints<Type>::Range;
+    using Range = typename NumPoints<Type, Cfg>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -484,7 +484,7 @@ SEISSOL_HOSTDEVICE inline void
                            Real<Cfg> fullUpdateTime,
                            unsigned startIndex = 0) {
 
-  using Range = typename NumPoints<Type>::Range;
+  using Range = typename NumPoints<Type, Cfg>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -513,7 +513,7 @@ SEISSOL_HOSTDEVICE inline void
                            Real<Cfg> peakSlipRate[misc::NumPaddedPoints<Cfg>],
                            unsigned startIndex = 0) {
 
-  using Range = typename NumPoints<Type>::Range;
+  using Range = typename NumPoints<Type, Cfg>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -542,7 +542,7 @@ SEISSOL_HOSTDEVICE inline void updateTimeSinceSlipRateBelowThreshold(
     const Real<Cfg> slipRateThreshold,
     unsigned startIndex = 0) {
 
-  using Range = typename NumPoints<Type>::Range;
+  using Range = typename NumPoints<Type, Cfg>::Range;
   auto* timeSinceSlipRateBelowThreshold = energyData.timeSinceSlipRateBelowThreshold;
 
 #ifndef ACL_DEVICE
@@ -587,7 +587,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   const auto bPlus = impAndEta.etaS * impAndEta.invZs;
   const auto bMinus = impAndEta.etaS * impAndEta.invZsNeig;
 
-  using Range = typename NumPoints<Type>::Range;
+  using Range = typename NumPoints<Type, Cfg>::Range;
 
   using namespace dr::misc::quantity_indices;
   for (size_t o = 0; o < Cfg::ConvergenceOrder; ++o) {

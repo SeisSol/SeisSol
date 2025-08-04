@@ -109,9 +109,10 @@ class PressureInjection : public InitialField {
 };
 
 // A planar wave travelling in direction kVec
-template <typename MaterialT>
+template <typename Cfg>
 class Planarwave : public InitialField {
   public:
+  using MaterialT = model::MaterialTT<Cfg>;
   // Choose phase in [0, 2*pi]
   Planarwave(const CellMaterialData& materialData,
              double phase,
@@ -198,7 +199,7 @@ class Planarwave : public InitialField {
 
     std::array<std::complex<double>, MaterialT::NumQuantities * MaterialT::NumQuantities>
         planeWaveOperator{};
-    seissol::model::getPlaneWaveOperator(
+    seissol::model::getPlaneWaveOperator<Cfg>(
         *dynamic_cast<MaterialT*>(materialData.local), m_kVec.data(), planeWaveOperator.data());
     seissol::eigenvalues::Eigenpair<std::complex<double>, MaterialT::NumQuantities>
         eigendecomposition;
@@ -209,15 +210,16 @@ class Planarwave : public InitialField {
 };
 
 // superimpose three planar waves travelling into different directions
-template <typename MaterialT>
+template <typename Cfg>
 class SuperimposedPlanarwave : public InitialField {
   public:
+  using MaterialT = model::MaterialTT<Cfg>;
   //! Choose phase in [0, 2*pi]
   SuperimposedPlanarwave(const CellMaterialData& materialData, double phase = 0.0)
       : m_kVec({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}), m_phase(phase),
-        m_pw({Planarwave<MaterialT>(materialData, phase, m_kVec.at(0)),
-              Planarwave<MaterialT>(materialData, phase, m_kVec.at(1)),
-              Planarwave<MaterialT>(materialData, phase, m_kVec.at(2))}) {}
+        m_pw({Planarwave<Cfg>(materialData, phase, m_kVec.at(0)),
+              Planarwave<Cfg>(materialData, phase, m_kVec.at(1)),
+              Planarwave<Cfg>(materialData, phase, m_kVec.at(2))}) {}
 
   void evaluate(double time,
                 const std::array<double, 3>* points,
@@ -247,24 +249,25 @@ class SuperimposedPlanarwave : public InitialField {
   private:
   const std::array<Eigen::Vector3d, 3> m_kVec;
   const double m_phase;
-  std::array<Planarwave<MaterialT>, 3> m_pw;
+  std::array<Planarwave<Cfg>, 3> m_pw;
 };
 
 // A part of a planar wave travelling in one direction
-template <typename MaterialT>
-class TravellingWave : public Planarwave<MaterialT> {
+template <typename Cfg>
+class TravellingWave : public Planarwave<Cfg> {
   public:
+  using MaterialT = model::MaterialTT<Cfg>;
   TravellingWave(
       const CellMaterialData& materialData,
       const TravellingWaveParameters&
           travellingWaveParameters) // Set phase to 0.5*M_PI, so we have a zero at the origin
       // The wave travels in direction of kVec
       // 2*pi / magnitude(kVec) is the wave length of the wave
-      : Planarwave<MaterialT>(materialData,
-                              0.5 * M_PI,
-                              travellingWaveParameters.kVec,
-                              travellingWaveParameters.varField,
-                              travellingWaveParameters.ampField),
+      : Planarwave<Cfg>(materialData,
+                        0.5 * M_PI,
+                        travellingWaveParameters.kVec,
+                        travellingWaveParameters.varField,
+                        travellingWaveParameters.ampField),
         // origin is a point on the wavefront at time zero
         m_origin(travellingWaveParameters.origin) {
     logInfo() << "Impose a travelling wave as initial condition";

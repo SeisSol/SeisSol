@@ -21,9 +21,6 @@
 #include <vector>
 
 namespace seissol::model {
-class ElasticLocalData;
-class ElasticNeighborData;
-
 struct ElasticMaterial : Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumElasticQuantities = 9;
@@ -39,8 +36,8 @@ struct ElasticMaterial : Material {
   static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
 
-  using LocalSpecificData = ElasticLocalData;
-  using NeighborSpecificData = ElasticNeighborData;
+  using LocalSpecificData = struct {};
+  using NeighborSpecificData = struct {};
   using Solver = kernels::solver::linearck::Solver;
 
   double lambda;

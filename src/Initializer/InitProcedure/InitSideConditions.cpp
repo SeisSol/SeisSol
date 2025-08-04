@@ -86,7 +86,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
 
       for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
         const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
-        initConditions.emplace_back(new physics::Planarwave<MaterialT>(materialData, phase));
+        initConditions.emplace_back(new physics::Planarwave<Cfg>(materialData, phase));
       }
     } else if (initConditionParams.type ==
                seissol::initializer::parameters::InitializationType::SuperimposedPlanarwave) {
@@ -94,8 +94,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
 
       for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
         const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
-        initConditions.emplace_back(
-            new physics::SuperimposedPlanarwave<MaterialT>(materialData, phase));
+        initConditions.emplace_back(new physics::SuperimposedPlanarwave<Cfg>(materialData, phase));
       }
     } else if (initConditionParams.type ==
                seissol::initializer::parameters::InitializationType::Zero) {
@@ -110,7 +109,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
 
       const auto materialData = memoryManager.getLtsStorage().lookup<LTS::Material>(pos);
       initConditions.emplace_back(
-          new physics::TravellingWave<MaterialT>(materialData, travellingWaveParameters));
+          new physics::TravellingWave<Cfg>(materialData, travellingWaveParameters));
     } else if (initConditionParams.type == seissol::initializer::parameters::InitializationType::
                                                AcousticTravellingWithITM &&
                MaterialT::Mechanisms == 0) {

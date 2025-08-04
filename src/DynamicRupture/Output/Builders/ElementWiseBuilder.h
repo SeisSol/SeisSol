@@ -117,8 +117,12 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
         const auto elementIdx = fault.element;
 
         if (elementIdx >= 0) {
-          std::visit([&](auto cfg) { pointCount += seissol::init::vtk2d<Cfg>::Shape[order][1]; },
-                     ConfigVariantList[elementsInfo[elementIdx].configId]);
+          std::visit(
+              [&](auto cfg) {
+                using Cfg = decltype(cfg);
+                pointCount += seissol::init::vtk2d<Cfg>::Shape[order][1];
+              },
+              ConfigVariantList[elementsInfo[elementIdx].configId]);
         }
       }
 

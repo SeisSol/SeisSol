@@ -193,7 +193,7 @@ void ProxyDataImpl<Cfg>::initDataStructures(bool enableDR) {
 
   if (enableDR) {
     fakeDerivativesHost = reinterpret_cast<real*>(allocator.allocateMemory(
-        cellCount * seissol::kernels::Solver<Cfg>::DerivativesSize * sizeof(real),
+        cellCount * seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg> * sizeof(real),
         PagesizeHeap,
         seissol::memory::Standard));
 
@@ -205,21 +205,24 @@ void ProxyDataImpl<Cfg>::initDataStructures(bool enableDR) {
       std::mt19937 rng(cellCount + offset);
       std::uniform_real_distribution<real> urd;
       for (std::size_t cell = 0; cell < cellCount; ++cell) {
-        for (std::size_t i = 0; i < seissol::kernels::Solver<Cfg>::DerivativesSize; i++) {
-          fakeDerivativesHost[cell * seissol::kernels::Solver<Cfg>::DerivativesSize + i] = urd(rng);
+        for (std::size_t i = 0; i < seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg>;
+             i++) {
+          fakeDerivativesHost[cell * seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg> +
+                              i] = urd(rng);
         }
       }
     }
 
 #ifdef ACL_DEVICE
     fakeDerivatives = reinterpret_cast<real*>(allocator.allocateMemory(
-        cellCount * seissol::kernels::Solver<Cfg>::DerivativesSize * sizeof(real),
+        cellCount * seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg> * sizeof(real),
         PagesizeHeap,
         seissol::memory::DeviceGlobalMemory));
     const auto& device = ::device::DeviceInstance::getInstance();
     device.api->copyTo(fakeDerivatives,
                        fakeDerivativesHost,
-                       cellCount * seissol::kernels::Solver<Cfg>::DerivativesSize * sizeof(real));
+                       cellCount * seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg> *
+                           sizeof(real));
 #else
     fakeDerivatives = fakeDerivativesHost;
 #endif
@@ -277,13 +280,16 @@ void ProxyDataImpl<Cfg>::initDataStructures(bool enableDR) {
       const auto plusCell = cellDist(rng);
       const auto minusCell = cellDist(rng);
       timeDerivativeHostPlus[face] =
-          &fakeDerivativesHost[plusCell * seissol::kernels::Solver<Cfg>::DerivativesSize];
+          &fakeDerivativesHost[plusCell *
+                               seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg>];
       timeDerivativeHostMinus[face] =
-          &fakeDerivativesHost[minusCell * seissol::kernels::Solver<Cfg>::DerivativesSize];
+          &fakeDerivativesHost[minusCell *
+                               seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg>];
       timeDerivativePlus[face] =
-          &fakeDerivatives[plusCell * seissol::kernels::Solver<Cfg>::DerivativesSize];
+          &fakeDerivatives[plusCell * seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg>];
       timeDerivativeMinus[face] =
-          &fakeDerivatives[minusCell * seissol::kernels::Solver<Cfg>::DerivativesSize];
+          &fakeDerivatives[minusCell *
+                           seissol::kernels::Solver<Cfg>::template DerivativesSize<Cfg>];
 
       faceInformation[face].plusSide = sideDist(rng);
       faceInformation[face].minusSide = sideDist(rng);

@@ -169,13 +169,13 @@ struct ReceiverOutputData {
   bool isActive{false};
   std::optional<int64_t> clusterId;
 
-  std::unique_ptr<parallel::DataCollector<Real<Cfg>>> deviceDataCollector;
+  // TODO: adapt
+  std::unique_ptr<parallel::DataCollector<int>> deviceDataCollector;
   std::vector<std::size_t> deviceDataPlus;
   std::vector<std::size_t> deviceDataMinus;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector<Real<Cfg>>>>
-      deviceVariables;
+  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollector<int>>> deviceVariables;
   std::vector<std::size_t> deviceIndices;
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 };

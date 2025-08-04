@@ -8,6 +8,7 @@
 #include "Datastructures.h"
 #include <Equations/Datastructures.h>
 #include <Equations/Setup.h> // IWYU pragma: keep
+#include <Equations/poroelastic/Model/PoroelasticSetup.h>
 #include <Model/Common.h>
 #include <Model/CommonDatastructures.h>
 #include <array>
@@ -25,11 +26,7 @@ double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
                                                              {NumQuantities, NumQuantities});
 
   // TODO: remove this if constexpr guard (needs multi-equation build support)
-  if constexpr (seissol::model::MaterialTT<Cfg>::Type ==
-                seissol::model::MaterialType::Poroelastic) {
-    seissol::model::getTransposedCoefficientMatrix<seissol::model::PoroElasticMaterial>(
-        *this, 0, at);
-  }
+  seissol::model::getTransposedCoefficientMatrixPoroelastic(*this, 0, at);
 
   seissol::eigenvalues::computeEigenvalues(atValues, eigendecomposition);
   double maxEv = std::numeric_limits<double>::lowest();

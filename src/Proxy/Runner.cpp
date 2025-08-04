@@ -11,6 +11,8 @@
 #include "GeneratedCode/kernel.h"
 #include "KernelDevice.h"
 #include "KernelHost.h"
+#include <Common/ConfigHelper.h>
+#include <Config.h>
 #include <Kernels/Common.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Proxy/Kernel.h>
@@ -53,7 +55,7 @@ void testKernel(std::shared_ptr<ProxyData>& data,
 namespace seissol::proxy {
 
 auto runProxy(const ProxyConfig& config) -> ProxyOutput {
-  Cfg cfg;
+  ConfigVariant cfg = ConfigVariantList[0];
 
   auto kernel = [&]() {
     std::vector<std::shared_ptr<ProxyKernel>> subkernels;

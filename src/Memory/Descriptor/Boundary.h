@@ -27,7 +27,7 @@ inline auto allocationModeBoundary() {
 }
 
 struct Boundary {
-  struct FaceInformation : public initializer::Variable<BoundaryFaceInformation<Cfg>> {};
+  struct FaceInformation : public initializer::VariantVariable<BoundaryFaceInformation> {};
 
   struct BoundaryVarmap : public initializer::SpecificVarmap<FaceInformation> {};
 

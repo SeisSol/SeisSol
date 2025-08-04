@@ -87,7 +87,7 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
                   std::end(data.template get<LTS::CellInformation>().faceTypes),
                   [](const FaceType f) { return f == FaceType::FreeSurfaceGravity; });
 
-  alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize];
+  alignas(PagesizeStack) real temporaryBuffer[Solver::DerivativesSize<Cfg>];
   auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
 
   kernel::derivative<Cfg> krnl = m_krnlPrototype;

@@ -99,15 +99,16 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
   }
 }
 
+template <typename Cfg>
 constexpr int N = tensor::Zminus<Cfg>::Shape[0];
-template <typename T, typename MaterialT>
-Eigen::Matrix<T, N, N> extractMatrix(
-    eigenvalues::Eigenpair<std::complex<double>, MaterialT::NumQuantities> eigenpair) {
+template <typename T, typename Cfg>
+Eigen::Matrix<T, N<Cfg>, N<Cfg>> extractMatrix(
+    eigenvalues::Eigenpair<std::complex<double>, model::MaterialTT<Cfg>::NumQuantities> eigenpair) {
   std::vector<int> tractionIndices;
   std::vector<int> velocityIndices;
   std::vector<int> columnIndices;
 
-  if constexpr (MaterialT::Type == model::MaterialType::Poroelastic) {
+  if constexpr (model::MaterialTT<Cfg>::Type == model::MaterialType::Poroelastic) {
     tractionIndices = {0, 3, 5, 9};
     velocityIndices = {6, 7, 8, 10};
     columnIndices = {0, 1, 2, 3};
@@ -118,11 +119,11 @@ Eigen::Matrix<T, N, N> extractMatrix(
   }
 
   auto matrix = eigenpair.getVectorsAsMatrix();
-  const Eigen::Matrix<double, N, N> matRT = matrix(tractionIndices, columnIndices).real();
-  const Eigen::Matrix<double, N, N> matRTInv = matRT.inverse();
-  const Eigen::Matrix<double, N, N> matRU = matrix(velocityIndices, columnIndices).real();
-  const Eigen::Matrix<double, N, N> matM = matRU * matRTInv;
-  return matM.cast<T>();
+  const Eigen::Matrix<double, N<Cfg>, N<Cfg>> matRT = matrix(tractionIndices, columnIndices).real();
+  const Eigen::Matrix<double, N<Cfg>, N<Cfg>> matRTInv = matRT.inverse();
+  const Eigen::Matrix<double, N<Cfg>, N<Cfg>> matRU = matrix(velocityIndices, columnIndices).real();
+  const Eigen::Matrix<double, N<Cfg>, N<Cfg>> matM = matRU * matRTInv;
+  return matM.template cast<T>();
 };
 
 } // namespace
@@ -136,11 +137,6 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
 
-  static_assert(seissol::tensor::AplusT<Cfg>::Shape[0] == seissol::tensor::AminusT<Cfg>::Shape[0],
-                "Shape mismatch for flux matrices");
-  static_assert(seissol::tensor::AplusT<Cfg>::Shape[1] == seissol::tensor::AminusT<Cfg>::Shape[1],
-                "Shape mismatch for flux matrices");
-
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::Material>().mask);
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::LocalIntegration>().mask);
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::NeighboringIntegration>().mask);
@@ -150,6 +146,13 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
     layer.wrap([&](auto cfg) {
       using Cfg = decltype(cfg);
       using MaterialT = model::MaterialTT<Cfg>;
+
+      static_assert(seissol::tensor::AplusT<Cfg>::Shape[0] ==
+                        seissol::tensor::AminusT<Cfg>::Shape[0],
+                    "Shape mismatch for flux matrices");
+      static_assert(seissol::tensor::AplusT<Cfg>::Shape[1] ==
+                        seissol::tensor::AminusT<Cfg>::Shape[1],
+                    "Shape mismatch for flux matrices");
 
       // NOLINTNEXTLINE
       using real = Real<Cfg>;
@@ -217,9 +220,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           seissol::transformations::tetrahedronGlobalToReferenceJacobian(
               x, y, z, gradXi, gradEta, gradZeta);
 
-          seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);
-          seissol::model::getTransposedCoefficientMatrix(materialLocal, 1, matBT);
-          seissol::model::getTransposedCoefficientMatrix(materialLocal, 2, matCT);
+          seissol::model::getTransposedCoefficientMatrix<Cfg>(materialLocal, 0, matAT);
+          seissol::model::getTransposedCoefficientMatrix<Cfg>(materialLocal, 1, matBT);
+          seissol::model::getTransposedCoefficientMatrix<Cfg>(materialLocal, 2, matCT);
           setStarMatrix<Cfg>(
               matATData, matBTData, matCTData, gradXi, localIntegration[cell].starMatrices[0]);
           setStarMatrix<Cfg>(
@@ -242,21 +245,20 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
             double nLocalData[6 * 6];
             seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
-            seissol::model::getTransposedGodunovState(
-                seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
-                seissol::model::getRotatedMaterialCoefficients(
+            seissol::model::getTransposedGodunovState<Cfg>(
+                seissol::model::getRotatedMaterialCoefficients<Cfg>(nLocalData, materialLocal),
+                seissol::model::getRotatedMaterialCoefficients<Cfg>(
                     nLocalData, *dynamic_cast<MaterialT*>(material[cell].neighbor[side])),
                 cellInformation[cell].faceTypes[side],
                 qGodLocal,
                 qGodNeighbor);
-            seissol::model::getTransposedCoefficientMatrix(
-                seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
+            seissol::model::getTransposedCoefficientMatrix<Cfg>(
+                seissol::model::getRotatedMaterialCoefficients<Cfg>(nLocalData, materialLocal),
                 0,
                 matATtilde);
 
             // Calculate transposed T instead
-            seissol::model::getFaceRotationMatrix<MaterialT>(
-                normal, tangent1, tangent2, matT, matTinv);
+            seissol::model::getFaceRotationMatrix<Cfg>(normal, tangent1, tangent2, matT, matTinv);
 
             // Scale with |S_side|/|J| and multiply with -1 as the flux matrices
             // must be subtracted.
@@ -359,11 +361,11 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             neighKrnl.execute();
           }
 
-          seissol::model::initializeSpecificLocalData(
+          seissol::model::initializeSpecificLocalData<Cfg>(
               materialLocal, timeStepWidth, &localIntegration[cell].specific);
 
-          seissol::model::initializeSpecificNeighborData(materialLocal,
-                                                         &neighboringIntegration[cell].specific);
+          seissol::model::initializeSpecificNeighborData<Cfg>(
+              materialLocal, &neighboringIntegration[cell].specific);
         }
       }
     });
@@ -441,8 +443,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
           MeshTools::normalize(normal, normal);
           MeshTools::normalize(tangent1, tangent1);
           MeshTools::normalize(tangent2, tangent2);
-          seissol::model::getFaceRotationMatrix<MaterialT>(
-              normal, tangent1, tangent2, matT, matTinv);
+          seissol::model::getFaceRotationMatrix<Cfg>(normal, tangent1, tangent2, matT, matTinv);
 
           // Evaluate easi boundary condition matrices if needed
           real* easiBoundaryMap = boundary[cell][side].easiBoundaryMap;
@@ -642,11 +643,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         /// Transformation matrix
         auto matT = init::T<Cfg>::view::create(matTData);
         auto matTinv = init::Tinv<Cfg>::view::create(matTinvData);
-        seissol::model::getFaceRotationMatrix<MaterialT>(fault[meshFace].normal,
-                                                         fault[meshFace].tangent1,
-                                                         fault[meshFace].tangent2,
-                                                         matT,
-                                                         matTinv);
+        seissol::model::getFaceRotationMatrix<Cfg>(fault[meshFace].normal,
+                                                   fault[meshFace].tangent1,
+                                                   fault[meshFace].tangent2,
+                                                   matT,
+                                                   matTinv);
 
         /// Materials
         const MaterialT* plusMaterial = nullptr;
@@ -707,17 +708,17 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
         switch (plusMaterial->getMaterialType()) {
         case seissol::model::MaterialType::Poroelastic: {
-          auto plusEigenpair = seissol::model::getEigenDecomposition(*plusMaterial);
-          auto minusEigenpair = seissol::model::getEigenDecomposition(*minusMaterial);
+          auto plusEigenpair = seissol::model::getEigenDecomposition<Cfg>(*plusMaterial);
+          auto minusEigenpair = seissol::model::getEigenDecomposition<Cfg>(*minusMaterial);
 
           // The impedance matrices are diagonal in the (visco)elastic case, so we only store
           // the values Zp, Zs. In the poroelastic case, the fluid pressure and normal component
           // of the traction depend on each other, so we need a more complicated matrix structure.
-          const Eigen::Matrix<double, N, N> impedanceMatrix =
-              extractMatrix<double, MaterialT>(plusEigenpair);
-          const Eigen::Matrix<double, N, N> impedanceNeigMatrix =
-              extractMatrix<double, MaterialT>(minusEigenpair);
-          const Eigen::Matrix<double, N, N> etaMatrix =
+          const Eigen::Matrix<double, N<Cfg>, N<Cfg>> impedanceMatrix =
+              extractMatrix<double, Cfg>(plusEigenpair);
+          const Eigen::Matrix<double, N<Cfg>, N<Cfg>> impedanceNeigMatrix =
+              extractMatrix<double, Cfg>(minusEigenpair);
+          const Eigen::Matrix<double, N<Cfg>, N<Cfg>> etaMatrix =
               (impedanceMatrix + impedanceNeigMatrix).inverse();
 
           auto impedanceView = init::Zplus<Cfg>::view::create(impedanceMatrices[ltsFace].impedance);
@@ -741,8 +742,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           break;
         }
         }
-        seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
-        seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
+        seissol::model::getTransposedCoefficientMatrix<Cfg>(*plusMaterial, 0, matAPlus);
+        seissol::model::getTransposedCoefficientMatrix<Cfg>(*minusMaterial, 0, matAMinus);
 
         /// Traction matrices for "average" traction
         auto tractionPlusMatrix =

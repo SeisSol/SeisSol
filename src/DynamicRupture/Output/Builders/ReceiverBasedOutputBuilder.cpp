@@ -313,11 +313,11 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
             auto glbToFaceAligned =
                 init::Tinv<Cfg>::view::create(transformData.glbToFaceAlignedData.data());
 
-            seissol::model::getFaceRotationMatrix<model::MaterialTT<Cfg>>(faceNormal.data(),
-                                                                          tangent1.data(),
-                                                                          tangent2.data(),
-                                                                          faceAlignedToGlb,
-                                                                          glbToFaceAligned);
+            seissol::model::getFaceRotationMatrix<Cfg>(faceNormal.data(),
+                                                       tangent1.data(),
+                                                       tangent2.data(),
+                                                       faceAlignedToGlb,
+                                                       glbToFaceAligned);
           }
         },
         ConfigVariantList[configId]);
@@ -396,16 +396,22 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
 
 void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
   auto& geoPoints = outputData->receiverPoints;
-  constexpr int NumPoly = Cfg::ConvergenceOrder - 1;
 
   for (auto& geoPoint : geoPoints) {
-    assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
-    if constexpr (Cfg::DRQuadRule == DRQuadRuleType::Stroud) {
-      geoPoint.nearestInternalGpIndex =
-          getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
-    } else {
-      geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
-    }
+    std::size_t configId = 0;
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          constexpr int NumPoly = Cfg::ConvergenceOrder - 1;
+          assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
+          if constexpr (Cfg::DRQuadRule == DRQuadRuleType::Stroud) {
+            geoPoint.nearestInternalGpIndex =
+                getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
+          } else {
+            geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
+          }
+        },
+        ConfigVariantList[configId]);
   }
 }
 

@@ -27,7 +27,7 @@
 
 namespace seissol::model {
 
-template <typename MaterialT>
+template <typename Cfg, typename = void>
 struct MaterialSetup;
 
 template <typename T>
@@ -35,55 +35,58 @@ constexpr bool testIfAcoustic(T mu) {
   return std::abs(mu) <= std::numeric_limits<T>::epsilon();
 }
 
-template <typename Tmaterial, typename Tmatrix>
-void getTransposedCoefficientMatrix(const Tmaterial& material, unsigned dim, Tmatrix& M) {
-  MaterialSetup<Tmaterial>::getTransposedCoefficientMatrix(material, dim, M);
+template <typename Cfg, typename Tmatrix>
+void getTransposedCoefficientMatrix(const model::MaterialTT<Cfg>& material,
+                                    unsigned dim,
+                                    Tmatrix& M) {
+  MaterialSetup<Cfg>::getTransposedCoefficientMatrix(material, dim, M);
 }
 
-template <typename Tmaterial, typename T>
-void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& E) {
-  MaterialSetup<Tmaterial>::getTransposedSourceCoefficientTensor(material, E);
+template <typename Cfg, typename T>
+void getTransposedSourceCoefficientTensor(const model::MaterialTT<Cfg>& material, T& E) {
+  MaterialSetup<Cfg>::getTransposedSourceCoefficientTensor(material, E);
 }
 
-template <typename Tmaterial>
-seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
-    getEigenDecomposition(const Tmaterial& material, double zeroThreshold = 1e-7);
+template <typename Cfg>
+seissol::eigenvalues::Eigenpair<std::complex<double>, model::MaterialTT<Cfg>::NumQuantities>
+    getEigenDecomposition(const model::MaterialTT<Cfg>& material, double zeroThreshold = 1e-7);
 
-template <typename Tmaterial, typename Tloc, typename Tneigh>
-void getTransposedGodunovState(const Tmaterial& local,
-                               const Tmaterial& neighbor,
+template <typename Cfg, typename Tloc, typename Tneigh>
+void getTransposedGodunovState(const model::MaterialTT<Cfg>& local,
+                               const model::MaterialTT<Cfg>& neighbor,
                                FaceType faceType,
                                Tloc& qGodLocal,
                                Tneigh& qGodNeighbor) {
-  MaterialSetup<Tmaterial>::getTransposedGodunovState(
-      local, neighbor, faceType, qGodLocal, qGodNeighbor);
+  MaterialSetup<Cfg>::getTransposedGodunovState(local, neighbor, faceType, qGodLocal, qGodNeighbor);
 }
 
 // TODO: move to materials (currently not possible due to the acoustic-in-elastic "hack")
-template <typename T, typename Tmatrix>
+template <typename MaterialT, typename T, typename Tmatrix>
 void getTransposedFreeSurfaceGodunovState(MaterialType materialtype,
                                           T& qGodLocal,
                                           T& qGodNeighbor,
                                           Tmatrix& R);
 
-template <typename T>
-void getPlaneWaveOperator(const T& material,
+template <typename Cfg>
+void getPlaneWaveOperator(const model::MaterialTT<Cfg>& material,
                           const double n[3],
-                          std::complex<double> mdata[T::NumQuantities * T::NumQuantities]) {
-  MaterialSetup<T>::getPlaneWaveOperator(material, n, mdata);
+                          std::complex<double> mdata[model::MaterialTT<Cfg>::NumQuantities *
+                                                     model::MaterialTT<Cfg>::NumQuantities]) {
+  MaterialSetup<Cfg>::getPlaneWaveOperator(material, n, mdata);
 }
 
-template <typename T>
-void initializeSpecificLocalData(const T& material,
+template <typename Cfg>
+void initializeSpecificLocalData(const model::MaterialTT<Cfg>& material,
                                  double timeStepWidth,
-                                 typename T::LocalSpecificData* localData) {
-  MaterialSetup<T>::initializeSpecificLocalData(material, timeStepWidth, localData);
+                                 typename model::MaterialTT<Cfg>::LocalSpecificData* localData) {
+  MaterialSetup<Cfg>::initializeSpecificLocalData(material, timeStepWidth, localData);
 }
 
-template <typename T>
-void initializeSpecificNeighborData(const T& material,
-                                    typename T::NeighborSpecificData* neighborData) {
-  MaterialSetup<T>::initializeSpecificNeighborData(material, neighborData);
+template <typename Cfg>
+void initializeSpecificNeighborData(
+    const model::MaterialTT<Cfg>& material,
+    typename model::MaterialTT<Cfg>::NeighborSpecificData* neighborData) {
+  MaterialSetup<Cfg>::initializeSpecificNeighborData(material, neighborData);
 }
 
 /*
@@ -99,37 +102,40 @@ void getBondMatrix(const VrtxCoords normal,
                    const VrtxCoords tangent2,
                    double* matN);
 
-template <typename MaterialT>
+template <typename Cfg>
 void getFaceRotationMatrix(const Eigen::Vector3d& normal,
                            const Eigen::Vector3d& tangent1,
                            const Eigen::Vector3d& tangent2,
-                           init::T<Cfg>::view::type& matT,
-                           init::Tinv<Cfg>::view::type& matTinv) {
+                           typename init::T<Cfg>::view::type& matT,
+                           typename init::Tinv<Cfg>::view::type& matTinv) {
   const VrtxCoords n = {normal(0), normal(1), normal(2)};
   const VrtxCoords s = {tangent1(0), tangent1(1), tangent1(2)};
   const VrtxCoords t = {tangent2(0), tangent2(1), tangent2(2)};
-  getFaceRotationMatrix<MaterialT>(n, s, t, matT, matTinv);
+  getFaceRotationMatrix<Cfg>(n, s, t, matT, matTinv);
 }
 
-template <typename MaterialT>
+template <typename Cfg>
 void getFaceRotationMatrix(const VrtxCoords normal,
                            const VrtxCoords tangent1,
                            const VrtxCoords tangent2,
-                           init::T<Cfg>::view::type& matT,
-                           init::Tinv<Cfg>::view::type& matTinv) {
-  MaterialSetup<MaterialT>::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
+                           typename init::T<Cfg>::view::type& matT,
+                           typename init::Tinv<Cfg>::view::type& matTinv) {
+  MaterialSetup<Cfg>::getFaceRotationMatrix(normal, tangent1, tangent2, matT, matTinv);
 }
 
-template <typename MaterialT>
-MaterialT getRotatedMaterialCoefficients(double rotationParameters[36], MaterialT& material) {
-  return MaterialSetup<MaterialT>::getRotatedMaterialCoefficients(rotationParameters, material);
+template <typename Cfg>
+model::MaterialTT<Cfg> getRotatedMaterialCoefficients(double rotationParameters[36],
+                                                      model::MaterialTT<Cfg>& material) {
+  return MaterialSetup<Cfg>::getRotatedMaterialCoefficients(rotationParameters, material);
 }
 
-template <typename MaterialT>
+template <typename Cfg>
 void getElasticPlaneWaveOperator(
-    const MaterialT& material,
+    const model::MaterialTT<Cfg>& material,
     const double n[3],
-    std::complex<double> mdata[MaterialT::NumQuantities * MaterialT::NumQuantities]) {
+    std::complex<double>
+        mdata[model::MaterialTT<Cfg>::NumQuantities * model::MaterialTT<Cfg>::NumQuantities]) {
+  using MaterialT = model::MaterialTT<Cfg>;
   yateto::DenseTensorView<2, std::complex<double>> M(
       mdata, {MaterialT::NumQuantities, MaterialT::NumQuantities});
   M.setZero();
@@ -140,7 +146,7 @@ void getElasticPlaneWaveOperator(
 
   for (unsigned d = 0; d < 3; ++d) {
     coeff.setZero();
-    getTransposedCoefficientMatrix(material, d, coeff);
+    getTransposedCoefficientMatrix<Cfg>(material, d, coeff);
 
     for (unsigned i = 0; i < MaterialT::NumQuantities; ++i) {
       for (unsigned j = 0; j < MaterialT::NumQuantities; ++j) {
@@ -149,7 +155,7 @@ void getElasticPlaneWaveOperator(
     }
   }
   coeff.setZero();
-  getTransposedSourceCoefficientTensor(material, coeff);
+  getTransposedSourceCoefficientTensor<Cfg>(material, coeff);
 
   for (unsigned i = 0; i < MaterialT::NumQuantities; ++i) {
     for (unsigned j = 0; j < MaterialT::NumQuantities; ++j) {
@@ -179,13 +185,16 @@ void setBlocks(T qGodLocal, Tmatrix S, Tarray1 tractionIndices, Tarray2 velocity
   }
 }
 
-template <typename Tmaterial>
-seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
-    seissol::model::getEigenDecomposition(const Tmaterial& material, double zeroThreshold) {
+template <typename Cfg>
+seissol::eigenvalues::Eigenpair<std::complex<double>,
+                                seissol::model::MaterialTT<Cfg>::NumQuantities>
+    seissol::model::getEigenDecomposition(const model::MaterialTT<Cfg>& material,
+                                          double zeroThreshold) {
+  using Tmaterial = model::MaterialTT<Cfg>;
   std::array<std::complex<double>, Tmaterial::NumQuantities * Tmaterial::NumQuantities> AT;
   auto ATView = yateto::DenseTensorView<2, std::complex<double>>(
       AT.data(), {Tmaterial::NumQuantities, Tmaterial::NumQuantities});
-  getTransposedCoefficientMatrix(material, 0, ATView);
+  getTransposedCoefficientMatrix<Cfg>(material, 0, ATView);
   std::array<std::complex<double>, Tmaterial::NumQuantities * Tmaterial::NumQuantities> A;
   // transpose AT to get A
   for (int i = 0; i < Tmaterial::NumQuantities; i++) {
@@ -237,13 +246,13 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   return eigenpair;
 };
 
-template <typename T, typename Tmatrix>
+template <typename MaterialT, typename T, typename Tmatrix>
 void seissol::model::getTransposedFreeSurfaceGodunovState(MaterialType materialtype,
                                                           T& qGodLocal,
                                                           T& qGodNeighbor,
                                                           Tmatrix& R) {
-  for (size_t i = 0; i < seissol::model::MaterialTT<Cfg>::NumElasticQuantities; i++) {
-    for (size_t j = 0; j < seissol::model::MaterialTT<Cfg>::NumElasticQuantities; j++) {
+  for (size_t i = 0; i < MaterialT::NumElasticQuantities; i++) {
+    for (size_t j = 0; j < MaterialT::NumElasticQuantities; j++) {
       qGodNeighbor(i, j) = std::numeric_limits<double>::signaling_NaN();
     }
   }

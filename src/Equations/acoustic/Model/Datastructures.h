@@ -22,9 +22,6 @@
 #include <vector>
 
 namespace seissol::model {
-class AcousticLocalData;
-class AcousticNeighborData;
-
 struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
   static constexpr std::size_t NumElasticQuantities = 4;
@@ -41,8 +38,8 @@ struct AcousticMaterial : public Material {
   static constexpr bool SupportsDR = false;
   static constexpr bool SupportsLTS = true;
 
-  using LocalSpecificData = AcousticLocalData;
-  using NeighborSpecificData = AcousticNeighborData;
+  using LocalSpecificData = struct {};
+  using NeighborSpecificData = struct {};
   using Solver = kernels::solver::linearck::Solver;
 
   double lambda;

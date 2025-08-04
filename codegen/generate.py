@@ -173,7 +173,7 @@ def main():
             "order": cmdLineArgs.order,
             "mechanisms": cmdLineArgs.numberOfMechanisms,
             "equation": equations,
-            "precision": "F64" if cmdLineArgs.host_arch[:1] == "d" else "F32",
+            "precision": "F64" if cmdLineArgs.precision == "d" else "F32",
             "viscomode": viscomode,
             "drquadrule": quadrule,
             "numsims": cmdLineArgs.multipleSimulations,
@@ -184,12 +184,18 @@ def main():
             "order": cmdLineArgs.order,
             "mechanisms": cmdLineArgs.numberOfMechanisms,
             "equation": cmdLineArgs.equations,
-            "precision": "F64" if cmdLineArgs.host_arch[:1] == "d" else "F32",
+            "precision": "F64" if cmdLineArgs.precision == "d" else "F32",
             "viscomode": viscomode,
             "drquadrule": cmdLineArgs.drQuadRule,
             "numsims": cmdLineArgs.multipleSimulations,
         }
     ]
+
+    class ConfigCounter:
+        def __init__(self):
+            self.counter = 0
+    
+    counter = ConfigCounter()
 
     def generate_equation(subfolders, config):
         equationsSpec = importlib.util.find_spec(
@@ -277,7 +283,7 @@ def main():
         kernels.point.addKernels(generator, adg)
 
         metagen.add_generator(
-            ["Config"],
+            [f"Config{counter.counter}"],
             generator,
             gemm_cfg=gemmTools,
             cost_estimator=cost_estimators,
@@ -285,6 +291,8 @@ def main():
             routine_exporters=custom_routine_generators,
             routine_cache=routine_cache,
         )
+
+        counter.counter += 1
 
     def generate_general(subfolders):
         # we use always use double here,

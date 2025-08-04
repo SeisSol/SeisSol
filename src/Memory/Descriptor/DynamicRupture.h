@@ -84,7 +84,7 @@ struct DynamicRupture {
     template <typename Cfg>
     using VariantType = seissol::dr::ImpedancesAndEta<Real<Cfg>>;
   };
-  struct ImpedanceMatrices : public initializer::Variable<seissol::dr::ImpedanceMatrices<Cfg>> {
+  struct ImpedanceMatrices : public initializer::Variable<void> {
     template <typename Cfg>
     using VariantType = seissol::dr::ImpedanceMatrices<Cfg>;
   };

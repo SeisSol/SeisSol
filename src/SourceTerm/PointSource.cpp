@@ -64,7 +64,6 @@ void seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3
     }
   }
 
-  std::fill(forceComponents, forceComponents + tensor::update<Cfg>::Size, 0);
   // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u,
   // v, w, p, u_f, v_f, w_f)
 

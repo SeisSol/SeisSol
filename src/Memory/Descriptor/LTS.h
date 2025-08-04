@@ -256,14 +256,10 @@ struct LTS {
     }
 
     storage.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
-    if (kernels::size<tensor::Qane<Cfg>>() > 0) {
+
       storage.add<DofsAne>(
           LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
-    } else {
-      storage.add<DofsAne>(LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
-                           PagesizeHeap,
-                           allocationModeWP(AllocationPreset::Dofs));
-    }
+
     storage.add<Buffers>(
         LayerMask(), 1, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<Derivatives>(
@@ -328,9 +324,7 @@ struct LTS {
   static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
                                           Storage& storage) {
     manager.registerData<Dofs>("dofs", storage);
-    if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
-      manager.registerData<DofsAne>("dofsAne", storage);
-    }
+    manager.registerData<DofsAne>("dofsAne", storage);
     // check plasticity usage over the layer mask (for now)
     if (storage.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
       manager.registerData<Plasticity>("pstrain", storage);

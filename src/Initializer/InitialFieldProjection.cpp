@@ -199,6 +199,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   const auto& vertices = meshReader.getVertices();
   const auto& elements = meshReader.getElements();
 
+  /*
   constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
@@ -253,7 +254,8 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
     }
   }
 
-  return data;
+  return data;*/
+  return std::vector<double>();
 }
 
 void projectEasiInitialField(const std::vector<std::string>& iniFields,

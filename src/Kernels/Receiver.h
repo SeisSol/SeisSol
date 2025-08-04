@@ -43,7 +43,7 @@ struct Receiver {
   std::size_t pointId;
   Eigen::Vector3d position;
   basisFunction::SampledBasisFunctions<real> basisFunctions;
-  basisFunction::SampledBasisFunctionDerivatives<real> basisFunctionDerivatives;
+  basisFunction::SampledBasisFunctionDerivatives<Cfg> basisFunctionDerivatives;
   LTS::Ref<Cfg> dataHost;
   LTS::Ref<Cfg> dataDevice;
   std::vector<real> output;

@@ -65,6 +65,7 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   using LocalSpecificData = ViscoElasticLocalData;
   using NeighborSpecificData = ViscoElasticNeighborData;
 
+  template <typename Config>
   using Solver = typename ViscoSolver<Config::ViscoMode>::Type;
 
   //! Relaxation frequencies
@@ -109,8 +110,6 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
 
   [[nodiscard]] double maximumTimestep() const override { return maxTimestep; }
 };
-
-using ViscoElasticMaterial = ViscoElasticMaterialParametrized<Config::RelaxationMechanisms>;
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_DATASTRUCTURES_H_

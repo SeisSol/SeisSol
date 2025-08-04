@@ -62,11 +62,11 @@ void PointSourceClusterOnHost<Cfg>::addTimeIntegratedPointSource(std::size_t sou
                                                                  double from,
                                                                  double to,
                                                                  Real<Cfg>* dofs) {
-  std::array<Real<Cfg>, Quantities> update{};
+  std::array<Real<Cfg>, Quantities<Cfg>> update{};
   const auto base = sources_->sampleRange[source];
   const auto localSamples = sources_->sampleRange[source + 1] - base;
 
-  const auto* __restrict tensorLocal = sources_->tensor.data() + base * Quantities;
+  const auto* __restrict tensorLocal = sources_->tensor.data() + base * Quantities<Cfg>;
 
   for (std::size_t i = 0; i < localSamples; ++i) {
     const auto o0 = sources_->sampleOffsets[i + base];
@@ -79,8 +79,8 @@ void PointSourceClusterOnHost<Cfg>::addTimeIntegratedPointSource(std::size_t sou
                                                 o1 - o0);
 
 #pragma omp simd
-    for (std::size_t t = 0; t < Quantities; ++t) {
-      update[t] += slip * tensorLocal[t + i * Quantities];
+    for (std::size_t t = 0; t < Quantities<Cfg>; ++t) {
+      update[t] += slip * tensorLocal[t + i * Quantities<Cfg>];
     }
   }
 
