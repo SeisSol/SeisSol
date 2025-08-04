@@ -178,7 +178,7 @@ struct MaterialSetup<
 
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
-                                          ViscoElasticLocalData* localData) {
+                                          ViscoElasticATLocalData<Cfg>* localData) {
     auto E = init::E<Cfg>::view::create(localData->E);
     E.setZero();
     getTransposedSourceCoefficientTensor(material, E);
@@ -193,7 +193,7 @@ struct MaterialSetup<
   }
 
   static void initializeSpecificNeighborData(const MaterialT& localMaterial,
-                                             ViscoElasticNeighborData* neighborData) {
+                                             ViscoElasticATNeighborData<Cfg>* neighborData) {
     // We only need the local omegas
     auto w = init::w<Cfg>::view::create(neighborData->w);
     for (unsigned mech = 0; mech < MaterialT::Mechanisms; ++mech) {
@@ -206,7 +206,7 @@ struct MaterialSetup<
                                     const VrtxCoords tangent2,
                                     typename init::T<Cfg>::view::type& matT,
                                     typename init::Tinv<Cfg>::view::type& matTinv) {
-    ::seissol::model::getFaceRotationMatrixElastic(normal, tangent1, tangent2, matT, matTinv);
+    ::seissol::model::getFaceRotationMatrixElastic<Cfg>(normal, tangent1, tangent2, matT, matTinv);
 
     seissol::transformations::symmetricTensor2RotationMatrix(normal,
                                                              tangent1,

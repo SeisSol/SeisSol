@@ -187,7 +187,7 @@ struct LocalIntegrationData {
   Real<Cfg> nApNm1[Cell::NumFaces][seissol::tensor::AplusT<Cfg>::size()];
 
   // equation-specific data
-  typename seissol::model::MaterialTT<Cfg>::LocalSpecificData specific;
+  typename seissol::model::MaterialTT<Cfg>::template LocalSpecificData<Cfg> specific;
 };
 
 // data for the neighboring boundary integration
@@ -197,7 +197,7 @@ struct NeighboringIntegrationData {
   Real<Cfg> nAmNm1[Cell::NumFaces][seissol::tensor::AminusT<Cfg>::size()];
 
   // equation-specific data
-  typename seissol::model::MaterialTT<Cfg>::NeighborSpecificData specific;
+  typename seissol::model::MaterialTT<Cfg>::template NeighborSpecificData<Cfg> specific;
 };
 
 // material constants per cell

@@ -37,8 +37,13 @@ struct ElasticMaterial : Material {
   static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
 
-  using LocalSpecificData = struct {};
-  using NeighborSpecificData = struct {};
+  template <typename Cfg>
+  using LocalSpecificData = std::monostate;
+
+  template <typename Cfg>
+  using NeighborSpecificData = std::monostate;
+
+  template <typename Cfg>
   using Solver = kernels::solver::linearck::Solver;
 
   double lambda;

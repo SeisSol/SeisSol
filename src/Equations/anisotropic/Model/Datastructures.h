@@ -35,8 +35,13 @@ struct AnisotropicMaterial : public Material {
   static constexpr bool SupportsDR = false;
   static constexpr bool SupportsLTS = true;
 
-  using LocalSpecificData = struct {};
-  using NeighborSpecificData = struct {};
+  template <typename Cfg>
+  using LocalSpecificData = std::monostate;
+
+  template <typename Cfg>
+  using NeighborSpecificData = std::monostate;
+
+  template <typename Cfg>
   using Solver = kernels::solver::linearck::Solver;
 
   double c11;

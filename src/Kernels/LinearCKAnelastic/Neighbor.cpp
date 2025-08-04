@@ -24,7 +24,8 @@
 
 namespace seissol::kernels::solver::linearckanelastic {
 
-void Neighbor::setGlobalData(const GlobalData& global) {
+template <typename Cfg>
+void Neighbor<Cfg>::setGlobalData(const GlobalData& global) {
 #ifndef NDEBUG
   for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
     assert((reinterpret_cast<uintptr_t>(global.get<Cfg>().changeOfBasisMatrices(neighbor))) %
@@ -74,10 +75,11 @@ void Neighbor::setGlobalData(const GlobalData& global) {
 #endif
 }
 
-void Neighbor::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
-                                        const CellDRMapping<Cfg> (&cellDrMapping)[4],
-                                        real* timeIntegrated[4],
-                                        real* faceNeighbors_prefetch[4]) {
+template <typename Cfg>
+void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
+                                             const CellDRMapping<Cfg> (&cellDrMapping)[4],
+                                             real* timeIntegrated[4],
+                                             real* faceNeighbors_prefetch[4]) {
 #ifndef NDEBUG
   for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
     // alignment of the time integrated dofs
@@ -137,7 +139,8 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
   nKrnl.execute();
 }
 
-void Neighbor::flopsNeighborsIntegral(
+template <typename Cfg>
+void Neighbor<Cfg>::flopsNeighborsIntegral(
     const std::array<FaceType, Cell::NumFaces>& faceTypes,
     const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
     const CellDRMapping<Cfg> (&cellDrMapping)[4],
@@ -179,7 +182,8 @@ void Neighbor::flopsNeighborsIntegral(
   hardwareFlops += kernel::neighbor<Cfg>::HardwareFlops;
 }
 
-std::uint64_t Neighbor::bytesNeighborsIntegral() {
+template <typename Cfg>
+std::uint64_t Neighbor<Cfg>::bytesNeighborsIntegral() {
   std::uint64_t reals = 0;
 
   // 4 * tElasticDOFS load, DOFs load, DOFs write
@@ -190,8 +194,9 @@ std::uint64_t Neighbor::bytesNeighborsIntegral() {
   return reals * sizeof(real);
 }
 
-void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
-                                               seissol::parallel::runtime::StreamRuntime& runtime) {
+template <typename Cfg>
+void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
+    ConditionalPointersToRealsTable& table, seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernel::gpu_neighborFluxExt<Cfg> neighFluxKrnl = deviceNfKrnlPrototype;
   dynamicRupture::kernel::gpu_nodalFlux<Cfg> drKrnl = deviceDrKrnlPrototype;
@@ -287,5 +292,8 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
   logError() << "No GPU implementation provided";
 #endif
 }
+
+#define _H_(cfg) template class Neighbor<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels::solver::linearckanelastic

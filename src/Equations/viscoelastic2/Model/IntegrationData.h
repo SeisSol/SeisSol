@@ -11,15 +11,27 @@
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 
+namespace seissol::tensor {
+template <typename>
+class E;
+template <typename>
+class w;
+template <typename>
+class W;
+} // namespace seissol::tensor
+
 namespace seissol::model {
 
-struct ViscoElasticLocalData {
-  real E[tensor::E<Cfg>::size()];
-  real w[tensor::w<Cfg>::size()];
-  real W[tensor::W<Cfg>::size()];
+template <typename Cfg>
+struct ViscoElasticATLocalData {
+  Real<Cfg> E[tensor::E<Cfg>::size()];
+  Real<Cfg> w[tensor::w<Cfg>::size()];
+  Real<Cfg> W[tensor::W<Cfg>::size()];
 };
-struct ViscoElasticNeighborData {
-  real w[tensor::w<Cfg>::size()];
+
+template <typename Cfg>
+struct ViscoElasticATNeighborData {
+  Real<Cfg> w[tensor::w<Cfg>::size()];
 };
 } // namespace seissol::model
 

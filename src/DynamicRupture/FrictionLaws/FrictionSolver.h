@@ -129,7 +129,7 @@ template <template <typename> typename T, typename... Args>
 FrictionSolverFactory makeFrictionSolverFactory(Args... args) {
   return [=](ConfigVariant variant) {
     return std::visit(
-        [&](auto cfg) {
+        [&](auto cfg) -> std::unique_ptr<FrictionSolver> {
           using Cfg = decltype(cfg);
           return std::make_unique<T<Cfg>>(args...);
         },

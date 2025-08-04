@@ -18,8 +18,8 @@
 #include <vector>
 
 namespace seissol::model {
+template <typename>
 class PoroelasticLocalData;
-class PoroelasticNeighborData;
 
 struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumQuantities = 13;
@@ -47,8 +47,13 @@ struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr bool SupportsDR = true;
   static constexpr bool SupportsLTS = true;
 
-  using LocalSpecificData = PoroelasticLocalData;
-  using NeighborSpecificData = PoroelasticNeighborData;
+  template <typename Cfg>
+  using LocalSpecificData = PoroelasticLocalData<Cfg>;
+
+  template <typename Cfg>
+  using NeighborSpecificData = std::monostate;
+
+  template <typename Cfg>
   using Solver = kernels::solver::stp::Solver;
 
   double bulkSolid;

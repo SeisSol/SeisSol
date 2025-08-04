@@ -499,7 +499,7 @@ struct MaterialSetup<Cfg, std::enable_if_t<Cfg::MaterialType == MaterialType::Po
 
   static void initializeSpecificLocalData(const PoroElasticMaterial& material,
                                           double timeStepWidth,
-                                          PoroelasticLocalData* localData) {
+                                          PoroelasticLocalData<Cfg>* localData) {
     auto sourceMatrix = init::ET<Cfg>::view::create(localData->sourceMatrix);
     sourceMatrix.setZero();
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
@@ -514,15 +514,15 @@ struct MaterialSetup<Cfg, std::enable_if_t<Cfg::MaterialType == MaterialType::Po
     localData->typicalTimeStepWidth = timeStepWidth;
   }
 
-  static void initializeSpecificNeighborData(const PoroElasticMaterial& material,
-                                             PoroelasticNeighborData* localData) {}
+  static void initializeSpecificNeighborData(const PoroElasticMaterial& material, void* localData) {
+  }
 
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,
                                     const VrtxCoords tangent2,
                                     typename init::T<Cfg>::view::type& matT,
                                     typename init::Tinv<Cfg>::view::type& matTinv) {
-    ::seissol::model::getFaceRotationMatrixElastic(normal, tangent1, tangent2, matT, matTinv);
+    ::seissol::model::getFaceRotationMatrixElastic<Cfg>(normal, tangent1, tangent2, matT, matTinv);
     // pressure
     matT(9, 9) = 1;
     matTinv(9, 9) = 1;

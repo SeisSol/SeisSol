@@ -16,6 +16,7 @@
 
 #include "GeneratedCode/init.h"
 #include <Common/Typedefs.h>
+#include <Model/ElasticSetup.h>
 #include <yateto.h>
 
 namespace seissol::tensor {
@@ -118,20 +119,19 @@ struct MaterialSetup<
 
   static void initializeSpecificLocalData(const MaterialT& material,
                                           double timeStepWidth,
-                                          ViscoElasticLocalData* localData) {
+                                          ViscoElasticQELocalData<Cfg>* localData) {
     auto sourceMatrix = init::ET<Cfg>::view::create(localData->sourceMatrix);
     getTransposedSourceCoefficientTensor(material, sourceMatrix);
   }
 
-  static void initializeSpecificNeighborData(const MaterialT& material,
-                                             ViscoElasticLocalData* localData) {}
+  static void initializeSpecificNeighborData(const MaterialT& material, void* localData) {}
 
   static void getFaceRotationMatrix(const VrtxCoords normal,
                                     const VrtxCoords tangent1,
                                     const VrtxCoords tangent2,
                                     typename init::T<Cfg>::view::type& matT,
                                     typename init::Tinv<Cfg>::view::type& matTinv) {
-    seissol::model::getFaceRotationMatrixElastic(normal, tangent1, tangent2, matT, matTinv);
+    seissol::model::getFaceRotationMatrixElastic<Cfg>(normal, tangent1, tangent2, matT, matTinv);
 
     for (unsigned mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       const unsigned origin =

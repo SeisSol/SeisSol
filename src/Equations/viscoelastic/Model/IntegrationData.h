@@ -9,13 +9,19 @@
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_INTEGRATIONDATA_H_
 
 #include "GeneratedCode/tensor.h"
+#include <Kernels/Precision.h>
+
+namespace seissol::tensor {
+template <typename>
+class ET;
+} // namespace seissol::tensor
 
 namespace seissol::model {
 
-struct ViscoElasticLocalData {
-  real sourceMatrix[seissol::tensor::ET<Cfg>::size()];
+template <typename Cfg>
+struct ViscoElasticQELocalData {
+  Real<Cfg> sourceMatrix[seissol::tensor::ET<Cfg>::size()];
 };
-struct ViscoElasticNeighborData {};
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_INTEGRATIONDATA_H_

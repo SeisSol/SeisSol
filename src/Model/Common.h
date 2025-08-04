@@ -76,16 +76,17 @@ void getPlaneWaveOperator(const model::MaterialTT<Cfg>& material,
 }
 
 template <typename Cfg>
-void initializeSpecificLocalData(const model::MaterialTT<Cfg>& material,
-                                 double timeStepWidth,
-                                 typename model::MaterialTT<Cfg>::LocalSpecificData* localData) {
+void initializeSpecificLocalData(
+    const model::MaterialTT<Cfg>& material,
+    double timeStepWidth,
+    typename model::MaterialTT<Cfg>::template LocalSpecificData<Cfg>* localData) {
   MaterialSetup<Cfg>::initializeSpecificLocalData(material, timeStepWidth, localData);
 }
 
 template <typename Cfg>
 void initializeSpecificNeighborData(
     const model::MaterialTT<Cfg>& material,
-    typename model::MaterialTT<Cfg>::NeighborSpecificData* neighborData) {
+    typename model::MaterialTT<Cfg>::template NeighborSpecificData<Cfg>* neighborData) {
   MaterialSetup<Cfg>::initializeSpecificNeighborData(material, neighborData);
 }
 

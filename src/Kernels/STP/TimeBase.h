@@ -25,6 +25,8 @@ namespace seissol::kernels::solver::stp {
 template <typename Cfg>
 class Spacetime : public SpacetimeKernel<Cfg> {
   public:
+  using real = Real<Cfg>;
+
   void setGlobalData(const GlobalData& global) override;
   void computeAder(const real* coeffs,
                    double timeStepWidth,
@@ -63,6 +65,8 @@ class Spacetime : public SpacetimeKernel<Cfg> {
 template <typename Cfg>
 class Time : public TimeKernel<Cfg> {
   public:
+  using real = Real<Cfg>;
+
   void setGlobalData(const GlobalData& global) override;
   void evaluate(const real* coeffs,
                 const real* timeDerivatives,

@@ -47,10 +47,6 @@
 #include "InitModel.h"
 #include "SeisSol.h"
 
-#if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
-#include "Physics/Attenuation.h"
-#endif
-
 using namespace seissol::initializer;
 
 namespace {

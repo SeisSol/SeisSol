@@ -96,7 +96,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                     ? std::numeric_limits<double>::infinity()
                                     : clusterLayout.timestepRate(drClusterOutput);
 
-  ConfigVariant config = ConfigVariantList[0];
+  ConfigVariant config = ConfigVariantList[seissolInstance.meshReader().getElements()[0].configId];
 
   // iterate over local time clusters
   for (std::size_t clusterId = 0; clusterId < clusterLayout.globalClusterCount; ++clusterId) {

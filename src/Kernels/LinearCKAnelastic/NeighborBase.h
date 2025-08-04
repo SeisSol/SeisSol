@@ -19,6 +19,8 @@ namespace seissol::kernels::solver::linearckanelastic {
 template <typename Cfg>
 class Neighbor : public NeighborKernel<Cfg> {
   public:
+  using real = Real<Cfg>;
+
   void setGlobalData(const GlobalData& global) override;
 
   void computeNeighborsIntegral(LTS::Ref<Cfg>& data,

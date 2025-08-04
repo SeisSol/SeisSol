@@ -34,7 +34,8 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::stp {
 
-void Spacetime::setGlobalData(const GlobalData& global) {
+template <typename Cfg>
+void Spacetime<Cfg>::setGlobalData(const GlobalData& global) {
   for (std::size_t n = 0; n < Cfg::ConvergenceOrder; ++n) {
     if (n > 0) {
       for (int d = 0; d < 3; ++d) {
@@ -77,10 +78,11 @@ void Spacetime::setGlobalData(const GlobalData& global) {
 #endif
 }
 
-void Spacetime::executeSTP(double timeStepWidth,
-                           LTS::Ref<Cfg>& data,
-                           real timeIntegrated[tensor::I<Cfg>::size()],
-                           real* stp)
+template <typename Cfg>
+void Spacetime<Cfg>::executeSTP(double timeStepWidth,
+                                LTS::Ref<Cfg>& data,
+                                real timeIntegrated[tensor::I<Cfg>::size()],
+                                real* stp)
 
 {
   alignas(PagesizeStack) real stpRhs[tensor::spaceTimePredictorRhs<Cfg>::size()];
@@ -138,13 +140,14 @@ void Spacetime::executeSTP(double timeStepWidth,
   }
 }
 
-void Spacetime::computeAder(const real* coeffs,
-                            double timeStepWidth,
-                            LTS::Ref<Cfg>& data,
-                            LocalTmp<Cfg>& tmp,
-                            real timeIntegrated[tensor::I<Cfg>::size()],
-                            real* timeDerivatives,
-                            bool updateDisplacement) {
+template <typename Cfg>
+void Spacetime<Cfg>::computeAder(const real* coeffs,
+                                 double timeStepWidth,
+                                 LTS::Ref<Cfg>& data,
+                                 LocalTmp<Cfg>& tmp,
+                                 real timeIntegrated[tensor::I<Cfg>::size()],
+                                 real* timeDerivatives,
+                                 bool updateDisplacement) {
   /*
    * assert alignments.
    */
@@ -158,7 +161,7 @@ void Spacetime::computeAder(const real* coeffs,
   executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
 }
 
-void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
+void Spacetime<Cfg>::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
   hardwareFlops = 0;
@@ -170,7 +173,8 @@ void Spacetime::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFl
   hardwareFlops += 3 * init::star<Cfg>::size(0);
 }
 
-std::uint64_t Spacetime::bytesAder() {
+template <typename Cfg>
+std::uint64_t Spacetime<Cfg>::bytesAder() {
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
@@ -187,13 +191,14 @@ std::uint64_t Spacetime::bytesAder() {
   return reals * sizeof(real);
 }
 
-void Spacetime::computeBatchedAder(const real* coeffs,
-                                   double timeStepWidth,
-                                   LocalTmp<Cfg>& tmp,
-                                   ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
-                                   bool updateDisplacement,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+template <typename Cfg>
+void Spacetime<Cfg>::computeBatchedAder(const real* coeffs,
+                                        double timeStepWidth,
+                                        LocalTmp<Cfg>& tmp,
+                                        ConditionalPointersToRealsTable& dataTable,
+                                        ConditionalMaterialTable& materialTable,
+                                        bool updateDisplacement,
+                                        seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   kernel::gpu_spaceTimePredictor<Cfg> krnl = deviceKrnlPrototype;
 
@@ -258,9 +263,10 @@ void Spacetime::computeBatchedAder(const real* coeffs,
 #endif
 }
 
-void Time::evaluate(const real* coeffs,
-                    const real* timeDerivatives,
-                    real timeEvaluated[tensor::I<Cfg>::size()]) {
+template <typename Cfg>
+void Time<Cfg>::evaluate(const real* coeffs,
+                         const real* timeDerivatives,
+                         real timeEvaluated[tensor::I<Cfg>::size()]) {
   kernel::evaluateDOFSAtTimeSTP<Cfg> krnl;
   krnl.spaceTimePredictor = timeDerivatives;
   krnl.QAtTimeSTP = timeEvaluated;
@@ -268,19 +274,28 @@ void Time::evaluate(const real* coeffs,
   krnl.execute();
 }
 
-void Time::evaluateBatched(const real* coeffs,
-                           const real** timeDerivatives,
-                           real** timeIntegratedDofs,
-                           std::size_t numElements,
-                           seissol::parallel::runtime::StreamRuntime& runtime) {
+template <typename Cfg>
+void Time<Cfg>::evaluateBatched(const real* coeffs,
+                                const real** timeDerivatives,
+                                real** timeIntegratedDofs,
+                                std::size_t numElements,
+                                seissol::parallel::runtime::StreamRuntime& runtime) {
   logError() << "No GPU implementation provided";
 }
 
-void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
+template <typename Cfg>
+void Time<Cfg>::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   nonZeroFlops = kernel::evaluateDOFSAtTimeSTP<Cfg>::NonZeroFlops;
   hardwareFlops = kernel::evaluateDOFSAtTimeSTP<Cfg>::HardwareFlops;
 }
 
-void Time::setGlobalData(const GlobalData& global) {}
+template <typename Cfg>
+void Time<Cfg>::setGlobalData(const GlobalData& global) {}
+
+#define _H_(cfg) template class Spacetime<cfg>;
+#include "ConfigInclude.h"
+
+#define _H_(cfg) template class Time<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels::solver::stp

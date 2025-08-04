@@ -23,7 +23,8 @@
 
 namespace seissol::kernels::solver::linearckanelastic {
 
-void Local::setGlobalData(const GlobalData& global) {
+template <typename Cfg>
+void Local<Cfg>::setGlobalData(const GlobalData& global) {
 
 #ifndef NDEBUG
   for (std::size_t stiffness = 0; stiffness < Cell::Dim; ++stiffness) {
@@ -63,14 +64,15 @@ void Local::setGlobalData(const GlobalData& global) {
 #endif
 }
 
-void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
-                            LTS::Ref<Cfg>& data,
-                            LocalTmp<Cfg>& tmp,
-                            // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
-                            const CellMaterialData* materialData,
-                            const CellBoundaryMapping<Cfg> (*cellBoundaryMapping)[4],
-                            double time,
-                            double timeStepWidth) {
+template <typename Cfg>
+void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::size()],
+                                 LTS::Ref<Cfg>& data,
+                                 LocalTmp<Cfg>& tmp,
+                                 // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
+                                 const CellMaterialData* materialData,
+                                 const CellBoundaryMapping<Cfg> (*cellBoundaryMapping)[4],
+                                 double time,
+                                 double timeStepWidth) {
   // assert alignments
 #ifndef NDEBUG
   assert((reinterpret_cast<uintptr_t>(timeIntegratedDegreesOfFreedom)) % Alignment == 0);
@@ -115,9 +117,10 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::
   lKrnl.execute();
 }
 
-void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                          std::uint64_t& nonZeroFlops,
-                          std::uint64_t& hardwareFlops) {
+template <typename Cfg>
+void Local<Cfg>::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                               std::uint64_t& nonZeroFlops,
+                               std::uint64_t& hardwareFlops) {
   nonZeroFlops = seissol::kernel::volumeExt<Cfg>::NonZeroFlops;
   hardwareFlops = seissol::kernel::volumeExt<Cfg>::HardwareFlops;
 
@@ -132,7 +135,8 @@ void Local::flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
   hardwareFlops += seissol::kernel::local<Cfg>::HardwareFlops;
 }
 
-std::uint64_t Local::bytesIntegral() {
+template <typename Cfg>
+std::uint64_t Local<Cfg>::bytesIntegral() {
   std::uint64_t reals = 0;
 
   // star matrices load
@@ -147,11 +151,12 @@ std::uint64_t Local::bytesIntegral() {
   return reals * sizeof(real);
 }
 
-void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
-                                   ConditionalMaterialTable& materialTable,
-                                   ConditionalIndicesTable& indicesTable,
-                                   double timeStepWidth,
-                                   seissol::parallel::runtime::StreamRuntime& runtime) {
+template <typename Cfg>
+void Local<Cfg>::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
+                                        ConditionalMaterialTable& materialTable,
+                                        ConditionalIndicesTable& indicesTable,
+                                        double timeStepWidth,
+                                        seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
@@ -223,11 +228,16 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
 #endif
 }
 
-void Local::evaluateBatchedTimeDependentBc(ConditionalPointersToRealsTable& dataTable,
-                                           ConditionalIndicesTable& indicesTable,
-                                           LTS::Layer& layer,
-                                           double time,
-                                           double timeStepWidth,
-                                           seissol::parallel::runtime::StreamRuntime& runtime) {}
+template <typename Cfg>
+void Local<Cfg>::evaluateBatchedTimeDependentBc(
+    ConditionalPointersToRealsTable& dataTable,
+    ConditionalIndicesTable& indicesTable,
+    LTS::Layer& layer,
+    double time,
+    double timeStepWidth,
+    seissol::parallel::runtime::StreamRuntime& runtime) {}
+
+#define _H_(cfg) template class Local<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::kernels::solver::linearckanelastic

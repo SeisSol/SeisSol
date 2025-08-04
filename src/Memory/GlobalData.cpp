@@ -22,6 +22,20 @@
 #include <cstddef>
 #include <yateto.h>
 
+namespace seissol::init {
+template <typename>
+class selectAne;
+template <typename>
+class selectEla;
+} // namespace seissol::init
+
+namespace seissol::tensor {
+template <typename>
+class selectAne;
+template <typename>
+class selectEla;
+} // namespace seissol::tensor
+
 namespace seissol::initializer {
 /*
  * \class MemoryProperties
@@ -212,12 +226,14 @@ void GlobalDataInitializer<Cfg, MatrixManipPolicyT>::init(GlobalDataCfg<Cfg>& gl
   globalMatrixMemSize += yateto::alignedUpper(tensor::projectQP<Cfg>::size(),
                                               yateto::alignedReals<Real<Cfg>>(prop.alignment));
 
-#ifdef USE_VISCOELASTIC2
-  globalMatrixMemSize += yateto::alignedUpper(tensor::selectAne<Cfg>::size(),
-                                              yateto::alignedReals<Real<Cfg>>(prop.alignment));
-  globalMatrixMemSize += yateto::alignedUpper(tensor::selectEla<Cfg>::size(),
-                                              yateto::alignedReals<Real<Cfg>>(prop.alignment));
-#endif
+  if constexpr (kernels::size<tensor::selectAne<Cfg>>() > 0) {
+    globalMatrixMemSize += yateto::alignedUpper(tensor::selectAne<Cfg>::size(),
+                                                yateto::alignedReals<Real<Cfg>>(prop.alignment));
+  }
+  if constexpr (kernels::size<tensor::selectEla<Cfg>>() > 0) {
+    globalMatrixMemSize += yateto::alignedUpper(tensor::selectEla<Cfg>::size(),
+                                                yateto::alignedReals<Real<Cfg>>(prop.alignment));
+  }
 
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
   globalMatrixMemSize += yateto::computeFamilySize<init::plusFluxMatrices<Cfg>>(
@@ -264,12 +280,14 @@ void GlobalDataInitializer<Cfg, MatrixManipPolicyT>::init(GlobalDataCfg<Cfg>& gl
   copyManager.template copyTensorToMemAndSetPtr<init::projectQP<Cfg>>(
       globalMatrixMemPtr, globalData.projectQPMatrix, prop.alignment);
 
-#ifdef USE_VISCOELASTIC2
-  copyManager.template copyTensorToMemAndSetPtr<init::selectAne<Cfg>>(
-      globalMatrixMemPtr, globalData.selectAne, prop.alignment);
-  copyManager.template copyTensorToMemAndSetPtr<init::selectEla<Cfg>>(
-      globalMatrixMemPtr, globalData.selectEla, prop.alignment);
-#endif
+  if constexpr (kernels::size<init::selectAne<Cfg>>() > 0) {
+    copyManager.template copyTensorToMemAndSetPtr<init::selectAne<Cfg>>(
+        globalMatrixMemPtr, globalData.selectAne, prop.alignment);
+  }
+  if constexpr (kernels::size<init::selectEla<Cfg>>() > 0) {
+    copyManager.template copyTensorToMemAndSetPtr<init::selectEla<Cfg>>(
+        globalMatrixMemPtr, globalData.selectEla, prop.alignment);
+  }
 
 #if defined(ACL_DEVICE) && defined(USE_PREMULTIPLY_FLUX)
   copyManager.template copyFamilyToMemAndSetPtr<init::plusFluxMatrices<Cfg>>(

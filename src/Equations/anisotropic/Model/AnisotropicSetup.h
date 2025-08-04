@@ -346,7 +346,7 @@ struct MaterialSetup<Cfg, std::enable_if_t<Cfg::MaterialType == MaterialType::An
                                     const VrtxCoords tangent2,
                                     typename init::T<Cfg>::view::type& matT,
                                     typename init::Tinv<Cfg>::view::type& matTinv) {
-    ::seissol::model::getFaceRotationMatrixElastic(normal, tangent1, tangent2, matT, matTinv);
+    ::seissol::model::getFaceRotationMatrixElastic<Cfg>(normal, tangent1, tangent2, matT, matTinv);
   }
 };
 

@@ -18,19 +18,13 @@
 
 // IWYU pragma: begin_exports
 
-#ifdef USE_VISCOELASTIC2
-#include <Kernels/LinearCKAnelastic/LocalBase.h>
-#include <Kernels/LinearCKAnelastic/NeighborBase.h>
-#include <Kernels/LinearCKAnelastic/TimeBase.h>
-#elif defined(USE_POROELASTIC)
-#include <Kernels/LinearCK/LocalBase.h>
-#include <Kernels/LinearCK/NeighborBase.h>
-#include <Kernels/STP/TimeBase.h>
-#else
 #include <Kernels/LinearCK/LocalBase.h>
 #include <Kernels/LinearCK/NeighborBase.h>
 #include <Kernels/LinearCK/TimeBase.h>
-#endif
+#include <Kernels/LinearCKAnelastic/LocalBase.h>
+#include <Kernels/LinearCKAnelastic/NeighborBase.h>
+#include <Kernels/LinearCKAnelastic/TimeBase.h>
+#include <Kernels/STP/TimeBase.h>
 
 // IWYU pragma: end_exports
 
@@ -39,7 +33,7 @@ namespace seissol::kernels {
 // some typename shortcuts
 
 template <typename Cfg>
-using Solver = typename model::MaterialTT<Cfg>::Solver;
+using Solver = typename model::MaterialTT<Cfg>::template Solver<Cfg>;
 
 template <typename Cfg>
 using Time = typename Solver<Cfg>::template TimeKernelT<Cfg>;
