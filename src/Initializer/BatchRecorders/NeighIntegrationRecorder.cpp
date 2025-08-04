@@ -119,7 +119,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
 
-  CellDRMapping(*drMappingDevice)[4] = currentLayer->var<LTS::DRMappingDevice>();
+  CellDRMapping<Cfg>(*drMappingDevice)[4] = currentLayer->var<LTS::DRMappingDevice>(Cfg());
 
 #ifdef USE_VISCOELASTIC2
   auto* dofsExt = currentLayer->var<LTS::DofsExtScratch>(AllocationPlace::Device);

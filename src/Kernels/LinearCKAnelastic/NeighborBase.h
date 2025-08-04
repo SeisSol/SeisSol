@@ -21,7 +21,7 @@ class Neighbor : public NeighborKernel<Cfg> {
   void setGlobalData(const CompoundGlobalData& global) override;
 
   void computeNeighborsIntegral(LTS::Ref<Cfg>& data,
-                                const CellDRMapping (&cellDrMapping)[4],
+                                const CellDRMapping<Cfg> (&cellDrMapping)[4],
                                 real* timeIntegrated[4],
                                 real* faceNeighborsPrefetch[4]) override;
 
@@ -31,7 +31,7 @@ class Neighbor : public NeighborKernel<Cfg> {
   void flopsNeighborsIntegral(
       const std::array<FaceType, Cell::NumFaces>& faceTypes,
       const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-      const CellDRMapping (&cellDrMapping)[4],
+      const CellDRMapping<Cfg> (&cellDrMapping)[4],
       std::uint64_t& nonZeroFlops,
       std::uint64_t& hardwareFlops,
       std::uint64_t& drNonZeroFlops,

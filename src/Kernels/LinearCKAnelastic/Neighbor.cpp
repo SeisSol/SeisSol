@@ -71,7 +71,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void Neighbor::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
-                                        const CellDRMapping (&cellDrMapping)[4],
+                                        const CellDRMapping<Cfg> (&cellDrMapping)[4],
                                         real* timeIntegrated[4],
                                         real* faceNeighbors_prefetch[4]) {
 #ifndef NDEBUG
@@ -135,7 +135,7 @@ void Neighbor::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
 void Neighbor::flopsNeighborsIntegral(
     const std::array<FaceType, Cell::NumFaces>& faceTypes,
     const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-    const CellDRMapping (&cellDrMapping)[4],
+    const CellDRMapping<Cfg> (&cellDrMapping)[4],
     std::uint64_t& nonZeroFlops,
     std::uint64_t& hardwareFlops,
     std::uint64_t& drNonZeroFlops,

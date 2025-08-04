@@ -42,7 +42,7 @@ class LocalKernel : public Kernel {
                                LTS::Ref<Cfg>& data,
                                LocalTmp<Cfg>& tmp,
                                const CellMaterialData* materialData,
-                               const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                               const CellBoundaryMapping<Cfg> (*cellBoundaryMapping)[4],
                                double time,
                                double timeStepWidth) = 0;
 

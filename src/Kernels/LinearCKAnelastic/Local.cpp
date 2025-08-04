@@ -62,7 +62,7 @@ void Local::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<Cfg>::
                             LocalTmp<Cfg>& tmp,
                             // TODO(Lukas) Nullable cause miniseissol. Maybe fix?
                             const CellMaterialData* materialData,
-                            const CellBoundaryMapping (*cellBoundaryMapping)[4],
+                            const CellBoundaryMapping<Cfg> (*cellBoundaryMapping)[4],
                             double time,
                             double timeStepWidth) {
   // assert alignments

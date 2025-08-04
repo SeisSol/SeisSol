@@ -49,7 +49,7 @@ class GravitationalFreeSurfaceBc {
   template <typename TimeKrnl, typename MappingKrnl>
   void evaluate(unsigned faceIdx,
                 MappingKrnl&& projectKernelPrototype,
-                const CellBoundaryMapping& boundaryMapping,
+                const CellBoundaryMapping<Cfg>& boundaryMapping,
                 real* displacementNodalData,
                 real* integratedDisplacementNodalData,
                 TimeKrnl& timeKernel,

@@ -161,7 +161,7 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   void*(*faceNeighbors)[4] = layer.var<LTS::FaceNeighbors>();
-  CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
+  CellDRMapping<Cfg>(*drMapping)[4] = layer.var<LTS::DRMapping>(Cfg());
   CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
 
   real* timeIntegrated[4];
@@ -234,7 +234,7 @@ auto ProxyKernelHostNeighbor::performanceEstimate(ProxyData& data) const -> Perf
   auto& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
   CellLocalInformation* cellInformation = layer.var<LTS::CellInformation>();
-  CellDRMapping(*drMapping)[4] = layer.var<LTS::DRMapping>();
+  CellDRMapping<Cfg>(*drMapping)[4] = layer.var<LTS::DRMapping>(Cfg());
   for (std::size_t cell = 0; cell < nrOfCells; cell++) {
     std::uint64_t nonZeroFlops = 0;
     std::uint64_t hardwareFlops = 0;

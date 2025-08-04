@@ -30,9 +30,9 @@
 
 namespace {
 // Helper functions, needed because C++ doesnt allow partial func. template specialisation
-template <typename MappingKrnl>
+template <typename Cfg, typename MappingKrnl>
 void addRotationToProjectKernel(MappingKrnl& projectKernel,
-                                const seissol::CellBoundaryMapping& boundaryMapping) {
+                                const seissol::CellBoundaryMapping<Cfg>& boundaryMapping) {
   // do nothing
 }
 
@@ -42,7 +42,7 @@ void addRotationToProjectKernel(MappingKrnl& projectKernel,
 #pragma GCC diagnostic ignored "-Wunused-function"
 template <>
 void addRotationToProjectKernel(seissol::kernel::projectToNodalBoundaryRotated<Cfg>& projectKernel,
-                                const seissol::CellBoundaryMapping& boundaryMapping) {
+                                const seissol::CellBoundaryMapping<Cfg>& boundaryMapping) {
   assert(boundaryMapping.dataTinv != nullptr);
   projectKernel.Tinv = boundaryMapping.dataTinv;
 }
@@ -62,7 +62,7 @@ class DirichletBoundary {
   template <typename Func, typename MappingKrnl>
   void evaluate(const real* dofsVolumeInteriorModal,
                 int faceIdx,
-                const CellBoundaryMapping& boundaryMapping,
+                const CellBoundaryMapping<Cfg>& boundaryMapping,
                 MappingKrnl&& projectKernelPrototype,
                 Func&& evaluateBoundaryCondition,
                 real* dofsFaceBoundaryNodal) const {
@@ -139,7 +139,7 @@ class DirichletBoundary {
   template <typename Func, typename MappingKrnl>
   void evaluateTimeDependent(const real* dofsVolumeInteriorModal,
                              int faceIdx,
-                             const CellBoundaryMapping& boundaryMapping,
+                             const CellBoundaryMapping<Cfg>& boundaryMapping,
                              const MappingKrnl& projectKernelPrototype,
                              Func&& evaluateBoundaryCondition,
                              real* dofsFaceBoundaryNodal,

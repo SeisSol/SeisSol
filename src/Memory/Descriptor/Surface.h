@@ -24,7 +24,10 @@ struct SurfaceLTS {
   struct Side : public seissol::initializer::Variable<std::uint8_t> {};
   struct MeshId : public seissol::initializer::Variable<std::size_t> {};
   struct OutputPosition : public seissol::initializer::Variable<std::size_t> {};
-  struct BoundaryMapping : public seissol::initializer::Variable<CellBoundaryMapping*> {};
+  struct BoundaryMapping : public seissol::initializer::Variable<void> {
+    template<typename Cfg>
+    using VariantType = CellBoundaryMapping<Cfg>*;
+  };
   struct LocationFlag : public seissol::initializer::Variable<std::uint8_t> {};
 
   struct DisplacementDofs : public seissol::initializer::Variable<void> {

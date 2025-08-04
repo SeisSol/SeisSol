@@ -63,7 +63,7 @@ void Neighbor<Cfg>::setGlobalData(const CompoundGlobalData& global) {
 
 template<typename Cfg>
 void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
-                                        const CellDRMapping (&cellDrMapping)[4],
+                                        const CellDRMapping<Cfg> (&cellDrMapping)[4],
                                         real* timeIntegrated[4],
                                         real* faceNeighborsPrefetch[4]) {
   assert(reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>()) % Alignment == 0);
@@ -187,7 +187,7 @@ template<typename Cfg>
 void Neighbor<Cfg>::flopsNeighborsIntegral(
     const std::array<FaceType, Cell::NumFaces>& faceTypes,
     const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
-    const CellDRMapping (&cellDrMapping)[4],
+    const CellDRMapping<Cfg> (&cellDrMapping)[4],
     std::uint64_t& nonZeroFlops,
     std::uint64_t& hardwareFlops,
     std::uint64_t& drNonZeroFlops,

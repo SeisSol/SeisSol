@@ -122,12 +122,18 @@ struct LTS {
     using VariantType = model::MaterialTT<Cfg>;
   };
   struct Material : public initializer::Variable<CellMaterialData> {};
-  struct Plasticity : public initializer::Variable<seissol::model::PlasticityData<Real<Cfg>>> {
+  struct Plasticity : public initializer::Variable<void> {
     template<typename Cfg>
     using VariantType = seissol::model::PlasticityData<Real<Cfg>>;
   };
-  struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
-  struct BoundaryMapping : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {};
+  struct DRMapping : public initializer::Variable<void> {
+    template<typename Cfg>
+    using VariantType = CellDRMapping<Cfg>[Cell::NumFaces];
+  };
+  struct BoundaryMapping : public initializer::Variable<void> {
+    template<typename Cfg>
+    using VariantType = CellBoundaryMapping<Cfg>[Cell::NumFaces];
+  };
   struct PStrain : public initializer::Variable<void> {
     template<typename Cfg>
     using VariantType = Real<Cfg>[tensor::QStress<Cfg>::size() + tensor::QEtaModal<Cfg>::size()];
@@ -154,8 +160,13 @@ struct LTS {
     template<typename Cfg>
     using VariantType = Real<Cfg>* [Cell::NumFaces];
   };
-  struct DRMappingDevice : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
-  struct BoundaryMappingDevice : public initializer::Variable<CellBoundaryMapping[Cell::NumFaces]> {
+  struct DRMappingDevice : public initializer::Variable<void> {
+    template<typename Cfg>
+    using VariantType = CellDRMapping<Cfg>[Cell::NumFaces];
+  };
+  struct BoundaryMappingDevice : public initializer::Variable<void> {
+    template<typename Cfg>
+    using VariantType = CellBoundaryMapping<Cfg>[Cell::NumFaces];
   };
 
   struct ScratchBase : public initializer::Scratchpad<void> {

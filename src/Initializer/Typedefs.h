@@ -258,29 +258,31 @@ struct DREnergyOutput {
   }
 };
 
+template<typename Cfg>
 struct CellDRMapping {
   unsigned side;
   unsigned faceRelation;
-  real* godunov;
-  real* fluxSolver;
+  Real<Cfg>* godunov;
+  Real<Cfg>* fluxSolver;
 };
 
 template <typename Cfg>
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension] * 3]{};
-  real dataT[seissol::tensor::T<Cfg>::size()]{};
-  real dataTinv[seissol::tensor::Tinv<Cfg>::size()]{};
-  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant<Cfg>::size()]{};
-  real easiBoundaryMap[seissol::tensor::easiBoundaryMap<Cfg>::size()]{};
+  Real<Cfg> nodes[seissol::nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension] * 3]{};
+  Real<Cfg> dataT[seissol::tensor::T<Cfg>::size()]{};
+  Real<Cfg> dataTinv[seissol::tensor::Tinv<Cfg>::size()]{};
+  Real<Cfg> easiBoundaryConstant[seissol::tensor::easiBoundaryConstant<Cfg>::size()]{};
+  Real<Cfg> easiBoundaryMap[seissol::tensor::easiBoundaryMap<Cfg>::size()]{};
 };
 
+template<typename Cfg>
 struct CellBoundaryMapping {
-  real* nodes{nullptr};
-  real* dataT{nullptr};
-  real* dataTinv{nullptr};
-  real* easiBoundaryConstant{nullptr};
-  real* easiBoundaryMap{nullptr};
+  Real<Cfg>* nodes{nullptr};
+  Real<Cfg>* dataT{nullptr};
+  Real<Cfg>* dataTinv{nullptr};
+  Real<Cfg>* easiBoundaryConstant{nullptr};
+  Real<Cfg>* easiBoundaryMap{nullptr};
 
   CellBoundaryMapping() = default;
   CellBoundaryMapping(BoundaryFaceInformation<Cfg>& faceInfo)

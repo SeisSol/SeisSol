@@ -383,7 +383,7 @@ void TimeCluster<Cfg>::computeLocalIntegration(bool resetBuffers) {
         integrationCoeffs.data(), timeStepWidth, data, tmp, bufferPointer, derivatives[cell], true);
 
     // Compute local integrals (including some boundary conditions)
-    CellBoundaryMapping(*boundaryMapping)[4] = clusterData->var<LTS::BoundaryMapping>();
+    CellBoundaryMapping<Cfg>(*boundaryMapping)[4] = clusterData->var<LTS::BoundaryMapping>(Cfg());
     localKernel.computeIntegral(bufferPointer,
                                 data,
                                 tmp,
@@ -618,7 +618,7 @@ void TimeCluster<Cfg>::computeNeighborIntegrationFlops() {
   drFlopsHardware = 0;
 
   auto* cellInformation = clusterData->var<LTS::CellInformation>();
-  auto* drMapping = clusterData->var<LTS::DRMapping>();
+  auto* drMapping = clusterData->var<LTS::DRMapping>(Cfg());
   for (std::size_t cell = 0; cell < clusterData->size(); ++cell) {
     std::uint64_t cellNonZero = 0;
     std::uint64_t cellHardware = 0;
@@ -924,7 +924,7 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationImplementation(double subTim
   loopStatistics->begin(regionComputeNeighboringIntegration);
 
   auto* faceNeighbors = clusterData->var<LTS::FaceNeighbors>();
-  auto* drMapping = clusterData->var<LTS::DRMapping>();
+  auto* drMapping = clusterData->var<LTS::DRMapping>(Cfg());
   auto* cellInformation = clusterData->var<LTS::CellInformation>();
   auto* plasticity = clusterData->var<LTS::Plasticity>(Cfg());
   auto* pstrain = clusterData->var<LTS::PStrain>(Cfg());

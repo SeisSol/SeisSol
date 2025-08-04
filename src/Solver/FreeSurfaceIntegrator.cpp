@@ -335,8 +335,8 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
     auto* displacementDofsDevice =
         surfaceLayer.var<SurfaceLTS::DisplacementDofs>(cfg, initializer::AllocationPlace::Device);
     auto* cellMaterialData = layer.var<LTS::Material>();
-    auto* surfaceBoundaryMapping = surfaceLayer.var<SurfaceLTS::BoundaryMapping>();
-    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
+    auto* surfaceBoundaryMapping = surfaceLayer.var<SurfaceLTS::BoundaryMapping>(cfg);
+    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>(cfg);
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* locationFlagLayer = surfaceLayer.var<SurfaceLTS::LocationFlag>();
 

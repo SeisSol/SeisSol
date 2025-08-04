@@ -380,7 +380,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
     using Cfg = decltype(cfg);
     using MaterialT = model::MaterialTT<Cfg>;
     auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* boundary = layer.var<LTS::BoundaryMapping>();
+    auto* boundary = layer.var<LTS::BoundaryMapping>(cfg);
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
 #ifdef _OPENMP
@@ -594,13 +594,13 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 #pragma omp critical
 #endif // _OPENMP
           {
-            CellDRMapping& mapping = ltsStorage.lookup<LTS::DRMapping>(
+            auto& mapping = ltsStorage.lookup<LTS::DRMapping>(cfg, 
                 plusLtsId.value())[faceInformation[ltsFace].plusSide];
             mapping.side = faceInformation[ltsFace].plusSide;
             mapping.faceRelation = 0;
             mapping.godunov = &imposedStatePlus[ltsFace][0];
             mapping.fluxSolver = &fluxSolverPlus[ltsFace][0];
-            CellDRMapping& mappingDevice = ltsStorage.lookup<LTS::DRMappingDevice>(
+            auto& mappingDevice = ltsStorage.lookup<LTS::DRMappingDevice>(cfg, 
                 plusLtsId.value())[faceInformation[ltsFace].plusSide];
             mappingDevice.side = faceInformation[ltsFace].plusSide;
             mappingDevice.faceRelation = 0;
@@ -613,13 +613,13 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 #pragma omp critical
 #endif // _OPENMP
           {
-            CellDRMapping& mapping = ltsStorage.lookup<LTS::DRMapping>(
+            auto& mapping = ltsStorage.lookup<LTS::DRMapping>(cfg, 
                 minusLtsId.value())[faceInformation[ltsFace].minusSide];
             mapping.side = faceInformation[ltsFace].minusSide;
             mapping.faceRelation = faceInformation[ltsFace].faceRelation;
             mapping.godunov = &imposedStateMinus[ltsFace][0];
             mapping.fluxSolver = &fluxSolverMinus[ltsFace][0];
-            CellDRMapping& mappingDevice = ltsStorage.lookup<LTS::DRMappingDevice>(
+            auto& mappingDevice = ltsStorage.lookup<LTS::DRMappingDevice>(cfg, 
                 minusLtsId.value())[faceInformation[ltsFace].minusSide];
             mappingDevice.side = faceInformation[ltsFace].minusSide;
             mappingDevice.faceRelation = faceInformation[ltsFace].faceRelation;

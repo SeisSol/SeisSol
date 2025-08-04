@@ -92,27 +92,30 @@ void MemoryManager::fixateBoundaryStorage() {
   // We do this by, once again, iterating over both storages at the same time.
   for (auto [layer, boundaryLayer] :
        seissol::common::zip(ltsStorage.leaves(ghostMask), m_boundaryTree.leaves(ghostMask))) {
-    auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
-    auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>();
-    auto* faceInformation = boundaryLayer.var<Boundary::FaceInformation>(AllocationPlace::Host);
-    auto* faceInformationDevice =
-        boundaryLayer.var<Boundary::FaceInformation>(AllocationPlace::Device);
+    layer.wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      auto* cellInformation = layer.var<LTS::CellInformation>();
+      auto* boundaryMapping = layer.var<LTS::BoundaryMapping>(cfg);
+      auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>(cfg);
+      auto* faceInformation = boundaryLayer.var<Boundary::FaceInformation>(AllocationPlace::Host);
+      auto* faceInformationDevice =
+          boundaryLayer.var<Boundary::FaceInformation>(AllocationPlace::Device);
 
-    std::size_t boundaryFace = 0;
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
-          boundaryMapping[cell][face] = CellBoundaryMapping(faceInformation[boundaryFace]);
-          boundaryMappingDevice[cell][face] =
-              CellBoundaryMapping(faceInformationDevice[boundaryFace]);
-          ++boundaryFace;
-        } else {
-          boundaryMapping[cell][face] = CellBoundaryMapping();
-          boundaryMappingDevice[cell][face] = CellBoundaryMapping();
+      std::size_t boundaryFace = 0;
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+          if (requiresNodalFlux(cellInformation[cell].faceTypes[face])) {
+            boundaryMapping[cell][face] = CellBoundaryMapping<Cfg>(faceInformation[boundaryFace]);
+            boundaryMappingDevice[cell][face] =
+                CellBoundaryMapping<Cfg>(faceInformationDevice[boundaryFace]);
+            ++boundaryFace;
+          } else {
+            boundaryMapping[cell][face] = CellBoundaryMapping<Cfg>();
+            boundaryMappingDevice[cell][face] = CellBoundaryMapping<Cfg>();
+          }
         }
       }
-    }
+    });
   }
 
   surfaceStorage.setName("surface");

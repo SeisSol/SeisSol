@@ -242,8 +242,8 @@ void ProxyData::initDataStructures(bool enableDR) {
 
   if (enableDR) {
     // From lts storage
-    CellDRMapping(*drMapping)[4] =
-        isDeviceOn() ? ltsStorage.var<LTS::DRMappingDevice>() : ltsStorage.var<LTS::DRMapping>();
+    CellDRMapping<Cfg>(*drMapping)[4] =
+        isDeviceOn() ? layer.var<LTS::DRMappingDevice>(cfg) : layer.var<LTS::DRMapping>(cfg);
 
     constexpr initializer::AllocationPlace Place =
         isDeviceOn() ? initializer::AllocationPlace::Device : initializer::AllocationPlace::Host;
@@ -273,7 +273,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     /* init drMapping */
     for (std::size_t cell = 0; cell < cellCount; ++cell) {
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        CellDRMapping& drm = drMapping[cell][face];
+        auto& drm = drMapping[cell][face];
         const auto side = sideDist(rng);
         const auto orientation = orientationDist(rng);
         const auto drFace = drDist(rng);
