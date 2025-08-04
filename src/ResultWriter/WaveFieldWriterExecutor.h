@@ -59,6 +59,7 @@ struct WaveFieldParam {
 
 class WaveFieldWriterExecutor {
   private:
+  using real = double;
   /** The XMDF Writer used for the wave field */
   xdmfwriter::XdmfWriter<xdmfwriter::TETRAHEDRON, double, real>* m_waveFieldWriter{nullptr};
 

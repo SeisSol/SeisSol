@@ -24,6 +24,64 @@
 #include "Kernels/Precision.h"
 
 namespace seissol::physics {
+struct TensorWrapper {
+  std::variant<yateto::DenseTensorView<2, double, unsigned>,
+    yateto::DenseTensorView<2, float, unsigned>> view;
+  
+  TensorWrapper(yateto::DenseTensorView<2, double, unsigned> tensor) : view(tensor) {}
+  TensorWrapper(yateto::DenseTensorView<2, float, unsigned> tensor) : view(tensor) {}
+
+  struct ValRef {
+    std::variant<float*, double*> data;
+
+    auto& operator=(double value) {
+      std::visit([&](auto* dataval) {
+        *dataval = value;
+      }, data);
+      return *this;
+    }
+
+    auto& operator+=(double value) {
+      std::visit([&](auto* dataval) {
+        *dataval += value;
+      }, data);
+      return *this;
+    }
+
+    auto& operator-=(double value) {
+      std::visit([&](auto* dataval) {
+        *dataval -= value;
+      }, data);
+      return *this;
+    }
+  };
+
+  template<typename... Args>
+  ValRef& operator()(Args... args) {
+    return std::visit([&](auto& tensor) {
+      return ValRef(tensor(args...));
+    }, view);
+  }
+
+  [[nodiscard]] auto shape(int dim) const {
+    return std::visit([&](auto& tensor) {
+      return tensor.shape(dim);
+    }, view);
+  }
+
+  [[nodiscard]] auto size() const {
+    return std::visit([&](auto& tensor) {
+      return tensor.size();
+    }, view);
+  }
+
+  void setZero() {
+    std::visit([&](auto& tensor) {
+      tensor.setZero();
+    }, view);
+  }
+};
+
 class InitialField {
   public:
   virtual ~InitialField() = default;
@@ -31,7 +89,7 @@ class InitialField {
                         const std::array<double, 3>* points,
                         std::size_t count,
                         const CellMaterialData& materialData,
-                        yateto::DenseTensorView<2, real, unsigned>& dofsQP) const = 0;
+                        TensorWrapper& dofsQP) const = 0;
 };
 
 class ZeroField : public InitialField {
@@ -40,7 +98,7 @@ class ZeroField : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override {
+                TensorWrapper& dofsQP) const override {
     dofsQP.setZero();
   }
 };
@@ -54,7 +112,7 @@ class PressureInjection : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper& dofsQP) const override;
 
   private:
   seissol::initializer::parameters::InitializationParameters m_parameters;
@@ -114,7 +172,7 @@ class Planarwave : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override {
+                TensorWrapper& dofsQP) const override {
     dofsQP.setZero();
 
     auto r = yateto::DenseTensorView<2, std::complex<double>>(
@@ -165,7 +223,7 @@ template <typename MaterialT>
 class SuperimposedPlanarwave : public InitialField {
   public:
   //! Choose phase in [0, 2*pi]
-  SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0)
+  SuperimposedPlanarwave(const CellMaterialData& materialData, double phase = 0.0)
       : m_kVec({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}), m_phase(phase),
         m_pw({Planarwave<MaterialT>(materialData, phase, m_kVec.at(0)),
               Planarwave<MaterialT>(materialData, phase, m_kVec.at(1)),
@@ -175,11 +233,11 @@ class SuperimposedPlanarwave : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override {
+                TensorWrapper& dofsQP) const override {
     dofsQP.setZero();
 
-    std::vector<real> dofsPwVector(dofsQP.size());
-    auto dofsPW = yateto::DenseTensorView<2, real, unsigned>(dofsPwVector.data(),
+    std::vector<double> dofsPwVector(dofsQP.size());
+    auto dofsPW = yateto::DenseTensorView<2, double, unsigned>(dofsPwVector.data(),
                                                              {count, MaterialT::NumQuantities},
                                                              {0, 0},
                                                              {count, MaterialT::NumQuantities});
@@ -188,7 +246,7 @@ class SuperimposedPlanarwave : public InitialField {
       // evaluate each planarwave
       m_pw.at(pw).evaluate(time, points, count, materialData, dofsPW);
       // and add results together
-      for (unsigned j = 0; j < dofsQP.shape(1); ++j) {
+      for (size_t j = 0; j < dofsQP.shape(1); ++j) {
         for (size_t i = 0; i < count; ++i) {
           dofsQP(i, j) += dofsPW(i, j);
         }
@@ -233,7 +291,7 @@ class TravellingWave : public Planarwave<MaterialT> {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQp) const override {
+                TensorWrapper& dofsQp) const override {
     dofsQp.setZero();
 
     auto r = yateto::DenseTensorView<2, std::complex<double>>(
@@ -269,7 +327,7 @@ class AcousticTravellingWaveITM : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper& dofsQP) const override;
 
   private:
   void init(const CellMaterialData& materialData);
@@ -289,7 +347,7 @@ class ScholteWave : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper& dofsQP) const override;
 };
 class SnellsLaw : public InitialField {
   public:
@@ -298,7 +356,7 @@ class SnellsLaw : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper& dofsQP) const override;
 };
 /*
  * From
@@ -321,7 +379,7 @@ class Ocean : public InitialField {
                 const std::array<double, 3>* points,
                 std::size_t count,
                 const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
+                TensorWrapper& dofsQP) const override;
 };
 } // namespace seissol::physics
 

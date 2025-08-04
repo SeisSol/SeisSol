@@ -13,8 +13,11 @@
 
 namespace seissol::kernels {
 
-void touchBuffersDerivatives(real** buffers, real** derivatives, unsigned numberOfCells);
-void fillWithStuff(real* buffer, unsigned nValues, bool onDevice);
+template<typename RealT>
+void touchBuffersDerivatives(RealT** buffers, RealT** derivatives, unsigned numberOfCells);
+
+template<typename RealT>
+void fillWithStuff(RealT* buffer, unsigned nValues, bool onDevice);
 
 } // namespace seissol::kernels
 

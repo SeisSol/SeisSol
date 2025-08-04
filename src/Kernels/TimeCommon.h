@@ -13,12 +13,14 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
+#include <DataTypes/ConditionalTable.h>
 #include <Initializer/LtsSetup.h>
 
 namespace seissol::kernels {
 
 template <typename Cfg>
 struct TimeCommon {
+  using real = Real<Cfg>;
   /**
    * Either copies pointers to the DOFs in the time buffer or integrates the DOFs via time
    derivatives.

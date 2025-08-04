@@ -34,9 +34,9 @@ class FreeSurfaceIntegrator {
     FreeSurfaceWithGravity = 3
   };
 
-  real* projectionMatrixMemory{nullptr};
-  real* projectionMatrix[4]{};
-  real* projectionMatrixFromFace{nullptr};
+  double* projectionMatrixMemory{nullptr};
+  double* projectionMatrix[4]{};
+  double* projectionMatrixFromFace{nullptr};
   std::size_t numberOfSubTriangles{0};
   std::size_t numberOfAlignedSubTriangles{0};
 
@@ -46,11 +46,11 @@ class FreeSurfaceIntegrator {
 
   void initializeProjectionMatrices(unsigned maxRefinementDepth);
   void computeSubTriangleAverages(
-      real* projectionMatrixRow,
+      double* projectionMatrixRow,
       const std::array<std::array<double, 3>, NumQuadraturePoints>& bfPoints,
       const double* weights) const;
   void computeSubTriangleAveragesFromFaces(
-      real* projectionMatrixFromFaceRow,
+      double* projectionMatrixFromFaceRow,
       const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
       const double* weights) const;
   void initializeSurfaceStorage(LTS::Storage& ltsStorage);
@@ -59,8 +59,8 @@ class FreeSurfaceIntegrator {
       getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
 
   public:
-  std::array<real*, NumComponents> velocities;
-  std::array<real*, NumComponents> displacements;
+  std::array<double*, NumComponents> velocities;
+  std::array<double*, NumComponents> displacements;
 
   std::vector<std::uint8_t> locationFlags;
   std::size_t totalNumberOfFreeSurfaces{0};

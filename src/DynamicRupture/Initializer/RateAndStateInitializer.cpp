@@ -28,6 +28,7 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
   for (auto& layer : drStorage.leaves(Ghost)) {
     layer.wrap([&](auto cfg) {
       using Cfg = decltype(cfg);
+      using real = Real<Cfg>;
       auto* dynStressTimePending = layer.var<LTSRateAndState::DynStressTimePending>(cfg);
       real(*slipRate1)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::SlipRate1>(cfg);
       real(*slipRate2)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::SlipRate2>(cfg);

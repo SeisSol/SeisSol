@@ -32,8 +32,8 @@ void seissol::writer::PostProcessor::integrateQuantities(const double timestep,
 }
 
 void seissol::writer::PostProcessor::setIntegrationMask(const std::vector<bool>& integrationMask) {
+  m_integrationMask = integrationMask;
   for (int i = 0; i < integrationMask.size(); i++) {
-    m_integrationMask[i] = integrationMask[i];
     if (m_integrationMask[i]) {
       m_integerMap.push_back(i);
       m_numberOfVariables++;

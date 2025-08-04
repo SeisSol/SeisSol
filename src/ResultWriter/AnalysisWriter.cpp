@@ -140,30 +140,32 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         using Cfg = decltype(cfg);
         using real = Real<Cfg>;
 
-      constexpr auto NumQuantities =
-          tensor::Q<Cfg>::Shape[sizeof(tensor::Q<Cfg>::Shape) / sizeof(tensor::Q<Cfg>::Shape[0]) - 1];
+        constexpr auto NumQuantities =
+            tensor::Q<Cfg>::Shape[sizeof(tensor::Q<Cfg>::Shape) / sizeof(tensor::Q<Cfg>::Shape[0]) -
+                                  1];
 
-      // Initialize quadrature nodes and weights.
-      // TODO(Lukas) Increase quadrature order later.
-      constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
-      constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
+        // Initialize quadrature nodes and weights.
+        // TODO(Lukas) Increase quadrature order later.
+        constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
+        constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-      double quadraturePoints[NumQuadPoints][3];
-      double quadratureWeights[NumQuadPoints];
-      seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
+        double quadraturePoints[NumQuadPoints][3];
+        double quadratureWeights[NumQuadPoints];
+        seissol::quadrature::TetrahedronQuadrature(
+            quadraturePoints, quadratureWeights, QuadPolyDegree);
 
-    // Note: We iterate over mesh cells by id to avoid
-    // cells that are duplicates.
-    std::vector<std::array<double, 3>> quadraturePointsXyz(NumQuadPoints);
+        // Note: We iterate over mesh cells by id to avoid
+        // cells that are duplicates.
+        std::vector<std::array<double, 3>> quadraturePointsXyz(NumQuadPoints);
 
-    alignas(Alignment) real numericalSolutionData[tensor::dofsQP<Cfg>::size()];
-    alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities];
+        alignas(Alignment) real numericalSolutionData[tensor::dofsQP<Cfg>::size()];
+        alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities];
 
-      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-      const auto* materialData = layer.var<LTS::Material>();
-      const auto* dofsData = layer.var<LTS::Dofs>(cfg);
+        const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+        const auto* materialData = layer.var<LTS::Material>();
+        const auto* dofsData = layer.var<LTS::Dofs>(cfg);
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
-      // Note: Adding default(none) leads error when using gcc-8
+        // Note: Adding default(none) leads error when using gcc-8
 #pragma omp parallel for shared(elements,                                                          \
                                     vertices,                                                      \
                                     iniFields,                                                     \
@@ -181,83 +183,83 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                                     analyticalsLInfLocal)                                          \
     firstprivate(quadraturePointsXyz) private(numericalSolutionData, analyticalSolutionData)
 #endif
-      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-        if (secondaryInformation[cell].duplicate > 0) {
-          // skip duplicate cells
-          continue;
-        }
-        const auto meshId = secondaryInformation[cell].meshId;
-        const int curThreadId = OpenMP::threadId();
-
-        auto numericalSolution = init::dofsQP<Cfg>::view::create(numericalSolutionData);
-        auto analyticalSolution = yateto::DenseTensorView<2, real>(analyticalSolutionData,
-                                                                   {NumQuadPoints, NumQuantities});
-
-        // Needed to weight the integral.
-        const auto volume = MeshTools::volume(elements[meshId], vertices);
-        const auto jacobiDet = 6 * volume;
-
-        if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
-          // Compute global position of quadrature points.
-          const double* elementCoords[Cell::NumVertices];
-          for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
-            elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
+        for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+          if (secondaryInformation[cell].duplicate > 0) {
+            // skip duplicate cells
+            continue;
           }
-          for (std::size_t i = 0; i < NumQuadPoints; ++i) {
-            seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
-                                                                   elementCoords[1],
-                                                                   elementCoords[2],
-                                                                   elementCoords[3],
-                                                                   quadraturePoints[i],
-                                                                   quadraturePointsXyz[i].data());
+          const auto meshId = secondaryInformation[cell].meshId;
+          const int curThreadId = OpenMP::threadId();
+
+          auto numericalSolution = init::dofsQP<Cfg>::view::create(numericalSolutionData);
+          auto analyticalSolution = yateto::DenseTensorView<2, real>(
+              analyticalSolutionData, {NumQuadPoints, NumQuantities});
+
+          // Needed to weight the integral.
+          const auto volume = MeshTools::volume(elements[meshId], vertices);
+          const auto jacobiDet = 6 * volume;
+
+          if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
+            // Compute global position of quadrature points.
+            const double* elementCoords[Cell::NumVertices];
+            for (std::size_t v = 0; v < Cell::NumVertices; ++v) {
+              elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
+            }
+            for (std::size_t i = 0; i < NumQuadPoints; ++i) {
+              seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
+                                                                     elementCoords[1],
+                                                                     elementCoords[2],
+                                                                     elementCoords[3],
+                                                                     quadraturePoints[i],
+                                                                     quadraturePointsXyz[i].data());
+            }
+
+            // Evaluate analytical solution at quad. nodes
+            const CellMaterialData& material = materialData[cell];
+            iniFields[sim % iniFields.size()]->evaluate(simulationTime,
+                                                        quadraturePointsXyz.data(),
+                                                        quadraturePointsXyz.size(),
+                                                        material,
+                                                        analyticalSolution);
+          } else {
+            for (std::size_t i = 0; i < NumQuadPoints; ++i) {
+              for (std::size_t j = 0; j < NumQuantities; ++j) {
+                analyticalSolution(i, j) =
+                    data.at(meshId * NumQuadPoints * NumQuantities + NumQuantities * i + j);
+              }
+            }
           }
 
-          // Evaluate analytical solution at quad. nodes
-          const CellMaterialData& material = materialData[cell];
-          iniFields[sim % iniFields.size()]->evaluate(simulationTime,
-                                                      quadraturePointsXyz.data(),
-                                                      quadraturePointsXyz.size(),
-                                                      material,
-                                                      analyticalSolution);
-        } else {
-          for (std::size_t i = 0; i < NumQuadPoints; ++i) {
-            for (std::size_t j = 0; j < NumQuantities; ++j) {
-              analyticalSolution(i, j) =
-                  data.at(meshId * NumQuadPoints * NumQuantities + NumQuantities * i + j);
+          auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
+
+          // Evaluate numerical solution at quad. nodes
+          kernel::evalAtQP<Cfg> krnl;
+          krnl.evalAtQP = globalData.get<Cfg>().evalAtQPMatrix;
+          krnl.dofsQP = numericalSolutionData;
+          krnl.Q = dofsData[cell];
+          krnl.execute();
+
+          for (size_t i = 0; i < NumQuadPoints; ++i) {
+            const auto curWeight = jacobiDet * quadratureWeights[i];
+            for (size_t v = 0; v < NumQuantities; ++v) {
+              const double curError = std::abs(numSub(i, v) - analyticalSolution(i, v));
+              const double curAnalytical = std::abs(analyticalSolution(i, v));
+
+              errsL1Local[curThreadId][v] += curWeight * curError;
+              errsL2Local[curThreadId][v] += curWeight * curError * curError;
+              analyticalsL1Local[curThreadId][v] += curWeight * curAnalytical;
+              analyticalsL2Local[curThreadId][v] += curWeight * curAnalytical * curAnalytical;
+
+              if (curError > errsLInfLocal[curThreadId][v]) {
+                errsLInfLocal[curThreadId][v] = curError;
+                elemsLInfLocal[curThreadId][v] = meshId;
+              }
+              analyticalsLInfLocal[curThreadId][v] =
+                  std::max(curAnalytical, analyticalsLInfLocal[curThreadId][v]);
             }
           }
         }
-
-        auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
-
-        // Evaluate numerical solution at quad. nodes
-        kernel::evalAtQP<Cfg> krnl;
-        krnl.evalAtQP = globalData.get<Cfg>().evalAtQPMatrix;
-        krnl.dofsQP = numericalSolutionData;
-        krnl.Q = dofsData[cell];
-        krnl.execute();
-
-        for (size_t i = 0; i < NumQuadPoints; ++i) {
-          const auto curWeight = jacobiDet * quadratureWeights[i];
-          for (size_t v = 0; v < NumQuantities; ++v) {
-            const double curError = std::abs(numSub(i, v) - analyticalSolution(i, v));
-            const double curAnalytical = std::abs(analyticalSolution(i, v));
-
-            errsL1Local[curThreadId][v] += curWeight * curError;
-            errsL2Local[curThreadId][v] += curWeight * curError * curError;
-            analyticalsL1Local[curThreadId][v] += curWeight * curAnalytical;
-            analyticalsL2Local[curThreadId][v] += curWeight * curAnalytical * curAnalytical;
-
-            if (curError > errsLInfLocal[curThreadId][v]) {
-              errsLInfLocal[curThreadId][v] = curError;
-              elemsLInfLocal[curThreadId][v] = meshId;
-            }
-            analyticalsLInfLocal[curThreadId][v] =
-                std::max(curAnalytical, analyticalsLInfLocal[curThreadId][v]);
-          }
-        }
-      }
-    });
+      });
     }
 
     for (int i = 0; i < numThreads; ++i) {

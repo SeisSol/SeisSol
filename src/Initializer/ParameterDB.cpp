@@ -582,18 +582,23 @@ std::set<std::string> FaultParameterDB<T>::faultProvides(const std::string& file
 template class FaultParameterDB<float>;
 template class FaultParameterDB<double>;
 
-EasiBoundary::EasiBoundary(const std::string& fileName) : model(loadEasiModel(fileName)) {}
+template<typename Cfg>
+EasiBoundary<Cfg>::EasiBoundary(const std::string& fileName) : model(loadEasiModel(fileName)) {}
 
-EasiBoundary::EasiBoundary(EasiBoundary&& other) noexcept : model(other.model) {}
+template<typename Cfg>
+EasiBoundary<Cfg>::EasiBoundary(EasiBoundary<Cfg>&& other) noexcept : model(other.model) {}
 
-EasiBoundary& EasiBoundary::operator=(EasiBoundary&& other) noexcept {
+template<typename Cfg>
+EasiBoundary<Cfg>& EasiBoundary<Cfg>::operator=(EasiBoundary&& other) noexcept {
   std::swap(model, other.model);
   return *this;
 }
 
-EasiBoundary::~EasiBoundary() { delete model; }
+template<typename Cfg>
+EasiBoundary<Cfg>::~EasiBoundary() { delete model; }
 
-void EasiBoundary::query(const real* nodes, real* mapTermsData, real* constantTermsData) const {
+template<typename Cfg>
+void EasiBoundary<Cfg>::query(const real* nodes, real* mapTermsData, real* constantTermsData) const {
   if (model == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
@@ -726,5 +731,8 @@ std::vector<MaterialVariant>
                    const seissol::initializer::CellToVertexArray& ctvArray) {
   return MaterialVariantQuery::query(params, ctvArray);
 }
+
+#define _H_(cfg) template class EasiBoundary<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::initializer

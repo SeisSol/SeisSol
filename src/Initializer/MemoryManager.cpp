@@ -8,6 +8,7 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
+#include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <DynamicRupture/Factory.h>
 #include <Initializer/BasicTypedefs.h>
@@ -264,7 +265,12 @@ void MemoryManager::initializeMemoryLayout() {
 void MemoryManager::initializeEasiBoundaryReader(const char* fileName) {
   const auto fileNameStr = std::string{fileName};
   if (!fileNameStr.empty()) {
-    m_easiBoundary = EasiBoundary(fileNameStr);
+    for (std::size_t i = 0; i < ConfigVariantList.size(); ++i) {
+      std::visit([&](auto cfg) {
+        using Cfg = decltype(cfg);
+        std::get<std::optional<EasiBoundary<Cfg>>>(m_easiBoundary) = EasiBoundary<Cfg>(fileNameStr);
+      }, ConfigVariantList[i]);
+    }
   }
 }
 
@@ -291,11 +297,11 @@ void MemoryManager::recordExecutionPaths(bool usePlasticity) {
 #endif // ACL_DEVICE
 
 bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
-  constexpr auto Eps = std::numeric_limits<real>::epsilon();
+  constexpr auto Eps = std::numeric_limits<float>::epsilon();
   return material.neighbor[face]->getMuBar() > Eps && material.local->getMuBar() < Eps;
 }
 bool isElasticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
-  constexpr auto Eps = std::numeric_limits<real>::epsilon();
+  constexpr auto Eps = std::numeric_limits<float>::epsilon();
   return material.local->getMuBar() > Eps && material.neighbor[face]->getMuBar() < Eps;
 }
 

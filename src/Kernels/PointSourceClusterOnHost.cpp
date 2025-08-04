@@ -62,7 +62,7 @@ void PointSourceClusterOnHost<Cfg>::addTimeIntegratedPointSource(std::size_t sou
                                                                  double from,
                                                                  double to,
                                                                  Real<Cfg>* dofs) {
-  std::array<real, Quantities> update{};
+  std::array<Real<Cfg>, Quantities> update{};
   const auto base = sources_->sampleRange[source];
   const auto localSamples = sources_->sampleRange[source + 1] - base;
 
@@ -90,7 +90,7 @@ void PointSourceClusterOnHost<Cfg>::addTimeIntegratedPointSource(std::size_t sou
   krnl.mInvJInvPhisAtSources = sources_->mInvJInvPhisAtSources[source].data();
 
   const auto simulationIndex = sources_->simulationIndex[source];
-  std::array<real, seissol::multisim::NumSimulations> sourceToMultSim{};
+  std::array<Real<Cfg>, seissol::multisim::NumSimulations> sourceToMultSim{};
   sourceToMultSim[simulationIndex] = 1.0;
   set_sourceToMultSim(krnl, sourceToMultSim.data());
   krnl.execute();

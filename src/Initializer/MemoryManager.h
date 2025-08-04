@@ -13,6 +13,7 @@
 
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Layer.h"
+#include <Config.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Memory/Descriptor/Surface.h>
 #include <Memory/GlobalData.h>
@@ -78,7 +79,7 @@ class MemoryManager {
 
   SurfaceLTS::Storage surfaceStorage;
 
-  EasiBoundary m_easiBoundary;
+  EasiBoundaryT m_easiBoundary;
 
   std::optional<ClusterLayout> layout;
 

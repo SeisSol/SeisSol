@@ -18,7 +18,7 @@
 #include <Memory/Tree/Backmap.h>
 
 namespace seissol::initializer {
-class EasiBoundary;
+class EasiBoundaryT;
 /**
  * Computes the star matrices A*, B*, and C*, and solves the Riemann problems at the interfaces.
  **/
@@ -28,7 +28,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                  const parameters::ModelParameters& modelParameters);
 
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
-                                const EasiBoundary* easiBoundary,
+                                const EasiBoundaryT& easiBoundary,
                                 LTS::Storage& ltsStorage);
 
 void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshReader,

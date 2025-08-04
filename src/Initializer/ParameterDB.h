@@ -153,8 +153,10 @@ class FaultParameterDB : ParameterDB {
   std::unordered_map<std::string, std::pair<T*, unsigned>> m_parameters;
 };
 
+template<typename Cfg>
 class EasiBoundary {
   public:
+  using real = Real<Cfg>;
   explicit EasiBoundary(const std::string& fileName);
 
   EasiBoundary() : model(nullptr) {};
@@ -170,6 +172,8 @@ class EasiBoundary {
   private:
   easi::Component* model;
 };
+
+using EasiBoundaryT = TransformVariadicT<std::optional, TransformVariadicT<EasiBoundary, ConfigVariant>>;
 
 template <typename MaterialT>
 std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool plasticity,

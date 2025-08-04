@@ -28,6 +28,7 @@ struct FreeSurfaceParam {
 
 class FreeSurfaceWriterExecutor {
   public:
+  using real = double;
   enum BufferIds {
     OutputPrefix = 0,
     Cells = 1,

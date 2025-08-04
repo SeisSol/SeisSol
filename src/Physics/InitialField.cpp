@@ -60,7 +60,7 @@ void seissol::physics::AcousticTravellingWaveITM::evaluate(
     const std::array<double, 3>* points,
     std::size_t count,
     const CellMaterialData& materialData,
-    yateto::DenseTensorView<2, real, unsigned>& dofsQP) const {
+    TensorWrapper& dofsQP) const {
   dofsQP.setZero();
   double pressure = 0.0;
   for (size_t i = 0; i < count; ++i) {
@@ -140,7 +140,7 @@ void seissol::physics::PressureInjection::evaluate(
     const std::array<double, 3>* points,
     std::size_t count,
     const CellMaterialData& materialData,
-    yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
+    TensorWrapper& dofsQp) const {
   const auto o1 = m_parameters.origin[0];
   const auto o2 = m_parameters.origin[1];
   const auto o3 = m_parameters.origin[2];
@@ -174,13 +174,13 @@ void seissol::physics::ScholteWave::evaluate(
     const std::array<double, 3>* points,
     std::size_t count,
     const CellMaterialData& materialData,
-    yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
-  const real omega = 2.0 * std::acos(-1);
+    TensorWrapper& dofsQp) const {
+  const double omega = 2.0 * std::acos(-1);
 
   for (size_t i = 0; i < count; ++i) {
     const auto& x = points[i];
     const bool isAcousticPart =
-        std::abs(materialData.local->getMuBar()) < std::numeric_limits<real>::epsilon();
+        std::abs(materialData.local->getMuBar()) < std::numeric_limits<double>::epsilon();
     const auto x1 = x[0];
     const auto x3 = x[2];
     const auto t = time;
@@ -248,14 +248,14 @@ void seissol::physics::SnellsLaw::evaluate(
     const std::array<double, 3>* points,
     std::size_t count,
     const CellMaterialData& materialData,
-    yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
+    TensorWrapper& dofsQp) const {
   const double pi = std::acos(-1);
   const double omega = 2.0 * pi;
 
   for (size_t i = 0; i < count; ++i) {
     const auto& x = points[i];
     const bool isAcousticPart =
-        std::abs(materialData.local->getMuBar()) < std::numeric_limits<real>::epsilon();
+        std::abs(materialData.local->getMuBar()) < std::numeric_limits<double>::epsilon();
 
     const auto x1 = x[0];
     const auto x3 = x[2];
@@ -355,7 +355,7 @@ void seissol::physics::Ocean::evaluate(double time,
                                        const std::array<double, 3>* points,
                                        std::size_t count,
                                        const CellMaterialData& materialData,
-                                       yateto::DenseTensorView<2, real, unsigned>& dofsQp) const {
+                                       TensorWrapper& dofsQp) const {
   for (size_t i = 0; i < count; ++i) {
     const auto x = points[i][0];
     const auto y = points[i][1];
