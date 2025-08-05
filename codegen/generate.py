@@ -198,7 +198,7 @@ def main():
     configsTemp = []
     counter = 0
 
-    for p in ["F64"]:
+    for p in ["F32", "F64"]:
         for equation in ["elastic", "acoustic", "anisotropic", "viscoelastic2", "poroelastic"]:
             viscomode = "None"
             if equation == "viscoelastic":
@@ -214,7 +214,7 @@ def main():
                 equations = equation[0].upper() + equation[1:]
                 mechanisms = 0
 
-            for i in range(6, 7):
+            for i in range(2, 9):
                 configs += [
                     {
                         "order": i,
@@ -418,6 +418,11 @@ def main():
         file.write(kernels.config.make_configincludefile(configsLocal))
 
     declarationsTensors = [
+        "Iane",
+        "Qane",
+        "Qext",
+        "dQane",
+        "dQext",
         "selectAne",
         "selectEla",
         "selectAneFull",
@@ -428,6 +433,7 @@ def main():
         "ET",
         "Z",
         "Zinv",
+        "spaceTimePredictor",
         "spaceTimePredictorRhs",
         "wHat",
         "timeInt",
@@ -440,7 +446,13 @@ def main():
     declarationsKernels = [
         "spaceTimePredictor",
         "evaluateDOFSAtTimeSTP",
+        "volume",
         "volumeExt",
+        "local",
+        "localFluxExt",
+        "neighbor",
+        "neighborFluxExt",
+        "derivativeTaylorExpansionEla",
     ]
 
     metagen.generate(

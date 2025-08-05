@@ -79,7 +79,7 @@ void FreeSurfaceIntegrator::initialize(unsigned maxRefinementDepth,
 }
 
 void FreeSurfaceIntegrator::calculateOutput() const {
-  const seissol::initializer::LayerMask ghostMask(Ghost);
+  /*const seissol::initializer::LayerMask ghostMask(Ghost);
   for (auto& surfaceLayer : surfaceStorage->leaves(ghostMask)) {
     surfaceLayer.wrap([&](auto cfg) {
       using Cfg = decltype(cfg);
@@ -132,7 +132,7 @@ void FreeSurfaceIntegrator::calculateOutput() const {
         }
       }
     });
-  }
+  }*/
 }
 
 void FreeSurfaceIntegrator::initializeProjectionMatrices(unsigned maxRefinementDepth) {

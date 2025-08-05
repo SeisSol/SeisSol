@@ -203,7 +203,7 @@ class LinearSlipWeakeningLaw
         f2 = 1.0 * static_cast<double>(time >= this->forcedRuptureTime[ltsFace][pointIndex]);
       } else {
         f2 = std::clamp((time - this->forcedRuptureTime[ltsFace][pointIndex]) /
-                            this->drParameters->t0[0],
+                            static_cast<real>(this->drParameters->t0[0]),
                         static_cast<real>(0.0),
                         static_cast<real>(1.0));
       }
