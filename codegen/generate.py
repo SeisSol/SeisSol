@@ -199,7 +199,7 @@ def main():
     counter = 0
 
     for p in ["F64"]:
-        for equation in ["elastic", "anisotropic", "viscoelastic2"]:
+        for equation in ["elastic", "acoustic", "anisotropic", "viscoelastic2", "poroelastic"]:
             viscomode = "None"
             if equation == "viscoelastic":
                 viscomode = "QuantityExtension"
@@ -214,7 +214,7 @@ def main():
                 equations = equation[0].upper() + equation[1:]
                 mechanisms = 0
 
-            for i in range(2, 9):
+            for i in range(6, 7):
                 configs += [
                     {
                         "order": i,
@@ -242,7 +242,7 @@ def main():
                 counter += 1
 """
 
-    arch = setup_arch("d" if config["precision"] == "F64" else "s")
+    arch = setup_arch("d")
 
     def generate_equation(subfolders, config):
         arch = setup_arch("d" if config["precision"] == "F64" else "s")
@@ -397,7 +397,7 @@ def main():
             config
             for config in configs
             if config["viscomode"] != "AnelasticTensor"
-            and config["equation"] != "poroelastic"
+            and config["equation"] != "Poroelastic"
         ]
         file.write(kernels.config.make_configincludefile(configsLocal))
 
@@ -413,7 +413,7 @@ def main():
         os.path.join(cmdLineArgs.outputDir, "..", "ConfigIncludeSTP.h"), "w"
     ) as file:
         configsLocal = [
-            config for config in configs if config["equation"] == "poroelastic"
+            config for config in configs if config["equation"] == "Poroelastic"
         ]
         file.write(kernels.config.make_configincludefile(configsLocal))
 

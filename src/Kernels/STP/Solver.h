@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_STP_SOLVER_H_
 
+#include <GeneratedCode/tensor.h>
 #include <Kernels/Common.h>
 #include <cstddef>
 
@@ -21,11 +22,6 @@ class Local;
 template <typename>
 class Neighbor;
 } // namespace seissol::kernels::solver::linearck
-
-namespace seissol::tensor {
-template <typename>
-class spaceTimePredictor;
-} // namespace seissol::tensor
 
 namespace seissol::kernels::solver::stp {
 

@@ -625,13 +625,15 @@ struct QueryAllMaterials {
     }
     const auto filteredCTV = ctvArray.filter(keepNow);
 
-    const auto queryGen = seissol::initializer::getBestQueryGenerator<Head>(
-        params.plasticity, params.useCellHomogenizedMaterial, filteredCTV);
+    if (filteredCTV.size > 0) {
+      const auto queryGen = seissol::initializer::getBestQueryGenerator<Head>(
+          params.plasticity, params.useCellHomogenizedMaterial, filteredCTV);
 
-    const auto materialsNow = queryDB<Head>(queryGen, params.materialFileName, filteredCTV.size);
+      const auto materialsNow = queryDB<Head>(queryGen, params.materialFileName, filteredCTV.size);
 
-    for (std::size_t i = 0; i < materialsNow.size(); ++i) {
-      materials[indices[i]] = materialsNow[i];
+      for (std::size_t i = 0; i < materialsNow.size(); ++i) {
+        materials[indices[i]] = materialsNow[i];
+      }
     }
 
     if constexpr (sizeof...(Rest) > 0) {
