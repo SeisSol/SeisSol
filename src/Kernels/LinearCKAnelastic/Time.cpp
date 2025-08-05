@@ -283,9 +283,9 @@ void Spacetime<Cfg>::computeBatchedAder(const real* coeffs,
 }
 
 #define _H_(cfg) template class Spacetime<cfg>;
-#include "ConfigInclude.h"
+#include "ConfigIncludeLinearCKAne.h"
 
 #define _H_(cfg) template class Time<cfg>;
-#include "ConfigInclude.h"
+#include "ConfigIncludeLinearCKAne.h"
 
 } // namespace seissol::kernels::solver::linearckanelastic

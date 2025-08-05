@@ -485,6 +485,9 @@ std::uint64_t Local<Cfg>::bytesIntegral() {
 }
 
 #define _H_(cfg) template class Local<cfg>;
-#include "ConfigInclude.h"
+#include "ConfigIncludeLinearCK.h"
+
+#define _H_(cfg) template class Local<cfg>;
+#include "ConfigIncludeSTP.h"
 
 } // namespace seissol::kernels::solver::linearck

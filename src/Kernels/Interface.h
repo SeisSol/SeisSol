@@ -13,11 +13,6 @@
 #include "Memory/Descriptor/LTS.h"
 #include <Common/Constants.h>
 
-namespace seissol::tensor {
-template <typename>
-class Iane;
-} // namespace seissol::tensor
-
 namespace seissol::kernels {
 
 template <typename Cfg>

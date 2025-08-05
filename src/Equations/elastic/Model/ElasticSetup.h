@@ -15,7 +15,7 @@
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
-#include <Model/Datastructures.h>
+#include <Equations/elastic/Model/Datastructures.h>
 
 namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;
@@ -122,6 +122,59 @@ static void getFaceRotationMatrixElastic(const VrtxCoords normal,
   seissol::transformations::inverseSymmetricTensor2RotationMatrix(
       normal, tangent1, tangent2, matTinv, 0, 0);
   seissol::transformations::inverseTensor1RotationMatrix(normal, tangent1, tangent2, matTinv, 6, 6);
+}
+
+template <typename T>
+static void
+    getTransposedCoefficientMatrixElastic(const ElasticMaterial& material, unsigned dim, T& matM) {
+  matM.setZero();
+
+  const auto lambda2mu = material.lambda + 2.0 * material.mu;
+  const auto rhoInv = 1.0 / material.rho;
+
+  switch (dim) {
+  case 0:
+    matM(6, 0) = -lambda2mu;
+    matM(6, 1) = -material.lambda;
+    matM(6, 2) = -material.lambda;
+    matM(7, 3) = -material.mu;
+    matM(8, 5) = -material.mu;
+    matM(0, 6) = -rhoInv;
+    if (!testIfAcoustic(material.mu)) {
+      matM(3, 7) = -rhoInv;
+      matM(5, 8) = -rhoInv;
+    }
+    break;
+
+  case 1:
+    matM(7, 0) = -material.lambda;
+    matM(7, 1) = -lambda2mu;
+    matM(7, 2) = -material.lambda;
+    matM(6, 3) = -material.mu;
+    matM(8, 4) = -material.mu;
+    matM(1, 7) = -rhoInv;
+    if (!testIfAcoustic(material.mu)) {
+      matM(3, 6) = -rhoInv;
+      matM(4, 8) = -rhoInv;
+    }
+    break;
+
+  case 2:
+    matM(8, 0) = -material.lambda;
+    matM(8, 1) = -material.lambda;
+    matM(8, 2) = -lambda2mu;
+    matM(7, 4) = -material.mu;
+    matM(6, 5) = -material.mu;
+    matM(2, 8) = -rhoInv;
+    if (!testIfAcoustic(material.mu)) {
+      matM(5, 6) = -rhoInv;
+      matM(4, 7) = -rhoInv;
+    }
+    break;
+
+  default:
+    break;
+  }
 }
 
 template <typename Cfg>

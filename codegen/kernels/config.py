@@ -24,7 +24,7 @@ struct Config{id} {{
 
 def make_configfile(configs):
     configcode = "".join(make_config(i, config) for i, config in enumerate(configs))
-    confignames = ", ".join(f"Config{i}" for i, _ in enumerate(configs))
+    confignames = ", ".join(config["name"] for config in configs)
 
     return f"""
 #ifndef SEISSOL_CONFIGS_H_
@@ -49,7 +49,7 @@ using ConfigVariant = std::variant<{confignames}>;
 
 
 def make_configincludefile(configs):
-    configincludes = "\n".join(f"_H_(Config{i})" for i, _ in enumerate(configs))
+    configincludes = "\n".join(f"_H_({config['name']})" for config in configs)
 
     return f"""
 // (include guard knowlingly omitted)

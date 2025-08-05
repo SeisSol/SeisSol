@@ -22,20 +22,6 @@
 #include <cstddef>
 #include <yateto.h>
 
-namespace seissol::init {
-template <typename>
-class selectAne;
-template <typename>
-class selectEla;
-} // namespace seissol::init
-
-namespace seissol::tensor {
-template <typename>
-class selectAne;
-template <typename>
-class selectEla;
-} // namespace seissol::tensor
-
 namespace seissol::initializer {
 /*
  * \class MemoryProperties

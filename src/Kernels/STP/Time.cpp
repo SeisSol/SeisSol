@@ -161,6 +161,7 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
   executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
 }
 
+template <typename Cfg>
 void Spacetime<Cfg>::flopsAder(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
   // reset flops
   nonZeroFlops = 0;
@@ -293,9 +294,9 @@ template <typename Cfg>
 void Time<Cfg>::setGlobalData(const GlobalData& global) {}
 
 #define _H_(cfg) template class Spacetime<cfg>;
-#include "ConfigInclude.h"
+#include "ConfigIncludeSTP.h"
 
 #define _H_(cfg) template class Time<cfg>;
-#include "ConfigInclude.h"
+#include "ConfigIncludeSTP.h"
 
 } // namespace seissol::kernels::solver::stp

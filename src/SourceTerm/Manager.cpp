@@ -49,8 +49,6 @@
 #include <utils/logger.h>
 #include <vector>
 
-#include <Model/Datastructures.h> // IWYU pragma: keep
-
 #ifdef USE_NETCDF
 #include "NRFReader.h"
 #include "Parallel/MPI.h"

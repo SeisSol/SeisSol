@@ -240,6 +240,9 @@ std::uint64_t Neighbor<Cfg>::bytesNeighborsIntegral() {
 }
 
 #define _H_(cfg) template class Neighbor<cfg>;
-#include "ConfigInclude.h"
+#include "ConfigIncludeLinearCK.h"
+
+#define _H_(cfg) template class Neighbor<cfg>;
+#include "ConfigIncludeSTP.h"
 
 } // namespace seissol::kernels::solver::linearck

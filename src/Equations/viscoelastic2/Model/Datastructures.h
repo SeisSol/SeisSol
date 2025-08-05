@@ -89,7 +89,8 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   using LocalSpecificData = typename ViscoSolver<Config::ViscoMode>::template LocalData<Config>;
 
   template <typename Config>
-  using NeighborSpecificData = typename ViscoSolver<Config::ViscoMode>::template NeighborData<Config>;
+  using NeighborSpecificData =
+      typename ViscoSolver<Config::ViscoMode>::template NeighborData<Config>;
 
   template <typename Config>
   using Solver = typename ViscoSolver<Config::ViscoMode>::Type;

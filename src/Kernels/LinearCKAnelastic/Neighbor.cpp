@@ -294,6 +294,6 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
 }
 
 #define _H_(cfg) template class Neighbor<cfg>;
-#include "ConfigInclude.h"
+#include "ConfigIncludeLinearCKAne.h"
 
 } // namespace seissol::kernels::solver::linearckanelastic

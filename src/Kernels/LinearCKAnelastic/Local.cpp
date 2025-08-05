@@ -238,6 +238,6 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
     seissol::parallel::runtime::StreamRuntime& runtime) {}
 
 #define _H_(cfg) template class Local<cfg>;
-#include "ConfigInclude.h"
+#include "ConfigIncludeLinearCKAne.h"
 
 } // namespace seissol::kernels::solver::linearckanelastic

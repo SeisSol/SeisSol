@@ -22,30 +22,11 @@
 #include <Model/CommonDatastructures.h>
 #include <yateto.h>
 
-namespace seissol::tensor {
-template <typename>
-class E;
-template <typename>
-class w;
-template <typename>
-class W;
-} // namespace seissol::tensor
-
-namespace seissol::init {
-template <typename>
-class E;
-template <typename>
-class w;
-template <typename>
-class W;
-} // namespace seissol::init
-
 namespace seissol::model {
 template <typename Cfg>
-struct MaterialSetup<
-    Cfg,
-    std::enable_if_t<Cfg::MaterialType == MaterialType::Viscoelastic &&
-                     Cfg::ViscoImplementation == ViscoImplementation::AnelasticTensor>> {
+struct MaterialSetup<Cfg,
+                     std::enable_if_t<Cfg::MaterialType == MaterialType::Viscoelastic &&
+                                      Cfg::ViscoMode == ViscoImplementation::AnelasticTensor>> {
   using MaterialT = model::MaterialTT<Cfg>;
 
   using Matrix99 = Eigen::Matrix<double, 9, 9>;
@@ -100,7 +81,7 @@ struct MaterialSetup<
 
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, unsigned dim, T& AT) {
-    ::seissol::model::getTransposedCoefficientMatrix(
+    ::seissol::model::getTransposedCoefficientMatrixElastic(
         dynamic_cast<const ElasticMaterial&>(material), dim, AT);
 
     getTransposedViscoelasticCoefficientMatrix(1.0, dim, 0, AT);

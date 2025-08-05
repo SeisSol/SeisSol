@@ -299,9 +299,9 @@ template <typename Cfg>
 void Time<Cfg>::setGlobalData(const GlobalData& global) {}
 
 #define _H_(cfg) template class Spacetime<cfg>;
-#include "ConfigInclude.h"
+#include "ConfigIncludeLinearCK.h"
 
 #define _H_(cfg) template class Time<cfg>;
-#include "ConfigInclude.h"
+#include "ConfigIncludeLinearCK.h"
 
 } // namespace seissol::kernels::solver::linearck

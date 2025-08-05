@@ -25,10 +25,6 @@
 #include "Parallel/Helper.h"
 #endif
 
-namespace seissol::tensor {
-template<typename> class Qane;
-} // namespace seissol::tensor
-
 namespace seissol {
 
 struct LTS {

@@ -26,7 +26,6 @@
 #include <Memory/Descriptor/Surface.h>
 #include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/Layer.h>
-#include <Model/Datastructures.h>
 #include <Model/Plasticity.h>
 #include <Solver/FreeSurfaceIntegrator.h>
 #include <Solver/MultipleSimulations.h>

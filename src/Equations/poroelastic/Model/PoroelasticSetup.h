@@ -21,24 +21,6 @@
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 
-namespace seissol::tensor {
-template <typename>
-class ET;
-template <typename>
-class Z;
-template <typename>
-class Zinv;
-} // namespace seissol::tensor
-
-namespace seissol::init {
-template <typename>
-class ET;
-template <typename>
-class Z;
-template <typename>
-class Zinv;
-} // namespace seissol::init
-
 namespace seissol::model {
 
 template <typename Cfg, typename Tview>

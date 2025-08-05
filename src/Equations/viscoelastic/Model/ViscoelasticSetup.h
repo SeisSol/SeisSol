@@ -16,25 +16,14 @@
 
 #include "GeneratedCode/init.h"
 #include <Common/Typedefs.h>
-#include <Model/ElasticSetup.h>
+#include <Equations/elastic/Model/ElasticSetup.h>
 #include <yateto.h>
-
-namespace seissol::tensor {
-template <typename>
-class ET;
-}
-
-namespace seissol::init {
-template <typename>
-class ET;
-}
 
 namespace seissol::model {
 template <typename Cfg>
-struct MaterialSetup<
-    Cfg,
-    std::enable_if_t<Cfg::MaterialType == MaterialType::Viscoelastic &&
-                     Cfg::ViscoImplementation == ViscoImplementation::QuantityExtension>> {
+struct MaterialSetup<Cfg,
+                     std::enable_if_t<Cfg::MaterialType == MaterialType::Viscoelastic &&
+                                      Cfg::ViscoMode == ViscoImplementation::QuantityExtension>> {
   using MaterialT = model::MaterialTT<Cfg>;
 
   template <typename T>
@@ -97,7 +86,7 @@ struct MaterialSetup<
 
   template <typename T>
   static void getTransposedCoefficientMatrix(const MaterialT& material, unsigned dim, T& AT) {
-    getTransposedCoefficientMatrix(dynamic_cast<const ElasticMaterial&>(material), dim, AT);
+    getTransposedCoefficientMatrixElastic(dynamic_cast<const ElasticMaterial&>(material), dim, AT);
 
     for (unsigned mech = 0; mech < MaterialT::Mechanisms; ++mech) {
       getTransposedViscoelasticCoefficientMatrix(material.omega[mech], dim, mech, AT);
@@ -110,11 +99,11 @@ struct MaterialSetup<
                                 FaceType faceType,
                                 typename init::QgodLocal<Cfg>::view::type& QgodLocal,
                                 typename init::QgodNeighbor<Cfg>::view::type& QgodNeighbor) {
-    seissol::model::getTransposedGodunovState(dynamic_cast<const ElasticMaterial&>(local),
-                                              dynamic_cast<const ElasticMaterial&>(neighbor),
-                                              faceType,
-                                              QgodLocal,
-                                              QgodNeighbor);
+    seissol::model::getTransposedGodunovStateElastic(dynamic_cast<const ElasticMaterial&>(local),
+                                                     dynamic_cast<const ElasticMaterial&>(neighbor),
+                                                     faceType,
+                                                     QgodLocal,
+                                                     QgodNeighbor);
   }
 
   static void initializeSpecificLocalData(const MaterialT& material,

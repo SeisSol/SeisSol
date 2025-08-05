@@ -11,11 +11,6 @@
 #include "GeneratedCode/tensor.h"
 #include <Kernels/Precision.h>
 
-namespace seissol::tensor {
-template <typename>
-class ET;
-} // namespace seissol::tensor
-
 namespace seissol::model {
 
 template <typename Cfg>

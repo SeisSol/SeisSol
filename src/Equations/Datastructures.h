@@ -19,15 +19,9 @@
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/viscoelastic2/Model/Datastructures.h"
 
-#ifdef USE_POROELASTIC
 #include "Equations/poroelastic/Model/IntegrationData.h"
-#endif
-#ifdef USE_VISCOELASTIC
 #include "Equations/viscoelastic/Model/IntegrationData.h"
-#endif
-#ifdef USE_VISCOELASTIC2
 #include "Equations/viscoelastic2/Model/IntegrationData.h"
-#endif
 
 // IWYU pragma: end_exports
 

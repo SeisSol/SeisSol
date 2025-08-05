@@ -61,13 +61,6 @@ GENERATE_HAS_MEMBER(selectElaFull)
 GENERATE_HAS_MEMBER(Values)
 GENERATE_HAS_MEMBER(Qane)
 
-namespace seissol::init {
-template <typename>
-class selectAneFull;
-template <typename>
-class selectElaFull;
-} // namespace seissol::init
-
 #ifndef USE_ASAGI
 namespace easi {
 class AsagiReader {};
