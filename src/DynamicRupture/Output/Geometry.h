@@ -13,6 +13,7 @@
 #include <Eigen/Dense>
 #include <array>
 #include <cassert>
+#include <limits>
 
 namespace seissol::dr {
 struct ExtVrtxCoords {
@@ -87,14 +88,16 @@ struct ExtTriangle {
 };
 
 struct ReceiverPoint {
-  ExtVrtxCoords global;        // physical coords of a receiver
-  ExtVrtxCoords reference;     // reference coords of a receiver
-  ExtTriangle globalTriangle;  // a surrounding triangle of a receiver
-  int faultFaceIndex{-1};      // Face Fault index which the receiver belongs to
-  int localFaceSideId{-1};     // Side ID of a reference element
-  int elementIndex{-1};        // Element which the receiver belongs to
-  int globalReceiverIndex{-1}; // receiver index of global list
-  bool isInside{false};        // If a point is inside the mesh or not
+  ExtVrtxCoords global;       // physical coords of a receiver
+  ExtVrtxCoords reference;    // reference coords of a receiver
+  ExtTriangle globalTriangle; // a surrounding triangle of a receiver
+  int faultFaceIndex{-1};     // Face Fault index which the receiver belongs to
+  int localFaceSideId{-1};    // Side ID of a reference element
+  int elementIndex{-1};       // Element which the receiver belongs to
+  std::size_t elementGlobalIndex{
+      std::numeric_limits<std::size_t>::max()}; // Element which the receiver belongs to
+  int globalReceiverIndex{-1};                  // receiver index of global list
+  bool isInside{false};                         // If a point is inside the mesh or not
   int nearestGpIndex{-1};
   int faultTag{-1};
   int simIndex{0}; // Simulation index for multisim

@@ -56,10 +56,10 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
   const unsigned numberOfSubTriangles = m_freeSurfaceIntegrator->triRefiner.subTris.size();
 
   unsigned idx = 0;
-  unsigned* meshIds =
-      m_freeSurfaceIntegrator->surfaceLtsTree.var(m_freeSurfaceIntegrator->surfaceLts.meshId);
-  unsigned* sides =
-      m_freeSurfaceIntegrator->surfaceLtsTree.var(m_freeSurfaceIntegrator->surfaceLts.side);
+  auto* meshIds =
+      m_freeSurfaceIntegrator->surfaceLtsTree->var(m_freeSurfaceIntegrator->surfaceLts->meshId);
+  auto* sides =
+      m_freeSurfaceIntegrator->surfaceLtsTree->var(m_freeSurfaceIntegrator->surfaceLts->side);
   for (unsigned fs = 0; fs < m_freeSurfaceIntegrator->totalNumberOfFreeSurfaces; ++fs) {
     const unsigned meshId = meshIds[fs];
     const unsigned side = sides[fs];
@@ -152,6 +152,10 @@ void seissol::writer::FreeSurfaceWriter::init(
   assert(bufferId == FreeSurfaceWriterExecutor::LocationFlags);
   NDBG_UNUSED(bufferId);
 
+  bufferId = addSyncBuffer(m_freeSurfaceIntegrator->globalIds.data(), nCells * sizeof(unsigned));
+  assert(bufferId == FreeSurfaceWriterExecutor::GlobalIds);
+  NDBG_UNUSED(bufferId);
+
   for (auto& velocity : m_freeSurfaceIntegrator->velocities) {
     addBuffer(velocity, nCells * sizeof(real));
   }
@@ -167,6 +171,7 @@ void seissol::writer::FreeSurfaceWriter::init(
   sendBuffer(FreeSurfaceWriterExecutor::Cells);
   sendBuffer(FreeSurfaceWriterExecutor::Vertices);
   sendBuffer(FreeSurfaceWriterExecutor::LocationFlags);
+  sendBuffer(FreeSurfaceWriterExecutor::GlobalIds);
 
   // Initialize the executor
   FreeSurfaceInitParam param;
@@ -180,6 +185,7 @@ void seissol::writer::FreeSurfaceWriter::init(
   removeBuffer(FreeSurfaceWriterExecutor::Cells);
   removeBuffer(FreeSurfaceWriterExecutor::Vertices);
   removeBuffer(FreeSurfaceWriterExecutor::LocationFlags);
+  removeBuffer(FreeSurfaceWriterExecutor::GlobalIds);
 
   // Register for the synchronization point hook
   Modules::registerHook(*this, ModuleHook::SimulationStart);

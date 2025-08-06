@@ -62,5 +62,5 @@ For the friction laws, the following is the case:
 
 Note however, that the following restrictions apply.
 
-* elastic-acoustic simulations are not checkpointed completely (the face displacements are currently ignored)
 * the order of the new simulation needs to be identical (this may be subject to change)
+* the array padding needs to match. (i.e. the checkpoints are architecture-dependent; transfer from CPU to GPU is not supported in general)

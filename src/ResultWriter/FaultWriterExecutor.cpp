@@ -55,13 +55,16 @@ void seissol::writer::FaultWriterExecutor::execInit(const async::ExecInfo& info,
     m_xdmfWriter->setComm(m_comm);
     m_xdmfWriter->setBackupTimeStamp(param.backupTimeStamp);
     const auto vertexFilter = utils::Env("").get<bool>("SEISSOL_VERTEXFILTER", true);
-    m_xdmfWriter->init(variables, std::vector<const char*>(), "fault-tag", vertexFilter, true);
+    m_xdmfWriter->init(
+        variables, std::vector<const char*>(), {"fault-tag", "global-id"}, vertexFilter, true);
     m_xdmfWriter->setMesh(nCells,
                           static_cast<const unsigned int*>(info.buffer(Cells)),
                           nVertices,
                           static_cast<const double*>(info.buffer(Vertices)),
                           param.timestep != 0);
     setFaultTagsData(static_cast<const unsigned int*>(info.buffer(FaultTags)));
+    m_xdmfWriter->writeExtraIntCellData(1,
+                                        static_cast<const unsigned int*>(info.buffer(GlobalIds)));
 
     logInfo() << "Initializing XDMF fault output. Done.";
   }
