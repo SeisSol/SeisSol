@@ -122,18 +122,21 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
 
   const auto faultFileName = reader->readPath("modelfilename");
 
-  std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
+  std::vector<std::optional<std::string>> faultFileNames;
 
   bool isDynamicRuptureEnabled = false;
 
   if (!faultFileName.value_or("").empty()) {
-    faultFileNames[0] = faultFileName.value();
+    faultFileNames.emplace_back(faultFileName.value());
     isDynamicRuptureEnabled = true;
   }
 
-  for (std::size_t i = 0; i < faultFileNames.size(); ++i) {
+  for (std::size_t i = 0; i < 64; ++i) {
     const auto fieldname = "modelfilename" + std::to_string(i);
     if (reader->hasField(fieldname)) {
+      for (std::size_t j = faultFileNames.size(); j < i; ++j) {
+        faultFileNames.emplace_back();
+      }
       faultFileNames[i] = reader->read<std::string>(fieldname);
       isDynamicRuptureEnabled = true;
     }

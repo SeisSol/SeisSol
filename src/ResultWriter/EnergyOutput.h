@@ -30,7 +30,11 @@ namespace writer {
 
 struct EnergiesStorage {
   static constexpr size_t NumberOfEnergies = 13;
-  std::array<double, multisim::NumSimulations * NumberOfEnergies> energies{};
+  std::vector<std::array<double, NumberOfEnergies>> energies;
+
+  void setSimcount(std::size_t simcount) { energies.resize(simcount); }
+
+  [[nodiscard]] std::size_t simcount() const { return energies.size(); }
 
   double& gravitationalEnergy(size_t sim);
 
@@ -93,7 +97,7 @@ class EnergyOutput : public Module {
 
   void printEnergies();
 
-  void checkAbortCriterion(const std::array<double, multisim::NumSimulations>& timeSinceThreshold,
+  void checkAbortCriterion(const std::vector<double>& timeSinceThreshold,
                            const std::string& prefixMessage);
 
   void writeHeader();
@@ -128,13 +132,13 @@ class EnergyOutput : public Module {
   const seissol::geometry::MeshReader* meshReader = nullptr;
   const LTS::Storage* ltsStorage = nullptr;
 
-  EnergiesStorage energiesStorage{};
-  std::array<double, multisim::NumSimulations> minTimeSinceSlipRateBelowThreshold;
-  std::array<double, multisim::NumSimulations> minTimeSinceMomentRateBelowThreshold;
+  EnergiesStorage energiesStorage;
+  std::vector<double> minTimeSinceSlipRateBelowThreshold;
+  std::vector<double> minTimeSinceMomentRateBelowThreshold;
   double terminatorMaxTimePostRupture{};
   double energyOutputInterval{};
   double terminatorMomentRateThreshold{};
-  std::array<double, multisim::NumSimulations> seismicMomentPrevious;
+  std::vector<double> seismicMomentPrevious;
 
   std::size_t approxElements;
 };

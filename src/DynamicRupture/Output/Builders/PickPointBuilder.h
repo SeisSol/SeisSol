@@ -12,6 +12,7 @@
 #include "Initializer/PointMapper.h"
 #include "ReceiverBasedOutputBuilder.h"
 
+#include <Common/ConfigHelper.h>
 #include <Common/Iterator.h>
 #include <DynamicRupture/Output/DataTypes.h>
 #include <Parallel/Runtime/Stream.h>
@@ -114,7 +115,12 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     reportFoundReceivers(contained);
     for (auto& receiver : potentialReceivers) {
       if (receiver.isInside) {
-        for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
+        const auto& element = meshElements.at(receiver.elementIndex);
+        std::size_t simcount = 1;
+        std::visit([&](auto cfg) { simcount = decltype(cfg)::NumSimulations; },
+                   ConfigVariantList[element.configId]);
+
+        for (std::size_t i = 0; i < simcount; ++i) {
           auto singleReceiver = receiver;
           const auto& element = meshElements.at(receiver.elementIndex);
           singleReceiver.simIndex = i;

@@ -86,7 +86,7 @@ struct DRParameters {
   double vStar{0.0}; // Prakash-Clifton regularization parameter
   double prakashLength{0.0};
   std::string faultFileName;
-  std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
+  std::vector<std::optional<std::string>> faultFileNames;
   Eigen::Vector3d referencePoint;
   double terminatorSlipRateThreshold{0.0};
   double etaHack{1.0};

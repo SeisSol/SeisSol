@@ -439,7 +439,8 @@ void BaseDRInitializer::queryModel(seissol::initializer::FaultParameterDB<T>& fa
                                    std::size_t simid,
                                    std::size_t configId) {
   // create a query and evaluate the model
-  if (!drParameters->faultFileNames[simid].has_value()) {
+  if (drParameters->faultFileNames.size() <= simid ||
+      !drParameters->faultFileNames[simid].has_value()) {
     simid = 0;
   }
   {
