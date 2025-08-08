@@ -284,7 +284,7 @@ class Storage {
   void allocateVariables() {
     std::vector<std::size_t> sizes(memoryInfo.size());
     for (auto& leaf : this->leaves()) {
-      leaf.addVariableSizes(memoryInfo, sizes);
+      leaf.addVariableSizes(sizes);
     }
 
     std::size_t totalSize = 0;
@@ -308,15 +308,15 @@ class Storage {
 
     std::fill(sizes.begin(), sizes.end(), 0);
     for (auto& leaf : this->leaves()) {
-      leaf.setMemoryRegionsForVariables(memoryInfo, memoryContainer, sizes);
-      leaf.addVariableSizes(memoryInfo, sizes);
+      leaf.setMemoryRegionsForVariables(memoryContainer, sizes);
+      leaf.addVariableSizes(sizes);
     }
   }
 
   void allocateBuckets() {
     std::vector<std::size_t> sizes(memoryInfo.size());
     for (auto& leaf : this->leaves()) {
-      leaf.addBucketSizes(memoryInfo, sizes);
+      leaf.addBucketSizes(sizes);
     }
 
     std::size_t totalSize = 0;
@@ -342,7 +342,7 @@ class Storage {
     std::fill(sizes.begin(), sizes.end(), 0);
     for (auto& leaf : this->leaves()) {
       leaf.setMemoryRegionsForBuckets(memoryContainer, sizes);
-      leaf.addBucketSizes(memoryInfo, sizes);
+      leaf.addBucketSizes(sizes);
     }
   }
 
@@ -355,7 +355,7 @@ class Storage {
   void allocateScratchPads() {
     std::vector<std::size_t> sizes(memoryInfo.size());
     for (auto& leaf : this->leaves()) {
-      leaf.findMaxScratchpadSizes(memoryInfo, sizes);
+      leaf.findMaxScratchpadSizes(sizes);
     }
 
     std::size_t totalSize = 0;
@@ -388,7 +388,7 @@ class Storage {
 #endif
     {
       for (auto& leaf : this->leaves()) {
-        leaf.touchVariables(memoryInfo);
+        leaf.touchVariables();
       }
     }
   }
