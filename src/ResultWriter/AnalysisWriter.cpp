@@ -9,6 +9,7 @@
 
 #include <Alignment.h>
 #include <Common/Constants.h>
+#include <Equations/Datastructures.h>
 #include <GeneratedCode/init.h>
 #include <GeneratedCode/kernel.h>
 #include <GeneratedCode/tensor.h>
@@ -96,6 +97,30 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
   const std::vector<Vertex>& vertices = meshReader->getVertices();
   const std::vector<Element>& elements = meshReader->getElements();
 
+  std::size_t maxSims = 1;
+  std::size_t numQuantities = 0;
+  for (const auto& element : elements) {
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          maxSims = std::max(maxSims, Cfg::NumSimulations);
+          numQuantities = std::max(numQuantities, model::MaterialTT<Cfg>::Quantities.size());
+        },
+        ConfigVariantList[element.configId]);
+  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                &maxSims,
+                1,
+                seissol::MPI::castToMpiType<std::size_t>(),
+                MPI_MAX,
+                seissol::MPI::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE,
+                &numQuantities,
+                1,
+                seissol::MPI::castToMpiType<std::size_t>(),
+                MPI_MAX,
+                seissol::MPI::mpi.comm());
+
   std::vector<double> data;
 
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
@@ -106,22 +131,20 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
         seissolInstance.getSeisSolParameters().initialization.hasTime);
   }
 
-  const auto NumQuantities = 13;
-
-  for (unsigned sim = 0; sim < multisim::NumSimulations; ++sim) {
+  for (unsigned sim = 0; sim < maxSims; ++sim) {
     logInfo() << "Analysis for simulation" << sim << ": absolute, relative";
     logInfo() << "--------------------------";
 
-    using ErrorArrayT = std::array<double, NumQuantities>;
-    using MeshIdArrayT = std::array<unsigned int, NumQuantities>;
+    using ErrorArrayT = std::vector<double>;
+    using MeshIdArrayT = std::vector<unsigned int>;
 
-    auto errL1Local = ErrorArrayT{0.0};
-    auto errL2Local = ErrorArrayT{0.0};
-    auto errLInfLocal = ErrorArrayT{-1.0};
-    auto elemLInfLocal = MeshIdArrayT{0};
-    auto analyticalL1Local = ErrorArrayT{0.0};
-    auto analyticalL2Local = ErrorArrayT{0.0};
-    auto analyticalLInfLocal = ErrorArrayT{-1.0};
+    auto errL1Local = ErrorArrayT(numQuantities);
+    auto errL2Local = ErrorArrayT(numQuantities);
+    auto errLInfLocal = ErrorArrayT(numQuantities);
+    auto elemLInfLocal = MeshIdArrayT(numQuantities);
+    auto analyticalL1Local = ErrorArrayT(numQuantities);
+    auto analyticalL2Local = ErrorArrayT(numQuantities);
+    auto analyticalLInfLocal = ErrorArrayT(numQuantities);
 
     // also functional with an enabled NVHPC_AVOID_OMP
     const int numThreads = OpenMP::threadCount();
@@ -230,7 +253,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
             }
           }
 
-          auto numSub = seissol::multisim::simtensor(numericalSolution, sim);
+          auto numSub = seissol::multisim::simtensor<Cfg>(numericalSolution, sim);
 
           // Evaluate numerical solution at quad. nodes
           kernel::evalAtQP<Cfg> krnl;
@@ -263,7 +286,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     }
 
     for (int i = 0; i < numThreads; ++i) {
-      for (unsigned v = 0; v < NumQuantities; ++v) {
+      for (unsigned v = 0; v < numQuantities; ++v) {
         errL1Local[v] += errsL1Local[i][v];
         errL2Local[v] += errsL2Local[i][v];
         analyticalL1Local[v] += analyticalsL1Local[i][v];
@@ -276,7 +299,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       }
     }
 
-    for (std::size_t i = 0; i < NumQuantities; ++i) {
+    for (std::size_t i = 0; i < numQuantities; ++i) {
       // Find position of element with lowest LInf error.
       VrtxCoords center;
       MeshTools::center(elements[elemLInfLocal[i]], vertices, center);
@@ -285,10 +308,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
     const auto& comm = mpi.comm();
 
     // Reduce error over all MPI ranks.
-    auto errL1MPI = ErrorArrayT{0.0};
-    auto errL2MPI = ErrorArrayT{0.0};
-    auto analyticalL1MPI = ErrorArrayT{0.0};
-    auto analyticalL2MPI = ErrorArrayT{0.0};
+    auto errL1MPI = ErrorArrayT(numQuantities);
+    auto errL2MPI = ErrorArrayT(numQuantities);
+    auto analyticalL1MPI = ErrorArrayT(numQuantities);
+    auto analyticalL2MPI = ErrorArrayT(numQuantities);
 
     MPI_Reduce(errL1Local.data(), errL1MPI.data(), errL1Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
     MPI_Reduce(errL2Local.data(), errL2MPI.data(), errL2Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
@@ -308,8 +331,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                comm);
 
     // Find maximum element and its location.
-    auto errLInfSend = std::array<Data, errLInfLocal.size()>{};
-    auto errLInfRecv = std::array<Data, errLInfLocal.size()>{};
+    auto errLInfSend = std::vector<Data>(numQuantities);
+    auto errLInfRecv = std::vector<Data>(numQuantities);
     for (size_t i = 0; i < errLInfLocal.size(); ++i) {
       errLInfSend[i] = Data{errLInfLocal[i], mpi.rank()};
     }
@@ -320,7 +343,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                   MPI_MAXLOC,
                   comm);
 
-    auto analyticalLInfMPI = ErrorArrayT{0.0};
+    auto analyticalLInfMPI = ErrorArrayT(numQuantities);
     MPI_Reduce(analyticalLInfLocal.data(),
                analyticalLInfMPI.data(),
                analyticalLInfLocal.size(),
@@ -336,7 +359,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
       csvWriter.writeHeader();
     }
 
-    for (std::size_t i = 0; i < NumQuantities; ++i) {
+    for (std::size_t i = 0; i < numQuantities; ++i) {
       VrtxCoords centerSend{};
       MeshTools::center(elements[elemLInfLocal[i]], vertices, centerSend);
 

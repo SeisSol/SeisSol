@@ -127,8 +127,24 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
   // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
 
-  const auto namewrap = [](const std::string& name, std::size_t sim) {
-    if constexpr (multisim::MultisimEnabled) {
+  std::size_t maxSims = 1;
+  for (const auto& element : seissolInstance.meshReader().getElements()) {
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          maxSims = std::max(maxSims, Cfg::NumSimulations);
+        },
+        ConfigVariantList[element.configId]);
+  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                &maxSims,
+                1,
+                seissol::MPI::castToMpiType<std::size_t>(),
+                MPI_MAX,
+                seissol::MPI::mpi.comm());
+
+  const auto namewrap = [maxSims](const std::string& name, std::size_t sim) {
+    if (maxSims > 1) {
       return name + "-" + std::to_string(sim + 1);
     } else {
       return name;
@@ -223,7 +239,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
           target[0] = meshReader.getElements()[index].globalId;
         });
 
-    for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+    for (std::size_t sim = 0; sim < maxSims; ++sim) {
       for (std::size_t quantity = 0; quantity < seissol::model::ElasticMaterial::Quantities.size();
            ++quantity) {
         if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
@@ -236,13 +252,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 ltsStorage.layer(position.color).wrap([&](auto cfg) {
                   using Cfg = decltype(cfg);
                   constexpr auto QDofSizePadded =
-                      tensor::Q<Cfg>::Size /
-                      tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
+                      tensor::Q<Cfg>::Size / tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
                   const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(Cfg(), position);
                   const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                   kernel::projectBasisToVtkVolume<Cfg> vtkproj{};
-                  memory::AlignedArray<Real<Cfg>, multisim::NumSimulations> simselect;
-                  simselect[sim] = 1;
+                  memory::AlignedArray<Real<Cfg>, multisim::NumSimulations<Cfg>> simselect;
+                  if (sim < multisim::NumSimulations<Cfg>) {
+                    simselect[sim] = 1;
+                  }
 
                   alignas(Alignment) Real<Cfg> pretarget[tensor::xv<Cfg>::size(order)];
 
@@ -273,13 +290,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                   ltsStorage.layer(position.color).wrap([&](auto cfg) {
                     using Cfg = decltype(cfg);
                     constexpr auto QDofSizePadded =
-                        tensor::Q<Cfg>::Size /
-                        tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
+                        tensor::Q<Cfg>::Size / tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
                     const auto* dofsAllQuantities = ltsStorage.lookup<LTS::PStrain>(cfg, position);
                     const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
                     kernel::projectBasisToVtkVolume<Cfg> vtkproj{};
-                    memory::AlignedArray<Real<Cfg>, multisim::NumSimulations> simselect;
-                    simselect[sim] = 1;
+                    memory::AlignedArray<Real<Cfg>, multisim::NumSimulations<Cfg>> simselect;
+                    if (sim < multisim::NumSimulations<Cfg>) {
+                      simselect[sim] = 1;
+                    }
 
                     alignas(Alignment) Real<Cfg> pretarget[tensor::xv<Cfg>::size(order)];
 
@@ -369,7 +387,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
         });
 
     std::vector<std::string> quantityLabels = {"v1", "v2", "v3", "u1", "u2", "u3"};
-    for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+    for (std::size_t sim = 0; sim < maxSims; ++sim) {
       for (std::size_t quantity = 0;
            quantity < seissol::solver::FreeSurfaceIntegrator::NumComponents;
            ++quantity) {
@@ -385,14 +403,15 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
               ltsStorage.layer(position.color).wrap([&](auto cfg) {
                 using Cfg = decltype(cfg);
                 constexpr auto QDofSizePadded =
-                    tensor::Q<Cfg>::Size /
-                    tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
+                    tensor::Q<Cfg>::Size / tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
                 const auto* dofsAllQuantities = ltsStorage.lookup<LTS::Dofs>(cfg, position);
                 const auto* dofsSingleQuantity =
                     dofsAllQuantities + QDofSizePadded * (6 + quantity); // velocities
                 kernel::projectBasisToVtkFaceFromVolume<Cfg> vtkproj{};
-                memory::AlignedArray<Real<Cfg>, multisim::NumSimulations> simselect;
-                simselect[sim] = 1;
+                memory::AlignedArray<Real<Cfg>, multisim::NumSimulations<Cfg>> simselect;
+                if (sim < multisim::NumSimulations<Cfg>) {
+                  simselect[sim] = 1;
+                }
 
                 alignas(Alignment) Real<Cfg> pretarget[tensor::xf<Cfg>::size(order)];
 
@@ -426,15 +445,17 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 using Cfg = decltype(cfg);
                 constexpr auto FaceDisplacementPadded =
                     tensor::faceDisplacement<Cfg>::Size /
-                    tensor::faceDisplacement<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
+                    tensor::faceDisplacement<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
 
                 const auto* faceDisplacements =
                     ltsStorage.lookup<LTS::FaceDisplacements>(Cfg(), position);
                 const auto* faceDisplacementVariable =
                     faceDisplacements[side] + FaceDisplacementPadded * quantity;
                 kernel::projectNodalToVtkFace<Cfg> vtkproj{};
-                memory::AlignedArray<Real<Cfg>, multisim::NumSimulations> simselect;
-                simselect[sim] = 1;
+                memory::AlignedArray<Real<Cfg>, multisim::NumSimulations<Cfg>> simselect;
+                if (sim < multisim::NumSimulations<Cfg>) {
+                  simselect[sim] = 1;
+                }
 
                 alignas(Alignment) Real<Cfg> pretarget[tensor::xf<Cfg>::size(order)];
 
