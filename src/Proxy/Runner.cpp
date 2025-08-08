@@ -55,7 +55,7 @@ void testKernel(std::shared_ptr<ProxyData>& data,
 namespace seissol::proxy {
 
 auto runProxy(const ProxyConfig& config) -> ProxyOutput {
-  ConfigVariant cfg = ConfigVariantList[0];
+  ConfigVariant cfg = ConfigVariantList[config.configId];
 
   auto kernel = [&]() {
     std::vector<std::shared_ptr<ProxyKernel>> subkernels;

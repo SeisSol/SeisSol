@@ -199,6 +199,9 @@ add_custom_command(
      "--PlasticityMethod" ${PLASTICITY_METHOD}
      "--gemm_tools" ${GEMM_TOOLS_LIST}
      "--drQuadRule" ${DR_QUAD_RULE}
+     "--enabled_order" ${ENABLED_ORDER}
+     "--enabled_material" ${ENABLED_MATERIAL}
+     "--enabled_precision" ${ENABLED_PRECISION}
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
@@ -462,15 +465,17 @@ else()
   else()
     set(NAME_SUFFIX "cpu")
   endif()
-  set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
-  if (PRECISION STREQUAL "single")
-    set(NAME_SUFFIX "${NAME_SUFFIX}-s")
-  else()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-d")
-  endif()
-  set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
-  if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
-    set(NAME_SUFFIX "${NAME_SUFFIX}-f${NUMBER_OF_FUSED_SIMULATIONS}")
+  if (NOT MULTISETUP)
+    set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
+    if (PRECISION STREQUAL "single")
+      set(NAME_SUFFIX "${NAME_SUFFIX}-s")
+    else()
+      set(NAME_SUFFIX "${NAME_SUFFIX}-d")
+    endif()
+    set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
+    if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
+      set(NAME_SUFFIX "${NAME_SUFFIX}-f${NUMBER_OF_FUSED_SIMULATIONS}")
+    endif()
   endif()
 endif()
 

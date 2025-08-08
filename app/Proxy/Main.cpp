@@ -10,6 +10,7 @@
 #include "Proxy/LikwidWrapper.h"
 #include "Proxy/Runner.h"
 #include "Proxy/Tools.h"
+#include <Common/ConfigHelper.h>
 #include <Common/Executor.h>
 #include <Kernels/Common.h>
 #include <iostream>
@@ -41,6 +42,19 @@ auto main(int argc, char* argv[]) -> int {
     }
   }
 
+  std::stringstream configHelp;
+  configHelp << "Config to benchmark. Possible values for this build: ";
+  {
+    bool comma = false;
+    for (const auto& config : seissol::ConfigString) {
+      if (comma) {
+        configHelp << ", ";
+      }
+      configHelp << config;
+      comma = true;
+    }
+  }
+
   const std::vector<std::string> formatValues = {"plain", "json"};
 
   utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol "
@@ -48,6 +62,7 @@ auto main(int argc, char* argv[]) -> int {
   args.addAdditionalOption("cells", "Number of cells");
   args.addAdditionalOption("timesteps", "Number of timesteps");
   args.addAdditionalOption("kernel", kernelHelp.str());
+  args.addAdditionalOption("config", configHelp.str());
   args.addEnumOption("format", formatValues, 'f', "The output format", false);
 
   if (args.parse(argc, argv) != utils::Args::Success) {
@@ -57,6 +72,7 @@ auto main(int argc, char* argv[]) -> int {
   ProxyConfig config{};
   config.cells = args.getAdditionalArgument<unsigned>("cells");
   config.timesteps = args.getAdditionalArgument<unsigned>("timesteps");
+  config.configId = args.getAdditionalArgument<std::size_t>("config");
   const auto kernelStr = args.getAdditionalArgument<std::string>("kernel");
   const auto formatValue = args.getArgument<int>("format", 0);
 

@@ -56,6 +56,9 @@ def main():
     cmdLineParser.add_argument("--gemm_tools")
     cmdLineParser.add_argument("--device_codegen")
     cmdLineParser.add_argument("--drQuadRule")
+    cmdLineParser.add_argument("--enabled_order")
+    cmdLineParser.add_argument("--enabled_material")
+    cmdLineParser.add_argument("--enabled_precision")
     cmdLineParser.add_argument("--enable_premultiply_flux", action="store_true")
     cmdLineParser.add_argument(
         "--disable_premultiply_flux",
@@ -168,38 +171,16 @@ def main():
 
     quadrule = cmdLineArgs.drQuadRule[0].upper() + cmdLineArgs.drQuadRule[1:]
 
-    configs = [
-        {
-            "order": cmdLineArgs.order,
-            "mechanisms": cmdLineArgs.numberOfMechanisms,
-            "equation": equations,
-            "precision": "F64" if cmdLineArgs.precision == "d" else "F32",
-            "viscomode": viscomode,
-            "drquadrule": quadrule,
-            "numsims": cmdLineArgs.multipleSimulations,
-            "name": "Config0",
-        }
-    ]
-    configsTemp = [
-        {
-            "order": cmdLineArgs.order,
-            "mechanisms": cmdLineArgs.numberOfMechanisms,
-            "equation": cmdLineArgs.equations,
-            "precision": "F64" if cmdLineArgs.precision == "d" else "F32",
-            "viscomode": viscomode,
-            "drquadrule": cmdLineArgs.drQuadRule,
-            "numsims": cmdLineArgs.multipleSimulations,
-            "name": "Config0",
-        }
-    ]
-
-    """
     configs = []
     configsTemp = []
     counter = 0
 
-    for p in ["F32", "F64"]:
-        for equation in ["elastic", "acoustic", "anisotropic", "viscoelastic2", "poroelastic"]:
+    enabled_precision = cmdLineArgs.enabled_precision.split(",")
+    enabled_material = cmdLineArgs.enabled_material.split(",")
+    enabled_order = [int(order) for order in cmdLineArgs.enabled_order.split(",")]
+
+    for p in enabled_precision:
+        for equation in enabled_material:
             viscomode = "None"
             if equation == "viscoelastic":
                 viscomode = "QuantityExtension"
@@ -214,7 +195,7 @@ def main():
                 equations = equation[0].upper() + equation[1:]
                 mechanisms = 0
 
-            for i in range(2, 9):
+            for i in enabled_order:
                 configs += [
                     {
                         "order": i,
@@ -224,7 +205,7 @@ def main():
                         "viscomode": viscomode,
                         "drquadrule": quadrule,
                         "numsims": cmdLineArgs.multipleSimulations,
-                        "name": f"Config{counter}"
+                        "name": f"Config{counter}",
                     }
                 ]
                 configsTemp += [
@@ -236,11 +217,10 @@ def main():
                         "viscomode": viscomode,
                         "drquadrule": cmdLineArgs.drQuadRule,
                         "numsims": cmdLineArgs.multipleSimulations,
-                        "name": f"Config{counter}"
+                        "name": f"Config{counter}",
                     }
                 ]
                 counter += 1
-"""
 
     arch = setup_arch("d")
 
