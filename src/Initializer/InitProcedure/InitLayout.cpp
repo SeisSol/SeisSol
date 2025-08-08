@@ -227,11 +227,13 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
           if (element.neighbors[face] != meshReader.getElements().size() ||
               element.neighborRanks[face] != rank) {
-            const auto& neighbor = [&]() {
-              const bool ghostNeighbor = element.neighborRanks[face] != rank;
+
+            const bool ghostNeighbor = element.neighborRanks[face] != rank;
+            const auto rank = element.neighborRanks[face];
+            const auto mpiIndex = element.mpiIndices[face];
+
+            secondaryCellInformation[index].faceNeighbors[face] = [&]() {
               if (ghostNeighbor) {
-                const auto rank = element.neighborRanks[face];
-                const auto mpiIndex = element.mpiIndices[face];
                 // ghost layer
                 return backmapGhost.get(toLinear.at({rank, mpiIndex}));
               } else {
@@ -240,11 +242,20 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
               }
             }();
 
-            secondaryCellInformation[index].faceNeighbors[face] = neighbor;
-            cellInformation[index].neighborConfigIds[face] = 0;
+            cellInformation[index].neighborConfigIds[face] = [&]() {
+              if (ghostNeighbor) {
+                // ghost layer
+                return meshReader.getGhostlayerMetadata().at(rank)[mpiIndex].configId;
+              } else {
+                // copy/interior layer
+                return meshReader.getElements()[element.neighbors[face]].configId;
+              }
+            }();
+
           } else {
+
             secondaryCellInformation[index].faceNeighbors[face] = StoragePosition::NullPosition;
-            cellInformation[index].neighborConfigIds[face] = -1;
+            cellInformation[index].neighborConfigIds[face] = element.configId;
           }
         }
       }
