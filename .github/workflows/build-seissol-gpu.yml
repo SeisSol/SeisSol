@@ -18,16 +18,6 @@ jobs:
     runs-on: ${{ matrix.setup.runner }}
     container: ${{ matrix.setup.container }}
     continue-on-error: true
-    env:
-      EXENAME: |
-        ${{
-          format('gpu-{0}-{1}-p{2}{3}',
-            matrix.equation.type,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.equation.order,
-            matrix.equation.multisim != 1 && format('-f{0}', matrix.equation.multisim) || ''
-          )
-        }}
     strategy:
       fail-fast: false
       matrix:
@@ -37,23 +27,7 @@ jobs:
           - Release
           #- Debug
         equation:
-          - type: acoustic
-            multisim: 1
-            mechanisms: 0
-            order: 6
           - type: elastic
-            multisim: 1
-            mechanisms: 0
-            order: 6
-          #- type: poroelastic # Does not work yet
-          #  multisim: 1
-          #  mechanisms: 0
-          #  order: 6
-          - type: viscoelastic2
-            multisim: 1
-            mechanisms: 3
-            order: 6
-          - type: anisotropic
             multisim: 1
             mechanisms: 0
             order: 6
@@ -63,7 +37,6 @@ jobs:
             order: 3
         precision:
           - single
-          - double
         setup:
           - arch: sm_60
             backend: cuda
@@ -191,16 +164,6 @@ jobs:
     continue-on-error: true
     needs: [seissol-build-test, seissol-cache-precomputed]
     if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
-    env:
-      EXENAME: |
-        ${{
-          format('gpu-{0}-{1}-p{2}{3}',
-            matrix.case.equation,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.case.order,
-            matrix.case.multisim != 1 && format('-f{0}', matrix.case.multisim) || ''
-          )
-        }}
     strategy:
       fail-fast: false
       matrix:
@@ -438,7 +401,7 @@ jobs:
 
           cd precomputed/${{matrix.case.name}}
           
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
+          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-gpu
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
