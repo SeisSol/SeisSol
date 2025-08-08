@@ -211,11 +211,10 @@ void ProxyKernelHostNeighbor<Cfg>::run(ProxyData& predata,
 
       seissol::kernels::TimeCommon<Cfg>::computeIntegrals(
           data.timeKernel,
-          cellInformation[cell].ltsSetup,
-          cellInformation[cell].faceTypes,
+          cellInformation[cell],
           timeCoeffs.data(),
           timeCoeffs.data(),
-          faceNeighborsCell,
+          faceNeighbors[cell],
           *reinterpret_cast<Real<Cfg>(*)[4][tensor::I<Cfg>::size()]>(
               &data.globalData.template get<Cfg>()
                    .integrationBufferLTS[OpenMP::threadId() *

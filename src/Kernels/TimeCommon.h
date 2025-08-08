@@ -14,6 +14,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
 #include <DataTypes/ConditionalTable.h>
+#include <Initializer/CellLocalInformation.h>
 #include <Initializer/LtsSetup.h>
 
 namespace seissol::kernels {
@@ -50,11 +51,10 @@ struct TimeCommon {
    *(either local integration buffer or integration buffer of input).
    **/
   static void computeIntegrals(Time<Cfg>& time,
-                               const LtsSetup& ltsSetup,
-                               const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                               const CellLocalInformation& cellInfo,
                                const real* timeCoeffs,
                                const real* subtimeCoeffs,
-                               real* const timeDofs[4],
+                               void* const timeDofs[4],
                                real integrationBuffer[4][tensor::I<Cfg>::size()],
                                real* timeIntegrated[4]);
 

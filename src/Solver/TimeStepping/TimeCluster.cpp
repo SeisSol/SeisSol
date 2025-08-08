@@ -963,11 +963,10 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationImplementation(double subTim
 
     seissol::kernels::TimeCommon<Cfg>::computeIntegrals(
         timeKernel,
-        data.template get<LTS::CellInformation>().ltsSetup,
-        data.template get<LTS::CellInformation>().faceTypes,
+        data.template get<LTS::CellInformation>(),
         timeCoeffs.data(),
         subtimeCoeffs.data(),
-        faceNeighborsCell,
+        faceNeighbors[cell],
         *reinterpret_cast<real(*)[4][tensor::I<Cfg>::size()]>(
             &(globalData->get<Cfg>()
                   .integrationBufferLTS[OpenMP::threadId() * 4 *

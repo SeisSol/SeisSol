@@ -8,7 +8,9 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "TimeCommon.h"
+#include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
+#include <Config.h>
 #include <DataTypes/ConditionalTable.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
@@ -37,17 +39,19 @@ namespace seissol::kernels {
 
 template <typename Cfg>
 void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
-                                       const LtsSetup& ltsSetup,
-                                       const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                                       const CellLocalInformation& cellInfo,
                                        const real* timeCoeffs,
                                        const real* subtimeCoeffs,
-                                       real* const timeDofs[4],
+                                       void* const timeDofs[4],
                                        real integrationBuffer[4][tensor::I<Cfg>::size()],
                                        real* timeIntegrated[4]) {
   // call the more general assembly
   /*
    * assert valid input.
    */
+
+  const auto& faceTypes = cellInfo.faceTypes;
+  const auto& ltsSetup = cellInfo.ltsSetup;
 
 #ifndef NDEBUG
   // alignment of the time derivatives/integrated dofs and the buffer
@@ -66,12 +70,44 @@ void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
         faceTypes[dofneighbor] != FaceType::DynamicRupture) {
       // check if the time integration is already done (-> copy pointer)
       if (!ltsSetup.neighborHasDerivatives(dofneighbor)) {
-        timeIntegrated[dofneighbor] = timeDofs[dofneighbor];
+        const auto neighborConfig = cellInfo.neighborConfigIds[dofneighbor];
+
+        if (ConfigVariant(Cfg()).index() == neighborConfig) {
+          timeIntegrated[dofneighbor] = static_cast<real*>(timeDofs[dofneighbor]);
+        } else {
+          // we might need to convert at least precision-wise
+          std::visit(
+              [&](auto cfg) {
+                using CfgNeighbor = decltype(cfg);
+
+                if constexpr (tensor::I<Cfg>::size() != tensor::I<CfgNeighbor>::size()) {
+                  logError() << "Fatal error: wanted to compare differently-sized buffers.";
+                }
+
+                using RealNeighbor = Real<CfgNeighbor>;
+                auto* neighborPtr = static_cast<RealNeighbor*>(timeDofs[dofneighbor]);
+
+                if constexpr (std::is_same_v<real, RealNeighbor>) {
+                  // same precision; just assign the pointer
+                  timeIntegrated[dofneighbor] = neighborPtr;
+                } else {
+              // convert precision
+
+#pragma omp simd
+                  for (std::size_t i = 0; i < tensor::I<Cfg>::size(); ++i) {
+                    integrationBuffer[dofneighbor][i] = static_cast<real>(neighborPtr[i]);
+                  }
+                  timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
+                }
+              },
+              ConfigVariantList[neighborConfig]);
+        }
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer
       else {
         const auto* coeffs = ltsSetup.neighborGTS(dofneighbor) ? timeCoeffs : subtimeCoeffs;
-        time.evaluate(coeffs, timeDofs[dofneighbor], integrationBuffer[dofneighbor]);
+        time.evaluate(
+            coeffs, static_cast<real*>(timeDofs[dofneighbor]), integrationBuffer[dofneighbor]);
 
         timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
       }
