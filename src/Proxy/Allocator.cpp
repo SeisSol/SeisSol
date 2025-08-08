@@ -143,7 +143,7 @@ ProxyDataImpl<Cfg>::ProxyDataImpl(std::size_t cellCount, bool enableDR) : cellCo
 
 template <typename Cfg>
 void ProxyDataImpl<Cfg>::initGlobalData() {
-  globalData.init(0);
+  globalData.init(ConfigVariant(Cfg()).index());
 
   spacetimeKernel.setGlobalData(globalData);
   timeKernel.setGlobalData(globalData);

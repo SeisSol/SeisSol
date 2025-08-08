@@ -166,9 +166,9 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       std::visit(
           [&](auto cfg) {
             using Cfg = decltype(cfg);
-            std::get<TransformData<Cfg>>(outputData->transformData[foundPoints]).basisFunctions =
-                getPlusMinusBasisFunctions<Real<Cfg>>(
-                    point.global.coords, elemCoords, neighborElemCoords, cfg);
+            std::get<TransformData<Cfg>>(outputData->transformData[foundPoints - 1])
+                .basisFunctions = getPlusMinusBasisFunctions<Real<Cfg>>(
+                point.global.coords, elemCoords, neighborElemCoords, cfg);
           },
           ConfigVariantList[configId]);
     }

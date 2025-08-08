@@ -8,12 +8,29 @@
 #include "ConfigHelper.h"
 
 #include <Config.h>
+#include <Equations/Datastructures.h>
 #include <array>
+#include <sstream>
+
+namespace {
+template <typename Cfg>
+std::string configToString() {
+  std::stringstream str;
+  str << seissol::model::MaterialTT<Cfg>::Text << "-p" << Cfg::ConvergenceOrder << "-"
+      << stringRealType(Cfg::Precision);
+  return str.str();
+}
+} // namespace
 
 namespace seissol {
 
 const std::array<ConfigVariant, std::variant_size_v<ConfigVariant>> ConfigVariantList{
 #define _H_(cfg) cfg(),
+#include "ConfigInclude.h"
+};
+
+const std::array<std::string, std::variant_size_v<ConfigVariant>> ConfigString{
+#define _H_(cfg) configToString<cfg>(),
 #include "ConfigInclude.h"
 };
 

@@ -14,5 +14,7 @@ namespace seissol {
 
 extern const std::array<ConfigVariant, std::variant_size_v<ConfigVariant>> ConfigVariantList;
 
+extern const std::array<std::string, std::variant_size_v<ConfigVariant>> ConfigString;
+
 } // namespace seissol
 #endif // SEISSOL_SRC_COMMON_CONFIGHELPER_H_
