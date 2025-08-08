@@ -242,8 +242,8 @@ easi::Query FaultGPGenerator::generate() const {
         auto pointsView = init::quadpoints<Cfg>::view::create(
             const_cast<Real<Cfg>*>(init::quadpoints<Cfg>::Values));
         for (std::size_t n = 0; n < dr::misc::NumPaddedPointsSingleSim<Cfg>; ++n) {
-          double localPoints[2] = {seissol::multisim::multisimTranspose(pointsView, n, 0),
-                                   seissol::multisim::multisimTranspose(pointsView, n, 1)};
+          double localPoints[2] = {seissol::multisim::multisimTranspose<Cfg>(pointsView, n, 0),
+                                   seissol::multisim::multisimTranspose<Cfg>(pointsView, n, 1)};
           // padded points are in the middle of the tetrahedron
           if (n >= dr::misc::NumBoundaryGaussPoints<Cfg>) {
             localPoints[0] = 1.0 / 3.0;

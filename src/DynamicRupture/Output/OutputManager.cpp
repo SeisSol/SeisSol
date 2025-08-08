@@ -264,6 +264,22 @@ void OutputManager::initPickpointOutput() {
     logError() << "Collective IO for the on-fault receiver output is still under construction.";
   }
 
+  std::size_t maxSims = 1;
+  for (const auto& element : seissolInstance.meshReader().getElements()) {
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          maxSims = std::max(maxSims, Cfg::NumSimulations);
+        },
+        ConfigVariantList[element.configId]);
+  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                &maxSims,
+                1,
+                seissol::MPI::castToMpiType<std::size_t>(),
+                MPI_MAX,
+                seissol::MPI::mpi.comm());
+
   for (auto& [id, outputData] : ppOutputData) {
     const bool allReceiversInOneFilePerRank =
         seissolParameters.output.pickpointParameters.aggregate;
@@ -301,14 +317,14 @@ void OutputManager::initPickpointOutput() {
 
     std::stringstream baseHeader;
 
-    auto suffix = [&allReceiversInOneFilePerRank](auto pointIndex, auto simIndex) {
+    auto suffix = [&allReceiversInOneFilePerRank, maxSims](auto pointIndex, auto simIndex) {
       std::string suffix;
 
       if (allReceiversInOneFilePerRank) {
         suffix += "-" + std::to_string(pointIndex);
       }
 
-      if constexpr (seissol::multisim::MultisimEnabled) {
+      if (maxSims > 1) {
         suffix += "-" + std::to_string(simIndex);
       }
 
@@ -316,11 +332,10 @@ void OutputManager::initPickpointOutput() {
     };
 
     const size_t actualPointCount =
-        allReceiversInOneFilePerRank ? outputData->receiverPoints.size() / multisim::NumSimulations
-                                     : 1;
+        allReceiversInOneFilePerRank ? outputData->receiverPoints.size() / maxSims : 1;
 
     for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
-      for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
+      for (std::size_t simIndex = 0; simIndex < maxSims; ++simIndex) {
         auto collectVariableNames = [&baseHeader, &simIndex, &pointIndex, suffix](auto& var,
                                                                                   int index) {
           if (var.isActive) {

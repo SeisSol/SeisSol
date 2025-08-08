@@ -249,16 +249,14 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
   auto rng = getrange(workGroupSize, numElements);
 
   constexpr auto ldINodalDim = linearDim<seissol::init::INodal<Cfg>>();
-  constexpr auto INodalDim0 =
-      seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension + 0];
-  constexpr auto INodalDim1 =
-      seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
+  constexpr auto INodalDim0 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 0];
+  constexpr auto INodalDim1 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
 
   constexpr auto ldConstantDim = linearDim<seissol::init::easiBoundaryConstant<Cfg>>();
   constexpr auto ConstantDim0 =
-      seissol::tensor::easiBoundaryConstant<Cfg>::Shape[multisim::BasisFunctionDimension + 0];
+      seissol::tensor::easiBoundaryConstant<Cfg>::Shape[multisim::BasisDim<Cfg> + 0];
   constexpr auto ConstantDim1 =
-      seissol::tensor::easiBoundaryConstant<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
+      seissol::tensor::easiBoundaryConstant<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
 
   constexpr auto ldMapDim = yateto::leadDim<seissol::init::easiBoundaryMap<Cfg>>();
   constexpr auto MapDim0 = seissol::tensor::easiBoundaryMap<Cfg>::Shape[0];
@@ -270,15 +268,15 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
 
   queue->submit([&](sycl::handler& cgh) {
     sycl::local_accessor<real, 3> resultTerm(
-        sycl::range<3>(INodalDim1, INodalDim0, multisim::NumSimulations), cgh);
+        sycl::range<3>(INodalDim1, INodalDim0, multisim::NumSimulations<Cfg>), cgh);
     sycl::local_accessor<real, 3> rightTerm(
-        sycl::range<3>(ConstantDim0, ConstantDim1, multisim::NumSimulations), cgh);
+        sycl::range<3>(ConstantDim0, ConstantDim1, multisim::NumSimulations<Cfg>), cgh);
     sycl::local_accessor<real, 2> leftTerm(sycl::range<2>(MapDim0, MapDim2), cgh);
 
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       const int tid = item.get_local_id(0);
       const int elementId = item.get_group().get_group_id(0);
-      const int sid = tid / multisim::NumSimulations;
+      const int sid = tid / multisim::NumSimulations<Cfg>;
 
       if (elementId < numElements) {
         real* dofsFaceBoundaryNodal = dofsFaceBoundaryNodalPtrs[elementId];
@@ -286,8 +284,8 @@ void launchEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
         auto easiBoundaryConstant = easiBoundaryConstantPtrs[elementId];
 
         for (int i = tid; i < (ldConstantDim * ConstantDim1); i += item.get_local_range(0)) {
-          const auto sim = i % multisim::NumSimulations;
-          const auto subsim = i / multisim::NumSimulations;
+          const auto sim = i % multisim::NumSimulations<Cfg>;
+          const auto subsim = i / multisim::NumSimulations<Cfg>;
           const auto quantity = subsim % ConstantDim0;
           const auto quadpoint = subsim / ConstantDim0;
           rightTerm[quantity][quadpoint][sim] = easiBoundaryConstant[i];

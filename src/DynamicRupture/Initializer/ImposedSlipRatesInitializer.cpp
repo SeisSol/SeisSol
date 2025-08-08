@@ -97,9 +97,9 @@ void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drSto
       // get additional parameters (for derived friction laws)
       addAdditionalParameters(parameterToStorageMap, layer);
 
-      for (std::size_t i = 0; i < multisim::NumSimulations; ++i) {
+      for (std::size_t i = 0; i < multisim::NumSimulations<Cfg>; ++i) {
         seissol::initializer::FaultParameterDB<Real<Cfg>> faultParameterDB(
-            i, multisim::NumSimulations);
+            i, multisim::NumSimulations<Cfg>);
         // read parameters from yaml file
         for (const auto& parameterStoragePair : parameterToStorageMap) {
           faultParameterDB.addParameter(parameterStoragePair.first,

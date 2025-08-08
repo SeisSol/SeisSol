@@ -411,8 +411,7 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
           auto* nodes = boundary[cell][side].nodes;
           assert(nodes != nullptr);
           auto offset = 0;
-          for (std::size_t i = 0;
-               i < nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension];
+          for (std::size_t i = 0; i < nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>];
                ++i) {
             double nodeReference[2];
             nodeReference[0] = nodesReference(i, 0);

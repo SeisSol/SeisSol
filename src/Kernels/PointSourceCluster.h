@@ -108,8 +108,8 @@ SEISSOL_HOSTDEVICE inline RealT computeSampleTimeIntegral(double from,
 
 // workaround for NVHPC (using constexpr arrays directly caused errors in 24.01)
 template <typename Cfg>
-constexpr std::size_t QSpan = init::Q<Cfg>::Stop[multisim::BasisFunctionDimension] -
-                              init::Q<Cfg>::Start[multisim::BasisFunctionDimension];
+constexpr std::size_t QSpan =
+    init::Q<Cfg>::Stop[multisim::BasisDim<Cfg>] - init::Q<Cfg>::Start[multisim::BasisDim<Cfg>];
 template <typename Cfg>
 constexpr std::size_t QMultiSpan = init::Q<Cfg>::Stop[0] - init::Q<Cfg>::Start[0];
 template <typename Cfg>
@@ -123,7 +123,7 @@ constexpr std::size_t Quantities = MomentFsrmSpan<Cfg>;
 template <typename Cfg>
 SEISSOL_HOSTDEVICE constexpr auto&
     dofsAccessor(Real<Cfg>* __restrict dofs, std::uint32_t k, std::uint32_t t, std::uint32_t f) {
-  if constexpr (seissol::multisim::MultisimEnabled) {
+  if constexpr (seissol::multisim::MultisimEnabled<Cfg>) {
     return dofs[(k + t * QSpan<Cfg>)*QMultiSpan<Cfg> + f];
   } else {
     return dofs[k + t * QSpan<Cfg>];

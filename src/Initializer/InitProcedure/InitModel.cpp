@@ -121,7 +121,6 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto& localSecondaryInformation = secondaryInformation[cell];
-        const auto meshId = localSecondaryInformation.meshId;
 
         auto neighborRank = localSecondaryInformation.rank;
         auto neighborRankIdx = localSecondaryInformation.meshId;

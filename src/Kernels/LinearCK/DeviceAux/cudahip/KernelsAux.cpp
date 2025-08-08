@@ -297,18 +297,16 @@ __global__ void kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
   const int elementId = blockIdx.x;
 
   constexpr auto ldINodalDim = linearDim<seissol::init::INodal<Cfg>>();
-  constexpr auto iNodalDim0 =
-      seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension + 0];
-  constexpr auto iNodalDim1 =
-      seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
-  __shared__ __align__(8) real resultTerm[iNodalDim1][iNodalDim0][multisim::NumSimulations];
+  constexpr auto iNodalDim0 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 0];
+  constexpr auto iNodalDim1 = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
+  __shared__ __align__(8) real resultTerm[iNodalDim1][iNodalDim0][multisim::NumSimulations<Cfg>];
 
   constexpr auto ldConstantDim = linearDim<seissol::init::easiBoundaryConstant<Cfg>>();
   constexpr auto constantDim0 =
-      seissol::tensor::easiBoundaryConstant<Cfg>::Shape[multisim::BasisFunctionDimension + 0];
+      seissol::tensor::easiBoundaryConstant<Cfg>::Shape[multisim::BasisDim<Cfg> + 0];
   constexpr auto constantDim1 =
-      seissol::tensor::easiBoundaryConstant<Cfg>::Shape[multisim::BasisFunctionDimension + 1];
-  __shared__ __align__(8) real rightTerm[constantDim0][constantDim1][multisim::NumSimulations];
+      seissol::tensor::easiBoundaryConstant<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
+  __shared__ __align__(8) real rightTerm[constantDim0][constantDim1][multisim::NumSimulations<Cfg>];
 
   constexpr auto ldMapDim = leadDim<seissol::init::easiBoundaryMap<Cfg>>();
   constexpr auto mapDim0 = seissol::tensor::easiBoundaryMap<Cfg>::Shape[0];
@@ -325,8 +323,8 @@ __global__ void kernelEasiBoundary(real** dofsFaceBoundaryNodalPtrs,
     auto easiBoundaryConstant = easiBoundaryConstantPtrs[elementId];
 
     for (int i = linearidx(); i < (ldConstantDim * constantDim1); i += linearsize()) {
-      const auto sim = i % multisim::NumSimulations;
-      const auto subsim = i / multisim::NumSimulations;
+      const auto sim = i % multisim::NumSimulations<Cfg>;
+      const auto subsim = i / multisim::NumSimulations<Cfg>;
       const auto quantity = subsim % constantDim0;
       const auto quadpoint = subsim / constantDim0;
       rightTerm[quantity][quadpoint][sim] = easiBoundaryConstant[i];

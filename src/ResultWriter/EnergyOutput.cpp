@@ -61,7 +61,7 @@ constexpr bool VolumeEnergyApproximation = MaterialT::Type != model::MaterialTyp
                                            MaterialT::Type != model::MaterialType::Acoustic;
 
 template <typename Cfg>
-std::array<Real<Cfg>, multisim::NumSimulations>
+std::array<Real<Cfg>, multisim::NumSimulations<Cfg>>
     computeStaticWork(const Real<Cfg>* degreesOfFreedomPlus,
                       const Real<Cfg>* degreesOfFreedomMinus,
                       const DRFaceInformation& faceInfo,
@@ -118,9 +118,9 @@ std::array<Real<Cfg>, multisim::NumSimulations>
   feKrnl.minusSurfaceArea = -0.5 * godunovData.doubledSurfaceArea;
   feKrnl.execute();
 
-  std::array<real, multisim::NumSimulations> frictionalWorkReturn;
+  std::array<real, multisim::NumSimulations<Cfg>> frictionalWorkReturn;
   std::copy(staticFrictionalWork,
-            staticFrictionalWork + multisim::NumSimulations,
+            staticFrictionalWork + multisim::NumSimulations<Cfg>,
             std::begin(frictionalWorkReturn));
   return frictionalWorkReturn;
 }
@@ -368,7 +368,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           if (faceInformation[i].plusSideOnThisRank) {
             for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints<Cfg>; ++j) {
               totalFrictionalWork +=
-                  drEnergyOutput[i].frictionalEnergy[j * seissol::multisim::NumSimulations + sim];
+                  drEnergyOutput[i]
+                      .frictionalEnergy[j * seissol::multisim::NumSimulations<Cfg> + sim];
             }
             staticFrictionalWork += computeStaticWork<Cfg>(timeDerivativePlusPtr(i),
                                                            timeDerivativeMinusPtr(i),
@@ -385,7 +386,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             double potencyIncrease = 0.0;
             for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints<Cfg>; ++k) {
               potencyIncrease +=
-                  drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim];
+                  drEnergyOutput[i]
+                      .accumulatedSlip[k * seissol::multisim::NumSimulations<Cfg> + sim];
             }
             potencyIncrease *= 0.5 * godunovData[i].doubledSurfaceArea /
                                seissol::dr::misc::NumBoundaryGaussPoints<Cfg>;
@@ -404,7 +406,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
               localMin = std::min(
                   static_cast<double>(
                       drEnergyOutput[i].timeSinceSlipRateBelowThreshold
-                          [static_cast<size_t>(j * seissol::multisim::NumSimulations) + sim]),
+                          [static_cast<size_t>(j * seissol::multisim::NumSimulations<Cfg>) + sim]),
                   localMin);
             }
           }
@@ -502,7 +504,7 @@ void EnergyOutput::computeVolumeEnergies() {
           krnl.Q = dofsData[cell];
           krnl.execute();
 
-          auto numSub = multisim::simtensor(numericalSolution, sim);
+          auto numSub = multisim::simtensor<Cfg>(numericalSolution, sim);
 
           constexpr auto UIdx = MaterialT::TractionQuantities;
 
@@ -600,13 +602,13 @@ void EnergyOutput::computeVolumeEnergies() {
             const auto surface = MeshTools::surface(elements[elementId], face, vertices);
             const auto rho = material.getDensity();
 
-            static_assert(NumQuadraturePointsTri ==
-                          init::rotatedFaceDisplacementAtQuadratureNodes<
-                              Cfg>::Shape[multisim::BasisFunctionDimension]);
+            static_assert(NumQuadraturePointsTri == init::rotatedFaceDisplacementAtQuadratureNodes<
+                                                        Cfg>::Shape[multisim::BasisDim<Cfg>]);
             auto rotatedFaceDisplacementFused =
                 init::rotatedFaceDisplacementAtQuadratureNodes<Cfg>::view::create(
                     displQuadData.data());
-            auto rotatedFaceDisplacement = multisim::simtensor(rotatedFaceDisplacementFused, sim);
+            auto rotatedFaceDisplacement =
+                multisim::simtensor<Cfg>(rotatedFaceDisplacementFused, sim);
 
             for (std::size_t i = 0; i < rotatedFaceDisplacement.shape(0); ++i) {
               // See for example (Saito, Tsunami generation and propagation, 2019) section 3.2.3 for

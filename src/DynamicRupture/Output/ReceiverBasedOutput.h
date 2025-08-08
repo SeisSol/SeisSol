@@ -98,10 +98,8 @@ class ReceiverOutputImpl : public ReceiverOutput {
     real slipRateStrike{};
     real slipRateDip{};
 
-    real faceAlignedValuesPlus
-        [tensor::QAtPoint<Cfg>::Shape[seissol::multisim::BasisFunctionDimension]]{};
-    real faceAlignedValuesMinus
-        [tensor::QAtPoint<Cfg>::Shape[seissol::multisim::BasisFunctionDimension]]{};
+    real faceAlignedValuesPlus[tensor::QAtPoint<Cfg>::Shape[seissol::multisim::BasisDim<Cfg>]]{};
+    real faceAlignedValuesMinus[tensor::QAtPoint<Cfg>::Shape[seissol::multisim::BasisDim<Cfg>]]{};
 
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};

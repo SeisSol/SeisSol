@@ -482,7 +482,7 @@ auto loadSourceFile(const char* fileName,
         const std::size_t sourceIndex = clusterMappings[cluster].sources[clusterSource];
         const auto fileIndex = originalIndex[sourceIndex];
 
-        sources.simulationIndex[clusterSource] = fileIndex % multisim::NumSimulations;
+        sources.simulationIndex[clusterSource] = fileIndex % multisim::NumSimulations<Cfg>;
         computeMInvJInvPhisAtSources<Cfg>(points[fileIndex],
                                           sources.mInvJInvPhisAtSources[clusterSource],
                                           meshIds[sourceIndex],

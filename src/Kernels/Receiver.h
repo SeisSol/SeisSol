@@ -70,12 +70,12 @@ struct ReceiverRotation : public DerivedReceiverQuantity<Cfg> {
       std::vector<Real<Cfg>>& output,
       typename seissol::init::QAtPoint<Cfg>::view::type& qAtPoint,
       typename seissol::init::QDerivativeAtPoint<Cfg>::view::type& qDerivativeAtPoint) override {
-    output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
-                     seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 2));
-    output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 2) -
-                     seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 0));
-    output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 0) -
-                     seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 1));
+    output.push_back(seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 8, 1) -
+                     seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 7, 2));
+    output.push_back(seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 6, 2) -
+                     seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 8, 0));
+    output.push_back(seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 7, 0) -
+                     seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 6, 1));
   }
 };
 
@@ -92,18 +92,18 @@ struct ReceiverStrain : public DerivedReceiverQuantity<Cfg> {
       typename seissol::init::QDerivativeAtPoint<Cfg>::view::type& qDerivativeAtPoint) override {
     // actually 9 quantities; 3 removed due to symmetry
 
-    output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 0));
-    output.push_back((seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 1) +
-                      seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 0)) /
+    output.push_back(seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 6, 0));
+    output.push_back((seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 6, 1) +
+                      seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 7, 0)) /
                      2);
-    output.push_back((seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 2) +
-                      seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 0)) /
+    output.push_back((seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 6, 2) +
+                      seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 8, 0)) /
                      2);
-    output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 1));
-    output.push_back((seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 2) +
-                      seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 1)) /
+    output.push_back(seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 7, 1));
+    output.push_back((seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 7, 2) +
+                      seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 8, 1)) /
                      2);
-    output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 2));
+    output.push_back(seissol::multisim::multisimWrap<Cfg>(qDerivativeAtPoint, sim, 8, 2));
   }
 };
 

@@ -84,16 +84,16 @@ std::vector<std::unique_ptr<physics::InitialField>>
         seissol::initializer::parameters::InitializationType::Planarwave) {
       initialConditionDescription = "Planar wave";
 
-      for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
-        const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
+      for (std::size_t s = 0; s < seissol::multisim::NumSimulations<Cfg>; ++s) {
+        const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations<Cfg>;
         initConditions.emplace_back(new physics::Planarwave<Cfg>(materialData, phase));
       }
     } else if (initConditionParams.type ==
                seissol::initializer::parameters::InitializationType::SuperimposedPlanarwave) {
       initialConditionDescription = "Super-imposed planar wave";
 
-      for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
-        const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
+      for (std::size_t s = 0; s < seissol::multisim::NumSimulations<Cfg>; ++s) {
+        const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations<Cfg>;
         initConditions.emplace_back(new physics::SuperimposedPlanarwave<Cfg>(materialData, phase));
       }
     } else if (initConditionParams.type ==

@@ -33,7 +33,7 @@ namespace plasticity {
 
 template <typename Tensor>
 __forceinline__ __device__ constexpr size_t leadDim() {
-  if constexpr (multisim::MultisimEnabled) {
+  if constexpr (multisim::MultisimEnabled<Cfg>) {
     return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
   } else {
     return Tensor::Stop[0] - Tensor::Start[0];
@@ -41,23 +41,23 @@ __forceinline__ __device__ constexpr size_t leadDim() {
 }
 
 constexpr auto getblock(int size) {
-  if constexpr (multisim::MultisimEnabled) {
-    return dim3(multisim::NumSimulations, size);
+  if constexpr (multisim::MultisimEnabled<Cfg>) {
+    return dim3(multisim::NumSimulations<Cfg>, size);
   } else {
     return dim3(size);
   }
 }
 
 __forceinline__ __device__ auto linearidx() {
-  if constexpr (multisim::MultisimEnabled) {
-    return threadIdx.y * multisim::NumSimulations + threadIdx.x;
+  if constexpr (multisim::MultisimEnabled<Cfg>) {
+    return threadIdx.y * multisim::NumSimulations<Cfg> + threadIdx.x;
   } else {
     return threadIdx.x;
   }
 }
 
 __forceinline__ __device__ auto simidx() {
-  if constexpr (multisim::MultisimEnabled) {
+  if constexpr (multisim::MultisimEnabled<Cfg>) {
     return threadIdx.x;
   } else {
     return 0;
@@ -65,7 +65,7 @@ __forceinline__ __device__ auto simidx() {
 }
 
 __forceinline__ __device__ auto validx() {
-  if constexpr (multisim::MultisimEnabled) {
+  if constexpr (multisim::MultisimEnabled<Cfg>) {
     return threadIdx.y;
   } else {
     return threadIdx.x;
@@ -141,7 +141,7 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
                              const double oneMinusIntegratingFactor,
                              const size_t numElements,
                              void* streamPtr) {
-  constexpr unsigned NumNodes = tensor::QStressNodal<Cfg>::Shape[multisim::BasisFunctionDimension];
+  constexpr unsigned NumNodes = tensor::QStressNodal<Cfg>::Shape[multisim::BasisDim<Cfg>];
   const auto block = getblock(NumNodes);
   const dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(streamPtr);
@@ -190,7 +190,7 @@ void computePstrains(real** pstrains,
                      unsigned* isAdjustableVector,
                      size_t numElements,
                      void* streamPtr) {
-  constexpr unsigned NumNodes = tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension];
+  constexpr unsigned NumNodes = tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg>];
   const dim3 block = getblock(NumNodes);
   const dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(streamPtr);
@@ -233,7 +233,7 @@ void updateQEtaNodal(real** qEtaNodalPtrs,
                      unsigned* isAdjustableVector,
                      size_t numElements,
                      void* streamPtr) {
-  const dim3 block = getblock(tensor::QStressNodal<Cfg>::Shape[multisim::BasisFunctionDimension]);
+  const dim3 block = getblock(tensor::QStressNodal<Cfg>::Shape[multisim::BasisDim<Cfg>]);
   const dim3 grid(numElements, 1, 1);
   auto stream = reinterpret_cast<StreamT>(streamPtr);
   kernel_updateQEtaNodal<<<grid, block, 0, stream>>>(

@@ -25,9 +25,8 @@ std::pair<std::uint64_t, std::uint64_t>
   std::uint64_t nonZeroFlops = 0;
 
   constexpr std::uint64_t NumberOfNodes =
-      static_cast<std::uint64_t>(
-          nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension]) *
-      multisim::NumSimulations;
+      static_cast<std::uint64_t>(nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>]) *
+      multisim::NumSimulations<Cfg>;
 
   // initialize integral of displacement
   hardwareFlops += 1 * NumberOfNodes;

@@ -198,13 +198,11 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
       kernel.QAtPoint = faceAlignedValuesMinus;
       kernel.execute();
 
-      for (size_t j = 0;
-           j < tensor::QAtPoint<Cfg>::Shape[seissol::multisim::BasisFunctionDimension];
-           ++j) {
+      for (size_t j = 0; j < tensor::QAtPoint<Cfg>::Shape[seissol::multisim::BasisDim<Cfg>]; ++j) {
         local.faceAlignedValuesPlus[j] =
-            faceAlignedValuesPlus[j * seissol::multisim::NumSimulations + local.fusedIndex];
+            faceAlignedValuesPlus[j * seissol::multisim::NumSimulations<Cfg> + local.fusedIndex];
         local.faceAlignedValuesMinus[j] =
-            faceAlignedValuesMinus[j * seissol::multisim::NumSimulations + local.fusedIndex];
+            faceAlignedValuesMinus[j * seissol::multisim::NumSimulations<Cfg> + local.fusedIndex];
       }
 
       this->computeLocalStresses<Cfg>(local);
@@ -502,14 +500,14 @@ Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
 
     auto* rt = getCellData<DynamicRupture::RuptureTime>(Cfg(), local);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints<Cfg>; ++jBndGP) {
-      const real chi = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 0);
-      const real tau = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 1);
+      const real chi = seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, jBndGP, 0);
+      const real tau = seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, jBndGP, 1);
 
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
       for (size_t d = 0; d < NumDegFr2d; ++d) {
         projectedRT[d] +=
-            seissol::multisim::multisimWrap(weights, 0, jBndGP) * rt[jBndGP] * phiAtPoint[d];
+            seissol::multisim::multisimWrap<Cfg>(weights, 0, jBndGP) * rt[jBndGP] * phiAtPoint[d];
       }
     }
     auto m2inv = seissol::init::M2inv<Cfg>::view::create(
@@ -519,9 +517,9 @@ Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
     }
 
     const real chi =
-        seissol::multisim::multisimTranspose(chiTau2dPoints, local.nearestInternalGpIndex, 0);
+        seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, local.nearestInternalGpIndex, 0);
     const real tau =
-        seissol::multisim::multisimTranspose(chiTau2dPoints, local.nearestInternalGpIndex, 1);
+        seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, local.nearestInternalGpIndex, 1);
     basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
     real dTdChi{0.0};

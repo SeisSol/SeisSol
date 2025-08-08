@@ -20,7 +20,7 @@ typename std::enable_if<std::is_floating_point<T>::value, T>::type squareRoot(T 
 
 template <typename Tensor>
 constexpr size_t leadDim() {
-  if constexpr (multisim::MultisimEnabled) {
+  if constexpr (multisim::MultisimEnabled<Cfg>) {
     return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
   } else {
     return Tensor::Stop[0] - Tensor::Start[0];
@@ -28,9 +28,9 @@ constexpr size_t leadDim() {
 }
 
 auto getrange(std::size_t size, std::size_t numElements) {
-  if constexpr (multisim::MultisimEnabled) {
-    return sycl::nd_range<1>({numElements * multisim::NumSimulations * size},
-                             {multisim::NumSimulations * size});
+  if constexpr (multisim::MultisimEnabled<Cfg>) {
+    return sycl::nd_range<1>({numElements * multisim::NumSimulations<Cfg> * size},
+                             {multisim::NumSimulations<Cfg> * size});
   } else {
     return sycl::nd_range<1>({numElements * size}, {size});
   }
@@ -42,7 +42,7 @@ void adjustDeviatoricTensors(real** nodalStressTensors,
                              const double oneMinusIntegratingFactor,
                              const size_t numElements,
                              void* queuePtr) {
-  constexpr unsigned NumNodes = tensor::QStressNodal<Cfg>::Shape[multisim::BasisFunctionDimension];
+  constexpr unsigned NumNodes = tensor::QStressNodal<Cfg>::Shape[multisim::BasisDim<Cfg>];
   auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
   auto rng = getrange(NumNodes, numElements);
 
@@ -122,7 +122,7 @@ void computePstrains(real** pstrains,
                      unsigned* isAdjustableVector,
                      size_t numElements,
                      void* queuePtr) {
-  constexpr unsigned numNodes = tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension];
+  constexpr unsigned numNodes = tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg>];
   auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
   auto rng = getrange(numNodes, numElements);
 
@@ -160,8 +160,7 @@ void updateQEtaNodal(real** QEtaNodalPtrs,
                      size_t numElements,
                      void* queuePtr) {
   auto queue = reinterpret_cast<sycl::queue*>(queuePtr);
-  auto rng =
-      getrange(tensor::QStressNodal<Cfg>::Shape[multisim::BasisFunctionDimension], numElements);
+  auto rng = getrange(tensor::QStressNodal<Cfg>::Shape[multisim::BasisDim<Cfg>], numElements);
 
   queue->submit([&](sycl::handler& cgh) {
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {

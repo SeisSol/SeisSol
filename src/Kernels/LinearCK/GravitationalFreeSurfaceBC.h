@@ -67,7 +67,7 @@ class GravitationalFreeSurfaceBc {
     // and substituting the previous coefficient eta_t
     // This implementation sums up the Taylor series directly without storing
     // all coefficients.
-    if constexpr (multisim::MultisimEnabled) {
+    if constexpr (multisim::MultisimEnabled<Cfg>) {
       logError()
           << "The Free Surface Gravity BC kernel does not work with multiple simulations yet.";
     } else {

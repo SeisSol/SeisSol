@@ -49,7 +49,7 @@ std::size_t Plasticity<Cfg>::computePlasticity(
     const seissol::model::PlasticityData<Real<Cfg>>* plasticityData,
     real degreesOfFreedom[tensor::Q<Cfg>::size()],
     real* pstrain) {
-  if constexpr (multisim::MultisimEnabled) {
+  if constexpr (multisim::MultisimEnabled<Cfg>) {
     // TODO: really still the case?
     logError() << "Plasticity does not work with multiple simulations";
   }
@@ -212,25 +212,26 @@ std::size_t Plasticity<Cfg>::computePlasticity(
     m2nEtaKrnl.execute();
 
     auto qStressNodalView = init::QStressNodal<Cfg>::view::create(qStressNodal);
-    const auto numNodes = qStressNodalView.shape(multisim::BasisFunctionDimension);
-    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
+    const auto numNodes = qStressNodalView.shape(multisim::BasisDim<Cfg>);
+    for (std::size_t s = 0; s < multisim::NumSimulations<Cfg>; ++s) {
       for (std::size_t i = 0; i < numNodes; ++i) {
         // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
         // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
-        qEtaNodal[i * multisim::NumSimulations + s] =
-            std::max(static_cast<real>(0.0), qEtaNodal[i * multisim::NumSimulations + s]) +
-            timeStepWidth * sqrt(0.5 * (multisim::multisimWrap(qStressNodalView, s, i, 0) *
-                                            multisim::multisimWrap(qStressNodalView, s, i, 0) +
-                                        multisim::multisimWrap(qStressNodalView, s, i, 1) *
-                                            multisim::multisimWrap(qStressNodalView, s, i, 1) +
-                                        multisim::multisimWrap(qStressNodalView, s, i, 2) *
-                                            multisim::multisimWrap(qStressNodalView, s, i, 2) +
-                                        multisim::multisimWrap(qStressNodalView, s, i, 3) *
-                                            multisim::multisimWrap(qStressNodalView, s, i, 3) +
-                                        multisim::multisimWrap(qStressNodalView, s, i, 4) *
-                                            multisim::multisimWrap(qStressNodalView, s, i, 4) +
-                                        multisim::multisimWrap(qStressNodalView, s, i, 5) *
-                                            multisim::multisimWrap(qStressNodalView, s, i, 5)));
+        qEtaNodal[i * multisim::NumSimulations<Cfg> + s] =
+            std::max(static_cast<real>(0.0), qEtaNodal[i * multisim::NumSimulations<Cfg> + s]) +
+            timeStepWidth *
+                sqrt(0.5 * (multisim::multisimWrap<Cfg>(qStressNodalView, s, i, 0) *
+                                multisim::multisimWrap<Cfg>(qStressNodalView, s, i, 0) +
+                            multisim::multisimWrap<Cfg>(qStressNodalView, s, i, 1) *
+                                multisim::multisimWrap<Cfg>(qStressNodalView, s, i, 1) +
+                            multisim::multisimWrap<Cfg>(qStressNodalView, s, i, 2) *
+                                multisim::multisimWrap<Cfg>(qStressNodalView, s, i, 2) +
+                            multisim::multisimWrap<Cfg>(qStressNodalView, s, i, 3) *
+                                multisim::multisimWrap<Cfg>(qStressNodalView, s, i, 3) +
+                            multisim::multisimWrap<Cfg>(qStressNodalView, s, i, 4) *
+                                multisim::multisimWrap<Cfg>(qStressNodalView, s, i, 4) +
+                            multisim::multisimWrap<Cfg>(qStressNodalView, s, i, 5) *
+                                multisim::multisimWrap<Cfg>(qStressNodalView, s, i, 5)));
       }
     }
 
@@ -261,7 +262,7 @@ void Plasticity<Cfg>::computePlasticityBatched(
 #ifdef ACL_DEVICE
   static_assert(tensor::Q<Cfg>::Shape[0] == tensor::QStressNodal<Cfg>::Shape[0],
                 "modal and nodal dofs must have the same leading dimensions");
-  static_assert(tensor::Q<Cfg>::Shape[multisim::BasisFunctionDimension] == tensor::v<Cfg>::Shape[0],
+  static_assert(tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg>] == tensor::v<Cfg>::Shape[0],
                 "modal dofs and vandermonde matrix must hage the same leading dimensions");
 
   DeviceInstance& device = DeviceInstance::getInstance();

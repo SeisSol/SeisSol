@@ -66,12 +66,11 @@ class FrictionSolverImpl : public FrictionSolver {
 
   explicit FrictionSolverImpl(seissol::initializer::parameters::DRParameters* userDRParameters)
       : drParameters(userDRParameters) {
-    std::copy(
-        &init::quadweights<
-            Cfg>::Values[init::quadweights<Cfg>::Start[seissol::multisim::BasisFunctionDimension]],
-        &init::quadweights<
-            Cfg>::Values[init::quadweights<Cfg>::Stop[seissol::multisim::BasisFunctionDimension]],
-        &spaceWeights[0]);
+    std::copy(&init::quadweights<
+                  Cfg>::Values[init::quadweights<Cfg>::Start[seissol::multisim::BasisDim<Cfg>]],
+              &init::quadweights<
+                  Cfg>::Values[init::quadweights<Cfg>::Stop[seissol::multisim::BasisDim<Cfg>]],
+              &spaceWeights[0]);
   }
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) override;

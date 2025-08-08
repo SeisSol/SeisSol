@@ -271,8 +271,7 @@ struct CellDRMapping {
 template <typename Cfg>
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  Real<Cfg>
-      nodes[seissol::nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension] * 3]{};
+  Real<Cfg> nodes[seissol::nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>] * 3]{};
   Real<Cfg> dataT[seissol::tensor::T<Cfg>::size()]{};
   Real<Cfg> dataTinv[seissol::tensor::Tinv<Cfg>::size()]{};
   Real<Cfg> easiBoundaryConstant[seissol::tensor::easiBoundaryConstant<Cfg>::size()]{};

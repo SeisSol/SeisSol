@@ -221,7 +221,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
         // NOTE: velocity components are between 6th and 8th columns
         constexpr unsigned FirstVelocityComponent{6};
         iVelocitiesPtrs[face].push_back(
-            &multisim::multisimWrap(iview, 0, 0, FirstVelocityComponent));
+            &multisim::multisimWrap<Cfg>(iview, 0, 0, FirstVelocityComponent));
         displacementsPtrs[face].push_back(faceDisplacements[cell][face]);
       }
     }
@@ -326,7 +326,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
                                             counter[face] * tensor::INodal<Cfg>::size());
           prevCoefficientsPtrs[face].push_back(
               prevCoefficientsScratch +
-              counter[face] * nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension]);
+              counter[face] * nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>]);
           invImpedances[face].push_back(0);
 
           ++counter[face];

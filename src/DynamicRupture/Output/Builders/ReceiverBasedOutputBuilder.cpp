@@ -426,9 +426,13 @@ void ReceiverBasedOutputBuilder::assignFaultTags() {
 void ReceiverBasedOutputBuilder::assignFusedIndices() {
   auto& geoPoints = outputData->receiverPoints;
   for (auto& geoPoint : geoPoints) {
-    geoPoint.gpIndex = multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
-    geoPoint.internalGpIndexFused =
-        multisim::NumSimulations * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
+    const auto& element = meshReader->getElements().at(geoPoint.elementIndex);
+    std::size_t simcount = 1;
+    std::visit([&](auto cfg) { simcount = decltype(cfg)::NumSimulations; },
+               ConfigVariantList[element.configId]);
+
+    geoPoint.gpIndex = simcount * geoPoint.nearestGpIndex + geoPoint.simIndex;
+    geoPoint.internalGpIndexFused = simcount * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
   }
 }
 

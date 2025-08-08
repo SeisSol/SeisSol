@@ -94,8 +94,7 @@ struct ApplyAnalyticalSolution {
                   typename seissol::init::INodal<Cfg>::view::type& boundaryDofs) {
     assert(initConditions != nullptr);
 
-    constexpr auto NodeCount =
-        seissol::tensor::INodal<Cfg>::Shape[multisim::BasisFunctionDimension];
+    constexpr auto NodeCount = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg>];
     alignas(Alignment) std::array<double, 3> nodesVec[NodeCount];
 
 #pragma omp simd
@@ -105,8 +104,8 @@ struct ApplyAnalyticalSolution {
       nodesVec[i][2] = nodes[i * 3 + 2];
     }
 
-    for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-      auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
+    for (std::size_t s = 0; s < multisim::NumSimulations<Cfg>; ++s) {
+      auto slicedBoundaryDofs = multisim::simtensor<Cfg>(boundaryDofs, s);
       initConditions->at(s % initConditions->size())
           ->evaluate(time,
                      nodesVec,
@@ -177,12 +176,11 @@ void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<C
       const auto localG = this->gravitationalAcceleration;
       auto applyFreeSurfaceBc = [&](const real*, // nodes are unused
                                     typename init::INodal<Cfg>::view::type& boundaryDofs) {
-        for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
-          auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
-          auto slicedDisplacement = multisim::simtensor(displacement, s);
+        for (std::size_t s = 0; s < multisim::NumSimulations<Cfg>; ++s) {
+          auto slicedBoundaryDofs = multisim::simtensor<Cfg>(boundaryDofs, s);
+          auto slicedDisplacement = multisim::simtensor<Cfg>(displacement, s);
 
-          for (unsigned int i = 0;
-               i < nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisFunctionDimension];
+          for (unsigned int i = 0; i < nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>];
                ++i) {
             const double rho = materialData->local->getDensity();
             assert(localG > 0);

@@ -55,7 +55,7 @@ __launch_bounds__(PaddedMultiple* seissol::dr::misc::NumPaddedPoints<Cfg>) __glo
   // ctx.item = nullptr;
 
   ctx.ltsFace = blockIdx.x * PaddedMultiple + threadIdx.z;
-  ctx.pointIndex = threadIdx.x + threadIdx.y * multisim::NumSimulations;
+  ctx.pointIndex = threadIdx.x + threadIdx.y * multisim::NumSimulations<Cfg>;
 
   if (ctx.ltsFace < elements) {
     seissol::dr::friction_law::gpu::BaseFrictionSolver<T>::evaluatePoint(ctx);
@@ -77,7 +77,7 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   using StreamT = hipStream_t;
 #endif
   auto stream = reinterpret_cast<StreamT>(runtime.stream());
-  dim3 block(multisim::NumSimulations, misc::NumPaddedPointsSingleSim<Cfg>, PaddedMultiple);
+  dim3 block(multisim::NumSimulations<Cfg>, misc::NumPaddedPointsSingleSim<Cfg>, PaddedMultiple);
   dim3 grid((this->currLayerSize + PaddedMultiple - 1) / PaddedMultiple);
 
   FrictionLawArgs args{};

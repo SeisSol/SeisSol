@@ -199,15 +199,16 @@ double ReceiverClusterImpl<Cfg>::calcReceivers(double time,
 
             // note: necessary receiver space is reserved in advance
             receiver.output.push_back(receiverTime);
-            for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+            for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations<Cfg>; ++sim) {
               for (auto quantity : m_quantities) {
-                if (!std::isfinite(seissol::multisim::multisimWrap(qAtPoint, sim, quantity))) {
+                if (!std::isfinite(seissol::multisim::multisimWrap<Cfg>(qAtPoint, sim, quantity))) {
                   logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0]
                              << "," << receiver.position[1] << "," << receiver.position[2]
                              << " in simulation" << sim << "."
                              << "Aborting.";
                 }
-                receiver.output.push_back(seissol::multisim::multisimWrap(qAtPoint, sim, quantity));
+                receiver.output.push_back(
+                    seissol::multisim::multisimWrap<Cfg>(qAtPoint, sim, quantity));
               }
               for (const auto& derived : derivedQuantities) {
                 derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
@@ -260,7 +261,7 @@ size_t ReceiverClusterImpl<Cfg>::ncols() const {
   for (const auto& derived : derivedQuantities) {
     ncols += derived->quantities().size();
   }
-  ncols *= seissol::multisim::NumSimulations;
+  ncols *= seissol::multisim::NumSimulations<Cfg>;
   return 1 + ncols;
 }
 
@@ -275,10 +276,10 @@ std::vector<std::string> ReceiverClusterImpl<Cfg>::header() const {
     names.insert(names.end(), derivedNames.begin(), derivedNames.end());
   }
 
-  if constexpr (seissol::multisim::MultisimEnabled) {
+  if constexpr (seissol::multisim::MultisimEnabled<Cfg>) {
     std::vector<std::string> fusedNames;
-    fusedNames.reserve(seissol::multisim::NumSimulations * names.size());
-    for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
+    fusedNames.reserve(seissol::multisim::NumSimulations<Cfg> * names.size());
+    for (std::size_t sim = 0; sim < multisim::NumSimulations<Cfg>; ++sim) {
       for (const auto& name : names) {
         fusedNames.emplace_back(name + std::to_string(sim));
       }

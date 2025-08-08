@@ -274,6 +274,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         const auto neighbor = backmap.get(boundaryElement.localElement);
         const auto& elementNeighbor = meshReader.getElements()[boundaryElement.localElement];
 
+        // TODO: remove?
+        secondaryCellInformation[index].meshId = delinear.second;
+
         secondaryCellInformation[index].globalId =
             meshReader.getGhostlayerMetadata().at(delinear.first)[delinear.second].globalId;
         secondaryCellInformation[index].faceNeighbors[boundaryElement.localSide] = neighbor;

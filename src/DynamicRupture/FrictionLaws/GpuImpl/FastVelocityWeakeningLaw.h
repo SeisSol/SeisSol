@@ -95,14 +95,14 @@ class FastVelocityWeakeningLaw
     ctx.sharedMemory[ctx.pointIndex] = ctx.stateVariableBuffer - localStateVariable;
     deviceBarrier(ctx);
 
-    const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
-    const auto simId = ctx.pointIndex % multisim::NumSimulations;
+    const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations<Cfg>;
+    const auto simId = ctx.pointIndex % multisim::NumSimulations<Cfg>;
 
     real resampledDeltaStateVar{0.0};
     for (size_t i{0}; i < Dim1; ++i) {
-      if constexpr (multisim::MultisimEnabled) {
+      if constexpr (multisim::MultisimEnabled<Cfg>) {
         resampledDeltaStateVar += ctx.args->resampleMatrix[simPointIndex * Dim1 + i] *
-                                  ctx.sharedMemory[i * multisim::NumSimulations + simId];
+                                  ctx.sharedMemory[i * multisim::NumSimulations<Cfg> + simId];
       } else {
         resampledDeltaStateVar +=
             ctx.args->resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
