@@ -142,82 +142,81 @@ double ReceiverClusterImpl<Cfg>::calcReceivers(double time,
 
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     const std::size_t recvCount = this->m_receivers.size();
-    const auto receiverHandler = [this, timeBasis, timeStepWidth, time, expansionPoint, executor](
-                                     std::size_t i) {
-      alignas(Alignment) real timeEvaluated[tensor::Q<Cfg>::size()];
-      alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint<Cfg>::size()];
-      alignas(Alignment)
-          real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint<Cfg>::size()];
-      alignas(PagesizeStack) real timeDerivatives[Solver<Cfg>::template DerivativesSize<Cfg>];
+    const auto receiverHandler =
+        [this, timeBasis, timeStepWidth, time, expansionPoint, executor](std::size_t i) {
+          alignas(Alignment) real timeEvaluated[tensor::Q<Cfg>::size()];
+          alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint<Cfg>::size()];
+          alignas(Alignment)
+              real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint<Cfg>::size()];
+          alignas(PagesizeStack) real timeDerivatives[Solver<Cfg>::template DerivativesSize<Cfg>];
 
-      kernels::LocalTmp<Cfg> tmp(seissolInstance.getGravitationSetup().acceleration);
+          kernels::LocalTmp<Cfg> tmp(seissolInstance.getGravitationSetup().acceleration);
 
-      kernel::evaluateDOFSAtPoint<Cfg> krnl;
-      krnl.QAtPoint = timeEvaluatedAtPoint;
-      krnl.Q = timeEvaluated;
-      kernel::evaluateDerivativeDOFSAtPoint<Cfg> derivativeKrnl;
-      derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
-      derivativeKrnl.Q = timeEvaluated;
+          kernel::evaluateDOFSAtPoint<Cfg> krnl;
+          krnl.QAtPoint = timeEvaluatedAtPoint;
+          krnl.Q = timeEvaluated;
+          kernel::evaluateDerivativeDOFSAtPoint<Cfg> derivativeKrnl;
+          derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
+          derivativeKrnl.Q = timeEvaluated;
 
-      auto qAtPoint = init::QAtPoint<Cfg>::view::create(timeEvaluatedAtPoint);
-      auto qDerivativeAtPoint =
-          init::QDerivativeAtPoint<Cfg>::view::create(timeEvaluatedDerivativesAtPoint);
+          auto qAtPoint = init::QAtPoint<Cfg>::view::create(timeEvaluatedAtPoint);
+          auto qDerivativeAtPoint =
+              init::QDerivativeAtPoint<Cfg>::view::create(timeEvaluatedDerivativesAtPoint);
 
-      auto& receiver = m_receivers[i];
-      krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
-      derivativeKrnl.basisFunctionDerivativesAtPoint =
-          receiver.basisFunctionDerivatives.m_data.data();
+          auto& receiver = m_receivers[i];
+          krnl.basisFunctionsAtPoint = receiver.basisFunctions.m_data.data();
+          derivativeKrnl.basisFunctionDerivativesAtPoint =
+              receiver.basisFunctionDerivatives.m_data.data();
 
-      // Copy DOFs from device to host.
-      auto tmpReceiverData{receiver.dataHost};
+          // Copy DOFs from device to host.
+          auto tmpReceiverData{receiver.dataHost};
 
-      if (executor == Executor::Device) {
-        tmpReceiverData.template setPointer<LTS::Dofs>(
-            reinterpret_cast<decltype(tmpReceiverData.template getPointer<LTS::Dofs>())>(
-                deviceCollector->get(deviceIndices[i])));
-      }
+          if (executor == Executor::Device) {
+            tmpReceiverData.template setPointer<LTS::Dofs>(
+                reinterpret_cast<decltype(tmpReceiverData.template getPointer<LTS::Dofs>())>(
+                    deviceCollector->get(deviceIndices[i])));
+          }
 
-      const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
-      spacetimeKernel.computeAder(integrationCoeffs.data(),
-                                  timeStepWidth,
-                                  tmpReceiverData,
-                                  tmp,
-                                  timeEvaluated, // useless but the interface requires it
-                                  timeDerivatives);
+          const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
+          spacetimeKernel.computeAder(integrationCoeffs.data(),
+                                      timeStepWidth,
+                                      tmpReceiverData,
+                                      tmp,
+                                      timeEvaluated, // useless but the interface requires it
+                                      timeDerivatives);
 
-      seissolInstance.flopCounter().incrementNonZeroFlopsOther(m_nonZeroFlops);
-      seissolInstance.flopCounter().incrementHardwareFlopsOther(m_hardwareFlops);
+          seissolInstance.flopCounter().incrementNonZeroFlopsOther(m_nonZeroFlops);
+          seissolInstance.flopCounter().incrementHardwareFlopsOther(m_hardwareFlops);
 
-      double receiverTime = time;
-      while (receiverTime < expansionPoint + timeStepWidth) {
-        const auto coeffs = timeBasis.point(time - expansionPoint, timeStepWidth);
+          double receiverTime = time;
+          while (receiverTime < expansionPoint + timeStepWidth) {
+            const auto coeffs = timeBasis.point(time - expansionPoint, timeStepWidth);
 
-        timeKernel.evaluate(coeffs.data(), timeDerivatives, timeEvaluated);
+            timeKernel.evaluate(coeffs.data(), timeDerivatives, timeEvaluated);
 
-        krnl.execute();
-        derivativeKrnl.execute();
+            krnl.execute();
+            derivativeKrnl.execute();
 
-        // note: necessary receiver space is reserved in advance
-        receiver.output.push_back(receiverTime);
-        for (unsigned sim = seissol::multisim::MultisimStart; sim < seissol::multisim::MultisimEnd;
-             ++sim) {
-          for (auto quantity : m_quantities) {
-            if (!std::isfinite(seissol::multisim::multisimWrap(qAtPoint, sim, quantity))) {
-              logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0] << ","
-                         << receiver.position[1] << "," << receiver.position[2] << " in simulation"
-                         << sim << "."
-                         << "Aborting.";
+            // note: necessary receiver space is reserved in advance
+            receiver.output.push_back(receiverTime);
+            for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
+              for (auto quantity : m_quantities) {
+                if (!std::isfinite(seissol::multisim::multisimWrap(qAtPoint, sim, quantity))) {
+                  logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0]
+                             << "," << receiver.position[1] << "," << receiver.position[2]
+                             << " in simulation" << sim << "."
+                             << "Aborting.";
+                }
+                receiver.output.push_back(seissol::multisim::multisimWrap(qAtPoint, sim, quantity));
+              }
+              for (const auto& derived : derivedQuantities) {
+                derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
+              }
             }
-            receiver.output.push_back(seissol::multisim::multisimWrap(qAtPoint, sim, quantity));
-          }
-          for (const auto& derived : derivedQuantities) {
-            derived->compute(sim, receiver.output, qAtPoint, qDerivativeAtPoint);
-          }
-        }
 
-        receiverTime += m_samplingInterval;
-      }
-    };
+            receiverTime += m_samplingInterval;
+          }
+        };
 
     auto& callRuntime = extraRuntime.has_value() ? extraRuntime.value() : runtime;
     callRuntime.enqueueLoop(recvCount, receiverHandler);
@@ -261,7 +260,7 @@ size_t ReceiverClusterImpl<Cfg>::ncols() const {
   for (const auto& derived : derivedQuantities) {
     ncols += derived->quantities().size();
   }
-  ncols *= seissol::multisim::MultisimEnd - seissol::multisim::MultisimStart;
+  ncols *= seissol::multisim::NumSimulations;
   return 1 + ncols;
 }
 
@@ -279,7 +278,7 @@ std::vector<std::string> ReceiverClusterImpl<Cfg>::header() const {
   if constexpr (seissol::multisim::MultisimEnabled) {
     std::vector<std::string> fusedNames;
     fusedNames.reserve(seissol::multisim::NumSimulations * names.size());
-    for (std::size_t sim = seissol::multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
+    for (std::size_t sim = 0; sim < multisim::NumSimulations; ++sim) {
       for (const auto& name : names) {
         fusedNames.emplace_back(name + std::to_string(sim));
       }

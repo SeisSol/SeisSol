@@ -75,8 +75,6 @@ struct MultisimHelperWrapper {
     return packed<Rank - 1>([&](auto... args) { return tensor.subtensor(sim, args...); },
                             ::yateto::slice<>());
   }
-  constexpr static size_t MultisimStart = init::QAtPoint<Config0>::Start[0];
-  constexpr static size_t MultisimEnd = init::QAtPoint<Config0>::Stop[0];
   constexpr static bool MultisimEnabled = true;
 };
 
@@ -104,8 +102,6 @@ struct MultisimHelperWrapper<1> {
   static auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
     return tensor;
   }
-  constexpr static size_t MultisimStart = 0;
-  constexpr static size_t MultisimEnd = 1;
   constexpr static bool MultisimEnabled = false;
 };
 
@@ -135,8 +131,6 @@ template <unsigned Rank, typename RealT, typename IdxT>
 auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
   return MultisimHelper::simtensor(tensor, sim);
 }
-constexpr size_t MultisimStart = MultisimHelper::MultisimStart;
-constexpr size_t MultisimEnd = MultisimHelper::MultisimEnd;
 constexpr bool MultisimEnabled = MultisimHelper::MultisimEnabled;
 
 } // namespace seissol::multisim
