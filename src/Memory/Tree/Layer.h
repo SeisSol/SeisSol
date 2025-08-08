@@ -543,36 +543,36 @@ private:
     return memoryInfo[index].size;
   }
 
-  void addVariableSizes(std::vector<MemoryInfo>& info, std::vector<std::size_t>& sizes) {
-    for (std::size_t var = 0; var < info.size(); ++var) {
+  void addVariableSizes(std::vector<std::size_t>& sizes) {
+    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
       if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable) {
         sizes[var] += numCells * memoryInfo[var].bytes;
       }
     }
   }
 
-  void addBucketSizes(std::vector<MemoryInfo>& info, std::vector<std::size_t>& sizes) {
-    for (std::size_t var = 0; var < info.size(); ++var) {
+  void addBucketSizes(std::vector<std::size_t>& sizes) {
+    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
       if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Bucket) {
         sizes[var] += memoryInfo[var].size;
       }
     }
   }
 
-  void findMaxScratchpadSizes(std::vector<MemoryInfo>& info, std::vector<std::size_t>& sizes) {
-    for (std::size_t var = 0; var < info.size(); ++var) {
+  void findMaxScratchpadSizes(std::vector<std::size_t>& sizes) {
+    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
       if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Scratchpad) {
         sizes[var] = std::max(sizes[var], memoryInfo[var].size);
       }
     }
   }
 
-  void setMemoryRegionsForVariables(const std::vector<MemoryInfo>& vars,
-                                    const std::vector<DualMemoryContainer>& memory,
+  void setMemoryRegionsForVariables(const std::vector<DualMemoryContainer>& memory,
                                     const std::vector<size_t>& offsets) {
-    for (std::size_t var = 0; var < vars.size(); ++var) {
+    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
       if (!memoryInfo[var].filtered && memoryInfo[var].type == MemoryType::Variable) {
-        memoryContainer[var].offsetFrom(memory[var], offsets[var], numCells * vars[var].bytes);
+        memoryContainer[var].offsetFrom(
+            memory[var], offsets[var], numCells * memoryInfo[var].bytes);
       }
     }
   }
@@ -595,8 +595,8 @@ private:
     }
   }
 
-  void touchVariables(const std::vector<MemoryInfo>& vars) {
-    for (std::size_t var = 0; var < vars.size(); ++var) {
+  void touchVariables() {
+    for (std::size_t var = 0; var < memoryInfo.size(); ++var) {
 
       // NOTE: we don't touch device global memory because it is in a different address space
       // we will do deep-copy from the host to a device later on
@@ -607,8 +607,8 @@ private:
 #endif
         for (std::size_t cell = 0; cell < numCells; ++cell) {
           auto* cellPointer =
-              static_cast<char*>(memoryContainer[var].host) + cell * vars[var].bytes;
-          memset(cellPointer, 0, vars[var].bytes);
+              static_cast<char*>(memoryContainer[var].host) + cell * memoryInfo[var].bytes;
+          memset(cellPointer, 0, memoryInfo[var].bytes);
         }
       }
     }
