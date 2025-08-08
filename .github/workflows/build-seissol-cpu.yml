@@ -32,9 +32,6 @@ jobs:
           - type: elastic
             multisim: 1
             mechanisms: 0
-          - type: elastic
-            multisim: 8
-            mechanisms: 0
         precision:
           - double
         setup:

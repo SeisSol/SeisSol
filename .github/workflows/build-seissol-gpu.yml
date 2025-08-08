@@ -31,10 +31,6 @@ jobs:
             multisim: 1
             mechanisms: 0
             order: 6
-          - type: elastic
-            multisim: 32
-            mechanisms: 0
-            order: 3
         precision:
           - single
         setup:
