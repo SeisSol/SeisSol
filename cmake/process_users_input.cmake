@@ -411,6 +411,13 @@ option(ENABLE_MATERIAL_VISCOELASTIC "" ON) # for now, hard-coded to 3 mechanisms
 option(ENABLE_MATERIAL_POROELASTIC "" ON)
 option(ENABLE_MATERIAL_ACOUSTIC "" ON)
 
+# temporary
+option(ENABLE_MATERIAL_ELASTIC_FUSED "" ON)
+
+# TODO (whoever wants to do it)
+# option(ENABLE_MULTISIM_SINGLE "" ON)
+# option(ENABLE_MULTISIM_FUSED "" ON)
+
 option(ENABLE_PRECISION_F32 "" ON)
 option(ENABLE_PRECISION_F64 "" ON)
 
@@ -454,6 +461,9 @@ if(ENABLE_MATERIAL_POROELASTIC)
 endif()
 if(ENABLE_MATERIAL_ACOUSTIC)
     list(APPEND ENABLED_MATERIAL "acoustic")
+endif()
+if(ENABLE_MATERIAL_ELASTIC_FUSED)
+    list(APPEND ENABLED_MATERIAL "elastic-f8")
 endif()
 
 if (ENABLE_PRECISION_F32)

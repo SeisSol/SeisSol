@@ -158,17 +158,6 @@ def main():
 
     quadrule = cmdLineArgs.drQuadRule[0].upper() + cmdLineArgs.drQuadRule[1:]
 
-    viscomode = "None"
-    if cmdLineArgs.equations == "viscoelastic":
-        viscomode = "QuantityExtension"
-        equations = "Viscoelastic"
-    elif cmdLineArgs.equations == "viscoelastic2":
-        viscomode = "AnelasticTensor"
-        equations = "Viscoelastic"
-    else:
-        viscomode = "None"
-        equations = cmdLineArgs.equations[0].upper() + cmdLineArgs.equations[1:]
-
     quadrule = cmdLineArgs.drQuadRule[0].upper() + cmdLineArgs.drQuadRule[1:]
 
     configs = []
@@ -186,14 +175,22 @@ def main():
                 viscomode = "QuantityExtension"
                 equations = "Viscoelastic"
                 mechanisms = 3
+                simcount = 1
             elif equation == "viscoelastic2":
                 viscomode = "AnelasticTensor"
                 equations = "Viscoelastic"
                 mechanisms = 3
+                simcount = 1
+            elif equation == "elastic-f8":
+                viscomode = "None"
+                equations = "Elastic"
+                mechanisms = 0
+                simcount = 8
             else:
                 viscomode = "None"
                 equations = equation[0].upper() + equation[1:]
                 mechanisms = 0
+                simcount = 1
 
             for i in enabled_order:
                 configs += [
@@ -204,7 +201,7 @@ def main():
                         "precision": p,
                         "viscomode": viscomode,
                         "drquadrule": quadrule,
-                        "numsims": cmdLineArgs.multipleSimulations,
+                        "numsims": simcount,
                         "name": f"Config{counter}",
                     }
                 ]
@@ -216,7 +213,7 @@ def main():
                         "precision": p,
                         "viscomode": viscomode,
                         "drquadrule": cmdLineArgs.drQuadRule,
-                        "numsims": cmdLineArgs.multipleSimulations,
+                        "numsims": simcount,
                         "name": f"Config{counter}",
                     }
                 ]
