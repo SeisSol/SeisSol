@@ -18,6 +18,12 @@ ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp
 ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/init.cpp
 )
 
+target_precompile_headers(seissol-kernel-lib PRIVATE
+${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/kernel.h
+${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/tensor.h
+${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/init.h
+)
+
 add_library(seissol-common-lib
 
 src/Common/ConfigHelper.cpp
@@ -168,6 +174,9 @@ src/Reader/AsagiReader.cpp
 
 src/Geometry/CubeGenerator.cpp
 )
+
+target_precompile_headers(seissol-common-lib REUSE_FROM seissol-kernel-lib)
+target_precompile_headers(seissol-lib REUSE_FROM seissol-kernel-lib)
 
 set(SYCL_ONLY_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/AcceleratorDevice.cpp
