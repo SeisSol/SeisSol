@@ -20,6 +20,9 @@ std::string configToString() {
   std::stringstream str;
   str << seissol::model::MaterialTT<Cfg>::Text << "-p" << Cfg::ConvergenceOrder << "-"
       << stringRealType(Cfg::Precision);
+  if (Cfg::NumSimulations > 1) {
+    str << "-s" << Cfg::NumSimulations;
+  }
   return str.str();
 }
 } // namespace
