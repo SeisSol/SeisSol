@@ -74,6 +74,7 @@ void fakeData(Cfg cfg, LTS::Layer& layer, FaceType faceTp) {
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = sideDist(rng);
       cellInformation[cell].faceRelations[f][1] = orientationDist(rng);
+      cellInformation[cell].neighborConfigIds[f] = ConfigVariant(Cfg()).index();
 
       const auto neighbor = cellDist(rng);
       secondaryInformation[cell].faceNeighbors[f].global = neighbor;
