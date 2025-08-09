@@ -154,11 +154,11 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
   return std::make_pair(nearestPoint, shortestDistance);
 }
 
-void assignNearestGaussianPoints(ReceiverPoints& geoPoints) {
+void assignNearestGaussianPoints(ReceiverPoints& geoPoints, const geometry::MeshReader& mesh) {
   std::unordered_map<std::size_t, TriangleQuadratureData> quadData;
 
   for (auto& geoPoint : geoPoints) {
-    const auto configId = 0;
+    const auto configId = mesh.getElements()[geoPoint.elementIndex].configId;
     if (quadData.find(configId) == quadData.end()) {
       quadData[configId] = generateTriangleQuadrature(ConfigVariantList[configId]);
     }

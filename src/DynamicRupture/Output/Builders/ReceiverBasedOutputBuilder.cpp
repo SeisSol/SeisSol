@@ -105,8 +105,6 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   constexpr size_t NumVertices{4};
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
-      std::size_t configId = 0;
-
       if (faceIndices.find(faceToLtsMap->at(point.faultFaceIndex)) == faceIndices.end()) {
         const auto faceIndex = faceIndices.size();
         faceIndices[faceToLtsMap->at(point.faultFaceIndex)] = faceIndex;
@@ -116,7 +114,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
 
-      configId = element.configId;
+      std::size_t configId = element.configId;
 
       if (elementIndices.find(elementIndex) == elementIndices.end()) {
         const auto index = elementIndices.size();
@@ -280,7 +278,8 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
 
   // init Rotation Matrices
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const auto configId = 0;
+    const auto configId =
+        meshReader->getElements()[outputData->receiverPoints[receiverId].elementIndex].configId;
     std::visit(
         [&](auto cfg) {
           using Cfg = decltype(cfg);
@@ -376,7 +375,8 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     const auto* tangent1 = faultInfo[faultIndex].tangent1;
     const auto* tangent2 = faultInfo[faultIndex].tangent2;
 
-    const auto configId = 0;
+    const auto configId =
+        meshReader->getElements()[outputData->receiverPoints[receiverId].elementIndex].configId;
     std::visit(
         [&](auto cfg) {
           using Cfg = decltype(cfg);
@@ -398,7 +398,7 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
   auto& geoPoints = outputData->receiverPoints;
 
   for (auto& geoPoint : geoPoints) {
-    std::size_t configId = 0;
+    const std::size_t configId = meshReader->getElements()[geoPoint.elementIndex].configId;
     std::visit(
         [&](auto cfg) {
           using Cfg = decltype(cfg);

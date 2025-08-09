@@ -28,6 +28,7 @@
 #include <cassert>
 #include <cstddef>
 #include <map>
+#include <mpi.h>
 #include <numeric>
 #include <unordered_map>
 #include <utility>
@@ -108,7 +109,24 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
 
-  std::vector<ConfigVariant> configVariants{ConfigVariantList[0]};
+  std::vector<uint8_t> configUsed(ConfigVariantList.size());
+  for (const auto& element : meshReader.getElements()) {
+    configUsed[element.configId] = 1;
+  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                configUsed.data(),
+                configUsed.size(),
+                MPI_UINT8_T,
+                MPI_MAX,
+                seissol::MPI::mpi.comm());
+
+  std::vector<ConfigVariant> configVariants;
+  for (std::size_t i = 0; i < configUsed.size(); ++i) {
+    if (configUsed[i] != 0) {
+      configVariants.push_back(ConfigVariantList[i]);
+      seissolInstance.getMemoryManager().getGlobalData().init(i);
+    }
+  }
 
   const LTSColorMap colorMap(
       initializer::EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),

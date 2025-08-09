@@ -40,7 +40,7 @@ struct TriangleQuadratureData {
 
 TriangleQuadratureData generateTriangleQuadrature(ConfigVariant variant);
 
-void assignNearestGaussianPoints(ReceiverPoints& geoPoints);
+void assignNearestGaussianPoints(ReceiverPoints& geoPoints, const geometry::MeshReader& mesh);
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
 

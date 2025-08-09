@@ -42,7 +42,6 @@ namespace seissol::initializer {
 
 void MemoryManager::initialize() {
   // initialize global matrices
-  global.init(0);
 }
 
 void MemoryManager::fixateLtsStorage() {
