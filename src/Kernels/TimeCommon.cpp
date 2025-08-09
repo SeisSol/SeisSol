@@ -18,6 +18,7 @@
 #include <Kernels/Precision.h>
 #include <Kernels/Solver.h>
 #include <Parallel/Runtime/Stream.h>
+#include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -80,7 +81,14 @@ void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
               [&](auto cfg) {
                 using CfgNeighbor = decltype(cfg);
 
-                if constexpr (tensor::I<Cfg>::size() != tensor::I<CfgNeighbor>::size()) {
+                if constexpr (!(tensor::I<Cfg>::Shape[multisim::BasisDim<Cfg>] ==
+                                    tensor::I<
+                                        CfgNeighbor>::Shape[multisim::BasisDim<CfgNeighbor>] &&
+                                tensor::I<Cfg>::Shape[multisim::BasisDim<Cfg> + 1] ==
+                                    tensor::I<CfgNeighbor>::Shape[multisim::BasisDim<CfgNeighbor> +
+                                                                  1] &&
+                                multisim::NumSimulations<Cfg> ==
+                                    multisim::NumSimulations<CfgNeighbor>)) {
                   logError() << "Fatal error: wanted to compare differently-sized buffers.";
                 }
 
@@ -91,11 +99,19 @@ void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
                   // same precision; just assign the pointer
                   timeIntegrated[dofneighbor] = neighborPtr;
                 } else {
-              // convert precision
+                  // convert precision
 
-#pragma omp simd
-                  for (std::size_t i = 0; i < tensor::I<Cfg>::size(); ++i) {
-                    integrationBuffer[dofneighbor][i] = static_cast<real>(neighborPtr[i]);
+                  auto ownView = init::I<Cfg>::view::create(integrationBuffer[dofneighbor]);
+                  auto neighborView = init::I<CfgNeighbor>::view::create(neighborPtr);
+
+#pragma omp simd collapse(3)
+                  for (std::size_t i = 0; i < multisim::NumSimulations<Cfg>; ++i) {
+                    for (std::size_t j = 0; j < ownView.shape(multisim::BasisDim<Cfg>); ++j) {
+                      for (std::size_t k = 0; k < ownView.shape(multisim::BasisDim<Cfg> + 1); ++k) {
+                        multisim::multisimWrap<Cfg>(ownView, i, j, k) = static_cast<real>(
+                            multisim::multisimWrap<CfgNeighbor>(neighborView, i, j, k));
+                      }
+                    }
                   }
                   timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
                 }
