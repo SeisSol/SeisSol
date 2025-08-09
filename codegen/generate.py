@@ -184,6 +184,7 @@ def main():
             elif equation == "elastic-f8":
                 viscomode = "None"
                 equations = "Elastic"
+                equation = "elastic"
                 mechanisms = 0
                 simcount = 8
             else:
