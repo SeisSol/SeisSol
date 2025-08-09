@@ -110,10 +110,9 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
   const auto& elements = meshReader.getElements();
 
-  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost)) {
+  for (auto& layer : memoryManager.getLtsStorage().leaves()) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-    auto* materialDataArray = layer.var<LTS::MaterialData>();
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
 #ifdef _OPENMP
