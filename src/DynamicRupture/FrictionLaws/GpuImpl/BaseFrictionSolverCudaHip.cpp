@@ -95,7 +95,7 @@ void BaseFrictionSolver<T>::evaluateKernel(seissol::parallel::runtime::StreamRun
   flkernelwrapper<T><<<grid, block, 0, stream>>>(this->currLayerSize, args);
 }
 
-#define _H_(cfg)                                                                                   \
+#define SEISSOL_CONFIGITER(cfg)                                                                    \
   template class BaseFrictionSolver<cfg, NoFault<cfg>>;                                            \
   template class BaseFrictionSolver<                                                               \
       cfg,                                                                                         \

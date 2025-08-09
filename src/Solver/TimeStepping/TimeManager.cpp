@@ -38,6 +38,7 @@
 #include <memory>
 #include <mpi.h>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #ifdef ACL_DEVICE

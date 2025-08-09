@@ -11,6 +11,8 @@
 #include <Equations/Datastructures.h>
 #include <array>
 #include <sstream>
+#include <string>
+#include <variant>
 
 namespace {
 template <typename Cfg>
@@ -25,12 +27,12 @@ std::string configToString() {
 namespace seissol {
 
 const std::array<ConfigVariant, std::variant_size_v<ConfigVariant>> ConfigVariantList{
-#define _H_(cfg) cfg(),
+#define SEISSOL_CONFIGITER(cfg) cfg(),
 #include "ConfigInclude.h"
 };
 
 const std::array<std::string, std::variant_size_v<ConfigVariant>> ConfigString{
-#define _H_(cfg) configToString<cfg>(),
+#define SEISSOL_CONFIGITER(cfg) configToString<cfg>(),
 #include "ConfigInclude.h"
 };
 

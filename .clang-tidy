@@ -340,6 +340,8 @@ CheckOptions:
 #    value:           CamelCase
 #  - key:             readability-identifier-naming.TypeAliasSuffix
 #    value:           CamelCase
+  - key:             readability-identifier-naming.TypeAliasIgnoredRegexp
+    value:           "^real$" # allow "real" as short hard
   - key:             readability-identifier-naming.TypedefCase
     value:           CamelCase
 #  - key:             readability-identifier-naming.TypedefPrefix

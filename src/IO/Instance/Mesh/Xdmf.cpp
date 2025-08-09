@@ -24,6 +24,7 @@
 #include <sstream>
 #include <string>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 #include <vector>
 
 namespace {

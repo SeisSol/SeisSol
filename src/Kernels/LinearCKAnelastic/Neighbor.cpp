@@ -9,10 +9,22 @@
 
 #include "NeighborBase.h"
 
+#include <Alignment.h>
+#include <Common/Constants.h>
+#include <DataTypes/ConditionalTable.h>
+#include <GeneratedCode/metagen/kernel.h>
+#include <GeneratedCode/metagen/tensor.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/Typedefs.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Parallel/Runtime/Stream.h>
+#include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <stdint.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
@@ -79,7 +91,7 @@ template <typename Cfg>
 void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
                                              const CellDRMapping<Cfg> (&cellDrMapping)[4],
                                              real* timeIntegrated[4],
-                                             real* faceNeighbors_prefetch[4]) {
+                                             real* faceNeighborsPrefetch[4]) {
 #ifndef NDEBUG
   for (std::size_t neighbor = 0; neighbor < Cell::NumFaces; ++neighbor) {
     // alignment of the time integrated dofs
@@ -94,10 +106,10 @@ void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
   // alignment of the degrees of freedom
   assert((reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>())) % Alignment == 0);
 
-  alignas(PagesizeStack) real Qext[tensor::Qext<Cfg>::size()] = {};
+  alignas(PagesizeStack) real qext[tensor::Qext<Cfg>::size()] = {};
 
   kernel::neighborFluxExt<Cfg> nfKrnl = m_nfKrnlPrototype;
-  nfKrnl.Qext = Qext;
+  nfKrnl.Qext = qext;
 
   // iterate over faces
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
@@ -112,7 +124,7 @@ void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
 
         nfKrnl.I = timeIntegrated[face];
         nfKrnl.AminusT = data.template get<LTS::NeighboringIntegration>().nAmNm1[face];
-        nfKrnl._prefetch.I = faceNeighbors_prefetch[face];
+        nfKrnl._prefetch.I = faceNeighborsPrefetch[face];
         nfKrnl.execute(data.template get<LTS::CellInformation>().faceRelations[face][1],
                        data.template get<LTS::CellInformation>().faceRelations[face][0],
                        face);
@@ -124,14 +136,14 @@ void Neighbor<Cfg>::computeNeighborsIntegral(LTS::Ref<Cfg>& data,
       dynamicRupture::kernel::nodalFlux<Cfg> drKrnl = m_drKrnlPrototype;
       drKrnl.fluxSolver = cellDrMapping[face].fluxSolver;
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
-      drKrnl.Qext = Qext;
-      drKrnl._prefetch.I = faceNeighbors_prefetch[face];
+      drKrnl.Qext = qext;
+      drKrnl._prefetch.I = faceNeighborsPrefetch[face];
       drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
     }
   }
 
   kernel::neighbor<Cfg> nKrnl = m_nKrnlPrototype;
-  nKrnl.Qext = Qext;
+  nKrnl.Qext = qext;
   nKrnl.Q = data.template get<LTS::Dofs>();
   nKrnl.Qane = data.template get<LTS::DofsAne>();
   nKrnl.w = data.template get<LTS::NeighboringIntegration>().specific.w;
@@ -293,7 +305,7 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
 #endif
 }
 
-#define _H_(cfg) template class Neighbor<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Neighbor<cfg>;
 #include "ConfigIncludeLinearCKAne.h"
 
 } // namespace seissol::kernels::solver::linearckanelastic

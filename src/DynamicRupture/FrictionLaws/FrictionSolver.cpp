@@ -7,8 +7,6 @@
 
 #include "FrictionSolver.h"
 
-#include "Common/Constants.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include <cstddef>
@@ -70,7 +68,7 @@ seissol::initializer::AllocationPlace FrictionSolverImpl<Cfg>::allocationPlace()
   return seissol::initializer::AllocationPlace::Host;
 }
 
-#define _H_(cfg) template class FrictionSolverImpl<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class FrictionSolverImpl<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::dr::friction_law

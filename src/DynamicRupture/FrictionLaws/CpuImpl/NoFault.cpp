@@ -9,7 +9,6 @@
 #include "Common/Executor.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
-#include "Kernels/Precision.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -31,7 +30,7 @@ void NoFault<Cfg>::updateFrictionAndSlip(
   }
 }
 
-#define _H_(cfg) template class NoFault<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class NoFault<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::dr::friction_law::cpu

@@ -26,7 +26,7 @@ class Neighbor : public NeighborKernel<Cfg> {
   void computeNeighborsIntegral(LTS::Ref<Cfg>& data,
                                 const CellDRMapping<Cfg> (&cellDrMapping)[4],
                                 real* timeIntegrated[4],
-                                real* faceNeighborsPrefetch[4]) override;
+                                real* faceNeighbors_prefetch[4]) override;
 
   void computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& table,
                                        seissol::parallel::runtime::StreamRuntime& runtime) override;

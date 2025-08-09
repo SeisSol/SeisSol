@@ -94,7 +94,7 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
     static_cast<Derived*>(this)->resampleStateVar(stateVariableBuffer, ltsFace);
   }
 
-  void copyStorageToLocal(DynamicRupture::Layer& layerData) {
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) override {
     a = layerData.var<LTSRateAndState::RsA>(Cfg());
     sl0 = layerData.var<LTSRateAndState::RsSl0>(Cfg());
     stateVariable = layerData.var<LTSRateAndState::StateVariable>(Cfg());

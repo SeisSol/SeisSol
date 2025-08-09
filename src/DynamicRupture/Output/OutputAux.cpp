@@ -6,7 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "OutputAux.h"
-#include "Common/Constants.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "Geometry.h"
@@ -17,16 +16,20 @@
 #include "Numerical/Transformation.h"
 #include <Common/ConfigHelper.h>
 #include <Common/Iterator.h>
+#include <Config.h>
 #include <Eigen/Dense>
 #include <GeneratedCode/init.h>
+#include <Geometry/MeshReader.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
+#include <variant>
 #include <vector>
 
 namespace {

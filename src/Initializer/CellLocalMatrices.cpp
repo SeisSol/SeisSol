@@ -20,7 +20,6 @@
 #include "Numerical/Transformation.h"
 #include "Parameters/ModelParameters.h"
 #include <Common/Constants.h>
-#include <DynamicRupture/Typedefs.h>
 #include <Equations/Datastructures.h> // IWYU pragma: keep
 #include <GeneratedCode/init.h>
 #include <Geometry/MeshDefinition.h>

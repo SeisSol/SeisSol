@@ -46,7 +46,7 @@ void touchBuffersDerivatives(Real<Cfg>** buffers, Real<Cfg>** derivatives, unsig
   }
 }
 
-#define _H_(cfg)                                                                                   \
+#define SEISSOL_CONFIGITER(cfg)                                                                    \
   template void touchBuffersDerivatives<cfg>(                                                      \
       Real<cfg> * *buffers, Real<cfg> * *derivatives, unsigned numberOfCells);
 #include "ConfigInclude.h"

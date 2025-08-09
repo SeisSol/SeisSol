@@ -7,8 +7,6 @@
 
 #include "DRParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>
-#include <Kernels/Precision.h>
-#include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -16,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 

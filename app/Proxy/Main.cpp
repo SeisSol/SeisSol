@@ -13,6 +13,7 @@
 #include <Common/ConfigHelper.h>
 #include <Common/Executor.h>
 #include <Kernels/Common.h>
+#include <cstddef>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>

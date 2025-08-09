@@ -12,18 +12,26 @@
 #include <Common/Constants.h>
 #include <DynamicRupture/Factory.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Memory/Tree/Colormap.h>
-#include <Solver/MultipleSimulations.h>
+#include <Initializer/CellLocalInformation.h>
+#include <Initializer/ParameterDB.h>
+#include <Initializer/Parameters/DRParameters.h>
+#include <Initializer/Typedefs.h>
+#include <Memory/Descriptor/Boundary.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Memory/Descriptor/Surface.h>
 
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Kernels/Common.h"
-#include "Memory/GlobalData.h"
-#include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "MemoryManager.h"
 #include "SeisSol.h"
 #include <array>
 #include <cstddef>
+#include <limits>
+#include <memory>
+#include <optional>
+#include <utility>
+#include <utils/logger.h>
+#include <variant>
 #include <yateto.h>
 
 #include <DynamicRupture/Misc.h>

@@ -16,9 +16,7 @@
 #include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <array>
 #include <cassert>
@@ -239,10 +237,10 @@ std::uint64_t Neighbor<Cfg>::bytesNeighborsIntegral() {
   return reals * sizeof(real);
 }
 
-#define _H_(cfg) template class Neighbor<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Neighbor<cfg>;
 #include "ConfigIncludeLinearCK.h"
 
-#define _H_(cfg) template class Neighbor<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Neighbor<cfg>;
 #include "ConfigIncludeSTP.h"
 
 } // namespace seissol::kernels::solver::linearck

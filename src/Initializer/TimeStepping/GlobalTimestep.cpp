@@ -8,13 +8,13 @@
 #include "GlobalTimestep.h"
 
 #include <Common/ConfigHelper.h>
-#include <Common/Constants.h>
 #include <Eigen/Dense>
-#include <Initializer/Parameters/ModelParameters.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <mpi.h>
+#include <variant>
 #include <vector>
 
 #include "Equations/Datastructures.h"

@@ -10,6 +10,7 @@
 #include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <Common/Iterator.h>
+#include <Config.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalMatrices.h>
@@ -24,9 +25,11 @@
 #include <Memory/Tree/Colormap.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Parallel/MPI.h>
+#include <Physics/InstantaneousTimeMirrorManager.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <mpi.h>
 #include <numeric>

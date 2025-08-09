@@ -6,7 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Equations/Datastructures.h"
-#include "Initializer/CellLocalMatrices.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
@@ -15,13 +14,13 @@
 #include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <Common/Real.h>
-#include <Common/Templating.h>
 #include <Config.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/MemoryManager.h>
 #include <Initializer/Parameters/ModelParameters.h>
 #include <Initializer/TimeStepping/ClusterLayout.h>
 #include <Kernels/Common.h>
+#include <Kernels/Precision.h>
 #include <Memory/Tree/Colormap.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
@@ -35,7 +34,6 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <memory>
 #include <string>
 #include <unordered_map>
 #include <utils/env.h>

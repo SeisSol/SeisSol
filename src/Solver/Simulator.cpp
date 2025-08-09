@@ -18,7 +18,6 @@
 #include "TimeStepping/TimeManager.h"
 #include <Memory/Tree/Layer.h>
 #include <Monitoring/Instrumentation.h>
-#include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cassert>
 #include <optional>

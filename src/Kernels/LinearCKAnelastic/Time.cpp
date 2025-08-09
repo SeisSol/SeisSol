@@ -8,6 +8,15 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "TimeBase.h"
+#include <Alignment.h>
+#include <DataTypes/ConditionalTable.h>
+#include <GeneratedCode/metagen/kernel.h>
+#include <GeneratedCode/metagen/tensor.h>
+#include <Kernels/Interface.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Parallel/Runtime/Stream.h>
+#include <cstdint>
+#include <utils/logger.h>
 
 #ifndef NDEBUG
 extern long long libxsmm_num_total_flops;
@@ -282,10 +291,10 @@ void Spacetime<Cfg>::computeBatchedAder(const real* coeffs,
 #endif
 }
 
-#define _H_(cfg) template class Spacetime<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Spacetime<cfg>;
 #include "ConfigIncludeLinearCKAne.h"
 
-#define _H_(cfg) template class Time<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Time<cfg>;
 #include "ConfigIncludeLinearCKAne.h"
 
 } // namespace seissol::kernels::solver::linearckanelastic

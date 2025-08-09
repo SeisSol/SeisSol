@@ -7,7 +7,6 @@
 
 #include "CheckpointManager.h"
 
-#include <Common/Constants.h>
 #include <IO/Datatype/Inference.h>
 #include <IO/Datatype/MPIType.h>
 #include <IO/Reader/Distribution.h>

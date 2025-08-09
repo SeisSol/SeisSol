@@ -24,12 +24,13 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
+#include <Common/ConfigHelper.h>
+#include <Config.h>
 #include <GeneratedCode/init.h>
 #include <GeneratedCode/kernel.h>
 #include <IO/Instance/Geometry/Typedefs.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Parallel/Runtime/Stream.h>
-#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -41,6 +42,7 @@
 #include <iomanip>
 #include <ios>
 #include <memory>
+#include <mpi.h>
 #include <numeric>
 #include <ostream>
 #include <sstream>
@@ -51,6 +53,7 @@
 #include <utility>
 #include <utils/logger.h>
 #include <utils/timeutils.h>
+#include <variant>
 #include <vector>
 
 namespace {

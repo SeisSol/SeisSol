@@ -49,7 +49,9 @@ using ConfigVariant = std::variant<{confignames}>;
 
 
 def make_configincludefile(configs):
-    configincludes = "\n".join(f"_H_({config['name']})" for config in configs)
+    configincludes = "\n".join(
+        f"SEISSOL_CONFIGITER({config['name']})" for config in configs
+    )
 
     return f"""
 // (include guard knowlingly omitted)
@@ -58,10 +60,10 @@ def make_configincludefile(configs):
 // Needed due to C++ not allowing to define templates in source files.
 // I know, I'm not a fan of it as well.
 
-// Usage: define _H_(x) in our source file with the wanted value,
+// Usage: define SEISSOL_CONFIGITER(x) in our source file with the wanted value,
 // then include this file
 
 {configincludes}
 
-#undef _H_
+#undef SEISSOL_CONFIGITER
 """

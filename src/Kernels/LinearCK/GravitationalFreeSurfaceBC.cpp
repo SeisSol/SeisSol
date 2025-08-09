@@ -6,7 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "GravitationalFreeSurfaceBC.h"
-#include <Common/Constants.h>
 #include <GeneratedCode/kernel.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
@@ -54,7 +53,7 @@ std::pair<std::uint64_t, std::uint64_t>
   return {nonZeroFlops, hardwareFlops};
 }
 
-#define _H_(cfg) template class GravitationalFreeSurfaceBc<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class GravitationalFreeSurfaceBc<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol

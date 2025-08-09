@@ -63,11 +63,11 @@ Real<Cfg> TPApprox<Cfg>::stateVariableHook(real localAccumulatedSlip,
   return 1.0 - std::pow(factor, -drParameters->tpProxyExponent);
 }
 
-#define _H_(cfg) template class NoSpecialization<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class NoSpecialization<cfg>;
 #include "ConfigInclude.h"
-#define _H_(cfg) template class BiMaterialFault<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class BiMaterialFault<cfg>;
 #include "ConfigInclude.h"
-#define _H_(cfg) template class TPApprox<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class TPApprox<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::dr::friction_law::cpu

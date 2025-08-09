@@ -62,11 +62,11 @@ Real<Cfg> DeltaSTF<Cfg>::evaluate(real currentTime,
   return deltaPulse::deltaPulse(currentTime - onsetTime[ltsFace][pointIndex], timeIncrement);
 }
 
-#define _H_(cfg) template class YoffeSTF<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class YoffeSTF<cfg>;
 #include "ConfigInclude.h"
-#define _H_(cfg) template class GaussianSTF<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class GaussianSTF<cfg>;
 #include "ConfigInclude.h"
-#define _H_(cfg) template class DeltaSTF<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class DeltaSTF<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::dr::friction_law::cpu

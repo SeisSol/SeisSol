@@ -9,11 +9,9 @@
 #include "DynamicRupture.h"
 
 #include <Alignment.h>
-#include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/Typedefs.h>
-#include <Kernels/Precision.h>
 #include <Memory/GlobalData.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cassert>
@@ -23,7 +21,6 @@
 #include "utils/logger.h"
 
 #include "GeneratedCode/kernel.h"
-#include "Numerical/Quadrature.h"
 #ifdef ACL_DEVICE
 #include "device.h"
 #include <DataTypes/ConditionalKey.h>
@@ -230,7 +227,7 @@ void DynamicRupture<Cfg>::flopsGodunovState(const DRFaceInformation& faceInfo,
   hardwareFlops *= Cfg::ConvergenceOrder;
 }
 
-#define _H_(cfg) template class DynamicRupture<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class DynamicRupture<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::kernels

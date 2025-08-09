@@ -10,12 +10,12 @@
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "IO/Instance/Geometry/Geometry.h"
-#include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include <Alignment.h>
-#include <Common/Constants.h>
+#include <Common/ConfigHelper.h>
+#include <Config.h>
 #include <GeneratedCode/kernel.h>
 #include <GeneratedCode/tensor.h>
 #include <Geometry/MeshDefinition.h>
@@ -33,8 +33,10 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <mpi.h>
 #include <string>
 #include <utils/logger.h>
+#include <variant>
 #include <vector>
 
 #include "Parallel/MPI.h"

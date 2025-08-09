@@ -12,6 +12,7 @@
 #include <Config.h>
 #include <Parallel/Runtime/Stream.h>
 #include <memory>
+#include <variant>
 
 #ifdef ACL_DEVICE
 #include "Constants.h"

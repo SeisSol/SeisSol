@@ -28,6 +28,7 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
+#include <Memory/GlobalData.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
 #include <Modules/Modules.h>
@@ -47,6 +48,7 @@
 #include <ostream>
 #include <string>
 #include <utils/logger.h>
+#include <variant>
 #include <vector>
 
 #ifdef ACL_DEVICE

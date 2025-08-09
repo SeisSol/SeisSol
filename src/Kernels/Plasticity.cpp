@@ -14,7 +14,6 @@
 #include <Alignment.h>
 #include <DataTypes/ConditionalTable.h>
 #include <GeneratedCode/tensor.h>
-#include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Memory/GlobalData.h>
 #include <Model/Plasticity.h>
@@ -435,7 +434,7 @@ void Plasticity<Cfg>::flopsPlasticity(std::uint64_t& nonZeroFlopsCheck,
   hardwareFlopsYield += kernel::plAdjustStresses<Cfg>::HardwareFlops;
 }
 
-#define _H_(cfg) template class Plasticity<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Plasticity<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::kernels

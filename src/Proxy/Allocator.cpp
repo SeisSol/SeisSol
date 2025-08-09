@@ -28,8 +28,10 @@
 #include <Model/CommonDatastructures.h>
 #include <Proxy/Constants.h>
 #include <cstddef>
+#include <memory>
 #include <random>
 #include <stdlib.h>
+#include <variant>
 
 #ifdef ACL_DEVICE
 #include <Initializer/MemoryManager.h>

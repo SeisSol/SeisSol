@@ -9,16 +9,15 @@
 
 #include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
+#include <Common/Templating.h>
 #include <Equations/Datastructures.h>
-#include <Equations/acoustic/Model/Datastructures.h>
 #include <Equations/anisotropic/Model/Datastructures.h>
 #include <Equations/elastic/Model/Datastructures.h>
-#include <Equations/poroelastic/Model/Datastructures.h>
 #include <Equations/viscoelastic2/Model/Datastructures.h>
 #include <GeneratedCode/init.h>
 #include <GeneratedCode/tensor.h>
 #include <Geometry/MeshDefinition.h>
-#include <Geometry/MeshTools.h>
+#include <Initializer/Parameters/ModelParameters.h>
 #include <Kernels/Precision.h>
 #include <Model/CommonDatastructures.h>
 #include <Solver/MultipleSimulations.h>
@@ -27,10 +26,11 @@
 #include <cstddef>
 #include <easi/Query.h>
 #include <iterator>
-#include <memory>
-#include <numeric>
 #include <set>
+#include <stdexcept>
+#include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 #ifdef USE_HDF
 // PUML.h needs to be included before Downward.h
@@ -256,7 +256,7 @@ easi::Query FaultGPGenerator::generate() const {
       },
       ConfigVariantList[configId]);
 
-  std::size_t numPoints = 0;
+  const std::size_t numPoints = 0;
 
   easi::Query query(m_faceIDs.size() * quadpoints.size(), Cell::Dim);
 
@@ -660,7 +660,7 @@ std::vector<MaterialVariant>
   return MaterialVariantQuery::query(params, ctvArray);
 }
 
-#define _H_(cfg) template class EasiBoundary<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class EasiBoundary<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::initializer

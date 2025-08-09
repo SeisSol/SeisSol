@@ -12,8 +12,10 @@
 #include <Common/Constants.h>
 #include <Config.h>
 #include <DataTypes/ConditionalTable.h>
+#include <GeneratedCode/metagen/init.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/CellLocalInformation.h>
 #include <Initializer/LtsSetup.h>
 #include <Kernels/Precision.h>
 #include <Kernels/Solver.h>
@@ -168,7 +170,7 @@ void TimeCommon<Cfg>::computeBatchedIntegrals(Time<Cfg>& time,
 #endif
 }
 
-#define _H_(cfg) template class TimeCommon<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class TimeCommon<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::kernels

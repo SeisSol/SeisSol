@@ -20,7 +20,6 @@
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/Interface.h>
-#include <Kernels/Precision.h>
 #include <Kernels/Solver.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
@@ -33,6 +32,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -268,6 +268,7 @@ size_t ReceiverClusterImpl<Cfg>::ncols() const {
 template <typename Cfg>
 std::vector<std::string> ReceiverClusterImpl<Cfg>::header() const {
   std::vector<std::string> names;
+  names.reserve(m_quantities.size());
   for (const auto& index : m_quantities) {
     names.emplace_back(model::MaterialTT<Cfg>::Quantities[index]);
   }
@@ -290,7 +291,7 @@ std::vector<std::string> ReceiverClusterImpl<Cfg>::header() const {
   }
 }
 
-#define _H_(cfg) template class ReceiverClusterImpl<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class ReceiverClusterImpl<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::kernels

@@ -6,7 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
-#include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
@@ -20,11 +19,9 @@
 #include "Numerical/Transformation.h"
 #include <Common/ConfigHelper.h>
 #include <Common/Typedefs.h>
-#include <Config.h>
 #include <GeneratedCode/init.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -33,6 +30,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 #include <yateto.h>
 
@@ -114,7 +112,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
 
-      std::size_t configId = element.configId;
+      const std::size_t configId = element.configId;
 
       if (elementIndices.find(elementIndex) == elementIndices.end()) {
         const auto index = elementIndices.size();

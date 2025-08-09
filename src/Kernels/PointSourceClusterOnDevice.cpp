@@ -34,7 +34,7 @@ void PointSourceClusterOnDevice<Cfg>::addTimeIntegratedPointSources(
   pointSourceKernel(*clusterMapping_, *sources_, from, to, runtime);
 }
 
-#define _H_(cfg) template class PointSourceClusterOnDevice<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class PointSourceClusterOnDevice<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::kernels

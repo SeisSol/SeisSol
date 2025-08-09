@@ -51,7 +51,6 @@
 
 #ifdef USE_NETCDF
 #include "NRFReader.h"
-#include "Parallel/MPI.h"
 #include <mpi.h>
 #endif
 

@@ -12,7 +12,7 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
-#include <array>
+#include <vector>
 
 void seissol::writer::PostProcessor::integrateQuantities(const double timestep,
                                                          LTS::Layer& layerData,

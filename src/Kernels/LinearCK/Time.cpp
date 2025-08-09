@@ -11,20 +11,14 @@
 
 #include "Kernels/LinearCK/TimeBase.h"
 
-#include "GravitationalFreeSurfaceBC.h"
 #include <Alignment.h>
-#include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <GeneratedCode/kernel.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
-#include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/LinearCK/Solver.h>
-#include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Numerical/BasisFunction.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cstdint>
@@ -298,10 +292,10 @@ void Time<Cfg>::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwa
 template <typename Cfg>
 void Time<Cfg>::setGlobalData(const GlobalData& global) {}
 
-#define _H_(cfg) template class Spacetime<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Spacetime<cfg>;
 #include "ConfigIncludeLinearCK.h"
 
-#define _H_(cfg) template class Time<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Time<cfg>;
 #include "ConfigIncludeLinearCK.h"
 
 } // namespace seissol::kernels::solver::linearck

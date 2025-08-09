@@ -7,7 +7,6 @@
 
 #include "ThermalPressurization.h"
 #include "DynamicRupture/Misc.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include <DynamicRupture/FrictionLaws/TPCommon.h>
 #include <array>
@@ -111,7 +110,7 @@ void ThermalPressurization<Cfg>::calcFluidPressure(
   }
 }
 
-#define _H_(cfg) template class ThermalPressurization<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class ThermalPressurization<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::dr::friction_law::cpu

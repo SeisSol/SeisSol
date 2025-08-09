@@ -44,7 +44,7 @@ void FrictionSolverDetails<Cfg>::allocateAuxiliaryMemory(const GlobalData& globa
   devTpGridPoints = global.tpGridPoints;
 }
 
-#define _H_(cfg) template class FrictionSolverDetails<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class FrictionSolverDetails<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::dr::friction_law::gpu

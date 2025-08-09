@@ -48,7 +48,7 @@ class LinearSlipWeakeningLaw
     this->frictionFunctionHook(stateVariableBuffer, ltsFace);
   }
 
-  void copyStorageToLocal(DynamicRupture::Layer& layerData) {
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) override {
     this->dC = layerData.var<LTSLinearSlipWeakening::DC>(Cfg());
     this->muS = layerData.var<LTSLinearSlipWeakening::MuS>(Cfg());
     this->muD = layerData.var<LTSLinearSlipWeakening::MuD>(Cfg());

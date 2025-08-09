@@ -20,7 +20,6 @@
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
@@ -482,10 +481,10 @@ std::uint64_t Local<Cfg>::bytesIntegral() {
   return reals * sizeof(real);
 }
 
-#define _H_(cfg) template class Local<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Local<cfg>;
 #include "ConfigIncludeLinearCK.h"
 
-#define _H_(cfg) template class Local<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Local<cfg>;
 #include "ConfigIncludeSTP.h"
 
 } // namespace seissol::kernels::solver::linearck

@@ -22,11 +22,11 @@
 #include <Geometry/MeshReader.h>
 #include <Model/CommonDatastructures.h>
 #include <Solver/MultipleSimulations.h>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <string>
-#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <utils/logger.h>

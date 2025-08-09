@@ -8,6 +8,7 @@
 #include "AnalysisWriter.h"
 
 #include <Alignment.h>
+#include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
 #include <GeneratedCode/init.h>
@@ -34,6 +35,7 @@
 #include <string_view>
 #include <utility>
 #include <utils/logger.h>
+#include <variant>
 #include <vector>
 
 #include "Geometry/MeshReader.h"

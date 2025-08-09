@@ -5,30 +5,22 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include <Equations/Datastructures.h>
 #include <GeneratedCode/init.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
-#include <Model/Common.h>
 #include <Model/CommonDatastructures.h>
 #include <array>
 #include <cassert>
 #include <cmath>
-#include <complex>
 #include <cstddef>
 #include <limits>
 #include <math.h>
 
-#include "Kernels/Common.h"
-#include "Kernels/Precision.h"
-#include "Numerical/Eigenvalues.h"
 #include "Physics/InitialField.h"
 #include <stdexcept>
 #include <string>
-#include <utility>
 #include <utils/logger.h>
-#include <vector>
 #include <yateto.h>
 
 #include "Equations/Setup.h" // IWYU pragma: keep
@@ -386,7 +378,7 @@ void seissol::physics::Ocean::evaluate(double time,
     const auto b = g * kStar / (omega * omega);
     constexpr auto ScalingFactor = 1;
 
-    std::size_t tractionQuantities =
+    const std::size_t tractionQuantities =
         materialData.local->getMaterialType() == model::MaterialType::Acoustic ? 1 : 6;
 
     const auto setStresses = [&](double value) {
@@ -404,9 +396,9 @@ void seissol::physics::Ocean::evaluate(double time,
       }
     };
 
-    const auto UIdx = tractionQuantities;
-    const auto VIdx = tractionQuantities + 1;
-    const auto WIdx = tractionQuantities + 2;
+    const auto uIdx = tractionQuantities;
+    const auto vIdx = tractionQuantities + 1;
+    const auto wIdx = tractionQuantities + 2;
 
     if (mode == 0) {
       // Gravity mode
@@ -415,11 +407,11 @@ void seissol::physics::Ocean::evaluate(double time,
 
       setStresses(ScalingFactor * pressure);
 
-      dofsQp(i, UIdx) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
+      dofsQp(i, uIdx) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
                         std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
-      dofsQp(i, VIdx) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
+      dofsQp(i, vIdx) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
                         std::cos(omega * t) * (std::sinh(kStar * z) + b * std::cosh(kStar * z));
-      dofsQp(i, WIdx) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) *
+      dofsQp(i, wIdx) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) *
                         std::sin(kY * y) * std::cos(omega * t) *
                         (std::cosh(kStar * z) + b * std::sinh(kStar * z));
     } else {
@@ -429,11 +421,11 @@ void seissol::physics::Ocean::evaluate(double time,
 
       setStresses(ScalingFactor * pressure);
 
-      dofsQp(i, UIdx) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
+      dofsQp(i, uIdx) = ScalingFactor * (kX / (omega * rho)) * std::cos(kX * x) * std::sin(kY * y) *
                         std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));
-      dofsQp(i, VIdx) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
+      dofsQp(i, vIdx) = ScalingFactor * (kY / (omega * rho)) * std::sin(kX * x) * std::cos(kY * y) *
                         std::cos(omega * t) * (std::sin(kStar * z) + b * std::cos(kStar * z));
-      dofsQp(i, WIdx) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) *
+      dofsQp(i, wIdx) = ScalingFactor * (kStar / (omega * rho)) * std::sin(kX * x) *
                         std::sin(kY * y) * std::cos(omega * t) *
                         (std::cos(kStar * z) - b * std::sin(kStar * z));
     }

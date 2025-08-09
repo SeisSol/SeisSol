@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
+#include <variant>
 #include <vector>
 
 #include <mpi.h>

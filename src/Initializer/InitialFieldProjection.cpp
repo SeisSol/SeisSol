@@ -24,6 +24,7 @@
 #include <Kernels/Common.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
+#include <Memory/GlobalData.h>
 #include <Memory/Tree/Layer.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
@@ -31,8 +32,6 @@
 #include <GeneratedCode/init.h>
 #include <array>
 #include <cstddef>
-#include <easi/Query.h>
-#include <easi/ResultAdapter.h>
 #include <easi/YAMLParser.h>
 #include <memory>
 #include <string>

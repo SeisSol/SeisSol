@@ -12,6 +12,7 @@
 #include "Initializer/Parameters/DRParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Output/Output.h"
+#include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <memory>
 #include <utils/logger.h>
 

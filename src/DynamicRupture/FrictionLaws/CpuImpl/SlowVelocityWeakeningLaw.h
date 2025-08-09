@@ -22,7 +22,7 @@ class SlowVelocityWeakeningLaw
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) override {}
 
   std::unique_ptr<FrictionSolver> clone() override {
     return std::make_unique<Derived>(*static_cast<Derived*>(this));

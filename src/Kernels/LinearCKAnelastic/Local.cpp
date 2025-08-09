@@ -9,9 +9,22 @@
 
 #include "LocalBase.h"
 
+#include <Alignment.h>
+#include <Common/Constants.h>
+#include <DataTypes/ConditionalTable.h>
+#include <GeneratedCode/metagen/init.h>
+#include <GeneratedCode/metagen/tensor.h>
+#include <Initializer/BasicTypedefs.h>
+#include <Initializer/Typedefs.h>
+#include <Kernels/Interface.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Parallel/Runtime/Stream.h>
+#include <array>
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <stdint.h>
+#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
@@ -80,17 +93,17 @@ void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<C
   assert((reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>())) % Alignment == 0);
 #endif
 
-  alignas(Alignment) real Qext[tensor::Qext<Cfg>::size()];
+  alignas(Alignment) real qext[tensor::Qext<Cfg>::size()];
 
   kernel::volumeExt<Cfg> volKrnl = m_volumeKernelPrototype;
-  volKrnl.Qext = Qext;
+  volKrnl.Qext = qext;
   volKrnl.I = timeIntegratedDegreesOfFreedom;
   for (unsigned i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
     volKrnl.star(i) = data.template get<LTS::LocalIntegration>().starMatrices[i];
   }
 
   kernel::localFluxExt<Cfg> lfKrnl = m_localFluxKernelPrototype;
-  lfKrnl.Qext = Qext;
+  lfKrnl.Qext = qext;
   lfKrnl.I = timeIntegratedDegreesOfFreedom;
   lfKrnl._prefetch.I = timeIntegratedDegreesOfFreedom + tensor::I<Cfg>::size();
   lfKrnl._prefetch.Q = data.template get<LTS::Dofs>() + tensor::Q<Cfg>::size();
@@ -110,7 +123,7 @@ void Local<Cfg>::computeIntegral(real timeIntegratedDegreesOfFreedom[tensor::I<C
   lKrnl.Iane = tmp.timeIntegratedAne;
   lKrnl.Q = data.template get<LTS::Dofs>();
   lKrnl.Qane = data.template get<LTS::DofsAne>();
-  lKrnl.Qext = Qext;
+  lKrnl.Qext = qext;
   lKrnl.W = data.template get<LTS::LocalIntegration>().specific.W;
   lKrnl.w = data.template get<LTS::LocalIntegration>().specific.w;
 
@@ -237,7 +250,7 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
     double timeStepWidth,
     seissol::parallel::runtime::StreamRuntime& runtime) {}
 
-#define _H_(cfg) template class Local<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Local<cfg>;
 #include "ConfigIncludeLinearCKAne.h"
 
 } // namespace seissol::kernels::solver::linearckanelastic

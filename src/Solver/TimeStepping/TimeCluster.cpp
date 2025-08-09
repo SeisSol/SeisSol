@@ -20,6 +20,7 @@
 #include "SeisSol.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
+#include <Config.h>
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/Output/OutputManager.h>
 #include <GeneratedCode/init.h>
@@ -31,7 +32,6 @@
 #include <Kernels/LinearCK/GravitationalFreeSurfaceBC.h>
 #include <Kernels/Plasticity.h>
 #include <Kernels/PointSourceCluster.h>
-#include <Kernels/Precision.h>
 #include <Kernels/Solver.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
@@ -1056,7 +1056,7 @@ std::string TimeCluster<Cfg>::description() const {
   return "compute-" + haloStr;
 }
 
-#define _H_(cfg) template class TimeCluster<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class TimeCluster<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::time_stepping

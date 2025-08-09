@@ -20,7 +20,7 @@ class NoFault : public BaseFrictionLaw<Cfg, NoFault<Cfg>> {
   using real = Real<Cfg>;
   using BaseFrictionLaw<Cfg, NoFault<Cfg>>::BaseFrictionLaw;
 
-  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) override {}
 
   static void
       updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,

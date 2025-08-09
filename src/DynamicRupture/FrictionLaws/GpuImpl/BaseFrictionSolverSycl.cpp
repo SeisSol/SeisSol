@@ -68,7 +68,7 @@ void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::Stre
   });
 }
 
-#define _H_(cfg)                                                                                   \
+#define SEISSOL_CONFIGITER(cfg)                                                                    \
   template class BaseFrictionSolver<cfg, NoFault<cfg>>;                                            \
   template class BaseFrictionSolver<                                                               \
       cfg,                                                                                         \

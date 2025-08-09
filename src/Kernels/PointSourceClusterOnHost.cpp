@@ -96,7 +96,7 @@ void PointSourceClusterOnHost<Cfg>::addTimeIntegratedPointSource(std::size_t sou
   krnl.execute();
 }
 
-#define _H_(cfg) template class PointSourceClusterOnHost<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class PointSourceClusterOnHost<cfg>;
 #include "ConfigInclude.h"
 
 } // namespace seissol::kernels

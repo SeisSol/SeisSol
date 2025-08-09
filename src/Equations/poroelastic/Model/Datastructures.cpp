@@ -9,8 +9,6 @@
 #include <Equations/Datastructures.h>
 #include <Equations/Setup.h> // IWYU pragma: keep
 #include <Equations/poroelastic/Model/PoroelasticSetup.h>
-#include <Model/Common.h>
-#include <Model/CommonDatastructures.h>
 #include <array>
 #include <complex>
 #include <cstddef>

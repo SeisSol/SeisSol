@@ -8,8 +8,6 @@
 
 #include "Transformation.h"
 #include <Eigen/Dense>
-#include <Geometry/MeshDefinition.h>
-#include <Kernels/Precision.h>
 #include <cassert>
 #include <utils/logger.h>
 #include <yateto.h>

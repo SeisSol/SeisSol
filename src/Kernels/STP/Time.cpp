@@ -6,13 +6,23 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "TimeBase.h"
+#include <Alignment.h>
+#include <DataTypes/ConditionalTable.h>
+#include <Equations/Datastructures.h>
+#include <GeneratedCode/metagen/init.h>
+#include <GeneratedCode/metagen/kernel.h>
+#include <GeneratedCode/metagen/tensor.h>
+#include <Kernels/Interface.h>
+#include <Memory/Descriptor/LTS.h>
+#include <Parallel/Runtime/Stream.h>
+#include <cstdint>
+#include <utils/logger.h>
 
 #ifndef NDEBUG
 extern long long libxsmm_num_total_flops;
 #endif
 
 #include "Kernels/Common.h"
-#include "Kernels/MemoryOps.h"
 
 #include <Eigen/Dense>
 #include <cassert>
@@ -93,17 +103,17 @@ void Spacetime<Cfg>::executeSTP(double timeStepWidth,
 
   // libxsmm can not generate GEMMs with alpha!=1. As a workaround we multiply the
   // star matrices with dt before we execute the kernel.
-  real A_values[init::star<Cfg>::size(0)];
-  real B_values[init::star<Cfg>::size(1)];
-  real C_values[init::star<Cfg>::size(2)];
+  real aValues[init::star<Cfg>::size(0)];
+  real bValues[init::star<Cfg>::size(1)];
+  real cValues[init::star<Cfg>::size(2)];
   for (std::size_t i = 0; i < init::star<Cfg>::size(0); i++) {
-    A_values[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[0][i];
-    B_values[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[1][i];
-    C_values[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[2][i];
+    aValues[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[0][i];
+    bValues[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[1][i];
+    cValues[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[2][i];
   }
-  krnl.star(0) = A_values;
-  krnl.star(1) = B_values;
-  krnl.star(2) = C_values;
+  krnl.star(0) = aValues;
+  krnl.star(1) = bValues;
+  krnl.star(2) = cValues;
 
   krnl.Gk = data.template get<LTS::LocalIntegration>().specific.G[10] * timeStepWidth;
   krnl.Gl = data.template get<LTS::LocalIntegration>().specific.G[11] * timeStepWidth;
@@ -121,14 +131,14 @@ void Spacetime<Cfg>::executeSTP(double timeStepWidth,
   if (timeStepWidth != data.template get<LTS::LocalIntegration>().specific.typicalTimeStepWidth) {
     auto sourceMatrix = init::ET<Cfg>::view::create(
         data.template get<LTS::LocalIntegration>().specific.sourceMatrix);
-    real ZinvData[seissol::model::MaterialTT<Cfg>::NumQuantities]
+    real zinvData[seissol::model::MaterialTT<Cfg>::NumQuantities]
                  [Cfg::ConvergenceOrder * Cfg::ConvergenceOrder];
     model::zInvInitializerForLoop<Cfg,
                                   0,
                                   seissol::model::MaterialTT<Cfg>::NumQuantities,
-                                  decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
+                                  decltype(sourceMatrix)>(zinvData, sourceMatrix, timeStepWidth);
     for (std::size_t i = 0; i < seissol::model::MaterialTT<Cfg>::NumQuantities; i++) {
-      krnl.Zinv(i) = ZinvData[i];
+      krnl.Zinv(i) = zinvData[i];
     }
     // krnl.execute has to be run here: ZinvData is only allocated locally
     krnl.execute();
@@ -293,10 +303,10 @@ void Time<Cfg>::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwa
 template <typename Cfg>
 void Time<Cfg>::setGlobalData(const GlobalData& global) {}
 
-#define _H_(cfg) template class Spacetime<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Spacetime<cfg>;
 #include "ConfigIncludeSTP.h"
 
-#define _H_(cfg) template class Time<cfg>;
+#define SEISSOL_CONFIGITER(cfg) template class Time<cfg>;
 #include "ConfigIncludeSTP.h"
 
 } // namespace seissol::kernels::solver::stp

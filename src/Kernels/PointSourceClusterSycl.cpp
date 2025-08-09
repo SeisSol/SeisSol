@@ -70,7 +70,7 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
   }
 }
 
-#define _H_(cfg)                                                                                   \
+#define SEISSOL_CONFIGITER(cfg)                                                                    \
   template void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,                      \
                                   sourceterm::PointSources<cfg>& sources,                          \
                                   double from,                                                     \
