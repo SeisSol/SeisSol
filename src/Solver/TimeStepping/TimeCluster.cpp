@@ -60,7 +60,7 @@ TimeCluster<Cfg>::TimeCluster(
     unsigned int globalClusterId,
     unsigned int profilingId,
     bool usePlasticity,
-    LayerType layerType,
+    HaloType layerType,
     double maxTimeStepSize,
     long timeStepRate,
     bool printProgress,
@@ -782,7 +782,7 @@ void TimeCluster<Cfg>::correct() {
     }
     dynamicRuptureScheduler->setLastCorrectionStepsInterior(ct.stepsSinceStart);
   }
-  if (layerType == Copy) {
+  if (layerType == HaloType::Copy) {
     if (dynamicRuptureScheduler->hasDynamicRuptureFaces()) {
       handleDynamicRupture(*dynRupCopyData);
       seissolInstance.flopCounter().incrementNonZeroFlopsDynamicRupture(
@@ -887,7 +887,7 @@ unsigned int TimeCluster<Cfg>::getGlobalClusterId() const {
 }
 
 template <typename Cfg>
-LayerType TimeCluster<Cfg>::getLayerType() const {
+HaloType TimeCluster<Cfg>::getLayerType() const {
   return layerType;
 }
 
@@ -1029,10 +1029,10 @@ void TimeCluster<Cfg>::synchronizeTo(seissol::initializer::AllocationPlace place
   if ((place == initializer::AllocationPlace::Host && executor == Executor::Device) ||
       (place == initializer::AllocationPlace::Device && executor == Executor::Host)) {
     clusterData->synchronizeTo(place, stream);
-    if (layerType == Interior) {
+    if (layerType == HaloType::Interior) {
       dynRupInteriorData->synchronizeTo(place, stream);
     }
-    if (layerType == Copy) {
+    if (layerType == HaloType::Copy) {
       dynRupCopyData->synchronizeTo(place, stream);
     }
   }

@@ -28,7 +28,7 @@ void haloCommunication(const MeshLayout& comm,
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
       for (const auto& remote : comm[layer.id()].regions) {
-        MPI_Request request = MPI_REQUEST_NULL;
+        auto& request = requests.emplace_back(MPI_REQUEST_NULL);
         MPI_Irecv(data,
                   remote.count,
                   datatype,
@@ -36,12 +36,11 @@ void haloCommunication(const MeshLayout& comm,
                   remote.tag,
                   seissol::MPI::mpi.comm(),
                   &request);
-        requests.emplace_back(request);
         data += elemsize * remote.count;
       }
     } else if (layer.getIdentifier().halo == HaloType::Copy) {
       for (const auto& remote : comm[layer.id()].regions) {
-        MPI_Request request = MPI_REQUEST_NULL;
+        auto& request = requests.emplace_back(MPI_REQUEST_NULL);
         MPI_Isend(data,
                   remote.count,
                   datatype,
@@ -49,7 +48,6 @@ void haloCommunication(const MeshLayout& comm,
                   remote.tag,
                   seissol::MPI::mpi.comm(),
                   &request);
-        requests.emplace_back(request);
         data += elemsize * remote.count;
       }
     }
