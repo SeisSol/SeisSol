@@ -9,8 +9,6 @@
 import os
 import re
 
-import kernels.arch as arch
-
 
 class Candidate(object):
     """Measures if a memory layout is suitable for a build configuration.
@@ -52,8 +50,19 @@ class Candidate(object):
 
 def findCandidates(search_path):
     """Determine Candidate attributes from file name."""
-    archs = arch.getArchitectures()
-    pes = [arch.getCpu(a) for a in archs]
+
+    # for now, keep a small subset of possible (old) archs here
+    pes = [
+        "noarch",
+        "wsm",
+        "snb",
+        "knc",
+        "hsw",
+        "knl",
+        "skx",
+        "thunderx2t99",
+        "a64fx",
+    ]
     gemmgen = ["pspamm", "libxsmm"]
 
     candidates = dict()
@@ -67,7 +76,7 @@ def findCandidates(search_path):
                 atts["multipleSimulations"] = int(multipleSimulations.group(1))
             elif order:
                 atts["order"] = int(order.group(1))
-            elif att.lower() in ["s", "d"]:
+            elif att.lower() in ["s", "d", "f32", "f64"]:
                 atts["precision"] = att.lower()
             elif att.lower() in pes:
                 atts["pe"] = att.lower()
@@ -91,10 +100,10 @@ def guessMemoryLayout(env):
         bestFit = "dense.xml"
     else:
         values = {
-            "precision": env["arch"][0].lower(),
+            "precision": env["precision"].lower(),
             "equations": env["equations"].lower(),
             "order": int(env["order"]),
-            "pe": arch.getCpu(env["arch"]),
+            "pe": env["arch"].lower(),
             "multipleSimulations": int(env["multipleSimulations"]),
             "gemmgen": set(gg.lower() for gg in env["gemmgen"]),
         }

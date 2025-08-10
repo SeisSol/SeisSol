@@ -47,7 +47,9 @@ def main():
     cmdLineParser.add_argument("--device_arch", default=None)
     cmdLineParser.add_argument("--device_vendor", default=None)
     cmdLineParser.add_argument("--order", type=int)
-    cmdLineParser.add_argument("--precision", type=str, choices=["s", "d"])
+    cmdLineParser.add_argument(
+        "--precision", type=str, choices=["s", "d", "f32", "f64"]
+    )
     cmdLineParser.add_argument("--numberOfMechanisms", type=int)
     cmdLineParser.add_argument("--vectorsize", default=None, type=Union[None, int])
     cmdLineParser.add_argument("--memLayout")
@@ -237,6 +239,7 @@ def main():
         if cmdLineArgs.memLayout == "auto":
             # TODO(Lukas) Don't hardcode this
             env = {
+                "precision": config["precision"],
                 "equations": config["equation"],
                 "order": config["order"],
                 "arch": cmdLineArgs.host_arch,
