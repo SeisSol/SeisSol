@@ -16,8 +16,10 @@
 #include "Values.h"
 
 namespace seissol::unit_test {
-template <typename T>
-void test_matrix(init::QgodLocal<Cfg>::view::type& qgodLocal, const T& solution, double epsilon) {
+template <typename Cfg, typename T>
+void test_matrix(typename init::QgodLocal<Cfg>::view::type& qgodLocal,
+                 const T& solution,
+                 double epsilon) {
   // compute the Frobenius norms squared: ||QgodLocal - solution||^2 and ||solution||^2
   double frobDiffSquared = 0.0;
   double frobASquared = 0.0;
@@ -32,7 +34,8 @@ void test_matrix(init::QgodLocal<Cfg>::view::type& qgodLocal, const T& solution,
   REQUIRE(std::abs(frobDiffSquared) < epsilon * frobASquared * epsilon * frobASquared);
 }
 
-inline void test_nan(init::QgodLocal<Cfg>::view::type& qgodNeighbor) {
+template <typename Cfg>
+inline void test_nan(typename init::QgodLocal<Cfg>::view::type& qgodNeighbor) {
   for (unsigned int i = 0; i < qgodNeighbor.shape(0); i++) {
     for (unsigned int j = 0; j < qgodNeighbor.shape(1); j++) {
       REQUIRE(std::isnan(qgodNeighbor(i, j)));
@@ -41,36 +44,46 @@ inline void test_nan(init::QgodLocal<Cfg>::view::type& qgodNeighbor) {
 }
 
 // TODO: add acoustic Godunov state
-TEST_CASE("Godunov state is correct" *
-          doctest::skip(std::is_same_v<model::MaterialT, model::AcousticMaterial>)) {
+TEST_CASE_TEMPLATE_DEFINE("Godunov state is correct", Cfg, configId4) {
+  using real = Real<Cfg>;
+  using MaterialT = model::MaterialTT<Cfg>;
+
+  if constexpr (std::is_same_v<MaterialT, model::AcousticMaterial>) {
+    return;
+  }
+
   constexpr real Epsilon = 1e2 * std::numeric_limits<real>::epsilon();
 
   real localData[tensor::QgodLocal<Cfg>::size()];
   real neighborData[tensor::QgodLocal<Cfg>::size()];
-  init::QgodLocal<Cfg>::view::type qgodLocal = init::QgodLocal<Cfg>::view::create(localData);
-  init::QgodNeighbor<Cfg>::view::type qgodNeighbor =
+  typename init::QgodLocal<Cfg>::view::type qgodLocal =
+      init::QgodLocal<Cfg>::view::create(localData);
+  typename init::QgodNeighbor<Cfg>::view::type qgodNeighbor =
       init::QgodNeighbor<Cfg>::view::create(neighborData);
   qgodLocal.setZero();
   qgodNeighbor.setZero();
 
   // test homogeneous material
-  const model::MaterialT local(SolutionData<model::MaterialT>::MaterialVal1);
-  model::MaterialT neighbor(SolutionData<model::MaterialT>::MaterialVal1);
+  const MaterialT local(SolutionData<MaterialT>::MaterialVal1);
+  MaterialT neighbor(SolutionData<MaterialT>::MaterialVal1);
 
-  model::getTransposedGodunovState(local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
-  test_matrix(qgodLocal, SolutionData<model::MaterialT>::SolutionHomogeneousLocal, Epsilon);
-  test_matrix(qgodNeighbor, SolutionData<model::MaterialT>::SolutionHomogeneousNeighbor, Epsilon);
+  seissol::model::getTransposedGodunovState<Cfg>(
+      local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
+  test_matrix<Cfg>(qgodLocal, SolutionData<MaterialT>::SolutionHomogeneousLocal, Epsilon);
+  test_matrix<Cfg>(qgodNeighbor, SolutionData<MaterialT>::SolutionHomogeneousNeighbor, Epsilon);
 
   // test free surface
-  model::getTransposedGodunovState(local, neighbor, FaceType::FreeSurface, qgodLocal, qgodNeighbor);
-  test_matrix(qgodLocal, SolutionData<model::MaterialT>::SolutionBoundary, Epsilon);
-  test_nan(qgodNeighbor);
+  seissol::model::getTransposedGodunovState<Cfg>(
+      local, neighbor, FaceType::FreeSurface, qgodLocal, qgodNeighbor);
+  test_matrix<Cfg>(qgodLocal, SolutionData<MaterialT>::SolutionBoundary, Epsilon);
+  test_nan<Cfg>(qgodNeighbor);
 
   // test heterogeneous material
-  neighbor = model::MaterialT(SolutionData<model::MaterialT>::MaterialVal2);
+  neighbor = MaterialT(SolutionData<MaterialT>::MaterialVal2);
 
-  model::getTransposedGodunovState(local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
-  test_matrix(qgodLocal, SolutionData<model::MaterialT>::SolutionHeterogeneousLocal, Epsilon);
-  test_matrix(qgodNeighbor, SolutionData<model::MaterialT>::SolutionHeterogeneousNeighbor, Epsilon);
+  seissol::model::getTransposedGodunovState<Cfg>(
+      local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
+  test_matrix<Cfg>(qgodLocal, SolutionData<MaterialT>::SolutionHeterogeneousLocal, Epsilon);
+  test_matrix<Cfg>(qgodNeighbor, SolutionData<MaterialT>::SolutionHeterogeneousNeighbor, Epsilon);
 }
 } // namespace seissol::unit_test

@@ -65,7 +65,7 @@ TEST_CASE("DR Variables") {
     };
     misc::forEach(drVars, allocateVariables);
 
-    real assignValue = 0.0;
+    const double assignValue = 0.0;
     auto initVariables = [assignValue](auto& var, int) {
       if (var.isActive) {
         for (size_t dim = 0; dim < var.data.size(); ++dim) {

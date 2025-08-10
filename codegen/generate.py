@@ -422,6 +422,10 @@ def main():
         "selectQuantity",
         "selectModes",
         "kDivMTSub",
+        "deltaSmall",
+        "deltaLarge",
+        "testLhs",
+        "testRhs",
     ]
 
     declarationsKernels = [
@@ -434,6 +438,8 @@ def main():
         "neighbor",
         "neighborFluxExt",
         "derivativeTaylorExpansionEla",
+        "stpTestLhs",
+        "stpTestRhs",
     ]
 
     metagen.generate(

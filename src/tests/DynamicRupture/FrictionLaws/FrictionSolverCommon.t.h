@@ -18,12 +18,12 @@ namespace seissol::unit_test {
 using namespace seissol;
 using namespace seissol::dr;
 
-TEST_CASE("Friction Solver Common") {
+TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common", Cfg, configId2) {
   using real = Real<Cfg>;
 
   FaultStresses<Cfg, Executor::Host> faultStresses{};
   TractionResults<Cfg, Executor::Host> tractionResults{};
-  ImpedancesAndEta impAndEta;
+  ImpedancesAndEta<real> impAndEta;
   alignas(Alignment)
       real qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
   alignas(Alignment)
@@ -34,7 +34,7 @@ TEST_CASE("Friction Solver Common") {
   std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
   constexpr real Epsilon = 1e6 * std::numeric_limits<real>::epsilon();
 
-  using QInterpolatedShapeT = real(*)[misc::NumQuantities][misc::NumPaddedPoints<Cfg>];
+  using QInterpolatedShapeT = real(*)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
   auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
   auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
   using ImposedStateShapeT = real(*)[misc::NumPaddedPoints<Cfg>];
@@ -52,7 +52,7 @@ TEST_CASE("Friction Solver Common") {
   impAndEta.invZpNeig = 1.0 / impAndEta.zpNeig;
   impAndEta.invZsNeig = 1.0 / impAndEta.zsNeig;
 
-  ImpedanceMatrices impMats;
+  ImpedanceMatrices<Cfg> impMats;
   auto etaView = init::eta<Cfg>::view::create(impMats.eta);
   etaView(0, 0) = impAndEta.etaP;
   etaView(1, 1) = impAndEta.etaS;

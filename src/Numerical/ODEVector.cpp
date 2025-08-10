@@ -160,4 +160,7 @@ void ODEVector<RealT>::print() {
   std::cout << delim << std::endl;
 }
 
+template class ODEVector<float>;
+template class ODEVector<double>;
+
 } // namespace seissol::ode

@@ -12,7 +12,7 @@
 #include "tests/TestHelper.h"
 
 namespace seissol::unit_test {
-TEST_CASE("Sampled Basis Functions") {
+TEST_CASE_TEMPLATE("Sampled Basis Functions", real, float, double) {
   constexpr double Epsilon = 10 * std::numeric_limits<real>::epsilon();
   std::vector<real> precomputedValues = {1.0,
                                          0.19999999999999998,
@@ -78,7 +78,8 @@ TEST_CASE("Sampled Basis Functions") {
   }
 }
 
-TEST_CASE("Sampled Derivatives Functions") {
+TEST_CASE_TEMPLATE_DEFINE("Sampled Derivatives Functions", Cfg, configId5) {
+  using real = Real<Cfg>;
   constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
 
   std::array<std::vector<real>, 3> precomputedValues = {{{0.0,
@@ -250,7 +251,7 @@ TEST_CASE("Sampled Derivatives Functions") {
                                                           0.9414999999999984,
                                                           1.876000000000009}}};
 
-  basisFunction::SampledBasisFunctionDerivatives<real> sampledBasisFunctionDerivatives(
+  basisFunction::SampledBasisFunctionDerivatives<Cfg> sampledBasisFunctionDerivatives(
       6, 0.3, 0.3, 0.3);
   auto dataView = init::basisFunctionDerivativesAtPoint<Cfg>::view::create(
       sampledBasisFunctionDerivatives.m_data.data());
@@ -261,4 +262,5 @@ TEST_CASE("Sampled Derivatives Functions") {
     }
   }
 }
+
 } // namespace seissol::unit_test

@@ -20,7 +20,7 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("Variable Subsampler") {
+TEST_CASE_TEMPLATE("Variable Subsampler", real, float, double) {
   constexpr double Epsilon = std::numeric_limits<real>::epsilon() * 1e1;
   std::srand(1234);
 
