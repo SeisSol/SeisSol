@@ -73,20 +73,30 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   auto clusteringWriter =
       writer::ClusteringWriter(seissolInstance.getSeisSolParameters().output.prefix);
 
-  std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
+  const auto deltaId = [&](const auto& id, HaloType halo, ssize_t offset) {
+    auto cloned = id;
+    cloned.halo = halo;
+    cloned.lts += offset;
+    return memoryManager.getLtsStorage().getColorMap().colorId(cloned);
+  };
+
+  std::vector<std::size_t> drCellsPerCluster(memoryManager.getLtsStorage().getColorMap().size());
+  std::vector<std::size_t> drCellsPerLTS(clusterLayout.globalClusterCount);
 
   // setup DR schedulers
   for (const auto& layer : memoryManager.getDRStorage().leaves()) {
-    drCellsPerCluster[layer.getIdentifier().lts] += layer.size();
+    drCellsPerCluster[deltaId(layer.getIdentifier(), HaloType::Interior, 0)] += layer.size();
+    drCellsPerLTS[layer.getIdentifier().lts] += layer.size();
   }
 
   std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
-  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
-    if (drCellsPerCluster[clusterId] > 0) {
+  for (std::size_t clusterId = 0; clusterId < drCellsPerLTS.size(); ++clusterId) {
+    if (drCellsPerLTS[clusterId] > 0) {
       drClusterOutput = clusterId;
       break;
     }
   }
+
   MPI_Allreduce(MPI_IN_PLACE,
                 &drClusterOutput,
                 1,
@@ -98,20 +108,15 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                     ? std::numeric_limits<double>::infinity()
                                     : clusterLayout.timestepRate(drClusterOutput);
 
+  dynamicRuptureSchedulers.resize(memoryManager.getLtsStorage().getColorMap().size());
+
   for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
-    dynamicRuptureSchedulers.emplace_back(
-        std::make_unique<DynamicRuptureScheduler>(drCellsPerCluster[clusterId], drOutputTimestep));
+    dynamicRuptureSchedulers[clusterId] =
+        std::make_unique<DynamicRuptureScheduler>(drCellsPerCluster[clusterId], drOutputTimestep);
   }
 
   std::vector<AbstractTimeCluster*> cellClusterBackmap(
       memoryManager.getLtsStorage().getColorMap().size());
-
-  const auto deltaId = [&](const auto& id, HaloType halo, ssize_t offset) {
-    auto cloned = id;
-    cloned.halo = halo;
-    cloned.lts += offset;
-    return memoryManager.getLtsStorage().getColorMap().colorId(cloned);
-  };
 
   // iterate over local time clusters
   for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost)) {
@@ -137,28 +142,30 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     AbstractTimeCluster* cluster = nullptr;
     layer.wrap([&](auto cfg) {
       using Cfg = decltype(cfg);
-      cluster = clusters
-                    .emplace_back(std::make_unique<TimeCluster<Cfg>>(
-                        clusterId,
-                        clusterId,
-                        profilingId,
-                        usePlasticity,
-                        layer.getIdentifier().halo,
-                        timeStepSize,
-                        timeStepRate,
-                        printProgress,
-                        dynamicRuptureSchedulers[clusterId].get(),
-                        globalData,
-                        &layer,
-                        dynRupInteriorData,
-                        dynRupCopyData,
-                        memoryManager.getFrictionLaw(),
-                        memoryManager.getFrictionLawDevice(),
-                        memoryManager.getFaultOutputManager(),
-                        seissolInstance,
-                        &loopStatistics,
-                        &actorStateStatisticsManager.addCluster(profilingId)))
-                    .get();
+      cluster =
+          clusters
+              .emplace_back(std::make_unique<TimeCluster<Cfg>>(
+                  clusterId,
+                  clusterId,
+                  profilingId,
+                  usePlasticity,
+                  layer.getIdentifier().halo,
+                  timeStepSize,
+                  timeStepRate,
+                  printProgress,
+                  dynamicRuptureSchedulers[deltaId(layer.getIdentifier(), HaloType::Interior, 0)]
+                      .get(),
+                  globalData,
+                  &layer,
+                  dynRupInteriorData,
+                  dynRupCopyData,
+                  memoryManager.getFrictionLaw(),
+                  memoryManager.getFrictionLawDevice(),
+                  memoryManager.getFaultOutputManager(),
+                  seissolInstance,
+                  &loopStatistics,
+                  &actorStateStatisticsManager.addCluster(profilingId)))
+              .get();
     });
 
     const auto clusterSize = layer.size();
