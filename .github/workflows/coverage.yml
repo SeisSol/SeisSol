@@ -53,7 +53,7 @@ jobs:
           # run w/o netcdf for consistency with the clang-tidy check
           export CMAKE_PREFIX_PATH=/opt/dependencies
           cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DCOVERAGE=ON -DTESTING=ON -DTESTING_GENERATED=ON -DHOST_ARCH=hsw -DORDER=6 -DCMAKE_BUILD_TYPE=Debug -DEQUATIONS=elastic -DPRECISION=double
-          ninja
+          ninja -j1
 
       - name: seissol-coverage
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}

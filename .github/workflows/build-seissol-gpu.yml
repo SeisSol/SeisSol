@@ -121,7 +121,7 @@ jobs:
           export FC=${{matrix.setup.fc}}
 
           cmake .. -GNinja -DNEW_BINARY_NAMING=ON -DDEVICE_CODEGEN=${DEVICE_CODEGEN} -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.equation.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
-          ninja install
+          ninja install -j1
 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
