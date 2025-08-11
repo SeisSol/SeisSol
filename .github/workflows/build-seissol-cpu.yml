@@ -124,14 +124,17 @@ jobs:
         run: |
           cd build
 
-          ./proxyseissol-cpu 100 1 ader
-          ./proxyseissol-cpu 100 1 localwoader
-          ./proxyseissol-cpu 100 1 local
-          ./proxyseissol-cpu 100 1 neigh
-          ./proxyseissol-cpu 100 1 all
-          ./proxyseissol-cpu 100 1 neigh_dr
-          ./proxyseissol-cpu 100 1 godunov_dr
-          ./proxyseissol-cpu 100 1 all_dr
+          for i in $(seq 0 83);
+          do
+            ./proxyseissol-cpu 100 1 ader $i
+            ./proxyseissol-cpu 100 1 localwoader $i
+            ./proxyseissol-cpu 100 1 local $i
+            ./proxyseissol-cpu 100 1 neigh $i
+            ./proxyseissol-cpu 100 1 all $i
+            ./proxyseissol-cpu 100 1 neigh_dr $i
+            ./proxyseissol-cpu 100 1 godunov_dr $i
+            ./proxyseissol-cpu 100 1 all_dr $i
+          done
  
       - name: upload-seissol
         uses: actions/upload-artifact@v4

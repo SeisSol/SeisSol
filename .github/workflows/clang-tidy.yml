@@ -17,7 +17,7 @@ jobs:
       - name: apt-get
         run: |
           sudo apt-get update
-          sudo apt-get install hdf5-tools libeigen3-dev libhdf5-openmpi-dev libmetis-dev libomp-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3.10 python3-pip
+          sudo apt-get install hdf5-tools libeigen3-dev libhdf5-openmpi-dev libmetis-dev libomp-dev libopenmpi-dev libparmetis-dev libyaml-cpp-dev openmpi-bin openmpi-common python3.10 python3-pip libopenblas-dev liblapack-dev
 
           # keep, for once clang-21 or higher is needed
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -

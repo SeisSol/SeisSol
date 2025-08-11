@@ -264,7 +264,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             const double fluxScale = -2.0 * surface / (6.0 * volume);
 
             const auto isSpecialBC = [&](int side) {
-              const auto hasDRFace = [](const CellLocalInformation& ci) {
+              const auto hasDRFace = [&](const CellLocalInformation& ci) {
                 bool hasAtLeastOneDRFace = false;
                 for (size_t i = 0; i < Cell::NumFaces; ++i) {
                   if (ci.faceTypes[i] == FaceType::DynamicRupture) {
