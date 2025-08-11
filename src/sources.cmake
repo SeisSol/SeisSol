@@ -275,6 +275,8 @@ if (WITH_GPU)
     include(${CMAKE_SOURCE_DIR}/src/sycl.cmake)
   endif()
 
+  target_link_libraries(seissol-device-lib PRIVATE seissol-common-properties)
+
   target_compile_options(seissol-device-lib PRIVATE -fPIC)
   if ("${EQUATIONS}" STREQUAL "elastic")
     target_compile_definitions(seissol-device-lib PRIVATE USE_ELASTIC)
@@ -294,6 +296,10 @@ if (WITH_GPU)
 
   if ("${EQUATIONS}" STREQUAL "elastic")
     target_compile_definitions(seissol-device-lib PRIVATE USE_ELASTIC)
+  endif()
+
+  if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
+    target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
   endif()
 endif()
 
