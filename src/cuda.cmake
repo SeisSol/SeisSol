@@ -8,39 +8,38 @@
 enable_language(CUDA)
 
 set(DEVICE_SRC ${DEVICE_SRC}
-        ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cudahip/PlasticityAux.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterCudaHip.cpp)
+    ${CMAKE_BINARY_DIR}/src/generated_code/gpulike_subroutine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/DeviceAux/cudahip/PlasticityAux.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterCudaHip.cpp)
 
-add_library(seissol-device-lib SHARED ${DEVICE_SRC})
+function(make_device_lib NAME FILES)
 
-set_target_properties(seissol-device-lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_source_files_properties(${DEVICE_SRC} PROPERTIES LANGUAGE CUDA)
+    add_library(${NAME} SHARED ${FILES})
 
-target_link_libraries(seissol-device-lib PRIVATE seissol-common-properties)
+    set_target_properties(${NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    set_source_files_properties(${FILES} PROPERTIES LANGUAGE CUDA)
 
-target_include_directories(seissol-device-lib PUBLIC ${SEISSOL_DEVICE_INCLUDE})
-target_compile_features(seissol-device-lib PRIVATE cxx_std_17)
-target_compile_features(seissol-device-lib PRIVATE cuda_std_17)
-target_compile_options(seissol-device-lib PRIVATE ${EXTRA_CXX_FLAGS})
+    target_include_directories(${NAME} PUBLIC ${SEISSOL_DEVICE_INCLUDE})
+    target_compile_features(${NAME} PRIVATE cxx_std_17)
+    target_compile_features(${NAME} PRIVATE cuda_std_17)
+    target_compile_options(${NAME} PRIVATE ${EXTRA_CXX_FLAGS})
 
-if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
-target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
-endif()
+    string(REPLACE "sm_" "" CUDA_DEVICE_ARCH "${DEVICE_ARCH}")
+    set_target_properties(${NAME} PROPERTIES CUDA_ARCHITECTURES "${CUDA_DEVICE_ARCH}")
 
-string(REPLACE "sm_" "" CUDA_DEVICE_ARCH "${DEVICE_ARCH}")
-set_target_properties(seissol-device-lib PROPERTIES CUDA_ARCHITECTURES "${CUDA_DEVICE_ARCH}")
-
-target_compile_options(seissol-device-lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
-        -Xptxas -v;
-        -std=c++17;
-        --expt-relaxed-constexpr;
-        >)
-if (EXTRA_CXX_FLAGS)
-    target_compile_options(seissol-device-lib PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
+    target_compile_options(${NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
+            -Xptxas -v;
+            -std=c++17;
+            --expt-relaxed-constexpr;
+            >)
+    if (EXTRA_CXX_FLAGS)
+    target_compile_options(${NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
             --compiler-options ${EXTRA_CXX_FLAGS}
             >)
-endif()
+    endif()
 
+endfunction()
+
+make_device_lib(seissol-device-lib "${DEVICE_SRC}")

@@ -612,14 +612,6 @@ if (TESTING)
           src/tests/Common/TestCommon.cpp
           )
 
-
-  if (TESTING_GENERATED)
-    set(seissol_test_sources
-            ${seissol_test_sources}
-            ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
-            )
-  endif()
-
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/src/tests/Initializer/TimeStepping/mesh.h5
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh.h5
@@ -661,6 +653,21 @@ if (TESTING)
             src/tests/TestMain.cpp)
   target_link_libraries(seissol-serial-test PRIVATE seissol-lib)
   target_include_directories(seissol-serial-test PUBLIC external/)
+
+  if (TESTING_GENERATED)
+    if (NOT WITH_GPU)
+      # no GPU; just compile the kernel tests as part of all other tests
+      set(seissol_test_sources
+              ${seissol_test_sources}
+              ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
+              )
+    else()
+      make_device_lib(seissol-serial-test-device "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp")
+      target_link_libraries(seissol-serial-test-device PRIVATE seissol-kernel-lib)
+      target_include_directories(seissol-serial-test-device PRIVATE external/)
+      target_link_libraries(seissol-serial-test PRIVATE seissol-serial-test-device)
+    endif()
+  endif()
 
   separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
   set_property(TARGET seissol-serial-test PROPERTY CROSSCOMPILING_EMULATOR ${TESTING_COMMAND_LIST})
