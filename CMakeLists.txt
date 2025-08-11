@@ -671,7 +671,9 @@ if (TESTING)
 
   separate_arguments(TESTING_COMMAND_LIST NATIVE_COMMAND ${TESTING_COMMAND})
   set_property(TARGET seissol-serial-test PROPERTY CROSSCOMPILING_EMULATOR ${TESTING_COMMAND_LIST})
-  doctest_discover_tests(seissol-serial-test)
+  if (NOT TESTING_BUILD_ONLY)
+    doctest_discover_tests(seissol-serial-test)
+  endif()
 
   # Avoid duplicate definition of FLOP counters
   target_compile_definitions(seissol-serial-test PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)

@@ -166,6 +166,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=/opt/seissol \
             -DTESTING=ON \
             -DTESTING_GENERATED=ON \
+            -DTESTING_BUILD_ONLY=ON \
             -DASAGI=ON \
             -DHOST_ARCH=${{matrix.arch}} \
             -DDEVICE_CODEGEN=${DEVICE_CODEGEN} \
