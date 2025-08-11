@@ -535,7 +535,7 @@ if (WITH_GPU)
     set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
     set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_BACKEND}")
   else()
-    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode-${EXE_NAME_PREFIX}")
+    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode-${NAME_SUFFIX}")
   endif()
 
   # set up GPU install targets
