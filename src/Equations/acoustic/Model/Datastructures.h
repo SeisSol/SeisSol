@@ -47,10 +47,7 @@ struct AcousticMaterial : public Material {
 
   double lambda;
 
-  static inline const std::unordered_map<std::string, double AcousticMaterial::*> ParameterMap{
-      {"rho", &AcousticMaterial::rho},
-      {"lambda", &AcousticMaterial::lambda},
-  };
+  static const std::unordered_map<std::string, double AcousticMaterial::*> ParameterMap;
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
@@ -87,6 +84,13 @@ struct AcousticMaterial : public Material {
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 };
+
+inline const std::unordered_map<std::string, double AcousticMaterial::*>
+    AcousticMaterial::ParameterMap{
+        {"rho", &AcousticMaterial::rho},
+        {"lambda", &AcousticMaterial::lambda},
+    };
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_

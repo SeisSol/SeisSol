@@ -65,12 +65,8 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   double Qp;
   double Qs;
 
-  static inline const std::unordered_map<std::string, double ViscoElasticMaterialParametrized::*>
-      ParameterMap{{"rho", &ViscoElasticMaterialParametrized::rho},
-                   {"lambda", &ViscoElasticMaterialParametrized::lambda},
-                   {"mu", &ViscoElasticMaterialParametrized::mu},
-                   {"Qp", &ViscoElasticMaterialParametrized::Qp},
-                   {"Qs", &ViscoElasticMaterialParametrized::Qs}};
+  static const std::unordered_map<std::string, double ViscoElasticMaterialParametrized::*>
+      ParameterMap;
 
   ViscoElasticMaterialParametrized() = default;
   ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)
@@ -96,6 +92,15 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
     physics::fitAttenuation<Mechanisms>(*this, parameters.freqCentral, parameters.freqRatio);
   }
 };
+
+template <std::size_t N>
+inline const std::unordered_map<std::string, double ViscoElasticMaterialParametrized<N>::*>
+    ViscoElasticMaterialParametrized<N>::ParameterMap{
+        {"rho", &ViscoElasticMaterialParametrized<N>::rho},
+        {"lambda", &ViscoElasticMaterialParametrized<N>::lambda},
+        {"mu", &ViscoElasticMaterialParametrized<N>::mu},
+        {"Qp", &ViscoElasticMaterialParametrized<N>::Qp},
+        {"Qs", &ViscoElasticMaterialParametrized<N>::Qs}};
 
 using ViscoElasticMaterial = ViscoElasticMaterialParametrized<Config::RelaxationMechanisms>;
 } // namespace seissol::model
