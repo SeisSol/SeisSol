@@ -106,12 +106,8 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
   double Qp;
   double Qs;
 
-  static inline const std::unordered_map<std::string, double ViscoElasticMaterialParametrized::*>
-      ParameterMap{{"rho", &ViscoElasticMaterialParametrized::rho},
-                   {"lambda", &ViscoElasticMaterialParametrized::lambda},
-                   {"mu", &ViscoElasticMaterialParametrized::mu},
-                   {"Qp", &ViscoElasticMaterialParametrized::Qp},
-                   {"Qs", &ViscoElasticMaterialParametrized::Qs}};
+  static const std::unordered_map<std::string, double ViscoElasticMaterialParametrized::*>
+      ParameterMap;
 
   ViscoElasticMaterialParametrized() = default;
   ViscoElasticMaterialParametrized(const std::vector<double>& materialValues)
@@ -144,6 +140,16 @@ struct ViscoElasticMaterialParametrized : public ElasticMaterial {
 
   [[nodiscard]] double maximumTimestep() const override { return maxTimestep; }
 };
+
+template <std::size_t N>
+inline const std::unordered_map<std::string, double ViscoElasticMaterialParametrized<N>::*>
+    ViscoElasticMaterialParametrized<N>::ParameterMap{
+        {"rho", &ViscoElasticMaterialParametrized<N>::rho},
+        {"lambda", &ViscoElasticMaterialParametrized<N>::lambda},
+        {"mu", &ViscoElasticMaterialParametrized<N>::mu},
+        {"Qp", &ViscoElasticMaterialParametrized<N>::Qp},
+        {"Qs", &ViscoElasticMaterialParametrized<N>::Qs}};
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_VISCOELASTIC2_MODEL_DATASTRUCTURES_H_

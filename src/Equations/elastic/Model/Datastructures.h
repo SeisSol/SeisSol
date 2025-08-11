@@ -49,10 +49,7 @@ struct ElasticMaterial : Material {
   double lambda;
   double mu;
 
-  static inline const std::unordered_map<std::string, double ElasticMaterial::*> ParameterMap{
-      {"rho", &ElasticMaterial::rho},
-      {"lambda", &ElasticMaterial::lambda},
-      {"mu", &ElasticMaterial::mu}};
+  static const std::unordered_map<std::string, double ElasticMaterial::*> ParameterMap;
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
@@ -101,6 +98,12 @@ struct ElasticMaterial : Material {
 
   void setLameParameters(double mu, double lambda) override { this->lambda = lambda; }
 };
+
+inline const std::unordered_map<std::string, double ElasticMaterial::*>
+    ElasticMaterial::ParameterMap{{"rho", &ElasticMaterial::rho},
+                                  {"lambda", &ElasticMaterial::lambda},
+                                  {"mu", &ElasticMaterial::mu}};
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_DATASTRUCTURES_H_
