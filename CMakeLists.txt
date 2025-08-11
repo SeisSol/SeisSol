@@ -655,17 +655,20 @@ if (TESTING)
   target_include_directories(seissol-serial-test PUBLIC external/)
 
   if (TESTING_GENERATED)
-    if (NOT WITH_GPU)
-      # no GPU; just compile the kernel tests as part of all other tests
-      set(seissol_test_sources
-              ${seissol_test_sources}
-              ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp
-              )
-    else()
+    if (WITH_GPU)
+
+      # for the GPU, create an extra library with device linking flags etc.
       make_device_lib(seissol-serial-test-device "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp")
       target_link_libraries(seissol-serial-test-device PRIVATE seissol-kernel-lib)
       target_include_directories(seissol-serial-test-device PRIVATE external/)
       target_link_libraries(seissol-serial-test PRIVATE seissol-serial-test-device)
+      target_compile_definitions(seissol-serial-test-device PRIVATE YATETO_TESTING_NO_FLOP_COUNTER)
+
+    else()
+
+      # else (i.e. CPU only), just add it to the main test binary
+      target_sources(seissol-serial-test PRIVATE
+        "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp")
     endif()
   endif()
 
