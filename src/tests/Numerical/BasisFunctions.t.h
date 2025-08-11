@@ -12,7 +12,12 @@
 #include "tests/TestHelper.h"
 
 namespace seissol::unit_test {
-TEST_CASE_TEMPLATE("Sampled Basis Functions", real, float, double) {
+
+// NOTE: only works up to order 6
+// (for order 7+8, we just compare the values up to order 6)
+
+TEST_CASE_TEMPLATE_DEFINE("Sampled Basis Functions", Cfg, configId7) {
+  using real = Real<Cfg>;
   constexpr double Epsilon = 10 * std::numeric_limits<real>::epsilon();
   std::vector<real> precomputedValues = {1.0,
                                          0.19999999999999998,
@@ -71,8 +76,10 @@ TEST_CASE_TEMPLATE("Sampled Basis Functions", real, float, double) {
                                          0.1379000000000001,
                                          -0.44044};
 
-  basisFunction::SampledBasisFunctions<real> sampledBasisFunctions(6, 0.3, 0.3, 0.3);
-  for (size_t i = 0; i < precomputedValues.size(); ++i) {
+  basisFunction::SampledBasisFunctions<real> sampledBasisFunctions(
+      Cfg::ConvergenceOrder, 0.3, 0.3, 0.3);
+  for (size_t i = 0; i < std::min(precomputedValues.size(), sampledBasisFunctions.m_data.size());
+       ++i) {
     REQUIRE(sampledBasisFunctions.m_data.at(i) ==
             AbsApprox(precomputedValues.at(i)).epsilon(Epsilon));
   }
@@ -252,10 +259,12 @@ TEST_CASE_TEMPLATE_DEFINE("Sampled Derivatives Functions", Cfg, configId5) {
                                                           1.876000000000009}}};
 
   basisFunction::SampledBasisFunctionDerivatives<Cfg> sampledBasisFunctionDerivatives(
-      6, 0.3, 0.3, 0.3);
+      Cfg::ConvergenceOrder, 0.3, 0.3, 0.3);
   auto dataView = init::basisFunctionDerivativesAtPoint<Cfg>::view::create(
       sampledBasisFunctionDerivatives.m_data.data());
-  for (size_t i = 0; i < precomputedValues[0].size(); ++i) {
+  for (size_t i = 0;
+       i < std::min(precomputedValues[0].size(), static_cast<std::size_t>(dataView.shape(0)));
+       ++i) {
     for (size_t direction = 0; direction < 3; ++direction) {
       REQUIRE(dataView(i, direction) ==
               AbsApprox(precomputedValues[direction].at(i)).epsilon(Epsilon));

@@ -21,6 +21,9 @@ namespace seissol::unit_test {
 #define SEISSOL_CONFIGITER(cfg) TEST_CASE_TEMPLATE_INVOKE(configId5, cfg);
 #include "ConfigInclude.h"
 
+#define SEISSOL_CONFIGITER(cfg) TEST_CASE_TEMPLATE_INVOKE(configId7, cfg);
+#include "ConfigInclude.h"
+
 // TODO: update doctest first
 // #define SEISSOL_CONFIGITER(cfg) TYPE_TO_STRING_AS(ConfigString[ConfigVariant(cfg()).index()],
 // cfg); #include "ConfigInclude.h"

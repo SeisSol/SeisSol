@@ -5,6 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include <Equations/Datastructures.h>
 #include <numeric>
 
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
@@ -19,155 +20,159 @@ using namespace seissol;
 using namespace seissol::dr;
 
 TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common", Cfg, configId2) {
-  using real = Real<Cfg>;
+  if constexpr (model::MaterialTT<Cfg>::SupportsDR) {
+    using real = Real<Cfg>;
 
-  FaultStresses<Cfg, Executor::Host> faultStresses{};
-  TractionResults<Cfg, Executor::Host> tractionResults{};
-  ImpedancesAndEta<real> impAndEta;
-  alignas(Alignment)
-      real qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
-  alignas(Alignment)
-      real qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
-  alignas(Alignment) real imposedStatePlus[tensor::QInterpolated<Cfg>::size()] = {};
-  alignas(Alignment) real imposedStateMinus[tensor::QInterpolated<Cfg>::size()] = {};
-  double timeWeights[Cfg::ConvergenceOrder];
-  std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
-  constexpr real Epsilon = 1e6 * std::numeric_limits<real>::epsilon();
+    FaultStresses<Cfg, Executor::Host> faultStresses{};
+    TractionResults<Cfg, Executor::Host> tractionResults{};
+    ImpedancesAndEta<real> impAndEta;
+    alignas(Alignment)
+        real qInterpolatedPlus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
+    alignas(Alignment)
+        real qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()] = {{}};
+    alignas(Alignment) real imposedStatePlus[tensor::QInterpolated<Cfg>::size()] = {};
+    alignas(Alignment) real imposedStateMinus[tensor::QInterpolated<Cfg>::size()] = {};
+    double timeWeights[Cfg::ConvergenceOrder];
+    std::iota(std::begin(timeWeights), std::end(timeWeights), 1);
+    constexpr real Epsilon = 1e6 * std::numeric_limits<real>::epsilon();
 
-  using QInterpolatedShapeT = real(*)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
-  auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
-  auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
-  using ImposedStateShapeT = real(*)[misc::NumPaddedPoints<Cfg>];
-  auto* iSPlus = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
-  auto* iSMinus = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
+    using QInterpolatedShapeT = real(*)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
+    auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus));
+    auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus));
+    using ImposedStateShapeT = real(*)[misc::NumPaddedPoints<Cfg>];
+    auto* iSPlus = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
+    auto* iSMinus = reinterpret_cast<ImposedStateShapeT>(imposedStateMinus);
 
-  impAndEta.zp = 10.0;
-  impAndEta.zs = 20.0;
-  impAndEta.zpNeig = 15.0;
-  impAndEta.zsNeig = 25.0;
-  impAndEta.etaP = impAndEta.zp * impAndEta.zpNeig / (impAndEta.zp + impAndEta.zpNeig);
-  impAndEta.etaS = impAndEta.zs * impAndEta.zsNeig / (impAndEta.zs + impAndEta.zsNeig);
-  impAndEta.invZp = 1.0 / impAndEta.zp;
-  impAndEta.invZs = 1.0 / impAndEta.zs;
-  impAndEta.invZpNeig = 1.0 / impAndEta.zpNeig;
-  impAndEta.invZsNeig = 1.0 / impAndEta.zsNeig;
+    impAndEta.zp = 10.0;
+    impAndEta.zs = 20.0;
+    impAndEta.zpNeig = 15.0;
+    impAndEta.zsNeig = 25.0;
+    impAndEta.etaP = impAndEta.zp * impAndEta.zpNeig / (impAndEta.zp + impAndEta.zpNeig);
+    impAndEta.etaS = impAndEta.zs * impAndEta.zsNeig / (impAndEta.zs + impAndEta.zsNeig);
+    impAndEta.invZp = 1.0 / impAndEta.zp;
+    impAndEta.invZs = 1.0 / impAndEta.zs;
+    impAndEta.invZpNeig = 1.0 / impAndEta.zpNeig;
+    impAndEta.invZsNeig = 1.0 / impAndEta.zsNeig;
 
-  ImpedanceMatrices<Cfg> impMats;
-  auto etaView = init::eta<Cfg>::view::create(impMats.eta);
-  etaView(0, 0) = impAndEta.etaP;
-  etaView(1, 1) = impAndEta.etaS;
-  etaView(2, 2) = impAndEta.etaS;
-  auto impedanceView = init::Zplus<Cfg>::view::create(impMats.impedance);
-  impedanceView(0, 0) = impAndEta.invZp;
-  impedanceView(1, 1) = impAndEta.invZs;
-  impedanceView(2, 2) = impAndEta.invZs;
-  auto impedanceNeigView = init::Zminus<Cfg>::view::create(impMats.impedanceNeig);
-  impedanceNeigView(0, 0) = impAndEta.invZpNeig;
-  impedanceNeigView(1, 1) = impAndEta.invZsNeig;
-  impedanceNeigView(2, 2) = impAndEta.invZsNeig;
+    ImpedanceMatrices<Cfg> impMats;
+    auto etaView = init::eta<Cfg>::view::create(impMats.eta);
+    etaView(0, 0) = impAndEta.etaP;
+    etaView(1, 1) = impAndEta.etaS;
+    etaView(2, 2) = impAndEta.etaS;
+    auto impedanceView = init::Zplus<Cfg>::view::create(impMats.impedance);
+    impedanceView(0, 0) = impAndEta.invZp;
+    impedanceView(1, 1) = impAndEta.invZs;
+    impedanceView(2, 2) = impAndEta.invZs;
+    auto impedanceNeigView = init::Zminus<Cfg>::view::create(impMats.impedanceNeig);
+    impedanceNeigView(0, 0) = impAndEta.invZpNeig;
+    impedanceNeigView(1, 1) = impAndEta.invZsNeig;
+    impedanceNeigView(2, 2) = impAndEta.invZsNeig;
 
-  auto qP = [](size_t o, size_t q, size_t p) { return static_cast<real>(o + q + p); };
-  auto qM = [](size_t o, size_t q, size_t p) { return static_cast<real>(2 * (o + q + p)); };
-  auto t1 = [](size_t o, size_t p) { return static_cast<real>(o + p); };
-  auto t2 = [](size_t o, size_t p) { return static_cast<real>(2 * (o + p)); };
+    auto qP = [](size_t o, size_t q, size_t p) { return static_cast<real>(o + q + p); };
+    auto qM = [](size_t o, size_t q, size_t p) { return static_cast<real>(2 * (o + q + p)); };
+    auto t1 = [](size_t o, size_t p) { return static_cast<real>(o + p); };
+    auto t2 = [](size_t o, size_t p) { return static_cast<real>(2 * (o + p)); };
 
-  for (size_t o = 0; o < Cfg::ConvergenceOrder; o++) {
-    for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
-      for (size_t q = 0; q < misc::NumQuantities<Cfg>; q++) {
-        qIPlus[o][q][p] = qP(o, q, p);
-        qIMinus[o][q][p] = qM(o, q, p);
-      }
-      tractionResults.traction1[o][p] = t1(o, p);
-      tractionResults.traction2[o][p] = t2(o, p);
-    }
-  }
-
-  SUBCASE("Precompute Stress") {
-    friction_law::common::precomputeStressFromQInterpolated<Cfg>(
-        faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus, 1.0);
-
-    // Assure that qInterpolatedPlus and qInterpolatedMinus are const.
     for (size_t o = 0; o < Cfg::ConvergenceOrder; o++) {
-      for (size_t q = 0; q < misc::NumQuantities<Cfg>; q++) {
+      for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
+        for (size_t q = 0; q < misc::NumQuantities<Cfg>; q++) {
+          qIPlus[o][q][p] = qP(o, q, p);
+          qIMinus[o][q][p] = qM(o, q, p);
+        }
+        tractionResults.traction1[o][p] = t1(o, p);
+        tractionResults.traction2[o][p] = t2(o, p);
+      }
+    }
+
+    SUBCASE("Precompute Stress") {
+      friction_law::common::precomputeStressFromQInterpolated<Cfg>(
+          faultStresses, impAndEta, impMats, qInterpolatedPlus, qInterpolatedMinus, 1.0);
+
+      // Assure that qInterpolatedPlus and qInterpolatedMinus are const.
+      for (size_t o = 0; o < Cfg::ConvergenceOrder; o++) {
+        for (size_t q = 0; q < misc::NumQuantities<Cfg>; q++) {
+          for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
+            REQUIRE(qIPlus[o][q][p] == qP(o, q, p));
+            REQUIRE(qIMinus[o][q][p] == qM(o, q, p));
+          }
+        }
+      }
+
+      // Assure that faultstresses were computed correctly
+      for (size_t o = 0; o < Cfg::ConvergenceOrder; o++) {
         for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
-          REQUIRE(qIPlus[o][q][p] == qP(o, q, p));
-          REQUIRE(qIMinus[o][q][p] == qM(o, q, p));
+          const real expectedNormalStress =
+              impAndEta.etaP * (qM(o, 6, p) - qP(o, 6, p) + impAndEta.invZp * qP(o, 0, p) +
+                                impAndEta.invZpNeig * qM(o, 0, p));
+          const real expectedTraction1 =
+              impAndEta.etaS * (qM(o, 7, p) - qP(o, 7, p) + impAndEta.invZs * qP(o, 3, p) +
+                                impAndEta.invZsNeig * qM(o, 3, p));
+          const real expectedTraction2 =
+              impAndEta.etaS * (qM(o, 8, p) - qP(o, 8, p) + impAndEta.invZs * qP(o, 5, p) +
+                                impAndEta.invZsNeig * qM(o, 5, p));
+          REQUIRE(faultStresses.normalStress[o][p] ==
+                  AbsApprox(expectedNormalStress).epsilon(Epsilon));
+          REQUIRE(faultStresses.traction1[o][p] == AbsApprox(expectedTraction1).epsilon(Epsilon));
+          REQUIRE(faultStresses.traction2[o][p] == AbsApprox(expectedTraction2).epsilon(Epsilon));
         }
       }
     }
 
-    // Assure that faultstresses were computed correctly
-    for (size_t o = 0; o < Cfg::ConvergenceOrder; o++) {
+    SUBCASE("Postcompute Imposed State") {
+      friction_law::common::postcomputeImposedStateFromNewStress<Cfg>(faultStresses,
+                                                                      tractionResults,
+                                                                      impAndEta,
+                                                                      impMats,
+                                                                      imposedStatePlus,
+                                                                      imposedStateMinus,
+                                                                      qInterpolatedPlus,
+                                                                      qInterpolatedMinus,
+                                                                      timeWeights);
       for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
-        const real expectedNormalStress =
-            impAndEta.etaP * (qM(o, 6, p) - qP(o, 6, p) + impAndEta.invZp * qP(o, 0, p) +
-                              impAndEta.invZpNeig * qM(o, 0, p));
-        const real expectedTraction1 =
-            impAndEta.etaS * (qM(o, 7, p) - qP(o, 7, p) + impAndEta.invZs * qP(o, 3, p) +
-                              impAndEta.invZsNeig * qM(o, 3, p));
-        const real expectedTraction2 =
-            impAndEta.etaS * (qM(o, 8, p) - qP(o, 8, p) + impAndEta.invZs * qP(o, 5, p) +
-                              impAndEta.invZsNeig * qM(o, 5, p));
-        REQUIRE(faultStresses.normalStress[o][p] ==
-                AbsApprox(expectedNormalStress).epsilon(Epsilon));
-        REQUIRE(faultStresses.traction1[o][p] == AbsApprox(expectedTraction1).epsilon(Epsilon));
-        REQUIRE(faultStresses.traction2[o][p] == AbsApprox(expectedTraction2).epsilon(Epsilon));
-      }
-    }
-  }
+        // index 0: Minus side
+        // index 1: Plus side
+        real expectedNormalStress[2]{};
+        real expectedTraction1[2]{};
+        real expectedTraction2[2]{};
+        real expectedU[2]{};
+        real expectedV[2]{};
+        real expectedW[2]{};
+        for (size_t o = 0; o < Cfg::ConvergenceOrder; o++) {
+          expectedNormalStress[0] += timeWeights[o] * faultStresses.normalStress[o][p];
+          expectedTraction1[0] += timeWeights[o] * t1(o, p);
+          expectedTraction2[0] += timeWeights[o] * t2(o, p);
+          expectedU[0] +=
+              timeWeights[o] * (qM(o, 6, p) - impAndEta.invZpNeig *
+                                                  (faultStresses.normalStress[o][p] - qM(o, 0, p)));
+          expectedV[0] +=
+              timeWeights[o] * (qM(o, 7, p) - impAndEta.invZsNeig * (t1(o, p) - qM(o, 3, p)));
+          expectedW[0] +=
+              timeWeights[o] * (qM(o, 8, p) - impAndEta.invZsNeig * (t2(o, p) - qM(o, 5, p)));
 
-  SUBCASE("Postcompute Imposed State") {
-    friction_law::common::postcomputeImposedStateFromNewStress<Cfg>(faultStresses,
-                                                                    tractionResults,
-                                                                    impAndEta,
-                                                                    impMats,
-                                                                    imposedStatePlus,
-                                                                    imposedStateMinus,
-                                                                    qInterpolatedPlus,
-                                                                    qInterpolatedMinus,
-                                                                    timeWeights);
-    for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
-      // index 0: Minus side
-      // index 1: Plus side
-      real expectedNormalStress[2]{};
-      real expectedTraction1[2]{};
-      real expectedTraction2[2]{};
-      real expectedU[2]{};
-      real expectedV[2]{};
-      real expectedW[2]{};
-      for (size_t o = 0; o < Cfg::ConvergenceOrder; o++) {
-        expectedNormalStress[0] += timeWeights[o] * faultStresses.normalStress[o][p];
-        expectedTraction1[0] += timeWeights[o] * t1(o, p);
-        expectedTraction2[0] += timeWeights[o] * t2(o, p);
-        expectedU[0] +=
-            timeWeights[o] *
-            (qM(o, 6, p) - impAndEta.invZpNeig * (faultStresses.normalStress[o][p] - qM(o, 0, p)));
-        expectedV[0] +=
-            timeWeights[o] * (qM(o, 7, p) - impAndEta.invZsNeig * (t1(o, p) - qM(o, 3, p)));
-        expectedW[0] +=
-            timeWeights[o] * (qM(o, 8, p) - impAndEta.invZsNeig * (t2(o, p) - qM(o, 5, p)));
-
-        expectedNormalStress[1] += timeWeights[o] * faultStresses.normalStress[o][p];
-        expectedTraction1[1] += timeWeights[o] * t1(o, p);
-        expectedTraction2[1] += timeWeights[o] * t2(o, p);
-        expectedU[1] +=
-            timeWeights[o] *
-            (qP(o, 6, p) + impAndEta.invZp * (faultStresses.normalStress[o][p] - qP(o, 0, p)));
-        expectedV[1] += timeWeights[o] * (qP(o, 7, p) + impAndEta.invZs * (t1(o, p) - qP(o, 3, p)));
-        expectedW[1] += timeWeights[o] * (qP(o, 8, p) + impAndEta.invZs * (t2(o, p) - qP(o, 5, p)));
+          expectedNormalStress[1] += timeWeights[o] * faultStresses.normalStress[o][p];
+          expectedTraction1[1] += timeWeights[o] * t1(o, p);
+          expectedTraction2[1] += timeWeights[o] * t2(o, p);
+          expectedU[1] +=
+              timeWeights[o] *
+              (qP(o, 6, p) + impAndEta.invZp * (faultStresses.normalStress[o][p] - qP(o, 0, p)));
+          expectedV[1] +=
+              timeWeights[o] * (qP(o, 7, p) + impAndEta.invZs * (t1(o, p) - qP(o, 3, p)));
+          expectedW[1] +=
+              timeWeights[o] * (qP(o, 8, p) + impAndEta.invZs * (t2(o, p) - qP(o, 5, p)));
+        }
+        REQUIRE(iSMinus[0][p] == AbsApprox(expectedNormalStress[0]).epsilon(Epsilon));
+        REQUIRE(iSMinus[3][p] == AbsApprox(expectedTraction1[0]).epsilon(Epsilon));
+        REQUIRE(iSMinus[5][p] == AbsApprox(expectedTraction2[0]).epsilon(Epsilon));
+        REQUIRE(iSMinus[6][p] == AbsApprox(expectedU[0]).epsilon(Epsilon));
+        REQUIRE(iSMinus[7][p] == AbsApprox(expectedV[0]).epsilon(Epsilon));
+        REQUIRE(iSMinus[8][p] == AbsApprox(expectedW[0]).epsilon(Epsilon));
+        REQUIRE(iSPlus[0][p] == AbsApprox(expectedNormalStress[1]).epsilon(Epsilon));
+        REQUIRE(iSPlus[3][p] == AbsApprox(expectedTraction1[1]).epsilon(Epsilon));
+        REQUIRE(iSPlus[5][p] == AbsApprox(expectedTraction2[1]).epsilon(Epsilon));
+        REQUIRE(iSPlus[6][p] == AbsApprox(expectedU[1]).epsilon(Epsilon));
+        REQUIRE(iSPlus[7][p] == AbsApprox(expectedV[1]).epsilon(Epsilon));
+        REQUIRE(iSPlus[8][p] == AbsApprox(expectedW[1]).epsilon(Epsilon));
       }
-      REQUIRE(iSMinus[0][p] == AbsApprox(expectedNormalStress[0]).epsilon(Epsilon));
-      REQUIRE(iSMinus[3][p] == AbsApprox(expectedTraction1[0]).epsilon(Epsilon));
-      REQUIRE(iSMinus[5][p] == AbsApprox(expectedTraction2[0]).epsilon(Epsilon));
-      REQUIRE(iSMinus[6][p] == AbsApprox(expectedU[0]).epsilon(Epsilon));
-      REQUIRE(iSMinus[7][p] == AbsApprox(expectedV[0]).epsilon(Epsilon));
-      REQUIRE(iSMinus[8][p] == AbsApprox(expectedW[0]).epsilon(Epsilon));
-      REQUIRE(iSPlus[0][p] == AbsApprox(expectedNormalStress[1]).epsilon(Epsilon));
-      REQUIRE(iSPlus[3][p] == AbsApprox(expectedTraction1[1]).epsilon(Epsilon));
-      REQUIRE(iSPlus[5][p] == AbsApprox(expectedTraction2[1]).epsilon(Epsilon));
-      REQUIRE(iSPlus[6][p] == AbsApprox(expectedU[1]).epsilon(Epsilon));
-      REQUIRE(iSPlus[7][p] == AbsApprox(expectedV[1]).epsilon(Epsilon));
-      REQUIRE(iSPlus[8][p] == AbsApprox(expectedW[1]).epsilon(Epsilon));
     }
   }
 }

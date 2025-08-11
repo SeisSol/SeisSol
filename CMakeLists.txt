@@ -365,7 +365,8 @@ if (MEMKIND)
   target_compile_definitions(seissol-common-properties INTERFACE USE_MEMKIND)
 endif()
 
-if(${EQUATIONS} STREQUAL "poroelastic")
+# TODO: make better
+if(TRUE)
   include(CheckLanguage)
   check_language(Fortran)
   if(CMAKE_Fortran_COMPILER)
