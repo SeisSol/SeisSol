@@ -103,8 +103,11 @@ class LegendreBasis : public TimeBasis<RealT> {
     const double tauE = end / timestep;
     std::vector<RealT> data(order);
     for (std::size_t i = 0; i < order; ++i) {
-      data[i] = seissol::functions::shiftedLegendre(i, tauE, -1) -
-                seissol::functions::shiftedLegendre(i, tauS, -1);
+      // apply integral transform with x |-> (x * timestep)
+
+      const auto fE = seissol::functions::shiftedLegendre(i, tauE, -1);
+      const auto fS = seissol::functions::shiftedLegendre(i, tauS, -1);
+      data[i] = timestep * (fE - fS);
     }
     return data;
   }
