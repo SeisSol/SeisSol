@@ -51,19 +51,17 @@ class ThermalPressurization {
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup,
+  static void copyStorageToLocal(FrictionLawData* data,
+                                 DynamicRupture::Layer& layerData,
                                  real fullUpdateTime) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::ThermalPressurization*>(dynRup);
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->temperature = layerData.var(concreteLts->temperature, place);
-    data->pressure = layerData.var(concreteLts->pressure, place);
-    data->theta = layerData.var(concreteLts->theta, place);
-    data->sigma = layerData.var(concreteLts->sigma, place);
-    data->halfWidthShearZone = layerData.var(concreteLts->halfWidthShearZone, place);
-    data->hydraulicDiffusivity = layerData.var(concreteLts->hydraulicDiffusivity, place);
+    data->temperature = layerData.var<LTSThermalPressurization::Temperature>(place);
+    data->pressure = layerData.var<LTSThermalPressurization::Pressure>(place);
+    data->theta = layerData.var<LTSThermalPressurization::Theta>(place);
+    data->sigma = layerData.var<LTSThermalPressurization::Sigma>(place);
+    data->halfWidthShearZone = layerData.var<LTSThermalPressurization::HalfWidthShearZone>(place);
+    data->hydraulicDiffusivity =
+        layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(place);
   }
 
   SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& ctx) {
@@ -72,7 +70,7 @@ class ThermalPressurization {
 
   /**
    * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face
-   * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree.
+   * bool saveTmpInTP is used to save final values for Theta and Sigma in the storage.
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
   SEISSOL_DEVICE static void

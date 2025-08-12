@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_COMMON_ITERATOR_H_
 #define SEISSOL_SRC_COMMON_ITERATOR_H_
 
+#include <functional>
 #include <iterator>
 #include <limits>
 #include <stdexcept>
@@ -241,6 +242,59 @@ constexpr auto enumerate(RangeT&& iterator) {
       Range<std::size_t>(0, std::numeric_limits<std::size_t>::max(), 1),
       std::forward<RangeT>(iterator));
 }
+
+template <typename T>
+class FilteredIterator {
+  public:
+  // NOLINTNEXTLINE
+  using iterator_category = typename std::iterator_traits<T>::iterator_category;
+  // NOLINTNEXTLINE
+  using difference_type = typename std::iterator_traits<T>::difference_type;
+  // NOLINTNEXTLINE
+  using value_type = typename std::iterator_traits<T>::value_type;
+  // NOLINTNEXTLINE
+  using pointer = typename std::iterator_traits<T>::pointer;
+  // NOLINTNEXTLINE
+  using reference = typename std::iterator_traits<T>::reference;
+
+  FilteredIterator(T base, T end, std::function<bool(reference)> filter)
+      : base(base), end(end), filter(filter) {
+    // skip initially-filtered elements
+    while (this->base != end && !filter(*this->base)) {
+      ++this->base;
+    }
+  }
+
+  constexpr auto operator++() {
+    // advance, and skip if needed
+    ++base;
+    while (base != end && !filter(*base)) {
+      ++base;
+    }
+    return *this;
+  }
+
+  constexpr auto operator*() -> reference { return *base; }
+
+  constexpr auto operator*() const -> reference { return *base; }
+
+  constexpr auto operator==(const T& other) const -> bool { return other == base; }
+
+  constexpr auto operator!=(const T& other) const -> bool { return !(*this == other); }
+
+  constexpr auto operator==(const FilteredIterator<T>& other) const -> bool {
+    return other.base == base;
+  }
+
+  constexpr auto operator!=(const FilteredIterator<T>& other) const -> bool {
+    return !(*this == other);
+  }
+
+  private:
+  T base;
+  T end;
+  std::function<bool(reference)> filter;
+};
 
 } // namespace seissol::common
 

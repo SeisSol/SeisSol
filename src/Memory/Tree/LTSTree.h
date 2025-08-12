@@ -9,14 +9,17 @@
 #ifndef SEISSOL_SRC_MEMORY_TREE_LTSTREE_H_
 #define SEISSOL_SRC_MEMORY_TREE_LTSTREE_H_
 
-#include "LTSInternalNode.h"
+#include "Backmap.h"
 #include "Layer.h"
-#include "TimeCluster.h"
 
 #include "Memory/MemoryAllocator.h"
 
 #include "Monitoring/Unit.h"
 #include "utils/logger.h"
+#include <Common/Iterator.h>
+#include <Config.h>
+#include <Memory/Tree/Backmap.h>
+#include <Memory/Tree/Colormap.h>
 #include <type_traits>
 
 namespace seissol::initializer {
@@ -57,7 +60,8 @@ void initAssign(T& target, const T& value) {
   // for <typename S, size_t N>, to use a copy constructor as well)
 }
 
-class LTSTree : public LTSInternalNode {
+template <typename VarmapT = GenericVarmap>
+class Storage {
   private:
   std::vector<DualMemoryContainer> memoryContainer;
   std::vector<MemoryInfo> memoryInfo;
@@ -65,31 +69,33 @@ class LTSTree : public LTSInternalNode {
   seissol::memory::ManagedAllocator allocator;
   std::string name;
 
-  std::unordered_map<std::type_index, std::size_t> typemap;
-  std::unordered_map<int*, std::size_t> handlemap;
+  VarmapT varmap;
 
   template <typename TraitT>
-  void addInternal(LayerMask mask,
+  void addInternal(std::size_t index,
+                   LayerMask mask,
                    size_t alignment,
                    AllocationMode allocMode,
                    bool constant,
                    std::size_t count) {
-    MemoryInfo m;
+    MemoryInfo m{};
     m.alignment = alignment;
     m.mask = mask;
     m.allocMode = allocMode;
     m.constant = constant;
     m.type = TraitT::Storage;
-    m.index = memoryInfo.size();
+    m.index = index;
+    m.initialized = true;
+    m.count = count;
 
     if constexpr (std::is_same_v<typename TraitT::Type, void>) {
       m.bytes = 0;
-      m.bytesLayer = [](const LayerIdentifier& identifier) {
+      m.bytesLayer = [count](const LayerIdentifier& identifier) {
         return std::visit(
             [&](auto type) {
               using SelfT = typename TraitT::template VariantType<decltype(type)>;
               if constexpr (!std::is_same_v<void, SelfT>) {
-                return sizeof(typename TraitT::template VariantType<decltype(type)>);
+                return sizeof(SelfT) * count;
               }
               return static_cast<std::size_t>(0);
             },
@@ -97,23 +103,32 @@ class LTSTree : public LTSInternalNode {
       };
     } else {
       using SelfT = typename TraitT::Type;
-      m.bytes = sizeof(SelfT);
-      m.bytesLayer = [](const LayerIdentifier& identifier) { return sizeof(SelfT); };
+      m.bytes = sizeof(SelfT) * count;
+      m.bytesLayer = [count](const LayerIdentifier& identifier) { return sizeof(SelfT) * count; };
     }
 
     const auto bytesLayer = m.bytesLayer;
 
     m.filterLayer = [mask, bytesLayer](const LayerIdentifier& identifier) {
-      return (mask.to_ulong() & identifier.halo) != 0 && bytesLayer(identifier) > 0;
+      return mask.test(static_cast<int>(identifier.halo)) || bytesLayer(identifier) == 0;
     };
 
-    memoryInfo.push_back(m);
+    while (memoryInfo.size() <= index) {
+      memoryInfo.emplace_back();
+    }
+    memoryInfo[index] = m;
   }
 
-  public:
-  LTSTree() = default;
+  std::optional<LTSColorMap> map;
 
-  ~LTSTree() override = default;
+  std::vector<Layer<VarmapT>> layers;
+
+  public:
+  Storage() { memoryInfo.resize(VarmapT::MinSize); }
+
+  ~Storage() = default;
+
+  [[nodiscard]] const LTSColorMap& getColorMap() const { return map.value(); }
 
   void setName(const std::string& name) { this->name = name; }
 
@@ -123,24 +138,32 @@ class LTSTree : public LTSInternalNode {
     }
   }
 
-  void setNumberOfTimeClusters(std::size_t numberOfTimeCluster) {
-    setChildren<TimeCluster>(numberOfTimeCluster);
+  void setLayerCount(const LTSColorMap& map) {
+    this->map = map;
+    const auto layerCount = map.size();
+    layers.resize(layerCount);
+    for (std::size_t i = 0; i < map.size(); ++i) {
+      layer(i).setIdentifier(map.argument(i));
+    }
   }
 
   void fixate() {
     memoryContainer.resize(memoryInfo.size());
-    setPostOrderPointers();
-    for (auto& leaf : leaves()) {
-      leaf.fixPointers(memoryInfo, typemap, handlemap);
+    std::size_t id = 0;
+    for (auto& leaf : this->leaves()) {
+      leaf.fixPointers(id, memoryInfo, varmap);
+      ++id;
     }
   }
 
-  TimeCluster& child(std::size_t index) {
-    return *dynamic_cast<TimeCluster*>(m_children[index].get());
-  }
+  Layer<VarmapT>& layer(std::size_t index) { return layers.at(index); }
 
-  [[nodiscard]] const TimeCluster& child(std::size_t index) const {
-    return *dynamic_cast<TimeCluster*>(m_children[index].get());
+  [[nodiscard]] const Layer<VarmapT>& layer(std::size_t index) const { return layers.at(index); }
+
+  Layer<VarmapT>& layer(const LayerIdentifier& id) { return layer(map.value().colorId(id)); }
+
+  [[nodiscard]] const Layer<VarmapT>& layer(const LayerIdentifier& id) const {
+    return layer(map.value().colorId(id));
   }
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
@@ -152,33 +175,46 @@ class LTSTree : public LTSInternalNode {
   template <typename HandleT>
   typename HandleT::Type* var(const HandleT& handle,
                               AllocationPlace place = AllocationPlace::Host) {
-    return static_cast<typename HandleT::Type*>(varUntyped(handlemap.at(handle.pointer()), place));
+    return static_cast<typename HandleT::Type*>(varUntyped(varmap.index(handle), place));
   }
 
   template <typename StorageT>
   typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
-    const auto index = typemap.at(std::type_index(typeid(StorageT)));
+    const auto index = varmap.template index<StorageT>();
+    assert(memoryContainer.size() > index);
+    return static_cast<typename StorageT::Type*>(memoryContainer[index].get(place));
+  }
+
+  template <typename HandleT>
+  const typename HandleT::Type* var(const HandleT& handle,
+                                    AllocationPlace place = AllocationPlace::Host) const {
+    return static_cast<typename HandleT::Type*>(varUntyped(varmap.index(handle), place));
+  }
+
+  template <typename StorageT>
+  const typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
+    const auto index = varmap.template index<StorageT>();
     assert(memoryContainer.size() > index);
     return static_cast<typename StorageT::Type*>(memoryContainer[index].get(place));
   }
 
   template <typename StorageT>
   void varSynchronizeTo(AllocationPlace place, void* stream) {
-    const auto index = typemap.at(std::type_index(typeid(StorageT)));
+    const auto index = varmap.template index<StorageT>();
     assert(memoryContainer.size() > index);
     memoryContainer[index].synchronizeTo(place, stream);
   }
 
   template <typename StorageT>
   [[nodiscard]] const MemoryInfo& info() const {
-    const auto index = typemap.at(std::type_index(typeid(StorageT)));
+    const auto index = varmap.template index<StorageT>();
     assert(memoryInfo.size() > index);
     return memoryInfo[index];
   }
 
   template <typename HandleT>
   [[nodiscard]] const MemoryInfo& info(const HandleT& handle) const {
-    const auto index = handlemap.at(handle.pointer());
+    const auto index = varmap.index(handle);
     assert(memoryInfo.size() > index);
     return memoryInfo[index];
   }
@@ -186,6 +222,35 @@ class LTSTree : public LTSInternalNode {
   [[nodiscard]] const MemoryInfo& info(std::size_t index) const {
     assert(memoryInfo.size() > index);
     return memoryInfo[index];
+  }
+
+  auto lookupRef(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
+    return layer(position.color).cellRef(position.cell, place);
+  }
+
+  template <typename HandleT>
+  auto& lookup(const HandleT& handle,
+               const StoragePosition& position,
+               AllocationPlace place = AllocationPlace::Host) {
+    return layer(position.color).var(handle)[position.cell];
+  }
+
+  template <typename StorageT>
+  auto& lookup(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
+    return layer(position.color).template var<StorageT>()[position.cell];
+  }
+
+  template <typename HandleT>
+  const auto& lookup(const HandleT& handle,
+                     const StoragePosition& position,
+                     AllocationPlace place = AllocationPlace::Host) const {
+    return layer(position.color).var(handle)[position.cell];
+  }
+
+  template <typename StorageT>
+  const auto& lookup(const StoragePosition& position,
+                     AllocationPlace place = AllocationPlace::Host) const {
+    return layer(position.color).template var<StorageT>()[position.cell];
   }
 
   [[nodiscard]] std::size_t getNumberOfVariables() const { return memoryInfo.size(); }
@@ -196,8 +261,8 @@ class LTSTree : public LTSInternalNode {
            AllocationMode allocMode,
            bool constant = false,
            std::size_t count = 1) {
-    typemap[std::type_index(typeid(StorageT))] = memoryInfo.size();
-    addInternal<StorageT>(mask, alignment, allocMode, constant, count);
+    const auto index = varmap.template add<StorageT>();
+    addInternal<StorageT>(index, mask, alignment, allocMode, constant, count);
   }
 
   template <typename HandleT>
@@ -207,14 +272,14 @@ class LTSTree : public LTSInternalNode {
            AllocationMode allocMode,
            bool constant = false,
            std::size_t count = 1) {
-    handlemap[handle.pointer()] = memoryInfo.size();
-    addInternal<HandleT>(mask, alignment, allocMode, constant, count);
+    const auto index = varmap.add(handle);
+    addInternal<HandleT>(index, mask, alignment, allocMode, constant, count);
   }
 
   void allocateVariables() {
     std::vector<std::size_t> sizes(memoryInfo.size());
-    for (auto& leaf : leaves()) {
-      leaf.addVariableSizes(memoryInfo, sizes);
+    for (auto& leaf : this->leaves()) {
+      leaf.addVariableSizes(sizes);
     }
 
     std::size_t totalSize = 0;
@@ -237,16 +302,16 @@ class LTSTree : public LTSInternalNode {
     }
 
     std::fill(sizes.begin(), sizes.end(), 0);
-    for (auto& leaf : leaves()) {
-      leaf.setMemoryRegionsForVariables(memoryInfo, memoryContainer, sizes);
-      leaf.addVariableSizes(memoryInfo, sizes);
+    for (auto& leaf : this->leaves()) {
+      leaf.setMemoryRegionsForVariables(memoryContainer, sizes);
+      leaf.addVariableSizes(sizes);
     }
   }
 
   void allocateBuckets() {
     std::vector<std::size_t> sizes(memoryInfo.size());
-    for (auto& leaf : leaves()) {
-      leaf.addBucketSizes(memoryInfo, sizes);
+    for (auto& leaf : this->leaves()) {
+      leaf.addBucketSizes(sizes);
     }
 
     std::size_t totalSize = 0;
@@ -270,9 +335,9 @@ class LTSTree : public LTSInternalNode {
     }
 
     std::fill(sizes.begin(), sizes.end(), 0);
-    for (auto& leaf : leaves()) {
+    for (auto& leaf : this->leaves()) {
       leaf.setMemoryRegionsForBuckets(memoryContainer, sizes);
-      leaf.addBucketSizes(memoryInfo, sizes);
+      leaf.addBucketSizes(sizes);
     }
   }
 
@@ -284,8 +349,8 @@ class LTSTree : public LTSInternalNode {
   // Do not update leaves in parallel inside of the same MPI rank while using GPUs.
   void allocateScratchPads() {
     std::vector<std::size_t> sizes(memoryInfo.size());
-    for (auto& leaf : leaves()) {
-      leaf.findMaxScratchpadSizes(memoryInfo, sizes);
+    for (auto& leaf : this->leaves()) {
+      leaf.findMaxScratchpadSizes(sizes);
     }
 
     std::size_t totalSize = 0;
@@ -307,7 +372,7 @@ class LTSTree : public LTSInternalNode {
       }
     }
 
-    for (auto& leaf : leaves()) {
+    for (auto& leaf : this->leaves()) {
       leaf.setMemoryRegionsForScratchpads(memoryContainer);
     }
   }
@@ -317,20 +382,96 @@ class LTSTree : public LTSInternalNode {
 #pragma omp parallel
 #endif
     {
-      for (auto& leaf : leaves()) {
-        leaf.touchVariables(memoryInfo);
+      for (auto& leaf : this->leaves()) {
+        leaf.touchVariables();
       }
     }
   }
 
   [[nodiscard]] size_t getMaxClusterSize(LayerMask mask = LayerMask()) const {
     size_t maxClusterSize{0};
-    for (const auto& leaf : leaves(mask)) {
+    for (const auto& leaf : this->leaves(mask)) {
       const auto currClusterSize = static_cast<size_t>(leaf.size());
       maxClusterSize = std::max(currClusterSize, maxClusterSize);
     }
     return maxClusterSize;
   }
+
+  class IteratorWrapper {
+private:
+    Storage<VarmapT>& node;
+    std::function<bool(const Layer<VarmapT>&)> filter;
+
+public:
+    IteratorWrapper(Storage<VarmapT>& node, std::function<bool(const Layer<VarmapT>&)> filter)
+        : node(node), filter(filter) {}
+
+    auto begin() {
+      return common::FilteredIterator(node.layers.begin(), node.layers.end(), filter);
+    }
+
+    auto end() { return common::FilteredIterator(node.layers.end(), node.layers.end(), filter); }
+  };
+
+  class IteratorWrapperConst {
+private:
+    const Storage<VarmapT>& node;
+    std::function<bool(const Layer<VarmapT>&)> filter;
+
+public:
+    IteratorWrapperConst(const Storage<VarmapT>& node,
+                         std::function<bool(const Layer<VarmapT>&)> filter)
+        : node(node), filter(filter) {}
+
+    [[nodiscard]] auto begin() const {
+      return common::FilteredIterator(node.layers.begin(), node.layers.end(), filter);
+    }
+
+    [[nodiscard]] auto end() const {
+      return common::FilteredIterator(node.layers.end(), node.layers.end(), filter);
+    }
+  };
+
+  [[nodiscard]] std::size_t size(LayerMask layerMask = LayerMask()) const {
+    std::size_t numCells = 0;
+    for (const auto& leaf : leaves(layerMask)) {
+      numCells += leaf.size();
+    }
+    return numCells;
+  }
+
+  template <typename F>
+  [[nodiscard]] std::size_t size(F&& filter) const {
+    std::size_t numCells = 0;
+    for (const auto& leaf : leaves(std::forward<F>(filter))) {
+      numCells += leaf.size();
+    }
+    return numCells;
+  }
+
+  template <typename F>
+  IteratorWrapper filter(F&& filter) {
+    return IteratorWrapper(*this, std::forward<F>(filter));
+  }
+
+  template <typename F>
+  [[nodiscard]] IteratorWrapperConst filter(F&& filter) const {
+    return IteratorWrapperConst(*this, std::forward<F>(filter));
+  }
+
+  IteratorWrapper leaves(LayerMask mask = LayerMask()) {
+    return filter([mask](const Layer<VarmapT>& layer) {
+      return !mask.test(static_cast<int>(layer.getIdentifier().halo));
+    });
+  }
+
+  [[nodiscard]] IteratorWrapperConst leaves(LayerMask mask = LayerMask()) const {
+    return filter([mask](const Layer<VarmapT>& layer) {
+      return !mask.test(static_cast<int>(layer.getIdentifier().halo));
+    });
+  }
+
+  [[nodiscard]] std::size_t numChildren() const { return layers.size(); }
 };
 
 } // namespace seissol::initializer

@@ -16,7 +16,6 @@
 #include "Initializer/MemoryManager.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Lut.h"
 #include "Physics/InitialField.h"
 
 namespace seissol::initializer {
@@ -24,8 +23,7 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
                          const GlobalData& globalData,
                          const seissol::geometry::MeshReader& meshReader,
                          seissol::initializer::MemoryManager& memoryManager,
-                         LTSTree& tree,
-                         LTS const& lts);
+                         LTS::Storage& storage);
 
 std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                                       double time,
@@ -36,8 +34,7 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
                              const GlobalData& globalData,
                              const seissol::geometry::MeshReader& meshReader,
                              seissol::initializer::MemoryManager& memoryManager,
-                             LTSTree& tree,
-                             LTS const& lts,
+                             LTS::Storage& storage,
                              bool needsTime);
 } // namespace seissol::initializer
 

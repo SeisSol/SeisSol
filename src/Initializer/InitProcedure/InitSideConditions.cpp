@@ -15,6 +15,7 @@
 #include <Equations/Datastructures.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Model/CommonDatastructures.h>
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
@@ -67,10 +68,13 @@ std::vector<std::unique_ptr<physics::InitialField>>
   auto& memoryManager = seissolInstance.getMemoryManager();
   std::vector<std::unique_ptr<physics::InitialField>> initConditions;
   std::string initialConditionDescription;
+
+  const auto pos = memoryManager.getBackmap().get(0);
+
   if (initConditionParams.type ==
       seissol::initializer::parameters::InitializationType::Planarwave) {
     initialConditionDescription = "Planar wave";
-    auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0);
+    const auto materialData = memoryManager.getLtsStorage().lookup<LTS::Material>(pos);
 
     for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
       const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
@@ -80,7 +84,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
              seissol::initializer::parameters::InitializationType::SuperimposedPlanarwave) {
     initialConditionDescription = "Super-imposed planar wave";
 
-    auto materialData = memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0);
+    const auto materialData = memoryManager.getLtsStorage().lookup<LTS::Material>(pos);
     for (std::size_t s = 0; s < seissol::multisim::NumSimulations; ++s) {
       const double phase = (2.0 * M_PI * s) / seissol::multisim::NumSimulations;
       initConditions.emplace_back(new physics::SuperimposedPlanarwave(materialData, phase));
@@ -94,18 +98,20 @@ std::vector<std::unique_ptr<physics::InitialField>>
              model::MaterialT::Mechanisms == 0) {
     initialConditionDescription = "Travelling wave";
     auto travellingWaveParameters = getTravellingWaveInformation(seissolInstance);
-    initConditions.emplace_back(new physics::TravellingWave(
-        memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
-        travellingWaveParameters));
+
+    const auto materialData = memoryManager.getLtsStorage().lookup<LTS::Material>(pos);
+    initConditions.emplace_back(
+        new physics::TravellingWave(materialData, travellingWaveParameters));
   } else if (initConditionParams.type ==
                  seissol::initializer::parameters::InitializationType::AcousticTravellingWithITM &&
              model::MaterialT::Mechanisms == 0) {
     initialConditionDescription = "Acoustic Travelling Wave with ITM";
     auto acousticTravellingWaveParametersITM =
         getAcousticTravellingWaveITMInformation(seissolInstance);
-    initConditions.emplace_back(new physics::AcousticTravellingWaveITM(
-        memoryManager.getLtsLut()->lookup(memoryManager.getLts()->material, 0),
-        acousticTravellingWaveParametersITM));
+
+    const auto materialData = memoryManager.getLtsStorage().lookup<LTS::Material>(pos);
+    initConditions.emplace_back(
+        new physics::AcousticTravellingWaveITM(materialData, acousticTravellingWaveParametersITM));
   } else if (initConditionParams.type ==
                  seissol::initializer::parameters::InitializationType::Scholte &&
              model::MaterialT::Mechanisms == 0) {
@@ -157,22 +163,20 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
   if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Easi) {
     logInfo() << "Loading the initial condition from the easi file" << initConditionParams.filename;
     seissol::initializer::projectEasiInitialField({initConditionParams.filename},
-                                                  *memoryManager.getGlobalDataOnHost(),
+                                                  *memoryManager.getGlobalData().onHost,
                                                   seissolInstance.meshReader(),
                                                   seissolInstance.getMemoryManager(),
-                                                  *memoryManager.getLtsTree(),
-                                                  *memoryManager.getLts(),
+                                                  memoryManager.getLtsStorage(),
                                                   initConditionParams.hasTime);
   } else {
     auto initConditions = buildInitialConditionList(seissolInstance);
     if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero &&
         !initConditionParams.avoidIC) {
       seissol::initializer::projectInitialField(initConditions,
-                                                *memoryManager.getGlobalDataOnHost(),
+                                                *memoryManager.getGlobalData().onHost,
                                                 seissolInstance.meshReader(),
                                                 seissolInstance.getMemoryManager(),
-                                                *memoryManager.getLtsTree(),
-                                                *memoryManager.getLts());
+                                                memoryManager.getLtsStorage());
     }
     memoryManager.setInitialConditions(std::move(initConditions));
   }
@@ -184,9 +188,8 @@ void initSource(seissol::SeisSol& seissolInstance) {
   seissol::sourceterm::Manager::loadSources(srcparams.type,
                                             srcparams.fileName.c_str(),
                                             seissolInstance.meshReader(),
-                                            memoryManager.getLtsTree(),
-                                            memoryManager.getLts(),
-                                            memoryManager.getLtsLut(),
+                                            memoryManager.getLtsStorage(),
+                                            memoryManager.getBackmap(),
                                             seissolInstance.timeManager());
 }
 
