@@ -319,7 +319,7 @@ struct MaterialSetup<PoroElasticMaterial> {
           MaterialType::Poroelastic, QgodLocal, QgodNeighbor, realR);
     } else {
       auto matRT = R.transpose();
-      auto matRlu = matRT.lu();
+      auto matRlu = matRT.fullPivHouseholderQr();
       CMatrix godunovMinus = matRlu.solve(chiMinus * matRT);
       CMatrix godunovPlus = matRlu.solve(chiPlus * matRT);
 
