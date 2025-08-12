@@ -7,24 +7,29 @@
 #ifndef SEISSOL_SRC_INITIALIZER_CELLLOCALINFORMATION_H_
 #define SEISSOL_SRC_INITIALIZER_CELLLOCALINFORMATION_H_
 
+#include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
+#include <Initializer/LtsSetup.h>
+#include <Memory/Tree/Backmap.h>
+#include <array>
 #include <cstddef>
+#include <cstdint>
 
 namespace seissol {
 
 // cell local information
 struct CellLocalInformation {
   // types of the faces
-  FaceType faceTypes[4];
+  std::array<FaceType, Cell::NumFaces> faceTypes;
 
   // mapping of the neighboring elements to the references element in relation to this element
-  int faceRelations[4][2];
+  std::array<std::array<uint8_t, 2>, Cell::NumFaces> faceRelations;
 
   // neighbor config IDs
-  unsigned int neighborConfigIds[4];
+  std::array<std::uint32_t, 4> neighborConfigIds;
 
   // LTS setup
-  unsigned short ltsSetup;
+  LtsSetup ltsSetup;
 };
 
 // cell local information which is not needed during the main iterations, but only during setup and
@@ -34,19 +39,19 @@ struct SecondaryCellLocalInformation {
   std::size_t globalId;
 
   // local mesh ID (for interior/copy) or position in the linearized ghost layer
-  unsigned int meshId;
+  std::size_t meshId;
 
-  // ids of the face neighbors (in their respective Config LTS tree)
-  unsigned int faceNeighborIds[4];
+  // storage positions of the face neighbors
+  std::array<initializer::StoragePosition, 4> faceNeighbors;
 
   // ID in layer
-  unsigned int layerId;
+  std::size_t layerId;
 
   // own config ID
-  unsigned int configId;
+  std::uint32_t configId;
 
   // unique global id of the time cluster
-  unsigned int clusterId;
+  std::uint64_t clusterId;
 
   // interior, ghost or copy layer cell
   HaloType halo;
@@ -55,10 +60,10 @@ struct SecondaryCellLocalInformation {
   int rank;
 
   // rank of all neighboring cells
-  int neighborRanks[4];
+  std::array<int, 4> neighborRanks;
 
   // duplicate id of own cell
-  char duplicate;
+  uint8_t duplicate;
 };
 
 } // namespace seissol

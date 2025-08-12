@@ -12,7 +12,6 @@
 #include <IO/Datatype/Datatype.h>
 #include <IO/Datatype/Inference.h>
 #include <IO/Datatype/MPIType.h>
-#include <IO/Instance/SeisSolMemoryHelper.h>
 #include <IO/Writer/Instructions/Data.h>
 #include <IO/Writer/Instructions/Hdf5.h>
 #include <IO/Writer/Instructions/Instruction.h>

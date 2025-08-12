@@ -13,6 +13,7 @@
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/Refinement/TriangleRefiner.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/Surface.h>
 #include <Monitoring/Instrumentation.h>
 #include <Parallel/Helper.h>
 #include <Parallel/MPI.h>
@@ -56,10 +57,8 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
   const unsigned numberOfSubTriangles = m_freeSurfaceIntegrator->triRefiner.subTris.size();
 
   unsigned idx = 0;
-  auto* meshIds =
-      m_freeSurfaceIntegrator->surfaceLtsTree->var(m_freeSurfaceIntegrator->surfaceLts->meshId);
-  auto* sides =
-      m_freeSurfaceIntegrator->surfaceLtsTree->var(m_freeSurfaceIntegrator->surfaceLts->side);
+  auto* meshIds = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
+  auto* sides = m_freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
   for (unsigned fs = 0; fs < m_freeSurfaceIntegrator->totalNumberOfFreeSurfaces; ++fs) {
     const unsigned meshId = meshIds[fs];
     const unsigned side = sides[fs];

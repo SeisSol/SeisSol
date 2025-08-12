@@ -13,6 +13,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
 #include "generated_code/tensor.h"
+#include <Initializer/LtsSetup.h>
 
 namespace seissol::kernels {
 struct TimeCommon {
@@ -44,8 +45,8 @@ struct TimeCommon {
    (either local integration buffer or integration buffer of input).
    **/
   static void computeIntegrals(Time& time,
-                               unsigned short ltsSetup,
-                               const FaceType faceTypes[4],
+                               const LtsSetup& ltsSetup,
+                               const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                const double currentTime[5],
                                double timeStepWidth,
                                real* const timeDofs[4],
@@ -69,8 +70,8 @@ struct TimeCommon {
    *(either local integration buffer or integration buffer of input).
    **/
   static void computeIntegrals(Time& time,
-                               unsigned short ltsSetup,
-                               const FaceType faceTypes[4],
+                               const LtsSetup& ltsSetup,
+                               const std::array<FaceType, Cell::NumFaces>& faceTypes,
                                double timeStepStart,
                                double timeStepWidth,
                                real* const timeDofs[4],
