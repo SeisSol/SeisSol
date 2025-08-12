@@ -34,15 +34,14 @@ namespace seissol::sourceterm {
  *                   |                1 | |    sin d  cos d |  |                1 |
  *
  **/
-void transformMomentTensor(
-    const double localMomentTensor[3][3],
-    const double localSolidVelocityComponent[3],
-    double localPressureComponent,
-    const double localFluidVelocityComponent[3],
-    double strike,
-    double dip,
-    double rake,
-    seissol::memory::AlignedArray<real, PointSources::TensorSize>& forceComponents);
+void transformMomentTensor(const double localMomentTensor[3][3],
+                           const double localSolidVelocityComponent[3],
+                           double localPressureComponent,
+                           const double localFluidVelocityComponent[3],
+                           double strike,
+                           double dip,
+                           double rake,
+                           real* forceComponents);
 } // namespace seissol::sourceterm
 
 #endif // SEISSOL_SRC_SOURCETERM_POINTSOURCE_H_

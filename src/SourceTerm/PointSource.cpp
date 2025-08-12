@@ -10,20 +10,18 @@
 
 #include "PointSource.h"
 #include <Kernels/Precision.h>
-#include <Memory/MemoryAllocator.h>
-#include <SourceTerm/Typedefs.h>
 #include <algorithm>
 #include <cmath>
+#include <generated_code/tensor.h>
 
-void seissol::sourceterm::transformMomentTensor(
-    const double localMomentTensor[3][3],
-    const double localSolidVelocityComponent[3],
-    double localPressureComponent,
-    const double localFluidVelocityComponent[3],
-    double strike,
-    double dip,
-    double rake,
-    seissol::memory::AlignedArray<real, PointSources::TensorSize>& forceComponents) {
+void seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3][3],
+                                                const double localSolidVelocityComponent[3],
+                                                double localPressureComponent,
+                                                const double localFluidVelocityComponent[3],
+                                                double strike,
+                                                double dip,
+                                                double rake,
+                                                real* forceComponents) {
   const double cstrike = std::cos(strike);
   const double sstrike = std::sin(strike);
   const double cdip = std::cos(dip);
@@ -63,24 +61,30 @@ void seissol::sourceterm::transformMomentTensor(
     }
   }
 
-  std::fill(forceComponents.data(), forceComponents.data() + forceComponents.size(), 0);
+  std::fill(forceComponents, forceComponents + tensor::update::Size, 0);
   // Save in order (\sigma_{xx}, \sigma_{yy}, \sigma_{zz}, \sigma_{xy}, \sigma_{yz}, \sigma_{xz}, u,
   // v, w, p, u_f, v_f, w_f)
 
-  // TODO: adjust for acoustic (adjust PointSources::TensorSize first etc.)
+  // TODO: prettify the code
   forceComponents[0] = m[0][0];
-  forceComponents[1] = m[1][1];
-  forceComponents[2] = m[2][2];
-  forceComponents[3] = m[0][1];
-  forceComponents[4] = m[1][2];
-  forceComponents[5] = m[0][2];
-  forceComponents[6] = f[0];
-  forceComponents[7] = f[1];
-  forceComponents[8] = f[2];
-  if constexpr (PointSources::TensorSize >= 13) {
-    forceComponents[9] = localPressureComponent;
-    forceComponents[10] = f[3];
-    forceComponents[11] = f[4];
-    forceComponents[12] = f[5];
+  if constexpr (tensor::update::Size == 4) {
+    forceComponents[1] = f[0];
+    forceComponents[2] = f[1];
+    forceComponents[3] = f[2];
+  } else {
+    forceComponents[1] = m[1][1];
+    forceComponents[2] = m[2][2];
+    forceComponents[3] = m[0][1];
+    forceComponents[4] = m[1][2];
+    forceComponents[5] = m[0][2];
+    forceComponents[6] = f[0];
+    forceComponents[7] = f[1];
+    forceComponents[8] = f[2];
+    if constexpr (tensor::update::Size >= 13) {
+      forceComponents[9] = localPressureComponent;
+      forceComponents[10] = f[3];
+      forceComponents[11] = f[4];
+      forceComponents[12] = f[5];
+    }
   }
 }
