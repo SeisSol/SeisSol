@@ -84,8 +84,8 @@ void findMeshIds(const Eigen::Vector3d* points,
       if (notInside == 0) {
 #ifdef _OPENMP
 #pragma omp critical
-        {
 #endif
+        {
           /* It might actually happen that a point is found in two tetrahedrons
            * if it lies on the boundary. In this case we arbitrarily assign
            * it to the one with the higher meshId.
@@ -99,9 +99,7 @@ void findMeshIds(const Eigen::Vector3d* points,
             contained[point] = 1;
             meshIds[point] = localId;
           }
-#ifdef _OPENMP
         }
-#endif
       }
     }
   }
