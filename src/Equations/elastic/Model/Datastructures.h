@@ -90,6 +90,8 @@ struct ElasticMaterial : Material {
   [[nodiscard]] double getSWaveSpeed() const override { return std::sqrt(mu / rho); }
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
+
+  void setLameParameters(double mu, double lambda) override { this->lambda = lambda; }
 };
 } // namespace seissol::model
 

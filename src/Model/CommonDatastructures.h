@@ -55,11 +55,15 @@ struct Material {
   [[nodiscard]] virtual double getSWaveSpeed() const = 0;
   [[nodiscard]] virtual double getMuBar() const = 0;
   [[nodiscard]] virtual double getLambdaBar() const = 0;
+  [[nodiscard]] virtual double getDensity() const { return rho; }
   [[nodiscard]] virtual double maximumTimestep() const {
     return std::numeric_limits<double>::infinity();
   }
   virtual void getFullStiffnessTensor(std::array<double, 81>& fullTensor) const = 0;
   [[nodiscard]] virtual MaterialType getMaterialType() const = 0;
+
+  virtual void setLameParameters(double mu, double lambda) {}
+  virtual void setDensity(double rho) { this->rho = rho; }
 };
 
 struct Plasticity {
