@@ -224,29 +224,34 @@ struct MaterialSetup<AnisotropicMaterial> {
                                         init::QgodLocal::view::type& QgodLocal,
                                         init::QgodNeighbor::view::type& QgodNeighbor) {
 
-    Matrix99 R = Matrix99::Zero();
-    getEigenBasisForAnisotropicMaterial(local, neighbor, R);
+    Matrix99 matR = Matrix99::Zero();
+    getEigenBasisForAnisotropicMaterial(local, neighbor, matR);
 
     if (faceType == FaceType::FreeSurface) {
-      getTransposedFreeSurfaceGodunovState(MaterialType::Anisotropic, QgodLocal, QgodNeighbor, R);
+      getTransposedFreeSurfaceGodunovState(
+          MaterialType::Anisotropic, QgodLocal, QgodNeighbor, matR);
 
     } else {
       Matrix99 chi = Matrix99::Zero();
+      Matrix99 chiI = Matrix99::Zero();
       chi(0, 0) = 1.0;
       chi(1, 1) = 1.0;
       chi(2, 2) = 1.0;
+      for (std::size_t i = 3; i < 9; ++i) {
+        chiI(i, i) = 1.0;
+      }
 
-      const auto godunov = ((R * chi) * R.inverse()).eval();
+      auto matRT = matR.transpose();
+      auto matRlu = matRT.lu();
+      const auto godunov = matRlu.solve(chi * matRT).eval();
+      const auto godunovI = matRlu.solve(chiI * matRT).eval();
 
       // QgodLocal = I - QgodNeighbor
-      for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
-        for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
-          QgodLocal(i, j) = -godunov(j, i);
-          QgodNeighbor(i, j) = godunov(j, i);
+      for (unsigned i = 0; i < godunov.cols(); ++i) {
+        for (unsigned j = 0; j < godunov.rows(); ++j) {
+          QgodLocal(i, j) = godunovI(i, j);
+          QgodNeighbor(i, j) = godunov(i, j);
         }
-      }
-      for (unsigned idx = 0; idx < QgodLocal.shape(0) && idx < QgodLocal.shape(1); ++idx) {
-        QgodLocal(idx, idx) += 1.0;
       }
     }
   }

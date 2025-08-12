@@ -318,14 +318,15 @@ struct MaterialSetup<PoroElasticMaterial> {
       getTransposedFreeSurfaceGodunovState(
           MaterialType::Poroelastic, QgodLocal, QgodNeighbor, realR);
     } else {
-      CMatrix invR = R.inverse();
-      CMatrix godunovMinus = R * chiMinus * invR;
-      CMatrix godunovPlus = R * chiPlus * invR;
+      auto matRT = R.transpose();
+      auto matRlu = matRT.lu();
+      CMatrix godunovMinus = matRlu.solve(chiMinus * matRT);
+      CMatrix godunovPlus = matRlu.solve(chiPlus * matRT);
 
       for (unsigned i = 0; i < QgodLocal.shape(1); ++i) {
         for (unsigned j = 0; j < QgodLocal.shape(0); ++j) {
-          QgodLocal(j, i) = godunovPlus(i, j).real();
-          QgodNeighbor(j, i) = godunovMinus(i, j).real();
+          QgodLocal(j, i) = godunovPlus(j, i).real();
+          QgodNeighbor(j, i) = godunovMinus(j, i).real();
           assert(std::abs(godunovPlus(j, i).imag()) < ZeroThreshold);
           assert(std::abs(godunovMinus(j, i).imag()) < ZeroThreshold);
         }

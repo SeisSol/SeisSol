@@ -142,23 +142,30 @@ struct MaterialSetup<ElasticMaterial> {
       getTransposedFreeSurfaceGodunovState(materialtype, QgodLocal, QgodNeighbor, R);
     } else {
       Matrix99 chi = Matrix99::Zero();
-      if (!testIfAcoustic(local.mu)) {
-        chi(2, 2) = 1.0;
-        chi(1, 1) = 1.0;
-      }
+      Matrix99 chiI = Matrix99::Zero();
       chi(0, 0) = 1.0;
+      if (testIfAcoustic(local.mu)) {
+        chiI(1, 1) = 1.0;
+        chiI(2, 2) = 1.0;
+      } else {
+        chi(1, 1) = 1.0;
+        chi(2, 2) = 1.0;
+      }
+      for (std::size_t i = 3; i < 9; ++i) {
+        chiI(i, i) = 1.0;
+      }
 
-      const auto godunov = ((R * chi) * R.inverse()).eval();
+      auto matRT = R.transpose();
+      auto matRlu = matRT.lu();
+      const auto godunov = matRlu.solve(chi * matRT).eval();
+      const auto godunovI = matRlu.solve(chiI * matRT).eval();
 
       // QgodLocal = I - QgodNeighbor
       for (unsigned i = 0; i < godunov.cols(); ++i) {
         for (unsigned j = 0; j < godunov.rows(); ++j) {
-          QgodLocal(i, j) = -godunov(j, i);
-          QgodNeighbor(i, j) = godunov(j, i);
+          QgodLocal(i, j) = godunovI(i, j);
+          QgodNeighbor(i, j) = godunov(i, j);
         }
-      }
-      for (unsigned idx = 0; idx < 9; ++idx) {
-        QgodLocal(idx, idx) += 1.0;
       }
     }
   }

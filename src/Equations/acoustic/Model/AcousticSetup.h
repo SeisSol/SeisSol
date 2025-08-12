@@ -80,19 +80,23 @@ struct MaterialSetup<AcousticMaterial> {
       QgodLocal(1, 1) = 1.0;
     } else {
       Matrix44 chi = Matrix44::Zero();
+      Matrix44 chiI = Matrix44::Zero();
       chi(0, 0) = 1.0;
+      for (std::size_t i = 1; i < 4; ++i) {
+        chiI(i, i) = 1.0;
+      }
 
-      const auto godunov = ((R * chi) * R.inverse()).eval();
+      auto matRT = R.transpose();
+      auto matRlu = matRT.lu();
+      const auto godunov = matRlu.solve(chi * matRT).eval();
+      const auto godunovI = matRlu.solve(chiI * matRT).eval();
 
       // QgodLocal = I - QgodNeighbor
       for (unsigned i = 0; i < godunov.cols(); ++i) {
         for (unsigned j = 0; j < godunov.rows(); ++j) {
-          QgodLocal(i, j) = -godunov(j, i);
-          QgodNeighbor(i, j) = godunov(j, i);
+          QgodLocal(i, j) = godunovI(i, j);
+          QgodNeighbor(i, j) = godunov(i, j);
         }
-      }
-      for (unsigned idx = 0; idx < 4; ++idx) {
-        QgodLocal(idx, idx) += 1.0;
       }
     }
   }
