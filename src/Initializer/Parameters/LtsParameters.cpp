@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
-
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <math.h>
@@ -57,7 +57,7 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
     rates.emplace_back(1);
   }
 
-  for (std::size_t i = 0; i < rates.size() - 1; ++i) {
+  for (std::size_t i = 0; i + 1 < rates.size(); ++i) {
     if (rates[i] == 1) {
       logError() << "Invalid LTS rate (1) found in" << rates << ". Aborting.";
     }
