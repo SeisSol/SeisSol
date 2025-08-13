@@ -57,6 +57,7 @@ format() {
         src/Initializer/PointMapper.cpp
         src/Initializer/PreProcessorMacros.h
         src/Initializer/TimeStepping/ClusterLayout.h
+        src/Initializer/TimeStepping/ClusterLayout.cpp
         src/Initializer/TimeStepping/GlobalTimestep.h
         src/Initializer/TimeStepping/GlobalTimestep.cpp
         src/SeisSol.h
