@@ -81,7 +81,7 @@ GlobalTimestep
                                                                   Cfg::ConvergenceOrder,
                                                                   seissolParams);
         },
-        ConfigVariantList[0]);
+        ConfigVariantList[cellToVertex.elementConfigs(cell)]);
   }
 
   const auto minmaxCellPosition =

@@ -60,6 +60,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // requires an vector there)
   std::vector<std::array<std::array<double, Cell::Dim>, Cell::NumVertices>> ghostVertices;
   std::vector<int> ghostGroups;
+  std::vector<int> ghostConfigs;
   std::unordered_map<int, std::vector<unsigned>> ghostIdxMap;
   for (const auto& neighbor : meshReader.getGhostlayerMetadata()) {
     ghostIdxMap[neighbor.first].reserve(neighbor.second.size());
@@ -73,6 +74,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       }
       ghostVertices.emplace_back(vertices);
       ghostGroups.push_back(metadata.group);
+      ghostConfigs.push_back(metadata.configId);
     }
   }
 
@@ -82,7 +84,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
   const auto meshHaloArray = seissol::initializer::CellToVertexArray::join(
       {meshArray,
-       seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups)});
+       seissol::initializer::CellToVertexArray::fromVectors(
+           ghostVertices, ghostGroups, ghostConfigs)});
 
   // material retrieval for ghost+copy+interior layers
   auto materials = queryMaterials(seissolParams.model, meshHaloArray);

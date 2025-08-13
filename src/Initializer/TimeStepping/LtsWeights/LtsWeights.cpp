@@ -118,7 +118,7 @@ LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissol
       m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
       boundaryFormat(config.boundaryFormat) {}
 
-void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
+void LtsWeights::computeWeights(PUML::TETPUML const& mesh, const ConfigMap& configMap) {
   bool continueComputation = true;
   const auto* groups = reinterpret_cast<const int*>(mesh.cellData(0));
 
@@ -160,7 +160,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
   m_mesh = &mesh;
-  m_details = collectGlobalTimeStepDetails();
+  m_details = collectGlobalTimeStepDetails(configMap);
   m_cellCosts = computeCostsPerTimestep();
 
   auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
@@ -429,9 +429,10 @@ std::uint64_t ratepow(const std::vector<std::uint64_t>& rate, std::uint64_t a, s
   return factor;
 }
 
-seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails() {
+seissol::initializer::GlobalTimestep
+    LtsWeights::collectGlobalTimeStepDetails(const ConfigMap& configMap) {
   return seissol::initializer::computeTimesteps(
-      seissol::initializer::CellToVertexArray::fromPUML(*m_mesh),
+      seissol::initializer::CellToVertexArray::fromPUML(*m_mesh, configMap),
       seissolInstance.getSeisSolParameters());
 }
 

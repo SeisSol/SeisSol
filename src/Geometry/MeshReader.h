@@ -11,6 +11,7 @@
 
 #include "MeshDefinition.h"
 
+#include <Initializer/ConfigMap.h>
 #include <cmath>
 #include <map>
 #include <unordered_map>
@@ -106,6 +107,8 @@ class MeshReader {
                                seissol::initializer::parameters::RefPointMethod refPointMethod);
 
   void exchangeGhostlayerMetadata();
+
+  void setupConfigs(const ConfigMap& map);
 };
 
 } // namespace seissol::geometry

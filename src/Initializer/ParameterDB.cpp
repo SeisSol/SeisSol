@@ -60,8 +60,10 @@ namespace seissol::initializer {
 
 CellToVertexArray::CellToVertexArray(size_t size,
                                      const CellToVertexFunction& elementCoordinates,
-                                     const CellToGroupFunction& elementGroups)
-    : size(size), elementCoordinates(elementCoordinates), elementGroups(elementGroups) {}
+                                     const CellToGroupFunction& elementGroups,
+                                     const CellToGroupFunction& elementConfigs)
+    : size(size), elementCoordinates(elementCoordinates), elementGroups(elementGroups),
+      elementConfigs(elementConfigs) {}
 
 CellToVertexArray
     CellToVertexArray::fromMeshReader(const seissol::geometry::MeshReader& meshReader) {
@@ -79,11 +81,12 @@ CellToVertexArray
         }
         return verts;
       },
-      [&](size_t index) { return elements[index].group; });
+      [&](size_t index) { return elements[index].group; },
+      [&](size_t index) { return elements[index].configId; });
 }
 
 #ifdef USE_HDF
-CellToVertexArray CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
+CellToVertexArray CellToVertexArray::fromPUML(const PUML::TETPUML& mesh, const ConfigMap& configs) {
   const int* groups = reinterpret_cast<const int*>(mesh.cellData(0));
   const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
@@ -100,13 +103,15 @@ CellToVertexArray CellToVertexArray::fromPUML(const PUML::TETPUML& mesh) {
         }
         return x;
       },
-      [groups](size_t cell) { return groups[cell]; });
+      [groups](size_t cell) { return groups[cell]; },
+      [groups, configs](size_t cell) { return configs.toConfig(groups[cell]).index(); });
 }
 #endif
 
 CellToVertexArray CellToVertexArray::fromVectors(
     const std::vector<std::array<std::array<double, Cell::Dim>, Cell::NumVertices>>& vertices,
-    const std::vector<int>& groups) {
+    const std::vector<int>& groups,
+    const std::vector<int>& configs) {
   assert(vertices.size() == groups.size());
 
   return CellToVertexArray(
@@ -118,7 +123,8 @@ CellToVertexArray CellToVertexArray::fromVectors(
         }
         return verts;
       },
-      [&](size_t i) { return groups[i]; });
+      [&](size_t i) { return groups[i]; },
+      [&](size_t i) { return configs[i]; });
 }
 
 CellToVertexArray CellToVertexArray::join(std::vector<CellToVertexArray> arrays) {
@@ -147,6 +153,14 @@ CellToVertexArray CellToVertexArray::join(std::vector<CellToVertexArray> arrays)
           }
         }
         throw std::out_of_range(std::to_string(idx) + " vs " + std::to_string(totalSize));
+      },
+      [=](size_t idx) {
+        for (std::size_t i = 0; i < sizes.size(); ++i) {
+          if (idx < sizes[i]) {
+            return arrays[i].elementConfigs(idx - offsets[i]);
+          }
+        }
+        throw std::out_of_range(std::to_string(idx) + " vs " + std::to_string(totalSize));
       });
 }
 
@@ -169,11 +183,13 @@ CellToVertexArray CellToVertexArray::filter(const std::vector<bool>& keep) const
 
   const auto baseCoordinates = this->elementCoordinates;
   const auto baseGroups = this->elementGroups;
+  const auto baseConfigs = this->elementConfigs;
 
   return CellToVertexArray(
       newCount,
       [=](size_t idx) { return baseCoordinates(offset[idx]); },
-      [=](size_t idx) { return baseGroups(offset[idx]); });
+      [=](size_t idx) { return baseGroups(offset[idx]); },
+      [=](size_t idx) { return baseConfigs(offset[idx]); });
 }
 
 easi::Query ElementBarycenterGenerator::generate() const {
@@ -618,7 +634,13 @@ struct QueryAllMaterials {
     std::vector<bool> keepNow(ctvArray.size);
     std::vector<std::size_t> indices;
     for (std::size_t i = 0; i < ctvArray.size; ++i) {
-      keepNow[i] = true; // ctvArray.elementGroups(i) == 0;
+      std::visit(
+          [&](auto cfg) {
+            using Cfg = decltype(cfg);
+            keepNow[i] = std::is_same_v<MaterialTT<Cfg>, Head>;
+          },
+          ConfigVariantList[ctvArray.elementConfigs(i)]);
+
       if (keepNow[i]) {
         indices.emplace_back(i);
       }

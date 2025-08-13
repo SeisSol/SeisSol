@@ -158,6 +158,7 @@ namespace seissol::geometry {
 
 PUMLReader::PUMLReader(const char* meshFile,
                        const char* partitioningLib,
+                       const ConfigMap& configMap,
                        seissol::initializer::parameters::BoundaryFormat boundaryFormat,
                        initializer::time_stepping::LtsWeights* ltsWeights,
                        double tpwgt)
@@ -169,7 +170,7 @@ PUMLReader::PUMLReader(const char* meshFile,
 
   generatePUML(puml); // We need to call generatePUML in order to create the dual graph of the mesh
   if (ltsWeights != nullptr) {
-    ltsWeights->computeWeights(puml);
+    ltsWeights->computeWeights(puml, configMap);
   }
   partition(puml, ltsWeights, tpwgt, meshFile, partitioningLib);
 

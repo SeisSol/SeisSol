@@ -354,4 +354,10 @@ void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInsta
   }
 }
 
+void MeshReader::setupConfigs(const ConfigMap& map) {
+  for (auto& cell : m_elements) {
+    cell.configId = map.toConfig(cell.group).index();
+  }
+}
+
 } // namespace seissol::geometry
