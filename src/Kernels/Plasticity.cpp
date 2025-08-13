@@ -46,23 +46,20 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                                           const seissol::model::PlasticityData* plasticityData,
                                           real degreesOfFreedom[tensor::Q::size()],
                                           real* pstrain) {
-  if constexpr (multisim::MultisimEnabled) {
-    // TODO: really still the case?
-    logError() << "Plasticity does not work with multiple simulations";
-  }
+
   assert(reinterpret_cast<uintptr_t>(degreesOfFreedom) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrix) % Alignment == 0);
   assert(reinterpret_cast<uintptr_t>(global->vandermondeMatrixInverse) % Alignment == 0);
 
-  alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()];
-  alignas(Alignment) real qEtaNodal[tensor::QEtaNodal::size()];
-  alignas(Alignment) real qEtaModal[tensor::QEtaModal::size()];
-  alignas(Alignment) real meanStress[tensor::meanStress::size()];
-  alignas(Alignment) real secondInvariant[tensor::secondInvariant::size()];
-  alignas(Alignment) real tau[tensor::secondInvariant::size()];
-  alignas(Alignment) real taulim[tensor::meanStress::size()];
-  alignas(Alignment) real yieldFactor[tensor::yieldFactor::size()];
-  alignas(Alignment) real dudtPstrain[tensor::QStress::size()];
+  alignas(Alignment) real qStressNodal[tensor::QStressNodal::size()]{};
+  alignas(Alignment) real qEtaNodal[tensor::QEtaNodal::size()]{};
+  alignas(Alignment) real qEtaModal[tensor::QEtaModal::size()]{};
+  alignas(Alignment) real meanStress[tensor::meanStress::size()]{};
+  alignas(Alignment) real secondInvariant[tensor::secondInvariant::size()]{};
+  alignas(Alignment) real tau[tensor::secondInvariant::size()]{};
+  alignas(Alignment) real taulim[tensor::meanStress::size()]{};
+  alignas(Alignment) real yieldFactor[tensor::yieldFactor::size()]{};
+  alignas(Alignment) real dudtPstrain[tensor::QStress::size()]{};
 
   static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
                 "Second invariant tensor and mean stress tensor must be of the same size().");
@@ -70,7 +67,6 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
                 "Yield factor tensor must be smaller than mean stress tensor.");
 
   // copy dofs for later comparison, only first dof of stresses required
-  //  @todo multiple sims
 
   real prevDegreesOfFreedom[tensor::QStress::size()];
   for (std::size_t q = 0; q < tensor::QStress::size(); ++q) {
@@ -208,6 +204,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
     m2nEtaKrnl.QEtaNodal = qEtaNodal;
     m2nEtaKrnl.execute();
 
+    // qStressNodal here contains dudtPstrain, and not stresses
     auto qStressNodalView = init::QStressNodal::view::create(qStressNodal);
     const auto numNodes = qStressNodalView.shape(multisim::BasisFunctionDimension);
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
