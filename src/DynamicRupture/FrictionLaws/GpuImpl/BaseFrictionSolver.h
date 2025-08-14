@@ -181,6 +181,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
+                const FrictionTime& frictionTime,
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
 
@@ -196,8 +197,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     this->currLayerSize = layerData.size();
     dataHost.drParameters = *this->drParameters;
 
-    std::memcpy(dataHost.deltaT, deltaT, sizeof(decltype(deltaT)));
-    dataHost.sumDt = sumDt;
+    std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), dataHost.deltaT);
+    dataHost.sumDt = frictionTime.sumDt;
 
     copyParameters(runtime, timeWeights);
     evaluateKernel(runtime, fullUpdateTime);

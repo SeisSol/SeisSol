@@ -131,7 +131,8 @@ void Spacetime::executeSTP(double timeStepWidth,
   }
 }
 
-void Spacetime::computeAder(double timeStepWidth,
+void Spacetime::computeAder(const real* coeffs,
+                            double timeStepWidth,
                             LocalData& data,
                             LocalTmp& tmp,
                             real timeIntegrated[tensor::I::size()],
@@ -179,7 +180,8 @@ std::uint64_t Spacetime::bytesAder() {
   return reals * sizeof(real);
 }
 
-void Spacetime::computeBatchedAder(double timeStepWidth,
+void Spacetime::computeBatchedAder(const real* coeffs,
+                                   double timeStepWidth,
                                    LocalTmp& tmp,
                                    ConditionalPointersToRealsTable& dataTable,
                                    ConditionalMaterialTable& materialTable,
@@ -245,8 +247,33 @@ void Spacetime::computeBatchedAder(double timeStepWidth,
     krnl.execute();
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
+
+void Time::evaluate(const real* coeffs,
+                    const real* timeDerivatives,
+                    real timeEvaluated[tensor::I::size()]) {
+  kernel::evaluateDOFSAtTimeSTP krnl;
+  krnl.spaceTimePredictor = timeDerivatives;
+  krnl.QAtTimeSTP = timeEvaluated;
+  krnl.timeBasisFunctionsAtPoint = coeffs;
+  krnl.execute();
+}
+
+void Time::evaluateBatched(const real* coeffs,
+                           const real** timeDerivatives,
+                           real** timeIntegratedDofs,
+                           std::size_t numElements,
+                           seissol::parallel::runtime::StreamRuntime& runtime) {
+  logError() << "No GPU implementation provided";
+}
+
+void Time::flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) {
+  nonZeroFlops = kernel::evaluateDOFSAtTimeSTP::NonZeroFlops;
+  hardwareFlops = kernel::evaluateDOFSAtTimeSTP::HardwareFlops;
+}
+
+void Time::setGlobalData(const CompoundGlobalData& global) {}
 
 } // namespace seissol::kernels::solver::stp

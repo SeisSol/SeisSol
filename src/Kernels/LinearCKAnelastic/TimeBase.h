@@ -18,13 +18,15 @@ namespace seissol::kernels::solver::linearckanelastic {
 class Spacetime : public SpacetimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void computeAder(double timeStepWidth,
+  void computeAder(const real* coeffs,
+                   double timeStepWidth,
                    LocalData& data,
                    LocalTmp& tmp,
                    real timeIntegrated[tensor::I::size()],
                    real* timeDerivativesOrSTP = nullptr,
                    bool updateDisplacement = false) override;
-  void computeBatchedAder(double timeStepWidth,
+  void computeBatchedAder(const real* coeffs,
+                          double timeStepWidth,
                           LocalTmp& tmp,
                           ConditionalPointersToRealsTable& dataTable,
                           ConditionalMaterialTable& materialTable,
@@ -46,39 +48,15 @@ class Spacetime : public SpacetimeKernel {
 class Time : public TimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
-  void evaluateAtTime(
-      std::shared_ptr<basisFunction::SampledTimeBasisFunctions<real>> evaluatedTimeBasisFunctions,
-      const real* timeDerivatives,
-      real timeEvaluated[tensor::Q::size()]) override;
-  void flopsEvaluateAtTime(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
-
-  void computeIntegral(double expansionPoint,
-                       double integrationStart,
-                       double integrationEnd,
-                       const real* timeDerivatives,
-                       real timeIntegrated[tensor::I::size()]) override;
-
-  void computeBatchedIntegral(double expansionPoint,
-                              double integrationStart,
-                              double integrationEnd,
-                              const real** timeDerivatives,
-                              real** timeIntegratedDofs,
-                              unsigned numElements,
-                              seissol::parallel::runtime::StreamRuntime& runtime) override;
-
-  void computeTaylorExpansion(real time,
-                              real expansionPoint,
-                              const real* timeDerivatives,
-                              real timeEvaluated[tensor::Q::size()]) override;
-
-  void computeBatchedTaylorExpansion(real time,
-                                     real expansionPoint,
-                                     real** timeDerivatives,
-                                     real** timeEvaluated,
-                                     size_t numElements,
-                                     seissol::parallel::runtime::StreamRuntime& runtime) override;
-
-  void flopsTaylorExpansion(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
+  void evaluate(const real* coeffs,
+                const real* timeDerivatives,
+                real timeEvaluated[tensor::I::size()]) override;
+  void evaluateBatched(const real* coeffs,
+                       const real** timeDerivatives,
+                       real** timeIntegratedDofs,
+                       std::size_t numElements,
+                       seissol::parallel::runtime::StreamRuntime& runtime) override;
+  void flopsEvaluate(std::uint64_t& nonZeroFlops, std::uint64_t& hardwareFlops) override;
 };
 } // namespace seissol::kernels::solver::linearckanelastic
 
