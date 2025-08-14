@@ -110,10 +110,19 @@ TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common", Cfg, configId2) {
           const real expectedTraction2 =
               impAndEta.etaS * (qM(o, 8, p) - qP(o, 8, p) + impAndEta.invZs * qP(o, 5, p) +
                                 impAndEta.invZsNeig * qM(o, 5, p));
-          REQUIRE(faultStresses.normalStress[o][p] ==
-                  AbsApprox(expectedNormalStress).epsilon(Epsilon));
-          REQUIRE(faultStresses.traction1[o][p] == AbsApprox(expectedTraction1).epsilon(Epsilon));
-          REQUIRE(faultStresses.traction2[o][p] == AbsApprox(expectedTraction2).epsilon(Epsilon));
+          
+          // only check for non-padded points
+          if (p % misc::NumPaddedPointsSingleSim<Cfg> < misc::NumBoundaryGaussPoints<Cfg>) {
+            REQUIRE(faultStresses.normalStress[o][p] ==
+                    AbsApprox(expectedNormalStress).epsilon(Epsilon));
+            REQUIRE(faultStresses.traction1[o][p] == AbsApprox(expectedTraction1).epsilon(Epsilon));
+            REQUIRE(faultStresses.traction2[o][p] == AbsApprox(expectedTraction2).epsilon(Epsilon));
+          }
+          else {
+            REQUIRE(!std::isnan(faultStresses.normalStress[o][p]));
+            REQUIRE(!std::isnan(faultStresses.traction1[o][p]));
+            REQUIRE(!std::isnan(faultStresses.traction2[o][p]));
+          }
         }
       }
     }
@@ -160,18 +169,35 @@ TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common", Cfg, configId2) {
           expectedW[1] +=
               timeWeights[o] * (qP(o, 8, p) + impAndEta.invZs * (t2(o, p) - qP(o, 5, p)));
         }
-        REQUIRE(iSMinus[0][p] == AbsApprox(expectedNormalStress[0]).epsilon(Epsilon));
-        REQUIRE(iSMinus[3][p] == AbsApprox(expectedTraction1[0]).epsilon(Epsilon));
-        REQUIRE(iSMinus[5][p] == AbsApprox(expectedTraction2[0]).epsilon(Epsilon));
-        REQUIRE(iSMinus[6][p] == AbsApprox(expectedU[0]).epsilon(Epsilon));
-        REQUIRE(iSMinus[7][p] == AbsApprox(expectedV[0]).epsilon(Epsilon));
-        REQUIRE(iSMinus[8][p] == AbsApprox(expectedW[0]).epsilon(Epsilon));
-        REQUIRE(iSPlus[0][p] == AbsApprox(expectedNormalStress[1]).epsilon(Epsilon));
-        REQUIRE(iSPlus[3][p] == AbsApprox(expectedTraction1[1]).epsilon(Epsilon));
-        REQUIRE(iSPlus[5][p] == AbsApprox(expectedTraction2[1]).epsilon(Epsilon));
-        REQUIRE(iSPlus[6][p] == AbsApprox(expectedU[1]).epsilon(Epsilon));
-        REQUIRE(iSPlus[7][p] == AbsApprox(expectedV[1]).epsilon(Epsilon));
-        REQUIRE(iSPlus[8][p] == AbsApprox(expectedW[1]).epsilon(Epsilon));
+
+        if (p % misc::NumPaddedPointsSingleSim<Cfg> < misc::NumBoundaryGaussPoints<Cfg>) {
+          REQUIRE(iSMinus[0][p] == AbsApprox(expectedNormalStress[0]).epsilon(Epsilon));
+          REQUIRE(iSMinus[3][p] == AbsApprox(expectedTraction1[0]).epsilon(Epsilon));
+          REQUIRE(iSMinus[5][p] == AbsApprox(expectedTraction2[0]).epsilon(Epsilon));
+          REQUIRE(iSMinus[6][p] == AbsApprox(expectedU[0]).epsilon(Epsilon));
+          REQUIRE(iSMinus[7][p] == AbsApprox(expectedV[0]).epsilon(Epsilon));
+          REQUIRE(iSMinus[8][p] == AbsApprox(expectedW[0]).epsilon(Epsilon));
+          REQUIRE(iSPlus[0][p] == AbsApprox(expectedNormalStress[1]).epsilon(Epsilon));
+          REQUIRE(iSPlus[3][p] == AbsApprox(expectedTraction1[1]).epsilon(Epsilon));
+          REQUIRE(iSPlus[5][p] == AbsApprox(expectedTraction2[1]).epsilon(Epsilon));
+          REQUIRE(iSPlus[6][p] == AbsApprox(expectedU[1]).epsilon(Epsilon));
+          REQUIRE(iSPlus[7][p] == AbsApprox(expectedV[1]).epsilon(Epsilon));
+          REQUIRE(iSPlus[8][p] == AbsApprox(expectedW[1]).epsilon(Epsilon));
+        }
+        else {
+          REQUIRE(!std::isnan(iSMinus[0][p]));
+          REQUIRE(!std::isnan(iSMinus[3][p]));
+          REQUIRE(!std::isnan(iSMinus[5][p]));
+          REQUIRE(!std::isnan(iSMinus[6][p]));
+          REQUIRE(!std::isnan(iSMinus[7][p]));
+          REQUIRE(!std::isnan(iSMinus[8][p]));
+          REQUIRE(!std::isnan(iSPlus[0][p]));
+          REQUIRE(!std::isnan(iSPlus[3][p]));
+          REQUIRE(!std::isnan(iSPlus[5][p]));
+          REQUIRE(!std::isnan(iSPlus[6][p]));
+          REQUIRE(!std::isnan(iSPlus[7][p]));
+          REQUIRE(!std::isnan(iSPlus[8][p]));
+        }
       }
     }
   }
