@@ -141,15 +141,11 @@ void TimeCluster::computeSources() {
   // Return when point sources not initialized. This might happen if there
   // are no point sources on this rank.
   auto* pointSourceCluster = [&]() -> kernels::PointSourceCluster* {
-#ifdef ACL_DEVICE
     if (executor == Executor::Device) {
       return sourceCluster.device.get();
     } else {
       return sourceCluster.host.get();
     }
-#else
-    return sourceCluster.host.get();
-#endif
   }();
 
   if (pointSourceCluster != nullptr) {
@@ -225,8 +221,8 @@ void TimeCluster::computeDynamicRupture(seissol::initializer::Layer& layerData) 
   loopStatistics->end(regionComputeDynamicRupture, layerData.size(), profilingId);
 }
 
-#ifdef ACL_DEVICE
 void TimeCluster::computeDynamicRuptureDevice(seissol::initializer::Layer& layerData) {
+#ifdef ACL_DEVICE
   SCOREP_USER_REGION("computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   loopStatistics->begin(regionComputeDynamicRupture);
@@ -272,8 +268,10 @@ void TimeCluster::computeDynamicRuptureDevice(seissol::initializer::Layer& layer
     device.api->popLastProfilingMark();
   }
   loopStatistics->end(regionComputeDynamicRupture, layerData.size(), profilingId);
-}
+#else
+  logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif
+}
 
 void TimeCluster::computeDynamicRuptureFlops(seissol::initializer::Layer& layerData,
                                              std::uint64_t& nonZeroFlops,
@@ -381,9 +379,10 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
 
   loopStatistics->end(regionComputeLocalIntegration, clusterData->size(), profilingId);
 }
-#ifdef ACL_DEVICE
+
 void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
 
+#ifdef ACL_DEVICE
   SCOREP_USER_REGION("computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
   device.api->putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
@@ -467,8 +466,10 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
 
   loopStatistics->end(regionComputeLocalIntegration, clusterData->size(), profilingId);
   device.api->popLastProfilingMark();
-}
+#else
+  logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif // ACL_DEVICE
+}
 
 void TimeCluster::computeNeighboringIntegration(double subTimeStart) {
   if (usePlasticity) {
@@ -477,8 +478,9 @@ void TimeCluster::computeNeighboringIntegration(double subTimeStart) {
     computeNeighboringIntegrationImplementation<false>(subTimeStart);
   }
 }
-#ifdef ACL_DEVICE
+
 void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
+#ifdef ACL_DEVICE
   device.api->putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
   loopStatistics->begin(regionComputeNeighboringIntegration);
@@ -525,8 +527,10 @@ void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
 
   device.api->popLastProfilingMark();
   loopStatistics->end(regionComputeNeighboringIntegration, clusterData->size(), profilingId);
-}
+#else
+  logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif // ACL_DEVICE
+}
 
 void TimeCluster::computeLocalIntegrationFlops() {
   auto& flopsNonZero = accFlopsNonZero[static_cast<int>(ComputePart::Local)];
@@ -641,33 +645,30 @@ void TimeCluster::predict() {
   }
 
   writeReceivers();
-#ifdef ACL_DEVICE
+
   if (executor == Executor::Device) {
     computeLocalIntegrationDevice(resetBuffers);
   } else {
     computeLocalIntegration(resetBuffers);
   }
-#else
-  computeLocalIntegration(resetBuffers);
-#endif
+
   computeSources();
 
   seissolInstance.flopCounter().incrementNonZeroFlopsLocal(
       accFlopsNonZero[static_cast<int>(ComputePart::Local)]);
   seissolInstance.flopCounter().incrementHardwareFlopsLocal(
       accFlopsHardware[static_cast<int>(ComputePart::Local)]);
-#ifdef ACL_DEVICE
+
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host
                                               : seissol::initializer::AllocationPlace::Device;
     clusterData->varSynchronizeTo(lts->buffersDerivatives, other, streamRuntime.stream());
   }
-#endif
+
   streamRuntime.wait();
 }
 
 void TimeCluster::handleDynamicRupture(initializer::Layer& layerData) {
-#ifdef ACL_DEVICE
   if (executor == Executor::Device) {
     computeDynamicRuptureDevice(layerData);
   } else {
@@ -683,9 +684,6 @@ void TimeCluster::handleDynamicRupture(initializer::Layer& layerData) {
     layerData.varSynchronizeTo(dynRup->imposedStateMinus, other, streamRuntime.stream());
     layerData.varSynchronizeTo(dynRup->imposedStatePlus, other, streamRuntime.stream());
   }
-#else
-  computeDynamicRupture(layerData);
-#endif
 }
 
 void TimeCluster::correct() {
@@ -740,15 +738,11 @@ void TimeCluster::correct() {
     dynamicRuptureScheduler->setLastCorrectionStepsCopy((ct.stepsSinceStart));
   }
 
-#ifdef ACL_DEVICE
   if (executor == Executor::Device) {
     computeNeighboringIntegrationDevice(subTimeStart);
   } else {
     computeNeighboringIntegration(subTimeStart);
   }
-#else
-  computeNeighboringIntegration(subTimeStart);
-#endif
 
   seissolInstance.flopCounter().incrementNonZeroFlopsNeighbor(
       accFlopsNonZero[static_cast<int>(ComputePart::Neighbor)]);
@@ -925,18 +919,18 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
 }
 
 void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {
-#ifdef ACL_DEVICE
-  if ((place == initializer::AllocationPlace::Host && executor == Executor::Device) ||
-      (place == initializer::AllocationPlace::Device && executor == Executor::Host)) {
-    clusterData->synchronizeTo(place, stream);
-    if (layerType == Interior) {
-      dynRupInteriorData->synchronizeTo(place, stream);
-    }
-    if (layerType == Copy) {
-      dynRupCopyData->synchronizeTo(place, stream);
+  if constexpr (isDeviceOn()) {
+    if ((place == initializer::AllocationPlace::Host && executor == Executor::Device) ||
+        (place == initializer::AllocationPlace::Device && executor == Executor::Host)) {
+      clusterData->synchronizeTo(place, stream);
+      if (layerType == Interior) {
+        dynRupInteriorData->synchronizeTo(place, stream);
+      }
+      if (layerType == Copy) {
+        dynRupCopyData->synchronizeTo(place, stream);
+      }
     }
   }
-#endif
 }
 
 void TimeCluster::finishPhase() {
