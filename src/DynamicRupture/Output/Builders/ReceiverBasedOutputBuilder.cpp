@@ -162,6 +162,10 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       std::visit(
           [&](auto cfg) {
             using Cfg = decltype(cfg);
+            if (outputData->transformData[foundPoints - 1].index() != configId) {
+              outputData->transformData[foundPoints - 1].emplace<TransformData<Cfg>>();
+            }
+
             std::get<TransformData<Cfg>>(outputData->transformData[foundPoints - 1])
                 .basisFunctions = getPlusMinusBasisFunctions<Real<Cfg>>(
                 point.global.coords, elemCoords, neighborElemCoords, cfg);
@@ -278,11 +282,15 @@ void ReceiverBasedOutputBuilder::initRotationMatrices() {
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
     const auto configId =
         meshReader->getElements()[outputData->receiverPoints[receiverId].elementIndex].configId;
+
     std::visit(
         [&](auto cfg) {
           using Cfg = decltype(cfg);
           using real = Real<Cfg>;
 
+          if (outputData->transformData[receiverId].index() != configId) {
+            outputData->transformData[receiverId].emplace<TransformData<Cfg>>();
+          }
           auto& transformData = std::get<TransformData<Cfg>>(outputData->transformData[receiverId]);
 
           using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
@@ -379,6 +387,10 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
         [&](auto cfg) {
           using Cfg = decltype(cfg);
           using real = Real<Cfg>;
+
+          if (outputData->transformData[receiverId].index() != configId) {
+            outputData->transformData[receiverId].emplace<TransformData<Cfg>>();
+          }
 
           Eigen::Matrix<real, 2, 2> matrix;
           matrix(0, 0) = MeshTools::dot(tangent1, xab);

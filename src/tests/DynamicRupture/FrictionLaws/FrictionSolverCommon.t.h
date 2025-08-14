@@ -110,15 +110,14 @@ TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common", Cfg, configId2) {
           const real expectedTraction2 =
               impAndEta.etaS * (qM(o, 8, p) - qP(o, 8, p) + impAndEta.invZs * qP(o, 5, p) +
                                 impAndEta.invZsNeig * qM(o, 5, p));
-          
+
           // only check for non-padded points
           if (p % misc::NumPaddedPointsSingleSim<Cfg> < misc::NumBoundaryGaussPoints<Cfg>) {
             REQUIRE(faultStresses.normalStress[o][p] ==
                     AbsApprox(expectedNormalStress).epsilon(Epsilon));
             REQUIRE(faultStresses.traction1[o][p] == AbsApprox(expectedTraction1).epsilon(Epsilon));
             REQUIRE(faultStresses.traction2[o][p] == AbsApprox(expectedTraction2).epsilon(Epsilon));
-          }
-          else {
+          } else {
             REQUIRE(!std::isnan(faultStresses.normalStress[o][p]));
             REQUIRE(!std::isnan(faultStresses.traction1[o][p]));
             REQUIRE(!std::isnan(faultStresses.traction2[o][p]));
@@ -183,8 +182,7 @@ TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common", Cfg, configId2) {
           REQUIRE(iSPlus[6][p] == AbsApprox(expectedU[1]).epsilon(Epsilon));
           REQUIRE(iSPlus[7][p] == AbsApprox(expectedV[1]).epsilon(Epsilon));
           REQUIRE(iSPlus[8][p] == AbsApprox(expectedW[1]).epsilon(Epsilon));
-        }
-        else {
+        } else {
           REQUIRE(!std::isnan(iSMinus[0][p]));
           REQUIRE(!std::isnan(iSMinus[3][p]));
           REQUIRE(!std::isnan(iSMinus[5][p]));
