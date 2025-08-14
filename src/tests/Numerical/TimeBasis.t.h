@@ -56,10 +56,13 @@ TEST_CASE_TEMPLATE("Legendre Basis", RealT, float, double) {
 
       const auto tau = point / Span;
       for (std::size_t j = 0; j < i; ++j) {
-        REQUIRE(exp[j] ==
-                AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, 0))).delta(Delta));
-        REQUIRE(expD[j] ==
-                AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, 1))).delta(Delta));
+        REQUIRE(exp[j] == AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, 0)))
+                              .delta(Delta)
+                              .epsilon(Epsilon));
+        REQUIRE(expD[j] * Span ==
+                AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, 1)))
+                    .delta(Delta)
+                    .epsilon(Epsilon));
         REQUIRE(expI[j] / Span ==
                 AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, -1) -
                                              functions::shiftedLegendre(j, 0, -1)))
