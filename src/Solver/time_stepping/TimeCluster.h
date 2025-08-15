@@ -579,24 +579,24 @@ private:
                 real lambp = (1- qIPlus[o][BRE][i])*
                   (lambda0P - alphap * materialData[l_cell].local.gammaR * (qIPlus[o][XX][i]+epsInitxx)/std::sqrt(EspIIp) )
                 + qIPlus[o][BRE][i] *
-                  (2.0*aB2 + 0.0*xip*aB3 + 0.0*aB1*(qIPlus[o][XX][i]+epsInitxx)/std::sqrt(EspIIp));
+                  (2.0*aB2 + 3.0*xip*aB3 + aB1*(qIPlus[o][XX][i]+epsInitxx)/std::sqrt(EspIIp));
 
                 real mup = (1- qIPlus[o][BRE][i])*
                   (mu0P - alphap * materialData[l_cell].local.xi0 * materialData[l_cell].local.gammaR
                   - 0.5*alphap*materialData[l_cell].local.gammaR*xip )
-                + 1.5*qIPlus[o][BRE][i] *
-                  (aB0);
+                + qIPlus[o][BRE][i] *
+                  (aB0 + 0.5*xip*aB1 - 0.5*xip*xip*xip*aB3);
 
                 real lambm = (1- qIMinus[o][BRE][i])*
                   (lambda0M - alpham * materialData[l_cell].neighbor[side].gammaR * (qIMinus[o][XX][i]+epsInitxx)/std::sqrt(EspIIm) )
                 + qIMinus[o][BRE][i] *
-                  (2.0*aB2 + 0.0*xim*aB3 + 0.0*aB1*(qIMinus[o][XX][i]+epsInitxx)/std::sqrt(EspIIm));
+                  (2.0*aB2 + 3.0*xim*aB3 + aB1*(qIMinus[o][XX][i]+epsInitxx)/std::sqrt(EspIIm));
 
                 real mum = (1- qIMinus[o][BRE][i])*
                   (mu0M - alpham * materialData[l_cell].neighbor[side].xi0 * materialData[l_cell].neighbor[side].gammaR
                   - 0.5*alpham*materialData[l_cell].neighbor[side].gammaR*xim )
-                + 1.5*qIMinus[o][BRE][i] *
-                  (aB0);
+                + qIMinus[o][BRE][i] *
+                  (aB0 + 0.5*xip*aB1 - 0.5*xip*xip*xip*aB3);
 
                 lambda_max = std::min(
                   std::sqrt( (lambp+2*mup)/rho0P ),
@@ -626,19 +626,19 @@ private:
                 real szx_sp = 2*mu_eff*(qIPlus[o][XZ][i]+epsInitzx);
 
                 // breakage stress
-                real sxx_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
-                              + 0.0*aB1 * std::sqrt(EspIIp)
-                              + (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(qIPlus[o][XX][i]+epsInitxx);
-                real syy_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
-                              + 0.0*aB1 * std::sqrt(EspIIp)
-                              + (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(qIPlus[o][YY][i]+epsInityy);
-                real szz_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
-                              + 0.0*aB1 * std::sqrt(EspIIp)
-                              + (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(qIPlus[o][ZZ][i]+epsInitzz);
+                real sxx_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+                              + aB1 * std::sqrt(EspIIp)
+                              + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(qIPlus[o][XX][i]+epsInitxx);
+                real syy_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+                              + aB1 * std::sqrt(EspIIp)
+                              + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(qIPlus[o][YY][i]+epsInityy);
+                real szz_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+                              + aB1 * std::sqrt(EspIIp)
+                              + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(qIPlus[o][ZZ][i]+epsInitzz);
 
-                real sxy_bp = (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(qIPlus[o][XY][i]+epsInitxy);
-                real syz_bp = (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(qIPlus[o][YZ][i]+epsInityz);
-                real szx_bp = (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(qIPlus[o][XZ][i]+epsInitzx);
+                real sxy_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(qIPlus[o][XY][i]+epsInitxy);
+                real syz_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(qIPlus[o][YZ][i]+epsInityz);
+                real szx_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(qIPlus[o][XZ][i]+epsInitzx);
 
                 // damage stress minus
                 mu_eff = materialData[l_cell].neighbor[side].mu0 - alpham*materialData[l_cell].neighbor[side].gammaR*materialData[l_cell].neighbor[side].xi0
@@ -658,19 +658,19 @@ private:
                 real szx_sm = 2*mu_eff*(qIMinus[o][XZ][i]+epsInitzx);
 
                 // breakage stress
-                real sxx_bm = (2.0*aB2 + 0.0*xim*aB3)*EspIm
-                              + 0.0*aB1 * std::sqrt(EspIIm)
-                              + (3.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(qIMinus[o][XX][i]+epsInitxx);
-                real syy_bm = (2.0*aB2 + 0.0*xim*aB3)*EspIm
-                              + 0.0*aB1 * std::sqrt(EspIIm)
-                              + (3.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(qIMinus[o][YY][i]+epsInityy);
-                real szz_bm = (2.0*aB2 + 0.0*xim*aB3)*EspIm
-                              + 0.0*aB1 * std::sqrt(EspIIm)
-                              + (3.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(qIMinus[o][ZZ][i]+epsInitzz);
+                real sxx_bm = (2.0*aB2 + 3.0*xim*aB3)*EspIm
+                              + aB1 * std::sqrt(EspIIm)
+                              + (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(qIMinus[o][XX][i]+epsInitxx);
+                real syy_bm = (2.0*aB2 + 3.0*xim*aB3)*EspIm
+                              + aB1 * std::sqrt(EspIIm)
+                              + (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(qIMinus[o][YY][i]+epsInityy);
+                real szz_bm = (2.0*aB2 + 3.0*xim*aB3)*EspIm
+                              + aB1 * std::sqrt(EspIIm)
+                              + (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(qIMinus[o][ZZ][i]+epsInitzz);
 
-                real sxy_bm = (3.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(qIMinus[o][XY][i]+epsInitxy);
-                real syz_bm = (3.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(qIMinus[o][YZ][i]+epsInityz);
-                real szx_bm = (3.0*aB0 + 0.0*aB1*xim - 0.0*aB3*xim*xim*xim)*(qIMinus[o][XZ][i]+epsInitzx);
+                real sxy_bm = (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(qIMinus[o][XY][i]+epsInitxy);
+                real syz_bm = (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(qIMinus[o][YZ][i]+epsInityz);
+                real szx_bm = (2.0*aB0 + aB1*xim - aB3*xim*xim*xim)*(qIMinus[o][XZ][i]+epsInitzx);
 
                 real breakp = qIPlus[o][BRE][i];
                 real breakm = qIMinus[o][BRE][i];
@@ -988,13 +988,13 @@ private:
                 real lambp = (1- qIPlus[o][BRE][i])*
                   (lambda0P - alphap * materialData[l_cell].local.gammaR * (epsInitxx)/std::sqrt(EspIIp) )
                 + qIPlus[o][BRE][i] *
-                  (2.0*aB2);
+                  (2.0*aB2 + 3.0*xip*aB3 + aB1*(epsInitxx)/std::sqrt(EspIIp));
 
                 real mup = (1- qIPlus[o][BRE][i])*
                   (mu0P - alphap * materialData[l_cell].local.xi0 * materialData[l_cell].local.gammaR
                   - 0.5*alphap*materialData[l_cell].local.gammaR*xip )
-                + 1.5*qIPlus[o][BRE][i] *
-                  (aB0);
+                + qIPlus[o][BRE][i] *
+                  (aB0 + 0.5*xip*aB1 - 0.5*xip*xip*xip*aB3);
 
                 // damage stress
                 real mu_eff = materialData[l_cell].local.mu0 - alphap*materialData[l_cell].local.gammaR*materialData[l_cell].local.xi0
@@ -1014,19 +1014,19 @@ private:
                 real szx_sp = 2*mu_eff*(epsInitzx);
 
                 // breakage stress
-                real sxx_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
-                              + 0.0*aB1 * std::sqrt(EspIIp)
-                              + (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(epsInitxx);
-                real syy_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
-                              + 0.0*aB1 * std::sqrt(EspIIp)
-                              + (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(epsInityy);
-                real szz_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
-                              + 0.0*aB1 * std::sqrt(EspIIp)
-                              + (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(epsInitzz);
+                real sxx_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+                              + aB1 * std::sqrt(EspIIp)
+                              + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(epsInitxx);
+                real syy_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+                              + aB1 * std::sqrt(EspIIp)
+                              + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(epsInityy);
+                real szz_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
+                              + aB1 * std::sqrt(EspIIp)
+                              + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(epsInitzz);
 
-                real sxy_bp = (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(epsInitxy);
-                real syz_bp = (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(epsInityz);
-                real szx_bp = (3.0*aB0 + 0.0*aB1*xip - 0.0*aB3*xip*xip*xip)*(epsInitzx);
+                real sxy_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(epsInitxy);
+                real syz_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(epsInityz);
+                real szx_bp = (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(epsInitzx);
 
                 real breakp = qIPlus[o][BRE][i];
 
