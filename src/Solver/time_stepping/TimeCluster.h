@@ -320,27 +320,6 @@ private:
       }
       #endif
 
-      // for (int i_out = 0; i_out<50; ++i_out){
-      //   std::cout << faceNeighbors[i_out][0][20*6+0] << " ";
-      // }
-      // std::cout << faceNeighbors[50][0][20*9] << " "<< std::endl;
-
-      // // Print nodes corresponding to exx and vx:
-      // auto faceNeighborsView = init::Q::view::create(faceNeighbors[100][0]);
-      // auto data1 = loader.entry(100);
-      // // real* derivative = derivatives[100];
-      // for (int i_out = 0; i_out<2; ++i_out){
-      //   std::cout
-      //             << faceNeighbors[100][0][20*i_out*6+0]/timeStepSize() << " "
-      //             << faceNeighborsView(0,i_out*6)/timeStepSize() << " "
-      //             << data1.dofs[20*i_out*6+0] << " "
-      //             // << derivative[0]
-      //             // << derivatives[l_cell][20*i_out+0]
-      //             << "s ";
-      // }
-      // std::cout << faceNeighbors[100][0][20*6+0]/faceNeighbors[100][0][20*0+0]
-      //           << " " << data1.dofs[20*6+0]/data1.dofs[20*0+0] << std::endl;
-
       #ifdef _OPENMP
       #pragma omp parallel for collapse(1) schedule(static) default(none) private(l_timeIntegrated, l_faceNeighbors_prefetch) shared(std::cout, materialData, localIntegration, cellInformation, loader, faceNeighbors, derivatives, pstrain, i_layerData, plasticity, drMapping, subTimeStart, timePoints, timeWeights) reduction(+:numberOTetsWithPlasticYielding)
       #endif

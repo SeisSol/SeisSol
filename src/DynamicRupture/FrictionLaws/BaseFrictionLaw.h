@@ -46,8 +46,8 @@ class BaseFrictionLaw : public FrictionSolver {
       using QInterpolatedShapeT = const real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
       using QStressInterpolatedShapeT = real(*)[seissol::dr::misc::numQuantities][seissol::dr::misc::numPaddedPoints];
       // std::cout << seissol::dr::misc::numQuantities << std::endl;
-      auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus[ltsFace]));
-      auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus[ltsFace]));
+      auto* qIPlus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus[ltsFace])); // strains
+      auto* qIMinus = (reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus[ltsFace])); // strains
       auto* qStressIPlus = (reinterpret_cast<QStressInterpolatedShapeT>(qStressInterpolatedPlus));
       auto* qStressIMinus = (reinterpret_cast<QStressInterpolatedShapeT>(qStressInterpolatedMinus));
 
