@@ -247,7 +247,7 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       real syy_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
                     + aB1 * std::sqrt(EspIIp)
                     + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(dofsNPlus[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInityy);
-      real szz_bp = (2.0*aB2 + 0.0*xip*aB3)*EspIp
+      real szz_bp = (2.0*aB2 + 3.0*xip*aB3)*EspIp
                     + aB1 * std::sqrt(EspIIp)
                     + (2.0*aB0 + aB1*xip - aB3*xip*xip*xip)*(dofsNPlus[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitzz);
 
