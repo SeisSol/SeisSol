@@ -154,6 +154,7 @@ class WaveFieldWriter
             int numAlignedDOF,
             const seissol::geometry::MeshReader& meshReader,
             const std::vector<unsigned>& ltsClusteringData,
+            const std::vector<unsigned>& ltsIdData,
             const real* dofs,
             const real* pstrain,
             const real* integrals,

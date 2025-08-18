@@ -33,7 +33,8 @@ class FreeSurfaceWriterExecutor {
     Cells = 1,
     Vertices = 2,
     LocationFlags = 3,
-    Variables0 = 4,
+    GlobalIds = 4,
+    Variables0 = 5,
   };
 
   private:
@@ -73,13 +74,12 @@ class FreeSurfaceWriterExecutor {
   }
 
   void setLocationFlagData(const unsigned int* locationFlags) {
-    m_xdmfWriter->writeExtraIntCellData(locationFlags);
+    m_xdmfWriter->writeExtraIntCellData(0, locationFlags);
   }
 
   void finalize() {
-    if (m_xdmfWriter != nullptr) {
-      m_stopwatch.printTime("Time free surface writer backend:");
-    }
+    // note: also includes some ranks which do nothing at all
+    m_stopwatch.printTime("Time free surface writer backend:");
 
     if (m_comm != MPI_COMM_NULL) {
       MPI_Comm_free(&m_comm);
