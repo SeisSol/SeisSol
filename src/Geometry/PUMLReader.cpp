@@ -46,6 +46,13 @@
 #include <vector>
 
 namespace {
+
+// PUML sanity checks
+using PumlTopologyInternal = PUML::internal::Topology<seissol::geometry::PumlTopology>;
+static_assert(PumlTopologyInternal::dimension() == seissol::Cell::Dim);
+static_assert(PumlTopologyInternal::cellfaces() == seissol::Cell::NumFaces);
+static_assert(PumlTopologyInternal::cellvertices() == seissol::Cell::NumVertices);
+
 /*
  * Possible types of boundary conditions for SeisSol.
  */

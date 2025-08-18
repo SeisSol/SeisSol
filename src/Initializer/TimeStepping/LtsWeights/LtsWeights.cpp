@@ -478,7 +478,7 @@ std::vector<int> LtsWeights::computeCostsPerTimestep() {
     int dynamicRupture = 0;
     int freeSurfaceWithGravity = 0;
 
-    unsigned int faceids[4];
+    unsigned int faceids[Cell::NumFaces];
     PUML::Downward::faces(*m_meshTopology, cells[cell], faceids);
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
