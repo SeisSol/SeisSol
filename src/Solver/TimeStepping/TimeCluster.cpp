@@ -265,6 +265,10 @@ void TimeCluster::computeDynamicRuptureDevice(seissol::initializer::Layer& layer
       frictionSolverDevice->evaluate(
           layerData, dynRup, ct.correctionTime, dynamicRuptureKernel.timeWeights, streamRuntime);
     }
+
+    // TODO: remove after #1390 has been merged
+    streamRuntime.wait();
+
     device.api->popLastProfilingMark();
   }
   loopStatistics->end(regionComputeDynamicRupture, layerData.size(), profilingId);
