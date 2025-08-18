@@ -71,10 +71,10 @@ void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
     // collect information only in the case that neighboring element contributions are required
     if (faceTypes[dofneighbor] != FaceType::Outflow &&
         faceTypes[dofneighbor] != FaceType::DynamicRupture) {
+      const auto neighborConfig = cellInfo.neighborConfigIds[dofneighbor];
+
       // check if the time integration is already done (-> copy pointer)
       if (!ltsSetup.neighborHasDerivatives(dofneighbor)) {
-        const auto neighborConfig = cellInfo.neighborConfigIds[dofneighbor];
-
         if (ConfigVariant(Cfg()).index() == neighborConfig) {
           timeIntegrated[dofneighbor] = static_cast<real*>(timeDofs[dofneighbor]);
         } else {
@@ -97,21 +97,35 @@ void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
                 using RealNeighbor = Real<CfgNeighbor>;
                 auto* neighborPtr = static_cast<RealNeighbor*>(timeDofs[dofneighbor]);
 
-                if constexpr (std::is_same_v<real, RealNeighbor>) {
-                  // same precision; just assign the pointer
+                if constexpr (std::is_same_v<real, RealNeighbor> &&
+                              Cfg::ConvergenceOrder <= CfgNeighbor::ConvergenceOrder) {
+                  // same precision; just assign the pointer (also works for lower orders)
                   timeIntegrated[dofneighbor] = neighborPtr;
                 } else {
-                  // convert precision
+                  // convert precision / copy and zero relevant data
 
                   auto ownView = init::I<Cfg>::view::create(integrationBuffer[dofneighbor]);
                   auto neighborView = init::I<CfgNeighbor>::view::create(neighborPtr);
 
+                  const auto dataRange =
+                      std::min(ownView.shape(multisim::BasisDim<Cfg>),
+                               neighborView.shape(multisim::BasisDim<CfgNeighbor>));
+
 #pragma omp simd collapse(3)
-                  for (std::size_t i = 0; i < multisim::NumSimulations<Cfg>; ++i) {
-                    for (std::size_t j = 0; j < ownView.shape(multisim::BasisDim<Cfg>); ++j) {
-                      for (std::size_t k = 0; k < ownView.shape(multisim::BasisDim<Cfg> + 1); ++k) {
+                  for (std::size_t j = 0; j < dataRange; ++j) {
+                    for (std::size_t k = 0; k < ownView.shape(multisim::BasisDim<Cfg> + 1); ++k) {
+                      for (std::size_t i = 0; i < multisim::NumSimulations<Cfg>; ++i) {
                         multisim::multisimWrap<Cfg>(ownView, i, j, k) = static_cast<real>(
                             multisim::multisimWrap<CfgNeighbor>(neighborView, i, j, k));
+                      }
+                    }
+                  }
+#pragma omp simd collapse(3)
+                  for (std::size_t j = dataRange; j < ownView.shape(multisim::BasisDim<Cfg>); ++j) {
+                    for (std::size_t k = 0; k < ownView.shape(multisim::BasisDim<Cfg> + 1); ++k) {
+
+                      for (std::size_t i = 0; i < multisim::NumSimulations<Cfg>; ++i) {
+                        multisim::multisimWrap<Cfg>(ownView, i, j, k) = 0;
                       }
                     }
                   }
