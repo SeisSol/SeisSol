@@ -282,13 +282,28 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
+
+    seissol::kernels::local::aux::launch_local(
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
+        const_cast<const real**>(
+            (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr()),
+        SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, 0),
+        deviceLocalFluxKernelPrototype.plusFluxMatrices(0),
+        deviceLocalFluxKernelPrototype.plusFluxMatrices(1),
+        deviceLocalFluxKernelPrototype.plusFluxMatrices(2),
+        deviceLocalFluxKernelPrototype.plusFluxMatrices(3),
+        (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr(),
+        maxNumElements,
+        const_cast<const unsigned*>(
+            (indicesTable[key].get(inner_keys::Indices::Id::LocalFlux))->getDeviceDataPtr()),
+        runtime.stream());
   }
 
   // Local Flux Integral
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
 
-    if (dataTable.find(key) != dataTable.end()) {
+    /*if (dataTable.find(key) != dataTable.end()) {
       auto& entry = dataTable[key];
       localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
       localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
@@ -300,7 +315,7 @@ void Local::computeBatchedIntegral(ConditionalPointersToRealsTable& dataTable,
       localFluxKrnl.linearAllocator.initialize(tmpMem.get());
       localFluxKrnl.streamPtr = runtime.stream();
       localFluxKrnl.execute(face);
-    }
+    }*/
 
     ConditionalKey fsgKey(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);

@@ -84,7 +84,7 @@ struct Material {
 
 struct Indices {
   using DataType = unsigned;
-  enum struct Id : size_t { Cells = 0, Count };
+  enum struct Id : size_t { Cells = 0, LocalFlux = 1, Count };
 };
 } // namespace seissol::initializer::recording::inner_keys
 

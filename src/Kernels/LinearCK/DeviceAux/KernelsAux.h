@@ -21,6 +21,20 @@ void taylorSum(bool integral,
                void* stream);
 } // namespace seissol::kernels::time::aux
 
+namespace seissol::kernels::local::aux {
+void launch_local(const float** A,
+                  const float** B,
+                  unsigned Boffset,
+                  const float* C1,
+                  const float* C2,
+                  const float* C3,
+                  const float* C4,
+                  float** D,
+                  size_t numElements,
+                  const unsigned* flags,
+                  void* streamPtr);
+}
+
 namespace seissol::kernels::local_flux::aux::details {
 void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
                               real** displacementDataPtrs,

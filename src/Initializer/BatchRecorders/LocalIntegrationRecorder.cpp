@@ -62,6 +62,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     std::vector<real*> derivativesExtPtrs(size, nullptr);
     std::vector<real*> ltsBuffers{};
     std::vector<real*> idofsForLtsBuffers{};
+    std::vector<unsigned> fluxes(size);
 
     idofsPtrs.reserve(size);
     dQPtrs.resize(size);
@@ -72,6 +73,12 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLoader->entry(cell);
       auto dataHost = currentLoaderHost->entry(cell);
+
+      for (unsigned face = 0; face < 4; ++face) {
+        if (dataHost.cellInformation().faceTypes[face] != FaceType::DynamicRupture) {
+          fluxes[cell] |= (1 << face);
+        }
+      }
 
       // dofs
       dofsPtrs[cell] = static_cast<real*>(data.dofs());
@@ -160,6 +167,8 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     (*currentTable)[key].set(inner_keys::Wp::Id::DerivativesAne, derivativesAnePtrs);
     (*currentTable)[key].set(inner_keys::Wp::Id::DerivativesExt, derivativesExtPtrs);
 #endif
+
+    (*currentIndicesTable)[key].set(inner_keys::Indices::Id::LocalFlux, fluxes);
   }
 }
 
