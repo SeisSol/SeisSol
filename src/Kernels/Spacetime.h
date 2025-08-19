@@ -30,6 +30,17 @@ class SpacetimeKernel : public Kernel {
   using real = Real<Cfg>;
 
   ~SpacetimeKernel() override = default;
+
+  /**
+    @brief Compute the space-time evolution (a.k.a. "derivatives") from the given DOFs.
+
+    Includes an inline time integration; as that's needed for most subsequent operations.
+
+    @param coeffs The time basis coefficients used for the integrated integration.
+    @param timeStepWidth The size of the current timestep
+    @param timeIntegrated Output: time integration data.
+    @param timeDerivativesOrSTP Output: space-time evoluion.
+  */
   virtual void computeAder(const real* coeffs,
                            double timeStepWidth,
                            LTS::Ref<Cfg>& data,
@@ -37,6 +48,7 @@ class SpacetimeKernel : public Kernel {
                            real timeIntegrated[tensor::I<Cfg>::size()],
                            real* timeDerivativesOrSTP = nullptr,
                            bool updateDisplacement = false) = 0;
+
   virtual void computeBatchedAder(const real* coeffs,
                                   double timeStepWidth,
                                   LocalTmp<Cfg>& tmp,

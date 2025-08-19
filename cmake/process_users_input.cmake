@@ -71,9 +71,9 @@ set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
 # TODO: add vendor name here
 # (NOTE: bdw,skl,pvc as labels are kept for legacy reasons; prefer 8_0_0, 9_0_9, 12_60_7 resp.)
 set(DEVICE_ARCH_OPTIONS none
-        sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90 sm_100 sm_101 sm_120                    # Nvidia
-        gfx900 gfx906 gfx908 gfx90a gfx942 gfx950 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102 gfx1103 gfx1200 gfx1201 # AMD
-        8_0_0 9_0_9 12_10_0 12_55_8 12_56_5 12_57_0 12_60_7 12_61_7 20_1_4 20_2_0 bdw skl pvc) # Intel
+        sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90 sm_100 sm_101 sm_103 sm_110 sm_120 sm_121 # Nvidia
+        gfx900 gfx906 gfx908 gfx90a gfx942 gfx950 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102 gfx1103 gfx1200 gfx1201   # AMD
+        8_0_0 9_0_9 12_10_0 12_55_8 12_56_5 12_57_0 12_60_7 12_61_7 20_1_4 20_2_0 bdw skl pvc)                      # Intel
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 set(PRECISION "double" CACHE STRING "Type of floating point precision, namely: double/single")
