@@ -29,14 +29,17 @@
 #include <Kernels/Plasticity.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/Layer.h>
 #include <Monitoring/ActorStateStatistics.h>
 #include <Monitoring/LoopStatistics.h>
+#include <Numerical/Quadrature.h>
 #include <Solver/TimeStepping/AbstractTimeCluster.h>
 #include <Solver/TimeStepping/ActorState.h>
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cstddef>
@@ -185,8 +188,10 @@ void TimeCluster::computeDynamicRupture(seissol::initializer::Layer& layerData) 
   auto* qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus);
   auto* qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus);
 
-  dynamicRuptureKernel.setTimeStepWidth(timeStepSize());
-  frictionSolver->computeDeltaT(dynamicRuptureKernel.timePoints);
+  const auto [timePoints, timeWeights] =
+      seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timeStepSize());
+  const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timeStepSize());
+  const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
 #pragma omp parallel
   {
@@ -206,7 +211,8 @@ void TimeCluster::computeDynamicRupture(seissol::initializer::Layer& layerData) 
                                                 qInterpolatedPlus[face],
                                                 qInterpolatedMinus[face],
                                                 timeDerivativePlus[prefetchFace],
-                                                timeDerivativeMinus[prefetchFace]);
+                                                timeDerivativeMinus[prefetchFace],
+                                                pointsCollocate.data());
   }
   SCOREP_USER_REGION_END(myRegionHandle)
 #pragma omp parallel
@@ -218,7 +224,7 @@ void TimeCluster::computeDynamicRupture(seissol::initializer::Layer& layerData) 
   SCOREP_USER_REGION_BEGIN(
       myRegionHandle, "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_COMMON)
   frictionSolver->evaluate(
-      layerData, dynRup, ct.correctionTime, dynamicRuptureKernel.timeWeights, streamRuntime);
+      layerData, dynRup, ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
   SCOREP_USER_REGION_END(myRegionHandle)
 #pragma omp parallel
   {
@@ -242,10 +248,16 @@ void TimeCluster::computeDynamicRuptureDevice(seissol::initializer::Layer& layer
     device.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
     auto computeGraphKey = initializer::GraphKey(graphType, stepSizeWidth);
     auto& table = layerData.getConditionalTable<inner_keys::Dr>();
-    dynamicRuptureKernel.setTimeStepWidth(stepSizeWidth);
+
+    const auto [timePoints, timeWeights] =
+        seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timeStepSize());
+    const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, stepSizeWidth);
+    const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
+
     streamRuntime.runGraph(
         computeGraphKey, layerData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-          dynamicRuptureKernel.batchedSpaceTimeInterpolation(table, streamRuntime);
+          dynamicRuptureKernel.batchedSpaceTimeInterpolation(
+              table, pointsCollocate.data(), streamRuntime);
         });
     device.api->popLastProfilingMark();
     if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
@@ -257,9 +269,8 @@ void TimeCluster::computeDynamicRuptureDevice(seissol::initializer::Layer& layer
     }
 
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
-    frictionSolverDevice->computeDeltaT(dynamicRuptureKernel.timePoints);
     frictionSolverDevice->evaluate(
-        layerData, dynRup, ct.correctionTime, dynamicRuptureKernel.timeWeights, streamRuntime);
+        layerData, dynRup, ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
     device.api->popLastProfilingMark();
     if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
       layerData.varSynchronizeTo(
@@ -315,6 +326,10 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
   loader.load(*lts, *clusterData);
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
+  const auto timeStepWidth = timeStepSize();
+  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
+
 #ifdef _OPENMP
 #pragma omp parallel for private(bufferPointer, integrationBuffer),                                \
     firstprivate(tmp) schedule(static)
@@ -342,7 +357,8 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
       bufferPointer = integrationBuffer;
     }
 
-    spacetimeKernel.computeAder(timeStepSize(), data, tmp, bufferPointer, derivatives[cell], true);
+    spacetimeKernel.computeAder(
+        integrationCoeffs.data(), timeStepWidth, data, tmp, bufferPointer, derivatives[cell], true);
 
     // Compute local integrals (including some boundary conditions)
     CellBoundaryMapping(*boundaryMapping)[4] = clusterData->var(lts->boundaryMapping);
@@ -352,7 +368,7 @@ void TimeCluster::computeLocalIntegration(bool resetBuffers) {
                                 &materialData[cell],
                                 &boundaryMapping[cell],
                                 ct.correctionTime,
-                                timeStepSize());
+                                timeStepWidth);
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       auto& curFaceDisplacements = data.faceDisplacements()[face];
@@ -400,14 +416,21 @@ void TimeCluster::computeLocalIntegrationDevice(bool resetBuffers) {
   kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
 
   const double timeStepWidth = timeStepSize();
+  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
   ComputeGraphType graphType =
       resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
   auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
   streamRuntime.runGraph(
       computeGraphKey, *clusterData, [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-        spacetimeKernel.computeBatchedAder(
-            timeStepWidth, tmp, dataTable, materialTable, true, streamRuntime);
+        spacetimeKernel.computeBatchedAder(integrationCoeffs.data(),
+                                           timeStepWidth,
+                                           tmp,
+                                           dataTable,
+                                           materialTable,
+                                           true,
+                                           streamRuntime);
 
         localKernel.computeBatchedIntegral(
             dataTable, materialTable, indicesTable, loader, tmp, timeStepWidth, streamRuntime);
@@ -490,8 +513,13 @@ void TimeCluster::computeNeighboringIntegrationDevice(double subTimeStart) {
   const double timeStepWidth = timeStepSize();
   auto& table = clusterData->getConditionalTable<inner_keys::Wp>();
 
+  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
+  const auto subtimeCoeffs =
+      timeBasis.integrate(subTimeStart, timeStepWidth + subTimeStart, neighborTimestep);
+
   seissol::kernels::TimeCommon::computeBatchedIntegrals(
-      timeKernel, subTimeStart, timeStepWidth, table, streamRuntime);
+      timeKernel, timeCoeffs.data(), subtimeCoeffs.data(), table, streamRuntime);
 
   ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
   auto computeGraphKey = initializer::GraphKey(graphType);
@@ -782,7 +810,14 @@ void TimeCluster::correct() {
   }
 }
 
-void TimeCluster::reset() { AbstractTimeCluster::reset(); }
+void TimeCluster::reset() {
+  AbstractTimeCluster::reset();
+  // note: redundant computation, but it needs to be done somewhere
+  neighborTimestep = timeStepSize();
+  for (auto& neighbor : neighbors) {
+    neighborTimestep = std::max(neighbor.ct.getTimeStepSize(), neighborTimestep);
+  }
+}
 
 void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
   logWarning(true) << "No update since " << timeSinceLastUpdate.count() << "[s] for global cluster "
@@ -847,8 +882,14 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
 
   const auto tV = seissolInstance.getSeisSolParameters().model.tv;
 
+  const auto timestep = timeStepSize();
   const auto oneMinusIntegratingFactor =
       seissol::kernels::Plasticity::computeRelaxTime(tV, timeStepSize());
+
+  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeCoeffs = timeBasis.integrate(0, timestep, timestep);
+  const auto subtimeCoeffs =
+      timeBasis.integrate(subTimeStart, timestep + subTimeStart, neighborTimestep);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) default(none) private(timeIntegrated,                    \
@@ -861,24 +902,27 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                plasticity,                                                                         \
                drMapping,                                                                          \
                subTimeStart,                                                                       \
-               tV) reduction(+ : numberOTetsWithPlasticYielding)
+               tV,                                                                                 \
+               timeCoeffs,                                                                         \
+               subtimeCoeffs) reduction(+ : numberOTetsWithPlasticYielding)
 #endif
   for (std::size_t cell = 0; cell < clusterData->size(); cell++) {
     auto data = loader.entry(cell);
+
+#ifdef _OPENMP
+    const std::size_t threadId = omp_get_thread_num();
+#else
+    const std::size_t threadId = 0;
+#endif
     seissol::kernels::TimeCommon::computeIntegrals(
         timeKernel,
         data.cellInformation().ltsSetup,
         data.cellInformation().faceTypes,
-        subTimeStart,
-        timeStepSize(),
+        timeCoeffs.data(),
+        subtimeCoeffs.data(),
         faceNeighbors[cell],
-#ifdef _OPENMP
         *reinterpret_cast<real(*)[4][tensor::I::size()]>(
-            &(globalDataOnHost->integrationBufferLTS[static_cast<size_t>(omp_get_thread_num() * 4 *
-                                                                         tensor::I::size())])),
-#else
-        *reinterpret_cast<real(*)[4][tensor::I::size()]>(globalDataOnHost->integrationBufferLTS),
-#endif
+            &(globalDataOnHost->integrationBufferLTS[threadId * 4 * tensor::I::size()])),
         timeIntegrated);
 
     faceNeighborsPrefetch[0] = (cellInformation[cell].faceTypes[1] != FaceType::DynamicRupture)

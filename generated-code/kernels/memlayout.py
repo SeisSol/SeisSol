@@ -11,8 +11,9 @@ import re
 
 
 class Candidate(object):
-    """A Candidate measures if a memory layout is suitable
-    for a build configuration. If a build configuration
+    """Measures if a memory layout is suitable for a build configuration.
+
+    If a build configuration
     shares an attribute with a Candidate, the Candidate
     gets a higher score.
     The scoring system is chosen such that the best
