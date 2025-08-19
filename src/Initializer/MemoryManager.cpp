@@ -188,7 +188,7 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
 
       // set size
       m_meshStructure[tc].ghostRegionSizes[l_region] = tensor::Q::size() * l_numberOfBuffers +
-                                                       yateto::computeFamilySize<tensor::dQ>() * l_numberOfDerivatives;
+                                                       kernels::Solver::DerivativesSize * l_numberOfDerivatives;
 
       // update the pointer
       ghostStart += m_meshStructure[tc].ghostRegionSizes[l_region];
@@ -231,7 +231,7 @@ void seissol::initializer::MemoryManager::initializeCommunicationStructure() {
 
       // set size
       m_meshStructure[tc].copyRegionSizes[l_region] = tensor::Q::size() * l_numberOfBuffers +
-                                                      yateto::computeFamilySize<tensor::dQ>() * l_numberOfDerivatives;
+                                                      kernels::Solver::DerivativesSize * l_numberOfDerivatives;
 
       // jump over region
       l_offset += m_meshStructure[tc].numberOfCopyRegionCells[l_region];
@@ -538,7 +538,7 @@ void seissol::initializer::MemoryManager::fixateBoundaryLtsTree() {
 
 #ifdef ACL_DEVICE
 void seissol::initializer::MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTSTree& ltsTree, LTS& lts) {
-  constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  constexpr size_t totalDerivativesSize = kernels::Solver::DerivativesSize;
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
   for (auto& layer : ltsTree.leaves(Ghost)) {
@@ -679,14 +679,14 @@ void seissol::initializer::MemoryManager::initializeMemoryLayout()
 
     for( unsigned int l_region = 0; l_region < m_meshStructure[tc].numberOfRegions; l_region++ ) {
       l_ghostSize    += sizeof(real) * tensor::Q::size() * m_numberOfGhostRegionBuffers[tc][l_region];
-      l_ghostSize    += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfGhostRegionDerivatives[tc][l_region];
+      l_ghostSize    += sizeof(real) * kernels::Solver::DerivativesSize * m_numberOfGhostRegionDerivatives[tc][l_region];
 
       l_copySize     += sizeof(real) * tensor::Q::size() * m_numberOfCopyRegionBuffers[tc][l_region];
-      l_copySize     += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfCopyRegionDerivatives[tc][l_region];
+      l_copySize     += sizeof(real) * kernels::Solver::DerivativesSize * m_numberOfCopyRegionDerivatives[tc][l_region];
     }
 
     l_interiorSize += sizeof(real) * tensor::Q::size() * m_numberOfInteriorBuffers[tc];
-    l_interiorSize += sizeof(real) * yateto::computeFamilySize<tensor::dQ>() * m_numberOfInteriorDerivatives[tc];
+    l_interiorSize += sizeof(real) * kernels::Solver::DerivativesSize * m_numberOfInteriorDerivatives[tc];
 
     cluster.child<Ghost>().setEntrySize(m_lts.buffersDerivatives, l_ghostSize);
     cluster.child<Copy>().setEntrySize(m_lts.buffersDerivatives, l_copySize);

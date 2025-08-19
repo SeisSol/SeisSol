@@ -18,6 +18,7 @@
 #include <Kernels/Common.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <Memory/Tree/Lut.h>
@@ -133,25 +134,18 @@ double ReceiverCluster::calcReceivers(double time,
     }
   }
 
+  const auto timeBasis = seissol::kernels::timeBasis();
+
   if (time >= expansionPoint && time < expansionPoint + timeStepWidth) {
     const std::size_t recvCount = m_receivers.size();
-    const auto receiverHandler = [this, timeStepWidth, time, expansionPoint, executor](
+    const auto receiverHandler = [this, timeStepWidth, time, expansionPoint, executor, timeBasis](
                                      std::size_t i) {
       alignas(Alignment) real timeEvaluated[tensor::Q::size()];
       alignas(Alignment) real timeEvaluatedAtPoint[tensor::QAtPoint::size()];
       alignas(Alignment) real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint::size()];
+      alignas(PagesizeStack) real timeDerivatives[Solver::DerivativesSize];
 
       kernels::LocalTmp tmp(seissolInstance.getGravitationSetup().acceleration);
-#ifdef USE_STP
-      alignas(PagesizeStack) real timeDerivatives[tensor::spaceTimePredictor::size()];
-      kernel::evaluateDOFSAtPointSTP krnl;
-      krnl.QAtPoint = timeEvaluatedAtPoint;
-      krnl.spaceTimePredictor = timeDerivatives;
-      kernel::evaluateDerivativeDOFSAtPointSTP derivativeKrnl;
-      derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
-      derivativeKrnl.spaceTimePredictor = timeDerivatives;
-#else
-      alignas(Alignment) real timeDerivatives[yateto::computeFamilySize<tensor::dQ>()];
 
       kernel::evaluateDOFSAtPoint krnl;
       krnl.QAtPoint = timeEvaluatedAtPoint;
@@ -159,7 +153,6 @@ double ReceiverCluster::calcReceivers(double time,
       kernel::evaluateDerivativeDOFSAtPoint derivativeKrnl;
       derivativeKrnl.QDerivativeAtPoint = timeEvaluatedDerivativesAtPoint;
       derivativeKrnl.Q = timeEvaluated;
-#endif
 
       auto qAtPoint = init::QAtPoint::view::create(timeEvaluatedAtPoint);
       auto qDerivativeAtPoint =
@@ -178,7 +171,9 @@ double ReceiverCluster::calcReceivers(double time,
             deviceCollector->get(deviceIndices[i]));
       }
 
-      spacetimeKernel.computeAder(timeStepWidth,
+      const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
+      spacetimeKernel.computeAder(integrationCoeffs.data(),
+                                  timeStepWidth,
                                   tmpReceiverData,
                                   tmp,
                                   timeEvaluated, // useless but the interface requires it
@@ -189,17 +184,9 @@ double ReceiverCluster::calcReceivers(double time,
 
       double receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
-#ifdef USE_STP
-        // eval time basis
-        const double tau = (time - expansionPoint) / timeStepWidth;
-        seissol::basisFunction::SampledTimeBasisFunctions<real> timeBasisFunctions(ConvergenceOrder,
-                                                                                   tau);
-        krnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
-        derivativeKrnl.timeBasisFunctionsAtPoint = timeBasisFunctions.m_data.data();
-#else
-        timeKernel.computeTaylorExpansion(
-            receiverTime, expansionPoint, timeDerivatives, timeEvaluated);
-#endif
+        const auto coeffs = timeBasis.point(time - expansionPoint, timeStepWidth);
+
+        timeKernel.evaluate(coeffs.data(), timeDerivatives, timeEvaluated);
 
         krnl.execute();
         derivativeKrnl.execute();

@@ -20,9 +20,11 @@
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Kernels/TimeCommon.h>
 #include <Memory/Tree/Layer.h>
 #include <Monitoring/Instrumentation.h>
+#include <Numerical/Quadrature.h>
 #include <Parallel/Runtime/Stream.h>
 #include <cstddef>
 #include <cstdint>
@@ -40,6 +42,8 @@ void ProxyKernelHostAder::run(ProxyData& data,
   kernels::LocalData::Loader loader;
   loader.load(data.lts, layer);
 
+  const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -51,7 +55,8 @@ void ProxyKernelHostAder::run(ProxyData& data,
 #endif
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = loader.entry(cell);
-      data.spacetimeKernel.computeAder(Timestep, local, tmp, buffers[cell], derivatives[cell]);
+      data.spacetimeKernel.computeAder(
+          integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
     }
     LIKWID_MARKER_STOP("ader");
   }
@@ -137,6 +142,8 @@ void ProxyKernelHostLocal::run(ProxyData& data,
   kernels::LocalData::Loader loader;
   loader.load(data.lts, layer);
 
+  const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
+
 #ifdef _OPENMP
 #pragma omp parallel
 #endif
@@ -148,7 +155,8 @@ void ProxyKernelHostLocal::run(ProxyData& data,
 #endif
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = loader.entry(cell);
-      data.spacetimeKernel.computeAder(Timestep, local, tmp, buffers[cell], derivatives[cell]);
+      data.spacetimeKernel.computeAder(
+          integrationCoeffs.data(), Timestep, local, tmp, buffers[cell], derivatives[cell]);
       data.localKernel.computeIntegral(buffers[cell], local, tmp, nullptr, nullptr, 0, 0);
     }
     LIKWID_MARKER_STOP("local");
@@ -169,6 +177,11 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
   real* timeIntegrated[4];
   real* faceNeighborsPrefetch[4];
 
+  const auto timeBasis = seissol::kernels::timeBasis();
+  const auto timeCoeffs = timeBasis.integrate(0, Timestep, Timestep);
+
+  // note: we use GTS here, in all cases
+
 #ifdef _OPENMP
 #pragma omp parallel private(timeIntegrated, faceNeighborsPrefetch)
 #endif
@@ -183,8 +196,8 @@ void ProxyKernelHostNeighbor::run(ProxyData& data,
           data.timeKernel,
           cellInformation[cell].ltsSetup,
           cellInformation[cell].faceTypes,
-          0.0,
-          Timestep,
+          timeCoeffs.data(),
+          timeCoeffs.data(),
           faceNeighbors[cell],
           *reinterpret_cast<real(*)[4][tensor::I::size()]>(
               &data.globalDataOnHost
@@ -264,6 +277,9 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
   real** timeDerivativeMinus = layerData.var(data.dynRup.timeDerivativeMinus);
   alignas(Alignment) real qInterpolatedPlus[ConvergenceOrder][tensor::QInterpolated::size()];
   alignas(Alignment) real qInterpolatedMinus[ConvergenceOrder][tensor::QInterpolated::size()];
+  const auto [timePoints, timeWeights] =
+      seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, Timestep);
+  const auto coeffsCollocate = seissol::kernels::timeBasis().collocate(timePoints, Timestep);
 
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) private(qInterpolatedPlus, qInterpolatedMinus)
@@ -279,7 +295,8 @@ void ProxyKernelHostGodunovDR::run(ProxyData& data,
                                              qInterpolatedPlus,
                                              qInterpolatedMinus,
                                              timeDerivativePlus[prefetchFace],
-                                             timeDerivativeMinus[prefetchFace]);
+                                             timeDerivativeMinus[prefetchFace],
+                                             coeffsCollocate.data());
   }
 }
 auto ProxyKernelHostGodunovDR::performanceEstimate(ProxyData& data) const -> PerformanceEstimate {
