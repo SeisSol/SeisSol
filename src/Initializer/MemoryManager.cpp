@@ -139,7 +139,7 @@ void MemoryManager::fixateBoundaryStorage() {
 
 #ifdef ACL_DEVICE
 void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStorage) {
-  constexpr size_t totalDerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  constexpr size_t totalDerivativesSize = kernels::Solver::DerivativesSize;
   constexpr size_t nodalDisplacementsSize = tensor::averageNormalDisplacement::size();
 
   for (auto& layer : ltsStorage.leaves(Ghost)) {

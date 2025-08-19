@@ -277,7 +277,7 @@ void Neighbor::computeBatchedNeighborsIntegral(ConditionalPointersToRealsTable& 
     nKrnl.execute();
   }
 #else
-  assert(false && "no implementation provided");
+  logError() << "No GPU implementation provided";
 #endif
 }
 
