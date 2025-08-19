@@ -68,6 +68,13 @@ void TimeCommon::computeIntegrals(Time& time,
       }
       // integrate the DOFs in time via the derivatives and set pointer to local buffer
       else {
+        // select the time coefficients next: dependent on if we have GTS as a neighbor, use GTS
+        // coefficients (timeCoeffs); otherwise use LTS coefficients (subtimeCoeffs) for a large
+        // time cluster neighbor. IMPORTANT: make sure to not land in this code path if the neighbor
+        // time cluster is less than the local time cluster. It shouldn't happen with the current
+        // setup; but just be aware of it when changing things. In that case, enforce the "GTS
+        // relation" instead; then everything will work again.
+
         const auto* coeffs =
             ((ltsSetup >> (dofneighbor + 4)) % 2) != 0 ? timeCoeffs : subtimeCoeffs;
         time.evaluate(coeffs, timeDofs[dofneighbor], integrationBuffer[dofneighbor]);

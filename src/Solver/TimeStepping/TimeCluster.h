@@ -53,6 +53,9 @@ class TimeCluster : public AbstractTimeCluster {
   private:
   // Last correction time of the neighboring cluster with higher dt
   double lastSubTime;
+
+  // The timestep of the largest neighbor. Not well-defined (and not used) for the largest local
+  // timecluster.
   double neighborTimestep;
 
   void handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) override;
