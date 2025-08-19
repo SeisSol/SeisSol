@@ -12,6 +12,10 @@
 #include <vector>
 namespace seissol::numerical {
 
+/*
+Abstracted time basis class. Provides coefficient vectors for integration, point evaluation and
+derivatives.
+*/
 template <typename RealT>
 class TimeBasis {
   public:
@@ -19,6 +23,9 @@ class TimeBasis {
   virtual std::vector<RealT> point(double position, double timestep) const = 0;
   virtual std::vector<RealT> integrate(double start, double end, double timestep) const = 0;
 
+  /*
+    Provides a vector of multiple point evaluations.
+  */
   std::vector<RealT> collocate(const std::vector<double>& points, double timestep) const {
     std::vector<RealT> data;
     for (const auto& point : points) {
@@ -29,6 +36,14 @@ class TimeBasis {
   }
 };
 
+/*
+A time basis in the form
+
+f_i(x) = x^i / i! .
+
+Used in the Cauchy-Kovalevskaya kernels.
+
+*/
 template <typename RealT>
 class MonomialBasis : public TimeBasis<RealT> {
   public:
@@ -75,6 +90,11 @@ class MonomialBasis : public TimeBasis<RealT> {
   std::size_t order;
 };
 
+/**
+Legendre polynomial time basis.
+
+Used in the Space-Time Predictor kernels.
+*/
 template <typename RealT>
 class LegendreBasis : public TimeBasis<RealT> {
   public:

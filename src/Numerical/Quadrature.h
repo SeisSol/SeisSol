@@ -62,6 +62,12 @@ inline void GaussLegendre(double* points, double* weights, unsigned n) {
   }
 }
 
+/**
+  Return the quadrature points and weights with Gauss Legendre with n points; shifted to the
+  interval [a, b].
+
+  @return [quadrature points, quadrature weights]
+*/
 inline std::pair<std::vector<double>, std::vector<double>>
     ShiftedGaussLegendre(unsigned n, double a, double b) {
   std::pair<std::vector<double>, std::vector<double>> output{std::vector<double>(n),
