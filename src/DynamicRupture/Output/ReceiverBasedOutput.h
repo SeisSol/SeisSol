@@ -16,6 +16,7 @@
 #include "Memory/Tree/Lut.h"
 
 #include <DynamicRupture/Misc.h>
+#include <Kernels/Solver.h>
 #include <memory>
 #include <vector>
 
@@ -48,6 +49,8 @@ class ReceiverOutput {
   seissol::geometry::MeshReader* meshReader{nullptr};
   FaceToLtsMapType* faceToLtsMap{nullptr};
   real* deviceCopyMemory{nullptr};
+
+  kernels::Time timeKernel;
 
   struct LocalInfo {
     seissol::initializer::Layer* layer{};
@@ -107,8 +110,13 @@ class ReceiverOutput {
     }
   }
 
-  void getDofs(real dofs[tensor::Q::size()], int meshId);
-  void getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side);
+  void getDofs(real dofs[tensor::Q::size()],
+               const std::vector<real>& timeCoeffs,
+               std::size_t meshId);
+  void getNeighborDofs(real dofs[tensor::Q::size()],
+                       const std::vector<real>& timeCoeffs,
+                       std::size_t meshId,
+                       std::size_t side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   virtual real computeFluidPressure(LocalInfo& local) { return 0.0; }

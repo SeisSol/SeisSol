@@ -23,6 +23,7 @@
 #include "generated_code/kernel.h"
 #include "generated_code/tensor.h"
 #include <Alignment.h>
+#include <Kernels/Solver.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -50,19 +51,25 @@ void ReceiverOutput::setLtsData(seissol::initializer::LTSTree* userWpTree,
   drDescr = userDrDescr;
 }
 
-void ReceiverOutput::getDofs(real dofs[tensor::Q::size()], int meshId) {
+void ReceiverOutput::getDofs(real dofs[tensor::Q::size()],
+                             const std::vector<real>& timeCoeffs,
+                             std::size_t meshId) {
   // get DOFs from 0th derivatives
   assert((wpLut->lookup(wpDescr->cellInformation, meshId).ltsSetup >> 9) % 2 == 1);
 
   real* derivatives = wpLut->lookup(wpDescr->derivatives, meshId);
-  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+
+  timeKernel.evaluate(timeCoeffs.data(), derivatives, dofs);
 }
 
-void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()], int meshId, int side) {
+void ReceiverOutput::getNeighborDofs(real dofs[tensor::Q::size()],
+                                     const std::vector<real>& timeCoeffs,
+                                     std::size_t meshId,
+                                     std::size_t side) {
   real* derivatives = wpLut->lookup(wpDescr->faceNeighbors, meshId)[side];
   assert(derivatives != nullptr);
 
-  std::copy(&derivatives[0], &derivatives[tensor::dQ::Size[0]], &dofs[0]);
+  timeKernel.evaluate(timeCoeffs.data(), derivatives, dofs);
 }
 
 void ReceiverOutput::calcFaultOutput(
@@ -75,6 +82,9 @@ void ReceiverOutput::calcFaultOutput(
                            ? outputData->currentCacheLevel
                            : 0;
   const auto& faultInfos = meshReader->getFault();
+
+  // TODO: replace by the true timestep? (only needed if we don't want position 0)
+  const auto timeCoeffs = kernels::timeBasis().point(0, 1);
 
 #ifdef ACL_DEVICE
   void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
@@ -122,15 +132,15 @@ void ReceiverOutput::calcFaultOutput(
       real* dofsPlusData = outputData->deviceDataCollector->get(outputData->deviceDataPlus[i]);
       real* dofsMinusData = outputData->deviceDataCollector->get(outputData->deviceDataMinus[i]);
 
-      std::memcpy(dofsPlus, dofsPlusData, sizeof(dofsPlus));
-      std::memcpy(dofsMinus, dofsMinusData, sizeof(dofsMinus));
+      timeKernel.evaluate(timeCoeffs.data(), dofsPlusData, dofsPlus);
+      timeKernel.evaluate(timeCoeffs.data(), dofsMinusData, dofsMinus);
     }
 #else
-    getDofs(dofsPlus, faultInfo.element);
+    getDofs(dofsPlus, timeCoeffs, faultInfo.element);
     if (faultInfo.neighborElement >= 0) {
-      getDofs(dofsMinus, faultInfo.neighborElement);
+      getDofs(dofsMinus, timeCoeffs, faultInfo.neighborElement);
     } else {
-      getNeighborDofs(dofsMinus, faultInfo.element, faultInfo.side);
+      getNeighborDofs(dofsMinus, timeCoeffs, faultInfo.element, faultInfo.side);
     }
 #endif
 
