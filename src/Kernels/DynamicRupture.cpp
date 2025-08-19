@@ -34,11 +34,6 @@
 #include <cstdint>
 #endif
 
-#ifdef USE_STP
-#include <Numerical/BasisFunction.h>
-#include <memory>
-#endif
-
 namespace seissol::kernels {
 
 void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
@@ -51,42 +46,6 @@ void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
   m_timeKernel.setGlobalData(global);
 }
 
-void DynamicRupture::setTimeStepWidth(double timestep) {
-#ifdef USE_DR_CELLAVERAGE
-  static_assert(false, "Cell average currently not supported");
-  /*double subIntervalWidth = timestep / ConvergenceOrder;
-  for (unsigned timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
-    double t1 = timeInterval * subIntervalWidth;
-    double t2 = t1 + subIntervalWidth;
-    /// Compute time-integrated Taylor expansion (at t0=0) weights for interval [t1,t2].
-    unsigned factorial = 1;
-    for (unsigned derivative = 0; derivative < ConvergenceOrder; ++derivative) {
-      m_timeFactors[timeInterval][derivative] = (t2-t1) / (factorial * subIntervalWidth);
-      t1 *= t1;
-      t2 *= t2;
-      factorial *= (derivative+2);
-    }
-    /// We define the time "point" of the interval as the centre of the interval in order
-    /// to be somewhat compatible to legacy code.
-    timePoints[timeInterval] = timeInterval * subIntervalWidth + subIntervalWidth / 2.;
-    timeWeights[timeInterval] = subIntervalWidth;
-  }*/
-#else
-  // TODO(Lukas) Cache unscaled points/weights to avoid costly recomputation every timestep.
-  seissol::quadrature::GaussLegendre(timePoints, timeWeights, ConvergenceOrder);
-  for (unsigned point = 0; point < ConvergenceOrder; ++point) {
-#ifdef USE_STP
-    const double tau = timePoints[point];
-    timeBasisFunctions[point] =
-        std::make_shared<seissol::basisFunction::SampledTimeBasisFunctions<real>>(ConvergenceOrder,
-                                                                                  tau);
-#endif
-    timePoints[point] = 0.5 * (timestep * timePoints[point] + timestep);
-    timeWeights[point] = 0.5 * timestep * timeWeights[point];
-  }
-#endif
-}
-
 void DynamicRupture::spaceTimeInterpolation(
     const DRFaceInformation& faceInfo,
     const GlobalData* global,
@@ -97,7 +56,8 @@ void DynamicRupture::spaceTimeInterpolation(
     real qInterpolatedPlus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
     real qInterpolatedMinus[ConvergenceOrder][seissol::tensor::QInterpolated::size()],
     const real* timeDerivativePlusPrefetch,
-    const real* timeDerivativeMinusPrefetch) {
+    const real* timeDerivativeMinusPrefetch,
+    const real* coeffs) {
   // assert alignments
 #ifndef NDEBUG
   assert(timeDerivativePlus != nullptr);
@@ -115,17 +75,10 @@ void DynamicRupture::spaceTimeInterpolation(
 
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = m_krnlPrototype;
   for (std::size_t timeInterval = 0; timeInterval < ConvergenceOrder; ++timeInterval) {
-#ifdef USE_STP
-    m_timeKernel.evaluateAtTime(
-        timeBasisFunctions[timeInterval], timeDerivativePlus, degreesOfFreedomPlus);
-    m_timeKernel.evaluateAtTime(
-        timeBasisFunctions[timeInterval], timeDerivativeMinus, degreesOfFreedomMinus);
-#else
-    m_timeKernel.computeTaylorExpansion(
-        timePoints[timeInterval], 0.0, timeDerivativePlus, degreesOfFreedomPlus);
-    m_timeKernel.computeTaylorExpansion(
-        timePoints[timeInterval], 0.0, timeDerivativeMinus, degreesOfFreedomMinus);
-#endif
+    m_timeKernel.evaluate(
+        &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
+    m_timeKernel.evaluate(
+        &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
 
     const real* plusPrefetch = (timeInterval < ConvergenceOrder - 1)
                                    ? &qInterpolatedPlus[timeInterval + 1][0]
@@ -149,7 +102,9 @@ void DynamicRupture::spaceTimeInterpolation(
 }
 
 void DynamicRupture::batchedSpaceTimeInterpolation(
-    DrConditionalPointersToRealsTable& table, seissol::parallel::runtime::StreamRuntime& runtime) {
+    DrConditionalPointersToRealsTable& table,
+    const real* coeffs,
+    seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
   real** degreesOfFreedomPlus{nullptr};
@@ -165,22 +120,20 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
           (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr();
       degreesOfFreedomPlus = (entry.get(inner_keys::Dr::Id::IdofsPlus))->getDeviceDataPtr();
 
-      m_timeKernel.computeBatchedTaylorExpansion(timePoints[timeInterval],
-                                                 0.0,
-                                                 timeDerivativePlus,
-                                                 degreesOfFreedomPlus,
-                                                 maxNumElements,
-                                                 runtime);
+      m_timeKernel.evaluateBatched(&coeffs[timeInterval * ConvergenceOrder],
+                                   const_cast<const real**>(timeDerivativePlus),
+                                   degreesOfFreedomPlus,
+                                   maxNumElements,
+                                   runtime);
 
       real** timeDerivativeMinus =
           (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr();
       degreesOfFreedomMinus = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getDeviceDataPtr();
-      m_timeKernel.computeBatchedTaylorExpansion(timePoints[timeInterval],
-                                                 0.0,
-                                                 timeDerivativeMinus,
-                                                 degreesOfFreedomMinus,
-                                                 maxNumElements,
-                                                 runtime);
+      m_timeKernel.evaluateBatched(&coeffs[timeInterval * ConvergenceOrder],
+                                   const_cast<const real**>(timeDerivativeMinus),
+                                   degreesOfFreedomMinus,
+                                   maxNumElements,
+                                   runtime);
     }
 
     // finish all previous work in the default stream
@@ -249,7 +202,7 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 void DynamicRupture::flopsGodunovState(const DRFaceInformation& faceInfo,
                                        std::uint64_t& nonZeroFlops,
                                        std::uint64_t& hardwareFlops) {
-  m_timeKernel.flopsTaylorExpansion(nonZeroFlops, hardwareFlops);
+  m_timeKernel.flopsEvaluate(nonZeroFlops, hardwareFlops);
 
   // 2x evaluateTaylorExpansion
   nonZeroFlops *= 2;
