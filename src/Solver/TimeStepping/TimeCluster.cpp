@@ -623,6 +623,7 @@ ActResult TimeCluster::act() {
 void TimeCluster::handleAdvancedPredictionTimeMessage(const NeighborCluster& neighborCluster) {
   if (neighborCluster.ct.maxTimeStepSize > ct.maxTimeStepSize) {
     lastSubTime = neighborCluster.ct.correctionTime;
+    lastSubStep = neighborCluster.ct.stepsSinceLastSync;
   }
 }
 void TimeCluster::handleAdvancedCorrectionTimeMessage(const NeighborCluster& /*...*/) {
@@ -720,7 +721,10 @@ void TimeCluster::correct() {
    * those of previous clusters, Cc needs to evaluate the time prediction of Cn in the interval
    * [2dt, 3dt].
    */
-  const double subTimeStart = ct.correctionTime - lastSubTime;
+
+  // IMPORTANT: not well-defined on the largest local cluster
+  const double subTimeStart =
+      lastSubStep == ct.stepsSinceLastSync ? 0 : ct.correctionTime - lastSubTime;
 
   // Note, if this is a copy layer actor, we need the FL_Copy and the FL_Int.
   // Otherwise, this is an interior layer actor, and we need only the FL_Int.
@@ -782,7 +786,10 @@ void TimeCluster::correct() {
   }
 }
 
-void TimeCluster::reset() { AbstractTimeCluster::reset(); }
+void TimeCluster::reset() {
+  AbstractTimeCluster::reset();
+  lastSubStep = 0;
+}
 
 void TimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
   logWarning(true) << "No update since " << timeSinceLastUpdate.count() << "[s] for global cluster "
