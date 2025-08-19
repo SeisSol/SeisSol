@@ -104,7 +104,7 @@ class LegendreBasis : public TimeBasis<RealT> {
     const double tau = position / timestep;
     std::vector<RealT> data(order);
     for (std::size_t i = 0; i < order; ++i) {
-      data[i] = seissol::functions::shiftedLegendre(i, tau, 1);
+      data[i] = seissol::functions::shiftedLegendre(i, tau, 1) / timestep;
     }
     return data;
   }
