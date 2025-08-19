@@ -10,6 +10,7 @@
 #include "utils/logger.h"
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
+#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
@@ -18,7 +19,6 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <tensor.h>
 #include <vector>
 #include <yateto.h>
 

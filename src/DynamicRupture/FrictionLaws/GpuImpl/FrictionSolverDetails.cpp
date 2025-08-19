@@ -11,8 +11,8 @@
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
+#include <GeneratedCode/init.h>
 #include <cstddef>
-#include <init.h>
 
 #include "Memory/MemoryAllocator.h"
 

@@ -8,7 +8,7 @@
 
 #include "Touch.h"
 
-#include "generated_code/tensor.h"
+#include "GeneratedCode/tensor.h"
 #include <Kernels/Precision.h>
 #include <Kernels/Solver.h>
 #include <cstddef>

@@ -13,11 +13,11 @@
 #include <Eigen/Dense>
 #include <Equations/Datastructures.h>
 
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/Typedefs.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/init.h"
 #include "utils/logger.h"
 
 #include "Model/CommonDatastructures.h"

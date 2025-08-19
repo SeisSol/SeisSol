@@ -18,7 +18,7 @@
 #include "Common/Offset.h"
 #endif
 
-#include "generated_code/init.h"
+#include "GeneratedCode/init.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
 
