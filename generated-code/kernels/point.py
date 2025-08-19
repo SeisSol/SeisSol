@@ -16,7 +16,6 @@ from yateto import Scalar, Tensor
 def addKernels(generator, aderdg):
     numberOf3DBasisFunctions = aderdg.numberOf3DBasisFunctions()
     numberOfQuantities = aderdg.numberOfQuantities()
-    order = aderdg.order
     # Point sources
     mStiffnessTensor = Tensor("stiffnessTensor", (3, 3, 3, 3))
     mNormal = Tensor("mNormal", (3,))
@@ -25,7 +24,6 @@ def addKernels(generator, aderdg):
     basisFunctionDerivativesAtPoint = Tensor(
         "basisFunctionDerivativesAtPoint", (numberOf3DBasisFunctions, 3)
     )
-    timeBasisFunctionsAtPoint = Tensor("timeBasisFunctionsAtPoint", (order,))
     mInvJInvPhisAtSources = Tensor(
         "mInvJInvPhisAtSources", (numberOf3DBasisFunctions,), alignStride=True
     )
@@ -103,35 +101,3 @@ def addKernels(generator, aderdg):
         <= aderdg.Q["kp"] * basisFunctionDerivativesAtPoint["kd"]
     )
     generator.add("evaluateDerivativeDOFSAtPoint", evaluateDerivativeDOFSAtPoint)
-
-    stpShape = (numberOf3DBasisFunctions, numberOfQuantities, order)
-    spaceTimePredictor = OptionalDimTensor(
-        "spaceTimePredictor",
-        aderdg.Q.optName(),
-        aderdg.Q.optSize(),
-        aderdg.Q.optPos(),
-        stpShape,
-        alignStride=True,
-    )
-    evaluateDOFSAtPointSTP = (
-        QAtPoint["p"]
-        <= spaceTimePredictor["kpt"]
-        * basisFunctionsAtPoint["k"]
-        * timeBasisFunctionsAtPoint["t"]
-    )
-    generator.add("evaluateDOFSAtPointSTP", evaluateDOFSAtPointSTP)
-    spaceTimePredictor = OptionalDimTensor(
-        "spaceTimePredictor",
-        aderdg.Q.optName(),
-        aderdg.Q.optSize(),
-        aderdg.Q.optPos(),
-        stpShape,
-        alignStride=True,
-    )
-    evaluateDerivativeDOFSAtPointSTP = (
-        QDerivativeAtPoint["pd"]
-        <= spaceTimePredictor["kpt"]
-        * basisFunctionDerivativesAtPoint["kd"]
-        * timeBasisFunctionsAtPoint["t"]
-    )
-    generator.add("evaluateDerivativeDOFSAtPointSTP", evaluateDerivativeDOFSAtPointSTP)
