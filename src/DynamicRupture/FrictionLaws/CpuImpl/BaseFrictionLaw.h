@@ -32,6 +32,7 @@ class BaseFrictionLaw : public FrictionSolver {
    */
   void evaluate(DynamicRupture::Layer& layerData,
                 real fullUpdateTime,
+                const FrictionTime& frictionTime,
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     if (layerData.size() == 0) {
@@ -41,6 +42,8 @@ class BaseFrictionLaw : public FrictionSolver {
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
     BaseFrictionLaw::copyStorageToLocal(layerData, fullUpdateTime);
     static_cast<Derived*>(this)->copyStorageToLocal(layerData, fullUpdateTime);
+    std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), this->deltaT);
+    this->sumDt = frictionTime.sumDt;
 
     // loop over all dynamic rupture faces, in this LTS layer
 #ifdef _OPENMP
