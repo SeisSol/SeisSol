@@ -233,7 +233,12 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
   // tmp0 = 1.0 * A x B
   // D = 1.0 * C x tmp0 + 1.0 * D
 
-  __shared__ __align__(8) float total_shrmem0[(576 + 4 * 4 * 9) * 8];
+
+    constexpr int Count = 4 * 9 * 9;
+    constexpr int CountH = Count / 64;
+    constexpr int CountR = Count % 64;
+
+  __shared__ __align__(8) float total_shrmem0[(576 + Count) * 8];
 
   const int tid_x = threadIdx.x;
   unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
@@ -254,7 +259,7 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
     float reg0[4][9]{};
     float reg1[9]{};
 
-    float* shrmem0 = &total_shrmem0[(576 + 4 * 4 * 9) * threadIdx.y];
+    float* shrmem0 = &total_shrmem0[(576 + Count) * threadIdx.y];
 
     // writing to shr mem: from reg0 to _1
     float* __restrict__ _1 = &shrmem0[0];
@@ -267,9 +272,6 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
 
     // load all 4 9×9 matrices
     // loading glbB to _0: # no trans, extended
-    constexpr int Count = 4 * 9 * 9;
-    constexpr int CountH = Count / 64;
-    constexpr int CountR = Count % 64;
 #pragma unroll
     for (int i = 0; i < CountH; ++i) {
       _0[tid_x + i * 64] = glbB[tid_x + i * 64];
@@ -333,11 +335,9 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
     }
 
     // write results back to glb. memory
-    if ((tid_x >= 0) && (tid_x < 56)) {
 #pragma unroll
-      for (int n = 0; n < 9; ++n) {
-        glbD[tid_x + n * 64] = reg1[n] + glbD[tid_x + n * 64];
-      }
+    for (int n = 0; n < 9; ++n) {
+      glbD[tid_x + n * 64] = reg1[n] + glbD[tid_x + n * 64];
     }
   }
 }
