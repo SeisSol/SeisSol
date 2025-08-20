@@ -1,5 +1,6 @@
 <matrices>
-  <matrix name="star" rows="11" columns="11">
+  <!-- <matrix name="star" rows="11" columns="11"> -->
+  <matrix name="star" rows="17" columns="17">
 
     <entry column="1" row="7"/>
     <entry column="1" row="8"/>
@@ -57,5 +58,12 @@
     <entry column="9" row="10" />
     <entry column="10" row="10" />
     <entry column="11" row="10" />
+    <entry column="12" row="10" />
+    <entry column="13" row="10" />
+    <entry column="14" row="10" />
+    <entry column="15" row="10" />
+    <entry column="16" row="10" />
+    <entry column="17" row="10" />
+
   </matrix>
 </matrices>

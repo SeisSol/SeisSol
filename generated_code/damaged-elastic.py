@@ -47,7 +47,8 @@ class DamagedElasticADERDG(ADERDGBase):
     memoryLayoutFromFile(memLayout, self.db, clones)
 
   def numberOfQuantities(self):
-    return 11
+    # return 11
+    return 17
 
   def addInit(self, generator):
     super().addInit(generator)
