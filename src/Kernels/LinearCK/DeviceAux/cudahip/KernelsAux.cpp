@@ -233,14 +233,13 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
   // tmp0 = 1.0 * A x B
   // D = 1.0 * C x tmp0 + 1.0 * D
 
-
-    constexpr int Count = 4 * 9 * 9;
-    constexpr int CountH = Count / 64;
-    constexpr int CountR = Count % 64;
+  constexpr int Count = 4 * 9 * 9;
+  constexpr int CountH = Count / 64;
+  constexpr int CountR = Count % 64;
 
   __shared__ __align__(8) float total_shrmem0[(576 + Count) * 8];
 
-  const int tid_x = threadIdx.x;
+  const auto tid_x = threadIdx.x;
   unsigned batchId = threadIdx.y + blockDim.y * blockIdx.x;
   if (batchId < numElements) {
     const float* const __restrict__ glbA = A[batchId];
@@ -265,7 +264,7 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
     float* __restrict__ _1 = &shrmem0[0];
 #pragma unroll
     for (int i = 0; i < 9; ++i) {
-      _1[tid_x + i * 64] = glbA[tid_x + i * 64];
+      _1[tid_x + i * 64] = __builtin_nontemporal_load(&glbA[tid_x + i * 64]);
     }
 
     float* __restrict__ _0 = &shrmem0[576];
@@ -280,6 +279,11 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
       _0[tid_x + CountH * 64] = glbB[tid_x + CountH * 64];
     }
 
+#pragma unroll
+    for (int n = 0; n < 9; ++n) {
+      reg1[n] = __builtin_nontemporal_load(&glbD[tid_x + n * 64]);
+    }
+
     // gemm: glbC x _1
     if (tid_x < 56) {
 
@@ -287,21 +291,25 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
       for (int k = 0; k < 56; k += 8) {
         float values[4][8]{};
         if (has1) {
+#pragma unroll
           for (int kk = 0; kk < 8; ++kk) {
             values[0][kk] = C1[tid_x + (k + kk) * 56];
           }
         }
         if (has2) {
+#pragma unroll
           for (int kk = 0; kk < 8; ++kk) {
             values[1][kk] = C2[tid_x + (k + kk) * 56];
           }
         }
         if (has3) {
+#pragma unroll
           for (int kk = 0; kk < 8; ++kk) {
             values[2][kk] = C3[tid_x + (k + kk) * 56];
           }
         }
         if (has4) {
+#pragma unroll
           for (int kk = 0; kk < 8; ++kk) {
             values[3][kk] = C4[tid_x + (k + kk) * 56];
           }
@@ -326,7 +334,6 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
     for (int d = 0; d < 4; ++d) {
 #pragma unroll
       for (int n = 0; n < 9; ++n) {
-
 #pragma unroll
         for (int k = 0; k < 9; ++k) {
           reg1[n] += reg0[d][n] * _0[k + n * 9 + 81 * d];
@@ -337,7 +344,7 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
     // write results back to glb. memory
 #pragma unroll
     for (int n = 0; n < 9; ++n) {
-      glbD[tid_x + n * 64] = reg1[n] + glbD[tid_x + n * 64];
+      __builtin_nontemporal_store(reg1[n], &glbD[tid_x + n * 64]);
     }
   }
 }
@@ -356,7 +363,7 @@ void launch_local(const float** A,
                   size_t numElements,
                   const unsigned* flags,
                   void* streamPtr) {
-  dim3 block(512, 1, 1);
+  dim3 block(64, 8, 1);
   dim3 grid((numElements + 8 - 1) / 8, 1, 1);
   hipStream_t stream = (streamPtr != nullptr) ? static_cast<hipStream_t>(streamPtr) : 0;
   kernel_local<<<grid, block, 0, stream>>>(A, B, Boffset, C1, C2, C3, C4, D, numElements, flags);
