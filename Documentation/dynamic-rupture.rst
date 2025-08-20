@@ -263,9 +263,9 @@ Friction parameters:
 +------------------+----------------------------------------+-------------------------------+
 | :math:`f_0`      | reference friction coefficient         | :code:`rs_f0`                 |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`V_{ini1}`   | initial along-strike slip velocity     | :code:`rs_inisliprate1`       |
+| :math:`V_{ini1}` | initial along-strike slip velocity     | :code:`rs_inisliprate1`       |
 +------------------+----------------------------------------+-------------------------------+
-| :math:`V_{ini2}`   | initial along-dip slip veloctiy        | :code:`rs_inisliprate2`       |
+| :math:`V_{ini2}` | initial along-dip slip veloctiy        | :code:`rs_inisliprate2`       |
 +------------------+----------------------------------------+-------------------------------+
 
 .. math::
