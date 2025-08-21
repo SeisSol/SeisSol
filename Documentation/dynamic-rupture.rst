@@ -188,7 +188,7 @@ Friction parameters:
 
 Friction law :code:`16` implements linear slip-weakening with a forced rupture time.
 At the specified :code:`forced_rupture_time`, the friction coefficient is artificially reduced from its static value to its dynamic value. This procedure enables a smooth nucleation process without altering the overall stress drop.
-The forced friction drop duration defines the duration of this transition from static to dynamic friction. By default, it is set to :code:`t_0 = 0`.
+The forced friction drop duration defines the duration of this linear transition from static to dynamic friction. By default, it is set to :code:`t_0 = 0`.
 If you are only interested in linear slip weakening friction without forced rupture time, do not supply the parameter :code:`forced_rupture_time` in the fault `yaml` file.
 
 Friction law :code:`6` uses Prakash-Clifton regularization for bimaterial faults.
