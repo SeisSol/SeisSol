@@ -64,6 +64,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+      
+      
 
       - id: build
         name: build-seissol
@@ -106,7 +108,7 @@ jobs:
               -DTESTING_COMMAND="${TESTING_COMMAND}" \
               -DCMAKE_INSTALL_PREFIX=/opt/seissol \
               -DTESTING=ON \
-              -DTESTING_GENERATED=OFF \
+              -DTESTING_GENERATED=ON \
               -DASAGI=ON \
               -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
               -DHOST_ARCH=${{matrix.arch}} \
