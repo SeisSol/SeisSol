@@ -655,15 +655,13 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
               * EspII * (xi + data.material.local.xi0);
         }
         else {
-          FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
-          FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0;
         }
 
         // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
 
         // Compute nonlinear flux term
 
-        // damage stress
+        // damage stress -> seems different?
         real mu_eff = data.material.local.mu0 - alphaNodal[q]*data.material.local.gammaR*data.material.local.xi0
             - 0.5*alphaNodal[q]*data.material.local.gammaR*xi;
         real sxx_s = data.material.local.lambda0*EspI
