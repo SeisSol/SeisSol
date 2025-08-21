@@ -14,7 +14,7 @@ env:
 
 jobs:
   seissol-build-test:
-    name: seissol-build-test
+    name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}>
     runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
@@ -34,30 +34,37 @@ jobs:
             cxx: g++-13
             fc: gfortran-13
             container: seissol/gha-cpu:davschneller-ci-merge
+            name: gcc-13
           - cc: clang-19
             cxx: clang++-19
             fc: flang-19
             container: seissol/gha-cpu:davschneller-ci-merge
+            name: clang-19
           - cc: clang-20
             cxx: clang++-20
             fc: flang-20
             container: seissol/gha-cpu:davschneller-ci-merge
+            name: clang-20
           - cc: icc
             cxx: icpc
             fc: ifort
             container: seissol/gha-gpu-intel-icc:davschneller-ci-merge
+            name: icc-2021
           - cc: icx
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel-2023:davschneller-ci-merge
+            name: icx-2023
           - cc: icx
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel-2025:davschneller-ci-merge
+            name: icx-2025
           - cc: nvc
             cxx: nvc++
             fc: nvfortran
             container: seissol/gha-gpu-nvhpc:davschneller-ci-merge
+            name: nvhpc-2409
     steps:
       - id: checkout
         name: checkout-seissol
