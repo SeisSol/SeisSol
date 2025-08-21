@@ -506,10 +506,9 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     real aB2 = 20.3222e9;
     real aB3 = -5.25836e9;
 
-    // std::cout << data.material.local.Cd << std::endl;
-    // real const damage_para2 = 3e-6;
-    // real const lambda0 = 9.71e10; // data.material.local.lambda0
-    // real const mu0 = 8.27e10; // data.material.local.mu0
+    //TODO: get Cg, B, m1 from parameter files
+    real const Cplas = Cg*std::pow(B, m1);
+
     // Compute the Q at quadrature points in space and time
     /// Get quadrature points in time
     double timePoints[CONVERGENCE_ORDER];
@@ -566,22 +565,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       real* vyNodal = (QInterpolatedBodyNodal[timeInterval] + 7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
       real* vzNodal = (QInterpolatedBodyNodal[timeInterval] + 8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
 
-      // real alpha_ave = 0.0;
-      // real break_ave = 0.0;
-      // real w_ave = 1.0/NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
-      // for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
-      //   break_ave += breakNodal[q] * w_ave;
-      //   alpha_ave += alphaNodal[q] * w_ave;
-      // }
-
-      // // Determine based on the max value
-      // real alpha_ave = alphaNodal[0];
-      // real break_ave = breakNodal[0];
-      // for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS-1; ++q){
-      //   break_ave = std::max(break_ave, breakNodal[q+1]);
-      //   alpha_ave = std::max(alpha_ave, alphaNodal[q+1]);
-      // }
-
       // Determine based on the ave value
       real alpha_ave = 0.0;
       real break_ave = 0.0;
@@ -628,6 +611,23 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
             );
           }
         }
+
+            //TODO, calculate the deviatoric stresses here and put those values in NodatData of the fluxes
+    // TODO, get the constants m2 from parameters file
+    // TODO, the right value on RHS is Cplas*std::pow(s_ij, m2)
+    
+    FInterpolatedBody[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
+    FInterpolatedBody[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
+    FInterpolatedBody[timeInterval][2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
+    FInterpolatedBody[timeInterval][3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
+    FInterpolatedBody[timeInterval][4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
+    FInterpolatedBody[timeInterval][5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
+    FInterpolatedBody[timeInterval][11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
+    FInterpolatedBody[timeInterval][12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
+    FInterpolatedBody[timeInterval][13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
+    FInterpolatedBody[timeInterval][14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
+    FInterpolatedBody[timeInterval][15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
+    FInterpolatedBody[timeInterval][16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
 
         if (xi + data.material.local.xi0 > 0) { // accumulating source terms for damage and breakage variables
           if (alpha_ave < 1.0 ){

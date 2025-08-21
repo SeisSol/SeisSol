@@ -64,6 +64,8 @@ namespace seissol {
                 o_M(3,7) = -2.0*muInvRho;
                 o_M(5,8) = -2.0*muInvRho;
               }
+
+              //(TODO: Fill the right values here)
               o_M(9,6) = (i_material.gammaR*std::sqrt(I2)
                 + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxx_alpha )
                   / i_material.rho;
@@ -245,6 +247,9 @@ namespace seissol {
 
           R(9,9) = local.rho;
           R(10,10) = local.rho;
+          for(std::size_t iVis = 0; iVis < 6; ++iVis) {
+            R(11+iVis,11+iVis) = local.rho;
+          }
          #endif
 
          //===============Added for free surface BC of the strain-vel case=====================
@@ -260,6 +265,9 @@ namespace seissol {
          #if USE_DAMAGEDELASTIC
           C(9,9) = 1.0;
           C(10,10) = 1.0;
+          for(std::size_t iVis = 0; iVis < 6; ++iVis) {
+            C(11+iVis,11+iVis) = 1.0;
+          }
          #endif
 
          Matrix1010 R_sig = (C*R).eval();
@@ -307,7 +315,7 @@ namespace seissol {
                QgodNeighbor(i,j) = godunov(j,i);
              }
            }
-           for (unsigned idx = 0; idx < 11; ++idx) {
+           for (unsigned idx = 0; idx < 17; ++idx) {
              QgodLocal(idx,idx) += 1.0;
            }
          }

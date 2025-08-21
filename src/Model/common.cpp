@@ -139,6 +139,10 @@ void seissol::model::getFaceRotationMatrix( VrtxCoords const i_normal,
   o_Tinv(9,9) = 1;
   o_T(10, 10) = 1;
   o_Tinv(10,10) = 1;
+    for (unsigned int iVis = 0; iVis < 6; ++iVis){
+    o_T(11+iVis, 11+iVis) = 1;
+    o_Tinv(11+iVis, 11+iVis) = 1;
+  }
 #endif
 }
 

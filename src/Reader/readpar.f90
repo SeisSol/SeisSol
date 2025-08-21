@@ -339,8 +339,8 @@ CONTAINS
       EQN%nVarTotal = 13
       EQN%nBackgroundVar = 10
 #elif defined(USE_DAMAGEDELASTIC)
-      EQN%nVar = 11
-      EQN%nVarTotal = 11
+      EQN%nVar = 17
+      EQN%nVarTotal = 17
       EQN%nBackgroundVar = 15
 #else
       EQN%nVarTotal = EQN%nVar

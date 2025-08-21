@@ -66,10 +66,10 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
 
     const auto faultInfo = faultInfos[faceIndex];
 
-    real dofsPlus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsPlus[tensor::Q::size()]{};
     getDofs(dofsPlus, faultInfo.element);
 
-    real dofsMinus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsMinus[tensor::Q::size()]{};
     if (faultInfo.neighborElement >= 0) {
       getDofs(dofsMinus, faultInfo.neighborElement);
     } else {
@@ -77,8 +77,8 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     }
 
     // Derive stress solutions from strain
-    real dofsNPlus[tensor::Q::size()]{};
-    real dofsNMinus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsNPlus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsNMinus[tensor::Q::size()]{};
 
     kernel::damageConvertToNodal d_converToKrnl;
     d_converToKrnl.v = init::v::Values;
@@ -90,11 +90,8 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     d_converToKrnl.Q = dofsMinus;
     d_converToKrnl.execute();
 
-    real dofsStressNPlus[tensor::Q::size()]{};
-    real dofsStressNMinus[tensor::Q::size()]{};
-
-    // real dofsStressPlus[tensor::Q::size()]{};
-    // real dofsStressMinus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsStressNPlus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsStressNMinus[tensor::Q::size()]{};
 
     seissol::dr::ImpedancesAndEta* impAndEtaGet = &((local.layer->var(drDescr->impAndEta))[local.ltsId]);
 
@@ -357,16 +354,28 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
       dofsStressNPlus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNPlus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNPlus[11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNPlus[12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNPlus[13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNPlus[14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNPlus[15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNPlus[16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNPlus[16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
 
       dofsStressNMinus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[6*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNMinus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[7*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNMinus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[8*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
       dofsStressNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNMinus[11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNMinus[12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNMinus[13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNMinus[14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNMinus[15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
+      dofsStressNMinus[16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q] = dofsNMinus[16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q];
     }
 
-    real dofsStressPlus[tensor::Q::size()]{};
-    real dofsStressMinus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsStressPlus[tensor::Q::size()]{};
+    alignas(PAGESIZE_STACK) real dofsStressMinus[tensor::Q::size()]{};
 
     kernel::damageAssignFToDQ d_convertBackKrnl;
     d_convertBackKrnl.vInv = init::vInv::Values;
@@ -399,7 +408,10 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     auto* phiMinusSide = outputData->basisFunctions[i].minusSide.data();
 
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
-    kernel.Tinv = outputData->glbToFaceAlignedData[i].data();
+   alignas(ALIGNMENT) real localTinv[tensor::Tinv::size()];
+    kernel.Tinv = localTinv;
+    std::memcpy(localTinv, outputData->glbToFaceAlignedData[i].data(),
+      sizeof(localTinv));
 
     kernel.Q = dofsStressPlus;
     kernel.basisFunctionsAtPoint = phiPlusSide;

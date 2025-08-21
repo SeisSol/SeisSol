@@ -149,7 +149,7 @@ public:
 		m_outputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[OUTPUT_FLAGS]));
 
 
-		const char* varNames[20] = {
+		const char* varNames[24] = {
 			"sigma_xx",
 			"sigma_yy",
 			"sigma_zz",
@@ -167,6 +167,12 @@ public:
 #elif USE_DAMAGEDELASTIC
 			"damage",
 			"breakage",
+			"edp_xx",
+			"edp_yy",
+			"edp_zz",
+			"edp_xy",
+			"edp_yz",
+			"edp_zx",
 #endif
 			"ep_xx",
 			"ep_yy",
@@ -183,7 +189,7 @@ public:
 #ifdef USE_POROELASTIC
 				assert(i < 20);
 #elif USE_DAMAGEDELASTIC
-				assert(i < 18);
+				assert(i < 24);
 #else
 				assert(i < 16);
 #endif
