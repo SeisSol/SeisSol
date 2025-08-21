@@ -15,7 +15,7 @@ env:
 jobs:
   seissol-build-test:
     name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}>
-    runs-on: ubuntu-24.04
+    runs-on: self-hosted
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     defaults:
@@ -181,11 +181,11 @@ jobs:
 
   seissol-run-test:
     name: seissol-run-test
-    runs-on: ubuntu-24.04
+    runs-on: self-hosted
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
-    if: ${{ github.repository == 'SeisSol/SeisSol' && (github.ref_name == 'master') }}
+    if: ${{ github.repository == 'SeisSol/SeisSol' }}
     strategy:
       fail-fast: false
       matrix:
