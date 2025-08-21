@@ -1,0 +1,162 @@
+# SPDX-FileCopyrightText: 2025 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+---
+
+name: 'seissol-test'
+description: 'Build SeisSol and run Unit Tests'
+inputs:
+  cfg-equation:
+    description: 'Equation'
+    required: true
+    default: 'World'
+  cfg-order:
+    description: 'Order'
+    required: true
+    default: 'World'
+  cfg-precision:
+    description: 'Precision'
+    required: true
+    default: 'World'
+  cfg-simulations:
+    description: 'Simulations'
+    required: true
+    default: 'World'
+  cfg-mechanisms:
+    description: 'Seis'
+    required: true
+    default: 'World'
+  cc:
+    description: 'C compiler'
+    required: true
+  cxx:
+    description: 'C++ compiler'
+    required: true
+  fc:
+    description: 'FORTRAN compiler'
+    required: true
+  hostarch:
+    description: 'CPU architecture to optimize for'
+    required: true
+    default: 'hsw'
+  buildtype:
+    description: 'CMake build type'
+    required: true
+    default: 'Release'
+runs:
+  using: "composite"
+  steps:
+    - id: build
+      name: build-seissol
+      shell: bash
+      run: |
+        # TODO: change to `-Wall -Werror` at some point
+        EXTRA_FLAGS="-Wall"
+
+        export CFLAGS="${EXTRA_FLAGS} ${CFLAGS}"
+        export CXXFLAGS="${EXTRA_FLAGS} ${CXXFLAGS}"
+        export FFLAGS="${EXTRA_FLAGS} ${FFLAGS}"
+
+        export CC=${{inputs.cc}}
+        export CXX=${{inputs.cxx}}
+        export FC=${{inputs.fc}}
+
+        mkdir -p /opt/seissol
+
+        if [ $CC = nvc ]; then
+          TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
+        else
+          TESTING_COMMAND="";
+        fi;
+
+        mkdir -p build
+        cd build
+
+        ORDER=${{inputs.cfg-order}}
+        EQUATION=${{inputs.cfg-equation}}
+        MECHANISMS=${{inputs.cfg-mechanisms}}
+        PRECISION=${{inputs.cfg-precision}}
+        SIMULATIONS=${{inputs.cfg-simulations}}
+
+        cmake .. \
+          -GNinja \
+          -DNEW_BINARY_NAMING=ON \
+          -DTESTING_COMMAND="${TESTING_COMMAND}" \
+          -DCMAKE_INSTALL_PREFIX=/opt/seissol \
+          -DTESTING=ON \
+          -DTESTING_GENERATED=ON \
+          -DASAGI=ON \
+          -DCMAKE_BUILD_TYPE=${{inputs.buildtype}} \
+          -DHOST_ARCH=${{inputs.hostarch}} \
+          -DORDER=$ORDER \
+          -DEQUATIONS=$EQUATION \
+          -DPRECISION=$PRECISION \
+          -DNUMBER_OF_MECHANISMS=$MECHANISMS \
+          -DNUMBER_OF_FUSED_SIMULATIONS=$SIMULATIONS
+
+        ninja install
+
+        cd ..
+
+    - name: test-seissol
+      if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+      shell: bash
+      run: |
+        cd build
+
+        ctest -j --rerun-failed --output-on-failure
+    
+    - name: run-seissol-no-input
+      if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+      shell: bash
+      run: |
+        if [ ${{inputs.cc}} = nvc ]; then
+          TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
+        else
+          TESTING_COMMAND="";
+        fi
+
+        cd build
+
+        set +e
+        ${TESTING_COMMAND} ./seissol-cpu-*
+        RETVAL_EXE=$?
+        ./proxyseissol-cpu-*
+        RETVAL_PROXY=$?
+        set -e
+
+        if [ $RETVAL_EXE -ne 133 ]; then
+          echo "Unexpected exit code for SeisSol: ${RETVAL_EXE}"
+          exit 1
+        fi
+        if [ $RETVAL_PROXY -ne 255 ]; then
+          echo "Unexpected exit code for the SeisSol Proxy: ${RETVAL_PROXY}"
+          exit 1
+        fi
+
+        echo "Success!"
+
+    - name: run-proxy
+      if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+      shell: bash
+      run: |
+        cd build
+
+        ./proxyseissol-cpu-* 100 1 ader
+        ./proxyseissol-cpu-* 100 1 localwoader
+        ./proxyseissol-cpu-* 100 1 local
+        ./proxyseissol-cpu-* 100 1 neigh
+        ./proxyseissol-cpu-* 100 1 all
+        ./proxyseissol-cpu-* 100 1 neigh_dr
+        ./proxyseissol-cpu-* 100 1 godunov_dr
+        ./proxyseissol-cpu-* 100 1 all_dr
+
+    - name: cleanup
+      if: ${{ !cancelled() }}
+      shell: bash
+      run: |
+        rm -rf build

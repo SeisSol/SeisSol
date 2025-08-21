@@ -65,129 +65,96 @@ jobs:
         with:
           submodules: recursive
       
-      
-
-      - id: build
-        name: build-seissol
-        run: |
-
-          # TODO: change to `-Wall -Werror` at some point
-          EXTRA_FLAGS="-Wall"
-
-          export CFLAGS="${EXTRA_FLAGS} ${CFLAGS}"
-          export CXXFLAGS="${EXTRA_FLAGS} ${CXXFLAGS}"
-          export FFLAGS="${EXTRA_FLAGS} ${FFLAGS}"
-
-          export CC=${{matrix.setup.cc}}
-          export CXX=${{matrix.setup.cxx}}
-          export FC=${{matrix.setup.fc}}
-
-          mkdir -p /opt/seissol
-
-          if [ ${{matrix.setup.cc}} = nvc ]; then
-            TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
-          else
-            TESTING_COMMAND="";
-          fi;
-
-          source .ci/configloop.sh
-
-          inner ()
-          {
-            local CONFIG=$2
-
-            ORDER=$(echo "$CONFIG" | jq -rc '.order')
-            EQUATION=$(echo "$CONFIG" | jq -rc '.equation')
-            MECHANISMS=$(echo "$CONFIG" | jq -rc '.mechanisms')
-            PRECISION=$(echo "$CONFIG" | jq -rc '.precision')
-            SIMULATIONS=$(echo "$CONFIG" | jq -rc '.simulations')
-
-            cmake .. \
-              -GNinja \
-              -DNEW_BINARY_NAMING=ON \
-              -DTESTING_COMMAND="${TESTING_COMMAND}" \
-              -DCMAKE_INSTALL_PREFIX=/opt/seissol \
-              -DTESTING=ON \
-              -DTESTING_GENERATED=ON \
-              -DASAGI=ON \
-              -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
-              -DHOST_ARCH=${{matrix.arch}} \
-              -DORDER=$ORDER \
-              -DEQUATIONS=$EQUATION \
-              -DPRECISION=$PRECISION \
-              -DNUMBER_OF_MECHANISMS=$MECHANISMS \
-              -DNUMBER_OF_FUSED_SIMULATIONS=$SIMULATIONS
-
-            ninja install
-          }
-
-          configloop inner ".ci/configs-cpu.json"
-
-      - name: test-seissol
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          source .ci/configloop.sh
-
-          inner ()
-          {
-            ctest -j --rerun-failed --output-on-failure
-          }
-
-          configloop inner ".ci/configs-cpu.json"
-      
-      - name: run-seissol-no-input
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          source .ci/configloop.sh
-
-          if [ ${{matrix.setup.cc}} = nvc ]; then
-            TESTING_COMMAND="mpirun -np 1 --oversubscribe --allow-run-as-root";
-          else
-            TESTING_COMMAND="";
-          fi
-
-          inner ()
-          {
-            set +e
-            ${TESTING_COMMAND} ./seissol-cpu-*
-            RETVAL_EXE=$?
-            ./proxyseissol-cpu-*
-            RETVAL_PROXY=$?
-            set -e
-
-            if [ $RETVAL_EXE -ne 133 ]; then
-              echo "Unexpected exit code for SeisSol: ${RETVAL_EXE}"
-              exit 1
-            fi
-            if [ $RETVAL_PROXY -ne 255 ]; then
-              echo "Unexpected exit code for the SeisSol Proxy: ${RETVAL_PROXY}"
-              exit 1
-            fi
-          }
-
-          configloop inner ".ci/configs-cpu.json"
-
-          echo "Success!"
-
-      - name: run-proxy
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          source .ci/configloop.sh
-          
-          inner ()
-          {
-            ./proxyseissol-cpu-* 100 1 ader
-            ./proxyseissol-cpu-* 100 1 localwoader
-            ./proxyseissol-cpu-* 100 1 local
-            ./proxyseissol-cpu-* 100 1 neigh
-            ./proxyseissol-cpu-* 100 1 all
-            ./proxyseissol-cpu-* 100 1 neigh_dr
-            ./proxyseissol-cpu-* 100 1 godunov_dr
-            ./proxyseissol-cpu-* 100 1 all_dr
-          }
-
-          configloop inner ".ci/configs-cpu.json"
+      - uses: ./.github/actions/test-cpu
+        name: elastic-d-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: elastic
+          cfg-mechanisms: 0
+          cfg-precision: double
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
  
+      - uses: ./.github/actions/test-cpu
+        name: viscoelastic-3-d-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: viscoelastic2
+          cfg-mechanisms: 3
+          cfg-precision: double
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+      
+      - uses: ./.github/actions/test-cpu
+        name: poroelastic-d-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: poroelastic
+          cfg-mechanisms: 0
+          cfg-precision: double
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+      
+      - uses: ./.github/actions/test-cpu
+        name: anisotropic-d-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: anisotropic
+          cfg-mechanisms: 0
+          cfg-precision: double
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+      
+      - uses: ./.github/actions/test-cpu
+        name: acoustic-d-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: acoustic
+          cfg-mechanisms: 0
+          cfg-precision: double
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+      
+      - uses: ./.github/actions/test-cpu
+        name: elastic-d-p6-f8
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: elastic
+          cfg-mechanisms: 0
+          cfg-precision: double
+          cfg-simulations: 8
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+
       - name: upload-seissol
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
