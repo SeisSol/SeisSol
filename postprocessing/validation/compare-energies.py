@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+# SPDX-FileCopyrightText: 2022 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
 
 def pivot_if_necessary(df):
     if "variable" in df:
@@ -55,8 +62,9 @@ def perform_check(energy, energy_ref, epsilon):
 
 if __name__ == "__main__":
     import argparse
-    import numpy as np
     import sys
+
+    import numpy as np
     import pandas as pd
 
     parser = argparse.ArgumentParser(description="Compare energy output csv files.")

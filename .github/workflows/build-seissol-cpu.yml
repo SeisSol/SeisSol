@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: 9211b761ad4a317757746a892b0dc1dd16d26f02
+  precomputed-hash: 57577066fddab59afc5670397549b1b3e6d6e7ac
 
 jobs:
   seissol-build-test:
@@ -193,102 +193,144 @@ jobs:
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv5-nuc
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv5-visco
             equation: viscoelastic2
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv5-poro
             equation: poroelastic
             multisim: 1
             energies: false # incomplete, hence disabled
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv6
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv13
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv16
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           #- name: tpv33
           #  equation: elastic
           #  multisim: 1
           #  energies: true
           #  receivers: true
           #  fault: true
+          #  volume: false
+          #  surface: false
           - name: tpv101
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv101-slip
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv104
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpv105
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpvahsp
             equation: anisotropic
             multisim: 1
             energies: false
             receivers: true
             fault: false
+            volume: true
+            surface: false
           - name: tpvgaussian
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
           - name: tpvyoffe
             equation: elastic
             multisim: 1
             energies: true
             receivers: true
             fault: true
+            volume: true
+            surface: false
+          - name: ttpv1
+            equation: elastic
+            multisim: 1
+            energies: true
+            receivers: true
+            fault: true
+            volume: true
+            surface: true
           - name: tpvloh1-fused
             equation: elastic
             multisim: 8
             energies: true
             receivers: true
             fault: false # NYI
+            volume: false
+            surface: false
           - name: tpv13-fused
             equation: elastic
             multisim: 8
             energies: true
             receivers: true
             fault: false # incomplete, hence disabled
+            volume: false
+            surface: false
         precision:
           - single
           - double
@@ -381,15 +423,30 @@ jobs:
         with:
           path: scripts
       
-      # for now, compare faults only on single-rank setups
       - name: check-fault
-        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault && matrix.parallel.ranks == 1 }}
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault }}
         run: |
           FAULT_FILE=tpv-fault.xdmf
           EPSILON=0.05
 
           cd precomputed/${{matrix.case.name}}
-          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-faults.py ./output/${FAULT_FILE} ./precomputed/${{matrix.precision}}/${FAULT_FILE} --epsilon ${EPSILON}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${FAULT_FILE} ./precomputed/${{matrix.precision}}/${FAULT_FILE} --epsilon ${EPSILON}
+      - name: check-volume
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.volume }}
+        run: |
+          VOLUME_FILE=tpv.xdmf
+          EPSILON=0.05
+
+          cd precomputed/${{matrix.case.name}}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${VOLUME_FILE} ./precomputed/${{matrix.precision}}/${VOLUME_FILE} --epsilon ${EPSILON}
+      - name: check-surface
+        if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.surface }}
+        run: |
+          SURFACE_FILE=tpv-surface.xdmf
+          EPSILON=0.05
+
+          cd precomputed/${{matrix.case.name}}
+          python3 $GITHUB_WORKSPACE/scripts/postprocessing/validation/compare-mesh.py ./output/${SURFACE_FILE} ./precomputed/${{matrix.precision}}/${SURFACE_FILE} --epsilon ${EPSILON}
       - name: check-receivers
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.receivers }}
         run: |
