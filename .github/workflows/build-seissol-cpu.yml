@@ -15,7 +15,7 @@ env:
 jobs:
   seissol-build-test:
     name: seissol-build-test<${{matrix.setup.name}}, ${{matrix.arch}}, ${{matrix.build_type}}>
-    runs-on: ubuntu-24.04
+    runs-on: self-hosted
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     defaults:
@@ -82,7 +82,7 @@ jobs:
         with:
           submodules: recursive
       
-      - uses: ./.github/actions/build-cpu
+      - uses: ./.github/actions/cpu-build
         name: elastic-d-p6
         if: ${{ !cancelled() }}
         with:
@@ -97,7 +97,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
  
-      - uses: ./.github/actions/build-cpu
+      - uses: ./.github/actions/cpu-build
         name: viscoelastic-3-d-p6
         if: ${{ !cancelled() }}
         with:
@@ -112,7 +112,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/build-cpu
+      - uses: ./.github/actions/cpu-build
         name: poroelastic-d-p6
         if: ${{ !cancelled() }}
         with:
@@ -127,7 +127,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/build-cpu
+      - uses: ./.github/actions/cpu-build
         name: anisotropic-d-p6
         if: ${{ !cancelled() }}
         with:
@@ -142,7 +142,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/build-cpu
+      - uses: ./.github/actions/cpu-build
         name: acoustic-d-p6
         if: ${{ !cancelled() }}
         with:
@@ -157,7 +157,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/build-cpu
+      - uses: ./.github/actions/cpu-build
         name: elastic-d-p6-f8
         if: ${{ !cancelled() }}
         with:
@@ -172,7 +172,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/build-cpu
+      - uses: ./.github/actions/cpu-build
         name: elastic-s-p6
         if: ${{ !cancelled() }}
         with:
@@ -187,7 +187,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
  
-      - uses: ./.github/actions/build-cpu
+      - uses: ./.github/actions/cpu-build
         name: viscoelastic-3-s-p6
         if: ${{ !cancelled() }}
         with:
@@ -202,7 +202,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/build-cpu
+      - uses: ./.github/actions/cpu-build
         name: poroelastic-s-p6
         if: ${{ !cancelled() }}
         with:
@@ -217,8 +217,8 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/build-cpu
-        name: anisotropic-d-p6
+      - uses: ./.github/actions/cpu-build
+        name: anisotropic-s-p6
         if: ${{ !cancelled() }}
         with:
           cfg-order: 6
@@ -232,7 +232,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/build-cpu
+      - uses: ./.github/actions/cpu-build
         name: acoustic-s-p6
         if: ${{ !cancelled() }}
         with:
@@ -247,7 +247,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/build-cpu
+      - uses: ./.github/actions/cpu-build
         name: elastic-s-p6-f8
         if: ${{ !cancelled() }}
         with:
@@ -264,7 +264,7 @@ jobs:
 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() }}
         with:
           name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.cc}}
           path: /opt/seissol

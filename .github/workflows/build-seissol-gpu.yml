@@ -14,7 +14,7 @@ env:
 
 jobs:
   seissol-build-test:
-    name: seissol-build-test
+    name: seissol-build-test<${{matrix.setup.cc}}, ${{matrix.setup.backend}}, ${{matrix.setup.arch}}, ${{matrix.build_type}}>
     runs-on: ubuntu-24.04
     container: ${{ matrix.setup.container }}
     continue-on-error: true
@@ -85,67 +85,106 @@ jobs:
         with:
           submodules: recursive
 
-      - id: build
-        name: build-seissol
-        run: |
-          # TODO: change to `-Wall -Werror` at some point
-          EXTRA_FLAGS="-Wall"
-
-          export CFLAGS="${EXTRA_FLAGS} ${CFLAGS}"
-          export CXXFLAGS="${EXTRA_FLAGS} ${CXXFLAGS}"
-          export FFLAGS="${EXTRA_FLAGS} ${FFLAGS}"
-
-          export CC=${{matrix.setup.cc}}
-          export CXX=${{matrix.setup.cxx}}
-          export FC=${{matrix.setup.fc}}
-
-          source .ci/configloop.sh
-
-          inner ()
-          {
-            local CONFIG=$2
-
-            ORDER=$(echo "$CONFIG" | jq -rc '.order')
-            EQUATION=$(echo "$CONFIG" | jq -rc '.equation')
-            MECHANISMS=$(echo "$CONFIG" | jq -rc '.mechanisms')
-            PRECISION=$(echo "$CONFIG" | jq -rc '.precision')
-            SIMULATIONS=$(echo "$CONFIG" | jq -rc '.simulations')
-
-            cmake .. \
-              -GNinja \
-              -DNEW_BINARY_NAMING=ON \
-              -DTESTING_COMMAND="${TESTING_COMMAND}" \
-              -DCMAKE_INSTALL_PREFIX=/opt/seissol \
-              -DTESTING=ON \
-              -DTESTING_GENERATED=OFF \
-              -DASAGI=ON \
-              -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
-              -DHOST_ARCH=${{matrix.arch}} \
-              -DDEVICE_CODEGEN=${DEVICE_CODEGEN} \
-              -DDEVICE_BACKEND=${{matrix.setup.backend}} \
-              -DDEVICE_ARCH=${{matrix.setup.arch}} \
-              -DORDER=$ORDER \
-              -DEQUATIONS=$EQUATION \
-              -DPRECISION=$PRECISION \
-              -DNUMBER_OF_MECHANISMS=$MECHANISMS \
-              -DNUMBER_OF_FUSED_SIMULATIONS=$SIMULATIONS
-
-            ninja install
-          }
-
-          configloop inner ".ci/configs-gpu.json"
-
+      - uses: ./.github/actions/cpu-build
+        name: elastic-s-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: elastic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+          devicearch: ${{matrix.setup.arch}}
+          devicebackend: ${{matrix.setup.backend}}
+          tests: OFF
+ 
+      - uses: ./.github/actions/cpu-build
+        name: viscoelastic-3-s-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: viscoelastic2
+          cfg-mechanisms: 3
+          cfg-precision: single
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+          devicearch: ${{matrix.setup.arch}}
+          devicebackend: ${{matrix.setup.backend}}
+          tests: OFF
+      
+      - uses: ./.github/actions/cpu-build
+        name: anisotropic-s-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: anisotropic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+          devicearch: ${{matrix.setup.arch}}
+          devicebackend: ${{matrix.setup.backend}}
+          tests: OFF
+      
+      - uses: ./.github/actions/cpu-build
+        name: acoustic-s-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: acoustic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+          devicearch: ${{matrix.setup.arch}}
+          devicebackend: ${{matrix.setup.backend}}
+          tests: OFF
+      
+      - uses: ./.github/actions/cpu-build
+        name: elastic-s-p3-f32
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 3
+          cfg-equation: elastic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 32
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+          devicearch: ${{matrix.setup.arch}}
+          devicebackend: ${{matrix.setup.backend}}
+          tests: OFF
 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        if: ${{ !cancelled() }}
         with:
           name: seissol-${{matrix.build_type}}-${{matrix.precision}}-${{matrix.setup.arch}}-${{matrix.setup.backend}}-${{matrix.equation.order}}-${{matrix.equation.type}}-${{matrix.setup.cc}}
           path: /opt/seissol
 
   seissol-run-test:
     name: seissol-run-test
-    runs-on: sccs-ci-nv-sm60
+    runs-on: self-hosted
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
