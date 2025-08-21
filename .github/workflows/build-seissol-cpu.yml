@@ -82,7 +82,7 @@ jobs:
         with:
           submodules: recursive
       
-      - uses: ./.github/actions/test-cpu
+      - uses: ./.github/actions/build-cpu
         name: elastic-d-p6
         if: ${{ !cancelled() }}
         with:
@@ -97,7 +97,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
  
-      - uses: ./.github/actions/test-cpu
+      - uses: ./.github/actions/build-cpu
         name: viscoelastic-3-d-p6
         if: ${{ !cancelled() }}
         with:
@@ -112,7 +112,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/test-cpu
+      - uses: ./.github/actions/build-cpu
         name: poroelastic-d-p6
         if: ${{ !cancelled() }}
         with:
@@ -127,7 +127,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/test-cpu
+      - uses: ./.github/actions/build-cpu
         name: anisotropic-d-p6
         if: ${{ !cancelled() }}
         with:
@@ -142,7 +142,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/test-cpu
+      - uses: ./.github/actions/build-cpu
         name: acoustic-d-p6
         if: ${{ !cancelled() }}
         with:
@@ -157,7 +157,7 @@ jobs:
           cxx: ${{matrix.setup.cxx}}
           fc: ${{matrix.setup.fc}}
       
-      - uses: ./.github/actions/test-cpu
+      - uses: ./.github/actions/build-cpu
         name: elastic-d-p6-f8
         if: ${{ !cancelled() }}
         with:
@@ -165,6 +165,96 @@ jobs:
           cfg-equation: elastic
           cfg-mechanisms: 0
           cfg-precision: double
+          cfg-simulations: 8
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+      
+      - uses: ./.github/actions/build-cpu
+        name: elastic-s-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: elastic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+ 
+      - uses: ./.github/actions/build-cpu
+        name: viscoelastic-3-s-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: viscoelastic2
+          cfg-mechanisms: 3
+          cfg-precision: single
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+      
+      - uses: ./.github/actions/build-cpu
+        name: poroelastic-s-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: poroelastic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+      
+      - uses: ./.github/actions/build-cpu
+        name: anisotropic-d-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: anisotropic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+      
+      - uses: ./.github/actions/build-cpu
+        name: acoustic-s-p6
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: acoustic
+          cfg-mechanisms: 0
+          cfg-precision: single
+          cfg-simulations: 1
+          hostarch: ${{matrix.arch}}
+          buildtype: ${{matrix.build_type}}
+          cc: ${{matrix.setup.cc}}
+          cxx: ${{matrix.setup.cxx}}
+          fc: ${{matrix.setup.fc}}
+      
+      - uses: ./.github/actions/build-cpu
+        name: elastic-s-p6-f8
+        if: ${{ !cancelled() }}
+        with:
+          cfg-order: 6
+          cfg-equation: elastic
+          cfg-mechanisms: 0
+          cfg-precision: single
           cfg-simulations: 8
           hostarch: ${{matrix.arch}}
           buildtype: ${{matrix.build_type}}
@@ -181,11 +271,11 @@ jobs:
 
   seissol-run-test:
     name: seissol-run-test
-    runs-on: ubuntu-24.04
+    runs-on: self-hosted
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
-    if: ${{ github.repository == 'SeisSol/SeisSol' && (github.ref_name == 'master') }}
+    if: ${{ github.repository == 'SeisSol/SeisSol' }} #  && (github.ref_name == 'master')
     strategy:
       fail-fast: false
       matrix:
