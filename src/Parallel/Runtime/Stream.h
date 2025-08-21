@@ -137,9 +137,9 @@ class StreamRuntime {
     }
   }
 
-  template <typename F>
+  template <typename VarmapT, typename F>
   void runGraph(seissol::initializer::GraphKey computeGraphKey,
-                seissol::initializer::Layer& layer,
+                initializer::Layer<VarmapT>& layer,
                 F&& handler) {
     auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
 
