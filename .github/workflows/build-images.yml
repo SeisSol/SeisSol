@@ -23,6 +23,7 @@ jobs:
           - gha-gpu-amd
           - gha-gpu-intel-icc
           - gha-gpu-intel-2023
+          - gha-gpu-intel-2024
           - gha-gpu-intel-2025
           - gha-gpu-nvhpc
     steps:

@@ -45,6 +45,10 @@ RUN apt-get update -y && apt-get upgrade -y && \
     wget -O llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key && \
     apt-key add llvm-snapshot.gpg.key && \
     rm -f llvm-snapshot.gpg.key && \
+    add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-18 main" && \
+    add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-18 main" && \
+    apt-get -y update && \
+    apt-get -y install clang-18 clang-tidy-18 libomp-18-dev flang-18 && \
     add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" && \
     add-apt-repository "deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" && \
     apt-get -y update && \
