@@ -26,9 +26,33 @@ class TimeKernel : public Kernel {
   public:
   ~TimeKernel() override = default;
 
+  /**
+    @brief Evaluates a given space-time representation in time.
+
+    Can be used for both point evaluation, derivative computation, and integration.
+
+    Is best used in conjunction with the results from a TimeBasis class function.
+
+    @param coeffs The time basis coefficients.
+    @param timeDerivatives A pointer to the input space-time data.
+    @param timeEvaluated A pointer to the returned time-evaluated data.
+  */
   virtual void evaluate(const real* coeffs,
                         const real* timeDerivatives,
                         real timeEvaluated[tensor::I::size()]) = 0;
+
+  /**
+    @brief Evaluates a given space-time representation in time.
+
+    Cf. the comments to `evaluate`.
+
+    @param coeffs The time basis coefficients.
+    @param timeDerivatives A batch pointer to the input space-time data.
+    @param timeEvaluated A batch pointer to the returned time-evaluated data.
+    @param numElements The number of elements to process (indicates the number of elements in
+    timeDerivatives and timeEvaluated)
+    @param runtime The stream to place the operations on.
+  */
   virtual void evaluateBatched(const real* coeffs,
                                const real** timeDerivatives,
                                real** timeIntegratedDofs,

@@ -24,7 +24,6 @@
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
-#include <Numerical/BasisFunction.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cstdint>

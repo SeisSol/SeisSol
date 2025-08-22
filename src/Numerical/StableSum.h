@@ -10,6 +10,20 @@
 
 namespace seissol::numerical {
 
+/**
+A Kahan Summation implementation for a more numerically-stable summation.
+(beware of aggressive compilers)
+
+Cf. https://en.wikipedia.org/wiki/Kahan_summation_algorithm .
+
+How to use:
+
+auto acc = StableAccumulator();
+acc += 1e100;
+acc += 1e-100;
+acc -= 1e100;
+std::cout << acc.result() << std::endl;
+*/
 template <typename RealT>
 struct StableAccumulator {
   StableAccumulator() = default;

@@ -859,7 +859,8 @@ void TimeCluster::finalize() {
 
 template <bool UsePlasticity>
 void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStart) {
-  if (clusterData->size() == 0) {
+  const auto clusterSize = clusterData->size();
+  if (clusterSize == 0) {
     return;
   }
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
@@ -873,7 +874,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   auto* pstrain = clusterData->var<LTS::PStrain>();
 
   // NOLINTNEXTLINE
-  std::size_t numberOTetsWithPlasticYielding = 0;
+  std::size_t numberOfTetsWithPlasticYielding = 0;
 
   real* timeIntegrated[4];
   real* faceNeighborsPrefetch[4];
@@ -882,7 +883,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
 
   const auto timestep = timeStepSize();
   const auto oneMinusIntegratingFactor =
-      seissol::kernels::Plasticity::computeRelaxTime(tV, timeStepSize());
+      seissol::kernels::Plasticity::computeRelaxTime(tV, timestep);
 
   const auto timeBasis = seissol::kernels::timeBasis();
   const auto timeCoeffs = timeBasis.integrate(0, timestep, timestep);
@@ -902,9 +903,11 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                tV,                                                                                 \
                timeCoeffs,                                                                         \
                subtimeCoeffs,                                                                      \
-               clusterData) reduction(+ : numberOTetsWithPlasticYielding)
+               clusterData,                                                                        \
+               timestep,                                                                           \
+               clusterSize) reduction(+ : numberOfTetsWithPlasticYielding)
 #endif
-  for (std::size_t cell = 0; cell < clusterData->size(); cell++) {
+  for (std::size_t cell = 0; cell < clusterSize; cell++) {
     auto data = clusterData->cellRef(cell);
 
     seissol::kernels::TimeCommon::computeIntegrals(
@@ -930,7 +933,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                                    : drMapping[cell][3].godunov;
 
     // fourth face's prefetches
-    if (cell + 1 < clusterData->size()) {
+    if (cell + 1 < clusterSize) {
       faceNeighborsPrefetch[3] =
           (cellInformation[cell + 1].faceTypes[0] != FaceType::DynamicRupture)
               ? faceNeighbors[cell + 1][0]
@@ -943,9 +946,9 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
         data, drMapping[cell], timeIntegrated, faceNeighborsPrefetch);
 
     if constexpr (UsePlasticity) {
-      numberOTetsWithPlasticYielding +=
+      numberOfTetsWithPlasticYielding +=
           seissol::kernels::Plasticity::computePlasticity(oneMinusIntegratingFactor,
-                                                          timeStepSize(),
+                                                          timestep,
                                                           tV,
                                                           globalDataOnHost,
                                                           &plasticity[cell],
@@ -959,14 +962,14 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
   }
 
   if constexpr (UsePlasticity) {
-    yieldCells[0] += numberOTetsWithPlasticYielding;
+    yieldCells[0] += numberOfTetsWithPlasticYielding;
     seissolInstance.flopCounter().incrementNonZeroFlopsPlasticity(
-        clusterData->size() * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
+        clusterSize * accFlopsNonZero[static_cast<int>(ComputePart::PlasticityCheck)]);
     seissolInstance.flopCounter().incrementHardwareFlopsPlasticity(
-        clusterData->size() * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
+        clusterSize * accFlopsHardware[static_cast<int>(ComputePart::PlasticityCheck)]);
   }
 
-  loopStatistics->end(regionComputeNeighboringIntegration, clusterData->size(), profilingId);
+  loopStatistics->end(regionComputeNeighboringIntegration, clusterSize, profilingId);
 }
 
 void TimeCluster::synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {
