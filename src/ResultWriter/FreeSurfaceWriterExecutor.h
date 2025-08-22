@@ -47,6 +47,8 @@ class FreeSurfaceWriterExecutor {
   /** Backend stopwatch */
   Stopwatch m_stopwatch;
 
+  bool m_enabled{false};
+
   public:
   FreeSurfaceWriterExecutor() = default;
 
@@ -78,8 +80,10 @@ class FreeSurfaceWriterExecutor {
   }
 
   void finalize() {
-    // note: also includes some ranks which do nothing at all
-    m_stopwatch.printTime("Time free surface writer backend:");
+    if (m_enabled) {
+      // note: also includes some ranks which do nothing at all
+      m_stopwatch.printTime("Time free surface writer backend:");
+    }
 
     if (m_comm != MPI_COMM_NULL) {
       MPI_Comm_free(&m_comm);

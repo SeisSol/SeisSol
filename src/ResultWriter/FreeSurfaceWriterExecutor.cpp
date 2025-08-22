@@ -33,6 +33,8 @@ void seissol::writer::FreeSurfaceWriterExecutor::execInit(
 
   MPI_Comm_split(seissol::MPI::mpi.comm(), (nCells > 0 ? 0 : MPI_UNDEFINED), 0, &m_comm);
 
+  m_enabled = true;
+
   if (nCells > 0) {
     int rank = 0;
     MPI_Comm_rank(m_comm, &rank);
