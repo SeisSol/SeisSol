@@ -63,7 +63,7 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
       m_freeSurfaceIntegrator->surfaceLtsTree->var(m_freeSurfaceIntegrator->surfaceLts->side);
   auto* outputPosition = m_freeSurfaceIntegrator->surfaceLtsTree->var(
       m_freeSurfaceIntegrator->surfaceLts->outputPosition);
-  for (std::size_t fs = 0; fs < m_freeSurfaceIntegrator->totalNumberOfFreeSurfaces; ++fs) {
+  for (std::size_t fs = 0; fs < m_freeSurfaceIntegrator->surfaceLtsTree->size(Ghost); ++fs) {
     if (outputPosition[fs] != std::numeric_limits<std::size_t>::max()) {
       const auto meshId = meshIds[fs];
       const auto side = sides[fs];
@@ -85,11 +85,13 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
         const seissol::refinement::Triangle& subTri =
             m_freeSurfaceIntegrator->triRefiner.subTris[tri];
         for (std::size_t vertex = 0; vertex < Cell::Dim; ++vertex) {
+          const auto vertexPosition = 3 * outputPosition[fs] + vertex;
+
           Eigen::Vector3d v = x[0] + subTri.x[vertex][0] * a + subTri.x[vertex][1] * b;
-          vertices[3 * outputPosition[fs] + 0] = v(0);
-          vertices[3 * outputPosition[fs] + 1] = v(1);
-          vertices[3 * outputPosition[fs] + 2] = v(2);
-          cells[outputPosition[fs]] = outputPosition[fs];
+          vertices[3 * vertexPosition + 0] = v(0);
+          vertices[3 * vertexPosition + 1] = v(1);
+          vertices[3 * vertexPosition + 2] = v(2);
+          cells[vertexPosition] = vertexPosition;
         }
       }
     }
