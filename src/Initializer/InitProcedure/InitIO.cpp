@@ -366,15 +366,16 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     });
 
     writer.addCellData<std::uint8_t>(
-        "locationFlag", {}, [=](std::uint8_t* target, std::size_t index) {
-          target[0] = surfaceLocationFlag[index];
+        "locationFlag", {}, [=, &freeSurfaceIntegrator](std::uint8_t* target, std::size_t index) {
+          target[0] = surfaceLocationFlag[freeSurfaceIntegrator.backmap[index]];
         });
 
-    writer.addCellData<std::size_t>("global-id", {}, [=](std::size_t* target, std::size_t index) {
-      const auto meshId = surfaceMeshIds[index];
-      const auto side = surfaceMeshSides[index];
-      target[0] = meshReader.getElements()[meshId].globalId * 4 + side;
-    });
+    writer.addCellData<std::size_t>(
+        "global-id", {}, [=, &freeSurfaceIntegrator](std::size_t* target, std::size_t index) {
+          const auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
+          const auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
+          target[0] = meshReader.getElements()[meshId].globalId * 4 + side;
+        });
 
     std::vector<std::string> quantityLabels = {"v1", "v2", "v3", "u1", "u2", "u3"};
     for (std::size_t sim = 0; sim < seissol::multisim::NumSimulations; ++sim) {
