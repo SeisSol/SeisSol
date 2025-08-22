@@ -15,8 +15,6 @@
 #include <utility>
 #include <vector>
 
-#include <omp.h>
-
 #include "utils/logger.h"
 
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
