@@ -40,6 +40,7 @@
 #ifdef ACL_DEVICE
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
+#include <Kernels/Solver.h>
 #include <Memory/Tree/Layer.h>
 #include <memory>
 #include <tensor.h>
@@ -183,7 +184,7 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   }
 
   outputData->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector>(
-      indexPtrs, seissol::tensor::Q::size(), useMPIUSM());
+      indexPtrs, seissol::kernels::Solver::DerivativesSize, useMPIUSM());
 
   for (const auto& variable : variables) {
     auto* var = drTree->varUntyped(variable, initializer::AllocationPlace::Device);

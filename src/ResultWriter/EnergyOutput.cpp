@@ -21,9 +21,12 @@
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Initializer/PreProcessorMacros.h>
 #include <Initializer/Typedefs.h>
+#include <Kernels/Common.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Memory/Descriptor/DynamicRupture.h>
 #include <Memory/Descriptor/LTS.h>
+#include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/LTSTree.h>
 #include <Memory/Tree/Layer.h>
 #include <Model/CommonDatastructures.h>
@@ -198,21 +201,38 @@ void EnergyOutput::init(
 
   isPlasticityEnabled = newIsPlasticityEnabled;
 
-#ifdef ACL_DEVICE
   const auto maxCells = ltsTree->getMaxClusterSize();
 
-  if (maxCells > 0) {
-    constexpr auto QSize = tensor::Q::size();
-    timeDerivativePlusHost = reinterpret_cast<real*>(
-        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * QSize * sizeof(real)));
-    timeDerivativeMinusHost = reinterpret_cast<real*>(
-        device::DeviceInstance::getInstance().api->allocPinnedMem(maxCells * QSize * sizeof(real)));
-    timeDerivativePlusHostMapped = reinterpret_cast<real*>(
-        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativePlusHost));
-    timeDerivativeMinusHostMapped = reinterpret_cast<real*>(
-        device::DeviceInstance::getInstance().api->devicePointer(timeDerivativeMinusHost));
+  if constexpr (isDeviceOn()) {
+    if (maxCells > 0) {
+      constexpr auto QSize = tensor::Q::size();
+
+      timeDerivativePlusHost =
+          memory::MemkindArray<real>(maxCells * QSize, memory::Memkind::PinnedMemory);
+      timeDerivativeMinusHost =
+          memory::MemkindArray<real>(maxCells * QSize, memory::Memkind::PinnedMemory);
+
+      auto* plusBase =
+          memory::hostToDevicePointerTyped(timeDerivativePlusHost.data(), memory::PinnedMemory);
+      auto* minusBase =
+          memory::hostToDevicePointerTyped(timeDerivativeMinusHost.data(), memory::PinnedMemory);
+
+      std::vector<real*> pointersPlus(maxCells);
+      std::vector<real*> pointersMinus(maxCells);
+      for (std::size_t i = 0; i < maxCells; ++i) {
+        pointersPlus[i] = plusBase + i * QSize;
+        pointersMinus[i] = minusBase + i * QSize;
+      }
+
+      timeDerivativePlusHostPtrs =
+          memory::MemkindArray<real*>(maxCells, memory::Memkind::DeviceGlobalMemory);
+      timeDerivativeMinusHostPtrs =
+          memory::MemkindArray<real*>(maxCells, memory::Memkind::DeviceGlobalMemory);
+
+      timeDerivativePlusHostPtrs.copyFrom(pointersPlus);
+      timeDerivativeMinusHostPtrs.copyFrom(pointersMinus);
+    }
   }
-#endif
 
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
@@ -267,16 +287,7 @@ void EnergyOutput::simulationStart(std::optional<double> checkpointTime) {
   syncPoint(checkpointTime.value_or(0));
 }
 
-EnergyOutput::~EnergyOutput() {
-#ifdef ACL_DEVICE
-  if (timeDerivativePlusHost != nullptr) {
-    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativePlusHost);
-  }
-  if (timeDerivativeMinusHost != nullptr) {
-    device::DeviceInstance::getInstance().api->freePinnedMem(timeDerivativeMinusHost);
-  }
-#endif
-}
+EnergyOutput::~EnergyOutput() = default;
 
 void EnergyOutput::computeDynamicRuptureEnergies() {
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
@@ -286,12 +297,11 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     double& potency = energiesStorage.potency(sim);
     minTimeSinceSlipRateBelowThreshold[sim] = std::numeric_limits<double>::max();
 
-#ifdef ACL_DEVICE
-    void* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
-#endif
     for (auto& layer : dynRupTree->leaves()) {
-      /// \todo timeDerivativePlus and timeDerivativeMinus are missing the last timestep.
-      /// (We'd need to send the dofs over the network in order to fix this.)
+
+      // NOTE: (0, 1) is again a dummy range (to be adjusted)
+      kernels::Time time;
+      const auto timeCoeffs = kernels::timeBasis().point(0, 1);
 #ifdef ACL_DEVICE
       constexpr auto QSize = tensor::Q::size();
       const ConditionalKey timeIntegrationKey(*KernelNames::DrTime);
@@ -302,35 +312,41 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
             (entry.get(inner_keys::Dr::Id::DerivativesPlus))->getDeviceDataPtr());
         const real** timeDerivativeMinusDevice = const_cast<const real**>(
             (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
-        device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
-            timeDerivativePlusDevice,
-            timeDerivativePlusHostMapped,
-            QSize,
-            QSize,
-            layer.size(),
-            stream);
-        device::DeviceInstance::getInstance().algorithms.copyScatterToUniform(
-            timeDerivativeMinusDevice,
-            timeDerivativeMinusHostMapped,
-            QSize,
-            QSize,
-            layer.size(),
-            stream);
-        device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+
+        time.evaluateBatched(timeCoeffs.data(),
+                             timeDerivativePlusDevice,
+                             timeDerivativePlusHostPtrs.data(),
+                             layer.size(),
+                             stream);
+        time.evaluateBatched(timeCoeffs.data(),
+                             timeDerivativeMinusDevice,
+                             timeDerivativeMinusHostPtrs.data(),
+                             layer.size(),
+                             stream);
+        stream.wait();
       }
-      const auto timeDerivativePlusPtr = [&](unsigned i) {
-        return timeDerivativePlusHost + QSize * i;
+      const auto timeDerivativePlusPtr = [&](std::size_t i, real* /*...*/) {
+        return timeDerivativePlusHost.data() + QSize * i;
       };
-      const auto timeDerivativeMinusPtr = [&](unsigned i) {
-        return timeDerivativeMinusHost + QSize * i;
+      const auto timeDerivativeMinusPtr = [&](std::size_t i, real* /*...*/) {
+        return timeDerivativeMinusHost.data() + QSize * i;
       };
 #else
       // TODO: for fused simulations, do this once and reuse
+      // TODO response: maybe switch loops? Let the layers be outside, the sims inside
+
       real** timeDerivativePlus = layer.var(dynRup->timeDerivativePlus);
       real** timeDerivativeMinus = layer.var(dynRup->timeDerivativeMinus);
-      const auto timeDerivativePlusPtr = [&](unsigned i) { return timeDerivativePlus[i]; };
-      const auto timeDerivativeMinusPtr = [&](unsigned i) { return timeDerivativeMinus[i]; };
+      const auto timeDerivativePlusPtr = [&](std::size_t i, real* temp) {
+        time.evaluate(timeCoeffs.data(), timeDerivativePlus[i], temp);
+        return temp;
+      };
+      const auto timeDerivativeMinusPtr = [&](std::size_t i, real* temp) {
+        time.evaluate(timeCoeffs.data(), timeDerivativeMinus[i], temp);
+        return temp;
+      };
 #endif
+
       DRGodunovData* godunovData = layer.var(dynRup->godunovData);
       DRFaceInformation* faceInformation = layer.var(dynRup->faceInformation);
       DREnergyOutput* drEnergyOutput = layer.var(dynRup->drEnergyOutput);
@@ -351,14 +367,17 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
                waveSpeedsMinus,                                                                    \
                sim)
 #endif
-      for (unsigned i = 0; i < layerSize; ++i) {
+      for (std::size_t i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
+          alignas(Alignment) real timePointPlus[tensor::I::size()];
+          alignas(Alignment) real timePointMinus[tensor::I::size()];
+
           for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
             totalFrictionalWork +=
                 drEnergyOutput[i].frictionalEnergy[j * seissol::multisim::NumSimulations + sim];
           }
-          staticFrictionalWork += computeStaticWork(timeDerivativePlusPtr(i),
-                                                    timeDerivativeMinusPtr(i),
+          staticFrictionalWork += computeStaticWork(timeDerivativePlusPtr(i, timePointPlus),
+                                                    timeDerivativeMinusPtr(i, timePointMinus),
                                                     faceInformation[i],
                                                     godunovData[i],
                                                     drEnergyOutput[i].slip,
@@ -385,9 +404,9 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #pragma omp parallel for reduction(min : localMin) default(none)                                   \
     shared(layerSize, drEnergyOutput, faceInformation, sim)
 #endif
-      for (unsigned i = 0; i < layerSize; ++i) {
+      for (std::size_t i = 0; i < layerSize; ++i) {
         if (faceInformation[i].plusSideOnThisRank) {
-          for (unsigned j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
+          for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints; ++j) {
             localMin = std::min(
                 static_cast<double>(
                     drEnergyOutput[i].timeSinceSlipRateBelowThreshold
