@@ -21,7 +21,6 @@
 #include <Kernels/Solver.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
-#include <Memory/Tree/Lut.h>
 #include <Numerical/Transformation.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
@@ -48,8 +47,8 @@ namespace seissol::kernels {
 Receiver::Receiver(unsigned pointId,
                    Eigen::Vector3d position,
                    const double* elementCoords[4],
-                   kernels::LocalData dataHost,
-                   kernels::LocalData dataDevice,
+                   LTS::Ref dataHost,
+                   LTS::Ref dataDevice,
                    size_t reserved)
     : pointId(pointId), position(std::move(position)), dataHost(dataHost), dataDevice(dataDevice) {
   output.reserve(reserved);
@@ -85,8 +84,7 @@ void ReceiverCluster::addReceiver(unsigned meshId,
                                   unsigned pointId,
                                   const Eigen::Vector3d& point,
                                   const seissol::geometry::MeshReader& mesh,
-                                  const seissol::initializer::Lut& ltsLut,
-                                  seissol::initializer::LTS const& lts) {
+                                  const LTS::Backmap& backmap) {
   const auto& elements = mesh.getElements();
   const auto& vertices = mesh.getVertices();
 
@@ -97,17 +95,17 @@ void ReceiverCluster::addReceiver(unsigned meshId,
 
   // (time + number of quantities) * number of samples until sync point
   const size_t reserved = ncols() * (m_syncPointInterval / m_samplingInterval + 1);
-  m_receivers.emplace_back(
-      pointId,
-      point,
-      coords,
-      kernels::LocalData::lookup(lts, ltsLut, meshId, initializer::AllocationPlace::Host),
-      kernels::LocalData::lookup(lts,
-                                 ltsLut,
-                                 meshId,
-                                 isDeviceOn() ? initializer::AllocationPlace::Device
-                                              : initializer::AllocationPlace::Host),
-      reserved);
+
+  const auto position = backmap.get(meshId);
+  auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
+  m_receivers.emplace_back(pointId,
+                           point,
+                           coords,
+                           ltsStorage.lookupRef(position),
+                           ltsStorage.lookupRef(position,
+                                                isDeviceOn() ? initializer::AllocationPlace::Device
+                                                             : initializer::AllocationPlace::Host),
+                           reserved);
 }
 
 double ReceiverCluster::calcReceivers(
@@ -159,10 +157,12 @@ double ReceiverCluster::calcReceivers(
           receiver.basisFunctionDerivatives.m_data.data();
 
       // Copy DOFs from device to host.
-      LocalData tmpReceiverData{receiver.dataHost};
+      auto tmpReceiverData{receiver.dataHost};
+
       if (executor == Executor::Device) {
-        tmpReceiverData.dofs_ptr = reinterpret_cast<decltype(tmpReceiverData.dofs_ptr)>(
-            deviceCollector->get(deviceIndices[i]));
+        tmpReceiverData.setPointer<LTS::Dofs>(
+            reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
+                deviceCollector->get(deviceIndices[i])));
       }
 
       const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
@@ -218,7 +218,7 @@ void ReceiverCluster::allocateData() {
   std::vector<real*> dofs;
   std::unordered_map<real*, size_t> indexMap;
   for (size_t i = 0; i < m_receivers.size(); ++i) {
-    real* currentDofs = m_receivers[i].dataDevice.dofs();
+    real* currentDofs = m_receivers[i].dataDevice.get<LTS::Dofs>();
     if (indexMap.find(currentDofs) == indexMap.end()) {
       // point to the current array end
       indexMap[currentDofs] = dofs.size();

@@ -15,6 +15,7 @@
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
+#include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <Numerical/Quadrature.h>
 #include <Numerical/Transformation.h>
@@ -91,9 +92,8 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
   const auto& iniFields = seissolInstance.getMemoryManager().getInitialConditions();
 
-  auto& lts = *seissolInstance.getMemoryManager().getLts();
-  auto& ltsTree = *seissolInstance.getMemoryManager().getLtsTree();
-  auto* globalData = seissolInstance.getMemoryManager().getGlobalDataOnHost();
+  const auto& ltsStorage = seissolInstance.getMemoryManager().getLtsStorage();
+  const auto* globalData = seissolInstance.getMemoryManager().getGlobalData().onHost;
 
   const std::vector<Vertex>& vertices = meshReader->getVertices();
   const std::vector<Element>& elements = meshReader->getElements();
@@ -156,10 +156,10 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
 
     alignas(Alignment) real numericalSolutionData[tensor::dofsQP::size()];
     alignas(Alignment) real analyticalSolutionData[NumQuadPoints * NumQuantities];
-    for (auto& layer : ltsTree.leaves(Ghost)) {
-      const auto* secondaryInformation = layer.var(lts.secondaryInformation);
-      const auto* materialData = layer.var(lts.material);
-      const auto* dofsData = layer.var(lts.dofs);
+    for (const auto& layer : ltsStorage.leaves(Ghost)) {
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* materialData = layer.var<LTS::Material>();
+      const auto* dofsData = layer.var<LTS::Dofs>();
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
       // Note: Adding default(none) leads error when using gcc-8
 #pragma omp parallel for shared(elements,                                                          \
@@ -169,7 +169,6 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
                                     globalData,                                                    \
                                     errsLInfLocal,                                                 \
                                     simulationTime,                                                \
-                                    lts,                                                           \
                                     sim,                                                           \
                                     quadratureWeights,                                             \
                                     elemsLInfLocal,                                                \

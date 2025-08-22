@@ -16,7 +16,6 @@
 
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
 #include "SourceTerm/Typedefs.h"
 #include <utils/logger.h>
 
@@ -98,11 +97,9 @@ class TimeCluster : public AbstractTimeCluster {
   /*
    * element data
    */
-  seissol::initializer::Layer* clusterData;
-  seissol::initializer::Layer* dynRupInteriorData;
-  seissol::initializer::Layer* dynRupCopyData;
-  seissol::initializer::LTS* lts;
-  seissol::initializer::DynamicRupture* dynRup;
+  LTS::Layer* clusterData;
+  DynamicRupture::Layer* dynRupInteriorData;
+  DynamicRupture::Layer* dynRupCopyData;
   dr::friction_law::FrictionSolver* frictionSolver;
   dr::friction_law::FrictionSolver* frictionSolverDevice;
   dr::output::OutputManager* faultOutputManager;
@@ -148,9 +145,9 @@ class TimeCluster : public AbstractTimeCluster {
   /**
    * Computes dynamic rupture.
    **/
-  void computeDynamicRupture(seissol::initializer::Layer& layerData);
+  void computeDynamicRupture(DynamicRupture::Layer& layerData);
 
-  void handleDynamicRupture(seissol::initializer::Layer& layerData);
+  void handleDynamicRupture(DynamicRupture::Layer& layerData);
 
   /**
    * Computes all cell local integration.
@@ -189,7 +186,7 @@ class TimeCluster : public AbstractTimeCluster {
 
 #ifdef ACL_DEVICE
   void computeLocalIntegrationDevice(bool resetBuffers);
-  void computeDynamicRuptureDevice(seissol::initializer::Layer& layerData);
+  void computeDynamicRuptureDevice(DynamicRupture::Layer& layerData);
   void computeNeighboringIntegrationDevice(double subTimeStart);
 #endif
 
@@ -205,7 +202,7 @@ class TimeCluster : public AbstractTimeCluster {
 
   void computeNeighborIntegrationFlops();
 
-  void computeDynamicRuptureFlops(seissol::initializer::Layer& layerData,
+  void computeDynamicRuptureFlops(DynamicRupture::Layer& layerData,
                                   std::uint64_t& nonZeroFlops,
                                   std::uint64_t& hardwareFlops);
 
@@ -250,11 +247,9 @@ class TimeCluster : public AbstractTimeCluster {
               bool printProgress,
               DynamicRuptureScheduler* dynamicRuptureScheduler,
               CompoundGlobalData globalData,
-              seissol::initializer::Layer* clusterData,
-              seissol::initializer::Layer* dynRupInteriorData,
-              seissol::initializer::Layer* dynRupCopyData,
-              seissol::initializer::LTS* lts,
-              seissol::initializer::DynamicRupture* dynRup,
+              LTS::Layer* clusterData,
+              DynamicRupture::Layer* dynRupInteriorData,
+              DynamicRupture::Layer* dynRupCopyData,
               seissol::dr::friction_law::FrictionSolver* frictionSolver,
               seissol::dr::friction_law::FrictionSolver* frictionSolverDevice,
               dr::output::OutputManager* faultOutputManager,
@@ -283,6 +278,7 @@ class TimeCluster : public AbstractTimeCluster {
 
   void finalize() override;
 
+  [[nodiscard]] std::size_t layerId() const;
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
   [[nodiscard]] LayerType getLayerType() const;

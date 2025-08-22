@@ -97,9 +97,11 @@ class BaseFrictionSolver : public FrictionSolverDetails {
       for (uint32_t i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
         common::adjustInitialStress<gpuRangeType>(
             ctx.data->initialStressInFaultCS[ctx.ltsFace],
-            ctx.data->nucleationStressInFaultCS[i][ctx.ltsFace],
+            ctx.data
+                ->nucleationStressInFaultCS[ctx.ltsFace * ctx.data->drParameters.nucleationCount +
+                                            i],
             ctx.data->initialPressure[ctx.ltsFace],
-            ctx.data->nucleationPressure[i][ctx.ltsFace],
+            ctx.data->nucleationPressure[ctx.ltsFace * ctx.data->drParameters.nucleationCount + i],
             updateTime,
             ctx.data->drParameters.t0[i],
             ctx.data->drParameters.s0[i],
@@ -178,8 +180,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
   void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime, real fullUpdateTime);
 
-  void evaluate(seissol::initializer::Layer& layerData,
-                const seissol::initializer::DynamicRupture* const dynRup,
+  void evaluate(DynamicRupture::Layer& layerData,
                 real fullUpdateTime,
                 const FrictionTime& frictionTime,
                 const double timeWeights[ConvergenceOrder],
@@ -192,8 +193,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     // TODO: avoid copying the data all the time
     // TODO: allocate FrictionLawData as constant data
 
-    FrictionSolverInterface::copyLtsTreeToLocal(&dataHost, layerData, dynRup, fullUpdateTime);
-    Derived::copySpecificLtsDataTreeToLocal(&dataHost, layerData, dynRup, fullUpdateTime);
+    FrictionSolverInterface::copyStorageToLocal(&dataHost, layerData, fullUpdateTime);
+    Derived::copySpecificStorageDataToLocal(&dataHost, layerData, fullUpdateTime);
     this->currLayerSize = layerData.size();
     dataHost.drParameters = *this->drParameters;
 

@@ -52,13 +52,11 @@ class ThermalPressurization {
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime);
 
   /**
    * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face
-   * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree
+   * bool saveTmpInTP is used to save final values for Theta and Sigma in the storage
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
   void calcFluidPressure(const std::array<real, misc::NumPaddedPoints>& normalStress,
