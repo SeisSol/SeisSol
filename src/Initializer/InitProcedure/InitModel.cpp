@@ -298,6 +298,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
   logInfo() << "Order:" << ConvergenceOrder;
   logInfo() << "Precision:"
             << (Config::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
+  logInfo() << "Number of simulations: " << Config::NumSimulations;
   logInfo() << "Plasticity:"
             << (seissolInstance.getSeisSolParameters().model.plasticity ? "on" : "off");
   logInfo() << "Flux:"
