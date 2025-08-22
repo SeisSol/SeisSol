@@ -1,0 +1,129 @@
+# SPDX-FileCopyrightText: 2025 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+---
+
+name: 'seissol-test'
+description: 'Run End-to-End Test Scenario with SeisSol'
+inputs:
+  seissol:
+    description: 'SeisSol executable name'
+    required: true
+  rundir:
+    description: 'Directory to run the test in'
+    required: true
+  resultdir:
+    description: 'Result directory; relative to the run directory'
+    required: true
+  # TODO: obsoletify the following tests:
+  compare-volume:
+    required: true
+    default: false
+  compare-fault:
+    required: true
+    default: false
+  compare-surface:
+    required: true
+    default: false
+  compare-energy:
+    required: true
+    default: false
+  compare-receiver:
+    required: true
+    default: false
+  compare-receiver-mode:
+    required: true
+    default: lsw
+  commsize:
+    required: true
+    default: 1
+  rankthreads:
+    required: true
+    default: 1
+  ompi:
+    required: true
+    default: true
+runs:
+  using: "composite"
+  steps:
+    - id: runtest
+      name: run-test
+      shell: bash
+      run: |
+        if ${{inputs.ompi}}; then
+          MPI_OPTIONS="--oversubscribe --allow-run-as-root -bind-to none";
+        else
+          MPI_OPTIONS="";
+        fi
+
+        export PATH=$(pwd)/install/bin:$PATH
+        export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
+
+        chmod +x $(pwd)/install/bin/*
+        
+        export OMP_NUM_THREADS=${{inputs.rankthreads}}
+        export SEISSOL_COMMTHREAD=0
+        export SEISSOL_MINISEISSOL=OFF
+
+        cd precomputed/${{inputs.rundir}}
+
+        mpirun ${MPI_OPTIONS} -np ${{inputs.commsize}} seissol-${{inputs.seissol}}
+
+    - name: compare-volume
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && inputs.compare-volume == 'true' }}
+      shell: bash
+      run: |
+        cd precomputed/${{inputs.rundir}}
+
+        EPSILON=0.05
+        SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
+
+        python3 $SCRIPTS/compare-mesh.py ./output/tpv.xdmf ./precomputed/${{inputs.resultdir}}/tpv.xdmf --epsilon ${EPSILON}
+    
+    - name: compare-fault
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && inputs.compare-fault == 'true' }}
+      shell: bash
+      run: |
+        cd precomputed/${{inputs.rundir}}
+
+        EPSILON=0.05
+        SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
+
+        python3 $SCRIPTS/compare-mesh.py ./output/tpv-fault.xdmf ./precomputed/${{inputs.resultdir}}/tpv-fault.xdmf --epsilon ${EPSILON}
+
+    - name: compare-surface
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && inputs.compare-surface == 'true' }}
+      shell: bash
+      run: |
+        cd precomputed/${{inputs.rundir}}
+
+        EPSILON=0.05
+        SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
+
+        python3 $SCRIPTS/compare-mesh.py ./output/tpv-surface.xdmf ./precomputed/${{inputs.resultdir}}/tpv-surface.xdmf --epsilon ${EPSILON}
+
+    - name: compare-energy
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && inputs.compare-energy == 'true' }}
+      shell: bash
+      run: |
+        cd precomputed/${{inputs.rundir}}
+
+        EPSILON=0.05
+        SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
+
+        python3 $SCRIPTS/compare-energies.py ./output/tpv-energy.csv ./precomputed/${{inputs.resultdir}}/tpv-energy.csv --epsilon ${EPSILON}
+
+    - name: compare-receiver
+      if: ${{ !cancelled() && steps.runtest.outcome == 'success' && inputs.compare-receiver == 'true' }}
+      shell: bash
+      run: |
+        cd precomputed/${{inputs.rundir}}
+
+        EPSILON=0.05
+        SCRIPTS=$GITHUB_WORKSPACE/scripts/postprocessing/validation
+
+        python3 $SCRIPTS/compare-receivers.py ./output ./precomputed/${{inputs.resultdir}} --epsilon ${EPSILON} --mode ${{inputs.compare-receiver-mode}}

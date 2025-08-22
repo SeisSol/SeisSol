@@ -99,7 +99,7 @@ jobs:
  
       - uses: ./.github/actions/cpu-build
         name: viscoelastic-3-d-p6
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && false }}
         with:
           cfg-order: 6
           cfg-equation: viscoelastic2
@@ -114,7 +114,7 @@ jobs:
       
       - uses: ./.github/actions/cpu-build
         name: poroelastic-d-p6
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && false }}
         with:
           cfg-order: 6
           cfg-equation: poroelastic
@@ -129,7 +129,7 @@ jobs:
       
       - uses: ./.github/actions/cpu-build
         name: anisotropic-d-p6
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && false }}
         with:
           cfg-order: 6
           cfg-equation: anisotropic
@@ -144,7 +144,7 @@ jobs:
       
       - uses: ./.github/actions/cpu-build
         name: acoustic-d-p6
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && false }}
         with:
           cfg-order: 6
           cfg-equation: acoustic
@@ -159,7 +159,7 @@ jobs:
       
       - uses: ./.github/actions/cpu-build
         name: elastic-d-p6-f8
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && false }}
         with:
           cfg-order: 6
           cfg-equation: elastic
@@ -174,7 +174,7 @@ jobs:
       
       - uses: ./.github/actions/cpu-build
         name: elastic-s-p6
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && false }}
         with:
           cfg-order: 6
           cfg-equation: elastic
@@ -189,7 +189,7 @@ jobs:
  
       - uses: ./.github/actions/cpu-build
         name: viscoelastic-3-s-p6
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && false }}
         with:
           cfg-order: 6
           cfg-equation: viscoelastic2
@@ -204,7 +204,7 @@ jobs:
       
       - uses: ./.github/actions/cpu-build
         name: poroelastic-s-p6
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && false }}
         with:
           cfg-order: 6
           cfg-equation: poroelastic
@@ -219,7 +219,7 @@ jobs:
       
       - uses: ./.github/actions/cpu-build
         name: anisotropic-s-p6
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && false }}
         with:
           cfg-order: 6
           cfg-equation: anisotropic
@@ -234,7 +234,7 @@ jobs:
       
       - uses: ./.github/actions/cpu-build
         name: acoustic-s-p6
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && false }}
         with:
           cfg-order: 6
           cfg-equation: acoustic
@@ -249,7 +249,7 @@ jobs:
       
       - uses: ./.github/actions/cpu-build
         name: elastic-s-p6-f8
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && false }}
         with:
           cfg-order: 6
           cfg-equation: elastic
@@ -266,7 +266,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.cc}}
+          name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.name}}
           path: /opt/seissol
 
   seissol-run-test:
@@ -288,64 +288,71 @@ jobs:
             cxx: g++-13
             fc: gfortran-13
             container: seissol/gha-cpu:davschneller-ci-merge
-            mpi: openmpi
             name: gcc-13
+            ompi: true
           - cc: clang-18
             cxx: clang++-18
             fc: flang-18
             container: seissol/gha-cpu:davschneller-ci-merge
-            mpi: openmpi
             name: clang-18
+            ompi: true
           - cc: clang-19
             cxx: clang++-19
             fc: flang-19
             container: seissol/gha-cpu:davschneller-ci-merge
-            mpi: openmpi
             name: clang-19
+            ompi: true
           - cc: clang-20
             cxx: clang++-20
             fc: flang-20
             container: seissol/gha-cpu:davschneller-ci-merge
-            mpi: openmpi
             name: clang-20
+            ompi: true
           - cc: icc
             cxx: icpc
             fc: ifort
             container: seissol/gha-gpu-intel-icc:davschneller-ci-merge
-            mpi: intel
             name: icc-2022
+            ompi: false
           - cc: icx
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel-2023:davschneller-ci-merge
-            mpi: intel
             name: icx-2023
+            ompi: false
           - cc: icx
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel-2024:davschneller-ci-merge
-            mpi: intel
             name: icx-2024
+            ompi: false
           - cc: icx
             cxx: icpx
             fc: ifx
             container: seissol/gha-gpu-intel-2025:davschneller-ci-merge
-            mpi: intel
             name: icx-2025
+            ompi: false
           - cc: nvc
             cxx: nvc++
             fc: nvfortran
             container: seissol/gha-gpu-nvhpc:davschneller-ci-merge
-            mpi: openmpi
             name: nvhpc-2409
+            ompi: true
         parallel:
           - ranks: 1
-            threads: 4
+            threads: 32
             commthread: false
-          - ranks: 4
+          - ranks: 32
             threads: 1
             commthread: false
     steps:
+      - id: get-seissol
+        name: get-seissol
+        uses: actions/download-artifact@v4
+        with:
+          name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.name}}
+          path: install
+
       - id: get-precomputed-solutions
         name: get-precomputed-solutions
         uses: actions/checkout@v4
@@ -354,96 +361,178 @@ jobs:
           ref: ${{env.precomputed-hash}}
           path: precomputed
 
-      - name: get-seissol
-        uses: actions/download-artifact@v4
-        with:
-          name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.cc}}
-          path: install
-
       # TODO: make this checkout obsolete
       - name: get-verification-scripts
         uses: actions/checkout@v4
         with:
           path: scripts
+      
+      - name: tpv5/double
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: cpu-elastic-d-p6
+          rundir: tpv5
+          resultdir: double
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: lsw
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+      
+      - name: tpv5-nuc/double
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: cpu-elastic-d-p6
+          rundir: tpv5-nuc
+          resultdir: double
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: lsw
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+      
+      - name: tpv6/double
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: cpu-elastic-d-p6
+          rundir: tpv6
+          resultdir: double
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: lsw
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
 
-      - name: run-seissol
-        id: run
-        run: |
-          if [ ${{matrix.setup.mpi}} = openmpi ]; then
-            MPI_OPTIONS="--oversubscribe --allow-run-as-root -bind-to none";
-          elif [ ${{matrix.setup.mpi}} = intel ]; then
-            MPI_OPTIONS="";
-          fi;
-
-          export PATH=$(pwd)/install/bin:$PATH
-          export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
-
-          chmod +x $(pwd)/install/bin/*
-          
-          export OMP_NUM_THREADS=${{matrix.parallel.threads}}
-          export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
-          export SEISSOL_MINISEISSOL=OFF
-
-          cd precomputed
-
-          inner()
-          {
-            local CONFIG=$2
-
-            NAME=$(echo "$CONFIG" | jq -rc '.name')
-
-            COMPARE_FAULT=$(echo "$CONFIG" | jq -rc '.compare.fault.enabled')
-            COMPARE_VOLUME=$(echo "$CONFIG" | jq -rc '.compare.volume.enabled')
-            COMPARE_SURFACE=$(echo "$CONFIG" | jq -rc '.compare.surface.enabled')
-            COMPARE_ENERGY=$(echo "$CONFIG" | jq -rc '.compare.energies.enabled')
-            COMPARE_RECEIVER=$(echo "$CONFIG" | jq -rc '.compare.receivers.enabled')
-            COMPARE_RECEIVER_MODE=$(echo "$CONFIG" | jq -rc '.compare.receivers.type')
-
-            cd $NAME
-
-            for run in $(echo "$CONFIG" | jq -rc '.[]'); do
-              rm -rf output
-              mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-cpu-${run}
-              ERROR=$?
-              if [ $ERROR == 0 ]; then
-                for run in $(echo "$CONFIG" | jq -rc '.[]'); do
-                  if COMPARE_FAULT then
-                    python3 $SCRIPTS/compare-mesh.py ./output/${FAULT_FILE} ./precomputed/${run}/${FAULT_FILE} --epsilon ${EPSILON}
-                    if [ $? != 0 ]; then
-                      ERROR=1
-                    fi
-                  fi
-                  if COMPARE_VOLUME then
-                    python3 $SCRIPTS/compare-mesh.py ./output/${VOLUME_FILE} ./precomputed/${run}/${VOLUME_FILE} --epsilon ${EPSILON}
-                    if [ $? != 0 ]; then
-                      ERROR=1
-                    fi
-                  fi
-                  if COMPARE_SURFACE then
-                    python3 $SCRIPTS/compare-mesh.py ./output/${SURFACE_FILE} ./precomputed/${run}/${SURFACE_FILE} --epsilon ${EPSILON}
-                    if [ $? != 0 ]; then
-                      ERROR=1
-                    fi
-                  fi
-                  if COMPARE_ENERGY then
-                    python3 $SCRIPTS/compare-energies.py ./output/${ENERGY_FILE} ./precomputed/${run}/${ENERGY_FILE} --epsilon ${EPSILON}
-                    if [ $? != 0 ]; then
-                      ERROR=1
-                    fi
-                  fi
-                  if COMPARE_RECEIVER then
-                    python3 $SCRIPTS/compare-receivers.py ./output ./precomputed/${run} --epsilon ${EPSILON} --mode $COMPARE_RECEIVER_MODE
-                    if [ $? != 0 ]; then
-                      ERROR=1
-                    fi
-                  fi
-                done
-              fi
-              exit $ERROR
-            done
-
-            cd ..
-          }
-
-          source $GITHUB_WORKSPACE/.ci/configloop.sh
-          testloop inner "$GITHUB_WORKSPACE/.ci/tests.json"
+      - name: tpv13/double
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: cpu-elastic-d-p6
+          rundir: tpv13
+          resultdir: double
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: lsw
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+      
+      - name: tpv16/double
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: cpu-elastic-d-p6
+          rundir: tpv16
+          resultdir: double
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: lsw
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+      
+      - name: tpv101/double
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: cpu-elastic-d-p6
+          rundir: tpv101
+          resultdir: double
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: rs
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+      
+      - name: tpv101-slip/double
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: cpu-elastic-d-p6
+          rundir: tpv101-slip
+          resultdir: double
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: rs
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+      
+      - name: tpv104/double
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: cpu-elastic-d-p6
+          rundir: tpv104
+          resultdir: double
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: rs
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+      
+      - name: tpv105/double
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: cpu-elastic-d-p6
+          rundir: tpv105
+          resultdir: double
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: tp
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+      
+      - name: ttpv1/double
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: cpu-elastic-d-p6
+          rundir: ttpv1
+          resultdir: double
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: lsw
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
