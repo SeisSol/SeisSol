@@ -10,7 +10,7 @@ ParallelHdf5ReceiverWriter::ParallelHdf5ReceiverWriter(MPI_Comm comm,
     : comm_(comm)
 {
 
-  hsize_t totalTimeSteps = 3600;
+  hsize_t totalTimeSteps = 12000;
 
 
   dims_[0] = totalTimeSteps;
@@ -157,7 +157,7 @@ void ParallelHdf5ReceiverWriter::writeChunk(hsize_t timeOffset,
 
 void ParallelHdf5ReceiverWriter::writePointIds(hsize_t receiverOffset,
                                                hsize_t localReceiverCount,
-                                               const std::vector<unsigned long long>& pointIds) {
+                                               const std::vector<hsize_t>& pointIds) {
 
   std::cout << "localReceiverCount: " << localReceiverCount
             << ", pointIds.size(): " << pointIds.size() << std::endl;

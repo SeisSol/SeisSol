@@ -22,7 +22,7 @@ class ParallelHdf5ReceiverWriter {
 
   void writePointIds(hsize_t receiverOffset,
                      hsize_t localReceiverCount,
-                     const std::vector<unsigned long long>& pointIds);
+                     const std::vector<hsize_t>& pointIds);
 
   void writeCoordinates(std::vector<Eigen::Vector3d> points);
 
