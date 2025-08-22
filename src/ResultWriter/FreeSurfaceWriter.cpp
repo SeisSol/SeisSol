@@ -15,6 +15,7 @@
 #include <Geometry/Refinement/TriangleRefiner.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/Surface.h>
+#include <Memory/Tree/Layer.h>
 #include <Monitoring/Instrumentation.h>
 #include <Parallel/Helper.h>
 #include <Parallel/MPI.h>

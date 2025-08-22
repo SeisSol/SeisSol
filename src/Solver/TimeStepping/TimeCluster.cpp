@@ -893,6 +893,7 @@ void TimeCluster::computeNeighboringIntegrationImplementation(double subTimeStar
                timeCoeffs,                                                                         \
                subtimeCoeffs,                                                                      \
                clusterData,                                                                        \
+               timestep,                                                                           \
                clusterSize) reduction(+ : numberOfTetsWithPlasticYielding)
 #endif
   for (std::size_t cell = 0; cell < clusterSize; cell++) {
