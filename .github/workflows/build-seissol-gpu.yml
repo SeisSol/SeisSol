@@ -24,6 +24,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        precision:
+          - single
         arch:
           - hsw
         build_type:
@@ -36,9 +38,9 @@ jobs:
             container: seissol/gha-gpu-nv:davschneller-ci-merge
             arch: sm_60
             backend: cuda
-          - cc: clang-19
-            cxx: clang++-19
-            fc: flang-19
+          - cc: clang-18
+            cxx: clang++-18
+            fc: flang-18
             container: seissol/gha-gpu-nv:davschneller-ci-merge
             arch: sm_60
             backend: cuda
@@ -54,9 +56,9 @@ jobs:
             container: seissol/gha-gpu-amd:davschneller-ci-merge
             arch: gfx906
             backend: hip
-          - cc: clang-19
-            cxx: clang++-19
-            fc: flang-19
+          - cc: clang-18
+            cxx: clang++-18
+            fc: flang-18
             container: seissol/gha-gpu-amd:davschneller-ci-merge
             arch: gfx906
             backend: hip
@@ -188,7 +190,7 @@ jobs:
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
-    if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
+    if: ${{ github.repository == 'SeisSol/SeisSol' }}
     strategy:
       fail-fast: false
       matrix:
