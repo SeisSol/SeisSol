@@ -19,9 +19,7 @@ class RateAndStateThermalPressurization : public RateAndState {
 
   protected:
   real computeFluidPressure(LocalInfo& local) override {
-    using DrLtsDescrType = seissol::initializer::ThermalPressurization;
-    const auto* const pressure =
-        getCellData(local, dynamic_cast<DrLtsDescrType*>(drDescr)->pressure);
+    const auto* const pressure = getCellData<LTSThermalPressurization::Pressure>(local);
     return pressure[local.gpIndex];
   }
   void outputSpecifics(std::shared_ptr<ReceiverOutputData>& outputData,
@@ -30,24 +28,18 @@ class RateAndStateThermalPressurization : public RateAndState {
                        size_t receiverIdx) override {
     auto& tpVariables = std::get<VariableID::ThermalPressurizationVariables>(outputData->vars);
     if (tpVariables.isActive) {
-      using DrLtsDescrType = seissol::initializer::ThermalPressurization;
-      const auto* const temperature =
-          getCellData(local, dynamic_cast<DrLtsDescrType*>(drDescr)->temperature);
+      const auto* const temperature = getCellData<LTSThermalPressurization::Temperature>(local);
       tpVariables(TPID::Temperature, cacheLevel, receiverIdx) = temperature[local.gpIndex];
 
-      const auto* const pressure =
-          getCellData(local, dynamic_cast<DrLtsDescrType*>(drDescr)->pressure);
+      const auto* const pressure = getCellData<LTSThermalPressurization::Pressure>(local);
       tpVariables(TPID::Pressure, cacheLevel, receiverIdx) = pressure[local.gpIndex];
     }
   }
 
   std::vector<std::size_t> getOutputVariables() const override {
-    using DrLtsDescrType = seissol::initializer::ThermalPressurization;
     auto baseVector = RateAndState::getOutputVariables();
-    baseVector.push_back(
-        drTree->info(dynamic_cast<const DrLtsDescrType*>(drDescr)->temperature).index);
-    baseVector.push_back(
-        drTree->info(dynamic_cast<const DrLtsDescrType*>(drDescr)->pressure).index);
+    baseVector.push_back(drStorage->info<LTSThermalPressurization::Temperature>().index);
+    baseVector.push_back(drStorage->info<LTSThermalPressurization::Pressure>().index);
     return baseVector;
   }
 };

@@ -15,8 +15,8 @@
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 #include "generated_code/init.h"
-#include <Model/Datastructures.h>
-#include <Model/IntegrationData.h>
+#include <Equations/elastic/Model/Datastructures.h>
+#include <Equations/elastic/Model/IntegrationData.h>
 
 namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;

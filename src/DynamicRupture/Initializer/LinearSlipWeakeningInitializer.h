@@ -21,16 +21,14 @@ class LinearSlipWeakeningInitializer : public BaseDRInitializer {
   /**
    * Computes initial friction and slip rates
    */
-  void initializeFault(const seissol::initializer::DynamicRupture* dynRup,
-                       seissol::initializer::LTSTree* dynRupTree) override;
+  void initializeFault(DynamicRupture::Storage& drStorage) override;
 
   protected:
   /**
    * Adds the additional parameters mu_s, mu_d, d_c, cohesion and if available forced_rupture_time.
    */
   void addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
-                               const seissol::initializer::DynamicRupture* dynRup,
-                               seissol::initializer::Layer& layer) override;
+                               DynamicRupture::Layer& layer) override;
 };
 
 /**
@@ -42,8 +40,7 @@ class LinearSlipWeakeningBimaterialInitializer : public LinearSlipWeakeningIniti
   /**
    * Computes initial value for the regularized strength
    */
-  void initializeFault(const seissol::initializer::DynamicRupture* dynRup,
-                       seissol::initializer::LTSTree* dynRupTree) override;
+  void initializeFault(DynamicRupture::Storage& drStorage) override;
 };
 
 } // namespace seissol::dr::initializer

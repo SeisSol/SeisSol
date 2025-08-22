@@ -18,7 +18,6 @@
 #include <omp.h>
 #endif // _OPENMP
 
-#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.h"
 #include "Parallel/Helper.h"
@@ -110,9 +109,6 @@ bool SeisSol::init(int argc, char* argv[]) {
   }
 
   m_memoryManager->initialize();
-
-  m_memoryManager->setInputParams(
-      std::make_shared<seissol::initializer::parameters::SeisSolParameters>(m_seissolParameters));
 
   return true;
 }
