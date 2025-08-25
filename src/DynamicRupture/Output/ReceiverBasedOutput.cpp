@@ -304,11 +304,11 @@ void ReceiverOutput::calcFaultOutput(
 
     auto& slipVectors = std::get<VariableID::Slip>(outputData->vars);
     if (slipVectors.isActive) {
-      VrtxCoords crossProduct = {0.0, 0.0, 0.0};
-      MeshTools::cross(strike.data(), tangent1.data(), crossProduct);
+      CoordinateT crossProduct = {0.0, 0.0, 0.0};
+      MeshTools::cross(strike, tangent1, crossProduct);
 
-      const double cos1 = MeshTools::dot(strike.data(), tangent1.data());
-      const double scalarProd = MeshTools::dot(crossProduct, normal.data());
+      const double cos1 = MeshTools::dot(strike, tangent1);
+      const double scalarProd = MeshTools::dot(crossProduct, normal);
 
       // Note: cos1**2 can be greater than 1.0 because of rounding errors -> min
       double sin1 = std::sqrt(1.0 - std::min(1.0, cos1 * cos1));

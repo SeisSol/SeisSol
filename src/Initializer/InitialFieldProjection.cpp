@@ -19,6 +19,7 @@
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
+#include <Geometry/CellTransform.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
@@ -122,9 +123,9 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
   constexpr auto QuadPolyDegree = ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  double quadraturePoints[NumQuadPoints][Cell::Dim];
-  double quadratureWeights[NumQuadPoints];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
+  const auto quadrature = seissol::quadrature::quadrature<Cell::Dim>(ConvergenceOrder + 1);
+  const auto& quadraturePoints = quadrature.first;
+  const auto& quadratureWeights = quadrature.second;
 
   for (auto& layer : tree.leaves(Ghost)) {
 #if defined(_OPENMP) && !NVHPC_AVOID_OMP
@@ -153,18 +154,8 @@ void projectInitialField(const std::vector<std::unique_ptr<physics::InitialField
 #endif
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         const auto meshId = secondaryInformation[cell].meshId;
-        const double* elementCoords[Cell::NumVertices];
-        for (size_t v = 0; v < Cell::NumVertices; ++v) {
-          elementCoords[v] = vertices[elements[meshId].vertices[v]].coords;
-        }
-        for (size_t i = 0; i < NumQuadPoints; ++i) {
-          seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
-                                                                 elementCoords[1],
-                                                                 elementCoords[2],
-                                                                 elementCoords[3],
-                                                                 quadraturePoints[i],
-                                                                 quadraturePointsXyz[i].data());
-        }
+        const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, meshReader);
+        quadraturePointsXyz = transform.refToSpace(quadraturePoints);
 
         const CellMaterialData& materialData = material[cell];
         for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
@@ -199,25 +190,16 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   easi::Query query(elements.size() * NumQuadPoints, dimensions);
 
   {
-    double quadraturePoints[NumQuadPoints][Cell::Dim];
-    double quadratureWeights[NumQuadPoints];
-    seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, QuadPolyDegree);
+    const auto quadrature = seissol::quadrature::quadrature<Cell::Dim>(QuadPolyDegree);
+    const auto& quadraturePoints = quadrature.first;
+    const auto& quadratureWeights = quadrature.second;
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
     for (std::size_t elem = 0; elem < elements.size(); ++elem) {
-      const double* elementCoords[Cell::NumVertices];
-      for (size_t v = 0; v < Cell::NumVertices; ++v) {
-        elementCoords[v] = vertices[elements[elem].vertices[v]].coords;
-      }
+      const auto transform = seissol::geometry::AffineTransform::fromMeshCell(elem, meshReader);
       for (size_t i = 0; i < NumQuadPoints; ++i) {
-        std::array<double, Cell::Dim> transformed;
-        seissol::transformations::tetrahedronReferenceToGlobal(elementCoords[0],
-                                                               elementCoords[1],
-                                                               elementCoords[2],
-                                                               elementCoords[3],
-                                                               quadraturePoints[i],
-                                                               transformed.data());
+        const auto transformed = transform.refToSpace(quadraturePoints[i]);
         for (std::size_t d = 0; d < Cell::Dim; ++d) {
           query.x(elem * NumQuadPoints + i, spaceStart + d) = transformed[d];
         }

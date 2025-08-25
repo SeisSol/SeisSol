@@ -50,18 +50,21 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            const double (*facePoints)[2],
                                            unsigned numFacePoints);
 
-double
-    isInsideFace(const ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal);
+double isInsideFace(const ExtVrtxCoords& point,
+                    const ExtTriangle& face,
+                    const CoordinateT& faceNormal);
 
-void projectPointToFace(ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal);
+void projectPointToFace(ExtVrtxCoords& point,
+                        const ExtTriangle& face,
+                        const CoordinateT& faceNormal);
 
 double getDistanceFromPointToFace(const ExtVrtxCoords& point,
                                   const ExtTriangle& face,
-                                  const VrtxCoords faceNormal);
+                                  const CoordinateT& faceNormal);
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords point,
-                                                   const VrtxCoords* plusElementCoords[4],
-                                                   const VrtxCoords* minusElementCoords[4]);
+PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& point,
+                                                   const CoordinateT* plusElementCoords[4],
+                                                   const CoordinateT* minusElementCoords[4]);
 
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints);
 

@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_NUMERICAL_REGULARIZEDYOFFE_H_
 
 #include "Common/Marker.h"
+#include <cmath>
 
 namespace seissol::regularizedYoffe {
 /**

@@ -11,6 +11,9 @@
 
 #include "generated_code/init.h"
 #include <Common/Constants.h>
+#include <Eigen/Dense>
+#include <Geometry/CellTransform.h>
+#include <Geometry/MeshDefinition.h>
 #include <cmath>
 #include <numeric>
 #include <type_traits>
@@ -19,8 +22,7 @@
 #include "Functions.h"
 #include "Transformation.h"
 
-namespace seissol {
-namespace basisFunction {
+namespace seissol::basisFunction {
 
 //------------------------------------------------------------------------------
 
@@ -114,15 +116,13 @@ inline unsigned int basisFunctionsForOrder(unsigned int order) {
  */
 template <class T>
 class SampledBasisFunctions {
-  static_assert(std::is_arithmetic<T>::value,
-                "Type T for SampledBasisFunctions must be arithmetic.");
+  static_assert(std::is_arithmetic_v<T>, "Type T for SampledBasisFunctions must be arithmetic.");
 
   public:
   /** The basis function samples */
   std::vector<T> m_data{};
 
-  public:
-  SampledBasisFunctions() {};
+  SampledBasisFunctions() = default;
   /**
    * Constructor to generate the sampled basis functions of given order
    * and at a given point in the reference tetrahedron.
@@ -137,13 +137,15 @@ class SampledBasisFunctions {
     BasisFunctionGenerator<T> gen(xi, eta, zeta);
 
     unsigned int i = 0;
-    for (unsigned int ord = 0; ord < order; ord++)
-      for (unsigned int k = 0; k <= ord; k++)
-        for (unsigned int j = 0; j <= ord - k; j++)
+    for (unsigned int ord = 0; ord < order; ord++) {
+      for (unsigned int k = 0; k <= ord; k++) {
+        for (unsigned int j = 0; j <= ord - k; j++) {
           m_data[i++] = gen(ord - j - k, j, k);
+        }
+      }
+    }
   }
 
-  public:
   /**
    * Function to evaluate the samples by multiplying the sampled Basis
    * function with its coefficient and summing up the products.
@@ -158,7 +160,7 @@ class SampledBasisFunctions {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] std::size_t getSize() const { return m_data.size(); }
 };
 
 //------------------------------------------------------------------------------
@@ -169,8 +171,7 @@ class SampledBasisFunctions {
  */
 template <class T>
 class SampledBasisFunctionDerivatives {
-  static_assert(std::is_arithmetic<T>::value,
-                "Type T for SampledBasisFunctions must be arithmetic.");
+  static_assert(std::is_arithmetic_v<T>, "Type T for SampledBasisFunctions must be arithmetic.");
 
   public:
   /**
@@ -179,8 +180,7 @@ class SampledBasisFunctionDerivatives {
    */
   std::vector<T> m_data{};
 
-  public:
-  SampledBasisFunctionDerivatives() {};
+  SampledBasisFunctionDerivatives() = default;
   /**
    * Constructor to generate the sampled basis functions of given order
    * and at a given point in the reference tetrahedron.
@@ -217,22 +217,12 @@ class SampledBasisFunctionDerivatives {
    * @param coords coords[i] contains the 3 coordinates of the ith vertex of the
    * physical tetrahedron.
    */
-  void transformToGlobalCoordinates(const double* coords[Cell::NumVertices]) {
-    double xCoords[Cell::NumVertices];
-    double yCoords[Cell::NumVertices];
-    double zCoords[Cell::NumVertices];
-    for (size_t i = 0; i < Cell::NumVertices; ++i) {
-      xCoords[i] = coords[i][0];
-      yCoords[i] = coords[i][1];
-      zCoords[i] = coords[i][2];
-    }
-
-    double gradXi[3];
-    double gradEta[3];
-    double gradZeta[3];
-
-    seissol::transformations::tetrahedronGlobalToReferenceJacobian(
-        xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);
+  void transformToGlobalCoordinates(const seissol::geometry::CellTransform& transform,
+                                    T xi,
+                                    T eta,
+                                    T zeta) {
+    Eigen::Vector3d vec(xi, eta, zeta);
+    const Eigen::Matrix3d grad = transform.spaceToRefJacobian(vec);
     std::vector<T> oldData = m_data;
 
     auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
@@ -241,9 +231,9 @@ class SampledBasisFunctionDerivatives {
       for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint::Shape[1];
            ++direction) {
         // dpsi / di = dphi / dxi * dxi / di + dphi / deta * deta / di + dphi / dzeta * dzeta / di
-        newView(i, direction) = oldView(i, 0) * gradXi[direction] +
-                                oldView(i, 1) * gradEta[direction] +
-                                oldView(i, 2) * gradZeta[direction];
+        newView(i, direction) = oldView(i, 0) * grad(0, direction) +
+                                oldView(i, 1) * grad(1, direction) +
+                                oldView(i, 2) * grad(2, direction);
       }
     }
   }
@@ -251,7 +241,7 @@ class SampledBasisFunctionDerivatives {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] std::size_t getSize() const { return m_data.size(); }
 };
 
 //==============================================================================
@@ -273,13 +263,12 @@ class TimeBasisFunctionGenerator {
 
 template <class T>
 class SampledTimeBasisFunctions {
-  static_assert(std::is_arithmetic<T>::value,
+  static_assert(std::is_arithmetic_v<T>,
                 "Type T for SampledTimeBasisFunctions must be arithmetic.");
 
   public:
   std::vector<T> m_data;
 
-  public:
   SampledTimeBasisFunctions(unsigned int order, T tau) : m_data(order) {
     TimeBasisFunctionGenerator<T> gen(tau);
 
@@ -293,7 +282,7 @@ class SampledTimeBasisFunctions {
     return std::inner_product(m_data.begin(), m_data.end(), coeffIter, static_cast<T>(0));
   }
 
-  unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] std::size_t getSize() const { return m_data.size(); }
 };
 
 namespace tri_dubiner {
@@ -320,7 +309,6 @@ inline void evaluateGradPolynomials(double* phis, double xi, double eta, int num
   }
 }
 } // namespace tri_dubiner
-} // namespace basisFunction
-} // namespace seissol
+} // namespace seissol::basisFunction
 
 #endif // SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
