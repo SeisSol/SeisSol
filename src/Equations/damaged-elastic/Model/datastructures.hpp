@@ -25,6 +25,8 @@ namespace seissol {
       double epsyz_alpha;
       double epszx_alpha;
       double Cd;
+      double alpha;
+      double B;
 
       DamagedElasticMaterial() {};
       DamagedElasticMaterial(double* materialValues, int numMaterialValues)

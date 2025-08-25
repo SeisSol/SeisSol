@@ -279,10 +279,10 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real epsInitzx = -0e-1; // eps_zx0
 
 
-  real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
+  real const damage_para1 = data.material.local.Cd; // 1.2e-4*2; //TODO (Vikas): check if this is correct, the value seems different from the pdf
 
-  real const break_coeff = 1e2*damage_para1;
-  real const beta_alpha = 0.05;
+  real const break_coeff = 1e2*damage_para1; // This is correct
+  real const beta_alpha = 0.05; // This is correct
 
   const real aB0 = 7.92418e9;
   const real aB1 = -22.7919e9;
@@ -291,6 +291,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   const real Cg = 1e-10;
   const real m1 = 10;
   const real m2 = 1;
+  const real C1 = 0.0;
+  const real C2 = 0.05;
+  const real CBH = 0.0;
 
   kernel::damageConvertToNodal d_converToKrnl;
   #ifdef USE_DAMAGEDELASTIC
@@ -346,7 +349,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     }
 
     // Compute alpha_{cr}
-    //(TODO: modify these calculations correctly), check for xi discrepancies
     real aCR = (3.0*xi*xi - 3.0)*data.material.local.gammaR*data.material.local.gammaR
     + 6.0*xi*data.material.local.gammaR*data.material.local.xi0*data.material.local.gammaR
     + 4.0*data.material.local.xi0*data.material.local.gammaR*data.material.local.xi0*data.material.local.gammaR;
@@ -359,7 +361,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
     real alphaCR1q = ( -bCR - std::sqrt(bCR*bCR - 4.0*aCR*cCR) )/(2.0*aCR);
     real alphaCR2q = 2.0*data.material.local.mu0
-      /data.material.local.gammaR/(xi+2.0*data.material.local.xi0);
+      /data.material.local.gammaR/(xi+2.0*data.material.local.xi0); // This is correct
 
     real alphaCRq = 1.0;
     if (alphaCR1q > 0.0){
@@ -368,9 +370,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
           std::min( alphaCR1q, alphaCR2q )
         );
       }
-    }
+    } //TODO(Vikas), need to check this for correctness with Nico. The way it is implemented seems different from the pdf
 
-            // damage stress -> seems different?
+    // damage stress -> seems different?
         real mu_eff = data.material.local.mu0 - alphaNodal[q]*data.material.local.gammaR*data.material.local.xi0
             - 0.5*alphaNodal[q]*data.material.local.gammaR*xi;
         real sxx_s = data.material.local.lambda0*EspI
@@ -421,10 +423,8 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     real s31 = szxNodal[q];
 
 
-    //TODO, calculate the deviatoric stresses here and put those values in NodatData of the fluxes
-    // TODO, get the constants m2 from parameters file
-    // TODO, the right value on RHS is Cplas*std::pow(s_ij, m2)
-    
+    // TODO(Vikas), get the constants m2 from parameters file
+    // TODO(Vikas), need to check for correctness with Nico
     fNodalData[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s11, m2);
     fNodalData[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s22, m2);
     fNodalData[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s33, m2);
@@ -438,16 +438,15 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     fNodalData[15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s23, m2);
     fNodalData[16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s31, m2);
 
-    //TODO: add the healing conditions correctly
     if (xi + data.material.local.xi0 > 0) {
       if (alpha_ave < 1.0){
         if (break_ave < 1.0){
-          fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-            (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
-              * EspII * (xi + data.material.local.xi0);
           fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
             (1 - breakNodal[q]) * damage_para1
-              * EspII * (xi + data.material.local.xi0);
+              * EspII * (xi + data.material.local.xi0); // Correct if damage_para1 is taken correctly
+          fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+            (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
+              * EspII * (xi + data.material.local.xi0); // Correct if damage_para1 is correct
         }
         else{
           fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
@@ -458,17 +457,10 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
         fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
         fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
       }
-    } else if (alpha_ave > 5e-1) {
-      fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        0.0 * damage_para1
-          * EspII * (xi + data.material.local.xi0);
-      fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-        0.0 * damage_para1
-          * EspII * (xi + data.material.local.xi0);
     }
     else {
-      fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
-      fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+      fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0; //TODO (Vikas): check with Nico that these are sensible as C1 is zero
+      fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0; //TODO(Vikas): check with Nico that these are sensible as CBH is zero
     }
   }
 

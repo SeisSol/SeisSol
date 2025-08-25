@@ -47,6 +47,19 @@ namespace seissol {
             xiInv = 0.0;
           }
 
+          //TODO (Vikas): check the derivatives with Nico
+            const real a0 = 7.92418e9;
+          const real a1 = -22.7919e9;
+          const real a2 = 20.3222e9;
+  const real a3 = -5.25836e9;
+  const real Cg = 1e-10;
+  const real m1 = 10;
+  const real m2 = 1;
+  const real C1 = 0.0;
+  const real C2 = 0.05;
+  const real CBH = 0.0;
+
+
         /*
         For strain-vel + damage formula
         {eps_xx, eps_yy, eps_zz, eps_xy, eps_yz, eps_zz, vx, vy, vz, alpha}
@@ -65,26 +78,24 @@ namespace seissol {
                 o_M(5,8) = -2.0*muInvRho;
               }
 
-              //(TODO: Fill the right values here)
-              o_M(9,6) = (i_material.gammaR*std::sqrt(I2)
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxx_alpha )
-                  / i_material.rho;
-              o_M(9,7) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxy_alpha )
-                  / i_material.rho;
-              o_M(9,8) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
-                  / i_material.rho;
+              //(TODO (Vikas): Check and verify with Nico)
 
-              // o_M(10,6) = (i_material.gammaR*std::sqrt(I2)
-              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxx_alpha )
-              //     / i_material.rho;
-              // o_M(10,7) = (0
-              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxy_alpha )
-              //     / i_material.rho;
-              // o_M(10,8) = (0
-              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
-              //     / i_material.rho;
+              o_M(9, 6) = (1-i_material.B)*(-i_material.gammaR*xiInv*I1 - i_material.gammaR*xi*i_material.epsxx_alpha);
+              o_M(9, 7) = (1-i_material.B)*(-xi*i_material.gammaR*i_material.epsxy_alpha);
+              o_M(9, 8) = (1-i_material.B)*(-xi*i_material.gammaR*i_material.epszx_alpha);
+
+              o_M(10, 6) =
+                  -((i_material.lambda - i_material.alpha * i_material.gammaR * xiInv) * I1 +
+                    (2 * i_material.mu - i_material.alpha * i_material.gammaR * xi) *
+                        i_material.epsxx_alpha) +
+                  ((2 * a2 + a1 * xiInv + 3 * a3 * xi) * I1 +
+                   (2 * a0 + a1 * xi - a3 * xi * xi * xi) * i_material.epsxx_alpha);
+              o_M(10, 7) = -((2*i_material.mu - i_material.alpha*i_material.gammaR*xi)*i_material.epsxy_alpha)
+                  + (a1*xi + 2*a0 - a3*xi*xi*xi)*i_material.epsxy_alpha;
+
+              o_M(10, 8) = -((2*i_material.mu - i_material.alpha*i_material.gammaR*xi)*i_material.epszx_alpha)
+                  + (a1*xi + 2*a0 - a3*xi*xi*xi)*i_material.epszx_alpha;
+
               break;
 
             case 1:
@@ -98,25 +109,21 @@ namespace seissol {
                 o_M(3,6) = -2.0*muInvRho;
                 o_M(4,8) = -2.0*muInvRho;
               }
-              o_M(9,6) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxy_alpha )
-                  / i_material.rho;
-              o_M(9,7) = (i_material.gammaR*std::sqrt(I2)
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyy_alpha )
-                  / i_material.rho;
-              o_M(9,8) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
-                  / i_material.rho;
 
-              // o_M(10,6) = (0
-              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsxy_alpha )
-              //     / i_material.rho;
-              // o_M(10,7) = (i_material.gammaR*std::sqrt(I2)
-              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyy_alpha )
-              //     / i_material.rho;
-              // o_M(10,8) = (0
-              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
-              //     / i_material.rho;
+              o_M(9, 6) = (1-i_material.B)*(-xi*i_material.gammaR*i_material.epsxy_alpha);
+              o_M(9, 7) = (1-i_material.B)*(-i_material.gammaR*xiInv*I1 - i_material.gammaR*xi*i_material.epsyy_alpha);
+              o_M(9, 8) = (1-i_material.B)*(-xi*i_material.gammaR*i_material.epsyz_alpha);
+
+              o_M(10, 6) = -((2*i_material.mu - i_material.alpha*i_material.gammaR*xi)*i_material.epsxy_alpha)
+                  + (a1*xi + 2*a0 - a3*xi*xi*xi)*i_material.epsxy_alpha;
+              o_M(10, 7) = -((i_material.lambda - i_material.alpha * i_material.gammaR * xiInv) * I1 +
+                    (2 * i_material.mu - i_material.alpha * i_material.gammaR * xi) *
+                        i_material.epsyy_alpha) +
+                  ((2 * a2 + a1 * xiInv + 3 * a3 * xi) * I1 +
+                   (2 * a0 + a1 * xi - a3 * xi * xi * xi) * i_material.epsyy_alpha);
+              o_M(10, 8) = -((2*i_material.mu - i_material.alpha*i_material.gammaR*xi)*i_material.epszx_alpha)
+                  + (a1*xi + 2*a0 - a3*xi*xi*xi)*i_material.epszx_alpha;
+
               break;
 
             case 2:
@@ -130,25 +137,19 @@ namespace seissol {
                 o_M(5,6) = -2.0*muInvRho;
                 o_M(4,7) = -2.0*muInvRho;
               }
-              o_M(9,6) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
-                  / i_material.rho;
-              o_M(9,7) = (0
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
-                  / i_material.rho;
-              o_M(9,8) = (i_material.gammaR*std::sqrt(I2)
-                + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszz_alpha )
-                  / i_material.rho;
-
-              // o_M(10,6) = (0
-              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszx_alpha )
-              //     / i_material.rho;
-              // o_M(10,7) = (0
-              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epsyz_alpha )
-              //     / i_material.rho;
-              // o_M(10,8) = (i_material.gammaR*std::sqrt(I2)
-              //   + i_material.gammaR*(xi+2.0*i_material.xi0)*i_material.epszz_alpha )
-              //     / i_material.rho;
+              o_M(9, 6) = (1-i_material.B)*(-xi*i_material.gammaR*i_material.epszx_alpha);
+              o_M(9, 7) = (1-i_material.B)*(-xi*i_material.gammaR*i_material.epsyz_alpha);
+              o_M(9, 8) = (1-i_material.B)*(-i_material.gammaR*xiInv*I1 - i_material.gammaR*xi*i_material.epszz_alpha);
+              
+              o_M(10, 6) = -((2*i_material.mu - i_material.alpha*i_material.gammaR*xi)*i_material.epszx_alpha)
+                  + (a1*xi + 2*a0 - a3*xi*xi*xi)*i_material.epszx_alpha;
+              o_M(10, 7) = -((2*i_material.mu - i_material.alpha*i_material.gammaR*xi)*i_material.epsyz_alpha)
+                  + (a1*xi + 2*a0 - a3*xi*xi*xi)*i_material.epsyz_alpha;
+              o_M(10, 8) = -((i_material.lambda - i_material.alpha * i_material.gammaR * xiInv) * I1 +
+                    (2 * i_material.mu - i_material.alpha * i_material.gammaR * xi) *
+                        i_material.epszz_alpha) +
+                  ((2 * a2 + a1 * xiInv + 3 * a3 * xi) * I1 +
+                   (2 * a0 + a1 * xi - a3 * xi * xi * xi) * i_material.epszz_alpha);
               break;
 
             default:

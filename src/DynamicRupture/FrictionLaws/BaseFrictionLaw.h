@@ -39,7 +39,7 @@ class BaseFrictionLaw : public FrictionSolver {
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
       LIKWID_MARKER_START("computeDynamicRupturePrecomputeStress");
-      /// TODO: convert from strain to stress
+
       alignas(PAGESIZE_STACK) real qStressInterpolatedPlus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
       alignas(PAGESIZE_STACK) real qStressInterpolatedMinus[CONVERGENCE_ORDER][seissol::tensor::QInterpolated::size()] = {{0.0}};
 
@@ -242,10 +242,6 @@ class BaseFrictionLaw : public FrictionSolver {
           qStressIMinus[o][DAM][i] = qIMinus[o][DAM][i];
           qStressIMinus[o][BRE][i] = qIMinus[o][BRE][i];
         }
-        // std::cout << qInterpolatedPlus[ltsFace][o][3*seissol::dr::misc::numPaddedPoints+0]
-        // << ", " << qStressInterpolatedPlus[o][3*seissol::dr::misc::numPaddedPoints+0]
-        // << ", " << qStressInterpolatedPlus[o][3*seissol::dr::misc::numPaddedPoints+0]/qInterpolatedPlus[ltsFace][o][3*seissol::dr::misc::numPaddedPoints+0]
-        // << std::endl;
       } // time integration loop
 
       common::precomputeStressFromQInterpolated(faultStresses,
