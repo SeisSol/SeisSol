@@ -162,6 +162,8 @@ src/Solver/FreeSurfaceIntegrator.cpp
 
 src/Reader/AsagiModule.cpp
 src/Reader/AsagiReader.cpp
+
+src/Geometry/CubeGenerator.cpp
 )
 
 set(SYCL_ONLY_SRC_FILES
@@ -183,10 +185,6 @@ endif()
 
 if (NETCDF)
   target_sources(seissol-common-lib PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/SourceTerm/NRFReader.cpp)
-  target_sources(seissol-lib PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/NetcdfReader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Geometry/CubeGenerator.cpp
-    )
 endif()
 
 
