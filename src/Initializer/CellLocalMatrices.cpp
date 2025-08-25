@@ -731,7 +731,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           break;
         }
         default: {
-          if constexpr (!MaterialT::SupportsDR) {
+          if (!MaterialT::SupportsDR) {
             logError()
                 << "The Dynamic Rupture mechanism does not work with the given material yet. "
                    "(built with:"

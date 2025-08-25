@@ -250,6 +250,7 @@ void seissol::initializer::initprocedure::initModel(seissol::SeisSol& seissolIns
           logInfo() << "Order:" << Cfg::ConvergenceOrder;
           logInfo() << "Precision:"
                     << (Cfg::Precision == RealType::F32 ? "single (f32)" : "double (f64)");
+          logInfo() << "Number of simulations: " << Cfg::NumSimulations;
         },
         ConfigVariantList[i]);
   }

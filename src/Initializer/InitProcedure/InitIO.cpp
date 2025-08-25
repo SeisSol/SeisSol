@@ -377,14 +377,17 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     });
 
     writer.addCellData<std::uint8_t>(
-        "locationFlag", {}, true, [=](std::uint8_t* target, std::size_t index) {
-          target[0] = surfaceLocationFlag[index];
+        "locationFlag",
+        {},
+        true,
+        [=, &freeSurfaceIntegrator](std::uint8_t* target, std::size_t index) {
+          target[0] = surfaceLocationFlag[freeSurfaceIntegrator.backmap[index]];
         });
 
     writer.addCellData<std::size_t>(
-        "global-id", {}, true, [=](std::size_t* target, std::size_t index) {
-          const auto meshId = surfaceMeshIds[index];
-          const auto side = surfaceMeshSides[index];
+        "global-id", {}, true, [=, &freeSurfaceIntegrator](std::size_t* target, std::size_t index) {
+          const auto meshId = surfaceMeshIds[freeSurfaceIntegrator.backmap[index]];
+          const auto side = surfaceMeshSides[freeSurfaceIntegrator.backmap[index]];
           target[0] = meshReader.getElements()[meshId].globalId * 4 + side;
         });
 
