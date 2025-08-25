@@ -241,6 +241,12 @@ struct GlobalData {
 
   real* selectAne{nullptr};
   real* selectEla{nullptr};
+
+  real* resampleMatrix{nullptr};
+  real* spaceWeights{nullptr};
+  real* tpInverseFourierCoefficients{nullptr};
+  real* tpGridPoints{nullptr};
+  real* heatSource{nullptr};
 };
 
 struct CompoundGlobalData {
