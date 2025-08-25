@@ -501,13 +501,13 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // real aB1 = -0.0*12.14e9;
     // real aB2 = 18.93e9;
     // real aB3 = -0.0*5.067e9;
-    real aB0 = 7.92418e9;
-    real aB1 = -22.7919e9;
-    real aB2 = 20.3222e9;
-    real aB3 = -5.25836e9;
-
-    //TODO: get Cg, B, m1 from parameter files
-    real const Cplas = Cg*std::pow(B, m1);
+    const real aB0 = 7.92418e9;
+    const real aB1 = -22.7919e9;
+    const real aB2 = 20.3222e9;
+    const real aB3 = -5.25836e9;
+    const real Cg = 1e-10;
+    const real m1 = 10;
+    const real m2 = 1;
 
     // Compute the Q at quadrature points in space and time
     /// Get quadrature points in time
@@ -556,7 +556,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
       real* ezzNodal = (QInterpolatedBodyNodal[timeInterval] + 2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
       real* alphaNodal = (QInterpolatedBodyNodal[timeInterval] + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
       real* breakNodal = (QInterpolatedBodyNodal[timeInterval] + 10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-      // std::cout << exxNodal[0] << " " << solNData[0] << std::endl;
 
       real* exyNodal = (QInterpolatedBodyNodal[timeInterval] + 3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
       real* eyzNodal = (QInterpolatedBodyNodal[timeInterval] + 4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
@@ -612,55 +611,6 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
           }
         }
 
-            //TODO, calculate the deviatoric stresses here and put those values in NodatData of the fluxes
-    // TODO, get the constants m2 from parameters file
-    // TODO, the right value on RHS is Cplas*std::pow(s_ij, m2)
-    
-    FInterpolatedBody[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
-    FInterpolatedBody[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
-    FInterpolatedBody[timeInterval][2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
-    FInterpolatedBody[timeInterval][3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
-    FInterpolatedBody[timeInterval][4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
-    FInterpolatedBody[timeInterval][5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
-    FInterpolatedBody[timeInterval][11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
-    FInterpolatedBody[timeInterval][12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
-    FInterpolatedBody[timeInterval][13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
-    FInterpolatedBody[timeInterval][14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
-    FInterpolatedBody[timeInterval][15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
-    FInterpolatedBody[timeInterval][16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
-
-        if (xi + data.material.local.xi0 > 0) { // accumulating source terms for damage and breakage variables
-          if (alpha_ave < 1.0 ){
-            if (break_ave < 1.0 ){
-              FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-                (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
-                  * EspII * (xi + data.material.local.xi0);
-              FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-                (1 - breakNodal[q]) * damage_para1
-                  * EspII * (xi + data.material.local.xi0);
-            } else {
-              FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
-              FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
-            }
-          } else {
-            FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
-            FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
-          }
-        } else if (alpha_ave > 5e-1 ) {
-          FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-            0.0*damage_para1
-              * EspII * (xi + data.material.local.xi0);
-          FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
-            0.0*damage_para1
-              * EspII * (xi + data.material.local.xi0);
-        }
-        else {
-        }
-
-        // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
-
-        // Compute nonlinear flux term
-
         // damage stress -> seems different?
         real mu_eff = data.material.local.mu0 - alphaNodal[q]*data.material.local.gammaR*data.material.local.xi0
             - 0.5*alphaNodal[q]*data.material.local.gammaR*xi;
@@ -700,6 +650,67 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
         sxyNodal[q] = (1-breakNodal[q])*sxy_s + breakNodal[q]*sxy_b;
         syzNodal[q] = (1-breakNodal[q])*syz_s + breakNodal[q]*syz_b;
         szxNodal[q] = (1-breakNodal[q])*szx_s + breakNodal[q]*szx_b;
+
+    //TODO, calculate the deviatoric stresses here and put those values in NodatData of the fluxes
+    // TODO, get the constants m2 from parameters file
+    // TODO, the right value on RHS is Cg*std::pow(B, m1)*std::pow(s_ij, m2)
+    real Cplas = Cg * std::pow(breakNodal[q], m1);
+
+    real sigma_mm = (sxxNodal[q] + syyNodal[q] + szzNodal[q])/3.0;
+    real s11 = sxxNodal[q] - sigma_mm;
+    real s22 = syyNodal[q] - sigma_mm;
+    real s33 = szzNodal[q] - sigma_mm;
+    real s12 = sxyNodal[q];
+    real s23 = syzNodal[q];
+    real s31 = szxNodal[q];
+
+    FInterpolatedBody[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s11, m2);
+    FInterpolatedBody[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s22, m2);
+    FInterpolatedBody[timeInterval][2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s33, m2);
+    FInterpolatedBody[timeInterval][3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s12, m2);
+    FInterpolatedBody[timeInterval][4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s23, m2);
+    FInterpolatedBody[timeInterval][5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s31, m2);
+    FInterpolatedBody[timeInterval][11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s11, m2);
+    FInterpolatedBody[timeInterval][12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s22, m2);
+    FInterpolatedBody[timeInterval][13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s33, m2);
+    FInterpolatedBody[timeInterval][14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s12, m2);
+    FInterpolatedBody[timeInterval][15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s23, m2);
+    FInterpolatedBody[timeInterval][16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s31, m2);
+
+      //TODO: deal with the cases of both xi > xi0, and xi < xi0 here, modify as necessary
+      //NOTE: Zihua uses xi0 = 0.8 while Chinhui has -0.8. 
+
+        if (xi + data.material.local.xi0 > 0) { // accumulating source terms for damage and breakage variables
+          if (alpha_ave < 1.0 ){
+            if (break_ave < 1.0 ){
+              FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+                (1 - breakNodal[q]) * 1.0/(std::exp( (alphaCRq - alphaNodal[q])/beta_alpha ) + 1.0) * break_coeff
+                  * EspII * (xi + data.material.local.xi0);
+              FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+                (1 - breakNodal[q]) * damage_para1
+                  * EspII * (xi + data.material.local.xi0);
+            } else {
+              FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+              FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+            }
+          } else {
+            FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+            FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+          }
+        } else if (alpha_ave > 5e-1 ) {
+          FInterpolatedBody[timeInterval][9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+            0.0*damage_para1
+              * EspII * (xi + data.material.local.xi0);
+          FInterpolatedBody[timeInterval][10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =
+            0.0*damage_para1
+              * EspII * (xi + data.material.local.xi0);
+        }
+        else {
+        }
+
+        // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
+
+        // Compute nonlinear flux term
 
         // //--- x-dir // F for local correct in strains and velocities
         FluxInterpolatedBodyX[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -vxNodal[q];

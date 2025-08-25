@@ -278,12 +278,19 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real epsInityz = -0e-1; // eps_yz0
   real epsInitzx = -0e-1; // eps_zx0
 
+
   real const damage_para1 = data.material.local.Cd; // 1.2e-4*2;
 
   real const break_coeff = 1e2*damage_para1;
   real const beta_alpha = 0.05;
-  //TODO: get Cg, B, m1 from parameter files
-  real const Cplas = Cg*std::pow(B, m1);
+
+  const real aB0 = 7.92418e9;
+  const real aB1 = -22.7919e9;
+  const real aB2 = 20.3222e9;
+  const real aB3 = -5.25836e9;
+  const real Cg = 1e-10;
+  const real m1 = 10;
+  const real m2 = 1;
 
   kernel::damageConvertToNodal d_converToKrnl;
   #ifdef USE_DAMAGEDELASTIC
@@ -297,7 +304,14 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
 
   // Compute rhs of damage evolution
   alignas(PAGESIZE_STACK) real fNodalData[tensor::FNodal::size()] = {0};
-  real* exxNodal = (solNData + 0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
+  alignas(PAGESIZE_STACK) real sxxNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
+  alignas(PAGESIZE_STACK) real syyNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
+  alignas(PAGESIZE_STACK) real szzNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
+  alignas(PAGESIZE_STACK) real sxyNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
+  alignas(PAGESIZE_STACK) real syzNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
+  alignas(PAGESIZE_STACK) real szxNodal[NUMBER_OF_ALIGNED_BASIS_FUNCTIONS] = {0};
+
+  real* exxNodal = (solNData + 0 * NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* eyyNodal = (solNData + 1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* ezzNodal = (solNData + 2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* exyNodal = (solNData + 3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
@@ -305,13 +319,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real* ezxNodal = (solNData + 5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* alphaNodal = (solNData + 9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
   real* breakNodal = (solNData + 10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  real *exxPNodal = (solNData + 11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  real *eyyPNodal = (solNData + 12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  real *ezzPNodal = (solNData + 13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  real *exyPNodal = (solNData + 14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  real *eyzPNodal = (solNData + 15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-  real *ezxPNodal = (solNData + 16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS);
-
+  
   real alpha_ave = 0.0;
   real break_ave = 0.0;
   real w_ave = 1.0/NUMBER_OF_ALIGNED_BASIS_FUNCTIONS;
@@ -320,9 +328,9 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     alpha_ave += alphaNodal[q] * w_ave;
   }
 
+
+
   for (unsigned int q = 0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; ++q){
-    
-    //(TODO: modify these calculations correctly)
     real EspI = (exxNodal[q]+epsInitxx) + (eyyNodal[q]+epsInityy) + (ezzNodal[q]+epsInitzz);
     real EspII = (exxNodal[q]+epsInitxx)*(exxNodal[q]+epsInitxx)
       + (eyyNodal[q]+epsInityy)*(eyyNodal[q]+epsInityy)
@@ -338,7 +346,7 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     }
 
     // Compute alpha_{cr}
-    //(TODO: modify these calculations correctly)
+    //(TODO: modify these calculations correctly), check for xi discrepancies
     real aCR = (3.0*xi*xi - 3.0)*data.material.local.gammaR*data.material.local.gammaR
     + 6.0*xi*data.material.local.gammaR*data.material.local.xi0*data.material.local.gammaR
     + 4.0*data.material.local.xi0*data.material.local.gammaR*data.material.local.xi0*data.material.local.gammaR;
@@ -353,9 +361,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     real alphaCR2q = 2.0*data.material.local.mu0
       /data.material.local.gammaR/(xi+2.0*data.material.local.xi0);
 
-    // real alphaCRq = std::min(1.0,
-    //   std::min(alphaCR1q,alphaCR2q)
-    // );
     real alphaCRq = 1.0;
     if (alphaCR1q > 0.0){
       if (alphaCR2q > 0.0){
@@ -365,23 +370,75 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       }
     }
 
+            // damage stress -> seems different?
+        real mu_eff = data.material.local.mu0 - alphaNodal[q]*data.material.local.gammaR*data.material.local.xi0
+            - 0.5*alphaNodal[q]*data.material.local.gammaR*xi;
+        real sxx_s = data.material.local.lambda0*EspI
+                      - alphaNodal[q]*data.material.local.gammaR * std::sqrt(EspII)
+                      + 2*mu_eff*(exxNodal[q]+epsInitxx);
+        real syy_s = data.material.local.lambda0*EspI
+                      - alphaNodal[q]*data.material.local.gammaR * std::sqrt(EspII)
+                      + 2*mu_eff*(eyyNodal[q]+epsInityy);
+
+        real szz_s = data.material.local.lambda0*EspI
+                      - alphaNodal[q]*data.material.local.gammaR * std::sqrt(EspII)
+                      + 2*mu_eff*(ezzNodal[q]+epsInitzz);
+
+        real sxy_s = 2*mu_eff*(exyNodal[q]+epsInitxy); // just elastic needs to be considered here.
+        real syz_s = 2*mu_eff*(eyzNodal[q]+epsInityz);
+        real szx_s = 2*mu_eff*(ezxNodal[q]+epsInitzx);
+
+        // breakage stress
+        real sxx_b = (2.0*aB2 + 3.0*xi*aB3)*EspI
+                      + aB1 * std::sqrt(EspII)
+                      + (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(exxNodal[q]+epsInitxx); // just elastic needs to be considered here.
+        real syy_b = (2.0*aB2 + 3.0*xi*aB3)*EspI
+                      + aB1 * std::sqrt(EspII)
+                      + (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(eyyNodal[q]+epsInityy);
+        real szz_b = (2.0*aB2 + 3.0*xi*aB3)*EspI
+                      + aB1 * std::sqrt(EspII)
+                      + (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(ezzNodal[q]+epsInitzz);
+
+        real sxy_b = (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(exyNodal[q]+epsInitxy);
+        real syz_b = (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(eyzNodal[q]+epsInityz);
+        real szx_b = (2.0*aB0 + aB1*xi - aB3*xi*xi*xi)*(ezxNodal[q]+epsInitzx);
+
+        sxxNodal[q] = (1-breakNodal[q])*sxx_s + breakNodal[q]*sxx_b;
+        syyNodal[q] = (1-breakNodal[q])*syy_s + breakNodal[q]*syy_b;
+        szzNodal[q] = (1-breakNodal[q])*szz_s + breakNodal[q]*szz_b;
+        sxyNodal[q] = (1-breakNodal[q])*sxy_s + breakNodal[q]*sxy_b;
+        syzNodal[q] = (1-breakNodal[q])*syz_s + breakNodal[q]*syz_b;
+        szxNodal[q] = (1-breakNodal[q])*szx_s + breakNodal[q]*szx_b;
+
+    real Cplas = Cg * std::pow(breakNodal[q], m1);
+
+    real sigma_mm = (sxxNodal[q] + syyNodal[q] + szzNodal[q])/3.0;
+    real s11 = sxxNodal[q] - sigma_mm;
+    real s22 = syyNodal[q] - sigma_mm;
+    real s33 = szzNodal[q] - sigma_mm;
+    real s12 = sxyNodal[q];
+    real s23 = syzNodal[q];
+    real s31 = szxNodal[q];
+
+
     //TODO, calculate the deviatoric stresses here and put those values in NodatData of the fluxes
     // TODO, get the constants m2 from parameters file
     // TODO, the right value on RHS is Cplas*std::pow(s_ij, m2)
     
-    fNodalData[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
-    fNodalData[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
-    fNodalData[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
-    fNodalData[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
-    fNodalData[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
-    fNodalData[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas;
-    fNodalData[11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
-    fNodalData[12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
-    fNodalData[13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
-    fNodalData[14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
-    fNodalData[15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas;
-    fNodalData[16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas; 
+    fNodalData[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s11, m2);
+    fNodalData[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s22, m2);
+    fNodalData[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s33, m2);
+    fNodalData[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s12, m2);
+    fNodalData[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s23, m2);
+    fNodalData[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s31, m2);
+    fNodalData[11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s11, m2);
+    fNodalData[12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s22, m2);
+    fNodalData[13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s33, m2);
+    fNodalData[14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s12, m2);
+    fNodalData[15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s23, m2);
+    fNodalData[16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s31, m2);
 
+    //TODO: add the healing conditions correctly
     if (xi + data.material.local.xi0 > 0) {
       if (alpha_ave < 1.0){
         if (break_ave < 1.0){
@@ -413,10 +470,6 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
       fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
       fNodalData[10*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
     }
-
-    // std::cout << fNodalData[9*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] << std::endl;
-
-    // 1.0e0/damage_para2*(damage_para1*(exxNodal[q] + eyyNodal[q] + ezzNodal[q])*(exxNodal[q] + eyyNodal[q] + ezzNodal[q]) - alphaNodal[q]);
   }
 
   // Convert them back to modal space
