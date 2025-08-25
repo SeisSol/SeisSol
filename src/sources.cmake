@@ -82,6 +82,9 @@ src/SourceTerm/Manager.cpp
 src/Solver/Simulator.cpp
 src/ResultWriter/AnalysisWriter.cpp
 
+src/Initializer/TimeStepping/ClusterLayout.cpp
+src/Solver/TimeStepping/HaloCommunication.cpp
+
 ${CMAKE_CURRENT_SOURCE_DIR}/src/DynamicRupture/Factory.cpp
 ${CMAKE_CURRENT_SOURCE_DIR}/src/Parallel/MPI.cpp
 )
@@ -239,7 +242,6 @@ elseif ("${EQUATIONS}" STREQUAL "poroelastic")
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/STP/Time.cpp
   )
   target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/Equations/poroelastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_STP)
   target_compile_definitions(seissol-common-properties INTERFACE USE_POROELASTIC)
 endif()
 
@@ -283,7 +285,6 @@ if (WITH_GPU)
   elseif ("${EQUATIONS}" STREQUAL "anisotropic")
     target_compile_definitions(seissol-device-lib PRIVATE USE_ANISOTROPIC)
   elseif ("${EQUATIONS}" STREQUAL "poroelastic")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_STP)
     target_compile_definitions(seissol-device-lib PRIVATE USE_POROELASTIC)
   endif()
   target_include_directories(seissol-lib PRIVATE ${DEVICE_INCLUDE_DIRS})

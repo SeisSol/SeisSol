@@ -31,8 +31,8 @@ struct InitialVariables {
 };
 
 struct FrictionLawContext {
-  int ltsFace;
-  int pointIndex;
+  std::size_t ltsFace;
+  std::uint32_t pointIndex;
   FrictionLawData* __restrict data;
 
   FaultStresses<Executor::Device> faultStresses{};
@@ -89,12 +89,12 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     Derived::preHook(ctx);
 
     real updateTime = ctx.fullUpdateTime;
-    for (unsigned timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
+    for (uint32_t timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
       const real dt = ctx.data->deltaT[timeIndex];
 
       updateTime += dt;
 
-      for (unsigned i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
+      for (uint32_t i = 0; i < ctx.data->drParameters.nucleationCount; ++i) {
         common::adjustInitialStress<gpuRangeType>(
             ctx.data->initialStressInFaultCS[ctx.ltsFace],
             ctx.data->nucleationStressInFaultCS[i][ctx.ltsFace],
@@ -181,6 +181,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
+                const FrictionTime& frictionTime,
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
 
@@ -196,8 +197,8 @@ class BaseFrictionSolver : public FrictionSolverDetails {
     this->currLayerSize = layerData.size();
     dataHost.drParameters = *this->drParameters;
 
-    std::memcpy(dataHost.deltaT, deltaT, sizeof(decltype(deltaT)));
-    dataHost.sumDt = sumDt;
+    std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), dataHost.deltaT);
+    dataHost.sumDt = frictionTime.sumDt;
 
     copyParameters(runtime, timeWeights);
     evaluateKernel(runtime, fullUpdateTime);

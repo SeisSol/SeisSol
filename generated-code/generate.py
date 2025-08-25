@@ -14,6 +14,7 @@ import importlib.util
 import os
 import re
 import sys
+from typing import Union
 
 import kernels.dynamic_rupture
 import kernels.general
@@ -24,8 +25,10 @@ import kernels.point
 import kernels.surface_displacement
 import kernels.vtkproject
 import yateto
-from yateto import (Generator, GlobalRoutineCache, NamespacedGenerator,
-                    gemm_configuration, useArchitectureIdentifiedBy)
+from yateto import (DeviceArchDefinition, Generator, GlobalRoutineCache,
+                    HostArchDefinition, NamespacedGenerator,
+                    deriveArchitecture, fixArchitectureGlobal,
+                    gemm_configuration)
 from yateto.ast.cost import (BoundingBoxCostEstimator,
                              FusedGemmsBoundingBoxCostEstimator)
 from yateto.gemm_configuration import GeneratorCollection
@@ -40,8 +43,13 @@ def main():
     cmdLineParser.add_argument("--host_arch")
     cmdLineParser.add_argument("--device_backend", default=None)
     cmdLineParser.add_argument("--device_arch", default=None)
+    cmdLineParser.add_argument("--device_vendor", default=None)
     cmdLineParser.add_argument("--order", type=int)
+    cmdLineParser.add_argument(
+        "--precision", type=str, choices=["s", "d", "f32", "f64"]
+    )
     cmdLineParser.add_argument("--numberOfMechanisms", type=int)
+    cmdLineParser.add_argument("--vectorsize", default=None, type=Union[None, int])
     cmdLineParser.add_argument("--memLayout")
     cmdLineParser.add_argument("--multipleSimulations", type=int)
     cmdLineParser.add_argument("--PlasticityMethod")
@@ -63,14 +71,22 @@ def main():
     gpu_platforms = ["cuda", "hip", "hipsycl", "acpp", "oneapi"]
     targets = ["gpu", "cpu"] if cmdLineArgs.device_backend in gpu_platforms else ["cpu"]
 
-    if cmdLineArgs.device_backend == "none":
-        arch = useArchitectureIdentifiedBy(cmdLineArgs.host_arch)
-    else:
-        arch = useArchitectureIdentifiedBy(
-            cmdLineArgs.host_arch,
+    host_arch = HostArchDefinition(
+        cmdLineArgs.host_arch, cmdLineArgs.precision, cmdLineArgs.vectorsize, None
+    )
+    device_arch = None
+
+    if cmdLineArgs.device_backend != "none":
+        device_arch = DeviceArchDefinition(
             cmdLineArgs.device_arch,
+            cmdLineArgs.device_vendor,
             cmdLineArgs.device_backend,
+            cmdLineArgs.precision,
+            cmdLineArgs.vectorsize,
         )
+
+    arch = deriveArchitecture(host_arch, device_arch)
+    fixArchitectureGlobal(arch)
 
     # pick up the gemm tools defined by the user
     gemm_tool_list = re.split(r"[,;]", cmdLineArgs.gemm_tools.replace(" ", ""))
@@ -140,12 +156,17 @@ def main():
     gemmTools = GeneratorCollection(gemm_generators)
 
     def generate_equation(subfolders, equation, order):
-        precision = "double" if cmdLineArgs.host_arch[0] == "d" else "single"
-        fusedSuffix = "-f"+str(cmdLineArgs.multipleSimulations) if cmdLineArgs.multipleSimulations > 1 else ""
+        precision = "double" if cmdLineArgs.precision in ["d", "f64"] else "single"
+        fusedSuffix = (
+            "-f" + str(cmdLineArgs.multipleSimulations)
+            if cmdLineArgs.multipleSimulations > 1
+            else ""
+        )
 
         if cmdLineArgs.memLayout == "auto":
             # TODO(Lukas) Don't hardcode this
             env = {
+                "precision": cmdLineArgs.precision,
                 "equations": cmdLineArgs.equations,
                 "order": order,
                 "arch": cmdLineArgs.host_arch,
@@ -235,7 +256,11 @@ def main():
     def generate_general(subfolders):
         # we use always use double here,
         # since these kernels are only used in the initialization
-        arch = useArchitectureIdentifiedBy("d" + cmdLineArgs.host_arch[1:])
+        new_host_arch = HostArchDefinition(
+            host_arch.archname, "d", host_arch.alignment, host_arch.prefetch
+        )
+        arch = deriveArchitecture(new_host_arch, None)
+        fixArchitectureGlobal(arch)
 
         outputDir = os.path.join(cmdLineArgs.outputDir, "general")
         if not os.path.exists(outputDir):

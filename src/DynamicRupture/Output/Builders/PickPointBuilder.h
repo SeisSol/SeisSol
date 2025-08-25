@@ -92,6 +92,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         receiver.localFaceSideId = faultItem.side;
         receiver.globalReceiverIndex = receiverIdx;
         receiver.elementIndex = element.localId;
+        receiver.elementGlobalIndex = element.globalId;
 
         const auto transform =
             seissol::geometry::AffineTransform::fromMeshCell(faultItem.element, *meshReader);

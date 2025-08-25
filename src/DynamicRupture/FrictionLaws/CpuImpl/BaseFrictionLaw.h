@@ -33,6 +33,7 @@ class BaseFrictionLaw : public FrictionSolver {
   void evaluate(seissol::initializer::Layer& layerData,
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
+                const FrictionTime& frictionTime,
                 const double timeWeights[ConvergenceOrder],
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     if (layerData.size() == 0) {
@@ -42,12 +43,14 @@ class BaseFrictionLaw : public FrictionSolver {
     SCOREP_USER_REGION_DEFINE(myRegionHandle)
     BaseFrictionLaw::copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
     static_cast<Derived*>(this)->copyLtsTreeToLocal(layerData, dynRup, fullUpdateTime);
+    std::copy_n(frictionTime.deltaT.begin(), frictionTime.deltaT.size(), this->deltaT);
+    this->sumDt = frictionTime.sumDt;
 
     // loop over all dynamic rupture faces, in this LTS layer
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (unsigned ltsFace = 0; ltsFace < layerData.size(); ++ltsFace) {
+    for (std::size_t ltsFace = 0; ltsFace < layerData.size(); ++ltsFace) {
       alignas(Alignment) FaultStresses<Executor::Host> faultStresses{};
       SCOREP_USER_REGION_BEGIN(
           myRegionHandle, "computeDynamicRupturePrecomputeStress", SCOREP_USER_REGION_TYPE_COMMON)
