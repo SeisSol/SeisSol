@@ -64,8 +64,8 @@ class ReceiverOutput {
     real slipRateStrike{};
     real slipRateDip{};
 
-    real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
-    real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
+    alignas(PAGESIZE_STACK) real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
+    alignas(PAGESIZE_STACK) real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
 
     model::IsotropicWaveSpeeds* waveSpeedsPlus{};
     model::IsotropicWaveSpeeds* waveSpeedsMinus{};
