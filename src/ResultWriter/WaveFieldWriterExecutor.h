@@ -149,7 +149,7 @@ public:
 		m_outputFlags = static_cast<const bool*>(info.buffer(param.bufferIds[OUTPUT_FLAGS]));
 
 
-		const char* varNames[20] = {
+		const char* varNames[26] = {
 			"sigma_xx",
 			"sigma_yy",
 			"sigma_zz",
@@ -167,7 +167,7 @@ public:
 #elif USE_DAMAGEDELASTIC
 			"damage",
 			"breakage",
-						"edp_xx",
+			"edp_xx",
 			"edp_yy",
 			"edp_zz",
 			"edp_xy",

@@ -50,6 +50,7 @@
 #include "Numerical_aux/Statistics.h"
 #include "Monitoring/Stopwatch.h"
 #include <utils/env.h>
+#include <cstdint>
 
 #ifdef USE_MPI  
 void seissol::LoopStatistics::printSummary(MPI_Comm comm) {
