@@ -636,8 +636,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                             matTinv);
 
       /// Materials
-      seissol::model::Material* plusMaterial = nullptr;
-      seissol::model::Material* minusMaterial = nullptr;
+      seissol::model::MaterialT* plusMaterial = nullptr;
+      seissol::model::MaterialT* minusMaterial = nullptr;
       const std::size_t plusLtsId =
           (fault[meshFace].element >= 0)
               ? ltsLut->ltsId(ltsTree->info(lts->material).mask, fault[meshFace].element)
@@ -693,10 +693,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       switch (plusMaterial->getMaterialType()) {
       case seissol::model::MaterialType::Poroelastic: {
-        auto plusEigenpair =
-            seissol::model::getEigenDecomposition(*dynamic_cast<model::MaterialT*>(plusMaterial));
-        auto minusEigenpair =
-            seissol::model::getEigenDecomposition(*dynamic_cast<model::MaterialT*>(minusMaterial));
+        auto plusEigenpair = seissol::model::getEigenDecomposition(*plusMaterial);
+        auto minusEigenpair = seissol::model::getEigenDecomposition(*minusMaterial);
 
         // The impedance matrices are diagonal in the (visco)elastic case, so we only store
         // the values Zp, Zs. In the poroelastic case, the fluid pressure and normal component
@@ -719,7 +717,11 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         break;
       }
       default: {
-        if constexpr (!model::MaterialT::SupportsDR) {
+
+        // NOTE: could be made `if constexpr`. However, that breaks ICC with a segfault.
+        // So we don't do that, yet (until we drop ICC support at least).
+
+        if (!model::MaterialT::SupportsDR) {
           logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
                         "(built with:"
                      << model::MaterialT::Text << ")";
@@ -727,10 +729,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         break;
       }
       }
-      seissol::model::getTransposedCoefficientMatrix(
-          *dynamic_cast<model::MaterialT*>(plusMaterial), 0, matAPlus);
-      seissol::model::getTransposedCoefficientMatrix(
-          *dynamic_cast<model::MaterialT*>(minusMaterial), 0, matAMinus);
+      seissol::model::getTransposedCoefficientMatrix(*plusMaterial, 0, matAPlus);
+      seissol::model::getTransposedCoefficientMatrix(*minusMaterial, 0, matAMinus);
 
       /// Traction matrices for "average" traction
       auto tractionPlusMatrix =

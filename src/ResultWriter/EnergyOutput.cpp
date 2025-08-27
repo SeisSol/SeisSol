@@ -694,15 +694,6 @@ void EnergyOutput::printEnergies() {
     } else {
       logInfo() << "Volume energies skipped at this step";
     }
-    if (shouldPrint(totalAcousticEnergy)) {
-      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                << " Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
-                << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
-    }
-    if (shouldPrint(energiesStorage.gravitationalEnergy(sim))) {
-      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
-    }
     logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
               << " Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY << " ,"
               << totalMomentumZ;

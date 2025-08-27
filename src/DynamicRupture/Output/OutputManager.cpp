@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <fstream>
@@ -201,16 +202,26 @@ void OutputManager::initElementwiseOutput() {
     std::vector<real*> dataPointers;
     auto recordPointers = [&dataPointers](auto& var, int) {
       if (var.isActive) {
-        for (int dim = 0; dim < var.dim(); ++dim) {
+        for (std::size_t dim = 0; dim < var.dim(); ++dim) {
           dataPointers.push_back(var.data[dim]);
         }
       }
     };
     misc::forEach(ewOutputData->vars, recordPointers);
 
+    std::vector<unsigned> faceIdentifiers(receiverPoints.size());
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+    for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
+      faceIdentifiers[i] =
+          receiverPoints[i].elementGlobalIndex * 4 + receiverPoints[i].localFaceSideId;
+    }
+
     seissolInstance.faultWriter().init(cellConnectivity.data(),
                                        vertices.data(),
                                        faultTags.data(),
+                                       faceIdentifiers.data(),
                                        static_cast<unsigned int>(receiverPoints.size()),
                                        static_cast<unsigned int>(3 * receiverPoints.size()),
                                        &intMask[0],
@@ -244,9 +255,19 @@ void OutputManager::initElementwiseOutput() {
       }
     });
 
+    writer.addCellData<int>("fault-tag", {}, [=, &receiverPoints](int* target, std::size_t index) {
+      *target = receiverPoints[index].faultTag;
+    });
+
+    writer.addCellData<std::size_t>(
+        "global-id", {}, [=, &receiverPoints](std::size_t* target, std::size_t index) {
+          *target =
+              receiverPoints[index].elementGlobalIndex * 4 + receiverPoints[index].localFaceSideId;
+        });
+
     misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
       if (var.isActive) {
-        for (int d = 0; d < var.dim(); ++d) {
+        for (std::size_t d = 0; d < var.dim(); ++d) {
           auto* data = var.data[d];
           writer.addPointData<real>(VariableLabels[i][d],
                                     std::vector<std::size_t>(),
@@ -334,13 +355,13 @@ void OutputManager::initPickpointOutput() {
       allReceiversInOneFilePerRank ? ppOutputData->receiverPoints.size() / multisim::NumSimulations
                                    : 1;
 
-  for (std::size_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
+  for (std::uint32_t pointIndex = 0; pointIndex < actualPointCount; ++pointIndex) {
     for (std::size_t simIndex = 0; simIndex < multisim::NumSimulations; ++simIndex) {
       size_t labelCounter = 0;
       auto collectVariableNames =
           [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](auto& var, int) {
             if (var.isActive) {
-              for (int dim = 0; dim < var.dim(); ++dim) {
+              for (std::size_t dim = 0; dim < var.dim(); ++dim) {
                 baseHeader << " ,\"" << writer::FaultWriterExecutor::getLabelName(labelCounter)
                            << suffix(pointIndex + 1, simIndex + 1) << '\"';
                 ++labelCounter;
@@ -354,8 +375,6 @@ void OutputManager::initPickpointOutput() {
   }
 
   for (size_t i = 0; i < ppFiles.size(); ++i) {
-    const auto& receiver = outputData->receiverPoints[i];
-
     const auto& ppfile = ppFiles[i];
 
     if (!seissol::filesystem::exists(ppfile.fileName)) {
@@ -507,7 +526,7 @@ void OutputManager::flushPickpointDataToFile() {
       for (std::size_t pointId : ppfile.indices) {
         auto recordResults = [pointId, level, &data](auto& var, int) {
           if (var.isActive) {
-            for (int dim = 0; dim < var.dim(); ++dim) {
+            for (std::size_t dim = 0; dim < var.dim(); ++dim) {
               data << makeFormatted(var(dim, level, pointId)) << '\t';
             }
           }

@@ -76,7 +76,7 @@ class ThermalPressurization {
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
   SEISSOL_DEVICE static void
-      calcFluidPressure(FrictionLawContext& ctx, int timeIndex, bool saveTmpInTP) {
+      calcFluidPressure(FrictionLawContext& ctx, uint32_t timeIndex, bool saveTmpInTP) {
     real temperatureUpdate = 0.0;
     real pressureUpdate = 0.0;
 
@@ -89,7 +89,8 @@ class ThermalPressurization {
                              (ctx.data->hydraulicDiffusivity[ctx.ltsFace][ctx.pointIndex] -
                               ctx.data->drParameters.thermalDiffusivity);
 
-    for (int tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints; tpGridPointIndex++) {
+    for (uint32_t tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
+         tpGridPointIndex++) {
       // Gaussian shear zone in spectral domain, normalized by w
       // \hat{l} / w
       const real squaredNormalizedTpGrid =
