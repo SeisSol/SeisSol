@@ -110,7 +110,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   if (seissolParams.model.plasticity) {
     // plasticity information is only needed on all interior+copy cells.
     plasticityDB = queryDB<Plasticity>(
-        queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
+        queryGen, seissolParams.model.plasticityFileName, meshReader.getElements().size());
   }
 
   // material retrieval for ghost layers
