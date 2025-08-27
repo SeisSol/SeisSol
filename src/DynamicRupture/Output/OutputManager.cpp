@@ -230,7 +230,7 @@ void OutputManager::initElementwiseOutput() {
 
   misc::forEach(ewOutputData->vars, [&](auto& var, int i) {
     if (var.isActive) {
-      for (int d = 0; d < var.dim(); ++d) {
+      for (std::size_t d = 0; d < var.dim(); ++d) {
         auto* data = var.data[d];
         writer.addGeometryOutput<real>(
             VariableLabels[i][d],
@@ -322,7 +322,7 @@ void OutputManager::initPickpointOutput() {
       auto collectVariableNames =
           [&baseHeader, &labelCounter, &simIndex, &pointIndex, suffix](auto& var, int index) {
             if (var.isActive) {
-              for (int dim = 0; dim < var.dim(); ++dim) {
+              for (std::size_t dim = 0; dim < var.dim(); ++dim) {
                 baseHeader << " ,\"" << VariableLabels[index][dim]
                            << suffix(pointIndex + 1, simIndex + 1) << '\"';
                 ++labelCounter;
@@ -336,8 +336,6 @@ void OutputManager::initPickpointOutput() {
   }
 
   for (size_t i = 0; i < ppFiles.size(); ++i) {
-    const auto& receiver = outputData->receiverPoints[i];
-
     const auto& ppfile = ppFiles[i];
 
     if (!seissol::filesystem::exists(ppfile.fileName)) {
@@ -489,7 +487,7 @@ void OutputManager::flushPickpointDataToFile() {
       for (std::size_t pointId : ppfile.indices) {
         auto recordResults = [pointId, level, &data](auto& var, int) {
           if (var.isActive) {
-            for (int dim = 0; dim < var.dim(); ++dim) {
+            for (std::size_t dim = 0; dim < var.dim(); ++dim) {
               data << makeFormatted(var(dim, level, pointId)) << '\t';
             }
           }
