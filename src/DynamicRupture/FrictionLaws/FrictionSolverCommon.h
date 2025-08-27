@@ -235,7 +235,7 @@ real aB2 = 20.3222e9;
   //   (2.0*aB2 + 3.0*aB3*xip) + aB1*(eyyP+epsInityy)/std::sqrt(EspIIp)
   // );
   auto laP = (1-breP) * (la0P
-  - alphap*gaRP*(exxP+epsInitzz)/std::sqrt(EspIIp))
+  - alphap*gaRP*(exxP+epsInitzz)/(std::sqrt(EspIIp) + 1e-20))
   + breP * (
     (2.0*aB2)
   );
@@ -247,7 +247,7 @@ real aB2 = 20.3222e9;
       (aB0)
     );
   auto laM = (1-breM) * (la0M
-  - alpham*gaRM*(exxM+epsInitzz)/std::sqrt(EspIIm))
+  - alpham*gaRM*(exxM+epsInitzz)/(std::sqrt(EspIIm) + 1e-20))
   + breM * (
     (2.0*aB2)
   );
