@@ -557,10 +557,13 @@ real aB2 = 20.3222e9;
                   + 2*(qIPlus[o][XZ][i]+epsInitzx)*(qIPlus[o][XZ][i]+epsInitzx);
                 real alphap = qIPlus[o][DAM][i];
                 real xip;
+                real EspIIpsqrtInv;
                 if (EspIIp > 1e-30){
                   xip = EspIp / std::sqrt(EspIIp);
+                  EspIIpsqrtInv = 1 / std::sqrt(EspIIp);
                 } else{
                   xip = 0.0;
+                  EspIIpsqrtInv = 0.0;
                 }
 
                 real EspIm = (qIMinus[o][XX][i]+epsInitxx) + (qIMinus[o][YY][i]+epsInityy) + (qIMinus[o][ZZ][i]+epsInitzz);
@@ -572,16 +575,19 @@ real aB2 = 20.3222e9;
                   + 2*(qIMinus[o][XZ][i]+epsInitzx)*(qIMinus[o][XZ][i]+epsInitzx);
                 real alpham = qIMinus[o][DAM][i];
                 real xim;
+                real EspIIsqrtInv;
                 if (EspIIm > 1e-30){
                   xim = EspIm / std::sqrt(EspIIm);
+                  EspIIsqrtInv = 1 / std::sqrt(EspIIm);
                 } else{
                   xim = 0.0;
+                  EspIIsqrtInv = 0.0;
                 }
 
                 real lambp = (1- qIPlus[o][BRE][i])*
-                  (lambda0P - alphap * materialData[l_cell].local.gammaR * (qIPlus[o][XX][i]+epsInitxx)/(std::sqrt(EspIIp)+1e-20) )
+                  (lambda0P - alphap * materialData[l_cell].local.gammaR * (qIPlus[o][XX][i]+epsInitxx)*(EspIIpsqrtInv) )
                 + qIPlus[o][BRE][i] *
-                  (2.0*aB2 + 3.0*xip*aB3 + aB1*(qIPlus[o][XX][i]+epsInitxx)/(std::sqrt(EspIIp)+1e-20));
+                  (2.0*aB2 + 3.0*xip*aB3 + aB1*(qIPlus[o][XX][i]+epsInitxx)*(EspIIpsqrtInv));
 
                 real mup = (1- qIPlus[o][BRE][i])*
                   (mu0P - alphap * materialData[l_cell].local.xi0 * materialData[l_cell].local.gammaR
@@ -590,9 +596,9 @@ real aB2 = 20.3222e9;
                   (aB0 + 0.5*xip*aB1 - 0.5*xip*xip*xip*aB3);
 
                 real lambm = (1- qIMinus[o][BRE][i])*
-                  (lambda0M - alpham * materialData[l_cell].neighbor[side].gammaR * (qIMinus[o][XX][i]+epsInitxx)/(std::sqrt(EspIIm)+1e-20) )
+                  (lambda0M - alpham * materialData[l_cell].neighbor[side].gammaR * (qIMinus[o][XX][i]+epsInitxx)*(EspIIsqrtInv) )
                 + qIMinus[o][BRE][i] *
-                  (2.0*aB2 + 3.0*xim*aB3 + aB1*(qIMinus[o][XX][i]+epsInitxx)/(std::sqrt(EspIIm)+1e-20));
+                  (2.0*aB2 + 3.0*xim*aB3 + aB1*(qIMinus[o][XX][i]+epsInitxx)*(EspIIsqrtInv));
 
                 real mum = (1- qIMinus[o][BRE][i])*
                   (mu0M - alpham * materialData[l_cell].neighbor[side].xi0 * materialData[l_cell].neighbor[side].gammaR
@@ -983,16 +989,19 @@ real aB2 = 20.3222e9;
 
                 real alphap = qIPlus[o][DAM][i];
                 real xip;
+                real EspIIpsqrtInv;
                 if (EspIIp > 1e-30){
                   xip = EspIp / std::sqrt(EspIIp);
+                  EspIIpsqrtInv = 1 / std::sqrt(EspIIp);
                 } else{
                   xip = 0.0;
+                  EspIIpsqrtInv = 0.0;
                 }
 
                 real lambp = (1- qIPlus[o][BRE][i])*
-                  (lambda0P - alphap * materialData[l_cell].local.gammaR * (epsInitxx)/(std::sqrt(EspIIp)+1e-20) )
+                  (lambda0P - alphap * materialData[l_cell].local.gammaR * (epsInitxx)*(EspIIpsqrtInv) )
                 + qIPlus[o][BRE][i] *
-                  (2.0*aB2 + 3.0*xip*aB3 + aB1*(epsInitxx)/(std::sqrt(EspIIp)+1e-20));
+                  (2.0*aB2 + 3.0*xip*aB3 + aB1*(epsInitxx)*(EspIIpsqrtInv));
 
                 real mup = (1- qIPlus[o][BRE][i])*
                   (mu0P - alphap * materialData[l_cell].local.xi0 * materialData[l_cell].local.gammaR

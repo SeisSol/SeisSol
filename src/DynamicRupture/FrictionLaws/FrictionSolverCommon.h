@@ -201,10 +201,13 @@ real aB2 = 20.3222e9;
     + 2*(ezxP+epsInitzx)*(ezxP+epsInitzx);
   real alphap = damP;
   real xip;
+  real EspIIpInvsqrt;
   if (EspIIp > 1e-30){
     xip = EspIp / std::sqrt(EspIIp);
+    EspIIpInvsqrt = 1.0 / std::sqrt(EspIIp);
   } else{
     xip = 0.0;
+    EspIIpInvsqrt = 0.0;
   }
 
   real EspIm = (exxM+epsInitxx) + (eyyM+epsInityy) + (ezzM+epsInitzz);
@@ -216,10 +219,13 @@ real aB2 = 20.3222e9;
     + 2*(ezxM+epsInitzx)*(ezxM+epsInitzx);
   real alpham = damM;
   real xim;
+  real EspIImInvsqrt;
   if (EspIIm > 1e-30){
     xim = EspIm / std::sqrt(EspIIm);
+    EspIImInvsqrt = 1.0 / std::sqrt(EspIIm);
   } else{
     xim = 0.0;
+    EspIImInvsqrt = 0.0;
   }
 
   // compute laP, muP, laM and muM
@@ -235,7 +241,7 @@ real aB2 = 20.3222e9;
   //   (2.0*aB2 + 3.0*aB3*xip) + aB1*(eyyP+epsInityy)/std::sqrt(EspIIp)
   // );
   auto laP = (1-breP) * (la0P
-  - alphap*gaRP*(exxP+epsInitzz)/(std::sqrt(EspIIp) + 1e-20))
+  - alphap*gaRP*(exxP+epsInitzz)*(EspIIpInvsqrt))
   + breP * (
     (2.0*aB2)
   );
@@ -247,7 +253,7 @@ real aB2 = 20.3222e9;
       (aB0)
     );
   auto laM = (1-breM) * (la0M
-  - alpham*gaRM*(exxM+epsInitzz)/(std::sqrt(EspIIm) + 1e-20))
+  - alpham*gaRM*(exxM+epsInitzz)*(EspIImInvsqrt))
   + breM * (
     (2.0*aB2)
   );

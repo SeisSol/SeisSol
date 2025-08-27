@@ -1253,11 +1253,14 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
         +  2*(Q_aveData[5]+epsInitzx)*(Q_aveData[5]+epsInitzx);
 
       real xi;
+      real EspIIsqrtInv;
       // real xiInv;
       if (EspII > 1e-30){
         xi = EspI / std::sqrt(EspII);
+        EspIIsqrtInv = 1 / std::sqrt(EspII);
       } else{
         xi = 0.0;
+        EspIIsqrtInv = 0.0;
       }
 
       // if ( std::abs(xi) > 1e-1){
@@ -1308,9 +1311,9 @@ real aB2 = 20.3222e9;
             (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
           );
        materialData[l_cell].local.lambda = (1-breakAve) * (lambda0
-        - alphaAve*materialData[l_cell].local.gammaR*(Q_aveData[2]+epsInitzz)/(std::sqrt(EspII) + 1e-20))
+        - alphaAve*materialData[l_cell].local.gammaR*(Q_aveData[2]+epsInitzz)*(EspIIsqrtInv))
         + breakAve * (
-          (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[2]+epsInitzz)/(std::sqrt(EspII) + 1e-20)
+          (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[2]+epsInitzz)*(EspIIsqrtInv)
         );
        materialData[l_cell].local.gamma = alphaAve*materialData[l_cell].local.gammaR;
 
@@ -1419,22 +1422,15 @@ real aB2 = 20.3222e9;
           real breakAveNeigh = Q_aveData[10];
           real xi;
           real xiInv;
+          real EspIIsqrtInv;
           if (EspII > 1e-30){
             xi = EspINeigh / std::sqrt(EspII);
+            EspIIsqrtInv = 1 / std::sqrt(EspII);
           } else{
             xi = 0.0;
+            EspIIsqrtInv = 0.0;
           }
 
-          // if ( std::abs(xi) > 1e-1){
-          //   xiInv = 1 / xi;
-          // } else{
-          //   xiInv = 0.0;
-          // }
-
-          // std::cout << xi << ", " << xiInv  << ", " << alphaAve << std::endl;
-          // std::cout << materialData[l_cell].local.xi0 << ", "
-          //   << materialData[l_cell].neighbor[side].gammaR  << ", "
-          //   << materialData[l_cell].neighbor[side].mu << std::endl;
           materialData[l_cell].neighbor[side].mu = (1-breakAveNeigh) * (mu0
             - alphaAveNeigh*materialData[l_cell].neighbor[side].xi0*materialData[l_cell].neighbor[side].gammaR
             - 0.5*alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*xi)
@@ -1442,9 +1438,9 @@ real aB2 = 20.3222e9;
                 (aB0 + 0.5*aB1*xi - 0.5*aB3*xi*xi*xi)
               );
           materialData[l_cell].neighbor[side].lambda = (1-breakAveNeigh) * (lambda0
-            - alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*(Q_aveData[2]+epsInitzz)/(std::sqrt(EspII)+1e-20))
+            - alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR*(Q_aveData[2]+epsInitzz)*(EspIIsqrtInv))
             + breakAveNeigh * (
-              (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[2]+epsInitzz)/(std::sqrt(EspII)+1e-20)
+              (2.0*aB2 + 3.0*aB3*xi) + aB1*(Q_aveData[2]+epsInitzz)*(EspIIsqrtInv)
             );
           materialData[l_cell].neighbor[side].gamma = alphaAveNeigh*materialData[l_cell].neighbor[side].gammaR;
 
