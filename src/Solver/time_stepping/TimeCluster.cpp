@@ -502,11 +502,11 @@ void seissol::time_stepping::TimeCluster::computeLocalIntegration(seissol::initi
     // real aB2 = 18.93e9;
     // real aB3 = -0.0*5.067e9;
     real aB0 = 7.92418e9;
-    //real aB1 = -22.7919e9;
-real aB1 = 0.0;    
+    real aB1 = -22.7919e9;
+// real aB1 = 0.0;    
 real aB2 = 20.3222e9;
-    //real aB3 = -5.25836e9;
-real aB3 = 0.0;
+    real aB3 = -5.25836e9;
+// real aB3 = 0.0;
 const real Cg = 1e-10;
 const real m1 = 10;
 const real m2 = 1;
@@ -1283,11 +1283,11 @@ void seissol::time_stepping::TimeCluster::updateMaterialLocal(seissol::initializ
       // real aB2 = 18.93e9;
       // real aB3 = -0.0*5.067e9;
       real aB0 = 7.92418e9;
-      //real aB1 = -22.7919e9;
-real aB1 = 0.0;      
+      real aB1 = -22.7919e9;
+// real aB1 = 0.0;      
 real aB2 = 20.3222e9;
-      //real aB3 = -5.25836e9;
-real aB3 = 0.0;
+      real aB3 = -5.25836e9;
+// real aB3 = 0.0;
 
       unsigned int meshId = data.localIntegration.globalMeshId;
 

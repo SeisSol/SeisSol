@@ -284,11 +284,11 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
   real const beta_alpha = 0.05;
 
   const real aB0 = 7.92418e9;
-  //const real aB1 = -22.7919e9;
-  const real aB1 = 0.0;
+  const real aB1 = -22.7919e9;
+  // const real aB1 = 0.0;
   const real aB2 = 20.3222e9;
-  //const real aB3 = -5.25836e9;
-  const real aB3 = 0.0;
+  const real aB3 = -5.25836e9;
+  // const real aB3 = 0.0;
   const real Cg = 1e-10;
   const real m1 = 10;
   const real m2 = 1;

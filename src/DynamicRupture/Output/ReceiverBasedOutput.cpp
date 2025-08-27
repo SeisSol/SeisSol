@@ -201,11 +201,11 @@ void ReceiverOutput::calcFaultOutput(const OutputType type,
     // real aB2 = 18.93e9;
     // real aB3 = -0.0*5.067e9;
     real aB0 = 7.92418e9;
-    //real aB1 = -22.7919e9;
-real aB1 = 0.0;    
+    real aB1 = -22.7919e9;
+// real aB1 = 0.0;    
 real aB2 = 20.3222e9;
-    //real aB3 = -5.25836e9;
-real aB3 = 0.0;
+    real aB3 = -5.25836e9;
+// real aB3 = 0.0;
 
     for (unsigned int q=0; q<NUMBER_OF_ALIGNED_BASIS_FUNCTIONS; q++){
       real EspIp = (dofsNPlus[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS+q]+epsInitxx)
