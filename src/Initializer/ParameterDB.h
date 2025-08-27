@@ -98,6 +98,16 @@ class ElementAverageGenerator : public QueryGenerator {
   std::array<std::array<double, 3>, NumQuadpoints> m_quadraturePoints{};
 };
 
+class PlasticityPointGenerator : public QueryGenerator {
+  public:
+  explicit PlasticityPointGenerator(const CellToVertexArray& cellToVertex)
+      : m_cellToVertex(cellToVertex) {}
+  [[nodiscard]] easi::Query generate() const override;
+
+  private:
+  CellToVertexArray m_cellToVertex;
+};
+
 class FaultBarycenterGenerator : public QueryGenerator {
   public:
   FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader, unsigned numberOfPoints)

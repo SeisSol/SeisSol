@@ -45,12 +45,14 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         alignStride=True,
     )
 
-    initialLoading = Tensor("initialLoading", (6,))
+    initialLoading = Tensor("initialLoading", (numberOfNodes, 6), alignStride=True)
 
-    replicateIniLShape = (numberOfNodes,)
+    replicateIniLShape = ()
     replicateIniLSpp = np.ones(
         aderdg.Q.insertOptDim(replicateIniLShape, (aderdg.Q.optSize(),))
     )
+
+    """
     replicateInitialLoading = OptionalDimTensor(
         "replicateInitialLoading",
         aderdg.Q.optName(),
@@ -60,6 +62,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         spp=replicateIniLSpp,
         alignStride=True,
     )
+"""
 
     iShape = (numberOfNodes, 6)
     QStressNodal = OptionalDimTensor(
@@ -118,10 +121,9 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
     generator.add(
         "plConvertToNodal",
-        QStressNodal["kp"]
-        <= db.v["kl"] * QStress["lp"]
-        + replicateInitialLoading["k"] * initialLoading["p"],
+        QStressNodal["kp"] <= db.v["kl"] * QStress["lp"] + initialLoading["kp"],
     )
+    # replicateInitialLoading[""] *
 
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
@@ -160,8 +162,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     generator.add(
         "plAdjustStresses",
         QStress["kp"]
-        <= QStress["kp"]
-        + db.vInv["kl"] * QStressNodal["lp"] * yieldFactor["l"],
+        <= QStress["kp"] + db.vInv["kl"] * QStressNodal["lp"] * yieldFactor["l"],
     )
 
     gpu_target = "gpu"
@@ -170,27 +171,9 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
         if aderdg.multipleSimulations > 1:
             # for now, copy the tensors into here and rename them; until gemmforge/chainforge is deprecated
-            initialLoading = Tensor("initialLoadingM", (6,))
-            replicateInitialLoading = OptionalDimTensor(
-                "replicateInitialLoadingM",
-                aderdg.Q.optName(),
-                aderdg.Q.optSize(),
-                aderdg.Q.optPos(),
-                replicateIniLShape,
-                spp=replicateIniLSpp,
-                alignStride=True,
-            )
-            matreplace = replicateInitialLoading["k"] * initialLoading["p"]
+            matreplace = replicateInitialLoading[""] * initialLoading["kp"]
         else:
-            # suffix `M` stands for `Matrix`
-            replicateInitialLoadingM = Tensor(
-                name="replicateInitialLoadingM",
-                shape=(numberOfNodes, 1),
-                spp=np.ones((numberOfNodes, 1)),
-            )
-            initialLoadingM = Tensor("initialLoadingM", (1, 6))
-
-            matreplace = replicateInitialLoadingM["km"] * initialLoadingM["mp"]
+            matreplace = initialLoading["kp"]
 
         # Note: the last term was changed on purpose because
         # GemmForge doesn't currently support tensor product operation

@@ -9,31 +9,42 @@
 #define SEISSOL_SRC_MODEL_PLASTICITY_H_
 
 #include "Model/CommonDatastructures.h"
+#include <Alignment.h>
 #include <Kernels/Precision.h>
 #include <cmath>
+#include <generated_code/init.h>
+#include <generated_code/tensor.h>
 #include <string>
 
 namespace seissol::model {
+
 // plasticity information per cell
 struct PlasticityData {
   // initial loading (stress tensor)
-  real initialLoading[6];
-  real cohesionTimesCosAngularFriction;
-  real sinAngularFriction;
+  alignas(Alignment) real initialLoading[tensor::QStressNodal::size()];
+  alignas(Alignment) real cohesionTimesCosAngularFriction[tensor::meanStress::size()];
+  alignas(Alignment) real sinAngularFriction[tensor::meanStress::size()];
+
+  // TODO: make vary as well? (at least for #1297)
   real mufactor;
 
-  PlasticityData(const Plasticity& plasticity, const Material* material) {
-    initialLoading[0] = plasticity.sXX;
-    initialLoading[1] = plasticity.sYY;
-    initialLoading[2] = plasticity.sZZ;
-    initialLoading[3] = plasticity.sXY;
-    initialLoading[4] = plasticity.sYZ;
-    initialLoading[5] = plasticity.sXZ;
+  PlasticityData(const Plasticity* plasticity, const Material* material) {
+    auto initialLoadingV = init::QStressNodal::view::create(initialLoading);
+    initialLoadingV.setZero();
 
-    const double angularFriction = std::atan(plasticity.bulkFriction);
+    for (std::size_t i = 0; i < tensor::meanStress::size(); ++i) {
+      initialLoadingV(i, 0) = plasticity[i].sXX;
+      initialLoadingV(i, 1) = plasticity[i].sYY;
+      initialLoadingV(i, 2) = plasticity[i].sZZ;
+      initialLoadingV(i, 3) = plasticity[i].sXY;
+      initialLoadingV(i, 4) = plasticity[i].sYZ;
+      initialLoadingV(i, 5) = plasticity[i].sXZ;
 
-    cohesionTimesCosAngularFriction = plasticity.plastCo * std::cos(angularFriction);
-    sinAngularFriction = std::sin(angularFriction);
+      const double angularFriction = std::atan(plasticity[i].bulkFriction);
+
+      cohesionTimesCosAngularFriction[i] = plasticity[i].plastCo * std::cos(angularFriction);
+      sinAngularFriction[i] = std::sin(angularFriction);
+    }
 
     const auto mubar = material->getMuBar();
     mufactor = 1.0 / (2.0 * mubar);

@@ -171,6 +171,34 @@ easi::Query ElementAverageGenerator::generate() const {
   return query;
 }
 
+easi::Query PlasticityPointGenerator::generate() const {
+  constexpr auto PlasticityPoints = tensor::meanStress::size();
+  // Generate query using quadrature points for each element
+  easi::Query query(m_cellToVertex.size * PlasticityPoints, Cell::Dim);
+
+// Transform quadrature points to global coordinates for all elements
+#pragma omp parallel for schedule(static)
+  for (std::size_t elem = 0; elem < m_cellToVertex.size; ++elem) {
+
+    const auto vertices = m_cellToVertex.elementCoordinates(elem);
+
+    for (std::size_t i = 0; i < PlasticityPoints; ++i) {
+
+      // TODO: adjust
+      std::array<double, 3> barycenter = {1 / 3., 1 / 3., 1 / 3.};
+
+      Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
+          vertices[0], vertices[1], vertices[2], vertices[3], barycenter.data());
+      query.x(elem * PlasticityPoints + i, 0) = transformed(0);
+      query.x(elem * PlasticityPoints + i, 1) = transformed(1);
+      query.x(elem * PlasticityPoints + i, 2) = transformed(2);
+      query.group(elem * PlasticityPoints + i) = m_cellToVertex.elementGroups(elem);
+    }
+  }
+
+  return query;
+}
+
 easi::Query FaultBarycenterGenerator::generate() const {
   const std::vector<Fault>& fault = m_meshReader.getFault();
   const std::vector<Element>& elements = m_meshReader.getElements();

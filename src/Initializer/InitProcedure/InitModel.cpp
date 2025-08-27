@@ -96,12 +96,12 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // just a helper function for better readability
   const auto getBestQueryGenerator = [&](const seissol::initializer::CellToVertexArray& ctvArray) {
     return seissol::initializer::getBestQueryGenerator(
-        seissolParams.model.plasticity, seissolParams.model.useCellHomogenizedMaterial, ctvArray);
+        false, seissolParams.model.useCellHomogenizedMaterial, ctvArray);
   };
 
   // material retrieval for copy+interior layers
-  const auto queryGen =
-      getBestQueryGenerator(seissol::initializer::CellToVertexArray::fromMeshReader(meshReader));
+  const auto ctv = seissol::initializer::CellToVertexArray::fromMeshReader(meshReader);
+  const auto queryGen = getBestQueryGenerator(ctv);
   auto materialsDB = queryDB<MaterialT>(
       queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
 
@@ -109,8 +109,10 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   std::vector<Plasticity> plasticityDB;
   if (seissolParams.model.plasticity) {
     // plasticity information is only needed on all interior+copy cells.
-    plasticityDB = queryDB<Plasticity>(
-        queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
+    plasticityDB =
+        queryDB<Plasticity>(std::make_shared<PlasticityPointGenerator>(ctv),
+                            seissolParams.model.materialFileName,
+                            meshReader.getElements().size() * tensor::meanStress::size());
   }
 
   // material retrieval for ghost layers
@@ -179,7 +181,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       // if enabled, set up the plasticity as well
       if (seissolParams.model.plasticity) {
         auto& plasticity = plasticityArray[cell];
-        const auto& localPlasticity = plasticityDB[meshId];
+        const auto* localPlasticity =
+            &plasticityDB[static_cast<std::size_t>(meshId) * tensor::meanStress::size()];
 
         initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, &material.local));
       }
