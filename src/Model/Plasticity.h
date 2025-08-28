@@ -15,29 +15,31 @@
 
 namespace seissol::model {
 // plasticity information per cell
+
 struct PlasticityData {
   // initial loading (stress tensor)
-  real initialLoading[6];
-  real cohesionTimesCosAngularFriction;
-  real sinAngularFriction;
-  real mufactor;
+  real initialLoading[MULTIPLE_SIMULATIONS][6];
+  real cohesionTimesCosAngularFriction[MULTIPLE_SIMULATIONS];
+  real sinAngularFriction[MULTIPLE_SIMULATIONS];
+  real mufactor; // Only dependent on mu which is to be constant per simulation
 
-  PlasticityData(const Plasticity& plasticity, const Material* material) {
-    initialLoading[0] = plasticity.sXX;
-    initialLoading[1] = plasticity.sYY;
-    initialLoading[2] = plasticity.sZZ;
-    initialLoading[3] = plasticity.sXY;
-    initialLoading[4] = plasticity.sYZ;
-    initialLoading[5] = plasticity.sXZ;
+  PlasticityData(const std::array<Plasticity, MULTIPLE_SIMULATIONS>& plasticity, const Material* material) {
+    for(std::size_t i = 0; i < MULTIPLE_SIMULATIONS; ++i) {
+      initialLoading[i][0] = plasticity[i].sXX;
+      initialLoading[i][1] = plasticity[i].sYY;
+      initialLoading[i][2] = plasticity[i].sZZ;
+      initialLoading[i][3] = plasticity[i].sXY;
+      initialLoading[i][4] = plasticity[i].sYZ;
+      initialLoading[i][5] = plasticity[i].sXZ;
 
-    const double angularFriction = std::atan(plasticity.bulkFriction);
+    const double angularFriction = std::atan(plasticity[i].bulkFriction);
 
-    cohesionTimesCosAngularFriction = plasticity.plastCo * std::cos(angularFriction);
-    sinAngularFriction = std::sin(angularFriction);
-
+    cohesionTimesCosAngularFriction[i] = plasticity[i].plastCo * std::cos(angularFriction);
+    sinAngularFriction[i] = std::sin(angularFriction);
+  }
     const auto mubar = material->getMuBar();
     mufactor = 1.0 / (2.0 * mubar);
-  }
+}
 
   static constexpr std::size_t NumQuantities = 7;
   static constexpr std::size_t NumberPerMechanism = 0;

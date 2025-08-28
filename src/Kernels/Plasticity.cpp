@@ -81,7 +81,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   m2nKrnl.QStress = degreesOfFreedom;
   m2nKrnl.QStressNodal = qStressNodal;
   m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
-  m2nKrnl.initialLoading = plasticityData->initialLoading;
+  m2nKrnl.initialLoading = plasticityData->initialLoading[0]; //TODO (Vikas), this needs to be modified considering all simulations. 
   m2nKrnl.execute();
 
   // Computes m = s_{ii} / 3.0 for every node
@@ -115,8 +115,8 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   // Compute tau_c for every node
   for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
     taulim[ip] = std::max(static_cast<real>(0.0),
-                          plasticityData->cohesionTimesCosAngularFriction -
-                              meanStress[ip] * plasticityData->sinAngularFriction);
+                          plasticityData->cohesionTimesCosAngularFriction[0] -
+                              meanStress[ip] * plasticityData->sinAngularFriction[0]); //TODO (Vikas): consider multiple simulations
   }
 
   bool adjust = false;
