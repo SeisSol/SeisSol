@@ -45,7 +45,6 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         alignStride=True,
     )
 
-    # initialLoading = Tensor("initialLoading", (6,))
     initialLoading = OptionalDimTensor(
         "initialLoading",
         aderdg.Q.optName(),
