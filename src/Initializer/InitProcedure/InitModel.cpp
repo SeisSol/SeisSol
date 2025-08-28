@@ -110,9 +110,14 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   std::vector<std::vector<Plasticity>> plasticityDB;
   if (seissolParams.model.plasticity) {
     // plasticity information is only needed on all interior+copy cells.
-    for (size_t i = 0; i < seissol::multisim::NumSimulations; i++) {
+    if (seissolParams.model.plasticityFileName.empty()) {
       plasticityDB.push_back(queryDB<Plasticity>(
-          queryGen, seissolParams.model.plasticityFileNames[i], meshReader.getElements().size()));
+          queryGen, seissolParams.model.materialFileName, meshReader.getElements().size()));
+    } else {
+      for (size_t i = 0; i < seissol::multisim::NumSimulations; i++) {
+        plasticityDB.push_back(queryDB<Plasticity>(
+            queryGen, seissolParams.model.plasticityFileNames[i], meshReader.getElements().size()));
+      }
     }
   }
 
@@ -183,6 +188,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
       if (seissolParams.model.plasticity) {
         auto& plasticity = plasticityArray[cell];
+        assert(plasticityDB.size() == seissol::multisim::NumSimulations &&
+               "Plasticity database size mismatch with number of simulations");
         std::array<Plasticity, seissol::multisim::NumSimulations> localPlasticity;
         for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
           localPlasticity[i] = plasticityDB[i][meshId];
