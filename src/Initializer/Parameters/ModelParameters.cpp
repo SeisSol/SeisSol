@@ -9,7 +9,10 @@
 #include <Equations/Datastructures.h>
 #include <Initializer/Parameters/ParameterReader.h>
 #include <Solver/MultipleSimulations.h>
+#include <cstddef>
+#include <string>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 

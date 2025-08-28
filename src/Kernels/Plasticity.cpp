@@ -60,7 +60,6 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   alignas(Alignment) real taulim[tensor::meanStress::size()]{};
   alignas(Alignment) real yieldFactor[tensor::yieldFactor::size()]{};
   alignas(Alignment) real dudtPstrain[tensor::QStress::size()]{};
-  alignas(Alignment) real initialLoading[tensor::initialLoading::size()]{};
 
   static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
                 "Second invariant tensor and mean stress tensor must be of the same size().");

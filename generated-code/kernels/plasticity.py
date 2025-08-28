@@ -55,17 +55,10 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
     replicateIniLShape = (numberOfNodes,)
     replicateIniLSpp = np.ones(
-        aderdg.Q.insertOptDim(replicateIniLShape, (aderdg.Q.optSize(),))
+        replicateIniLShape
     )
-    replicateInitialLoading = OptionalDimTensor(
-        "replicateInitialLoading",
-        aderdg.Q.optName(),
-        aderdg.Q.optSize(),
-        aderdg.Q.optPos(),
-        replicateIniLShape,
-        spp=replicateIniLSpp,
-        alignStride=True,
-    )
+
+    replicateInitialLoading = Tensor("replicateInitialLoading", replicateIniLShape, spp=replicateIniLSpp, alignStride=True)
 
     iShape = (numberOfNodes, 6)
     QStressNodal = OptionalDimTensor(
