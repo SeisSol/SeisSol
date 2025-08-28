@@ -77,15 +77,13 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   /* Convert modal to nodal and add sigma0.
    * Stores s_{ij} := sigma_{ij} + sigma0_{ij} for every node.
    * sigma0 is constant */
-
-  std::memcpy(initialLoading, plasticityData->initialLoading, sizeof(initialLoading));
-
+  
   kernel::plConvertToNodal m2nKrnl;
   m2nKrnl.v = global->vandermondeMatrix;
   m2nKrnl.QStress = degreesOfFreedom;
   m2nKrnl.QStressNodal = qStressNodal;
   m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
-  m2nKrnl.initialLoading = initialLoading;
+  m2nKrnl.initialLoading = plasticityData->initialLoading;
   m2nKrnl.execute();
 
   // Computes m = s_{ii} / 3.0 for every node
