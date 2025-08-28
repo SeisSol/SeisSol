@@ -118,9 +118,11 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
 
   // Compute tau_c for every node
   for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
-    taulim[ip] = std::max(static_cast<real>(0.0),
-                          plasticityData->cohesionTimesCosAngularFriction[ip%seissol::multisim::NumSimulations] -
-                              meanStress[ip] * plasticityData->sinAngularFriction[ip%seissol::multisim::NumSimulations]); 
+    taulim[ip] = std::max(
+        static_cast<real>(0.0),
+        plasticityData->cohesionTimesCosAngularFriction[ip % seissol::multisim::NumSimulations] -
+            meanStress[ip] *
+                plasticityData->sinAngularFriction[ip % seissol::multisim::NumSimulations]);
   }
 
   bool adjust = false;

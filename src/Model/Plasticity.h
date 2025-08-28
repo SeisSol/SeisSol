@@ -10,21 +10,24 @@
 
 #include "Model/CommonDatastructures.h"
 #include <Kernels/Precision.h>
+#include <Solver/MultipleSimulations.h>
 #include <cmath>
 #include <string>
 
 namespace seissol::model {
-// plasticity information per cell
+// plasticity information per cell. In case of multiple simulations, it contains data of all
+// simulations
 
 struct PlasticityData {
   // initial loading (stress tensor)
-  real initialLoading[6][MULTIPLE_SIMULATIONS];
-  real cohesionTimesCosAngularFriction[MULTIPLE_SIMULATIONS];
-  real sinAngularFriction[MULTIPLE_SIMULATIONS];
-  real mufactor; // Only dependent on mu which is to be constant per simulation
+  real initialLoading[6][seissol::multisim::NumSimulations];
+  real cohesionTimesCosAngularFriction[seissol::multisim::NumSimulations];
+  real sinAngularFriction[seissol::multisim::NumSimulations];
+  real mufactor; // Only dependent on mu which is to be constant for all simulations
 
-  PlasticityData(const std::array<Plasticity, MULTIPLE_SIMULATIONS>& plasticity, const Material* material) {
-    for(std::size_t i = 0; i < MULTIPLE_SIMULATIONS; ++i) {
+  PlasticityData(const std::array<Plasticity, seissol::multisim::NumSimulations>& plasticity,
+                 const Material* material) {
+    for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
       initialLoading[0][i] = plasticity[i].sXX;
       initialLoading[1][i] = plasticity[i].sYY;
       initialLoading[2][i] = plasticity[i].sZZ;
@@ -32,14 +35,14 @@ struct PlasticityData {
       initialLoading[4][i] = plasticity[i].sYZ;
       initialLoading[5][i] = plasticity[i].sXZ;
 
-    const double angularFriction = std::atan(plasticity[i].bulkFriction);
+      const double angularFriction = std::atan(plasticity[i].bulkFriction);
 
-    cohesionTimesCosAngularFriction[i] = plasticity[i].plastCo * std::cos(angularFriction);
-    sinAngularFriction[i] = std::sin(angularFriction);
-  }
+      cohesionTimesCosAngularFriction[i] = plasticity[i].plastCo * std::cos(angularFriction);
+      sinAngularFriction[i] = std::sin(angularFriction);
+    }
     const auto mubar = material->getMuBar();
     mufactor = 1.0 / (2.0 * mubar);
-}
+  }
 
   static constexpr std::size_t NumQuantities = 7;
   static constexpr std::size_t NumberPerMechanism = 0;
