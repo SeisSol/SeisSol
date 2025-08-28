@@ -104,8 +104,10 @@ __global__ void kernel_adjustDeviatoricTensors(real** nodalStressTensors,
 
   // 4. Compute the plasticity criteria
   const real cohesionTimesCosAngularFriction =
-      plasticity[blockIdx.x].cohesionTimesCosAngularFriction[0]; //TODO (Vikas): consider multiple simulations
-  const real sinAngularFriction = plasticity[blockIdx.x].sinAngularFriction[0]; //TODO (Vikas): consider multiple simulations
+      plasticity[blockIdx.x]
+          .cohesionTimesCosAngularFriction[0]; // TODO (Vikas): consider multiple simulations
+  const real sinAngularFriction =
+      plasticity[blockIdx.x].sinAngularFriction[0]; // TODO (Vikas): consider multiple simulations
   real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
   taulim = std::max(static_cast<real>(0.0), taulim);
 
