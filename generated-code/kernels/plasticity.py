@@ -169,16 +169,15 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
 
         if aderdg.multipleSimulations > 1:
             # for now, copy the tensors into here and rename them; until gemmforge/chainforge is deprecated
-            initialLoading = Tensor("initialLoadingM", (6,))
-            replicateInitialLoading = OptionalDimTensor(
-                "replicateInitialLoadingM",
+            initialLoading = OptionalDimTensor(
+                "initialLoading",
                 aderdg.Q.optName(),
                 aderdg.Q.optSize(),
                 aderdg.Q.optPos(),
-                replicateIniLShape,
-                spp=replicateIniLSpp,
-                alignStride=True,
+                (6,),
             )
+            replicateInitialLoading = Tensor("replicateInitialLoading", replicateIniLShape, spp=replicateIniLSpp, alignStride=True)
+
             matreplace = replicateInitialLoading["k"] * initialLoading["p"]
         else:
             # suffix `M` stands for `Matrix`
