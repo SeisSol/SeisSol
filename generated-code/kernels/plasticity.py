@@ -45,7 +45,14 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
         alignStride=True,
     )
 
-    initialLoading = Tensor("initialLoading", (6,))
+    # initialLoading = Tensor("initialLoading", (6,))
+    initialLoading = OptionalDimTensor(
+        "initialLoading",
+        aderdg.Q.optName(),
+        aderdg.Q.optSize(),
+        aderdg.Q.optPos(),
+        (6,),
+    )
 
     replicateIniLShape = (numberOfNodes,)
     replicateIniLSpp = np.ones(

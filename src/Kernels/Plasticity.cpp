@@ -60,6 +60,7 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   alignas(Alignment) real taulim[tensor::meanStress::size()]{};
   alignas(Alignment) real yieldFactor[tensor::yieldFactor::size()]{};
   alignas(Alignment) real dudtPstrain[tensor::QStress::size()]{};
+  alignas(Alignment) real initialLoading[tensor::initialLoading::size()]{};
 
   static_assert(tensor::secondInvariant::size() == tensor::meanStress::size(),
                 "Second invariant tensor and mean stress tensor must be of the same size().");
@@ -76,12 +77,15 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   /* Convert modal to nodal and add sigma0.
    * Stores s_{ij} := sigma_{ij} + sigma0_{ij} for every node.
    * sigma0 is constant */
+
+  std::memcpy(initialLoading, plasticityData->initialLoading, sizeof(initialLoading));
+
   kernel::plConvertToNodal m2nKrnl;
   m2nKrnl.v = global->vandermondeMatrix;
   m2nKrnl.QStress = degreesOfFreedom;
   m2nKrnl.QStressNodal = qStressNodal;
   m2nKrnl.replicateInitialLoading = init::replicateInitialLoading::Values;
-  m2nKrnl.initialLoading = plasticityData->initialLoading[0]; //TODO (Vikas), this needs to be modified considering all simulations. 
+  m2nKrnl.initialLoading = initialLoading;
   m2nKrnl.execute();
 
   // Computes m = s_{ii} / 3.0 for every node
@@ -115,8 +119,8 @@ std::size_t Plasticity::computePlasticity(double oneMinusIntegratingFactor,
   // Compute tau_c for every node
   for (std::size_t ip = 0; ip < tensor::meanStress::size(); ++ip) {
     taulim[ip] = std::max(static_cast<real>(0.0),
-                          plasticityData->cohesionTimesCosAngularFriction[0] -
-                              meanStress[ip] * plasticityData->sinAngularFriction[0]); //TODO (Vikas): consider multiple simulations
+                          plasticityData->cohesionTimesCosAngularFriction[ip%seissol::multisim::NumSimulations] -
+                              meanStress[ip] * plasticityData->sinAngularFriction[ip%seissol::multisim::NumSimulations]); 
   }
 
   bool adjust = false;
@@ -255,7 +259,7 @@ void Plasticity::computePlasticityBatched(
   static_assert(tensor::Q::Shape[0] == tensor::QStressNodal::Shape[0],
                 "modal and nodal dofs must have the same leading dimensions");
   static_assert(tensor::Q::Shape[multisim::BasisFunctionDimension] == tensor::v::Shape[0],
-                "modal dofs and vandermonde matrix must hage the same leading dimensions");
+                "modal dofs and vandermonde matrix must have the same leading dimensions");
 
   DeviceInstance& device = DeviceInstance::getInstance();
   ConditionalKey key(*KernelNames::Plasticity);

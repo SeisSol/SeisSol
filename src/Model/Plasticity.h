@@ -18,19 +18,19 @@ namespace seissol::model {
 
 struct PlasticityData {
   // initial loading (stress tensor)
-  real initialLoading[MULTIPLE_SIMULATIONS][6];
+  real initialLoading[6][MULTIPLE_SIMULATIONS];
   real cohesionTimesCosAngularFriction[MULTIPLE_SIMULATIONS];
   real sinAngularFriction[MULTIPLE_SIMULATIONS];
   real mufactor; // Only dependent on mu which is to be constant per simulation
 
   PlasticityData(const std::array<Plasticity, MULTIPLE_SIMULATIONS>& plasticity, const Material* material) {
     for(std::size_t i = 0; i < MULTIPLE_SIMULATIONS; ++i) {
-      initialLoading[i][0] = plasticity[i].sXX;
-      initialLoading[i][1] = plasticity[i].sYY;
-      initialLoading[i][2] = plasticity[i].sZZ;
-      initialLoading[i][3] = plasticity[i].sXY;
-      initialLoading[i][4] = plasticity[i].sYZ;
-      initialLoading[i][5] = plasticity[i].sXZ;
+      initialLoading[0][i] = plasticity[i].sXX;
+      initialLoading[1][i] = plasticity[i].sYY;
+      initialLoading[2][i] = plasticity[i].sZZ;
+      initialLoading[3][i] = plasticity[i].sXY;
+      initialLoading[4][i] = plasticity[i].sYZ;
+      initialLoading[5][i] = plasticity[i].sXZ;
 
     const double angularFriction = std::atan(plasticity[i].bulkFriction);
 
