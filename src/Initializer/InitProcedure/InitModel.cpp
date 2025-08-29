@@ -110,10 +110,10 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   std::array<std::vector<Plasticity>, seissol::multisim::NumSimulations> plasticityDB;
   if (seissolParams.model.plasticity) {
     // plasticity information is only needed on all interior+copy cells.
-      for (size_t i = 0; i < seissol::multisim::NumSimulations; i++) {
-        plasticityDB[i] = queryDB<Plasticity>(
-            queryGen, seissolParams.model.plasticityFileNames[i], meshReader.getElements().size());
-      }
+    for (size_t i = 0; i < seissol::multisim::NumSimulations; i++) {
+      plasticityDB[i] = queryDB<Plasticity>(
+          queryGen, seissolParams.model.plasticityFileNames[i], meshReader.getElements().size());
+    }
   }
 
   // material retrieval for ghost layers
