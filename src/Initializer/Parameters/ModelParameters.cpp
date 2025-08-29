@@ -54,19 +54,11 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const auto boundaryFileName = reader->readPath("boundaryfileName");
   const std::string materialFileName =
       reader->readPathOrFail("materialfilename", "No material file given.");
-  const auto plasticityFileName = reader->readPath("plasticityfilename");
-
   std::vector<std::string> plasticityFileNames(seissol::multisim::NumSimulations);
 
-  if (!plasticityFileName.value_or("").empty()) {
-    plasticityFileNames[0] = plasticityFileName.value();
-  }
-
-  for (std::size_t i = 1; i < plasticityFileNames.size(); ++i) {
-    const auto fieldname = "plasticityfilename" + std::to_string(i);
-    if (reader->hasField(fieldname)) {
-      plasticityFileNames[i] = reader->read<std::string>(fieldname).value();
-    }
+  for (std::size_t i = 0; i < plasticityFileNames.size(); ++i) {
+      const auto fieldname = "plasticityfilename" + (i == 0 ? std::string{} : std::to_string(i));
+      plasticityFileNames[i] = reader->readPath(fieldname).value_or(materialFileName);
   }
 
   const bool hasBoundaryFile = !boundaryFileName.value_or("").empty();
@@ -118,7 +110,6 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          tv,
                          boundaryFileName.value_or(""),
                          materialFileName,
-                         plasticityFileName.value_or(""),
                          plasticityFileNames,
                          itmParameters,
                          flux,

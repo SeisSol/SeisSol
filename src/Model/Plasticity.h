@@ -27,8 +27,8 @@ struct PlasticityData {
 
   PlasticityData(const std::array<Plasticity, seissol::multisim::NumSimulations>& plasticity,
                  const Material* material) {
-    for (std::size_t i = 0; i < seissol::multisim::NumSimulations;
-         ++i) { // interleave these so that the kernel does not need any modifications
+    for (std::size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
+      // interleave these so that the kernel does not need any modifications
       initialLoading[0 * seissol::multisim::NumSimulations + i] = plasticity[i].sXX;
       initialLoading[1 * seissol::multisim::NumSimulations + i] = plasticity[i].sYY;
       initialLoading[2 * seissol::multisim::NumSimulations + i] = plasticity[i].sZZ;

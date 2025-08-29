@@ -15,8 +15,8 @@ UseCellHomogenizedMaterial = 1
 !off-fault plasticity parameters (ignored if Plasticity=0)
 Plasticity=0
 Tv=0.05
-!yaml file defining spatial dependance of properties necessary for plasticity
-PlasticityFileName = 'plasticity.yaml'
+!yaml file defining spatial dependance of properties necessary for plasticity. MaterialFileName is taken for plasticity if this is not provided
+PlasticityFileName = ''
 !Attenuation parameters (ignored if not compiled with attenuation)
 FreqCentral=0.5
 FreqRatio=100

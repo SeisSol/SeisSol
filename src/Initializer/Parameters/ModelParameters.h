@@ -38,7 +38,6 @@ struct ModelParameters {
   double tv;
   std::string boundaryFileName;
   std::string materialFileName;
-  std::string plasticityFileName;
   std::vector<std::string> plasticityFileNames;
   ITMParameters itmParameters;
   NumericalFlux flux;
