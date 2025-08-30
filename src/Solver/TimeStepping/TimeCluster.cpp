@@ -188,9 +188,12 @@ void TimeCluster::computeDynamicRupture(seissol::initializer::Layer& layerData) 
   auto* qInterpolatedPlus = layerData.var(dynRup->qInterpolatedPlus);
   auto* qInterpolatedMinus = layerData.var(dynRup->qInterpolatedMinus);
 
+  const auto timestep = timeStepSize();
+
   const auto [timePoints, timeWeights] =
-      seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timeStepSize());
-  const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timeStepSize());
+      seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timestep);
+
+  const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timestep);
   const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
 #pragma omp parallel
@@ -243,15 +246,17 @@ void TimeCluster::computeDynamicRuptureDevice(seissol::initializer::Layer& layer
   if (layerData.size() > 0) {
     // compute space time interpolation part
 
-    const double stepSizeWidth = timeStepSize();
+    const auto timestep = timeStepSize();
+
     ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
     device.api->putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
-    auto computeGraphKey = initializer::GraphKey(graphType, stepSizeWidth);
+    auto computeGraphKey = initializer::GraphKey(graphType, timestep);
     auto& table = layerData.getConditionalTable<inner_keys::Dr>();
 
     const auto [timePoints, timeWeights] =
-        seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timeStepSize());
-    const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, stepSizeWidth);
+        seissol::quadrature::ShiftedGaussLegendre(ConvergenceOrder, 0, timestep);
+
+    const auto pointsCollocate = seissol::kernels::timeBasis().collocate(timePoints, timestep);
     const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT(timePoints);
 
     streamRuntime.runGraph(

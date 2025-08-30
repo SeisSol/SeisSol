@@ -19,13 +19,18 @@ namespace seissol::dr::friction_law {
 FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<double>& timePoints) {
   std::vector<double> deltaT(misc::TimeSteps);
 
+  if (timePoints.size() != deltaT.size()) {
+    logError() << "Internal time point count mismatch. Given vs. expected:" << timePoints.size()
+               << deltaT.size();
+  }
+
   deltaT[0] = timePoints[0]; // - 0
   for (std::size_t timeIndex = 1; timeIndex < misc::TimeSteps; ++timeIndex) {
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
   }
 
   // use that time points are symmetric to compute dt
-  const auto sumDt = timePoints.back();
+  const auto sumDt = timePoints.back() + timePoints[0];
 
   return {sumDt, deltaT};
 }
