@@ -198,15 +198,15 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] = slipRate2;
   }
 
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx, real time) {
     auto muW{ctx.data->drParameters.muW};
     auto rsF0{ctx.data->drParameters.rsF0};
 
     const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
-    if (localRuptureTime > 0.0 && localRuptureTime <= ctx.fullUpdateTime &&
+    if (localRuptureTime > 0.0 && localRuptureTime <= time &&
         ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
         ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <= (muW + 0.05 * (rsF0 - muW))) {
-      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = ctx.fullUpdateTime;
+      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = time;
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }
