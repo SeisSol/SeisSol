@@ -51,7 +51,7 @@ static constexpr inline size_t NumQuantities =
  * Time integration point count
  */
 
-static constexpr inline uint32_t TimeSteps = ConvergenceOrder;
+static constexpr inline uint32_t TimeSteps = ConvergenceOrder + 1;
 
 /**
  * Constants for Thermal Pressurization
