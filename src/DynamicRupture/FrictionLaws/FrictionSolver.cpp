@@ -17,18 +17,18 @@
 namespace seissol::dr::friction_law {
 
 FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<double>& timePoints) {
-  std::vector<real> deltaT(ConvergenceOrder);
-  real sumDt = 0;
+  std::vector<double> deltaT(ConvergenceOrder);
 
-  deltaT[0] = timePoints[0];
-  sumDt = deltaT[0];
+  deltaT[0] = timePoints[0]; // - 0
   for (std::size_t timeIndex = 1; timeIndex < ConvergenceOrder; ++timeIndex) {
     deltaT[timeIndex] = timePoints[timeIndex] - timePoints[timeIndex - 1];
-    sumDt += deltaT[timeIndex];
   }
-  // to fill last segment of Gaussian integration
+
+  // include the last integration segment (from the last point to dt) into the last timestep
   deltaT[ConvergenceOrder - 1] = deltaT[ConvergenceOrder - 1] + deltaT[0];
-  sumDt += deltaT[0];
+
+  // use that time points are symmetric to compute dt
+  const auto sumDt = timePoints[ConvergenceOrder - 1] + timePoints[0];
 
   return {sumDt, deltaT};
 }

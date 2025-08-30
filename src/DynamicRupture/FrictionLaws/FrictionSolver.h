@@ -34,8 +34,8 @@ class FrictionSolver {
   virtual ~FrictionSolver() = default;
 
   struct FrictionTime {
-    real sumDt;
-    std::vector<real> deltaT;
+    double sumDt;
+    std::vector<double> deltaT;
   };
 
   virtual void evaluate(seissol::initializer::Layer& layerData,
