@@ -16,7 +16,7 @@
 // which, in its turn, is not supposed to know anything about SYCL
 namespace seissol::dr::friction_law::gpu {
 struct FrictionLawData {
-  real deltaT[ConvergenceOrder] = {};
+  real deltaT[misc::TimeSteps] = {};
   real sumDt{};
 
   seissol::initializer::parameters::DRParameters drParameters;
@@ -52,8 +52,8 @@ struct FrictionLawData {
   real (*__restrict dynStressTime)[misc::NumPaddedPoints]{};
   bool (*__restrict dynStressTimePending)[misc::NumPaddedPoints]{};
 
-  const real (*__restrict qInterpolatedPlus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
-  const real (*__restrict qInterpolatedMinus)[ConvergenceOrder][tensor::QInterpolated::size()]{};
+  const real (*__restrict qInterpolatedPlus)[misc::TimeSteps][tensor::QInterpolated::size()]{};
+  const real (*__restrict qInterpolatedMinus)[misc::TimeSteps][tensor::QInterpolated::size()]{};
 
   // LSW
   const real (*__restrict dC)[misc::NumPaddedPoints];

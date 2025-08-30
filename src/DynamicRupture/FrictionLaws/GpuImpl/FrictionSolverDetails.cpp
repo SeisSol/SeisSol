@@ -29,7 +29,7 @@ void FrictionSolverDetails::allocateAuxiliaryMemory() {
 
   {
     devTimeWeights =
-        seissol::memory::allocTyped<double>(ConvergenceOrder, 1, memory::DeviceGlobalMemory);
+        seissol::memory::allocTyped<double>(misc::TimeSteps, 1, memory::DeviceGlobalMemory);
   }
 
   {
