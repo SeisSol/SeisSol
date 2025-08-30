@@ -34,7 +34,7 @@ class BaseFrictionLaw : public FrictionSolver {
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
                 const FrictionTime& frictionTime,
-                const double timeWeights[ConvergenceOrder],
+                const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
     if (layerData.size() == 0) {
       return;
@@ -86,7 +86,7 @@ class BaseFrictionLaw : public FrictionSolver {
       // loop over sub time steps (i.e. quadrature points in time
       real startTime = 0;
       real updateTime = this->mFullUpdateTime;
-      for (std::size_t timeIndex = 0; timeIndex < ConvergenceOrder; timeIndex++) {
+      for (std::size_t timeIndex = 0; timeIndex < misc::TimeSteps; timeIndex++) {
         startTime = updateTime;
         updateTime += this->deltaT[timeIndex];
         for (unsigned i = 0; i < this->drParameters->nucleationCount; ++i) {

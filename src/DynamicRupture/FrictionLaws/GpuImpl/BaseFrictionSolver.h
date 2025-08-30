@@ -94,7 +94,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
 
     real startTime = 0;
     real updateTime = ctx.fullUpdateTime;
-    for (uint32_t timeIndex = 0; timeIndex < ConvergenceOrder; ++timeIndex) {
+    for (uint32_t timeIndex = 0; timeIndex < misc::TimeSteps; ++timeIndex) {
       const real dt = ctx.data->deltaT[timeIndex];
 
       startTime = updateTime;
@@ -171,11 +171,11 @@ class BaseFrictionSolver : public FrictionSolverDetails {
   }
 
   void copyParameters(seissol::parallel::runtime::StreamRuntime& runtime,
-                      const double timeWeights[ConvergenceOrder]) {
+                      const double* timeWeights) {
     device::DeviceInstance::getInstance().api->copyToAsync(
         data, &dataHost, sizeof(FrictionLawData), runtime.stream());
     device::DeviceInstance::getInstance().api->copyToAsync(
-        devTimeWeights, timeWeights, sizeof(double[ConvergenceOrder]), runtime.stream());
+        devTimeWeights, timeWeights, sizeof(double[misc::TimeSteps]), runtime.stream());
   }
 
   void evaluateKernel(seissol::parallel::runtime::StreamRuntime& runtime, real fullUpdateTime);
@@ -184,7 +184,7 @@ class BaseFrictionSolver : public FrictionSolverDetails {
                 const seissol::initializer::DynamicRupture* const dynRup,
                 real fullUpdateTime,
                 const FrictionTime& frictionTime,
-                const double timeWeights[ConvergenceOrder],
+                const double* timeWeights,
                 seissol::parallel::runtime::StreamRuntime& runtime) override {
 
     if (layerData.size() == 0) {

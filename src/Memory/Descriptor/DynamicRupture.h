@@ -81,8 +81,8 @@ struct DynamicRupture {
   Variable<real[dr::misc::NumPaddedPoints]> peakSlipRate;
   Variable<real[dr::misc::NumPaddedPoints]> traction1;
   Variable<real[dr::misc::NumPaddedPoints]> traction2;
-  Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> qInterpolatedPlus;
-  Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> qInterpolatedMinus;
+  Variable<real[dr::misc::TimeSteps][tensor::QInterpolated::size()]> qInterpolatedPlus;
+  Variable<real[dr::misc::TimeSteps][tensor::QInterpolated::size()]> qInterpolatedMinus;
 
   Scratchpad<real> idofsPlusOnDevice;
   Scratchpad<real> idofsMinusOnDevice;
