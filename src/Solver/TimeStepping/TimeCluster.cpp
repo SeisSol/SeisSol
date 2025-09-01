@@ -20,6 +20,7 @@
 #include "generated_code/kernel.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
+#include <Common/Executor.h>
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/Output/OutputManager.h>
 #include <Initializer/BasicTypedefs.h>
@@ -291,9 +292,6 @@ void TimeCluster::computeDynamicRuptureDevice(seissol::initializer::Layer& layer
           dynRup->imposedStateMinus, initializer::AllocationPlace::Device, streamRuntime.stream());
       layerData.varSynchronizeTo(
           dynRup->imposedStatePlus, initializer::AllocationPlace::Device, streamRuntime.stream());
-    } else {
-      frictionSolverDevice->evaluate(
-          layerData, dynRup, ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
     }
 
     // TODO: remove after #1390 has been merged
