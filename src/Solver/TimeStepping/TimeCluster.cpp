@@ -294,9 +294,6 @@ void TimeCluster::computeDynamicRuptureDevice(seissol::initializer::Layer& layer
           dynRup->imposedStatePlus, initializer::AllocationPlace::Device, streamRuntime.stream());
     }
 
-    // TODO: remove after #1390 has been merged
-    streamRuntime.wait();
-
     device.api->popLastProfilingMark();
   }
   loopStatistics->end(regionComputeDynamicRupture, layerData.size(), profilingId);
