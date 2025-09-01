@@ -14,6 +14,7 @@
 #include <Equations/elastic/Model/Datastructures.h>
 #include <Equations/poroelastic/Model/Datastructures.h>
 #include <Equations/viscoelastic2/Model/Datastructures.h>
+#include <Geometry/CellTransform.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
 #include <Kernels/Precision.h>
@@ -137,9 +138,8 @@ easi::Query ElementBarycenterGenerator::generate() const {
 
 ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex)
     : m_cellToVertex(cellToVertex) {
-  double quadraturePoints[NumQuadpoints][3];
-  double quadratureWeights[NumQuadpoints];
-  seissol::quadrature::TetrahedronQuadrature(quadraturePoints, quadratureWeights, ConvergenceOrder);
+  const auto [quadraturePoints, quadratureWeights] =
+      seissol::quadrature::quadrature<3>(ConvergenceOrder);
 
   std::copy(
       std::begin(quadratureWeights), std::end(quadratureWeights), std::begin(m_quadratureWeights));
@@ -152,18 +152,18 @@ ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellTo
 
 easi::Query ElementAverageGenerator::generate() const {
   // Generate query using quadrature points for each element
-  easi::Query query(m_cellToVertex.size * NumQuadpoints, 3);
+  easi::Query query(m_cellToVertex.size * NumQuadpoints, Cell::Dim);
 
 // Transform quadrature points to global coordinates for all elements
-#pragma omp parallel for schedule(static) collapse(2)
+#pragma omp parallel for schedule(static)
   for (unsigned elem = 0; elem < m_cellToVertex.size; ++elem) {
+    auto vertices = m_cellToVertex.elementCoordinates(elem);
+    const auto transform = seissol::geometry::AffineTransform(vertices);
     for (unsigned i = 0; i < NumQuadpoints; ++i) {
-      auto vertices = m_cellToVertex.elementCoordinates(elem);
-      Eigen::Vector3d transformed = seissol::transformations::tetrahedronReferenceToGlobal(
-          vertices[0], vertices[1], vertices[2], vertices[3], m_quadraturePoints[i].data());
-      query.x(elem * NumQuadpoints + i, 0) = transformed(0);
-      query.x(elem * NumQuadpoints + i, 1) = transformed(1);
-      query.x(elem * NumQuadpoints + i, 2) = transformed(2);
+      const auto transformed = transform.refToSpace(m_quadraturePoints[i]);
+      for (std::size_t d = 0; d < Cell::Dim; ++d) {
+        query.x(elem * NumQuadpoints + i, d) = transformed[d];
+      }
       query.group(elem * NumQuadpoints + i) = m_cellToVertex.elementGroups(elem);
     }
   }
@@ -179,8 +179,8 @@ easi::Query FaultBarycenterGenerator::generate() const {
   easi::Query query(m_numberOfPoints * fault.size(), Cell::Dim);
   unsigned q = 0;
   for (const Fault& f : fault) {
-    int element = 0;
-    int side = 0;
+    std::size_t element = 0;
+    std::int8_t side = 0;
     if (f.element >= 0) {
       element = f.element;
       side = f.side;
@@ -189,7 +189,7 @@ easi::Query FaultBarycenterGenerator::generate() const {
       side = f.neighborSide;
     }
 
-    double barycenter[3] = {0.0, 0.0, 0.0};
+    CoordinateT barycenter = {0.0, 0.0, 0.0};
     MeshTools::center(elements[element], side, vertices, barycenter);
     for (unsigned n = 0; n < m_numberOfPoints; ++n, ++q) {
       for (unsigned dim = 0; dim < Cell::Dim; ++dim) {
@@ -214,9 +214,9 @@ easi::Query FaultGPGenerator::generate() const {
   // note: we have one generator per LTS layer
   for (const unsigned faultId : m_faceIDs) {
     const Fault& f = fault.at(faultId);
-    int element = 0;
-    int side = 0;
-    int sideOrientation = 0;
+    std::size_t element = 0;
+    std::int8_t side = 0;
+    std::int8_t sideOrientation = 0;
     if (f.element >= 0) {
       element = f.element;
       side = f.side;
@@ -228,10 +228,12 @@ easi::Query FaultGPGenerator::generate() const {
     }
 
     auto coords = cellToVertex.elementCoordinates(element);
+    const auto transform = seissol::geometry::AffineTransform(coords);
     for (unsigned n = 0; n < NumPoints; ++n, ++q) {
-      double xiEtaZeta[3];
-      double localPoints[2] = {seissol::multisim::multisimTranspose(pointsView, n, 0),
-                               seissol::multisim::multisimTranspose(pointsView, n, 1)};
+      std::array<double, Cell::Dim> xiEtaZeta{};
+      auto localPoints =
+          std::array<double, 2>{seissol::multisim::multisimTranspose(pointsView, n, 0),
+                                seissol::multisim::multisimTranspose(pointsView, n, 1)};
       // padded points are in the middle of the tetrahedron
       if (n >= dr::misc::NumBoundaryGaussPoints) {
         localPoints[0] = 1.0 / 3.0;
@@ -239,10 +241,9 @@ easi::Query FaultGPGenerator::generate() const {
       }
 
       seissol::transformations::chiTau2XiEtaZeta(side, localPoints, xiEtaZeta, sideOrientation);
-      Eigen::Vector3d xyz = seissol::transformations::tetrahedronReferenceToGlobal(
-          coords[0], coords[1], coords[2], coords[3], xiEtaZeta);
-      for (unsigned dim = 0; dim < 3; ++dim) {
-        query.x(q, dim) = xyz(dim);
+      const auto xyz = transform.refToSpace(xiEtaZeta);
+      for (unsigned dim = 0; dim < Cell::Dim; ++dim) {
+        query.x(q, dim) = xyz[dim];
       }
       query.group(q) = elements[element].faultTags[side];
     }

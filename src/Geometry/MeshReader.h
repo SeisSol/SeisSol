@@ -29,8 +29,8 @@ namespace seissol::geometry {
 struct GhostElementMetadata {
   double vertices[Cell::NumVertices][Cell::Dim];
   int group;
-  LocalElemId localId;
-  GlobalElemId globalId;
+  size_t localId;
+  size_t globalId;
   int clusterId;
   double timestep;
 };
@@ -92,7 +92,7 @@ class MeshReader {
   /**
    * Reconstruct the fault information from the boundary conditions
    */
-  void extractFaultInformation(const VrtxCoords& refPoint,
+  void extractFaultInformation(const CoordinateT& refPoint,
                                seissol::initializer::parameters::RefPointMethod refPointMethod);
 
   void exchangeGhostlayerMetadata();

@@ -79,8 +79,8 @@ MeshRefiner<T>::MeshRefiner(const seissol::geometry::MeshReader& meshReader,
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
-  for (unsigned int i = 0; i < kInVertexCount; i++) {
-    memcpy(&m_vertices[i * 3], kVertices[i].coords, sizeof(double) * 3);
+  for (std::size_t i = 0; i < kInVertexCount; i++) {
+    memcpy(&m_vertices[i * 3], kVertices[i].coords.data(), sizeof(double) * 3);
   }
 
   // The pointer to the new vertices
@@ -91,8 +91,8 @@ MeshRefiner<T>::MeshRefiner(const seissol::geometry::MeshReader& meshReader,
 #pragma omp parallel
   {
 #endif // _OPENMPI
-    Eigen::Matrix<T, 3, 1>* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
-    Tetrahedron<T>* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
+    auto* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
+    auto* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
 #ifdef _OPENMP
 #pragma omp for schedule(static) nowait
@@ -161,8 +161,8 @@ MeshRefiner<T>::MeshRefiner(const std::vector<const Element*>& subElements,
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif // _OPENMP
-  for (unsigned int i = 0; i < kInVertexCount; i++) {
-    memcpy(&m_vertices[i * 3], kVertices[i]->coords, sizeof(double) * 3);
+  for (std::size_t i = 0; i < kInVertexCount; i++) {
+    memcpy(&m_vertices[i * 3], kVertices[i]->coords.data(), sizeof(double) * 3);
   }
 
   // The pointer to the new vertices
@@ -173,8 +173,8 @@ MeshRefiner<T>::MeshRefiner(const std::vector<const Element*>& subElements,
 #pragma omp parallel shared(oldToNewVertexMap)
   {
 #endif // _OPENMPI
-    Eigen::Matrix<T, 3, 1>* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
-    Tetrahedron<T>* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
+    auto* newVerticesTmp = new Eigen::Matrix<T, 3, 1>[additionalVertices];
+    auto* newTetsTmp = new Tetrahedron<T>[kSubCellsPerCell];
 
 #ifdef _OPENMP
 #pragma omp for schedule(static) nowait

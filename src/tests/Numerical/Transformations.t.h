@@ -31,7 +31,7 @@ TEST_CASE("Test tetrahedron global to reference") {
   const auto center = 0.25 * (vertices[0] + vertices[1] + vertices[2] + vertices[3]);
 
   const auto res = seissol::transformations::tetrahedronGlobalToReference(
-      vertices[0].data(), vertices[1].data(), vertices[2].data(), vertices[3].data(), center);
+      vertices[0], vertices[1], vertices[2], vertices[3], center);
   REQUIRE(res(0) == AbsApprox(0.25).epsilon(Epsilon));
   REQUIRE(res(1) == AbsApprox(0.25).epsilon(Epsilon));
   REQUIRE(res(2) == AbsApprox(0.25).epsilon(Epsilon));
