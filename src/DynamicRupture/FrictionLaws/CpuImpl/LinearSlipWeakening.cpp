@@ -26,7 +26,7 @@ void NoSpecialization::resampleSlipRate(
   resampleKrnl.resampledQ = resampledSlipRate;
   resampleKrnl.execute();
 }
-void BiMaterialFault::copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
+void BiMaterialFault::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   regularizedStrength = layerData.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>();
 }
 

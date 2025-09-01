@@ -16,9 +16,6 @@
 // which, in its turn, is not supposed to know anything about SYCL
 namespace seissol::dr::friction_law::gpu {
 struct FrictionLawData {
-  real deltaT[ConvergenceOrder] = {};
-  real sumDt{};
-
   seissol::initializer::parameters::DRParameters drParameters;
 
   const ImpedancesAndEta* __restrict impAndEta{};
@@ -93,15 +90,11 @@ class FrictionSolverInterface : public seissol::dr::friction_law::FrictionSolver
       : seissol::dr::friction_law::FrictionSolver(drParameters) {}
   ~FrictionSolverInterface() override = default;
 
-  virtual void allocateAuxiliaryMemory() = 0;
-
   seissol::initializer::AllocationPlace allocationPlace() override {
     return seissol::initializer::AllocationPlace::Device;
   }
 
-  static void copyStorageToLocal(FrictionLawData* data,
-                                 DynamicRupture::Layer& layerData,
-                                 real fullUpdateTime) {
+  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
     const seissol::initializer::AllocationPlace place =
         seissol::initializer::AllocationPlace::Device;
     data->impAndEta = layerData.var<DynamicRupture::ImpAndEta>(place);

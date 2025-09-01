@@ -159,6 +159,21 @@ struct GlobalData {
 
   real* selectAne{nullptr};
   real* selectEla{nullptr};
+
+  // tensor::resample
+  real* resampleMatrix{nullptr};
+
+  // tensor::quadweights
+  real* spaceWeights{nullptr};
+
+  // dr::friction_law::tp::InverseFourierCoefficients
+  real* tpInverseFourierCoefficients{nullptr};
+
+  // dr::friction_law::tp::GridPoints
+  real* tpGridPoints{nullptr};
+
+  // dr::friction_law::tp::GaussianHeatSource
+  real* heatSource{nullptr};
 };
 
 struct CompoundGlobalData {

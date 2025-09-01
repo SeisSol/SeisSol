@@ -20,13 +20,10 @@ class FastVelocityWeakeningLaw
   public:
   using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  static void copyStorageToLocal(FrictionLawData* data,
-                                 DynamicRupture::Layer& layerData,
-                                 real fullUpdateTime) {}
+  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
 
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
-                                             DynamicRupture::Layer& layerData,
-                                             real fullUpdateTime) {
+                                             DynamicRupture::Layer& layerData) {
     data->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(
         seissol::initializer::AllocationPlace::Device);
   }
@@ -101,11 +98,11 @@ class FastVelocityWeakeningLaw
     real resampledDeltaStateVar{0.0};
     for (size_t i{0}; i < Dim1; ++i) {
       if constexpr (multisim::MultisimEnabled) {
-        resampledDeltaStateVar += ctx.resampleMatrix[simPointIndex * Dim1 + i] *
+        resampledDeltaStateVar += ctx.args->resampleMatrix[simPointIndex * Dim1 + i] *
                                   ctx.sharedMemory[i * multisim::NumSimulations + simId];
       } else {
         resampledDeltaStateVar +=
-            ctx.resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
+            ctx.args->resampleMatrix[simPointIndex + i * Dim0] * ctx.sharedMemory[i];
       }
     }
 
