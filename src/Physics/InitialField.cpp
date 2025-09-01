@@ -180,8 +180,8 @@ seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
     : rho0(materialData.local.rho),
       c0(sqrt(materialData.local.getLambdaBar() / materialData.local.rho)),
       k(acousticTravellingWaveParametersItm.k),
-      tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime), tITMPlus(tITMMinus + tau),
-      tau(acousticTravellingWaveParametersItm.itmDuration),
+      tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime),
+      tau(acousticTravellingWaveParametersItm.itmDuration), tITMPlus(tITMMinus + tau),
       n(acousticTravellingWaveParametersItm.itmVelocityScalingFactor) {
   logInfo() << "Starting Test for Acoustic Travelling Wave with ITM";
 
