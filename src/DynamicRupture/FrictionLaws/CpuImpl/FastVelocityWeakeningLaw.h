@@ -25,8 +25,7 @@ class FastVelocityWeakeningLaw
    * Copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime) {
+                          const seissol::initializer::DynamicRupture* dynRup) {
     const auto* concreteLts =
         dynamic_cast<const seissol::initializer::LTSRateAndStateFastVelocityWeakening*>(dynRup);
 
