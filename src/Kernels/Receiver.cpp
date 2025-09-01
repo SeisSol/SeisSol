@@ -184,7 +184,7 @@ double ReceiverCluster::calcReceivers(double time,
 
       double receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
-        const auto coeffs = timeBasis.point(time - expansionPoint, timeStepWidth);
+        const auto coeffs = timeBasis.point(receiverTime - expansionPoint, timeStepWidth);
 
         timeKernel.evaluate(coeffs.data(), timeDerivatives, timeEvaluated);
 
