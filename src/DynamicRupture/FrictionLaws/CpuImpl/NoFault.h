@@ -19,8 +19,7 @@ class NoFault : public BaseFrictionLaw<NoFault> {
   using BaseFrictionLaw::BaseFrictionLaw;
 
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup,
-                          real fullUpdateTime) {}
+                          const seissol::initializer::DynamicRupture* const dynRup) {}
 
   static void updateFrictionAndSlip(const FaultStresses<Executor::Host>& faultStresses,
                                     TractionResults<Executor::Host>& tractionResults,
