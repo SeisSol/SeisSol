@@ -860,11 +860,6 @@ void seissol::initializer::MemoryManager::initFrictionData() {
 
     m_DRInitializer->initializeFault(drStorage);
 
-#ifdef ACL_DEVICE
-    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
-      impl->allocateAuxiliaryMemory();
-    }
-#endif // ACL_DEVICE
   }
 }
 

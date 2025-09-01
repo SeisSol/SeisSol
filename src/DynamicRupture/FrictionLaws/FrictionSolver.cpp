@@ -33,7 +33,7 @@ FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<dou
   return {sumDt, deltaT};
 }
 
-void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime) {
+void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   const seissol::initializer::AllocationPlace place = allocationPlace();
   impAndEta = layerData.var<DynamicRupture::ImpAndEta>(place);
   impedanceMatrices = layerData.var<DynamicRupture::ImpedanceMatrices>(place);
@@ -55,7 +55,6 @@ void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData, real f
   imposedStateMinus = layerData.var<DynamicRupture::ImposedStateMinus>(place);
   energyData = layerData.var<DynamicRupture::DREnergyOutputVar>(place);
   godunovData = layerData.var<DynamicRupture::GodunovData>(place);
-  mFullUpdateTime = fullUpdateTime;
   dynStressTime = layerData.var<DynamicRupture::DynStressTime>(place);
   dynStressTimePending = layerData.var<DynamicRupture::DynStressTimePending>(place);
   qInterpolatedPlus = layerData.var<DynamicRupture::QInterpolatedPlus>(place);

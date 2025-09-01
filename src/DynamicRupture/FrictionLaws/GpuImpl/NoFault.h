@@ -19,8 +19,7 @@ class NoFault : public BaseFrictionSolver<NoFault> {
       : BaseFrictionSolver<NoFault>(drParameters) {}
 
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
-                                             DynamicRupture::Layer& layerData,
-                                             real fullUpdateTime) {}
+                                             DynamicRupture::Layer& layerData) {}
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {
     // calculate traction

@@ -38,8 +38,10 @@ class FrictionSolver {
     std::vector<real> deltaT;
   };
 
-  virtual void evaluate(DynamicRupture::Layer& layerData,
-                        real fullUpdateTime,
+  virtual void setupLayer(DynamicRupture::Layer& layerData,
+                          seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+
+  virtual void evaluate(real fullUpdateTime,
                         const FrictionTime& frictionTime,
                         const double timeWeights[ConvergenceOrder],
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
@@ -53,9 +55,13 @@ class FrictionSolver {
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
-  void copyStorageToLocal(DynamicRupture::Layer& layerData, real fullUpdateTime);
+  void copyStorageToLocal(DynamicRupture::Layer& layerData);
+
+  virtual void allocateAuxiliaryMemory(GlobalData* globalData) {}
 
   virtual seissol::initializer::AllocationPlace allocationPlace();
+
+  virtual std::unique_ptr<FrictionSolver> clone() = 0;
 
   protected:
   /**

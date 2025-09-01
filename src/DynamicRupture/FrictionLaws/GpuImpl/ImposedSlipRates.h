@@ -20,19 +20,18 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
   using BaseFrictionSolver<ImposedSlipRates>::BaseFrictionSolver;
 
   static void copySpecificStorageDataToLocal(FrictionLawData* data,
-                                             DynamicRupture::Layer& layerData,
-                                             real fullUpdateTime) {
+                                             DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
     data->imposedSlipDirection1 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(place);
     data->imposedSlipDirection2 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(place);
-    STF::copyStorageToLocal(data, layerData, fullUpdateTime);
+    STF::copyStorageToLocal(data, layerData);
   }
 
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {
-    const real timeIncrement = ctx.data->deltaT[timeIndex];
-    real currentTime = ctx.fullUpdateTime;
+    const real timeIncrement = ctx.args->deltaT[timeIndex];
+    real currentTime = ctx.args->fullUpdateTime;
     for (uint32_t i = 0; i <= timeIndex; i++) {
-      currentTime += ctx.data->deltaT[i];
+      currentTime += ctx.args->deltaT[i];
     }
 
     const auto stfEvaluated = STF::evaluateSTF(ctx, currentTime, timeIncrement);
