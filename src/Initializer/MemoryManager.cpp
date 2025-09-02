@@ -34,7 +34,7 @@
 
 #include "Common/Iterator.h"
 
-#include "generated_code/tensor.h"
+#include "GeneratedCode/tensor.h"
 
 #ifdef ACL_DEVICE
 #include "BatchRecorders/Recorders.h"
@@ -837,11 +837,6 @@ void seissol::initializer::MemoryManager::initFrictionData() {
 
     m_DRInitializer->initializeFault(m_dynRup.get(), &m_dynRupTree);
 
-#ifdef ACL_DEVICE
-    if (auto* impl = dynamic_cast<dr::friction_law::gpu::FrictionSolverInterface*>(m_FrictionLawDevice.get())) {
-      impl->allocateAuxiliaryMemory();
-    }
-#endif // ACL_DEVICE
   }
 }
 

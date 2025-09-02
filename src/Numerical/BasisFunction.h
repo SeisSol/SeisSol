@@ -9,7 +9,7 @@
 #ifndef SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
 #define SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_
 
-#include "generated_code/init.h"
+#include "GeneratedCode/init.h"
 #include <Common/Constants.h>
 #include <cmath>
 #include <numeric>

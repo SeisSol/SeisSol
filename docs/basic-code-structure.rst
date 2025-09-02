@@ -19,6 +19,7 @@ Common        Routines which are used in several parts of the code, or are gener
 Equations     Model-specific code.
 Geometry      Everything related to reading tetrahedral meshes and setting up geometry information.
 Initializer   Code that is called during initialization, e.g. allocating memory, setting up matrices, parsing material information.
+IO            Contains the new IO module code. (used for high-order output and checkpointing as of now)
 Kernels       Common kernel code.
 Model         Common model code.
 Modules       Modules system implementation which allows adding code at pre-defined hooks.
@@ -33,15 +34,25 @@ SourceTerm    Everything related to kinematic rupture models.
 tests         Unit tests.
 ============= =============
 
-auto_tuning/
+codegen/
 ------------
 
 ============= =============
 Folder        Description
 ============= =============
 config        Sparsity configurations for SeisSol.
-proxy         The code directory for SeisSol Proxy. Compiled when compiling SeisSol.
-scripts       Wrapper scripts for the SeisSol Proxy.
+kernels       Kernel definitions for Yateto-generated kernels in SeisSol.
+matrices      Hard-coded matrix definitions for the Yateto-generated kernels in SeisSol.
+============= =============
+
+app/
+------------
+
+============= =============
+Folder        Description
+============= =============
+Proxy         Code for the SeisSol Proxy executable. Compiled when compiling SeisSol.
+Main          Code for the main SeisSol executable.
 ============= =============
 
 preprocessing/

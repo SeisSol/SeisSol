@@ -12,6 +12,7 @@
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
@@ -30,7 +31,6 @@
 #include <cassert>
 #include <cstddef>
 #include <functional>
-#include <init.h>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -38,11 +38,11 @@
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
+#include "GeneratedCode/tensor.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
 #include <Memory/Tree/Layer.h>
 #include <memory>
-#include <tensor.h>
 #endif
 
 namespace seissol::dr::output {
