@@ -31,6 +31,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <mpi.h>
@@ -99,7 +100,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   std::vector<AbstractTimeCluster*> cellClusterBackmap(
       memoryManager.getLtsStorage().getColorMap().size());
 
-  const auto deltaId = [&](const auto& id, HaloType halo, ssize_t offset) {
+  const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
     auto cloned = id;
     cloned.halo = halo;
     cloned.lts += offset;

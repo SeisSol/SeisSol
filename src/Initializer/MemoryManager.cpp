@@ -361,7 +361,6 @@ void MemoryManager::initFrictionData() {
   if (params.isDynamicRuptureEnabled) {
 
     m_DRInitializer->initializeFault(drStorage);
-
   }
 }
 
