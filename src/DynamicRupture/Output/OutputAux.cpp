@@ -9,6 +9,7 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
+#include "GeneratedCode/init.h"
 #include "Geometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
@@ -20,7 +21,7 @@
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cstddef>
-#include <init.h>
+#include <cstdint>
 #include <limits>
 #include <tuple>
 #include <utility>
@@ -246,13 +247,13 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords pointCoords,
 std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints) {
   std::vector<double> vertices(3 * (3 * receiverPoints.size()), 0.0);
 
-  for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
-    for (int vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
+  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+    for (std::uint32_t vertexIndex{0}; vertexIndex < ExtTriangle::size(); ++vertexIndex) {
       const auto& triangle = receiverPoints[pointIndex].globalTriangle;
       const auto& point = triangle.point(vertexIndex);
 
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
-      for (int coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
+      for (std::uint32_t coordIndex{0}; coordIndex < ExtVrtxCoords::size(); ++coordIndex) {
         vertices[3 * globalVertexIndex + coordIndex] = point[coordIndex];
       }
     }
@@ -263,7 +264,7 @@ std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPo
 std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints) {
   std::vector<unsigned int> cells(3 * receiverPoints.size());
 
-  for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
     for (int vertexIndex{0}; vertexIndex < 3; ++vertexIndex) {
       const size_t globalVertexIndex = 3 * pointIndex + vertexIndex;
       cells[globalVertexIndex] = globalVertexIndex;
@@ -274,7 +275,7 @@ std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints&
 std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints) {
   std::vector<unsigned int> faultTags(receiverPoints.size());
 
-  for (size_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
+  for (uint32_t pointIndex{0}; pointIndex < receiverPoints.size(); ++pointIndex) {
     faultTags[pointIndex] = receiverPoints[pointIndex].faultTag;
   }
   return faultTags;

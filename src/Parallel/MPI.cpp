@@ -18,6 +18,7 @@
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
+#include <device.h>
 #endif
 
 void seissol::MPI::init(int& argc, char**& argv) {
@@ -68,6 +69,13 @@ void seissol::MPI::printAcceleratorDeviceInfo() {
 #ifdef ACL_DEVICE
   auto& instance = seissol::AcceleratorDevice::getInstance();
   instance.printInfo();
+
+  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  const auto pci = device.api->getPciAddress(0);
+  const auto pcisNode = collectContainer(pci, m_sharedMemComm);
+  pcis = collectContainer(pci);
+  logInfo() << "Device PCI address (rank=0): " << pci;
+  logInfo() << "Device PCI addresses (node of rank=0):" << pcisNode;
 #endif
 }
 

@@ -9,6 +9,9 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -20,8 +23,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Memory/Tree/Lut.h"
 #include "Numerical/BasisFunction.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
 #include <Alignment.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
@@ -31,7 +32,6 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <init.h>
 #include <memory>
 #include <vector>
 

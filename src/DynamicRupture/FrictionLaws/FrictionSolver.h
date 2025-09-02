@@ -11,6 +11,7 @@
 #include "DynamicRupture/Misc.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
+#include <vector>
 
 namespace seissol::dr::friction_law {
 /**
@@ -24,15 +25,25 @@ class FrictionSolver {
   // Note: FrictionSolver must be trivially copyable. It is important for GPU offloading
   explicit FrictionSolver(seissol::initializer::parameters::DRParameters* userDRParameters)
       : drParameters(userDRParameters) {
-    std::copy(&init::quadweights::Values[init::quadweights::Start[0]],
-              &init::quadweights::Values[init::quadweights::Stop[0]],
+    std::copy(&init::quadweights::Values
+                  [init::quadweights::Start[seissol::multisim::BasisFunctionDimension]],
+              &init::quadweights::Values
+                  [init::quadweights::Stop[seissol::multisim::BasisFunctionDimension]],
               &spaceWeights[0]);
   }
   virtual ~FrictionSolver() = default;
 
-  virtual void evaluate(seissol::initializer::Layer& layerData,
-                        const seissol::initializer::DynamicRupture* dynRup,
-                        real fullUpdateTime,
+  struct FrictionTime {
+    real sumDt;
+    std::vector<real> deltaT;
+  };
+
+  virtual void setupLayer(seissol::initializer::Layer& layerData,
+                          const seissol::initializer::DynamicRupture* dynRup,
+                          seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+
+  virtual void evaluate(real fullUpdateTime,
+                        const FrictionTime& frictionTime,
                         const double timeWeights[ConvergenceOrder],
                         seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
@@ -40,16 +51,19 @@ class FrictionSolver {
    * compute the DeltaT from the current timePoints call this function before evaluate
    * to set the correct DeltaT
    */
-  void computeDeltaT(const double timePoints[ConvergenceOrder]);
+  static FrictionTime computeDeltaT(const std::vector<double>& timePoints);
 
   /**
    * copies all common parameters from the DynamicRupture LTS to the local attributes
    */
   void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* dynRup,
-                          real fullUpdateTime);
+                          const seissol::initializer::DynamicRupture* dynRup);
+
+  virtual void allocateAuxiliaryMemory(GlobalData* globalData) {}
 
   virtual seissol::initializer::AllocationPlace allocationPlace();
+
+  virtual std::unique_ptr<FrictionSolver> clone() = 0;
 
   protected:
   /**

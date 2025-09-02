@@ -35,8 +35,7 @@ class SevereVelocityWeakeningLaw
   static void
       copySpecificLtsDataTreeToLocal(FrictionLawData* data,
                                      seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup,
-                                     real fullUpdateTime) {}
+                                     const seissol::initializer::DynamicRupture* const dynRup) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& ctx, double timeIncrement) {
@@ -85,7 +84,7 @@ class SevereVelocityWeakeningLaw
   }
 
   SEISSOL_DEVICE static double
-      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, MuDetails& details) {
+      updateMu(FrictionLawContext& ctx, double localSlipRateMagnitude, const MuDetails& details) {
     return ctx.data->drParameters.rsF0 +
            details.a * localSlipRateMagnitude /
                (localSlipRateMagnitude + ctx.data->drParameters.rsSr0) -
@@ -94,7 +93,7 @@ class SevereVelocityWeakeningLaw
 
   SEISSOL_DEVICE static double updateMuDerivative(FrictionLawContext& ctx,
                                                   double localSlipRateMagnitude,
-                                                  MuDetails& details) {
+                                                  const MuDetails& details) {
     // note that: d/dx (x/(x+c)) = ((x+c)-x)/(x+c)**2 = c/(x+c)**2
     const double divisor = (localSlipRateMagnitude + ctx.data->drParameters.rsSr0);
     return details.a * ctx.data->drParameters.rsSr0 / (divisor * divisor);

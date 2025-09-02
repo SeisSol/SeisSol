@@ -15,9 +15,9 @@
 #include "CellLocalInformation.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/tensor.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
-#include "generated_code/tensor.h"
 #include <Eigen/Dense>
 #include <complex>
 #include <cstddef>
@@ -241,6 +241,21 @@ struct GlobalData {
 
   real* selectAne{nullptr};
   real* selectEla{nullptr};
+
+  // tensor::resample
+  real* resampleMatrix{nullptr};
+
+  // tensor::quadweights
+  real* spaceWeights{nullptr};
+
+  // dr::friction_law::tp::InverseFourierCoefficients
+  real* tpInverseFourierCoefficients{nullptr};
+
+  // dr::friction_law::tp::GridPoints
+  real* tpGridPoints{nullptr};
+
+  // dr::friction_law::tp::GaussianHeatSource
+  real* heatSource{nullptr};
 };
 
 struct CompoundGlobalData {

@@ -10,12 +10,12 @@
 #define SEISSOL_SRC_MEMORY_DESCRIPTOR_LTS_H_
 
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
-#include "generated_code/tensor.h"
 #include <Equations/Datastructures.h>
 #include <Initializer/CellLocalInformation.h>
 #include <Parallel/Helper.h>
@@ -105,7 +105,6 @@ struct LTS {
   Variable<real[tensor::QStress::size() + tensor::QEtaModal::size()]> pstrain;
   Variable<real* [Cell::NumFaces]> faceDisplacements;
   Bucket<real> buffersDerivatives;
-  Bucket<real> faceDisplacementsBuffer;
 
   Variable<real*> buffersDevice;
   Variable<real*> derivativesDevice;
@@ -189,10 +188,6 @@ struct LTS {
              PagesizeHeap,
              allocationModeWP(AllocationPreset::Timebucket),
              true);
-    tree.add(faceDisplacementsBuffer,
-             LayerMask(),
-             PagesizeHeap,
-             allocationModeWP(AllocationPreset::Timedofs));
 
     tree.add(buffersDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
     tree.add(derivativesDevice, LayerMask(), 1, AllocationMode::HostOnly, true);
