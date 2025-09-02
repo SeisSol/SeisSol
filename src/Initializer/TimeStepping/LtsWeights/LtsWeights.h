@@ -24,7 +24,7 @@ class SeisSol;
 namespace initializer::time_stepping {
 struct LtsWeightsConfig {
   seissol::initializer::parameters::BoundaryFormat boundaryFormat;
-  unsigned rate{};
+  std::vector<uint64_t> rate;
   int vertexWeightElement{};
   int vertexWeightDynamicRupture{};
   int vertexWeightFreeSurfaceWithGravity{};
@@ -32,13 +32,13 @@ struct LtsWeightsConfig {
 
 double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
                                     const std::vector<int>& cellCosts,
-                                    unsigned int rate,
+                                    const std::vector<uint64_t>& rate,
                                     double wiggleFactor,
                                     double minimalTimestep);
 
 double computeGlobalCostOfClustering(const std::vector<int>& clusterIds,
                                      const std::vector<int>& cellCosts,
-                                     unsigned int rate,
+                                     const std::vector<uint64_t>& rate,
                                      double wiggleFactor,
                                      double minimalTimestep,
                                      MPI_Comm comm);
@@ -47,10 +47,12 @@ std::vector<int> enforceMaxClusterId(const std::vector<int>& clusterIds, int max
 
 int computeMaxClusterIdAfterAutoMerge(const std::vector<int>& clusterIds,
                                       const std::vector<int>& cellCosts,
-                                      unsigned int rate,
+                                      const std::vector<uint64_t>& rate,
                                       double maximalAdmissibleCost,
                                       double wiggleFactor,
                                       double minimalTimestep);
+
+std::uint64_t ratepow(const std::vector<std::uint64_t>& rate, std::uint64_t a, std::uint64_t b);
 
 class LtsWeights {
   public:
@@ -73,7 +75,10 @@ class LtsWeights {
   seissol::initializer::GlobalTimestep m_details;
 
   seissol::initializer::GlobalTimestep collectGlobalTimeStepDetails();
-  int getCluster(double timestep, double globalMinTimestep, double wiggleFactor, unsigned rate);
+  std::uint64_t getCluster(double timestep,
+                           double globalMinTimestep,
+                           double wiggleFactor,
+                           const std::vector<uint64_t>& rate);
   FaceType getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face);
   std::vector<int> computeClusterIds(double curWiggleFactor);
   // returns number of reductions for maximum difference
@@ -82,13 +87,11 @@ class LtsWeights {
   int enforceMaximumDifferenceLocal(int maxDifference = 1);
   std::vector<int> computeCostsPerTimestep();
 
-  static int ipow(int x, int y);
-
   virtual void setVertexWeights() = 0;
   virtual void setAllowedImbalances() = 0;
   virtual int evaluateNumberOfConstraints() = 0;
 
-  unsigned m_rate{};
+  std::vector<uint64_t> m_rate;
   std::vector<int> m_vertexWeights;
   std::vector<double> m_imbalances;
   std::vector<int> m_cellCosts;

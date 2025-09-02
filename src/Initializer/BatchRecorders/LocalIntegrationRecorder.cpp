@@ -5,19 +5,20 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Interface.h"
 #include "Recorders.h"
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalKey.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Kernels/Precision.h>
+#include <Kernels/Solver.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <init.h>
-#include <tensor.h>
 #include <vector>
 #include <yateto.h>
 
@@ -132,7 +133,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
 
       } else {
         dQPtrs[cell] = &derivativesScratch[derivativesAddressCounter];
-        derivativesAddressCounter += yateto::computeFamilySize<tensor::dQ>();
+        derivativesAddressCounter += seissol::kernels::Solver::DerivativesSize;
       }
     }
     // just to be sure that we took all branches while filling in idofsPtrs vector

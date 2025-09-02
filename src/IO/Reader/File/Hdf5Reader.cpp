@@ -107,7 +107,7 @@ std::size_t Hdf5Reader::dataCount(const std::string& name) {
   MPI_Comm_size(comm, &mpisize);
   MPI_Comm_rank(comm, &mpirank);
 
-  return dims[0] / mpisize + ((dims[0] % mpisize) > mpirank ? 1 : 0);
+  return dims[0] / mpisize + ((dims[0] % mpisize) > static_cast<std::size_t>(mpirank) ? 1 : 0);
 }
 void Hdf5Reader::readDataRaw(void* data,
                              const std::string& name,
