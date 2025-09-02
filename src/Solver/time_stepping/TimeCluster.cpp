@@ -664,18 +664,18 @@ const real m2 = 1;
         real s23 = syzNodal[q];
         real s31 = szxNodal[q];
 
-        FInterpolatedBody[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s11, m2);
-        FInterpolatedBody[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s22, m2);
-        FInterpolatedBody[timeInterval][2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s33, m2);
-        FInterpolatedBody[timeInterval][3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s12, m2);
-        FInterpolatedBody[timeInterval][4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s23, m2);
-        FInterpolatedBody[timeInterval][5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s31, m2);
-        FInterpolatedBody[timeInterval][11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s11, m2);
-        FInterpolatedBody[timeInterval][12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s22, m2);
-        FInterpolatedBody[timeInterval][13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s33, m2);
-        FInterpolatedBody[timeInterval][14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s12, m2);
-        FInterpolatedBody[timeInterval][15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s23, m2);
-        FInterpolatedBody[timeInterval][16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s31, m2);
+        FInterpolatedBody[timeInterval][0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+        FInterpolatedBody[timeInterval][1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+        FInterpolatedBody[timeInterval][2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+        FInterpolatedBody[timeInterval][3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+        FInterpolatedBody[timeInterval][4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+        FInterpolatedBody[timeInterval][5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+        FInterpolatedBody[timeInterval][11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =0.0;
+        FInterpolatedBody[timeInterval][12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =0.0;
+        FInterpolatedBody[timeInterval][13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =0.0;
+        FInterpolatedBody[timeInterval][14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =0.0;
+        FInterpolatedBody[timeInterval][15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =0.0;
+        FInterpolatedBody[timeInterval][16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =0.0;
 
         if (xi + data.material.local.xi0 > 0) {
           if (alpha_ave < 1.0 ){

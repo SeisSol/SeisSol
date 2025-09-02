@@ -429,18 +429,18 @@ void seissol::kernels::Time::computeAder(double i_timeStepWidth,
     real s31 = szxNodal[q];
 
 
-    fNodalData[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s11, m2);
-    fNodalData[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s22, m2);
-    fNodalData[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s33, m2);
-    fNodalData[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s12, m2);
-    fNodalData[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s23, m2);
-    fNodalData[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = -Cplas*std::pow(s31, m2);
-    fNodalData[11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s11, m2);
-    fNodalData[12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s22, m2);
-    fNodalData[13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s33, m2);
-    fNodalData[14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s12, m2);
-    fNodalData[15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s23, m2);
-    fNodalData[16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = Cplas*std::pow(s31, m2);
+    fNodalData[0*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+    fNodalData[1*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+    fNodalData[2*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+    fNodalData[3*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+    fNodalData[4*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+    fNodalData[5*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] = 0.0;
+    fNodalData[11*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =0.0;
+    fNodalData[12*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =0.0;
+    fNodalData[13*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =0.0;
+    fNodalData[14*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =0.0;
+    fNodalData[15*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =0.0;
+    fNodalData[16*NUMBER_OF_ALIGNED_BASIS_FUNCTIONS + q] =0.0;
 
     if (xi + data.material.local.xi0 > 0) {
       if (alpha_ave < 1.0){
