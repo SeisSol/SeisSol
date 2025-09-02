@@ -233,7 +233,10 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
   // tmp0 = 1.0 * A x B
   // D = 1.0 * C x tmp0 + 1.0 * D
 
-  constexpr int Count = 4 * 9 * 9;
+  constexpr int Quantities = 9;
+  constexpr int Faces = 4;
+
+  constexpr int Count = Faces * Quantities * Quantities;
   constexpr int CountH = Count / 64;
   constexpr int CountR = Count % 64;
 
@@ -255,15 +258,15 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
     const bool has3 = (flags[batchId] & 4) != 0;
     const bool has4 = (flags[batchId] & 8) != 0;
 
-    float reg0[4][9]{};
-    float reg1[9]{};
+    float reg0[Faces][Quantities]{};
+    float reg1[Quantities]{};
 
     float* shrmem0 = &total_shrmem0[(576 + Count) * threadIdx.y];
 
     // writing to shr mem: from reg0 to _1
     float* __restrict__ _1 = &shrmem0[0];
 #pragma unroll
-    for (int i = 0; i < 9; ++i) {
+    for (int i = 0; i < Quantities; ++i) {
       _1[tid_x + i * 64] = __builtin_nontemporal_load(&glbA[tid_x + i * 64]);
     }
 
@@ -280,7 +283,7 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
     }
 
 #pragma unroll
-    for (int n = 0; n < 9; ++n) {
+    for (int n = 0; n < Quantities; ++n) {
       reg1[n] = __builtin_nontemporal_load(&glbD[tid_x + n * 64]);
     }
 
@@ -289,40 +292,44 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
 
 #pragma unroll 2
       for (int k = 0; k < 56; k += 8) {
-        float values[4][8]{};
+        float values[Faces][8]{};
         if (has1) {
 #pragma unroll
           for (int kk = 0; kk < 8; ++kk) {
-            values[0][kk] = C1[tid_x + (k + kk) * 56];
+            values[0][kk] = glbC1[tid_x + (k + kk) * 56];
           }
         }
         if (has2) {
 #pragma unroll
           for (int kk = 0; kk < 8; ++kk) {
-            values[1][kk] = C2[tid_x + (k + kk) * 56];
+            values[1][kk] = glbC2[tid_x + (k + kk) * 56];
           }
         }
         if (has3) {
 #pragma unroll
           for (int kk = 0; kk < 8; ++kk) {
-            values[2][kk] = C3[tid_x + (k + kk) * 56];
+            values[2][kk] = glbC3[tid_x + (k + kk) * 56];
           }
         }
         if (has4) {
 #pragma unroll
           for (int kk = 0; kk < 8; ++kk) {
-            values[3][kk] = C4[tid_x + (k + kk) * 56];
+            values[3][kk] = glbC4[tid_x + (k + kk) * 56];
           }
         }
 
 #pragma unroll
-        for (int kk = 0; kk < 8; ++kk) {
+        for (int n = 0; n < Quantities; ++n) {
+          float local[8]{};
 #pragma unroll
-          for (int n = 0; n < 9; ++n) {
-            const auto local = _1[(k + kk) + n * 64];
+          for (int kk = 0; kk < 8; ++kk) {
+            local[kk] = _1[(k + kk) + n * 64];
+          }
 #pragma unroll
-            for (int d = 0; d < 4; ++d) {
-              reg0[d][n] += values[d][kk] * local;
+          for (int kk = 0; kk < 8; ++kk) {
+#pragma unroll
+            for (int d = 0; d < Faces; ++d) {
+              reg0[d][n] += values[d][kk] * local[kk];
             }
           }
         }
@@ -331,19 +338,19 @@ __launch_bounds__(512) __global__ void kernel_local(const float** A,
 
     // gemm: glbA x _0
 #pragma unroll
-    for (int d = 0; d < 4; ++d) {
+    for (int d = 0; d < Faces; ++d) {
 #pragma unroll
-      for (int n = 0; n < 9; ++n) {
+      for (int n = 0; n < Quantities; ++n) {
 #pragma unroll
-        for (int k = 0; k < 9; ++k) {
-          reg1[n] += reg0[d][n] * _0[k + n * 9 + 81 * d];
+        for (int k = 0; k < Quantities; ++k) {
+          reg1[n] += reg0[d][k] * _0[k + n * Quantities + Quantities * Quantities * d];
         }
       }
     }
 
     // write results back to glb. memory
 #pragma unroll
-    for (int n = 0; n < 9; ++n) {
+    for (int n = 0; n < Quantities; ++n) {
       __builtin_nontemporal_store(reg1[n], &glbD[tid_x + n * 64]);
     }
   }
