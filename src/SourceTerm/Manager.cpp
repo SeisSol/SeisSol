@@ -12,13 +12,13 @@
 #include "Manager.h"
 
 #include "FSRMReader.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/PointMapper.h"
 #include "Kernels/PointSourceClusterOnHost.h"
 #include "Numerical/Transformation.h"
 #include "PointSource.h"
-#include "generated_code/init.h"
-#include "generated_code/kernel.h"
-#include "generated_code/tensor.h"
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
@@ -55,7 +55,6 @@
 
 #ifdef USE_NETCDF
 #include "NRFReader.h"
-#include "Parallel/MPI.h"
 #include <mpi.h>
 #endif
 

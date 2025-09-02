@@ -9,10 +9,10 @@
 // SPDX-FileContributor: Sebastian Wolf
 
 #include "PointSource.h"
+#include <GeneratedCode/tensor.h>
 #include <Kernels/Precision.h>
 #include <algorithm>
 #include <cmath>
-#include <generated_code/tensor.h>
 
 void seissol::sourceterm::transformMomentTensor(const double localMomentTensor[3][3],
                                                 const double localSolidVelocityComponent[3],

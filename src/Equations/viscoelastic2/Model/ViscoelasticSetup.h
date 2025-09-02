@@ -14,7 +14,7 @@
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
 
-#include "generated_code/init.h"
+#include "GeneratedCode/init.h"
 #include <Equations/viscoelastic2/Model/Datastructures.h>
 #include <Equations/viscoelastic2/Model/IntegrationData.h>
 #include <yateto.h>

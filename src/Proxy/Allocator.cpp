@@ -7,6 +7,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Allocator.h"
+#include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Initializer/BasicTypedefs.h>
@@ -23,7 +24,6 @@
 #include <cstddef>
 #include <random>
 #include <stdlib.h>
-#include <tensor.h>
 
 #ifdef _OPENMP
 #include <omp.h>

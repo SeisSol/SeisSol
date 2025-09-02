@@ -5,6 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include <Equations/Datastructures.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
@@ -15,10 +17,8 @@
 #include <cmath>
 #include <complex>
 #include <cstddef>
-#include <init.h>
 #include <limits>
 #include <math.h>
-#include <tensor.h>
 
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
@@ -180,8 +180,8 @@ seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
     : rho0(materialData.local.rho),
       c0(sqrt(materialData.local.getLambdaBar() / materialData.local.rho)),
       k(acousticTravellingWaveParametersItm.k),
-      tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime), tITMPlus(tITMMinus + tau),
-      tau(acousticTravellingWaveParametersItm.itmDuration),
+      tITMMinus(acousticTravellingWaveParametersItm.itmStartingTime),
+      tau(acousticTravellingWaveParametersItm.itmDuration), tITMPlus(tITMMinus + tau),
       n(acousticTravellingWaveParametersItm.itmVelocityScalingFactor) {
   logInfo() << "Starting Test for Acoustic Travelling Wave with ITM";
 

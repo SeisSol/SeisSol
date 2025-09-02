@@ -11,6 +11,8 @@
 
 #include "Kernels/LinearCK/TimeBase.h"
 
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "GravitationalFreeSurfaceBC.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
@@ -23,8 +25,6 @@
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cstdint>
-#include <generated_code/kernel.h>
-#include <generated_code/tensor.h>
 #include <iterator>
 
 #include "Kernels/Common.h"
