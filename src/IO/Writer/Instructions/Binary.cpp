@@ -20,16 +20,19 @@ YAML::Node BinaryWrite::serialize() {
   node["file"] = filename;
   node["source"] = dataSource->serialize();
   node["writer"] = "binary";
+  node["append"] = append;
   return node;
 }
 
 BinaryWrite::BinaryWrite(const std::string& filename,
-                         std::shared_ptr<writer::DataSource> dataSource)
-    : filename(filename), dataSource(std::move(dataSource)) {}
+                         std::shared_ptr<writer::DataSource> dataSource,
+                         bool append)
+    : filename(filename), dataSource(std::move(dataSource)), append(append) {}
 
 BinaryWrite::BinaryWrite(YAML::Node node)
     : filename(node["file"].as<std::string>()),
-      dataSource(writer::DataSource::deserialize(node["source"])) {}
+      dataSource(writer::DataSource::deserialize(node["source"])),
+      append(node["append"].as<bool>()) {}
 
 std::vector<std::shared_ptr<DataSource>> BinaryWrite::dataSources() { return {dataSource}; }
 
