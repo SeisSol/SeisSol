@@ -14,6 +14,8 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -36,10 +38,8 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
-#include <init.h>
 #include <iomanip>
 #include <ios>
-#include <kernel.h>
 #include <memory>
 #include <numeric>
 #include <ostream>
