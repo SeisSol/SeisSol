@@ -10,7 +10,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCK_LOCALBASE_H_
 
 #include "Common/Constants.h"
-#include "generated_code/kernel.h"
+#include "GeneratedCode/kernel.h"
 #include <Kernels/Local.h>
 #include <memory>
 #pragma GCC diagnostic push

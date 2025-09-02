@@ -11,11 +11,11 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ACOUSTICSETUP_H_
 
+#include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/init.h"
 #include <Equations/acoustic/Model/Datastructures.h>
 #include <Equations/acoustic/Model/IntegrationData.h>
 

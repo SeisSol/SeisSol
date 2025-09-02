@@ -12,10 +12,10 @@ add_library(seissol-kernel-lib
 
 # kernel.cpp usually takes the longest
 # (for CPUs, at least; for GPUs, we have a different library alltogether)
-${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/kernel.cpp
-${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/tensor.cpp
-${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp
-${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/init.cpp
+${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/kernel.cpp
+${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/tensor.cpp
+${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp
+${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/init.cpp
 )
 
 add_library(seissol-common-lib
@@ -170,7 +170,6 @@ set(SYCL_ONLY_SRC_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/Kernels/PointSourceClusterOnDevice.cpp)
 
 target_compile_options(seissol-common-properties INTERFACE ${EXTRA_CXX_FLAGS})
-target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code)
 
 if (HDF5 AND MPI)
   target_sources(seissol-lib PRIVATE
@@ -258,8 +257,8 @@ if (WITH_GPU)
 
   set(SEISSOL_DEVICE_INCLUDE ${DEVICE_INCLUDE_DIRS}
                              ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
-                             ${CMAKE_BINARY_DIR}/src/generated_code
                              ${CMAKE_BINARY_DIR}/src
+                             ${CMAKE_BINARY_DIR}/codegen
                              ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
   # include cmake files will define seissol-device-lib target

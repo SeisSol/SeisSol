@@ -10,13 +10,15 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "TimeCluster.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Receiver.h"
 #include "Kernels/TimeCommon.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
 #include "SeisSol.h"
-#include "generated_code/kernel.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
@@ -45,8 +47,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <init.h>
-#include <tensor.h>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>

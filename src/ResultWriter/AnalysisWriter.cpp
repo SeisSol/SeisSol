@@ -7,6 +7,9 @@
 
 #include "AnalysisWriter.h"
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Geometry/MeshDefinition.h>
@@ -25,12 +28,9 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
-#include <init.h>
-#include <kernel.h>
 #include <mpi.h>
 #include <string>
 #include <string_view>
-#include <tensor.h>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>

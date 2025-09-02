@@ -8,9 +8,11 @@
 #include "InitIO.h"
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
-#include "Init.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include <Common/Constants.h>
@@ -29,10 +31,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <init.h>
-#include <kernel.h>
 #include <string>
-#include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
 
