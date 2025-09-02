@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_KERNELS_RECEIVER_H_
 #define SEISSOL_SRC_KERNELS_RECEIVER_H_
 
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/PointMapper.h"
 #include "Kernels/Interface.h"
@@ -17,7 +18,6 @@
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
-#include "generated_code/init.h"
 #include <Common/Executor.h>
 #include <Eigen/Dense>
 #include <Initializer/Typedefs.h>

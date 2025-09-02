@@ -5,6 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
+#include "Kernels/Interface.h"
 #include "Recorders.h"
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalKey.h>
@@ -16,8 +19,6 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <init.h>
-#include <tensor.h>
 #include <vector>
 #include <yateto.h>
 

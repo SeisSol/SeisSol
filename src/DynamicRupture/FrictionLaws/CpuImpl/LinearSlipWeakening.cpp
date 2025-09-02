@@ -7,14 +7,15 @@
 
 #include "LinearSlipWeakening.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <init.h>
-#include <kernel.h>
+
 namespace seissol::dr::friction_law::cpu {
 
 void NoSpecialization::resampleSlipRate(

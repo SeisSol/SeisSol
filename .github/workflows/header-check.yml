@@ -25,3 +25,4 @@ jobs:
         run: |
           set -euo pipefail
           python .ci/header.py src
+          python .ci/header.py app

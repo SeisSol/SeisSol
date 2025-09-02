@@ -8,12 +8,14 @@
 
 #include "FreeSurfaceIntegrator.h"
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/MemoryManager.h"
 #include "Memory/MemoryAllocator.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
 #include "Numerical/Transformation.h"
-#include "generated_code/kernel.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Common/Iterator.h>
@@ -32,9 +34,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <init.h>
 #include <limits>
-#include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
 

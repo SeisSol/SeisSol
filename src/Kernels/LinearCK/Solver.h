@@ -7,8 +7,8 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_SOLVER_H_
 
+#include "GeneratedCode/tensor.h"
 #include <cstddef>
-#include <generated_code/tensor.h>
 #include <yateto/InitTools.h>
 
 namespace seissol::numerical {

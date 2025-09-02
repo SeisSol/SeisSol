@@ -9,6 +9,9 @@
 
 #include "Kernels/LinearCK/LocalBase.h"
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
@@ -23,9 +26,6 @@
 #include <Solver/MultipleSimulations.h>
 #include <cstddef>
 #include <cstdint>
-#include <generated_code/init.h>
-#include <generated_code/kernel.h>
-#include <tensor.h>
 #include <vector>
 #include <yateto.h>
 

@@ -7,6 +7,8 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
 #include <Equations/acoustic/Model/Datastructures.h>
@@ -23,11 +25,9 @@
 #include <cassert>
 #include <cstddef>
 #include <easi/Query.h>
-#include <init.h>
 #include <iterator>
 #include <memory>
 #include <set>
-#include <tensor.h>
 #include <utility>
 #include <vector>
 #ifdef USE_HDF
@@ -37,7 +37,7 @@
 
 #include "PUML/Downward.h"
 
-#include "generated_code/kernel.h"
+#include "GeneratedCode/kernel.h"
 #endif
 #include "ParameterDB.h"
 #include <algorithm>

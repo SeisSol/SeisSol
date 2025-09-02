@@ -26,4 +26,4 @@ jobs:
       - name: run-sphinx-lint
         run: |
           set -euo pipefail
-          sphinx-lint Documentation/
+          sphinx-lint docs/

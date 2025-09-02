@@ -27,6 +27,7 @@
 #include <Monitoring/Stopwatch.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
 #include <Solver/Estimator.h>
+#include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -103,11 +104,13 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
 
   // plasticity (if needed)
-  std::vector<Plasticity> plasticityDB;
+  std::array<std::vector<Plasticity>, seissol::multisim::NumSimulations> plasticityDB;
   if (seissolParams.model.plasticity) {
     // plasticity information is only needed on all interior+copy cells.
-    plasticityDB = queryDB<Plasticity>(
-        queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
+    for (size_t i = 0; i < seissol::multisim::NumSimulations; i++) {
+      plasticityDB[i] = queryDB<Plasticity>(
+          queryGen, seissolParams.model.plasticityFileNames[i], meshReader.getElements().size());
+    }
   }
 
   // material retrieval for ghost layers
@@ -173,10 +176,15 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
       }
 
       // if enabled, set up the plasticity as well
+
       if (seissolParams.model.plasticity) {
         auto& plasticity = plasticityArray[cell];
-        const auto& localPlasticity = plasticityDB[meshId];
-
+        assert(plasticityDB.size() == seissol::multisim::NumSimulations &&
+               "Plasticity database size mismatch with number of simulations");
+        std::array<Plasticity, seissol::multisim::NumSimulations> localPlasticity;
+        for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
+          localPlasticity[i] = plasticityDB[i][meshId];
+        }
         initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, &material.local));
       }
     }

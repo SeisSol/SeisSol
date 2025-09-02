@@ -11,6 +11,7 @@
 
 #include "Kernels/LinearCK/NeighborBase.h"
 
+#include "GeneratedCode/tensor.h"
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
 #include <Initializer/BasicTypedefs.h>
@@ -23,7 +24,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <generated_code/tensor.h>
 #include <stdint.h>
 
 #ifdef ACL_DEVICE

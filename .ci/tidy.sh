@@ -16,6 +16,7 @@
 format() {
     # don't use a directory with whitespace
     local allowlist_dir="
+        app
         src/Common
         src/DynamicRupture
         src/Equations
@@ -42,7 +43,6 @@ format() {
     local allowlist_file="
         src/SeisSol.h
         src/SeisSol.cpp
-        src/Main.cpp
         "
 
 
