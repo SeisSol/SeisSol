@@ -7,6 +7,8 @@
 // SPDX-FileContributor: Carsten Uphoff
 // SPDX-FileContributor: Sebastian Wolf
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
 #include <Equations/acoustic/Model/Datastructures.h>
@@ -14,8 +16,6 @@
 #include <Equations/elastic/Model/Datastructures.h>
 #include <Equations/poroelastic/Model/Datastructures.h>
 #include <Equations/viscoelastic2/Model/Datastructures.h>
-#include <GeneratedCode/init.h>
-#include <GeneratedCode/tensor.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
 #include <Kernels/Precision.h>

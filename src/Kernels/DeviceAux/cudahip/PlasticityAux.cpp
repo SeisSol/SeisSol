@@ -6,10 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Model/Plasticity.h"
-#include <GeneratedCode/init.h>
 #include <cmath>
 #include <cstddef>
 #include <type_traits>

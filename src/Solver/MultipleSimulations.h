@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_SOLVER_MULTIPLESIMULATIONS_H_
 #define SEISSOL_SRC_SOLVER_MULTIPLESIMULATIONS_H_
 
+#include "GeneratedCode/init.h"
 #include <Config.h>
-#include <GeneratedCode/init.h>
 #include <cstddef>
 #include <functional>
 #include <tuple>

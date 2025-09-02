@@ -8,15 +8,15 @@
 #include "EnergyOutput.h"
 
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
-#include <GeneratedCode/init.h>
-#include <GeneratedCode/kernel.h>
-#include <GeneratedCode/tensor.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshTools.h>
 #include <Initializer/BasicTypedefs.h>

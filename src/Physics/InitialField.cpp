@@ -5,9 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include <Equations/Datastructures.h>
-#include <GeneratedCode/init.h>
-#include <GeneratedCode/tensor.h>
 #include <Initializer/Parameters/InitializationParameters.h>
 #include <Initializer/Typedefs.h>
 #include <Model/Common.h>

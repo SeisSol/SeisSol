@@ -10,6 +10,7 @@
 #include "CellLocalMatrices.h"
 
 #include "Equations/Setup.h" // IWYU pragma: keep
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshTools.h"
@@ -22,7 +23,6 @@
 #include <Common/Constants.h>
 #include <DynamicRupture/Typedefs.h>
 #include <Equations/Datastructures.h> // IWYU pragma: keep
-#include <GeneratedCode/init.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>

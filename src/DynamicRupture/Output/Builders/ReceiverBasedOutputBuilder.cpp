@@ -12,6 +12,7 @@
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
+#include "GeneratedCode/init.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
@@ -24,7 +25,6 @@
 #include "Numerical/Transformation.h"
 #include <Common/Typedefs.h>
 #include <Config.h>
-#include <GeneratedCode/init.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -38,9 +38,9 @@
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
+#include "GeneratedCode/tensor.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
-#include <GeneratedCode/tensor.h>
 #include <Memory/Tree/Layer.h>
 #include <memory>
 #endif

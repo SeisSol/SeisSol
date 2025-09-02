@@ -8,10 +8,10 @@
 
 #include "DynamicRupture.h"
 
+#include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
-#include <GeneratedCode/tensor.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Parallel/Runtime/Stream.h>

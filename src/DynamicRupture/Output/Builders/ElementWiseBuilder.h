@@ -11,10 +11,10 @@
 #include "DynamicRupture/Output/FaultRefiner/FaultRefiners.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "GeneratedCode/init.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Numerical/Transformation.h"
 #include "ReceiverBasedOutputBuilder.h"
-#include <GeneratedCode/init.h>
 
 namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {

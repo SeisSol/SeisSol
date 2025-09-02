@@ -51,8 +51,8 @@ app/
 ============= =============
 Folder        Description
 ============= =============
-Proxy         The code directory for SeisSol Proxy. Compiled when compiling SeisSol.
-Main          The main SeisSol executable.
+Proxy         Code for the SeisSol Proxy executable. Compiled when compiling SeisSol.
+Main          Code for the main SeisSol executable.
 ============= =============
 
 preprocessing/

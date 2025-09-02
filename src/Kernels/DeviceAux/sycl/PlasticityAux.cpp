@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
-#include <GeneratedCode/init.h>
+#include "GeneratedCode/init.h"
 #include <Solver/MultipleSimulations.h>
 #include <cmath>
 #include <sycl/sycl.hpp>

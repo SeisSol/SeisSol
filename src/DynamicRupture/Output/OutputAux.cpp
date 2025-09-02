@@ -9,6 +9,7 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
+#include "GeneratedCode/init.h"
 #include "Geometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
@@ -17,7 +18,6 @@
 #include "Numerical/Transformation.h"
 #include <Common/Iterator.h>
 #include <Eigen/Dense>
-#include <GeneratedCode/init.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <cstddef>

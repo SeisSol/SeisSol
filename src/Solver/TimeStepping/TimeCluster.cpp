@@ -10,7 +10,9 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "TimeCluster.h"
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Receiver.h"
 #include "Kernels/TimeCommon.h"
@@ -21,8 +23,6 @@
 #include <Common/Constants.h>
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/Output/OutputManager.h>
-#include <GeneratedCode/init.h>
-#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
