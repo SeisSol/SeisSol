@@ -10,9 +10,9 @@
 #ifndef SEISSOL_SRC_KERNELS_TIMECOMMON_H_
 #define SEISSOL_SRC_KERNELS_TIMECOMMON_H_
 
+#include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
-#include "generated_code/tensor.h"
 
 namespace seissol::kernels {
 struct TimeCommon {

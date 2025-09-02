@@ -7,8 +7,9 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "GlobalData.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Parallel/OpenMP.h"
-#include "generated_code/init.h"
 #include <DynamicRupture/FrictionLaws/TPCommon.h>
 #include <DynamicRupture/Misc.h>
 #include <Initializer/Typedefs.h>
@@ -16,7 +17,6 @@
 #include <Memory/MemoryAllocator.h>
 #include <cassert>
 #include <cstddef>
-#include <tensor.h>
 #include <yateto.h>
 
 namespace seissol::initializer {

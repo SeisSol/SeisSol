@@ -15,7 +15,7 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
-#include "generated_code/tensor.h"
+#include "GeneratedCode/tensor.h"
 #include <Initializer/CellLocalInformation.h>
 #include <Parallel/Helper.h>
 

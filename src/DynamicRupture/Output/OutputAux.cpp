@@ -9,6 +9,7 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
+#include "GeneratedCode/init.h"
 #include "Geometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
@@ -21,7 +22,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <init.h>
 #include <limits>
 #include <tuple>
 #include <utility>

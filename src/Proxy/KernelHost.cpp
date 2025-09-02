@@ -12,6 +12,7 @@
 #include "Constants.h"
 #include "Kernel.h"
 
+#include "GeneratedCode/tensor.h"
 #include "Parallel/OpenMP.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
@@ -29,7 +30,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <tensor.h>
 
 namespace seissol::proxy {
 void ProxyKernelHostAder::run(ProxyData& data,
