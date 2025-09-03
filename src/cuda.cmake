@@ -30,14 +30,26 @@ function(make_device_lib NAME FILES)
     set_target_properties(${NAME} PROPERTIES CUDA_ARCHITECTURES "${CUDA_DEVICE_ARCH}")
 
     target_compile_options(${NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
-            -Xptxas -v;
             -std=c++17;
             --expt-relaxed-constexpr;
             >)
-    if (EXTRA_CXX_FLAGS)
-    target_compile_options(${NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
-            --compiler-options ${EXTRA_CXX_FLAGS}
+
+    if (DEVICE_KERNEL_INFOPRINT)
+        target_compile_options(${NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
+            -Xptxas -v;
             >)
+    endif()
+
+    if (DEVICE_KERNEL_SAVETEMPS)
+        target_compile_options(${NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
+            --keep;
+            >)
+    endif()
+
+    if (EXTRA_CXX_FLAGS)
+        target_compile_options(${NAME} PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:
+                --compiler-options ${EXTRA_CXX_FLAGS}
+                >)
     endif()
 
 endfunction()
