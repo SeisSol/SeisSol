@@ -84,13 +84,6 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
-if (NOT (DEVICE_BACKEND STREQUAL "hip" AND DEVICE_ARCH MATCHES "sm_*"))
-  # Note: hip 4.x has a bug during setting rpath while compiling
-  #       device code for nvidia gpus. This scenario is used in
-  #       SeisSol's GPU CI pipeline.
-  set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
-endif()
-
 # LTO
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
 
@@ -169,24 +162,24 @@ message(STATUS "Version: " ${PACKAGE_GIT_VERSION})
 message(STATUS "Last commit: ${PACKAGE_GIT_HASH} at ${PACKAGE_GIT_TIMESTAMP}")
 
 add_custom_target(build-time-make-directory ALL
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code")
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode")
 
-set(GENERATED_FILES_FOR_SEISSOL src/generated_code/subroutine.h
-                                src/generated_code/tensor.cpp
-                                src/generated_code/subroutine.cpp
-                                src/generated_code/gpulike_subroutine.cpp
-                                src/generated_code/tensor.h
-                                src/generated_code/init.cpp
-                                src/generated_code/init.h
-                                src/generated_code/kernel.h
-                                src/generated_code/kernel.cpp)
+set(GENERATED_FILES_FOR_SEISSOL codegen/GeneratedCode/subroutine.h
+                                codegen/GeneratedCode/tensor.cpp
+                                codegen/GeneratedCode/subroutine.cpp
+                                codegen/GeneratedCode/gpulike_subroutine.cpp
+                                codegen/GeneratedCode/tensor.h
+                                codegen/GeneratedCode/init.cpp
+                                codegen/GeneratedCode/init.h
+                                codegen/GeneratedCode/kernel.h
+                                codegen/GeneratedCode/kernel.cpp)
 
 if (TESTING AND TESTING_GENERATED)
   set(GENERATED_FILES_FOR_SEISSOL ${GENERATED_FILES_FOR_SEISSOL}
-                                src/generated_code/test-kernel.cpp)
+                                codegen/GeneratedCode/test-kernel.cpp)
 endif()
 
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/)
 
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -200,18 +193,26 @@ else()
   set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
 endif()
 
+if (OVERRIDE_VECTORSIZE GREATER 0)
+  set(OVERRIDE_VECTORSIZE_PARAM "--vectorsize ${OVERRIDE_VECTORSIZE}")
+else()
+  set(OVERRIDE_VECTORSIZE_PARAM "")
+endif()
+
 find_package(GemmTools REQUIRED)
 
 add_custom_command(
   COMMAND
-  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generated-code/generate.py"
+  "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/codegen/generate.py"
      "--equations" ${EQUATIONS}
-     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/generated-code/matrices
-     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code
-     "--host_arch" ${HOST_ARCH_STR}
+     "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/codegen/matrices
+     "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode
+     "--host_arch" ${HOST_ARCH}
      "--device_codegen" ${DEVICE_CODEGEN}
-     "--device_arch" ${DEVICE_ARCH_STR}
+     "--device_arch" ${DEVICE_ARCH}
      "--device_backend" ${DEVICE_BACKEND}
+     "--device_vendor" ${DEVICE_VENDOR}
+     "--precision" ${PRECISION_PREFIX}
      "--order" ${ORDER}
      "--numberOfMechanisms" ${NUMBER_OF_MECHANISMS}
      "--memLayout" ${MEMORY_LAYOUT}
@@ -222,13 +223,14 @@ add_custom_command(
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
-     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/generated-code
+     ${OVERRIDE_VECTORSIZE_PARAM}
+     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/codegen
      DEPENDS
         build-time-make-directory
-        generated-code/generate.py
-        generated-code/kernels
-        generated-code/matrices
-        generated-code/config
+        codegen/generate.py
+        codegen/kernels
+        codegen/matrices
+        codegen/config
     OUTPUT
         ${GENERATED_FILES_FOR_SEISSOL}
     COMMENT "Code generation for tensor operations..."
@@ -465,6 +467,7 @@ target_include_directories(seissol-common-properties INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
     ${CMAKE_CURRENT_BINARY_DIR}/src/
+    ${CMAKE_CURRENT_BINARY_DIR}/codegen/
 )
 
 if (PREMULTIPLY_FLUX)
@@ -473,10 +476,10 @@ endif()
 
 if (NOT NEW_BINARY_NAMING)
   # adjust prefix name of executables
-  if ("${DEVICE_ARCH_STR}" STREQUAL "none")
-    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${HOST_ARCH_STR}_${ORDER}_${EQUATIONS}")
+  if ("${DEVICE_ARCH}" STREQUAL "none")
+    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${PRECISION_PREFIX}${HOST_ARCH}_${ORDER}_${EQUATIONS}")
   else()
-    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${DEVICE_ARCH_STR}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
+    set(EXE_NAME_PREFIX "${CMAKE_BUILD_TYPE}_${PRECISION_PREFIX}${DEVICE_ARCH}_${DEVICE_BACKEND}_${ORDER}_${EQUATIONS}")
   endif()
 
   if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
@@ -580,7 +583,7 @@ target_link_libraries(seissol-common-properties INTERFACE std::filesystem)
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
   set_source_files_properties(
-      ${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
+      ${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
   )
 endif()
 
@@ -658,7 +661,7 @@ if (TESTING)
     if (WITH_GPU)
 
       # for the GPU, create an extra library with device linking flags etc.
-      make_device_lib(seissol-serial-test-device "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp")
+      make_device_lib(seissol-serial-test-device "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp")
       target_link_libraries(seissol-serial-test-device PRIVATE seissol-kernel-lib)
       target_include_directories(seissol-serial-test-device PRIVATE external/)
       target_link_libraries(seissol-serial-test PRIVATE seissol-serial-test-device)
@@ -668,7 +671,7 @@ if (TESTING)
 
       # else (i.e. CPU only), just add it to the main test binary
       target_sources(seissol-serial-test PRIVATE
-        "${CMAKE_CURRENT_BINARY_DIR}/src/generated_code/test-kernel.cpp")
+        "${CMAKE_CURRENT_BINARY_DIR}/codegen/GeneratedCode/test-kernel.cpp")
     endif()
   endif()
 
@@ -690,30 +693,16 @@ if (TESTING)
                     "submodules/*"
                     "*/tests/*"
                     "external/*"
-                    "*/src/generated_code/*"
+                    "*/codegen/GeneratedCode/*"
                     "/opt/*"
             LCOV_ARGS --ignore-errors inconsistent
                       --ignore-errors unused
+                      --ignore-errors mismatch
     )
   endif()
 endif()
 
-# build seissol-bin
-add_executable(seissol-bin src/Main.cpp)
-if (NOT NEW_BINARY_NAMING)
-  set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "SeisSol_${EXE_NAME_PREFIX}")
-else()
-  set_target_properties(seissol-bin PROPERTIES OUTPUT_NAME "seissol-${NAME_SUFFIX}")
-endif()
-
-target_link_libraries(seissol-bin PUBLIC seissol-lib)
-
-install(TARGETS seissol-bin RUNTIME)
-# end build seissol-bin
-
-# build seissol-proxy
-add_subdirectory(auto-tuning/proxy/src)
-# end build seissol-proxy
+add_subdirectory(app)
 
 if (WITH_GPU)
   string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)

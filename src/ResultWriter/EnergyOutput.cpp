@@ -8,6 +8,9 @@
 #include "EnergyOutput.h"
 
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
@@ -36,16 +39,13 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <init.h>
 #include <iomanip>
 #include <ios>
-#include <kernel.h>
 #include <limits>
 #include <mpi.h>
 #include <optional>
 #include <ostream>
 #include <string>
-#include <tensor.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -693,15 +693,6 @@ void EnergyOutput::printEnergies() {
       }
     } else {
       logInfo() << "Volume energies skipped at this step";
-    }
-    if (shouldPrint(totalAcousticEnergy)) {
-      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                << " Acoustic energy (total, % kinematic, % potential): " << totalAcousticEnergy
-                << " ," << ratioAcousticKinematic << " ," << ratioAcousticPotential;
-    }
-    if (shouldPrint(energiesStorage.gravitationalEnergy(sim))) {
-      logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
-                << " Gravitational energy:" << energiesStorage.gravitationalEnergy(sim);
     }
     logInfo() << std::setprecision(outputPrecision) << fusedPrefix.c_str()
               << " Total momentum (X, Y, Z):" << totalMomentumX << " ," << totalMomentumY << " ,"

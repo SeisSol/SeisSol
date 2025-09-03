@@ -54,6 +54,8 @@ class FaultWriterExecutor {
   /** Backend stopwatch */
   Stopwatch m_stopwatch;
 
+  bool m_enabled{false};
+
   public:
   FaultWriterExecutor()
       : m_comm(MPI_COMM_NULL)
@@ -88,7 +90,8 @@ class FaultWriterExecutor {
   }
 
   void finalize() {
-    if (m_xdmfWriter != nullptr) {
+    if (m_enabled) {
+      // note: also includes some ranks which do nothing at all
       m_stopwatch.printTime("Time fault writer backend:");
     }
 

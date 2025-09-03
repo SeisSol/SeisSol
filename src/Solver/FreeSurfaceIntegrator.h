@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 #define SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 
+#include <Memory/Descriptor/Surface.h>
 #include <memory>
 
 #include "Geometry/MeshReader.h"
@@ -27,28 +28,18 @@ class FreeSurfaceIntegrator {
   static constexpr std::size_t NumComponents = 3;
 
   private:
-  enum class LocationFlag {
+  enum class LocationFlag : std::uint8_t {
     Elastic = 0,
     Acoustic = 1,
     FreeSurface = 2,
     FreeSurfaceWithGravity = 3
   };
-  struct SurfaceLTS {
-    seissol::initializer::Variable<real*> dofs;
-    seissol::initializer::Variable<real*> displacementDofs;
-    seissol::initializer::Variable<unsigned> side;
-    seissol::initializer::Variable<unsigned> meshId;
-    seissol::initializer::Variable<CellBoundaryMapping*> boundaryMapping;
-    seissol::initializer::Variable<unsigned> locationFlag;
-
-    void addTo(seissol::initializer::LTSTree& surfaceLtsTree);
-  };
 
   real* projectionMatrixMemory{nullptr};
   real* projectionMatrix[4]{};
   real* projectionMatrixFromFace{nullptr};
-  unsigned numberOfSubTriangles{0};
-  unsigned numberOfAlignedSubTriangles{0};
+  std::size_t numberOfSubTriangles{0};
+  std::size_t numberOfAlignedSubTriangles{0};
 
   static constexpr auto PolyDegree = ConvergenceOrder - 1;
   static constexpr auto NumQuadraturePoints = PolyDegree * PolyDegree;
@@ -73,13 +64,14 @@ class FreeSurfaceIntegrator {
   std::array<real*, NumComponents> velocities;
   std::array<real*, NumComponents> displacements;
 
-  std::vector<unsigned int> locationFlags;
-  std::vector<unsigned int> globalIds;
-  unsigned totalNumberOfFreeSurfaces;
-  unsigned totalNumberOfTriangles{0};
+  std::vector<std::uint8_t> locationFlags;
+  std::size_t totalNumberOfFreeSurfaces{0};
+  std::size_t totalNumberOfTriangles{0};
+  std::vector<std::size_t> backmap;
+  std::vector<std::size_t> globalIds;
 
-  SurfaceLTS surfaceLts;
-  seissol::initializer::LTSTree surfaceLtsTree;
+  SurfaceLTS* surfaceLts{nullptr};
+  seissol::initializer::LTSTree* surfaceLtsTree{nullptr};
   seissol::refinement::TriangleRefiner triRefiner;
 
   explicit FreeSurfaceIntegrator();
@@ -94,9 +86,11 @@ class FreeSurfaceIntegrator {
   void initialize(unsigned maxRefinementDepth,
                   GlobalData* globalData,
                   seissol::initializer::LTS* lts,
-                  seissol::initializer::LTSTree* ltsTree);
+                  seissol::initializer::LTSTree* ltsTree,
+                  seissol::SurfaceLTS* surfacelts,
+                  seissol::initializer::LTSTree* surfaceltsTree);
 
-  void calculateOutput();
+  void calculateOutput() const;
 
   [[nodiscard]] bool enabled() const { return m_enabled; }
 };
