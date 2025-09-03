@@ -159,13 +159,20 @@ jobs:
             TESTING_COMMAND="";
           fi;
 
+          # HIP may consume too much memory; hence disable the codegen tests for now
+          if [ ${{matrix.setup.backend}} = hip ]; then
+            TESTING_GENERATED=OFF;
+          else
+            TESTING_GENERATED=ON;
+          fi;
+
           cmake .. \
             -GNinja \
             -DNEW_BINARY_NAMING=ON \
             -DTESTING_COMMAND="${TESTING_COMMAND}" \
             -DCMAKE_INSTALL_PREFIX=/opt/seissol \
             -DTESTING=ON \
-            -DTESTING_GENERATED=ON \
+            -DTESTING_GENERATED=$TESTING_GENERATED \
             -DTESTING_BUILD_ONLY=ON \
             -DASAGI=ON \
             -DHOST_ARCH=${{matrix.arch}} \
