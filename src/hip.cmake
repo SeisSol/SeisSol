@@ -43,6 +43,12 @@ else()
     set(SEISSOL_HIPCC ${SEISSOL_HIPCC} --offload-arch=${DEVICE_ARCH})
 endif()
 
+if (DEVICE_KERNEL_INFOPRINT)
+    set(SEISSOL_HIPCC ${SEISSOL_HIPCC} -Rpass-analysis=kernel-resource-usage)
+endif()
+if (DEVICE_KERNEL_SAVETEMPS)
+    set(SEISSOL_HIPCC ${SEISSOL_HIPCC} --save-temps)
+endif()
 
 set(CMAKE_HIP_CREATE_SHARED_LIBRARY
 "${HIP_HIPCC_CMAKE_LINKER_HELPER} \

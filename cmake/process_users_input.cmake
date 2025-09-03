@@ -66,6 +66,8 @@ set(DEVICE_BACKEND "none" CACHE STRING "Type of GPU backend (enables the GPU bui
 set(DEVICE_BACKEND_OPTIONS none cuda hip acpp oneapi)
 set_property(CACHE DEVICE_BACKEND PROPERTY STRINGS ${DEVICE_BACKEND_OPTIONS})
 
+option(DEVICE_KERNEL_INFOPRINT "Print infos on kernel resource usage during the build." ON)
+option(DEVICE_KERNEL_SAVETEMPS "Store intermediate kernel build files (e.g. PTX, AMDGPU); useful for debugging/profiling kernels." OFF)
 
 set(DEVICE_ARCH "none" CACHE STRING "Type of GPU architecture")
 
