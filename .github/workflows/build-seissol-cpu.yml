@@ -10,7 +10,7 @@ on:
   - push
 
 env:
-  precomputed-hash: fb41141ee0b38b48b10cc74c8c817860d4a745c5
+  precomputed-hash: 4cc0993d4ba3b8f0aabc84af78e405af9d98f902
 
 jobs:
   seissol-build-test:

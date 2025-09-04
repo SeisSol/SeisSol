@@ -98,7 +98,7 @@ void* hostToDevicePointer(void* host, enum Memkind memkind);
 
 template <typename T>
 T* hostToDevicePointerTyped(T* host, enum Memkind memkind) {
-  return hostToDevicePointer(host, memkind);
+  return reinterpret_cast<T*>(hostToDevicePointer(host, memkind));
 }
 
 /**
