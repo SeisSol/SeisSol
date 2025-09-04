@@ -10,13 +10,15 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "TimeCluster.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Receiver.h"
 #include "Kernels/TimeCommon.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
 #include "SeisSol.h"
-#include "generated_code/kernel.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
@@ -45,8 +47,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <init.h>
-#include <tensor.h>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -72,8 +72,8 @@ TimeCluster::TimeCluster(unsigned int clusterId,
                          seissol::initializer::Layer* dynRupCopyData,
                          seissol::initializer::LTS* lts,
                          seissol::initializer::DynamicRupture* dynRup,
-                         seissol::dr::friction_law::FrictionSolver* frictionSolver,
-                         seissol::dr::friction_law::FrictionSolver* frictionSolverDevice,
+                         seissol::dr::friction_law::FrictionSolver* frictionSolverTemplate,
+                         seissol::dr::friction_law::FrictionSolver* frictionSolverTemplateDevice,
                          dr::output::OutputManager* faultOutputManager,
                          seissol::SeisSol& seissolInstance,
                          LoopStatistics* loopStatistics,
@@ -86,7 +86,10 @@ TimeCluster::TimeCluster(unsigned int clusterId,
       clusterData(clusterData),
       // global data
       dynRupInteriorData(dynRupInteriorData), dynRupCopyData(dynRupCopyData), lts(lts),
-      dynRup(dynRup), frictionSolver(frictionSolver), frictionSolverDevice(frictionSolverDevice),
+      dynRup(dynRup), frictionSolver(frictionSolverTemplate->clone()),
+      frictionSolverDevice(frictionSolverTemplateDevice->clone()),
+      frictionSolverCopy(frictionSolverTemplate->clone()),
+      frictionSolverCopyDevice(frictionSolverTemplateDevice->clone()),
       faultOutputManager(faultOutputManager),
       sourceCluster(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
@@ -112,6 +115,17 @@ TimeCluster::TimeCluster(unsigned int clusterId,
   localKernel.setGravitationalAcceleration(seissolInstance.getGravitationSetup().acceleration);
   neighborKernel.setGlobalData(globalData);
   dynamicRuptureKernel.setGlobalData(globalData);
+
+  frictionSolver->allocateAuxiliaryMemory(globalDataOnHost);
+  frictionSolverDevice->allocateAuxiliaryMemory(globalDataOnDevice);
+  frictionSolverCopy->allocateAuxiliaryMemory(globalDataOnHost);
+  frictionSolverCopyDevice->allocateAuxiliaryMemory(globalDataOnDevice);
+
+  frictionSolver->setupLayer(*dynRupInteriorData, dynRup, streamRuntime);
+  frictionSolverDevice->setupLayer(*dynRupInteriorData, dynRup, streamRuntime);
+  frictionSolverCopy->setupLayer(*dynRupCopyData, dynRup, streamRuntime);
+  frictionSolverCopyDevice->setupLayer(*dynRupCopyData, dynRup, streamRuntime);
+  streamRuntime.wait();
 
   computeFlops();
 
@@ -223,8 +237,8 @@ void TimeCluster::computeDynamicRupture(seissol::initializer::Layer& layerData) 
 
   SCOREP_USER_REGION_BEGIN(
       myRegionHandle, "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_COMMON)
-  frictionSolver->evaluate(
-      layerData, dynRup, ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
+  auto& solver = &layerData == dynRupInteriorData ? frictionSolver : frictionSolverCopy;
+  solver->evaluate(ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
   SCOREP_USER_REGION_END(myRegionHandle)
 #pragma omp parallel
   {
@@ -269,8 +283,9 @@ void TimeCluster::computeDynamicRuptureDevice(seissol::initializer::Layer& layer
     }
 
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
-    frictionSolverDevice->evaluate(
-        layerData, dynRup, ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
+    auto& solver =
+        &layerData == dynRupInteriorData ? frictionSolverDevice : frictionSolverCopyDevice;
+    solver->evaluate(ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
     device.api->popLastProfilingMark();
     if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
       layerData.varSynchronizeTo(
