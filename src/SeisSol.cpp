@@ -131,7 +131,7 @@ void SeisSol::finalize() {
 
   seissol::MPI::finalize();
 
-  logInfo() << "SeisSol done. Goodbye.";
+  logInfo() << "SeisSol done. See you later!";
 }
 
 void SeisSol::setBackupTimeStamp(const std::string& stamp) {
