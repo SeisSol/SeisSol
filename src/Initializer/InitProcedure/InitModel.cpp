@@ -27,6 +27,7 @@
 #include <Model/Plasticity.h>
 #include <Modules/Modules.h>
 #include <Monitoring/Stopwatch.h>
+#include <Parallel/Helper.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
 #include <Solver/Estimator.h>
 #include <Solver/MultipleSimulations.h>
@@ -291,11 +292,7 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
       seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
     }
 
-#ifdef ACL_DEVICE
     const bool usmDefault = useUSM();
-#else
-    const bool usmDefault = false;
-#endif
 
     if (!usmDefault && hdenabled) {
       logWarning() << "Using the host-device execution on non-USM systems is not fully supported "

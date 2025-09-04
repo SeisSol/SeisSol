@@ -8,8 +8,6 @@
 #ifndef SEISSOL_SRC_INITIALIZER_DEVICEGRAPH_H_
 #define SEISSOL_SRC_INITIALIZER_DEVICEGRAPH_H_
 
-#ifdef ACL_DEVICE
-
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include <cstddef>
@@ -40,7 +38,5 @@ struct GraphKeyHash {
   }
 };
 } // namespace seissol::initializer
-
-#endif // ACL_DEVICE
 
 #endif // SEISSOL_SRC_INITIALIZER_DEVICEGRAPH_H_
