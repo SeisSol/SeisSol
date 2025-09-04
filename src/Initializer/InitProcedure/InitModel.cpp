@@ -209,7 +209,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
           for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
             localPlasticity[i] = plasticityDB[i][meshId];
           }
-          initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, &material.local));
+          initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, material.local));
         }
       }
     }

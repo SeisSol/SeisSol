@@ -655,12 +655,18 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
              minusLtsId != std::numeric_limits<std::size_t>::max());
 
       if (plusLtsId != std::numeric_limits<std::size_t>::max()) {
-        plusMaterial = material[plusLtsId].local;
-        minusMaterial = material[plusLtsId].neighbor[faceInformation[ltsFace].plusSide];
+        plusMaterial = dynamic_cast<seissol::model::MaterialT*>(material[plusLtsId].local);
+        minusMaterial = dynamic_cast<seissol::model::MaterialT*>(
+            material[plusLtsId].neighbor[faceInformation[ltsFace].plusSide]);
       } else {
         assert(minusLtsId != std::numeric_limits<std::size_t>::max());
-        plusMaterial = material[minusLtsId].neighbor[faceInformation[ltsFace].minusSide];
-        minusMaterial = material[minusLtsId].local;
+        plusMaterial = dynamic_cast<seissol::model::MaterialT*>(
+            material[minusLtsId].neighbor[faceInformation[ltsFace].minusSide]);
+        minusMaterial = dynamic_cast<seissol::model::MaterialT*>(material[minusLtsId].local);
+      }
+
+      if (plusMaterial == nullptr || minusMaterial == nullptr) {
+        logError() << "Materials on both sides of a fault face do not match.";
       }
 
       /// Wave speeds and Coefficient Matrices
