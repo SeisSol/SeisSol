@@ -403,6 +403,40 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
+
+      - name: tpvyoffe/single
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: gpu-elastic-s-p6
+          rundir: tpvyoffe
+          resultdir: single
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: tp
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+
+      - name: tpvgaussian/single
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: gpu-elastic-s-p6
+          rundir: tpvgaussian
+          resultdir: single
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: tp
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
       
       - name: ttpv1/single
         uses: ./.github/actions/test
@@ -420,3 +454,89 @@ jobs:
           commsize: ${{matrix.parallel.ranks}}
           rankthreads: ${{matrix.parallel.threads}}
           ompi: ${{matrix.setup.ompi}}
+
+      - name: tpv5-visco/single
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: gpu-viscoelastic2-s-p6
+          rundir: tpv5-visco
+          resultdir: single
+          compare-volume: true
+          compare-fault: true
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: lsw
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+
+      - name: tpvahsp/single
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: gpu-anisotropic-s-p6
+          rundir: tpvahsp
+          resultdir: single
+          compare-volume: true
+          compare-fault: false
+          compare-surface: false
+          compare-energy: false
+          compare-receiver: true
+          compare-receiver-mode: lsw
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+
+      - name: tpvloh1-fused/single # (temporary)
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: gpu-elastic-s-p3-f32
+          rundir: tpvloh1-fused
+          resultdir: single
+          compare-volume: false
+          compare-fault: false
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: lsw
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+
+      - name: tpv13-fused/single # (temporary)
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: gpu-elastic-s-p3-f32
+          rundir: tpv13-fused
+          resultdir: single
+          compare-volume: false
+          compare-fault: false
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: lsw
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+
+      - name: tpv13-fused-plasticity/single # (temporary)
+        uses: ./.github/actions/test
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        with:
+          seissol: gpu-elastic-s-p3-f32
+          rundir: tpv13-fused-plasticity
+          resultdir: single
+          compare-volume: false
+          compare-fault: false
+          compare-surface: false
+          compare-energy: true
+          compare-receiver: true
+          compare-receiver-mode: lsw
+          commsize: ${{matrix.parallel.ranks}}
+          rankthreads: ${{matrix.parallel.threads}}
+          ompi: ${{matrix.setup.ompi}}
+
