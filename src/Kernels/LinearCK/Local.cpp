@@ -96,6 +96,9 @@ struct ApplyAnalyticalSolution {
       nodesVec[i][2] = nodes[i * 3 + 2];
     }
 
+    // NOTE: not yet tested for multisim setups
+    // (only implemented to get the build to work)
+
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);
       initConditions->at(s % initConditions->size())
