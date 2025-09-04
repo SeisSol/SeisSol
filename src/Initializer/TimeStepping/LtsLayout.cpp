@@ -730,7 +730,11 @@ void seissol::initializer::time_stepping::LtsLayout::getCellInformation( CellLoc
         o_ltsToMesh[l_ltsCell] = std::numeric_limits<std::size_t>::max();
 
         secondaryInformation[l_ltsCell].clusterId = l_clusterId;
-        // secondaryInformation[l_ltsCell].meshId will be set later
+
+        // we want to set secondaryInformation[l_ltsCell].meshId
+        // to the mpiIndex of the copy cell
+        // however, we'll need to do that later (in the copy cell loop)
+
         secondaryInformation[l_ltsCell].duplicate = 0;
         secondaryInformation[l_ltsCell].halo = HaloType::Ghost;
 

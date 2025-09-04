@@ -91,7 +91,10 @@ struct ElasticMaterial : Material {
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 
-  void setLameParameters(double mu, double lambda) override { this->lambda = lambda; }
+  void setLameParameters(double mu, double lambda) override {
+    this->mu = mu;
+    this->lambda = lambda;
+  }
 };
 } // namespace seissol::model
 
