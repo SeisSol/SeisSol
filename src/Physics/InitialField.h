@@ -175,8 +175,8 @@ class SnellsLaw : public InitialField {
  */
 class Ocean : public InitialField {
   private:
-  const int mode;
-  const double gravitationalAcceleration;
+  int mode;
+  double gravitationalAcceleration;
 
   public:
   Ocean(int mode, double gravitationalAcceleration);

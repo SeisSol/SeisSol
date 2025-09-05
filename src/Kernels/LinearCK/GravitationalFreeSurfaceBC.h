@@ -33,7 +33,7 @@ namespace seissol {
 
 class GravitationalFreeSurfaceBc {
   private:
-  const double gravitationalAcceleration;
+  double gravitationalAcceleration;
 
   public:
   explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
