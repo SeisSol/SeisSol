@@ -483,7 +483,7 @@ void enableWaveFieldOutput(seissol::SeisSol& seissolInstance) {
 
 void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  auto& memoryManager = seissolInstance.getMemoryManager();
+
   if (seissolParams.output.freeSurfaceParameters.enabled &&
       seissolParams.output.freeSurfaceParameters.vtkorder < 0) {
     seissolInstance.freeSurfaceWriter().enable();

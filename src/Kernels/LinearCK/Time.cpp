@@ -53,7 +53,7 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  const auto deviceAlignment = device.api->getGlobMemAlignment();
+
   deviceKrnlPrototype.kDivMT = global.onDevice->stiffnessMatricesTransposed;
   deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace = global.onDevice->v3mTo2nFace;
 #endif
