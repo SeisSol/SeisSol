@@ -8,6 +8,13 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
+#include "MemoryManager.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Kernels/Common.h"
+#include "Memory/GlobalData.h"
+#include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Layer.h"
+#include "SeisSol.h"
 #include <Common/Constants.h>
 #include <DynamicRupture/Factory.h>
 #include <Initializer/BasicTypedefs.h>
@@ -18,20 +25,14 @@
 #include <Memory/Descriptor/Boundary.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Descriptor/Surface.h>
+#include <Memory/Tree/Colormap.h>
+#include <Solver/MultipleSimulations.h>
+#include <array>
+#include <cstddef>
 #include <limits>
 #include <memory>
 #include <utility>
 #include <utils/logger.h>
-
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "Kernels/Common.h"
-#include "Memory/GlobalData.h"
-#include "Memory/MemoryAllocator.h"
-#include "Memory/Tree/Layer.h"
-#include "MemoryManager.h"
-#include "SeisSol.h"
-#include <array>
-#include <cstddef>
 #include <yateto.h>
 
 #include <DynamicRupture/Misc.h>
@@ -246,8 +247,9 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
                                                             init::rotatedFaceDisplacement::Size);
     layer.setEntrySize<LTS::DofsFaceNodalScratch>(sizeof(real) * freeSurfaceCount *
                                                   tensor::INodal::size());
-    layer.setEntrySize<LTS::PrevCoefficientsScratch>(sizeof(real) * freeSurfaceCount *
-                                                     nodal::tensor::nodes2D::Shape[0]);
+    layer.setEntrySize<LTS::PrevCoefficientsScratch>(
+        sizeof(real) * freeSurfaceCount *
+        nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
   }
 }
 
@@ -300,18 +302,19 @@ void MemoryManager::recordExecutionPaths(bool usePlasticity) {
 
 bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
   constexpr auto Eps = std::numeric_limits<real>::epsilon();
-  return material.neighbor[face].getMuBar() > Eps && material.local.getMuBar() < Eps;
+  return material.neighbor[face]->getMuBar() > Eps && material.local->getMuBar() < Eps;
 }
 bool isElasticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
   constexpr auto Eps = std::numeric_limits<real>::epsilon();
-  return material.local.getMuBar() > Eps && material.neighbor[face].getMuBar() < Eps;
+  return material.local->getMuBar() > Eps && material.neighbor[face]->getMuBar() < Eps;
 }
 
 bool isAtElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
-  return isAcousticSideOfElasticAcousticInterface(material, face) ||
-         isElasticSideOfElasticAcousticInterface(material, face);
+  return material.local != nullptr && material.neighbor[face] != nullptr &&
+         (isAcousticSideOfElasticAcousticInterface(material, face) ||
+          isElasticSideOfElasticAcousticInterface(material, face));
 }
 
 bool requiresDisplacement(CellLocalInformation cellLocalInformation,

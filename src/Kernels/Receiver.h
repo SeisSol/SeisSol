@@ -22,6 +22,7 @@
 #include <Eigen/Dense>
 #include <Initializer/Typedefs.h>
 #include <Memory/Tree/Backmap.h>
+#include <Parallel/Runtime/Stream.h>
 #include <optional>
 #include <vector>
 
@@ -91,8 +92,11 @@ class ReceiverCluster {
                    const LTS::Backmap& backmap);
 
   //! Returns new receiver time
-  double calcReceivers(
-      double time, double expansionPoint, double timeStepWidth, Executor executor, void* stream);
+  double calcReceivers(double time,
+                       double expansionPoint,
+                       double timeStepWidth,
+                       Executor executor,
+                       parallel::runtime::StreamRuntime& runtime);
 
   std::vector<Receiver>::iterator begin() { return m_receivers.begin(); }
 
@@ -104,7 +108,8 @@ class ReceiverCluster {
   void freeData();
 
   private:
-  std::unique_ptr<seissol::parallel::DataCollector> deviceCollector{nullptr};
+  std::optional<parallel::runtime::StreamRuntime> extraRuntime;
+  std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector{nullptr};
   std::vector<size_t> deviceIndices;
   std::vector<Receiver> m_receivers;
   seissol::kernels::Spacetime spacetimeKernel;

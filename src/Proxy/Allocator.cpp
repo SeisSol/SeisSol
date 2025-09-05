@@ -8,6 +8,7 @@
 
 #include "Allocator.h"
 #include "GeneratedCode/tensor.h"
+#include "Parallel/OpenMP.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Config.h>
@@ -23,13 +24,10 @@
 #include <Memory/MemoryAllocator.h>
 #include <Memory/Tree/Colormap.h>
 #include <Memory/Tree/Layer.h>
+#include <Proxy/Constants.h>
 #include <cstddef>
 #include <random>
 #include <stdlib.h>
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 #ifdef ACL_DEVICE
 #include <Initializer/MemoryManager.h>
@@ -199,11 +197,7 @@ void ProxyData::initDataStructures(bool enableDR) {
 #pragma omp parallel
 #endif
     {
-#ifdef _OPENMP
-      const auto offset = omp_get_thread_num();
-#else
-      const auto offset = 0;
-#endif
+      const auto offset = OpenMP::threadId();
       std::mt19937 rng(cellCount + offset);
       std::uniform_real_distribution<real> urd;
       for (std::size_t cell = 0; cell < cellCount; ++cell) {

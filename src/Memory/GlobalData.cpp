@@ -9,6 +9,7 @@
 #include "GlobalData.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Parallel/OpenMP.h"
 #include <DynamicRupture/FrictionLaws/TPCommon.h>
 #include <DynamicRupture/Misc.h>
 #include <Initializer/Typedefs.h>
@@ -17,10 +18,6 @@
 #include <cassert>
 #include <cstddef>
 #include <yateto.h>
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 namespace seissol::initializer {
 namespace matrixmanip {
@@ -44,31 +41,21 @@ void OnHost::initSpecificGlobalData(GlobalData& globalData,
                                     size_t alignment,
                                     seissol::memory::Memkind memkind) {
   // thread-local LTS integration buffers
-  int numberOfThreads = 1;
-#ifdef _OPENMP
-  numberOfThreads = omp_get_max_threads();
-#endif
+  const auto numThreads = OpenMP::threadCount();
+  const auto allocSize = 4 * static_cast<std::size_t>(tensor::I::size());
   auto* integrationBufferLTS = reinterpret_cast<real*>(
-      allocator.allocateMemory(static_cast<std::size_t>(numberOfThreads) *
-                                   static_cast<std::size_t>(4 * tensor::I::size()) * sizeof(real),
-                               alignment,
-                               memkind));
+      allocator.allocateMemory(numThreads * allocSize * sizeof(real), alignment, memkind));
 
 // initialize w.r.t. NUMA
 #ifdef _OPENMP
 #pragma omp parallel
-  {
-    const auto threadOffset = static_cast<std::size_t>(omp_get_thread_num()) *
-                              static_cast<std::size_t>(4 * tensor::I::size());
-#else
-  std::size_t threadOffset = 0;
 #endif
-    for (std::size_t dof = 0; dof < (static_cast<std::size_t>(4 * tensor::I::size())); ++dof) {
+  {
+    const auto threadOffset = OpenMP::threadId() * allocSize;
+    for (std::size_t dof = 0; dof < allocSize; ++dof) {
       integrationBufferLTS[dof + threadOffset] = static_cast<real>(0.0);
     }
-#ifdef _OPENMP
   }
-#endif
 
   globalData.integrationBufferLTS = integrationBufferLTS;
 }

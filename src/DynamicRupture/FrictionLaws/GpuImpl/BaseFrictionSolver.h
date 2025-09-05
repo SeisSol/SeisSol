@@ -14,6 +14,7 @@
 #include "Numerical/Functions.h"
 #include <Common/Constants.h>
 #include <DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h>
+#include <Memory/Descriptor/DynamicRupture.h>
 #include <algorithm>
 
 #include "Common/Marker.h"

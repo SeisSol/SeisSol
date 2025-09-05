@@ -88,6 +88,8 @@ struct AnisotropicMaterial : public Material {
   [[nodiscard]] double getSWaveSpeed() const override;
 
   [[nodiscard]] MaterialType getMaterialType() const override;
+
+  void setLameParameters(double mu, double lambda) override;
 };
 } // namespace seissol::model
 

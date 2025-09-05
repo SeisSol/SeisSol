@@ -25,6 +25,7 @@
 #include <Model/Plasticity.h>
 #include <Modules/Modules.h>
 #include <Monitoring/Stopwatch.h>
+#include <Parallel/Helper.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
 #include <Solver/Estimator.h>
 #include <Solver/MultipleSimulations.h>
@@ -41,8 +42,6 @@
 
 #include "InitModel.h"
 #include "SeisSol.h"
-
-#include "Parallel/MPI.h"
 
 #if defined(USE_VISCOELASTIC) || defined(USE_VISCOELASTIC2)
 #include "Physics/Attenuation.h"
@@ -137,55 +136,78 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
   const auto& elements = meshReader.getElements();
 
+  auto* materialDataArrayGlobal = memoryManager.getLtsStorage().var<LTS::MaterialData>();
+
   for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost)) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-    auto* materialArray = layer.var<LTS::Material>();
-    auto* plasticityArray = seissolParams.model.plasticity ? layer.var<LTS::Plasticity>() : nullptr;
+    auto* materialDataArray = layer.var<LTS::MaterialData>();
 
+    if (layer.getIdentifier().halo == HaloType::Ghost) {
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static)
 #endif
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      // set the materials for the cell volume and its faces
-      auto meshId = secondaryInformation[cell].meshId;
-      auto& material = materialArray[cell];
-      const auto& localMaterial = materialsDB[meshId];
-      const auto& element = elements[meshId];
-      const auto& localCellInformation = cellInformation[cell];
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        const auto& localSecondaryInformation = secondaryInformation[cell];
+        const auto meshId = localSecondaryInformation.meshId;
 
-      initAssign(material.local, localMaterial);
-      for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-        if (isInternalFaceType(localCellInformation.faceTypes[side])) {
-          // use the neighbor face material info in case that we are not at a boundary
-          if (element.neighborRanks[side] == seissol::MPI::mpi.rank()) {
-            // material from interior or copy
-            auto neighbor = element.neighbors[side];
-            initAssign(material.neighbor[side], materialsDB[neighbor]);
-          } else {
-            // material from ghost layer (computed locally)
-            auto neighborRank = element.neighborRanks[side];
-            auto neighborRankIdx = element.mpiIndices[side];
-            auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
-            initAssign(material.neighbor[side], materialsDBGhost[materialGhostIdx]);
-          }
-        } else {
-          // otherwise, use the material from the own cell
-          initAssign(material.neighbor[side], localMaterial);
-        }
+        // explicitly use polymorphic pointer arithmetic here
+        // NOLINTNEXTLINE
+        auto& materialData = materialDataArray[cell];
+
+        auto neighborRank = localSecondaryInformation.rank;
+        auto neighborRankIdx = localSecondaryInformation.meshId;
+        auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
+        const auto& localMaterial = materialsDBGhost[materialGhostIdx];
+        initAssign(materialData, localMaterial);
       }
+    } else {
+      auto* materialArray = layer.var<LTS::Material>();
+      auto* plasticityArray =
+          seissolParams.model.plasticity ? layer.var<LTS::Plasticity>() : nullptr;
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        // set the materials for the cell volume and its faces
+        const auto& localSecondaryInformation = secondaryInformation[cell];
+        const auto meshId = localSecondaryInformation.meshId;
+        auto& material = materialArray[cell];
+        const auto& localMaterial = materialsDB[meshId];
+        const auto& localCellInformation = cellInformation[cell];
 
-      // if enabled, set up the plasticity as well
+        // explicitly use polymorphic pointer arithmetic here
+        // NOLINTNEXTLINE
+        auto& materialData = materialDataArray[cell];
+        initAssign(materialData, localMaterial);
+        material.local = &materialData;
 
-      if (seissolParams.model.plasticity) {
-        auto& plasticity = plasticityArray[cell];
-        assert(plasticityDB.size() == seissol::multisim::NumSimulations &&
-               "Plasticity database size mismatch with number of simulations");
-        std::array<Plasticity, seissol::multisim::NumSimulations> localPlasticity;
-        for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
-          localPlasticity[i] = plasticityDB[i][meshId];
+        for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+          if (isInternalFaceType(localCellInformation.faceTypes[side])) {
+            // use the neighbor face material info in case that we are not at a boundary
+            const auto globalNeighborIndex = localSecondaryInformation.faceNeighborIds[side];
+
+            // explicitly use polymorphic pointer arithmetic here
+            // NOLINTNEXTLINE
+            auto* materialNeighbor = &materialDataArrayGlobal[globalNeighborIndex];
+            material.neighbor[side] = materialNeighbor;
+          } else {
+            // otherwise, use the material from the own cell
+            material.neighbor[side] = material.local;
+          }
         }
-        initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, &material.local));
+
+        // if enabled, set up the plasticity as well
+        if (seissolParams.model.plasticity) {
+          auto& plasticity = plasticityArray[cell];
+          assert(plasticityDB.size() == seissol::multisim::NumSimulations &&
+                 "Plasticity database size mismatch with number of simulations");
+          std::array<Plasticity, seissol::multisim::NumSimulations> localPlasticity;
+          for (size_t i = 0; i < seissol::multisim::NumSimulations; ++i) {
+            localPlasticity[i] = plasticityDB[i][meshId];
+          }
+          initAssign(plasticity, seissol::model::PlasticityData(localPlasticity, material.local));
+        }
       }
     }
   }
@@ -266,11 +288,7 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
       seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
     }
 
-#ifdef ACL_DEVICE
     const bool usmDefault = useUSM();
-#else
-    const bool usmDefault = false;
-#endif
 
     if (!usmDefault && hdenabled) {
       logWarning() << "Using the host-device execution on non-USM systems is not fully supported "

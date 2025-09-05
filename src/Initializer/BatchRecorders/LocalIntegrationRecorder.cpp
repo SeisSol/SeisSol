@@ -305,8 +305,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           t[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].dataT);
           tInv[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].dataTinv);
 
-          rhos[face].push_back(dataHost.get<LTS::Material>().local.rho);
-          lambdas[face].push_back(dataHost.get<LTS::Material>().local.getLambdaBar());
+          rhos[face].push_back(dataHost.get<LTS::Material>().local->getDensity());
+          lambdas[face].push_back(dataHost.get<LTS::Material>().local->getLambdaBar());
 
           real* displ{&nodalAvgDisplacements[nodalAvgDisplacementsCounter]};
           nodalAvgDisplacementsPtrs[face].push_back(displ);
@@ -324,8 +324,9 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
                                                     counter[face] * tensor::INodal::size());
           dofsFaceNodalPtrs[face].push_back(dofsFaceNodalScratch +
                                             counter[face] * tensor::INodal::size());
-          prevCoefficientsPtrs[face].push_back(prevCoefficientsScratch +
-                                               counter[face] * nodal::tensor::nodes2D::Shape[0]);
+          prevCoefficientsPtrs[face].push_back(
+              prevCoefficientsScratch +
+              counter[face] * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
           invImpedances[face].push_back(0);
 
           ++counter[face];

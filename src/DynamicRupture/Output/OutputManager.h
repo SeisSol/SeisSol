@@ -14,6 +14,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include <DynamicRupture/Output/DataTypes.h>
 #include <Memory/Tree/Backmap.h>
+#include <Parallel/Runtime/Stream.h>
 #include <memory>
 
 namespace seissol {
@@ -34,7 +35,7 @@ class OutputManager {
 
   void init();
   void initFaceToLtsMap();
-  void writePickpointOutput(double time, double dt);
+  void writePickpointOutput(double time, double dt, parallel::runtime::StreamRuntime& runtime);
   void flushPickpointDataToFile();
   void updateElementwiseOutput();
 
@@ -74,6 +75,8 @@ class OutputManager {
   std::string backupTimeStamp;
 
   std::unique_ptr<ReceiverOutput> impl{nullptr};
+
+  parallel::runtime::StreamRuntime runtime;
 };
 } // namespace dr::output
 } // namespace seissol

@@ -19,6 +19,7 @@
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include <Eigen/Dense>
+#include <Solver/MultipleSimulations.h>
 #include <complex>
 #include <cstddef>
 #include <vector>
@@ -204,8 +205,8 @@ struct NeighboringIntegrationData {
 
 // material constants per cell
 struct CellMaterialData {
-  seissol::model::MaterialT local;
-  seissol::model::MaterialT neighbor[4];
+  seissol::model::Material* local;
+  seissol::model::Material* neighbor[4];
 };
 
 struct DRFaceInformation {
@@ -269,7 +270,7 @@ struct CellDRMapping {
 
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::nodal::tensor::nodes2D::Shape[0] * 3]{};
+  real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3]{};
   real dataT[seissol::tensor::T::size()]{};
   real dataTinv[seissol::tensor::Tinv::size()]{};
   real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()]{};

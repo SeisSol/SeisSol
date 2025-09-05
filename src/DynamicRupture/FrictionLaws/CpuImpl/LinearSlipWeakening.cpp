@@ -11,6 +11,7 @@
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Tree/Layer.h"
 #include <algorithm>
 #include <cmath>
 #include <cstddef>

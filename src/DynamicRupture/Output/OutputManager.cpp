@@ -28,6 +28,7 @@
 #include "ResultWriter/FaultWriterExecutor.h"
 #include "SeisSol.h"
 #include <Memory/Descriptor/LTS.h>
+#include <Parallel/Runtime/Stream.h>
 #include <Solver/MultipleSimulations.h>
 #include <algorithm>
 #include <array>
@@ -489,7 +490,9 @@ bool OutputManager::isAtPickpoint(double time, double dt) {
   return (isFirstStep || isOutputIteration || isCloseToTimeOut);
 }
 
-void OutputManager::writePickpointOutput(double time, double dt) {
+void OutputManager::writePickpointOutput(double time,
+                                         double dt,
+                                         parallel::runtime::StreamRuntime& runtime) {
   const auto& seissolParameters = seissolInstance.getSeisSolParameters();
   if (this->ppOutputBuilder) {
     if (this->isAtPickpoint(time, dt)) {
@@ -498,6 +501,7 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       impl->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                             seissolParameters.drParameters.slipRateOutputType,
                             ppOutputData,
+                            runtime,
                             time);
 
       const bool isMaxCacheLevel =
@@ -506,6 +510,11 @@ void OutputManager::writePickpointOutput(double time, double dt) {
       const bool isCloseToEnd = (seissolParameters.timeStepping.endTime - time) < dt * timeMargin;
 
       if (isMaxCacheLevel || isCloseToEnd) {
+        // we need to wait for all data to be (internally) written to write it out
+        auto& callRuntime =
+            outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+        callRuntime.wait();
+
         this->flushPickpointDataToFile();
       }
     }
@@ -549,7 +558,9 @@ void OutputManager::updateElementwiseOutput() {
     const auto& seissolParameters = seissolInstance.getSeisSolParameters();
     impl->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                           seissolParameters.drParameters.slipRateOutputType,
-                          ewOutputData);
+                          ewOutputData,
+                          runtime);
+    runtime.wait();
   }
 }
 } // namespace seissol::dr::output

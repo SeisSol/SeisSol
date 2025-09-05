@@ -22,7 +22,7 @@ class RateAndStateThermalPressurization : public RateAndState {
     const auto* const pressure = getCellData<LTSThermalPressurization::Pressure>(local);
     return pressure[local.gpIndex];
   }
-  void outputSpecifics(std::shared_ptr<ReceiverOutputData>& outputData,
+  void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& outputData,
                        const LocalInfo& local,
                        size_t cacheLevel,
                        size_t receiverIdx) override {

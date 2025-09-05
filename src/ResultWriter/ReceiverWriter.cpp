@@ -129,8 +129,8 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
   m_stopwatch.start();
 
   for (auto& cluster : m_receiverClusters) {
-    auto ncols = cluster.ncols();
-    for (auto& receiver : cluster) {
+    auto ncols = cluster->ncols();
+    for (auto& receiver : *cluster) {
       assert(receiver.output.size() % ncols == 0);
       const size_t nSamples = receiver.output.size() / ncols;
 
@@ -228,35 +228,36 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
       // Make sure that needed empty clusters are initialized.
       for (std::size_t c = m_receiverClusters.size(); c <= id; ++c) {
-        m_receiverClusters.emplace_back(global,
-                                        quantities,
-                                        m_samplingInterval,
-                                        syncInterval(),
-                                        derivedQuantities,
-                                        seissolInstance);
+        m_receiverClusters.emplace_back(
+            std::make_shared<kernels::ReceiverCluster>(global,
+                                                       quantities,
+                                                       m_samplingInterval,
+                                                       syncInterval(),
+                                                       derivedQuantities,
+                                                       seissolInstance));
       }
 
       writeHeader(point, points[point]);
-      m_receiverClusters[id].addReceiver(meshId, point, points[point], mesh, backmap);
+      m_receiverClusters[id]->addReceiver(meshId, point, points[point], mesh, backmap);
     }
   }
 }
 
 void ReceiverWriter::simulationStart(std::optional<double> checkpointTime) {
   for (auto& cluster : m_receiverClusters) {
-    cluster.allocateData();
+    cluster->allocateData();
   }
 }
 
 void ReceiverWriter::shutdown() {
   for (auto& cluster : m_receiverClusters) {
-    cluster.freeData();
+    cluster->freeData();
   }
 }
 
 kernels::ReceiverCluster* ReceiverWriter::receiverCluster(std::size_t id) {
   if (id < m_receiverClusters.size()) {
-    return &m_receiverClusters[id];
+    return m_receiverClusters[id].get();
   }
   return nullptr;
 }

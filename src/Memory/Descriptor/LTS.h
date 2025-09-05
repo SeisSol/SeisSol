@@ -16,6 +16,7 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
+#include <Equations/Datastructures.h>
 #include <Initializer/CellLocalInformation.h>
 #include <Memory/Tree/Backmap.h>
 #include <Parallel/Helper.h>
@@ -100,6 +101,7 @@ struct LTS {
   struct FaceNeighbors : public initializer::Variable<real* [Cell::NumFaces]> {};
   struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
   struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
+  struct MaterialData : public initializer::Variable<model::MaterialT> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
   struct Plasticity : public initializer::Variable<seissol::model::PlasticityData> {};
   struct DRMapping : public initializer::Variable<CellDRMapping[Cell::NumFaces]> {};
@@ -150,6 +152,7 @@ struct LTS {
                                                         LocalIntegration,
                                                         NeighboringIntegration,
                                                         Material,
+                                                        MaterialData,
                                                         Plasticity,
                                                         DRMapping,
                                                         BoundaryMapping,
@@ -218,6 +221,7 @@ struct LTS {
         LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<NeighboringIntegration>(
         LayerMask(Ghost), 1, allocationModeWP(AllocationPreset::ConstantShared), true);
+    storage.add<MaterialData>(LayerMask(), 1, AllocationMode::HostOnly, true);
     storage.add<Material>(LayerMask(Ghost), 1, AllocationMode::HostOnly, true);
     storage.add<Plasticity>(
         plasticityMask, 1, allocationModeWP(AllocationPreset::Plasticity), true);

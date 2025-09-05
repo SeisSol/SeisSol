@@ -187,11 +187,9 @@ class TimeCluster : public AbstractTimeCluster {
    **/
   void computeNeighboringIntegration(double subTimeStart);
 
-#ifdef ACL_DEVICE
   void computeLocalIntegrationDevice(bool resetBuffers);
   void computeDynamicRuptureDevice(DynamicRupture::Layer& layerData);
   void computeNeighboringIntegrationDevice(double subTimeStart);
-#endif
 
   void computeLocalIntegrationFlops();
 
