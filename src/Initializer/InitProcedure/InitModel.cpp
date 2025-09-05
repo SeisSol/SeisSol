@@ -185,11 +185,10 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           if (isInternalFaceType(localCellInformation.faceTypes[side])) {
             // use the neighbor face material info in case that we are not at a boundary
-            const auto globalNeighborIndex = localSecondaryInformation.faceNeighborIds[side];
+            const auto& globalNeighborIndex = localSecondaryInformation.faceNeighbors[side];
 
-            // explicitly use polymorphic pointer arithmetic here
-            // NOLINTNEXTLINE
-            auto* materialNeighbor = &materialDataArrayGlobal[globalNeighborIndex];
+            auto* materialNeighbor =
+                &memoryManager.getLtsStorage().lookup<LTS::MaterialData>(globalNeighborIndex);
             material.neighbor[side] = materialNeighbor;
           } else {
             // otherwise, use the material from the own cell
