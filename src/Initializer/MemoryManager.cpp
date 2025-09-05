@@ -765,19 +765,21 @@ void seissol::initializer::MemoryManager::recordExecutionPaths(bool usePlasticit
 
 bool seissol::initializer::isAcousticSideOfElasticAcousticInterface(CellMaterialData &material,
                                               unsigned int face) {
-  constexpr auto eps = std::numeric_limits<real>::epsilon();
-  return material.neighbor[face].getMuBar() > eps && material.local.getMuBar() < eps;
+  constexpr auto Eps = std::numeric_limits<real>::epsilon();
+  return material.neighbor[face]->getMuBar() > Eps && material.local->getMuBar() < Eps;
 }
 bool seissol::initializer::isElasticSideOfElasticAcousticInterface(CellMaterialData &material,
                                              unsigned int face) {
-  constexpr auto eps = std::numeric_limits<real>::epsilon();
-  return material.local.getMuBar() > eps && material.neighbor[face].getMuBar() < eps;
+  constexpr auto Eps = std::numeric_limits<real>::epsilon();
+  return material.local->getMuBar() > Eps && material.neighbor[face]->getMuBar() < Eps;
 }
 
 bool seissol::initializer::isAtElasticAcousticInterface(CellMaterialData &material, unsigned int face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
-  return isAcousticSideOfElasticAcousticInterface(material, face) || isElasticSideOfElasticAcousticInterface(material, face);
+  return material.local != nullptr && material.neighbor[face] != nullptr
+    && (isAcousticSideOfElasticAcousticInterface(material, face)
+      || isElasticSideOfElasticAcousticInterface(material, face));
 }
 
 

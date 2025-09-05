@@ -150,6 +150,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
   const auto* cellInformationAll = ltsTree->var(lts->cellInformation);
   for (auto& layer : ltsTree->leaves(Ghost)) {
     auto* material = layer.var(lts->material);
+    auto* materialData = layer.var(lts->materialData);
     auto* localIntegration = layer.var(lts->localIntegration);
     auto* neighboringIntegration = layer.var(lts->neighboringIntegration);
     auto* cellInformation = layer.var(lts->cellInformation);
@@ -190,6 +191,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
         const auto meshId = secondaryInformation[cell].meshId;
 
+        // NOLINTNEXTLINE
+        auto& materialLocal = materialData[cell];
+
         double x[Cell::NumVertices];
         double y[Cell::NumVertices];
         double z[Cell::NumVertices];
@@ -208,9 +212,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         seissol::transformations::tetrahedronGlobalToReferenceJacobian(
             x, y, z, gradXi, gradEta, gradZeta);
 
-        seissol::model::getTransposedCoefficientMatrix(material[cell].local, 0, matAT);
-        seissol::model::getTransposedCoefficientMatrix(material[cell].local, 1, matBT);
-        seissol::model::getTransposedCoefficientMatrix(material[cell].local, 2, matCT);
+        seissol::model::getTransposedCoefficientMatrix(materialLocal, 0, matAT);
+        seissol::model::getTransposedCoefficientMatrix(materialLocal, 1, matBT);
+        seissol::model::getTransposedCoefficientMatrix(materialLocal, 2, matCT);
         setStarMatrix(
             matATData, matBTData, matCTData, gradXi, localIntegration[cell].starMatrices[0]);
         setStarMatrix(
@@ -234,14 +238,14 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           double nLocalData[6 * 6];
           seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
           seissol::model::getTransposedGodunovState(
-              seissol::model::getRotatedMaterialCoefficients(nLocalData, material[cell].local),
-              seissol::model::getRotatedMaterialCoefficients(nLocalData,
-                                                             material[cell].neighbor[side]),
+              seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
+              seissol::model::getRotatedMaterialCoefficients(
+                  nLocalData, *dynamic_cast<model::MaterialT*>(material[cell].neighbor[side])),
               cellInformation[cell].faceTypes[side],
               qGodLocal,
               qGodNeighbor);
           seissol::model::getTransposedCoefficientMatrix(
-              seissol::model::getRotatedMaterialCoefficients(nLocalData, material[cell].local),
+              seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
               0,
               matATtilde);
 
@@ -273,8 +277,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                        adjacentDRFaceExists;
               };
 
-          const auto wavespeedLocal = material[cell].local.getMaxWaveSpeed();
-          const auto wavespeedNeighbor = material[cell].neighbor[side].getMaxWaveSpeed();
+          const auto wavespeedLocal = materialLocal.getMaxWaveSpeed();
+          const auto wavespeedNeighbor = material[cell].neighbor[side]->getMaxWaveSpeed();
           const auto wavespeed = std::max(wavespeedLocal, wavespeedNeighbor);
 
           real centralFluxData[tensor::QgodLocal::size()]{};
@@ -349,9 +353,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         }
 
         seissol::model::initializeSpecificLocalData(
-            material[cell].local, timeStepWidth, &localIntegration[cell].specific);
+            materialLocal, timeStepWidth, &localIntegration[cell].specific);
 
-        seissol::model::initializeSpecificNeighborData(material[cell].local,
+        seissol::model::initializeSpecificNeighborData(materialLocal,
                                                        &neighboringIntegration[cell].specific);
       }
 #ifdef _OPENMP
@@ -650,20 +654,26 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
              minusLtsId != std::numeric_limits<std::size_t>::max());
 
       if (plusLtsId != std::numeric_limits<std::size_t>::max()) {
-        plusMaterial = &material[plusLtsId].local;
-        minusMaterial = &material[plusLtsId].neighbor[faceInformation[ltsFace].plusSide];
+        plusMaterial = dynamic_cast<seissol::model::MaterialT*>(material[plusLtsId].local);
+        minusMaterial = dynamic_cast<seissol::model::MaterialT*>(
+            material[plusLtsId].neighbor[faceInformation[ltsFace].plusSide]);
       } else {
         assert(minusLtsId != std::numeric_limits<std::size_t>::max());
-        plusMaterial = &material[minusLtsId].neighbor[faceInformation[ltsFace].minusSide];
-        minusMaterial = &material[minusLtsId].local;
+        plusMaterial = dynamic_cast<seissol::model::MaterialT*>(
+            material[minusLtsId].neighbor[faceInformation[ltsFace].minusSide]);
+        minusMaterial = dynamic_cast<seissol::model::MaterialT*>(material[minusLtsId].local);
+      }
+
+      if (plusMaterial == nullptr || minusMaterial == nullptr) {
+        logError() << "Materials on both sides of a fault face do not match.";
       }
 
       /// Wave speeds and Coefficient Matrices
       auto matAPlus = init::star::view<0>::create(matAPlusData);
       auto matAMinus = init::star::view<0>::create(matAMinusData);
 
-      waveSpeedsPlus[ltsFace].density = plusMaterial->rho;
-      waveSpeedsMinus[ltsFace].density = minusMaterial->rho;
+      waveSpeedsPlus[ltsFace].density = plusMaterial->getDensity();
+      waveSpeedsMinus[ltsFace].density = minusMaterial->getDensity();
       waveSpeedsPlus[ltsFace].pWaveVelocity = plusMaterial->getPWaveSpeed();
       waveSpeedsPlus[ltsFace].sWaveVelocity = plusMaterial->getSWaveSpeed();
       waveSpeedsMinus[ltsFace].pWaveVelocity = minusMaterial->getPWaveSpeed();
@@ -736,10 +746,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           init::tractionPlusMatrix::view::create(godunovData[ltsFace].tractionPlusMatrix);
       auto tractionMinusMatrix =
           init::tractionMinusMatrix::view::create(godunovData[ltsFace].tractionMinusMatrix);
-      const double cZpP = plusMaterial->rho * waveSpeedsPlus[ltsFace].pWaveVelocity;
-      const double cZsP = plusMaterial->rho * waveSpeedsPlus[ltsFace].sWaveVelocity;
-      const double cZpM = minusMaterial->rho * waveSpeedsMinus[ltsFace].pWaveVelocity;
-      const double cZsM = minusMaterial->rho * waveSpeedsMinus[ltsFace].sWaveVelocity;
+      const double cZpP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].pWaveVelocity;
+      const double cZsP = plusMaterial->getDensity() * waveSpeedsPlus[ltsFace].sWaveVelocity;
+      const double cZpM = minusMaterial->getDensity() * waveSpeedsMinus[ltsFace].pWaveVelocity;
+      const double cZsM = minusMaterial->getDensity() * waveSpeedsMinus[ltsFace].sWaveVelocity;
       const double etaP = cZpP * cZpM / (cZpP + cZpM);
       const double etaS = cZsP * cZsM / (cZsP + cZsM);
 
