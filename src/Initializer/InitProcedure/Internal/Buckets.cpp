@@ -9,6 +9,7 @@
 #include <Common/Constants.h>
 #include <Common/Real.h>
 #include <Config.h>
+#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/TimeStepping/Halo.h>
 #include <Kernels/Common.h>
@@ -19,7 +20,6 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <generated_code/tensor.h>
 #include <utility>
 #include <vector>
 #include <yateto/InitTools.h>
