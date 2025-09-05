@@ -22,7 +22,7 @@
 #include <memory>
 #include <utility>
 
-GENERATE_HAS_MEMBER(sourceToMultSim)
+GENERATE_HAS_MEMBER(oneSimToMultSim)
 
 namespace seissol::kernels {
 
@@ -42,7 +42,7 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSources(
       const auto startSource = mapping[m].pointSourcesOffset;
       const auto endSource = mapping[m].pointSourcesOffset + mapping[m].numberOfPointSources;
       for (auto source = startSource; source < endSource; ++source) {
-        addTimeIntegratedPointSource(source, from, to, *mapping[m].dofs);
+        addTimeIntegratedPointSource(source, from, to, mapping[m].dofs);
       }
     }
   }
@@ -84,7 +84,7 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSource(std::size_t source,
   const auto simulationIndex = sources_->simulationIndex[source];
   std::array<real, seissol::multisim::NumSimulations> sourceToMultSim{};
   sourceToMultSim[simulationIndex] = 1.0;
-  set_sourceToMultSim(krnl, sourceToMultSim.data());
+  set_oneSimToMultSim(krnl, sourceToMultSim.data());
   krnl.execute();
 }
 

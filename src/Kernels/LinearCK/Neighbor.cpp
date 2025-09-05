@@ -46,7 +46,6 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  const auto deviceAlignment = device.api->getGlobMemAlignment();
 
 #ifdef USE_PREMULTIPLY_FLUX
   deviceNfKrnlPrototype.minusFluxMatrices = global.onDevice->minusFluxMatrices;

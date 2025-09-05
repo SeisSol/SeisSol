@@ -157,7 +157,6 @@ class LinearSlipWeakeningLaw
     const auto vStar{ctx.data->drParameters.vStar};
     const auto prakashLength{ctx.data->drParameters.prakashLength};
 
-    auto& faultStresses = ctx.faultStresses;
     auto& strength = ctx.strengthBuffer;
 
     const real totalNormalStress =

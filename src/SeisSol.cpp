@@ -14,7 +14,6 @@
 #include <sys/resource.h>
 #include <utils/logger.h>
 
-#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.h"
 #include "Parallel/Helper.h"

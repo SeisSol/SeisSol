@@ -166,7 +166,7 @@ void TimeCluster::computeSources() {
 
   if (pointSourceCluster != nullptr) {
     loopStatistics->begin(regionComputePointSources);
-    auto timeStepSizeLocal = timeStepSize();
+    const auto timeStepSizeLocal = timeStepSize();
     pointSourceCluster->addTimeIntegratedPointSources(
         ct.correctionTime, ct.correctionTime + timeStepSizeLocal, streamRuntime);
     loopStatistics->end(regionComputePointSources, pointSourceCluster->size(), profilingId);
@@ -271,7 +271,7 @@ void TimeCluster::computeDynamicRuptureDevice(DynamicRupture::Layer& layerData) 
         &layerData == dynRupInteriorData ? frictionSolverDevice : frictionSolverCopyDevice;
 
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
-    if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
+    if (solver->allocationPlace() == initializer::AllocationPlace::Host) {
       layerData.varSynchronizeTo<DynamicRupture::QInterpolatedPlus>(
           initializer::AllocationPlace::Host, streamRuntime.stream());
       layerData.varSynchronizeTo<DynamicRupture::QInterpolatedMinus>(
