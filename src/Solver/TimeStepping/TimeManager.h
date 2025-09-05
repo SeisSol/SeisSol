@@ -17,7 +17,6 @@
 #include <vector>
 
 #include "Initializer/MemoryManager.h"
-#include "Initializer/TimeStepping/LtsLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Monitoring/Stopwatch.h"
@@ -79,7 +78,7 @@ class TimeManager {
    * @param i_meshToClusters mapping from the mesh to the clusters.
    **/
   void addClusters(const initializer::ClusterLayout& clusterLayout,
-                   MeshStructure* meshStructure,
+                   const solver::HaloCommunication& haloStructure,
                    initializer::MemoryManager& memoryManager,
                    bool usePlasticity);
 
@@ -102,8 +101,7 @@ class TimeManager {
    * @param sourceClusters Collection of point sources for clusters
    */
   void setPointSourcesForClusters(
-      std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
-          sourceClusters);
+      std::vector<seissol::kernels::PointSourceClusterPair> sourceClusters);
 
   /**
    * Returns the writer for the receivers

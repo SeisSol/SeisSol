@@ -22,6 +22,7 @@
 #include "utils/logger.h"
 
 #include "GeneratedCode/kernel.h"
+
 #ifdef ACL_DEVICE
 #include "device.h"
 #include <DataTypes/ConditionalKey.h>
