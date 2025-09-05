@@ -84,7 +84,8 @@ void seissol::writer::FreeSurfaceWriter::constructSurfaceMesh(
         const seissol::refinement::Triangle& subTri =
             m_freeSurfaceIntegrator->triRefiner.subTris[tri];
         for (std::size_t vertex = 0; vertex < Cell::Dim; ++vertex) {
-          const auto vertexPosition = 3 * outputPosition[fs] + vertex;
+          const auto vertexPosition =
+              3 * (outputPosition[fs] * numberOfSubTriangles + tri) + vertex;
 
           Eigen::Vector3d v = x[0] + subTri.x[vertex][0] * a + subTri.x[vertex][1] * b;
           vertices[3 * vertexPosition + 0] = v(0);

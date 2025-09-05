@@ -7,15 +7,15 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "Receiver.h"
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Monitoring/FlopCounter.h"
 #include "Numerical/BasisFunction.h"
 #include "SeisSol.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <Common/Executor.h>
-#include <GeneratedCode/init.h>
-#include <GeneratedCode/tensor.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
 #include <Kernels/Interface.h>
@@ -32,6 +32,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>

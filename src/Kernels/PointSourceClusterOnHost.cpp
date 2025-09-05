@@ -10,8 +10,7 @@
 
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
-
-#include <GeneratedCode/tensor.h>
+#include "GeneratedCode/tensor.h"
 #include <Kernels/Common.h>
 #include <Kernels/PointSourceCluster.h>
 #include <Kernels/Precision.h>

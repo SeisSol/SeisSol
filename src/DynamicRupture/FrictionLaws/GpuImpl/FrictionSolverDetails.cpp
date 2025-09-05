@@ -9,9 +9,9 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/Misc.h"
+#include "GeneratedCode/init.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Kernels/Precision.h"
-#include <GeneratedCode/init.h>
 #include <cstddef>
 
 #include "Memory/MemoryAllocator.h"

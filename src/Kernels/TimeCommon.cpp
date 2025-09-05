@@ -8,9 +8,9 @@
 // SPDX-FileContributor: Carsten Uphoff
 
 #include "TimeCommon.h"
+#include "GeneratedCode/tensor.h"
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
-#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Kernels/Precision.h>
 #include <Kernels/Solver.h>

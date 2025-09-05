@@ -9,12 +9,12 @@
 
 #include "Kernels/LinearCK/LocalBase.h"
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
-#include <GeneratedCode/init.h>
-#include <GeneratedCode/kernel.h>
-#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
@@ -94,6 +94,9 @@ struct ApplyAnalyticalSolution {
       nodesVec[i][1] = nodes[i * 3 + 1];
       nodesVec[i][2] = nodes[i * 3 + 2];
     }
+
+    // NOTE: not yet tested for multisim setups
+    // (only implemented to get the build to work)
 
     for (std::size_t s = 0; s < multisim::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor(boundaryDofs, s);

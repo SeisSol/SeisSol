@@ -5,11 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
+#include "Kernels/Interface.h"
 #include "Recorders.h"
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalKey.h>
-#include <GeneratedCode/init.h>
-#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Kernels/Precision.h>
 #include <Kernels/Solver.h>
