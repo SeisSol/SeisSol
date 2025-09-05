@@ -141,7 +141,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
   auto* materialDataArrayGlobal = memoryManager.getLtsStorage().var<LTS::MaterialData>();
 
-  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost)) {
+  for (auto& layer : memoryManager.getLtsStorage().leaves()) {
     auto* cellInformation = layer.var<LTS::CellInformation>();
     auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* materialDataArray = layer.var<LTS::MaterialData>();
