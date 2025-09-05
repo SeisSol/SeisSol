@@ -13,8 +13,7 @@ class NoTP {
   public:
   explicit NoTP(seissol::initializer::parameters::DRParameters* drParameters) {};
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
   void calcFluidPressure(std::array<real, misc::NumPaddedPoints>& normalStress,
                          real (*mu)[misc::NumPaddedPoints],
