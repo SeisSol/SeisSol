@@ -504,7 +504,7 @@ auto loadSourceFile(const std::string& fileName,
                                      sources.mInvJInvPhisAtSources[clusterSource],
                                      meshIds[sourceIndex],
                                      mesh);
-        const auto& material = ltsLut->lookup(lts->material, meshIds[sourceIndex]).local;
+        const auto& material = *ltsLut->lookup(lts->material, meshIds[sourceIndex]).local;
         file.transform(sources, sourceIndex, clusterSource, material, memkind);
       }
 
