@@ -232,25 +232,25 @@ class Storage {
   auto& lookup(const HandleT& handle,
                const StoragePosition& position,
                AllocationPlace place = AllocationPlace::Host) {
-    return layer(position.color).var(handle)[position.cell];
+    return layer(position.color).var(handle, place)[position.cell];
   }
 
   template <typename StorageT>
   auto& lookup(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
-    return layer(position.color).template var<StorageT>()[position.cell];
+    return layer(position.color).template var<StorageT>(place)[position.cell];
   }
 
   template <typename HandleT>
   const auto& lookup(const HandleT& handle,
                      const StoragePosition& position,
                      AllocationPlace place = AllocationPlace::Host) const {
-    return layer(position.color).var(handle)[position.cell];
+    return layer(position.color).var(handle, place)[position.cell];
   }
 
   template <typename StorageT>
   const auto& lookup(const StoragePosition& position,
                      AllocationPlace place = AllocationPlace::Host) const {
-    return layer(position.color).template var<StorageT>()[position.cell];
+    return layer(position.color).template var<StorageT>(place)[position.cell];
   }
 
   [[nodiscard]] std::size_t getNumberOfVariables() const { return memoryInfo.size(); }
