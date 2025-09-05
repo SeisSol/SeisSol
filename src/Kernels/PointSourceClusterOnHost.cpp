@@ -42,7 +42,7 @@ void PointSourceClusterOnHost::addTimeIntegratedPointSources(
       const auto startSource = mapping[m].pointSourcesOffset;
       const auto endSource = mapping[m].pointSourcesOffset + mapping[m].numberOfPointSources;
       for (auto source = startSource; source < endSource; ++source) {
-        addTimeIntegratedPointSource(source, from, to, *mapping[m].dofs);
+        addTimeIntegratedPointSource(source, from, to, mapping[m].dofs);
       }
     }
   }
