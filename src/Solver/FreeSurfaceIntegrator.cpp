@@ -111,7 +111,7 @@ void FreeSurfaceIntegrator::calculateOutput() const {
           for (std::size_t component = 0; component < NumComponents; ++component) {
             real* target = output[component] + outputPosition[face] * numberOfSubTriangles;
             /// @yateto_todo fix for multiple simulations
-            real* source =
+            const real* source =
                 subTriangleDofs + static_cast<size_t>(component * numberOfAlignedSubTriangles);
             for (std::size_t subtri = 0; subtri < numberOfSubTriangles; ++subtri) {
               target[subtri] = source[subtri];

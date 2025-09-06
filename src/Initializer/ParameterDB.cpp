@@ -335,6 +335,7 @@ void MaterialParameterDB<AnisotropicMaterial>::addBindingPoints(
 template <class T>
 void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
                                            const QueryGenerator& queryGen) {
+  // NOLINTNEXTLINE(misc-const-correctness)
   easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
   const unsigned numPoints = query.numPoints();
@@ -479,6 +480,7 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
 template <>
 void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& fileName,
                                                              const QueryGenerator& queryGen) {
+  // NOLINTNEXTLINE(misc-const-correctness)
   easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
   auto suppliedParameters = model->suppliedParameters();
@@ -507,6 +509,7 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
 }
 
 void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) {
+  // NOLINTNEXTLINE(misc-const-correctness)
   easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
 
@@ -524,6 +527,8 @@ std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileNam
   if (fileName.empty()) {
     return {};
   }
+
+  // NOLINTNEXTLINE(misc-const-correctness)
   easi::Component* const model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();
   delete model;

@@ -26,7 +26,7 @@ namespace seissol::memory {
 
 void* allocate(size_t size, size_t alignment, enum Memkind memkind) {
   // presumably a clang-tidy bug; it'd want to make ptrBuffer const
-  // NOLINTNEXTLINE
+  // NOLINTNEXTLINE(misc-const-correctness)
   void* ptrBuffer{nullptr};
   bool error = false;
 
@@ -177,6 +177,7 @@ ManagedAllocator::~ManagedAllocator() {
 }
 
 void* ManagedAllocator::allocateMemory(size_t size, size_t alignment, enum Memkind memkind) {
+  // NOLINTNEXTLINE(misc-const-correctness)
   void* const ptrBuffer = allocate(size, alignment, memkind);
   dataMemoryAddresses.emplace_back(memkind, ptrBuffer);
   return ptrBuffer;
