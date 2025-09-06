@@ -8,6 +8,7 @@
 #include "Parallel/MPI.h"
 #include <Common/Constants.h>
 #include <Common/Real.h>
+#include <Config.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/TimeStepping/Halo.h>

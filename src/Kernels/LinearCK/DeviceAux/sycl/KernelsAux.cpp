@@ -6,10 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
-#include <GeneratedCode/init.h>
-#include <GeneratedCode/tensor.h>
 #include <cstdio>
 #include <sycl/sycl.hpp>
 #include <yateto.h>

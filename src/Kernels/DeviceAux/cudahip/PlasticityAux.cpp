@@ -6,10 +6,10 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Model/Plasticity.h"
-#include <GeneratedCode/init.h>
 #include <cmath>
 #include <cstddef>
 #include <type_traits>
@@ -104,8 +104,8 @@ __global__ void kernel_adjustDeviatoricTensors(real** nodalStressTensors,
 
   // 4. Compute the plasticity criteria
   const real cohesionTimesCosAngularFriction =
-      plasticity[blockIdx.x].cohesionTimesCosAngularFriction;
-  const real sinAngularFriction = plasticity[blockIdx.x].sinAngularFriction;
+      plasticity[blockIdx.x].cohesionTimesCosAngularFriction[simidx()];
+  const real sinAngularFriction = plasticity[blockIdx.x].sinAngularFriction[simidx()];
   real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
   taulim = std::max(static_cast<real>(0.0), taulim);
 

@@ -14,7 +14,10 @@
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
 #include "IO/Instance/Geometry/Geometry.h"
+#include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
@@ -26,8 +29,6 @@
 #include "SeisSol.h"
 #include <Common/ConfigHelper.h>
 #include <Config.h>
-#include <GeneratedCode/init.h>
-#include <GeneratedCode/kernel.h>
 #include <IO/Instance/Geometry/Typedefs.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Parallel/Runtime/Stream.h>

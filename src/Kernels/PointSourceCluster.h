@@ -10,11 +10,11 @@
 #define SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_
 
 #include "Common/Marker.h"
+#include "GeneratedCode/init.h"
 #include "Kernels/Precision.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
 #include <Equations/Datastructures.h>
-#include <GeneratedCode/init.h>
 #include <Memory/MemoryAllocator.h>
 #include <Solver/MultipleSimulations.h>
 

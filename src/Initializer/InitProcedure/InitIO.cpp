@@ -9,15 +9,17 @@
 #include "Common/Filesystem.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "IO/Instance/Geometry/Geometry.h"
+#include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Writer/Writer.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
 #include <Alignment.h>
 #include <Common/ConfigHelper.h>
+#include <Common/Constants.h>
 #include <Config.h>
-#include <GeneratedCode/kernel.h>
-#include <GeneratedCode/tensor.h>
 #include <Geometry/MeshDefinition.h>
 #include <IO/Instance/Geometry/Typedefs.h>
 #include <Kernels/Precision.h>
@@ -516,10 +518,7 @@ void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
 }
 
-void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  auto& memoryManager = seissolInstance.getMemoryManager();
-}
+void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {}
 
 void setIntegralMask(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.getSeisSolParameters();

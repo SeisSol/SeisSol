@@ -8,13 +8,25 @@
 #ifndef SEISSOL_SRC_SOLVER_MULTIPLESIMULATIONS_H_
 #define SEISSOL_SRC_SOLVER_MULTIPLESIMULATIONS_H_
 
+#include "GeneratedCode/init.h"
 #include <Config.h>
-#include <GeneratedCode/init.h>
 #include <cstddef>
 #include <functional>
 #include <tuple>
 #include <utility>
 #include <yateto.h>
+
+// disable the omp simd declarations for old Intel compilers
+
+#ifdef __INTEL_COMPILER
+#define SEISSOL_NO_OMPSIMD
+#endif // __INTEL_COMPILER
+
+#ifdef __INTEL_LLVM_COMPILER
+#if __INTEL_LLVM_COMPILER < 20230000
+#define SEISSOL_NO_OMPSIMD
+#endif
+#endif // __INTEL_LLVM_COMPILER
 
 namespace seissol::multisim {
 
@@ -53,22 +65,34 @@ struct MultisimHelperWrapper {
   // the (non-?)default case: NumSimulations > 1
   constexpr static unsigned int NumSimulations = NumSimulationsT;
   constexpr static unsigned int BasisFunctionDimension = 1;
+
+#ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
+#endif
   template <typename F, typename... Args>
   static auto& multisimWrap(F&& function, size_t sim, Args&&... args) {
     return std::invoke(std::forward<F>(function), sim, std::forward<Args>(args)...);
   }
+
+#ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
+#endif
   template <typename T, typename F, typename... Args>
   static auto multisimObjectWrap(F&& func, T& obj, int sim, Args&&... args) {
     return std::invoke(std::forward<F>(func), obj, sim, std::forward<Args>(args)...);
   }
+
+#ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
+#endif
   template <typename F, typename... Args>
   static auto multisimTranspose(F&& function, Args&&... args) {
     return reverseCall(std::forward<F>(function), std::forward<Args>(args)...);
   }
+
+#ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
+#endif
   template <unsigned Rank, typename RealT, typename IdxT>
   static auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
     static_assert(Rank > 0, "Tensor rank needs to be non-scalar (rank > 0)");
@@ -82,22 +106,34 @@ template <>
 struct MultisimHelperWrapper<1> {
   constexpr static unsigned int NumSimulations = 1;
   constexpr static unsigned int BasisFunctionDimension = 0;
+
+#ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
+#endif
   template <typename F, typename... Args>
   static auto& multisimWrap(F&& function, size_t sim, Args&&... args) {
     return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
   }
+
+#ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
+#endif
   template <typename T, typename F, typename... Args>
   static auto multisimObjectWrap(F&& func, T& obj, int sim, Args&&... args) {
     return std::invoke(std::forward<F>(func), obj, std::forward<Args>(args)...);
   }
+
+#ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
+#endif
   template <typename F, typename... Args>
   static auto multisimTranspose(F&& function, Args&&... args) {
     return std::invoke(std::forward<F>(function), std::forward<Args>(args)...);
   }
+
+#ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
+#endif
   template <unsigned Rank, typename RealT, typename IdxT>
   static auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
     return tensor;
@@ -115,25 +151,36 @@ constexpr auto NumSimulations = MultisimHelper<Cfg>::NumSimulations;
 template <typename Cfg>
 constexpr auto BasisDim = MultisimHelper<Cfg>::BasisFunctionDimension;
 
+#ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
+#endif
 template <typename Cfg, typename F, typename... Args>
 auto& multisimWrap(F&& function, size_t sim, Args&&... args) {
   return MultisimHelper<Cfg>::multisimWrap(
       std::forward<F>(function), sim, std::forward<Args>(args)...);
 }
+
+#ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
+#endif
 template <typename Cfg, typename T, typename F, typename... Args>
 auto multisimObjectWrap(F&& func, T& obj, int sim, Args&&... args) {
   return MultisimHelper<Cfg>::multisimObjectWrap(
       std::forward<F>(func), obj, sim, std::forward<Args>(args)...);
 }
+
+#ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
+#endif
 template <typename Cfg, typename F, typename... Args>
 auto multisimTranspose(F&& function, Args&&... args) {
   return MultisimHelper<Cfg>::multisimTranspose(std::forward<F>(function),
                                                 std::forward<Args>(args)...);
 }
+
+#ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
+#endif
 template <typename Cfg, unsigned Rank, typename RealT, typename IdxT>
 auto simtensor(::yateto::DenseTensorView<Rank, RealT, IdxT>& tensor, int sim) {
   return MultisimHelper<Cfg>::simtensor(tensor, sim);

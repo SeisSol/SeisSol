@@ -8,9 +8,9 @@
 
 #include "DynamicRupture.h"
 
+#include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <DataTypes/ConditionalTable.h>
-#include <GeneratedCode/tensor.h>
 #include <Initializer/Typedefs.h>
 #include <Memory/GlobalData.h>
 #include <Parallel/Runtime/Stream.h>
@@ -21,6 +21,7 @@
 #include "utils/logger.h"
 
 #include "GeneratedCode/kernel.h"
+
 #ifdef ACL_DEVICE
 #include "device.h"
 #include <DataTypes/ConditionalKey.h>

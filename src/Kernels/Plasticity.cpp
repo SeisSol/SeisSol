@@ -11,9 +11,10 @@
 
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <DataTypes/ConditionalTable.h>
-#include <GeneratedCode/tensor.h>
+#include <Initializer/Typedefs.h>
 #include <Kernels/Precision.h>
 #include <Memory/GlobalData.h>
 #include <Model/Plasticity.h>
@@ -116,9 +117,12 @@ std::size_t Plasticity<Cfg>::computePlasticity(
 
   // Compute tau_c for every node
   for (std::size_t ip = 0; ip < tensor::meanStress<Cfg>::size(); ++ip) {
-    taulim[ip] = std::max(static_cast<real>(0.0),
-                          plasticityData->cohesionTimesCosAngularFriction -
-                              meanStress[ip] * plasticityData->sinAngularFriction);
+    taulim[ip] = std::max(
+        static_cast<real>(0.0),
+        plasticityData
+                ->cohesionTimesCosAngularFriction[ip % seissol::multisim::NumSimulations<Cfg>] -
+            meanStress[ip] *
+                plasticityData->sinAngularFriction[ip % seissol::multisim::NumSimulations<Cfg>]);
   }
 
   bool adjust = false;

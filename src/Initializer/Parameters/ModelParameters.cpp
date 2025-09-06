@@ -7,7 +7,11 @@
 
 #include "ModelParameters.h"
 #include <Initializer/Parameters/ParameterReader.h>
+#include <Solver/MultipleSimulations.h>
+#include <cstddef>
+#include <string>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -49,6 +53,13 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const auto boundaryFileName = reader->readPath("boundaryfileName");
   const std::string materialFileName =
       reader->readPathOrFail("materialfilename", "No material file given.");
+  std::vector<std::string> plasticityFileNames(128); // TODO num simulations
+
+  for (std::size_t i = 0; i < plasticityFileNames.size(); ++i) {
+    const auto fieldname = "plasticityfilename" + (i == 0 ? std::string{} : std::to_string(i));
+    plasticityFileNames[i] = reader->readPath(fieldname).value_or(materialFileName);
+  }
+
   const bool hasBoundaryFile = !boundaryFileName.value_or("").empty();
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
@@ -91,6 +102,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          tv,
                          boundaryFileName.value_or(""),
                          materialFileName,
+                         plasticityFileNames,
                          itmParameters,
                          flux,
                          fluxNearFault};

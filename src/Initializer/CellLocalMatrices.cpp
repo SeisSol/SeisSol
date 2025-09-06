@@ -10,6 +10,7 @@
 #include "CellLocalMatrices.h"
 
 #include "Equations/Setup.h" // IWYU pragma: keep
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshTools.h"
@@ -21,7 +22,6 @@
 #include "Parameters/ModelParameters.h"
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h> // IWYU pragma: keep
-#include <GeneratedCode/init.h>
 #include <Geometry/MeshDefinition.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/BasicTypedefs.h>
@@ -670,6 +670,10 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           plusMaterial = dynamic_cast<const MaterialT*>(
               cellMaterialData.neighbor[faceInformation[ltsFace].minusSide]);
           minusMaterial = dynamic_cast<const MaterialT*>(cellMaterialData.local);
+        }
+
+        if (plusMaterial == nullptr || minusMaterial == nullptr) {
+          logError() << "Materials on both sides of a fault face do not match.";
         }
 
         /// Wave speeds and Coefficient Matrices

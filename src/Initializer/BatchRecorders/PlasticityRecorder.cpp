@@ -5,11 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Interface.h"
 #include "Recorders.h"
 #include <DataTypes/ConditionalKey.h>
 #include <DataTypes/EncodedConstants.h>
-#include <GeneratedCode/tensor.h>
 #include <Kernels/Precision.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Tree/Layer.h>

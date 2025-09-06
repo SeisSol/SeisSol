@@ -11,14 +11,16 @@
 
 #include "Kernels/LinearCK/TimeBase.h"
 
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
+#include "GravitationalFreeSurfaceBC.h"
 #include <Alignment.h>
 #include <DataTypes/ConditionalTable.h>
-#include <GeneratedCode/kernel.h>
-#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Kernels/Interface.h>
 #include <Kernels/LinearCK/Solver.h>
 #include <Memory/Descriptor/LTS.h>
+#include <Memory/Tree/Layer.h>
 #include <Parallel/Runtime/Stream.h>
 #include <algorithm>
 #include <cstdint>
@@ -54,7 +56,7 @@ void Spacetime<Cfg>::setGlobalData(const GlobalData& global) {
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  const auto deviceAlignment = device.api->getGlobMemAlignment();
+
   deviceKrnlPrototype.kDivMT = global.get<Cfg, Executor::Device>().stiffnessMatricesTransposed;
   deviceDerivativeToNodalBoundaryRotated.V3mTo2nFace =
       global.get<Cfg, Executor::Device>().v3mTo2nFace;

@@ -358,7 +358,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
 #if defined(ACL_DEVICE)
   using GpuImpl = seissol::kernels::PointSourceClusterOnDevice<Cfg>;
 
-  auto deviceData =
+  const auto deviceData =
       [&]() -> std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources<Cfg>>> {
     if (useUSM()) {
       return hostData;
@@ -370,15 +370,15 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
                        ltsStorage,
                        backmap,
                        seissol::initializer::AllocationPlace::Device);
-      auto deviceClusterMapping =
+      const auto deviceClusterMapping =
           std::make_shared<ClusterMapping>(predeviceClusterMapping, GpuMemkind);
-      auto devicePointSources = std::make_shared<PointSources<Cfg>>(sources, GpuMemkind);
+      const auto devicePointSources = std::make_shared<PointSources<Cfg>>(sources, GpuMemkind);
       return {deviceClusterMapping, devicePointSources};
     }
   }();
 #else
   using GpuImpl = seissol::kernels::PointSourceClusterOnHost<Cfg>;
-  auto deviceData = hostData;
+  const auto deviceData = hostData;
 #endif
 
   return seissol::kernels::PointSourceClusterPair{
@@ -432,6 +432,7 @@ auto loadSourceFile(const char* fileName,
              0,
              seissol::MPI::mpi.comm());
 
+  logInfo() << "Found" << globalnumSources << "point sources.";
   const int rank = seissol::MPI::mpi.rank();
   if (rank == 0 && points.size() > globalnumSources) {
     logError() << (points.size() - globalnumSources) << " point sources are outside the domain.";

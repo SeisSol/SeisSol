@@ -8,6 +8,13 @@
 // SPDX-FileContributor: Alexander Breuer
 // SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
 
+#include "MemoryManager.h"
+#include "Initializer/Parameters/SeisSolParameters.h"
+#include "Kernels/Common.h"
+#include "Memory/GlobalData.h"
+#include "Memory/MemoryAllocator.h"
+#include "Memory/Tree/Layer.h"
+#include "SeisSol.h"
 #include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <DynamicRupture/Factory.h>
@@ -19,11 +26,8 @@
 #include <Memory/Descriptor/Boundary.h>
 #include <Memory/Descriptor/LTS.h>
 #include <Memory/Descriptor/Surface.h>
-
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "Memory/Tree/Layer.h"
-#include "MemoryManager.h"
-#include "SeisSol.h"
+#include <Memory/Tree/Colormap.h>
+#include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cstddef>
 #include <limits>

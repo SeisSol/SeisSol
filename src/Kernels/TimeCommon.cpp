@@ -12,7 +12,7 @@
 #include <Common/Constants.h>
 #include <Config.h>
 #include <DataTypes/ConditionalTable.h>
-#include <GeneratedCode/metagen/init.h>
+#include <GeneratedCode/init.h>
 #include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/CellLocalInformation.h>

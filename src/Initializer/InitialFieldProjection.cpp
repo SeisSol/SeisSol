@@ -29,7 +29,7 @@
 #include <Physics/InitialField.h>
 #include <Solver/MultipleSimulations.h>
 
-#include <GeneratedCode/init.h>
+#include "GeneratedCode/init.h"
 #include <array>
 #include <cstddef>
 #include <easi/YAMLParser.h>

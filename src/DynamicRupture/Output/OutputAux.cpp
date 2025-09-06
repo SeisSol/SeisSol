@@ -8,6 +8,7 @@
 #include "OutputAux.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
+#include "GeneratedCode/init.h"
 #include "Geometry.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"

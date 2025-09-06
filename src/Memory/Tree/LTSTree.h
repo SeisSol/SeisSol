@@ -233,14 +233,14 @@ class Storage {
   template <typename StorageT>
   auto& lookup(const StoragePosition& position, AllocationPlace place = AllocationPlace::Host) {
     assert(position != StoragePosition::NullPosition);
-    return layer(position.color).template var<StorageT>()[position.cell];
+    return layer(position.color).template var<StorageT>(place)[position.cell];
   }
 
   template <typename StorageT>
   const auto& lookup(const StoragePosition& position,
                      AllocationPlace place = AllocationPlace::Host) const {
     assert(position != StoragePosition::NullPosition);
-    return layer(position.color).template var<StorageT>()[position.cell];
+    return layer(position.color).template var<StorageT>(place)[position.cell];
   }
 
   template <typename StorageT, typename Config>
@@ -248,7 +248,7 @@ class Storage {
                const StoragePosition& position,
                AllocationPlace place = AllocationPlace::Host) {
     assert(position != StoragePosition::NullPosition);
-    return layer(position.color).template var<StorageT>(config)[position.cell];
+    return layer(position.color).template var<StorageT>(config, place)[position.cell];
   }
 
   template <typename StorageT, typename Config>
@@ -256,7 +256,7 @@ class Storage {
                      const StoragePosition& position,
                      AllocationPlace place = AllocationPlace::Host) const {
     assert(position != StoragePosition::NullPosition);
-    return layer(position.color).template var<StorageT>(config)[position.cell];
+    return layer(position.color).template var<StorageT>(config, place)[position.cell];
   }
 
   template <typename StorageT, typename F>
@@ -266,7 +266,7 @@ class Storage {
     assert(position != StoragePosition::NullPosition);
     auto& llayer = layer(position.color);
     llayer.wrap([&, handler = std::forward<F>(handler)](auto cfg) {
-      handler(llayer.template var<StorageT>(cfg)[position.cell]);
+      handler(llayer.template var<StorageT>(cfg, place)[position.cell]);
     });
   }
 
@@ -277,7 +277,7 @@ class Storage {
     assert(position != StoragePosition::NullPosition);
     auto& llayer = layer(position.color);
     llayer.wrap([&, handler = std::forward<F>(handler)](auto cfg) {
-      handler(llayer.template var<StorageT>(cfg)[position.cell]);
+      handler(llayer.template var<StorageT>(cfg, place)[position.cell]);
     });
   }
 

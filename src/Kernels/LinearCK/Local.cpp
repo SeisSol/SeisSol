@@ -9,12 +9,12 @@
 
 #include "Kernels/LinearCK/LocalBase.h"
 
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
 #include <DataTypes/ConditionalTable.h>
-#include <GeneratedCode/init.h>
-#include <GeneratedCode/kernel.h>
-#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Interface.h>
@@ -65,7 +65,6 @@ void Local<Cfg>::setGlobalData(const GlobalData& global) {
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  const auto deviceAlignment = device.api->getGlobMemAlignment();
 
   deviceVolumeKernelPrototype.kDivM = global.get<Cfg, Executor::Device>().stiffnessMatrices;
 #ifdef USE_PREMULTIPLY_FLUX
@@ -102,6 +101,9 @@ struct ApplyAnalyticalSolution {
       nodesVec[i][1] = nodes[i * 3 + 1];
       nodesVec[i][2] = nodes[i * 3 + 2];
     }
+
+    // NOTE: not yet tested for multisim setups
+    // (only implemented to get the build to work)
 
     for (std::size_t s = 0; s < multisim::NumSimulations<Cfg>; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor<Cfg>(boundaryDofs, s);

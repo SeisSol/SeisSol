@@ -31,6 +31,7 @@
 #include <Parallel/Helper.h>
 #include <Physics/InstantaneousTimeMirrorManager.h>
 #include <Solver/Estimator.h>
+#include <Solver/MultipleSimulations.h>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -99,13 +100,20 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   }
 
   // plasticity (if needed)
-  std::vector<Plasticity> plasticityDB;
+  std::vector<std::vector<Plasticity>> plasticityDB;
   if (seissolParams.model.plasticity) {
     // plasticity information is only needed on all interior+copy cells.
     const auto queryGen = seissol::initializer::getBestQueryGenerator<Plasticity>(
         seissolParams.model.plasticity, seissolParams.model.useCellHomogenizedMaterial, meshArray);
-    plasticityDB = queryDB<Plasticity>(
-        queryGen, seissolParams.model.materialFileName, meshReader.getElements().size());
+
+    const auto simcount = 1; // TODO (again)
+
+    plasticityDB.resize(simcount);
+
+    for (size_t i = 0; i < simcount; i++) {
+      plasticityDB[i] = queryDB<Plasticity>(
+          queryGen, seissolParams.model.plasticityFileNames[i], meshReader.getElements().size());
+    }
   }
 
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
@@ -169,7 +177,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           if (isInternalFaceType(localCellInformation.faceTypes[side])) {
             // use the neighbor face material info in case that we are not at a boundary
-            const auto globalNeighborIndex = localSecondaryInformation.faceNeighbors[side];
+            const auto& globalNeighborIndex = localSecondaryInformation.faceNeighbors[side];
 
             memoryManager.getLtsStorage().lookupWrap<LTS::MaterialData>(
                 globalNeighborIndex,
@@ -188,6 +196,12 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
             using Cfg = decltype(cfg);
 
             auto& plasticity = layer.var<LTS::Plasticity>(cfg)[cell];
+            assert(plasticityDB.size() == seissol::multisim::NumSimulations<Cfg> &&
+                   "Plasticity database size mismatch with number of simulations");
+            std::array<Plasticity, seissol::multisim::NumSimulations<Cfg>> localPlasticity;
+            for (size_t i = 0; i < seissol::multisim::NumSimulations<Cfg>; ++i) {
+              localPlasticity[i] = plasticityDB[i][meshId];
+            }
 
             initAssign(plasticity,
                        seissol::model::PlasticityData<Real<Cfg>>(localPlasticity, material.local));

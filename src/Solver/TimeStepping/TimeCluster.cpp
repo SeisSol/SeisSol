@@ -10,7 +10,9 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "TimeCluster.h"
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Receiver.h"
 #include "Kernels/TimeCommon.h"
@@ -20,11 +22,10 @@
 #include "SeisSol.h"
 #include <Alignment.h>
 #include <Common/Constants.h>
+#include <Common/Executor.h>
 #include <Config.h>
 #include <DynamicRupture/FrictionLaws/FrictionSolver.h>
 #include <DynamicRupture/Output/OutputManager.h>
-#include <GeneratedCode/init.h>
-#include <GeneratedCode/tensor.h>
 #include <Initializer/BasicTypedefs.h>
 #include <Initializer/Typedefs.h>
 #include <Kernels/Common.h>
@@ -159,20 +160,16 @@ void TimeCluster<Cfg>::computeSources() {
   // Return when point sources not initialized. This might happen if there
   // are no point sources on this rank.
   auto* pointSourceCluster = [&]() -> kernels::PointSourceCluster* {
-#ifdef ACL_DEVICE
     if (executor == Executor::Device) {
       return sourceCluster.device.get();
     } else {
       return sourceCluster.host.get();
     }
-#else
-    return sourceCluster.host.get();
-#endif
   }();
 
   if (pointSourceCluster != nullptr) {
     loopStatistics->begin(regionComputePointSources);
-    auto timeStepSizeLocal = timeStepSize();
+    const auto timeStepSizeLocal = timeStepSize();
     pointSourceCluster->addTimeIntegratedPointSources(
         ct.correctionTime, ct.correctionTime + timeStepSizeLocal, streamRuntime);
     loopStatistics->end(regionComputePointSources, pointSourceCluster->size(), profilingId);
@@ -247,9 +244,9 @@ void TimeCluster<Cfg>::computeDynamicRupture(DynamicRupture::Layer& layerData) {
   loopStatistics->end(regionComputeDynamicRupture, layerData.size(), profilingId);
 }
 
-#ifdef ACL_DEVICE
 template <typename Cfg>
 void TimeCluster<Cfg>::computeDynamicRuptureDevice(DynamicRupture::Layer& layerData) {
+#ifdef ACL_DEVICE
   SCOREP_USER_REGION("computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   loopStatistics->begin(regionComputeDynamicRupture);
@@ -280,7 +277,7 @@ void TimeCluster<Cfg>::computeDynamicRuptureDevice(DynamicRupture::Layer& layerD
         &layerData == dynRupInteriorData ? frictionSolverDevice : frictionSolverCopyDevice;
 
     device.api->putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
-    if (frictionSolverDevice->allocationPlace() == initializer::AllocationPlace::Host) {
+    if (solver->allocationPlace() == initializer::AllocationPlace::Host) {
       layerData.varSynchronizeTo<DynamicRupture::QInterpolatedPlus>(
           initializer::AllocationPlace::Host, streamRuntime.stream());
       layerData.varSynchronizeTo<DynamicRupture::QInterpolatedMinus>(
@@ -298,11 +295,14 @@ void TimeCluster<Cfg>::computeDynamicRuptureDevice(DynamicRupture::Layer& layerD
     } else {
       solver->evaluate(ct.correctionTime, frictionTime, timeWeights.data(), streamRuntime);
     }
+
     device.api->popLastProfilingMark();
   }
   loopStatistics->end(regionComputeDynamicRupture, layerData.size(), profilingId);
-}
+#else
+  logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif
+}
 
 template <typename Cfg>
 void TimeCluster<Cfg>::computeDynamicRuptureFlops(DynamicRupture::Layer& layerData,
@@ -416,10 +416,11 @@ void TimeCluster<Cfg>::computeLocalIntegration(bool resetBuffers) {
 
   loopStatistics->end(regionComputeLocalIntegration, clusterData->size(), profilingId);
 }
-#ifdef ACL_DEVICE
+
 template <typename Cfg>
 void TimeCluster<Cfg>::computeLocalIntegrationDevice(bool resetBuffers) {
 
+#ifdef ACL_DEVICE
   SCOREP_USER_REGION("computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
   device.api->putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
@@ -502,8 +503,10 @@ void TimeCluster<Cfg>::computeLocalIntegrationDevice(bool resetBuffers) {
 
   loopStatistics->end(regionComputeLocalIntegration, clusterData->size(), profilingId);
   device.api->popLastProfilingMark();
-}
+#else
+  logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif // ACL_DEVICE
+}
 
 template <typename Cfg>
 void TimeCluster<Cfg>::computeNeighboringIntegration(double subTimeStart) {
@@ -513,9 +516,10 @@ void TimeCluster<Cfg>::computeNeighboringIntegration(double subTimeStart) {
     computeNeighboringIntegrationImplementation<false>(subTimeStart);
   }
 }
-#ifdef ACL_DEVICE
+
 template <typename Cfg>
 void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(double subTimeStart) {
+#ifdef ACL_DEVICE
   device.api->putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
   loopStatistics->begin(regionComputeNeighboringIntegration);
@@ -567,8 +571,10 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(double subTimeStart) 
 
   device.api->popLastProfilingMark();
   loopStatistics->end(regionComputeNeighboringIntegration, clusterData->size(), profilingId);
-}
+#else
+  logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif // ACL_DEVICE
+}
 
 template <typename Cfg>
 void TimeCluster<Cfg>::computeLocalIntegrationFlops() {
@@ -692,34 +698,31 @@ void TimeCluster<Cfg>::predict() {
   }
 
   writeReceivers();
-#ifdef ACL_DEVICE
+
   if (executor == Executor::Device) {
     computeLocalIntegrationDevice(resetBuffers);
   } else {
     computeLocalIntegration(resetBuffers);
   }
-#else
-  computeLocalIntegration(resetBuffers);
-#endif
+
   computeSources();
 
   seissolInstance.flopCounter().incrementNonZeroFlopsLocal(
       accFlopsNonZero[static_cast<int>(ComputePart::Local)]);
   seissolInstance.flopCounter().incrementHardwareFlopsLocal(
       accFlopsHardware[static_cast<int>(ComputePart::Local)]);
-#ifdef ACL_DEVICE
+
   if (hasDifferentExecutorNeighbor()) {
     auto other = executor == Executor::Device ? seissol::initializer::AllocationPlace::Host
                                               : seissol::initializer::AllocationPlace::Device;
     clusterData->varSynchronizeTo<LTS::BuffersDerivatives>(other, streamRuntime.stream());
   }
-#endif
+
   streamRuntime.wait();
 }
 
 template <typename Cfg>
 void TimeCluster<Cfg>::handleDynamicRupture(DynamicRupture::Layer& layerData) {
-#ifdef ACL_DEVICE
   if (executor == Executor::Device) {
     computeDynamicRuptureDevice(layerData);
   } else {
@@ -735,9 +738,6 @@ void TimeCluster<Cfg>::handleDynamicRupture(DynamicRupture::Layer& layerData) {
     layerData.varSynchronizeTo<DynamicRupture::ImposedStateMinus>(other, streamRuntime.stream());
     layerData.varSynchronizeTo<DynamicRupture::ImposedStatePlus>(other, streamRuntime.stream());
   }
-#else
-  computeDynamicRupture(layerData);
-#endif
 }
 
 template <typename Cfg>
@@ -793,15 +793,11 @@ void TimeCluster<Cfg>::correct() {
     dynamicRuptureScheduler->setLastCorrectionStepsCopy((ct.stepsSinceStart));
   }
 
-#ifdef ACL_DEVICE
   if (executor == Executor::Device) {
     computeNeighboringIntegrationDevice(subTimeStart);
   } else {
     computeNeighboringIntegration(subTimeStart);
   }
-#else
-  computeNeighboringIntegration(subTimeStart);
-#endif
 
   seissolInstance.flopCounter().incrementNonZeroFlopsNeighbor(
       accFlopsNonZero[static_cast<int>(ComputePart::Neighbor)]);
@@ -1028,18 +1024,18 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationImplementation(double subTim
 
 template <typename Cfg>
 void TimeCluster<Cfg>::synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {
-#ifdef ACL_DEVICE
-  if ((place == initializer::AllocationPlace::Host && executor == Executor::Device) ||
-      (place == initializer::AllocationPlace::Device && executor == Executor::Host)) {
-    clusterData->synchronizeTo(place, stream);
-    if (layerType == HaloType::Interior) {
-      dynRupInteriorData->synchronizeTo(place, stream);
-    }
-    if (layerType == HaloType::Copy) {
-      dynRupCopyData->synchronizeTo(place, stream);
+  if constexpr (isDeviceOn()) {
+    if ((place == initializer::AllocationPlace::Host && executor == Executor::Device) ||
+        (place == initializer::AllocationPlace::Device && executor == Executor::Host)) {
+      clusterData->synchronizeTo(place, stream);
+      if (layerType == HaloType::Interior) {
+        dynRupInteriorData->synchronizeTo(place, stream);
+      }
+      if (layerType == HaloType::Copy) {
+        dynRupCopyData->synchronizeTo(place, stream);
+      }
     }
   }
-#endif
 }
 
 template <typename Cfg>
