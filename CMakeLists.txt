@@ -84,9 +84,6 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
-# LTO
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ${LTO})
-
 function(capitalize INARG OUTARG)
   string(REPLACE "_" ";" PARTS ${INARG})
   set(PREOUTARG "")
