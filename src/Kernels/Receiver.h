@@ -90,7 +90,7 @@ class ReceiverCluster {
                    const Eigen::Vector3d& point,
                    const seissol::geometry::MeshReader& mesh,
                    const seissol::initializer::Lut& ltsLut,
-                   seissol::initializer::LTS const& lts);
+                   const seissol::initializer::LTS& lts);
 
   //! Returns new receiver time
   double calcReceivers(double time,
