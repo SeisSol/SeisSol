@@ -20,7 +20,7 @@ def main():
     argParser = argparse.ArgumentParser()
     argParser.add_argument("--fix", action="store_true")
     argParser.add_argument("--dirs", action="store_true")
-    argParser.add_argument("path")
+    argParser.add_argument("path", nargs="*")
     argParser.set_defaults(fix=False, dirs=False)
     args = argParser.parse_args()
 
@@ -45,15 +45,16 @@ def main():
             sanitized = fixName(file.stem) + suffix
             sanitizeFile(file, sanitized)
 
-    for root, dirs, files in pathlib.Path(args.path).walk(top_down=False):
-        for prefile in files:
-            checkFile(root / prefile, ".hpp", ".h")
-            checkFile(root / prefile, ".h", ".h")
-            checkFile(root / prefile, ".cpp", ".cpp")
-            checkFile(root / prefile, ".cu", ".cu")
-        if args.dirs:
-            for prefile in dirs:
-                checkFile(root / prefile, None, "")
+    for path in args.path:
+        for root, dirs, files in pathlib.Path(path).walk(top_down=False):
+            for prefile in files:
+                checkFile(root / prefile, ".hpp", ".h")
+                checkFile(root / prefile, ".h", ".h")
+                checkFile(root / prefile, ".cpp", ".cpp")
+                checkFile(root / prefile, ".cu", ".cu")
+            if args.dirs:
+                for prefile in dirs:
+                    checkFile(root / prefile, None, "")
 
     if foundobj.found:
         print("Unconformant files found.")
