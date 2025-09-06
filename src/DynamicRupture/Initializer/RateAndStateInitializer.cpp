@@ -104,7 +104,10 @@ void RateAndStateInitializer::addAdditionalParameters(
   const auto* concreteLts = dynamic_cast<const seissol::initializer::LTSRateAndState*>(dynRup);
   real(*rsSl0)[misc::NumPaddedPoints] = layer.var(concreteLts->rsSl0);
   real(*rsA)[misc::NumPaddedPoints] = layer.var(concreteLts->rsA);
-  parameterToStorageMap.insert({"rs_sl0", reinterpret_cast<real*>(rsSl0)});
+
+  const auto sl0Name = faultNameAlternatives({"rs_sl0", "RS_sl0"});
+
+  parameterToStorageMap.insert({sl0Name, reinterpret_cast<real*>(rsSl0)});
   parameterToStorageMap.insert({"rs_a", reinterpret_cast<real*>(rsA)});
 }
 
@@ -145,8 +148,9 @@ void RateAndStateFastVelocityInitializer::addAdditionalParameters(
 }
 
 ThermalPressurizationInitializer::ThermalPressurizationInitializer(
-    const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters)
-    : drParameters(drParameters) {}
+    const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
+    const std::set<std::string>& faultParameterNames)
+    : drParameters(drParameters), faultParameterNames(faultParameterNames) {}
 
 void ThermalPressurizationInitializer::initializeFault(
     const seissol::initializer::DynamicRupture* const dynRup,
@@ -183,17 +187,24 @@ void ThermalPressurizationInitializer::addAdditionalParameters(
 
   real(*halfWidthShearZone)[misc::NumPaddedPoints] = layer.var(concreteLts->halfWidthShearZone);
   real(*hydraulicDiffusivity)[misc::NumPaddedPoints] = layer.var(concreteLts->hydraulicDiffusivity);
+
+  const auto halfWidthShearZoneName =
+      faultNameAlternatives({"tp_halfWidthShearZone", "TP_half_width_shear_zone"});
+  const auto hydraulicDiffusivityName =
+      faultNameAlternatives({"tp_hydraulicDiffusivity", "alpha_hy"});
+
   parameterToStorageMap.insert(
-      {"tp_halfWidthShearZone", reinterpret_cast<real*>(halfWidthShearZone)});
+      {halfWidthShearZoneName, reinterpret_cast<real*>(halfWidthShearZone)});
   parameterToStorageMap.insert(
-      {"tp_hydraulicDiffusivity", reinterpret_cast<real*>(hydraulicDiffusivity)});
+      {hydraulicDiffusivityName, reinterpret_cast<real*>(hydraulicDiffusivity)});
 }
 
 RateAndStateThermalPressurizationInitializer::RateAndStateThermalPressurizationInitializer(
     const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
     SeisSol& instance)
     : RateAndStateInitializer(drParameters, instance),
-      ThermalPressurizationInitializer(drParameters) {}
+      ThermalPressurizationInitializer(drParameters, RateAndStateInitializer::faultParameterNames) {
+}
 
 void RateAndStateThermalPressurizationInitializer::initializeFault(
     const seissol::initializer::DynamicRupture* const dynRup,
@@ -215,7 +226,8 @@ RateAndStateFastVelocityThermalPressurizationInitializer::
         const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
         SeisSol& instance)
     : RateAndStateFastVelocityInitializer(drParameters, instance),
-      ThermalPressurizationInitializer(drParameters) {}
+      ThermalPressurizationInitializer(drParameters,
+                                       RateAndStateFastVelocityInitializer::faultParameterNames) {}
 
 void RateAndStateFastVelocityThermalPressurizationInitializer::initializeFault(
     const seissol::initializer::DynamicRupture* const dynRup,
@@ -231,6 +243,20 @@ void RateAndStateFastVelocityThermalPressurizationInitializer::addAdditionalPara
   RateAndStateFastVelocityInitializer::addAdditionalParameters(
       parameterToStorageMap, dynRup, layer);
   ThermalPressurizationInitializer::addAdditionalParameters(parameterToStorageMap, dynRup, layer);
+}
+
+std::string ThermalPressurizationInitializer::faultNameAlternatives(
+    const std::vector<std::string>& parameter) {
+  for (const auto& name : parameter) {
+    if (faultParameterNames.find(name) != faultParameterNames.end()) {
+      if (name != parameter[0]) {
+        logWarning() << "You are using the deprecated fault parameter name" << name << "for"
+                     << parameter[0];
+      }
+      return name;
+    }
+  }
+  return parameter[0];
 }
 
 } // namespace seissol::dr::initializer
