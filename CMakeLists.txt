@@ -366,7 +366,7 @@ if (MEMKIND)
 endif()
 
 # TODO: make better
-if(TRUE)
+if(ENABLE_MATERIAL_POROELASTIC)
   include(CheckLanguage)
   check_language(Fortran)
   if(CMAKE_Fortran_COMPILER)
