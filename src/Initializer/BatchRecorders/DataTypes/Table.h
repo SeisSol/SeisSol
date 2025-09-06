@@ -93,7 +93,9 @@ struct GenericTable {
     content[*id] = new GenericTableEntry<DataType>(data);
   }
 
-  auto get(VariableIdType id) { return content[*id]; }
+  auto get(VariableIdType id) { return content.at(*id); }
+
+  const auto get(VariableIdType id) const { return content.at(*id); }
 
   private:
   std::array<GenericTableEntry<DataType>*, *VariableIdType::Count> content{};

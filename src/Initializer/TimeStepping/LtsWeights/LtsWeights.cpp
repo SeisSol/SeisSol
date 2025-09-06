@@ -10,6 +10,7 @@
 #include "LtsWeights.h"
 
 #include "Geometry/PUMLReader.h"
+#include <Common/ConfigHelper.h>
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
 #include <Initializer/BasicTypedefs.h>
@@ -23,9 +24,11 @@
 #include <limits>
 #include <map>
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
+#include <variant>
 #include <vector>
 
 #include <mpi.h>
@@ -115,11 +118,37 @@ LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissol
       m_vertexWeightFreeSurfaceWithGravity(config.vertexWeightFreeSurfaceWithGravity),
       boundaryFormat(config.boundaryFormat) {}
 
-void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
+void LtsWeights::computeWeights(PUML::TETPUML const& mesh, const ConfigMap& configMap) {
   bool continueComputation = true;
-  if (!model::MaterialT::SupportsLTS) {
-    logInfo() << "The material" << model::MaterialT::Text
-              << "does not support LTS. Switching to GTS.";
+  const auto* groups = reinterpret_cast<const int*>(mesh.cellData(0));
+
+  std::size_t ltsUnsupported = 0;
+  std::string unsupportedExample;
+  for (std::size_t i = 0; i < mesh.cells().size(); ++i) {
+    const auto config = 0; // groups[i];
+
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          if constexpr (!model::MaterialTT<Cfg>::SupportsLTS) {
+            ++ltsUnsupported;
+
+            unsupportedExample = model::MaterialTT<Cfg>::Text;
+          }
+        },
+        ConfigVariantList[config]);
+  }
+
+  MPI_Allreduce(MPI_IN_PLACE,
+                &ltsUnsupported,
+                1,
+                seissol::MPI::castToMpiType<std::size_t>(),
+                MPI_SUM,
+                seissol::MPI::mpi.comm());
+
+  if (ltsUnsupported > 0) {
+    logInfo() << "Materials without LTS support found; e.g." << unsupportedExample
+              << "Switching to GTS.";
     continueComputation = false;
   }
   if (m_rate.empty() || (m_rate.size() == 1 && m_rate[0] == 1)) {
@@ -131,7 +160,7 @@ void LtsWeights::computeWeights(PUML::TETPUML const& mesh) {
 
   // Note: Return value optimization is guaranteed while returning temp. objects in C++17
   m_mesh = &mesh;
-  m_details = collectGlobalTimeStepDetails();
+  m_details = collectGlobalTimeStepDetails(configMap);
   m_cellCosts = computeCostsPerTimestep();
 
   auto& ltsParameters = seissolInstance.getSeisSolParameters().timeStepping.lts;
@@ -400,9 +429,10 @@ std::uint64_t ratepow(const std::vector<std::uint64_t>& rate, std::uint64_t a, s
   return factor;
 }
 
-seissol::initializer::GlobalTimestep LtsWeights::collectGlobalTimeStepDetails() {
+seissol::initializer::GlobalTimestep
+    LtsWeights::collectGlobalTimeStepDetails(const ConfigMap& configMap) {
   return seissol::initializer::computeTimesteps(
-      seissol::initializer::CellToVertexArray::fromPUML(*m_mesh),
+      seissol::initializer::CellToVertexArray::fromPUML(*m_mesh, configMap),
       seissolInstance.getSeisSolParameters());
 }
 

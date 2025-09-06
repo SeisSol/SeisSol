@@ -6,7 +6,6 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
-#include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
@@ -17,15 +16,13 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Kernels/Precision.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
 #include "Model/Common.h"
 #include "Numerical/Transformation.h"
+#include <Common/ConfigHelper.h>
 #include <Common/Typedefs.h>
 #include <Config.h>
-#include <Solver/MultipleSimulations.h>
+#include <Memory/Descriptor/DynamicRupture.h>
+#include <Memory/Descriptor/LTS.h>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -34,6 +31,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 #include <yateto.h>
 
@@ -51,16 +49,12 @@ void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshRead
   localRank = MPI::mpi.rank();
 }
 
-void ReceiverBasedOutputBuilder::setLtsData(seissol::initializer::LTSTree* userWpTree,
-                                            seissol::initializer::LTS* userWpDescr,
-                                            seissol::initializer::Lut* userWpLut,
-                                            seissol::initializer::LTSTree* userDrTree,
-                                            seissol::initializer::DynamicRupture* userDrDescr) {
-  wpTree = userWpTree;
-  wpDescr = userWpDescr;
-  wpLut = userWpLut;
-  drTree = userDrTree;
-  drDescr = userDrDescr;
+void ReceiverBasedOutputBuilder::setLtsData(LTS::Storage& userWpStorage,
+                                            LTS::Backmap& userWpBackmap,
+                                            DynamicRupture::Storage& userDrStorage) {
+  wpStorage = &userWpStorage;
+  wpBackmap = &userWpBackmap;
+  drStorage = &userDrStorage;
 }
 
 void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>& variables) {
@@ -103,6 +97,10 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       elementIndicesGhost;
   std::size_t foundPoints = 0;
 
+  if (outputData->transformData.empty()) {
+    outputData->transformData.resize(outputData->receiverPoints.size());
+  }
+
   constexpr size_t NumVertices{4};
   for (const auto& point : outputData->receiverPoints) {
     if (point.isInside) {
@@ -114,6 +112,8 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       ++foundPoints;
       const auto elementIndex = faultInfo[point.faultFaceIndex].element;
       const auto& element = elementsInfo[elementIndex];
+
+      const std::size_t configId = element.configId;
 
       if (elementIndices.find(elementIndex) == elementIndices.end()) {
         const auto index = elementIndices.size();
@@ -160,8 +160,18 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
         }
       }
 
-      outputData->basisFunctions.emplace_back(
-          getPlusMinusBasisFunctions(point.global.coords, elemCoords, neighborElemCoords));
+      std::visit(
+          [&](auto cfg) {
+            using Cfg = decltype(cfg);
+            if (outputData->transformData[foundPoints - 1].index() != configId) {
+              outputData->transformData[foundPoints - 1].emplace<TransformData<Cfg>>();
+            }
+
+            std::get<TransformData<Cfg>>(outputData->transformData[foundPoints - 1])
+                .basisFunctions = getPlusMinusBasisFunctions<Real<Cfg>>(
+                point.global.coords, elemCoords, neighborElemCoords, cfg);
+          },
+          ConfigVariantList[configId]);
     }
   }
 
@@ -171,23 +181,25 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
   std::vector<real*> indexPtrs(outputData->cellCount);
 
   for (const auto& [index, arrayIndex] : elementIndices) {
-    indexPtrs[arrayIndex] = wpLut->lookup(wpDescr->derivativesDevice, index);
+    const auto position = wpBackmap->get(index);
+    indexPtrs[arrayIndex] = wpStorage->lookup<LTS::DerivativesDevice>(position);
     assert(indexPtrs[arrayIndex] != nullptr);
   }
   for (const auto& [_, ghost] : elementIndicesGhost) {
     const auto neighbor = ghost.data;
     const auto arrayIndex = ghost.index + elementIndices.size();
-    indexPtrs[arrayIndex] =
-        wpLut->lookup(wpDescr->faceNeighborsDevice, neighbor.first)[neighbor.second];
+
+    const auto position = wpBackmap->get(neighbor.first);
+    indexPtrs[arrayIndex] = wpStorage->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
     assert(indexPtrs[arrayIndex] != nullptr);
   }
 
   outputData->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
-      indexPtrs, seissol::tensor::Q::size(), useMPIUSM());
+      indexPtrs, seissol::tensor::Q<Cfg>::size(), useMPIUSM());
 
   for (const auto& variable : variables) {
-    auto* var = drTree->varUntyped(variable, initializer::AllocationPlace::Device);
-    const std::size_t elementSize = drTree->info(variable).bytes;
+    auto* var = drStorage->varUntyped(variable, initializer::AllocationPlace::Device);
+    const std::size_t elementSize = drStorage->info(variable).bytes;
 
     assert(elementSize % sizeof(real) == 0);
 
@@ -259,45 +271,62 @@ void ReceiverBasedOutputBuilder::initFaultDirections() {
 
 void ReceiverBasedOutputBuilder::initRotationMatrices() {
   using namespace seissol::transformations;
-  using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
 
   // allocate Rotation Matrices
   // Note: several receiver can share the same rotation matrix
   const size_t nReceiverPoints = outputData->receiverPoints.size();
-  outputData->stressGlbToDipStrikeAligned.resize(nReceiverPoints);
-  outputData->stressFaceAlignedToGlb.resize(nReceiverPoints);
-  outputData->faceAlignedToGlbData.resize(nReceiverPoints);
-  outputData->glbToFaceAlignedData.resize(nReceiverPoints);
+  if (outputData->transformData.empty()) {
+    outputData->transformData.resize(nReceiverPoints);
+  }
 
   // init Rotation Matrices
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
-    const auto& faceNormal = outputData->faultDirections[receiverId].faceNormal;
-    const auto& strike = outputData->faultDirections[receiverId].strike;
-    const auto& dip = outputData->faultDirections[receiverId].dip;
-    const auto& tangent1 = outputData->faultDirections[receiverId].tangent1;
-    const auto& tangent2 = outputData->faultDirections[receiverId].tangent2;
+    const auto configId =
+        meshReader->getElements()[outputData->receiverPoints[receiverId].elementIndex].configId;
 
-    {
-      auto* memorySpace = outputData->stressGlbToDipStrikeAligned[receiverId].data();
-      RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-      inverseSymmetricTensor2RotationMatrix(
-          faceNormal.data(), strike.data(), dip.data(), rotationMatrixView, 0, 0);
-    }
-    {
-      auto* memorySpace = outputData->stressFaceAlignedToGlb[receiverId].data();
-      RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
-      symmetricTensor2RotationMatrix(
-          faceNormal.data(), tangent1.data(), tangent2.data(), rotationMatrixView, 0, 0);
-    }
-    {
-      auto faceAlignedToGlb =
-          init::T::view::create(outputData->faceAlignedToGlbData[receiverId].data());
-      auto glbToFaceAligned =
-          init::Tinv::view::create(outputData->glbToFaceAlignedData[receiverId].data());
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          using real = Real<Cfg>;
 
-      seissol::model::getFaceRotationMatrix(
-          faceNormal.data(), tangent1.data(), tangent2.data(), faceAlignedToGlb, glbToFaceAligned);
-    }
+          if (outputData->transformData[receiverId].index() != configId) {
+            outputData->transformData[receiverId].emplace<TransformData<Cfg>>();
+          }
+          auto& transformData = std::get<TransformData<Cfg>>(outputData->transformData[receiverId]);
+
+          using RotationMatrixViewT = yateto::DenseTensorView<2, real, unsigned>;
+          const auto& faceNormal = outputData->faultDirections[receiverId].faceNormal;
+          const auto& strike = outputData->faultDirections[receiverId].strike;
+          const auto& dip = outputData->faultDirections[receiverId].dip;
+          const auto& tangent1 = outputData->faultDirections[receiverId].tangent1;
+          const auto& tangent2 = outputData->faultDirections[receiverId].tangent2;
+
+          {
+            auto* memorySpace = transformData.stressGlbToDipStrikeAligned.data();
+            RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
+            inverseSymmetricTensor2RotationMatrix(
+                faceNormal.data(), strike.data(), dip.data(), rotationMatrixView, 0, 0);
+          }
+          {
+            auto* memorySpace = transformData.stressFaceAlignedToGlb.data();
+            RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
+            symmetricTensor2RotationMatrix(
+                faceNormal.data(), tangent1.data(), tangent2.data(), rotationMatrixView, 0, 0);
+          }
+          {
+            auto faceAlignedToGlb =
+                init::T<Cfg>::view::create(transformData.faceAlignedToGlbData.data());
+            auto glbToFaceAligned =
+                init::Tinv<Cfg>::view::create(transformData.glbToFaceAlignedData.data());
+
+            seissol::model::getFaceRotationMatrix<Cfg>(faceNormal.data(),
+                                                       tangent1.data(),
+                                                       tangent2.data(),
+                                                       faceAlignedToGlb,
+                                                       glbToFaceAligned);
+          }
+        },
+        ConfigVariantList[configId]);
   }
 }
 
@@ -321,7 +350,9 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
   const auto& elementsInfo = meshReader->getElements();
 
   const size_t nReceiverPoints = outputData->receiverPoints.size();
-  outputData->jacobianT2d.resize(nReceiverPoints);
+  if (outputData->transformData.empty()) {
+    outputData->transformData.resize(nReceiverPoints);
+  }
 
   for (size_t receiverId = 0; receiverId < nReceiverPoints; ++receiverId) {
     const auto side = outputData->receiverPoints[receiverId].localFaceSideId;
@@ -351,27 +382,47 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
     const auto* tangent1 = faultInfo[faultIndex].tangent1;
     const auto* tangent2 = faultInfo[faultIndex].tangent2;
 
-    Eigen::Matrix<real, 2, 2> matrix;
-    matrix(0, 0) = MeshTools::dot(tangent1, xab);
-    matrix(0, 1) = MeshTools::dot(tangent2, xab);
-    matrix(1, 0) = MeshTools::dot(tangent1, xac);
-    matrix(1, 1) = MeshTools::dot(tangent2, xac);
-    outputData->jacobianT2d[receiverId] = matrix.inverse();
+    const auto configId =
+        meshReader->getElements()[outputData->receiverPoints[receiverId].elementIndex].configId;
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          using real = Real<Cfg>;
+
+          if (outputData->transformData[receiverId].index() != configId) {
+            outputData->transformData[receiverId].emplace<TransformData<Cfg>>();
+          }
+
+          Eigen::Matrix<real, 2, 2> matrix;
+          matrix(0, 0) = MeshTools::dot(tangent1, xab);
+          matrix(0, 1) = MeshTools::dot(tangent2, xab);
+          matrix(1, 0) = MeshTools::dot(tangent1, xac);
+          matrix(1, 1) = MeshTools::dot(tangent2, xac);
+          std::get<TransformData<Cfg>>(outputData->transformData[receiverId]).jacobianT2d =
+              matrix.inverse();
+        },
+        ConfigVariantList[configId]);
   }
 }
 
 void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
   auto& geoPoints = outputData->receiverPoints;
-  constexpr int NumPoly = ConvergenceOrder - 1;
 
   for (auto& geoPoint : geoPoints) {
-    assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
-    if constexpr (Config::DRQuadRule == DRQuadRuleType::Stroud) {
-      geoPoint.nearestInternalGpIndex =
-          getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
-    } else {
-      geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
-    }
+    const std::size_t configId = meshReader->getElements()[geoPoint.elementIndex].configId;
+    std::visit(
+        [&](auto cfg) {
+          using Cfg = decltype(cfg);
+          constexpr int NumPoly = Cfg::ConvergenceOrder - 1;
+          assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
+          if constexpr (Cfg::DRQuadRule == DRQuadRuleType::Stroud) {
+            geoPoint.nearestInternalGpIndex =
+                getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
+          } else {
+            geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
+          }
+        },
+        ConfigVariantList[configId]);
   }
 }
 
@@ -386,9 +437,13 @@ void ReceiverBasedOutputBuilder::assignFaultTags() {
 void ReceiverBasedOutputBuilder::assignFusedIndices() {
   auto& geoPoints = outputData->receiverPoints;
   for (auto& geoPoint : geoPoints) {
-    geoPoint.gpIndex = multisim::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
-    geoPoint.internalGpIndexFused =
-        multisim::NumSimulations * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
+    const auto& element = meshReader->getElements().at(geoPoint.elementIndex);
+    std::size_t simcount = 1;
+    std::visit([&](auto cfg) { simcount = decltype(cfg)::NumSimulations; },
+               ConfigVariantList[element.configId]);
+
+    geoPoint.gpIndex = simcount * geoPoint.nearestGpIndex + geoPoint.simIndex;
+    geoPoint.internalGpIndexFused = simcount * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
   }
 }
 

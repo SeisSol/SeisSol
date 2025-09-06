@@ -7,9 +7,7 @@
 
 #include "ThermalPressurization.h"
 #include "DynamicRupture/Misc.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/Layer.h"
 #include <DynamicRupture/FrictionLaws/TPCommon.h>
 #include <array>
 #include <cmath>
@@ -18,33 +16,35 @@
 
 namespace seissol::dr::friction_law::cpu {
 
-static const tp::GridPoints<misc::NumTpGridPoints> TpGridPoints;
-static const tp::InverseFourierCoefficients<misc::NumTpGridPoints> TpInverseFourierCoefficients;
-static const tp::GaussianHeatSource<misc::NumTpGridPoints> HeatSource;
+template <typename RealT>
+struct TpData {
+  static const inline tp::GridPoints<misc::NumTpGridPoints, RealT> TpGridPoints{};
+  static const inline tp::InverseFourierCoefficients<misc::NumTpGridPoints, RealT>
+      TpInverseFourierCoefficients{};
+  static const inline tp::GaussianHeatSource<misc::NumTpGridPoints, RealT> HeatSource{};
+};
 
-void ThermalPressurization::copyLtsTreeToLocal(
-    seissol::initializer::Layer& layerData,
-    const seissol::initializer::DynamicRupture* const dynRup) {
-  const auto* concreteLts =
-      dynamic_cast<const seissol::initializer::ThermalPressurization*>(dynRup);
-  temperature = layerData.var(concreteLts->temperature);
-  pressure = layerData.var(concreteLts->pressure);
-  theta = layerData.var(concreteLts->theta);
-  sigma = layerData.var(concreteLts->sigma);
-  halfWidthShearZone = layerData.var(concreteLts->halfWidthShearZone);
-  hydraulicDiffusivity = layerData.var(concreteLts->hydraulicDiffusivity);
+template <typename Cfg>
+void ThermalPressurization<Cfg>::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+  temperature = layerData.var<LTSThermalPressurization::Temperature>(Cfg());
+  pressure = layerData.var<LTSThermalPressurization::Pressure>(Cfg());
+  theta = layerData.var<LTSThermalPressurization::Theta>(Cfg());
+  sigma = layerData.var<LTSThermalPressurization::Sigma>(Cfg());
+  halfWidthShearZone = layerData.var<LTSThermalPressurization::HalfWidthShearZone>(Cfg());
+  hydraulicDiffusivity = layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(Cfg());
 }
 
-void ThermalPressurization::calcFluidPressure(
-    const std::array<real, misc::NumPaddedPoints>& normalStress,
-    const real (*mu)[misc::NumPaddedPoints],
-    const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+template <typename Cfg>
+void ThermalPressurization<Cfg>::calcFluidPressure(
+    const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+    const real (*mu)[misc::NumPaddedPoints<Cfg>],
+    const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
     real deltaT,
     bool saveTPinLTS,
     uint32_t timeIndex,
     std::size_t ltsFace) {
 #pragma omp simd
-  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
     real temperatureUpdate = 0.0;
     real pressureUpdate = 0.0;
 
@@ -58,8 +58,8 @@ void ThermalPressurization::calcFluidPressure(
          ++tpGridPointIndex) {
       // Gaussian shear zone in spectral domain, normalized by w
       // \hat{l} / w
-      const real squaredNormalizedTpGrid =
-          misc::power<2>(TpGridPoints[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex]);
+      const real squaredNormalizedTpGrid = misc::power<2>(
+          TpData<real>::TpGridPoints[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex]);
 
       // This is exp(-A dt) in Noda & Lapusta (2010) equation (10)
       const real thetaTpGrid = drParameters->thermalDiffusivity * squaredNormalizedTpGrid;
@@ -79,7 +79,7 @@ void ThermalPressurization::calcFluidPressure(
       // Heat generation during timestep
       // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
       // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
-      const real omega = tauV * HeatSource[tpGridPointIndex];
+      const real omega = tauV * TpData<real>::HeatSource[tpGridPointIndex];
       const real thetaGeneration = omega / (drParameters->heatCapacity * thetaTpGrid) * exp1mTheta;
       const real sigmaGeneration = omega * (drParameters->undrainedTPResponse + lambdaPrime) /
                                    (drParameters->heatCapacity * sigmaTpGrid) * exp1mSigma;
@@ -91,7 +91,8 @@ void ThermalPressurization::calcFluidPressure(
       // Recover temperature and altered pressure using inverse Fourier transformation from the new
       // contribution
       const real scaledInverseFourierCoefficient =
-          TpInverseFourierCoefficients[tpGridPointIndex] / halfWidthShearZone[ltsFace][pointIndex];
+          TpData<real>::TpInverseFourierCoefficients[tpGridPointIndex] /
+          halfWidthShearZone[ltsFace][pointIndex];
       temperatureUpdate += scaledInverseFourierCoefficient * thetaNew;
       pressureUpdate += scaledInverseFourierCoefficient * sigmaNew;
 
@@ -108,5 +109,8 @@ void ThermalPressurization::calcFluidPressure(
     pressure[ltsFace][pointIndex] = -pressureUpdate + drParameters->initialPressure;
   }
 }
+
+#define SEISSOL_CONFIGITER(cfg) template class ThermalPressurization<cfg>;
+#include "ConfigInclude.h"
 
 } // namespace seissol::dr::friction_law::cpu

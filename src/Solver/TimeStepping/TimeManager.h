@@ -17,7 +17,6 @@
 #include <vector>
 
 #include "Initializer/MemoryManager.h"
-#include "Initializer/TimeStepping/LtsLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Monitoring/Stopwatch.h"
@@ -42,9 +41,9 @@ class TimeManager {
   std::optional<initializer::ClusterLayout> clusterLayout;
 
   //! all local (copy & interior) LTS clusters, which are under control of this time manager
-  std::vector<std::unique_ptr<TimeCluster>> clusters;
-  std::vector<TimeCluster*> highPrioClusters;
-  std::vector<TimeCluster*> lowPrioClusters;
+  std::vector<std::unique_ptr<TimeClusterInterface>> clusters;
+  std::vector<TimeClusterInterface*> highPrioClusters;
+  std::vector<TimeClusterInterface*> lowPrioClusters;
 
   //! one dynamic rupture scheduler per pair of interior/copy cluster
   std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers;
@@ -79,7 +78,7 @@ class TimeManager {
    * @param i_meshToClusters mapping from the mesh to the clusters.
    **/
   void addClusters(const initializer::ClusterLayout& clusterLayout,
-                   MeshStructure* meshStructure,
+                   const solver::HaloCommunication& haloStructure,
                    initializer::MemoryManager& memoryManager,
                    bool usePlasticity);
 
@@ -102,8 +101,7 @@ class TimeManager {
    * @param sourceClusters Collection of point sources for clusters
    */
   void setPointSourcesForClusters(
-      std::unordered_map<LayerType, std::vector<seissol::kernels::PointSourceClusterPair>>
-          sourceClusters);
+      std::vector<seissol::kernels::PointSourceClusterPair> sourceClusters);
 
   /**
    * Returns the writer for the receivers

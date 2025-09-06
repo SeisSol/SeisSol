@@ -46,36 +46,36 @@ namespace seissol::dr::friction_law::gpu {
  * We then compute the pressure and temperature update with an inverse Fourier transform from
  * \f$\Pi, \Theta\f$.
  */
+template <typename Cfg>
 class ThermalPressurization {
   public:
+  using real = Real<Cfg>;
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::ThermalPressurization*>(dynRup);
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->temperature = layerData.var(concreteLts->temperature, place);
-    data->pressure = layerData.var(concreteLts->pressure, place);
-    data->theta = layerData.var(concreteLts->theta, place);
-    data->sigma = layerData.var(concreteLts->sigma, place);
-    data->halfWidthShearZone = layerData.var(concreteLts->halfWidthShearZone, place);
-    data->hydraulicDiffusivity = layerData.var(concreteLts->hydraulicDiffusivity, place);
+    data->temperature = layerData.var<LTSThermalPressurization::Temperature>(Cfg(), place);
+    data->pressure = layerData.var<LTSThermalPressurization::Pressure>(Cfg(), place);
+    data->theta = layerData.var<LTSThermalPressurization::Theta>(Cfg(), place);
+    data->sigma = layerData.var<LTSThermalPressurization::Sigma>(Cfg(), place);
+    data->halfWidthShearZone =
+        layerData.var<LTSThermalPressurization::HalfWidthShearZone>(Cfg(), place);
+    data->hydraulicDiffusivity =
+        layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(Cfg(), place);
   }
 
-  SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& ctx) {
+  SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext<Cfg>& ctx) {
     return ctx.data->pressure[ctx.ltsFace][ctx.pointIndex];
   }
 
   /**
    * Compute thermal pressure according to Noda&Lapusta (2010) at all Gauss Points within one face
-   * bool saveTmpInTP is used to save final values for Theta and Sigma in the LTS tree.
+   * bool saveTmpInTP is used to save final values for Theta and Sigma in the storage.
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
   SEISSOL_DEVICE static void
-      calcFluidPressure(FrictionLawContext& ctx, uint32_t timeIndex, bool saveTmpInTP) {
+      calcFluidPressure(FrictionLawContext<Cfg>& ctx, uint32_t timeIndex, bool saveTmpInTP) {
     real temperatureUpdate = 0.0;
     real pressureUpdate = 0.0;
 

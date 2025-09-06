@@ -22,16 +22,16 @@ class SeisSol;
 namespace dr::factory {
 /**
  * This struct stores all ingredients, needed for Dynamic Rupture:
- * ltsTree: holds all the data, like parameters (e.g. friction coefficients) or results (e.g.
- * sliprate) initializer: reads the parameter file and stores default values in ltsTree frictionLaw:
+ * storage: holds all the data, like parameters (e.g. friction coefficients) or results (e.g.
+ * sliprate) initializer: reads the parameter file and stores default values in storage frictionLaw:
  * evaluates friction during the actual simulation output: manages, when we need to write which
  * quantity to which output
  */
 struct DynamicRuptureTuple {
-  std::unique_ptr<seissol::initializer::DynamicRupture> ltsTree;
+  std::unique_ptr<seissol::DynamicRupture> storage;
   std::unique_ptr<seissol::dr::initializer::BaseDRInitializer> initializer;
-  std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLaw;
-  std::unique_ptr<seissol::dr::friction_law::FrictionSolver> frictionLawDevice;
+  seissol::dr::friction_law::FrictionSolverFactory frictionLaw;
+  seissol::dr::friction_law::FrictionSolverFactory frictionLawDevice;
   std::unique_ptr<seissol::dr::output::OutputManager> output;
 };
 

@@ -20,21 +20,20 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-class YoffeSTF : public ImposedSlipRates<YoffeSTF> {
+template <typename Cfg>
+class YoffeSTF : public ImposedSlipRates<Cfg, YoffeSTF<Cfg>> {
   public:
-  static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSImposedSlipRatesYoffe*>(dynRup);
+  using real = Real<Cfg>;
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->onsetTime = layerData.var(concreteLts->onsetTime, place);
-    data->tauS = layerData.var(concreteLts->tauS, place);
-    data->tauR = layerData.var(concreteLts->tauR, place);
+    data->onsetTime = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>(Cfg(), place);
+    data->tauS = layerData.var<LTSImposedSlipRatesYoffe::TauS>(Cfg(), place);
+    data->tauR = layerData.var<LTSImposedSlipRatesYoffe::TauR>(Cfg(), place);
   }
 
-  SEISSOL_DEVICE static real
-      evaluateSTF(FrictionLawContext& ctx, real currentTime, [[maybe_unused]] real timeIncrement) {
+  SEISSOL_DEVICE static real evaluateSTF(FrictionLawContext<Cfg>& ctx,
+                                         real currentTime,
+                                         [[maybe_unused]] real timeIncrement) {
     return regularizedYoffe::regularizedYoffe(currentTime -
                                                   ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
                                               ctx.data->tauS[ctx.ltsFace][ctx.pointIndex],
@@ -42,20 +41,18 @@ class YoffeSTF : public ImposedSlipRates<YoffeSTF> {
   }
 };
 
-class GaussianSTF : public ImposedSlipRates<GaussianSTF> {
+template <typename Cfg>
+class GaussianSTF : public ImposedSlipRates<Cfg, GaussianSTF<Cfg>> {
   public:
-  static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSImposedSlipRatesGaussian*>(dynRup);
+  using real = Real<Cfg>;
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->onsetTime = layerData.var(concreteLts->onsetTime, place);
-    data->riseTime = layerData.var(concreteLts->riseTime, place);
+    data->onsetTime = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>(Cfg(), place);
+    data->riseTime = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>(Cfg(), place);
   }
 
   SEISSOL_DEVICE static real
-      evaluateSTF(FrictionLawContext& ctx, real currentTime, real timeIncrement) {
+      evaluateSTF(FrictionLawContext<Cfg>& ctx, real currentTime, real timeIncrement) {
     const real smoothStepIncrement = gaussianNucleationFunction::smoothStepIncrement(
         currentTime - ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
         timeIncrement,
@@ -64,19 +61,17 @@ class GaussianSTF : public ImposedSlipRates<GaussianSTF> {
   }
 };
 
-class DeltaSTF : public ImposedSlipRates<DeltaSTF> {
+template <typename Cfg>
+class DeltaSTF : public ImposedSlipRates<Cfg, DeltaSTF<Cfg>> {
   public:
-  static void copyLtsTreeToLocal(FrictionLawData* data,
-                                 seissol::initializer::Layer& layerData,
-                                 const seissol::initializer::DynamicRupture* const dynRup) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSImposedSlipRatesDelta*>(dynRup);
+  using real = Real<Cfg>;
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->onsetTime = layerData.var(concreteLts->onsetTime, place);
+    data->onsetTime = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>(Cfg(), place);
   }
 
   SEISSOL_DEVICE static real
-      evaluateSTF(FrictionLawContext& ctx, real currentTime, real timeIncrement) {
+      evaluateSTF(FrictionLawContext<Cfg>& ctx, real currentTime, real timeIncrement) {
     return deltaPulse::deltaPulse(currentTime - ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
                                   timeIncrement);
   }

@@ -10,6 +10,8 @@
 #define SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 
 #include <Memory/Descriptor/Surface.h>
+#include <Memory/GlobalData.h>
+#include <Memory/Tree/Layer.h>
 #include <memory>
 
 #include "Geometry/MeshReader.h"
@@ -17,11 +19,8 @@
 #include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
 
 namespace seissol::solver {
-
 class FreeSurfaceIntegrator {
   public:
   static constexpr std::size_t MaxRefinement = 3;
@@ -35,34 +34,33 @@ class FreeSurfaceIntegrator {
     FreeSurfaceWithGravity = 3
   };
 
-  real* projectionMatrixMemory{nullptr};
-  real* projectionMatrix[4]{};
-  real* projectionMatrixFromFace{nullptr};
+  double* projectionMatrixMemory{nullptr};
+  double* projectionMatrix[4]{};
+  double* projectionMatrixFromFace{nullptr};
   std::size_t numberOfSubTriangles{0};
   std::size_t numberOfAlignedSubTriangles{0};
 
-  static constexpr auto PolyDegree = ConvergenceOrder - 1;
+  static constexpr auto PolyDegree = 4;
   static constexpr auto NumQuadraturePoints = PolyDegree * PolyDegree;
   bool m_enabled{false};
 
   void initializeProjectionMatrices(unsigned maxRefinementDepth);
   void computeSubTriangleAverages(
-      real* projectionMatrixRow,
+      double* projectionMatrixRow,
       const std::array<std::array<double, 3>, NumQuadraturePoints>& bfPoints,
       const double* weights) const;
   void computeSubTriangleAveragesFromFaces(
-      real* projectionMatrixFromFaceRow,
+      double* projectionMatrixFromFaceRow,
       const std::array<std::array<double, 2>, NumQuadraturePoints>& bfPoints,
       const double* weights) const;
-  void initializeSurfaceLTSTree(seissol::initializer::LTS* lts,
-                                seissol::initializer::LTSTree* ltsTree);
+  void initializeSurfaceStorage(LTS::Storage& ltsStorage);
 
   static LocationFlag
       getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
 
   public:
-  std::array<real*, NumComponents> velocities;
-  std::array<real*, NumComponents> displacements;
+  std::array<double*, NumComponents> velocities;
+  std::array<double*, NumComponents> displacements;
 
   std::vector<std::uint8_t> locationFlags;
   std::size_t totalNumberOfFreeSurfaces{0};
@@ -70,8 +68,7 @@ class FreeSurfaceIntegrator {
   std::vector<std::size_t> backmap;
   std::vector<std::size_t> globalIds;
 
-  SurfaceLTS* surfaceLts{nullptr};
-  seissol::initializer::LTSTree* surfaceLtsTree{nullptr};
+  SurfaceLTS::Storage* surfaceStorage{nullptr};
   seissol::refinement::TriangleRefiner triRefiner;
 
   explicit FreeSurfaceIntegrator();
@@ -84,11 +81,8 @@ class FreeSurfaceIntegrator {
   auto operator=(FreeSurfaceIntegrator&&) -> FreeSurfaceIntegrator& = delete;
 
   void initialize(unsigned maxRefinementDepth,
-                  GlobalData* globalData,
-                  seissol::initializer::LTS* lts,
-                  seissol::initializer::LTSTree* ltsTree,
-                  seissol::SurfaceLTS* surfacelts,
-                  seissol::initializer::LTSTree* surfaceltsTree);
+                  LTS::Storage& ltsStorage,
+                  SurfaceLTS::Storage& surfaceStorage);
 
   void calculateOutput() const;
 

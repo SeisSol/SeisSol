@@ -11,26 +11,25 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 
 namespace seissol::dr::output {
-class RateAndState : public ReceiverOutput {
-  protected:
-  real computeLocalStrength(LocalInfo& local) override {
+struct RateAndState : public ReceiverOutputImpl<RateAndState> {
+  public:
+  template <typename Cfg>
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
     return -1.0 * local.frictionCoefficient *
-           std::min(effectiveNormalStress, static_cast<real>(0.0));
+           std::min(effectiveNormalStress, static_cast<Real<Cfg>>(0.0));
   }
 
-  real computeStateVariable(LocalInfo& local) override {
-    const auto* descr = reinterpret_cast<seissol::initializer::LTSRateAndState*>(drDescr);
-    assert((descr != nullptr) && "dr descr. must be a subtype of LTS_RateAndState");
-    return getCellData(local, descr->stateVariable)[local.gpIndex];
+  template <typename Cfg>
+  Real<Cfg> computeStateVariable(LocalInfo<Cfg>& local) {
+    return getCellData<LTSRateAndState::StateVariable>(Cfg(), local)[local.gpIndex];
   }
 
-  std::vector<std::size_t> getOutputVariables() const override {
-    auto baseVector = ReceiverOutput::getOutputVariables();
-    baseVector.push_back(
-        drTree->info(dynamic_cast<seissol::initializer::LTSRateAndState*>(drDescr)->stateVariable)
-            .index);
+  template <typename Cfg>
+  [[nodiscard]] std::vector<std::size_t> getOutputVariables() const {
+    auto baseVector = ReceiverOutputImpl::getOutputVariables();
+    baseVector.push_back(drStorage->info<LTSRateAndState::StateVariable>().index);
     return baseVector;
   }
 };

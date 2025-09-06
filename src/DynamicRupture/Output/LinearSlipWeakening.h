@@ -11,17 +11,18 @@
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 
 namespace seissol::dr::output {
-class LinearSlipWeakening : public ReceiverOutput {
-  protected:
-  real computeLocalStrength(LocalInfo& local) override {
-    using DrLtsDescrType = seissol::initializer::LTSLinearSlipWeakening;
-    const auto* const cohesions = local.layer->var(static_cast<DrLtsDescrType*>(drDescr)->cohesion);
+class LinearSlipWeakening : public ReceiverOutputImpl<LinearSlipWeakening> {
+  public:
+  template <typename Cfg>
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
+    const auto* const cohesions =
+        local.layer->template var<LTSLinearSlipWeakening::Cohesion>(Cfg());
     const auto cohesion = cohesions[local.ltsId][local.gpIndex];
 
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
     return -1.0 * local.frictionCoefficient *
-               std::min(effectiveNormalStress, static_cast<real>(0.0)) -
+               std::min(effectiveNormalStress, static_cast<Real<Cfg>>(0.0)) -
            cohesion;
   }
 };

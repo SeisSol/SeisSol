@@ -14,24 +14,22 @@ namespace seissol::dr::friction_law::gpu {
 /**
  * Slip rates are set fixed values
  */
-template <typename STF>
-class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
+template <typename Cfg, typename STF>
+class ImposedSlipRates : public BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, STF>> {
   public:
-  using BaseFrictionSolver<ImposedSlipRates>::BaseFrictionSolver;
+  using real = Real<Cfg>;
+  using BaseFrictionSolver<Cfg, ImposedSlipRates>::BaseFrictionSolver;
 
-  static void
-      copySpecificLtsDataTreeToLocal(FrictionLawData* data,
-                                     seissol::initializer::Layer& layerData,
-                                     const seissol::initializer::DynamicRupture* const dynRup) {
-    const auto* concreteLts =
-        dynamic_cast<const seissol::initializer::LTSImposedSlipRates*>(dynRup);
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
+                                             DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->imposedSlipDirection1 = layerData.var(concreteLts->imposedSlipDirection1, place);
-    data->imposedSlipDirection2 = layerData.var(concreteLts->imposedSlipDirection2, place);
-    STF::copyLtsTreeToLocal(data, layerData, dynRup);
+    data->imposedSlipDirection1 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(place);
+    data->imposedSlipDirection2 = layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(place);
+    STF::copyStorageToLocal(data, layerData);
   }
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& ctx, uint32_t timeIndex) {
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& ctx,
+                                                   uint32_t timeIndex) {
     const real timeIncrement = ctx.args->deltaT[timeIndex];
     real currentTime = ctx.args->fullUpdateTime;
     for (uint32_t i = 0; i <= timeIndex; i++) {
@@ -69,9 +67,9 @@ class ImposedSlipRates : public BaseFrictionSolver<ImposedSlipRates<STF>> {
     ctx.tractionResults.traction2[timeIndex] = ctx.data->traction2[ctx.ltsFace][ctx.pointIndex];
   }
 
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& ctx) {}
-  SEISSOL_DEVICE static void preHook(FrictionLawContext& ctx) {}
-  SEISSOL_DEVICE static void postHook(FrictionLawContext& ctx) {}
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& ctx) {}
+  SEISSOL_DEVICE static void preHook(FrictionLawContext<Cfg>& ctx) {}
+  SEISSOL_DEVICE static void postHook(FrictionLawContext<Cfg>& ctx) {}
 };
 
 } // namespace seissol::dr::friction_law::gpu

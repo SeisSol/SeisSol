@@ -9,21 +9,22 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_LINEARSLIPWEAKENINGBIMATERIAL_H_
 
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
+#include <Memory/Descriptor/DynamicRupture.h>
 
 namespace seissol::dr::output {
-class LinearSlipWeakeningBimaterial : public LinearSlipWeakening {
-  real computeLocalStrength(LocalInfo& local) override {
-    using DrLtsDescrType = seissol::initializer::LTSLinearSlipWeakeningBimaterial;
+class LinearSlipWeakeningBimaterial : public ReceiverOutputImpl<LinearSlipWeakeningBimaterial> {
+  public:
+  template <typename Cfg>
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
     const auto* const regularizedStrengths =
-        getCellData(local, static_cast<DrLtsDescrType*>(drDescr)->regularizedStrength);
+        getCellData<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(Cfg(), local);
     return regularizedStrengths[local.gpIndex];
   }
 
-  std::vector<std::size_t> getOutputVariables() const override {
-    using DrLtsDescrType = seissol::initializer::LTSLinearSlipWeakeningBimaterial;
-    auto baseVector = LinearSlipWeakening::getOutputVariables();
+  [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
+    auto baseVector = ReceiverOutputImpl::getOutputVariables();
     baseVector.push_back(
-        drTree->info(dynamic_cast<DrLtsDescrType*>(drDescr)->regularizedStrength).index);
+        drStorage->info<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>().index);
     return baseVector;
   }
 };

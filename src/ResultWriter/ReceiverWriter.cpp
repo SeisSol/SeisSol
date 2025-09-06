@@ -8,16 +8,15 @@
 
 #include "ReceiverWriter.h"
 
+#include <Common/Iterator.h>
 #include <Equations/Datastructures.h>
 #include <Geometry/MeshReader.h>
 #include <Initializer/Parameters/OutputParameters.h>
 #include <Initializer/PointMapper.h>
-#include <Initializer/Typedefs.h>
 #include <Kernels/Receiver.h>
 #include <Memory/Descriptor/LTS.h>
-#include <Memory/Tree/Layer.h>
-#include <Memory/Tree/Lut.h>
-#include <Solver/MultipleSimulations.h>
+#include <Memory/Tree/Backmap.h>
+#include <SeisSol.h>
 #include <algorithm>
 #include <cassert>
 #include <cctype>
@@ -77,22 +76,17 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
   return points;
 }
 
-std::string ReceiverWriter::fileName(unsigned pointId) const {
+std::string ReceiverWriter::fileName(std::size_t pointId) const {
   std::stringstream fns;
   fns << std::setfill('0') << m_fileNamePrefix << "-receiver-" << std::setw(5) << (pointId + 1);
   fns << ".dat";
   return fns.str();
 }
 
-void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point) {
+void ReceiverWriter::writeHeader(std::size_t pointId,
+                                 const Eigen::Vector3d& point,
+                                 const std::vector<std::string>& names) {
   auto name = fileName(pointId);
-
-  std::vector<std::string> names(seissol::model::MaterialT::Quantities.begin(),
-                                 seissol::model::MaterialT::Quantities.end());
-  for (const auto& derived : derivedQuantities) {
-    auto derivedNames = derived->quantities();
-    names.insert(names.end(), derivedNames.begin(), derivedNames.end());
-  }
 
   /// \todo Find a nicer solution that is not so hard-coded.
   struct stat fileStat;
@@ -104,14 +98,8 @@ void ReceiverWriter::writeHeader(unsigned pointId, const Eigen::Vector3d& point)
          << (pointId + 1) << "\"" << std::endl;
     file << "VARIABLES = \"Time\"";
 
-    for (unsigned sim = seissol::multisim::MultisimStart; sim < multisim::MultisimEnd; ++sim) {
-      for (const auto& name : names) {
-        if constexpr (seissol::multisim::MultisimEnabled) {
-          file << ",\"" << name << sim << "\"";
-        } else {
-          file << ",\"" << name << "\"";
-        }
-      }
+    for (const auto& name : names) {
+      file << ",\"" << name << "\"";
     }
     file << std::endl;
     for (int d = 0; d < 3; ++d) {
@@ -129,10 +117,12 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
   m_stopwatch.start();
 
-  for (auto& [layer, clusters] : m_receiverClusters) {
-    for (auto& cluster : clusters) {
-      auto ncols = cluster->ncols();
-      for (auto& receiver : *cluster) {
+  for (auto [i, cluster] : common::enumerate(m_receiverClusters)) {
+    const auto ncols = cluster->ncols();
+    seissolInstance.getMemoryManager().getLtsStorage().layer(i).wrap([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      for (auto& receiver :
+           *std::dynamic_pointer_cast<kernels::ReceiverClusterImpl<Cfg>>(cluster)) {
         assert(receiver.output.size() % ncols == 0);
         const size_t nSamples = receiver.output.size() / ncols;
 
@@ -148,7 +138,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
         file.close();
         receiver.output.clear();
       }
-    }
+    });
   }
 
   auto time = m_stopwatch.stop();
@@ -162,13 +152,6 @@ void ReceiverWriter::init(
   m_receiverFileName = parameters.fileName;
   m_samplingInterval = parameters.samplingInterval;
 
-  if (parameters.computeRotation) {
-    derivedQuantities.push_back(std::make_shared<kernels::ReceiverRotation>());
-  }
-  if (parameters.computeStrain) {
-    derivedQuantities.push_back(std::make_shared<kernels::ReceiverStrain>());
-  }
-
   setSyncInterval(std::min(endTime, parameters.interval));
   Modules::registerHook(*this, ModuleHook::SimulationStart);
   Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
@@ -176,9 +159,8 @@ void ReceiverWriter::init(
 }
 
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
-                               const seissol::initializer::Lut& ltsLut,
-                               const seissol::initializer::LTS& lts,
-                               const CompoundGlobalData& global) {
+                               const LTS::Backmap& backmap,
+                               const GlobalData& global) {
   std::vector<Eigen::Vector3d> points;
   // Only parse if we have a receiver file
   if (!m_receiverFileName.empty()) {
@@ -192,10 +174,6 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   const unsigned numberOfPoints = points.size();
   std::vector<short> contained(numberOfPoints);
   std::vector<std::size_t> meshIds(numberOfPoints);
-
-  // We want to plot all quantities except for the memory variables
-  std::vector<unsigned> quantities(seissol::model::MaterialT::Quantities.size());
-  std::iota(quantities.begin(), quantities.end(), 0);
 
   logInfo() << "Finding meshIds for receivers...";
   initializer::findMeshIds(
@@ -223,55 +201,63 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
     logError() << "Some receivers could not be found. Aborting simulation.";
   }
 
+  const auto& parameters = seissolInstance.getSeisSolParameters().output.receiverParameters;
+
   logInfo() << "Mapping receivers to LTS cells...";
-  m_receiverClusters[Interior].clear();
-  m_receiverClusters[Copy].clear();
+  m_receiverClusters.clear();
   for (std::size_t point = 0; point < numberOfPoints; ++point) {
     if (contained[point] == 1) {
       const std::size_t meshId = meshIds[point];
-      const unsigned cluster = ltsLut.cluster(meshId);
-      const LayerType layer = ltsLut.layer(meshId);
+      const auto id = backmap.get(meshId).color;
 
-      auto& clusters = m_receiverClusters[layer];
       // Make sure that needed empty clusters are initialized.
-      for (unsigned c = clusters.size(); c <= cluster; ++c) {
-        clusters.emplace_back(std::make_shared<kernels::ReceiverCluster>(global,
-                                                                         quantities,
-                                                                         m_samplingInterval,
-                                                                         syncInterval(),
-                                                                         derivedQuantities,
-                                                                         seissolInstance));
+      for (std::size_t c = m_receiverClusters.size(); c <= id; ++c) {
+        seissolInstance.getMemoryManager().getLtsStorage().layer(c).wrap([&](auto cfg) {
+          using Cfg = decltype(cfg);
+
+          // We want to plot all quantities except for the memory variables
+          std::vector<std::size_t> quantities(seissol::model::MaterialTT<Cfg>::Quantities.size());
+          std::iota(quantities.begin(), quantities.end(), 0);
+
+          std::vector<std::shared_ptr<kernels::DerivedReceiverQuantity<Cfg>>> derivedQuantities;
+
+          if (parameters.computeRotation) {
+            derivedQuantities.push_back(std::make_shared<kernels::ReceiverRotation<Cfg>>());
+          }
+          if (parameters.computeStrain) {
+            derivedQuantities.push_back(std::make_shared<kernels::ReceiverStrain<Cfg>>());
+          }
+          m_receiverClusters.emplace_back(
+              std::make_shared<kernels::ReceiverClusterImpl<Cfg>>(global,
+                                                                  quantities,
+                                                                  m_samplingInterval,
+                                                                  syncInterval(),
+                                                                  derivedQuantities,
+                                                                  seissolInstance));
+        });
       }
 
-      writeHeader(point, points[point]);
-      m_receiverClusters[layer][cluster]->addReceiver(
-          meshId, point, points[point], mesh, ltsLut, lts);
+      writeHeader(point, points[point], m_receiverClusters[id]->header());
+      m_receiverClusters[id]->addReceiver(meshId, point, points[point], mesh, backmap);
     }
   }
 }
 
 void ReceiverWriter::simulationStart(std::optional<double> checkpointTime) {
-  for (auto& [layer, clusters] : m_receiverClusters) {
-    for (auto& cluster : clusters) {
-      cluster->allocateData();
-    }
+  for (auto& cluster : m_receiverClusters) {
+    cluster->allocateData();
   }
 }
 
 void ReceiverWriter::shutdown() {
-  for (auto& [layer, clusters] : m_receiverClusters) {
-    for (auto& cluster : clusters) {
-      cluster->freeData();
-    }
+  for (auto& cluster : m_receiverClusters) {
+    cluster->freeData();
   }
 }
 
-kernels::ReceiverCluster* ReceiverWriter::receiverCluster(unsigned clusterId, LayerType layer) {
-  assert(layer != Ghost);
-  assert(m_receiverClusters.find(layer) != m_receiverClusters.end());
-  auto& clusters = m_receiverClusters[layer];
-  if (clusterId < clusters.size()) {
-    return clusters[clusterId].get();
+kernels::ReceiverCluster* ReceiverWriter::receiverCluster(std::size_t id) {
+  if (id < m_receiverClusters.size()) {
+    return m_receiverClusters[id].get();
   }
   return nullptr;
 }

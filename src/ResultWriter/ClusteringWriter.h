@@ -20,7 +20,7 @@ class ClusteringWriter {
   explicit ClusteringWriter(const std::string& outputPrefix);
   void addCluster(unsigned profilingId,
                   unsigned localClusterId,
-                  LayerType layerType,
+                  HaloType layerType,
                   std::size_t size,
                   std::size_t dynRupSize);
   void write() const;
@@ -31,7 +31,7 @@ class ClusteringWriter {
     std::vector<int> localRanks;
     std::vector<int> profilingIds;
     std::vector<int> localClusterIds;
-    std::vector<std::underlying_type_t<LayerType>> layerTypes;
+    std::vector<std::underlying_type_t<HaloType>> layerTypes;
     std::vector<std::size_t> sizes;
     std::vector<std::size_t> dynamicRuptureSizes;
   };

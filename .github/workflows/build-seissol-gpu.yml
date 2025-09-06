@@ -18,16 +18,6 @@ jobs:
     runs-on: ${{ matrix.setup.runner }}
     container: ${{ matrix.setup.container }}
     continue-on-error: true
-    env:
-      EXENAME: |
-        ${{
-          format('gpu-{0}-{1}-p{2}{3}',
-            matrix.equation.type,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.equation.order,
-            matrix.equation.multisim != 1 && format('-f{0}', matrix.equation.multisim) || ''
-          )
-        }}
     strategy:
       fail-fast: false
       matrix:
@@ -37,33 +27,12 @@ jobs:
           - Release
           #- Debug
         equation:
-          - type: acoustic
-            multisim: 1
-            mechanisms: 0
-            order: 6
           - type: elastic
             multisim: 1
             mechanisms: 0
             order: 6
-          #- type: poroelastic # Does not work yet
-          #  multisim: 1
-          #  mechanisms: 0
-          #  order: 6
-          - type: viscoelastic2
-            multisim: 1
-            mechanisms: 3
-            order: 6
-          - type: anisotropic
-            multisim: 1
-            mechanisms: 0
-            order: 6
-          - type: elastic
-            multisim: 32
-            mechanisms: 0
-            order: 3
         precision:
           - single
-          - double
         setup:
           - arch: sm_60
             backend: cuda
@@ -152,7 +121,7 @@ jobs:
           export FC=${{matrix.setup.fc}}
 
           cmake .. -GNinja -DNEW_BINARY_NAMING=ON -DDEVICE_CODEGEN=${DEVICE_CODEGEN} -DTESTING=OFF -DDEVICE_BACKEND=${{matrix.setup.backend}} -DDEVICE_ARCH=${{matrix.setup.arch}} -DHOST_ARCH=${{matrix.arch}} -DORDER=${{matrix.equation.order}} -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DEQUATIONS=${{matrix.equation.type}} -DPRECISION=${{matrix.precision}} -DNUMBER_OF_MECHANISMS=${{ matrix.equation.mechanisms }} -DNUMBER_OF_FUSED_SIMULATIONS=${{ matrix.equation.multisim }} -DASAGI=ON -DCMAKE_INSTALL_PREFIX=/opt/seissol
-          ninja install
+          ninja install -j1
 
       - name: upload-seissol
         uses: actions/upload-artifact@v4
@@ -191,16 +160,6 @@ jobs:
     continue-on-error: true
     needs: [seissol-build-test, seissol-cache-precomputed]
     if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
-    env:
-      EXENAME: |
-        ${{
-          format('gpu-{0}-{1}-p{2}{3}',
-            matrix.case.equation,
-            matrix.precision == 'single' && 's' || 'd',
-            matrix.case.order,
-            matrix.case.multisim != 1 && format('-f{0}', matrix.case.multisim) || ''
-          )
-        }}
     strategy:
       fail-fast: false
       matrix:
@@ -446,7 +405,7 @@ jobs:
 
           cd precomputed/${{matrix.case.name}}
           
-          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
+          mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-gpu
 
       # TODO: make this checkout obsolete
       - name: get-verification-scripts

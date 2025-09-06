@@ -9,16 +9,18 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 
 namespace seissol::dr::friction_law::cpu {
+template <typename Cfg>
 class NoTP {
   public:
+  using real = Real<Cfg>;
+
   explicit NoTP(seissol::initializer::parameters::DRParameters* drParameters) {};
 
-  void copyLtsTreeToLocal(seissol::initializer::Layer& layerData,
-                          const seissol::initializer::DynamicRupture* const dynRup) {}
+  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
-  void calcFluidPressure(std::array<real, misc::NumPaddedPoints>& normalStress,
-                         real (*mu)[misc::NumPaddedPoints],
-                         std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+  void calcFluidPressure(std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                         real (*mu)[misc::NumPaddedPoints<Cfg>],
+                         std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
                          real deltaT,
                          bool saveTmpInTP,
                          uint32_t timeIndex,

@@ -17,12 +17,11 @@
 #include "SeisSol.h"
 #include "TimeStepping/TimeManager.h"
 #include <Memory/Tree/Layer.h>
-#include <Parallel/Runtime/Stream.h>
+#include <Monitoring/Instrumentation.h>
 #include <algorithm>
 #include <cassert>
 #include <optional>
 #include <utils/logger.h>
-#include <xdmfwriter/scorep_wrapper.h>
 
 namespace seissol {
 
@@ -47,9 +46,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   SCOREP_USER_REGION("simulate", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   auto* faultOutputManager = seissolInstance.timeManager().getFaultOutputManager();
-  parallel::runtime::StreamRuntime runtime;
-  faultOutputManager->writePickpointOutput(0.0, 0.0, runtime);
-  runtime.wait();
+  faultOutputManager->writePickpointOutput(0.0, 0.0);
 
   Stopwatch simulationStopwatch;
   simulationStopwatch.start();
@@ -142,9 +139,11 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   Modules::callHook<ModuleHook::SimulationEnd>();
 
+  const auto& outputParams = seissolInstance.getSeisSolParameters().output;
+
   const auto& memoryManager = seissolInstance.getMemoryManager();
-  const bool isLoopStatisticsNetcdfOutputOn = memoryManager.isLoopStatisticsNetcdfOutputOn();
-  const auto& outputPrefix = memoryManager.getOutputPrefix();
+  const bool isLoopStatisticsNetcdfOutputOn = outputParams.loopStatisticsNetcdfOutput;
+  const auto& outputPrefix = outputParams.prefix;
   seissolInstance.timeManager().printComputationTime(outputPrefix, isLoopStatisticsNetcdfOutputOn);
 
   seissolInstance.analysisWriter().printAnalysis(currentTime);

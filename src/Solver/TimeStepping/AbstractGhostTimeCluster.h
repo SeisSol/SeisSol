@@ -11,6 +11,7 @@
 #include "AbstractTimeCluster.h"
 #include "Initializer/Typedefs.h"
 #include <list>
+#include <string>
 
 #include "Parallel/MPI.h"
 
@@ -21,7 +22,7 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
   protected:
   std::size_t globalClusterId;
   std::size_t otherGlobalClusterId;
-  std::vector<solver::RemoteClusterPair> meshStructure;
+  solver::RemoteClusterPair meshStructure;
   std::vector<MPI_Request> sendRequests;
   std::vector<MPI_Request> recvRequests;
   std::list<unsigned int> sendQueue;
@@ -55,6 +56,8 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
 
   void reset() override;
   ActResult act() override;
+
+  [[nodiscard]] std::string description() const override;
 };
 } // namespace seissol::time_stepping
 

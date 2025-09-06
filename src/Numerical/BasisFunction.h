@@ -114,15 +114,13 @@ inline unsigned int basisFunctionsForOrder(unsigned int order) {
  */
 template <class T>
 class SampledBasisFunctions {
-  static_assert(std::is_arithmetic<T>::value,
-                "Type T for SampledBasisFunctions must be arithmetic.");
+  static_assert(std::is_arithmetic_v<T>, "Type T for SampledBasisFunctions must be arithmetic.");
 
   public:
   /** The basis function samples */
   std::vector<T> m_data{};
 
-  public:
-  SampledBasisFunctions() {};
+  SampledBasisFunctions() = default;
   /**
    * Constructor to generate the sampled basis functions of given order
    * and at a given point in the reference tetrahedron.
@@ -137,13 +135,15 @@ class SampledBasisFunctions {
     BasisFunctionGenerator<T> gen(xi, eta, zeta);
 
     unsigned int i = 0;
-    for (unsigned int ord = 0; ord < order; ord++)
-      for (unsigned int k = 0; k <= ord; k++)
-        for (unsigned int j = 0; j <= ord - k; j++)
+    for (unsigned int ord = 0; ord < order; ord++) {
+      for (unsigned int k = 0; k <= ord; k++) {
+        for (unsigned int j = 0; j <= ord - k; j++) {
           m_data[i++] = gen(ord - j - k, j, k);
+        }
+      }
+    }
   }
 
-  public:
   /**
    * Function to evaluate the samples by multiplying the sampled Basis
    * function with its coefficient and summing up the products.
@@ -158,7 +158,7 @@ class SampledBasisFunctions {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] std::size_t getSize() const { return m_data.size(); }
 };
 
 //------------------------------------------------------------------------------
@@ -167,10 +167,10 @@ class SampledBasisFunctions {
  * This class represents the derivatives of vector Basis functions sampled at a specific point.
  * @param T denotes the type to calculate internally.
  */
-template <class T>
+template <class Cfg>
 class SampledBasisFunctionDerivatives {
-  static_assert(std::is_arithmetic<T>::value,
-                "Type T for SampledBasisFunctions must be arithmetic.");
+  using T = Real<Cfg>;
+  static_assert(std::is_arithmetic_v<T>, "Type T for SampledBasisFunctions must be arithmetic.");
 
   public:
   /**
@@ -179,8 +179,7 @@ class SampledBasisFunctionDerivatives {
    */
   std::vector<T> m_data{};
 
-  public:
-  SampledBasisFunctionDerivatives() {};
+  SampledBasisFunctionDerivatives() = default;
   /**
    * Constructor to generate the sampled basis functions of given order
    * and at a given point in the reference tetrahedron.
@@ -193,7 +192,7 @@ class SampledBasisFunctionDerivatives {
   SampledBasisFunctionDerivatives(unsigned int order, T xi, T eta, T zeta)
       : m_data(3 * basisFunctionsForOrder(order)) {
     BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
-    auto dataView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
+    auto dataView = init::basisFunctionDerivativesAtPoint<Cfg>::view::create(m_data.data());
 
     unsigned int i = 0;
     for (unsigned int ord = 0; ord < order; ord++) {
@@ -235,10 +234,10 @@ class SampledBasisFunctionDerivatives {
         xCoords, yCoords, zCoords, gradXi, gradEta, gradZeta);
     std::vector<T> oldData = m_data;
 
-    auto oldView = init::basisFunctionDerivativesAtPoint::view::create(oldData.data());
-    auto newView = init::basisFunctionDerivativesAtPoint::view::create(m_data.data());
-    for (size_t i = 0; i < init::basisFunctionDerivativesAtPoint::Shape[0]; ++i) {
-      for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint::Shape[1];
+    auto oldView = init::basisFunctionDerivativesAtPoint<Cfg>::view::create(oldData.data());
+    auto newView = init::basisFunctionDerivativesAtPoint<Cfg>::view::create(m_data.data());
+    for (size_t i = 0; i < init::basisFunctionDerivativesAtPoint<Cfg>::Shape[0]; ++i) {
+      for (size_t direction = 0; direction < init::basisFunctionDerivativesAtPoint<Cfg>::Shape[1];
            ++direction) {
         // dpsi / di = dphi / dxi * dxi / di + dphi / deta * deta / di + dphi / dzeta * dzeta / di
         newView(i, direction) = oldView(i, 0) * gradXi[direction] +
@@ -251,7 +250,7 @@ class SampledBasisFunctionDerivatives {
   /**
    * Returns the amount of Basis functions this class represents.
    */
-  unsigned int getSize() const { return m_data.size(); }
+  [[nodiscard]] std::size_t getSize() const { return m_data.size(); }
 };
 
 //==============================================================================

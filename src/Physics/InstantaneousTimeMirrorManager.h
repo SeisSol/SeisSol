@@ -12,7 +12,6 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Lut.h"
 #include "Modules/Module.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
 #include "Solver/TimeStepping/TimeCluster.h"
@@ -30,10 +29,8 @@ class InstantaneousTimeMirrorManager : Module {
   double timeStepScalingFactor{1.0};
   double triggerTime{};
 
-  seissol::geometry::MeshReader* meshReader{};
-  initializer::LTSTree* ltsTree{};
-  initializer::LTS* lts{};
-  initializer::Lut* ltsLut{};
+  seissol::geometry::MeshReader* meshReader{nullptr};
+  LTS::Storage* ltsStorage{nullptr};
   const initializer::ClusterLayout* clusterLayout;
 
   std::vector<seissol::time_stepping::AbstractTimeCluster*> clusters;
@@ -46,9 +43,7 @@ class InstantaneousTimeMirrorManager : Module {
       double velocityScalingFactor,
       double triggerTime,
       seissol::geometry::MeshReader* meshReader,
-      initializer::LTSTree* ltsTree,
-      initializer::LTS* lts,
-      initializer::Lut* ltsLut,
+      LTS::Storage& ltsStorage,
       const initializer::ClusterLayout* clusterLayout); // An empty timestepping is added. Need to
                                                         // discuss what exactly is to be sent here
 
@@ -65,9 +60,7 @@ void initializeTimeMirrorManagers(
     double scalingFactor,
     double triggerTime,
     seissol::geometry::MeshReader* meshReader,
-    initializer::LTSTree* ltsTree,
-    initializer::LTS* lts,
-    initializer::Lut* ltsLut,
+    LTS::Storage& ltsStorage,
     InstantaneousTimeMirrorManager& increaseManager,
     InstantaneousTimeMirrorManager& decreaseManager,
     seissol::SeisSol& seissolInstance,

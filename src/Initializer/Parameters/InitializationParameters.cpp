@@ -6,10 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "InitializationParameters.h"
-#include <Equations/Datastructures.h>
 #include <Initializer/InputAux.h>
 #include <Initializer/Parameters/ParameterReader.h>
-#include <cstddef>
 #include <limits>
 
 namespace seissol::initializer::parameters {
@@ -39,16 +37,10 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
   const auto kVecString = reader->readWithDefault("kvec", std::string("0.0 0.0 0.0"));
   const auto kVecRaw = seissol::initializer::convertStringToArray<double, 3>(kVecString);
   const Eigen::Vector3d kVec(kVecRaw.data());
-  std::string defaultAmpFieldString;
-  for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
-    defaultAmpFieldString += " 0.0";
-  }
-  const auto ampFieldString = reader->readWithDefault("ampfield", defaultAmpFieldString);
-  const auto ampFieldRaw =
-      seissol::initializer::convertStringToArray<double, seissol::model::MaterialT::NumQuantities>(
-          ampFieldString);
-  const Eigen::Vector<double, seissol::model::MaterialT::NumQuantities> ampField(
-      ampFieldRaw.data());
+  const auto ampFieldString = reader->readWithDefault<std::string>("ampfield", "");
+  auto ampFieldRaw = seissol::initializer::convertStringToVector<double>(ampFieldString);
+  const Eigen::VectorXd ampField =
+      Eigen::Map<Eigen::VectorXd>(ampFieldRaw.data(), ampFieldRaw.size());
 
   const auto magnitude = reader->readWithDefault("magnitude", 0.0);
   const auto width = reader->readWithDefault("width", std::numeric_limits<double>::infinity());
