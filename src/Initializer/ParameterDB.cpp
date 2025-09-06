@@ -335,7 +335,7 @@ void MaterialParameterDB<AnisotropicMaterial>::addBindingPoints(
 template <class T>
 void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
                                            const QueryGenerator& queryGen) {
-  easi::Component* model = loadEasiModel(fileName);
+  easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
   const unsigned numPoints = query.numPoints();
 
@@ -479,7 +479,7 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
 template <>
 void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& fileName,
                                                              const QueryGenerator& queryGen) {
-  easi::Component* model = loadEasiModel(fileName);
+  easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
   auto suppliedParameters = model->suppliedParameters();
   // TODO(Sebastian): inhomogeneous materials, where in some parts only mu and lambda are given
@@ -507,7 +507,7 @@ void MaterialParameterDB<AnisotropicMaterial>::evaluateModel(const std::string& 
 }
 
 void FaultParameterDB::evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) {
-  easi::Component* model = loadEasiModel(fileName);
+  easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
 
   easi::ArraysAdapter<real> adapter;
@@ -524,7 +524,7 @@ std::set<std::string> FaultParameterDB::faultProvides(const std::string& fileNam
   if (fileName.empty()) {
     return {};
   }
-  easi::Component* model = loadEasiModel(fileName);
+  easi::Component* const model = loadEasiModel(fileName);
   std::set<std::string> supplied = model->suppliedParameters();
   delete model;
   return supplied;

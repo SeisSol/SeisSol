@@ -43,7 +43,7 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       Lut* ltsLut,
                                       LTSTree* dynRupTree,
                                       DynamicRupture* dynRup,
-                                      unsigned* ltsFaceToMeshFace,
+                                      const unsigned* ltsFaceToMeshFace,
                                       const GlobalData& global,
                                       double etaHack);
 } // namespace seissol::initializer

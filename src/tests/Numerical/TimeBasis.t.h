@@ -25,10 +25,10 @@ TEST_CASE_TEMPLATE("Monomial Basis", RealT, float, double) {
     for (const auto& point : {0.0, 1.0, 2.0, 0.123, 15.0}) {
       const auto exp = basis.point(point, Span);
       const auto expD = basis.derivative(point, Span);
-      const auto expI = basis.integrate(0, point, Span);
+      const auto expInt = basis.integrate(0, point, Span);
       for (std::size_t j = 0; j < i; ++j) {
         REQUIRE(exp[j] == AbsApprox(static_cast<RealT>(taylorTerm(point, j))).delta(Delta));
-        REQUIRE(expI[j] == AbsApprox(static_cast<RealT>(taylorTerm(point, j + 1))).delta(Delta));
+        REQUIRE(expInt[j] == AbsApprox(static_cast<RealT>(taylorTerm(point, j + 1))).delta(Delta));
 
         // needed due to size_t being unsigned
         if (j > 0) {
@@ -52,7 +52,7 @@ TEST_CASE_TEMPLATE("Legendre Basis", RealT, float, double) {
     for (const auto& point : {0.0, 1.0, 2.0, 0.123, 15.0}) {
       const auto exp = basis.point(point, Span);
       const auto expD = basis.derivative(point, Span);
-      const auto expI = basis.integrate(0, point, Span);
+      const auto expInt = basis.integrate(0, point, Span);
 
       const auto tau = point / Span;
       for (std::size_t j = 0; j < i; ++j) {
@@ -63,7 +63,7 @@ TEST_CASE_TEMPLATE("Legendre Basis", RealT, float, double) {
                 AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, 1)))
                     .delta(Delta)
                     .epsilon(Epsilon));
-        REQUIRE(expI[j] / Span ==
+        REQUIRE(expInt[j] / Span ==
                 AbsApprox(static_cast<RealT>(functions::shiftedLegendre(j, tau, -1) -
                                              functions::shiftedLegendre(j, 0, -1)))
                     .delta(Delta)

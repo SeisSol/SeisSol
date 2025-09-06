@@ -255,7 +255,9 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   for (auto& cluster : clusters) {
     cluster->setSyncTime(synchronizationTime);
-    cluster->reset();
+
+    // dereference first due to clang-tidy recommendation
+    (*cluster).reset();
   }
 
   communicationManager->reset(synchronizationTime);

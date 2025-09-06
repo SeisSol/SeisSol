@@ -134,7 +134,10 @@ void seissol::writer::FreeSurfaceWriter::init(
   // Initialize the asynchronous module
   async::Module<FreeSurfaceWriterExecutor, FreeSurfaceInitParam, FreeSurfaceParam>::init();
 
+  // too aggressive clang-tidy (21); do not make const
+  // NOLINTNEXTLINE
   unsigned* cells = nullptr;
+  // NOLINTNEXTLINE
   double* vertices = nullptr;
   unsigned nCells = 0;
   unsigned nVertices = 0;

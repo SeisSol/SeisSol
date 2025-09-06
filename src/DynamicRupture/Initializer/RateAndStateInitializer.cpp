@@ -38,8 +38,8 @@ void RateAndStateInitializer::initializeFault(
     real(*mu)[misc::NumPaddedPoints] = layer.var(concreteLts->mu);
 
     real(*stateVariable)[misc::NumPaddedPoints] = layer.var(concreteLts->stateVariable);
-    real(*rsSl0)[misc::NumPaddedPoints] = layer.var(concreteLts->rsSl0);
-    real(*rsA)[misc::NumPaddedPoints] = layer.var(concreteLts->rsA);
+    const real(*rsSl0)[misc::NumPaddedPoints] = layer.var(concreteLts->rsSl0);
+    const real(*rsA)[misc::NumPaddedPoints] = layer.var(concreteLts->rsA);
     auto* initialStressInFaultCS = layer.var(concreteLts->initialStressInFaultCS);
 
     const real initialSlipRate =
