@@ -54,11 +54,14 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     )
 
     replicateIniLShape = (numberOfNodes,)
-    replicateIniLSpp = np.ones(
-        replicateIniLShape
-    )
+    replicateIniLSpp = np.ones(replicateIniLShape)
 
-    replicateInitialLoading = Tensor("replicateInitialLoading", replicateIniLShape, spp=replicateIniLSpp, alignStride=True)
+    replicateInitialLoading = Tensor(
+        "replicateInitialLoading",
+        replicateIniLShape,
+        spp=replicateIniLSpp,
+        alignStride=True,
+    )
 
     iShape = (numberOfNodes, 6)
     QStressNodal = OptionalDimTensor(
@@ -159,8 +162,7 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
     generator.add(
         "plAdjustStresses",
         QStress["kp"]
-        <= QStress["kp"]
-        + db.vInv["kl"] * QStressNodal["lp"] * yieldFactor["l"],
+        <= QStress["kp"] + db.vInv["kl"] * QStressNodal["lp"] * yieldFactor["l"],
     )
 
     gpu_target = "gpu"
@@ -176,7 +178,12 @@ def addKernels(generator, aderdg, matricesDir, PlasticityMethod, targets):
                 aderdg.Q.optPos(),
                 (6,),
             )
-            replicateInitialLoadingM = Tensor("replicateInitialLoadingM", replicateIniLShape, spp=replicateIniLSpp, alignStride=True)
+            replicateInitialLoadingM = Tensor(
+                "replicateInitialLoadingM",
+                replicateIniLShape,
+                spp=replicateIniLSpp,
+                alignStride=True,
+            )
 
             matreplace = replicateInitialLoadingM["k"] * initialLoadingM["p"]
         else:
