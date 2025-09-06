@@ -137,5 +137,3 @@ fprintf(fid,'physics create "101" btype "ELEMENT_SIDE" face "face.1"\n');
 fprintf(fid,'physics create "105" btype "ELEMENT_SIDE" face "face.2" "face.3" "face.4" "face.5" "face.6"\n');
 
 fclose(fid);
-
-

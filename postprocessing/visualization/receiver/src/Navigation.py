@@ -138,4 +138,3 @@ class Navigation(QWidget):
   def emitClose(self):
     self.folderChanged.emit(self.currentFolder, '')
     self.close.emit(self)
-
