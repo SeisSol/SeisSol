@@ -18,6 +18,7 @@
 #include "Initializer/PointMapper.h"
 #include "Kernels/PointSourceClusterOnHost.h"
 #include "Numerical/Transformation.h"
+#include "Parallel/Helper.h"
 #include "PointSource.h"
 #include <Common/Constants.h>
 #include <Equations/Datastructures.h>
