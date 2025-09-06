@@ -111,4 +111,3 @@ High-Order VTKHDF Output
 ------------------------
 
 The high-order wavefield output can be enabled by setting ``wavefieldvtkorder`` in the ``output`` section to a positive value, corresponding to the order of the output polynomial per cell.
-

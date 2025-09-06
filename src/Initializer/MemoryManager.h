@@ -128,7 +128,7 @@ class MemoryManager {
     /**
      * Corrects the LTS Setups (buffer or derivatives, never both) in the ghost region
      **/
-    void correctGhostRegionSetups(); 
+    void correctGhostRegionSetups();
 
     /**
      * Derives the layouts -- number of buffers and derivatives -- of the layers.
@@ -171,12 +171,12 @@ class MemoryManager {
      * Destructor, memory is freed by managed allocator
      **/
     ~MemoryManager() {}
-    
+
     /**
      * Initialization function, which allocates memory for the global matrices and initializes them.
      **/
     void initialize();
-    
+
     /**
      * Sets the number of cells in each leaf of the lts tree, fixates the variables, and allocates memory.
      * Afterwards the tree cannot be changed anymore.
@@ -222,11 +222,11 @@ class MemoryManager {
       }
       return global;
     }
-                          
+
     inline LTSTree* getLtsTree() {
       return &m_ltsTree;
     }
-                          
+
     inline LTS* getLts() {
       return &m_lts;
     }
@@ -243,7 +243,7 @@ class MemoryManager {
     inline LTSTree* getDynamicRuptureTree() {
       return &m_dynRupTree;
     }
-                          
+
     inline DynamicRupture* getDynamicRupture() {
       return m_dynRup.get();
     }

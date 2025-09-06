@@ -31,5 +31,5 @@ jobs:
           which clang-format
           ./.ci/format.sh $(which clang-format) .
           git diff > formatting.patch
-          cat formatting.patch 
+          cat formatting.patch
           if [ -s ./formatting.patch ]; then (exit 176); fi

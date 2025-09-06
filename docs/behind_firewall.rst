@@ -149,7 +149,3 @@ If it works, you will see several lines, for example:
   remote: Total 25806 (delta 2972), reused 3710 (delta 2551), pack-reused 21371
   Receiving objects: 100% (25806/25806), 110.50 MiB | 9.79 MiB/s, done.
   Resolving deltas: 100% (19382/19382), done.
-
-
-
-

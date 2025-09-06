@@ -407,7 +407,7 @@ jobs:
           else
             pip3 install numpy>=1.12.0 lxml==5.0.0 setuptools seissolxdmf pandas
           fi
-      
+
       - id: load-precomputed-solutions
         name: load-precomputed-solutions
         uses: corca-ai/local-cache@v3
@@ -435,7 +435,7 @@ jobs:
           export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:$LD_LIBRARY_PATH
 
           chmod +x $(pwd)/install/bin/*
-          
+
           export OMP_NUM_THREADS=${{matrix.parallel.threads}}
           export SEISSOL_COMMTHREAD=${{matrix.parallel.commthread}}
           export SEISSOL_MINI_NUM_ELEMENTS=100
@@ -445,7 +445,7 @@ jobs:
           export SEISSOL_USM_MPI=1
 
           cd precomputed/${{matrix.case.name}}
-          
+
           mpirun ${MPI_OPTIONS} -np ${{matrix.parallel.ranks}} seissol-${EXENAME}
 
       # TODO: make this checkout obsolete
@@ -453,7 +453,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: scripts
-      
+
       # for now, compare faults only on single-rank setups
       - name: check-fault
         if: ${{ !cancelled() && steps.run.outcome == 'success' && matrix.case.fault }}

@@ -1,4 +1,4 @@
-  
+
 # Description
 
 This folder contains scripts to compute Ground motions parameters

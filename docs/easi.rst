@@ -258,5 +258,3 @@ If the point is out of bounds, ASAGI will pick the value of the nearest grid poi
 .. code-block:: none
 
     Thu Jan 09 14:32:22, Warn:  ASAGI: Coordinate in dimension 2  is out of range. Fixing.
-
-
