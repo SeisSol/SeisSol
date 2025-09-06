@@ -49,7 +49,7 @@ void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
   auto end = std::istream_iterator<T>();
 
   for (int index = 0; it != end; ++index, ++it) {
-    if (std::is_same<T, bool>::value) {
+    if (std::is_same_v<T, bool>) {
       mask[index] = (*it) > 0;
     } else {
       mask[index] = (*it);
@@ -82,11 +82,11 @@ std::array<T, N> convertStringToArray(const std::string& inputString,
   }
 
   auto convert = [&inputString](size_t begin, size_t end) {
-    size_t count = end - begin;
-    std::string word = inputString.substr(begin, count);
-    if constexpr (std::is_integral<T>::value) {
+    const size_t count = end - begin;
+    const std::string word = inputString.substr(begin, count);
+    if constexpr (std::is_integral_v<T>) {
       return std::stoi(word);
-    } else if constexpr (std::is_floating_point<T>::value) {
+    } else if constexpr (std::is_floating_point_v<T>) {
       return std::stod(word);
     } else {
       return static_cast<T>(word);
@@ -158,14 +158,15 @@ class FileProcessor {
   static void removeEmptyLines(StringsType& content) {
     const std::string whitespace = " \n\r\t\f\v";
     auto isEmptyString = [&whitespace](const std::string& string) -> bool {
-      size_t start = string.find_first_not_of(whitespace);
+      const size_t start = string.find_first_not_of(whitespace);
       return start == std::string::npos;
     };
 
     std::vector<StringsType::iterator> deletees;
     for (auto itr = content.begin(); itr != content.end(); ++itr) {
-      if (isEmptyString(*itr))
+      if (isEmptyString(*itr)) {
         deletees.push_back(itr);
+      }
     }
 
     for (auto& itr : deletees) {

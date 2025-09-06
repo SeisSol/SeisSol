@@ -21,8 +21,8 @@
 #include <vector>
 
 namespace seissol::model {
-class ElasticLocalData;
-class ElasticNeighborData;
+struct ElasticLocalData;
+struct ElasticNeighborData;
 
 struct ElasticMaterial : Material {
   static constexpr std::size_t NumQuantities = 9;

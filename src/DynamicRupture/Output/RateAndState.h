@@ -26,7 +26,7 @@ class RateAndState : public ReceiverOutput {
     return getCellData(local, descr->stateVariable)[local.gpIndex];
   }
 
-  std::vector<std::size_t> getOutputVariables() const override {
+  [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
     auto baseVector = ReceiverOutput::getOutputVariables();
     baseVector.push_back(
         drTree->info(dynamic_cast<seissol::initializer::LTSRateAndState*>(drDescr)->stateVariable)

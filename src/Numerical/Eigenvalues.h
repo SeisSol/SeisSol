@@ -56,7 +56,7 @@ template <typename T, size_t Dim>
 void computeEigenvaluesWithEigen3(std::array<std::complex<T>, Dim * Dim>& m,
                                   Eigenpair<std::complex<T>, Dim>& output) {
   using Matrix = Eigen::Matrix<std::complex<T>, Dim, Dim, Eigen::ColMajor>;
-  Matrix op(m.data());
+  const Matrix op(m.data());
   Eigen::ComplexEigenSolver<Matrix> ces;
   ces.compute(op);
 

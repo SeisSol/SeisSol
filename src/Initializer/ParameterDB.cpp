@@ -273,8 +273,8 @@ void MaterialParameterDB<ViscoElasticMaterial>::addBindingPoints(
   adapter.addBindingPoint("rho", &ViscoElasticMaterial::rho);
   adapter.addBindingPoint("mu", &ViscoElasticMaterial::mu);
   adapter.addBindingPoint("lambda", &ViscoElasticMaterial::lambda);
-  adapter.addBindingPoint("Qp", &ViscoElasticMaterial::Qp);
-  adapter.addBindingPoint("Qs", &ViscoElasticMaterial::Qs);
+  adapter.addBindingPoint("Qp", &ViscoElasticMaterial::qp);
+  adapter.addBindingPoint("Qs", &ViscoElasticMaterial::qs);
 }
 
 template <>
@@ -456,8 +456,8 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
         elementMaterial.lambda /
         (2.0 * elementMaterial.mu * (3.0 * elementMaterial.lambda + 2.0 * elementMaterial.mu)) *
         quadWeight;
-    qpMean += elementMaterial.Qp * quadWeight;
-    qsMean += elementMaterial.Qs * quadWeight;
+    qpMean += elementMaterial.qp * quadWeight;
+    qsMean += elementMaterial.qs * quadWeight;
   }
 
   // Harmonic average is used for mu, so take the reciprocal
@@ -470,8 +470,8 @@ ViscoElasticMaterial MaterialParameterDB<ViscoElasticMaterial>::computeAveragedM
   result.rho = rhoMean;
   result.mu = muMean;
   result.lambda = lambdaMean;
-  result.Qp = qpMean;
-  result.Qs = qsMean;
+  result.qp = qpMean;
+  result.qs = qsMean;
 
   return result;
 }

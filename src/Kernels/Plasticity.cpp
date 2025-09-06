@@ -23,6 +23,7 @@
 #include <cmath>
 #include <cstddef>
 
+#include "Solver/MultipleSimulations.h"
 #include "utils/logger.h"
 
 #ifdef ACL_DEVICE

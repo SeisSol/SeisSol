@@ -22,8 +22,8 @@
 #include <vector>
 
 namespace seissol::model {
-class AcousticLocalData;
-class AcousticNeighborData;
+struct AcousticLocalData;
+struct AcousticNeighborData;
 
 struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;

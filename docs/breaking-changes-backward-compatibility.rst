@@ -23,7 +23,7 @@ Therefore, the parameters `magnitude_output_on`, `energy_rate_output_on` and `en
 
 C++ dynamic rupture implementation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-(since 1.0.0, `#625 <https://github.com/SeisSol/SeisSol/pull/625>`_, September 2022)
+(1.0.0 to 1.3.2, since `#625 <https://github.com/SeisSol/SeisSol/pull/625>`_, September 2022)
 
 While porting dynamic rupture to C++, we changed a few parameter names to make things more consistent.
 The new dynamic rupture implementation has been merged in September 2022 (GitHub pull request `#625 <https://github.com/SeisSol/SeisSol/pull/625>`_).
@@ -56,21 +56,21 @@ Parameter file (`parameters.par`):
 
 Fault-specific yaml file (`fault.yaml`):
 
-+-----------------------------+----------------------------+
-| old                         | new                        |
-+=============================+============================+
-| `RS_sl0`                    |  `rs_sl0`                  |
-+-----------------------------+----------------------------+
-| `alpha_hy`                  |  `tp_hydraulicDiffusivity` |
-+-----------------------------+----------------------------+
-| `TP_half_width_shear_zone`  |  `tp_halfWidthShearZone`   |
-+-----------------------------+----------------------------+
-| `Ts0`                       |  `T_s`                     |
-+-----------------------------+----------------------------+
-| `Td0`                       |  `T_d`                     |
-+-----------------------------+----------------------------+
-| `Pn0`                       |  `T_n`                     |
-+-----------------------------+----------------------------+
++-----------------------------+-------------------------------------------------------------------------------------------------+
+| old                         | new                                                                                             |
++=============================+=================================================================================================+
+| `RS_sl0`                    |  `rs_sl0` (only until `#1427 <https://github.com/SeisSol/SeisSol/pull/1427>`_)                  |
++-----------------------------+-------------------------------------------------------------------------------------------------+
+| `alpha_hy`                  |  `tp_hydraulicDiffusivity` (only until `#1427 <https://github.com/SeisSol/SeisSol/pull/1427>`_) |
++-----------------------------+-------------------------------------------------------------------------------------------------+
+| `TP_half_width_shear_zone`  |  `tp_halfWidthShearZone` (only until `#1427 <https://github.com/SeisSol/SeisSol/pull/1427>`_)   |
++-----------------------------+-------------------------------------------------------------------------------------------------+
+| `Ts0`                       |  `T_s` (only until `#1427 <https://github.com/SeisSol/SeisSol/pull/1427>`_)                     |
++-----------------------------+-------------------------------------------------------------------------------------------------+
+| `Td0`                       |  `T_d` (only until `#1427 <https://github.com/SeisSol/SeisSol/pull/1427>`_)                     |
++-----------------------------+-------------------------------------------------------------------------------------------------+
+| `Pn0`                       |  `T_n` (only until `#1427 <https://github.com/SeisSol/SeisSol/pull/1427>`_)                     |
++-----------------------------+-------------------------------------------------------------------------------------------------+
 
 FORTRAN Removal
 ~~~~~~~~~~~~~~~
