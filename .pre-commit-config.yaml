@@ -5,6 +5,8 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+---
+
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -15,6 +17,19 @@ repos:
         name: '[GENERIC] merge conflict check'
     -   id: check-symlinks
         name: '[GENERIC] symlink check'
+
+# disable; needs hadolint installed
+#-   repo: https://github.com/hadolint/hadolint
+#    rev: v2.13.1
+#    hooks:
+#    -   id: hadolint
+#        name: '[DOCKER] lint'
+
+-   repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.18.1
+    hooks:
+    -   id: markdownlint-cli2
+        name: '[MARKDOWN] lint'
 
 -   repo: https://github.com/fsfe/reuse-tool
     rev: v5.1.1

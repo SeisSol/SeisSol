@@ -35,7 +35,7 @@ Note that `$my_proj4_install_prefix` should be different than the build director
 
 ### Installing netcdf
 
-see this [link](https://seissol.readthedocs.io/en/latest/compilation.html#installing-netcdf)
+see the [link in our documentation](https://seissol.readthedocs.io/en/latest/compilation.html#installing-netcdf)
 
 ### Building rconv
 
