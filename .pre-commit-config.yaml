@@ -1,0 +1,86 @@
+# SPDX-FileCopyrightText: 2025 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+    -   id: check-json
+        name: '[JSON] check'
+    -   id: check-merge-conflict
+        name: '[GENERIC] merge conflict check'
+    -   id: check-symlinks
+        name: '[GENERIC] symlink check'
+
+-   repo: https://github.com/fsfe/reuse-tool
+    rev: v5.1.1
+    hooks:
+    -   id: reuse
+        name: '[GENERIC] REUSE compatibiltiy'
+
+-   repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 25.1.0
+    hooks:
+    -   id: black
+        language_version: python3.13
+        files: ^(?!preprocessing|postprocessing)
+        name: '[PYTHON] black'
+-   repo: https://github.com/pycqa/isort
+    rev: 6.0.1
+    hooks:
+    -   id: isort
+        files: ^(?!preprocessing|postprocessing)
+        args: ["--profile", "black"]
+        name: '[PYTHON] isort'
+-   repo: https://github.com/pycqa/bandit
+    rev: 1.8.6
+    hooks:
+    -   id: bandit
+        args: ["--confidence-level", "high", "--severity-level", "high"]
+        name: '[PYTHON] bandit'
+-   repo: https://github.com/pycqa/flake8
+    rev: '7.3.0'
+    hooks:
+    -   id: flake8
+        files: ^(?!preprocessing|postprocessing)
+        name: '[PYTHON] Flake8'
+
+-   repo: https://github.com/sphinx-contrib/sphinx-lint
+    rev: 'v1.0.0'
+    hooks:
+    -   id: sphinx-lint
+        name: '[SPHINX/RST] sphinx lint'
+
+-   repo: local
+    hooks:
+    -   id: check-filename
+        language: system
+        entry: .ci/filename.py --fix src app
+        pass_filenames: false
+        name: '[C++] filename check'
+    -   id: check-headers
+        name: check header conformity
+        language: system
+        entry: .ci/header.py --fix src app
+        pass_filenames: false
+        name: '[C++] header check'
+
+-   repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: 'v21.1.0'
+    hooks:
+    -   id: clang-format
+        name: '[C++] clang-format'
+        # TODO: simplify the following line to `^(app|src)` once #1411 has landed
+        files: ^(?!src/Initializer/TimeStepping/LtsLayout*|src/Initializer/TimeStepping/Common*|src/Initializer/InternalState*|src/Initializer/MemoryManager*)(src|app)
+
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+    -   id: end-of-file-fixer
+        name: '[GENERIC] newline eof'
+    -   id: trailing-whitespace
+        name: '[GENERIC] remove trailing whitespace'
